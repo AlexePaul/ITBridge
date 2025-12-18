@@ -5,6 +5,7 @@ import {
   Get,
   UseGuards,
   Request,
+  HttpCode,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -13,9 +14,9 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto } from 'src/common/dto/register.dto';
-import { LoginDto } from 'src/common/dto/login.dto';
-import { RefreshTokenDto } from 'src/common/dto/refresh-token.dto';
+import { RegisterDto } from 'src/modules/auth/dto/register.dto';
+import { LoginDto } from 'src/modules/auth/dto/login.dto';
+import { RefreshTokenDto } from 'src/modules/auth/dto/refreshToken.dto';
 import { AuthGuard } from 'src/guards/auth.guard';
 
 @ApiTags('auth')
@@ -24,6 +25,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() loginDto: LoginDto) {
@@ -41,6 +43,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @HttpCode(200)
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
   @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   async refresh(@Body() refreshTokenDTO: RefreshTokenDto) {
@@ -48,6 +51,7 @@ export class AuthController {
   }
 
   @Get('me')
+  @HttpCode(200)
   @ApiResponse({
     status: 200,
     description: 'Returns the authenticated user details',

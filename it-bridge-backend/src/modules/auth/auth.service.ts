@@ -4,13 +4,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { RegisterDto } from 'src/common/dto/register.dto';
+import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 import { User } from 'src/entities/user.entity';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { LoginDto } from 'src/common/dto/login.dto';
+import { LoginDto } from 'src/modules/auth/dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
-import { RefreshTokenDto } from 'src/common/dto/refresh-token.dto';
+import { RefreshTokenDto } from 'src/modules/auth/dto/refreshToken.dto';
 import { jwtConstants } from 'src/constants/jwtConstants';
 
 @Injectable()

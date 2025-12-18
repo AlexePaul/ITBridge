@@ -1,4 +1,64 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { User } from 'src/entities/user.entity';
+import { Repository } from 'typeorm';
+import { UpdateUserDto } from './dto/updateUser.dto';
 
 @Injectable()
-export class UserService {}
+export class UserService {
+    constructor(
+        @InjectRepository(User)
+        private userRepository: Repository<User>,
+    ) {}
+
+    async getAllUsers(): Promise<User[]> {
+        return this.userRepository.find();
+    }
+
+    async getUserById(id: number): Promise<User> {
+        const user = await this.userRepository.findOne({ where: { id } });
+
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        return user;
+    }
+
+    async updateUser(id: number, updateUserDto: UpdateUserDto): Promise<User> {
+        const user = await this.userRepository.findOne({
+            where: [{ email: updateUserDto.email }, { phone: updateUserDto.phone }],
+        });
+
+        if (user) throw new ConflictException('Email or phone number already in use');
+
+        try {
+            await this.userRepository.update(id, updateUserDto);
+        } catch (error) {
+            if (error.name === 'EntityNotFoundError') {
+                throw new NotFoundException('User not found');
+            }
+
+            throw error;
+        }
+
+        const updatedUser = await this.userRepository.findOne({
+            where: { id },
+        });
+
+        if (!updatedUser) {
+            throw new NotFoundException('User not found after update');
+        }
+
+        return updatedUser;
+    }
+
+    async deleteUser(id: number) {
+        const deleteResult = await this.userRepository.delete(id);
+
+        if (deleteResult.affected === 0) {
+            throw new NotFoundException('User not found');
+        }
+        return { message: 'User deleted successfully' };
+    }
+}
