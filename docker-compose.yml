@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: itbridge_postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-itbridge}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password}
+      POSTGRES_DB: ${DB_NAME:-itbridge_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-itbridge}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - itbridge-network
+
+  backend:
+    build:
+      context: ./it-bridge-backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: itbridge_backend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3000}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-itbridge}
+      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
+      DB_NAME: ${DB_NAME:-itbridge_db}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./it-bridge-backend/src:/app/src
+      - /app/node_modules
+    networks:
+      - itbridge-network
+    command: npm run start:dev
+
+volumes:
+  postgres_data:
+
+networks:
+  itbridge-network:
+    driver: bridge
