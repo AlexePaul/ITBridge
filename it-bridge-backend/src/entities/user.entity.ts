@@ -1,27 +1,18 @@
-import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    CreateDateColumn,
-    UpdateDateColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('users')
 export class User {
-    @PrimaryGeneratedColumn()
+    @PrimaryGeneratedColumn('increment')
     id: number;
 
-    @Column({ unique: true })
-    email: string;
+    @Column({ unique: true, length: 30 })
+    username: string;
 
-    @Column()
+    @Column({ type: 'varchar', length: 255 })
     passwordHash: string;
 
     @Column({ type: 'varchar', length: 20 })
     role: 'ADMIN' | 'PARENT';
-
-    @Column({ unique: true, nullable: true })
-    phone: string;
 
     @CreateDateColumn({
         type: 'timestamptz',

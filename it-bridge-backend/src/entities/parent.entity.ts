@@ -1,0 +1,27 @@
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn } from 'typeorm';
+import { User } from './user.entity';
+
+@Entity('parents')
+export class Parent {
+    @PrimaryGeneratedColumn('increment')
+    id: number;
+
+    @OneToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'user_id' })
+    user: User;
+
+    @Column({ unique: true, length: 255, nullable: true })
+    email?: string;
+
+    @Column({ type: 'varchar', length: 30, nullable: true })
+    phone?: string;
+
+    @Column({ type: 'varchar', length: 100 })
+    firstName: string;
+
+    @Column({ type: 'varchar', length: 100 })
+    lastName: string;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    address?: string;
+}

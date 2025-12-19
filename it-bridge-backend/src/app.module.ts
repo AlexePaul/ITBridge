@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
 import { EntitiesModule } from './entities/entities.module';
+import { ParentModule } from './modules/parent/parent.module';
 
 const dbHost = process.env.DB_HOST || 'localhost';
 const dbPort = parseInt(process.env.DB_PORT || '5432', 10);
@@ -25,6 +26,7 @@ const dbName = process.env.DB_NAME || 'itbridge_db';
         AuthModule,
         UserModule,
         EntitiesModule,
+        ParentModule,
     ],
 })
 export class AppModule {}

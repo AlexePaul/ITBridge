@@ -8,8 +8,8 @@ import { User } from 'src/entities/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm/dist/typeorm.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User]), JwtModule.register({})],
-  controllers: [UserController],
-  providers: [UserService, AuthGuard, RolesGuard],
+    imports: [TypeOrmModule.forFeature([User]), JwtModule.register({})],
+    controllers: [UserController],
+    providers: [UserService, AuthGuard, RolesGuard],
 })
 export class UserModule {}

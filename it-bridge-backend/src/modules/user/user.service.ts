@@ -26,11 +26,13 @@ export class UserService {
     }
 
     async updateUser(id: number, updateUserDto: UpdateUserDto): Promise<User> {
-        const user = await this.userRepository.findOne({
-            where: [{ email: updateUserDto.email }, { phone: updateUserDto.phone }],
-        });
+        if (updateUserDto.username) {
+            const user = await this.userRepository.findOne({
+                where: { username: updateUserDto.username },
+            });
 
-        if (user) throw new ConflictException('Email or phone number already in use');
+            if (user) throw new ConflictException('Username already in use');
+        }
 
         try {
             await this.userRepository.update(id, updateUserDto);
