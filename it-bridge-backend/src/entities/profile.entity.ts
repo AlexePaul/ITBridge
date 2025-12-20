@@ -1,8 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, RelationId } from 'typeorm';
 import { User } from './user.entity';
 
-@Entity('parents')
-export class Parent {
+@Entity('profiles')
+export class Profile {
     @PrimaryGeneratedColumn('increment')
     id: number;
 

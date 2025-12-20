@@ -1,7 +1,7 @@
-import { IsEmail, IsOptional, IsPhoneNumber, IsString, Length } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString, IsEmail, IsNotEmpty, Length, IsPhoneNumber } from 'class-validator';
 
-export class CreateParentProfileDto {
+export class UpdateProfileDto {
     @ApiProperty({ example: 'user@example.com', required: false })
     @IsOptional()
     @IsEmail()
@@ -15,11 +15,13 @@ export class CreateParentProfileDto {
 
     @ApiProperty({ example: 'John' })
     @IsString()
+    @IsNotEmpty()
     @Length(1, 100)
     firstName: string;
 
     @ApiProperty({ example: 'Doe' })
     @IsString()
+    @IsNotEmpty()
     @Length(1, 100)
     lastName: string;
 
