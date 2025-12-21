@@ -4,6 +4,8 @@ import { ProfileService } from './profile.service';
 import { CreateProfileDto } from './dto/createProfile.dto';
 import { AuthGuard } from 'src/guards/auth.guard';
 
+// TODO: implement ADMIN controller (/profiles) for managing all profiles
+
 @Controller('profile')
 export class ProfileController {
     constructor(private readonly profileService: ProfileService) {}

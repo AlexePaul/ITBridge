@@ -29,10 +29,14 @@ export class ProfileService {
     }
 
     async getProfileByUserId(userId: number) {
-        const profile = await this.profileRepository.findOne({ where: { user: { id: userId } } });
+        const profile = await this.profileRepository.findOne({
+            where: { user: { id: userId } },
+            relations: ['children'],
+        });
         if (!profile) {
             throw new NotFoundException('Profile not found for the user');
         }
+        console.log("Retrieved profile's children:", profile.children);
         return profile;
     }
 

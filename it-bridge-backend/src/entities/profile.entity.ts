@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, RelationId } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, RelationId, OneToMany } from 'typeorm';
 import { User } from './user.entity';
+import { Child } from './child.entity';
 
 @Entity('profiles')
 export class Profile {
@@ -24,4 +25,7 @@ export class Profile {
 
     @Column({ type: 'varchar', length: 255, nullable: true })
     address?: string;
+
+    @OneToMany(() => Child, (child) => child.parent)
+    children: Child[];
 }
