@@ -28,6 +28,23 @@ export class ProfileService {
         };
     }
 
+    // maybe i should reuse the createProfile function here but... oh well
+    async createProfileAdmin(createProfileDto: CreateProfileDto) {
+        const existingProfile = await this.profileRepository.findOne({
+            where: [{ email: createProfileDto.email }, { phone: createProfileDto.phone }],
+        });
+        if (existingProfile) {
+            throw new ConflictException('Profile with provided details already exists');
+        }
+
+        let profile = this.profileRepository.create(createProfileDto);
+        profile = await this.profileRepository.save(profile);
+        return {
+            message: 'Profile created successfully',
+            profile,
+        };
+    }
+
     async getProfileByUserId(userId: number) {
         const profile = await this.profileRepository.findOne({
             where: { user: { id: userId } },
@@ -40,10 +57,18 @@ export class ProfileService {
         return profile;
     }
 
-    async updateProfile(userId: number, updateProfileDto: CreateProfileDto) {
-        const profile = await this.profileRepository.findOne({ where: { user: { id: userId } } });
-        if (!profile) {
-            throw new NotFoundException('Profile not found for the user');
+    async updateProfile(id: number, updateProfileDto: CreateProfileDto, type?: string) {
+        var profile;
+        if (!type) {
+            profile = await this.profileRepository.findOne({ where: { user: { id: id } } });
+            if (!profile) {
+                throw new NotFoundException('Profile not found for the user');
+            }
+        } else {
+            profile = await this.profileRepository.findOne({ where: { id: id } });
+            if (!profile) {
+                throw new NotFoundException('Profile not found');
+            }
         }
         Object.assign(profile, updateProfileDto);
         await this.profileRepository.save(profile);
@@ -51,5 +76,28 @@ export class ProfileService {
             message: 'Profile updated successfully',
             profile,
         };
+    }
+
+    async findProfile(filters: any) {
+        const queryBuilder = this.profileRepository.createQueryBuilder('profile');
+
+        if (filters.email) {
+            queryBuilder.andWhere('profile.email = :email', { email: filters.email });
+        }
+        if (filters.phone) {
+            queryBuilder.andWhere('profile.phone = :phone', { phone: filters.phone });
+        }
+        if (filters.firstName) {
+            queryBuilder.andWhere('profile.firstName = :firstName', { firstName: filters.firstName });
+        }
+        if (filters.lastName) {
+            queryBuilder.andWhere('profile.lastName = :lastName', { lastName: filters.lastName });
+        }
+        if (filters.id) {
+            queryBuilder.andWhere('profile.id = :id', { id: filters.id });
+        }
+
+        const profiles = await queryBuilder.getMany();
+        return profiles;
     }
 }
