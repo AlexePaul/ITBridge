@@ -25,8 +25,8 @@ export class FilterProfileDto {
     @Length(1, 100)
     lastName?: string;
 
-    @ApiPropertyOptional({ example: '1', required: false })
+    @ApiPropertyOptional({ example: 1, required: false })
     @IsOptional()
     @IsNumber()
-    id?: number;
+    profileId?: number;
 }

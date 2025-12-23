@@ -27,7 +27,7 @@ export class AuthService {
         }
 
         const saltRounds = 10;
-        const passwordHash = await bcrypt.hashSync(registerDto.password, saltRounds);
+        const passwordHash = await bcrypt.hash(registerDto.password, saltRounds);
 
         const user = this.userRepository.create({
             username: registerDto.username,
@@ -69,23 +69,20 @@ export class AuthService {
 
     async refreshToken(refreshTokenDto: RefreshTokenDto) {
         const refreshToken = refreshTokenDto.refreshToken;
+        let payload: { sub: number };
         try {
-            const payload = this.jwtService.verify(refreshToken, {
+            payload = this.jwtService.verify(refreshToken, {
                 secret: jwtConstants.refreshTokenSecret,
-            });
+            }) as { sub: number };
         } catch (e) {
-            console.log(refreshToken);
             throw new UnauthorizedException('Invalid refresh token');
         }
-
-        const payload = this.jwtService.decode(refreshToken) as { sub: number };
 
         const user = await this.userRepository.findOne({
             where: { id: payload.sub },
         });
 
         if (!user) {
-            console.log('2');
             throw new UnauthorizedException('Invalid refresh token');
         }
         const accessTokenPayload = {
@@ -95,8 +92,8 @@ export class AuthService {
         };
 
         const newAccessToken = this.jwtService.sign(accessTokenPayload, {
-            secret: jwtConstants.acessTokenSecret,
-            expiresIn: jwtConstants.acessTokenExpiration,
+            secret: jwtConstants.accessTokenSecret,
+            expiresIn: jwtConstants.accessTokenExpiration,
         });
 
         return {
@@ -118,8 +115,8 @@ export class AuthService {
         const refreshTokenPayload = { sub: userId };
 
         const accessToken = this.jwtService.sign(accessTokenPayload, {
-            secret: jwtConstants.acessTokenSecret,
-            expiresIn: jwtConstants.acessTokenExpiration,
+            secret: jwtConstants.accessTokenSecret,
+            expiresIn: jwtConstants.accessTokenExpiration,
         });
 
         const refreshToken = this.jwtService.sign(refreshTokenPayload, {

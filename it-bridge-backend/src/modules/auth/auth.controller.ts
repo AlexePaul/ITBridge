@@ -6,7 +6,6 @@ import { LoginDto } from 'src/modules/auth/dto/login.dto';
 import { RefreshTokenDto } from 'src/modules/auth/dto/refreshToken.dto';
 import { AuthGuard } from 'src/guards/auth.guard';
 
-@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
     constructor(private readonly authService: AuthService) {}

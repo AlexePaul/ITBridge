@@ -14,7 +14,7 @@ export class Profile {
     @Column({ unique: true, length: 255, nullable: true })
     email?: string;
 
-    @Column({ type: 'varchar', length: 30, nullable: true })
+    @Column({ unique: true, type: 'varchar', length: 30, nullable: true })
     phone?: string;
 
     @Column({ type: 'varchar', length: 100 })

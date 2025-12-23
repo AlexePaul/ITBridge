@@ -3,101 +3,108 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Profile } from 'src/entities/profile.entity';
 import { CreateProfileDto } from './dto/createProfile.dto';
 import { User } from 'src/entities/user.entity';
+import { Role } from 'src/enum/role.enum';
+import { FilterProfileDto } from './dto/filterProfile.dto';
+import { Repository } from 'typeorm';
+import { UpdateProfileDto } from './dto/updateProfile.dto';
 
 @Injectable()
 export class ProfileService {
-    constructor(@InjectRepository(Profile) private readonly profileRepository) {}
+    constructor(@InjectRepository(Profile) private readonly profileRepository: Repository<Profile>) {}
 
-    async createProfile(userId: number, createProfileDto: CreateProfileDto) {
-        if (!userId) {
-            throw new UnauthorizedException('User ID is required to create profile');
-        }
-
-        const existingProfile = await this.profileRepository.findOne({ where: { user: { id: userId } } });
-        if (existingProfile) {
-            throw new ConflictException('Profile for this user already exists');
-        }
-
-        const user = { id: userId } as User;
-        let profile = this.profileRepository.create(createProfileDto);
-        profile.user = user;
-        profile = await this.profileRepository.save(profile);
-        return {
-            message: 'Profile created successfully',
-            profile,
-        };
-    }
-
-    // maybe i should reuse the createProfile function here but... oh well
-    async createProfileAdmin(createProfileDto: CreateProfileDto) {
-        const existingProfile = await this.profileRepository.findOne({
-            where: [{ email: createProfileDto.email }, { phone: createProfileDto.phone }],
-        });
-        if (existingProfile) {
-            throw new ConflictException('Profile with provided details already exists');
-        }
-
-        let profile = this.profileRepository.create(createProfileDto);
-        profile = await this.profileRepository.save(profile);
-        return {
-            message: 'Profile created successfully',
-            profile,
-        };
-    }
-
-    async getProfileByUserId(userId: number) {
-        const profile = await this.profileRepository.findOne({
-            where: { user: { id: userId } },
-            relations: ['children'],
-        });
-        if (!profile) {
-            throw new NotFoundException('Profile not found for the user');
-        }
-        console.log("Retrieved profile's children:", profile.children);
-        return profile;
-    }
-
-    async updateProfile(id: number, updateProfileDto: CreateProfileDto, type?: string) {
-        var profile;
-        if (!type) {
-            profile = await this.profileRepository.findOne({ where: { user: { id: id } } });
-            if (!profile) {
-                throw new NotFoundException('Profile not found for the user');
-            }
-        } else {
-            profile = await this.profileRepository.findOne({ where: { id: id } });
-            if (!profile) {
-                throw new NotFoundException('Profile not found');
+    async createProfile(createProfileDto: CreateProfileDto, userId: number | undefined) {
+        if (userId) {
+            const existingProfile = await this.profileRepository.findOne({ where: { user: { id: userId } } });
+            if (existingProfile) {
+                throw new ConflictException('Profile already exists for this user');
             }
         }
-        Object.assign(profile, updateProfileDto);
-        await this.profileRepository.save(profile);
-        return {
-            message: 'Profile updated successfully',
-            profile,
-        };
+        const existingEmail = await this.profileRepository.findOne({ where: { email: createProfileDto.email } });
+        if (existingEmail) {
+            throw new ConflictException('Email is already in use');
+        }
+        const existingPhone = await this.profileRepository.findOne({ where: { phone: createProfileDto.phone } });
+        if (existingPhone) {
+            throw new ConflictException('Phone number is already in use');
+        }
+        const profile = this.profileRepository.create({
+            ...createProfileDto,
+            user: (userId ? { id: userId } : null) as User,
+        });
+        return this.profileRepository.save(profile);
     }
 
-    async findProfile(filters: any) {
-        const queryBuilder = this.profileRepository.createQueryBuilder('profile');
+    async findProfiles(filters: FilterProfileDto, userId: number | undefined) {
+        const queryBuilder = this.profileRepository.createQueryBuilder('profile').leftJoin('profile.user', 'user');
 
+        if (userId) {
+            queryBuilder.andWhere('user.id = :userId', { userId });
+        }
         if (filters.email) {
-            queryBuilder.andWhere('profile.email = :email', { email: filters.email });
+            queryBuilder.andWhere('lower(profile.email) = lower(:email)', { email: filters.email });
         }
         if (filters.phone) {
-            queryBuilder.andWhere('profile.phone = :phone', { phone: filters.phone });
+            queryBuilder.andWhere('lower(profile.phone) = lower(:phone)', { phone: filters.phone });
         }
         if (filters.firstName) {
-            queryBuilder.andWhere('profile.firstName = :firstName', { firstName: filters.firstName });
+            queryBuilder.andWhere('lower(profile.firstName) = lower(:firstName)', { firstName: filters.firstName });
         }
         if (filters.lastName) {
-            queryBuilder.andWhere('profile.lastName = :lastName', { lastName: filters.lastName });
+            queryBuilder.andWhere('lower(profile.lastName) = lower(:lastName)', { lastName: filters.lastName });
         }
-        if (filters.id) {
-            queryBuilder.andWhere('profile.id = :id', { id: filters.id });
+        if (filters.profileId) {
+            queryBuilder.andWhere('profile.id = :profileId', { profileId: filters.profileId });
         }
 
         const profiles = await queryBuilder.getMany();
         return profiles;
+    }
+
+    async updateProfile(updateProfileDto: UpdateProfileDto, profileId: number, userRole: Role, userId: number) {
+        const profile = await this.profileRepository.findOne({
+            where: { id: profileId },
+            relations: ['user'],
+        });
+
+        if (!profile) {
+            throw new NotFoundException('Profile not found');
+        }
+
+        if (userRole !== Role.ADMIN && profile.user?.id !== userId) {
+            throw new UnauthorizedException('You do not have permission to update this profile');
+        }
+
+        if (updateProfileDto.email && updateProfileDto.email !== profile.email) {
+            const existingEmail = await this.profileRepository.findOne({ where: { email: updateProfileDto.email } });
+            if (existingEmail) {
+                throw new ConflictException('Email is already in use');
+            }
+        }
+
+        if (updateProfileDto.phone && updateProfileDto.phone !== profile.phone) {
+            const existingPhone = await this.profileRepository.findOne({ where: { phone: updateProfileDto.phone } });
+            if (existingPhone) {
+                throw new ConflictException('Phone number is already in use');
+            }
+        }
+
+        Object.assign(profile, updateProfileDto);
+        return this.profileRepository.save(profile);
+    }
+
+    async deleteProfile(profileId: number, userRole: Role, userId: number) {
+        const profile = await this.profileRepository.findOne({
+            where: { id: profileId },
+            relations: ['user'],
+        });
+
+        if (!profile) {
+            throw new NotFoundException('Profile not found');
+        }
+
+        if (userRole !== Role.ADMIN && profile.user?.id !== userId) {
+            throw new UnauthorizedException('You do not have permission to delete this profile');
+        }
+        await this.profileRepository.delete(profileId);
     }
 }

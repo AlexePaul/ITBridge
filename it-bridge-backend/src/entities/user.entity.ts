@@ -20,4 +20,7 @@ export class User {
         default: () => 'CURRENT_TIMESTAMP',
     })
     createdAt: Date;
+
+    @OneToOne(() => Profile, (profile) => profile.user)
+    profile?: Profile;
 }
