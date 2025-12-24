@@ -13,7 +13,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-itbridge} -d ${DB_NAME:-itbridge_db}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-itbridge} -d ${DB_NAME:-itbridge_db}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,6 +49,23 @@ services:
     networks:
       - itbridge-network
     command: npm run start:dev
+
+  frontend:
+    build:
+      context: ./it-bridge-frontend
+      dockerfile: Dockerfile
+    container_name: itbridge_frontend
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./it-bridge-frontend:/app
+      - /app/.nuxt
+      - /app/node_modules
+    networks:
+      - itbridge-network
+    environment:
+      - NUXT_HOST=0.0.0.0
+      - NUXT_PORT=3000
 
 volumes:
   postgres_data:
