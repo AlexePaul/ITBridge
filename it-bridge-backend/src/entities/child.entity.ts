@@ -1,6 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Profile } from './profile.entity';
 import { Group } from './group.entity';
+import { Attendance } from './attendance.entity';
 
 @Entity('children')
 export class Child {
@@ -26,4 +27,7 @@ export class Child {
     @ManyToOne(() => Group, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'group_id' })
     group: Group;
+
+    @OneToMany(() => Attendance, (attendance) => attendance.child)
+    attendances: Attendance[];
 }
