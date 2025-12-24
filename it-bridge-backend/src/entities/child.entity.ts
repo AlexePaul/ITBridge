@@ -17,7 +17,7 @@ export class Child {
     lastName: string;
 
     @Column({ type: 'date', nullable: false })
-    dateOfBirth: Date;
+    birthDate: Date;
 
     @Column({ type: 'date', nullable: true, default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;

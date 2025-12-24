@@ -12,9 +12,12 @@ import { UpdateProfileDto } from './dto/updateProfile.dto';
 export class ProfileService {
     constructor(@InjectRepository(Profile) private readonly profileRepository: Repository<Profile>) {}
 
-    async createProfile(createProfileDto: CreateProfileDto, userId: number | undefined) {
-        if (userId) {
-            const existingProfile = await this.profileRepository.findOne({ where: { user: { id: userId } } });
+    async createProfile(createProfileDto: CreateProfileDto, userRole: Role, userId?: number) {
+        if (userRole !== Role.ADMIN) {
+            createProfileDto.userId = userId;
+        }
+        if (createProfileDto.userId) {
+            const existingProfile = await this.profileRepository.findOne({ where: { user: { id: createProfileDto.userId } } });
             if (existingProfile) {
                 throw new ConflictException('Profile already exists for this user');
             }
@@ -29,16 +32,22 @@ export class ProfileService {
         }
         const profile = this.profileRepository.create({
             ...createProfileDto,
-            user: (userId ? { id: userId } : null) as User,
+            user: (createProfileDto.userId ? { id: createProfileDto.userId } : null) as User,
         });
         return this.profileRepository.save(profile);
     }
 
-    async findProfiles(filters: FilterProfileDto, userId: number | undefined) {
-        const queryBuilder = this.profileRepository.createQueryBuilder('profile').leftJoin('profile.user', 'user');
+    async findProfiles(filters: FilterProfileDto, userRole: Role, userId: number) {
+        if (userRole !== Role.ADMIN) {
+            filters.userId = userId;
+        }
+        const queryBuilder = this.profileRepository
+            .createQueryBuilder('profile')
+            .leftJoin('profile.user', 'user')
+            .leftJoinAndSelect('profile.children', 'child');
 
-        if (userId) {
-            queryBuilder.andWhere('user.id = :userId', { userId });
+        if (filters.userId) {
+            queryBuilder.andWhere('user.id = :userId', { userId: filters.userId });
         }
         if (filters.email) {
             queryBuilder.andWhere('lower(profile.email) = lower(:email)', { email: filters.email });
@@ -89,7 +98,9 @@ export class ProfileService {
         }
 
         Object.assign(profile, updateProfileDto);
-        return this.profileRepository.save(profile);
+        const updatedProfile = await this.profileRepository.save(profile);
+        updatedProfile.user = undefined as any;
+        return updatedProfile;
     }
 
     async deleteProfile(profileId: number, userRole: Role, userId: number) {

@@ -29,4 +29,9 @@ export class FilterProfileDto {
     @IsOptional()
     @IsNumber()
     profileId?: number;
+
+    @ApiPropertyOptional({ example: 1, required: false, description: 'User ID' })
+    @IsOptional()
+    @IsNumber()
+    userId?: number;
 }

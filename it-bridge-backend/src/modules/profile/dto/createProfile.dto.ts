@@ -30,4 +30,8 @@ export class CreateProfileDto {
     @IsString()
     @Length(1, 255)
     address?: string;
+
+    @ApiProperty({ example: 1, required: false, description: 'User ID' })
+    @IsOptional()
+    userId?: number;
 }
