@@ -7,9 +7,10 @@ import { Profile } from 'src/entities/profile.entity';
 import { RolesGuard } from 'src/guards/role.guard';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { JwtModule } from '@nestjs/jwt/dist/jwt.module';
+import { Group } from 'src/entities/group.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Child, Profile]), JwtModule.register({})],
+    imports: [TypeOrmModule.forFeature([Child, Profile, Group]), JwtModule.register({})],
     controllers: [ChildController],
     providers: [ChildService, AuthGuard, RolesGuard],
 })

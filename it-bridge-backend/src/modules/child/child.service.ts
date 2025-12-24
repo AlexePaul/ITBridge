@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Child } from 'src/entities/child.entity';
 import { Profile } from 'src/entities/profile.entity';
@@ -7,12 +7,14 @@ import { Repository } from 'typeorm';
 import { CreateChildDto } from './dto/createChild.dto';
 import { FilterChildDto } from './dto/filterChild.dto';
 import { UpdateChildDto } from './dto/updateChild.dto';
+import { Group } from 'src/entities/group.entity';
 
 @Injectable()
 export class ChildService {
     public constructor(
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
+        @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
     ) {}
 
     async createChild(createChildDto: CreateChildDto, role: Role, userId: number) {
@@ -88,5 +90,29 @@ export class ChildService {
 
         await this.childRepository.delete(childId);
         return { message: 'Child deleted successfully' };
+    }
+
+    async assignChildToGroup(childId: number, groupId: number) {
+        const child = await this.childRepository.findOne({ where: { id: childId } });
+        if (!child) {
+            throw new NotFoundException('Child not found');
+        }
+        const group = await this.groupRepository.findOne({ where: { id: groupId } });
+        if (!group) {
+            throw new NotFoundException('Group not found');
+        }
+
+        child.group = { id: groupId } as Group;
+        return this.childRepository.save(child);
+    }
+
+    async removeChildFromGroup(childId: number, groupId: number) {
+        const child = await this.childRepository.findOne({ where: { id: childId, group: { id: groupId } } });
+        if (!child) {
+            throw new NotFoundException('Child not found in the specified group');
+        }
+
+        child.group = null as any;
+        this.childRepository.save(child);
     }
 }

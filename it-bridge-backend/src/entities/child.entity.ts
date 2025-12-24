@@ -1,5 +1,6 @@
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Profile } from './profile.entity';
+import { Group } from './group.entity';
 
 @Entity('children')
 export class Child {
@@ -21,4 +22,8 @@ export class Child {
 
     @Column({ type: 'date', nullable: true, default: () => 'CURRENT_TIMESTAMP' })
     createdAt: Date;
+
+    @ManyToOne(() => Group, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'group_id' })
+    group: Group;
 }

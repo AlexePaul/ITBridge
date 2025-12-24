@@ -3,9 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user.entity';
 import { Profile } from './profile.entity';
 import { Child } from './child.entity';
+import { Group } from './group.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User, Profile, Child])],
+    imports: [TypeOrmModule.forFeature([User, Profile, Child, Group])],
     exports: [TypeOrmModule],
 })
 export class EntitiesModule {}

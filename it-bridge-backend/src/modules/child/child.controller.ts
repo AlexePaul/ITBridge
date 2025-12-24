@@ -1,10 +1,13 @@
-import { Body, Controller, Get, Post, UseGuards, Request, Query, Put, Delete, Param, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, Request, Query, Put, Delete, Param, ParseIntPipe, HttpCode } from '@nestjs/common';
 import { ChildService } from './child.service';
 import { ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { CreateChildDto } from './dto/createChild.dto';
 import { FilterChildDto } from './dto/filterChild.dto';
 import { UpdateChildDto } from './dto/updateChild.dto';
+import { RolesGuard } from 'src/guards/role.guard';
+import { Roles } from 'src/decorators/role.decorator';
+import { Role } from 'src/enum/role.enum';
 
 @Controller('children')
 export class ChildController {
@@ -50,5 +53,30 @@ export class ChildController {
     @ApiResponse({ status: 404, description: 'Child not found' })
     async deleteChild(@Param('childId', ParseIntPipe) childId: number, @Request() req) {
         return this.childService.deleteChild(childId, req.user.role, req.user.sub);
+    }
+
+    @Post('/:childId/groups/:groupId')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiResponse({ status: 200, description: 'Child assigned to group successfully' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    @ApiResponse({ status: 403, description: 'Forbidden' })
+    @ApiResponse({ status: 404, description: 'Child or Group not found' })
+    async assignChildToGroup(@Param('childId', ParseIntPipe) childId: number, @Param('groupId', ParseIntPipe) groupId: number, @Request() req) {
+        return this.childService.assignChildToGroup(childId, groupId);
+    }
+
+    @Delete('/:childId/groups/:groupId')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @HttpCode(204)
+    @ApiResponse({ status: 204, description: 'Child removed from group successfully' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    @ApiResponse({ status: 403, description: 'Forbidden' })
+    @ApiResponse({ status: 404, description: 'Child or Group not found' })
+    async removeChildFromGroup(@Param('childId', ParseIntPipe) childId: number, @Param('groupId', ParseIntPipe) groupId: number, @Request() req) {
+        this.childService.removeChildFromGroup(childId, groupId);
     }
 }
