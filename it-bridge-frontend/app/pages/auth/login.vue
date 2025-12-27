@@ -2,6 +2,7 @@
 import * as z from "zod";
 import type { FormSubmitEvent, AuthFormField } from "@nuxt/ui";
 import { useAuthApi } from "~/composables/useAuthApi";
+import { useNotifications } from "~/composables/useNotifications";
 const { loggedIn, session, user, clear, fetch } = useUserSession();
 
 definePageMeta({
@@ -40,6 +41,7 @@ const schema = z.object({
 type Schema = z.output<typeof schema>;
 
 const { login } = useAuthApi();
+const { success } = useNotifications();
 const isLoading = ref(false);
 
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
@@ -48,9 +50,10 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
     const response = await login(payload.data.username, payload.data.password);
 
     console.log("Login successful:", response);
+    
+    // Show success notification
+    success("Welcome back!", "Login successful");
 
-    // Refresh the session on client-side and redirect to the home page
-    await fetch();
     await navigateTo("/");
   } catch (error) {
     console.error("Login failed:", error);
@@ -65,12 +68,14 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
   <div class="flex flex-col items-center justify-center gap-4 p-4">
     <UPageCard class="w-full max-w-lg">
       <template v-if="badCredentials">
-        <AlertError
-          title="Invalid Credentials"
-          description="The username or password you entered is incorrect. Please try again."
-          @close="badCredentials = false"
-          class="mb-4"
-        />
+        <UAlert
+          color="error"
+          variant="subtle"
+          icon="i-lucide-alert-circle"
+          title="Login Failed"
+          description="Invalid username or password. Please try again."
+        >
+        </UAlert>
       </template>
 
       <UAuthForm

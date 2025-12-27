@@ -12,7 +12,7 @@
             @click="toggleColorMode"
             :title="isDark ? 'Light mode' : 'Dark mode'"
           />
-          <UButton label="Logout" class="flex-1" color="secondary" />
+          <UButton label="Logout" class="flex-1" color="secondary" @click="logOut" />
         </div>
       </template>
     </UDashboardSidebar>
@@ -30,6 +30,8 @@
 </template>
 <script setup lang="ts">
 import type { NavigationMenuItem } from "@nuxt/ui";
+import { useTokens } from "~/composables/useTokens";
+import { useUserStore } from "~/composables/useUserStore";
 
 const colorMode = useColorMode();
 const isDark = computed(() => colorMode.value === "dark");
@@ -38,11 +40,19 @@ const toggleColorMode = () => {
   colorMode.preference = isDark.value ? "light" : "dark";
 };
 
+const logOut = () => {
+  const tokenStore = useTokens();
+  const { logout } = useUserStore();
+  tokenStore.clearTokens();
+  logout(); // Clear user store
+  navigateTo("/");
+};
+
 const items = ref<NavigationMenuItem[][]>([
   [
-    { label: "Dashboard", icon: "i-lucide-house", to: "/" },
-    { label: "Users", icon: "i-lucide-users", to: "/users" },
-    { label: "Settings", icon: "i-lucide-settings", to: "/settings" },
+    { label: "Dashboard", icon: "i-lucide-house", to: "/dashboard/admin" },
+    { label: "Users", icon: "i-lucide-users", to: "/dashboard/admin/users" },
+    { label: "Settings", icon: "i-lucide-settings", to: "/dashboard/admin/settings" },
   ],
 ]);
 </script>

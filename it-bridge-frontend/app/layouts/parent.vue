@@ -5,7 +5,7 @@
       <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <UButton class="text-2xl font-bold" variant="link" disabled @click="navigateTo('/')"
-            ><span class="text-neutral-950 dark:text-neutral-50">IT Bridge School</span></UButton
+            ><span class="text-neutral-950 dark:text-neutral-50">IT Bridge School - parent</span></UButton
           >
         </div>
         <div class="flex items-center gap-3">
@@ -16,8 +16,7 @@
             @click="toggleColorMode"
             :title="isDark ? 'Light mode' : 'Dark mode'"
           />
-          <UButton label="Login" color="primary" variant="outline" @click="gotoLogin" />
-          <UButton label="Register" color="primary" variant="subtle" @click="gotoRegister" />
+          <UButton label="Logout" color="primary" variant="outline" @click="logOut" />
         </div>
       </div>
     </header>
@@ -37,6 +36,9 @@
 </template>
 
 <script setup lang="ts">
+import { useTokens } from "~/composables/useTokens";    
+import { useUserStore } from "~/composables/useUserStore";
+
 const colorMode = useColorMode();
 const isDark = computed(() => colorMode.value === "dark");
 
@@ -44,11 +46,11 @@ const toggleColorMode = () => {
   colorMode.preference = isDark.value ? "light" : "dark";
 };
 
-const gotoLogin = () => {
-  navigateTo("/auth/login");
-};
-
-const gotoRegister = () => {
-  navigateTo("/auth/register");
+const logOut = () => {
+  const tokenStore = useTokens();
+  const { logout } = useUserStore();
+  tokenStore.clearTokens();
+  logout(); // Clear user store
+  navigateTo("/");
 };
 </script>
