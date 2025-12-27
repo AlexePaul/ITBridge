@@ -20,6 +20,11 @@ async function bootstrap() {
     // Save Swagger JSON to a file
     fs.writeFileSync('./swagger.json', JSON.stringify(document, null, 2));
 
+    app.enableCors({
+        origin: 'http://localhost:3001',
+        credentials: true,
+    });
+
     await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
