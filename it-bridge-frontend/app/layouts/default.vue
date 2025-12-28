@@ -1,12 +1,11 @@
 <template>
   <div v-if="authInitialized" class="min-h-screen flex flex-col">
-    <!-- Dynamic Navbar based on auth state -->
-    <NavbarGuest v-if="!userStore.user" />
-    <NavbarAuthenticated v-else />
+    <!-- Single Navbar (shows different buttons based on auth state) -->
+    <Navbar />
 
     <!-- Main Content -->
     <main class="flex-1">
-      <NuxtPage />
+      <slot />
     </main>
 
     <!-- Footer -->

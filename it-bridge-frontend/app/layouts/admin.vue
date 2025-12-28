@@ -22,7 +22,7 @@
         <UDashboardNavbar title="Dashboard" class="" />
       </template>
       <template #body>
-        <NuxtPage />
+        <slot />
       </template>
     </UDashboardPanel>
   </UDashboardGroup>
