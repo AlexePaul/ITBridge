@@ -7,7 +7,13 @@
         class="animate-in slide-in-from-right"
       >
         <UAlert
-          :color="notification.type === 'success' ? 'success' : notification.type === 'error' ? 'error' : 'info'"
+          :color="
+            notification.type === 'success'
+              ? 'success'
+              : notification.type === 'error'
+                ? 'error'
+                : 'info'
+          "
           :icon="`i-lucide-${notification.type === 'success' ? 'check-circle' : notification.type === 'error' ? 'alert-circle' : 'info'}`"
           :variant="'solid'"
           :title="notification.title"
@@ -20,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { useNotifications } from '~/composables/useNotifications';
+import { useNotifications } from "~/composables/useNotifications";
 
 const { notifications, removeNotification } = useNotifications();
 </script>

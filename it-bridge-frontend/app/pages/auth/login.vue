@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import * as z from "zod";
 import type { FormSubmitEvent, AuthFormField } from "@nuxt/ui";
-import { useAuthApi } from "~/composables/useAuthApi";
+import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
-const { loggedIn, session, user, clear, fetch } = useUserSession();
 
 definePageMeta({
-  layout: "guest" as any,
+  layout: "default" as any,
+  middleware: "auth" as any,
 });
 
 const badCredentials = ref(false);
@@ -50,7 +50,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
     const response = await login(payload.data.username, payload.data.password);
 
     console.log("Login successful:", response);
-    
+
     // Show success notification
     success("Welcome back!", "Login successful");
 

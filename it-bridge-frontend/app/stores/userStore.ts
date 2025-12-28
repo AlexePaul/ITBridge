@@ -1,31 +1,27 @@
-import { useTokens } from "./useTokens";
+// stores/userStore.ts
+import { defineStore } from "pinia";
+import { useApi } from "~/composables/api/useApi";
+import { useTokenStore } from "./tokenStore";
+import type { User } from "~/types/user.types";
+import { ref, readonly } from "vue";
 
-// composables/useUserStore.ts
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  role: "ADMIN" | "PARENT";
-}
+export const useUserStore = defineStore("user", () => {
+  const api = useApi();
+  const tokenStore = useTokenStore();
 
-const user = ref<User | null>(null);
-const loading = ref(false);
-const error = ref<string | null>(null);
-
-export const useUserStore = () => {
-  const config = useRuntimeConfig();
-  const apiBase = config.public.apiBase;
+  const user = ref<User | null>(null);
+  const loading = ref(false);
+  const error = ref<string | null>(null);
 
   const fetchUser = async () => {
     loading.value = true;
     error.value = null;
 
     try {
-      const { accessToken } = useTokens();
-      const response = await $fetch<User>(`${apiBase}/auth/me`, {
+      const response = await api<User>("/auth/me", {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${accessToken.value}`,
+          Authorization: `Bearer ${tokenStore.accessToken}`,
         },
       });
 
@@ -52,4 +48,4 @@ export const useUserStore = () => {
     fetchUser,
     logout,
   };
-};
+});

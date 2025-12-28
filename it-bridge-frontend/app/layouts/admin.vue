@@ -12,7 +12,7 @@
             @click="toggleColorMode"
             :title="isDark ? 'Light mode' : 'Dark mode'"
           />
-          <UButton label="Logout" class="flex-1" color="secondary" @click="logOut" />
+          <UButton label="Logout" class="flex-1" color="secondary" @click="handleLogout" />
         </div>
       </template>
     </UDashboardSidebar>
@@ -22,16 +22,14 @@
         <UDashboardNavbar title="Dashboard" class="" />
       </template>
       <template #body>
-        <slot />
-        <!-- This will render the page content -->
+        <NuxtPage />
       </template>
     </UDashboardPanel>
   </UDashboardGroup>
 </template>
 <script setup lang="ts">
 import type { NavigationMenuItem } from "@nuxt/ui";
-import { useTokens } from "~/composables/useTokens";
-import { useUserStore } from "~/composables/useUserStore";
+import { useLogout } from "~/composables/useLogout";
 
 const colorMode = useColorMode();
 const isDark = computed(() => colorMode.value === "dark");
@@ -40,13 +38,7 @@ const toggleColorMode = () => {
   colorMode.preference = isDark.value ? "light" : "dark";
 };
 
-const logOut = () => {
-  const tokenStore = useTokens();
-  const { logout } = useUserStore();
-  tokenStore.clearTokens();
-  logout(); // Clear user store
-  navigateTo("/");
-};
+const { handleLogout } = useLogout();
 
 const items = ref<NavigationMenuItem[][]>([
   [

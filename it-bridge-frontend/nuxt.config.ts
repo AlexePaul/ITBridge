@@ -8,7 +8,7 @@ export default defineNuxtConfig({
       enabled: true,
     },
   },
-  modules: ["@nuxt/ui", "nuxt-auth-utils"],
+  modules: ["@nuxt/ui", "nuxt-auth-utils", "@pinia/nuxt"],
   css: ["~/assets/css/main.css"],
   runtimeConfig: {
     public: {

@@ -5,14 +5,5 @@
   "tabWidth": 2,
   "trailingComma": "es5",
   "printWidth": 100,
-  "arrowParens": "always",
-  "plugins": ["prettier-plugin-vue"],
-  "overrides": [
-    {
-      "files": "*.vue",
-      "options": {
-        "parser": "vue"
-      }
-    }
-  ]
+  "arrowParens": "always"
 }

@@ -1,15 +1,9 @@
-// composables/useTokens.ts
-export const useTokens = () => {
+// stores/tokenStore.ts
+import { defineStore } from "pinia";
+
+export const useTokenStore = defineStore("tokens", () => {
   const accessToken = useCookie("accessToken");
   const refreshToken = useCookie("refreshToken");
-
-  const getAccessToken = () => accessToken.value;
-  const getRefreshToken = () => refreshToken.value;
-
-  const clearTokens = () => {
-    accessToken.value = null;
-    refreshToken.value = null;
-  };
 
   const setAccessToken = (token: string) => {
     accessToken.value = token;
@@ -19,13 +13,16 @@ export const useTokens = () => {
     refreshToken.value = token;
   };
 
+  const clearTokens = () => {
+    accessToken.value = null;
+    refreshToken.value = null;
+  };
+
   return {
     accessToken: readonly(accessToken),
     refreshToken: readonly(refreshToken),
-    getAccessToken,
-    getRefreshToken,
     setAccessToken,
     setRefreshToken,
     clearTokens,
   };
-};
+});
