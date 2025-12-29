@@ -4,22 +4,24 @@
       <div
         v-for="notification in notifications"
         :key="notification.id"
-        class="animate-in slide-in-from-right"
+        class="animate-in slide-in-from-right group"
+        @mouseenter="removeNotification(notification.id)"
       >
-        <UAlert
-          :color="
-            notification.type === 'success'
-              ? 'success'
-              : notification.type === 'error'
-                ? 'error'
-                : 'info'
-          "
-          :icon="`i-lucide-${notification.type === 'success' ? 'check-circle' : notification.type === 'error' ? 'alert-circle' : 'info'}`"
-          :variant="'solid'"
-          :title="notification.title"
-          :description="notification.description"
-          @close="removeNotification(notification.id)"
-        />
+        <div class="relative">
+          <UAlert
+            :color="
+              notification.type === 'success'
+                ? 'success'
+                : notification.type === 'error'
+                  ? 'error'
+                  : 'info'
+            "
+            :icon="`i-lucide-${notification.type === 'success' ? 'check-circle' : notification.type === 'error' ? 'alert-circle' : 'info'}`"
+            :variant="'solid'"
+            :title="notification.title"
+            :description="notification.description"
+          />
+        </div>
       </div>
     </TransitionGroup>
   </div>

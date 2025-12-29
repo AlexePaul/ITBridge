@@ -1,5 +1,5 @@
 <template>
-  <UDashboardNavbar class="px-4 sm:px-6 lg:px-8">
+  <UDashboardNavbar class="border-b border-neutral px-4 sm:px-6 lg:px-16">
     <template #left>
       <NuxtLink
         to="/"
@@ -19,7 +19,7 @@
             size="md"
             color="primary"
             variant="outline"
-            @click="navigateTo('/Auth/login')"
+            @click="navigateTo('/auth/login')"
           />
           <UButton
             label="Register"
@@ -36,13 +36,7 @@
         </template>
 
         <!-- Theme toggle (always visible) -->
-        <UButton
-          :icon="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"
-          color="primary"
-          variant="ghost"
-          @click="toggleColorMode"
-          :title="isDark ? 'Light mode' : 'Dark mode'"
-        />
+        <UColorModeSwitch />
       </div>
     </template>
   </UDashboardNavbar>
@@ -64,7 +58,7 @@ const toggleColorMode = () => {
 const navigationItems = ref([
   [
     { label: "Cursuri", to: "/courses", icon: "i-lucide-book-open" },
-    { label: "Inscriere", to: "/inscriere", icon: "i-lucide-clipboard-list" },
+    { label: "Inscriere", to: "/idkyet", icon: "i-lucide-clipboard-list" },
     { label: "Contact", to: "/contact", icon: "i-lucide-mail" },
   ],
 ]);

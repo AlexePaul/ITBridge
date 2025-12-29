@@ -17,7 +17,7 @@
           <UButton
             size="xl"
             color="primary"
-            variant="subtle"
+            variant="solid"
             label="Cursuri & Înscrieri"
             icon="i-lucide-book-open"
           />
@@ -138,7 +138,7 @@
             <UButton
               size="xl"
               color="primary"
-              variant="subtle"
+              variant="solid"
               label="Contact"
               icon="i-lucide-mail"
             />

@@ -23,15 +23,19 @@ const handleError = () => clearError({ redirect: "/" });
 
 <template>
   <NuxtLayout>
-    <div class="block items-center justify-center overflow-hidden h-full">
+    <div class="flex items-center justify-center overflow-hidden h-full">
       <UCard
-        class="max-w-xl w-full my-[10%] mx-auto p-8 text-center shadow-sm border-primary border"
+        variant="soft"
+        class="mt-20 m-5 mx-auto p-4 sm:p-8 md:p-12 text-center shadow-sm w-full"
       >
-        <p class="text-xs uppercase tracking-widest text-muted">Error {{ statusCode }}</p>
+        <div class="flex justify-center">
+          <UIcon name="i-lucide-bug" class="h-12 w-12 text-secondary" />
+        </div>
 
         <h1 class="mt-4 text-3xl font-semibold text-highlighted">{{ title }}</h1>
+        <p class="text-sm uppercase tracking-widest text-muted">Error {{ statusCode }}</p>
 
-        <p class="mt-3 text-muted">
+        <p class="text-xs mt-3 text-muted">
           {{ error?.message || "The page you’re looking for doesn’t exist." }}
         </p>
 

@@ -24,11 +24,20 @@ export const useAuthApi = () => {
     return response;
   };
 
-  const register = async (data: any) => {
-    return await api<LoginResponse>("/auth/register", {
+  const register = async (username: string, password: string) => {
+    const response = await api<LoginResponse>("/auth/register", {
       method: "POST",
-      body: data,
+      body: { username, password },
     });
+
+    if (response && response.accessToken) {
+      tokenStore.setAccessToken(response.accessToken);
+      tokenStore.setRefreshToken(response.refreshToken || "");
+    }
+
+    useUserStore().fetchUser();
+
+    return response;
   };
 
   return { login, register };

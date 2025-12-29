@@ -40,23 +40,21 @@ const schema = z.object({
 
 type Schema = z.output<typeof schema>;
 
-const { login } = useAuthApi();
+const { register } = useAuthApi();
 const { success } = useNotifications();
 const isLoading = ref(false);
 
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
   isLoading.value = true;
   try {
-    const response = await login(payload.data.username, payload.data.password);
-
-    console.log("Login successful:", response);
+    const response = await register(payload.data.username, payload.data.password);
 
     // Show success notification
-    success("Welcome back!", "Login successful");
+    success("Welcome!", "Registration successful");
 
     await navigateTo("/");
   } catch (error) {
-    console.error("Login failed:", error);
+    console.error("Registration failed:", error);
     badCredentials.value = true;
   } finally {
     isLoading.value = false;
@@ -72,16 +70,16 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
           color="error"
           variant="subtle"
           icon="i-lucide-alert-circle"
-          title="Login Failed"
-          description="Invalid username or password. Please try again."
+          title="Registration Failed"
+          description="An account with this username may already exist or the provided information is invalid. Please try again."
         >
         </UAlert>
       </template>
 
       <UAuthForm
         :schema="schema"
-        title="Login"
-        description="Enter your credentials to access your account."
+        title="Register"
+        description="Enter your credentials to create a new account."
         icon="i-lucide-user"
         :fields="fields"
         :loading="isLoading"

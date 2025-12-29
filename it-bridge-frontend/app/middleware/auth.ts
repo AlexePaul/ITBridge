@@ -13,17 +13,12 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   const tokenStore = useTokenStore();
 
   // If logged in and trying to access login/register, redirect to home
-  if (
-    userStore.user &&
-    (to.path.includes("/auth/login") ||
-      to.path.includes("/Auth/login") ||
-      to.path.includes("/auth/register"))
-  ) {
+  if (userStore.user && (to.path.includes("/auth/login") || to.path.includes("/auth/register"))) {
     return navigateTo("/");
   }
 
   // Skip middleware for login and auth pages
-  if (to.path.includes("/Auth/login") || to.path.includes("/auth/login")) {
+  if (to.path.includes("/auth/login") || to.path.includes("/auth/register")) {
     return;
   }
 
