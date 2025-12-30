@@ -4,7 +4,7 @@
     <Navbar />
 
     <!-- Main Content -->
-    <main class="flex-1">
+    <main class="flex-1 mt-16">
       <slot />
     </main>
 
