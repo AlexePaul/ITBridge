@@ -123,6 +123,7 @@ const navigationItems = computed(() => {
   const items = [...baseNavigationItems];
   if (userStore.user) {
     items.push({ label: "Situatia Scolara", to: "/dashboard", icon: "i-lucide-chart-bar" });
+    items.push({ label: "Istoric Plati", to: "/payments", icon: "i-lucide-credit-card" });
   }
   return items;
 });

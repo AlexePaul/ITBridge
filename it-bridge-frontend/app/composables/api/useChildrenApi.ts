@@ -19,8 +19,8 @@ export const useChildrenApi = () => {
       },
     });
     children.value = fetchedChildren;
-    console.log("Fetched children:", children.value);
   };
+
   const fetchChildrenAttendance = async (childId: string) => {
     const attendance = await api<Attendance[]>(`/attendance/child/${childId}`, {
       method: "GET",
@@ -32,8 +32,12 @@ export const useChildrenApi = () => {
     attendanceStore.setAttendance(childId, attendance);
     return attendance;
   };
+
+  const getChildren = () => {
+    return children.value;
+  };
   return {
-    children,
+    getChildren,
     fetchChildren,
     fetchChildrenAttendance,
   };

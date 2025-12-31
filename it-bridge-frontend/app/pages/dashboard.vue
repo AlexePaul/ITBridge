@@ -2,7 +2,7 @@
   <h1 class="text-4xl font-bold text-center mt-12 mb-6">Situație Școlară</h1>
   <div class="flex flex-1 mx-auto">
     <UCard
-      v-for="child in childrenApi.children.value"
+      v-for="child in childrenList"
       :key="child.id"
       class="inline-block mx-auto my-16 border rounded-lg p-4 w-1/4"
       variant="subtle"
@@ -58,7 +58,8 @@ const attendanceStore = useAttendanceStore();
 
 import { computed } from "vue";
 import { useAttendanceStore } from "~/stores/attendanceStore";
-const childrenList = computed(() => childrenApi.children.value);
+
+const childrenList = computed(() => childrenApi.getChildren());
 
 definePageMeta({
   layout: "default" as any,

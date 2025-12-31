@@ -5,6 +5,7 @@ import { Payment } from './payment.entity';
 export enum InvoiceStatus {
     PENDING = 'pending',
     PAID = 'paid',
+    OVERDUE = 'overdue',
 }
 
 @Entity('invoices')
