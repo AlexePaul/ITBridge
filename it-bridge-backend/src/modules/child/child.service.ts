@@ -38,7 +38,11 @@ export class ChildService {
     }
 
     async findChildren(filterChildDto: FilterChildDto, role: Role, sub: number) {
-        const query = this.childRepository.createQueryBuilder('child').leftJoin('child.parent', 'parent').leftJoin('parent.user', 'user');
+        const query = this.childRepository
+            .createQueryBuilder('child')
+            .leftJoinAndSelect('child.parent', 'parent')
+            .leftJoin('parent.user', 'user')
+            .leftJoinAndSelect('child.group', 'group');
 
         if (role !== Role.ADMIN) {
             query.andWhere('user.id = :userId', { userId: sub });

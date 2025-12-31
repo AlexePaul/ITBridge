@@ -17,7 +17,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     return navigateTo("/");
   }
 
-  // Skip middleware for login and auth pages
+  // Skip middleware for login and register pages
   if (to.path.includes("/auth/login") || to.path.includes("/auth/register")) {
     return;
   }
@@ -25,7 +25,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   // If no token, user is not logged in
   if (!tokenStore.accessToken) {
     // Redirect to login if trying to access protected pages
-    if (to.path !== "/" && to.path !== "/auth/login") {
+    if (to.path !== "/" && to.path !== "/auth/login" && to.path !== "/auth/register") {
       return navigateTo("/auth/login");
     }
     return;
