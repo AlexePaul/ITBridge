@@ -7,6 +7,7 @@ import { ProfileModule } from './modules/profile/profile.module';
 import { ChildModule } from './modules/child/child.module';
 import { GroupModule } from './modules/group/group.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { InvoiceModule } from './modules/invoice/invoice.module';
 
 const dbHost = process.env.DB_HOST || 'localhost';
 const dbPort = parseInt(process.env.DB_PORT || '5432', 10);
@@ -33,6 +34,7 @@ const dbName = process.env.DB_NAME || 'itbridge_db';
         ChildModule,
         GroupModule,
         AttendanceModule,
+        InvoiceModule,
     ],
 })
 export class AppModule {}

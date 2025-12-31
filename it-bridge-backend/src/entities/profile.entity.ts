@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, RelationId, OneToMany } from 'typeorm';
 import { User } from './user.entity';
 import { Child } from './child.entity';
+import { Invoice } from './invoice.entity';
 
 @Entity('profiles')
 export class Profile {
@@ -28,4 +29,7 @@ export class Profile {
 
     @OneToMany(() => Child, (child) => child.parent)
     children: Child[];
+
+    @OneToMany(() => Invoice, (invoice) => invoice.parent)
+    invoices: Invoice[];
 }
