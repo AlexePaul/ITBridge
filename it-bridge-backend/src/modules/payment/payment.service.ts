@@ -38,7 +38,7 @@ export class PaymentService {
     }
 
     async findPayments(filter: FilterPaymentDto, role: Role, userId: number) {
-        const qb = this.paymentRepo.createQueryBuilder('payment').leftJoinAndSelect('payment.invoice', 'invoice').leftJoinAndSelect('invoice.parent', 'parent');
+        const qb = this.paymentRepo.createQueryBuilder('payment').leftJoinAndSelect('payment.invoice', 'invoice').leftJoin('invoice.parent', 'parent');
         if (role !== Role.ADMIN) {
             qb.leftJoin('parent.user', 'user').andWhere('user.id = :userId', { userId });
         }

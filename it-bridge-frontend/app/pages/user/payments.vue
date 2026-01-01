@@ -1,6 +1,6 @@
 <template>
   <h1 class="text-4xl font-bold text-center mt-12 mb-6">Istoric Plati</h1>
-  <UTable sticky :data="invoices" :columns="columns" class="flex-1 w-3/4 mx-auto" />
+  <UTable sticky :data="invoices" :columns="columns" class="flex-1 w-3/4 mx-auto mb-16" />
 </template>
 <script setup lang="ts">
 import type { TableColumn } from "@nuxt/ui";
@@ -19,7 +19,7 @@ const InvoiceApi = useInvoiceApi();
 const invoices = computed<InvoiceTableElement[]>(() => {
   const list = InvoiceApi.getInvoices() ?? [];
   if (!Array.isArray(list)) return [];
-  return list.map((invoice: any) => {
+  const mapped = list.map((invoice: any) => {
     return {
       id: String(invoice.id),
       date: invoice.dateIssued,
@@ -28,6 +28,7 @@ const invoices = computed<InvoiceTableElement[]>(() => {
       amount: invoice.amount ?? 0,
     } as InvoiceTableElement;
   });
+  return mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 });
 
 definePageMeta({

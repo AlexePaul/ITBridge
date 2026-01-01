@@ -1,4 +1,4 @@
-<template>
+<template class="z-10">
   <UDashboardGroup class="flex md:hidden">
     <UDashboardSidebar mode="slideover">
       <template #header="{ collapsed }">
@@ -122,8 +122,8 @@ const baseNavigationItems = [
 const navigationItems = computed(() => {
   const items = [...baseNavigationItems];
   if (userStore.user) {
-    items.push({ label: "Situatia Scolara", to: "/dashboard", icon: "i-lucide-chart-bar" });
-    items.push({ label: "Istoric Plati", to: "/payments", icon: "i-lucide-credit-card" });
+    items.push({ label: "Situatia Scolara", to: "/user/dashboard", icon: "i-lucide-chart-bar" });
+    items.push({ label: "Istoric Plati", to: "/user/payments", icon: "i-lucide-credit-card" });
   }
   return items;
 });

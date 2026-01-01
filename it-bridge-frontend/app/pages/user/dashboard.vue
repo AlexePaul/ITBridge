@@ -1,10 +1,12 @@
 <template>
   <h1 class="text-4xl font-bold text-center mt-12 mb-6">Situație Școlară</h1>
-  <div class="flex flex-1 mx-auto">
+  <div
+    class="grid flex-1 mx-auto gap-6 w-full max-w-4xl grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(320px,1fr))] px-4 sm:px-6 lg:px-8 place-content-start justify-items-center justify-center pb-16"
+  >
     <UCard
       v-for="child in childrenList"
       :key="child.id"
-      class="inline-block mx-auto my-16 border rounded-lg p-4 w-1/4"
+      class="mx-auto my-4 border rounded-lg p-4 w-full h-full"
       variant="subtle"
     >
       <h2 class="text-2xl font-semibold mb-2 text-secondary">

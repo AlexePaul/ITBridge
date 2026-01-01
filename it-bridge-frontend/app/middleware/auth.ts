@@ -1,6 +1,6 @@
 import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
-import { authInitialized } from "~/plugins/auth.client";
+import { authInitialized } from "~/plugins/01-auth.client";
 
 // middleware/auth.ts
 export default defineNuxtRouteMiddleware(async (to, from) => {
