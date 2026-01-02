@@ -1,5 +1,5 @@
-<template class="z-10">
-  <UDashboardGroup class="flex md:hidden">
+<template>
+  <UDashboardGroup class="flex md:hidden sticky top-0 z-50 bg-neutral isolate">
     <UDashboardSidebar mode="slideover">
       <template #header="{ collapsed }">
         <p>Hello! TODO: change this here into logo+brand</p>
@@ -10,12 +10,12 @@
       <template #header>
         <UDashboardNavbar
           title="Dashboard"
-          class="border-b border-neutral px-4 sm:px-6 lg:px-16 w-full"
+          class="bg-neutral border-b border-neutral px-4 sm:px-6 lg:px-16 w-full"
         >
           <template #left>
             <NuxtLink
               to="/"
-              class="text-lg sm:text-xl font-bold text-neutral-950 dark:text-neutral-50 hover:opacity-80 transition"
+              class="text-lg sm:text-xl font-bold text-neutral hover:opacity-80 transition"
             >
               IT Bridge School
             </NuxtLink>
@@ -57,8 +57,8 @@
       </template>
     </UDashboardPanel>
   </UDashboardGroup>
-  <UDashboardGroup class="hidden md:flex">
-    <UDashboardNavbar class="border-b border-neutral px-4 sm:px-6 lg:px-16 w-full">
+  <UDashboardGroup class="hidden md:flex sticky top-0 z-50 bg-neutral isolate">
+    <UDashboardNavbar class="bg-neutral border-b border-neutral px-4 sm:px-6 lg:px-16 w-full">
       <template #left>
         <NuxtLink
           to="/"
@@ -133,5 +133,5 @@ const navigationItemsSmallScreen = computed(() => [
   ...navigationItems.value,
 ]);
 
-const navigationItemsAuth = ref([{ label: "Profil", to: "/profile" }]);
+const navigationItemsAuth = ref([{ label: "Profil", to: "/user/profile" }]);
 </script>

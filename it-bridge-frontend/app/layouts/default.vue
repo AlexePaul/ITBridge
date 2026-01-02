@@ -1,11 +1,11 @@
 <template>
   <div v-if="authInitialized" class="min-h-screen flex flex-col">
     <!-- Single Navbar (shows different buttons based on auth state) -->
-    <Navbar />
 
+    <Navbar />
     <UCard
       v-if="overdueInvoices"
-      class="w-9/12 md:1/3 mx-auto border border-error rounded-none mt-32 mb-8 z-15"
+      class="w-9/12 md:1/3 mx-auto border border-error rounded-none mt-12 z-15"
       variant="subtle"
     >
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -29,7 +29,7 @@
     </UCard>
     <UCard
       v-else-if="pendingInvoices"
-      class="w-9/12 md:1/3 mx-auto border border-warning rounded-none mt-32 mb-8 z-15"
+      class="w-9/12 md:1/3 mx-auto border border-warning rounded-none mt-12 z-15"
       variant="subtle"
     >
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -53,7 +53,7 @@
       </div>
     </UCard>
     <!-- Main Content -->
-    <main class="flex-1 mt-16">
+    <main class="flex-1">
       <slot />
     </main>
 

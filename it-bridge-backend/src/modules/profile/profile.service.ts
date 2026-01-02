@@ -44,7 +44,8 @@ export class ProfileService {
         const queryBuilder = this.profileRepository
             .createQueryBuilder('profile')
             .leftJoin('profile.user', 'user')
-            .leftJoinAndSelect('profile.children', 'child');
+            .leftJoinAndSelect('profile.children', 'child')
+            .leftJoinAndSelect('child.group', 'group');
 
         if (filters.userId) {
             queryBuilder.andWhere('user.id = :userId', { userId: filters.userId });
