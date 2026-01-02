@@ -1,6 +1,7 @@
 import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
 import { useNotifications } from "~/composables/useNotifications";
+import { overdueInvoices, pendingInvoices } from "./api/useInvoiceApi";
 
 export const useLogout = () => {
   const tokenStore = useTokenStore();
@@ -11,6 +12,8 @@ export const useLogout = () => {
     info("Goodbye!", "You have been logged out successfully.");
     tokenStore.clearTokens();
     userStore.logout();
+    pendingInvoices.value = false;
+    overdueInvoices.value = false;
     navigateTo("/");
   };
 

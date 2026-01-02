@@ -3,6 +3,8 @@ import * as z from "zod";
 import type { FormSubmitEvent, AuthFormField } from "@nuxt/ui";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
+import { useProfileApi } from "~/composables/api/useProfileApi";
+import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 
 definePageMeta({
   layout: "default" as any,
@@ -43,6 +45,9 @@ const { login } = useAuthApi();
 const { success } = useNotifications();
 const isLoading = ref(false);
 
+const profileApi = useProfileApi();
+const invoiceApi = useInvoiceApi();
+
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
   isLoading.value = true;
   try {
@@ -52,6 +57,9 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
 
     // Show success notification
     success("Welcome back!", "Login successful");
+
+    profileApi.fetchProfile();
+    invoiceApi.fetchInvoices();
 
     await navigateTo("/");
   } catch (error) {

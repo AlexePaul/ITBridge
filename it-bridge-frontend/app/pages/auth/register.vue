@@ -51,7 +51,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
     // Show success notification
     success("Welcome!", "Registration successful");
 
-    await navigateTo("/");
+    await navigateTo("/user/profile-setup");
   } catch (error) {
     console.error("Registration failed:", error);
     badCredentials.value = true;

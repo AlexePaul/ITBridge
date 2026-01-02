@@ -2,13 +2,8 @@
   <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
     <h1 class="text-4xl font-bold text-center mt-12 mb-8">Profil</h1>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="flex justify-center items-center min-h-100">
-      <UIcon name="i-lucide-loader-2" class="animate-spin text-4xl text-primary" />
-    </div>
-
     <!-- Profile Content -->
-    <div v-else-if="profile" class="space-y-6">
+    <div v-if="profile" class="space-y-6">
       <!-- Personal Information Card -->
       <UCard class="border rounded-lg" variant="subtle">
         <template #header>
@@ -140,13 +135,6 @@
       </UCard>
     </div>
 
-    <!-- Error State -->
-    <div v-else-if="error" class="text-center py-12">
-      <UIcon name="i-lucide-alert-triangle" class="text-4xl text-error mx-auto mb-3" />
-      <p class="text-error text-lg">{{ error }}</p>
-      <UButton @click="loadProfile" class="mt-4" color="primary">Reîncarcă</UButton>
-    </div>
-
     <!-- No Profile State -->
     <div v-else class="text-center py-12">
       <UIcon name="i-lucide-alert-triangle" class="text-4xl text-error mx-auto mb-3" />
@@ -165,12 +153,10 @@ const profileApi = useProfileApi();
 const profileStore = useProfileStore();
 
 const profile = computed(() => profileStore.profile);
-const loading = computed(() => profileStore.loading);
-const error = computed(() => profileStore.error);
 
 definePageMeta({
   title: "Profil",
-  layout: "dashboard" as any,
+  layout: "default" as any,
 });
 
 const loadProfile = async () => {

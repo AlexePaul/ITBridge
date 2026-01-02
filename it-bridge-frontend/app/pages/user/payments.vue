@@ -7,11 +7,6 @@ import type { TableColumn } from "@nuxt/ui";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import type InvoiceTableElement from "~/types/invoiceTableElement";
 
-definePageMeta({
-  title: "Istoric Plati",
-  layout: "dashboard" as any,
-  middleware: "auth" as any,
-});
 const UBadge = resolveComponent("UBadge");
 
 const InvoiceApi = useInvoiceApi();

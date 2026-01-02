@@ -9,9 +9,6 @@ export const useProfileApi = () => {
   const profileStore = useProfileStore();
 
   const fetchProfile = async () => {
-    profileStore.setLoading(true);
-    profileStore.setError(null);
-
     try {
       const data = await api<Profile[]>("/profiles", {
         method: "GET",
@@ -24,10 +21,8 @@ export const useProfileApi = () => {
       return data;
     } catch (err: any) {
       const errorMessage = err.message || "Failed to fetch profile";
-      profileStore.setError(errorMessage);
+      console.error(errorMessage);
       throw err;
-    } finally {
-      profileStore.setLoading(false);
     }
   };
 
@@ -35,8 +30,28 @@ export const useProfileApi = () => {
     return profileStore.profile;
   };
 
+  const createProfile = async (profileData: Partial<Profile>) => {
+    try {
+      const createdProfile = await api<Profile>("/profiles", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tokenStore.accessToken}`,
+        },
+        body: profileData,
+      });
+
+      profileStore.setProfile(createdProfile);
+      return createdProfile;
+    } catch (err: any) {
+      const errorMessage = err.message || "Failed to create profile";
+      console.error(errorMessage);
+      throw err;
+    }
+  };
+
   return {
     fetchProfile,
     getProfile,
+    createProfile,
   };
 };

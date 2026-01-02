@@ -9,7 +9,7 @@
       class="mx-auto my-4 border rounded-lg p-4 w-full h-full"
       variant="subtle"
     >
-      <h2 class="text-2xl font-semibold mb-2 text-primary">
+      <h2 class="text-2xl font-semibold mb-2 text-secondary">
         {{ child.firstName }} {{ child.lastName }}
       </h2>
       <UCalendar
@@ -18,7 +18,7 @@
         :initial-view="'month'"
         :height="'auto'"
         :year-controls="false"
-        color="secondary"
+        color="primary"
       >
         <template #day="{ day }">
           <UChip
@@ -52,19 +52,17 @@
 <script setup lang="ts">
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useUserStore } from "~/stores/userStore";
-import { onMounted } from "vue";
+import { onMounted, computed } from "vue";
+import { useAttendanceStore } from "~/stores/attendanceStore";
 
 const userStore = useUserStore();
 const childrenApi = useChildrenApi();
 const attendanceStore = useAttendanceStore();
 
-import { computed } from "vue";
-import { useAttendanceStore } from "~/stores/attendanceStore";
-
 const childrenList = computed(() => childrenApi.getChildren());
 
 definePageMeta({
-  layout: "dashboard" as any,
+  layout: "default" as any,
 });
 
 onMounted(async () => {
