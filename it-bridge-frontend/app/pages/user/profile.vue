@@ -170,7 +170,7 @@ const error = computed(() => profileStore.error);
 
 definePageMeta({
   title: "Profil",
-  layout: "default" as any,
+  layout: "dashboard" as any,
 });
 
 const loadProfile = async () => {

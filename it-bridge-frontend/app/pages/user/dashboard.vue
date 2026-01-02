@@ -64,7 +64,7 @@ import { useAttendanceStore } from "~/stores/attendanceStore";
 const childrenList = computed(() => childrenApi.getChildren());
 
 definePageMeta({
-  layout: "default" as any,
+  layout: "dashboard" as any,
 });
 
 onMounted(async () => {

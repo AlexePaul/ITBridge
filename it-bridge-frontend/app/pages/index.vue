@@ -173,7 +173,7 @@ const userStore = useUserStore();
 
 const setLayout = () => {
   if (userStore.user?.role === "ADMIN") {
-    setPageLayout("admin" as any);
+    setPageLayout("default" as any);
   } else {
     setPageLayout("default" as any);
   }
