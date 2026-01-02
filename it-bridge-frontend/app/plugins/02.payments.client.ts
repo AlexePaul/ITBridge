@@ -3,11 +3,12 @@ import { useUserStore } from "~/stores/userStore";
 
 export const overdueInvoices = ref<boolean>(false);
 
-export const pendingInvoices = ref<boolean>(true);
+export const pendingInvoices = ref<boolean>(false);
 
 export default defineNuxtPlugin(async (nuxtApp) => {
   const userStore = useUserStore();
   const invoiceApi = useInvoiceApi();
+
   if (userStore.user) {
     await invoiceApi.fetchInvoices();
   }

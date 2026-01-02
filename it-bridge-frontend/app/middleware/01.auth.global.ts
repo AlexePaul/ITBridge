@@ -1,6 +1,8 @@
 import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
-import { authInitialized } from "~/plugins/01-auth.client";
+import { authInitialized } from "~/plugins/01.auth.client";
+
+export const unauthenticatedRoutes = ["/", "/auth/login", "/auth/register", "/courses"];
 
 // middleware/auth.ts
 export default defineNuxtRouteMiddleware(async (to, from) => {
@@ -25,7 +27,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   // If no token, user is not logged in
   if (!tokenStore.accessToken) {
     // Redirect to login if trying to access protected pages
-    if (to.path !== "/" && to.path !== "/auth/login" && to.path !== "/auth/register") {
+    if (!unauthenticatedRoutes.includes(to.path)) {
       return navigateTo("/auth/login");
     }
     return;

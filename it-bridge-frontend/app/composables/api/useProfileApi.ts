@@ -31,6 +31,8 @@ export const useProfileApi = () => {
     }
   };
 
+  const createProfile;
+
   const getProfile = () => {
     return profileStore.profile;
   };

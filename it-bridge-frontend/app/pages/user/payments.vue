@@ -34,7 +34,6 @@ const invoices = computed<InvoiceTableElement[]>(() => {
 definePageMeta({
   title: "Istoric Plati",
   layout: "default" as any,
-  middleware: "auth" as any,
 });
 
 onMounted(async () => {

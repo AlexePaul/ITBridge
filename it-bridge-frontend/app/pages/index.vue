@@ -162,7 +162,6 @@ import { ref } from "vue";
 
 definePageMeta({
   layout: "default" as any,
-  middleware: "auth" as any,
 });
 
 defineProps<{

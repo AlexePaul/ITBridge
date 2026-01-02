@@ -171,7 +171,6 @@ const error = computed(() => profileStore.error);
 definePageMeta({
   title: "Profil",
   layout: "default" as any,
-  middleware: "auth" as any,
 });
 
 const loadProfile = async () => {

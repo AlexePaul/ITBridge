@@ -6,7 +6,6 @@ import { useNotifications } from "~/composables/useNotifications";
 
 definePageMeta({
   layout: "default" as any,
-  middleware: "auth" as any,
 });
 
 const badCredentials = ref(false);

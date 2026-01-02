@@ -9,7 +9,7 @@
       class="mx-auto my-4 border rounded-lg p-4 w-full h-full"
       variant="subtle"
     >
-      <h2 class="text-2xl font-semibold mb-2 text-secondary">
+      <h2 class="text-2xl font-semibold mb-2 text-primary">
         {{ child.firstName }} {{ child.lastName }}
       </h2>
       <UCalendar
@@ -18,7 +18,7 @@
         :initial-view="'month'"
         :height="'auto'"
         :year-controls="false"
-        color="primary"
+        color="secondary"
       >
         <template #day="{ day }">
           <UChip
@@ -34,7 +34,7 @@
         <li><strong class="text-success">Verde:</strong> Copilul a fost prezent în acea zi.</li>
         <li><strong class="text-error">Roșu:</strong> Copilul a fost absent în acea zi.</li>
         <li>
-          <strong class="text-info">Albastru:</strong> Copilul a participat la o recuperare în acea
+          <strong class="text-warning">Galben:</strong> Copilul a participat la o recuperare în acea
           zi.
         </li>
         <li>
@@ -65,7 +65,6 @@ const childrenList = computed(() => childrenApi.getChildren());
 
 definePageMeta({
   layout: "default" as any,
-  middleware: "auth" as any,
 });
 
 onMounted(async () => {
@@ -88,7 +87,7 @@ function getColorByDate(date: Date, child: any) {
       return "error";
     }
   } else if (attendanceRecordForDate?.present) {
-    return "info";
+    return "warning";
   } else {
     return undefined;
   }
