@@ -5,15 +5,14 @@
 <script setup lang="ts">
 import type { TableColumn } from "@nuxt/ui";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
-const UBadge = resolveComponent("UBadge");
+import type InvoiceTableElement from "~/types/invoiceTableElement";
 
-interface InvoiceTableElement {
-  id: string;
-  date: string;
-  status: "paid" | "pending" | "overdue";
-  name: string;
-  amount: number;
-}
+definePageMeta({
+  title: "Istoric Plati",
+  layout: "dashboard" as any,
+  middleware: "auth" as any,
+});
+const UBadge = resolveComponent("UBadge");
 
 const InvoiceApi = useInvoiceApi();
 const invoices = computed<InvoiceTableElement[]>(() => {
@@ -31,11 +30,6 @@ const invoices = computed<InvoiceTableElement[]>(() => {
   return mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 });
 
-definePageMeta({
-  title: "Istoric Plati",
-  layout: "default" as any,
-  middleware: "auth" as any,
-});
 
 onMounted(async () => {
   await InvoiceApi.fetchInvoices();

@@ -1,2 +1,10 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+@theme {
+    --container-8xl: 90rem;
+}
+
+:root {
+    --ui-container: var(--container-8xl);
+}
