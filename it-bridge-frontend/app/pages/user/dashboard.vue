@@ -54,15 +54,16 @@ import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useUserStore } from "~/stores/userStore";
 import { onMounted, computed } from "vue";
 import { useAttendanceStore } from "~/stores/attendanceStore";
+import { useChildrenStore } from "~/stores/childrenStore";
 
-const userStore = useUserStore();
 const childrenApi = useChildrenApi();
 const attendanceStore = useAttendanceStore();
+const childrenStore = useChildrenStore();
 
-const childrenList = computed(() => childrenApi.getChildren());
+const childrenList = computed(() => childrenStore.children);
 
 definePageMeta({
-  layout: "default" as any,
+  layout: "dashboard" as any,
 });
 
 onMounted(async () => {

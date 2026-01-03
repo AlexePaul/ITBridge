@@ -86,8 +86,9 @@
                     <UIcon name="i-lucide-clock" class="text-muted" />
                     <span class="text-muted">Program:</span>
                     <span class="font-medium"
-                      >{{ getWeekdayName(child.group.weekday) }}, {{ child.group.startTime }} -
-                      {{ child.group.endTime }}</span
+                      >{{ getWeekdayName(child.group.weekday) }},
+                      {{ formatTime(child.group.startTime) }} -
+                      {{ formatTime(child.group.endTime) }}</span
                     >
                   </div>
                   <div v-else class="flex items-center gap-2">
@@ -156,7 +157,7 @@ const profile = computed(() => profileStore.profile);
 
 definePageMeta({
   title: "Profil",
-  layout: "default" as any,
+  layout: "dashboard" as any,
 });
 
 const loadProfile = async () => {
@@ -182,5 +183,9 @@ function formatDate(dateString: string): string {
     month: "long",
     day: "numeric",
   });
+}
+
+function formatTime(time: string): string {
+  return time.slice(0, 5); // HH:mm from HH:mm:ss
 }
 </script>

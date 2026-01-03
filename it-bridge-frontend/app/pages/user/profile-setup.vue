@@ -43,7 +43,7 @@ import type { Profile } from "~/types/profile.types";
 const profileApi = useProfileApi();
 
 definePageMeta({
-  layout: "default" as any,
+  layout: "dashboard" as any,
 });
 
 const schema = z.object({

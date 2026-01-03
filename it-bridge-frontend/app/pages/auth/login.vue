@@ -47,6 +47,7 @@ const isLoading = ref(false);
 
 const profileApi = useProfileApi();
 const invoiceApi = useInvoiceApi();
+const errormss = ref<string>("");
 
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
   isLoading.value = true;
@@ -65,6 +66,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
   } catch (error) {
     console.error("Login failed:", error);
     badCredentials.value = true;
+    errormss.value = error instanceof Error ? error.message : String(error);
   } finally {
     isLoading.value = false;
   }
@@ -75,6 +77,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
   <div class="flex flex-col items-center justify-center gap-4 p-4">
     <UPageCard class="mt-20 m-5 p-4 sm:p-8 md:p-10 max-w-3xl w-11/12 border" variant="subtle">
       <template v-if="badCredentials">
+        <h1>{{ errormss }}</h1>
         <UAlert
           color="error"
           variant="subtle"

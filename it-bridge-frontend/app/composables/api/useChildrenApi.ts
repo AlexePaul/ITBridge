@@ -3,13 +3,13 @@ import { useApi } from "./useApi";
 import type { Child } from "~/types/child.types";
 import type { Attendance } from "~/types/attendance.types";
 import { useAttendanceStore } from "~/stores/attendanceStore";
+import { useChildrenStore } from "~/stores/childrenStore";
 
 export const useChildrenApi = () => {
   const api = useApi();
   const tokenStore = useTokenStore();
   const attendanceStore = useAttendanceStore();
-
-  const children = ref<Child[]>([]);
+  const childrenStore = useChildrenStore();
 
   const fetchChildren = async () => {
     const fetchedChildren = await api<Child[]>("/children", {
@@ -18,7 +18,8 @@ export const useChildrenApi = () => {
         Authorization: `Bearer ${tokenStore.accessToken}`,
       },
     });
-    children.value = fetchedChildren;
+    childrenStore.setChildren(fetchedChildren);
+    return fetchedChildren;
   };
 
   const fetchChildrenAttendance = async (childId: string) => {
@@ -33,11 +34,7 @@ export const useChildrenApi = () => {
     return attendance;
   };
 
-  const getChildren = () => {
-    return children.value;
-  };
   return {
-    getChildren,
     fetchChildren,
     fetchChildrenAttendance,
   };

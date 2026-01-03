@@ -27,7 +27,7 @@ const invoices = computed<InvoiceTableElement[]>(() => {
 
 definePageMeta({
   title: "Istoric Plati",
-  layout: "default" as any,
+  layout: "dashboard" as any,
 });
 
 onMounted(async () => {

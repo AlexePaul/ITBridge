@@ -21,7 +21,7 @@ async function bootstrap() {
     fs.writeFileSync('./swagger.json', JSON.stringify(document, null, 2));
 
     app.enableCors({
-        origin: 'http://localhost:3001',
+        origin: ['http://localhost:3001', 'http://192.168.0.139:3001'],
         credentials: true,
     });
 
