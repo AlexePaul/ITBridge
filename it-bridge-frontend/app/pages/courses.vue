@@ -4,5 +4,6 @@
 <script setup lang="ts">
 definePageMeta({
   layout: "default" as any,
+  title: "Cursuri",
 });
 </script>

@@ -5,6 +5,7 @@ import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
+import { useProfileInitialization } from "~/composables/useProfileInitialization";
 
 definePageMeta({
   layout: "default" as any,
@@ -45,7 +46,7 @@ const { login } = useAuthApi();
 const { success } = useNotifications();
 const isLoading = ref(false);
 
-const profileApi = useProfileApi();
+const profileInitialization = useProfileInitialization();
 const invoiceApi = useInvoiceApi();
 
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
@@ -58,7 +59,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
     // Show success notification
     success("Welcome back!", "Login successful");
 
-    profileApi.fetchProfile();
+    profileInitialization.initializeProfile();
     invoiceApi.fetchInvoices();
 
     await navigateTo("/");

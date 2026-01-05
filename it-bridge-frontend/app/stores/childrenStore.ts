@@ -7,8 +7,14 @@ export const useChildrenStore = defineStore("children", () => {
   const setChildren = (data: Child[]) => {
     children.value = data;
   };
+
+  const clearChildren = () => {
+    children.value = [];
+  };
+
   return {
     children: readonly(children),
     setChildren,
+    clearChildren,
   };
 });

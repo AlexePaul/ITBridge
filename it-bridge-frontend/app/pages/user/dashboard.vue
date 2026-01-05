@@ -51,7 +51,6 @@
 </template>
 <script setup lang="ts">
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
-import { useUserStore } from "~/stores/userStore";
 import { onMounted, computed } from "vue";
 import { useAttendanceStore } from "~/stores/attendanceStore";
 import { useChildrenStore } from "~/stores/childrenStore";
@@ -64,6 +63,7 @@ const childrenList = computed(() => childrenStore.children);
 
 definePageMeta({
   layout: "dashboard" as any,
+  title: "Situație Școlară",
 });
 
 onMounted(async () => {

@@ -2,6 +2,7 @@ import type { Profile } from "~/types/profile.types";
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import { useProfileStore } from "~/stores/profileStore";
+import { ProfileSetup } from "../useProfileInitialization";
 
 export const useProfileApi = () => {
   const api = useApi();
@@ -16,7 +17,7 @@ export const useProfileApi = () => {
           Authorization: `Bearer ${tokenStore.accessToken}`,
         },
       });
-
+      console.log("Fetched profile data:", data);
       profileStore.setProfile(data[0] as Profile);
       return data;
     } catch (err: any) {
@@ -41,11 +42,10 @@ export const useProfileApi = () => {
       });
 
       profileStore.setProfile(createdProfile);
+      ProfileSetup.value = false;
       return createdProfile;
     } catch (err: any) {
-      const errorMessage = err.message || "Failed to create profile";
-      console.error(errorMessage);
-      throw err;
+      return err.data?.statusCode || 500;
     }
   };
 

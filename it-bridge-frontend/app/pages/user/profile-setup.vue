@@ -39,11 +39,15 @@ import * as z from "zod";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import type { Profile } from "~/types/profile.types";
+import { useProfileStore } from "~/stores/profileStore";
+import { useNotifications } from "~/composables/useNotifications";
 
 const profileApi = useProfileApi();
+const { error } = useNotifications();
 
 definePageMeta({
   layout: "dashboard" as any,
+  title: "Completează Profilul",
 });
 
 const schema = z.object({
@@ -72,7 +76,10 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
     lastName: event.data.lastName,
     address: event.data.address,
   };
-  profileApi.createProfile(profile);
-  await navigateTo("/");
+  const response = await profileApi.createProfile(profile);
+  if (response != 409) await navigateTo("/user/profile");
+  else {
+    error("Email-ul sau numărul de telefon există deja în sistem.");
+  }
 }
 </script>

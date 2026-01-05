@@ -1,5 +1,5 @@
 import { authInitialized } from "~/plugins/01.auth.client";
-import { ProfileSetup } from "~/plugins/03.profile.client";
+import { ProfileSetup } from "~/composables/useProfileInitialization";
 import { unauthenticatedRoutes } from "./01.auth.global";
 
 // middleware/profile-setup.ts

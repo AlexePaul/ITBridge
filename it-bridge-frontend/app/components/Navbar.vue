@@ -28,7 +28,7 @@
             size="md"
             color="primary"
             variant="outline"
-            @click="navigateTo('/user/dashboard')"
+            @click="handleDashboard"
           />
           <UButton
             label="Logout"
@@ -67,7 +67,7 @@
             size="md"
             color="primary"
             variant="outline"
-            @click="navigateTo('/user/dashboard')"
+            @click="handleDashboard"
           />
           <UButton
             label="Logout"
@@ -91,8 +91,15 @@ const { handleLogout } = useLogout();
 const baseNavigationItems = [
   { label: "Home", to: "/", icon: "i-lucide-home" },
   { label: "Cursuri", to: "/courses", icon: "i-lucide-book-open" },
-  { label: "Inscriere", to: "/idkyet", icon: "i-lucide-clipboard-list" },
   { label: "Contact", to: "/contact", icon: "i-lucide-mail" },
   { label: "Despre noi", to: "/about", icon: "i-lucide-badge-info" },
 ];
+
+const handleDashboard = () => {
+  if (userStore.user?.role === "ADMIN") {
+    navigateTo("/admin/dashboard");
+  } else {
+    navigateTo("/user/profile");
+  }
+};
 </script>

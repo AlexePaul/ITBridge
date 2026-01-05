@@ -26,6 +26,7 @@ export const useUserStore = defineStore("user", () => {
       });
 
       user.value = response;
+      console.log("Fetched user data:", response);
       return response;
     } catch (err: any) {
       error.value = err.message || "Failed to fetch user";
