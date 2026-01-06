@@ -8,4 +8,5 @@ export interface Profile {
   lastName: string;
   address: string;
   children: Child[];
+  hasUser?: boolean;
 }

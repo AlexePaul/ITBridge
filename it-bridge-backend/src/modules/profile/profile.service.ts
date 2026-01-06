@@ -43,7 +43,7 @@ export class ProfileService {
         }
         const queryBuilder = this.profileRepository
             .createQueryBuilder('profile')
-            .leftJoin('profile.user', 'user')
+            .leftJoinAndSelect('profile.user', 'user')
             .leftJoinAndSelect('profile.children', 'child')
             .leftJoinAndSelect('child.group', 'group');
 
@@ -67,7 +67,16 @@ export class ProfileService {
         }
 
         const profiles = await queryBuilder.getMany();
-        return profiles;
+        const profilesReturnObject = profiles
+            .map((profile) => ({
+                ...profile,
+                hasUser: profile.user !== null,
+            }))
+            .map((profile) => {
+                profile.user = undefined as any;
+                return profile;
+            });
+        return profilesReturnObject;
     }
 
     async updateProfile(updateProfileDto: UpdateProfileDto, profileId: number, userRole: Role, userId: number) {
