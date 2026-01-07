@@ -34,8 +34,22 @@ export const useChildrenApi = () => {
     return attendance;
   };
 
+  const createChild = async (childData: Partial<Child>) => {
+    const newChild = await api<Child>("/children", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokenStore.accessToken}`,
+      },
+      body: JSON.stringify(childData),
+    });
+    console.log("New child created:", newChild);
+    return newChild;
+  };
+
   return {
     fetchChildren,
     fetchChildrenAttendance,
+    createChild,
   };
 };

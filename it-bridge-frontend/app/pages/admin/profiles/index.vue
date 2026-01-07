@@ -6,7 +6,17 @@
         <h1 class="text-3xl font-bold">User Profiles</h1>
         <p class="text-muted mt-1">Manage and view all user profiles</p>
       </div>
-      <UBadge color="primary" variant="subtle" size="lg">
+      <UButton
+        color="secondary"
+        variant="subtle"
+        class="mr-3 ml-auto flex items-center h-11"
+        size="lg"
+        @click="navigateTo('/admin/profiles/new')"
+      >
+        <UIcon name="i-lucide-user-plus" class="mr-2" />
+        Add New Profile
+      </UButton>
+      <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
         {{ filteredProfiles.length }} total
       </UBadge>
     </div>
@@ -256,6 +266,18 @@ const columns: TableColumn<Profile>[] = [
           label: "View Profile",
           icon: "i-lucide-eye",
           to: `/admin/profiles/${row.original.id}`,
+        },
+        {
+          type: "link",
+          label: "Add Children",
+          icon: "i-lucide-plus",
+          to: `/admin/profiles/${row.original.id}/children/new`,
+        },
+        {
+          type: "link",
+          label: "Edit Profile",
+          icon: "i-lucide-edit",
+          to: `/admin/profiles/${row.original.id}/edit`,
         },
       ];
 

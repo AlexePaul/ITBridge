@@ -22,6 +22,17 @@ export class UserController {
         return this.userService.getAllUsers();
     }
 
+    @Get('without-profile')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: 'List of users without profile' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    @ApiResponse({ status: 403, description: 'Forbidden' })
+    async getUsersWithoutProfile() {
+        return this.userService.getUsersWithoutProfile();
+    }
+
     @Get(':id')
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.ADMIN)

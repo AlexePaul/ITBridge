@@ -9,12 +9,15 @@ export const useProfileApi = () => {
   const tokenStore = useTokenStore();
   const profileStore = useProfileStore();
 
-  const fetchProfile = async () => {
+  const fetchProfile = async (id: string | null = null) => {
     try {
       const data = await api<Profile[]>("/profiles", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${tokenStore.accessToken}`,
+        },
+        query: {
+          profileId: id,
         },
       });
       console.log("Fetched profile data:", data);
@@ -49,9 +52,45 @@ export const useProfileApi = () => {
     }
   };
 
+  const deleteProfile = async (profileId: string) => {
+    try {
+      await api<void>(`/profiles/${profileId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${tokenStore.accessToken}`,
+        },
+      });
+      profileStore.clearProfile();
+    } catch (err: any) {
+      const errorMessage = err.message || "Failed to delete profile";
+      console.error(errorMessage);
+      throw err;
+    }
+  };
+
+  const updateProfile = async (profileData: Partial<Profile>, profileId: number) => {
+    try {
+      const updatedProfile = await api<Profile>(`/profiles/${profileId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${tokenStore.accessToken}`,
+        },
+        body: profileData,
+      });
+      profileStore.setProfile(updatedProfile);
+      return updatedProfile;
+    } catch (err: any) {
+      const errorMessage = err.message || "Failed to update profile";
+      console.error(errorMessage);
+      throw err;
+    }
+  };
+
   return {
     fetchProfile,
     getProfile,
     createProfile,
+    deleteProfile,
+    updateProfile,
   };
 };
