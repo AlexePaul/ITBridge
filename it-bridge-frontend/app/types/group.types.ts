@@ -5,6 +5,7 @@ export interface Group {
   endTime: string;
   minAge: number;
   maxAge: number;
+  isActive: boolean;
 }
 //might be nice, will look into it later.
 /*

@@ -1,11 +1,4 @@
 <template>
-  <h1>Gestionarea Grupelor</h1>
-  <h2>TODO:</h2>
-  <ul class="list-disc ml-6 space-y-2">
-    <li>Selectezi o grupa</li>
-    <li>Adaugi/sterge copii din grupa (poti adauga doar copii care nu au grup asignata)</li>
-    <li>Salvezi modificarile</li>
-  </ul>
   <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
     <!-- Header -->
     <div class="flex items-center justify-between">
@@ -13,9 +6,19 @@
         <h1 class="text-3xl font-bold">Grupe</h1>
         <p class="text-muted mt-1">Gestionează toate grupele școlii după zi și oră</p>
       </div>
-      <UButton color="primary" size="lg" icon="i-lucide-plus" @click="handleAddGroup">
-        Adaugă Grup Nou
+      <UButton
+        color="secondary"
+        variant="subtle"
+        class="mr-3 ml-auto flex items-center h-11"
+        size="lg"
+        @click="handleAddGroup"
+      >
+        <UIcon name="i-lucide-plus" class="mr-2" />
+        Adaugă Grup nou
       </UButton>
+      <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
+        {{ groups.length }} total
+      </UBadge>
     </div>
 
     <!-- Days Layout -->
@@ -36,10 +39,21 @@
           <template v-if="groupsByDay(day.id).length > 0">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <template v-for="group in groupsByDay(day.id)" :key="group.id">
-                <UCard class="hover:shadow-lg transition-shadow">
+                <UCard
+                  :class="[
+                    'hover:shadow-lg transition-shadow',
+                    !group.isActive &&
+                      'opacity-50 border border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30',
+                  ]"
+                >
                   <template #header>
                     <div class="flex items-start justify-between">
-                      <UBadge variant="subtle" color="secondary"> #{{ group.id }} </UBadge>
+                      <div class="flex items-center gap-2">
+                        <UBadge variant="subtle" color="secondary"> #{{ group.id }} </UBadge>
+                        <UBadge v-if="!group.isActive" color="warning" variant="soft" size="sm">
+                          Inactiv
+                        </UBadge>
+                      </div>
                       <UButton
                         color="neutral"
                         variant="ghost"
@@ -67,7 +81,8 @@
                   <div class="flex items-center gap-3 mb-4 pt-3 border-t border-muted">
                     <UIcon name="i-lucide-baby" class="text-warning" />
                     <span class="text-sm text-muted">
-                      {{ group.children?.length || 0 }} copii inscrisi
+                      {{ childrenStore.getChildrenNumberByGroupId(String(group.id)) }} copii
+                      inscrisi
                     </span>
                   </div>
 
@@ -78,7 +93,7 @@
                         color="primary"
                         variant="soft"
                         size="sm"
-                        class="flex-1"
+                        class="flex-1 justify-center"
                         @click="handleEditGroup(group.id)"
                       >
                         Editare
@@ -87,7 +102,7 @@
                         color="secondary"
                         variant="soft"
                         size="sm"
-                        class="flex-1"
+                        class="flex-1 justify-center"
                         @click="handleManageChildren(group.id)"
                       >
                         Gestionează
@@ -112,8 +127,11 @@
   </div>
 </template>
 <script setup lang="ts">
+import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { formatTime } from "~/composables/useUtils";
+import { useChildrenStore } from "~/stores/childrenStore";
+import { useGroupsStore } from "~/stores/groupsStore";
 import type { Group } from "~/types/group.types";
 
 definePageMeta({
@@ -131,11 +149,16 @@ const days = [
   { label: "Sambata", id: 6 },
 ];
 const groupsApi = useGroupsApi();
+const childrenStore = useChildrenStore();
+const groupsStore = useGroupsStore();
+const childrenApi = useChildrenApi();
 
 const groups: Ref<Group[]> = ref([]);
 
 onMounted(async () => {
   groups.value = await groupsApi.fetchGroups();
+  groupsStore.setGroups(groups.value);
+  await childrenApi.fetchChildren();
 });
 
 const groupsByDay = (dayId: number) => {
@@ -145,17 +168,14 @@ const groupsByDay = (dayId: number) => {
 };
 
 const handleAddGroup = () => {
-  // TODO: Navigate to create group page or open modal
-  // navigateTo('/admin/groups/new')
+  navigateTo("/admin/groups/new");
 };
 
 const handleEditGroup = (groupId: number) => {
-  // TODO: Navigate to edit group page
-  // navigateTo(`/admin/groups/${groupId}/edit`)
+  navigateTo(`/admin/groups/${groupId}/edit`);
 };
 
 const handleManageChildren = (groupId: number) => {
-  // TODO: Navigate to manage children for group page
-  // navigateTo(`/admin/groups/${groupId}/children`)
+  navigateTo(`/admin/groups/${groupId}/children`);
 };
 </script>

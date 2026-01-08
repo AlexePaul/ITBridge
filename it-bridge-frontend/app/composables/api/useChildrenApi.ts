@@ -60,6 +60,28 @@ export const useChildrenApi = () => {
     return updatedChild;
   };
 
+  const addChildToGroup = async (childId: string, groupId: string) => {
+    const updatedChild = await api<Child>(`/children/${childId}/groups/${groupId}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tokenStore.accessToken}`,
+      },
+    });
+    console.log(`Child ${childId} added to group ${groupId}:`, updatedChild);
+    return updatedChild;
+  };
+
+  const removeChildFromGroup = async (childId: string, groupId: string) => {
+    const updatedChild = await api<Child>(`/children/${childId}/groups/${groupId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${tokenStore.accessToken}`,
+      },
+    });
+    console.log(`Child ${childId} removed from group ${groupId}:`, updatedChild);
+    return updatedChild;
+  };
+
   const deleteChild = async (childId: string) => {
     await api<void>(`/children/${childId}`, {
       method: "DELETE",
@@ -75,5 +97,7 @@ export const useChildrenApi = () => {
     createChild,
     updateChild,
     deleteChild,
+    addChildToGroup,
+    removeChildFromGroup,
   };
 };

@@ -231,7 +231,7 @@ const columns: TableColumn<Child>[] = [
           type: "link",
           label: "Vizualizează Grup",
           icon: "i-lucide-users",
-          to: row.original.group ? `/admin/groups/${row.original.group.id}` : null,
+          to: row.original.group ? `/admin/groups` : null,
           disabled: !row.original.group,
         },
       ];

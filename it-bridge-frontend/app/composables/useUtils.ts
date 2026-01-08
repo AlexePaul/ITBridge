@@ -11,6 +11,6 @@ export function formatTime(time: string): string {
 }
 
 export function getWeekdayName(weekday: number): string {
-  const days = ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"];
+  const days = ["Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă", "Duminică"];
   return days[weekday - 1] || "Necunoscut";
 }

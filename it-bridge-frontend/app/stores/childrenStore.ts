@@ -16,10 +16,25 @@ export const useChildrenStore = defineStore("children", () => {
     return children.value.find((child) => child.id == id);
   };
 
+  const getChildrenNumberByGroupId = (groupId: string): number => {
+    return children.value.filter((child) => child.group?.id == groupId).length;
+  };
+
+  const getChildrenByGroupId = (groupId: string): Child[] => {
+    return children.value.filter((child) => child.group?.id == groupId);
+  };
+
+  const getChildrenWithoutGroup = (): Child[] => {
+    return children.value.filter((child) => !child.group || !child.group.id);
+  };
+
   return {
     children: readonly(children),
     setChildren,
     clearChildren,
     getChildById,
+    getChildrenNumberByGroupId,
+    getChildrenByGroupId,
+    getChildrenWithoutGroup,
   };
 });
