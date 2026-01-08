@@ -47,9 +47,33 @@ export const useChildrenApi = () => {
     return newChild;
   };
 
+  const updateChild = async (childId: string, childData: Partial<Child>) => {
+    const updatedChild = await api<Child>(`/children/${childId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokenStore.accessToken}`,
+      },
+      body: JSON.stringify(childData),
+    });
+    console.log("Child updated:", updatedChild);
+    return updatedChild;
+  };
+
+  const deleteChild = async (childId: string) => {
+    await api<void>(`/children/${childId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${tokenStore.accessToken}`,
+      },
+    });
+    console.log("Child deleted:", childId);
+  };
   return {
     fetchChildren,
     fetchChildrenAttendance,
     createChild,
+    updateChild,
+    deleteChild,
   };
 };

@@ -64,6 +64,7 @@ import type { Profile } from "~/types/profile.types";
 import { useNotifications } from "~/composables/useNotifications";
 import { getLocalTimeZone, today } from "@internationalized/date";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
+import { normalizeName } from "~/composables/useUtils";
 
 const route = useRoute();
 const { success, error } = useNotifications();
@@ -103,8 +104,8 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
       birthDate instanceof Date ? birthDate.toISOString().split("T")[0] : birthDate?.toString?.();
 
     const childData = {
-      firstName: event.data.firstName,
-      lastName: event.data.lastName,
+      firstName: normalizeName(event.data.firstName),
+      lastName: normalizeName(event.data.lastName),
       birthDate: formattedDate,
       parentId: parseInt(route.params.profileId as string),
     };

@@ -12,9 +12,14 @@ export const useChildrenStore = defineStore("children", () => {
     children.value = [];
   };
 
+  const getChildById = (id: string): Child | undefined => {
+    return children.value.find((child) => child.id == id);
+  };
+
   return {
     children: readonly(children),
     setChildren,
     clearChildren,
+    getChildById,
   };
 });

@@ -72,6 +72,7 @@ import { useProfileApi } from "~/composables/api/useProfileApi";
 import type { User } from "~/types/user.types";
 import type { Profile } from "~/types/profile.types";
 import { useNotifications } from "~/composables/useNotifications";
+import { normalizeName } from "~/composables/useUtils";
 
 definePageMeta({
   layout: "dashboard" as any,
@@ -138,8 +139,8 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
     const payload: Partial<Profile> & { userId?: number } = {
       email: event.data.email || undefined,
       phone: event.data.phone || undefined,
-      firstName: event.data.firstName,
-      lastName: event.data.lastName,
+      firstName: normalizeName(event.data.firstName),
+      lastName: normalizeName(event.data.lastName),
       address: event.data.address || undefined,
       userId: event.data.userId ?? undefined,
     } as any;

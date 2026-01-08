@@ -8,4 +8,8 @@ definePageMeta({
   middleware: "admin-check" as any,
   title: "Dashboard Admin",
 });
+
+onMounted(() => {
+  setPageLayout("dashboard" as any);
+});
 </script>

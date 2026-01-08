@@ -67,8 +67,15 @@
                 <div class="flex items-center gap-2">
                   <UIcon name="i-lucide-baby" class="text-primary text-xl" />
                   <h3 class="text-xl font-semibold">{{ child.firstName }} {{ child.lastName }}</h3>
+                  <UBadge
+                    color="primary"
+                    variant="subtle"
+                    size="lg"
+                    class="h-6 flex items-center px-3 justify-center p-2 w-min ml-auto"
+                  >
+                    #{{ child.id }}
+                  </UBadge>
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div class="flex items-center gap-2">
                     <UIcon name="i-lucide-calendar" class="text-muted" />
@@ -156,6 +163,7 @@
 <script setup lang="ts">
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import type { Profile } from "~/types/profile.types";
+import { formatTime, getWeekdayName } from "~/composables/useUtils";
 
 const route = useRoute();
 const profileApi = useProfileApi();
@@ -171,20 +179,11 @@ definePageMeta({
   title: "Profile Details",
 });
 
-function getWeekdayName(weekday: number): string {
-  const days = ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"];
-  return days[weekday - 1] || "Necunoscut";
-}
-
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString("ro-RO", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
-}
-
-function formatTime(time: string): string {
-  return time.slice(0, 5); // HH:mm from HH:mm:ss
 }
 </script>

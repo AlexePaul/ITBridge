@@ -149,6 +149,7 @@
 import { ref, onMounted, computed } from "vue";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { useProfileStore } from "~/stores/profileStore";
+import { formatTime, getWeekdayName } from "~/composables/useUtils";
 
 const profileApi = useProfileApi();
 const profileStore = useProfileStore();
@@ -172,20 +173,11 @@ onMounted(async () => {
   await loadProfile();
 });
 
-function getWeekdayName(weekday: number): string {
-  const days = ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"];
-  return days[weekday - 1] || "Necunoscut";
-}
-
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString("ro-RO", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
-}
-
-function formatTime(time: string): string {
-  return time.slice(0, 5); // HH:mm from HH:mm:ss
 }
 </script>
