@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold">Children</h1>
-        <p class="text-muted mt-1">View and manage all children</p>
+        <h1 class="text-3xl font-bold">Copii</h1>
+        <p class="text-muted mt-1">Vizualizează și gestionează toți copiii</p>
       </div>
       <div class="flex items-center gap-3">
         <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
@@ -17,12 +17,13 @@
     <UCard class="border">
       <p class="text-muted text-sm">
         <UIcon name="i-lucide-chevron-down" class="inline-block ml-1" />
-        Use the search box to filter children by name, parent name, parent phone, email or group ID.
+        Folosește caseta de căutare pentru a filtra copiii după nume, nume părintelui, telefon
+        părinte, email sau ID grup.
       </p>
       <div class="grid grid-cols-1 gap-4">
         <UInput
           v-model="filters.search"
-          placeholder="Search by child, parent or group..."
+          placeholder="Caută după copil, părinte sau grup..."
           icon="i-lucide-search"
           color="primary"
         >
@@ -41,7 +42,7 @@
 
       <div class="flex justify-between items-center mt-4 pt-4 border-t">
         <div class="text-sm text-muted">
-          Showing {{ filteredChildren.length }} of {{ children.length }} children
+          Afișez {{ filteredChildren.length }} din {{ children.length }} copii
         </div>
         <UButton
           color="neutral"
@@ -50,7 +51,7 @@
           @click="clearFilters"
           :disabled="!hasActiveFilters"
         >
-          Clear Filters
+          Șterge Filtre
         </UButton>
       </div>
     </UCard>
@@ -77,7 +78,7 @@ const UButton = resolveComponent("UButton");
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "Children",
+  title: "Copii",
 });
 
 // Data
@@ -145,7 +146,7 @@ const columns: TableColumn<Child>[] = [
     header: () =>
       h("div", { class: "flex items-center gap-2" }, [
         h(UIcon, { name: "i-lucide-baby", class: "text-secondary" }),
-        h("span", "Name"),
+        h("span", "Nume"),
       ]),
     cell: ({ row }) => {
       const firstName = row.original.firstName || "";
@@ -158,7 +159,7 @@ const columns: TableColumn<Child>[] = [
     header: () =>
       h("div", { class: "flex items-center gap-2" }, [
         h(UIcon, { name: "i-lucide-calendar", class: "text-secondary" }),
-        h("span", "Birth Date"),
+        h("span", "Data Nașterii"),
       ]),
   },
   {
@@ -166,7 +167,7 @@ const columns: TableColumn<Child>[] = [
     header: () =>
       h("div", { class: "flex items-center gap-2" }, [
         h(UIcon, { name: "i-lucide-clock", class: "text-secondary" }),
-        h("span", "Created"),
+        h("span", "Creat"),
       ]),
   },
   {
@@ -174,7 +175,7 @@ const columns: TableColumn<Child>[] = [
     header: () =>
       h("div", { class: "flex items-center gap-2" }, [
         h(UIcon, { name: "i-lucide-user", class: "text-secondary" }),
-        h("span", "Parent"),
+        h("span", "Părinte"),
       ]),
     cell: ({ row }) => {
       const p = row.original.parent;
@@ -192,7 +193,7 @@ const columns: TableColumn<Child>[] = [
     header: () =>
       h("div", { class: "flex items-center gap-2" }, [
         h(UIcon, { name: "i-lucide-users", class: "text-secondary" }),
-        h("span", "Group"),
+        h("span", "Grup"),
       ]),
     cell: ({ row }) => {
       const g = row.original.group;
@@ -206,29 +207,29 @@ const columns: TableColumn<Child>[] = [
     meta: { class: { td: "text-right" } },
     cell: ({ row }) => {
       const items = [
-        { type: "label", label: "Actions" },
+        { type: "label", label: "Acțiuni" },
         {
           type: "link",
-          label: "View Parent",
+          label: "Vizualizează Părinte",
           icon: "i-lucide-user",
           to: `/admin/profiles/${row.original.parent?.id}`,
         },
         {
           type: "link",
-          label: "Edit Child",
+          label: "Editare Copil",
           icon: "i-lucide-baby",
           to: `/admin/children/${row.original.id}/edit`,
         },
         {
           type: "link",
-          label: "Delete Child",
+          label: "Șterge Copil",
           icon: "i-lucide-trash",
           to: `/admin/children/${row.original.id}/confirmation`,
         },
         { type: "separator" },
         {
           type: "link",
-          label: "View Group",
+          label: "Vizualizează Grup",
           icon: "i-lucide-users",
           to: row.original.group ? `/admin/groups/${row.original.group.id}` : null,
           disabled: !row.original.group,

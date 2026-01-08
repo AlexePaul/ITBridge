@@ -1,5 +1,5 @@
 <template>
-  <h1>Attendance Management</h1>
+  <h1>Gestionarea Prezenței</h1>
   <h2>TODO:</h2>
   <ul class="list-disc ml-6 space-y-2">
     <li>selectezi grupa</li>
@@ -22,6 +22,6 @@
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "Attendance Management",
+  title: "Gestionarea Prezenței",
 });
 </script>

@@ -1,5 +1,5 @@
 <template>
-  <h1 class="text-4xl font-bold text-center mt-12 mb-6">Istoric Plati</h1>
+  <h1 class="text-4xl font-bold text-center mt-12 mb-6">Istoric Plați</h1>
   <UTable sticky :data="invoices" :columns="columns" class="flex-1 w-3/4 mx-auto mb-16" />
 </template>
 <script setup lang="ts">
@@ -26,7 +26,7 @@ const invoices = computed<InvoiceTableElement[]>(() => {
 });
 
 definePageMeta({
-  title: "Istoric Plati",
+  title: "Istoric Plăți",
   layout: "dashboard" as any,
 });
 
@@ -42,11 +42,11 @@ const columns: TableColumn<InvoiceTableElement>[] = [
   },
   {
     accessorKey: "name",
-    header: "Name",
+    header: "Nume",
   },
   {
     accessorKey: "date",
-    header: "Date",
+    header: "Dată",
     cell: ({ row }) => {
       return new Date(row.getValue("date")).toLocaleString("ro-RO", {
         day: "numeric",
@@ -72,7 +72,7 @@ const columns: TableColumn<InvoiceTableElement>[] = [
   },
   {
     accessorKey: "amount",
-    header: () => h("div", { class: "text-right" }, "Amount"),
+    header: () => h("div", { class: "text-right" }, "Sumă"),
     cell: ({ row }) => {
       const amount = Number.parseFloat(row.getValue("amount"));
 

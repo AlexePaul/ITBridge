@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold">User Profiles</h1>
-        <p class="text-muted mt-1">Manage and view all user profiles</p>
+        <h1 class="text-3xl font-bold">Profiluri de Utilizatori</h1>
+        <p class="text-muted mt-1">Gestionează și vizualizează toate profilurile utilizatorilor</p>
       </div>
       <UButton
         color="secondary"
@@ -14,7 +14,7 @@
         @click="navigateTo('/admin/profiles/new')"
       >
         <UIcon name="i-lucide-user-plus" class="mr-2" />
-        Add New Profile
+        Adaugă Profil Nou
       </UButton>
       <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
         {{ filteredProfiles.length }} total
@@ -26,7 +26,7 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <UInput
           v-model="filters.search"
-          placeholder="Search by name..."
+          placeholder="Caută după nume..."
           icon="i-lucide-search"
           color="primary"
         >
@@ -44,7 +44,7 @@
 
         <UInput
           v-model="filters.email"
-          placeholder="Filter by email..."
+          placeholder="Filtrare după email..."
           icon="i-lucide-mail"
           color="primary"
         >
@@ -62,7 +62,7 @@
 
         <UInput
           v-model="filters.phone"
-          placeholder="Filter by phone..."
+          placeholder="Filtrare după telefon..."
           icon="i-lucide-phone"
           color="primary"
         >
@@ -81,7 +81,7 @@
 
       <div class="flex justify-between items-center mt-4 pt-4 border-t">
         <div class="text-sm text-muted">
-          Showing {{ filteredProfiles.length }} of {{ profiles.length }} profiles
+          Afișez {{ filteredProfiles.length }} din {{ profiles.length }} profiluri
         </div>
         <UButton
           color="neutral"
@@ -90,7 +90,7 @@
           @click="clearFilters"
           :disabled="!hasActiveFilters"
         >
-          Clear Filters
+          Șterge Filtre
         </UButton>
       </div>
     </UCard>
@@ -119,7 +119,7 @@ const profiles: Ref<Profile[]> = ref([]);
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "User Profiles",
+  title: "Profiluri de Utilizatori",
 });
 
 // Filters
@@ -183,7 +183,7 @@ const columns: TableColumn<Profile>[] = [
   },
   {
     accessorKey: "hasUser",
-    header: "Has User",
+    header: "Are utilizator",
     cell: ({ row }) => {
       const color = {
         true: "success" as const,
@@ -191,7 +191,7 @@ const columns: TableColumn<Profile>[] = [
       }[row.getValue("hasUser") as string];
 
       return h(UBadge, { class: "capitalize", variant: "subtle", color }, () =>
-        row.getValue("hasUser") ? "True" : "False"
+        row.getValue("hasUser") ? "Da" : "Nu"
       );
     },
   },
@@ -200,7 +200,7 @@ const columns: TableColumn<Profile>[] = [
     header: () =>
       h("div", { class: "flex items-center gap-2" }, [
         h(UIcon, { name: "i-lucide-user", class: "text-secondary" }),
-        h("span", "Name"),
+        h("span", "Nume"),
       ]),
     cell: ({ row }) => {
       const firstName = row.original.firstName || "";
@@ -229,7 +229,7 @@ const columns: TableColumn<Profile>[] = [
     header: () =>
       h("div", { class: "flex items-center gap-2" }, [
         h(UIcon, { name: "i-lucide-map-pin", class: "text-secondary" }),
-        h("span", "Address"),
+        h("span", "Adresă"),
       ]),
     cell: ({ row }) => row.getValue("address") || h("span", { class: "text-muted" }, "N/A"),
   },
@@ -238,7 +238,7 @@ const columns: TableColumn<Profile>[] = [
     header: () =>
       h("div", { class: "flex items-center gap-2" }, [
         h(UIcon, { name: "i-lucide-baby", class: "text-secondary" }),
-        h("span", "Children"),
+        h("span", "Copii"),
       ]),
     cell: ({ row }) =>
       h(

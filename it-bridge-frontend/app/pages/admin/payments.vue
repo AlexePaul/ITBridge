@@ -1,5 +1,5 @@
 <template>
-  <h1>Payments Management</h1>
+  <h1>Gestionarea Plăților</h1>
   <h2>TODO:</h2>
   listare + filtrare + adaugare plati manuale pt cash.
 </template>
@@ -7,6 +7,6 @@
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "Payments Management",
+  title: "Gestionarea Plăților",
 });
 </script>

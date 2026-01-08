@@ -113,7 +113,7 @@ useHead(() => ({
 
 const navigationItems = computed(() => {
   const baseItems = [
-    { label: "Home", to: "/", icon: "i-lucide-home" },
+    { label: "Acasă", to: "/", icon: "i-lucide-home" },
     { label: "Contact", to: "/contact", icon: "i-lucide-mail" },
   ];
 
@@ -124,13 +124,17 @@ const navigationItems = computed(() => {
   ];
 
   const adminPages = [
-    { label: "Admin Dashboard", to: "/admin/dashboard", icon: "i-lucide-layout-dashboard" },
-    { label: "User Profiles", to: "/admin/profiles", icon: "i-lucide-users" },
-    { label: "Children", to: "/admin/children", icon: "i-lucide-baby" },
-    { label: "Groups", to: "/admin/groups", icon: "i-lucide-users-round" },
-    { label: "Attendance", to: "/admin/attendance", icon: "i-lucide-check-square" },
-    { label: "Invoices", to: "/admin/invoices", icon: "i-lucide-notebook-pen" },
-    { label: "Payments", to: "/admin/payments", icon: "i-lucide-wallet" },
+    {
+      label: "Tablou de Bord Administrator",
+      to: "/admin/dashboard",
+      icon: "i-lucide-layout-dashboard",
+    },
+    { label: "Profiluri Utilizatori", to: "/admin/profiles", icon: "i-lucide-users" },
+    { label: "Copii", to: "/admin/children", icon: "i-lucide-baby" },
+    { label: "Grupe", to: "/admin/groups", icon: "i-lucide-users-round" },
+    { label: "Prezență", to: "/admin/attendance", icon: "i-lucide-check-square" },
+    { label: "Facturi", to: "/admin/invoices", icon: "i-lucide-notebook-pen" },
+    { label: "Plăți", to: "/admin/payments", icon: "i-lucide-wallet" },
   ];
 
   if (isAdmin) {

@@ -17,27 +17,29 @@ const fields: AuthFormField[] = [
   {
     name: "username",
     type: "text",
-    label: "username",
-    placeholder: "Enter your username",
+    label: "utilizator",
+    placeholder: "Introdu-ți numele de utilizator",
     required: true,
   },
   {
     name: "password",
-    label: "Password",
+    label: "Parolă",
     type: "password",
-    placeholder: "Enter your password",
+    placeholder: "Introdu-ți parola",
     required: true,
   },
   {
     name: "remember",
-    label: "Remember me",
+    label: "Ține-mă minte",
     type: "checkbox",
   },
 ];
 
 const schema = z.object({
-  username: z.string("Username is required").min(1, "Username is required"),
-  password: z.string("Password is required").min(8, "Must be at least 8 characters"),
+  username: z
+    .string("Numele de utilizator este obligatoriu")
+    .min(1, "Numele de utilizator este obligatoriu"),
+  password: z.string("Parola este obligatorie").min(8, "Trebuie să aibă cel puțin 8 caractere"),
 });
 
 type Schema = z.output<typeof schema>;
@@ -57,7 +59,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
     console.log("Login successful:", response);
 
     // Show success notification
-    success("Welcome back!", "Login successful");
+    success("Bine te-am găsit!", "Autentificare reușită");
 
     profileInitialization.initializeProfile();
     invoiceApi.fetchInvoices();
@@ -80,16 +82,16 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
           color="error"
           variant="subtle"
           icon="i-lucide-alert-circle"
-          title="Login Failed"
-          description="Invalid username or password. Please try again."
+          title="Autentificare Eșuată"
+          description="Utilizator sau parolă incorectă. Te rugăm să încerci din nou."
         >
         </UAlert>
       </template>
 
       <UAuthForm
         :schema="schema"
-        title="Login"
-        description="Enter your credentials to access your account."
+        title="Autentificare"
+        description="Introdu-ți acreditările pentru a accesa contul tău."
         icon="i-lucide-user"
         :fields="fields"
         :loading="isLoading"

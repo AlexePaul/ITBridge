@@ -8,14 +8,14 @@
       <div class="hidden items-center gap-3 md:flex">
         <template v-if="!userStore.user">
           <UButton
-            label="Login"
+            label="Autentificare"
             size="md"
             color="primary"
             variant="outline"
             @click="navigateTo('/auth/login')"
           />
           <UButton
-            label="Register"
+            label="Înregistrare"
             size="md"
             color="primary"
             variant="subtle"
@@ -47,14 +47,14 @@
       <div class="flex flex-col items-start gap-3 mt-1 px-3">
         <template v-if="!userStore.user">
           <UButton
-            label="Login"
+            label="Autentificare"
             size="md"
             color="primary"
             variant="outline"
             @click="navigateTo('/auth/login')"
           />
           <UButton
-            label="Register"
+            label="Înregistrare"
             size="md"
             color="primary"
             variant="subtle"
@@ -63,7 +63,7 @@
         </template>
         <template v-else>
           <UButton
-            label="Dashboard"
+            label="Tablou de Bord"
             size="md"
             color="primary"
             variant="outline"

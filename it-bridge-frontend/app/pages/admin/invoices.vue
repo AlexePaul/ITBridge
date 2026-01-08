@@ -1,5 +1,5 @@
 <template>
-  <h1>Invoices Management</h1>
+  <h1>Gestionarea Facturilor</h1>
   <h2>TODO:</h2>
   invoice-urile vor fi generate automat deci aici vreau in principiu o lista cu ele.
 </template>
@@ -7,6 +7,6 @@
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "Invoices Management",
+  title: "Gestionarea Facturilor",
 });
 </script>

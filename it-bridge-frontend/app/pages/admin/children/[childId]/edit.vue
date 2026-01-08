@@ -1,24 +1,24 @@
 <template>
   <UCard variant="subtle" class="max-w-2xl mx-auto">
     <template #header>
-      <h1 class="text-2xl font-bold">Edit Child</h1>
+      <h1 class="text-2xl font-bold">Editare Copil</h1>
     </template>
 
     <UForm :schema="schema" :state="state" class="space-y-5 w-full" @submit="handleSubmit">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <UFormField name="firstName">
-          <template #label>First Name<span class="text-error">*</span></template>
-          <UInput v-model="state.firstName" placeholder="e.g. John" />
+          <template #label>Prenume<span class="text-error">*</span></template>
+          <UInput v-model="state.firstName" placeholder="ex. John" />
         </UFormField>
 
         <UFormField name="lastName">
-          <template #label>Last Name<span class="text-error">*</span></template>
-          <UInput v-model="state.lastName" placeholder="e.g. Doe" />
+          <template #label>Nume<span class="text-error">*</span></template>
+          <UInput v-model="state.lastName" placeholder="ex. Doe" />
         </UFormField>
       </div>
 
       <UFormField name="birthDate">
-        <template #label>Birth Date</template>
+        <template #label>Data Nașterii</template>
         <UInputDate ref="inputDate" v-model="state.birthDate">
           <template #trailing>
             <UPopover :reference="inputDate?.inputsRef?.[3]?.$el">
@@ -41,7 +41,7 @@
 
       <div class="flex gap-3 pt-2">
         <UButton type="submit" size="lg" class="flex-1 justify-center" variant="solid"
-          >Save Changes</UButton
+          >Salvează Modificări</UButton
         >
         <UButton
           type="button"
@@ -49,7 +49,7 @@
           size="lg"
           class="flex-1 justify-center"
           @click="handleCancel"
-          >Cancel</UButton
+          >Anulează</UButton
         >
       </div>
     </UForm>
@@ -76,12 +76,12 @@ const { success } = useNotifications();
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "Edit Child",
+  title: "Editare Copil",
 });
 
 const schema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  firstName: z.string().min(1, "Prenumele este obligatoriu"),
+  lastName: z.string().min(1, "Numele este obligatoriu"),
   birthDate: z.any().optional(),
 });
 
@@ -128,7 +128,7 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
   };
 
   await childrenApi.updateChild(childId, payload);
-  success("Child updated successfully");
+  success("Copilul a fost actualizat cu succes");
 
   await navigateTo("/admin/children");
 }

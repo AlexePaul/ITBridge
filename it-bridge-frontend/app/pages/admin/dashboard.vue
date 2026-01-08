@@ -1,12 +1,12 @@
 <template>
-  <h1>Dashboard admin</h1>
-  <p>i have 0 clue what will be on this page hehe</p>
+  <h1>Tablou de bord admin</h1>
+  <p>Nu am habar ce va fi pe pagina asta hehe</p>
 </template>
 <script setup lang="ts">
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "Dashboard Admin",
+  title: "Tablou de Bord Administrator",
 });
 
 onMounted(() => {

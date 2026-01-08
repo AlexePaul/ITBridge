@@ -14,27 +14,29 @@ const fields: AuthFormField[] = [
   {
     name: "username",
     type: "text",
-    label: "username",
-    placeholder: "Enter your username",
+    label: "utilizator",
+    placeholder: "Introdu-ți numele de utilizator",
     required: true,
   },
   {
     name: "password",
-    label: "Password",
+    label: "Parolă",
     type: "password",
-    placeholder: "Enter your password",
+    placeholder: "Introdu-ți parola",
     required: true,
   },
   {
     name: "remember",
-    label: "Remember me",
+    label: "Ține-mă minte",
     type: "checkbox",
   },
 ];
 
 const schema = z.object({
-  username: z.string("Username is required").min(1, "Username is required"),
-  password: z.string("Password is required").min(8, "Must be at least 8 characters"),
+  username: z
+    .string("Numele de utilizator este obligatoriu")
+    .min(1, "Numele de utilizator este obligatoriu"),
+  password: z.string("Parola este obligatorie").min(8, "Trebuie să aibă cel puțin 8 caractere"),
 });
 
 type Schema = z.output<typeof schema>;
@@ -49,7 +51,7 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
     const response = await register(payload.data.username, payload.data.password);
 
     // Show success notification
-    success("Welcome!", "Registration successful");
+    success("Bine te-am găsit!", "Înregistrarea a fost reușită");
 
     await navigateTo("/user/profile-setup");
   } catch (error) {
@@ -69,16 +71,16 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
           color="error"
           variant="subtle"
           icon="i-lucide-alert-circle"
-          title="Registration Failed"
-          description="An account with this username may already exist or the provided information is invalid. Please try again."
+          title="Înregistrare Eșuată"
+          description="Un cont cu acest utilizator poate deja exista sau informațiile furnizate sunt invalide. Te rugăm să încerci din nou."
         >
         </UAlert>
       </template>
 
       <UAuthForm
         :schema="schema"
-        title="Register"
-        description="Enter your credentials to create a new account."
+        title="Înregistrare"
+        description="Introduce datele pentru a crea un cont nou."
         icon="i-lucide-user"
         :fields="fields"
         :loading="isLoading"

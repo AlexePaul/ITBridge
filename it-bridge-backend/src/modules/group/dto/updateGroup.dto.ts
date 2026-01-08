@@ -17,4 +17,15 @@ export class updateGroupDto {
     @IsString()
     @Matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, { message: 'endTime must be in HH:MM format' })
     endTime: string;
+
+    @ApiProperty({ example: 10, description: 'Minimum age of group members' })
+    @IsNumber()
+    minAge: number;
+
+    @ApiProperty({ example: 15, description: 'Maximum age of group members' })
+    @IsNumber()
+    maxAge: number;
+
+    @ApiProperty({ example: true, description: 'Indicates if the group is active' })
+    isActive: boolean;
 }

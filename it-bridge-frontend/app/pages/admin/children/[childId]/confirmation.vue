@@ -21,7 +21,7 @@ import { useNotifications } from "~/composables/useNotifications";
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "Confirm Delete Child",
+  title: "Confirmare Ștergere Copil",
 });
 
 const route = useRoute();
@@ -31,7 +31,7 @@ const childrenApi = useChildrenApi();
 const handleConfirmation = async () => {
   const childId = route.params.childId as string;
   await childrenApi.deleteChild(childId);
-  success("Child deleted successfully");
+  success("Copilul a fost șters cu succes");
   await navigateTo("/admin/children");
 };
 </script>
