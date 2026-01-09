@@ -38,8 +38,10 @@
             class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div>
+              <UBadge variant="subtle" color="secondary" class="w-10 justify-center"
+                >#{{ child.id }}</UBadge
+              >
               <p class="font-semibold">{{ child.firstName }} {{ child.lastName }}</p>
-              <p class="text-sm text-muted">ID: {{ child.id }}</p>
             </div>
             <UButton
               color="info"
@@ -78,8 +80,10 @@
             class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div>
+              <UBadge variant="subtle" color="secondary" class="w-10 justify-center"
+                >#{{ child.id }}</UBadge
+              >
               <p class="font-semibold">{{ child.firstName }} {{ child.lastName }}</p>
-              <p class="text-sm text-muted">ID: {{ child.id }}</p>
             </div>
             <UButton
               color="primary"

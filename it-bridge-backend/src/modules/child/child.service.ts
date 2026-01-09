@@ -117,6 +117,6 @@ export class ChildService {
         }
 
         child.group = null as any;
-        this.childRepository.save(child);
+        return this.childRepository.save(child);
     }
 }

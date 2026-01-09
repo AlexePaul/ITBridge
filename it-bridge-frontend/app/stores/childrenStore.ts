@@ -24,6 +24,10 @@ export const useChildrenStore = defineStore("children", () => {
     return children.value.filter((child) => child.group?.id == groupId);
   };
 
+  const getChildrenNotInGroupId = (groupId: string): Child[] => {
+    return children.value.filter((child) => child.group?.id != groupId);
+  };
+
   const getChildrenWithoutGroup = (): Child[] => {
     return children.value.filter((child) => !child.group || !child.group.id);
   };
@@ -36,5 +40,6 @@ export const useChildrenStore = defineStore("children", () => {
     getChildrenNumberByGroupId,
     getChildrenByGroupId,
     getChildrenWithoutGroup,
+    getChildrenNotInGroupId,
   };
 });

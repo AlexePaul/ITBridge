@@ -39,77 +39,11 @@
           <template v-if="groupsByDay(day.id).length > 0">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <template v-for="group in groupsByDay(day.id)" :key="group.id">
-                <UCard
-                  :class="[
-                    'hover:shadow-lg transition-shadow',
-                    !group.isActive &&
-                      'opacity-50 border border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30',
-                  ]"
-                >
-                  <template #header>
-                    <div class="flex items-start justify-between">
-                      <div class="flex items-center gap-2">
-                        <UBadge variant="subtle" color="secondary"> #{{ group.id }} </UBadge>
-                        <UBadge v-if="!group.isActive" color="warning" variant="soft" size="sm">
-                          Inactiv
-                        </UBadge>
-                      </div>
-                      <UButton
-                        color="neutral"
-                        variant="ghost"
-                        size="sm"
-                        icon="i-lucide-ellipsis-vertical"
-                      />
-                    </div>
-                  </template>
-
-                  <!-- Time -->
-                  <div class="flex items-center gap-3 mb-3">
-                    <UIcon name="i-lucide-clock" class="text-primary" />
-                    <span class="font-semibold">
-                      {{ formatTime(group.startTime) }} - {{ formatTime(group.endTime) }}
-                    </span>
-                  </div>
-
-                  <!-- Age Range -->
-                  <div class="flex items-center gap-3 mb-4">
-                    <UIcon name="i-lucide-users" class="text-secondary" />
-                    <span class="text-sm">Vârstă {{ group.minAge }} - {{ group.maxAge }}</span>
-                  </div>
-
-                  <!-- Children Count -->
-                  <div class="flex items-center gap-3 mb-4 pt-3 border-t border-muted">
-                    <UIcon name="i-lucide-baby" class="text-warning" />
-                    <span class="text-sm text-muted">
-                      {{ childrenStore.getChildrenNumberByGroupId(String(group.id)) }} copii
-                      inscrisi
-                    </span>
-                  </div>
-
-                  <!-- Actions -->
-                  <template #footer>
-                    <div class="flex gap-2">
-                      <UButton
-                        color="primary"
-                        variant="soft"
-                        size="sm"
-                        class="flex-1 justify-center"
-                        @click="handleEditGroup(group.id)"
-                      >
-                        Editare
-                      </UButton>
-                      <UButton
-                        color="secondary"
-                        variant="soft"
-                        size="sm"
-                        class="flex-1 justify-center"
-                        @click="handleManageChildren(group.id)"
-                      >
-                        Gestionează
-                      </UButton>
-                    </div>
-                  </template>
-                </UCard>
+                <GroupCard
+                  :group="group"
+                  @edit="handleEditGroup"
+                  @manage-children="handleManageChildren"
+                />
               </template>
             </div>
           </template>
@@ -157,7 +91,6 @@ const groups: Ref<Group[]> = ref([]);
 
 onMounted(async () => {
   groups.value = await groupsApi.fetchGroups();
-  groupsStore.setGroups(groups.value);
   await childrenApi.fetchChildren();
 });
 
