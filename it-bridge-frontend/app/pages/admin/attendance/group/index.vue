@@ -67,6 +67,7 @@
 </template>
 
 <script setup lang="ts">
+import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import type { Group } from "~/types/group.types";
@@ -80,6 +81,7 @@ definePageMeta({
 const { error } = useNotifications();
 const groupId = ref<number | null>(null);
 const groups: Ref<Group[]> = ref([]);
+const childrenApi = useChildrenApi();
 const groupsApi = useGroupsApi();
 
 const handleBack = () => {
@@ -96,6 +98,7 @@ const handleSubmit = () => {
 };
 
 onMounted(async () => {
+  await childrenApi.fetchChildren();
   groups.value = await groupsApi.fetchGroups();
 });
 </script>

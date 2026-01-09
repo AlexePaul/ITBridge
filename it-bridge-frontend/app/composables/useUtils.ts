@@ -3,7 +3,10 @@ export function normalizeName(name: string): string {
     return "";
   }
 
-  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+  return name
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
 }
 
 export function formatTime(time: string): string {

@@ -35,7 +35,7 @@
     <UCard
       variant="subtle"
       class="w-1/3 h-72 text-center hover:border-primary hover:border cursor-pointer transition-all hover:shadow-lg"
-      @click="navigateTo('/admin/attendance/child')"
+      @click="navigateTo('/admin/attendance/children')"
     >
       <div class="flex flex-col h-full justify-between py-4">
         <div>
