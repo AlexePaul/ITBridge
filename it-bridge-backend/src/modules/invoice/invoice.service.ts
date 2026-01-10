@@ -9,13 +9,14 @@ import { UpdateInvoiceDto } from './dto/updateInvoice.dto';
 import { FilterInvoiceDto } from './dto/filterInvoice.dto';
 import { Role } from 'src/enum/role.enum';
 import { PdfService } from './pdf.service';
+import { Discount } from 'src/entities/discount.entity';
 
 @Injectable()
 export class InvoiceService {
     constructor(
         @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
-        @InjectRepository(Payment) private readonly paymentRepository: Repository<Payment>,
+        @InjectRepository(Discount) private readonly discountRepository: Repository<Discount>,
         private readonly pdfService: PdfService,
     ) {}
 
@@ -24,12 +25,11 @@ export class InvoiceService {
         if (!parent) throw new NotFoundException('Parent profile not found');
 
         const invoice = new Invoice();
-        invoice.amount = createInvoiceDto.amount;
+        invoice.amount = await this.calculateAmount(createInvoiceDto);
         invoice.dateIssued = new Date(createInvoiceDto.dateIssued);
         invoice.monthIssued = createInvoiceDto.monthIssued;
         invoice.status = createInvoiceDto.status ?? InvoiceStatus.PENDING;
         invoice.parent = parent;
-
         return this.invoiceRepository.save(invoice);
     }
 
@@ -81,5 +81,25 @@ export class InvoiceService {
     async getInvoicePdf(id: number, role: Role, userId: number) {
         const invoice = await this.findOne(id, role, userId);
         return this.pdfService.generateInvoicePdf(invoice);
+    }
+
+    async calculateAmount(createInvoiceDto: CreateInvoiceDto): Promise<number> {
+        const profile = await this.profileRepository.findOne({ where: { id: createInvoiceDto.parentId }, relations: ['children'] });
+
+        if (!profile) throw new NotFoundException('Parent profile not found');
+
+        if (profile.children.length === 0) {
+            throw new NotFoundException('Parent has no children');
+        }
+        let totalAmount = 0;
+        if (profile.children.length === 1) totalAmount = 350;
+        else if (profile.children.length === 2) totalAmount = 250 * profile.children.length;
+
+        const discounts = await this.discountRepository.find({ where: { parent: { id: profile.id }, monthIssued: createInvoiceDto.monthIssued } });
+        for (const discount of discounts) {
+            totalAmount -= discount.value;
+        }
+
+        return totalAmount;
     }
 }

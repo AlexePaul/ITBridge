@@ -3,25 +3,33 @@ import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import PDFDocument from 'pdfkit';
 import * as fs from 'fs';
 import path from 'path';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Discount } from 'src/entities/discount.entity';
+import { Repository } from 'typeorm/repository/Repository';
 
 @Injectable()
 export class PdfService {
+    constructor(@InjectRepository(Discount) private discountRepository: Repository<Discount>) {}
+
     async generateInvoicePdf(invoice: any): Promise<Buffer> {
+        const discounts = await this.discountRepository.find({ where: { parent: { id: invoice.parent.id }, monthIssued: invoice.monthIssued } });
+        const discountValue = discounts.reduce((sum, discount) => sum + Number(discount.value), 0);
+        console.log('Discounts applied:', discounts);
         const items: any[] = [
             {
                 item: 'Servicii educaționale',
                 description: 'Taxă lunară pentru cursuri',
-                amount: invoice.amount,
+                amount: invoice.amount + discountValue,
                 quantity: 1,
             },
-            {
-                item: 'Reducere fidelitate',
-                description: '',
-                amount: -100,
+            ...discounts.map((discount) => ({
+                item: 'Reducere',
+                description: `${discount.description}`,
+                amount: -discount.value,
                 quantity: 1,
-            },
+            })),
         ];
-        const total = items.reduce((sum, item) => sum + item.amount, 0);
+        const total = invoice.amount;
         const PDFDocument = (await import('pdfkit')).default;
         return new Promise((resolve, reject) => {
             const doc = new PDFDocument({ size: 'A4', margin: 50 });

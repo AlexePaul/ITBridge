@@ -8,11 +8,6 @@ export class CreateInvoiceDto {
     @IsNotEmpty()
     parentId: number;
 
-    @ApiProperty({ example: 350, description: 'Amount of the invoice' })
-    @IsNumber()
-    @IsNotEmpty()
-    amount: number;
-
     @ApiProperty({ example: '2024-07-01', description: 'Date when the invoice was issued' })
     @IsDateString()
     @IsNotEmpty()

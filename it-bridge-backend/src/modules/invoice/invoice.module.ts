@@ -9,9 +9,10 @@ import { RolesGuard } from 'src/guards/role.guard';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { JwtModule } from '@nestjs/jwt/dist/jwt.module';
 import { PdfService } from './pdf.service';
+import { Discount } from 'src/entities/discount.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Invoice, Payment, Profile]), JwtModule.register({})],
+    imports: [TypeOrmModule.forFeature([Invoice, Payment, Profile, Discount]), JwtModule.register({})],
     controllers: [InvoiceController],
     providers: [InvoiceService, PdfService, AuthGuard, RolesGuard],
 })

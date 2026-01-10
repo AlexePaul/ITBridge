@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, RelationI
 import { User } from './user.entity';
 import { Child } from './child.entity';
 import { Invoice } from './invoice.entity';
+import { Discount } from './discount.entity';
 
 @Entity('profiles')
 export class Profile {
@@ -32,4 +33,7 @@ export class Profile {
 
     @OneToMany(() => Invoice, (invoice) => invoice.parent)
     invoices: Invoice[];
+
+    @OneToMany(() => Discount, (discount) => discount.parent)
+    discounts: Discount[];
 }
