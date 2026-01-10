@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards, Request, Query, Put, Delete, Param, ParseIntPipe, HttpCode } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, Request, Query, Put, Delete, Param, ParseIntPipe, HttpCode, Response, StreamableFile } from '@nestjs/common';
 import { InvoiceService } from './invoice.service';
 import { ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { AuthGuard } from 'src/guards/auth.guard';
@@ -52,5 +52,21 @@ export class InvoiceController {
     @ApiResponse({ status: 204, description: 'Invoice deleted' })
     async remove(@Param('id', ParseIntPipe) id: number) {
         await this.invoiceService.deleteInvoice(id);
+    }
+
+    @Get('/:id/pdf')
+    @UseGuards(AuthGuard)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: 'Invoice PDF retrieved' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    @ApiResponse({ status: 403, description: 'Forbidden' })
+    @ApiResponse({ status: 404, description: 'Invoice not found' })
+    async getInvoicePdf(@Param('id', ParseIntPipe) id: number, @Request() req) {
+        const pdfBuffer = await this.invoiceService.getInvoicePdf(id, req.user.role, req.user.sub);
+
+        return new StreamableFile(pdfBuffer, {
+            type: 'application/pdf',
+            disposition: 'attachment; filename="invoice.pdf"',
+        });
     }
 }

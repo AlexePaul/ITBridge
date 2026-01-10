@@ -1,7 +1,7 @@
 <template>
   <UCard
     :class="[
-      'hover:shadow-lg transition-shadow',
+      'hover:shadow-lg transition-shadow border-2 border-transparent',
       isSelected && 'border-2 border-primary',
       !group.isActive &&
         'opacity-50 border border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30',

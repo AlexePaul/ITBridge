@@ -1,13 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Invoice } from 'src/entities/invoice.entity';
+import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Payment } from 'src/entities/payment.entity';
 import { CreateInvoiceDto } from './dto/createInvoice.dto';
 import { UpdateInvoiceDto } from './dto/updateInvoice.dto';
 import { FilterInvoiceDto } from './dto/filterInvoice.dto';
 import { Role } from 'src/enum/role.enum';
+import { PdfService } from './pdf.service';
 
 @Injectable()
 export class InvoiceService {
@@ -15,18 +16,19 @@ export class InvoiceService {
         @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
         @InjectRepository(Payment) private readonly paymentRepository: Repository<Payment>,
+        private readonly pdfService: PdfService,
     ) {}
 
     async createInvoice(createInvoiceDto: CreateInvoiceDto) {
         const parent = await this.profileRepository.findOne({ where: { id: createInvoiceDto.parentId } });
         if (!parent) throw new NotFoundException('Parent profile not found');
 
-        const invoice = this.invoiceRepository.create({
-            amount: createInvoiceDto.amount,
-            dateIssued: new Date(createInvoiceDto.dateIssued),
-            status: createInvoiceDto.status ?? 'PENDING',
-            parent,
-        } as any);
+        const invoice = new Invoice();
+        invoice.amount = createInvoiceDto.amount;
+        invoice.dateIssued = new Date(createInvoiceDto.dateIssued);
+        invoice.monthIssued = createInvoiceDto.monthIssued;
+        invoice.status = createInvoiceDto.status ?? InvoiceStatus.PENDING;
+        invoice.parent = parent;
 
         return this.invoiceRepository.save(invoice);
     }
@@ -74,5 +76,10 @@ export class InvoiceService {
         if (!invoice) throw new NotFoundException('Invoice not found');
 
         await this.invoiceRepository.delete(id);
+    }
+
+    async getInvoicePdf(id: number, role: Role, userId: number) {
+        const invoice = await this.findOne(id, role, userId);
+        return this.pdfService.generateInvoicePdf(invoice);
     }
 }

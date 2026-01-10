@@ -33,6 +33,9 @@ export class Invoice {
     @Column({ type: 'date' })
     dateIssued: Date;
 
+    @Column({ type: 'varchar', length: 7 })
+    monthIssued: string; // e.g., '2023-09'
+
     @Column({ type: 'enum', enum: InvoiceStatus, default: InvoiceStatus.PENDING })
     status: InvoiceStatus;
 

@@ -18,6 +18,10 @@ export class CreateInvoiceDto {
     @IsNotEmpty()
     dateIssued: string;
 
+    @ApiProperty({ example: '2024-07', description: 'Month when the invoice was issued' })
+    @IsNotEmpty()
+    monthIssued: string;
+
     @ApiPropertyOptional({ example: 'pending', description: 'Status of the invoice', required: false })
     @IsOptional()
     status?: InvoiceStatus;

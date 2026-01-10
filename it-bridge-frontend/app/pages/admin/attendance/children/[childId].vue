@@ -60,6 +60,7 @@ import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import type { Child } from "~/types/child.types";
 import type { Attendance } from "~/types/attendance.types";
 import type { TableColumn } from "@nuxt/ui";
+import { formatTime } from "~/composables/useUtils";
 
 definePageMeta({
   layout: "dashboard" as any,
@@ -92,6 +93,10 @@ const columns: TableColumn<Attendance>[] = [
   {
     accessorKey: "startTime",
     header: "Ora Începerii",
+    cell: ({ row }) => {
+      const time = row.getValue("startTime") as string;
+      return formatTime(time);
+    },
   },
   {
     accessorKey: "type",

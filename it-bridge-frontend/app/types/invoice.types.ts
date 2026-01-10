@@ -3,4 +3,5 @@ export interface Invoice {
   amount: number;
   dateIssued: string;
   status: "pending" | "paid" | "overdue";
+  monthIssued: string;
 }
