@@ -6,6 +6,7 @@ import { Roles } from 'src/decorators/role.decorator';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { CreateDiscountDto } from './dto/createDiscount.dto';
+import { UpdateDiscountDto } from './dto/updateDiscount.dto';
 
 @Controller('discounts')
 export class DiscountController {
@@ -34,7 +35,7 @@ export class DiscountController {
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
     @ApiResponse({ status: 200, description: 'Discount updated successfully' })
-    async updateDiscount(@Param('id', ParseIntPipe) id: number, @Body() updateDiscountDto: CreateDiscountDto) {
+    async updateDiscount(@Param('id', ParseIntPipe) id: number, @Body() updateDiscountDto: UpdateDiscountDto) {
         return this.discountService.updateDiscount(id, updateDiscountDto);
     }
 

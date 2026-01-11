@@ -35,24 +35,8 @@ export const useInvoiceApi = () => {
     return invoices.value;
   };
 
-  const generateInvoices = async () => {
-    try {
-      const response = await api<any>("/invoices/generate", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${tokenStore.accessToken}`,
-        },
-      });
-      console.log("Invoices generated response:", response);
-      return response;
-    } catch (err: any) {
-      console.error("Error generating invoices:", err);
-      throw err;
-    }
-  };
   return {
     getInvoices,
     fetchInvoices,
-    generateInvoices,
   };
 };

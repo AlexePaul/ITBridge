@@ -22,7 +22,7 @@ export class CreateDiscountDto {
     @IsNotEmpty()
     name: string;
 
-    @ApiProperty({ example: '100 RON discount for Refferal', default: '100 RON discount for Refferal' })
+    @ApiProperty({ example: '100 RON discount pentru recomandare', default: '100 RON discount pentru recomandare' })
     @IsOptional()
     @IsString()
     description?: string;

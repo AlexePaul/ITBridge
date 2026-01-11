@@ -54,6 +54,18 @@ export class InvoiceController {
         await this.invoiceService.deleteInvoice(id);
     }
 
+    @Get('/:id/preview')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: 'Invoice PDF preview retrieved' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    @ApiResponse({ status: 403, description: 'Forbidden' })
+    @ApiResponse({ status: 404, description: 'Invoice not found' })
+    async previewInvoicePdf(@Param('id', ParseIntPipe) id: number, @Request() req) {
+        return this.invoiceService.getPreview(id);
+    }
+
     @Get('/:id/pdf')
     @UseGuards(AuthGuard)
     @ApiBearerAuth()

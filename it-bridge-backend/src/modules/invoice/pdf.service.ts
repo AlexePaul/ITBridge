@@ -14,7 +14,7 @@ export class PdfService {
     async generateInvoicePdf(invoice: any): Promise<Buffer> {
         const discounts = await this.discountRepository.find({ where: { parent: { id: invoice.parent.id }, monthIssued: invoice.monthIssued } });
         const discountValue = discounts.reduce((sum, discount) => sum + Number(discount.value), 0);
-        console.log('Discounts applied:', discounts);
+
         const items: any[] = [
             {
                 item: 'Servicii educaționale',
@@ -23,7 +23,7 @@ export class PdfService {
                 quantity: 1,
             },
             ...discounts.map((discount) => ({
-                item: 'Reducere',
+                item: `${discount.name}`,
                 description: `${discount.description}`,
                 amount: -discount.value,
                 quantity: 1,

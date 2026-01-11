@@ -12,12 +12,12 @@ export class UpdateDiscountDto {
     @IsString()
     monthIssued?: string;
 
-    @ApiPropertyOptional({ example: 'Refferal' })
+    @ApiPropertyOptional({ example: 'Recomandare' })
     @IsOptional()
     @IsString()
     name?: string;
 
-    @ApiPropertyOptional({ example: '100 RON discount for Refferal' })
+    @ApiPropertyOptional({ example: '100 RON discount pentru recomandare' })
     @IsOptional()
     @IsString()
     description?: string;
