@@ -8,6 +8,7 @@ import { RolesGuard } from 'src/guards/role.guard';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
 import { FilterInvoiceDto } from './dto/filterInvoice.dto';
+import { GetPreviewDto } from './dto/getPreview.dto';
 
 @Controller('invoices')
 export class InvoiceController {
@@ -54,7 +55,7 @@ export class InvoiceController {
         await this.invoiceService.deleteInvoice(id);
     }
 
-    @Get('/:id/preview')
+    @Post('/preview')
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
@@ -62,8 +63,8 @@ export class InvoiceController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'Invoice not found' })
-    async previewInvoicePdf(@Param('id', ParseIntPipe) id: number, @Request() req) {
-        return this.invoiceService.getPreview(id);
+    async previewInvoicePdf(@Body() dto: GetPreviewDto) {
+        return this.invoiceService.getPreview(dto);
     }
 
     @Get('/:id/pdf')

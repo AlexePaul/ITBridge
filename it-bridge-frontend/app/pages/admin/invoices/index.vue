@@ -4,6 +4,16 @@
       <h1 class="text-3xl font-bold">Facturi</h1>
       <p class="text-muted mt-1">Gestionează toate facturile școlii după luna si anul emiterii</p>
     </div>
+    <UButton
+      color="secondary"
+      variant="subtle"
+      class="mr-3 ml-auto flex items-center h-11"
+      size="lg"
+      @click="navigateTo('/admin/invoices/new')"
+    >
+      <UIcon name="i-lucide-file-plus" class="mr-2" />
+      Genereaza Facturi Noi
+    </UButton>
   </div>
 
   <div class="w-9/12 mx-auto px-4 sm:px-6 lg:px-8 pb-16">

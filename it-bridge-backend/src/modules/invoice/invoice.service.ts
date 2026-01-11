@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, StreamableFile } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
@@ -10,6 +10,8 @@ import { FilterInvoiceDto } from './dto/filterInvoice.dto';
 import { Role } from 'src/enum/role.enum';
 import { PdfService } from './pdf.service';
 import { Discount } from 'src/entities/discount.entity';
+import { GetPreviewDto } from './dto/getPreview.dto';
+import { S3Service } from './s3.service';
 
 @Injectable()
 export class InvoiceService {
@@ -18,19 +20,28 @@ export class InvoiceService {
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
         @InjectRepository(Discount) private readonly discountRepository: Repository<Discount>,
         private readonly pdfService: PdfService,
+        private readonly s3Service: S3Service,
     ) {}
 
     async createInvoice(createInvoiceDto: CreateInvoiceDto) {
-        const parent = await this.profileRepository.findOne({ where: { id: createInvoiceDto.parentId } });
-        if (!parent) throw new NotFoundException('Parent profile not found');
+        let invoicesCreated: Invoice[] = [];
+        let invoicePdf: StreamableFile[] = [];
+        for (const parentId of createInvoiceDto.parentIds) {
+            const parent = await this.profileRepository.findOne({ where: { id: parentId } });
+            if (!parent) throw new NotFoundException('Parent profile not found');
 
-        const invoice = new Invoice();
-        invoice.amount = await this.calculateAmount(createInvoiceDto.parentId, createInvoiceDto.monthIssued);
-        invoice.dateIssued = new Date(createInvoiceDto.dateIssued);
-        invoice.monthIssued = createInvoiceDto.monthIssued;
-        invoice.status = createInvoiceDto.status ?? InvoiceStatus.PENDING;
-        invoice.parent = parent;
-        return this.invoiceRepository.save(invoice);
+            const invoice = new Invoice();
+            invoice.amount = await this.calculateAmount(parentId, createInvoiceDto.monthIssued);
+            invoice.dateIssued = new Date(createInvoiceDto.dateIssued);
+            invoice.monthIssued = createInvoiceDto.monthIssued;
+            invoice.status = InvoiceStatus.PENDING;
+            invoice.parent = parent;
+            invoicesCreated.push(await this.invoiceRepository.save(invoice));
+            const pdfBuffer = await this.pdfService.generateInvoicePdf(invoice);
+            const fileName = `invoices/${invoice.monthIssued}/${invoice.id + '_' + invoice.parent.firstName + '_' + invoice.parent.lastName}.pdf`;
+            await this.s3Service.uploadFile(pdfBuffer, fileName);
+        }
+        return invoicesCreated;
     }
 
     async findInvoices(filterInvoiceDto: FilterInvoiceDto, role: Role, userId: number) {
@@ -80,7 +91,8 @@ export class InvoiceService {
 
     async getInvoicePdf(id: number, role: Role, userId: number) {
         const invoice = await this.findOne(id, role, userId);
-        return this.pdfService.generateInvoicePdf(invoice);
+        const fileName = `invoices/${invoice.monthIssued}/${invoice.id + '_' + invoice.parent.firstName + '_' + invoice.parent.lastName}.pdf`;
+        return this.s3Service.downloadFile(fileName);
     }
 
     async calculateAmount(parentId: number, monthIssued: string): Promise<number> {
@@ -103,10 +115,17 @@ export class InvoiceService {
         return totalAmount;
     }
 
-    async getPreview(id: number) {
-        return {
-            parentId: id,
-            amount: await this.calculateAmount(id, '2024-01'),
-        };
+    async getPreview(dto: GetPreviewDto) {
+        const results = await Promise.all(
+            dto.parentIds.map(async (parentId) =>
+                this.calculateAmount(parentId, dto.monthIssued)
+                    .then((amount) => ({
+                        parentId,
+                        amount,
+                    }))
+                    .catch(() => null),
+            ),
+        );
+        return results.filter((res) => res !== null);
     }
 }

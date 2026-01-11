@@ -38,6 +38,10 @@ services:
       DB_USER: ${DB_USER:-itbridge}
       DB_PASSWORD: ${DB_PASSWORD:-dev_password}
       DB_NAME: ${DB_NAME:-itbridge_db}
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
     ports:
       - "3000:3000"
     depends_on:

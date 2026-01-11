@@ -10,10 +10,11 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { JwtModule } from '@nestjs/jwt/dist/jwt.module';
 import { PdfService } from './pdf.service';
 import { Discount } from 'src/entities/discount.entity';
+import { S3Service } from './s3.service';
 
 @Module({
     imports: [TypeOrmModule.forFeature([Invoice, Payment, Profile, Discount]), JwtModule.register({})],
     controllers: [InvoiceController],
-    providers: [InvoiceService, PdfService, AuthGuard, RolesGuard],
+    providers: [InvoiceService, PdfService, S3Service, AuthGuard, RolesGuard],
 })
 export class InvoiceModule {}
