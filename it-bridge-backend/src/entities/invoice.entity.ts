@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn, Unique, Index } from 'typeorm';
 import { Profile } from './profile.entity';
 import { Payment } from './payment.entity';
 
@@ -9,6 +9,7 @@ export enum InvoiceStatus {
 }
 
 @Entity('invoices')
+@Unique(['parent', 'monthIssued'])
 export class Invoice {
     @PrimaryGeneratedColumn('increment')
     id: number;

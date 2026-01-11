@@ -3,10 +3,10 @@ import { InvoiceStatus } from '../../../entities/invoice.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateInvoiceDto {
-    @ApiProperty({ example: 1, description: 'ID of the parent' })
-    @IsNumber()
+    @ApiProperty({ example: [1, 2, 3], description: 'IDs of the parents' })
+    @IsNumber({}, { each: true })
     @IsNotEmpty()
-    parentId: number;
+    parentIds: number[];
 
     @ApiProperty({ example: '2024-07-01', description: 'Date when the invoice was issued' })
     @IsDateString()
@@ -16,8 +16,4 @@ export class CreateInvoiceDto {
     @ApiProperty({ example: '2024-07', description: 'Month when the invoice was issued' })
     @IsNotEmpty()
     monthIssued: string;
-
-    @ApiPropertyOptional({ example: 'pending', description: 'Status of the invoice', required: false })
-    @IsOptional()
-    status?: InvoiceStatus;
 }

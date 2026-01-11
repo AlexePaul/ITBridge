@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt } from 'class-validator/types/decorator/typechecker/IsInt';
-import { IsString } from 'class-validator/types/decorator/typechecker/IsString';
+import { IsArray, IsNumber, IsString } from 'class-validator';
 
 export class GetPreviewDto {
-    @ApiProperty({ example: 1 })
-    @IsInt()
-    parentId: number;
+    @ApiProperty({ example: [1, 2, 3] })
+    @IsArray()
+    @IsNumber({}, { each: true })
+    parentIds: number[];
 
     @ApiProperty({ example: '2026-01' })
     @IsString()

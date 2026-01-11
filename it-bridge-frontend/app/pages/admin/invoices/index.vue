@@ -4,6 +4,16 @@
       <h1 class="text-3xl font-bold">Facturi</h1>
       <p class="text-muted mt-1">Gestionează toate facturile școlii după luna si anul emiterii</p>
     </div>
+    <UButton
+      color="secondary"
+      variant="subtle"
+      class="mr-3 ml-auto flex items-center h-11"
+      size="lg"
+      @click="navigateTo('/admin/invoices/new')"
+    >
+      <UIcon name="i-lucide-file-plus" class="mr-2" />
+      Genereaza Facturi Noi
+    </UButton>
   </div>
 
   <div class="w-9/12 mx-auto px-4 sm:px-6 lg:px-8 pb-16">
@@ -13,7 +23,7 @@
         <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <template v-for="month in months[year]" :key="month.month">
             <UCard
-              class="h-min border border-transparent hover:border-primary cursor-pointer"
+              :class="['h-min cursor-pointer', getMonthBorderClass(month.month)]"
               @click="() => navigateTo(`/admin/invoices/${month.month}`)"
             >
               <template #header
@@ -45,6 +55,20 @@ definePageMeta({
 const invoiceApi = useInvoiceApi();
 const invoices: Ref<Invoice[]> = ref([]);
 const months: Ref<Record<string, { month: string; count: number }[]>> = ref({});
+
+const getMonthBorderClass = (month: string): string => {
+  const monthInvoices = invoices.value.filter((inv) => inv.monthIssued === month);
+  const hasOverdue = monthInvoices.some((inv) => inv.status === "overdue");
+  const hasPending = monthInvoices.some((inv) => inv.status === "pending");
+
+  if (hasOverdue) {
+    return "border border-error";
+  } else if (hasPending) {
+    return "border border-warning";
+  } else {
+    return "border border-transparent hover:border-primary";
+  }
+};
 
 const formatMonthName = (monthStr: string): string => {
   const monthNames: Record<number, string> = {

@@ -4,4 +4,8 @@ export interface Invoice {
   dateIssued: string;
   status: "pending" | "paid" | "overdue";
   monthIssued: string;
+  parent?: {
+    firstName: string;
+    lastName: string;
+  };
 }
