@@ -11,8 +11,18 @@
   },
   "dependencies": {
     "@nuxt/ui": "^4.3.0",
+    "@pinia/nuxt": "^0.11.3",
     "nuxt": "^4.2.2",
+    "nuxt-auth-utils": "^0.5.26",
+    "pinia": "^3.0.4",
     "vue": "^3.5.26",
-    "vue-router": "^4.6.4"
+    "vue-router": "^4.6.4",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.7.4",
+    "prettier-plugin-vue": "^1.1.6"
   }
 }

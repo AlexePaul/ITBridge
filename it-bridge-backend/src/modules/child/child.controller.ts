@@ -77,6 +77,6 @@ export class ChildController {
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'Child or Group not found' })
     async removeChildFromGroup(@Param('childId', ParseIntPipe) childId: number, @Param('groupId', ParseIntPipe) groupId: number, @Request() req) {
-        this.childService.removeChildFromGroup(childId, groupId);
+        return this.childService.removeChildFromGroup(childId, groupId);
     }
 }

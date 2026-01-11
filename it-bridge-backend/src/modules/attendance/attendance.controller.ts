@@ -10,6 +10,7 @@ import { markAttendanceDto } from './dto/markAttendance.dto';
 @Controller('attendance')
 export class AttendanceController {
     constructor(private readonly attendanceService: AttendanceService) {}
+
     @Post('/:groupId')
     @ApiBearerAuth()
     @UseGuards(AuthGuard, RolesGuard)

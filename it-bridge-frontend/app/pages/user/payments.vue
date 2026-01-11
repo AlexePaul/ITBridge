@@ -1,0 +1,88 @@
+<template>
+  <h1 class="text-4xl font-bold text-center mt-12 mb-6">Istoric Plați</h1>
+  <UTable sticky :data="invoices" :columns="columns" class="flex-1 w-3/4 mx-auto mb-16" />
+</template>
+<script setup lang="ts">
+import type { TableColumn } from "@nuxt/ui";
+import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
+import type InvoiceTableElement from "~/types/invoiceTableElement";
+
+const UBadge = resolveComponent("UBadge");
+
+const InvoiceApi = useInvoiceApi();
+const invoices = computed<InvoiceTableElement[]>(() => {
+  const list = InvoiceApi.getInvoices() ?? [];
+  if (!Array.isArray(list)) return [];
+  const mapped = list.map((invoice: any) => {
+    return {
+      id: String(invoice.id),
+      date: invoice.dateIssued,
+      status: invoice.status,
+      name: (invoice.parent.firstName ?? "") + " " + (invoice.parent.lastName ?? ""),
+      amount: invoice.amount ?? 0,
+    } as InvoiceTableElement;
+  });
+  return mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+});
+
+definePageMeta({
+  title: "Istoric Plăți",
+  layout: "dashboard" as any,
+});
+
+onMounted(async () => {
+  await InvoiceApi.fetchInvoices();
+});
+
+const columns: TableColumn<InvoiceTableElement>[] = [
+  {
+    accessorKey: "id",
+    header: "#",
+    cell: ({ row }) => `#${row.getValue("id")}`,
+  },
+  {
+    accessorKey: "name",
+    header: "Nume",
+  },
+  {
+    accessorKey: "date",
+    header: "Dată",
+    cell: ({ row }) => {
+      return new Date(row.getValue("date")).toLocaleString("ro-RO", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    },
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const color = {
+        paid: "success" as const,
+        pending: "warning" as const,
+        overdue: "error" as const,
+      }[row.getValue("status") as string];
+
+      return h(UBadge, { class: "capitalize", variant: "subtle", color }, () =>
+        row.getValue("status")
+      );
+    },
+  },
+  {
+    accessorKey: "amount",
+    header: () => h("div", { class: "text-right" }, "Sumă"),
+    cell: ({ row }) => {
+      const amount = Number.parseFloat(row.getValue("amount"));
+
+      const formatted = new Intl.NumberFormat("ro-RO", {
+        style: "currency",
+        currency: "RON",
+      }).format(amount);
+
+      return h("div", { class: "text-right font-medium" }, formatted);
+    },
+  },
+];
+</script>

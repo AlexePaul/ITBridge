@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/entities/user.entity';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { UpdateUserDto } from './dto/updateUser.dto';
 
 @Injectable()
@@ -13,6 +13,19 @@ export class UserService {
 
     async getAllUsers(): Promise<User[]> {
         return this.userRepository.find();
+    }
+
+    async getUsersWithoutProfile(): Promise<User[]> {
+        const subQuery = this.userRepository
+            .manager
+            .createQueryBuilder()
+            .select('profile.user_id')
+            .from('profiles', 'profile');
+
+        return this.userRepository
+            .createQueryBuilder('user')
+            .where(`user.id NOT IN (${subQuery.getQuery()})`)
+            .getMany();
     }
 
     async getUserById(id: number): Promise<User> {

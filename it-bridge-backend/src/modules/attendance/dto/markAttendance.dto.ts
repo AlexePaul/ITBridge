@@ -14,8 +14,8 @@ class ChildAttendanceDto {
 export class markAttendanceDto {
     @ApiProperty({
         example: [
-            { childId: 1, present: true },
-            { childId: 2, present: false },
+            { childId: 1, present: true, type: 'normal' },
+            { childId: 2, present: false, type: 'catch-up' },
         ],
         description: 'Array of child IDs with presence status',
     })
@@ -30,8 +30,4 @@ export class markAttendanceDto {
     @IsString()
     @Matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, { message: 'startTime must be in HH:MM format' })
     startTime: string;
-
-    @ApiProperty({ example: 'normal', description: 'Type of attendance (normal or catch-up)' })
-    @IsString()
-    type: string;
 }

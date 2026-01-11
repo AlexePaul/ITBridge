@@ -10,6 +10,7 @@ export class GroupService {
 
     async createGroup(createGroupDto: createGroupDto): Promise<Group> {
         const group = this.groupRepository.create(createGroupDto);
+        group.isActive = true;
         return await this.groupRepository.save(group);
     }
 

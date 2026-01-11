@@ -21,6 +21,15 @@ export class Group {
     @Column({ type: 'time' })
     endTime: string;
 
+    @Column({ type: 'decimal' })
+    minAge: number;
+
+    @Column({ type: 'decimal' })
+    maxAge: number;
+
     @OneToMany(() => Child, (child) => child.group)
     children: Child[];
+
+    @Column({ type: 'boolean', default: true })
+    isActive: boolean;
 }
