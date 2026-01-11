@@ -18,6 +18,7 @@
           <thead>
             <tr class="border-b border-primary">
               <th class="text-left py-3 px-4 font-semibold">ID</th>
+              <th class="text-left py-3 px-4 font-semibold">Nume</th>
               <th class="text-left py-3 px-4 font-semibold">Suma (RON)</th>
               <th class="text-left py-3 px-4 font-semibold">Data Emiterii</th>
               <th class="text-left py-3 px-4 font-semibold">Stare</th>
@@ -31,6 +32,9 @@
               class="border-b border-gray-200 hover:border-primary"
             >
               <td class="py-3 px-4">{{ invoice.id }}</td>
+              <td class="py-3 px-4">
+                {{ invoice.parent?.firstName }} {{ invoice.parent?.lastName }}
+              </td>
               <td class="py-3 px-4">{{ formatCurrency(invoice.amount) }}</td>
               <td class="py-3 px-4">{{ formatDate(invoice.dateIssued) }}</td>
               <td class="py-3 px-4">

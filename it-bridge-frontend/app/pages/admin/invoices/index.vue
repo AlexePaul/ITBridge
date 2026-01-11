@@ -23,7 +23,7 @@
         <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <template v-for="month in months[year]" :key="month.month">
             <UCard
-              class="h-min border border-transparent hover:border-primary cursor-pointer"
+              :class="['h-min cursor-pointer', getMonthBorderClass(month.month)]"
               @click="() => navigateTo(`/admin/invoices/${month.month}`)"
             >
               <template #header
@@ -55,6 +55,20 @@ definePageMeta({
 const invoiceApi = useInvoiceApi();
 const invoices: Ref<Invoice[]> = ref([]);
 const months: Ref<Record<string, { month: string; count: number }[]>> = ref({});
+
+const getMonthBorderClass = (month: string): string => {
+  const monthInvoices = invoices.value.filter((inv) => inv.monthIssued === month);
+  const hasOverdue = monthInvoices.some((inv) => inv.status === "overdue");
+  const hasPending = monthInvoices.some((inv) => inv.status === "pending");
+
+  if (hasOverdue) {
+    return "border border-error";
+  } else if (hasPending) {
+    return "border border-warning";
+  } else {
+    return "border border-transparent hover:border-primary";
+  }
+};
 
 const formatMonthName = (monthStr: string): string => {
   const monthNames: Record<number, string> = {
