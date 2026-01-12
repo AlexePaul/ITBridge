@@ -18,8 +18,9 @@
             size="xl"
             color="primary"
             variant="solid"
-            label="Cursuri & Înscrieri"
+            label="Cursuri & Informații"
             icon="i-lucide-book-open"
+            @click="navigateTo('/courses')"
           />
           <UButton
             size="xl"
@@ -27,6 +28,7 @@
             variant="outline"
             label="Contactează-ne"
             icon="i-lucide-phone"
+            @click="navigateTo('/contact')"
           />
         </div>
       </div>
@@ -45,15 +47,15 @@
             :ui="{ item: 'basis-full md:basis-1/2 lg:basis-1/3' }"
           >
             <template #default="{ item }">
-              <UCard
-                color="primary"
-                class="h-48 flex items-center justify-center border border-neutral-100"
-              >
-                <div class="text-center text-muted">
-                  <UIcon name="i-lucide-image" class="text-5xl mb-2" />
-                  <p>{{ item.title }}</p>
-                </div>
-              </UCard>
+              <div class="justify-center text-center p-4">
+                <p class="text-xl text-secondary font-semibold mb-4">{{ item.title }}</p>
+                <img
+                  v-if="item.image"
+                  :src="`/images/${item.image}`"
+                  alt="Carousel Image"
+                  class="w-auto h-72 object-cover block p-0 border border-neutral rounded-lg mx-auto"
+                />
+              </div>
             </template>
           </UCarousel>
         </div>
@@ -112,14 +114,11 @@
                 </li>
               </ul>
             </div>
-            <UCard color="neutral" class="border-0 rounded-xl" variant="outline">
-              <div class="h-64 flex items-center justify-center text-muted">
-                <div class="text-center">
-                  <UIcon name="i-lucide-image" class="text-6xl mb-2" />
-                  <p>Placeholder pentru imagine</p>
-                </div>
-              </div>
-            </UCard>
+            <img
+              src="/images/laptop.png"
+              alt="Classroom Image"
+              class="h-90 w-auto mx-auto rounded-lg mb-4 border border-neutral"
+            />
           </div>
         </div>
       </UCard>
@@ -141,13 +140,15 @@
               variant="solid"
               label="Contact"
               icon="i-lucide-mail"
+              @click="navigateTo('/contact')"
             />
             <UButton
               size="xl"
               color="neutral"
               variant="outline"
-              label="0773.896.129"
+              label="+40 732 273 347"
               icon="i-lucide-phone"
+              href="tel:+40732273347"
             />
           </div>
         </UCard>
@@ -191,11 +192,11 @@ watch(
 );
 
 const carouselItems = [
-  { title: "Activități practice" },
-  { title: "Proiecte creative" },
-  { title: "Lecții interactive" },
-  { title: "Momente de succes" },
-  { title: "Echipa noastră" },
+  { title: "Activități practice", image: "03.jpeg" },
+  { title: "Proiecte creative", image: "01.jpg" },
+  { title: "Lecții interactive", image: "02.jpeg" },
+  { title: "Momente de succes", image: "05.jpeg" },
+  { title: "Echipa noastră", image: "04.jpeg" },
 ];
 
 const advantages = [

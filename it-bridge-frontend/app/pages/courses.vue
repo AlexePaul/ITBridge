@@ -1,47 +1,10 @@
 <template>
   <div>
-    <!-- Header -->
-    <section class="py-16">
-      <UCard color="neutral" class="py-8 border-0" variant="soft">
-        <div class="max-w-6xl mx-auto">
-          <h1 class="text-4xl font-bold mb-4 text-highlighted">Meditații Informatică</h1>
-          <p class="text-lg text-muted">
-            Centre de pregătire și tutoring pentru informatică. Ajutăm elevii să înțeleagă
-            conceptele IT și să obțină rezultate excelente la examene.
-          </p>
-        </div>
-      </UCard>
-    </section>
-
-    <!-- About Section -->
-    <section class="py-20 px-4 sm:px-6 lg:px-8">
-      <div class="max-w-4xl mx-auto mb-16">
-        <h2 class="text-3xl font-bold mb-6 text-highlighted">Ce Oferim?</h2>
-        <p class="text-muted mb-8">
-          Oferim lecții personalizate pentru elevi de toate vârstele și nivelurile, de la începători
-          la avansați. Fiecare curs este conceput pentru a se potrivi nevoilor individuale ale
-          elevilor noștri, asigurându-ne că aceștia înțeleg conceptele cheie și dobândesc
-          abilitățile necesare pentru a excela în domeniul IT.
-        </p>
-        <div class="grid md:grid-cols-3 gap-6">
-          <UCard v-for="feature in features" :key="feature.title" color="neutral" variant="soft">
-            <template #header>
-              <div class="flex items-center gap-3">
-                <UIcon :name="feature.icon" class="text-secondary w-6 h-6" />
-                <h3 class="font-semibold text-highlighted">{{ feature.title }}</h3>
-              </div>
-            </template>
-            <p class="text-muted text-sm">{{ feature.description }}</p>
-          </UCard>
-        </div>
-      </div>
-    </section>
-
     <!-- Classes Grid -->
     <section class="py-16">
       <UCard color="neutral" class="py-8 border-0" variant="soft">
         <div class="max-w-6xl mx-auto">
-          <h2 class="text-3xl font-bold mb-12 text-center text-highlighted">Clasele Noastre</h2>
+          <h2 class="text-3xl font-bold mb-12 text-center text-secondary">Clasele Noastre</h2>
           <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             <UCard
               v-for="course in courses"
@@ -53,7 +16,7 @@
               <template #header>
                 <div>
                   <h3 class="text-xl font-bold text-highlighted">{{ course.title }}</h3>
-                  <p class="text-sm text-muted">{{ course.level }}</p>
+                  <p class="text-sm text-secondary">{{ course.level }}</p>
                 </div>
               </template>
               <div class="h-60 overflow-y-auto mb-4">
@@ -89,7 +52,7 @@
             <h3 class="text-xl font-semibold mb-4 text-highlighted">De Ce Noi?</h3>
             <ul class="space-y-3 text-muted">
               <li v-for="benefit in benefits" :key="benefit" class="flex gap-2">
-                <UIcon name="i-lucide-check" class="text-primary w-5 h-5 flex-shrink-0 mt-0.5" />
+                <UIcon name="i-lucide-check" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
                 <span>{{ benefit }}</span>
               </li>
             </ul>
@@ -144,36 +107,47 @@ const features = [
 
 const courses = [
   {
-    title: "Clasa 0-4",
+    title: "Clasa 0-2",
     level: "Inițiere",
     topics: [
       "Cunoașterea calculatorului",
       "Folosirea mouse-ului și tastaturii",
       "Jocuri educative pe calculator",
       "Introducere în concepte de bază",
-      "Creativitate prin desen digital",
+      "Creativitate prin desen digital 2D și 3D",
+    ],
+  },
+  {
+    title: "Clasa 3-4",
+    level: "Începători",
+    topics: [
+      "Noțiuni de bază în informatică",
+      "Folosirea sistemelor de operare",
+      "Aplicații Office (Word, PowerPoint, Excel)",
+      "Internet și siguranță online",
+      "Jocuri educative și programare simplă in Scratch",
     ],
   },
   {
     title: "Clasa 5-6",
-    level: "Începători",
+    level: "Intermediar",
     topics: [
-      "Noțiuni de bază în informatică",
-      "Componentele calculatorului",
-      "Sisteme de operare",
-      "Aplicații Office (Word, Excel)",
-      "Internet și siguranță online",
+      "Introducere în algoritmi",
+      "Programare în Scratch",
+      "Proiecte practice",
+      "Dezvoltarea Site-urilor web simple",
     ],
   },
   {
     title: "Clasa 7-8",
-    level: "Intermediar",
+    level: "Intermediar-Avansat",
     topics: [
-      "Introducere în algoritmi",
-      "Pseudocod și fluxograme",
-      "Programare în Scratch",
-      "Structuri de date elementare",
+      "Programare în Python",
+      "Algoritmi și instrucțiuni de bază",
       "Proiecte practice",
+      "Dezvoltarea Site-urilor web (HTML, CSS, JavaScript)",
+      "Introducere în baze de date",
+      "Pregătire pentru olimpiade școlare",
     ],
   },
   {
@@ -192,7 +166,7 @@ const courses = [
   },
   {
     title: "Pregătire Bacalaureat",
-    level: "Facultăți IT",
+    level: "Avansat",
     topics: [
       "Prepararea pentru examenele de Bacalaureat",
       "Algoritmi de concurs",

@@ -33,21 +33,33 @@
           <h3 class="font-bold text-highlighted mb-4">Urmărește-ne</h3>
           <div class="flex gap-3">
             <UButton
-              icon="i-lucide-instagram"
               variant="ghost"
               color="neutral"
               size="lg"
               to="https://www.instagram.com/itbridgeschool"
               target="_blank"
-            />
+            >
+              <span class="w-6 h-6 inline-flex items-center justify-center text-black dark:text-white" aria-hidden="true" v-html="instagramSvgProcessed"></span>
+            </UButton>
             <UButton
-              icon="i-lucide-facebook"
               variant="ghost"
               color="neutral"
               size="lg"
               to="https://www.facebook.com/share/19z5TxEu7F/"
               target="_blank"
-            />
+            >
+              <span class="w-6 h-6 inline-flex items-center justify-center text-black dark:text-white" aria-hidden="true" v-html="facebookSvgProcessed"></span>
+            </UButton>
+            <UButton
+              variant="ghost"
+              color="neutral"
+              size="lg"
+              to="https://www.tiktok.com/@itbridgeschool"
+              target="_blank"
+              class="p-0"
+            >
+              <span class="w-6 h-6 inline-flex items-center justify-center text-black dark:text-white" aria-hidden="true" v-html="tiktokSvgProcessed"></span>
+            </UButton>
           </div>
         </div>
       </div>
@@ -59,5 +71,19 @@
   </footer>
 </template>
 <script setup lang="ts">
-//
+import tiktokSvg from '~/assets/icons/tiktok.svg?raw'
+import facebookSvg from '~/assets/icons/facebook.svg?raw'
+import instagramSvg from '~/assets/icons/instagram.svg?raw'
+
+// Inject fill=currentColor and make the svg scale to the wrapper
+const svgWithCurrentColor = (svg: string) =>
+  svg.replace(
+    '<svg',
+    '<svg fill="currentColor" width="100%" height="100%" style="width:100%;height:100%;display:block"'
+  )
+
+const tiktokSvgProcessed = svgWithCurrentColor(tiktokSvg)
+const instagramSvgProcessed = svgWithCurrentColor(instagramSvg)
+const facebookSvgProcessed = svgWithCurrentColor(facebookSvg)
 </script>
+<!-- styling moved to Tailwind utilities on the elements -->

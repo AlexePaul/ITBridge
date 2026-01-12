@@ -53,26 +53,6 @@
               ></iframe>
             </div>
           </UCard>
-
-          <!-- Social Media -->
-          <div>
-            <h3 class="font-semibold text-lg mb-4 text-highlighted">
-              Urmărește-ne pe Social Media
-            </h3>
-            <div class="flex gap-4">
-              <UButton
-                v-for="social in socialLinks"
-                :key="social.platform"
-                color="primary"
-                variant="outline"
-                size="lg"
-                :icon="social.icon"
-                as="a"
-                :href="social.url"
-                target="_blank"
-              />
-            </div>
-          </div>
         </div>
       </div>
     </section>
