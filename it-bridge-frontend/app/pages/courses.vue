@@ -168,7 +168,7 @@ const courses = [
     title: "Pregătire Bacalaureat",
     level: "Avansat",
     topics: [
-      "Prepararea pentru examenele de Bacalaureat",
+      "Pregătirea pentru examenele de Bacalaureat",
       "Algoritmi de concurs",
       "Probleme tip pentru Bacalaureat",
       "Timp și strategie de examen",
