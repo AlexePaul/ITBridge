@@ -4,7 +4,7 @@
     <section class="py-16">
       <UCard color="neutral" class="py-8 border-0" variant="soft">
         <div class="max-w-6xl mx-auto">
-          <h1 class="text-4xl font-bold mb-4 text-highlighted">Contactează-ne</h1>
+          <h1 class="text-4xl font-bold mb-4 text-secondary">Contactează-ne</h1>
           <p class="text-lg text-muted">
             Suntem aici ca să te ajutăm! Ai întrebări? Scrie-ne și te vom contacta cât mai curând.
           </p>
@@ -45,7 +45,7 @@
                 src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d5699.683885857019!2d26.013984!3d44.415889!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x40b20041575f3945%3A0xfb045a6b8c5a127!2sStrada%20Valea%20Oltului%2073%2C%20Bucure%C8%99ti%2C%20Romania!5e0!3m2!1sen!2sus!4v1768175036715!5m2!1sen!2sus"
                 width="100%"
                 height="300"
-                style="border:0;"
+                style="border: 0"
                 allowfullscreen=""
                 loading="lazy"
                 referrerpolicy="no-referrer-when-downgrade"
