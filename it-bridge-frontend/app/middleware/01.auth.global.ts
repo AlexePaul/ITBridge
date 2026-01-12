@@ -2,7 +2,7 @@ import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
 import { authInitialized } from "~/plugins/01.auth.client";
 
-export const unauthenticatedRoutes = ["/", "/auth/login", "/auth/register", "/courses"];
+export const unauthenticatedRoutes = ["/", "/auth/login", "/auth/register", "/courses", "/about", "/contact"];
 
 // middleware/auth.ts
 export default defineNuxtRouteMiddleware(async (to, from) => {
