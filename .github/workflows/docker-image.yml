@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - your-other-branch-name
+      - feature/docker-image-creation
 
 permissions:
   contents: read
