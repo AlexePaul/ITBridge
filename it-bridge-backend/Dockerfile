@@ -37,6 +37,9 @@ COPY eslint.config.mjs ./
 # Install all dependencies (including dev for nest-cli)
 RUN npm ci
 
+# Source code will be mounted as a volume, not copied
+# This allows hot reload to work properly
+
 # Expose port
 EXPOSE 3000
 
@@ -45,4 +48,22 @@ ENTRYPOINT ["dumb-init", "--"]
 
 # Start application in watch mode
 CMD ["npm", "run", "start:dev"]
+
+# Production stage
+FROM node:22-alpine AS production
+
+WORKDIR /app
+
+# Copy package files and install only production dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy compiled application from builder
+COPY --from=builder /app/dist ./dist
+
+# Expose port
+EXPOSE 3000
+
+# Run the compiled app
+CMD ["node", "dist/main.js"]
 

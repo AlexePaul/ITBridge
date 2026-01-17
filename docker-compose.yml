@@ -49,6 +49,10 @@ services:
         condition: service_healthy
     volumes:
       - ./it-bridge-backend/src:/app/src
+      - ./it-bridge-backend/tsconfig.json:/app/tsconfig.json
+      - ./it-bridge-backend/tsconfig.build.json:/app/tsconfig.build.json
+      - ./it-bridge-backend/nest-cli.json:/app/nest-cli.json
+      - ./it-bridge-backend/eslint.config.mjs:/app/eslint.config.mjs
       - /app/node_modules
     networks:
       - itbridge-network
