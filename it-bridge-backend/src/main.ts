@@ -22,7 +22,7 @@ async function bootstrap() {
         SwaggerModule.setup('api', app, document);
 
         app.enableCors({
-            origin: ['https://itbridge.webhop.me:8990'],
+            origin: ['https://it-bridge-gamma.vercel.app', 'http://localhost:3000'],
             credentials: true,
         });
 
