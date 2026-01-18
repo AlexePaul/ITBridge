@@ -42,6 +42,8 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      HTTPS_KEY_PATH: /certs/key.pem
+      HTTPS_CERT_PATH: /certs/cert.pem
     ports:
       - "3000:3000"
     depends_on:
@@ -54,6 +56,7 @@ services:
       - ./it-bridge-backend/nest-cli.json:/app/nest-cli.json
       - ./it-bridge-backend/eslint.config.mjs:/app/eslint.config.mjs
       - /app/node_modules
+      - ./certs:/certs:ro
     networks:
       - itbridge-network
     command: npm run start:dev
