@@ -53,40 +53,34 @@
             </p>
             <p class="text-muted mb-4">Uite cateva din reușitele mele profesionale:</p>
             <ul>
-              <li class="text-muted mb-2">
-                <UIcon
-                  name="i-lucide-corner-down-right"
-                  class="text-primary w-5 h-5 shrink-0 mt-0.5 inline-block mr-2"
-                />
-                Am promovat examenul de Bacalaureat cu nota 10 la informatică.
+              <li class="text-muted mb-2 flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span>Am promovat examenul de Bacalaureat cu nota 10 la informatică.</span>
               </li>
-              <li class="text-muted mb-2">
-                <UIcon
-                  name="i-lucide-corner-down-right"
-                  class="text-primary w-5 h-5 shrink-0 mt-0.5 inline-block mr-2"
-                />
-                Am fost admis la Universitatea din București pe baza performanțelor din cadrul
-                olimpiadelor scolare.
+              <li class="text-muted mb-2 flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span
+                  >Am fost admis la Universitatea din București pe baza performanțelor din cadrul
+                  olimpiadelor scolare.</span
+                >
               </li>
-              <li class="text-muted mb-2">
-                <UIcon
-                  name="i-lucide-corner-down-right"
-                  class="text-primary w-5 h-5 shrink-0 mt-0.5 inline-block mr-2"
-                />
-                Am experiență în predarea informaticii la nivel universitar, în calitate de asistent
-                universitar, unde am lucrat direct cu studenți și am susținut activități practice.
-                Această experiență mă ajută să explic concepte complexe într-un mod clar și
-                accesibil copiilor.
+              <li class="text-muted mb-2 flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span
+                  >Am experiență în predarea informaticii la nivel universitar, în calitate de
+                  asistent universitar, unde am lucrat direct cu studenți și am susținut activități
+                  practice. Această experiență mă ajută să explic concepte complexe într-un mod clar
+                  și accesibil copiilor.</span
+                >
               </li>
-              <li class="text-muted">
-                <UIcon
-                  name="i-lucide-corner-down-right"
-                  class="text-primary w-5 h-5 shrink-0 mt-0.5 inline-block mr-2"
-                />
-                Sunt programator activ, cu experiență în dezvoltarea de aplicații software reale.
-                Lucrez în prezent ca programator backend, ceea ce îmi permite să aduc la cursuri
-                exemple concrete din lumea IT și să îi ajut pe copii să înțeleagă cum este folosită
-                informatica în viața reală.
+              <li class="text-muted flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span
+                  >Sunt programator activ, cu experiență în dezvoltarea de aplicații software reale.
+                  Lucrez în prezent ca programator backend, ceea ce îmi permet să aduc la cursuri
+                  exemple concrete din lumea IT și să îi ajut pe copii să înțeleagă cum este
+                  folosită informatica în viața reală.</span
+                >
               </li>
             </ul>
           </div>
@@ -102,48 +96,57 @@
           <div class="order-1">
             <h2 class="text-3xl font-bold mb-6">Alexe Ana Iulia</h2>
             <p class="text-muted mb-4">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam vel sagittis sem.
-              Suspendisse purus turpis, gravida vitae lobortis et, maximus sed leo. Vivamus
-              consectetur nulla dolor. Phasellus rutrum nibh sed dolor ultrices cursus. In pharetra
-              ut est nec molestie. Ut in libero et felis accumsan tincidunt quis sed eros.
+              Numele meu este Ana şi sunt profesoară la IT Bridge School. Sunt absolventă a
+              Facultății de Economie Teoretică și Aplicată, cu o pasiune pentru educație și pentru
+              utilizarea tehnologiei ca instrument de învățare pentru copii.
             </p>
-            <p class="text-muted mb-4">Uite cateva din reușitele mele profesionale:</p>
+            <p class="text-muted mb-4">Uite câteva din competențele mele digitale:</p>
             <ul>
-              <li class="text-muted mb-2">
-                <UIcon
-                  name="i-lucide-corner-down-right"
-                  class="text-primary w-5 h-5 shrink-0 mt-0.5 inline-block mr-2"
-                />
-                Integer sodales lacinia justo, quis semper lorem gravida sit amet. Vivamus imperdiet
-                fringilla augue nec convallis. Aliquam gravida eros urna, at vulputate dui
-                ullamcorper at.
+              <li class="text-muted mb-2 flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span
+                  >Microsoft Office - nivel avansat (Word, PowerPoint, Excel - realizare de
+                  materiale educaționale interactive)</span
+                >
               </li>
-              <li class="text-muted mb-2">
-                <UIcon
-                  name="i-lucide-corner-down-right"
-                  class="text-primary w-5 h-5 shrink-0 mt-0.5 inline-block mr-2"
-                />
-                Etiam porta eu metus in molestie.
+              <li class="text-muted mb-2 flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span>Canva - creare de conținut vizual atractiv pentru copii</span>
               </li>
-              <li class="text-muted mb-2">
-                <UIcon
-                  name="i-lucide-corner-down-right"
-                  class="text-primary w-5 h-5 shrink-0 mt-0.5 inline-block mr-2"
-                />
-                Quisque tortor dolor, tristique eu laoreet vel, rutrum eget arcu. Phasellus ac urna
-                nec sapien fermentum sagittis non vestibulum purus. Vivamus dapibus bibendum eros,
-                sit amet molestie sem cursus aliquam. Etiam at mi et nulla molestie gravida. Nunc
-                nulla urna, elementum a erat in, mollis suscipit erat.
+              <li class="text-muted mb-2 flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span>Tinkercad - inițiere în modelare 3D și gândire spațială</span>
               </li>
-              <li class="text-muted">
-                <UIcon
-                  name="i-lucide-corner-down-right"
-                  class="text-primary w-5 h-5 shrink-0 mt-0.5 inline-block mr-2"
-                />
-                Nam dictum odio risus, ut consequat magna molestie sed. Vivamus nisl sem, faucibus
-                lobortis purus nec, pharetra tristique neque. Morbi id vestibulum magna.
+              <li class="text-muted flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span
+                  >Scratch - bazele programării vizuale și ale logicii algoritmice pentru
+                  copii</span
+                >
               </li>
             </ul>
+            <p class="text-muted mb-4 mt-4">Uite câteva din abilitățile mele pedagogice:</p>
+            <ul>
+              <li class="text-muted mb-2 flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span>Explicarea conceptelor tehnice într-un mod simplu și prietenos</span>
+              </li>
+              <li class="text-muted mb-2 flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span>Răbdare, empatie și adaptare la ritmul fiecărui copil</span>
+              </li>
+              <li class="text-muted mb-2 flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span>Stimularea creativității, a gândirii logice și a încrederii în sine</span>
+              </li>
+              <li class="text-muted flex gap-2">
+                <UIcon name="i-lucide-arrow-right" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
+                <span>Crearea unui mediu de învățare sigur, interactiv și motivant</span>
+              </li>
+            </ul>
+            <p class="text-muted mt-4">
+              Îmi doresc să contribui la dezvoltarea competențelor digitale ale copiilor!
+            </p>
           </div>
         </div>
 
