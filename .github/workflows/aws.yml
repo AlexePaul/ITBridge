@@ -1,0 +1,38 @@
+name: Deploy NestJS to EC2
+
+on:
+  push:
+    branches: [ main, feature/configure-github-actions-CD-1  ] # Runs every time you push to main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_IP }}
+          username: admin # e.g., ubuntu or ec2-user
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            # 1. Navigate to the app folder (or clone if it doesn't exist)
+            [ -d "it-bridge-be" ] && cd it-bridge-be || git clone https://github.com/${{ github.repository }}.git it-bridge-be && cd it-bridge-be
+            
+            # 2. Pull latest changes
+            git pull origin main
+
+            # 3. Change directory to the correct backend directory
+            cd it-bridge-backend
+            
+            # 4. Install and Build
+            npm install
+            npm run build
+            
+            # 5. Restart the app with PM2
+            # This ensures the app keeps running in the background
+            pm2 delete nest-app || true
+            pm2 start dist/main.js --name "nest-app"
