@@ -24,7 +24,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      apiBase: "https://itbridge.webhop.me:8990",
+      apiBase: "process.env.API_BASE",
     },
   },
 });
