@@ -24,12 +24,15 @@ jobs:
             
             # 2. Pull latest changes
             git pull origin main
+
+            # 3. Change directory to the correct backend directory
+            cd it-bridge-backend
             
-            # 3. Install and Build
+            # 4. Install and Build
             npm install
             npm run build
             
-            # 4. Restart the app with PM2
+            # 5. Restart the app with PM2
             # This ensures the app keeps running in the background
             pm2 delete nest-app || true
             pm2 start dist/main.js --name "nest-app"
