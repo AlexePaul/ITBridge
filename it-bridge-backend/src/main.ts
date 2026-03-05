@@ -7,6 +7,13 @@ import * as fs from 'fs';
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
 
+    app.enableCors({
+        origin: ['https://itbridgeschool.com', 'http://localhost:3001'],
+        credentials: true,
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+        allowedHeaders: 'Content-Type, Accept, Authorization',
+    });
+    
     // Swagger configuration
     const config = new DocumentBuilder()
         .setTitle('ITBridge API')
@@ -20,14 +27,8 @@ async function bootstrap() {
     // Save Swagger JSON to a file
     fs.writeFileSync('./swagger.json', JSON.stringify(document, null, 2));
 
-    app.enableCors({
-        origin: ['https://it-bridge-gamma.vercel.app', 'http://localhost:3001'],
-        credentials: true,
-    });
-
     const port = Number(process.env.PORT || 3000);
     await app.listen(port, '0.0.0.0');
     console.log(`Server listening on http://0.0.0.0:${port}`);
-    console.log(`Note: HTTPS is handled by Nginx reverse proxy on https://itbridge.webhop.me:8990`);
 }
 bootstrap();
