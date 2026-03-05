@@ -21,21 +21,21 @@ jobs:
           script: |
             # 1. Navigate to the app folder (or clone if it doesn't exist)
             [ -d "it-bridge-be" ] && cd it-bridge-be || git clone https://github.com/${{ github.repository }}.git it-bridge-be && cd it-bridge-be
+
+            # 2. Source the env vars
+            source ~/.bashrc
             
-            # 2. Pull latest changes
+            # 3. Pull latest changes
             git pull origin main
 
-            # 3. Change directory to the correct backend directory
+            # 4. Change directory to the correct backend directory
             cd it-bridge-backend
             
-            # 4. Install and Build
+            # 5. Install and Build
             npm install
             npm run build
             
-            # 5. Restart the app with PM2
+            # 6. Restart the app with PM2
             # This ensures the app keeps running in the background
             pm2 delete it-bridge-be || true
             pm2 start dist/main.js --name "it-bridge-be"
-
-            # 6. Restart the app with PM2 to load variables
-            pm2 restart it-bridge-be --update-env
