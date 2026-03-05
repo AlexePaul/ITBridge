@@ -15,9 +15,9 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.ssh_ip }}
+          host: ${{ secrets.SSH_IP }}
           username: admin # e.g., ubuntu or ec2-user
-          key: ${{ secrets.ssh_key }}
+          key: ${{ secrets.SSH_KEY }}
           script: |
             # 1. Navigate to the app folder (or clone if it doesn't exist)
             [ -d "it-bridge-be" ] && cd it-bridge-be || git clone https://github.com/${{ github.repository }}.git it-bridge-be && cd it-bridge-be
