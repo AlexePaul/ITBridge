@@ -2,7 +2,7 @@ name: Deploy NestJS to EC2
 
 on:
   push:
-    branches: [ main ] # Runs every time you push to main
+    branches: [ main, feature/configure-github-actions-CD-1  ] # Runs every time you push to main
 
 jobs:
   deploy:
