@@ -2,7 +2,7 @@ name: Deploy NestJS to EC2
 
 on:
   push:
-    branches: [ main, feature/configure-github-actions-CD-1  ] # Runs every time you push to main
+    branches: [ main ] # Runs every time you push to main
 
 jobs:
   deploy:
@@ -34,5 +34,5 @@ jobs:
             
             # 5. Restart the app with PM2
             # This ensures the app keeps running in the background
-            pm2 delete nest-app || true
-            pm2 start dist/main.js --name "nest-app"
+            pm2 delete it-bridge-be || true
+            pm2 start dist/main.js --name "it-bridge-be"
