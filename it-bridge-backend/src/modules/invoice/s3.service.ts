@@ -10,17 +10,24 @@ export class S3Service implements OnModuleInit {
         const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
         const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
-        if (!region || !accessKeyId || !secretAccessKey) {
+        if (!region) {
             throw new Error('Missing AWS configuration. Please set AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY environment variables.');
         }
 
-        this.s3Client = new S3Client({
-            region,
-            credentials: {
-                accessKeyId,
-                secretAccessKey,
-            },
-        });
+        if(accessKeyId && secretAccessKey){
+            this.s3Client = new S3Client({
+                region,
+                credentials: {
+                    accessKeyId,
+                    secretAccessKey,
+                },
+            });
+        }
+        else{
+            this.s3Client = new S3Client({
+                region,
+            });
+        }
     }
 
     async uploadFile(fileBuffer: Buffer, fileName: string, bucket: string = process.env.AWS_S3_BUCKET ?? '') {
