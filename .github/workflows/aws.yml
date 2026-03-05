@@ -36,3 +36,6 @@ jobs:
             # This ensures the app keeps running in the background
             pm2 delete it-bridge-be || true
             pm2 start dist/main.js --name "it-bridge-be"
+
+            # 6. Restart the app with PM2 to load variables
+            pm2 restart it-bridge-be --update-env
