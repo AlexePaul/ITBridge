@@ -143,8 +143,28 @@ al bundle-ului, iar build-ul servit răspunde 200 cu `apiBase` pointat spre back
 
 **Acceptanță:** `git branch -r` listează `main` plus branch-urile de lucru active.
 
-**Stare: neînceput.** Ștergerea de branch-uri remote e ireversibilă și se face separat, cu
-confirmare explicită.
+**Livrat.** Toate zece erau **complet merge-uite în `main`** — zero commit-uri în plus față de ea —
+deci ștergerea nu a pierdut nimic: fiecare commit rămâne accesibil din istoricul lui `main`. Nu a
+fost nevoie să se merge-uiască nimic; evaluarea a fost întreaga decizie.
+
+SHA-urile de la momentul ștergerii, ca referința să existe dacă cineva caută vreodată un branch
+după nume:
+
+| Branch | HEAD | Ultimul commit |
+|---|---|---|
+| `backup-02-01-2026` | `c5027b7` | 2026-01-02 |
+| `backup-ui-02-01-2026` | `de4976c` | 2026-01-02 |
+| `development` | `b81cbc9` | 2026-01-12 |
+| `flyio-new-files` | `e86f4e8` | 2026-01-12 |
+| `feature/docker-image-creation` | `7703747` | 2026-01-17 |
+| `feature/configure-github-actions-CD` | `84f00d0` | 2026-01-21 |
+| `feature/configure-github-actions-CD-1` | `aed01eb` | 2026-03-05 |
+| `docs/onboarding-and-epics` | `bb395e9` | 2026-08-26 |
+| `feat/e01-infrastructure-cleanup` | — | merge-uit prin #9 |
+| `feat/e02-pnpm-workspaces-turborepo` | — | merge-uit prin #10 |
+
+Ultimele două nu erau în lista epicului: sunt branch-urile PR-urilor deja merge-uite, șterse din
+aceeași mișcare.
 
 ## Dependențe
 
