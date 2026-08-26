@@ -98,7 +98,13 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # `test/global-setup.ts` creates the `itbridge_test` database itself. TypeORM builds the
-      # schema through `synchronize: true` - that changes once migrations land, in E04.
+      # Entities changed without a matching migration are invisible until production: everything
+      # compiles and the tests pass against the old schema. This builds a throwaway database from
+      # the migrations and asks TypeORM whether anything would still need to change.
+      - name: Schema drift
+        run: pnpm --filter api check:schema
+
+      # `test/global-setup.ts` creates the `itbridge_test` database and brings it up to date by
+      # running the migrations - the same path production takes.
       - name: Integration tests
         run: pnpm --filter api test:e2e
