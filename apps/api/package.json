@@ -17,13 +17,14 @@
         "test:watch": "jest --watch",
         "test:cov": "jest --coverage",
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-        "test:e2e": "jest --config ./test/jest-e2e.json",
+        "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
         "dev": "nest start --watch",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "lint:fix": "eslint \"{src,test}/**/*.ts\" --fix"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "^3.966.0",
+        "@itbridge/types": "workspace:*",
         "@nestjs/common": "^11.0.1",
         "@nestjs/core": "^11.0.1",
         "@nestjs/jwt": "^11.0.2",
@@ -44,8 +45,7 @@
         "reflect-metadata": "^0.2.2",
         "rxjs": "^7.8.1",
         "swagger-ui-express": "^5.0.1",
-        "typeorm": "^0.3.28",
-        "@itbridge/types": "workspace:*"
+        "typeorm": "^0.3.28"
     },
     "devDependencies": {
         "@eslint/eslintrc": "^3.2.0",
@@ -58,6 +58,7 @@
         "@types/jest": "^30.0.0",
         "@types/node": "^22.10.7",
         "@types/passport-local": "^1.0.38",
+        "@types/pg": "^8.23.1",
         "@types/supertest": "^6.0.2",
         "eslint": "^9.18.0",
         "eslint-config-prettier": "^10.0.1",
@@ -87,9 +88,32 @@
             "^.+\\.(t|j)s$": "ts-jest"
         },
         "collectCoverageFrom": [
-            "**/*.(t|j)s"
+            "modules/**/*.service.ts",
+            "!modules/invoice/pdf.service.ts",
+            "!modules/invoice/s3.service.ts"
         ],
         "coverageDirectory": "../coverage",
-        "testEnvironment": "node"
+        "testEnvironment": "node",
+        "moduleDirectories": [
+            "node_modules",
+            "<rootDir>/.."
+        ],
+        "coverageThreshold": {
+            "src/modules/invoice/invoice.service.ts": {
+                "statements": 85,
+                "branches": 70,
+                "lines": 85
+            },
+            "src/modules/payment/payment.service.ts": {
+                "statements": 85,
+                "branches": 70,
+                "lines": 85
+            },
+            "src/modules/auth/auth.service.ts": {
+                "statements": 90,
+                "branches": 80,
+                "lines": 90
+            }
+        }
     }
 }
