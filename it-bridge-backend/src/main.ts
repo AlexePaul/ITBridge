@@ -1,19 +1,37 @@
+import './load-env';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as fs from 'fs';
 
+const DEFAULT_CORS_ORIGINS = ['https://itbridgeschool.com', 'http://localhost:3001'];
+
+// Originile permise vin din CORS_ORIGINS, listă separată prin virgulă, ca preview-urile Vercel și
+// un eventual staging să nu ceară modificare de cod. Fără variabilă, rămân domeniul de producție
+// și frontend-ul local.
+function corsOrigins(): string[] {
+    const raw = process.env.CORS_ORIGINS;
+    if (!raw) {
+        return DEFAULT_CORS_ORIGINS;
+    }
+    const origins = raw
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter((origin) => origin.length > 0);
+    return origins.length > 0 ? origins : DEFAULT_CORS_ORIGINS;
+}
+
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
 
     app.enableCors({
-        origin: ['https://itbridgeschool.com', 'http://localhost:3001'],
+        origin: corsOrigins(),
         credentials: true,
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
         allowedHeaders: 'Content-Type, Accept, Authorization',
     });
-    
+
     // Swagger configuration
     const config = new DocumentBuilder()
         .setTitle('ITBridge API')

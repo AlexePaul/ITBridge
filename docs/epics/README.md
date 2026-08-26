@@ -20,9 +20,12 @@ Pentru primele șase luni realiste, vezi secțiunea [Ordinea recomandată](#ordi
 
 Frontend pe Vercel, funcționând ca prezentare statică. Backend nedeployat nicăieri. Validarea
 cererilor nu rulează, deși 22 de DTO-uri au decoratori. Testele nu pornesc — 18 din 18 suite
-eșuează la încărcare. Schema se auto-alterează la fiecare boot. O cheie privată Let's Encrypt
-reală, validă până în ianuarie 2027, e în istoricul git al unui repo public. Platforma nu are
-noțiunea de locație, deși școala are două.
+eșuează la încărcare. Schema se auto-alterează la fiecare boot. Platforma nu are noțiunea de
+locație, deși școala are două.
+
+Curățenia de infrastructură din E01 a intrat: aplicația nu mai rulează în Docker, `docker-compose.yml`
+e doar Postgres, iar cele trei strategii de deploy moarte au dispărut din repo. Cheia Let's Encrypt
+a fost ștearsă din branch, dar rămâne în istoricul git — e compromisă și nu se refolosește.
 
 Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea "Capcane".
 
@@ -115,8 +118,11 @@ Primele șase luni, realist: **val 1 complet, val 2 complet, plus E18 și E15.**
 
 ## Legendă status
 
-Fiecare epic are `Status` în antet: `propus` → `acceptat` → `în lucru` → `livrat`. Toate sunt
-`propus`. Nimic nu trece în `în lucru` fără ca întrebările deschise din fișier să aibă răspuns.
+Fiecare epic are `Status` în antet: `propus` → `acceptat` → `în lucru` → `livrat`. Nimic nu trece
+în `în lucru` fără ca întrebările deschise din fișier să aibă răspuns.
+
+[E01](E01-infrastructura-medii.md) e `în lucru`: S1, S2, S3 și S5 sunt livrate, S4 (deploy pe EC2)
+și S6 (curățare de branch-uri) rămân. Restul sunt `propus`.
 
 ## Decizii deja luate
 
