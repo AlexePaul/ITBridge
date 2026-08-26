@@ -1,18 +1,19 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { AttendanceController } from './attendance.controller';
+import { AttendanceService } from './attendance.service';
+import { buildController, requestOf } from 'src/testing/controller.spec-helpers';
+import { Role } from 'src/enum/role.enum';
 
 describe('AttendanceController', () => {
-    let controller: AttendanceController;
+    const build = () =>
+        buildController(AttendanceController, AttendanceService, {
+            createAttendance: jest.fn().mockResolvedValue([]),
+            getAttendanceByChild: jest.fn().mockResolvedValue([]),
+            updateAttendanceStatus: jest.fn().mockResolvedValue({ id: 1 }),
+        });
 
-    beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            controllers: [AttendanceController],
-        }).compile();
-
-        controller = module.get<AttendanceController>(AttendanceController);
-    });
-
-    it('should be defined', () => {
-        expect(controller).toBeDefined();
+    it('getAttendanceByChild primește rolul și userId-ul din token', async () => {
+        const { controller, service } = await build();
+        await controller.getAttendanceByChild(7, requestOf(Role.PARENT, 42));
+        expect((service.getAttendanceByChild as jest.Mock).mock.calls[0].slice(-2)).toEqual([Role.PARENT, 42]);
     });
 });
