@@ -1,9 +1,12 @@
-version: "3.8"
+# Infrastructură locală de dezvoltare. Aplicația NU rulează în Docker — nici aici, nici în
+# producție (vezi docs/epics/E01-infrastructura-medii.md). Backend-ul și frontend-ul se pornesc
+# direct pe Node și se conectează la Postgres pe localhost:5432.
 
 services:
   postgres:
     image: postgres:17-alpine
     container_name: itbridge_postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-itbridge}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password}
@@ -21,85 +24,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - itbridge-network
-
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    container_name: itbridge_nginx
-    ports:
-      - "80:80"
-      - "8990:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certs:/etc/nginx/certs
-      - ./nginx/certbot:/var/www/certbot
-    environment:
-      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-alexepaul2011@gmail.com}
-      - NODE_ENV=${NODE_ENV:-development}
-    depends_on:
-      - backend
-    networks:
-      - itbridge-network
-
-  backend:
-    build:
-      context: ./it-bridge-backend
-      dockerfile: Dockerfile
-      target: development
-    container_name: itbridge_backend
-    environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      PORT: ${PORT:-3000}
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: ${DB_USER:-itbridge}
-      DB_PASSWORD: ${DB_PASSWORD:-dev_password}
-      DB_NAME: ${DB_NAME:-itbridge_db}
-      AWS_REGION: ${AWS_REGION}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
-      MAINTAINER_EMAIL: ${MAINTAINER_EMAIL}
-      HTTPS_KEY_PATH: /certs/key.pem
-      HTTPS_CERT_PATH: /certs/cert.pem
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./it-bridge-backend/src:/app/src
-      - ./it-bridge-backend/tsconfig.json:/app/tsconfig.json
-      - ./it-bridge-backend/tsconfig.build.json:/app/tsconfig.build.json
-      - ./it-bridge-backend/nest-cli.json:/app/nest-cli.json
-      - ./it-bridge-backend/eslint.config.mjs:/app/eslint.config.mjs
-      - /app/node_modules
-      - ./certs:/certs:ro
-    networks:
-      - itbridge-network
-    command: npm run start:dev
-
-  frontend:
-    build:
-      context: ./it-bridge-frontend
-      dockerfile: Dockerfile
-    container_name: itbridge_frontend
-    ports:
-      - "3001:3000"
-    volumes:
-      - ./it-bridge-frontend:/app
-      - /app/.nuxt
-      - /app/node_modules
-    networks:
-      - itbridge-network
-    environment:
-      - NUXT_HOST=0.0.0.0
-      - NUXT_PORT=3000
 
 volumes:
   postgres_data:
-
-networks:
-  itbridge-network:
-    driver: bridge
