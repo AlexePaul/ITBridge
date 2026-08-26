@@ -181,13 +181,23 @@ variabile, dar verifică una singură.
 **Refresh tokens nu pot fi revocate.** Sunt stateless, nu există logout server-side și nici
 listă de revocare.
 
-**Familia `no-unsafe-*` e pe `warn`, nu pe `error`.** Sunt ~270 de avertismente pe `api`, toate
-`any` care circulă prin servicii. E datorie reală de tipuri, plătită modul cu modul în
-[E05](docs/epics/E05-robustete-backend.md) — dar la `error` ar fi făcut `pnpm lint` roșu din prima
-zi, deci inutil ca poartă de CI. Când repari un modul, ridică regula înapoi la `error` pentru el.
+**Familia `no-unsafe-*` e pe `error` în codul de producție și oprită în teste.** Excepția pentru
+teste e îngustă și justificată: supertest tipează `res.body` ca `any`, iar valorile întoarse de
+mock-urile jest sunt netipate prin construcție — exact lucrurile pe care testul le verifică. În
+`src/` nu mai există niciun `any` care să circule, deci regula chiar ține linia.
 
 **Prefixul `_` marchează ce e nefolosit intenționat.** Parametri ceruți de un decorator Nest, sau
 aserțiunile de tip din `apps/api/src/contract.ts`. Fără prefix, `no-unused-vars` le raportează.
+
+**`@Request()` se tipează cu `AuthenticatedRequest`, importat ca `import type`.** Tipul e în
+`apps/api/src/types/authenticated-request.ts` și descrie payload-ul JWT pe care îl atașează
+`AuthGuard`. `import type` e obligatoriu: cu `emitDecoratorMetadata` pornit, un import normal
+într-o semnătură decorată dă TS1272.
+
+**`Profile.user` și `Child.group` sunt nullable în tipuri, nu doar în schemă.** Un profil creat de
+admin nu are cont atașat, iar un copil nerepartizat nu are grupă. Verificările de proprietate
+folosesc `child.parent.user?.id !== userId` — fără `?.`, un copil al unui profil fără cont arunca
+TypeError în loc să răspundă 403.
 
 **Nu rula `npm` în `apps/*`.** Nu mai există `package-lock.json` și nici `node_modules` propriu;
 totul trece prin `pnpm` de la rădăcină. Pentru un singur workspace, `pnpm --filter api <script>`.

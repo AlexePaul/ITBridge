@@ -146,5 +146,6 @@ e reparat. Reparațiile țin de [E05](docs/epics/E05-robustete-backend.md) și
   devine „găsește orice profil". Blochează fluxul în care adminul creează profiluri fără date de
   contact.
 
-Familia `no-unsafe-*` din eslint e pe `warn`: ~270 de avertismente pe `api`, `any` care circulă
-prin servicii. La `error` ar face `pnpm lint` roșu din prima zi și inutil ca poartă de CI.
+`pnpm lint` e curat: zero erori, zero avertismente. Familia `no-unsafe-*` e pe `error` în codul de
+producție și oprită doar în fișierele de test, unde `res.body` din supertest și valorile mock-urilor
+jest sunt `any` prin construcție.

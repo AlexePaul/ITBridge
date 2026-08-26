@@ -218,17 +218,30 @@ testează. Local, testele merg pe Postgres din `docker compose`.
 **Prag global sau pe module critice?** Pe module critice, cum recomanda epicul. Pragurile sunt
 în `coverageThreshold`, pe `invoice.service.ts`, `payment.service.ts` și `auth.service.ts`.
 
-## Decizie luată pe drum
+## Datoria de tipuri, plătită în loc de amânată
 
-**Familia eslint `no-unsafe-*` a trecut de la `error` la `warn`.**
+Prima formă a acestui epic trecea familia eslint `no-unsafe-*` de la `error` la `warn`, ca `pnpm
+lint` să nu fie roșu din prima zi. Compromisul a picat: s-a dovedit că datoria era concentrată, nu
+răspândită, deci se putea plăti direct.
 
-Erau ~190 de erori preexistente, toate `any` care circulă prin servicii. La `error`, `pnpm lint`
-ar fi fost roșu din prima zi, deci inutil ca poartă de CI: nimeni nu deosebește o regresie nouă de
-un fundal constant. La `warn` rămân vizibile și numărabile la fiecare rulare, iar CI poate bloca
-erorile noi.
+| Sursă | Avertismente | Cauză |
+|---|---|---|
+| `pdf.service.ts` | 129 | `pdfkit` fără tipuri, plus `invoice: any` și metode private netipate |
+| controllere | ~59 | `@Request() req` netipat, deci `req.user.role` era acces pe `any` |
+| `discount.service.ts` | 22 | repository-ul injectat n-avea deloc tip |
+| restul | ~59 | cast-uri `as any` izolate, plus teste |
 
-Nu e ștergere de datorie: sunt ~270 de avertismente, tot acolo, iar [E05](E05-robustete-backend.md)
-le plătește modul cu modul, ridicând regula înapoi la `error` pe măsură ce curăță.
+Reparațiile: `@types/pdfkit`, un tip `AuthenticatedRequest` cu payload-ul JWT, tipuri pe
+repository-uri și DTO-uri, și eliminarea cast-urilor `as any` din servicii.
 
-Separat, cele 44 de variabile nefolosite au fost chiar reparate — erau importuri moarte. Ce rămâne
-nefolosit intenționat poartă acum prefixul `_`.
+Regulile sunt acum pe **`error` în codul de producție**, oprite doar în fișierele de test — unde
+`res.body` din supertest și valorile mock-urilor jest sunt `any` prin construcție, iar verificarea
+lor e chiar scopul testului.
+
+**Două bug-uri au ieșit la iveală din tipare**, nu din teste: `Profile.user` și `Child.group` erau
+tipate ca nenule deși schema le are nullable, iar verificările de proprietate făceau
+`child.parent.user.id`. Pentru un copil al unui profil fără cont atașat — fluxul de admin din
+CLAUDE.md — asta arunca TypeError în loc să răspundă 403. Corectat cu `?.`.
+
+Separat, cele 44 de variabile nefolosite erau importuri moarte și au fost șterse. Ce rămâne
+nefolosit intenționat poartă prefixul `_`.

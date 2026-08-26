@@ -38,18 +38,27 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
 
-      // The `no-unsafe-*` family reports ~190 places where `any` flows through the services. That
-      // is real type debt, not noise - but it is *old* debt, and at `error` it would make
-      // `pnpm lint` red from day one and therefore useless as a CI gate: nobody can tell a fresh
-      // regression from a constant background.
-      //
-      // At `warn` they stay visible and countable on every run, while CI can still block new
-      // errors. Raise them back to `error` as E05 pays the debt down, module by module.
-      '@typescript-eslint/no-unsafe-argument': 'warn',
-      '@typescript-eslint/no-unsafe-assignment': 'warn',
-      '@typescript-eslint/no-unsafe-call': 'warn',
-      '@typescript-eslint/no-unsafe-member-access': 'warn',
-      '@typescript-eslint/no-unsafe-return': 'warn',
+      // The `no-unsafe-*` family is an error in production code. It used to report ~190 places
+      // where `any` flowed through the services; those are typed now, so the rule can hold the
+      // line instead of merely describing the damage.
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+    },
+  },
+  {
+    // Test files are the one place where `any` is unavoidable rather than sloppy: supertest types
+    // `res.body` as `any`, and jest mock return values are untyped by construction. Asserting on
+    // those values is the entire point of the test, so the rule is relaxed here - and only here.
+    files: ['**/*.spec.ts', 'test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
 );
