@@ -136,17 +136,28 @@ model, nu prin verificare ulterioară.
 `POST /invoices/preview` există deja. Se extinde: adminul vede toate facturile care ar fi emise
 pentru un modul sau o perioadă, cu detaliere pe linii, verifică, apoi confirmă.
 
-Emiterea generează facturile și PDF-urile în fundal, cu progres vizibil, nu într-o cerere HTTP
-sincronă cum se întâmplă azi în `createInvoice`, care încarcă la S3 în buclă.
+Emiterea se face în fundal, prin coada temperată din [E16](E16-plati-fiscal.md) S3 — nu într-o
+cerere HTTP sincronă cum se întâmplă azi în `createInvoice`, care încarcă la S3 în buclă. Limita
+SmartBill de 3 apeluri pe secundă face bucla imposibilă oricum.
 
-**Acceptanță:** emiterea pentru 100 de familii nu blochează interfața și raportează ce a eșuat.
+**Acceptanță:** emiterea pentru 100 de familii nu blochează interfața, respectă limita de apeluri
+și raportează individual ce a eșuat.
 
-### S7 · PDF-ul
+### S7 · PDF-ul nu se mai generează local
 
-Refăcut pentru linii, tranșe, scadențe, ambele locații și datele fiscale corecte. Structura din
-`pdf.service.ts` rămâne, conținutul se schimbă.
+Documentul fiscal e emis de SmartBill, care produce și PDF-ul — vezi
+[E16](E16-plati-fiscal.md). Platforma stochează referința și link-ul, nu generează nimic.
 
-**Acceptanță:** PDF-ul arată exact ce arată factura din portal, inclusiv scadențele.
+Generarea de facturi din `pdf.service.ts` se retrage. Serviciul rămâne în cod, cu fonturile Roboto
+și logo-ul din `src/assets/`, pentru documentele **nefiscale** — certificatele din
+[E13](E13-progres-evaluare.md) și rapoartele de progres.
+
+Ce trebuie să arate identic sunt **factura din portal și cea din SmartBill**: aceleași linii,
+aceleași sume, aceleași scadențe. Divergența dintre ele e exact ce urmărește
+[E16](E16-plati-fiscal.md) S8.
+
+**Acceptanță:** nicio factură nu mai e generată cu PDFKit. Factura din portal se potrivește la leu
+cu documentul SmartBill.
 
 ## Dependențe
 

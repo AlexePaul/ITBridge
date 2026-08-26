@@ -143,6 +143,7 @@ Consemnate aici ca să nu fie relitigate în fiecare epic. Fiecare e detaliată,
 | Preț | **700 lei fix per modul**, indiferent de durată | [E15](E15-pricing-facturare.md) |
 | Planuri de plată | Integral 700, sau 350 + 350 cu a doua tranșă la mijlocul modulului | [E15](E15-pricing-facturare.md) |
 | Reducere frați | **−25% de la al doilea copil în jos**; primul plătește întreg | [E15](E15-pricing-facturare.md) |
+| Facturare | **SmartBill** e sistemul de evidență fiscală. Platforma calculează, SmartBill emite. | [E16](E16-plati-fiscal.md) |
 | Abandon la mijloc de modul | Fără returnare; tranșa a doua nu se mai încasează | [E15](E15-pricing-facturare.md) |
 | Recuperări | 2 per modul, doar absențe anunțate cu min. 3 ore înainte. Configurabil. | [E12](E12-prezenta-orar.md) |
 | Lecția de probă | Gratuită | [E11](E11-inscrieri-capacitate.md) |
@@ -156,6 +157,13 @@ unitatea de facturare, calendarul determină ce se facturează și când. [E10](
 **Recuperarea nu e datorie contractuală.** Cu preț fix pe modul, părintele cumpără participarea la
 un modul, nu un număr garantat de ședințe. Recuperarea rămâne instrument de retenție, nu obligație —
 iar formularea din factură și din termeni trebuie să reflecte asta.
+
+**Platforma nu mai emite facturi.** Cu SmartBill ca sistem de evidență fiscală, ies din scop
+numerotarea, TVA-ul, e-Factura și PDF-ul de factură. `pdf.service.ts` rămâne doar pentru documente
+nefiscale — certificatele din [E13](E13-progres-evaluare.md). În schimb intră în scop două lucruri
+noi: sincronizarea între două sisteme cu stări proprii, și o coadă temperată la **3 apeluri pe
+secundă**, limita API-ului SmartBill. Premisa comercială — abonament **Facturare Platinum** — se
+verifică înainte de orice cod.
 
 ### Acces și produs
 

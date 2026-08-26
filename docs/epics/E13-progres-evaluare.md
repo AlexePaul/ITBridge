@@ -68,8 +68,12 @@ adaugă un paragraf, îl trimite.
 ### S4 · Certificat
 
 Un PDF cu numele copilului, modulul absolvit, competențele dobândite, perioada, semnătura școlii.
-Infrastructura există deja — `pdf.service.ts` generează facturi cu PDFKit, cu fonturile Roboto și
-logo-ul în `src/assets/`.
+Infrastructura există deja: `pdf.service.ts`, cu PDFKit, fonturile Roboto și logo-ul din
+`src/assets/`. După [E15](E15-pricing-facturare.md) S7, serviciul nu mai generează facturi —
+documentele fiscale trec la SmartBill — deci rămâne liber exact pentru documentele de tipul ăsta.
+
+Merită un logo vectorial înainte, altfel certificatul tipărit va arăta pixelat — vezi
+[E18](E18-frontend-portal.md).
 
 Copiii țin la certificate mai mult decât se așteaptă adulții, iar părinții le fotografiază și le
 pun pe rețele sociale, ceea ce e marketing gratuit și autentic.
