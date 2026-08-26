@@ -1,5 +1,14 @@
 .DS_Store
 
+# Dependențe. Un singur store pnpm la rădăcină, plus symlink-urile per workspace.
+node_modules/
+
+# Artefacte de build și cache-uri.
+dist/
+.output/
+.nuxt/
+.turbo/
+
 # Secrete și configurație locală. `.env.example` este versionat intenționat — vezi README.
 .env
 .env.*
