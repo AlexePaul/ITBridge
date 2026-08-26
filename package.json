@@ -15,7 +15,8 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:e2e": "dotenv -e .env -- turbo run test:e2e"
   },
   "devDependencies": {
     "husky": "^9.1.7",

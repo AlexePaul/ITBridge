@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Un push nou pe același PR anulează rularea anterioară — nu are rost să verificăm un commit
+# pe care l-a înlocuit deja altul.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Turborepo sare task-urile ale căror intrări nu s-au schimbat. Cache-ul e restaurat din
+  # actions/cache, deci o schimbare doar de frontend nu reface build-ul de backend.
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Instalare
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Turborepo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
+      # Aceleași comenzi pe care le rulează un dezvoltator local. Dacă ele diverg de CI,
+      # CI-ul devine un al doilea sistem de verificat, nu o plasă de siguranță.
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Teste unitare
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+        env:
+          API_BASE: http://localhost:3000
+
+  e2e:
+    name: Teste de integrare
+    runs-on: ubuntu-latest
+
+    # Postgres ca serviciu, nu Testcontainers: aceeași imagine ca în docker-compose, pornită de
+    # runner, fără un strat de orchestrare în plus. Fidelitatea e identică — e același Postgres.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: itbridge
+          POSTGRES_PASSWORD: dev_password
+          POSTGRES_DB: itbridge_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U itbridge"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USER: itbridge
+      DB_PASSWORD: dev_password
+      TEST_DB_NAME: itbridge_test
+      AWS_REGION: eu-central-1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Instalare
+        run: pnpm install --frozen-lockfile
+
+      # Baza `itbridge_test` o creează singur `test/global-setup.ts`. Schema o face TypeORM prin
+      # `synchronize: true` — se schimbă când intră migrările, în E04.
+      - name: Teste de integrare
+        run: pnpm --filter api test:e2e
