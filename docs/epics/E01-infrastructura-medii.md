@@ -1,13 +1,13 @@
 # E01 · Curățenie infrastructură și medii de rulare
 
-**Status:** propus · **Pistă:** Fundație · **Depinde de:** — · **Blochează:** tot ce trebuie să ruleze undeva
+**Status:** în lucru · **Pistă:** Fundație · **Depinde de:** — · **Blochează:** tot ce trebuie să ruleze undeva
 
 ## Problemă
 
 Repo-ul descrie trei strategii de deploy moarte, suprapuse peste una reală și nedocumentată.
 
 - `nginx/` plus `certs/` plus `HTTPS_LETSENCRYPT_SETUP.md` — reverse proxy cu Let's Encrypt legat
-  de un host de DNS dinamic, `itbridge.webhop.me`. `nginx.conf` face proxy către
+  de un host de DNS dinamic. `nginx.conf` face proxy către
   `https://backend:3000`, dar backend-ul servește HTTP simplu, deci configurația nu ar funcționa
   nici dacă ar fi pornită.
 - `.github/workflows/aws.yml` — deploy prin SSH pe un EC2 care nu mai există, fără teste, fără
@@ -19,9 +19,9 @@ Repo-ul descrie trei strategii de deploy moarte, suprapuse peste una reală și 
 Realitatea: frontend-ul e pe Vercel, configurat din dashboard, fără `vercel.json` în repo.
 Backend-ul nu e deployat nicăieri, deci site-ul funcționează ca prezentare statică.
 
-Pe deasupra, opt branch-uri pe origin, dintre care șase moarte, și
-`certs/live/itbridge.webhop.me/privkey.pem` — o cheie privată Let's Encrypt reală, validă până în
-ianuarie 2027, comitată la `58e2634` într-un repo public.
+Pe deasupra, opt branch-uri pe origin, dintre care șase moarte, și un `privkey.pem` sub `certs/` —
+o cheie privată Let's Encrypt reală, validă până în ianuarie 2027, comitată la `58e2634` într-un
+repo public.
 
 Separat de curățenie, modul de rulare trebuie schimbat. Astăzi `docker-compose.yml` containerizează
 backend-ul și frontend-ul cu volume montate pentru hot reload, ceea ce înseamnă un strat de
@@ -55,31 +55,39 @@ Repo-ul nu mai conține niciun fișier de infrastructură nefolosit.
 
 ## Story-uri
 
-### S1 · Revocarea cheii scurse
+### S1 · Revocarea cheii scurse — ✅ livrat
 
-Certificatul pentru `itbridge.webhop.me` e revocat la Let's Encrypt. Cheia e scoasă din istoric cu
-`git filter-repo`, sau, dacă rescrierea istoricului e considerată prea invazivă, e documentată
-explicit ca fiind compromisă. `certs/` și `*.pem` intră în `.gitignore`.
+**Decizie:** fără rescriere de istoric. Certificatul acoperea un host de DNS dinamic care nu mai e
+folosit; când va fi nevoie de TLS, Caddy obține certificate noi. Rescrierea istoricului ar fi rupt
+toate clonele și cele nouă branch-uri remote pentru o cheie fără valoare operațională.
 
-**Acceptanță:** `git log --all -- certs/` nu mai returnează conținut de cheie, sau există o notă
-explicită de compromitere în CLAUDE.md. Domeniul `webhop.me` nu mai apare nicăieri în repo.
+`certs/` e șters din branch. `certs/`, `*.pem`, `*.key` și `*.crt` sunt în `.gitignore`. Cheia e
+consemnată ca **compromisă** în CLAUDE.md, secțiunea „Infrastructură — stare reală", împreună cu
+motivul pentru care nu se refolosește. Hostname-ul nu mai apare nicăieri în repo.
 
-### S2 · Ștergerea infrastructurii moarte
+**Rămâne de făcut, în afara repo-ului:** revocarea propriu-zisă la Let's Encrypt. Nu e blocantă —
+certificatul expiră oricum în ianuarie 2027 și nu e servit de nimeni.
 
-Toate fișierele din "În scop" sunt șterse într-un singur commit, cu mesaj care explică de ce.
-`greenlock-express` dispare din `it-bridge-backend/package.json`.
+### S2 · Ștergerea infrastructurii moarte — ✅ livrat
 
-**Acceptanță:** o căutare după `nginx`, `certbot`, `greenlock`, `fly` sau `pm2 delete` în repo nu
-mai returnează configurație activă.
+Șterse: `nginx/`, `certs/`, `HTTPS_LETSENCRYPT_SETUP.md`, `it-bridge-backend/fly.toml`,
+`DOCKER_SETUP.md`, ambele `Dockerfile` și `.dockerignore`-ul backend-ului. `greenlock-express` e
+scos din `package.json`, iar `package-lock.json` regenerat — 203 linii de tranzitive dispărute.
 
-### S3 · Docker doar pentru infrastructură
+**`.github/workflows/aws.yml` a fost șters, nu rescris.** Decizia din secțiunea de mai jos spune
+„se rescrie", dar rescrierea *este* S4, care nu s-a făcut încă fiindcă nu există instanță EC2.
+Până atunci workflow-ul ar fi rulat la fiecare push pe `main`, către un host inexistent, cu
+`pm2 delete` înaintea lui `pm2 start`. Un workflow rupt care se declanșează automat e mai rău
+decât niciunul. Destinația rămâne EC2; S4 scrie workflow-ul de la zero, în forma cu `pm2 reload`
+și health check.
 
-`docker-compose.yml` păstrează exclusiv serviciul `postgres`, cu healthcheck și volum persistent.
-Serviciile `backend`, `frontend` și `nginx` dispar, împreună cu `it-bridge-backend/Dockerfile` și
-`it-bridge-frontend/Dockerfile`.
+### S3 · Docker doar pentru infrastructură — ✅ livrat
 
-**Acceptanță:** `docker compose up -d` pornește doar Postgres. Aplicația se pornește separat, cu
-comenzile din [E02](E02-monorepo-tooling.md), și se conectează la el pe `localhost:5432`.
+`docker-compose.yml` conține exclusiv `postgres`, cu healthcheck, volum persistent și
+`restart: unless-stopped`. Cheia `version:`, obsoletă în Compose v2, a dispărut și ea.
+
+**Verificat:** `docker compose up -d` pornește doar Postgres, `healthy` în 6 secunde. Backend-ul
+pornit cu `node dist/main.js` se conectează pe `localhost:5432` și mapează toate rutele.
 
 ### S4 · Producție pe VPS cu PM2
 
@@ -95,6 +103,10 @@ build eșuat să lase versiunea veche în funcțiune.
 **Acceptanță:** un deploy cu build stricat nu întrerupe serviciul. `GET /health` public răspunde
 200. Repornirea VPS-ului readuce aplicația singură, prin `pm2 startup` plus `pm2 save`.
 
+**Stare: neînceput.** Amânat deliberat până există instanța EC2 — un `ecosystem.config.js` și un
+workflow scrise împotriva unui host imaginar sunt ficțiune, nu infrastructură. Odată cu S4 intră
+și `GET /health`, care astăzi nu există.
+
 ### S5 · Vercel documentat și `API_BASE` corect
 
 Configurația Vercel a frontend-ului e consemnată în README: comandă de build în context de
@@ -103,12 +115,36 @@ README-ul nu mai menționează `NUXT_PUBLIC_API_BASE`, care nu e citit de `it-br
 
 **Acceptanță:** login din producție funcționează capăt-la-capăt, de pe domeniul real.
 
+**Stare: livrat în repo.** README-ul e rescris: tabel cu setările Vercel, secțiune de configurare
+per componentă, `.env.example` versionat pentru ambele. Referința la `NUXT_PUBLIC_API_BASE` a
+dispărut, la fel și linkul rupt către `it-bridge-backend/src/swagger.json`.
+
+Două lucruri care au ieșit la iveală pe drum:
+
+- **Backend-ul nu citea deloc `.env`** — fără `dotenv`, fără `ConfigModule`. Un `.env.example`
+  ar fi fost decorativ. Adăugat `it-bridge-backend/src/load-env.ts`, importat primul în `main.ts`,
+  care apelează `process.loadEnvFile` — built-in Node, fără dependență nouă. Ordinea contează:
+  `app.module.ts` citește `process.env` la încărcare, iar în CommonJS require-urile rulează în
+  ordinea din sursă.
+- **`AWS_REGION` e obligatorie la boot.** `S3Service.onModuleInit` aruncă fără ea și aplicația
+  nu pornește, chiar dacă nu atingi nicio factură. E acum în `.env.example` și în CLAUDE.md.
+
+**Rămâne de făcut, în afara repo-ului:** setarea `API_BASE` în Vercel, pe toate mediile inclusiv
+Preview. Verificarea capăt-la-capăt de pe domeniul real depinde de S4, fiindcă backend-ul nu e
+încă deployat.
+
+**Verificat local:** `nuxt build` trece, `API_BASE` ajunge corect în `runtimeConfig.public.apiBase`
+al bundle-ului, iar build-ul servit răspunde 200 cu `apiBase` pointat spre backend.
+
 ### S6 · Curățare de branch-uri
 
 `backup-02-01-2026`, `backup-ui-02-01-2026`, `development`, `feature/configure-github-actions-CD`,
 `feature/configure-github-actions-CD-1`, `flyio-new-files` — evaluate, apoi merge-uite sau șterse.
 
 **Acceptanță:** `git branch -r` listează `main` plus branch-urile de lucru active.
+
+**Stare: neînceput.** Ștergerea de branch-uri remote e ireversibilă și se face separat, cu
+confirmare explicită.
 
 ## Dependențe
 
@@ -144,6 +180,8 @@ Asta schimbă S2 și S4 față de forma inițială a epicului:
   nu a fost niciodată EC2, ci lipsa de rollback. Forma nouă: `git pull`, `pnpm install
   --frozen-lockfile`, `pnpm build`, migrări, `pm2 reload`, health check. Dacă build-ul sau
   migrarea eșuează, nu se ajunge la reload și versiunea veche rămâne în funcțiune.
+  *Amendament, la curățenia din S2:* fișierul vechi a fost totuși șters, fiindcă rescrierea e
+  parte din S4 și până atunci s-ar fi declanșat la fiecare push. Se scrie de la zero în S4.
 - **Postgres pe instanță** înseamnă că backup-ul, restaurarea și actualizările sunt ale voastre.
   [E04](E04-migrari-date.md), S4 — proba de restaurare — devine obligatorie, nu opțională.
   Backup-urile merg în S3, unde aveți deja bucket și integrare funcțională.
@@ -157,5 +195,12 @@ Asta schimbă S2 și S4 față de forma inițială a epicului:
 
 ## Întrebări deschise
 
-- Rescriem istoricul git pentru cheie, sau doar revocăm și documentăm?
-- Rămâne `itbridgeschool.com` domeniul principal? CORS-ul din `it-bridge-backend/src/main.ts` e hardcodat pe el.
+Ambele au primit răspuns.
+
+**Rescriem istoricul git pentru cheie?** Nu. Ștergere din branch plus notă de compromitere în
+CLAUDE.md — detalii în S1.
+
+**Rămâne `itbridgeschool.com` domeniul principal?** Da, dar CORS-ul nu mai e hardcodat. Lista de
+origini vine din `CORS_ORIGINS`, separată prin virgulă, cu domeniul de producție și
+`http://localhost:3001` ca valori implicite când variabila lipsește. Preview-urile Vercel și un
+eventual staging nu mai cer modificare de cod.

@@ -8,29 +8,34 @@ ITBridge School — platformă de management pentru o școală de IT pentru copi
 Părinții își fac cont, înregistrează copiii, copiii intră în grupe, se marchează prezența, iar
 lunar se emit facturi (PDF în S3) și se înregistrează plățile.
 
-Monorepo cu trei piese:
+Monorepo cu două piese, plus Postgres ca infrastructură locală:
 
 | Director | Stack | Port |
 |---|---|---|
 | `it-bridge-backend/` | NestJS 11, TypeORM, JWT, PDFKit, AWS S3 | 3000 |
-| `it-bridge-frontend/` | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind | 3001 (3000 în container) |
-| `nginx/`, `certs/` | reverse proxy + Let's Encrypt — **abandonat**, vezi mai jos | 80 / 8990 |
+| `it-bridge-frontend/` | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind | 3001 |
+| `docker-compose.yml` | Postgres 17 — singurul lucru care rulează în Docker | 5432 |
 
 ## Comenzi
 
 ```bash
-# tot stack-ul (Postgres + backend + frontend, cu hot reload)
-docker compose up -d --build
+# Postgres — atât rulează în Docker, aplicația nu
+docker compose up -d
 
-# backend separat
-cd it-bridge-backend && npm ci && npm run start:dev   # nest build && nest start --watch
+# backend
+cd it-bridge-backend && cp .env.example .env && npm ci
+npm run start:dev     # nest build && nest start --watch
 npm run lint          # eslint --fix
 npm test              # jest — vezi "Capcane" mai jos
 
-# frontend separat
-cd it-bridge-frontend && npm install
-API_BASE=http://localhost:3000 npm run dev -- --host 0.0.0.0 --port 3001
+# frontend
+cd it-bridge-frontend && cp .env.example .env && npm install
+npm run dev -- --port 3001
 ```
+
+Aplicația **nu** rulează în Docker, nici local nici în producție. Backend-ul își citește `.env`
+prin `it-bridge-backend/src/load-env.ts`, importat înaintea oricărui modul care atinge
+`process.env` la încărcare — dacă adaugi un import nou în `main.ts`, lasă-l pe ăsta primul.
 
 Swagger UI: `http://localhost:3000/api`. La fiecare boot, `it-bridge-backend/src/main.ts` scrie
 schema în `./swagger.json`, relativ la directorul din care rulează procesul. Fișierul e în
@@ -127,10 +132,16 @@ pipe-ul global.
 **Nu există migrări.** `it-bridge-backend/src/app.module.ts` rulează cu `synchronize: true`, deci TypeORM alterează
 schema singur la fiecare boot. Orice schimbare de entitate se aplică direct pe baza de date.
 
-**`API_BASE`, nu `NUXT_PUBLIC_API_BASE`.** `it-bridge-frontend/nuxt.config.ts` mapează `runtimeConfig.public.apiBase`
-pe `process.env.API_BASE`, iar `docker-compose.yml` nu îl setează pentru serviciul `frontend`.
-Fără el, `apiBase` e `undefined` și cererile pleacă spre origin-ul Nuxt. README-ul spune altceva
-și greșește.
+**`API_BASE`, nu `NUXT_PUBLIC_API_BASE`.** `it-bridge-frontend/nuxt.config.ts` mapează
+`runtimeConfig.public.apiBase` pe `process.env.API_BASE`. Fără el, `apiBase` e `undefined` și
+cererile pleacă spre origin-ul Nuxt. E în `it-bridge-frontend/.env.example` și trebuie setat și în
+Vercel, inclusiv pe Preview.
+
+**`AWS_REGION` e obligatorie ca să pornească aplicația.** `S3Service.onModuleInit`
+(`it-bridge-backend/src/modules/invoice/s3.service.ts:13`) aruncă fără ea, deci backend-ul cade la
+boot, chiar dacă nu atingi nicio factură. Cheile de acces sunt opționale — lipsa lor duce SDK-ul pe
+lanțul implicit de credențiale, adică IAM instance role în producție. Mesajul de eroare cere trei
+variabile, dar verifică una singură.
 
 **Secrete JWT cu fallback.** `it-bridge-backend/src/constants/jwtConstants.ts` cade pe `'defaultAccessSecret'` /
 `'defaultRefreshSecret'` dacă variabilele lipsesc — fără avertisment.
@@ -142,26 +153,24 @@ listă de revocare.
 250×2 pentru doi, nicio ramură pentru trei sau mai mulți, deci `totalAmount` rămâne 0 și
 reducerile îl duc pe negativ.
 
-**CORS-ul e hardcodat** în `it-bridge-backend/src/main.ts` pe `https://itbridgeschool.com` și `http://localhost:3001`.
-
-**README-ul din rădăcină trimite către un fișier inexistent.** Linkul către
-`it-bridge-backend/src/swagger.json` e rupt: schema se scrie la boot în rădăcina backend-ului, nu
-în `src/`, și e oricum în `.gitignore`. Se corectează în [E01](docs/epics/E01-infrastructura-medii.md), S2.
-
 ## Infrastructură — stare reală
 
-Frontend-ul e pe **Vercel**. Backend-ul **nu e deployat nicăieri** în acest moment, deci
-site-ul funcționează efectiv ca prezentare statică.
+Frontend-ul e pe **Vercel**, configurat din dashboard — nu există `vercel.json`. Backend-ul **nu e
+deployat nicăieri** în acest moment, deci site-ul funcționează efectiv ca prezentare statică.
+Ținta stabilită e AWS EC2 cu PM2, Postgres pe aceeași instanță și Caddy pentru TLS; fluxul de
+deploy se scrie în [E01](docs/epics/E01-infrastructura-medii.md), S4. Până atunci repo-ul nu
+conține niciun workflow de deploy — dacă nu găsești unul, nu s-a pierdut, nu există încă.
 
-Următoarele sunt moarte și urmează să fie curățate — nu le extinde și nu te baza pe ele:
-`nginx/`, `certs/`, `HTTPS_LETSENCRYPT_SETUP.md`, `.github/workflows/aws.yml` (deploy SSH pe
-EC2 cu PM2), `it-bridge-backend/fly.toml`, dependența `greenlock-express`. `nginx.conf`
-oricum face proxy către `https://backend:3000`, dar backend-ul servește HTTP simplu.
+`docker-compose.yml` conține exclusiv Postgres. Aplicația rulează direct pe Node, local și în
+producție. Nu adăuga servicii de aplicație acolo.
 
-`certs/live/itbridge.webhop.me/privkey.pem` este o cheie privată Let's Encrypt reală, comitată
-în istoric. Trebuie revocată — nu o refolosi.
-
-`docker-compose.yml` rămâne util pentru dezvoltare locală.
+**Cheie Let's Encrypt compromisă, în istoric.** Un `privkey.pem` real, valid până în ianuarie
+2027, a fost comitat la `58e2634` și a rămas în repo până la curățenia din E01. Fișierele au fost
+șterse din branch, dar istoricul nu a fost rescris, deci cheia e în continuare recuperabilă din
+commit-urile vechi ale unui repo public. **Tratează-o ca fiind compromisă**: nu o refolosi, nu
+reconstitui certificatul din ea. Certificatul acoperea un host de DNS dinamic care nu mai e
+folosit, iar TLS-ul viitor se face cu certificate noi, obținute de Caddy. `certs/`, `*.pem`,
+`*.key` și `*.crt` sunt acum în `.gitignore`.
 
 ## Planul de lucru
 
