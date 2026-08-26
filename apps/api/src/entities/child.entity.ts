@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Profile } from './profile.entity';
 import { Group } from './group.entity';
 import { Attendance } from './attendance.entity';
@@ -21,7 +21,9 @@ export class Child {
     @Column({ type: 'date', nullable: false })
     birthDate: Date;
 
-    @Column({ type: 'date', nullable: true, default: () => 'CURRENT_TIMESTAMP' })
+    // `date` truncates to the day, but the default was CURRENT_TIMESTAMP — the intent was clearly
+    // "when the record was created". A `CreateDateColumn` states that, and keeps the time.
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 
     @ManyToOne(() => Group, { nullable: true, onDelete: 'SET NULL' })
