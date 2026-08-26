@@ -1,37 +1,39 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Discount } from 'src/entities/discount.entity';
+import { Profile } from 'src/entities/profile.entity';
+import { CreateDiscountDto } from './dto/createDiscount.dto';
+import { UpdateDiscountDto } from './dto/updateDiscount.dto';
 
 @Injectable()
 export class DiscountService {
-    constructor(@InjectRepository(Discount) private discountRepository) {}
+    constructor(@InjectRepository(Discount) private discountRepository: Repository<Discount>) {}
 
-    async createDiscount(createDiscountDto) {
+    async createDiscount(createDiscountDto: CreateDiscountDto): Promise<Discount> {
         const discount = this.discountRepository.create(createDiscountDto);
-        discount.parent = { id: createDiscountDto.parentId };
+        // Only the id is set: TypeORM writes the foreign key without loading the whole profile.
+        discount.parent = { id: createDiscountDto.parentId } as Profile;
         return await this.discountRepository.save(discount);
     }
 
-    async findDiscounts() {
+    async findDiscounts(): Promise<Discount[]> {
         return await this.discountRepository.find();
     }
 
-    async updateDiscount(id: number, updateDiscountDto) {
+    async updateDiscount(id: number, updateDiscountDto: UpdateDiscountDto): Promise<Discount> {
         const discount = await this.discountRepository.findOne({ where: { id } });
         if (!discount) {
             throw new NotFoundException('Discount not found');
         }
 
-        Object.entries(updateDiscountDto).forEach(([key, value]) => {
-            if (value !== undefined) {
-                discount[key] = value;
-            }
-        });
+        // Only the fields actually sent are overwritten; `undefined` leaves the current value alone.
+        Object.assign(discount, Object.fromEntries(Object.entries(updateDiscountDto).filter(([, value]) => value !== undefined)));
 
-        return this.discountRepository.save(discount);
+        return await this.discountRepository.save(discount);
     }
 
-    async deleteDiscount(id: number) {
+    async deleteDiscount(id: number): Promise<void> {
         await this.discountRepository.delete(id);
     }
 }
