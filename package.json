@@ -1,0 +1,34 @@
+{
+  "name": "itbridge",
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "dotenv -e .env -- turbo run dev",
+    "dev:api": "dotenv -e .env -- turbo run dev --filter=api",
+    "dev:web": "dotenv -e .env -- turbo run dev --filter=web",
+    "build": "dotenv -e .env -- turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.7.4",
+    "prettier-plugin-vue": "^1.1.6",
+    "turbo": "^2.10.12",
+    "dotenv-cli": "^11.0.0"
+  },
+  "lint-staged": {
+    "apps/api/**/*.ts": "prettier --write",
+    "packages/**/*.ts": "prettier --write",
+    "apps/web/**/*.{ts,vue,css}": "prettier --write",
+    "*.{json,md,yaml,yml}": "prettier --write"
+  }
+}

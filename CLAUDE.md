@@ -8,44 +8,61 @@ ITBridge School — platformă de management pentru o școală de IT pentru copi
 Părinții își fac cont, înregistrează copiii, copiii intră în grupe, se marchează prezența, iar
 lunar se emit facturi (PDF în S3) și se înregistrează plățile.
 
-Monorepo cu două piese, plus Postgres ca infrastructură locală:
+Monorepo pnpm, orchestrat cu Turborepo, plus Postgres ca infrastructură locală:
 
-| Director | Stack | Port |
-|---|---|---|
-| `it-bridge-backend/` | NestJS 11, TypeORM, JWT, PDFKit, AWS S3 | 3000 |
-| `it-bridge-frontend/` | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind | 3001 |
+| Workspace            | Stack                                               | Port |
+| -------------------- | --------------------------------------------------- | ---- |
+| `apps/api/`          | NestJS 11, TypeORM, JWT, PDFKit, AWS S3             | 3000 |
+| `apps/web/`          | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind                 | 3001 |
+| `packages/types/`    | contractul API partajat, `@itbridge/types`          | —    |
 | `docker-compose.yml` | Postgres 17 — singurul lucru care rulează în Docker | 5432 |
 
 ## Comenzi
 
+Toate de la rădăcină. Nu intra în `apps/*` să rulezi `npm` — nu există `package-lock.json` și nu
+mai există `node_modules` propriu.
+
 ```bash
-# Postgres — atât rulează în Docker, aplicația nu
-docker compose up -d
+cp .env.example .env    # un singur .env, la rădăcină
+pnpm install
+docker compose up -d    # doar Postgres; aplicația rulează pe Node
+pnpm dev                # api + web, hot reload, fără variabile pe linia de comandă
 
-# backend
-cd it-bridge-backend && cp .env.example .env && npm ci
-npm run start:dev     # nest build && nest start --watch
-npm run lint          # eslint --fix
-npm test              # jest — vezi "Capcane" mai jos
+pnpm build          # turbo, în ordinea dependențelor
+pnpm typecheck      # toate workspace-urile
+pnpm lint           # verifică, nu modifică — vezi "Capcane"
+pnpm test           # jest pe api — vezi "Capcane"
 
-# frontend
-cd it-bridge-frontend && cp .env.example .env && npm install
-npm run dev -- --port 3001
+pnpm --filter api <script>   # o comandă într-un singur workspace
 ```
 
 Aplicația **nu** rulează în Docker, nici local nici în producție. Backend-ul își citește `.env`
-prin `it-bridge-backend/src/load-env.ts`, importat înaintea oricărui modul care atinge
-`process.env` la încărcare — dacă adaugi un import nou în `main.ts`, lasă-l pe ăsta primul.
+prin `apps/api/src/load-env.ts`, importat înaintea oricărui modul care atinge `process.env` la
+încărcare — dacă adaugi un import nou în `main.ts`, lasă-l pe ăsta primul.
 
-Swagger UI: `http://localhost:3000/api`. La fiecare boot, `it-bridge-backend/src/main.ts` scrie
-schema în `./swagger.json`, relativ la directorul din care rulează procesul. Fișierul e în
-`.gitignore`, deci nu există într-o clonă proaspătă — apare doar după prima pornire.
+**O variabilă de mediu nouă trebuie declarată în `turbo.json`, la `globalEnv`.** Turbo rulează în
+mod `strict`: un task vede doar ce e declarat acolo, iar restul lipsesc fără niciun mesaj. E cea
+mai probabilă cauză când ceva „nu vede" o variabilă pe care tocmai ai pus-o în `.env`.
+
+Swagger UI: `http://localhost:3000/api`. La fiecare boot, `apps/api/src/main.ts` scrie schema în
+`./swagger.json`, relativ la directorul din care rulează procesul. Fișierul e în `.gitignore`,
+deci nu există într-o clonă proaspătă — apare doar după prima pornire.
+
+## Contractul API
+
+`packages/types` descrie **formatul de pe sârmă**, nu entitățile: `Date` devine string, fiindcă
+asta face `JSON.stringify` la ieșirea din controller. E consumat de ambele părți — `apps/web` prin
+punțile subțiri din `app/types/`, `apps/api` prin verificările de tip din `src/contract.ts`.
+
+Consecința practică: dacă schimbi un câmp într-o entitate, actualizează și contractul, altfel cade
+`pnpm typecheck` pe `api`. Dacă schimbi contractul, cade `web`. Asta e intenția — înainte, cele
+două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — nouă module feature în `it-bridge-backend/src/modules/`, toate după același tipar
+**Backend** — nouă module feature în `apps/api/src/modules/`, toate după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `group`,
-`attendance`, `invoice`, `payment`, `discount`. Entitățile stau centralizat în `it-bridge-backend/src/entities/`
+`attendance`, `invoice`, `payment`, `discount`. Entitățile stau centralizat în `apps/api/src/entities/`
 și sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
 reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
 
@@ -60,9 +77,9 @@ User ─1:1─ Profile ─1:N─ Child ─N:1─ Group
                     └─1:N─ Discount
 ```
 
-**Auth** — două roluri, `ADMIN` și `PARENT` (`it-bridge-backend/src/enum/role.enum.ts`). `register` creează
+**Auth** — două roluri, `ADMIN` și `PARENT` (`apps/api/src/enum/role.enum.ts`). `register` creează
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
-access (15 min) / refresh (7 zile), cu secrete distincte în `it-bridge-backend/src/constants/jwtConstants.ts`.
+access (15 min) / refresh (7 zile), cu secrete distincte în `apps/api/src/constants/jwtConstants.ts`.
 
 Protecția se compune per-handler, nu global:
 
@@ -75,25 +92,26 @@ Protecția se compune per-handler, nu global:
 endpoint pe care un părinte îl poate accesa doar pentru propriile date:
 
 ```ts
-const qb = this.invoiceRepository.createQueryBuilder('invoice')
-    .leftJoinAndSelect('invoice.parent', 'parent');
+const qb = this.invoiceRepository
+  .createQueryBuilder("invoice")
+  .leftJoinAndSelect("invoice.parent", "parent");
 if (role !== Role.ADMIN) {
-    qb.leftJoin('parent.user', 'user').andWhere('user.id = :userId', { userId });
+  qb.leftJoin("parent.user", "user").andWhere("user.id = :userId", { userId });
 }
 ```
 
-Vezi `it-bridge-backend/src/modules/invoice/invoice.service.ts:50`. Același tipar în `payment`, `child`, `profile` — respectă-l.
+Vezi `apps/api/src/modules/invoice/invoice.service.ts:50`. Același tipar în `payment`, `child`, `profile` — respectă-l.
 
 **Frontend** — lanțul de autentificare are o ordine care contează:
-`it-bridge-frontend/app/plugins/01.auth.client.ts` setează `authInitialized` → middleware-urile globale
+`apps/web/app/plugins/01.auth.client.ts` setează `authInitialized` → middleware-urile globale
 `01.auth.global.ts` și `02.profile-setup.global.ts` **ies devreme** dacă flag-ul e fals →
-`it-bridge-frontend/app/middleware/admin-check.ts` e opt-in, pus explicit pe paginile `/admin/*`. Prefixele numerice
+`apps/web/app/middleware/admin-check.ts` e opt-in, pus explicit pe paginile `/admin/*`. Prefixele numerice
 din numele fișierelor dictează ordinea de execuție; nu le redenumi.
 
-Tokenurile trăiesc în cookies (`it-bridge-frontend/app/stores/tokenStore.ts`). Toate apelurile trec prin
-`it-bridge-frontend/app/composables/api/useApi.ts`, care face refresh automat pe 401 și de-duplică refresh-urile
+Tokenurile trăiesc în cookies (`apps/web/app/stores/tokenStore.ts`). Toate apelurile trec prin
+`apps/web/app/composables/api/useApi.ts`, care face refresh automat pe 401 și de-duplică refresh-urile
 concurente printr-un `refreshPromise` partajat. Nu apela `$fetch` direct — folosește
-composable-urile din `it-bridge-frontend/app/composables/api/`.
+composable-urile din `apps/web/app/composables/api/`.
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
@@ -104,7 +122,7 @@ State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier
 - Backend importă cu path absolut de la rădăcină: `from 'src/entities/child.entity'`
   (rezolvat prin `baseUrl`). Frontend folosește alias-ul Nuxt `~/`.
 - Sumele monetare: `decimal` în Postgres, expuse ca `number` în aplicație printr-un
-  `transformer` pe coloană (vezi `it-bridge-backend/src/entities/invoice.entity.ts`).
+  `transformer` pe coloană (vezi `apps/api/src/entities/invoice.entity.ts`).
 - Lunile de facturare sunt string-uri `'YYYY-MM'` (`monthIssued`), cu constrângere
   `@Unique(['parent', 'monthIssued'])` pe `Invoice`.
 - `Group.weekday` e zi ISO: 1 = luni, 7 = duminică.
@@ -113,10 +131,10 @@ State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier
 
 Lucruri care te vor bloca dacă nu le știi dinainte.
 
-**`npm test` nu rulează.** Toate cele 18 suite eșuează la încărcare cu
+**`pnpm test` nu rulează.** Toate cele 18 suite eșuează la încărcare cu
 `Cannot find module 'src/entities/...'`. `baseUrl` din tsconfig rezolvă importurile la
 `nest build`, dar ts-jest nu îl folosește. Fix, o singură linie în config-ul jest din
-`it-bridge-backend/package.json`:
+`apps/api/package.json`:
 
 ```json
 "moduleDirectories": ["node_modules", "<rootDir>/.."]
@@ -125,31 +143,39 @@ Lucruri care te vor bloca dacă nu le știi dinainte.
 Testele existente sunt oricum doar schelet `should be defined`.
 
 **Validarea nu rulează.** 22 de fișiere DTO au decoratori `class-validator`, dar niciun
-`ValidationPipe` nu e înregistrat în `it-bridge-backend/src/main.ts` și nu există `APP_PIPE`. Body-uri brute ajung
+`ValidationPipe` nu e înregistrat în `apps/api/src/main.ts` și nu există `APP_PIPE`. Body-uri brute ajung
 direct în servicii. Dacă adaugi un DTO, decoratorii lui nu fac nimic până nu se înregistrează
 pipe-ul global.
 
-**Nu există migrări.** `it-bridge-backend/src/app.module.ts` rulează cu `synchronize: true`, deci TypeORM alterează
+**Nu există migrări.** `apps/api/src/app.module.ts` rulează cu `synchronize: true`, deci TypeORM alterează
 schema singur la fiecare boot. Orice schimbare de entitate se aplică direct pe baza de date.
 
-**`API_BASE`, nu `NUXT_PUBLIC_API_BASE`.** `it-bridge-frontend/nuxt.config.ts` mapează
+**`API_BASE`, nu `NUXT_PUBLIC_API_BASE`.** `apps/web/nuxt.config.ts` mapează
 `runtimeConfig.public.apiBase` pe `process.env.API_BASE`. Fără el, `apiBase` e `undefined` și
-cererile pleacă spre origin-ul Nuxt. E în `it-bridge-frontend/.env.example` și trebuie setat și în
+cererile pleacă spre origin-ul Nuxt. E în `.env.example` de la rădăcină și trebuie setat și în
 Vercel, inclusiv pe Preview.
 
 **`AWS_REGION` e obligatorie ca să pornească aplicația.** `S3Service.onModuleInit`
-(`it-bridge-backend/src/modules/invoice/s3.service.ts:13`) aruncă fără ea, deci backend-ul cade la
+(`apps/api/src/modules/invoice/s3.service.ts:13`) aruncă fără ea, deci backend-ul cade la
 boot, chiar dacă nu atingi nicio factură. Cheile de acces sunt opționale — lipsa lor duce SDK-ul pe
 lanțul implicit de credențiale, adică IAM instance role în producție. Mesajul de eroare cere trei
 variabile, dar verifică una singură.
 
-**Secrete JWT cu fallback.** `it-bridge-backend/src/constants/jwtConstants.ts` cade pe `'defaultAccessSecret'` /
+**Secrete JWT cu fallback.** `apps/api/src/constants/jwtConstants.ts` cade pe `'defaultAccessSecret'` /
 `'defaultRefreshSecret'` dacă variabilele lipsesc — fără avertisment.
 
 **Refresh tokens nu pot fi revocate.** Sunt stateless, nu există logout server-side și nici
 listă de revocare.
 
-**Prețuri hardcodate, cu gaură la 3+ copii.** `it-bridge-backend/src/modules/invoice/invoice.service.ts:107` — 350 pentru un copil,
+**`pnpm lint` e roșu pe `api`.** 238 de erori eslint preexistente, aproape toate din familia
+`@typescript-eslint/no-unsafe-*` — `any` care circulă prin servicii — plus 44 de variabile
+nefolosite. Nu e regresie și nu ține de monorepo; e datorie de tipuri, tratată în
+[E05](docs/epics/E05-robustete-backend.md). `pnpm --filter api lint:fix` rezolvă doar formatarea.
+
+**Nu rula `npm` în `apps/*`.** Nu mai există `package-lock.json` și nici `node_modules` propriu;
+totul trece prin `pnpm` de la rădăcină. Pentru un singur workspace, `pnpm --filter api <script>`.
+
+**Prețuri hardcodate, cu gaură la 3+ copii.** `apps/api/src/modules/invoice/invoice.service.ts:107` — 350 pentru un copil,
 250×2 pentru doi, nicio ramură pentru trei sau mai mulți, deci `totalAmount` rămâne 0 și
 reducerile îl duc pe negativ.
 

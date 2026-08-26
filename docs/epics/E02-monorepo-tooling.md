@@ -1,6 +1,6 @@
 # E02 · Monorepo: pnpm, Turborepo și fluxul de dezvoltare
 
-**Status:** propus · **Pistă:** Fundație · **Depinde de:** E01 · **Blochează:** E03, E04
+**Status:** livrat · **Pistă:** Fundație · **Depinde de:** E01 · **Blochează:** E03, E04
 
 ## Problemă
 
@@ -57,6 +57,15 @@ Ambele `package-lock.json` dispar, înlocuite de un singur `pnpm-lock.yaml`. `.n
 **Acceptanță:** `pnpm install` de la rădăcină, pe o clonă curată, instalează tot. Nu mai există
 niciun `package-lock.json` în repo.
 
+**Livrat.** Directoarele s-au mutat în `apps/api` și `apps/web`, plus `packages/types`. Ambele
+lockfile-uri au dispărut, înlocuite de un `pnpm-lock.yaml` unic. `.npmrc` fixează `engine-strict`,
+`.nvmrc` fixează Node 24, iar `packageManager` din `package.json` fixează pnpm pentru corepack.
+
+Un lucru neprevăzut de epic: **pnpm 10 nu rulează scripturi de instalare** decât pentru pachetele
+listate explicit în `onlyBuiltDependencies`. Fără asta, `bcrypt` rămâne fără binding nativ și
+`esbuild` fără binar — backend-ul cade la primul hash de parolă, iar Nuxt nu pornește. Lista e în
+`pnpm-workspace.yaml`, cu motivul fiecărei intrări.
+
 ### S2 · Decizia de node_linker
 
 pnpm folosește implicit un `node_modules` strict, cu symlink-uri către un store adresabil prin
@@ -68,6 +77,18 @@ Dacă vrei explicit un arbore aplatizat, se setează `node-linker=hoisted` în `
 
 **Acceptanță:** decizia e luată conștient și consemnată în `.npmrc` cu un comentariu care explică
 de ce.
+
+**Livrat, cu recomandarea respectată:** `node-linker` rămâne pe `isolated`, implicit. Comentariul
+din `.npmrc` explică de ce și ce să faci când o instalare eșuează cu „cannot find module".
+
+Stricteția și-a arătat valoarea imediat, de două ori:
+
+- `@internationalized/date` era importat în două pagini fără să fie declarat nicăieri. Mergea doar
+  fiindcă npm îl aplatiza din dependențele `@nuxt/ui`. Acum e declarat explicit în `apps/web`.
+- `filterProfile.dto.ts` importa din `@nestjs/swagger/dist/decorators/api-property.decorator`, o
+  cale internă pe care `exports` din pachet n-o expune. Rescris pe rădăcina pachetului.
+
+Ambele ar fi căzut la prima instalare curată sau la prima actualizare de dependențe.
 
 ### S3 · Scripturi de dezvoltare
 
@@ -89,6 +110,20 @@ manual pe linia de comandă. Porturile rămân 3000 pentru API și 3001 pentru w
 **Acceptanță:** `pnpm dev` pe o clonă curată, cu Postgres pornit din Docker, ridică ambele
 aplicații cu hot reload și cu frontend-ul vorbind cu backend-ul. Fără variabile pe linia de comandă.
 
+**Livrat și verificat.** `.env` de la rădăcină e încărcat cu `dotenv-cli` și transmis tuturor
+task-urilor. Cele trei `.env.example` separate (rădăcină, api, web) s-au topit într-unul singur,
+comentat variabilă cu variabilă; un `apps/api/.env` rămâne citit dacă există, pentru secrete pe
+care nu le vrei la rădăcină.
+
+**Capcana care a costat cel mai mult timp:** Turbo 2 rulează implicit cu `envMode: "strict"`, deci
+un task vede **doar** variabilele declarate în `turbo.json`. `.env` era încărcat corect, dar
+`AWS_REGION` nu ajungea la proces, iar backend-ul cădea la boot fără niciun indiciu că problema e
+Turbo. Rezolvat cu `globalEnv`, care acceptă wildcard-uri. E consemnat în README și în CLAUDE.md,
+fiindcă e prima explicație de căutat când o variabilă „nu se vede".
+
+Verificat: `pnpm dev` ridică ambele în ~30s, `apiBase` ajunge corect în payload-ul SSR, CORS-ul
+citește originea din `.env`, iar o modificare în `apps/api/src` declanșează repornirea Nest.
+
 ### S4 · Pachet partajat de tipuri
 
 `packages/types` conține contractele împărtășite. Astăzi backend-ul are entitățile și DTO-urile,
@@ -100,12 +135,44 @@ deja se exportă la fiecare boot. Atunci tipurile nu se mai scriu de mână delo
 
 **Acceptanță:** o schimbare de câmp în contractul API face să eșueze `typecheck` pe frontend.
 
+**Livrat, cu tipuri scrise de mână.** Generarea din `swagger.json` a fost respinsă: fișierul e în
+`.gitignore` și se scrie abia la boot, deci genererea ar fi cerut ori comiterea schemei, ori
+backend-ul pornit în timpul build-ului. Prea fragil pentru câștigul obținut.
+
+`packages/types` descrie **formatul de pe sârmă**, nu entitățile — `Date` devine string, fiindcă
+asta face `JSON.stringify`. Cele nouă fișiere din `apps/web/app/types/` au devenit punți de câte o
+linie către pachet, deci cele ~25 de importuri `~/types/...` existente nu s-au schimbat.
+
+Verificarea merge în **ambele** direcții, nu doar cea cerută: `apps/api/src/contract.ts` conține
+aserțiuni la nivel de tip între entitățile TypeORM serializate și contract. Fără ele, backend-ul ar
+fi putut redenumi un câmp iar contractul ar fi rămas să descrie o realitate dispărută.
+
+**Probă:** redenumit `firstName` în `givenName` în contract → 14 erori pe `web`, 1 pe `api`.
+
+**Ce a scos la iveală adoptarea contractului**, în ordinea gravității:
+
+1. **Coloana „Tip Sesiune" din prezență era goală la fiecare rând.** Backend-ul trimite `'normal'`
+   și `'catch-up'`; frontend-ul își cheia etichetele pe `'regular'` și `'make-up'`, valori pe care
+   backend-ul nu le-a trimis niciodată. Bug vizibil, în producție, de necunoscut fără contract.
+2. **Toate id-urile erau tipate `string` pe frontend, dar sunt `number`.** Comparațiile foloseau
+   `==` slab, deci mergeau; cele care foloseau `===` comparau un număr cu un string de rută și
+   erau permanent false.
+3. `markGroupAttendance` declara `childId: string`, deși DTO-ul din backend cere `@IsNumber()`.
+4. `Invoice.parent` e opțional — apare doar când interogarea face join — iar pagina de plăți îl
+   dereferenția necondiționat.
+
+Toate corectate, în cel mai mic diff care le rezolvă.
+
 ### S5 · Turborepo
 
 `turbo.json` cu graful: `build` depinde de `^build`, `test` depinde de `build`, `dev` e persistent
 și fără cache. Ieșirile declarate corect, ca să funcționeze cache-ul local.
 
 **Acceptanță:** un al doilea `pnpm build` fără modificări se termină din cache, în sub o secundă.
+
+**Livrat și verificat: 346ms, `>>> FULL TURBO`.** Graful e cel cerut. În plus, `.env` de la
+rădăcină intră în `globalDependencies`, deci o schimbare de configurație invalidează build-urile în
+loc să servească un artefact construit cu alte valori.
 
 ### S6 · Husky o singură dată
 
@@ -115,6 +182,12 @@ regulile potrivite pe fiecare workspace: patru spații și ghilimele simple pe b
 și ghilimele duble pe frontend.
 
 **Acceptanță:** un commit cu formatare greșită e corectat automat, în ambele proiecte.
+
+**Livrat.** Câmpul mort `husky` din `package.json`-ul backend-ului a dispărut, la fel și
+`apps/web/.husky/`. Un singur `.husky/pre-commit` la rădăcină rulează `lint-staged`, configurat
+per workspace. Prettier își rezolvă oricum configurația per fișier, deci `apps/api/.prettierrc`
+(4 spații, ghilimele simple) și `apps/web/.prettierrc` (2 spații, ghilimele duble) rămân în vigoare
+fiecare pe teritoriul lui; `packages/types` a primit una nouă, aliniată cu backend-ul.
 
 ## Dependențe
 
@@ -140,7 +213,24 @@ CI folosește aceleași comenzi ca dezvoltatorul, nu variante paralele.
 
 ## Întrebări deschise
 
-- Mutăm în `apps/api` și `apps/web`, sau păstrăm `it-bridge-backend` și `it-bridge-frontend`?
-  Recomand mutarea, acum cât e ieftin.
-- Tipuri scrise de mână în `packages/types`, sau client generat din `swagger.json`? Al doilea e
-  mai multă unealtă și mai puțină întreținere pe termen lung.
+Ambele au primit răspuns.
+
+**Mutăm în `apps/api` și `apps/web`?** Da. Consecința de urmărit: Root Directory din Vercel trebuie
+schimbat din `it-bridge-frontend` în `apps/web` **în același timp** cu merge-ul, iar Install Command
+devine `pnpm install --frozen-lockfile`.
+
+**Tipuri de mână sau client generat?** De mână. Vezi motivul în S4.
+
+## Ce rămâne roșu, și de ce
+
+`pnpm build` și `pnpm typecheck` trec pe toate workspace-urile. Două nu:
+
+- **`pnpm test`** — jest nu rezolvă importurile absolute `src/...`. Neschimbat de mutare, fix-ul de
+  o linie e documentat în CLAUDE.md, iar suitele sunt oricum doar schelet.
+  [E03](E03-testare-ci.md) le ia pe amândouă.
+- **`pnpm lint`** pe `api` — 238 de erori preexistente, dintre care 192 din familia `no-unsafe-*`,
+  adică `any` care circulă prin servicii, plus 44 de variabile nefolosite. Cele 139 care erau pură
+  formatare au fost reparate cu `--fix`. Restul e datorie de tipuri, nu de tooling, și ține de
+  [E05](E05-robustete-backend.md). O alternativă în două linii, dacă blochează CI-ul din E03: în
+  `apps/api/eslint.config.mjs`, familia `no-unsafe-*` trecută pe `warn`, ca gate-ul să prindă
+  regresii noi cât timp datoria veche rămâne vizibilă.

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+
+  // Turbo 2 rulează implicit cu `envMode: "strict"`: un task vede doar variabilele declarate
+  // aici, restul sunt ascunse. E o alegere bună — face cache-ul corect și dependențele de mediu
+  // vizibile — dar înseamnă că o variabilă nouă trebuie adăugată în listă, altfel „lipsește" fără
+  // niciun mesaj. Prefixele sunt wildcard-uri acceptate de Turbo.
+  "globalEnv": [
+    "NODE_ENV",
+    "PORT",
+    "API_BASE",
+    "CORS_ORIGINS",
+    "DB_*",
+    "JWT_*",
+    "AWS_*"
+  ],
+
+  // `.env` de la rădăcină intră în hash-ul de cache: o schimbare de configurație invalidează
+  // build-urile, în loc să servească un artefact construit cu alte valori.
+  "globalDependencies": [".env"],
+
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".output/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "lint": {},
+    "test": {
+      "dependsOn": ["build"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["^build"]
+    }
+  }
+}

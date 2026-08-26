@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 10 nu rulează scripturi de instalare decât pentru pachetele listate aici. Cele de mai jos
+# au nevoie: bcrypt compilează un binding nativ, esbuild și unrs-resolver descarcă binarul
+# potrivit platformei, vue-demi își alege build-ul după versiunea de Vue. Fără ele, backend-ul
+# cade la primul hash de parolă și Nuxt nu pornește.
+# `@scarf/scarf` e doar telemetrie și rămâne blocat intenționat.
+onlyBuiltDependencies:
+  - bcrypt
+  - esbuild
+  - unrs-resolver
+  - vue-demi
