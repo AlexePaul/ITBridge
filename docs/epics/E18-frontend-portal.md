@@ -11,8 +11,8 @@ Ce e concret în neregulă:
 
 - **Fără sistem de design.** @nuxt/ui 4 e instalat, dar folosit cu valorile implicite. Nu există
   identitate: nici paletă proprie, nici scară tipografică, nici spațiere consecventă.
-  `app.config.ts` e minimal.
-- **Imagini nepregătite.** `public/images/laptop.png` are 1.9MB, `02.jpeg` are 844KB, `01.jpg` are
+  `it-bridge-frontend/app/app.config.ts` e minimal.
+- **Imagini nepregătite.** `it-bridge-frontend/public/images/laptop.png` are 1.9MB, `02.jpeg` are 844KB, `01.jpg` are
   326KB — servite brut, la dimensiune completă, fără format modern și fără dimensiuni responsive.
   `@nuxt/image` nu e instalat. E cea mai mare problemă de performanță a site-ului și lovește direct
   în [E19](E19-seo-geo.md). Există și fișiere `02-old.jpeg`, `03-old.jpeg` rămase în repo.
@@ -51,7 +51,7 @@ orar, prezență, proiecte, progres, facturi — într-un loc. Un admin lucreaz�
 ### S1 · Fundația de design
 
 Paletă, scară tipografică, spațiere, raze, umbre, mișcare — definite ca token-uri în
-`app.config.ts` și în tema Tailwind. Mod întunecat din start, nu adăugat ulterior.
+`it-bridge-frontend/app/app.config.ts` și în tema Tailwind. Mod întunecat din start, nu adăugat ulterior.
 
 Identitatea trebuie să comunice două lucruri simultan: e pentru copii, deci caldă și jucăușă; și e
 o școală serioasă, deci în care un părinte are încredere. Echilibrul dintre ele e decizia de design

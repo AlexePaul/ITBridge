@@ -67,7 +67,7 @@ explicită de compromitere în CLAUDE.md. Domeniul `webhop.me` nu mai apare nic�
 ### S2 · Ștergerea infrastructurii moarte
 
 Toate fișierele din "În scop" sunt șterse într-un singur commit, cu mesaj care explică de ce.
-`greenlock-express` dispare din `package.json`.
+`greenlock-express` dispare din `it-bridge-backend/package.json`.
 
 **Acceptanță:** o căutare după `nginx`, `certbot`, `greenlock`, `fly` sau `pm2 delete` în repo nu
 mai returnează configurație activă.
@@ -99,7 +99,7 @@ build eșuat să lase versiunea veche în funcțiune.
 
 Configurația Vercel a frontend-ului e consemnată în README: comandă de build în context de
 monorepo, director rădăcină, variabile. `API_BASE` e setat în Vercel și în `.env.example` local.
-README-ul nu mai menționează `NUXT_PUBLIC_API_BASE`, care nu e citit de `nuxt.config.ts`.
+README-ul nu mai menționează `NUXT_PUBLIC_API_BASE`, care nu e citit de `it-bridge-frontend/nuxt.config.ts`.
 
 **Acceptanță:** login din producție funcționează capăt-la-capăt, de pe domeniul real.
 
@@ -158,4 +158,4 @@ Asta schimbă S2 și S4 față de forma inițială a epicului:
 ## Întrebări deschise
 
 - Rescriem istoricul git pentru cheie, sau doar revocăm și documentăm?
-- Rămâne `itbridgeschool.com` domeniul principal? CORS-ul din `main.ts` e hardcodat pe el.
+- Rămâne `itbridgeschool.com` domeniul principal? CORS-ul din `it-bridge-backend/src/main.ts` e hardcodat pe el.

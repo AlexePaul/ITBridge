@@ -4,7 +4,7 @@
 
 ## Problemă
 
-`app.module.ts` configurează TypeORM cu `synchronize: true`. La fiecare pornire, TypeORM compară
+`it-bridge-backend/src/app.module.ts` configurează TypeORM cu `synchronize: true`. La fiecare pornire, TypeORM compară
 entitățile din cod cu schema din baza de date și o alterează ca să se potrivească. În dezvoltare e
 comod. Pe date reale e un mecanism de pierdere de date: o redenumire de coloană devine `DROP COLUMN`
 urmat de `ADD COLUMN`, în tăcere, fără confirmare și fără cale de întoarcere.

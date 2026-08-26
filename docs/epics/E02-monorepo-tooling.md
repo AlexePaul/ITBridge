@@ -20,7 +20,7 @@ Consecințele concrete:
 - **Nimic nu e cache-uit.** Fiecare build reface tot, chiar dacă nu s-a schimbat nimic în acel
   proiect.
 - **Husky configurat de două ori, diferit.** Backend-ul are `pretty-quick` într-un câmp `husky`
-  vechi din `package.json`, care nu mai e citit de Husky 9. Frontend-ul are `.husky/` cu
+  vechi din `it-bridge-backend/package.json`, care nu mai e citit de Husky 9. Frontend-ul are `.husky/` cu
   `lint-staged`. Deci hook-ul de pe backend nu rulează.
 
 ## Rezultat

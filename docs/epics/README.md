@@ -159,7 +159,7 @@ un modul, nu un număr garantat de ședințe. Recuperarea rămâne instrument de
 iar formularea din factură și din termeni trebuie să reflecte asta.
 
 **Platforma nu mai emite facturi.** Cu SmartBill ca sistem de evidență fiscală, ies din scop
-numerotarea, TVA-ul, e-Factura și PDF-ul de factură. `pdf.service.ts` rămâne doar pentru documente
+numerotarea, TVA-ul, e-Factura și PDF-ul de factură. `it-bridge-backend/src/modules/invoice/pdf.service.ts` rămâne doar pentru documente
 nefiscale — certificatele din [E13](E13-progres-evaluare.md). În schimb intră în scop două lucruri
 noi: sincronizarea între două sisteme cu stări proprii, și o coadă temperată la **3 apeluri pe
 secundă**, limita API-ului SmartBill. Premisa comercială — abonament **Facturare Platinum** — se

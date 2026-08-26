@@ -12,7 +12,7 @@ a avut loc și a produs ceva. Fără el, părintele plătește pentru o afirmaț
 
 Astăzi proiectele rămân pe calculatorul din laborator pe care a lucrat copilul. Nu există model de
 date, nu există stocare, nu există livrare. Infrastructura de S3 există și funcționează —
-`s3.service.ts` cu `uploadFile` și `downloadFile` — dar e folosită doar pentru facturi.
+`it-bridge-backend/src/modules/invoice/s3.service.ts` cu `uploadFile` și `downloadFile` — dar e folosită doar pentru facturi.
 
 Problema reală nu e stocarea. E **fricțiunea de încărcare.** Orice soluție care cere profesorului
 mai mult de câteva secunde per copil nu va fi folosită după prima săptămână.

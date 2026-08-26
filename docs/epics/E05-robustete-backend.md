@@ -7,7 +7,7 @@
 Backend-ul "se simte shaky", și există un motiv precis, verificabil.
 
 **Validarea nu rulează.** 22 de fișiere DTO au decoratori `class-validator` — `@IsEmail`,
-`@MinLength(6)`, `@IsPhoneNumber`. Niciun `ValidationPipe` nu e înregistrat în `main.ts`, și nu
+`@MinLength(6)`, `@IsPhoneNumber`. Niciun `ValidationPipe` nu e înregistrat în `it-bridge-backend/src/main.ts`, și nu
 există `APP_PIPE` nicăieri. O căutare în tot `src/` după `ValidationPipe`, `useGlobalPipes` sau
 `APP_PIPE` nu returnează nimic. **Toți decoratorii sunt decorativi.** Body-uri brute ajung direct
 în servicii și de acolo în TypeORM. `RegisterDto` cere parolă de minim șase caractere; astăzi
@@ -21,13 +21,13 @@ Restul, din aceeași categorie:
   Când ceva cade în producție, nu ai ce citi.
 - **Fără `/health`.** Nici pentru PM2, nici pentru un uptime checker.
 - **Fără rate limiting.** `/auth/login` acceptă oricâte încercări.
-- **Secrete cu fallback tăcut.** `jwtConstants.ts` cade pe `'defaultAccessSecret'` și
+- **Secrete cu fallback tăcut.** `it-bridge-backend/src/constants/jwtConstants.ts` cade pe `'defaultAccessSecret'` și
   `'defaultRefreshSecret'` dacă variabilele lipsesc. O producție pornită fără ele semnează tokenuri
   cu un secret public, și nimic nu avertizează.
 - **Refresh tokens nerevocabile.** Sunt stateless. Nu există logout server-side, nici listă de
   revocare. Un token furat e valid șapte zile, indiferent ce faci.
-- **CORS hardcodat** în `main.ts` pe `https://itbridgeschool.com` și `http://localhost:3001`.
-- **Configurație împrăștiată.** `process.env` citit direct în `app.module.ts` și în constante,
+- **CORS hardcodat** în `it-bridge-backend/src/main.ts` pe `https://itbridgeschool.com` și `http://localhost:3001`.
+- **Configurație împrăștiată.** `process.env` citit direct în `it-bridge-backend/src/app.module.ts` și în constante,
   fără `ConfigModule`, fără validare la pornire.
 
 ## Rezultat
@@ -78,7 +78,7 @@ conține nume de tabele sau SQL.
 
 `ConfigModule` cu schemă de validare. Aplicația **refuză să pornească** dacă lipsește un secret
 JWT, dacă e egal cu valoarea default, sau dacă lipsește configurația de bază de date. Fallback-urile
-din `jwtConstants.ts` dispar.
+din `it-bridge-backend/src/constants/jwtConstants.ts` dispar.
 
 **Acceptanță:** pornire fără `JWT_ACCESS_TOKEN_SECRET` eșuează cu mesaj explicit, în loc să meargă
 mai departe cu `'defaultAccessSecret'`.
@@ -120,7 +120,7 @@ Fiecare endpoint e trecut prin listă: are `AuthGuard`? are `RolesGuard` unde tr
 filtrarea pe date din service pentru non-admini? Rezultatul e un tabel în acest fișier, actualizat
 la fiecare endpoint nou.
 
-Tiparul de referință e cel din `invoice.service.ts:50`:
+Tiparul de referință e cel din `it-bridge-backend/src/modules/invoice/invoice.service.ts:50`:
 
 ```ts
 if (role !== Role.ADMIN) {

@@ -7,7 +7,7 @@
 Baza tehnică de SEO e aproape de zero. Verificat în cod:
 
 - **Nicio pagină nu folosește `useSeoMeta` sau `useHead` propriu.** Singurul titlu vine din
-  `layouts/default.vue`, care citește `route.meta.title` setat prin `definePageMeta`. Deci există
+  `it-bridge-frontend/app/layouts/default.vue`, care citește `route.meta.title` setat prin `definePageMeta`. Deci există
   titluri, dar **nicio meta descriere, niciun Open Graph, niciun canonical, niciun Twitter card**.
   O pagină partajată pe Facebook sau WhatsApp apare fără imagine și fără descriere.
 - **Fără sitemap.** Nu există `@nuxtjs/sitemap`, nu există `sitemap.xml`.

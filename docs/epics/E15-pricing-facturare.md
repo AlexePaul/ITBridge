@@ -6,7 +6,7 @@
 
 Modelul de facturare actual e lunar, cu prețuri hardcodate, și are un bug care produce sume greșite.
 
-În `invoice.service.ts:107`:
+În `it-bridge-backend/src/modules/invoice/invoice.service.ts:107`:
 
 ```ts
 if (profile.children.length === 1) totalAmount = 350;
@@ -31,7 +31,7 @@ Restul modelului e la fel de rigid:
 Direcția nouă — **700 de lei pe modul**, plătibili integral sau în două tranșe — nu încape în acest
 model. Nu e o schimbare de constantă, e o schimbare de unitate de facturare: de la lună la modul.
 
-Și mai grav, în `payment.entity.ts`: **`Payment` nu are coloană de sumă.** Are `method`, `date`, și
+Și mai grav, în `it-bridge-backend/src/entities/payment.entity.ts`: **`Payment` nu are coloană de sumă.** Are `method`, `date`, și
 o relație unu-la-unu cu `Invoice`. Deci **plata în două tranșe nu poate fi reprezentată deloc** —
 nici măcar teoretic. Se rezolvă în [E16](E16-plati-fiscal.md), dar modelul de aici trebuie să o
 presupună.
@@ -178,8 +178,8 @@ SmartBill de 3 apeluri pe secundă face bucla imposibilă oricum.
 Documentul fiscal e emis de SmartBill, care produce și PDF-ul — vezi
 [E16](E16-plati-fiscal.md). Platforma stochează referința și link-ul, nu generează nimic.
 
-Generarea de facturi din `pdf.service.ts` se retrage. Serviciul rămâne în cod, cu fonturile Roboto
-și logo-ul din `src/assets/`, pentru documentele **nefiscale** — certificatele din
+Generarea de facturi din `it-bridge-backend/src/modules/invoice/pdf.service.ts` se retrage. Serviciul rămâne în cod, cu fonturile Roboto
+și logo-ul din `it-bridge-backend/src/assets/`, pentru documentele **nefiscale** — certificatele din
 [E13](E13-progres-evaluare.md) și rapoartele de progres.
 
 Ce trebuie să arate identic sunt **factura din portal și cea din SmartBill**: aceleași linii,

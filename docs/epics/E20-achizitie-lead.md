@@ -4,7 +4,7 @@
 
 ## Problemă
 
-Site-ul nu are niciun mecanism de conversie. `pages/contact.vue` afișează telefon, email și program.
+Site-ul nu are niciun mecanism de conversie. `it-bridge-frontend/app/pages/contact.vue` afișează telefon, email și program.
 Atât. Nu există formular, nu există programare, nu există nimic care să transforme un vizitator
 interesat într-o programare.
 

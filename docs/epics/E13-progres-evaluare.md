@@ -68,8 +68,8 @@ adaugă un paragraf, îl trimite.
 ### S4 · Certificat
 
 Un PDF cu numele copilului, modulul absolvit, competențele dobândite, perioada, semnătura școlii.
-Infrastructura există deja: `pdf.service.ts`, cu PDFKit, fonturile Roboto și logo-ul din
-`src/assets/`. După [E15](E15-pricing-facturare.md) S7, serviciul nu mai generează facturi —
+Infrastructura există deja: `it-bridge-backend/src/modules/invoice/pdf.service.ts`, cu PDFKit, fonturile Roboto și logo-ul din
+`it-bridge-backend/src/assets/`. După [E15](E15-pricing-facturare.md) S7, serviciul nu mai generează facturi —
 documentele fiscale trec la SmartBill — deci rămâne liber exact pentru documentele de tipul ăsta.
 
 Merită un logo vectorial înainte, altfel certificatul tipărit va arăta pixelat — vezi

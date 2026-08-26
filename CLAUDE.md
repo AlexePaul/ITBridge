@@ -32,13 +32,15 @@ cd it-bridge-frontend && npm install
 API_BASE=http://localhost:3000 npm run dev -- --host 0.0.0.0 --port 3001
 ```
 
-Swagger UI: `http://localhost:3000/api`. Schema exportată la fiecare boot în `it-bridge-backend/swagger.json`.
+Swagger UI: `http://localhost:3000/api`. La fiecare boot, `it-bridge-backend/src/main.ts` scrie
+schema în `./swagger.json`, relativ la directorul din care rulează procesul. Fișierul e în
+`.gitignore`, deci nu există într-o clonă proaspătă — apare doar după prima pornire.
 
 ## Arhitectură
 
-**Backend** — nouă module feature în `src/modules/`, toate după același tipar
+**Backend** — nouă module feature în `it-bridge-backend/src/modules/`, toate după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `group`,
-`attendance`, `invoice`, `payment`, `discount`. Entitățile stau centralizat în `src/entities/`
+`attendance`, `invoice`, `payment`, `discount`. Entitățile stau centralizat în `it-bridge-backend/src/entities/`
 și sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
 reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
 
@@ -53,9 +55,9 @@ User ─1:1─ Profile ─1:N─ Child ─N:1─ Group
                     └─1:N─ Discount
 ```
 
-**Auth** — două roluri, `ADMIN` și `PARENT` (`src/enum/role.enum.ts`). `register` creează
+**Auth** — două roluri, `ADMIN` și `PARENT` (`it-bridge-backend/src/enum/role.enum.ts`). `register` creează
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
-access (15 min) / refresh (7 zile), cu secrete distincte în `src/constants/jwtConstants.ts`.
+access (15 min) / refresh (7 zile), cu secrete distincte în `it-bridge-backend/src/constants/jwtConstants.ts`.
 
 Protecția se compune per-handler, nu global:
 
@@ -75,18 +77,18 @@ if (role !== Role.ADMIN) {
 }
 ```
 
-Vezi `invoice.service.ts:50`. Același tipar în `payment`, `child`, `profile` — respectă-l.
+Vezi `it-bridge-backend/src/modules/invoice/invoice.service.ts:50`. Același tipar în `payment`, `child`, `profile` — respectă-l.
 
 **Frontend** — lanțul de autentificare are o ordine care contează:
-`plugins/01.auth.client.ts` setează `authInitialized` → middleware-urile globale
+`it-bridge-frontend/app/plugins/01.auth.client.ts` setează `authInitialized` → middleware-urile globale
 `01.auth.global.ts` și `02.profile-setup.global.ts` **ies devreme** dacă flag-ul e fals →
-`middleware/admin-check.ts` e opt-in, pus explicit pe paginile `/admin/*`. Prefixele numerice
+`it-bridge-frontend/app/middleware/admin-check.ts` e opt-in, pus explicit pe paginile `/admin/*`. Prefixele numerice
 din numele fișierelor dictează ordinea de execuție; nu le redenumi.
 
-Tokenurile trăiesc în cookies (`stores/tokenStore.ts`). Toate apelurile trec prin
-`composables/api/useApi.ts`, care face refresh automat pe 401 și de-duplică refresh-urile
+Tokenurile trăiesc în cookies (`it-bridge-frontend/app/stores/tokenStore.ts`). Toate apelurile trec prin
+`it-bridge-frontend/app/composables/api/useApi.ts`, care face refresh automat pe 401 și de-duplică refresh-urile
 concurente printr-un `refreshPromise` partajat. Nu apela `$fetch` direct — folosește
-composable-urile din `composables/api/`.
+composable-urile din `it-bridge-frontend/app/composables/api/`.
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
@@ -97,7 +99,7 @@ State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier
 - Backend importă cu path absolut de la rădăcină: `from 'src/entities/child.entity'`
   (rezolvat prin `baseUrl`). Frontend folosește alias-ul Nuxt `~/`.
 - Sumele monetare: `decimal` în Postgres, expuse ca `number` în aplicație printr-un
-  `transformer` pe coloană (vezi `invoice.entity.ts`).
+  `transformer` pe coloană (vezi `it-bridge-backend/src/entities/invoice.entity.ts`).
 - Lunile de facturare sunt string-uri `'YYYY-MM'` (`monthIssued`), cu constrângere
   `@Unique(['parent', 'monthIssued'])` pe `Invoice`.
 - `Group.weekday` e zi ISO: 1 = luni, 7 = duminică.
@@ -109,7 +111,7 @@ Lucruri care te vor bloca dacă nu le știi dinainte.
 **`npm test` nu rulează.** Toate cele 18 suite eșuează la încărcare cu
 `Cannot find module 'src/entities/...'`. `baseUrl` din tsconfig rezolvă importurile la
 `nest build`, dar ts-jest nu îl folosește. Fix, o singură linie în config-ul jest din
-`package.json`:
+`it-bridge-backend/package.json`:
 
 ```json
 "moduleDirectories": ["node_modules", "<rootDir>/.."]
@@ -118,29 +120,33 @@ Lucruri care te vor bloca dacă nu le știi dinainte.
 Testele existente sunt oricum doar schelet `should be defined`.
 
 **Validarea nu rulează.** 22 de fișiere DTO au decoratori `class-validator`, dar niciun
-`ValidationPipe` nu e înregistrat în `main.ts` și nu există `APP_PIPE`. Body-uri brute ajung
+`ValidationPipe` nu e înregistrat în `it-bridge-backend/src/main.ts` și nu există `APP_PIPE`. Body-uri brute ajung
 direct în servicii. Dacă adaugi un DTO, decoratorii lui nu fac nimic până nu se înregistrează
 pipe-ul global.
 
-**Nu există migrări.** `app.module.ts` rulează cu `synchronize: true`, deci TypeORM alterează
+**Nu există migrări.** `it-bridge-backend/src/app.module.ts` rulează cu `synchronize: true`, deci TypeORM alterează
 schema singur la fiecare boot. Orice schimbare de entitate se aplică direct pe baza de date.
 
-**`API_BASE`, nu `NUXT_PUBLIC_API_BASE`.** `nuxt.config.ts` mapează `runtimeConfig.public.apiBase`
+**`API_BASE`, nu `NUXT_PUBLIC_API_BASE`.** `it-bridge-frontend/nuxt.config.ts` mapează `runtimeConfig.public.apiBase`
 pe `process.env.API_BASE`, iar `docker-compose.yml` nu îl setează pentru serviciul `frontend`.
 Fără el, `apiBase` e `undefined` și cererile pleacă spre origin-ul Nuxt. README-ul spune altceva
 și greșește.
 
-**Secrete JWT cu fallback.** `jwtConstants.ts` cade pe `'defaultAccessSecret'` /
+**Secrete JWT cu fallback.** `it-bridge-backend/src/constants/jwtConstants.ts` cade pe `'defaultAccessSecret'` /
 `'defaultRefreshSecret'` dacă variabilele lipsesc — fără avertisment.
 
 **Refresh tokens nu pot fi revocate.** Sunt stateless, nu există logout server-side și nici
 listă de revocare.
 
-**Prețuri hardcodate, cu gaură la 3+ copii.** `invoice.service.ts:107` — 350 pentru un copil,
+**Prețuri hardcodate, cu gaură la 3+ copii.** `it-bridge-backend/src/modules/invoice/invoice.service.ts:107` — 350 pentru un copil,
 250×2 pentru doi, nicio ramură pentru trei sau mai mulți, deci `totalAmount` rămâne 0 și
 reducerile îl duc pe negativ.
 
-**CORS-ul e hardcodat** în `main.ts` pe `https://itbridgeschool.com` și `http://localhost:3001`.
+**CORS-ul e hardcodat** în `it-bridge-backend/src/main.ts` pe `https://itbridgeschool.com` și `http://localhost:3001`.
+
+**README-ul din rădăcină trimite către un fișier inexistent.** Linkul către
+`it-bridge-backend/src/swagger.json` e rupt: schema se scrie la boot în rădăcina backend-ului, nu
+în `src/`, și e oricum în `.gitignore`. Se corectează în [E01](docs/epics/E01-infrastructura-medii.md), S2.
 
 ## Infrastructură — stare reală
 
