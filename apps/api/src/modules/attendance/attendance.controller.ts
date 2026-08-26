@@ -6,6 +6,7 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { RolesGuard } from 'src/guards/role.guard';
 import { AttendanceService } from './attendance.service';
 import { markAttendanceDto } from './dto/markAttendance.dto';
+import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('attendance')
 export class AttendanceController {
@@ -31,7 +32,7 @@ export class AttendanceController {
     @ApiResponse({ status: 200, description: 'Attendance records retrieved successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
-    async getAttendanceByChild(@Param('childId', ParseIntPipe) childId: number, @Request() req) {
+    async getAttendanceByChild(@Param('childId', ParseIntPipe) childId: number, @Request() req: AuthenticatedRequest) {
         return this.attendanceService.getAttendanceByChild(childId, req.user.role, req.user.sub);
     }
 

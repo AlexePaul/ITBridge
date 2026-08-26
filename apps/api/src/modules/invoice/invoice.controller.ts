@@ -9,6 +9,7 @@ import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
 import { FilterInvoiceDto } from './dto/filterInvoice.dto';
 import { GetPreviewDto } from './dto/getPreview.dto';
+import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('invoices')
 export class InvoiceController {
@@ -26,14 +27,14 @@ export class InvoiceController {
     @Get()
     @UseGuards(AuthGuard)
     @ApiBearerAuth()
-    async findInvoices(@Query() filter: FilterInvoiceDto, @Request() req) {
+    async findInvoices(@Query() filter: FilterInvoiceDto, @Request() req: AuthenticatedRequest) {
         return this.invoiceService.findInvoices(filter, req.user.role, req.user.sub);
     }
 
     @Get('/:id')
     @UseGuards(AuthGuard)
     @ApiBearerAuth()
-    async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    async findOne(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
         return this.invoiceService.findOne(id, req.user.role, req.user.sub);
     }
 
@@ -74,7 +75,7 @@ export class InvoiceController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'Invoice not found' })
-    async getInvoicePdf(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    async getInvoicePdf(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
         const pdfBuffer = await this.invoiceService.getInvoicePdf(id, req.user.role, req.user.sub);
 
         return new StreamableFile(pdfBuffer, {

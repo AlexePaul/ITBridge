@@ -8,6 +8,7 @@ import { UpdateChildDto } from './dto/updateChild.dto';
 import { RolesGuard } from 'src/guards/role.guard';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
+import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('children')
 export class ChildController {
@@ -20,7 +21,7 @@ export class ChildController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'Children not found' })
-    async createChild(@Body() createChildDto: CreateChildDto, @Request() req) {
+    async createChild(@Body() createChildDto: CreateChildDto, @Request() req: AuthenticatedRequest) {
         return this.childService.createChild(createChildDto, req.user.role, req.user.sub);
     }
 
@@ -29,7 +30,7 @@ export class ChildController {
     @ApiBearerAuth()
     @ApiResponse({ status: 200, description: 'List of all children' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
-    async findChildren(@Query() filterChildDto: FilterChildDto, @Request() req) {
+    async findChildren(@Query() filterChildDto: FilterChildDto, @Request() req: AuthenticatedRequest) {
         return this.childService.findChildren(filterChildDto, req.user.role, req.user.sub);
     }
 
@@ -40,7 +41,7 @@ export class ChildController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'Child not found' })
-    async updateChild(@Param('childId', ParseIntPipe) childId: number, @Body() updateChildDto: UpdateChildDto, @Request() req) {
+    async updateChild(@Param('childId', ParseIntPipe) childId: number, @Body() updateChildDto: UpdateChildDto, @Request() req: AuthenticatedRequest) {
         return this.childService.updateChild(childId, updateChildDto, req.user.role, req.user.sub);
     }
 
@@ -51,7 +52,7 @@ export class ChildController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'Child not found' })
-    async deleteChild(@Param('childId', ParseIntPipe) childId: number, @Request() req) {
+    async deleteChild(@Param('childId', ParseIntPipe) childId: number, @Request() req: AuthenticatedRequest) {
         return this.childService.deleteChild(childId, req.user.role, req.user.sub);
     }
 
@@ -63,7 +64,11 @@ export class ChildController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'Child or Group not found' })
-    async assignChildToGroup(@Param('childId', ParseIntPipe) childId: number, @Param('groupId', ParseIntPipe) groupId: number, @Request() _req) {
+    async assignChildToGroup(
+        @Param('childId', ParseIntPipe) childId: number,
+        @Param('groupId', ParseIntPipe) groupId: number,
+        @Request() _req: AuthenticatedRequest,
+    ) {
         return this.childService.assignChildToGroup(childId, groupId);
     }
 
@@ -76,7 +81,11 @@ export class ChildController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'Child or Group not found' })
-    async removeChildFromGroup(@Param('childId', ParseIntPipe) childId: number, @Param('groupId', ParseIntPipe) groupId: number, @Request() _req) {
+    async removeChildFromGroup(
+        @Param('childId', ParseIntPipe) childId: number,
+        @Param('groupId', ParseIntPipe) groupId: number,
+        @Request() _req: AuthenticatedRequest,
+    ) {
         return this.childService.removeChildFromGroup(childId, groupId);
     }
 }

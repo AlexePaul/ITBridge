@@ -5,6 +5,7 @@ import { ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { CreateProfileDto } from './dto/createProfile.dto';
 import { FilterProfileDto } from './dto/filterProfile.dto';
 import { UpdateProfileDto } from './dto/updateProfile.dto';
+import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('profiles')
 export class ProfileController {
@@ -16,7 +17,7 @@ export class ProfileController {
     @ApiResponse({ status: 201, description: 'Profile created successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
-    async createProfile(@Request() req, @Body() createProfileDto: CreateProfileDto) {
+    async createProfile(@Request() req: AuthenticatedRequest, @Body() createProfileDto: CreateProfileDto) {
         return this.profileService.createProfile(createProfileDto, req.user.role, req.user.sub);
     }
 
@@ -26,7 +27,7 @@ export class ProfileController {
     @ApiResponse({ status: 200, description: 'Profiles retrieved successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
-    async findProfiles(@Request() req, @Query() filters: FilterProfileDto) {
+    async findProfiles(@Request() req: AuthenticatedRequest, @Query() filters: FilterProfileDto) {
         return this.profileService.findProfiles(filters, req.user.role, req.user.sub);
     }
 
@@ -36,7 +37,7 @@ export class ProfileController {
     @ApiResponse({ status: 200, description: 'Profile updated successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
-    async updateProfile(@Request() req, @Body() updateProfileDto: UpdateProfileDto, @Param('profileId', ParseIntPipe) profileId: number) {
+    async updateProfile(@Request() req: AuthenticatedRequest, @Body() updateProfileDto: UpdateProfileDto, @Param('profileId', ParseIntPipe) profileId: number) {
         return this.profileService.updateProfile(updateProfileDto, profileId, req.user.role, req.user.sub);
     }
 
@@ -47,7 +48,7 @@ export class ProfileController {
     @ApiResponse({ status: 204, description: 'Profile deleted successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
-    async deleteProfile(@Request() req, @Param('profileId', ParseIntPipe) profileId: number) {
+    async deleteProfile(@Request() req: AuthenticatedRequest, @Param('profileId', ParseIntPipe) profileId: number) {
         return this.profileService.deleteProfile(profileId, req.user.role, req.user.sub);
     }
 }

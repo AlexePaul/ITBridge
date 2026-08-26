@@ -5,6 +5,7 @@ import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 import { LoginDto } from 'src/modules/auth/dto/login.dto';
 import { RefreshTokenDto } from 'src/modules/auth/dto/refreshToken.dto';
 import { AuthGuard } from 'src/guards/auth.guard';
+import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('auth')
 export class AuthController {
@@ -45,7 +46,7 @@ export class AuthController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiBearerAuth()
     @UseGuards(AuthGuard)
-    async getProfile(@Request() req) {
+    async getProfile(@Request() req: AuthenticatedRequest) {
         return this.authService.getUserProfile(req.user.sub);
     }
 }
