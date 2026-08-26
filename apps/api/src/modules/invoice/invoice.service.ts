@@ -1,9 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException, StreamableFile } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
-import { Payment } from 'src/entities/payment.entity';
 import { CreateInvoiceDto } from './dto/createInvoice.dto';
 import { UpdateInvoiceDto } from './dto/updateInvoice.dto';
 import { FilterInvoiceDto } from './dto/filterInvoice.dto';
@@ -25,7 +24,6 @@ export class InvoiceService {
 
     async createInvoice(createInvoiceDto: CreateInvoiceDto) {
         const invoicesCreated: Invoice[] = [];
-        const invoicePdf: StreamableFile[] = [];
         for (const parentId of createInvoiceDto.parentIds) {
             const parent = await this.profileRepository.findOne({ where: { id: parentId } });
             if (!parent) throw new NotFoundException('Parent profile not found');

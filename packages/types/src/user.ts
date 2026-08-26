@@ -1,6 +1,6 @@
 import type { ISODateTime } from './common';
 
-/** Oglindește `Role` din `apps/api/src/enum/role.enum.ts`. */
+/** Mirrors `Role` in `apps/api/src/enum/role.enum.ts`. */
 export type Role = 'ADMIN' | 'PARENT';
 
 export interface User {

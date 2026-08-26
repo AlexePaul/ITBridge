@@ -1,8 +1,8 @@
 import type { Child } from './child';
 
 /**
- * Câmpurile de contact sunt `nullable` în `profile.entity.ts`. Un admin poate crea un profil cu
- * doar nume și prenume, iar `GET /users/without-profile` servește legarea ulterioară de un cont.
+ * Contact fields are nullable in `profile.entity.ts`. An admin can create a profile with nothing but
+ * a first and last name, and `GET /users/without-profile` serves the later account linking.
  */
 export interface ProfileSummary {
     id: number;
@@ -15,6 +15,6 @@ export interface ProfileSummary {
 
 export interface Profile extends ProfileSummary {
     children: Child[];
-    /** Calculat, nu stocat: spune dacă profilul are un `User` atașat. */
+    /** Derived, not stored: tells whether the profile has a `User` attached. */
     hasUser?: boolean;
 }

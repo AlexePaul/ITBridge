@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Payment } from 'src/entities/payment.entity';
@@ -23,14 +23,14 @@ export class PaymentService {
         if (!invoice) throw new NotFoundException('Invoice not found');
 
         const payment = this.paymentRepo.create({
-            invoice: invoice as any,
+            invoice,
             method: createPaymentDto.method ?? 'cash',
             date: new Date(createPaymentDto.date),
-        } as any);
+        });
 
         const saved = await this.paymentRepo.save(payment);
         // mark invoice as paid
-        invoice.payment = saved as any;
+        invoice.payment = saved;
         invoice.status = InvoiceStatus.PAID;
         await this.invoiceRepo.save(invoice);
 

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, RelationId, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, OneToMany } from 'typeorm';
 import { User } from './user.entity';
 import { Child } from './child.entity';
 import { Invoice } from './invoice.entity';
@@ -11,7 +11,7 @@ export class Profile {
 
     @OneToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'user_id' })
-    user: User;
+    user?: User | null;
 
     @Column({ unique: true, length: 255, nullable: true })
     email?: string;

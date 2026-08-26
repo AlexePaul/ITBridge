@@ -8,6 +8,7 @@ import { RolesGuard } from 'src/guards/role.guard';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
 import { FilterPaymentDto } from './dto/filterPayment.dto';
+import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('payments')
 export class PaymentController {
@@ -25,14 +26,14 @@ export class PaymentController {
     @Get()
     @UseGuards(AuthGuard)
     @ApiBearerAuth()
-    async findPayments(@Query() filter: FilterPaymentDto, @Request() req) {
+    async findPayments(@Query() filter: FilterPaymentDto, @Request() req: AuthenticatedRequest) {
         return this.paymentService.findPayments(filter, req.user.role, req.user.sub);
     }
 
     @Get('/:id')
     @UseGuards(AuthGuard)
     @ApiBearerAuth()
-    async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    async findOne(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
         return this.paymentService.findOne(id, req.user.role, req.user.sub);
     }
 

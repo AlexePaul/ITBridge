@@ -19,18 +19,23 @@ Pentru primele șase luni realiste, vezi secțiunea [Ordinea recomandată](#ordi
 ## Stare curentă
 
 Frontend pe Vercel, funcționând ca prezentare statică. Backend nedeployat nicăieri. Validarea
-cererilor nu rulează, deși 22 de DTO-uri au decoratori. Testele nu pornesc — 18 din 18 suite
-eșuează la încărcare. Schema se auto-alterează la fiecare boot. Platforma nu are noțiunea de
-locație, deși școala are două.
+cererilor nu rulează, deși 22 de DTO-uri au decoratori. Schema se auto-alterează la fiecare boot.
+Platforma nu are noțiunea de locație, deși școala are două.
 
 Curățenia de infrastructură din E01 a intrat: aplicația nu mai rulează în Docker, `docker-compose.yml`
 e doar Postgres, iar cele trei strategii de deploy moarte au dispărut din repo. Cheia Let's Encrypt
 a fost ștearsă din branch, dar rămâne în istoricul git — e compromisă și nu se refolosește.
 
 E02 a intrat și el: monorepo pnpm cu `apps/api`, `apps/web` și `packages/types`, orchestrat cu
-Turborepo. `pnpm install && pnpm dev` pornește tot. Contractul API partajat a scos la iveală, la
-adoptare, un bug vizibil în producție — coloana „Tip Sesiune" din prezență era goală la fiecare
-rând, fiindcă frontend-ul își cheia etichetele pe valori pe care backend-ul nu le trimite.
+Turborepo. `pnpm install && pnpm dev` pornește tot.
+
+E03 a adus plasa de siguranță: 345 de teste, de la unitare pe logica de facturare până la
+integrare prin HTTP pe Postgres, plus o matrice de autorizare care se generează singură din
+metadatele controllerelor. CI rulează pe fiecare PR.
+
+Testele au scos la iveală trei bug-uri, toate documentate ca `it.failing` în loc să fie
+cimentate: calculul de preț la trei copii, restrângerea dublată din `findPayments`, și crearea
+unui al doilea profil fără date de contact, care întoarce 409.
 
 Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane".
 
@@ -127,8 +132,10 @@ Fiecare epic are `Status` în antet: `propus` → `acceptat` → `în lucru` →
 în `în lucru` fără ca întrebările deschise din fișier să aibă răspuns.
 
 [E01](E01-infrastructura-medii.md) e `în lucru`: S1, S2, S3 și S5 sunt livrate, S4 (deploy pe EC2)
-și S6 (curățare de branch-uri) rămân. [E02](E02-monorepo-tooling.md) e `livrat`. Restul sunt
-`propus`.
+și S6 (curățare de branch-uri) rămân. [E02](E02-monorepo-tooling.md) și
+[E03](E03-testare-ci.md) sunt `livrate` — la E03, cu o singură rezervă: branch protection pe `main`
+se activează din Settings, nu din repo, deci până atunci CI raportează fără să blocheze. Restul
+sunt `propus`.
 
 ## Decizii deja luate
 

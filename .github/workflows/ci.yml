@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push on the same PR cancels the previous run - there is no point verifying a commit that
+# another one has already replaced.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Turborepo skips tasks whose inputs have not changed. The cache is restored from actions/cache,
+  # so a frontend-only change does not rebuild the backend.
+  TURBO_TELEMETRY_DISABLED: 1
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Turborepo
+        uses: actions/cache@v5
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
+      # The same commands a developer runs locally. If they diverge from CI, CI becomes a second
+      # system to keep in sync rather than a safety net.
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+        env:
+          API_BASE: http://localhost:3000
+
+  e2e:
+    name: Integration tests
+    runs-on: ubuntu-latest
+
+    # Postgres as a service, not Testcontainers: the same image as in docker-compose, started by
+    # the runner, with no extra orchestration layer. Fidelity is identical - it is the same Postgres.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: itbridge
+          POSTGRES_PASSWORD: dev_password
+          POSTGRES_DB: itbridge_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U itbridge"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USER: itbridge
+      DB_PASSWORD: dev_password
+      TEST_DB_NAME: itbridge_test
+      AWS_REGION: eu-central-1
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # `test/global-setup.ts` creates the `itbridge_test` database itself. TypeORM builds the
+      # schema through `synchronize: true` - that changes once migrations land, in E04.
+      - name: Integration tests
+        run: pnpm --filter api test:e2e

@@ -1,3 +1,3 @@
-// Contractul trăiește în packages/types. Fișierul rămâne ca punte, ca importurile `~/types/...`
-// existente să nu se schimbe — dar nu mai redeclară nimic.
+// The contract lives in packages/types. This file stays as a bridge so the existing
+// `~/types/...` imports do not change - but it no longer redeclares anything.
 export type { Attendance, AttendanceType } from "@itbridge/types";

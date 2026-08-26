@@ -26,7 +26,7 @@ export class Child {
 
     @ManyToOne(() => Group, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'group_id' })
-    group: Group;
+    group: Group | null;
 
     @OneToMany(() => Attendance, (attendance) => attendance.child)
     attendances: Attendance[];

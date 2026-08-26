@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/entities/user.entity';
-import { Repository, IsNull } from 'typeorm';
+import { Repository } from 'typeorm';
 import { UpdateUserDto } from './dto/updateUser.dto';
 
 @Injectable()
@@ -43,7 +43,7 @@ export class UserService {
         try {
             await this.userRepository.update(id, updateUserDto);
         } catch (error) {
-            if (error.name === 'EntityNotFoundError') {
+            if (error instanceof Error && error.name === 'EntityNotFoundError') {
                 throw new NotFoundException('User not found');
             }
 

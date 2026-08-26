@@ -30,8 +30,9 @@ pnpm dev                # api + web, hot reload, fără variabile pe linia de co
 
 pnpm build          # turbo, în ordinea dependențelor
 pnpm typecheck      # toate workspace-urile
-pnpm lint           # verifică, nu modifică — vezi "Capcane"
-pnpm test           # jest pe api — vezi "Capcane"
+pnpm lint           # verifică, nu modifică; corectare: pnpm --filter api lint:fix
+pnpm test           # jest pe api, vitest pe web
+pnpm test:e2e       # integrare prin HTTP; cere Postgres pornit
 
 pnpm --filter api <script>   # o comandă într-un singur workspace
 ```
@@ -117,6 +118,17 @@ State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier
 
 ## Convenții
 
+**Totul în engleză, în afară de ce vede utilizatorul.** Regula acoperă: nume de branch-uri, mesaje
+de commit, titluri și descrieri de PR, identificatori din cod (variabile, funcții, clase, tipuri,
+fișiere), comentarii, descrieri de teste (`describe` / `it`), mesaje de log și de eroare din API,
+chei de configurare și nume de job-uri din CI.
+
+Excepțiile, tot ce ajunge la un părinte sau la un profesor: textele din interfața Nuxt, e-mailurile,
+PDF-urile, conținutul de site. Alea rămân în română — e o școală din România.
+
+Documentația din `docs/` și fișierele astea două sunt scrise în română și rămân așa; regula e
+despre cod și despre git, nu despre proza de proiect.
+
 - Backend: 4 spații, ghilimele simple, print width 120 (`.prettierrc`). Frontend: 2 spații,
   ghilimele duble. Nu amesteca.
 - Backend importă cu path absolut de la rădăcină: `from 'src/entities/child.entity'`
@@ -131,16 +143,18 @@ State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier
 
 Lucruri care te vor bloca dacă nu le știi dinainte.
 
-**`pnpm test` nu rulează.** Toate cele 18 suite eșuează la încărcare cu
-`Cannot find module 'src/entities/...'`. `baseUrl` din tsconfig rezolvă importurile la
-`nest build`, dar ts-jest nu îl folosește. Fix, o singură linie în config-ul jest din
-`apps/api/package.json`:
+**`pnpm test` verde nu înseamnă `pnpm typecheck` verde.** ts-jest e mai permisiv decât `tsc` pe
+fișierele de test, deci o suită poate trece în timp ce `tsc --noEmit` raportează erori pe același
+cod. Rulează amândouă înainte să deschizi un PR — CI le rulează separat.
 
-```json
-"moduleDirectories": ["node_modules", "<rootDir>/.."]
-```
+**Testele de integrare pornesc un server real, cu `app.listen(0)`, nu `getHttpServer()` direct.**
+Nu schimba asta: supertest ridică altfel un server efemer la fiecare cerere, iar suita devine
+intermitentă în chip înșelător — am văzut cereri neautentificate răspunzând 200, ceea ce arată ca o
+breșă de autentificare, dar era rotație de porturi.
 
-Testele existente sunt oricum doar schelet `should be defined`.
+**Testele de integrare cer Postgres pornit.** `pnpm test:e2e` se conectează la baza
+`itbridge_test`, pe care și-o creează singur prin `apps/api/test/global-setup.ts`, dar serverul
+trebuie să ruleze: `docker compose up -d`. Schema o face TypeORM cu `synchronize: true`.
 
 **Validarea nu rulează.** 22 de fișiere DTO au decoratori `class-validator`, dar niciun
 `ValidationPipe` nu e înregistrat în `apps/api/src/main.ts` și nu există `APP_PIPE`. Body-uri brute ajung
@@ -167,10 +181,23 @@ variabile, dar verifică una singură.
 **Refresh tokens nu pot fi revocate.** Sunt stateless, nu există logout server-side și nici
 listă de revocare.
 
-**`pnpm lint` e roșu pe `api`.** 238 de erori eslint preexistente, aproape toate din familia
-`@typescript-eslint/no-unsafe-*` — `any` care circulă prin servicii — plus 44 de variabile
-nefolosite. Nu e regresie și nu ține de monorepo; e datorie de tipuri, tratată în
-[E05](docs/epics/E05-robustete-backend.md). `pnpm --filter api lint:fix` rezolvă doar formatarea.
+**Familia `no-unsafe-*` e pe `error` în codul de producție și oprită în teste.** Excepția pentru
+teste e îngustă și justificată: supertest tipează `res.body` ca `any`, iar valorile întoarse de
+mock-urile jest sunt netipate prin construcție — exact lucrurile pe care testul le verifică. În
+`src/` nu mai există niciun `any` care să circule, deci regula chiar ține linia.
+
+**Prefixul `_` marchează ce e nefolosit intenționat.** Parametri ceruți de un decorator Nest, sau
+aserțiunile de tip din `apps/api/src/contract.ts`. Fără prefix, `no-unused-vars` le raportează.
+
+**`@Request()` se tipează cu `AuthenticatedRequest`, importat ca `import type`.** Tipul e în
+`apps/api/src/types/authenticated-request.ts` și descrie payload-ul JWT pe care îl atașează
+`AuthGuard`. `import type` e obligatoriu: cu `emitDecoratorMetadata` pornit, un import normal
+într-o semnătură decorată dă TS1272.
+
+**`Profile.user` și `Child.group` sunt nullable în tipuri, nu doar în schemă.** Un profil creat de
+admin nu are cont atașat, iar un copil nerepartizat nu are grupă. Verificările de proprietate
+folosesc `child.parent.user?.id !== userId` — fără `?.`, un copil al unui profil fără cont arunca
+TypeError în loc să răspundă 403.
 
 **Nu rula `npm` în `apps/*`.** Nu mai există `package-lock.json` și nici `node_modules` propriu;
 totul trece prin `pnpm` de la rădăcină. Pentru un singur workspace, `pnpm --filter api <script>`.
@@ -197,6 +224,29 @@ commit-urile vechi ale unui repo public. **Tratează-o ca fiind compromisă**: n
 reconstitui certificatul din ea. Certificatul acoperea un host de DNS dinamic care nu mai e
 folosit, iar TLS-ul viitor se face cu certificate noi, obținute de Caddy. `certs/`, `*.pem`,
 `*.key` și `*.crt` sunt acum în `.gitignore`.
+
+## Testare
+
+Trei niveluri, cu roluri diferite:
+
+- **Unitare**, lângă cod în `apps/api/src/**/*.spec.ts`. Serviciile primesc repository-uri
+  mock-uite din `src/testing/repository.mock.ts`. Aici se verifică logica de business și _forma_
+  interogărilor de autorizare — `isScopedToUser` se uită la ce `andWhere` s-au adăugat, fără SQL.
+- **Matricea de autorizare**, `apps/api/src/authorization.spec.ts`. Enumerează singură toate
+  handler-ele din toate controllerele și verifică guard-ele și rolurile. Un endpoint nou fără
+  `@UseGuards` apare aici fără să scrie nimeni un test. Dacă adaugi unul public sau o scriere
+  permisă părinților, treci-l explicit prin listele din fișier.
+- **Integrare**, `apps/api/test/*.e2e-spec.ts`. Aplicația reală pe Postgres, doar S3 și PDF
+  înlocuite. Aici se verifică _efectul_ autorizării: doi părinți reali, iar unul nu vede datele
+  celuilalt.
+
+Frontend-ul are vitest în `apps/web/test/`. Rulează sursa direct, fără să pornească Nuxt;
+auto-importurile (`ref`, `useCookie`, `$fetch`) sunt puse la loc în `test/setup.ts`.
+
+**Bug-urile cunoscute sunt scrise ca `it.failing`**, nu ca teste care cimentează comportamentul
+greșit. Un astfel de test trece cât timp bug-ul există și devine roșu în clipa în care e reparat —
+moment în care se șterge `.failing`. Vezi calculul de preț la trei copii și crearea de profiluri
+fără date de contact.
 
 ## Planul de lucru
 

@@ -87,7 +87,7 @@ export class AttendanceService {
             throw new NotFoundException(`Child with ID ${childId} does not exist`);
         }
 
-        if (userRole !== 'ADMIN' && child.parent.user.id !== userId) {
+        if (userRole !== 'ADMIN' && child.parent.user?.id !== userId) {
             throw new ForbiddenException(`You don't have permission to view attendance for this child`);
         }
 

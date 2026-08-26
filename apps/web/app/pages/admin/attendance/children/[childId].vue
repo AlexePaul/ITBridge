@@ -105,14 +105,15 @@ const columns: TableColumn<Attendance>[] = [
       const type = row.getValue("type") as AttendanceType;
       const color =
         {
-          normal: "neutral" as const,
-          "catch-up": "warning" as const,
+          regular: "neutral" as const,
+          "make-up": "warning" as const,
         }[type] || "neutral";
 
+      // The fallback covers older rows carrying the column default, 'normal'.
       const label =
         {
-          normal: "Normală",
-          "catch-up": "Recuperare",
+          regular: "Normală",
+          "make-up": "Recuperare",
         }[type] ?? type;
 
       return h(UBadge, { class: "capitalize", variant: "subtle", color }, () => label);

@@ -6,7 +6,6 @@ import { Role } from 'src/enum/role.enum';
 import { Roles } from 'src/decorators/role.decorator';
 import { RolesGuard } from 'src/guards/role.guard';
 import { createGroupDto } from './dto/createGroup.dto';
-import { Group } from 'src/entities/group.entity';
 import { updateGroupDto } from './dto/updateGroup.dto';
 
 @Controller('groups')
