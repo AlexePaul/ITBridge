@@ -8,7 +8,7 @@ export const useAttendanceApi = () => {
   const markGroupAttendance = async (
     groupId: number,
     submissionData: {
-      childrenAttendance: { childId: string; present: boolean }[];
+      childrenAttendance: { childId: number; present: boolean }[];
       date: string;
       startTime: string;
     }

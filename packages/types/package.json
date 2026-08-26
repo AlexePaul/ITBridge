@@ -1,0 +1,19 @@
+{
+    "name": "@itbridge/types",
+    "version": "0.0.0",
+    "private": true,
+    "type": "commonjs",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "lint": "prettier --check src"
+    },
+    "devDependencies": {
+        "typescript": "^5.9.3"
+    }
+}

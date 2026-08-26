@@ -22,7 +22,7 @@ export const useChildrenApi = () => {
     return fetchedChildren;
   };
 
-  const fetchChildrenAttendance = async (childId: string) => {
+  const fetchChildrenAttendance = async (childId: number) => {
     const attendance = await api<Attendance[]>(`/attendance/child/${childId}`, {
       method: "GET",
       headers: {
@@ -47,7 +47,7 @@ export const useChildrenApi = () => {
     return newChild;
   };
 
-  const updateChild = async (childId: string, childData: Partial<Child>) => {
+  const updateChild = async (childId: number, childData: Partial<Child>) => {
     const updatedChild = await api<Child>(`/children/${childId}`, {
       method: "PUT",
       headers: {
@@ -60,7 +60,7 @@ export const useChildrenApi = () => {
     return updatedChild;
   };
 
-  const addChildToGroup = async (childId: string, groupId: string) => {
+  const addChildToGroup = async (childId: number, groupId: string) => {
     const updatedChild = await api<Child>(`/children/${childId}/groups/${groupId}`, {
       method: "POST",
       headers: {
@@ -71,7 +71,7 @@ export const useChildrenApi = () => {
     return updatedChild;
   };
 
-  const removeChildFromGroup = async (childId: string, groupId: string) => {
+  const removeChildFromGroup = async (childId: number, groupId: string) => {
     const updatedChild = await api<Child>(`/children/${childId}/groups/${groupId}`, {
       method: "DELETE",
       headers: {
@@ -82,7 +82,7 @@ export const useChildrenApi = () => {
     return updatedChild;
   };
 
-  const deleteChild = async (childId: string) => {
+  const deleteChild = async (childId: number) => {
     await api<void>(`/children/${childId}`, {
       method: "DELETE",
       headers: {

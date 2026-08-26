@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { readonly } from "vue";
 import type { Attendance } from "~/types/attendance.types";
+import type { EntityId } from "~/types/entityId";
 
 type AttendanceState = Record<string, Attendance[]>;
 
@@ -9,18 +10,18 @@ export const useAttendanceStore = defineStore("attendance", () => {
     default: () => ({}),
   });
 
-  const setAttendance = (childId: string, attendanceData: Attendance[]) => {
+  const setAttendance = (childId: EntityId, attendanceData: Attendance[]) => {
     attendance.value = {
       ...attendance.value,
       [childId]: attendanceData,
     };
   };
 
-  const attendancesByChildId = (childId: string): Attendance[] => {
+  const attendancesByChildId = (childId: EntityId): Attendance[] => {
     return attendance.value[childId] || [];
   };
 
-  const attendancesByChildIdAndDate = (childId: string, date: Date): Attendance | undefined => {
+  const attendancesByChildIdAndDate = (childId: EntityId, date: Date): Attendance | undefined => {
     const attendances = attendance.value[childId] || [];
     return attendances.find((att) => {
       const recordDate = new Date(att.date);

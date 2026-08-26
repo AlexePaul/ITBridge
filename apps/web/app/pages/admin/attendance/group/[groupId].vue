@@ -33,7 +33,7 @@
                 <UBadge color="secondary" variant="subtle" size="lg" class="w-10 justify-center">
                   #{{ child.id }}
                 </UBadge>
-                <template v-if="child?.group?.id != groupId">
+                <template v-if="String(child?.group?.id) !== groupId">
                   <UButton
                     icon="i-lucide-x"
                     variant="ghost"
@@ -201,7 +201,7 @@ const addChildToList = (child: Child) => {
   filteredChildren.value = [];
 };
 
-const removeChildFromList = (childId: string) => {
+const removeChildFromList = (childId: number) => {
   children.value = children.value.filter((c) => c.id !== childId);
   delete attendanceData[String(childId)];
   availableChildren.value.push(childrenStore.getChildById(childId) as Child);

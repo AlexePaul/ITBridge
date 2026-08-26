@@ -166,7 +166,7 @@ const handleBack = () => {
   navigateTo("/admin/groups");
 };
 
-const handleAddChild = async (childId: string) => {
+const handleAddChild = async (childId: number) => {
   try {
     isLoading.value = true;
     const groupId = group.value?.id as string | number;
@@ -186,7 +186,7 @@ const handleAddChild = async (childId: string) => {
   }
 };
 
-const handleRemoveChild = async (childId: string) => {
+const handleRemoveChild = async (childId: number) => {
   try {
     isLoading.value = true;
     const groupId = group.value?.id as string | number;

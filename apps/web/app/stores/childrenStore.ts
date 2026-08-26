@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import type { Child } from "~/types/child.types";
+import type { EntityId } from "~/types/entityId";
 
 export const useChildrenStore = defineStore("children", () => {
   const children = ref<Child[]>([]);
@@ -12,19 +13,19 @@ export const useChildrenStore = defineStore("children", () => {
     children.value = [];
   };
 
-  const getChildById = (id: string): Child | undefined => {
+  const getChildById = (id: EntityId): Child | undefined => {
     return children.value.find((child) => child.id == id);
   };
 
-  const getChildrenNumberByGroupId = (groupId: string): number => {
+  const getChildrenNumberByGroupId = (groupId: EntityId): number => {
     return children.value.filter((child) => child.group?.id == groupId).length;
   };
 
-  const getChildrenByGroupId = (groupId: string): Child[] => {
+  const getChildrenByGroupId = (groupId: EntityId): Child[] => {
     return children.value.filter((child) => child.group?.id == groupId);
   };
 
-  const getChildrenNotInGroupId = (groupId: string): Child[] => {
+  const getChildrenNotInGroupId = (groupId: EntityId): Child[] => {
     return children.value.filter((child) => child.group?.id != groupId);
   };
 

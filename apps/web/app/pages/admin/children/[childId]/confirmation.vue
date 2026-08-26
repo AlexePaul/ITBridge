@@ -29,7 +29,7 @@ const { success } = useNotifications();
 const childrenApi = useChildrenApi();
 
 const handleConfirmation = async () => {
-  const childId = route.params.childId as string;
+  const childId = Number(route.params.childId);
   await childrenApi.deleteChild(childId);
   success("Copilul a fost șters cu succes");
   await navigateTo("/admin/children");

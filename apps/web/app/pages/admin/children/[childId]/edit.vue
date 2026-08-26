@@ -88,13 +88,13 @@ const schema = z.object({
 type Schema = z.output<typeof schema>;
 
 const state = reactive<{
-  id: string;
+  id: number;
   firstName: string;
   lastName: string;
   birthDate?: any;
   createdAt: string;
 }>({
-  id: "",
+  id: 0,
   firstName: "",
   lastName: "",
   birthDate: undefined,
@@ -115,7 +115,7 @@ onMounted(async () => {
 });
 
 async function handleSubmit(event: FormSubmitEvent<Schema>) {
-  const childId = route.params.childId as string;
+  const childId = Number(route.params.childId);
   // Prepare payload without createdAt (cannot be edited)
   const birthDate = event.data.birthDate;
   const formattedDate =

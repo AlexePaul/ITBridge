@@ -58,7 +58,7 @@
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import type { Child } from "~/types/child.types";
-import type { Attendance } from "~/types/attendance.types";
+import type { Attendance, AttendanceType } from "~/types/attendance.types";
 import type { TableColumn } from "@nuxt/ui";
 import { formatTime } from "~/composables/useUtils";
 
@@ -102,18 +102,18 @@ const columns: TableColumn<Attendance>[] = [
     accessorKey: "type",
     header: "Tip Sesiune",
     cell: ({ row }) => {
-      const type = row.getValue("type") as string;
+      const type = row.getValue("type") as AttendanceType;
       const color =
         {
-          regular: "neutral" as const,
-          "make-up": "warning" as const,
+          normal: "neutral" as const,
+          "catch-up": "warning" as const,
         }[type] || "neutral";
 
-      const label = {
-        regular: "Normală",
-        "make-up": "Recuperare",
-      }[type];
-      console.log("Type label:", type);
+      const label =
+        {
+          normal: "Normală",
+          "catch-up": "Recuperare",
+        }[type] ?? type;
 
       return h(UBadge, { class: "capitalize", variant: "subtle", color }, () => label);
     },

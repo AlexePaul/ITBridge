@@ -77,8 +77,8 @@ const columns: TableColumn<Payment>[] = [
         h("span", "Nume"),
       ]),
     cell: ({ row }) => {
-      const firstName = row.original.invoice?.parent.firstName || "";
-      const lastName = row.original.invoice?.parent.lastName || "";
+      const firstName = row.original.invoice?.parent?.firstName || "";
+      const lastName = row.original.invoice?.parent?.lastName || "";
       return `${firstName} ${lastName}`.trim() || h("span", { class: "text-muted" }, "N/A");
     },
   },
