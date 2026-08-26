@@ -1,6 +1,6 @@
 # E04 · Migrări și integritatea datelor
 
-**Status:** propus · **Pistă:** Fundație · **Depinde de:** E02 · **Blochează:** E05, E07, E08, E10
+**Status:** în lucru · **Pistă:** Fundație · **Depinde de:** E02 · **Blochează:** E05, E07, E08, E10
 
 ## Problemă
 
@@ -55,6 +55,22 @@ verificată pe o bază goală și comparată cu un dump real.
 **Acceptanță:** bază goală plus migrări produce o schemă identică cu cea generată azi de
 `synchronize`, verificat cu `typeorm schema:log`, care nu trebuie să raporteze nicio diferență.
 
+**Livrat, cu acceptanța verificată literal:** pe o bază goală, `migration:run` urmat de
+`schema:log` răspunde *„Your schema is up to date - there are no queries to be executed by schema
+synchronization."*
+
+Configurația a fost scoasă din `app.module.ts` într-un `src/data-source.ts` citit și de aplicație,
+și de CLI-ul TypeORM. Dacă cele două ar avea surse diferite, o migrare generată local ar înceta să
+corespundă cu ce așteaptă aplicația la boot — exact eșecul pe care fișierul îl previne.
+
+`migrationsRun` e `false` intenționat: migrările se rulează explicit în deploy, nu la pornire. La
+pornire, o migrare eșuată ar lăsa procesul să se restarteze în buclă în loc să oprească deploy-ul.
+
+**Corectat și tipul greșit din listă:** `Child.createdAt` era `type: 'date'` — deci trunchiat la zi
+— cu `default: CURRENT_TIMESTAMP`. Devine `@CreateDateColumn({ type: 'timestamptz' })`, care spune
+ce voia să spună și păstrează ora. Celelalte trei constrângeri din listă rămân: depind de
+[E08](E08-multi-locatie.md), [E15](E15-pricing-facturare.md) și [E16](E16-plati-fiscal.md).
+
 ### S2 · Migrările în deploy
 
 Migrările rulează automat înainte ca versiunea nouă să primească trafic, și opresc deploy-ul dacă
@@ -62,6 +78,22 @@ eșuează. În fluxul PM2 din [E01](E01-infrastructura-medii.md), asta înseamn�
 `reload`.
 
 **Acceptanță:** un deploy cu migrare eșuată lasă versiunea veche în funcțiune.
+
+**Livrat parțial — partea care nu depinde de EC2.**
+
+Comenzile există (`migration:run`, `migration:revert`, `migration:generate`), iar `migrationsRun`
+e oprit tocmai ca ele să fie rulate explicit, între `build` și `pm2 reload`. Cablarea în workflow-ul
+de deploy așteaptă [E01](E01-infrastructura-medii.md), S4, care așteaptă instanța.
+
+**În schimb a intrat ceva ce epicul nu cerea, dar care s-a dovedit necesar:** `check:schema`, rulat
+în CI pe fiecare PR. Cât timp mergea `synchronize`, o entitate schimbată fără migrare se repara
+singură la boot. Acum nu se mai repară, dar nici nu se plânge: totul compilează, testele trec pe
+schema veche, iar aplicația cade abia în producție, la prima interogare care atinge coloana nouă.
+Verificarea construiește o bază de unică folosință din migrări și întreabă TypeORM dacă ar mai avea
+ceva de schimbat.
+
+Verificat că prinde: cu o coloană adăugată pe `Group` fără migrare, iese cu cod 1 și tipărește
+`ALTER TABLE "groups" ADD "driftProbe" character varying(50)`, plus comanda de generare.
 
 ### S3 · Seed pentru dezvoltare
 
@@ -71,6 +103,29 @@ Suficient cât ecranele de admin să arate ca în realitate, nu goale.
 
 **Acceptanță:** `pnpm seed` pe o bază curată, iar dashboard-ul de admin arată date plauzibile.
 
+**Livrat.** Un admin, șase grupe acoperind patru zile din săptămână pe două intervale, unsprezece
+părinți, paisprezece copii, 112 prezențe pe două luni în urmă, treizeci de facturi în toate cele
+trei stări, cu plăți pe cele achitate, plus reduceri.
+
+Câteva alegeri deliberate, ca ecranele să arate ca realitatea și nu ca un caz fericit:
+
+- **Un părinte din trei nu are cont**, iar două conturi n-au profil deloc. Fluxul
+  `GET /users/without-profile` și legarea ulterioară au ce afișa.
+- **Doi copii rămân nerepartizați**, deci ecranul „copii fără grupă" nu e gol.
+- **O familie are trei copii**, ca bug-ul de preț documentat în [E03](E03-testare-ci.md) să fie
+  reproductibil de mână, nu doar într-un test.
+
+Data de referință e fixă, nu `new Date()`, deci două rulări dau aceeași bază. Seed-ul golește tot
+înainte — e idempotent — și **refuză să pornească pe altceva decât localhost** fără
+`SEED_ALLOW_NON_LOCAL=1`, fiindcă altfel e o comandă care șterge o bază de producție.
+
+Verificat capăt-la-capăt: bază goală → migrări → seed → aplicația pornită din `dist` → login ca
+admin → `GET /children` întoarce 14, `GET /invoices` întoarce 30 cu
+`{pending: 10, overdue: 4, paid: 16}`.
+
+Locațiile și sălile din formularea originală a story-ului lipsesc: modelul nu are încă noțiunea de
+locație, ea intră în [E08](E08-multi-locatie.md).
+
 ### S4 · Backup și restaurare
 
 Backup zilnic automat, retenție 30 de zile, stocare în altă parte decât VPS-ul. Procedura de
@@ -79,6 +134,11 @@ restaurare e scrisă și **executată o dată**, cu durata măsurată și notat�
 **Acceptanță:** există un document cu pașii de restaurare și data ultimei probe reale. Dacă data e
 mai veche de șase luni, se repetă.
 
+**Neînceput, și blocat pe infrastructură.** Backup-ul cere instanța EC2 și bucket-ul S3 din
+[E01](E01-infrastructura-medii.md), S4. Mai important, acceptanța cere o **probă reală de
+restaurare, cu durata măsurată** — un document scris fără ea ar fi exact genul de siguranță
+imaginară pe care epicul o respinge. Se face când există ce restaura, pe ce restaura.
+
 ### S5 · Retenție
 
 Politică scrisă pentru ce se șterge și când: prezențe vechi, facturi (obligație legală de
@@ -86,6 +146,10 @@ păstrare), proiecte ale copiilor, conturi inactive. Implementată ca job progra
 [E07](E07-securitate-gdpr.md).
 
 **Acceptanță:** politica e documentată, implementată și verificabilă.
+
+**Neînceput, și blocat pe o decizie, nu pe cod.** Retenția facturilor depinde de răspunsul din
+„Întrebări deschise", care cere contabilul. A implementa un job de ștergere înainte de a ști ce are
+voie să șteargă e mai rău decât a nu avea niciunul.
 
 ## Dependențe
 
@@ -125,7 +189,18 @@ Cel mai bun caz posibil, și simplifică semnificativ mai multe epic-uri:
 **Backup-urile merg în S3**, nu pe instanța EC2 — un backup pe același disc cu baza de date nu e
 backup.
 
+## Ce rămâne
+
+| Story | Stare | Blocat de |
+|---|---|---|
+| S1 · Migrarea de bază | ✅ livrat | — |
+| S2 · Migrările în deploy | parțial: comenzi și gardă CI | [E01](E01-infrastructura-medii.md), S4 — nu există instanță |
+| S3 · Seed | ✅ livrat | — |
+| S4 · Backup și restaurare | neînceput | instanța EC2 și bucket-ul S3 |
+| S5 · Retenție | neînceput | răspunsul contabilului, mai jos |
+
 ## Întrebări deschise
 
 - Cât păstrăm facturile? Obligația contabilă în România e de regulă zece ani — de confirmat cu
-  contabilul, pentru că intră în conflict direct cu dreptul la ștergere din GDPR.
+  contabilul, pentru că intră în conflict direct cu dreptul la ștergere din GDPR. **Blochează S5**,
+  și nu e o întrebare la care pot răspunde eu.

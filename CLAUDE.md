@@ -23,10 +23,12 @@ Toate de la rădăcină. Nu intra în `apps/*` să rulezi `npm` — nu există `
 mai există `node_modules` propriu.
 
 ```bash
-cp .env.example .env    # un singur .env, la rădăcină
+cp .env.example .env              # un singur .env, la rădăcină
 pnpm install
-docker compose up -d    # doar Postgres; aplicația rulează pe Node
-pnpm dev                # api + web, hot reload, fără variabile pe linia de comandă
+docker compose up -d              # doar Postgres; aplicația rulează pe Node
+pnpm --filter api migration:run   # schema; synchronize e oprit
+pnpm seed                         # date de dezvoltare; admin / parola123
+pnpm dev                          # api + web, hot reload
 
 pnpm build          # turbo, în ordinea dependențelor
 pnpm typecheck      # toate workspace-urile
@@ -154,15 +156,31 @@ breșă de autentificare, dar era rotație de porturi.
 
 **Testele de integrare cer Postgres pornit.** `pnpm test:e2e` se conectează la baza
 `itbridge_test`, pe care și-o creează singur prin `apps/api/test/global-setup.ts`, dar serverul
-trebuie să ruleze: `docker compose up -d`. Schema o face TypeORM cu `synchronize: true`.
+trebuie să ruleze: `docker compose up -d`. Schema vine din migrări, aceeași cale ca în producție,
+deci o migrare lipsă sau stricată pică testele.
+
+**`scripts/` e exclus din `tsconfig.build.json`, intenționat.** Inclus, ar urca `rootDir` la
+rădăcina pachetului, iar `nest build` ar scrie `dist/src/main.js` în loc de `dist/main.js` — deci
+`start:prod` și deploy-ul s-ar rupe în tăcere. Scripturile rulează oricum prin ts-node.
 
 **Validarea nu rulează.** 22 de fișiere DTO au decoratori `class-validator`, dar niciun
 `ValidationPipe` nu e înregistrat în `apps/api/src/main.ts` și nu există `APP_PIPE`. Body-uri brute ajung
 direct în servicii. Dacă adaugi un DTO, decoratorii lui nu fac nimic până nu se înregistrează
 pipe-ul global.
 
-**Nu există migrări.** `apps/api/src/app.module.ts` rulează cu `synchronize: true`, deci TypeORM alterează
-schema singur la fiecare boot. Orice schimbare de entitate se aplică direct pe baza de date.
+**Schema se schimbă doar prin migrări.** `synchronize` e `false`, iar configurația e într-un singur
+loc, `apps/api/src/data-source.ts`, citit și de aplicație și de CLI-ul TypeORM. O entitate schimbată
+fără migrare nu mai rupe la pornire — rupe la prima interogare care atinge coloana nouă. De asta CI
+rulează `check:schema`, care construiește o bază de unică folosință din migrări și verifică dacă
+entitățile au divergat.
+
+Când schimbi o entitate: `pnpm --filter api migration:generate src/migrations/<Nume>`, apoi citește
+SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD` — dacă asta
+ar pierde date, rescrie migrarea de mână.
+
+**Migrările nu rulează la boot.** `migrationsRun` e `false` intenționat: în deploy se rulează
+explicit, între build și `pm2 reload`, ca o migrare eșuată să oprească deploy-ul în loc să lase
+procesul să se restarteze în buclă.
 
 **`API_BASE`, nu `NUXT_PUBLIC_API_BASE`.** `apps/web/nuxt.config.ts` mapează
 `runtimeConfig.public.apiBase` pe `process.env.API_BASE`. Fără el, `apiBase` e `undefined` și

@@ -19,8 +19,8 @@ Pentru primele șase luni realiste, vezi secțiunea [Ordinea recomandată](#ordi
 ## Stare curentă
 
 Frontend pe Vercel, funcționând ca prezentare statică. Backend nedeployat nicăieri. Validarea
-cererilor nu rulează, deși 22 de DTO-uri au decoratori. Schema se auto-alterează la fiecare boot.
-Platforma nu are noțiunea de locație, deși școala are două.
+cererilor nu rulează, deși 22 de DTO-uri au decoratori. Platforma nu are noțiunea de locație, deși
+școala are două.
 
 Curățenia de infrastructură din E01 a intrat: aplicația nu mai rulează în Docker, `docker-compose.yml`
 e doar Postgres, iar cele trei strategii de deploy moarte au dispărut din repo. Cheia Let's Encrypt
@@ -33,9 +33,15 @@ E03 a adus plasa de siguranță: 345 de teste, de la unitare pe logica de factur
 integrare prin HTTP pe Postgres, plus o matrice de autorizare care se generează singură din
 metadatele controllerelor. CI rulează pe fiecare PR.
 
-Testele au scos la iveală trei bug-uri, toate documentate ca `it.failing` în loc să fie
-cimentate: calculul de preț la trei copii, restrângerea dublată din `findPayments`, și crearea
-unui al doilea profil fără date de contact, care întoarce 409.
+Testele au scos la iveală trei bug-uri, documentate ca `it.failing` în loc să fie cimentate. Două
+sunt reparate în E04, cu testele întoarse în teste de regresie: restrângerea dublată din
+`findPayments` și crearea unui al doilea profil fără date de contact, care întorcea 409 și bloca
+fluxul de admin. Al treilea — calculul de preț la trei copii — rămâne, fiindcă prețul corect se
+stabilește în [E15](E15-pricing-facturare.md).
+
+E04 a oprit `synchronize: true`. Schema evoluează acum prin migrări, iar CI verifică pe fiecare PR
+că entitățile n-au divergat de ele. `pnpm seed` reconstruiește o bază locală plauzibilă în câteva
+secunde.
 
 Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane".
 
@@ -131,11 +137,16 @@ Primele șase luni, realist: **val 1 complet, val 2 complet, plus E18 și E15.**
 Fiecare epic are `Status` în antet: `propus` → `acceptat` → `în lucru` → `livrat`. Nimic nu trece
 în `în lucru` fără ca întrebările deschise din fișier să aibă răspuns.
 
-[E01](E01-infrastructura-medii.md) e `în lucru`: S1, S2, S3 și S5 sunt livrate, S4 (deploy pe EC2)
-și S6 (curățare de branch-uri) rămân. [E02](E02-monorepo-tooling.md) și
-[E03](E03-testare-ci.md) sunt `livrate` — la E03, cu o singură rezervă: branch protection pe `main`
-se activează din Settings, nu din repo, deci până atunci CI raportează fără să blocheze. Restul
-sunt `propus`.
+[E02](E02-monorepo-tooling.md) și [E03](E03-testare-ci.md) sunt `livrate` — la E03, cu o singură
+rezervă: branch protection pe `main` se activează din Settings, nu din repo.
+
+[E01](E01-infrastructura-medii.md) și [E04](E04-migrari-date.md) sunt `în lucru`, amândouă blocate
+în același punct: **nu există instanța EC2.** La E01 rămân S4 (deploy) și S6 (curățare de
+branch-uri); la E04, S2 e livrat parțial — comenzile și garda de CI există, cablarea în deploy nu —
+iar S4 (backup) și S5 (retenție) așteaptă, primul instanța, al doilea răspunsul contabilului despre
+cât se păstrează facturile.
+
+Restul sunt `propus`.
 
 ## Decizii deja luate
 
