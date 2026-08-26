@@ -134,11 +134,28 @@ Un dezvoltator nou clonează repo-ul, pornește Postgres cu o comandă, aplicaț
 mediul complet. Un push pe `main` ajunge în producție pe ambele componente, fără downtime. Nu
 există în repo niciun fișier de infrastructură nefolosit.
 
+## Decizii luate
+
+**Backend pe AWS EC2, cu Postgres pe aceeași instanță. S3 pentru fișiere.**
+
+Asta schimbă S2 și S4 față de forma inițială a epicului:
+
+- **`.github/workflows/aws.yml` nu se șterge, se rescrie.** Destinația rămâne aceeași; problema
+  nu a fost niciodată EC2, ci lipsa de rollback. Forma nouă: `git pull`, `pnpm install
+  --frozen-lockfile`, `pnpm build`, migrări, `pm2 reload`, health check. Dacă build-ul sau
+  migrarea eșuează, nu se ajunge la reload și versiunea veche rămâne în funcțiune.
+- **Postgres pe instanță** înseamnă că backup-ul, restaurarea și actualizările sunt ale voastre.
+  [E04](E04-migrari-date.md), S4 — proba de restaurare — devine obligatorie, nu opțională.
+  Backup-urile merg în S3, unde aveți deja bucket și integrare funcțională.
+- **Fără chei AWS statice.** Instanța primește un IAM instance role cu drepturi doar pe bucket-ul
+  de fișiere. `AWS_ACCESS_KEY_ID` și `AWS_SECRET_ACCESS_KEY` dispar din configurație — vezi
+  [E07](E07-securitate-gdpr.md), S6.
+- **TLS prin Caddy** pe instanță, care obține și reînnoiește certificatele singur. Fără repetarea
+  poveștii cu certbot manual din `nginx/`.
+- Discul instanței devine un risc real de operare, tratat în
+  [E06](E06-observabilitate-operare.md).
+
 ## Întrebări deschise
 
-- Care VPS? Hetzner e cel mai bun raport preț-performanță în Europa și are datacenter în
-  Germania, ceea ce ajută și la GDPR. DigitalOcean e mai scump dar cu unelte mai bune.
-- Postgres gestionat sau pe același VPS? Recomand gestionat — backup-urile și actualizările sunt
-  exact partea pe care nu vrei să o faci manual.
 - Rescriem istoricul git pentru cheie, sau doar revocăm și documentăm?
 - Rămâne `itbridgeschool.com` domeniul principal? CORS-ul din `main.ts` e hardcodat pe el.

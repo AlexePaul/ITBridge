@@ -103,10 +103,36 @@ dovedește util.
 Fiecare grupă activă predă un modul din catalog. Site-ul public se generează din el.
 [E15](E15-pricing-facturare.md) are pe ce să calculeze.
 
+## Decizii luate
+
+**Modulul urmează structura anului școlar românesc: 5 module pe an, de 6-8 săptămâni fiecare,
+delimitate de vacanțe.** O ședință pe săptămână, deci 6-8 ședințe per modul, ~35 pe an școlar.
+
+Consecința cea mai importantă e că **durata modulului e variabilă, iar prețul e fix** — vezi
+[E15](E15-pricing-facturare.md). Deci `Module` are număr de ședințe *derivat din calendar*, nu
+configurat manual.
+
+Asta rezolvă elegant o problemă veche: lunile cu vacanță nu mai cer regula de trei simplă, pentru
+că vacanțele *sunt* granițele modulelor, nu excepții de calculat înăuntrul lor.
+
+Efectul asupra structurii: **calendarul școlar devine date de bază, nu o facilitate**.
+[E12](E12-prezenta-orar.md), S2 — calendarul de vacanțe — nu mai e opțional și nici secundar: el
+definește când începe și se termină fiecare modul, deci și ce se facturează. Cele două epicuri se
+ating aici și merită implementate în aceeași perioadă.
+
+Structura anuală, pentru referință:
+
+| | Perioadă orientativă | Ședințe |
+|---|---|---|
+| Modul 1 | septembrie – octombrie | ~7 |
+| Modul 2 | noiembrie – decembrie | ~7 |
+| Modul 3 | ianuarie – februarie | ~6 |
+| Modul 4 | martie – aprilie | ~7 |
+| Modul 5 | mai – iunie | ~8 |
+
 ## Întrebări deschise
 
-- **Câte ședințe are un modul, și pe ce perioadă se întinde?** E cea mai importantă întrebare din
-  epic, pentru că definește ce înseamnă cei 700 de lei.
+- Datele exacte de început și sfârșit ale celor 5 module, pentru anul școlar curent și următorul.
 - Care sunt modulele reale predate acum, pe nivel și vârstă?
 - Un copil poate urma două module în paralel?
 - Ce se întâmplă cu un copil care se înscrie la mijlocul unui modul?

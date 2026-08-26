@@ -127,9 +127,32 @@ grupele cu recuperări; prea stricte și părinții se simt înșelați după ce
 Fiecare ședință ținută are prezența completă. Absențele eligibile au drept de recuperare urmăribil.
 Anulările notifică automat.
 
+## Decizii luate
+
+**Două recuperări per modul, doar pentru absențe anunțate cu minim 3 ore înainte. Configurabil.**
+
+Fiindcă prețul e fix pe modul și nu pe ședință — vezi [E15](E15-pricing-facturare.md) — recuperarea
+**nu e o datorie contractuală, e un instrument de retenție.** Distincția contează juridic: părintele
+cumpără participarea la un modul, nu un număr garantat de ședințe. Formularea din factură și din
+termeni trebuie să reflecte asta.
+
+Regulile se citesc din configurație, cu `.env` ca sursă implicită:
+
+```
+RECUPERARI_MAX_PER_MODUL=2      # 0 = nelimitat
+RECUPERARI_ANUNT_MIN_ORE=3
+RECUPERARI_VALABILITATE_MODULE=1
+```
+
+Implementarea citește dintr-un strat de configurație, nu direct din `process.env` în logica de
+business. Motivul: un `.env` nu poate varia pe locație sau pe modul și cere repornire la
+schimbare. Cu stratul intermediar, mutarea regulilor într-un tabel editabil de admin devine
+înlocuirea sursei, nu rescrierea logicii.
+
+**S2 devine mai important decât părea.** Calendarul de vacanțe nu mai e doar pentru a sări ședințe:
+după [E10](E10-curriculum-module.md), vacanțele *delimitează modulele*, deci calendarul determină
+ce se facturează și când. Cele două epicuri se implementează împreună.
+
 ## Întrebări deschise
 
-- **Câte recuperări sunt permise pe modul, și în ce termen?** Trebuie decis odată cu prețul din
-  [E15](E15-pricing-facturare.md), sunt fața și reversul aceleiași promisiuni.
-- Cu cât timp înainte trebuie anunțată o absență ca să dea drept la recuperare?
 - Recuperarea se poate face în cealaltă locație?

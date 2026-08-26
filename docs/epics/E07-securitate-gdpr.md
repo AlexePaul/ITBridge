@@ -92,8 +92,14 @@ care chiar blochează scripturile neesențiale până la accept. Versionate, cu 
 Secretele stau într-un magazin dedicat, nu în fișiere pe VPS și nu în repo. Rotație documentată.
 `.env.example` conține doar chei, niciodată valori.
 
+Pe EC2, accesul la S3 se face prin **IAM instance role**, nu prin chei statice.
+`AWS_ACCESS_KEY_ID` și `AWS_SECRET_ACCESS_KEY` — astăzi transmise ca variabile de mediu și
+vizibile în `docker-compose.yml` — dispar complet din configurație. Rolul primește drepturi doar
+pe bucket-ul de fișiere, doar operațiile necesare. E cea mai ieftină îmbunătățire de securitate
+din tot epicul: elimină o clasă întreagă de secrete în loc să le gestioneze.
+
 **Acceptanță:** o căutare de secrete în repo, cu o unealtă automată, nu găsește nimic. Scanarea
-rulează în CI.
+rulează în CI. Nicio cheie AWS statică nu există în vreun mediu.
 
 ### S7 · Contracte de prelucrare
 

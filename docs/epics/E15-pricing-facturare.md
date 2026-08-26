@@ -64,9 +64,14 @@ suma corectă.
 valabil de la, valabil până la, sumă, monedă. Versionat, ca o schimbare de tarif să nu rescrie
 istoricul facturilor deja emise.
 
+Prețul e **pe modul, nu pe ședință**: 700 lei, indiferent dacă modulul are 6, 7 sau 8 ședințe.
+Modelul nu trebuie să conțină niciun calcul per ședință — dacă apare unul, e semn că s-a strecurat
+presupunerea greșită.
+
 Constantele `350` și `250` dispar din cod.
 
 **Acceptanță:** o schimbare de preț se face din interfață și nu afectează facturile emise anterior.
+Două module de durate diferite din același curs produc aceeași sumă.
 
 ### S2 · Factura pe modul, cu linii
 
@@ -81,8 +86,13 @@ Robotică · modul 1 · 700 lei, reducere frați 15% · −105 lei". Totalul se 
 
 ### S3 · Planuri de plată
 
-`PaymentPlan`: integral, sau două tranșe cu scadențe — la început și la mijlocul modulului, cum ai
-descris. Extensibil la trei sau mai multe, fără schimbare de model.
+`PaymentPlan`: **integral (700 lei la înscriere)** sau **două tranșe egale (350 + 350)**, a doua
+scadentă la mijlocul modulului. Aceeași sumă totală în ambele cazuri — plata integrală nu primește
+reducere, iar tranșele nu primesc penalizare.
+
+Mijlocul modulului se calculează din calendarul din [E10](E10-curriculum-module.md): la un modul
+de 7 ședințe, scadența a doua cade după ședința 4. Modelul rămâne extensibil la trei sau mai multe
+tranșe, fără schimbare de schemă.
 
 Fiecare tranșă e o scadență cu sumă și dată proprie. Starea facturii devine derivată: `neplătită`,
 `parțial plătită`, `plătită`, `restantă` — calculate din tranșe și din plățile din
@@ -95,12 +105,23 @@ scadențe și urmărește fiecare separat.
 
 ### S4 · Regula pentru mai mulți copii
 
-Regula devine explicită și configurabilă, definită ca reducere procentuală sau fixă per copil
-suplimentar, aplicabilă la orice număr. Bugul de la trei copii dispare prin construcție, nu prin
-adăugarea unei ramuri.
+**Primul copil plătește integral; fiecare frate suplimentar primește −25%.** Regula e o funcție
+de rangul copilului în familie, nu o serie de ramuri `if`, deci bugul de la trei copii dispare prin
+construcție.
 
-**Acceptanță:** teste pentru unu, doi, trei, patru și cinci copii. Nicio combinație nu produce sumă
-zero sau negativă.
+| Copii | Calcul | Total / modul |
+|---|---|---|
+| 1 | 700 | **700** |
+| 2 | 700 + 525 | **1225** |
+| 3 | 700 + 525 + 525 | **1750** |
+| 4 | 700 + 525 × 3 | **2275** |
+
+Procentul e configurabil, ca și pragul de la care se aplică. Spre deosebire de regula veche — unde
+apariția celui de-al doilea copil ieftinea retroactiv și primul copil, de la 350 la 250 — aici
+primul copil plătește mereu întreg.
+
+**Acceptanță:** teste pentru unu, doi, trei, patru și cinci copii, cu sumele din tabel. Nicio
+combinație de copii și reduceri nu produce sumă zero sau negativă.
 
 ### S5 · Reduceri cu tip
 
@@ -149,15 +170,34 @@ factura spune 12 ședințe, cele 12 ședințe sunt datorate. Cele două epicuri 
 Niciun preț în cod. Fiecare factură are linii care se adună la total. Planurile în tranșe
 funcționează. Nicio combinație de copii și reduceri nu produce o sumă absurdă.
 
+## Decizii luate
+
+| Decizie | Valoare |
+|---|---|
+| Unitate de facturare | Modulul școlar, 6-8 ședințe, ~5 pe an |
+| Preț | **700 lei fix**, indiferent de durata modulului |
+| Planuri de plată | Integral 700, sau 350 + 350 la mijlocul modulului |
+| Reducere frați | **−25% de la al doilea copil în jos**, primul întreg |
+| Abandon la mijloc | Fără returnare; tranșa a doua nu se mai încasează |
+
+**Prețul fix pe durată variabilă e o decizie conștientă**, nu o scăpare. Ședința costă efectiv
+117 lei într-un modul de 6 săptămâni și 87 într-unul de 8. Peste un an școlar se echilibrează —
+~3500 lei pentru ~35 de ședințe, adică ~100 lei pe ședință — dar un părinte care intră exact la un
+modul scurt plătește vizibil mai mult pe ședință. Merită anticipat în felul în care se comunică
+prețul: **„700 lei pe modul", niciodată „x lei pe ședință"**, pentru că a doua formulare invită
+exact la comparația care deranjează.
+
+Pentru context, față de modelul vechi: 350 lei pe lună, cu ajustările manuale de vacanță, ieșea în
+jur de 3150 lei pe an de copil. Modelul nou dă ~3500, deci **crește venitul cu ~11%** și, în plus,
+elimină regula de trei simplă — vacanțele devin granițele modulelor, nu excepții de calculat.
+
+**La abandon** (S8, de adăugat): dacă plata a fost în tranșe, a doua se anulează și factura se
+închide la suma încasată. Dacă a fost integrală, nu se returnează nimic. Regula e simetrică și se
+comunică la înscriere, nu la plecare.
+
 ## Întrebări deschise
 
-Sunt de discutat împreună, nu de presupus:
-
-- **Câte ședințe are un modul și pe ce perioadă?** Fără asta, 700 de lei nu are numitor.
-- Cele două tranșe sunt egale, sau prima e mai mare? La ce dată exactă scade a doua?
-- Reducerea pentru frați e procentuală sau sumă fixă? Se aplică la fiecare copil sau doar de la al
-  doilea în sus?
-- Ce se întâmplă cu un copil care abandonează la jumătatea modulului? Se returnează, se creditează,
-  sau nu?
 - Prețul e același în ambele locații?
-- Un copil înscris la mijlocul unui modul plătește proporțional?
+- Un copil înscris la mijlocul unui modul plătește integral, sau proporțional cu ședințele rămase?
+  Cu preț fix pe modul, varianta consecventă e integral — dar e greu de vândut cuiva care prinde
+  doar 3 din 7 ședințe.

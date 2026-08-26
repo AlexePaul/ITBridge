@@ -120,12 +120,47 @@ Fiecare epic are `Status` în antet: `propus` → `acceptat` → `în lucru` →
 
 ## Decizii deja luate
 
-Sunt consemnate aici ca să nu fie relitigate în fiecare epic.
+Consemnate aici ca să nu fie relitigate în fiecare epic. Fiecare e detaliată, cu consecințele ei,
+în secțiunea „Decizii luate" a epicului indicat.
 
-- **Fără Docker pentru aplicație**, nici în dezvoltare, nici în producție. Docker rămâne doar
-  pentru infrastructură locală: Postgres, și ce mai apare de tipul ăsta. Vezi [E01](E01-infrastructura-medii.md).
-- **PM2 în producție** pentru backend. Implicația: gazdă de tip VPS cu Node instalat, nu
-  platformă de containere.
-- **Frontend pe Vercel.** Rămâne.
-- **pnpm workspaces plus Turborepo** ca structură de monorepo. Vezi [E02](E02-monorepo-tooling.md).
-- **`pnpm dev` pornește ambele aplicații**, cu `dev:api` și `dev:web` pentru rulare separată.
+### Rulare și infrastructură
+
+| Decizie | Detaliu | Epic |
+|---|---|---|
+| Fără Docker pentru aplicație | Nici în dev, nici în producție. Docker doar pentru Postgres local. | [E01](E01-infrastructura-medii.md) |
+| Backend pe AWS EC2 | Cu PM2. `aws.yml` se rescrie, nu se șterge — cu `pm2 reload` și rollback. | [E01](E01-infrastructura-medii.md) |
+| Postgres pe instanța EC2 | Backup-urile merg în S3. Proba de restaurare devine obligatorie. | [E04](E04-migrari-date.md) |
+| S3 pentru fișiere, fără chei statice | IAM instance role în loc de `AWS_ACCESS_KEY_ID`. | [E07](E07-securitate-gdpr.md) |
+| Frontend pe Vercel | Rămâne. | [E01](E01-infrastructura-medii.md) |
+| pnpm workspaces plus Turborepo | Lockfile unic. `pnpm dev` pornește ambele; `dev:api` și `dev:web` separat. | [E02](E02-monorepo-tooling.md) |
+| Fără date de producție de păstrat | Baza se reconstruiește de la zero. Simplifică mult E04, E11 și E12. | [E04](E04-migrari-date.md) |
+
+### Model de business
+
+| Decizie | Valoare | Epic |
+|---|---|---|
+| Unitate de facturare | Modulul școlar: 6-8 ședințe, ~5 module pe an, delimitate de vacanțe | [E10](E10-curriculum-module.md) |
+| Preț | **700 lei fix per modul**, indiferent de durată | [E15](E15-pricing-facturare.md) |
+| Planuri de plată | Integral 700, sau 350 + 350 cu a doua tranșă la mijlocul modulului | [E15](E15-pricing-facturare.md) |
+| Reducere frați | **−25% de la al doilea copil în jos**; primul plătește întreg | [E15](E15-pricing-facturare.md) |
+| Abandon la mijloc de modul | Fără returnare; tranșa a doua nu se mai încasează | [E15](E15-pricing-facturare.md) |
+| Recuperări | 2 per modul, doar absențe anunțate cu min. 3 ore înainte. Configurabil. | [E12](E12-prezenta-orar.md) |
+| Lecția de probă | Gratuită | [E11](E11-inscrieri-capacitate.md) |
+
+Două consecințe care nu sunt evidente din tabel:
+
+**Calendarul școlar devine date de bază.** Fiindcă vacanțele delimitează modulele, iar modulul e
+unitatea de facturare, calendarul determină ce se facturează și când. [E10](E10-curriculum-module.md)
+și [E12](E12-prezenta-orar.md) se ating aici și se implementează în aceeași perioadă.
+
+**Recuperarea nu e datorie contractuală.** Cu preț fix pe modul, părintele cumpără participarea la
+un modul, nu un număr garantat de ședințe. Recuperarea rămâne instrument de retenție, nu obligație —
+iar formularea din factură și din termeni trebuie să reflecte asta.
+
+### Acces și produs
+
+| Decizie | Detaliu | Epic |
+|---|---|---|
+| Profesorul vede contactul complet al părinților | Doar grupele proprii, doar pe durata alocării, cu audit log | [E09](E09-personal-roluri.md) |
+| Logo-ul există | 500×500 PNG. Necesar un vectorial pentru tipar și afișare mare. | [E18](E18-frontend-portal.md) |
+| Uploader de proiecte | PWA conștientă de context, nu script de click dreapta | [E14](E14-proiecte-elevi.md) |

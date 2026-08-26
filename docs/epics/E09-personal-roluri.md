@@ -109,10 +109,25 @@ un câștig, nu o pierdere.
 Niciun profesor nu are cont de admin. Fiecare rol are matrice de permisiuni documentată și testată.
 Personalul nou se adaugă din interfață.
 
+## Decizii luate
+
+**Profesorul vede datele de contact complete ale părinților din grupele lui.** Nu vede facturi,
+plăți sau situația financiară.
+
+E o alegere de comoditate operațională peste minimizarea datelor, deci S2 primește trei limitări
+care o fac apărabilă fără să o anuleze:
+
+- **Doar grupele proprii, doar cât durează alocarea.** Accesul se ridică automat când înscrierea
+  copilului se încheie sau când profesorul nu mai predă acelei grupe. Nu există acces rezidual.
+- **Vizualizarea datelor de contact intră în audit log** ([E07](E07-securitate-gdpr.md), S3).
+  Nu ca să fie urmăriți profesorii, ci ca întrebarea „cine a avut acces la datele acestei familii"
+  să aibă răspuns.
+- **Informarea părinților** că profesorul are aceste date intră în politica de confidențialitate.
+
+Merită reevaluat când echipa crește. Cu doi-trei profesori stabili, riscul e mic; cu zece și
+fluctuație de personal, [E17](E17-comunicare-notificari.md) devine alternativa mai bună.
+
 ## Întrebări deschise
 
 - Câți profesori sunt, și predau în ambele locații sau sunt legați de una?
-- Are un profesor voie să vadă datele de contact ale părinților din grupa lui? Argument pentru: îi
-  poate anunța de o schimbare. Argument contra: [E17](E17-comunicare-notificari.md) rezolvă asta
-  fără să expună datele.
 - Există rol de recepție sau administrativ, distinct de coordonator de locație?

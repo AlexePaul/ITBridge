@@ -105,9 +105,27 @@ E costul corect, dar schimbă obiceiul de lucru.
 `synchronize: false` în toate mediile. Fiecare schimbare de schemă trece prin migrare revizuită.
 Restaurarea din backup a fost probată, nu doar documentată.
 
+## Decizii luate
+
+**Nu există date de producție de păstrat — baza se reconstruiește de la zero.**
+
+Cel mai bun caz posibil, și simplifică semnificativ mai multe epic-uri:
+
+- **S1 devine trivial.** Migrarea de bază se generează din entități și se verifică pe o bază
+  goală. Nu mai e nevoie de comparație coloană cu coloană cu un dump de producție, deci riscul
+  principal al acestui epic dispare.
+- **Schimbările de schemă din [E08](E08-multi-locatie.md), [E10](E10-curriculum-module.md),
+  [E11](E11-inscrieri-capacitate.md) și [E15](E15-pricing-facturare.md) nu mai au constrângere de
+  istoric.** Se poate proiecta modelul corect de la început, fără compromisuri de compatibilitate.
+- **[E11](E11-inscrieri-capacitate.md), S1 și [E12](E12-prezenta-orar.md), S1 pierd etapa de
+  reconstrucție** a înscrierilor și ședințelor istorice din prezențe.
+- **Seed-ul din S3 devine mai important**, pentru că e singura sursă de date realiste pentru
+  dezvoltare și demonstrații.
+
+**Backup-urile merg în S3**, nu pe instanța EC2 — un backup pe același disc cu baza de date nu e
+backup.
+
 ## Întrebări deschise
 
-- Există date de producție de păstrat, sau baza se poate reconstrui de la zero? Răspunsul schimbă
-  complet efortul de la S1.
 - Cât păstrăm facturile? Obligația contabilă în România e de regulă zece ani — de confirmat cu
   contabilul, pentru că intră în conflict direct cu dreptul la ștergere din GDPR.

@@ -113,10 +113,6 @@ manuală.
 
 ## Riscuri
 
-**Migrarea istoricului e reconstrucție, nu mutare.** Datele actuale nu conțin perioade, deci
-înscrierile istorice vor fi aproximate din prima și ultima prezență. Aproximarea trebuie marcată,
-nu prezentată ca fapt.
-
 **Lista de așteptare creează o promisiune.** Dacă notificarea nu pleacă sau pleacă târziu, părintele
 pierde locul și încrederea. Depinde direct de fiabilitatea din [E17](E17-comunicare-notificari.md).
 
@@ -125,9 +121,24 @@ pierde locul și încrederea. Depinde direct de fiabilitatea din [E17](E17-comun
 Fiecare participare a unui copil la o grupă are perioadă și stare. Capacitatea e respectată.
 Transferurile păstrează istoricul.
 
+## Decizii luate
+
+**Lecția de probă e gratuită.** Bariera minimă la intrare, cele mai multe programări.
+
+Costul deciziei e neprezentarea: un loc blocat de cineva care nu mai vine. Două măsuri, care devin
+obligatorii tocmai pentru că proba e gratuită:
+
+- **Memento automat cu o zi înainte**, prin [E17](E17-comunicare-notificari.md). E singura măsură
+  care reduce vizibil neprezentările când nu există miză financiară.
+- **Plafon de probe simultane per grupă**, ca un curs să nu fie deraiat de patru copii noi
+  deodată.
+
+**Nu există date istorice de reconstruit** — vezi [E04](E04-migrari-date.md). S1 se simplifică:
+`Enrollment` se construiește curat, fără aproximarea înscrierilor vechi din prezențe, iar riscul
+menționat mai jos dispare.
+
 ## Întrebări deschise
 
-- Lecția de probă e gratuită sau se plătește?
 - Cât timp are cineva de pe lista de așteptare să confirme un loc eliberat?
 - Se poate înscrie părintele singur din portal, sau rămâne operațiune de admin? Recomand
   auto-înscriere cu confirmare, dar schimbă fluxul.

@@ -132,9 +132,21 @@ simultane per grupă, altfel cursul are de suferit.
 Programarea la probă funcționează fără telefon. Fiecare lead are stare și responsabil. Pâlnia se
 măsoară pe sursă și pe locație.
 
+## Decizii luate
+
+**Proba e gratuită** — vezi [E11](E11-inscrieri-capacitate.md).
+
+Pentru acest epic, consecința e că S2 și S3 se schimbă la fel de mult ca S1:
+
+- **Volumul de programări va fi mai mare, calitatea mai mică.** Măsurarea din S4 devine esențială,
+  pentru că fără miză financiară rata de neprezentare e singurul semnal de calitate a canalului.
+- **Memento-ul înainte de probă nu e o rafinare, e o cerință.** Fără el, neprezentările la o probă
+  gratuită ajung frecvent la o treime.
+- **Conversia care contează e probă ținută → înscriere**, nu programare → înscriere. A doua
+  amestecă două probleme diferite: dacă oamenii vin, și dacă le place cursul.
+
 ## Întrebări deschise
 
 - Cine răspunde lead-urilor, și în cât timp?
-- Proba e gratuită? Schimbă complet rata de conversie și calitatea lead-urilor.
 - Câte probe simultane suportă o grupă fără să deranjeze cursul?
 - Care e beneficiul la recomandare, și cine îl suportă?

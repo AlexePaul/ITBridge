@@ -132,8 +132,23 @@ Merită bugetat un designer măcar pentru S1 și S3.
 Nicio culoare hardcodată. Nicio imagine neoptimizată. Portalul acoperă tot ce interesează un
 părinte. Verificările de accesibilitate trec în CI.
 
+## Decizii luate
+
+**Logo-ul există; paleta, tipografia și restul sistemului se definesc pornind de la el.**
+
+În repo se găsesc `it-bridge-backend/src/assets/logo.png` la 500×500 și setul de favicon-uri din
+`it-bridge-frontend/public/`, cel mai mare fiind 512×512. Suficient pentru ecran, **insuficient
+pentru tipar sau pentru afișare mare** — un banner sau un certificat din
+[E13](E13-progres-evaluare.md) va arăta pixelat.
+
+Primul pas din S1 e deci obținerea unui **logo vectorial** (SVG sau, în lipsă, PDF sau AI). Dacă
+nu mai există fișierul sursă, redesenarea lui vectorială pornind de la PNG e o jumătate de zi de
+lucru și merită făcută o singură dată, acum.
+
+Din logo se derivă paleta primară și accentele; tipografia se alege separat, ca să susțină
+echilibrul dintre „e pentru copii" și „e o școală serioasă" descris în S1.
+
 ## Întrebări deschise
 
-- Există identitate vizuală — logo, culori, fonturi — sau se creează acum?
 - Se aduce un designer, sau se merge pe un sistem existent adaptat?
 - Portalul e și aplicație instalabilă pe telefon? Ar ajuta la [E14](E14-proiecte-elevi.md).
