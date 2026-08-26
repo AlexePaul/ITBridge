@@ -13,7 +13,7 @@ describe('ChildService', () => {
     let profileRepo: MockRepository;
     let groupRepo: MockRepository;
 
-    /** Copil al părintelui cu contul `ownerUserId`. */
+    /** A child of the parent whose account is `ownerUserId`. */
     const childOwnedBy = (ownerUserId: number) => ({
         id: 1,
         parent: { id: 10, user: { id: ownerUserId } },
@@ -37,7 +37,7 @@ describe('ChildService', () => {
     });
 
     describe('createChild', () => {
-        it('lasă adminul să creeze un copil pentru orice părinte', async () => {
+        it('lets an admin create a child for any parent', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 10 });
             childRepo.create!.mockReturnValue({});
             childRepo.save!.mockResolvedValue({ id: 1 });
@@ -47,7 +47,7 @@ describe('ChildService', () => {
             });
         });
 
-        it('lasă părintele să creeze un copil pentru profilul propriu', async () => {
+        it('lets a parent create a child on their own profile', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 10 });
             childRepo.create!.mockReturnValue({});
             childRepo.save!.mockResolvedValue({ id: 1 });
@@ -57,8 +57,8 @@ describe('ChildService', () => {
             });
         });
 
-        it('interzice părintelui să creeze un copil pentru alt profil', async () => {
-            // Profilul utilizatorului autentificat e 10, dar cererea vizează 11.
+        it("forbids a parent from creating a child on someone else's profile", async () => {
+            // The authenticated user's profile is 10, but the request targets 11.
             profileRepo.findOne!.mockResolvedValue({ id: 10 });
 
             await expect(service.createChild({ parentId: 11, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5)).rejects.toThrow(
@@ -67,7 +67,7 @@ describe('ChildService', () => {
             expect(childRepo.save).not.toHaveBeenCalled();
         });
 
-        it('interzice unui utilizator fără profil să creeze copii', async () => {
+        it('forbids a user without a profile from creating children', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
 
             await expect(service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5)).rejects.toThrow(
@@ -77,7 +77,7 @@ describe('ChildService', () => {
     });
 
     describe('findChildren', () => {
-        it('nu restrânge nimic pentru ADMIN', async () => {
+        it('narrows nothing for an ADMIN', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             childRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -86,7 +86,7 @@ describe('ChildService', () => {
             expect(qb.andWhereCalls.some(([c]) => c.includes('user.id'))).toBe(false);
         });
 
-        it('restrânge la utilizatorul autentificat pentru PARENT', async () => {
+        it('narrows to the authenticated user for a PARENT', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             childRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -95,20 +95,20 @@ describe('ChildService', () => {
             expect(qb.andWhereCalls).toContainEqual(['user.id = :userId', { userId: 42 }]);
         });
 
-        it('un PARENT nu poate cere copiii altui părinte prin filtru', async () => {
+        it("a PARENT cannot request another parent's children through a filter", async () => {
             const qb = createMockQueryBuilder({ many: [] });
             childRepo.createQueryBuilder!.mockReturnValue(qb);
 
             await service.findChildren({ parentId: 999 }, Role.PARENT, 42);
 
-            // Filtrul cerut se adaugă, dar restrângerea pe utilizator rămâne — deci intersecția
-            // e goală, nu datele altcuiva.
+            // The requested filter is added, but the user narrowing stays — so the intersection
+            // is empty rather than someone else's data.
             expect(qb.andWhereCalls).toContainEqual(['user.id = :userId', { userId: 42 }]);
         });
     });
 
     describe('updateChild', () => {
-        it('lasă părintele să-și modifice propriul copil', async () => {
+        it('lets a parent update their own child', async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
             childRepo.save!.mockImplementation((c: unknown) => Promise.resolve(c));
 
@@ -117,35 +117,35 @@ describe('ChildService', () => {
             });
         });
 
-        it('interzice modificarea copilului altui părinte', async () => {
+        it("forbids updating another parent's child", async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
 
             await expect(service.updateChild(1, { firstName: 'Ana' }, Role.PARENT, 5)).rejects.toThrow(ForbiddenException);
             expect(childRepo.save).not.toHaveBeenCalled();
         });
 
-        it('lasă adminul să modifice orice copil', async () => {
+        it('lets an admin update any child', async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
             childRepo.save!.mockImplementation((c: unknown) => Promise.resolve(c));
 
             await expect(service.updateChild(1, { firstName: 'Ana' }, Role.ADMIN, 5)).resolves.toBeDefined();
         });
 
-        it('respinge un copil inexistent', async () => {
+        it('rejects a child that does not exist', async () => {
             childRepo.findOne!.mockResolvedValue(null);
             await expect(service.updateChild(99, {}, Role.ADMIN, 5)).rejects.toThrow(NotFoundException);
         });
     });
 
     describe('deleteChild', () => {
-        it('interzice ștergerea copilului altui părinte', async () => {
+        it("forbids deleting another parent's child", async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
 
             await expect(service.deleteChild(1, Role.PARENT, 5)).rejects.toThrow(ForbiddenException);
             expect(childRepo.delete).not.toHaveBeenCalled();
         });
 
-        it('lasă părintele să-și șteargă propriul copil', async () => {
+        it('lets a parent delete their own child', async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
 
             await expect(service.deleteChild(1, Role.PARENT, 5)).resolves.toMatchObject({ message: expect.any(String) });

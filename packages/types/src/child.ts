@@ -9,6 +9,6 @@ export interface Child {
     lastName: string;
     birthDate: ISODate;
     createdAt: ISODate;
-    /** Lipsește cât timp copilul nu e repartizat: relația e `nullable`, cu `onDelete: 'SET NULL'`. */
+    /** Absent while the child is unassigned: the relation is nullable, with `onDelete: 'SET NULL'`. */
     group?: Group | null;
 }

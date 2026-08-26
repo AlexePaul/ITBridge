@@ -2,13 +2,13 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 /**
- * Testele de aici rulează codul sursă direct, fără să pornească Nuxt. Nuxt injectează la build
- * o serie de simboluri globale — `ref`, `computed`, `useRuntimeConfig`, `$fetch` — pe care sursa
- * le folosește fără import; fișierul din `setupFiles` le pune la loc.
+ * These tests run the source directly, without booting Nuxt. Nuxt injects a set of globals at
+ * build time — `ref`, `computed`, `useRuntimeConfig`, `$fetch` — that the source uses without
+ * importing; the file in `setupFiles` puts them back.
  *
- * Compromisul e conștient: o suită care pornește Nuxt (`@nuxt/test-utils`) ar fi mai fidelă, dar
- * mult mai lentă, iar ce merită testat aici — logica de refresh din `useApi` și store-urile — nu
- * are nevoie de un runtime complet. Componentele, când vor fi testate, o vor cere.
+ * The trade-off is deliberate: a suite that boots Nuxt (`@nuxt/test-utils`) would be more faithful
+ * but far slower, and what is worth testing here — the refresh logic in `useApi` and the stores —
+ * needs no full runtime. Components, once they get tested, will.
  */
 export default defineConfig({
   resolve: {

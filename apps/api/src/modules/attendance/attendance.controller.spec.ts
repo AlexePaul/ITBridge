@@ -11,7 +11,7 @@ describe('AttendanceController', () => {
             updateAttendanceStatus: jest.fn().mockResolvedValue({ id: 1 }),
         });
 
-    it('getAttendanceByChild primește rolul și userId-ul din token', async () => {
+    it('getAttendanceByChild receives the role and user id from the token', async () => {
         const { controller, service } = await build();
         await controller.getAttendanceByChild(7, requestOf(Role.PARENT, 42));
         expect((service.getAttendanceByChild as jest.Mock).mock.calls[0].slice(-2)).toEqual([Role.PARENT, 42]);

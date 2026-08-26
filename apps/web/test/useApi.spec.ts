@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * `useApi` e singurul loc prin care trec toate cererile către backend, iar logica lui de refresh
- * are două subtilități care merită teste: reîncearcă exact o dată pe 401, și de-duplică
- * refresh-urile concurente printr-un `refreshPromise` partajat. Fără de-duplicare, zece cereri
- * paralele care primesc 401 ar declanșa zece refresh-uri, iar ultimele nouă ar folosi un refresh
- * token deja rotit.
+ * `useApi` is the single place every request to the backend goes through, and its refresh logic
+ * has two subtleties worth testing: it retries exactly once on a 401, and it de-duplicates
+ * concurrent refreshes through a shared `refreshPromise`. Without that de-duplication, ten parallel
+ * requests hitting a 401 would trigger ten refreshes, and the last nine would use an already
+ * rotated refresh token.
  */
 
 const tokenStore = {
@@ -23,7 +23,7 @@ const tokenStore = {
 
 vi.mock("~/stores/tokenStore", () => ({ useTokenStore: () => tokenStore }));
 
-/** Eroare cu aceeași formă ca cea aruncată de `$fetch` din ofetch. */
+/** An error shaped like the one `$fetch` from ofetch throws. */
 const httpError = (status: number) => Object.assign(new Error(`HTTP ${status}`), { status });
 
 let handler: (url: string, opts: Record<string, unknown>) => Promise<unknown>;
@@ -45,7 +45,7 @@ const loadUseApi = async () => {
 };
 
 describe("useApi", () => {
-  it("atașează tokenul de acces ca Bearer", async () => {
+  it("attaches the access token as a Bearer header", async () => {
     const seen: Record<string, unknown>[] = [];
     handler = (_url, opts) => {
       seen.push(opts);
@@ -58,7 +58,7 @@ describe("useApi", () => {
     expect((seen[0].headers as Record<string, string>).Authorization).toBe("Bearer acces-vechi");
   });
 
-  it("nu atașează niciun header când nu există token", async () => {
+  it("attaches no header when there is no token", async () => {
     tokenStore.accessToken = null;
     const seen: Record<string, unknown>[] = [];
     handler = (_url, opts) => {
@@ -72,7 +72,7 @@ describe("useApi", () => {
     expect((seen[0].headers as Record<string, string>).Authorization).toBeUndefined();
   });
 
-  it("pe 401 face refresh și reîncearcă o singură dată, cu tokenul nou", async () => {
+  it("refreshes on a 401 and retries exactly once, with the new token", async () => {
     const calls: string[] = [];
     let firstAttempt = true;
 
@@ -93,7 +93,7 @@ describe("useApi", () => {
     expect(result.header).toBe("Bearer acces-nou");
   });
 
-  it("nu face refresh pentru alte coduri decât 401", async () => {
+  it("does not refresh for status codes other than 401", async () => {
     const calls: string[] = [];
     handler = (url) => {
       calls.push(url);
@@ -106,7 +106,7 @@ describe("useApi", () => {
     expect(calls).toEqual(["/invoices"]);
   });
 
-  it("de-duplică refresh-urile concurente: zece cereri, un singur refresh", async () => {
+  it("de-duplicates concurrent refreshes: ten requests, a single refresh", async () => {
     const calls: string[] = [];
     const failedOnce = new Set<string>();
     let releaseRefresh: (v: unknown) => void = () => {};
@@ -117,7 +117,7 @@ describe("useApi", () => {
     handler = async (url) => {
       calls.push(url);
       if (url === "/auth/refresh") {
-        await refreshGate; // ține refresh-ul deschis cât timp sosesc celelalte 401-uri
+        await refreshGate; // hold the refresh open while the other 401s arrive
         return { accessToken: "acces-nou" };
       }
       if (!failedOnce.has(url)) {
@@ -130,16 +130,16 @@ describe("useApi", () => {
     const api = await loadUseApi();
     const pending = Array.from({ length: 10 }, (_, i) => api(`/resursa-${i}`));
 
-    // Lasă cele zece cereri să eșueze cu 401 și să ceară refresh, apoi deblochează refresh-ul.
+    // Let all ten requests fail with 401 and ask for a refresh, then release the refresh.
     await new Promise((resolve) => setTimeout(resolve, 10));
     releaseRefresh(null);
     await Promise.all(pending);
 
     expect(calls.filter((c) => c === "/auth/refresh")).toHaveLength(1);
-    expect(calls.filter((c) => c !== "/auth/refresh")).toHaveLength(20); // 10 eșuate + 10 reîncercate
+    expect(calls.filter((c) => c !== "/auth/refresh")).toHaveLength(20); // 10 failed + 10 retried
   });
 
-  it("șterge tokenurile când refresh-ul însuși eșuează", async () => {
+  it("clears the tokens when the refresh itself fails", async () => {
     handler = (url) => {
       if (url === "/auth/refresh") return Promise.reject(httpError(401));
       return Promise.reject(httpError(401));
@@ -151,7 +151,7 @@ describe("useApi", () => {
     expect(tokenStore.clearTokens).toHaveBeenCalled();
   });
 
-  it("permite un refresh nou după ce cel anterior s-a încheiat", async () => {
+  it("allows a new refresh once the previous one has settled", async () => {
     const calls: string[] = [];
     const failedOnce = new Set<string>();
 
@@ -169,7 +169,7 @@ describe("useApi", () => {
     await api("/prima");
     await api("/a-doua");
 
-    // `refreshPromise` se golește în `finally`, deci a doua rundă are voie să reîmprospăteze.
+    // `refreshPromise` is cleared in `finally`, so the second round is allowed to refresh again.
     expect(calls.filter((c) => c === "/auth/refresh")).toHaveLength(2);
   });
 });

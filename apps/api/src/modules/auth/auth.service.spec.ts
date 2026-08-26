@@ -15,8 +15,8 @@ describe('AuthService', () => {
     beforeEach(async () => {
         userRepo = createMockRepository();
 
-        // JwtService real, nu mock: tokenurile emise trebuie să fie verificabile, iar testul de
-        // expirare nu are sens pe un mock.
+        // A real JwtService, not a mock: issued tokens must be verifiable, and the expiry test
+        // would be meaningless against a mock.
         const module: TestingModule = await Test.createTestingModule({
             imports: [JwtModule.register({})],
             providers: [AuthService, provideMockRepository(User, userRepo)],
@@ -27,7 +27,7 @@ describe('AuthService', () => {
     });
 
     describe('register', () => {
-        it('stochează parola ca hash bcrypt, niciodată în clar', async () => {
+        it('stores the password as a bcrypt hash, never in clear text', async () => {
             userRepo.findOne!.mockResolvedValue(null);
             userRepo.create!.mockImplementation((data: Partial<User>) => ({ id: 1, ...data }));
             userRepo.save!.mockImplementation((u: User) => Promise.resolve(u));
@@ -40,7 +40,7 @@ describe('AuthService', () => {
             await expect(bcrypt.compare('parola-secreta', created.passwordHash)).resolves.toBe(true);
         });
 
-        it('creează întotdeauna PARENT, chiar dacă cererea ar cere altceva', async () => {
+        it('always creates a PARENT, even when the request asks for something else', async () => {
             userRepo.findOne!.mockResolvedValue(null);
             userRepo.create!.mockImplementation((data: Partial<User>) => ({ id: 1, ...data }));
             userRepo.save!.mockImplementation((u: User) => Promise.resolve(u));
@@ -50,14 +50,14 @@ describe('AuthService', () => {
             expect(userRepo.create!.mock.calls[0][0]).toMatchObject({ role: 'PARENT' });
         });
 
-        it('respinge un username deja folosit', async () => {
+        it('rejects a username that is already taken', async () => {
             userRepo.findOne!.mockResolvedValue({ id: 1, username: 'ana' });
 
             await expect(service.register({ username: 'ana', password: 'x' })).rejects.toThrow(ConflictException);
             expect(userRepo.save).not.toHaveBeenCalled();
         });
 
-        it('întoarce o pereche de tokenuri valide', async () => {
+        it('returns a valid pair of tokens', async () => {
             userRepo.findOne!.mockResolvedValue(null);
             userRepo.create!.mockImplementation((data: Partial<User>) => ({ id: 7, ...data }));
             userRepo.save!.mockImplementation((u: User) => Promise.resolve(u));
@@ -71,7 +71,7 @@ describe('AuthService', () => {
             expect(refresh).toMatchObject({ sub: 7 });
         });
 
-        it('nu pune rolul în refresh token', async () => {
+        it('does not put the role in the refresh token', async () => {
             userRepo.findOne!.mockResolvedValue(null);
             userRepo.create!.mockImplementation((data: Partial<User>) => ({ id: 7, ...data }));
             userRepo.save!.mockImplementation((u: User) => Promise.resolve(u));
@@ -92,25 +92,25 @@ describe('AuthService', () => {
             userRepo.findOne!.mockResolvedValue({ id: 3, username: 'ana', passwordHash, role: 'PARENT' });
         };
 
-        it('acceptă parola corectă', async () => {
+        it('accepts the correct password', async () => {
             await withUser('corecta');
             await expect(service.login({ username: 'ana', password: 'corecta' })).resolves.toMatchObject({
                 message: 'Login successful',
             });
         });
 
-        it('respinge parola greșită', async () => {
+        it('rejects a wrong password', async () => {
             await withUser('corecta');
             await expect(service.login({ username: 'ana', password: 'gresita' })).rejects.toThrow(UnauthorizedException);
         });
 
-        it('respinge un utilizator inexistent', async () => {
+        it('rejects a user that does not exist', async () => {
             userRepo.findOne!.mockResolvedValue(null);
             await expect(service.login({ username: 'nimeni', password: 'x' })).rejects.toThrow(UnauthorizedException);
         });
 
-        it('nu deosebeşte utilizator inexistent de parolă greșită', async () => {
-            // Mesaje diferite ar permite enumerarea conturilor.
+        it('does not distinguish an unknown user from a wrong password', async () => {
+            // Different messages would allow account enumeration.
             userRepo.findOne!.mockResolvedValue(null);
             const absent = await service.login({ username: 'nimeni', password: 'x' }).catch((e: Error) => e.message);
 
@@ -122,7 +122,7 @@ describe('AuthService', () => {
     });
 
     describe('refreshToken', () => {
-        it('emite un access token nou, cu rolul curent din baza de date', async () => {
+        it('issues a fresh access token carrying the current role from the database', async () => {
             const refreshToken = jwtService.sign({ sub: 3 }, { secret: jwtConstants.refreshTokenSecret });
             userRepo.findOne!.mockResolvedValue({ id: 3, username: 'ana', role: 'ADMIN' });
 
@@ -134,35 +134,35 @@ describe('AuthService', () => {
             });
         });
 
-        it('respinge un token semnat cu alt secret', async () => {
+        it('rejects a token signed with a different secret', async () => {
             const foreign = jwtService.sign({ sub: 3 }, { secret: 'alt-secret' });
             await expect(service.refreshToken({ refreshToken: foreign })).rejects.toThrow(UnauthorizedException);
         });
 
-        it('respinge un access token folosit ca refresh token', async () => {
+        it('rejects an access token used as a refresh token', async () => {
             const access = jwtService.sign({ sub: 3, role: 'ADMIN' }, { secret: jwtConstants.accessTokenSecret });
             await expect(service.refreshToken({ refreshToken: access })).rejects.toThrow(UnauthorizedException);
         });
 
-        it('respinge un token expirat', async () => {
+        it('rejects an expired token', async () => {
             const expired = jwtService.sign({ sub: 3 }, { secret: jwtConstants.refreshTokenSecret, expiresIn: '-1s' });
             await expect(service.refreshToken({ refreshToken: expired })).rejects.toThrow(UnauthorizedException);
         });
 
-        it('respinge un token valid al cărui utilizator a fost șters', async () => {
+        it('rejects a valid token whose user has been deleted', async () => {
             const refreshToken = jwtService.sign({ sub: 3 }, { secret: jwtConstants.refreshTokenSecret });
             userRepo.findOne!.mockResolvedValue(null);
 
             await expect(service.refreshToken({ refreshToken })).rejects.toThrow(UnauthorizedException);
         });
 
-        it('respinge gunoi', async () => {
+        it('rejects garbage', async () => {
             await expect(service.refreshToken({ refreshToken: 'nu-e-un-jwt' })).rejects.toThrow(UnauthorizedException);
         });
     });
 
     describe('getUserProfile', () => {
-        it('nu selectează niciodată passwordHash', async () => {
+        it('never selects passwordHash', async () => {
             userRepo.findOne!.mockResolvedValue({ id: 3, username: 'ana', role: 'PARENT' });
 
             await service.getUserProfile(3);

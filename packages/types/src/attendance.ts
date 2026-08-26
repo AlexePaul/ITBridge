@@ -2,14 +2,14 @@ import type { ISODate, TimeOfDay } from './common';
 import type { Group } from './group';
 
 /**
- * Valorile pe care le scrie efectiv `AttendanceService.createAttendance`: `'regular'` pentru un
- * copil din grupa lui, `'make-up'` pentru unul venit în recuperare.
+ * The values `AttendanceService.createAttendance` actually writes: `'regular'` for a child in their
+ * own group, `'make-up'` for one attending a catch-up session.
  *
- * Atenție, în cod mai există două valori care **nu** sunt scrise niciodată de serviciu și nu au ce
- * căuta aici: default-ul coloanei din `attendance.entity.ts` este `'normal'`, iar exemplul din
- * `@ApiProperty` al lui `markAttendance.dto.ts` spune `'catch-up'`. Sunt rămășițe inconsecvente —
- * default-ul se poate vedea totuși pe rânduri inserate direct în baza de date, de aceea consumatorii
- * tratează valorile necunoscute cu o alternativă, nu cu o eroare.
+ * Beware: two further values exist in the code that the service never writes and that do not belong
+ * here — the column default in `attendance.entity.ts` is `'normal'`, and the `@ApiProperty` example
+ * on `markAttendance.dto.ts` says `'catch-up'`. Those are inconsistent leftovers; the default can
+ * still show up on rows inserted straight into the database, which is why consumers treat unknown
+ * values with a fallback rather than an error.
  */
 export type AttendanceType = 'regular' | 'make-up';
 

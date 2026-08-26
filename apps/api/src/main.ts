@@ -7,9 +7,9 @@ import * as fs from 'fs';
 
 const DEFAULT_CORS_ORIGINS = ['https://itbridgeschool.com', 'http://localhost:3001'];
 
-// Originile permise vin din CORS_ORIGINS, listă separată prin virgulă, ca preview-urile Vercel și
-// un eventual staging să nu ceară modificare de cod. Fără variabilă, rămân domeniul de producție
-// și frontend-ul local.
+// Allowed origins come from CORS_ORIGINS, a comma-separated list, so Vercel previews and a future
+// staging environment do not require a code change. Without the variable, the production domain and
+// the local frontend remain.
 function corsOrigins(): string[] {
     const raw = process.env.CORS_ORIGINS;
     if (!raw) {

@@ -20,7 +20,7 @@ describe('ProfileService', () => {
     });
 
     describe('createProfile', () => {
-        it('ignoră userId-ul cerut de un PARENT și îl forțează pe al lui', async () => {
+        it('ignores the userId a PARENT asks for and forces their own', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
             profileRepo.create!.mockImplementation((d: unknown) => d);
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
@@ -31,7 +31,7 @@ describe('ProfileService', () => {
             expect(dto.userId).toBe(5);
         });
 
-        it('lasă adminul să lege profilul de orice cont', async () => {
+        it('lets an admin attach the profile to any account', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
             profileRepo.create!.mockImplementation((d: unknown) => d);
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
@@ -42,8 +42,8 @@ describe('ProfileService', () => {
             expect(dto.userId).toBe(999);
         });
 
-        it('lasă adminul să creeze un profil fără cont atașat', async () => {
-            // Fluxul din CLAUDE.md: admin creează Profile fără User, legarea vine mai târziu.
+        it('lets an admin create a profile with no account attached', async () => {
+            // The flow from CLAUDE.md: an admin creates a Profile without a User, linking comes later.
             profileRepo.findOne!.mockResolvedValue(null);
             profileRepo.create!.mockImplementation((d: { user: unknown }) => d);
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
@@ -53,34 +53,34 @@ describe('ProfileService', () => {
             expect(profileRepo.create!.mock.calls[0][0]).toMatchObject({ user: null });
         });
 
-        it('respinge un al doilea profil pentru același cont', async () => {
+        it('rejects a second profile for the same account', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1 });
 
             await expect(service.createProfile({ firstName: 'A', lastName: 'B', userId: 5 }, Role.ADMIN)).rejects.toThrow(ConflictException);
         });
 
-        it('respinge un email deja folosit', async () => {
+        it('rejects an email that is already taken', async () => {
             profileRepo
-                .findOne!.mockResolvedValueOnce(null) // fără profil pe cont
-                .mockResolvedValueOnce({ id: 2 }); // email ocupat
+                .findOne!.mockResolvedValueOnce(null) // no profile on the account
+                .mockResolvedValueOnce({ id: 2 }); // email taken
 
             await expect(service.createProfile({ firstName: 'A', lastName: 'B', email: 'a@b.c', userId: 5 }, Role.ADMIN)).rejects.toThrow(ConflictException);
         });
     });
 
     describe('findProfiles', () => {
-        it('forțează filtrul pe utilizatorul autentificat pentru PARENT', async () => {
+        it('forces the filter onto the authenticated user for a PARENT', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             profileRepo.createQueryBuilder!.mockReturnValue(qb);
 
-            // Un PARENT care cere explicit profilul altcuiva.
+            // A PARENT explicitly asking for someone else's profile.
             await service.findProfiles({ userId: 999 }, Role.PARENT, 42);
 
             expect(qb.andWhereCalls).toContainEqual(['user.id = :userId', { userId: 42 }]);
             expect(qb.andWhereCalls).not.toContainEqual(['user.id = :userId', { userId: 999 }]);
         });
 
-        it('lasă adminul să filtreze după orice utilizator', async () => {
+        it('lets an admin filter by any user', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             profileRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -91,20 +91,20 @@ describe('ProfileService', () => {
     });
 
     describe('updateProfile', () => {
-        it('interzice modificarea profilului altui utilizator', async () => {
+        it("forbids updating another user's profile", async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
 
             await expect(service.updateProfile({ firstName: 'X' }, 1, Role.PARENT, 5)).rejects.toThrow(UnauthorizedException);
             expect(profileRepo.save).not.toHaveBeenCalled();
         });
 
-        it('interzice modificarea unui profil fără cont atașat, de către un PARENT', async () => {
+        it('forbids a PARENT from updating a profile with no account attached', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: null });
 
             await expect(service.updateProfile({ firstName: 'X' }, 1, Role.PARENT, 5)).rejects.toThrow(UnauthorizedException);
         });
 
-        it('lasă utilizatorul să-și modifice propriul profil', async () => {
+        it('lets a user update their own profile', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 5 } });
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
@@ -113,7 +113,7 @@ describe('ProfileService', () => {
             });
         });
 
-        it('nu întoarce contul atașat în răspuns', async () => {
+        it('does not return the attached account in the response', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 5 } });
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
@@ -122,21 +122,21 @@ describe('ProfileService', () => {
             expect(result.user).toBeUndefined();
         });
 
-        it('respinge un profil inexistent', async () => {
+        it('rejects a profile that does not exist', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
             await expect(service.updateProfile({}, 99, Role.ADMIN, 5)).rejects.toThrow(NotFoundException);
         });
     });
 
     describe('deleteProfile', () => {
-        it('interzice ștergerea profilului altui utilizator', async () => {
+        it("forbids deleting another user's profile", async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
 
             await expect(service.deleteProfile(1, Role.PARENT, 5)).rejects.toThrow(UnauthorizedException);
             expect(profileRepo.delete).not.toHaveBeenCalled();
         });
 
-        it('lasă adminul să șteargă orice profil', async () => {
+        it('lets an admin delete any profile', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
 
             await service.deleteProfile(1, Role.ADMIN, 5);

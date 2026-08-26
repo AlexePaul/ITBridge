@@ -21,7 +21,7 @@ describe('ChildController', () => {
         ['deleteChild', (c) => c.deleteChild(7, requestOf(Role.PARENT, 42))],
     ];
 
-    it.each(cases)('%s primește rolul și userId-ul din token, ca ultimi doi parametri', async (method, call) => {
+    it.each(cases)('%s receives the role and user id from the token as its last two arguments', async (method, call) => {
         const { controller, service } = await build();
 
         await call(controller);
@@ -30,7 +30,7 @@ describe('ChildController', () => {
         expect(mock.mock.calls[0].slice(-2)).toEqual([Role.PARENT, 42]);
     });
 
-    it('un PARENT nu poate cere copiii altui părinte prin filtru — identitatea vine tot din token', async () => {
+    it("a PARENT cannot request another parent's children through a filter - identity still comes from the token", async () => {
         const { controller, service } = await build();
 
         await controller.findChildren({ parentId: 999 }, requestOf(Role.PARENT, 42));

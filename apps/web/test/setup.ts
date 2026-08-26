@@ -1,7 +1,7 @@
 import { computed, reactive, readonly, ref, shallowRef, watch, type Ref } from "vue";
 import { beforeEach, vi } from "vitest";
 
-// Auto-importurile Vue pe care Nuxt le injectează în sursă.
+// The Vue auto-imports Nuxt injects into the source.
 vi.stubGlobal("ref", ref);
 vi.stubGlobal("computed", computed);
 vi.stubGlobal("readonly", readonly);
@@ -10,8 +10,8 @@ vi.stubGlobal("shallowRef", shallowRef);
 vi.stubGlobal("watch", watch);
 
 /**
- * `useCookie` din Nuxt, în memorie. Store-urile îl folosesc ca depozit de stare, deci testele au
- * nevoie de un ref persistent per nume, cu aceeași semantică de `default`.
+ * Nuxt's `useCookie`, in memory. The stores use it as a state container, so tests need a ref that
+ * persists per name, with the same `default` semantics.
  */
 const cookieJar = new Map<string, Ref<unknown>>();
 
@@ -24,7 +24,7 @@ vi.stubGlobal("useCookie", <T>(name: string, opts?: { default?: () => T }): Ref<
 
 vi.stubGlobal("clearNuxtCookies", () => cookieJar.clear());
 
-// Fiecare test pornește cu borcanul gol, altfel starea se scurge între ele.
+// Every test starts with an empty jar, otherwise state leaks between them.
 beforeEach(() => {
   cookieJar.clear();
 });

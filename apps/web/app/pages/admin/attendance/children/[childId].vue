@@ -109,7 +109,7 @@ const columns: TableColumn<Attendance>[] = [
           "make-up": "warning" as const,
         }[type] || "neutral";
 
-      // Alternativa acoperă rândurile vechi care poartă default-ul coloanei, 'normal'.
+      // The fallback covers older rows carrying the column default, 'normal'.
       const label =
         {
           regular: "Normală",

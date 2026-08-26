@@ -15,7 +15,7 @@ describe('InvoiceController', () => {
             getPreview: jest.fn().mockResolvedValue([]),
         });
 
-    it('trimite rolul și userId-ul din token către findInvoices', async () => {
+    it('passes the role and user id from the token to findInvoices', async () => {
         const { controller, service } = await build();
 
         await controller.findInvoices({}, requestOf(Role.PARENT, 42));
@@ -23,7 +23,7 @@ describe('InvoiceController', () => {
         expect(service.findInvoices).toHaveBeenCalledWith({}, Role.PARENT, 42);
     });
 
-    it('trimite rolul și userId-ul către findOne', async () => {
+    it('passes the role and user id to findOne', async () => {
         const { controller, service } = await build();
 
         await controller.findOne(7, requestOf(Role.PARENT, 42));
@@ -31,8 +31,8 @@ describe('InvoiceController', () => {
         expect(service.findOne).toHaveBeenCalledWith(7, Role.PARENT, 42);
     });
 
-    it('nu ia identitatea din body sau din query, ci doar din token', async () => {
-        // Dacă un controller ar accepta userId din cerere, autorizarea din service ar fi ocolibilă.
+    it('takes identity only from the token, never from body or query', async () => {
+        // If a controller accepted a userId from the request, service authorization could be bypassed.
         const { controller, service } = await build();
 
         await controller.findInvoices({ parentId: 999 }, requestOf(Role.PARENT, 42));
@@ -40,7 +40,7 @@ describe('InvoiceController', () => {
         expect(service.findInvoices).toHaveBeenCalledWith({ parentId: 999 }, Role.PARENT, 42);
     });
 
-    it('deleteInvoice nu întoarce conținut', async () => {
+    it('deleteInvoice returns no content', async () => {
         const { controller } = await build();
         await expect(controller.remove(1)).resolves.toBeUndefined();
     });

@@ -1,10 +1,10 @@
 import { Client } from 'pg';
 
 /**
- * Creează baza de test dacă lipsește. TypeORM rulează cu `synchronize: true`, deci face singur
- * tabelele — dar nu și baza. Rulează o singură dată, înaintea tuturor suitelor.
+ * Creates the test database when it is missing. TypeORM runs with `synchronize: true`, so it
+ * builds the tables itself — but not the database. Runs once, before every suite.
  *
- * Cât timp nu există migrări (E04), asta e și tot ce trebuie.
+ * As long as there are no migrations (E04), this is all that is needed.
  */
 export default async function globalSetup(): Promise<void> {
     const dbName = process.env.TEST_DB_NAME ?? 'itbridge_test';
@@ -19,7 +19,7 @@ export default async function globalSetup(): Promise<void> {
     await client.connect();
     const existing = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [dbName]);
     if (existing.rowCount === 0) {
-        // Numele nu vine din input de utilizator, dar identificatorii nu se pot parametriza.
+        // The name does not come from user input, but identifiers cannot be parameterised.
         await client.query(`CREATE DATABASE "${dbName.replace(/"/g, '')}"`);
     }
     await client.end();

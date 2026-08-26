@@ -5,14 +5,14 @@ import { App } from 'supertest/types';
 import { createTestApp, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
 
 /**
- * Autorizarea pe date, verificată prin HTTP. Testele unitare arată că interogările *conțin*
- * restrângerea; aici se verifică efectul: doi părinți reali, cu date reale, iar unul nu are voie să
- * le vadă pe ale celuilalt.
+ * Row-level authorization, verified over HTTP. The unit tests show the queries *contain* the
+ * narrowing; here we check its effect: two real parents, with real data, and neither may see the
+ * other's.
  *
- * Distincția contează, fiindcă restrângerea trăiește în service, nu în guard — deci un guard corect
- * nu garantează nimic despre date.
+ * The distinction matters because the narrowing lives in the service, not in the guard — so
+ * correct guards guarantee nothing about the data.
  */
-describe('Autorizare pe date (e2e)', () => {
+describe('Row-level authorization (e2e)', () => {
     let app: INestApplication<App>;
     let dataSource: DataSource;
 
@@ -39,8 +39,8 @@ describe('Autorizare pe date (e2e)', () => {
         ana = await registerUser(app, 'ana');
         bogdan = await registerUser(app, 'bogdan');
 
-        // Email și telefon distincte, obligatoriu: vezi profile-creation.e2e-spec.ts. Un profil
-        // fără date de contact face verificarea de unicitate să răspundă 409 pentru al doilea.
+        // Distinct email and phone are mandatory: see profile-creation.e2e-spec.ts. A profile with
+        // no contact details makes the uniqueness check answer 409 for the second one.
         anaProfileId = await createProfile(ana, 'Ana', 'Pop', 'ana@example.com', '+40700000001');
         bogdanProfileId = await createProfile(bogdan, 'Bogdan', 'Ion', 'bogdan@example.com', '+40700000002');
 
@@ -80,33 +80,33 @@ describe('Autorizare pe date (e2e)', () => {
         return res.body[0].id as number;
     };
 
-    describe('facturi', () => {
-        it('adminul vede facturile tuturor', async () => {
+    describe('invoices', () => {
+        it("an admin sees everyone's invoices", async () => {
             const res = await request(app.getHttpServer()).get('/invoices').set('Authorization', admin.auth).expect(200);
             expect(res.body).toHaveLength(1);
         });
 
-        it('părintele își vede propriile facturi', async () => {
+        it('a parent sees their own invoices', async () => {
             const res = await request(app.getHttpServer()).get('/invoices').set('Authorization', ana.auth).expect(200);
             expect(res.body).toHaveLength(1);
         });
 
-        it('părintele nu vede facturile altui părinte în listă', async () => {
+        it("a parent does not see another parent's invoices in the list", async () => {
             const res = await request(app.getHttpServer()).get('/invoices').set('Authorization', bogdan.auth).expect(200);
             expect(res.body).toHaveLength(0);
         });
 
-        it('părintele nu poate cere direct factura altcuiva, nici după id', async () => {
+        it("a parent cannot fetch someone else's invoice directly, not even by id", async () => {
             await request(app.getHttpServer()).get(`/invoices/${anaInvoiceId}`).set('Authorization', bogdan.auth).expect(404);
         });
 
-        it('un filtru explicit pe alt părinte nu deschide nimic', async () => {
+        it('an explicit filter on another parent opens nothing', async () => {
             const res = await request(app.getHttpServer()).get('/invoices').query({ parentId: anaProfileId }).set('Authorization', bogdan.auth).expect(200);
 
             expect(res.body).toHaveLength(0);
         });
 
-        it('părintele nu poate emite facturi', async () => {
+        it('a parent cannot issue invoices', async () => {
             await request(app.getHttpServer())
                 .post('/invoices')
                 .set('Authorization', ana.auth)
@@ -114,33 +114,33 @@ describe('Autorizare pe date (e2e)', () => {
                 .expect(403);
         });
 
-        it('părintele nu poate modifica o factură, nici pe a lui', async () => {
+        it('a parent cannot update an invoice, not even their own', async () => {
             await request(app.getHttpServer()).put(`/invoices/${anaInvoiceId}`).set('Authorization', ana.auth).send({ status: 'paid' }).expect(403);
         });
 
-        it('părintele nu poate șterge o factură', async () => {
+        it('a parent cannot delete an invoice', async () => {
             await request(app.getHttpServer()).delete(`/invoices/${anaInvoiceId}`).set('Authorization', ana.auth).expect(403);
         });
     });
 
-    describe('copii', () => {
-        it('părintele își vede propriii copii', async () => {
+    describe('children', () => {
+        it('a parent sees their own children', async () => {
             const res = await request(app.getHttpServer()).get('/children').set('Authorization', ana.auth).expect(200);
             expect(res.body).toHaveLength(1);
             expect(res.body[0].firstName).toBe('Maria');
         });
 
-        it('părintele nu vede copiii altui părinte', async () => {
+        it("a parent does not see another parent's children", async () => {
             const res = await request(app.getHttpServer()).get('/children').set('Authorization', bogdan.auth).expect(200);
             expect(res.body.map((c: { firstName: string }) => c.firstName)).not.toContain('Maria');
         });
 
-        it('adminul vede toți copiii', async () => {
+        it('an admin sees every child', async () => {
             const res = await request(app.getHttpServer()).get('/children').set('Authorization', admin.auth).expect(200);
             expect(res.body).toHaveLength(2);
         });
 
-        it('părintele nu poate adăuga un copil pe profilul altcuiva', async () => {
+        it("a parent cannot add a child to someone else's profile", async () => {
             await request(app.getHttpServer())
                 .post('/children')
                 .set('Authorization', bogdan.auth)
@@ -149,47 +149,47 @@ describe('Autorizare pe date (e2e)', () => {
         });
     });
 
-    describe('profiluri', () => {
-        it('părintele își vede doar propriul profil', async () => {
+    describe('profiles', () => {
+        it('a parent sees only their own profile', async () => {
             const res = await request(app.getHttpServer()).get('/profiles').set('Authorization', ana.auth).expect(200);
             expect(res.body).toHaveLength(1);
             expect(res.body[0].id).toBe(anaProfileId);
         });
 
-        it('un filtru pe alt utilizator nu deschide nimic', async () => {
+        it('a filter on another user opens nothing', async () => {
             const res = await request(app.getHttpServer()).get('/profiles').query({ userId: ana.userId }).set('Authorization', bogdan.auth).expect(200);
 
             expect(res.body.every((p: { id: number }) => p.id === bogdanProfileId)).toBe(true);
         });
 
-        it('adminul vede toate profilurile', async () => {
+        it('an admin sees every profile', async () => {
             const res = await request(app.getHttpServer()).get('/profiles').set('Authorization', admin.auth).expect(200);
             expect(res.body.length).toBeGreaterThanOrEqual(2);
         });
     });
 
-    describe('endpoint-uri rezervate adminului', () => {
+    describe('admin-only endpoints', () => {
         it.each([
             ['GET', '/users'],
             ['GET', '/users/without-profile'],
-        ])('%s %s refuză un PARENT cu 403', async (method, path) => {
+        ])('%s %s refuses a PARENT with 403', async (method, path) => {
             await request(app.getHttpServer())[method.toLowerCase() as 'get'](path).set('Authorization', ana.auth).expect(403);
         });
 
         it.each([
             ['POST', '/groups'],
             ['POST', '/discounts'],
-        ])('%s %s refuză un PARENT cu 403', async (_method, path) => {
+        ])('%s %s refuses a PARENT with 403', async (_method, path) => {
             await request(app.getHttpServer()).post(path).set('Authorization', ana.auth).send({}).expect(403);
         });
 
-        it('aceleași endpoint-uri răspund adminului', async () => {
+        it('the same endpoints answer an admin', async () => {
             await request(app.getHttpServer()).get('/users').set('Authorization', admin.auth).expect(200);
         });
     });
 
-    describe('fără autentificare', () => {
-        it.each([['/invoices'], ['/children'], ['/profiles'], ['/users']])('GET %s întoarce 401', async (path) => {
+    describe('without authentication', () => {
+        it.each([['/invoices'], ['/children'], ['/profiles'], ['/users']])('GET %s returns 401', async (path) => {
             await request(app.getHttpServer()).get(path).expect(401);
         });
     });

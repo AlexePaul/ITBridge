@@ -9,13 +9,13 @@ import { PdfService } from 'src/modules/invoice/pdf.service';
 import { Role } from 'src/enum/role.enum';
 
 /**
- * Pornește aplicația reală, cu guard-e, rutare și Postgres — doar S3 și generarea de PDF sunt
- * înlocuite, fiindcă ies din proces și nu au ce verifica aici.
+ * Boots the real application, with guards, routing and Postgres — only S3 and PDF generation are
+ * replaced, because they leave the process and have nothing to verify here.
  */
 export async function createTestApp(): Promise<{ app: INestApplication<App>; dataSource: DataSource }> {
-    // `app.listen(0)` deschide un singur server, pe un port liber, pentru toată durata suitei.
-    // Alternativa — `request(app.getHttpServer())` pe instanța express — face supertest să ridice
-    // un server efemer la fiecare apel, ceea ce s-a dovedit o sursă de eșecuri intermitente.
+    // `app.listen(0)` opens a single server, on a free port, for the whole lifetime of the suite.
+    // The alternative — handing `app.getHttpServer()` straight to supertest — makes supertest spin
+    // up an ephemeral server on every call, which turned out to be a source of flaky failures.
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
         .overrideProvider(S3Service)
         .useValue({ uploadFile: jest.fn(), downloadFile: jest.fn() })
@@ -30,7 +30,7 @@ export async function createTestApp(): Promise<{ app: INestApplication<App>; dat
     return { app, dataSource: app.get(DataSource) };
 }
 
-/** Golește toate tabelele între suite, păstrând schema creată de `synchronize`. */
+/** Wipes every table between suites, keeping the schema created by `synchronize`. */
 export async function truncateAll(dataSource: DataSource): Promise<void> {
     const tables = dataSource.entityMetadatas.map((m) => `"${m.tableName}"`).join(', ');
     await dataSource.query(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`);
@@ -44,7 +44,7 @@ export interface TestUser {
     auth: string;
 }
 
-/** Înregistrează un utilizator prin API și îi întoarce tokenurile. Rolul e mereu PARENT la creare. */
+/** Registers a user through the API and returns their tokens. Registration always yields PARENT. */
 export async function registerUser(app: INestApplication<App>, username: string, password = 'parola123'): Promise<TestUser> {
     const res = await request(app.getHttpServer()).post('/auth/register').send({ username, password }).expect(201);
 
@@ -60,8 +60,8 @@ export async function registerUser(app: INestApplication<App>, username: string,
 }
 
 /**
- * Promovează un utilizator la ADMIN direct în baza de date și îi reface tokenul prin login —
- * exact fluxul din CLAUDE.md, fiindcă `register` creează întotdeauna PARENT.
+ * Promotes a user to ADMIN directly in the database and re-issues their token through login —
+ * exactly the flow described in CLAUDE.md, because `register` always creates a PARENT.
  */
 export async function promoteToAdmin(app: INestApplication<App>, dataSource: DataSource, user: TestUser, password = 'parola123'): Promise<TestUser> {
     await dataSource.query('UPDATE users SET role = $1 WHERE id = $2', [Role.ADMIN, user.userId]);

@@ -118,6 +118,17 @@ State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier
 
 ## Convenții
 
+**Totul în engleză, în afară de ce vede utilizatorul.** Regula acoperă: nume de branch-uri, mesaje
+de commit, titluri și descrieri de PR, identificatori din cod (variabile, funcții, clase, tipuri,
+fișiere), comentarii, descrieri de teste (`describe` / `it`), mesaje de log și de eroare din API,
+chei de configurare și nume de job-uri din CI.
+
+Excepțiile, tot ce ajunge la un părinte sau la un profesor: textele din interfața Nuxt, e-mailurile,
+PDF-urile, conținutul de site. Alea rămân în română — e o școală din România.
+
+Documentația din `docs/` și fișierele astea două sunt scrise în română și rămân așa; regula e
+despre cod și despre git, nu despre proza de proiect.
+
 - Backend: 4 spații, ghilimele simple, print width 120 (`.prettierrc`). Frontend: 2 spații,
   ghilimele duble. Nu amesteca.
 - Backend importă cu path absolut de la rădăcină: `from 'src/entities/child.entity'`

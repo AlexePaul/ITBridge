@@ -2,7 +2,7 @@ import type { TimeOfDay } from './common';
 
 export interface Group {
     id: number;
-    /** Zi ISO: 1 = luni, 7 = duminică. */
+    /** ISO weekday: 1 = Monday, 7 = Sunday. */
     weekday: number;
     startTime: TimeOfDay;
     endTime: TimeOfDay;

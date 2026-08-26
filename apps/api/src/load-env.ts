@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Încarcă `.env` din directorul de lucru, dacă există. Trebuie importat *înaintea* oricărui modul
-// care citește `process.env` la încărcare — `app.module.ts` o face, pentru configurația TypeORM.
-// În producție variabilele vin din mediu (PM2), nu din fișier, iar absența lui nu e o eroare.
+// Loads `.env` from the working directory when it exists. This must be imported *before* any module
+// that reads `process.env` at load time — `app.module.ts` does, for the TypeORM configuration.
+// In production the variables come from the environment (PM2), and a missing file is not an error.
 const envPath = path.resolve(process.cwd(), '.env');
 if (fs.existsSync(envPath)) {
     process.loadEnvFile(envPath);

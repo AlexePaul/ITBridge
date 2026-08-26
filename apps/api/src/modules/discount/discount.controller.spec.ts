@@ -11,14 +11,14 @@ describe('DiscountController', () => {
             deleteDiscount: jest.fn().mockResolvedValue(undefined),
         });
 
-    it('trece DTO-ul de creare către service', async () => {
+    it('passes the create DTO to the service', async () => {
         const { controller, service } = await build();
         const dto = { name: 'Frate', value: 50, monthIssued: '2026-03', parentId: 7 };
         await controller.createDiscount(dto);
         expect(service.createDiscount).toHaveBeenCalledWith(dto);
     });
 
-    it('trece id-ul și body-ul către update', async () => {
+    it('passes the id and body to update', async () => {
         const { controller, service } = await build();
         await controller.updateDiscount(7, { value: 75 });
         expect(service.updateDiscount).toHaveBeenCalledWith(7, { value: 75 });

@@ -5,15 +5,15 @@ on:
   push:
     branches: [main]
 
-# Un push nou pe același PR anulează rularea anterioară — nu are rost să verificăm un commit
-# pe care l-a înlocuit deja altul.
+# A new push on the same PR cancels the previous run - there is no point verifying a commit that
+# another one has already replaced.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  # Turborepo sare task-urile ale căror intrări nu s-au schimbat. Cache-ul e restaurat din
-  # actions/cache, deci o schimbare doar de frontend nu reface build-ul de backend.
+  # Turborepo skips tasks whose inputs have not changed. The cache is restored from actions/cache,
+  # so a frontend-only change does not rebuild the backend.
   TURBO_TELEMETRY_DISABLED: 1
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Instalare
+      - name: Install
         run: pnpm install --frozen-lockfile
 
       - name: Cache Turborepo
@@ -40,15 +40,15 @@ jobs:
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
 
-      # Aceleași comenzi pe care le rulează un dezvoltator local. Dacă ele diverg de CI,
-      # CI-ul devine un al doilea sistem de verificat, nu o plasă de siguranță.
+      # The same commands a developer runs locally. If they diverge from CI, CI becomes a second
+      # system to keep in sync rather than a safety net.
       - name: Lint
         run: pnpm lint
 
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Teste unitare
+      - name: Unit tests
         run: pnpm test
 
       - name: Build
@@ -57,11 +57,11 @@ jobs:
           API_BASE: http://localhost:3000
 
   e2e:
-    name: Teste de integrare
+    name: Integration tests
     runs-on: ubuntu-latest
 
-    # Postgres ca serviciu, nu Testcontainers: aceeași imagine ca în docker-compose, pornită de
-    # runner, fără un strat de orchestrare în plus. Fidelitatea e identică — e același Postgres.
+    # Postgres as a service, not Testcontainers: the same image as in docker-compose, started by
+    # the runner, with no extra orchestration layer. Fidelity is identical - it is the same Postgres.
     services:
       postgres:
         image: postgres:17-alpine
@@ -95,10 +95,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: Instalare
+      - name: Install
         run: pnpm install --frozen-lockfile
 
-      # Baza `itbridge_test` o creează singur `test/global-setup.ts`. Schema o face TypeORM prin
-      # `synchronize: true` — se schimbă când intră migrările, în E04.
-      - name: Teste de integrare
+      # `test/global-setup.ts` creates the `itbridge_test` database itself. TypeORM builds the
+      # schema through `synchronize: true` - that changes once migrations land, in E04.
+      - name: Integration tests
         run: pnpm --filter api test:e2e

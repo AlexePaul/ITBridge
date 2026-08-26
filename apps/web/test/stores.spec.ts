@@ -5,9 +5,9 @@ import { useAttendanceStore } from "~/stores/attendanceStore";
 import type { Child } from "~/types/child.types";
 
 /**
- * Store-urile fac lookup-uri după id. Id-urile vin numerice din API, dar ajung ca string când vin
- * din `route.params`, iar codul se bazează pe `==` slab ca să acopere ambele forme. Testele fixează
- * exact asta: o trecere la `===` ar rupe navigarea pe rută fără niciun alt semnal.
+ * The stores look records up by id. Ids arrive as numbers from the API but as strings when they
+ * come from `route.params`, and the code relies on loose `==` to cover both shapes. These tests
+ * pin exactly that down: switching to `===` would break route navigation with no other signal.
  */
 
 const child = (id: number, groupId?: number): Child =>
@@ -32,25 +32,25 @@ describe("childrenStore", () => {
     return store;
   };
 
-  it("găsește copilul după id numeric", () => {
+  it("finds a child by numeric id", () => {
     expect(seeded().getChildById(2)?.firstName).toBe("Copil2");
   });
 
-  it("găsește copilul și după id ca string, cum vine din rută", () => {
+  it("finds a child by string id too, as it arrives from the route", () => {
     expect(seeded().getChildById("2")?.firstName).toBe("Copil2");
   });
 
-  it("întoarce undefined pentru un id inexistent", () => {
+  it("returns undefined for an unknown id", () => {
     expect(seeded().getChildById(99)).toBeUndefined();
   });
 
-  it("numără copiii dintr-o grupă, cu id string sau numeric", () => {
+  it("counts the children of a group, with a string or numeric id", () => {
     const store = seeded();
     expect(store.getChildrenNumberByGroupId(10)).toBe(2);
     expect(store.getChildrenNumberByGroupId("10")).toBe(2);
   });
 
-  it("întoarce copiii unei grupe", () => {
+  it("returns the children of a group", () => {
     expect(
       seeded()
         .getChildrenByGroupId(20)
@@ -58,7 +58,7 @@ describe("childrenStore", () => {
     ).toEqual([3]);
   });
 
-  it("întoarce copiii din afara unei grupe, inclusiv pe cei fără grupă", () => {
+  it("returns the children outside a group, including those with no group", () => {
     expect(
       seeded()
         .getChildrenNotInGroupId(10)
@@ -66,7 +66,7 @@ describe("childrenStore", () => {
     ).toEqual([3, 4]);
   });
 
-  it("întoarce copiii fără grupă", () => {
+  it("returns the children with no group", () => {
     expect(
       seeded()
         .getChildrenWithoutGroup()
@@ -74,7 +74,7 @@ describe("childrenStore", () => {
     ).toEqual([4]);
   });
 
-  it("golește lista", () => {
+  it("clears the list", () => {
     const store = seeded();
     store.clearChildren();
     expect(store.children).toHaveLength(0);
@@ -95,7 +95,7 @@ describe("attendanceStore", () => {
     group: { id: 10 } as never,
   });
 
-  it("regăsește prezența după id numeric sau string", () => {
+  it("looks attendance up by numeric or string id", () => {
     const store = useAttendanceStore();
     store.setAttendance(7, [record("2026-03-10")]);
 
@@ -103,11 +103,11 @@ describe("attendanceStore", () => {
     expect(store.attendancesByChildId("7")).toHaveLength(1);
   });
 
-  it("întoarce listă goală pentru un copil necunoscut", () => {
+  it("returns an empty list for an unknown child", () => {
     expect(useAttendanceStore().attendancesByChildId(99)).toEqual([]);
   });
 
-  it("găsește prezența dintr-o anumită zi", () => {
+  it("finds the attendance record for a given day", () => {
     const store = useAttendanceStore();
     store.setAttendance(7, [record("2026-03-10"), record("2026-03-17")]);
 

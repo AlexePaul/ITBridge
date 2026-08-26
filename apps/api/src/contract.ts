@@ -1,14 +1,14 @@
 /**
- * Verificări la nivel de tip între entitățile TypeORM și contractul din `@itbridge/types`.
+ * Type-level checks between the TypeORM entities and the contract in `@itbridge/types`.
  *
- * Fișierul nu exportă nimic executabil și nu e importat de nicăieri — există exclusiv ca
- * `pnpm typecheck` să eșueze când o entitate se schimbă fără ca formatul de pe sârmă să fie
- * actualizat. Fără el, contractul ar prinde doar drift-ul dinspre frontend: backend-ul ar putea
- * redenumi un câmp, iar `packages/types` ar rămâne să descrie o realitate care nu mai există.
+ * This file exports nothing executable and is imported from nowhere — it exists purely so that
+ * `pnpm typecheck` fails when an entity changes without the wire format being updated. Without it
+ * the contract would only catch drift coming from the frontend: the backend could rename a field
+ * and `packages/types` would go on describing a reality that no longer exists.
  *
- * `Serialized<T>` traduce `Date` în string, fiindcă asta face `JSON.stringify` la ieșirea din
- * controller. Verificarea e „entitatea acoperă contractul", nu egalitate: entitățile au relații
- * și câmpuri interne (`passwordHash`, `attendances`) care nu ies niciodată prin API.
+ * `Serialized<T>` turns `Date` into a string, because that is what `JSON.stringify` does on the way
+ * out of a controller. The check is "the entity covers the contract", not equality: entities carry
+ * relations and internal fields (`passwordHash`, `attendances`) that never leave through the API.
  */
 import type { Serialized } from '@itbridge/types';
 import type * as Wire from '@itbridge/types';
@@ -22,12 +22,12 @@ import type { Invoice } from './entities/invoice.entity';
 import type { Payment } from './entities/payment.entity';
 import type { Discount } from './entities/discount.entity';
 
-/** Eșuează compilarea dacă `Actual` nu satisface `Expected` pe câmpurile comune. */
+/** Fails compilation when `Actual` does not satisfy `Expected` on the shared fields. */
 type Covers<Expected, Actual> = Actual extends Expected ? true : { missingOrMismatched: Expected };
 
 type Check<Expected, Actual extends Expected> = Covers<Expected, Actual>;
 
-// Fiecare linie compilează doar dacă entitatea serializată acoperă forma din contract.
+// Each line compiles only if the serialized entity covers the shape from the contract.
 type _User = Check<Pick<Wire.User, 'id' | 'username' | 'role'>, Pick<Serialized<User>, 'id' | 'username' | 'role'>>;
 type _Profile = Check<Pick<Wire.ProfileSummary, 'id' | 'firstName' | 'lastName'>, Pick<Serialized<Profile>, 'id' | 'firstName' | 'lastName'>>;
 type _Child = Check<Pick<Wire.Child, 'id' | 'firstName' | 'lastName' | 'birthDate'>, Pick<Serialized<Child>, 'id' | 'firstName' | 'lastName' | 'birthDate'>>;

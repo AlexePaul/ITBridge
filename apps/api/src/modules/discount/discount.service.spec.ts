@@ -16,7 +16,7 @@ describe('DiscountService', () => {
         service = module.get(DiscountService);
     });
 
-    it('leagă reducerea de părintele din DTO', async () => {
+    it('links the discount to the parent from the DTO', async () => {
         discountRepo.create!.mockImplementation((d: unknown) => ({ ...(d as object) }));
         discountRepo.save!.mockImplementation((d: unknown) => Promise.resolve(d));
 
@@ -25,7 +25,7 @@ describe('DiscountService', () => {
         expect(created).toMatchObject({ parent: { id: 7 } });
     });
 
-    it('updateDiscount ignoră câmpurile nedefinite', async () => {
+    it('updateDiscount ignores undefined fields', async () => {
         discountRepo.findOne!.mockResolvedValue({ id: 1, name: 'Frate', value: 50 });
         discountRepo.save!.mockImplementation((d: unknown) => Promise.resolve(d));
 
@@ -34,7 +34,7 @@ describe('DiscountService', () => {
         expect(updated).toMatchObject({ name: 'Frate', value: 75 });
     });
 
-    it('updateDiscount respinge o reducere inexistentă', async () => {
+    it('updateDiscount rejects a discount that does not exist', async () => {
         discountRepo.findOne!.mockResolvedValue(null);
         await expect(service.updateDiscount(99, { value: 1 })).rejects.toThrow(NotFoundException);
     });

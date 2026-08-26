@@ -1,25 +1,25 @@
 /**
- * Contractul descrie **formatul de pe sârmă**, adică JSON-ul care traversează rețeaua — nu
- * entitățile TypeORM. Diferența contează: o coloană `date` e `Date` în backend și string ISO
- * după `JSON.stringify`. Aliasurile de mai jos fac distincția vizibilă la citire.
+ * The contract describes the **wire format**, i.e. the JSON that crosses the network — not the
+ * TypeORM entities. The difference matters: a `date` column is a `Date` in the backend and an ISO
+ * string after `JSON.stringify`. The aliases below make that distinction visible when reading.
  */
 
-/** Dată calendaristică ISO, fără oră: `2026-03-14`. Coloane TypeORM `date`. */
+/** ISO calendar date, no time: `2026-03-14`. TypeORM `date` columns. */
 export type ISODate = string;
 
-/** Moment complet ISO 8601: `2026-03-14T09:00:00.000Z`. Coloane `timestamptz`. */
+/** Full ISO 8601 instant: `2026-03-14T09:00:00.000Z`. `timestamptz` columns. */
 export type ISODateTime = string;
 
-/** Oră din zi, `HH:MM:SS`. Coloane TypeORM `time`. */
+/** Time of day, `HH:MM:SS`. TypeORM `time` columns. */
 export type TimeOfDay = string;
 
-/** Lună de facturare, `YYYY-MM`. Vezi `@Unique(['parent', 'monthIssued'])` pe `Invoice`. */
+/** Billing month, `YYYY-MM`. See `@Unique(['parent', 'monthIssued'])` on `Invoice`. */
 export type BillingMonth = string;
 
 /**
- * Transformă o entitate în forma pe care o vede clientul după serializare JSON: `Date` devine
- * string. Folosit de verificările de contract din `apps/api`, ca o schimbare de câmp în entitate
- * să nu poată diverge tăcut de tipul pe care îl consumă frontend-ul.
+ * Turns an entity into the shape a client sees after JSON serialisation: `Date` becomes a string.
+ * Used by the contract checks in `apps/api` so that changing a field on an entity cannot silently
+ * diverge from the type the frontend consumes.
  */
 export type Serialized<T> = T extends Date
     ? string

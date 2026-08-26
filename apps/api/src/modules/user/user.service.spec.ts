@@ -16,31 +16,31 @@ describe('UserService', () => {
         service = module.get(UserService);
     });
 
-    it('getUserById respinge un utilizator inexistent', async () => {
+    it('getUserById rejects a user that does not exist', async () => {
         userRepo.findOne!.mockResolvedValue(null);
         await expect(service.getUserById(99)).rejects.toThrow(NotFoundException);
     });
 
-    it('updateUser respinge un username deja folosit, fără să scrie nimic', async () => {
+    it('updateUser rejects a taken username without writing anything', async () => {
         userRepo.findOne!.mockResolvedValue({ id: 2, username: 'ana' });
 
         await expect(service.updateUser(1, { username: 'ana' })).rejects.toThrow(ConflictException);
         expect(userRepo.update).not.toHaveBeenCalled();
     });
 
-    it('updateUser scrie când username-ul e liber', async () => {
+    it('updateUser writes when the username is free', async () => {
         userRepo.findOne!.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 1, username: 'ana-noua' });
 
         await expect(service.updateUser(1, { username: 'ana-noua' })).resolves.toMatchObject({ username: 'ana-noua' });
         expect(userRepo.update).toHaveBeenCalledWith(1, { username: 'ana-noua' });
     });
 
-    it('updateUser respinge dacă utilizatorul dispare între scriere și recitire', async () => {
+    it('updateUser rejects when the user disappears between write and re-read', async () => {
         userRepo.findOne!.mockResolvedValue(null);
         await expect(service.updateUser(1, { role: 'ADMIN' } as never)).rejects.toThrow(NotFoundException);
     });
 
-    it('getUsersWithoutProfile exclude utilizatorii care au deja profil', async () => {
+    it('getUsersWithoutProfile excludes users who already have a profile', async () => {
         const sub = { select: jest.fn().mockReturnThis(), from: jest.fn().mockReturnThis(), getQuery: jest.fn().mockReturnValue('SUB') };
         const qb = { where: jest.fn().mockReturnThis(), getMany: jest.fn().mockResolvedValue([]) };
         Object.defineProperty(userRepo, 'manager', { value: { createQueryBuilder: jest.fn().mockReturnValue(sub) }, configurable: true });

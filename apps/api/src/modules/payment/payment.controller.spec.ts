@@ -13,13 +13,13 @@ describe('PaymentController', () => {
             deletePayment: jest.fn().mockResolvedValue({ message: 'ok' }),
         });
 
-    it('trimite rolul și userId-ul către findPayments', async () => {
+    it('passes the role and user id to findPayments', async () => {
         const { controller, service } = await build();
         await controller.findPayments({}, requestOf(Role.PARENT, 42));
         expect(service.findPayments).toHaveBeenCalledWith({}, Role.PARENT, 42);
     });
 
-    it('trimite rolul și userId-ul către findOne', async () => {
+    it('passes the role and user id to findOne', async () => {
         const { controller, service } = await build();
         await controller.findOne(7, requestOf(Role.ADMIN, 1));
         expect(service.findOne).toHaveBeenCalledWith(7, Role.ADMIN, 1);

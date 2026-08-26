@@ -31,7 +31,7 @@ describe('PaymentService', () => {
     });
 
     describe('createPayment', () => {
-        it('marchează factura ca plătită și o leagă de plată', async () => {
+        it('marks the invoice as paid and links it to the payment', async () => {
             const invoice = { id: 5, status: InvoiceStatus.PENDING, payment: null };
             const saved = { id: 11 };
             invoiceRepo.findOne!.mockResolvedValue(invoice);
@@ -46,7 +46,7 @@ describe('PaymentService', () => {
             expect(invoiceRepo.save).toHaveBeenCalledWith(invoice);
         });
 
-        it("foloseşte 'cash' când metoda lipsește", async () => {
+        it("defaults to 'cash' when the method is missing", async () => {
             invoiceRepo.findOne!.mockResolvedValue({ id: 5, status: InvoiceStatus.PENDING });
             paymentRepo.create!.mockReturnValue({});
             paymentRepo.save!.mockResolvedValue({ id: 11 });
@@ -56,7 +56,7 @@ describe('PaymentService', () => {
             expect(paymentRepo.create).toHaveBeenCalledWith(expect.objectContaining({ method: 'cash' }));
         });
 
-        it('respinge o factură inexistentă fără să salveze nimic', async () => {
+        it('rejects a non-existent invoice without saving anything', async () => {
             invoiceRepo.findOne!.mockResolvedValue(null);
 
             await expect(service.createPayment({ invoiceId: 99, date: '2026-03-10' })).rejects.toThrow(NotFoundException);
@@ -64,8 +64,8 @@ describe('PaymentService', () => {
         });
     });
 
-    describe('autorizare pe date', () => {
-        it('findPayments nu restrânge nimic pentru ADMIN', async () => {
+    describe('row-level authorization', () => {
+        it('findPayments narrows nothing for an ADMIN', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             paymentRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -74,7 +74,7 @@ describe('PaymentService', () => {
             expect(isScopedToUser(qb, 42)).toBe(false);
         });
 
-        it('findPayments restrânge la utilizatorul autentificat pentru PARENT', async () => {
+        it('findPayments narrows to the authenticated user for a PARENT', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             paymentRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -83,7 +83,7 @@ describe('PaymentService', () => {
             expect(isScopedToUser(qb, 42)).toBe(true);
         });
 
-        it('findOne restrânge la utilizatorul autentificat pentru PARENT', async () => {
+        it('findOne narrows to the authenticated user for a PARENT', async () => {
             const qb = createMockQueryBuilder({ one: { id: 1 } });
             paymentRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -92,18 +92,19 @@ describe('PaymentService', () => {
             expect(isScopedToUser(qb, 42)).toBe(true);
         });
 
-        it('findOne aruncă NotFound când plata e a altui părinte', async () => {
+        it('findOne throws NotFound when the payment belongs to another parent', async () => {
             const qb = createMockQueryBuilder({ one: null });
             paymentRepo.createQueryBuilder!.mockReturnValue(qb);
 
             await expect(service.findOne(1, Role.PARENT, 42)).rejects.toThrow(NotFoundException);
         });
 
-        // Bug: în `findPayments`, blocul care restrânge la utilizator apare de două ori, deci
-        // aceleaşi `leftJoin('parent.user', 'user')` și `andWhere('user.id = ...')` sunt adăugate
-        // dublu. TypeORM refuză un alias duplicat la execuție. Testul descrie forma corectă și e
-        // marcat `.failing` cât timp duplicarea există — devine roșu când cineva o scoate.
-        it.failing('nu ar trebui să adauge restrângerea de două ori', async () => {
+        // Bug: in `findPayments` the block that narrows to the user appears twice, so the same
+        // `leftJoin('parent.user', 'user')` and `andWhere('user.id = ...')` get added twice.
+        // TypeORM rejects a duplicate alias at execution time. The test describes the correct shape
+        // and is marked `.failing` while the duplication exists — it turns red once someone removes
+        // it.
+        it.failing('should not add the narrowing twice', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             paymentRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -112,7 +113,7 @@ describe('PaymentService', () => {
             expect(qb.leftJoinCalls.filter((r) => r === 'parent.user')).toHaveLength(1);
         });
 
-        it('documentează duplicarea actuală din findPayments', async () => {
+        it('documents the current duplication in findPayments', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             paymentRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -123,7 +124,7 @@ describe('PaymentService', () => {
     });
 
     describe('updatePayment', () => {
-        it('schimbă doar câmpurile trimise', async () => {
+        it('changes only the fields that were sent', async () => {
             const payment = { id: 1, method: 'cash', date: new Date('2026-03-01') };
             paymentRepo.findOne!.mockResolvedValue(payment);
             paymentRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
@@ -134,7 +135,7 @@ describe('PaymentService', () => {
             expect(payment.date).toEqual(new Date('2026-03-01'));
         });
 
-        it('acceptă golirea metodei, fiindcă verifică `undefined`, nu falsitatea', async () => {
+        it('accepts clearing the method, because it checks `undefined` rather than falsiness', async () => {
             const payment = { id: 1, method: 'cash', date: new Date('2026-03-01') };
             paymentRepo.findOne!.mockResolvedValue(payment);
             paymentRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
@@ -144,14 +145,14 @@ describe('PaymentService', () => {
             expect(payment.method).toBe('');
         });
 
-        it('respinge o plată inexistentă', async () => {
+        it('rejects a payment that does not exist', async () => {
             paymentRepo.findOne!.mockResolvedValue(null);
             await expect(service.updatePayment(99, { method: 'card' })).rejects.toThrow(NotFoundException);
         });
     });
 
     describe('deletePayment', () => {
-        it('dezleagă plata de factură înainte să o șteargă', async () => {
+        it('unlinks the payment from its invoice before deleting it', async () => {
             const invoice = { id: 5, payment: { id: 11 } };
             paymentRepo.findOne!.mockResolvedValue({ id: 11, invoice });
 
@@ -162,7 +163,7 @@ describe('PaymentService', () => {
             expect(paymentRepo.delete).toHaveBeenCalledWith(11);
         });
 
-        it('respinge o plată inexistentă', async () => {
+        it('rejects a payment that does not exist', async () => {
             paymentRepo.findOne!.mockResolvedValue(null);
             await expect(service.deletePayment(99)).rejects.toThrow(NotFoundException);
         });

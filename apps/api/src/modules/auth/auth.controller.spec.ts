@@ -12,27 +12,27 @@ describe('AuthController', () => {
             getUserProfile: jest.fn().mockResolvedValue({ id: 42 }),
         });
 
-    it('trece credențialele către service, fără să le atingă', async () => {
+    it('passes credentials to the service without touching them', async () => {
         const { controller, service } = await build();
         const dto = { username: 'ana', password: 'secret' };
         await controller.login(dto);
         expect(service.login).toHaveBeenCalledWith(dto);
     });
 
-    it('register deleagă către service', async () => {
+    it('register delegates to the service', async () => {
         const { controller, service } = await build();
         const dto = { username: 'ana', password: 'secret' };
         await controller.register(dto);
         expect(service.register).toHaveBeenCalledWith(dto);
     });
 
-    it('refresh deleagă către service', async () => {
+    it('refresh delegates to the service', async () => {
         const { controller, service } = await build();
         await controller.refresh({ refreshToken: 'r' });
         expect(service.refreshToken).toHaveBeenCalledWith({ refreshToken: 'r' });
     });
 
-    it('/me citește identitatea din token, nu din cerere', async () => {
+    it('/me reads identity from the token, not from the request', async () => {
         const { controller, service } = await build();
         await controller.getProfile(requestOf(Role.PARENT, 42));
         expect(service.getUserProfile).toHaveBeenCalledWith(42);

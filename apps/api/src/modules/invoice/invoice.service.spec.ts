@@ -16,7 +16,7 @@ describe('InvoiceService', () => {
     let discountRepo: MockRepository;
     let s3: { uploadFile: jest.Mock; downloadFile: jest.Mock };
 
-    /** Profil cu `n` copii, cât să treacă de verificările din `calculateAmount`. */
+    /** A profile with `n` children, enough to get past the checks in `calculateAmount`. */
     const profileWithChildren = (n: number, id = 1) => ({
         id,
         firstName: 'Ana',
@@ -49,23 +49,23 @@ describe('InvoiceService', () => {
             discountRepo.find!.mockResolvedValue([]);
         });
 
-        it('cere 350 pentru un singur copil', async () => {
+        it('charges 350 for a single child', async () => {
             profileRepo.findOne!.mockResolvedValue(profileWithChildren(1));
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(350);
         });
 
-        it('cere 250 de copil pentru doi copii, adică 500', async () => {
+        it('charges 250 per child for two children, i.e. 500', async () => {
             profileRepo.findOne!.mockResolvedValue(profileWithChildren(2));
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(500);
         });
 
-        it('scade reducerile din lună', async () => {
+        it('subtracts the discounts for that month', async () => {
             profileRepo.findOne!.mockResolvedValue(profileWithChildren(1));
             discountRepo.find!.mockResolvedValue([{ value: 50 }, { value: 25 }]);
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(275);
         });
 
-        it('filtrează reducerile după părinte și lună', async () => {
+        it('filters discounts by parent and month', async () => {
             profileRepo.findOne!.mockResolvedValue(profileWithChildren(1, 7));
             await service.calculateAmount(7, '2026-03');
             expect(discountRepo.find).toHaveBeenCalledWith({
@@ -73,41 +73,41 @@ describe('InvoiceService', () => {
             });
         });
 
-        it('respinge un părinte inexistent', async () => {
+        it('rejects a parent that does not exist', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
             await expect(service.calculateAmount(99, '2026-03')).rejects.toThrow(NotFoundException);
         });
 
-        it('respinge un părinte fără copii', async () => {
+        it('rejects a parent with no children', async () => {
             profileRepo.findOne!.mockResolvedValue(profileWithChildren(0));
             await expect(service.calculateAmount(1, '2026-03')).rejects.toThrow(NotFoundException);
         });
 
-        // --- Bug cunoscut: nicio ramură pentru trei sau mai mulți copii. ---
+        // --- Known bug: there is no branch for three or more children. ---
         //
-        // Testele de mai jos descriu comportamentul *dorit*, nu pe cel actual, exact cum cere
-        // secțiunea „Riscuri" din E03: un test scris peste bug ar cimenta bug-ul.
+        // The tests below describe the *desired* behaviour, not the current one, exactly as the
+        // "Risks" section of E03 asks: a test written over the bug would cement the bug.
         //
-        // `it.failing` trece cât timp aserțiunea eșuează și devine roșu în clipa în care cineva
-        // repară calculul — moment în care se șterge `.failing`. Deci CI rămâne verde, dar bug-ul
-        // e documentat executabil, nu într-un comentariu pe care nu-l citește nimeni.
+        // `it.failing` passes while the assertion fails and turns red the moment someone fixes the
+        // calculation — at which point `.failing` gets deleted. So CI stays green while the bug is
+        // documented executably, not in a comment nobody reads.
         //
-        // Prețul definitiv se stabilește în E15 (700 lei per modul, −25% de la al doilea copil),
-        // deci aici nu inventăm o formulă nouă: doar fixăm faptul că rezultatul nu are voie să fie
-        // 0 sau negativ.
+        // The final pricing lands in E15 (700 lei per module, -25% from the second child on), so we
+        // do not invent a formula here: we only pin down that the result must never be 0 or
+        // negative.
 
-        it.failing('ar trebui să ceară ceva, nu 0, pentru trei copii', async () => {
+        it.failing('should charge something, not 0, for three children', async () => {
             profileRepo.findOne!.mockResolvedValue(profileWithChildren(3));
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBeGreaterThan(0);
         });
 
-        it.failing('nu are voie să ceară o sumă negativă când există reduceri la trei copii', async () => {
+        it.failing('must never charge a negative amount when discounts apply to three children', async () => {
             profileRepo.findOne!.mockResolvedValue(profileWithChildren(3));
             discountRepo.find!.mockResolvedValue([{ value: 50 }]);
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBeGreaterThanOrEqual(0);
         });
 
-        it('documentează comportamentul actual la trei copii: 0, iar cu reducere devine negativ', async () => {
+        it('documents the current behaviour for three children: 0, and negative once discounted', async () => {
             profileRepo.findOne!.mockResolvedValue(profileWithChildren(3));
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(0);
 
@@ -116,8 +116,8 @@ describe('InvoiceService', () => {
         });
     });
 
-    describe('autorizare pe date', () => {
-        it('findInvoices nu restrânge nimic pentru ADMIN', async () => {
+    describe('row-level authorization', () => {
+        it('findInvoices narrows nothing for an ADMIN', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             invoiceRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -126,7 +126,7 @@ describe('InvoiceService', () => {
             expect(isScopedToUser(qb, 42)).toBe(false);
         });
 
-        it('findInvoices restrânge la utilizatorul autentificat pentru PARENT', async () => {
+        it('findInvoices narrows to the authenticated user for a PARENT', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             invoiceRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -135,7 +135,7 @@ describe('InvoiceService', () => {
             expect(isScopedToUser(qb, 42)).toBe(true);
         });
 
-        it('findOne restrânge la utilizatorul autentificat pentru PARENT', async () => {
+        it('findOne narrows to the authenticated user for a PARENT', async () => {
             const qb = createMockQueryBuilder({ one: { id: 1 } });
             invoiceRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -144,15 +144,15 @@ describe('InvoiceService', () => {
             expect(isScopedToUser(qb, 42)).toBe(true);
         });
 
-        it('findOne aruncă NotFound când factura e a altui părinte', async () => {
-            // Interogarea restrânsă nu găsește nimic — părintele nu află că factura există.
+        it('findOne throws NotFound when the invoice belongs to another parent', async () => {
+            // The narrowed query finds nothing — the parent never learns the invoice exists.
             const qb = createMockQueryBuilder({ one: null });
             invoiceRepo.createQueryBuilder!.mockReturnValue(qb);
 
             await expect(service.findOne(1, Role.PARENT, 42)).rejects.toThrow(NotFoundException);
         });
 
-        it('getInvoicePdf trece prin findOne, deci moștenește restrângerea', async () => {
+        it('getInvoicePdf goes through findOne, so it inherits the narrowing', async () => {
             const qb = createMockQueryBuilder({ one: null });
             invoiceRepo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -167,7 +167,7 @@ describe('InvoiceService', () => {
             invoiceRepo.save!.mockImplementation((inv: { id?: number }) => Promise.resolve({ ...inv, id: 55 }));
         };
 
-        it('emite câte o factură per părinte, cu suma calculată', async () => {
+        it('issues one invoice per parent, with the calculated amount', async () => {
             setUpHappyPath();
 
             const created = await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' });
@@ -176,7 +176,7 @@ describe('InvoiceService', () => {
             expect(invoiceRepo.save).toHaveBeenCalledWith(expect.objectContaining({ amount: 350, monthIssued: '2026-03', status: InvoiceStatus.PENDING }));
         });
 
-        it('emite factura ca PENDING, nu ca plătită', async () => {
+        it('issues the invoice as PENDING, not as paid', async () => {
             setUpHappyPath();
 
             await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' });
@@ -184,7 +184,7 @@ describe('InvoiceService', () => {
             expect((invoiceRepo.save!.mock.calls[0][0] as { status: InvoiceStatus }).status).toBe(InvoiceStatus.PENDING);
         });
 
-        it('încarcă în S3 un PDF pe cale previzibilă, sub luna facturată', async () => {
+        it('uploads a PDF to S3 under a predictable path, keyed by billing month', async () => {
             setUpHappyPath();
 
             await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' });
@@ -192,7 +192,7 @@ describe('InvoiceService', () => {
             expect(s3.uploadFile).toHaveBeenCalledWith(expect.any(Buffer), expect.stringMatching(/^invoices\/2026-03\/.*\.pdf$/));
         });
 
-        it('procesează mai mulți părinți într-o singură cerere', async () => {
+        it('processes several parents in a single request', async () => {
             setUpHappyPath();
 
             const created = await service.createInvoice({
@@ -204,7 +204,7 @@ describe('InvoiceService', () => {
             expect(created).toHaveLength(2);
         });
 
-        it('respinge un părinte inexistent înainte să salveze ceva', async () => {
+        it('rejects a non-existent parent before saving anything', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
 
             await expect(service.createInvoice({ parentIds: [99], monthIssued: '2026-03', dateIssued: '2026-03-01' })).rejects.toThrow(NotFoundException);
@@ -214,7 +214,7 @@ describe('InvoiceService', () => {
     });
 
     describe('updateInvoice', () => {
-        it('schimbă doar câmpurile trimise', async () => {
+        it('changes only the fields that were sent', async () => {
             const invoice = { id: 1, amount: 350, status: InvoiceStatus.PENDING, dateIssued: new Date('2026-03-01') };
             invoiceRepo.findOne!.mockResolvedValue(invoice);
             invoiceRepo.save!.mockImplementation((i: unknown) => Promise.resolve(i));
@@ -225,14 +225,14 @@ describe('InvoiceService', () => {
             expect(invoice.amount).toBe(350);
         });
 
-        it('respinge o factură inexistentă', async () => {
+        it('rejects an invoice that does not exist', async () => {
             invoiceRepo.findOne!.mockResolvedValue(null);
             await expect(service.updateInvoice(99, { amount: 1 })).rejects.toThrow(NotFoundException);
         });
     });
 
     describe('deleteInvoice', () => {
-        it('șterge factura existentă', async () => {
+        it('deletes an existing invoice', async () => {
             invoiceRepo.findOne!.mockResolvedValue({ id: 1 });
 
             await service.deleteInvoice(1);
@@ -240,7 +240,7 @@ describe('InvoiceService', () => {
             expect(invoiceRepo.delete).toHaveBeenCalledWith(1);
         });
 
-        it('respinge o factură inexistentă fără să șteargă nimic', async () => {
+        it('rejects a non-existent invoice without deleting anything', async () => {
             invoiceRepo.findOne!.mockResolvedValue(null);
 
             await expect(service.deleteInvoice(99)).rejects.toThrow(NotFoundException);
@@ -249,7 +249,7 @@ describe('InvoiceService', () => {
     });
 
     describe('getPreview', () => {
-        it('sare peste părinții pentru care calculul eșuează, în loc să cadă tot', async () => {
+        it('skips parents whose calculation fails instead of failing the whole request', async () => {
             profileRepo.findOne!.mockImplementation(({ where }: { where: { id: number } }) =>
                 Promise.resolve(where.id === 1 ? profileWithChildren(1, 1) : null),
             );

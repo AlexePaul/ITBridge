@@ -12,34 +12,34 @@ describe('ProfileController', () => {
             deleteProfile: jest.fn().mockResolvedValue(undefined),
         });
 
-    /** Identitatea trebuie să vină din token, niciodată din body sau query. */
+    /** Identity must come from the token, never from body or query. */
     const lastTwoArgs = (mock: jest.Mock) => mock.mock.calls[0].slice(-2);
 
-    it('createProfile primește rolul și userId-ul din token', async () => {
+    it('createProfile receives the role and user id from the token', async () => {
         const { controller, service } = await build();
         await controller.createProfile(requestOf(Role.PARENT, 42), { firstName: 'A', lastName: 'B' });
         expect(lastTwoArgs(service.createProfile as jest.Mock)).toEqual([Role.PARENT, 42]);
     });
 
-    it('findProfiles primește rolul și userId-ul din token', async () => {
+    it('findProfiles receives the role and user id from the token', async () => {
         const { controller, service } = await build();
         await controller.findProfiles(requestOf(Role.PARENT, 42), {});
         expect(lastTwoArgs(service.findProfiles as jest.Mock)).toEqual([Role.PARENT, 42]);
     });
 
-    it('updateProfile primește rolul și userId-ul din token', async () => {
+    it('updateProfile receives the role and user id from the token', async () => {
         const { controller, service } = await build();
         await controller.updateProfile(requestOf(Role.PARENT, 42), {}, 7);
         expect(lastTwoArgs(service.updateProfile as jest.Mock)).toEqual([Role.PARENT, 42]);
     });
 
-    it('deleteProfile primește rolul și userId-ul din token', async () => {
+    it('deleteProfile receives the role and user id from the token', async () => {
         const { controller, service } = await build();
         await controller.deleteProfile(requestOf(Role.PARENT, 42), 7);
         expect(lastTwoArgs(service.deleteProfile as jest.Mock)).toEqual([Role.PARENT, 42]);
     });
 
-    it('un PARENT nu poate cere profilul altcuiva prin query — identitatea vine tot din token', async () => {
+    it("a PARENT cannot request someone else's profile through the query - identity still comes from the token", async () => {
         const { controller, service } = await build();
         await controller.findProfiles(requestOf(Role.PARENT, 42), { userId: 999 });
         expect(lastTwoArgs(service.findProfiles as jest.Mock)).toEqual([Role.PARENT, 42]);
