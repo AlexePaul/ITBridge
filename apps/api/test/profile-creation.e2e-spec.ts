@@ -5,16 +5,12 @@ import { App } from 'supertest/types';
 import { createTestApp, promoteToAdmin, registerUser, truncateAll } from './helpers';
 
 /**
- * Bug: `createProfile` checks uniqueness through
- * `findOne({ where: { email: createProfileDto.email } })`. When `email` is missing, TypeORM drops
- * the undefined condition, the query degenerates into "find any profile", and the second profile
- * without an email gets a 409. Same for `phone`.
+ * Regression cover for a bug that blocked the flow documented in CLAUDE.md, where an admin creates
+ * profiles with no account and no contact details and links them later.
  *
- * This blocks exactly the flow documented in CLAUDE.md: an admin creates profiles with no account
- * and no contact details, linking them later.
- *
- * The tests describe the desired behaviour and are marked `.failing` while the bug exists — they
- * turn red the moment it is fixed. The fix belongs to E05, not to this PR.
+ * `createProfile` checked uniqueness through `findOne({ where: { email: dto.email } })`. When
+ * `email` was missing, TypeORM dropped the undefined condition, the query degenerated into "find
+ * any profile", and the second profile without an email got a 409. Same for `phone`.
  */
 describe('Creating profiles without contact details (e2e)', () => {
     let app: INestApplication<App>;
@@ -40,7 +36,7 @@ describe('Creating profiles without contact details (e2e)', () => {
         await request(app.getHttpServer()).post('/profiles').set('Authorization', admin.auth).send({ firstName: 'Ana', lastName: 'Pop' }).expect(201);
     });
 
-    it.failing('the second profile without an email should succeed too', async () => {
+    it('the second profile without an email succeeds too', async () => {
         const admin = await createAdmin();
 
         await request(app.getHttpServer()).post('/profiles').set('Authorization', admin.auth).send({ firstName: 'Ana', lastName: 'Pop' }).expect(201);
@@ -48,15 +44,7 @@ describe('Creating profiles without contact details (e2e)', () => {
         await request(app.getHttpServer()).post('/profiles').set('Authorization', admin.auth).send({ firstName: 'Bogdan', lastName: 'Ion' }).expect(201);
     });
 
-    it('documents the current behaviour: the second one gets a 409', async () => {
-        const admin = await createAdmin();
-
-        await request(app.getHttpServer()).post('/profiles').set('Authorization', admin.auth).send({ firstName: 'Ana', lastName: 'Pop' }).expect(201);
-
-        await request(app.getHttpServer()).post('/profiles').set('Authorization', admin.auth).send({ firstName: 'Bogdan', lastName: 'Ion' }).expect(409);
-    });
-
-    it('a distinct email is not enough: the phone check degenerates the same way', async () => {
+    it('a second profile with only an email, no phone, succeeds', async () => {
         const admin = await createAdmin();
 
         await request(app.getHttpServer())
@@ -69,10 +57,42 @@ describe('Creating profiles without contact details (e2e)', () => {
             .post('/profiles')
             .set('Authorization', admin.auth)
             .send({ firstName: 'Bogdan', lastName: 'Ion', email: 'bogdan@example.com' })
+            .expect(201);
+    });
+
+    it('a genuinely duplicated email is still rejected', async () => {
+        const admin = await createAdmin();
+
+        await request(app.getHttpServer())
+            .post('/profiles')
+            .set('Authorization', admin.auth)
+            .send({ firstName: 'Ana', lastName: 'Pop', email: 'ana@example.com' })
+            .expect(201);
+
+        await request(app.getHttpServer())
+            .post('/profiles')
+            .set('Authorization', admin.auth)
+            .send({ firstName: 'Bogdan', lastName: 'Ion', email: 'ana@example.com' })
             .expect(409);
     });
 
-    it('only distinct email AND phone let both through - which is why the bug went unnoticed', async () => {
+    it('a genuinely duplicated phone is still rejected', async () => {
+        const admin = await createAdmin();
+
+        await request(app.getHttpServer())
+            .post('/profiles')
+            .set('Authorization', admin.auth)
+            .send({ firstName: 'Ana', lastName: 'Pop', phone: '+40700000001' })
+            .expect(201);
+
+        await request(app.getHttpServer())
+            .post('/profiles')
+            .set('Authorization', admin.auth)
+            .send({ firstName: 'Bogdan', lastName: 'Ion', phone: '+40700000001' })
+            .expect(409);
+    });
+
+    it('distinct email and phone both go through', async () => {
         const admin = await createAdmin();
 
         await request(app.getHttpServer())

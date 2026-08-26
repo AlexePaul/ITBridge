@@ -46,10 +46,6 @@ export class PaymentService {
         if (filter.dateFrom) qb.andWhere('payment.date >= :from', { from: filter.dateFrom });
         if (filter.dateTo) qb.andWhere('payment.date <= :to', { to: filter.dateTo });
 
-        if (role !== Role.ADMIN) {
-            qb.leftJoin('parent.user', 'user').andWhere('user.id = :userId', { userId });
-        }
-
         return qb.getMany();
     }
 
