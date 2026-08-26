@@ -17,7 +17,7 @@ export class DiscountService {
     }
 
     async updateDiscount(id: number, updateDiscountDto) {
-        let discount = await this.discountRepository.findOne({ where: { id } });
+        const discount = await this.discountRepository.findOne({ where: { id } });
         if (!discount) {
             throw new NotFoundException('Discount not found');
         }

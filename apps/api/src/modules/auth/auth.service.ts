@@ -73,7 +73,7 @@ export class AuthService {
         try {
             payload = this.jwtService.verify(refreshToken, {
                 secret: jwtConstants.refreshTokenSecret,
-            }) as { sub: number };
+            });
         } catch (e) {
             throw new UnauthorizedException('Invalid refresh token');
         }

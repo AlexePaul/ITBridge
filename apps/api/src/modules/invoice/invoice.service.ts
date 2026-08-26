@@ -24,8 +24,8 @@ export class InvoiceService {
     ) {}
 
     async createInvoice(createInvoiceDto: CreateInvoiceDto) {
-        let invoicesCreated: Invoice[] = [];
-        let invoicePdf: StreamableFile[] = [];
+        const invoicesCreated: Invoice[] = [];
+        const invoicePdf: StreamableFile[] = [];
         for (const parentId of createInvoiceDto.parentIds) {
             const parent = await this.profileRepository.findOne({ where: { id: parentId } });
             if (!parent) throw new NotFoundException('Parent profile not found');

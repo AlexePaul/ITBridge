@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger/dist/decorators/api-property.decorator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsEmail, Length, IsString, IsPhoneNumber, IsNumber } from 'class-validator';
 
 export class FilterProfileDto {

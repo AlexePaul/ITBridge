@@ -80,7 +80,7 @@ export class PaymentService {
 
         // unlink payment from invoice
         if (payment.invoice) {
-            payment.invoice.payment = null as any;
+            payment.invoice.payment = null;
             await this.invoiceRepo.save(payment.invoice);
         }
 
