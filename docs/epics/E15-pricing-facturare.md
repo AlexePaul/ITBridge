@@ -75,33 +75,63 @@ Două module de durate diferite din același curs produc aceeași sumă.
 
 ### S2 · Factura pe modul, cu linii
 
-`Invoice` pierde `@Unique(['parent', 'monthIssued'])`. Primește: perioadă acoperită, plan de plată,
-și linii.
+Fiindcă plata în tranșe produce **două facturi** (vezi S3), factura nu mai poate fi unitatea de
+calcul — e rezultatul lui. Apare un nivel deasupra: `Billing`, nota de plată a unei familii pentru
+un modul.
 
-`InvoiceLine`: înscriere din [E11](E11-inscrieri-capacitate.md), copil, modul, descriere, cantitate,
-preț unitar, reducere aplicată, total. Suma facturii e suma liniilor, nu un număr calculat și uitat.
+`Billing`: familie, modul, perioadă acoperită, linii, total, plan de plată ales. Aici se calculează
+o singură dată prețul, reducerile pentru frați și eventualele alte reduceri.
 
-**Acceptanță:** o factură arată "Andrei · Scratch Începători · modul 2 · 700 lei" și "Maria ·
-Robotică · modul 1 · 700 lei, reducere frați 15% · −105 lei". Totalul se verifică prin adunare.
+`BillingLine`: înscriere din [E11](E11-inscrieri-capacitate.md), copil, modul, descriere, preț
+unitar, reducere aplicată, total.
+
+`Invoice` pierde `@Unique(['parent', 'monthIssued'])` și devine ce se emite efectiv: legată de un
+`Billing`, cu index de tranșă (1 din 1, sau 1 din 2 și 2 din 2), sumă, scadență, și referința
+SmartBill din [E16](E16-plati-fiscal.md). Liniile facturii se derivă din cele ale notei de plată,
+proporțional cu tranșa.
+
+O variantă mai ușoară, dacă vrei să eviți o entitate nouă: `Invoice` poartă un `billingGroupId`
+comun plus indexul de tranșă, iar nota de plată e o vedere, nu un tabel. Funcționează, dar mută
+calculul reducerilor într-un loc mai greu de verificat.
+
+**Acceptanță:** o notă de plată pentru o familie cu doi copii arată „Andrei · Scratch Începători ·
+modul 2 · 700 lei" și „Maria · Robotică · modul 1 · reducere frați −25% · 525 lei", total 1225.
+Totalul se verifică prin adunare, iar suma facturilor emise din ea e exact 1225.
 
 ### S3 · Planuri de plată
 
-`PaymentPlan`: **integral (700 lei la înscriere)** sau **două tranșe egale (350 + 350)**, a doua
-scadentă la mijlocul modulului. Aceeași sumă totală în ambele cazuri — plata integrală nu primește
-reducere, iar tranșele nu primesc penalizare.
+Părintele alege la înscriere, iar alegerea determină **câte facturi se emit**:
 
-Mijlocul modulului se calculează din calendarul din [E10](E10-curriculum-module.md): la un modul
-de 7 ședințe, scadența a doua cade după ședința 4. Modelul rămâne extensibil la trei sau mai multe
-tranșe, fără schimbare de schemă.
+| Plan | Facturi | Sume (un copil) |
+|---|---|---|
+| Integral | 1 | 700 la înscriere |
+| În două tranșe | 2 | 350 la înscriere, 350 la mijlocul modulului |
 
-Fiecare tranșă e o scadență cu sumă și dată proprie. Starea facturii devine derivată: `neplătită`,
-`parțial plătită`, `plătită`, `restantă` — calculate din tranșe și din plățile din
-[E16](E16-plati-fiscal.md), nu setate manual.
+Aceeași sumă totală în ambele cazuri: plata integrală nu primește reducere, tranșele nu primesc
+penalizare.
 
-`InvoiceStatus` actual are `pending`, `paid`, `overdue` și nu poate exprima plata parțială.
+**Regula de împărțire nu e „350 + 350", ci „jumătate din total".** Cu reducerea pentru frați,
+totalul unei familii cu doi copii e 1225, deci tranșele sunt 612,50 fiecare. Ca suma facturilor să
+fie mereu exact totalul, restul de rotunjire se pune pe prima factură — o notă de 1225,01 produce
+612,51 și 612,50, niciodată 612,505.
 
-**Acceptanță:** un părinte alege la înscriere plata în două tranșe; sistemul emite o factură cu două
-scadențe și urmărește fiecare separat.
+**A doua factură se emite la mijlocul modulului, nu la înscriere.** Presupunerea decurge direct din
+regula de abandon: dacă un copil pleacă la jumătate, tranșa a doua pur și simplu nu se mai emite.
+Alternativa — ambele facturi emise din start — ar cere stornarea unui document fiscal deja emis
+de fiecare dată când cineva abandonează, ceea ce e mult mai neplăcut decât un job programat.
+
+Costul acestei alegeri e că jobul de emitere devine critic: dacă nu rulează, nu se facturează.
+Intră sub alertare în [E06](E06-observabilitate-operare.md).
+
+Mijlocul modulului se calculează din calendarul din [E10](E10-curriculum-module.md): la un modul de
+7 ședințe, a doua factură se emite după ședința 4.
+
+Starea fiecărei facturi e derivată din plățile din [E16](E16-plati-fiscal.md), nu setată manual.
+`InvoiceStatus` actual are `pending`, `paid`, `overdue`; cu o factură per tranșă, nu mai e nevoie
+de o stare de plată parțială la nivel de factură — dar nota de plată o are, ca sumă a facturilor ei.
+
+**Acceptanță:** un părinte care alege tranșe primește o factură la înscriere și una la mijlocul
+modulului. Un copil care abandonează după prima nu primește a doua, și nu se stornează nimic.
 
 ### S4 · Regula pentru mai mulți copii
 
@@ -187,9 +217,9 @@ funcționează. Nicio combinație de copii și reduceri nu produce o sumă absur
 |---|---|
 | Unitate de facturare | Modulul școlar, 6-8 ședințe, ~5 pe an |
 | Preț | **700 lei fix**, indiferent de durata modulului |
-| Planuri de plată | Integral 700, sau 350 + 350 la mijlocul modulului |
+| Planuri de plată | Integral (1 factură), sau două tranșe egale (2 facturi, a doua la mijlocul modulului) |
 | Reducere frați | **−25% de la al doilea copil în jos**, primul întreg |
-| Abandon la mijloc | Fără returnare; tranșa a doua nu se mai încasează |
+| Abandon la mijloc | Fără returnare; a doua factură nu se mai emite |
 
 **Prețul fix pe durată variabilă e o decizie conștientă**, nu o scăpare. Ședința costă efectiv
 117 lei într-un modul de 6 săptămâni și 87 într-unul de 8. Peste un an școlar se echilibrează —
@@ -202,9 +232,10 @@ Pentru context, față de modelul vechi: 350 lei pe lună, cu ajustările manual
 jur de 3150 lei pe an de copil. Modelul nou dă ~3500, deci **crește venitul cu ~11%** și, în plus,
 elimină regula de trei simplă — vacanțele devin granițele modulelor, nu excepții de calculat.
 
-**La abandon** (S8, de adăugat): dacă plata a fost în tranșe, a doua se anulează și factura se
-închide la suma încasată. Dacă a fost integrală, nu se returnează nimic. Regula e simetrică și se
-comunică la înscriere, nu la plecare.
+**La abandon** (S8, de adăugat): dacă plata a fost în tranșe, a doua factură pur și simplu nu se
+mai emite, iar nota de plată se închide la suma facturată. Dacă a fost integrală, nu se returnează
+nimic. Fiindcă a doua factură se emite la mijlocul modulului și nu la înscriere, abandonul nu cere
+stornarea niciunui document fiscal. Regula se comunică la înscriere, nu la plecare.
 
 ## Întrebări deschise
 

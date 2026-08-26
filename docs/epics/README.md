@@ -141,10 +141,10 @@ Consemnate aici ca să nu fie relitigate în fiecare epic. Fiecare e detaliată,
 |---|---|---|
 | Unitate de facturare | Modulul școlar: 6-8 ședințe, ~5 module pe an, delimitate de vacanțe | [E10](E10-curriculum-module.md) |
 | Preț | **700 lei fix per modul**, indiferent de durată | [E15](E15-pricing-facturare.md) |
-| Planuri de plată | Integral 700, sau 350 + 350 cu a doua tranșă la mijlocul modulului | [E15](E15-pricing-facturare.md) |
+| Planuri de plată | Integral, sau două tranșe egale — **două facturi separate**, a doua emisă la mijlocul modulului | [E15](E15-pricing-facturare.md) |
 | Reducere frați | **−25% de la al doilea copil în jos**; primul plătește întreg | [E15](E15-pricing-facturare.md) |
 | Facturare | **SmartBill** e sistemul de evidență fiscală. Platforma calculează, SmartBill emite. | [E16](E16-plati-fiscal.md) |
-| Abandon la mijloc de modul | Fără returnare; tranșa a doua nu se mai încasează | [E15](E15-pricing-facturare.md) |
+| Abandon la mijloc de modul | Fără returnare; a doua factură nu se mai emite | [E15](E15-pricing-facturare.md) |
 | Recuperări | 2 per modul, doar absențe anunțate cu min. 3 ore înainte. Configurabil. | [E12](E12-prezenta-orar.md) |
 | Lecția de probă | Gratuită | [E11](E11-inscrieri-capacitate.md) |
 

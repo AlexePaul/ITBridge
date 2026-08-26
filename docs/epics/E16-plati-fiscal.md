@@ -67,6 +67,26 @@ Verificat în [documentația lor](https://api.smartbill.ro/) și în
 - Suportul pentru API se face **doar pe email**, la `vreauapi@smartbill.ro`. Merită luat în calcul
   la estimare: o întrebare de integrare nu se rezolvă în cinci minute.
 
+## Decizii luate
+
+**Plata în tranșe produce două facturi, nu o factură cu două încasări.** Alegerea părintelui la
+înscriere determină câte documente fiscale se emit: unul de 700, sau două — vezi
+[E15](E15-pricing-facturare.md) S3.
+
+Consecințe pentru integrare:
+
+- **A doua factură se emite la mijlocul modulului**, printr-un job programat, nu odată cu prima.
+  Decurge din regula de abandon: cine pleacă la jumătate nu primește a doua factură, deci nu e
+  nimic de stornat. Prețul e că jobul devine critic — dacă nu rulează, nu se facturează. Intră sub
+  alertare în [E06](E06-observabilitate-operare.md).
+- **Volumul de apeluri se dublează** față de varianta cu o singură factură. Cu limita de 3 pe
+  secundă, contează la emiterea în masă din S3.
+- **Nu se folosesc încasări parțiale** pe o factură. Fiecare factură se încasează integral, ceea ce
+  simplifică S1: starea unei facturi e plătită sau nu, iar plata parțială există doar la nivelul
+  notei de plată din [E15](E15-pricing-facturare.md).
+- **Proformele nu se folosesc.** Ar fi fost o alternativă pentru tranșa a doua, dar adaugă un tip
+  de document fără să rezolve ceva ce nu rezolvă deja emiterea programată.
+
 ## În scop
 
 - Refacerea modelului de plată.
@@ -103,8 +123,9 @@ de sincronizare.
 
 Starea facturii se derivă din suma plăților reușite față de total — nu se setează manual.
 
-**Acceptanță:** o factură de 700 lei cu două plăți de 350 e `plătită`. Cu una singură, e
-`parțial plătită`, cu restul afișat.
+**Acceptanță:** o factură de 350 cu o plată de 350 e `plătită`. O notă de plată de 700 cu prima
+factură încasată și a doua neemisă arată `parțial achitată`, cu restul afișat. Plata parțială
+există la nivel de notă, nu de factură.
 
 ### S2 · Emiterea prin SmartBill
 
@@ -212,11 +233,6 @@ Divergențele între sisteme sunt vizibile.
 ## Întrebări deschise
 
 - **Abonamentul actual permite acces API?** Prima verificare, blochează tot restul.
-- **Cum se reprezintă fiscal cele două tranșe?** O factură de 700 cu două încasări de 350 e varianta
-  mai curată și e suportată nativ. Alternativa — două facturi de 350 — înseamnă două documente
-  fiscale pentru un singur modul. De confirmat cu contabilul.
-- **Merită folosite proformele?** SmartBill le convertește în factură la plată. Ar putea fi potrivit
-  pentru tranșa a doua, dar adaugă un tip de document în plus.
 - Care e forma juridică a școlii și regimul de TVA? Se configurează în SmartBill, dar trebuie știut.
 - Ce procesator de plăți? Depinde de comisioane și de suportul pentru plăți recurente.
 - Plățile recurente automate sunt de dorit pentru tranșa a doua, sau părinții preferă manual?
