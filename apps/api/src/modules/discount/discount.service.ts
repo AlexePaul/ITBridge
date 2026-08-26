@@ -9,11 +9,11 @@ export class DiscountService {
     async createDiscount(createDiscountDto) {
         const discount = this.discountRepository.create(createDiscountDto);
         discount.parent = { id: createDiscountDto.parentId };
-        return this.discountRepository.save(discount);
+        return await this.discountRepository.save(discount);
     }
 
     async findDiscounts() {
-        return this.discountRepository.find();
+        return await this.discountRepository.find();
     }
 
     async updateDiscount(id: number, updateDiscountDto) {

@@ -1,6 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
-import PDFDocument from 'pdfkit';
 import * as fs from 'fs';
 import path from 'path';
 import { InjectRepository } from '@nestjs/typeorm';

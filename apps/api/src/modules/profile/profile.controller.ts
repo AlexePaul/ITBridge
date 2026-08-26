@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Put, Query, UseGuards, Request, Delete, HttpCode, ParseIntPipe } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { AuthGuard } from 'src/guards/auth.guard';
-import { ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { CreateProfileDto } from './dto/createProfile.dto';
 import { FilterProfileDto } from './dto/filterProfile.dto';
 import { UpdateProfileDto } from './dto/updateProfile.dto';

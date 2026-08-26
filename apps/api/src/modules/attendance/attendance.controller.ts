@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards, Request, Put, Patch, Query, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, Request, Patch, Query, ParseIntPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';

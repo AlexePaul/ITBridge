@@ -1,6 +1,5 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsDateString } from 'class-validator';
-import { InvoiceStatus } from '../../../entities/invoice.entity';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsNumber, IsDateString } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateInvoiceDto {
     @ApiProperty({ example: [1, 2, 3], description: 'IDs of the parents' })
