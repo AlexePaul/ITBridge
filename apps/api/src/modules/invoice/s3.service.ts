@@ -62,7 +62,7 @@ export class S3Service implements OnModuleInit {
         const response = await this.s3Client.send(command);
         const chunks: Uint8Array[] = [];
 
-        for await (const chunk of response.Body as any) {
+        for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
             chunks.push(chunk);
         }
 

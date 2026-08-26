@@ -71,7 +71,7 @@ export class ChildService {
         if (!child) {
             throw new NotFoundException('Child not found');
         }
-        if (role !== Role.ADMIN && child.parent.user.id !== userId) {
+        if (role !== Role.ADMIN && child.parent.user?.id !== userId) {
             throw new ForbiddenException('You do not have permission to update this child');
         }
 
@@ -88,7 +88,7 @@ export class ChildService {
         if (!child) {
             throw new NotFoundException('Child not found');
         }
-        if (role !== Role.ADMIN && child.parent.user.id !== userId) {
+        if (role !== Role.ADMIN && child.parent.user?.id !== userId) {
             throw new ForbiddenException('You do not have permission to delete this child');
         }
 
@@ -116,7 +116,7 @@ export class ChildService {
             throw new NotFoundException('Child not found in the specified group');
         }
 
-        child.group = null as any;
+        child.group = null;
         return this.childRepository.save(child);
     }
 }

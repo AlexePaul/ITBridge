@@ -43,7 +43,7 @@ export class UserService {
         try {
             await this.userRepository.update(id, updateUserDto);
         } catch (error) {
-            if (error.name === 'EntityNotFoundError') {
+            if (error instanceof Error && error.name === 'EntityNotFoundError') {
                 throw new NotFoundException('User not found');
             }
 

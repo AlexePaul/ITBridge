@@ -11,7 +11,7 @@ export class Profile {
 
     @OneToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'user_id' })
-    user: User;
+    user?: User | null;
 
     @Column({ unique: true, length: 255, nullable: true })
     email?: string;

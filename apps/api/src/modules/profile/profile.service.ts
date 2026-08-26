@@ -73,7 +73,7 @@ export class ProfileService {
                 hasUser: profile.user !== null,
             }))
             .map((profile) => {
-                profile.user = undefined as any;
+                profile.user = undefined;
                 return profile;
             });
         return profilesReturnObject;
@@ -109,7 +109,7 @@ export class ProfileService {
 
         Object.assign(profile, updateProfileDto);
         const updatedProfile = await this.profileRepository.save(profile);
-        updatedProfile.user = undefined as any;
+        updatedProfile.user = undefined;
         return updatedProfile;
     }
 
