@@ -102,7 +102,7 @@
 
 <script setup lang="ts">
 import { useReveal } from "~/composables/useReveal";
-import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "~/constants/school";
+import { SCHOOL_LOCATIONS, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "~/constants/school";
 
 definePageMeta({
   layout: "default" as any,
@@ -203,8 +203,8 @@ const faq = [
   {
     question: "Unde au loc cursurile?",
     answer:
-      "În două locații din București — Strada Valea Oltului 73 și cea de-a doua locație a " +
-      "noastră. Alegi locația mai convenabilă la înscriere.",
+      `În două locații din București — ${SCHOOL_LOCATIONS.map((location) => location.address).join(" și ")}. ` +
+      "Alegi locația mai convenabilă la înscriere.",
   },
   {
     question: "Ce se întâmplă la o ședință?",
