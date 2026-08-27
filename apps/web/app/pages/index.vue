@@ -6,12 +6,14 @@
         <span>La noi învață să o creeze.</span>
       </h1>
       <p class="lede lede-loose">
-        IT Bridge School este o școală de informatică pentru copii, cu două locații în București. De
-        la primii pași pe calculator până la pregătirea pentru Bacalaureat și olimpiade, în grupe
-        mici, cu proiecte practice la fiecare ședință.
+        IT Bridge School este o școală de informatică pentru copii, cu două locații în București —
+        <NuxtLink to="/locatii/drumul-taberei" class="link">Drumul Taberei</NuxtLink> și
+        <NuxtLink to="/locatii/straulesti" class="link">Străulești</NuxtLink>. De la primii pași pe
+        calculator până la C++, olimpiade și pregătirea pentru Bacalaureat, în grupe mici, cu
+        proiecte practice la fiecare ședință.
       </p>
       <div class="actions">
-        <NuxtLink to="/courses" class="btn btn-primary">Vezi cursurile</NuxtLink>
+        <NuxtLink to="/cursuri" class="btn btn-primary">Vezi cursurile</NuxtLink>
         <NuxtLink to="/contact" class="btn btn-ghost">Programează o discuție</NuxtLink>
       </div>
     </section>
@@ -32,10 +34,10 @@
     <hr class="rule" />
 
     <section class="section" data-reveal>
-      <span class="kicker tnum">Ce învață copiii</span>
+      <h2 class="kicker tnum">Ce învață copiii</h2>
       <div class="cols-3 cols-ruled">
         <div v-for="subject in subjects" :key="subject.title">
-          <h2 class="block-title">{{ subject.title }}</h2>
+          <h3 class="block-title">{{ subject.title }}</h3>
           <p class="body-text justified">{{ subject.body }}</p>
         </div>
       </div>
@@ -43,15 +45,15 @@
 
     <section class="section split split-even" data-reveal>
       <div>
-        <span class="kicker">Momentele noastre</span>
-        <h2 class="section-title">Ore în care se construiește ceva, la propriu</h2>
+        <h2 class="kicker">Momentele noastre</h2>
+        <h3 class="section-title">Ore în care se construiește ceva, la propriu</h3>
         <p class="body-text justified measure">
           Fiecare ședință de 1,5 ore se încheie cu ceva ce copilul a făcut singur: un joc în
           Scratch, o pagină web, un program în C++. Grupele mici înseamnă că profesorul ajunge la
           fiecare, la fiecare oră.
         </p>
         <p class="body-text">
-          <NuxtLink to="/about" class="link">Cunoaște echipa și locațiile →</NuxtLink>
+          <NuxtLink to="/despre-noi" class="link">Cunoaște echipa și locațiile →</NuxtLink>
         </p>
       </div>
       <div class="plate-xl self-end">
@@ -60,10 +62,10 @@
     </section>
 
     <section class="section-close" data-reveal>
-      <figure>
-        <blockquote class="pull-quote">“{{ testimonial.quote }}”</blockquote>
-        <figcaption class="pull-quote-source">— {{ testimonial.author }}</figcaption>
-      </figure>
+      <p class="pull-quote">
+        Un copil care termină un modul la IT Bridge School pleacă cu ceva ce a construit singur — și
+        cu obiceiul de a se întreba cum funcționează lucrurile.
+      </p>
     </section>
 
     <hr class="rule" />
@@ -84,7 +86,12 @@
 
 <script setup lang="ts">
 import { useReveal } from "~/composables/useReveal";
-import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "~/constants/school";
+import { useSeo } from "~/composables/useSeo";
+import { useJsonLd } from "~/composables/useJsonLd";
+import { SCHOOL_LOCATIONS, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
+import { pageSeo } from "#shared/seo";
+import { locationNode, organizationNode, webPageNode, websiteNode } from "#shared/structured-data";
+import { useRuntimeConfig } from "#imports";
 
 definePageMeta({
   layout: "default" as any,
@@ -92,6 +99,17 @@ definePageMeta({
 });
 
 useReveal();
+
+const seo = pageSeo("/");
+useSeo({ ...seo, imageAlt: "IT Bridge School — cursuri de informatică pentru copii" });
+
+const site = String(useRuntimeConfig().public.siteUrl);
+useJsonLd([
+  organizationNode(site),
+  websiteNode(site),
+  webPageNode(site, seo),
+  ...SCHOOL_LOCATIONS.map((location) => locationNode(site, location)),
+]);
 
 const photos = [
   {
@@ -137,12 +155,4 @@ const subjects = [
       "digital, modelare 3D și proiecte pe care le arată cu mândrie acasă.",
   },
 ];
-
-// TODO: replace with a real testimonial before launch.
-const testimonial = {
-  quote:
-    "După un modul, fiul meu a trecut de la jocuri pe tabletă la a-și face propriul joc în " +
-    "Scratch. Vine de la ore povestind ce a construit.",
-  author: "părinte, grupa de clasa 3-4",
-};
 </script>

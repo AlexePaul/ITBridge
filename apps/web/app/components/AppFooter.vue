@@ -2,7 +2,7 @@
   <footer>
     <hr class="rule" />
     <div class="page section">
-      <div class="footer-grid">
+      <div class="footer-grid footer-grid-4">
         <div>
           <p class="footer-title">IT Bridge School</p>
           <p class="footer-note">
@@ -13,9 +13,22 @@
         <div>
           <p class="kicker">Pagini</p>
           <div class="footer-links">
-            <NuxtLink to="/about" class="footer-link">Despre noi</NuxtLink>
-            <NuxtLink to="/courses" class="footer-link">Cursuri și înscrieri</NuxtLink>
+            <NuxtLink to="/cursuri" class="footer-link">Cursuri și înscrieri</NuxtLink>
+            <NuxtLink to="/despre-noi" class="footer-link">Despre noi</NuxtLink>
             <NuxtLink to="/contact" class="footer-link">Contact</NuxtLink>
+          </div>
+        </div>
+        <div>
+          <p class="kicker">Locații</p>
+          <div class="footer-links">
+            <NuxtLink
+              v-for="location in SCHOOL_LOCATIONS"
+              :key="location.slug"
+              :to="`/locatii/${location.slug}`"
+              class="footer-link"
+            >
+              {{ location.neighbourhood }} — {{ location.street }}
+            </NuxtLink>
           </div>
         </div>
         <div>
@@ -49,7 +62,7 @@ import { computed } from "vue";
 import tiktokSvg from "~/assets/icons/tiktok.svg?raw";
 import facebookSvg from "~/assets/icons/facebook.svg?raw";
 import instagramSvg from "~/assets/icons/instagram.svg?raw";
-import { SCHOOL_LOCATIONS, SCHOOL_SOCIAL } from "~/constants/school";
+import { SCHOOL_LOCATIONS, SCHOOL_SOCIAL } from "#shared/school";
 
 // Inject fill=currentColor and make the svg scale to the wrapper
 const svgWithCurrentColor = (svg: string) =>
@@ -65,6 +78,6 @@ const socialNetworks = [
 ];
 
 const locationLine = computed(() =>
-  SCHOOL_LOCATIONS.map((location) => location.address).join(" · ")
+  SCHOOL_LOCATIONS.map((location) => `${location.name} — ${location.street}`).join(" · ")
 );
 </script>

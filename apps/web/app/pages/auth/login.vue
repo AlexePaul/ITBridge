@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { useSeo } from "~/composables/useSeo";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
@@ -8,6 +9,13 @@ import { useProfileInitialization } from "~/composables/useProfileInitialization
 definePageMeta({
   layout: "default" as any,
   title: "Autentificare",
+});
+
+useSeo({
+  title: "Autentificare | IT Bridge School",
+  description: "Intră în contul de părinte IT Bridge School.",
+  path: "/auth/login",
+  noindex: true,
 });
 
 const { login } = useAuthApi();

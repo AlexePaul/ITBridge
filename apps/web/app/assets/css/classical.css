@@ -1106,9 +1106,28 @@ textarea.input {
   visibility: hidden;
 }
 
+.counter-ghost::before {
+  content: attr(data-value);
+}
+
 .counter-value {
   position: absolute;
   top: 0;
   left: 0;
   white-space: nowrap;
+}
+
+/* A map sits in a plate like a photograph, but wants the full column. */
+.map-plate {
+  margin-top: var(--rhythm-2);
+}
+
+.footer-grid-4 {
+  grid-template-columns: 2fr 1fr 1.4fr 1fr;
+}
+
+@media (max-width: 900px) {
+  .footer-grid-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

@@ -56,8 +56,9 @@ const isOpen = ref(false);
 
 const navigationItems = [
   { label: "Acasă", to: "/" },
-  { label: "Cursuri", to: "/courses" },
-  { label: "Despre noi", to: "/about" },
+  { label: "Cursuri", to: "/cursuri" },
+  { label: "Locații", to: "/locatii" },
+  { label: "Despre noi", to: "/despre-noi" },
   { label: "Contact", to: "/contact" },
 ];
 

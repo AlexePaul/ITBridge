@@ -4,20 +4,26 @@
       <span class="kicker">Cursuri</span>
       <h1 class="page-title">Un nivel pentru fiecare vârstă.</h1>
       <p class="lede">
-        Șase niveluri, de la primii pași pe calculator până la pregătirea pentru Bacalaureat și
-        olimpiade. Un modul durează 6–8 săptămâni, cu ședințe de 1,5 ore în grupe mici.
+        IT Bridge School ține cursuri de informatică și programare pentru copii de 6–19 ani, în
+        București, la Drumul Taberei și la Străulești. Șase niveluri, de la primii pași pe
+        calculator până la C++, olimpiade și Bacalaureat. Un modul durează 6–8 săptămâni, cu o
+        ședință de 1,5 ore pe săptămână, în grupe mici.
       </p>
+      <p class="note">Actualizat: {{ CONTENT_UPDATED }}</p>
     </section>
 
     <hr class="rule" />
 
-    <section aria-label="Nivelurile de curs">
-      <div v-for="course in courses" :key="course.num" data-reveal>
+    <section aria-labelledby="niveluri">
+      <h2 class="kicker" id="niveluri">Nivelurile de curs</h2>
+      <div v-for="course in COURSE_LEVELS" :id="course.slug" :key="course.slug" data-reveal>
         <div class="course-row">
           <p class="course-num">{{ course.num }}</p>
           <div>
-            <h2 class="item-title">{{ course.title }}</h2>
-            <p class="label-accent">{{ course.level }}</p>
+            <h3 class="item-title">{{ course.title }}</h3>
+            <p class="label-accent">
+              {{ course.level }} · {{ course.minAge }}–{{ course.maxAge }} ani
+            </p>
           </div>
           <p class="body-text justified">{{ course.topics }}</p>
           <NuxtLink to="/contact" class="btn btn-secondary">Cere informații</NuxtLink>
@@ -27,10 +33,10 @@
     </section>
 
     <section class="section" data-reveal>
-      <span class="kicker">Cum funcționează</span>
+      <h2 class="kicker">Cum funcționează</h2>
       <div class="cols-2">
         <div>
-          <h2 class="block-title">De la primul telefon la prima ședință</h2>
+          <h3 class="block-title">De la primul telefon la prima ședință</h3>
           <div class="stack">
             <div v-for="(step, index) in steps" :key="step" class="marked">
               <span class="marked-num">{{ index + 1 }}</span>
@@ -39,7 +45,12 @@
           </div>
         </div>
         <div>
-          <h2 class="block-title">De ce părinții ne aleg</h2>
+          <h3 class="block-title">De ce părinții ne aleg</h3>
+          <p class="body-text">
+            Cursurile sunt ținute de
+            <NuxtLink to="/despre-noi" class="link">cei doi profesori ai școlii</NuxtLink>, nu de
+            instructori care se schimbă de la un modul la altul.
+          </p>
           <div class="stack">
             <div v-for="benefit in benefits" :key="benefit" class="marked">
               <UIcon name="i-lucide-check" class="marker size-4" />
@@ -53,7 +64,7 @@
     <hr class="rule" />
 
     <section class="section" aria-label="Prețuri" data-reveal>
-      <span class="kicker">Prețuri</span>
+      <h2 class="kicker">Prețuri</h2>
       <div class="price-grid">
         <div>
           <p class="stat-num stat-accent">
@@ -70,8 +81,12 @@
           </p>
         </div>
         <p class="body-text measure">
-          Prețul acoperă toate ședințele lunii, materialele de curs și accesul la resursele noastre.
-          Detalii complete la telefon sau pe email.
+          {{ PRICE_ONE_CHILD }} lei pe lună pentru un copil și {{ PRICE_TWO_CHILDREN }} lei pe lună
+          pentru doi copii din aceeași familie — al doilea copil plătește
+          {{ PRICE_TWO_CHILDREN - PRICE_ONE_CHILD }} lei. Prețul acoperă toate ședințele lunii,
+          materialele de curs și accesul la resursele noastre. Aceleași prețuri la
+          <NuxtLink to="/locatii/drumul-taberei" class="link">Drumul Taberei</NuxtLink> și la
+          <NuxtLink to="/locatii/straulesti" class="link">Străulești</NuxtLink>.
         </p>
       </div>
     </section>
@@ -79,10 +94,10 @@
     <hr class="rule" />
 
     <section class="section" aria-label="Întrebări frecvente" data-reveal>
-      <span class="kicker">Întrebări frecvente</span>
+      <h2 class="kicker">Întrebări frecvente</h2>
       <div class="cols-2">
         <div v-for="entry in faq" :key="entry.question">
-          <h2 class="sub-title">{{ entry.question }}</h2>
+          <h3 class="sub-title">{{ entry.question }}</h3>
           <p class="body-text justified">{{ entry.answer }}</p>
         </div>
       </div>
@@ -106,7 +121,20 @@
 
 <script setup lang="ts">
 import { useReveal } from "~/composables/useReveal";
-import { SCHOOL_LOCATIONS, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "~/constants/school";
+import { useSeo } from "~/composables/useSeo";
+import { useJsonLd } from "~/composables/useJsonLd";
+import { SCHOOL_LOCATIONS, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
+import { COURSE_LEVELS, PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
+import { CONTENT_UPDATED, pageSeo } from "#shared/seo";
+import {
+  breadcrumbNode,
+  courseListNode,
+  faqNode,
+  organizationNode,
+  webPageNode,
+  websiteNode,
+} from "#shared/structured-data";
+import { useRuntimeConfig } from "#imports";
 
 definePageMeta({
   layout: "default" as any,
@@ -115,65 +143,11 @@ definePageMeta({
 
 useReveal();
 
-const PRICE_ONE_CHILD = 350;
-const PRICE_TWO_CHILDREN = 600;
-
 // The second child is charged the difference — 250 instead of 350. The saving
 // is announced in steps of five, rounded down, so the number stays round and
 // never promises more than the family actually saves.
 const secondChildSaving = 1 - (PRICE_TWO_CHILDREN - PRICE_ONE_CHILD) / PRICE_ONE_CHILD;
 const secondChildDiscount = Math.floor((secondChildSaving * 100) / 5) * 5;
-
-const courses = [
-  {
-    num: "01",
-    title: "Clasa 0–2",
-    level: "Inițiere",
-    topics:
-      "Cunoașterea calculatorului, folosirea mouse-ului și a tastaturii, jocuri educative, " +
-      "primele concepte de bază și creativitate prin desen digital 2D și 3D.",
-  },
-  {
-    num: "02",
-    title: "Clasa 3–4",
-    level: "Începători",
-    topics:
-      "Noțiuni de bază în informatică, sisteme de operare, aplicații Office (Word, PowerPoint, " +
-      "Excel), internet și siguranță online, primele programe în Scratch.",
-  },
-  {
-    num: "03",
-    title: "Clasa 5–6",
-    level: "Intermediar",
-    topics:
-      "Introducere în algoritmi, programare în Scratch, proiecte practice și primele site-uri " +
-      "web simple.",
-  },
-  {
-    num: "04",
-    title: "Clasa 7–8",
-    level: "Intermediar–avansat",
-    topics:
-      "Programare în C++, algoritmi și instrucțiuni de bază, site-uri web cu HTML, CSS și " +
-      "JavaScript, introducere în baze de date și pregătire pentru olimpiade școlare.",
-  },
-  {
-    num: "05",
-    title: "Clasa 9–12",
-    level: "Avansat",
-    topics:
-      "Algoritmi și complexitate, programare în C/C++, structuri de date avansate, probleme de " +
-      "concurs, baze de date SQL, pregătire pentru BAC și olimpiadă.",
-  },
-  {
-    num: "06",
-    title: "Pregătire Bacalaureat",
-    level: "Avansat",
-    topics:
-      "Probleme tip pentru Bacalaureat, algoritmi de concurs, timp și strategie de examen, " +
-      "feedback și corecții la fiecare ședință.",
-  },
-];
 
 const steps = [
   "Ne contactezi și discutăm nevoile copilului",
@@ -183,12 +157,14 @@ const steps = [
   "Pornim cu primele ore",
 ];
 
+// Each line states something checkable. "Instructori experimentați" was in
+// here before and said nothing a parent could verify.
 const benefits = [
-  "Instructori experimentați și dedicați",
-  "Programe structurate, cu atenție personalizată",
-  "Rezultate demonstrabile",
-  "Materiale și resurse de calitate",
-  "Flexibilitate în orar, la două locații",
+  "Doi profesori, aceiași de la un modul la altul",
+  "Alexe Vasile Paul — licențiat în Informatică la Universitatea din București, a predat la nivel universitar",
+  "Grupe mici, o ședință de 1,5 ore pe săptămână",
+  "C++, algoritmi și structuri de date — programa după care se dau olimpiada și Bacalaureatul",
+  "Două locații: Drumul Taberei și Străulești",
 ];
 
 const faq = [
@@ -207,7 +183,7 @@ const faq = [
   {
     question: "Unde au loc cursurile?",
     answer:
-      `În două locații din București — ${SCHOOL_LOCATIONS.map((location) => location.address).join(" și ")}. ` +
+      `În două locații din București — ${SCHOOL_LOCATIONS.map((location) => location.street).join(" și ")}. ` +
       "Alegi locația mai convenabilă la înscriere.",
   },
   {
@@ -217,4 +193,20 @@ const faq = [
       "cu ceva construit de ei — un program, un joc, o pagină web.",
   },
 ];
+
+const seo = pageSeo("/cursuri");
+useSeo(seo);
+
+const site = String(useRuntimeConfig().public.siteUrl);
+useJsonLd([
+  organizationNode(site),
+  websiteNode(site),
+  webPageNode(site, seo),
+  breadcrumbNode(site, [
+    { name: "Acasă", path: "/" },
+    { name: "Cursuri", path: "/cursuri" },
+  ]),
+  courseListNode(site),
+  faqNode(faq),
+]);
 </script>

@@ -91,7 +91,7 @@ import { useLogout } from "~/composables/useLogout";
 import { useUserStore } from "~/stores/userStore";
 import { overdueInvoices, pendingInvoices } from "~/composables/api/useInvoiceApi";
 import { computed } from "vue";
-import { useRoute } from "#imports";
+import { useRoute, useSeoMeta } from "#imports";
 
 const { user } = useUserStore();
 const { handleLogout } = useLogout();
@@ -109,6 +109,9 @@ useHead(() => ({
   title: pageTitle.value,
   titleTemplate: "%s | IT Bridge School",
 }));
+
+// The portal is behind a login; nothing in it belongs in a search index.
+useSeoMeta({ robots: "noindex, nofollow" });
 
 const navigationItems = computed(() => {
   const baseItems = [

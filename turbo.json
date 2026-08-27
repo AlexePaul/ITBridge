@@ -9,6 +9,8 @@
     "NODE_ENV",
     "PORT",
     "API_BASE",
+    "SITE_URL",
+    "VERCEL_ENV",
     "CORS_ORIGINS",
     "DB_*",
     "JWT_*",

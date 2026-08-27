@@ -1,13 +1,15 @@
 <template>
   <span ref="root" class="counter">
-    <!-- The final text holds the width open, so a figure growing from one digit
-         to three cannot nudge the layout while it counts. -->
-    <span class="counter-ghost" aria-hidden="true">{{ value }}</span>
+    <span class="counter-ghost" :data-value="value" aria-hidden="true"></span>
     <span class="counter-value">{{ display }}</span>
   </span>
 </template>
 
 <script setup lang="ts">
+// The ghost span holds the width open so a figure growing from one digit to
+// three cannot nudge the layout while it counts. Its text is drawn with CSS
+// `content: attr(data-value)`, not as a text node, so the page never reads
+// "350 lei 350 lei" to a crawler or a screen reader.
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = withDefaults(defineProps<{ value: string; duration?: number }>(), {

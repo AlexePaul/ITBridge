@@ -18,6 +18,7 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
+      htmlAttrs: { lang: "ro" },
       link: [
         { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
         { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32x32.png" },
@@ -31,6 +32,17 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.API_BASE,
+      // Canonical URLs, the sitemap and the structured data are all absolute:
+      // they need the address the site is actually served from.
+      siteUrl: process.env.SITE_URL || "https://itbridgeschool.com",
     },
+  },
+
+  // The Romanian slugs are the ones we want indexed; the English ones were
+  // never linked from anywhere public, but a permanent redirect costs nothing
+  // and keeps any stray link alive.
+  routeRules: {
+    "/courses": { redirect: { to: "/cursuri", statusCode: 301 } },
+    "/about": { redirect: { to: "/despre-noi", statusCode: 301 } },
   },
 });

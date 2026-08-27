@@ -4,8 +4,11 @@
       <span class="kicker">Contact</span>
       <h1 class="page-title">Hai să stăm de vorbă.</h1>
       <p class="lede">
-        Scrie-ne câteva rânduri despre copilul tău și te contactăm în cel mult 24 de ore, cu o
-        recomandare de nivel și grupele cu locuri libere.
+        Sună la <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a> sau scrie la
+        <a :href="`mailto:${SCHOOL_EMAIL}`" class="link">{{ SCHOOL_EMAIL }}</a
+        >. Îți răspundem în cel mult 24 de ore, cu o recomandare de nivel dintre
+        <NuxtLink to="/cursuri" class="link">cele șase</NuxtLink> și grupele cu locuri libere, la
+        locația mai apropiată de tine.
       </p>
     </section>
 
@@ -80,12 +83,15 @@
     <hr class="rule" />
 
     <section class="section-close" aria-label="Locații" data-reveal>
-      <span class="kicker">Locațiile noastre</span>
+      <h2 class="kicker">Locațiile noastre</h2>
       <div class="cols-2">
-        <div v-for="location in SCHOOL_LOCATIONS" :key="location.name">
-          <p class="sub-title">{{ location.name }}</p>
+        <div v-for="location in SCHOOL_LOCATIONS" :key="location.slug">
+          <h3 class="sub-title">{{ location.neighbourhood }}</h3>
           <p class="body-text">
-            {{ location.address }}<template v-if="location.city">, {{ location.city }}</template>
+            {{ location.street }}, {{ location.district }}, {{ location.city }} ·
+            <NuxtLink :to="`/locatii/${location.slug}`" class="link"
+              >detalii despre locație</NuxtLink
+            >
           </p>
           <div v-if="location.mapEmbedUrl" class="plate">
             <iframe
@@ -109,13 +115,24 @@
 
 <script setup lang="ts">
 import { useReveal } from "~/composables/useReveal";
+import { useSeo } from "~/composables/useSeo";
+import { useJsonLd } from "~/composables/useJsonLd";
+import { pageSeo } from "#shared/seo";
+import {
+  breadcrumbNode,
+  locationNode,
+  organizationNode,
+  webPageNode,
+  websiteNode,
+} from "#shared/structured-data";
+import { useRuntimeConfig } from "#imports";
 import {
   SCHOOL_EMAIL,
   SCHOOL_HOURS,
   SCHOOL_LOCATIONS,
   SCHOOL_PHONE,
   SCHOOL_PHONE_HREF,
-} from "~/constants/school";
+} from "#shared/school";
 
 definePageMeta({
   layout: "default" as any,
@@ -131,4 +148,19 @@ const subjects = [
   "Feedback",
   "Altele",
 ] as const;
+
+const seo = pageSeo("/contact");
+useSeo(seo);
+
+const site = String(useRuntimeConfig().public.siteUrl);
+useJsonLd([
+  organizationNode(site),
+  websiteNode(site),
+  { ...webPageNode(site, seo), "@type": "ContactPage" },
+  breadcrumbNode(site, [
+    { name: "Acasă", path: "/" },
+    { name: "Contact", path: "/contact" },
+  ]),
+  ...SCHOOL_LOCATIONS.map((location) => locationNode(site, location)),
+]);
 </script>
