@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Get, UseGuards, Request, HttpCode } from '@nestjs/common';
 import { ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 import { LoginDto } from 'src/modules/auth/dto/login.dto';
@@ -11,6 +12,7 @@ import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 export class AuthController {
     constructor(private readonly authService: AuthService) {}
 
+    @Throttle({ default: { ttl: 60_000, limit: 10 } })
     @Post('login')
     @HttpCode(200)
     @ApiResponse({ status: 200, description: 'Login successful' })
@@ -19,6 +21,7 @@ export class AuthController {
         return this.authService.login(loginDto);
     }
 
+    @Throttle({ default: { ttl: 60_000, limit: 5 } })
     @Post('register')
     @ApiResponse({ status: 201, description: 'User registered successfully' })
     @ApiResponse({
@@ -29,6 +32,7 @@ export class AuthController {
         return this.authService.register(registerDto);
     }
 
+    @Throttle({ default: { ttl: 60_000, limit: 20 } })
     @Post('refresh')
     @HttpCode(200)
     @ApiResponse({ status: 200, description: 'Token refreshed successfully' })

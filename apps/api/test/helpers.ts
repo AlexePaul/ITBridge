@@ -12,7 +12,7 @@ import { Role } from 'src/enum/role.enum';
  * Boots the real application, with guards, routing and Postgres — only S3 and PDF generation are
  * replaced, because they leave the process and have nothing to verify here.
  */
-export async function createTestApp(options: { realStorage?: boolean } = {}): Promise<{
+export async function createTestApp(options: { realStorage?: boolean; throttling?: boolean } = {}): Promise<{
     app: INestApplication<App>;
     dataSource: DataSource;
 }> {
@@ -23,6 +23,12 @@ export async function createTestApp(options: { realStorage?: boolean } = {}): Pr
     // them against MinIO. Everywhere else they are stubbed: they leave the process, and no other
     // test is about them.
     const builder = Test.createTestingModule({ imports: [AppModule] });
+
+    // Rate limiting is off by default. Suites register a handful of users in `beforeEach`, which
+    // over a couple of dozen tests goes well past a limit meant for a human at a login form — the
+    // throttler would be measuring the test suite, not the behaviour under test. The one suite that
+    // is about throttling asks for it.
+    process.env.RATE_LIMIT_ENABLED = options.throttling ? 'true' : 'false';
     if (!options.realStorage) {
         builder
             .overrideProvider(S3Service)
