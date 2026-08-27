@@ -17,37 +17,99 @@
     <section class="section split split-start" data-reveal>
       <div>
         <h2 class="block-title">Formular de contact</h2>
-        <form class="form">
+
+        <div v-if="sent" class="card card-lg card-accent" role="status">
+          <p class="body-text">
+            Mesajul a plecat. Îți răspundem în cel mult 24 de ore, la datele pe care ni le-ai lăsat.
+          </p>
+          <button type="button" class="btn btn-ghost" @click="composeAnother">
+            Trimite încă un mesaj
+          </button>
+        </div>
+
+        <form v-else class="form" novalidate @submit.prevent="onSubmit">
+          <div v-if="errorMessage" class="card card-lg card-accent" role="alert">
+            <p class="body-text">{{ errorMessage }}</p>
+          </div>
+
           <div class="form-row">
             <div class="field">
               <label for="contact-name">Numele tău</label>
-              <input id="contact-name" class="input" type="text" placeholder="ex. Maria Ionescu" />
+              <input
+                id="contact-name"
+                v-model="form.name"
+                class="input"
+                type="text"
+                name="name"
+                autocomplete="name"
+                placeholder="ex. Maria Ionescu"
+                :aria-invalid="Boolean(errors.name)"
+              />
+              <p v-if="errors.name" class="field-error">{{ errors.name }}</p>
             </div>
             <div class="field">
               <label for="contact-reply">Telefon sau email</label>
-              <input id="contact-reply" class="input" type="text" placeholder="ex. 07xx xxx xxx" />
+              <input
+                id="contact-reply"
+                v-model="form.reply"
+                class="input"
+                type="text"
+                name="reply"
+                autocomplete="tel"
+                placeholder="ex. 07xx xxx xxx"
+                :aria-invalid="Boolean(errors.reply)"
+              />
+              <p v-if="errors.reply" class="field-error">{{ errors.reply }}</p>
             </div>
           </div>
           <div class="field">
             <label for="contact-subject">Subiect</label>
-            <select id="contact-subject" class="input">
-              <option v-for="subject in subjects" :key="subject">{{ subject }}</option>
+            <select id="contact-subject" v-model="form.subject" class="input" name="subject">
+              <option v-for="subject in CONTACT_SUBJECTS" :key="subject" :value="subject">
+                {{ subject }}
+              </option>
             </select>
+            <p v-if="errors.subject" class="field-error">{{ errors.subject }}</p>
           </div>
           <div class="field">
             <label for="contact-message">Mesaj</label>
             <textarea
               id="contact-message"
+              v-model="form.message"
               class="input"
               rows="5"
+              name="message"
               placeholder="Vârsta copilului, experiența lui cu calculatorul și ce te-ar interesa…"
+              :aria-invalid="Boolean(errors.message)"
             ></textarea>
+            <p v-if="errors.message" class="field-error">{{ errors.message }}</p>
           </div>
+
+          <!--
+            The honeypot. Hidden from sight and from the accessibility tree, and
+            skipped by Tab, so nobody using the page can reach it; the bots that
+            post to every form they find fill it in.
+          -->
+          <div class="honeypot" aria-hidden="true">
+            <label :for="`contact-${HONEYPOT_FIELD}`">Nu completa acest câmp</label>
+            <input
+              :id="`contact-${HONEYPOT_FIELD}`"
+              v-model="form[HONEYPOT_FIELD]"
+              type="text"
+              :name="HONEYPOT_FIELD"
+              tabindex="-1"
+              autocomplete="off"
+            />
+          </div>
+
           <div>
-            <button type="button" class="btn btn-primary" disabled>În curând</button>
+            <button type="submit" class="btn btn-primary" :disabled="loading">
+              {{ loading ? "Se trimite…" : "Trimite mesajul" }}
+            </button>
             <p class="note">
-              Trimiterea din formular se activează în curând. Până atunci sună-ne sau scrie-ne pe
-              email — răspundem la fel de repede.
+              Îți răspundem în cel mult 24 de ore. Dacă preferi, sună-ne sau scrie-ne direct la
+              <a :href="`mailto:${SCHOOL_EMAIL}`" class="link">{{ SCHOOL_EMAIL }}</a
+              >.
             </p>
           </div>
         </form>
@@ -100,6 +162,7 @@
 </template>
 
 <script setup lang="ts">
+import { reactive, ref } from "vue";
 import { useReveal } from "~/composables/useReveal";
 import { useSeo } from "~/composables/useSeo";
 import { useJsonLd } from "~/composables/useJsonLd";
@@ -113,6 +176,13 @@ import {
   SCHOOL_PHONE,
   SCHOOL_PHONE_HREF,
 } from "#shared/school";
+import {
+  CONTACT_SUBJECTS,
+  HONEYPOT_FIELD,
+  contactMessageSchema,
+  fieldErrorsOf,
+  type ContactField,
+} from "#shared/contact";
 
 definePageMeta({
   layout: "default",
@@ -121,13 +191,68 @@ definePageMeta({
 
 useReveal();
 
-const subjects = [
-  "Întrebare despre cursuri",
-  "Înscriere",
-  "Parteneriat",
-  "Feedback",
-  "Altele",
-] as const;
+/**
+ * The same schema the server route validates against, so the two cannot drift
+ * apart. This check exists to put the error under the field instead of after a
+ * round trip — `/api/contact` re-validates everything it receives.
+ */
+const emptyForm = () => ({
+  name: "",
+  reply: "",
+  subject: CONTACT_SUBJECTS[0] as string,
+  message: "",
+  [HONEYPOT_FIELD]: "",
+});
+
+const form = reactive(emptyForm());
+const errors = reactive<Partial<Record<ContactField, string>>>({});
+const loading = ref(false);
+const sent = ref(false);
+const errorMessage = ref<string | null>(null);
+
+const clearErrors = () => {
+  for (const field of Object.keys(errors) as ContactField[]) delete errors[field];
+};
+
+const composeAnother = () => {
+  Object.assign(form, emptyForm());
+  clearErrors();
+  errorMessage.value = null;
+  sent.value = false;
+};
+
+const onSubmit = async () => {
+  if (loading.value) return;
+
+  clearErrors();
+  errorMessage.value = null;
+
+  const result = contactMessageSchema.safeParse({ ...form });
+  if (!result.success) {
+    Object.assign(errors, fieldErrorsOf(result.error));
+    return;
+  }
+
+  loading.value = true;
+  try {
+    // `$fetch` directly, not one of `composables/api/` — those wrap the NestJS
+    // backend and carry the token refresh. This is our own Nitro route on the
+    // same origin, public and unauthenticated; there is nothing to refresh.
+    await $fetch("/api/contact", { method: "POST", body: result.data });
+    sent.value = true;
+  } catch (error) {
+    // The route answers with `data.message` in Romanian for every failure it
+    // knows about — an unset key, the rate limit, a rejection from Resend. A
+    // network error carries none, so it falls back to a generic line.
+    const data = (error as { data?: { message?: string; fieldErrors?: typeof errors } })?.data;
+    if (data?.fieldErrors) Object.assign(errors, data.fieldErrors);
+    errorMessage.value =
+      data?.message ??
+      `Nu am putut trimite mesajul. Verifică-ți conexiunea sau scrie-ne la ${SCHOOL_EMAIL}.`;
+  } finally {
+    loading.value = false;
+  }
+};
 
 const seo = pageSeo("/contact");
 useSeo(seo);

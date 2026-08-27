@@ -10,6 +10,8 @@
     "PORT",
     "API_BASE",
     "SITE_URL",
+    "RESEND_API_KEY",
+    "CONTACT_FROM",
     "VERCEL_ENV",
     "CORS_ORIGINS",
     "DB_*",

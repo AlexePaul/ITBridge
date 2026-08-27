@@ -30,6 +30,13 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
+    // Server-only. Anything outside `public` stays on the server and is never
+    // inlined into the client bundle — which is the whole reason the contact
+    // form posts to `/api/contact` instead of calling Resend from the browser.
+    resendApiKey: process.env.RESEND_API_KEY,
+    // The From address. Its domain has to be verified in Resend, otherwise
+    // every send comes back 403.
+    contactFrom: process.env.CONTACT_FROM || "IT Bridge School <contact@itbridgeschool.com>",
     public: {
       apiBase: process.env.API_BASE,
       // Canonical URLs, the sitemap and the structured data are all absolute:

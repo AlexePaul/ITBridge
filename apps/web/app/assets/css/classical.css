@@ -976,6 +976,20 @@ textarea.input {
   }
 }
 
+/*
+   The contact form's honeypot. `display: none` is what a growing number of bots
+   check for, so the field is taken out of the flow instead — off-screen, zero
+   size, and out of the accessibility tree via aria-hidden on the wrapper.
+*/
+.honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .map-placeholder {
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-sm);

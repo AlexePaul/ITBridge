@@ -169,6 +169,19 @@ schema singur la fiecare boot. Orice schimbare de entitate se aplică direct pe 
 cererile pleacă spre origin-ul Nuxt. E în `.env.example` de la rădăcină și trebuie setat și în
 Vercel, inclusiv pe Preview.
 
+**Formularul de contact trimite dintr-o rută Nitro, nu din browser.** `RESEND_API_KEY` stă în
+`runtimeConfig`, în afara lui `public`, deci Nuxt nu îl scrie niciodată în bundle-ul clientului;
+singurul lucru care îl vede e `apps/web/server/api/contact.post.ts`. Nu-l muta în `public` și nu
+chema Resend din pagină: cheia poate trimite mail în numele domeniului școlii, nu are scope și nu
+are restricție de origine, deci într-un bundle e a oricărui vizitator care deschide tab-ul de
+network. Pe Vercel ruta se deployează ca funcție serverless lângă site, deci nu cere backend.
+
+Schema e una singură, în `apps/web/shared/contact.ts`, validată în ambele părți: în pagină ca să
+apară eroarea sub câmp, în rută fiindcă ruta e publică și oricine poate posta pe ea direct.
+`CONTACT_FROM` trebuie să fie pe un domeniu verificat în Resend, altfel fiecare trimitere pică cu
+403 — iar o cheie de trimitere restricționată nu poate interoga `/domains` ca să-ți spună asta
+dinainte. Ambele variabile sunt în `turbo.json`, la `globalEnv`, și trebuie setate și în Vercel.
+
 **`AWS_REGION` e obligatorie ca să pornească aplicația.** `S3Service.onModuleInit`
 (`apps/api/src/modules/invoice/s3.service.ts:13`) aruncă fără ea, deci backend-ul cade la
 boot, chiar dacă nu atingi nicio factură. Cheile de acces sunt opționale — lipsa lor duce SDK-ul pe
