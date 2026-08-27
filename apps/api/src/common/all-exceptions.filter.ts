@@ -27,6 +27,8 @@ export interface ErrorResponse {
 const PG_UNIQUE_VIOLATION = '23505';
 const PG_FOREIGN_KEY_VIOLATION = '23503';
 const PG_NOT_NULL_VIOLATION = '23502';
+/** A value that could not be cast to its column type — always the caller's doing, never ours. */
+const PG_INVALID_TEXT_REPRESENTATION = '22P02';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -110,6 +112,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
                 };
             case PG_NOT_NULL_VIOLATION:
                 return { statusCode: HttpStatus.BAD_REQUEST, code: 'MISSING_REQUIRED_FIELD', message: 'A required field was missing' };
+            case PG_INVALID_TEXT_REPRESENTATION:
+                // Reported as a 500 before, which told the client the server had broken over a
+                // value it had sent itself — and logged a stack into the channel meant for faults.
+                return { statusCode: HttpStatus.BAD_REQUEST, code: 'INVALID_VALUE', message: 'A field had a value of the wrong type' };
             default:
                 return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, code: 'DATABASE_ERROR', message: 'Internal server error' };
         }

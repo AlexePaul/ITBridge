@@ -95,6 +95,14 @@ describe('Review findings (e2e)', () => {
             expect(res.body.path).toContain('phone=[redacted]');
         });
 
+        it('keeps everything after a second question mark', async () => {
+            // `split('?')` with array destructuring dropped it, so the recorded path stopped
+            // matching the request that was actually made.
+            const res = await request(app.getHttpServer()).get('/invoices?a=1?b=2').expect(401);
+
+            expect(res.body.path).toBe('/invoices?a=1?b=2');
+        });
+
         it('leaves ordinary query values readable', async () => {
             const res = await request(app.getHttpServer()).get('/invoices?status=paid').expect(401);
 
@@ -141,6 +149,25 @@ describe('Review findings (e2e)', () => {
 
             const rows = await dataSource.query<{ count: string }[]>(`SELECT count(*) FROM invoices WHERE parent_id = $1`, [parents[0]]);
             expect(rows[0].count).toBe('0');
+        });
+    });
+
+    describe('a batch with a duplicated parent is a 400, not a conflict', () => {
+        it('names the duplicate instead of reporting the month as already invoiced', async () => {
+            const profile = await request(app.getHttpServer())
+                .post('/profiles')
+                .set('Authorization', admin.auth)
+                .send({ firstName: 'Ana', lastName: 'Pop', email: 'ana@example.com', phone: '+40700000001' })
+                .expect(201);
+
+            const res = await request(app.getHttpServer())
+                .post('/invoices')
+                .set('Authorization', admin.auth)
+                .send({ parentIds: [profile.body.id, profile.body.id], monthIssued: '2026-03', dateIssued: '2026-03-01' })
+                .expect(400);
+
+            expect(res.body.code).toBe('VALIDATION_FAILED');
+            expect(JSON.stringify(res.body.details)).toContain('unique');
         });
     });
 

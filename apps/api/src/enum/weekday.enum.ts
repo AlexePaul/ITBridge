@@ -15,16 +15,6 @@ export enum Weekday {
     SUNDAY = 7,
 }
 
-/** The values only, for `@IsEnum` and for a CHECK constraint. */
-export const WEEKDAYS = [Weekday.MONDAY, Weekday.TUESDAY, Weekday.WEDNESDAY, Weekday.THURSDAY, Weekday.FRIDAY, Weekday.SATURDAY, Weekday.SUNDAY] as const;
-
-/** Romanian names, for anything a parent or a teacher reads. */
-export const WEEKDAY_LABELS: Record<Weekday, string> = {
-    [Weekday.MONDAY]: 'luni',
-    [Weekday.TUESDAY]: 'marți',
-    [Weekday.WEDNESDAY]: 'miercuri',
-    [Weekday.THURSDAY]: 'joi',
-    [Weekday.FRIDAY]: 'vineri',
-    [Weekday.SATURDAY]: 'sâmbătă',
-    [Weekday.SUNDAY]: 'duminică',
-};
+// The Romanian names deliberately live in `packages/types`, not here: they are user-facing wording
+// and the frontend is what renders them. Keeping a second copy alongside this enum is how three
+// different weekday lists came to exist, two of them missing Sunday.

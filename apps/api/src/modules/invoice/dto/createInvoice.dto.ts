@@ -1,12 +1,17 @@
-import { ArrayNotEmpty, IsArray, IsNotEmpty, IsNumber, IsDateString, Matches } from 'class-validator';
+import { ArrayNotEmpty, ArrayUnique, IsArray, IsNotEmpty, IsNumber, IsDateString, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateInvoiceDto {
     @ApiProperty({ example: [1, 2, 3], description: 'IDs of the parents' })
     // `@IsNotEmpty` on an array only rejects null and ''. `@ArrayNotEmpty` is the one that rejects
     // `[]`, which would otherwise issue nothing and report success.
+    // `@ArrayUnique` because the same parent twice produces two rows for one (parent, monthIssued)
+    // and trips the unique constraint — reported as ALREADY_EXISTS, which reads as "this month is
+    // already invoiced" rather than "you sent a duplicate". With the batch in one transaction it
+    // would also roll back every other invoice in the call.
     @IsArray()
     @ArrayNotEmpty()
+    @ArrayUnique()
     @IsNumber({}, { each: true })
     parentIds: number[];
 

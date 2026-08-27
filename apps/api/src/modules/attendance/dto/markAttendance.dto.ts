@@ -14,9 +14,12 @@ class ChildAttendanceDto {
 
 export class markAttendanceDto {
     @ApiProperty({
+        // No `type` here: ChildAttendanceDto has no such field, the service decides regular versus
+        // make-up from whether the child belongs to the group, and `forbidNonWhitelisted` would
+        // refuse the property outright. The old example documented a body the API rejects.
         example: [
-            { childId: 1, present: true, type: 'normal' },
-            { childId: 2, present: false, type: 'catch-up' },
+            { childId: 1, present: true },
+            { childId: 2, present: false },
         ],
         description: 'Array of child IDs with presence status',
     })

@@ -9,7 +9,14 @@ const SENSITIVE_QUERY_KEYS = ['password', 'token', 'refreshToken', 'secret', 'em
  * since a response body reaches the browser console and any frontend error reporter.
  */
 export function redactUrl(url: string): string {
-    const [path, query] = url.split('?');
+    // Split once: a second `?` is legal inside a query string, and `const [path, query] = split('?')`
+    // silently dropped everything after it — so the recorded path stopped matching the request that
+    // was actually made, which is the one property a correlation id needs.
+    const separator = url.indexOf('?');
+    if (separator === -1) return url;
+
+    const path = url.slice(0, separator);
+    const query = url.slice(separator + 1);
     if (!query) return path;
 
     const redacted = query

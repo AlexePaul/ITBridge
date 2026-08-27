@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Matches } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, Matches } from 'class-validator';
 import { Weekday } from 'src/enum/weekday.enum';
 
 /**
@@ -10,6 +10,10 @@ import { Weekday } from 'src/enum/weekday.enum';
 export class updateGroupDto {
     @ApiProperty({ required: false, example: Weekday.MONDAY, enum: Weekday, description: 'ISO weekday (1 = Monday, 7 = Sunday)' })
     @IsOptional()
+    // `@IsInt()` is not redundant next to `@IsEnum`. A numeric enum carries a reverse mapping, so
+    // `Object.values(Weekday)` holds the member names as well as the numbers and `@IsEnum` alone
+    // accepts `"MONDAY"` — which then fails against an int column as a 500 rather than a 400.
+    @IsInt()
     @IsEnum(Weekday)
     weekday?: Weekday;
 

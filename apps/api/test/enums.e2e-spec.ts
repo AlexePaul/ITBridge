@@ -50,6 +50,14 @@ describe('Checked value types (e2e)', () => {
             await createGroup(weekday).expect(400);
         });
 
+        it.each([['MONDAY'], ['SUNDAY']])('rejects the member name %s with a 400, not a 500', async (weekday) => {
+            // A numeric enum carries a reverse mapping, so `Object.values(Weekday)` holds the names
+            // as well as the numbers and `@IsEnum` alone accepted them. The value then reached an
+            // int column and came back as a 500 about invalid integer syntax.
+            const res = await createGroup(weekday).expect(400);
+            expect(res.body.code).toBe('VALIDATION_FAILED');
+        });
+
         it('rejects an out-of-range weekday at the database too', async () => {
             // Belt and braces: the enum guards the call sites, the CHECK constraint guards
             // everything that does not go through them.
