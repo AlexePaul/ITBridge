@@ -23,7 +23,7 @@
     <section class="section" aria-label="IT Bridge School, în cifre" data-reveal>
       <div class="stats-grid">
         <div v-for="stat in stats" :key="stat.label">
-          <p class="stat-num" :class="{ 'stat-accent': stat.highlighted }">
+          <p class="stat-num">
             <AnimatedNumber :value="stat.value" />
           </p>
           <p class="stat-label">{{ stat.label }}</p>
@@ -123,11 +123,14 @@ const photos = [
   },
 ];
 
+// No accent on any of them: one gold numeral pulled the eye to whichever
+// figure carried it, and that was the number of addresses — the least
+// interesting thing about the school. Order carries the emphasis instead.
 const stats = [
-  { value: "2", label: "Locații în București", highlighted: true },
-  { value: "6", label: "Niveluri, de la clasa 0 la BAC", highlighted: false },
-  { value: "6–8", label: "Săptămâni într-un modul", highlighted: false },
-  { value: "1,5", label: "Ore pe ședință", highlighted: false },
+  { value: "6", label: "Niveluri, de la clasa 0 la BAC" },
+  { value: "6–8", label: "Săptămâni într-un modul" },
+  { value: "1,5", label: "Ore pe ședință" },
+  { value: "2", label: "Locații în București" },
 ];
 
 const subjects = [
