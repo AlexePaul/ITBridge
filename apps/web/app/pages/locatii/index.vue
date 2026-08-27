@@ -52,13 +52,7 @@ import { useSeo } from "~/composables/useSeo";
 import { useJsonLd } from "~/composables/useJsonLd";
 import { SCHOOL_LOCATIONS, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 import { pageSeo } from "#shared/seo";
-import {
-  breadcrumbNode,
-  locationNode,
-  organizationNode,
-  webPageNode,
-  websiteNode,
-} from "#shared/structured-data";
+import { schoolGraph, breadcrumbNode, webPageNode } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
 definePageMeta({ layout: "default" as any });
@@ -80,13 +74,11 @@ useSeo(seo);
 
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([
-  organizationNode(site),
-  websiteNode(site),
+  ...schoolGraph(site),
   webPageNode(site, seo),
   breadcrumbNode(site, [
     { name: "Acasă", path: "/" },
     { name: "Locații", path: "/locatii" },
   ]),
-  ...SCHOOL_LOCATIONS.map((location) => locationNode(site, location)),
 ]);
 </script>

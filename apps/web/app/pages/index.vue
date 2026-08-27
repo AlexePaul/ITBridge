@@ -88,9 +88,9 @@
 import { useReveal } from "~/composables/useReveal";
 import { useSeo } from "~/composables/useSeo";
 import { useJsonLd } from "~/composables/useJsonLd";
-import { SCHOOL_LOCATIONS, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
+import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 import { pageSeo } from "#shared/seo";
-import { locationNode, organizationNode, webPageNode, websiteNode } from "#shared/structured-data";
+import { schoolGraph, webPageNode } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
 definePageMeta({
@@ -104,12 +104,7 @@ const seo = pageSeo("/");
 useSeo({ ...seo, imageAlt: "IT Bridge School — cursuri de informatică pentru copii" });
 
 const site = String(useRuntimeConfig().public.siteUrl);
-useJsonLd([
-  organizationNode(site),
-  websiteNode(site),
-  webPageNode(site, seo),
-  ...SCHOOL_LOCATIONS.map((location) => locationNode(site, location)),
-]);
+useJsonLd([...schoolGraph(site), webPageNode(site, seo)]);
 
 const photos = [
   {

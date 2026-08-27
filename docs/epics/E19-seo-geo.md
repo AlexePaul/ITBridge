@@ -164,7 +164,18 @@ profil Google. Core Web Vitals în verde. Un ritm de conținut care se ține.
 
 ## Întrebări deschise
 
-- Care sunt orașele și cartierele exacte ale celor două locații?
-- Există deja Google Business Profile pentru vreuna?
-- Cine scrie conținutul?
+- ~~Care sunt orașele și cartierele exacte ale celor două locații?~~ Ambele în București:
+  Strada Valea Oltului 73, Sector 6, în Drumul Taberei, și Șoseaua București–Târgoviște 19A,
+  Sector 1, în Străulești. Fiecare are pagină proprie, cu coordonate verificate.
+- Există deja Google Business Profile pentru vreuna? **Cea mai importantă întrebare deschisă din
+  epic.** Pentru căutările locale, pachetul local de pe hartă stă deasupra rezultatelor organice,
+  iar asistenții AI compun răspunsul despre „unde învață copiii programare în București" mai mult
+  din profiluri și recenzii decât din site. Două profiluri verificate, cu nume, adresă și telefon
+  identice cu cele din `apps/web/shared/school.ts`, valorează mai mult decât orice schimbare de cod
+  rămasă în acest epic.
+- Cine scrie conținutul? (S6 nu poate începe fără răspuns.)
 - Se țintește și publicul vorbitor de engleză? Ar însemna site bilingv, cu costul aferent.
+  Observație din cercetare: limba întrebării schimbă sursele pe care le citează un asistent, deci
+  un site românesc e răspunsul corect pentru un părinte care întreabă în română.
+- Ce grupe se țin efectiv la fiecare locație, și cu ce profesor? Paginile de locație spun acum
+  onest că se stabilește la înscriere; e singurul lucru care le mai ține să semene între ele.

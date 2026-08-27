@@ -4,9 +4,9 @@
       <span class="kicker">Locația Drumul Taberei</span>
       <h1 class="page-title">Cursuri de informatică pentru copii în Drumul Taberei</h1>
       <p class="lede">
-        IT Bridge School are sală de curs în Drumul Taberei, pe {{ location.street }},
-        {{ location.district }}. Aici vin copii de la clasa 0 până la a 12-a, în grupe mici, la o
-        ședință de 1,5 ore pe săptămână. Sala e la mai puțin de zece minute de mers pe jos de trei
+        IT Bridge School ține cursuri de informatică și programare pentru copii în Drumul Taberei,
+        pe {{ location.street }}, {{ location.district }}. Vin copii de la clasa 0 până la a 12-a,
+        în grupe mici, la o ședință de 1,5 ore pe săptămână. Sala e la 600–850 de metri de trei
         stații de metrou de pe magistrala M5.
       </p>
       <p class="note">Actualizat: {{ CONTENT_UPDATED }}</p>
@@ -21,23 +21,23 @@
     <hr class="rule" />
 
     <section class="section" data-reveal>
-      <h2 class="kicker">Cum ajungi la sală</h2>
+      <h2 class="kicker">Cum ajungi în Valea Oltului</h2>
       <div class="cols-2">
         <div>
           <h3 class="block-title">Cu metroul</h3>
           <p class="body-text">
             Trei stații de pe magistrala M5 sunt la distanță de mers pe jos: Valea Ialomiței, la
             aproximativ 600 de metri, Constantin Brâncuși, la aproximativ 650 de metri, și Râul
-            Doamnei, la aproximativ 850 de metri. Pentru un copil de gimnaziu care vine singur,
-            drumul de la metrou până la sală ține sub zece minute și nu traversează bulevard.
+            Doamnei, la aproximativ 850 de metri — între șapte și douăsprezece minute de mers. Mulți
+            elevi de gimnaziu vin singuri de la metrou.
           </p>
         </div>
         <div>
           <h3 class="block-title">Cu autobuzul sau cu mașina</h3>
           <p class="body-text">
             Stația de autobuz „Valea Oltului" e chiar pe stradă, iar stațiile „Valea Ialomiței" și
-            „Drumul Taberei 98" sunt la câteva minute. Cu mașina, sala e la două minute de Parcul
-            Constantin Brâncuși, unde mulți părinți așteaptă în timpul orei.
+            „Drumul Taberei 98" sunt la câteva minute de mers. Cu mașina se ajunge dinspre
+            Bulevardul Timișoara și dinspre Drumul Taberei.
           </p>
         </div>
       </div>
@@ -90,7 +90,7 @@
     <hr class="rule" />
 
     <section class="section" data-reveal>
-      <h2 class="kicker">Adresă, program și preț</h2>
+      <h2 class="kicker">Unde ne găsești</h2>
       <div class="cols-2">
         <div class="card card-lg">
           <h3 class="sub-title">{{ SCHOOL_NAME }} — {{ location.neighbourhood }}</h3>
@@ -132,7 +132,7 @@
     <hr class="rule" />
 
     <section class="section" data-reveal>
-      <h2 class="kicker">Întrebări frecvente despre locația din Drumul Taberei</h2>
+      <h2 class="kicker">Ce ne întreabă părinții din Drumul Taberei</h2>
       <div class="cols-2">
         <div v-for="entry in faq" :key="entry.question">
           <h3 class="sub-title">{{ entry.question }}</h3>
@@ -171,14 +171,7 @@ import {
 } from "#shared/school";
 import { PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
 import { CONTENT_UPDATED, pageSeo } from "#shared/seo";
-import {
-  breadcrumbNode,
-  faqNode,
-  locationNode,
-  organizationNode,
-  webPageNode,
-  websiteNode,
-} from "#shared/structured-data";
+import { breadcrumbNode, schoolGraph, webPageNode, withFaq } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
 definePageMeta({ layout: "default" as any });
@@ -192,26 +185,26 @@ const faq = [
     question: "Poate veni copilul singur, cu metroul?",
     answer:
       "Da, mulți elevi de gimnaziu vin singuri. Sala e la aproximativ 600 de metri de stația " +
-      "Valea Ialomiței și la 650 de metri de Constantin Brâncuși, ambele pe magistrala M5, iar " +
-      "drumul nu traversează bulevard.",
+      "Valea Ialomiței și la 650 de metri de Constantin Brâncuși, ambele pe magistrala M5.",
   },
   {
-    question: "Locuiesc în Militari. Merită drumul?",
+    question: "Locuiesc în Militari. Cum ajung?",
     answer:
-      "Din Militari se ajunge la Strada Valea Oltului 73 în aproximativ 15 minute cu mașina și " +
-      "direct cu metroul pe M5. Vin copii din Militari, Ghencea și Răzoare la această locație.",
+      "Cu mașina, dinspre Bulevardul Timișoara. Militari nu e pe magistrala M5, care merge de la " +
+      "Eroilor până la Râul Doamnei, așa că din Militari drumul cu metroul ar însemna o " +
+      "schimbare — cei mai mulți părinți din Militari vin cu mașina.",
   },
   {
-    question: "La ce ore se țin cursurile aici?",
+    question: "Copilul meu n-a mai făcut niciodată programare. E o problemă?",
     answer:
-      "Programul școlii este luni–vineri 9:00–18:00 și sâmbătă 10:00–14:00. Ora exactă a grupei " +
-      "se stabilește la înscriere, în funcție de nivelul copilului și de locurile libere.",
+      "Nu. Trei dintre cele șase niveluri pornesc de la zero, iar la prima discuție facem o " +
+      "evaluare scurtă tocmai ca să nimerim grupa potrivită.",
   },
   {
-    question: "Cât costă la această locație?",
+    question: "Ce grupe se țin la Drumul Taberei?",
     answer:
-      "350 de lei pe lună pentru un copil și 600 de lei pe lună pentru doi copii din aceeași " +
-      "familie. Prețurile sunt identice la Drumul Taberei și la Străulești.",
+      "Depinde de modul: grupele se formează pe niveluri, în funcție de câți copii sunt înscriși " +
+      "pe fiecare. Sună-ne și îți spunem ce grupe rulează acum la Valea Oltului și la ce ore.",
   },
 ];
 
@@ -220,15 +213,12 @@ useSeo(seo);
 
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([
-  organizationNode(site),
-  websiteNode(site),
-  webPageNode(site, seo),
+  ...schoolGraph(site),
+  withFaq(webPageNode(site, seo), faq),
   breadcrumbNode(site, [
     { name: "Acasă", path: "/" },
     { name: "Locații", path: "/locatii" },
     { name: location.neighbourhood, path: `/locatii/${location.slug}` },
   ]),
-  locationNode(site, location),
-  faqNode(faq),
 ]);
 </script>

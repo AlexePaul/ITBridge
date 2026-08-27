@@ -8,7 +8,13 @@ import {
   SCHOOL_SOCIAL,
   type SchoolLocation,
 } from "./school";
-import { COURSE_LEVELS, PRICE_ONE_CHILD, SESSION_HOURS, type CourseLevel } from "./courses";
+import {
+  COURSE_LEVELS,
+  MODULE_WEEKS_MIN,
+  PRICE_ONE_CHILD,
+  SESSION_HOURS,
+  type CourseLevel,
+} from "./courses";
 
 type Node = Record<string, unknown>;
 
@@ -25,10 +31,11 @@ export const ids = {
 
 const postalAddress = (location: SchoolLocation) => ({
   "@type": "PostalAddress",
-  streetAddress: location.street,
+  // The sector belongs on the street line: schema.org's addressRegion is a
+  // first-level division, and in Romania that is the municipality itself.
+  streetAddress: `${location.street}, ${location.district}`,
   addressLocality: location.city,
-  // Romanian addresses are read by sector, and that is the level Google uses.
-  addressRegion: location.district,
+  addressRegion: location.region,
   postalCode: location.postalCode,
   addressCountry: location.country,
 });
@@ -56,12 +63,7 @@ export const organizationNode = (site: string): Node => ({
   email: SCHOOL_EMAIL,
   priceRange: `${PRICE_ONE_CHILD} RON`,
   currenciesAccepted: "RON",
-  inLanguage: "ro-RO",
   address: postalAddress(SCHOOL_LOCATIONS[0]!),
-  areaServed: SCHOOL_LOCATIONS.flatMap((location) => location.areaServed).map((area) => ({
-    "@type": "Place",
-    name: area,
-  })),
   sameAs: [SCHOOL_SOCIAL.instagram, SCHOOL_SOCIAL.facebook, SCHOOL_SOCIAL.tiktok],
   location: SCHOOL_LOCATIONS.map((location) => ({ "@id": ids.location(site, location.slug) })),
   openingHoursSpecification: openingHours(),
@@ -86,8 +88,21 @@ export const locationNode = (site: string, location: SchoolLocation): Node => ({
   areaServed: location.areaServed.map((area) => ({ "@type": "Place", name: area })),
   openingHoursSpecification: openingHours(),
   priceRange: `${PRICE_ONE_CHILD} RON`,
-  image: `${trimSlash(site)}/images/clasa-01.jpg`,
+  // No image: the photographs on file are of the school, but which room is
+  // which has not been confirmed, and a LocalBusiness node claiming the wrong
+  // interior is worse than one claiming none.
 });
+
+/**
+ * The nodes every page carries. The organization references both addresses, so
+ * both address nodes have to travel with it — a @id pointing at a node that is
+ * not in the document is a dangling reference, and a parser drops the link.
+ */
+export const schoolGraph = (site: string): Node[] => [
+  organizationNode(site),
+  websiteNode(site),
+  ...SCHOOL_LOCATIONS.map((location) => locationNode(site, location)),
+];
 
 export const websiteNode = (site: string): Node => ({
   "@type": "WebSite",
@@ -139,24 +154,42 @@ export const courseNode = (site: string, course: CourseLevel): Node => ({
   inLanguage: "ro-RO",
   teaches: course.teaches,
   educationalLevel: course.level,
+  // suggestedMinAge/MaxAge live on PeopleAudience; EducationalAudience does not
+  // carry them, and a property outside its domain is discarded.
   audience: {
-    "@type": "EducationalAudience",
-    educationalRole: "student",
+    "@type": "PeopleAudience",
     suggestedMinAge: course.minAge,
     suggestedMaxAge: course.maxAge,
   },
   offers: {
     "@type": "Offer",
-    price: PRICE_ONE_CHILD,
-    priceCurrency: "RON",
-    category: "Taxă lunară",
+    // "Subscription" is one of the four values Google reads here; the Romanian
+    // label it used to carry was simply dropped.
+    category: "Subscription",
     availability: "https://schema.org/InStock",
     url: `${trimSlash(site)}/cursuri`,
+    price: PRICE_ONE_CHILD,
+    priceCurrency: "RON",
+    priceSpecification: {
+      "@type": "UnitPriceSpecification",
+      price: PRICE_ONE_CHILD,
+      priceCurrency: "RON",
+      unitText: "lună",
+      referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
+    },
   },
   hasCourseInstance: {
     "@type": "CourseInstance",
     courseMode: "Onsite",
-    courseWorkload: isoDuration(SESSION_HOURS),
+    // The workload is the module, not one session: MODULE_WEEKS_MIN sessions of
+    // SESSION_HOURS each, stated at the floor of the 6–8 week range.
+    courseWorkload: isoDuration(SESSION_HOURS * MODULE_WEEKS_MIN),
+    courseSchedule: {
+      "@type": "Schedule",
+      repeatFrequency: "P1W",
+      repeatCount: MODULE_WEEKS_MIN,
+      duration: isoDuration(SESSION_HOURS),
+    },
     inLanguage: "ro-RO",
     location: SCHOOL_LOCATIONS.map((location) => ({ "@id": ids.location(site, location.slug) })),
   },
@@ -186,8 +219,14 @@ export const courseListNode = (site: string): Node => ({
 export const allCourseNodes = (site: string) =>
   COURSE_LEVELS.map((course) => courseNode(site, course));
 
-export const faqNode = (questions: { question: string; answer: string }[]): Node => ({
-  "@type": "FAQPage",
+/**
+ * Folded into the page node rather than emitted beside it: FAQPage is a
+ * subclass of WebPage, so a separate node would describe the same URL twice
+ * with two competing entities.
+ */
+export const withFaq = (page: Node, questions: { question: string; answer: string }[]): Node => ({
+  ...page,
+  "@type": ["WebPage", "FAQPage"],
   mainEntity: questions.map((entry) => ({
     "@type": "Question",
     name: entry.question,

@@ -127,12 +127,11 @@ import { SCHOOL_LOCATIONS, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/schoo
 import { COURSE_LEVELS, PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
 import { CONTENT_UPDATED, pageSeo } from "#shared/seo";
 import {
+  schoolGraph,
   breadcrumbNode,
   courseListNode,
-  faqNode,
-  organizationNode,
+  withFaq,
   webPageNode,
-  websiteNode,
 } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
@@ -199,14 +198,12 @@ useSeo(seo);
 
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([
-  organizationNode(site),
-  websiteNode(site),
-  webPageNode(site, seo),
+  ...schoolGraph(site),
+  withFaq(webPageNode(site, seo), faq),
   breadcrumbNode(site, [
     { name: "Acasă", path: "/" },
     { name: "Cursuri", path: "/cursuri" },
   ]),
   courseListNode(site),
-  faqNode(faq),
 ]);
 </script>

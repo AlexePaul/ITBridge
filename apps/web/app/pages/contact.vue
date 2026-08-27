@@ -93,20 +93,6 @@
               >detalii despre locație</NuxtLink
             >
           </p>
-          <div v-if="location.mapEmbedUrl" class="plate">
-            <iframe
-              :src="location.mapEmbedUrl"
-              :title="`Hartă — ${location.name}`"
-              width="100%"
-              height="280"
-              style="border: 0"
-              loading="lazy"
-              referrerpolicy="no-referrer-when-downgrade"
-            ></iframe>
-          </div>
-          <div v-else class="map-placeholder">
-            <p class="stat-label">Hartă — se adaugă după confirmarea adresei</p>
-          </div>
         </div>
       </div>
     </section>
@@ -118,13 +104,7 @@ import { useReveal } from "~/composables/useReveal";
 import { useSeo } from "~/composables/useSeo";
 import { useJsonLd } from "~/composables/useJsonLd";
 import { pageSeo } from "#shared/seo";
-import {
-  breadcrumbNode,
-  locationNode,
-  organizationNode,
-  webPageNode,
-  websiteNode,
-} from "#shared/structured-data";
+import { schoolGraph, breadcrumbNode, webPageNode } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 import {
   SCHOOL_EMAIL,
@@ -154,13 +134,11 @@ useSeo(seo);
 
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([
-  organizationNode(site),
-  websiteNode(site),
+  ...schoolGraph(site),
   { ...webPageNode(site, seo), "@type": "ContactPage" },
   breadcrumbNode(site, [
     { name: "Acasă", path: "/" },
     { name: "Contact", path: "/contact" },
   ]),
-  ...SCHOOL_LOCATIONS.map((location) => locationNode(site, location)),
 ]);
 </script>

@@ -2,7 +2,7 @@
   <footer>
     <hr class="rule" />
     <div class="page section">
-      <div class="footer-grid footer-grid-4">
+      <div class="footer-grid footer-grid-5">
         <div>
           <p class="footer-title">IT Bridge School</p>
           <p class="footer-note">
@@ -16,6 +16,16 @@
             <NuxtLink to="/cursuri" class="footer-link">Cursuri și înscrieri</NuxtLink>
             <NuxtLink to="/despre-noi" class="footer-link">Despre noi</NuxtLink>
             <NuxtLink to="/contact" class="footer-link">Contact</NuxtLink>
+          </div>
+        </div>
+        <div>
+          <p class="kicker">Contact</p>
+          <div class="footer-links">
+            <a :href="SCHOOL_PHONE_HREF" class="footer-link tnum">{{ SCHOOL_PHONE }}</a>
+            <a :href="`mailto:${SCHOOL_EMAIL}`" class="footer-link">{{ SCHOOL_EMAIL }}</a>
+            <span v-for="hours in SCHOOL_HOURS" :key="hours" class="footer-link tnum">
+              {{ hours }}
+            </span>
           </div>
         </div>
         <div>
@@ -62,7 +72,14 @@ import { computed } from "vue";
 import tiktokSvg from "~/assets/icons/tiktok.svg?raw";
 import facebookSvg from "~/assets/icons/facebook.svg?raw";
 import instagramSvg from "~/assets/icons/instagram.svg?raw";
-import { SCHOOL_LOCATIONS, SCHOOL_SOCIAL } from "#shared/school";
+import {
+  SCHOOL_EMAIL,
+  SCHOOL_HOURS,
+  SCHOOL_LOCATIONS,
+  SCHOOL_PHONE,
+  SCHOOL_PHONE_HREF,
+  SCHOOL_SOCIAL,
+} from "#shared/school";
 
 // Inject fill=currentColor and make the svg scale to the wrapper
 const svgWithCurrentColor = (svg: string) =>

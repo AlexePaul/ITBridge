@@ -106,13 +106,7 @@ import { useJsonLd } from "~/composables/useJsonLd";
 import { SCHOOL_LOCATIONS } from "#shared/school";
 import { TEACHERS } from "#shared/teachers";
 import { pageSeo } from "#shared/seo";
-import {
-  breadcrumbNode,
-  organizationNode,
-  personNode,
-  webPageNode,
-  websiteNode,
-} from "#shared/structured-data";
+import { schoolGraph, breadcrumbNode, personNode, webPageNode } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
 definePageMeta({
@@ -153,8 +147,7 @@ useSeo(seo);
 
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([
-  organizationNode(site),
-  websiteNode(site),
+  ...schoolGraph(site),
   webPageNode(site, seo),
   breadcrumbNode(site, [
     { name: "Acasă", path: "/" },

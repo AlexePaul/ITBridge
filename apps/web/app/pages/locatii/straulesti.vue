@@ -7,9 +7,9 @@
       </h1>
       <p class="lede">
         A doua sală a IT Bridge School e în nordul Bucureștiului, pe {{ location.street }},
-        {{ location.district }}, în zona Străulești. Aceleași șase niveluri ca la Drumul Taberei, de
-        la clasa 0 până la pregătirea pentru Bacalaureat, în grupe mici, cu o ședință de 1,5 ore pe
-        săptămână.
+        {{ location.district }}, în Străulești — la câteva minute de Bucureștii Noi. Aceleași șase
+        niveluri de programare ca la Drumul Taberei, de la clasa 0 până la pregătirea pentru
+        Bacalaureat, în grupe mici, cu o ședință de 1,5 ore pe săptămână.
       </p>
       <p class="note">Actualizat: {{ CONTENT_UPDATED }}</p>
       <div class="actions">
@@ -25,14 +25,10 @@
     <section class="section" data-reveal>
       <h2 class="kicker">Pentru cine e această locație</h2>
       <p class="body-text measure-wide">
-        Sala din Străulești e făcută pentru familiile din nordul orașului și din Ilfovul de lângă
-        el. Vin copii din Străulești, Bucureștii Noi, Dămăroaia și Băneasa — Sectorul 1 — dar și din
-        Chitila și Mogoșoaia, care sunt la câteva minute pe Șoseaua București–Târgoviște și pentru
-        care drumul până în centrul Bucureștiului ar însemna de trei ori mai mult timp.
-      </p>
-      <p class="body-text measure-wide">
-        Fără diacritice, cum caută mulți părinți: cursuri de programare pentru copii în Straulesti,
-        Bucurestii Noi, Baneasa, Chitila și Mogosoaia.
+        Sala din Străulești e făcută pentru familiile din nordul orașului. Vin copii din Străulești
+        și din Bucureștii Noi, din Dămăroaia și din Băneasa. Vin și din Chitila și din Mogoșoaia,
+        care sunt la câteva minute pe Șoseaua București–Târgoviște și pentru care un curs în centrul
+        Bucureștiului ar însemna un drum mult mai lung.
       </p>
     </section>
 
@@ -50,7 +46,7 @@
         />
       </figure>
       <div>
-        <h2 class="kicker">Cum ajungi la sală</h2>
+        <h2 class="kicker">Cum ajungi pe șosea</h2>
         <h3 class="section-title">Cu mașina de pe șosea, sau cu metroul M4</h3>
         <p class="body-text">
           Adresa e pe Șoseaua București–Târgoviște, la ieșirea spre nord, deci cei mai mulți părinți
@@ -93,7 +89,7 @@
     <hr class="rule" />
 
     <section class="section" data-reveal>
-      <h2 class="kicker">Adresă, program și preț</h2>
+      <h2 class="kicker">Adresa și programul</h2>
       <div class="cols-2">
         <div class="card card-lg">
           <h3 class="sub-title">{{ SCHOOL_NAME }} — {{ location.neighbourhood }}</h3>
@@ -138,7 +134,7 @@
     <hr class="rule" />
 
     <section class="section" data-reveal>
-      <h2 class="kicker">Întrebări frecvente despre locația din Străulești</h2>
+      <h2 class="kicker">Ce ne întreabă părinții din nordul orașului</h2>
       <div class="cols-2">
         <div v-for="entry in faq" :key="entry.question">
           <h3 class="sub-title">{{ entry.question }}</h3>
@@ -177,14 +173,7 @@ import {
 } from "#shared/school";
 import { PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
 import { CONTENT_UPDATED, pageSeo } from "#shared/seo";
-import {
-  breadcrumbNode,
-  faqNode,
-  locationNode,
-  organizationNode,
-  webPageNode,
-  websiteNode,
-} from "#shared/structured-data";
+import { breadcrumbNode, schoolGraph, webPageNode, withFaq } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
 definePageMeta({ layout: "default" as any });
@@ -198,26 +187,25 @@ const faq = [
     question: "Veniți și copii din Mogoșoaia sau Chitila?",
     answer:
       "Da. Sala e pe Șoseaua București–Târgoviște, la câteva minute de Mogoșoaia și Chitila, așa " +
-      "că familiile din Ilfovul de nord ajung aici mai repede decât în oraș.",
+      "că familiile din nordul Ilfovului ajung aici fără să intre în oraș.",
   },
   {
     question: "Se poate ajunge cu metroul?",
     answer:
-      "Da. Stația Străulești, capătul magistralei M4, e la aproximativ 1,1 km de sală, iar acolo " +
-      "sunt și terminalul de autobuze și parcarea park-and-ride.",
-  },
-  {
-    question: "Ce se întâmplă la prima ședință?",
-    answer:
-      "Facem o evaluare scurtă, ca să vedem de unde pornește copilul, apoi intră în grupa " +
-      "potrivită nivelului lui. Fiecare ședință durează 1,5 ore și se încheie cu ceva construit " +
-      "de copil.",
+      "Da. Stația Străulești, capătul magistralei M4, e la aproximativ 1,1 kilometri de sală, iar " +
+      "acolo sunt și terminalul de autobuze și parcarea park-and-ride.",
   },
   {
     question: "Cursurile sunt aceleași ca la Drumul Taberei?",
     answer:
-      "Da. Aceleași șase niveluri, aceeași programă și același preț: 350 de " +
-      "lei pe lună pentru un copil, 600 pentru doi copii din aceeași familie.",
+      "Da: aceleași șase niveluri, aceeași programă și același preț. Diferă doar sala și orarul " +
+      "grupelor, care depinde de câți copii sunt înscriși pe fiecare nivel la fiecare locație.",
+  },
+  {
+    question: "Ce grupe se țin în Străulești?",
+    answer:
+      "Se stabilește la începutul fiecărui modul, în funcție de înscrieri. Sună-ne și îți spunem " +
+      "ce grupe rulează acum aici și la ce ore.",
   },
 ];
 
@@ -226,15 +214,12 @@ useSeo(seo);
 
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([
-  organizationNode(site),
-  websiteNode(site),
-  webPageNode(site, seo),
+  ...schoolGraph(site),
+  withFaq(webPageNode(site, seo), faq),
   breadcrumbNode(site, [
     { name: "Acasă", path: "/" },
     { name: "Locații", path: "/locatii" },
     { name: location.neighbourhood, path: `/locatii/${location.slug}` },
   ]),
-  locationNode(site, location),
-  faqNode(faq),
 ]);
 </script>
