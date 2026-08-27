@@ -2,7 +2,7 @@
   <div class="page">
     <section class="section-lead" data-reveal>
       <span class="kicker">Despre noi</span>
-      <h1 class="page-title">Transformăm copiii în creatori de tehnologie.</h1>
+      <h1 class="page-title">Transformăm copiii în creatori de tehnologie</h1>
       <p class="lede justified">
         IT Bridge School este o școală de informatică pentru copii, cu două locații în București.
         Credem că fiecare copil merită șansa de a-și atinge potențialul în IT — și că învățarea
@@ -18,7 +18,7 @@
 
       <div class="split split-reverse split-start section" data-reveal>
         <figure class="plate portrait plate-md">
-          <img :src="paul.image" :alt="paul.imageAlt" width="900" height="1350" />
+          <img :src="paul.image" :alt="paul.imageAlt" width="900" height="1350" loading="lazy" />
         </figure>
         <div>
           <h3 class="section-title" :id="paul.slug">{{ paul.name }}</h3>
@@ -48,7 +48,7 @@
           </div>
         </div>
         <figure class="plate portrait plate-md self-end">
-          <img :src="ana.image" :alt="ana.imageAlt" width="900" height="1350" />
+          <img :src="ana.image" :alt="ana.imageAlt" width="900" height="1350" loading="lazy" />
         </figure>
       </div>
     </section>

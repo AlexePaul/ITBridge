@@ -119,6 +119,5 @@ export const COURSE_LEVELS: CourseLevel[] = [
 export const PRICE_ONE_CHILD = 350;
 export const PRICE_TWO_CHILDREN = 600;
 export const SESSION_HOURS = 1.5;
-export const SESSIONS_PER_WEEK = 1;
 export const MODULE_WEEKS_MIN = 6;
 export const MODULE_WEEKS_MAX = 8;

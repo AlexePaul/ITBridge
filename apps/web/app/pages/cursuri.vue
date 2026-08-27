@@ -2,9 +2,9 @@
   <div class="page">
     <section class="section-lead" data-reveal>
       <span class="kicker">Cursuri</span>
-      <h1 class="page-title">Un nivel pentru fiecare vârstă.</h1>
+      <h1 class="page-title">Un nivel pentru fiecare vârstă</h1>
       <p class="lede">
-        IT Bridge School ține cursuri de informatică și programare pentru copii de 6–19 ani, în
+        La IT Bridge School se țin cursuri de informatică și programare pentru copii de 6–19 ani, în
         București, la Drumul Taberei și la Străulești. Șase niveluri, de la primii pași pe
         calculator până la C++, olimpiade și Bacalaureat. Un modul durează 6–8 săptămâni, cu o
         ședință de 1,5 ore pe săptămână, în grupe mici.

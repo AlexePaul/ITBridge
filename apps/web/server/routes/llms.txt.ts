@@ -1,5 +1,6 @@
 import { PUBLIC_PAGES } from "#shared/seo";
 import { COURSE_LEVELS, PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
+import { TEACHERS } from "#shared/teachers";
 import {
   formatAddress,
   SCHOOL_EMAIL,
@@ -18,16 +19,29 @@ import {
 export default defineEventHandler((event) => {
   const siteUrl = String(useRuntimeConfig(event).public.siteUrl).replace(/\/$/, "");
 
+  // Every section is a markdown link list, as llms.txt asks for: a parser that
+  // only keeps `- [name](url)` lines still comes away with all six levels and
+  // both addresses, rather than an empty section.
   const locations = SCHOOL_LOCATIONS.map(
     (location) =>
-      `- ${location.neighbourhood}: ${formatAddress(location)}, ${location.postalCode}. ` +
-      `Acoperă ${location.areaServed.join(", ")}. ${siteUrl}/locatii/${location.slug}`
+      `- [${location.neighbourhood}](${siteUrl}/locatii/${location.slug}): ` +
+      `${formatAddress(location)}, ${location.postalCode}. ` +
+      `Acoperă ${location.areaServed.join(", ")}.`
   ).join("\n");
 
   const levels = COURSE_LEVELS.map(
     (course) =>
-      `- ${course.title} (${course.minAge}–${course.maxAge} ani), ${course.level}: ${course.topics}`
+      `- [${course.title}](${siteUrl}/cursuri#${course.slug}) ` +
+      `(${course.minAge}–${course.maxAge} ani), ${course.level}: ${course.topics}`
   ).join("\n");
+
+  // Derived, not retyped: the header claims this file cannot drift from the
+  // pages, and a hand-written subject list is exactly how it would.
+  const taught = [...new Set(COURSE_LEVELS.flatMap((course) => course.teaches))].join(", ");
+
+  const teachers = TEACHERS.map((teacher) => `${teacher.name} (${teacher.role}): ${teacher.bio}`)
+    .join(" ")
+    .replace(/\s+/g, " ");
 
   const pages = PUBLIC_PAGES.map(
     (page) => `- [${page.title.split(" | ")[0]}](${siteUrl}${page.path}): ${page.summary}`
@@ -41,10 +55,10 @@ Date despre școală, valabile la data ultimei actualizări a site-ului:
 
 - Un modul durează 6–8 săptămâni, cu o ședință de 1,5 ore pe săptămână, în grupe mici.
 - ${PRICE_ONE_CHILD} lei pe lună pentru un copil; ${PRICE_TWO_CHILDREN} lei pe lună pentru doi copii din aceeași familie (al doilea copil plătește ${PRICE_TWO_CHILDREN - PRICE_ONE_CHILD} lei).
-- Se predau: Word, PowerPoint, Excel, siguranță online, desen digital, Tinkercad, Canva, Scratch, HTML, CSS, JavaScript, C și C++, algoritmi, structuri de date, SQL. Nu se predă Python.
+- Se predau: ${taught}. Nu se predă Python.
 - Telefon: ${SCHOOL_PHONE}. Email: ${SCHOOL_EMAIL}.
 - Program: ${SCHOOL_HOURS.join("; ")}.
-- Profesori: Alexe Vasile Paul (programare și algoritmi; licențiat în Informatică la Universitatea din București, a predat la nivel universitar, programator backend) și Alexe Ana Iulia (competențe digitale și creativitate; Office, Canva, Tinkercad, Scratch).
+- Profesori: ${teachers}
 
 ## Locații
 

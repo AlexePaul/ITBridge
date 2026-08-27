@@ -38,7 +38,6 @@ export interface SchoolLocation {
 }
 
 export const SCHOOL_NAME = "IT Bridge School";
-export const SCHOOL_LEGAL_NAME = "IT Bridge School";
 export const SCHOOL_PHONE = "+40 732 273 347";
 export const SCHOOL_PHONE_E164 = "+40732273347";
 export const SCHOOL_PHONE_HREF = `tel:${SCHOOL_PHONE_E164}`;

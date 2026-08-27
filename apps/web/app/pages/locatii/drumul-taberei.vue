@@ -6,8 +6,8 @@
       <p class="lede">
         IT Bridge School ține cursuri de informatică și programare pentru copii în Drumul Taberei,
         pe {{ location.street }}, {{ location.district }}. Vin copii de la clasa 0 până la a 12-a,
-        în grupe mici, la o ședință de 1,5 ore pe săptămână. Sala e la 600–850 de metri de trei
-        stații de metrou de pe magistrala M5.
+        în grupe mici, la o ședință de 1,5 ore pe săptămână. Cele mai apropiate trei stații de
+        metrou de pe magistrala M5 sunt la 600–850 de metri de sală.
       </p>
       <p class="note">Actualizat: {{ CONTENT_UPDATED }}</p>
       <div class="actions">
@@ -35,8 +35,8 @@
         <div>
           <h3 class="block-title">Cu autobuzul sau cu mașina</h3>
           <p class="body-text">
-            Stația de autobuz „Valea Oltului" e chiar pe stradă, iar stațiile „Valea Ialomiței" și
-            „Drumul Taberei 98" sunt la câteva minute de mers.
+            Stația de autobuz „Valea Oltului” e chiar pe stradă, iar stațiile „Valea Ialomiței” și
+            „Drumul Taberei 98” sunt la câteva minute de mers.
           </p>
         </div>
       </div>

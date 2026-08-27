@@ -43,6 +43,15 @@ export const useReveal = () => {
 
     await nextTick();
     document.querySelectorAll<HTMLElement>("[data-reveal]").forEach((element) => {
+      // Whatever is already on screen has been painted opaque since first
+      // paint; adding `reveal-on` would hide it and fade it back in, so every
+      // page opened with a visible blink of its own hero. Mark those revealed
+      // without an animation and observe only what is still below the fold.
+      if (element.getBoundingClientRect().top < window.innerHeight) {
+        element.classList.add("is-revealed");
+        element.style.animation = "none";
+        return;
+      }
       observer?.observe(element);
     });
   });

@@ -51,8 +51,8 @@
         </p>
         <p class="body-text">
           Cu transportul în comun, stația de metrou Străulești, capătul magistralei M4, e la
-          aproximativ 1,1 km. Acolo e și terminalul de autobuze și parcarea park-and-ride, așa că un
-          părinte care vine de la serviciu poate lăsa mașina și continua cu metroul.
+          aproximativ 1,1 km. Acolo e și terminalul de autobuze, și parcarea park-and-ride, așa că
+          un părinte care vine de la serviciu poate lăsa mașina acolo și continua cu autobuzul.
         </p>
       </div>
     </section>
@@ -183,16 +183,18 @@ const location = findLocation("straulesti")!;
 
 const faq = [
   {
-    question: "Veniți și copii din Mogoșoaia sau Chitila?",
+    question: "Vin copii și din Mogoșoaia sau din Chitila?",
     answer:
-      "Da. Sala e pe Șoseaua București–Târgoviște, la câteva minute de Mogoșoaia și Chitila, așa " +
-      "că familiile din nordul Ilfovului ajung aici fără să intre în oraș.",
+      "Da. Sala din Străulești e pe Șoseaua București–Târgoviște, la câteva minute de Mogoșoaia " +
+      "și de Chitila, așa că familiile din nordul Ilfovului ajung la IT Bridge School fără să " +
+      "intre în oraș.",
   },
   {
     question: "Se poate ajunge cu metroul?",
     answer:
-      "Da. Stația Străulești, capătul magistralei M4, e la aproximativ 1,1 kilometri de sală, iar " +
-      "acolo sunt și terminalul de autobuze și parcarea park-and-ride.",
+      "Da. Stația Străulești, capătul magistralei M4, e la aproximativ 1,1 kilometri de sala din " +
+      "Străulești, iar de acolo drumul se continuă cu autobuzul. În stație sunt și terminalul de " +
+      "autobuze, și parcarea park-and-ride, așa că mașina poate fi lăsată acolo.",
   },
   {
     question: "Cursurile sunt aceleași ca la Drumul Taberei?",

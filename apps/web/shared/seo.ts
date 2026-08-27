@@ -75,7 +75,11 @@ const LOCATIONS_INDEX: PageSeo = {
 const LOCATION_PAGES: PageSeo[] = [
   {
     path: "/locatii/drumul-taberei",
-    title: "Cursuri de informatică pentru copii în Drumul Taberei | IT Bridge School",
+    // No brand suffix on the two location titles: with it they run to 72 and 68
+    // characters and Google truncates it away anyway. The neighbourhood is the
+    // whole point of the page, and the site name still reaches the SERP through
+    // og:site_name and the WebSite node.
+    title: "Cursuri de informatică pentru copii în Drumul Taberei",
     description:
       "Cursuri de programare pentru copii pe Valea Oltului 73, Sector 6, la 600–850 m de trei " +
       `stații de metrou M5. Grupe mici, ${PRICE_ONE_CHILD} lei pe lună.`,
@@ -86,7 +90,7 @@ const LOCATION_PAGES: PageSeo[] = [
   },
   {
     path: "/locatii/straulesti",
-    title: "Cursuri de informatică pentru copii în Străulești | IT Bridge School",
+    title: "Cursuri de informatică pentru copii în Străulești",
     description:
       "Cursuri de programare pentru copii pe Șos. București–Târgoviște 19A, Sector 1 — pentru " +
       `Străulești, Bucureștii Noi, Chitila și Mogoșoaia. ${PRICE_ONE_CHILD} lei pe lună.`,

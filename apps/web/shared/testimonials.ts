@@ -19,7 +19,7 @@ export const TESTIMONIALS = {
     quote:
       "Cel mai mult mă bucură faptul că a început să vadă calculatorul altfel. Nu îl mai percepe " +
       "doar ca pe un mijloc de distracție, ci ca pe un instrument cu ajutorul căruia poate crea, " +
-      "experimenta și învăța. Vine de la cursuri entuziasmat și abia așteaptă să ne arate ce a făcut.",
+      "experimenta și învăța. Vine de la cursuri entuziasmată și abia așteaptă să ne arate ce a făcut.",
     source: "Mama unei eleve din clasa a IV-a",
   },
   /** On the courses page, where a parent is deciding: one small child, one result. */

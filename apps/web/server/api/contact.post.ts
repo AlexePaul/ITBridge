@@ -49,6 +49,19 @@ interface ResendResponse {
 }
 
 export default defineEventHandler(async (event) => {
+  // `readBody` also parses `application/x-www-form-urlencoded`, which is a
+  // CORS-simple content type: a cross-origin <form> can post to this route with
+  // no preflight, and every visitor a bot sends brings its own per-IP budget.
+  // The page posts JSON, so requiring it costs nothing and closes that door.
+  const contentType = getRequestHeader(event, "content-type") ?? "";
+  if (!contentType.toLowerCase().startsWith("application/json")) {
+    throw createError({
+      statusCode: 415,
+      statusMessage: "Unsupported media type",
+      data: { message: FALLBACK_MESSAGE },
+    });
+  }
+
   const config = useRuntimeConfig(event);
 
   /*

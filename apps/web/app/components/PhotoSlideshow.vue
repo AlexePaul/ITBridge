@@ -1,10 +1,13 @@
 <template>
-  <div @keydown.left.prevent="jumpTo(previousIndex)" @keydown.right.prevent="jumpTo(nextIndex)">
+  <div
+    role="group"
+    aria-roledescription="carusel"
+    :aria-label="label"
+    @keydown.left.prevent="jumpTo(previousIndex)"
+    @keydown.right.prevent="jumpTo(nextIndex)"
+  >
     <figure
       class="plate slideshow"
-      role="group"
-      aria-roledescription="carusel"
-      :aria-label="label"
       @mouseenter="isHovered = true"
       @mouseleave="isHovered = false"
       @touchstart.passive="onTouchStart"
@@ -13,11 +16,11 @@
       <img
         v-for="(photo, index) in photos"
         :key="photo.src"
-        :src="photo.src"
+        :src="loaded.has(index) ? photo.src : undefined"
         :alt="photo.alt"
         class="slide"
         :class="{ 'is-current': index === current }"
-        :loading="index === 0 ? 'eager' : 'lazy'"
+        :fetchpriority="index === 0 ? 'high' : undefined"
         :aria-hidden="index === current ? undefined : 'true'"
       />
     </figure>
@@ -84,6 +87,24 @@ const isPlaying = ref(true);
 const isHovered = ref(false);
 let timer: ReturnType<typeof setInterval> | undefined;
 
+/**
+ * Which photographs have been fetched. Every slide is `position: absolute` in
+ * the same box, so all of them are inside the viewport and `loading="lazy"`
+ * defers nothing — the first paint pulled the whole set, most of it for a frame
+ * the reader may never reach. Only the current slide and its two neighbours
+ * carry a `src`; the set only ever grows, so a photograph already seen does not
+ * refetch or flicker when it comes round again, and the crossfade always has
+ * both frames in the DOM.
+ */
+const loaded = ref(new Set<number>());
+
+const preload = (index: number) => {
+  const count = props.photos.length;
+  const next = new Set(loaded.value);
+  for (const offset of [-1, 0, 1]) next.add((index + offset + count) % count);
+  loaded.value = next;
+};
+
 const nextIndex = computed(() => (current.value + 1) % props.photos.length);
 const previousIndex = computed(
   () => (current.value - 1 + props.photos.length) % props.photos.length
@@ -91,7 +112,10 @@ const previousIndex = computed(
 
 function show(index: number) {
   current.value = index;
+  preload(index);
 }
+
+preload(0);
 
 const stop = () => {
   clearInterval(timer);

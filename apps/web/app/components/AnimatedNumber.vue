@@ -52,7 +52,17 @@ onMounted(() => {
   if (!root.value) return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
+  // Anything already on screen counts straight away. Zeroing every figure and
+  // then waiting for the 0.4 threshold leaves one that is on screen but only
+  // partly visible — and never scrolled further — reading "0" for good, which
+  // on /cursuri is the price. A figure that never animated beats a wrong one.
+  const rect = root.value.getBoundingClientRect();
   display.value = render(0);
+
+  if (rect.top < window.innerHeight && rect.bottom > 0) {
+    count(performance.now());
+    return;
+  }
 
   observer = new IntersectionObserver(
     (entries) => {

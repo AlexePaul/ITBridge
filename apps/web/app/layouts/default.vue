@@ -1,7 +1,9 @@
 <template>
   <div class="min-h-screen flex flex-col">
+    <!-- Eight header tab stops sit before the content on every navigation. -->
+    <a href="#continut" class="skip-link">Sari la conținut</a>
     <Navbar />
-    <UMain>
+    <UMain id="continut" tabindex="-1">
       <slot />
     </UMain>
     <AppFooter />

@@ -1,5 +1,4 @@
 import {
-  formatAddress,
   SCHOOL_EMAIL,
   SCHOOL_LOCATIONS,
   SCHOOL_NAME,

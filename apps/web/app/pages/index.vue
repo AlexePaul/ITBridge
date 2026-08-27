@@ -3,7 +3,7 @@
     <section class="section-hero" data-reveal>
       <h1 class="display">
         <span>Copiii nu doar folosesc tehnologia. </span>
-        <span>La noi învață să o creeze.</span>
+        <span>La noi învață să o creeze</span>
       </h1>
       <p class="lede lede-loose">
         IT Bridge School este o școală de informatică pentru copii, cu două locații în București —
@@ -50,7 +50,8 @@
         <p class="body-text justified measure">
           Fiecare ședință de 1,5 ore se termină cu ceva lucrat de copil: un desen digital la
           nivelurile mici, un joc în Scratch la mijloc, o pagină web sau un program în C++ la cele
-          mari. Grupele mici înseamnă că profesorul ajunge la fiecare, la fiecare oră.
+          mari. Grupele sunt mici tocmai ca profesorul să ajungă la fiecare copil în timpul orei, nu
+          doar la cei care ridică mâna.
         </p>
         <p class="body-text">
           <NuxtLink to="/despre-noi" class="link">Cunoaște echipa și locațiile →</NuxtLink>
@@ -121,6 +122,10 @@ const photos = [
   {
     src: "/images/clasa-03.jpg",
     alt: "Oră despre istoria calculatoarelor, la sala din Drumul Taberei",
+  },
+  {
+    src: "/images/clasa-04.jpg",
+    alt: "Doi elevi lucrează în Scratch, cu proiectul afișat pe tabla din sala de curs",
   },
   {
     src: "/images/straulesti-02.jpg",

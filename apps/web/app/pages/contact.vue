@@ -2,7 +2,7 @@
   <div class="page">
     <section class="section-lead" data-reveal>
       <span class="kicker">Contact</span>
-      <h1 class="page-title">Hai să stăm de vorbă.</h1>
+      <h1 class="page-title">Hai să stăm de vorbă</h1>
       <p class="lede">
         Sună la <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a> sau scrie la
         <a :href="`mailto:${SCHOOL_EMAIL}`" class="link">{{ SCHOOL_EMAIL }}</a
@@ -44,8 +44,11 @@
                 autocomplete="name"
                 placeholder="ex. Maria Ionescu"
                 :aria-invalid="Boolean(errors.name)"
+                :aria-describedby="errors.name ? 'contact-name-error' : undefined"
               />
-              <p v-if="errors.name" class="field-error">{{ errors.name }}</p>
+              <p v-if="errors.name" id="contact-name-error" class="field-error">
+                {{ errors.name }}
+              </p>
             </div>
             <div class="field">
               <label for="contact-reply">Telefon sau email</label>
@@ -58,18 +61,30 @@
                 autocomplete="tel"
                 placeholder="ex. 07xx xxx xxx"
                 :aria-invalid="Boolean(errors.reply)"
+                :aria-describedby="errors.reply ? 'contact-reply-error' : undefined"
               />
-              <p v-if="errors.reply" class="field-error">{{ errors.reply }}</p>
+              <p v-if="errors.reply" id="contact-reply-error" class="field-error">
+                {{ errors.reply }}
+              </p>
             </div>
           </div>
           <div class="field">
             <label for="contact-subject">Subiect</label>
-            <select id="contact-subject" v-model="form.subject" class="input" name="subject">
+            <select
+              id="contact-subject"
+              v-model="form.subject"
+              class="input"
+              name="subject"
+              :aria-invalid="Boolean(errors.subject)"
+              :aria-describedby="errors.subject ? 'contact-subject-error' : undefined"
+            >
               <option v-for="subject in CONTACT_SUBJECTS" :key="subject" :value="subject">
                 {{ subject }}
               </option>
             </select>
-            <p v-if="errors.subject" class="field-error">{{ errors.subject }}</p>
+            <p v-if="errors.subject" id="contact-subject-error" class="field-error">
+              {{ errors.subject }}
+            </p>
           </div>
           <div class="field">
             <label for="contact-message">Mesaj</label>
@@ -81,8 +96,11 @@
               name="message"
               placeholder="Vârsta copilului, experiența lui cu calculatorul și ce te-ar interesa…"
               :aria-invalid="Boolean(errors.message)"
+              :aria-describedby="errors.message ? 'contact-message-error' : undefined"
             ></textarea>
-            <p v-if="errors.message" class="field-error">{{ errors.message }}</p>
+            <p v-if="errors.message" id="contact-message-error" class="field-error">
+              {{ errors.message }}
+            </p>
           </div>
 
           <!--
@@ -122,7 +140,6 @@
             <UIcon name="i-lucide-phone" class="marker size-4.5" />
             <div>
               <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a>
-              <p class="note tnum">{{ SCHOOL_HOURS[0] }}, {{ SCHOOL_HOURS[1] }}</p>
             </div>
           </div>
           <div class="marked">
@@ -241,13 +258,19 @@ const onSubmit = async () => {
     await $fetch("/api/contact", { method: "POST", body: result.data });
     sent.value = true;
   } catch (error) {
-    // The route answers with `data.message` in Romanian for every failure it
-    // knows about — an unset key, the rate limit, a rejection from Resend. A
-    // network error carries none, so it falls back to a generic line.
-    const data = (error as { data?: { message?: string; fieldErrors?: typeof errors } })?.data;
-    if (data?.fieldErrors) Object.assign(errors, data.fieldErrors);
+    // Nitro nests the payload one level deeper than it looks. The response body
+    // is `{ statusCode, statusMessage, message, data }`, where `message` is the
+    // English `statusMessage` h3 copies onto the error, and the `data` we passed
+    // to `createError` is a sibling of it. ofetch then puts that whole body on
+    // `error.data` — so the route's Romanian copy is at `error.data.data`.
+    // Reading `error.data.message` gets "Contact form not configured" instead.
+    // Only our own payload is ever Romanian; anything else falls back below.
+    const payload = (
+      error as { data?: { data?: { message?: string; fieldErrors?: typeof errors } } }
+    )?.data?.data;
+    if (payload?.fieldErrors) Object.assign(errors, payload.fieldErrors);
     errorMessage.value =
-      data?.message ??
+      payload?.message ??
       `Nu am putut trimite mesajul. Verifică-ți conexiunea sau scrie-ne la ${SCHOOL_EMAIL}.`;
   } finally {
     loading.value = false;
