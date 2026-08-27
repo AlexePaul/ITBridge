@@ -77,22 +77,6 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
-      # MinIO speaks the S3 API, so `invoice-pdf.e2e-spec.ts` exercises the real client and the real
-      # PDF generator rather than stubs. Everything else still stubs both.
-      minio:
-        image: bitnami/minio:latest
-        env:
-          MINIO_ROOT_USER: itbridge
-          MINIO_ROOT_PASSWORD: dev_password
-          MINIO_DEFAULT_BUCKETS: itbridge-local
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-
     env:
       DB_HOST: localhost
       DB_PORT: "5432"
@@ -117,6 +101,21 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      # Started as a plain container rather than a service, because the official MinIO image needs
+      # a command (`server /data`) and `services:` has nowhere to put one. The bucket is created by
+      # `test/global-setup.ts`, not by the image.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=itbridge \
+            -e MINIO_ROOT_PASSWORD=dev_password \
+            minio/minio:latest server /data
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 2
+          done
+          curl -sf http://localhost:9000/minio/health/live
 
       # Entities changed without a matching migration are invisible until production: everything
       # compiles and the tests pass against the old schema. This builds a throwaway database from

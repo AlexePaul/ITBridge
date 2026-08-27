@@ -1,5 +1,10 @@
+// Same defaults the suites get. jest runs `globalSetup` *before* `setupFiles`, so without this
+// import the environment here would be whatever the shell happened to export — and the bucket
+// creation below would silently skip.
+import './setup-env';
 import { Client } from 'pg';
 import { DataSource } from 'typeorm';
+import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import { dataSourceOptions } from '../src/data-source';
 
 /**
@@ -33,4 +38,37 @@ export default async function globalSetup(): Promise<void> {
     await dataSource.initialize();
     await dataSource.runMigrations();
     await dataSource.destroy();
+
+    await ensureBucket();
+}
+
+/**
+ * Creates the bucket when running against a local endpoint, so the suite does not depend on the
+ * MinIO image auto-provisioning one. Skipped entirely without `AWS_S3_ENDPOINT` — that means real
+ * AWS, where the tests have no business creating buckets.
+ */
+async function ensureBucket(): Promise<void> {
+    const endpoint = process.env.AWS_S3_ENDPOINT;
+    const bucket = process.env.AWS_S3_BUCKET;
+    if (!endpoint || !bucket) return;
+
+    const client = new S3Client({
+        region: process.env.AWS_REGION ?? 'eu-central-1',
+        endpoint,
+        forcePathStyle: true,
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? 'itbridge',
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? 'dev_password',
+        },
+    });
+
+    try {
+        await client.send(new CreateBucketCommand({ Bucket: bucket }));
+    } catch (error) {
+        // Already there is the normal case on a second run.
+        const name = (error as { name?: string }).name;
+        if (name !== 'BucketAlreadyOwnedByYou' && name !== 'BucketAlreadyExists') throw error;
+    } finally {
+        client.destroy();
+    }
 }
