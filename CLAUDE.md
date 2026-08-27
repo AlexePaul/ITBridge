@@ -45,7 +45,7 @@ prin `apps/api/src/load-env.ts`, importat înaintea oricărui modul care atinge 
 
 **O variabilă de mediu nouă trebuie declarată în `turbo.json`, la `globalEnv`.** Turbo rulează în
 mod `strict`: un task vede doar ce e declarat acolo, iar restul lipsesc fără niciun mesaj. E cea
-mai probabilă cauză când ceva „nu vede" o variabilă pe care tocmai ai pus-o în `.env`.
+mai probabilă cauză când ceva „nu vede” o variabilă pe care tocmai ai pus-o în `.env`.
 
 Swagger UI: `http://localhost:3000/api`. La fiecare boot, `apps/api/src/main.ts` scrie schema în
 `./swagger.json`, relativ la directorul din care rulează procesul. Fișierul e în `.gitignore`,
@@ -123,6 +123,22 @@ composable-urile din `apps/web/app/composables/api/`.
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
+**Partea publică nu atinge backend-ul.** Cele șapte pagini publice, formularul de contact,
+`robots.txt`, `sitemap.xml`, `llms.txt` și datele structurate funcționează fără `API_BASE` — de
+aceea site-ul stă în producție pe Vercel deși backend-ul nu e deployat. Faptele despre școală stau
+în `apps/web/shared/`, nu în pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts`
+(nivelurile și prețurile), `teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini),
+`structured-data.ts` (constructorii de JSON-LD). Aceleași constante alimentează pagina, graful
+JSON-LD, sitemap-ul și `llms.txt` — **dacă schimbi un preț sau o adresă, schimbi acolo, într-un
+singur loc.** Un număr scris de mână într-o pagină e un bug, nu o scurtătură: NAP inconsecvent e
+cea mai frecventă cauză de poziționare locală slabă.
+
+Fiecare pagină publică apelează `useSeo` o dată (titlu, descriere, canonical, OG, Twitter) și
+`useJsonLd` o dată, cu un singur `@graph`. Nodurile se leagă între ele prin `@id`, deci **orice nod
+referit trebuie să fie prezent în graful acelei pagini** — un `@id` care nu se rezolvă e ignorat
+tăcut de parser. Layout-ul `default` nu setează niciun titlu, ca să nu concureze cu `useSeo`; cel
+de `dashboard` pune `noindex, nofollow` pe tot ce e după autentificare.
+
 ## Convenții
 
 **Totul în engleză, în afară de ce vede utilizatorul.** Regula acoperă: nume de branch-uri, mesaje
@@ -195,7 +211,7 @@ niciun DTO nu-l declară respinge cererea, nu e ignorat tăcut.
 `@IsString()` ar accepta un număr transformându-l în string. Un câmp numeric care vine din query
 string are nevoie de `@Type(() => Number)` explicit.
 
-**`undefined` într-un `where` TypeORM înseamnă „ignoră condiția", nu „e null".** A produs deja două
+**`undefined` într-un `where` TypeORM înseamnă „ignoră condiția”, nu „e null”.** A produs deja două
 bug-uri: crearea de profiluri fără date de contact răspundea 409, iar logout-ul răspundea 200 fără
 să revoce nimic. Folosește `IsNull()`.
 
@@ -222,6 +238,20 @@ procesul să se restarteze în buclă.
 `runtimeConfig.public.apiBase` pe `process.env.API_BASE`. Fără el, `apiBase` e `undefined` și
 cererile pleacă spre origin-ul Nuxt. E în `.env.example` de la rădăcină și trebuie setat și în
 Vercel, inclusiv pe Preview.
+
+**`SITE_URL` se lasă NESETATĂ în Vercel** — invers față de `API_BASE`, de deasupra. Din ea se
+construiesc canonical, `og:url`, fiecare `<loc>` din sitemap, linia `Sitemap:` din `robots.txt` și
+toate `@id`-urile din JSON-LD. Nesetată, `nuxt.config.ts` cade pe `https://itbridgeschool.com`,
+care e domeniul real. O valoare de localhost copiată acolo scoate tot site-ul din index în primul
+ciclu de crawl. Se setează doar dacă se schimbă domeniul.
+
+**Payload-ul unei erori din Nitro e cu un nivel mai adânc decât pare.** `createError({ statusCode,
+statusMessage, data })` pune în răspuns `{ statusCode, statusMessage, message, data }`, unde
+`message` e `statusMessage`-ul **în engleză** pe care h3 îl copiază pe eroare, iar `data` e ce ai
+trimis tu. `ofetch` pune tot corpul ăla pe `error.data` — deci mesajul tău în română e la
+`error.data.data.message`, nu la `error.data.message`. Citind greșit, un părinte primea
+„Contact form not configured" în loc de textul românesc, exact pe ramura care se declanșează când
+`RESEND_API_KEY` lipsește la primul deploy. Vezi `apps/web/app/pages/contact.vue`.
 
 **Formularul de contact trimite dintr-o rută Nitro, nu din browser.** `RESEND_API_KEY` stă în
 `runtimeConfig`, în afara lui `public`, deci Nuxt nu îl scrie niciodată în bundle-ul clientului;

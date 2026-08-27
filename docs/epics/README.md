@@ -46,7 +46,7 @@ E04 a oprit `synchronize: true`. Schema evoluează acum prin migrări, iar CI ve
 că entitățile n-au divergat de ele. `pnpm seed` reconstruiește o bază locală plauzibilă în câteva
 secunde.
 
-Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane".
+Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane”.
 
 ## Tabel
 
@@ -151,12 +151,28 @@ branch-uri, e făcută. La E04, S2 e livrat parțial — comenzile și garda de 
 deploy nu — iar S4 (backup) și S5 (retenție) așteaptă, primul instanța, al doilea răspunsul
 contabilului despre cât se păstrează facturile.
 
+[E18](E18-frontend-portal.md) și [E19](E19-seo-geo.md) sunt `în lucru`, livrate amândouă pe partea
+publică și oprite amândouă în același punct:
+
+- La **E18** sunt gata S1 (sistemul de design) și S3 (cele șapte pagini publice); S2 e parțial —
+  imaginile sunt sub 200KB, dar `@nuxt/image` tot nu e instalat. Rămân S4 (portalul părintelui) și
+  S5 (zona de admin), **amândouă blocate de faptul că backend-ul nu rulează nicăieri**: paginile de
+  după autentificare nu sunt cablate la un API și nu se pot nici testa, nici arăta. Plus S6
+  (verificarea de accesibilitate în CI) și S7 (interfața profesorului).
+- La **E19** sunt gata S1, S2, S3 și S7. S4 așteaptă [E10](E10-curriculum-module.md), S5 se face
+  odată cu S2 din E18, S6 e blocat de „cine scrie conținutul", iar S8 cere domeniul live.
+- Lucrul cel mai valoros rămas în E19 **nu e cod**: două profiluri Google Business verificate, unul
+  per adresă. Pentru căutările locale contează mai mult decât orice a rămas în repo.
+
+Deci ordinea firească e [E01](E01-infrastructura-medii.md) S4 înaintea lui E18 S4 — un portal fără
+API nu se poate termina.
+
 Restul sunt `propus`.
 
 ## Decizii deja luate
 
 Consemnate aici ca să nu fie relitigate în fiecare epic. Fiecare e detaliată, cu consecințele ei,
-în secțiunea „Decizii luate" a epicului indicat.
+în secțiunea „Decizii luate” a epicului indicat.
 
 ### Rulare și infrastructură
 

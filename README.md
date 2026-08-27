@@ -94,23 +94,34 @@ frontend-ul, cade `web`; dacă modifici entitatea fără contractul, cade `api`.
 
 **Frontend, pe Vercel.** Configurat din dashboard, nu din repo.
 
-| Setare             | Valoare                                                      |
-| ------------------ | ------------------------------------------------------------ |
-| Root Directory     | `apps/web`                                                   |
-| Framework Preset   | Nuxt.js                                                      |
-| Install Command    | `pnpm install --frozen-lockfile`                             |
-| Build Command      | implicit (`nuxt build`)                                      |
-| Variabile de mediu | `API_BASE` = URL-ul public al backend-ului, pe toate mediile |
+| Setare           | Valoare                          |
+| ---------------- | -------------------------------- |
+| Root Directory   | `apps/web`                       |
+| Framework Preset | Nuxt.js                          |
+| Install Command  | `pnpm install --frozen-lockfile` |
+| Build Command    | implicit (`nuxt build`)          |
 
 > **La merge-ul acestui monorepo, Root Directory trebuie schimbat din `it-bridge-frontend` în
 > `apps/web`, în același timp.** Altfel deploy-ul de producție cade. Vercel detectează singur pnpm
 > din `packages.json` plus `pnpm-lock.yaml` de la rădăcină.
 
-`API_BASE` trebuie setată explicit și pentru Preview — altfel deploy-urile de preview lovesc
-propriul origin.
+Variabilele de mediu, toate în `turbo.json` la `globalEnv`:
+
+| Variabilă        | Unde                 | De ce                                                                                                                                                                                                                                                               |
+| ---------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `API_BASE`       | Production + Preview | URL-ul public al backend-ului. Explicit și pe Preview, altfel deploy-urile de preview lovesc propriul origin.                                                                                                                                                       |
+| `RESEND_API_KEY` | Production + Preview | Cheia de trimitere a formularului de contact. Variabilă de server, nu de build. Fără ea, formularul răspunde 503 și trimite cititorul către adresa de email.                                                                                                        |
+| `CONTACT_FROM`   | opțional             | Expeditorul. Domeniul lui trebuie verificat în Resend, altfel fiecare trimitere pică cu 403. Nesetată, se folosește `contact@itbridgeschool.com`.                                                                                                                   |
+| `SITE_URL`       | **nesetată**         | Domeniul din care se construiesc canonical, `og:url`, `sitemap.xml`, `robots.txt` și `@id`-urile din JSON-LD. Nesetată, `nuxt.config.ts` cade pe domeniul real. O valoare de localhost aici scoate tot site-ul din index. Se setează doar dacă se schimbă domeniul. |
 
 **Backend.** Nu e deployat nicăieri în acest moment. Ținta e AWS EC2 cu PM2, Postgres pe aceeași
 instanță și Caddy pentru TLS; se face în [E01](docs/epics/E01-infrastructura-medii.md), S4.
+
+Consecința pentru site: **partea publică funcționează întreagă și fără backend.** Cele șapte pagini
+publice, formularul de contact (care merge prin Resend, dintr-o rută Nitro de pe Vercel), `robots.txt`,
+`sitemap.xml`, `llms.txt` și datele structurate nu ating `API_BASE`. Ce depinde de backend e tot ce
+vine după autentificare — portalul părintelui și zona de admin — și acelea rămân neconectate până
+la S4 din E01. Vezi „Stare cunoscută” mai jos.
 
 ## Schema bazei de date
 
@@ -165,6 +176,22 @@ nu o plasă de siguranță.
 
 ## Stare cunoscută
 
+**Frontend-ul e livrat pe jumătate, și jumătatea contează.** Partea publică — design, cele șapte
+pagini, fotografiile, SEO și datele structurate — e făcută și poate sta în producție așa cum e
+([E18](docs/epics/E18-frontend-portal.md) S1 și S3, [E19](docs/epics/E19-seo-geo.md) S1, S2, S3 și
+S7). Ce **nu** e făcut, și e explicit muncă viitoare:
+
+- **Cablarea la backend.** Nimic din ce e după login nu vorbește cu un API care rulează, fiindcă
+  backend-ul nu e deployat. Paginile există și compilează; datele nu vin de nicăieri.
+- **Paginile de după autentificare.** Portalul părintelui are cele trei pagini vechi
+  (`dashboard`, `profile`, `payments`) și nu a fost rescris pe noul sistem de design — E18 S4.
+  Zona de admin, 25 de ecrane, la fel — E18 S5.
+- **Verificarea automată de accesibilitate în CI** — E18 S6. Contrastul și navigarea din tastatură
+  au fost verificate manual pe paginile publice; nimic nu le ține așa.
+
+Ordinea firească e [E01](docs/epics/E01-infrastructura-medii.md) S4 (instanța și deploy-ul) înainte
+de E18 S4, fiindcă un portal fără API nu se poate nici testa, nici demonstra.
+
 Un singur bug rămâne documentat ca test `it.failing` — trece cât timp bug-ul există, devine roșu
 când e reparat. Reparația ține de [E15](docs/epics/E15-pricing-facturare.md):
 
@@ -180,7 +207,7 @@ Bug-ul de 409 la al doilea profil fără date de contact a fost reparat în
 
 **Ce nu acoperă revocarea de sesiuni:** `logout` și `logout-all` invalidează refresh tokenul
 imediat, dar un access token deja emis rămâne valid până la 15 minute, fiindcă `AuthGuard` verifică
-doar semnătura. E un compromis deliberat — vezi „Capcane" în [CLAUDE.md](CLAUDE.md).
+doar semnătura. E un compromis deliberat — vezi „Capcane” în [CLAUDE.md](CLAUDE.md).
 
 `pnpm lint` e curat: zero erori, zero avertismente. Familia `no-unsafe-*` e pe `error` în codul de
 producție și oprită doar în fișierele de test, unde `res.body` din supertest și valorile mock-urilor
