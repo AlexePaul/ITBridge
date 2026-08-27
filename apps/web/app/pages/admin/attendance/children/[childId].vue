@@ -58,7 +58,8 @@
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import type { Child } from "~/types/child.types";
-import type { Attendance, AttendanceType } from "~/types/attendance.types";
+import type { Attendance } from "~/types/attendance.types";
+import { AttendanceType, ATTENDANCE_TYPE_LABELS } from "~/types/attendance.types";
 import type { TableColumn } from "@nuxt/ui";
 import { formatTime } from "~/composables/useUtils";
 
@@ -103,20 +104,20 @@ const columns: TableColumn<Attendance>[] = [
     header: "Tip Sesiune",
     cell: ({ row }) => {
       const type = row.getValue("type") as AttendanceType;
-      const color =
-        {
-          regular: "neutral" as const,
-          "make-up": "warning" as const,
-        }[type] || "neutral";
 
-      // The fallback covers older rows carrying the column default, 'normal'.
-      const label =
-        {
-          regular: "Normală",
-          "make-up": "Recuperare",
-        }[type] ?? type;
+      // Keyed off the enum rather than off string literals, so a renamed value is a compile error
+      // here instead of a silently blank column. The labels come from the shared contract, which is
+      // where the Romanian wording for them belongs.
+      const color: Record<AttendanceType, "neutral" | "warning"> = {
+        [AttendanceType.REGULAR]: "neutral",
+        [AttendanceType.MAKE_UP]: "warning",
+      };
 
-      return h(UBadge, { class: "capitalize", variant: "subtle", color }, () => label);
+      return h(
+        UBadge,
+        { class: "capitalize", variant: "subtle", color: color[type] ?? "neutral" },
+        () => ATTENDANCE_TYPE_LABELS[type] ?? type
+      );
     },
   },
   {

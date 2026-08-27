@@ -42,6 +42,7 @@
 </template>
 
 <script setup lang="ts">
+import { apiErrorMessage } from "~/composables/useApiError";
 import { usePDFApi } from "~/composables/api/usePDFApi";
 
 const route = useRoute();
@@ -74,8 +75,10 @@ const loadPdf = async () => {
     } else {
       error.value = "Nu s-a putut încărca factura.";
     }
-  } catch (err: any) {
-    error.value = err.message || "Eroare necunoscută";
+  } catch (err: unknown) {
+    // `fetchInvoicePdf` throws now instead of resolving to null, and a missing PDF is a 404 with a
+    // message that says so rather than a bare 500.
+    error.value = apiErrorMessage(err, "Nu s-a putut încărca factura.");
   } finally {
     isLoading.value = false;
   }

@@ -10,6 +10,11 @@ import { Invoice, InvoiceStatus } from '../entities/invoice.entity';
 import { Payment } from '../entities/payment.entity';
 import { Discount } from '../entities/discount.entity';
 import { Role } from '../enum/role.enum';
+import { PdfService } from '../modules/invoice/pdf.service';
+import { S3Service } from '../modules/invoice/s3.service';
+import { invoicePdfKey } from '../modules/invoice/invoice.service';
+import { Weekday } from '../enum/weekday.enum';
+import { AttendanceType } from '../enum/attendance-type.enum';
 
 /**
  * Fills a local database with data that looks like the real thing, so the admin screens are not
@@ -29,13 +34,13 @@ const LAST_NAMES = ['Popescu', 'Ionescu', 'Dumitrescu', 'Georgescu', 'Stan', 'Ma
 const CHILD_NAMES = ['Maria', 'Andrei', 'Sofia', 'Matei', 'Ilinca', 'Luca', 'Daria', 'Vlad', 'Ruxandra', 'Tudor'];
 
 /** Weekly timetable: three afternoon slots on four weekdays, split by age band. */
-const GROUP_SLOTS: { weekday: number; startTime: string; endTime: string; minAge: number; maxAge: number }[] = [
-    { weekday: 1, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10 },
-    { weekday: 1, startTime: '18:00:00', endTime: '19:30:00', minAge: 11, maxAge: 14 },
-    { weekday: 2, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10 },
-    { weekday: 3, startTime: '16:00:00', endTime: '17:30:00', minAge: 8, maxAge: 12 },
-    { weekday: 3, startTime: '18:00:00', endTime: '19:30:00', minAge: 13, maxAge: 16 },
-    { weekday: 4, startTime: '17:00:00', endTime: '18:30:00', minAge: 9, maxAge: 13 },
+const GROUP_SLOTS: { weekday: Weekday; startTime: string; endTime: string; minAge: number; maxAge: number }[] = [
+    { weekday: Weekday.MONDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10 },
+    { weekday: Weekday.MONDAY, startTime: '18:00:00', endTime: '19:30:00', minAge: 11, maxAge: 14 },
+    { weekday: Weekday.TUESDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10 },
+    { weekday: Weekday.WEDNESDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 8, maxAge: 12 },
+    { weekday: Weekday.WEDNESDAY, startTime: '18:00:00', endTime: '19:30:00', minAge: 13, maxAge: 16 },
+    { weekday: Weekday.THURSDAY, startTime: '17:00:00', endTime: '18:30:00', minAge: 9, maxAge: 13 },
 ];
 
 function assertLocalDatabase(dataSource: DataSource): void {
@@ -132,6 +137,13 @@ export async function seed(dataSource: DataSource): Promise<void> {
 
     // --- Children ---------------------------------------------------------------------------
     const children: Child[] = [];
+
+    // How many this loop will create, worked out before it runs. The unassigned-children rule below
+    // is expressed against this total rather than against a hard-coded 12: the constant happened to
+    // equal the number of children the loop produced, so the "last two" were never reached and the
+    // "copii fără grupă" screen was empty — the one thing that rule exists to prevent.
+    const plannedChildren = profiles.reduce((total, _profile, index) => total + (index % 4 === 3 ? 2 : 1), 0);
+
     for (let i = 0; i < profiles.length; i++) {
         // Most parents have one child, every fourth has two — enough to exercise the sibling
         // pricing branches, including the three-children case that currently returns 0.
@@ -151,7 +163,7 @@ export async function seed(dataSource: DataSource): Promise<void> {
                         birthDate,
                         // The last two are left unassigned, so the "children without a group"
                         // screen is not empty either.
-                        group: index < 12 ? groups[index % groups.length] : null,
+                        group: index < plannedChildren - 2 ? groups[index % groups.length] : null,
                     }),
                 ),
             );
@@ -191,7 +203,7 @@ export async function seed(dataSource: DataSource): Promise<void> {
                     group: child.group,
                     date,
                     startTime: child.group.startTime,
-                    type: 'regular',
+                    type: AttendanceType.REGULAR,
                     present,
                 }),
             );
@@ -254,10 +266,43 @@ export async function seed(dataSource: DataSource): Promise<void> {
     ]);
 }
 
+/**
+ * Renders and uploads a PDF for every seeded invoice, so the download button on the admin invoice
+ * screen works on a freshly seeded database.
+ *
+ * The seed writes invoices straight through the repository rather than through `InvoiceService`,
+ * so nothing ever produced their PDFs — all thirty rows answered the download endpoint with an
+ * error. Best-effort on purpose: object storage is not required to seed, and a developer without
+ * MinIO running should still get a usable database, just without the PDFs.
+ */
+export async function seedInvoicePdfs(dataSource: DataSource): Promise<{ uploaded: number; skipped: string | null }> {
+    const s3 = new S3Service();
+    try {
+        s3.onModuleInit();
+    } catch (error) {
+        return { uploaded: 0, skipped: error instanceof Error ? error.message : String(error) };
+    }
+    if (!(await s3.isReachable())) {
+        return { uploaded: 0, skipped: 'object storage not reachable' };
+    }
+
+    const pdfService = new PdfService(dataSource.getRepository(Discount));
+    const invoices = await dataSource.getRepository(Invoice).find({ relations: ['parent'] });
+
+    let uploaded = 0;
+    for (const invoice of invoices) {
+        const buffer = await pdfService.generateInvoicePdf(invoice);
+        await s3.uploadFile(buffer, invoicePdfKey(invoice.monthIssued, invoice.id));
+        uploaded++;
+    }
+    return { uploaded, skipped: null };
+}
+
 async function main(): Promise<void> {
     await AppDataSource.initialize();
     try {
         await seed(AppDataSource);
+        const pdfs = await seedInvoicePdfs(AppDataSource);
         const counts = await Promise.all(
             AppDataSource.entityMetadatas.map(async (m) => {
                 const rows = await AppDataSource.query<{ count: string }[]>(`SELECT count(*) FROM "${m.tableName}"`);
@@ -266,6 +311,7 @@ async function main(): Promise<void> {
         );
         console.log(`Seed complete (as of ${SEED_TODAY.toISOString().slice(0, 10)}).`);
         console.log(counts.join('\n'));
+        console.log(pdfs.skipped ? `invoice PDFs: skipped (${pdfs.skipped})` : `invoice PDFs: ${pdfs.uploaded} uploaded`);
         console.log(`\nSign in as "admin" with the password "${PASSWORD}".`);
     } finally {
         await AppDataSource.destroy();

@@ -41,6 +41,8 @@ import { useProfileApi } from "~/composables/api/useProfileApi";
 import type { Profile } from "~/types/profile.types";
 import { useProfileStore } from "~/stores/profileStore";
 import { useNotifications } from "~/composables/useNotifications";
+import { isRomanianPhone, normalizePhone } from "~/composables/useUtils";
+import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
 
 const profileApi = useProfileApi();
 const { error } = useNotifications();
@@ -52,7 +54,13 @@ definePageMeta({
 
 const schema = z.object({
   email: z.string().email("Adresa de email nu este validă"),
-  phone: z.string().max(10).min(10, "Numărul de telefon trebuie să aiba exact 10 cifre"),
+  // Was `exactly 10 characters`, which accepted only `0712345678` — while the API demanded
+  // international format, so no value satisfied both and this form could never be submitted.
+  // Both spellings are valid now, on either side.
+  phone: z
+    .string()
+    .min(1, "Numărul de telefon este obligatoriu")
+    .refine(isRomanianPhone, "Număr de telefon invalid (ex. 0712345678)"),
   firstName: z.string().min(1, "Prenumele este obligatoriu"),
   lastName: z.string().min(1, "Numele este obligatoriu"),
   address: z.string().optional(),
@@ -69,17 +77,29 @@ const state = reactive<Partial<Schema>>({
 });
 
 async function handleSubmit(event: FormSubmitEvent<Schema>) {
+  const address = event.data.address?.trim();
   const profile: Partial<Profile> = {
     email: event.data.email,
-    phone: event.data.phone,
+    phone: normalizePhone(event.data.phone),
     firstName: event.data.firstName,
     lastName: event.data.lastName,
-    address: event.data.address,
+    // Omit rather than send `""`. An untouched input submits an empty string, which is not an
+    // address; sending it made the request fail validation on a field the parent left blank.
+    ...(address ? { address } : {}),
   };
-  const response = await profileApi.createProfile(profile);
-  if (response != 409) await navigateTo("/user/profile");
-  else {
-    error("Email-ul sau numărul de telefon există deja în sistem.");
+
+  // `createProfile` throws now. It used to return the status code, so a rejected request looked
+  // like a success here: we navigated away, the setup flag stayed set, and the middleware sent the
+  // parent straight back to this form with nothing shown.
+  try {
+    await profileApi.createProfile(profile);
+    await navigateTo("/user/profile");
+  } catch (err) {
+    if (apiErrorCode(err) === "ALREADY_EXISTS" || apiErrorCode(err) === "CONFLICT") {
+      error("Email-ul sau numărul de telefon există deja în sistem.");
+      return;
+    }
+    error(apiErrorMessage(err, "Nu am putut salva profilul. Încearcă din nou."));
   }
 }
 </script>

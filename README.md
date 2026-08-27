@@ -165,16 +165,18 @@ nu o plasă de siguranță.
 
 ## Stare cunoscută
 
-Două bug-uri sunt documentate ca teste `it.failing` — trec cât timp bug-ul există, devin roșii când
-e reparat. Reparațiile țin de [E05](docs/epics/E05-robustete-backend.md) și
-[E15](docs/epics/E15-pricing-facturare.md):
+Un singur bug rămâne documentat ca test `it.failing` — trece cât timp bug-ul există, devine roșu
+când e reparat. Reparația ține de [E15](docs/epics/E15-pricing-facturare.md):
 
 - **Calculul de preț nu are ramură pentru trei sau mai mulți copii**, deci suma iese 0, iar
   reducerile o duc pe negativ.
-- **Un al doilea profil fără email și telefon primește 409.** Verificarea de unicitate face
-  `findOne({ where: { email: undefined } })`, iar TypeORM elimină condiția nedefinită — interogarea
-  devine „găsește orice profil". Blochează fluxul în care adminul creează profiluri fără date de
-  contact.
+
+Bug-ul de 409 la al doilea profil fără date de contact a fost reparat în
+[E04](docs/epics/E04-migrari-date.md), iar testul lui e acum unul obișnuit, de regresie.
+
+**Ce nu acoperă revocarea de sesiuni:** `logout` și `logout-all` invalidează refresh tokenul
+imediat, dar un access token deja emis rămâne valid până la 15 minute, fiindcă `AuthGuard` verifică
+doar semnătura. E un compromis deliberat — vezi „Capcane" în [CLAUDE.md](CLAUDE.md).
 
 `pnpm lint` e curat: zero erori, zero avertismente. Familia `no-unsafe-*` e pe `error` în codul de
 producție și oprită doar în fișierele de test, unde `res.body` din supertest și valorile mock-urilor

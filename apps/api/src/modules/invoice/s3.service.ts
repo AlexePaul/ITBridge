@@ -1,5 +1,13 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, GetObjectCommandOutput, HeadBucketCommand, NoSuchKey } from '@aws-sdk/client-s3';
+
+/** Thrown when the object simply is not there, so callers can answer 404 instead of 500. */
+export class ObjectNotFoundError extends Error {
+    constructor(public readonly key: string) {
+        super(`Object not found: ${key}`);
+        this.name = 'ObjectNotFoundError';
+    }
+}
 
 @Injectable()
 export class S3Service implements OnModuleInit {
@@ -59,7 +67,19 @@ export class S3Service implements OnModuleInit {
             Key: fileName,
         });
 
-        const response = await this.s3Client.send(command);
+        let response: GetObjectCommandOutput;
+        try {
+            response = await this.s3Client.send(command);
+        } catch (error: unknown) {
+            // A key that is not there is not a fault of ours. Reported as a bare 500 it told the
+            // caller the server had broken and wrote a stack into the channel reserved for real
+            // faults - the same reasoning `AllExceptionsFilter` already applies to Postgres 22P02.
+            if (error instanceof NoSuchKey || (error as { name?: string })?.name === 'NoSuchKey') {
+                throw new ObjectNotFoundError(fileName);
+            }
+            throw error;
+        }
+
         const chunks: Uint8Array[] = [];
 
         for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
@@ -67,5 +87,19 @@ export class S3Service implements OnModuleInit {
         }
 
         return Buffer.concat(chunks);
+    }
+
+    /**
+     * Cheap reachability probe for `/ready`: HeadBucket is a metadata call, no object is read.
+     * Returns false rather than throwing, because the readiness endpoint reports, it does not fail.
+     */
+    async isReachable(bucket: string = process.env.AWS_S3_BUCKET ?? ''): Promise<boolean> {
+        if (!this.s3Client || !bucket) return false;
+        try {
+            await this.s3Client.send(new HeadBucketCommand({ Bucket: bucket }));
+            return true;
+        } catch {
+            return false;
+        }
     }
 }

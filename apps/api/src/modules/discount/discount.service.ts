@@ -5,6 +5,7 @@ import { Discount } from 'src/entities/discount.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { CreateDiscountDto } from './dto/createDiscount.dto';
 import { UpdateDiscountDto } from './dto/updateDiscount.dto';
+import { applyDefined } from 'src/common/apply-defined';
 
 @Injectable()
 export class DiscountService {
@@ -28,7 +29,7 @@ export class DiscountService {
         }
 
         // Only the fields actually sent are overwritten; `undefined` leaves the current value alone.
-        Object.assign(discount, Object.fromEntries(Object.entries(updateDiscountDto).filter(([, value]) => value !== undefined)));
+        applyDefined(discount, updateDiscountDto);
 
         return await this.discountRepository.save(discount);
     }

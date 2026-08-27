@@ -1,5 +1,15 @@
 import { useTokenStore } from "~/stores/tokenStore";
 
+/**
+ * Shared across every composable, not per `useApi()` call.
+ *
+ * It used to be a closure variable, so `useChildrenApi()` and `useInvoiceApi()` on one page each
+ * held their own promise. When the access token expired both refreshed with the same token, and
+ * since the backend rotates refresh tokens the loser looked like a replay — which revokes the whole
+ * session family and logs the parent out. One module-level promise is what actually de-duplicates.
+ */
+let refreshPromise: Promise<void> | null = null;
+
 export const useApi = () => {
   const config = useRuntimeConfig();
   const tokenStore = useTokenStore();
@@ -9,9 +19,6 @@ export const useApi = () => {
     credentials: "include",
   });
 
-  // Prevent multiple simultaneous refresh requests
-  let refreshPromise: Promise<void> | null = null;
-
   async function doRefresh() {
     try {
       const res = await client("/auth/refresh", {
@@ -20,6 +27,13 @@ export const useApi = () => {
       });
       if (res && typeof res === "object" && "accessToken" in (res as any)) {
         tokenStore.setAccessToken((res as any).accessToken as string);
+      }
+      // The refresh token rotates: the one we just sent is now consumed server-side, and the
+      // response carries its successor. Storing only the access token left the old token in the
+      // cookie, so the *next* refresh replayed a consumed token — the backend read that as theft,
+      // revoked the family and logged the user out, roughly half an hour into every session.
+      if (res && typeof res === "object" && "refreshToken" in (res as any)) {
+        tokenStore.setRefreshToken((res as any).refreshToken as string);
       }
     } catch (err) {
       tokenStore.clearTokens();

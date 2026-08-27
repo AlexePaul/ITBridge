@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNumber } from 'class-validator';
+import { IsOptional, IsString, IsNumber, Matches } from 'class-validator';
 
 export class UpdateDiscountDto {
     @ApiPropertyOptional({ example: 100 })
@@ -10,6 +10,7 @@ export class UpdateDiscountDto {
     @ApiPropertyOptional({ example: '2026-01' })
     @IsOptional()
     @IsString()
+    @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'monthIssued must be in YYYY-MM format' })
     monthIssued?: string;
 
     @ApiPropertyOptional({ example: 'Recomandare' })

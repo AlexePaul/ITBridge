@@ -31,6 +31,12 @@ async function main(): Promise<void> {
         // Anything here is an entity change nobody wrote a migration for.
         const sqlInMemory = await probe.driver.createSchemaBuilder().log();
         pending = sqlInMemory.upQueries.map((q) => q.query);
+
+        // CHECK constraints separately, because the schema builder compares them by name: a
+        // migration that creates `CHK_groups_weekday_iso` with a *different* expression than the
+        // entity declares looks identical to it. The names matching is exactly what makes the
+        // mismatch invisible, so the expressions are compared here by hand.
+        pending.push(...(await checkConstraintDrift(probe)));
     } finally {
         if (probe.isInitialized) await probe.destroy();
         const cleanup = new DataSource({ ...dataSourceOptions, database: 'postgres', logging: false });
@@ -49,6 +55,55 @@ async function main(): Promise<void> {
     }
 
     console.log('No schema drift: entities and migrations agree.');
+}
+
+/**
+ * SQL keywords and operators are dropped: Postgres rewrites `BETWEEN 1 AND 7` as
+ * `((weekday >= 1) AND (weekday <= 7))`, so comparing the wording would report drift on every
+ * constraint. What survives normalisation is the columns named and the literals compared against,
+ * and those are what actually drifts — a bound moved from 1..7 to 0..6, or the wrong column.
+ */
+const SQL_NOISE = new Set(['check', 'between', 'and', 'or', 'not', 'is', 'null', 'in', 'true', 'false', 'any', 'all', 'text', 'numeric', 'integer']);
+
+function significantTokens(expression: string): Set<string> {
+    const tokens = expression.toLowerCase().match(/[a-z_][a-z_0-9]*|\d+/g) ?? [];
+    return new Set(tokens.filter((token) => !SQL_NOISE.has(token)));
+}
+
+/**
+ * Compares every `@Check` on an entity with the constraint actually in the database.
+ *
+ * Postgres normalises an expression when it stores it (`"weekday" BETWEEN 1 AND 7` comes back as
+ * `((weekday >= 1) AND (weekday <= 7))`), so this compares the set of literals and column names
+ * rather than the text: enough to catch a bound that drifted, without re-implementing the parser.
+ */
+async function checkConstraintDrift(dataSource: DataSource): Promise<string[]> {
+    const rows = await dataSource.query<{ conname: string; expr: string }[]>(
+        `SELECT conname, pg_get_constraintdef(oid) AS expr FROM pg_constraint WHERE contype = 'c' AND connamespace = 'public'::regnamespace`,
+    );
+    const inDatabase = new Map(rows.map((row) => [row.conname, row.expr]));
+
+    const problems: string[] = [];
+    for (const metadata of dataSource.entityMetadatas) {
+        for (const check of metadata.checks) {
+            if (!check.name) continue;
+
+            const actual = inDatabase.get(check.name);
+            if (actual === undefined) {
+                problems.push(`-- CHECK constraint "${check.name}" on "${metadata.tableName}" is declared on the entity but missing from the database`);
+                continue;
+            }
+
+            const expected = significantTokens(check.expression ?? '');
+            const found = significantTokens(actual);
+            const missing = [...expected].filter((token) => !found.has(token));
+
+            if (missing.length > 0) {
+                problems.push(`-- CHECK constraint "${check.name}" differs: entity says ${check.expression ?? ''}, database says ${actual}`);
+            }
+        }
+    }
+    return problems;
 }
 
 main().catch((error: unknown) => {

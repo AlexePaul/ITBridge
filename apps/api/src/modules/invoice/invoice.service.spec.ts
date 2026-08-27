@@ -264,13 +264,18 @@ describe('InvoiceService', () => {
     });
 
     describe('getPreview', () => {
-        it('skips parents whose calculation fails instead of failing the whole request', async () => {
+        it('reports parents whose calculation fails instead of failing the whole request', async () => {
             profileRepo.findOne!.mockImplementation(({ where }: { where: { id: number } }) =>
                 Promise.resolve(where.id === 1 ? profileWithChildren(1, 1) : null),
             );
             discountRepo.find!.mockResolvedValue([]);
 
-            await expect(service.getPreview({ parentIds: [1, 99], monthIssued: '2026-03' })).resolves.toEqual([{ parentId: 1, amount: 350 }]);
+            // The failing parent is reported rather than dropped: an admin previewing ten parents
+            // used to get seven rows back with nothing to say the other three had failed.
+            await expect(service.getPreview({ parentIds: [1, 99], monthIssued: '2026-03' })).resolves.toEqual([
+                { parentId: 1, amount: 350, error: null },
+                { parentId: 99, amount: null, error: 'Parent profile not found' },
+            ]);
         });
     });
 });

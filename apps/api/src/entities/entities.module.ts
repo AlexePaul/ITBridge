@@ -8,9 +8,10 @@ import { Attendance } from './attendance.entity';
 import { Invoice } from './invoice.entity';
 import { Payment } from './payment.entity';
 import { Discount } from './discount.entity';
+import { Session } from './session.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User, Profile, Child, Group, Attendance, Invoice, Payment, Discount])],
+    imports: [TypeOrmModule.forFeature([User, Profile, Child, Group, Attendance, Invoice, Payment, Discount, Session])],
     exports: [TypeOrmModule],
 })
 export class EntitiesModule {}

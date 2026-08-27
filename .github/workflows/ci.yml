@@ -48,8 +48,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # `test:cov`, not `test`: the per-file coverage thresholds in apps/api/package.json were
+      # configured and then never executed by anything, so they guaranteed nothing — the same shape
+      # of problem as 22 DTO files whose decorators had never run.
       - name: Unit tests
-        run: pnpm test
+        run: pnpm test:cov
 
       - name: Build
         run: pnpm build

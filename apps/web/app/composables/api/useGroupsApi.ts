@@ -37,7 +37,10 @@ export const useGroupsApi = () => {
       groupsStore.setGroups([...groupsStore.groups, createdGroup]);
       return createdGroup;
     } catch (err: any) {
-      return err.data?.statusCode || 500;
+      // Rethrow rather than returning a status code: the page awaited this and then showed
+      // "Grup creat cu succes" on a rejected request, because nothing threw.
+      console.error("Failed to create group:", err);
+      throw err;
     }
   };
 
@@ -56,7 +59,8 @@ export const useGroupsApi = () => {
       groupsStore.setGroups(updatedGroups);
       return updatedGroup;
     } catch (err: any) {
-      return err.data?.statusCode || 500;
+      console.error("Failed to update group:", err);
+      throw err;
     }
   };
 

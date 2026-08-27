@@ -21,6 +21,9 @@ import type { Attendance } from './entities/attendance.entity';
 import type { Invoice } from './entities/invoice.entity';
 import type { Payment } from './entities/payment.entity';
 import type { Discount } from './entities/discount.entity';
+import type { Weekday } from './enum/weekday.enum';
+import type { AttendanceType } from './enum/attendance-type.enum';
+import type { Role } from './enum/role.enum';
 
 /** Fails compilation when `Actual` does not satisfy `Expected` on the shared fields. */
 type Covers<Expected, Actual> = Actual extends Expected ? true : { missingOrMismatched: Expected };
@@ -32,6 +35,15 @@ type _User = Check<Pick<Wire.User, 'id' | 'username' | 'role'>, Pick<Serialized<
 type _Profile = Check<Pick<Wire.ProfileSummary, 'id' | 'firstName' | 'lastName'>, Pick<Serialized<Profile>, 'id' | 'firstName' | 'lastName'>>;
 type _Child = Check<Pick<Wire.Child, 'id' | 'firstName' | 'lastName' | 'birthDate'>, Pick<Serialized<Child>, 'id' | 'firstName' | 'lastName' | 'birthDate'>>;
 type _Group = Check<Omit<Wire.Group, never>, Omit<Serialized<Group>, 'children'>>;
+
+// The enums have to agree value for value, not merely be enums of the same shape. Two independent
+// declarations of "ISO weekday" would otherwise be free to drift — one starting at 0, say.
+type _Weekday = Check<Wire.Weekday, Weekday>;
+type _WeekdayBack = Check<Weekday, Wire.Weekday>;
+type _AttendanceType = Check<Wire.AttendanceType, AttendanceType>;
+type _AttendanceTypeBack = Check<AttendanceType, Wire.AttendanceType>;
+type _Role = Check<Wire.Role, Role>;
+type _RoleBack = Check<Role, Wire.Role>;
 type _Attendance = Check<Pick<Wire.Attendance, 'id' | 'date' | 'startTime' | 'present'>, Pick<Serialized<Attendance>, 'id' | 'date' | 'startTime' | 'present'>>;
 type _Invoice = Check<
     Pick<Wire.Invoice, 'id' | 'amount' | 'dateIssued' | 'monthIssued' | 'status'>,

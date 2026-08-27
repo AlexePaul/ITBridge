@@ -1,9 +1,9 @@
 import type { TimeOfDay } from './common';
+import type { Weekday } from './weekday';
 
 export interface Group {
     id: number;
-    /** ISO weekday: 1 = Monday, 7 = Sunday. */
-    weekday: number;
+    weekday: Weekday;
     startTime: TimeOfDay;
     endTime: TimeOfDay;
     minAge: number;

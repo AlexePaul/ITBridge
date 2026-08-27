@@ -5,6 +5,7 @@ import { Repository } from 'typeorm/repository/Repository';
 import { Group } from 'src/entities/group.entity';
 import { markAttendanceDto } from './dto/markAttendance.dto';
 import { Child } from 'src/entities/child.entity';
+import { AttendanceType } from 'src/enum/attendance-type.enum';
 
 @Injectable()
 export class AttendanceService {
@@ -71,7 +72,7 @@ export class AttendanceService {
             record.startTime = markAttendanceDto.startTime;
             record.present = attendance.present;
             record.group = group;
-            record.type = groupChildrenIds.includes(attendance.childId) ? 'regular' : 'make-up';
+            record.type = groupChildrenIds.includes(attendance.childId) ? AttendanceType.REGULAR : AttendanceType.MAKE_UP;
             return record;
         });
 

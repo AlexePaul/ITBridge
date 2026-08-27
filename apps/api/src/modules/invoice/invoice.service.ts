@@ -10,7 +10,20 @@ import { Role } from 'src/enum/role.enum';
 import { PdfService } from './pdf.service';
 import { Discount } from 'src/entities/discount.entity';
 import { GetPreviewDto } from './dto/getPreview.dto';
-import { S3Service } from './s3.service';
+import { ObjectNotFoundError, S3Service } from './s3.service';
+
+/**
+ * Where an invoice's PDF lives in object storage.
+ *
+ * Keyed on the invoice id alone, never on the parent's name. The name used to be part of the key,
+ * and it was rebuilt from the *current* profile at download time — so renaming a parent (a
+ * marriage, a corrected typo) silently made every invoice they had ever received unreachable, with
+ * the object still sitting in the bucket under the old spelling. Verified before the change: a
+ * PUT on the profile turned a working download into a 500, permanently.
+ */
+export function invoicePdfKey(monthIssued: string, invoiceId: number): string {
+    return `invoices/${monthIssued}/${invoiceId}.pdf`;
+}
 
 @Injectable()
 export class InvoiceService {
@@ -26,26 +39,34 @@ export class InvoiceService {
     /**
      * Issues one invoice per parent.
      *
-     * Each invoice is written and its PDF uploaded inside a single transaction. That ordering
-     * matters: the file name embeds the invoice id, so the row has to exist before the upload — but
-     * if the upload then fails, the row must not survive. Without the transaction a failed upload
-     * left a persisted invoice with no PDF, the caller saw a 500 and retried, and the retry hit
-     * `@Unique(['parent', 'monthIssued'])` — so one S3 hiccup wedged invoicing for that parent and
-     * month until somebody deleted the row by hand.
+     * The whole batch is one transaction. Ordering matters: the file name embeds the invoice id, so
+     * each row has to exist before its upload — but if an upload then fails, no row may survive.
+     * Without this, a failed upload left a persisted invoice with no PDF, the caller saw a 500 and
+     * retried, and the retry hit `@Unique(['parent', 'monthIssued'])`, wedging invoicing for that
+     * parent and month until somebody deleted the row by hand.
      *
-     * The upload happens while the transaction is open, which holds it across a network call. At
-     * this scale that is the right trade: a slow issue beats a half-written one.
+     * The transaction spans every parent rather than each one separately, so a failure on the third
+     * parent does not leave the first two committed with the caller told only that the request
+     * failed — which would move the same wedge from the single invoice to the batch.
+     *
+     * Uploads happen while the transaction is open, holding it across network calls. At this scale
+     * that is the right trade: a slow issue beats a half-written one.
      */
     async createInvoice(createInvoiceDto: CreateInvoiceDto) {
-        const invoicesCreated: Invoice[] = [];
+        // Resolved before the transaction opens: a missing parent should fail the request without
+        // having held a transaction across an S3 round trip first.
+        const parents = await Promise.all(
+            createInvoiceDto.parentIds.map(async (parentId) => {
+                const parent = await this.profileRepository.findOne({ where: { id: parentId } });
+                if (!parent) throw new NotFoundException('Parent profile not found');
+                return { parent, amount: await this.calculateAmount(parentId, createInvoiceDto.monthIssued) };
+            }),
+        );
 
-        for (const parentId of createInvoiceDto.parentIds) {
-            const parent = await this.profileRepository.findOne({ where: { id: parentId } });
-            if (!parent) throw new NotFoundException('Parent profile not found');
+        return this.dataSource.transaction(async (manager) => {
+            const invoicesCreated: Invoice[] = [];
 
-            const amount = await this.calculateAmount(parentId, createInvoiceDto.monthIssued);
-
-            const saved = await this.dataSource.transaction(async (manager) => {
+            for (const { parent, amount } of parents) {
                 const invoice = new Invoice();
                 invoice.amount = amount;
                 invoice.dateIssued = new Date(createInvoiceDto.dateIssued);
@@ -56,16 +77,14 @@ export class InvoiceService {
                 const persisted = await manager.save(invoice);
 
                 const pdfBuffer = await this.pdfService.generateInvoicePdf(persisted);
-                const fileName = `invoices/${persisted.monthIssued}/${persisted.id}_${parent.firstName}_${parent.lastName}.pdf`;
+                const fileName = invoicePdfKey(persisted.monthIssued, persisted.id);
                 await this.s3Service.uploadFile(pdfBuffer, fileName);
 
-                return persisted;
-            });
+                invoicesCreated.push(persisted);
+            }
 
-            invoicesCreated.push(saved);
-        }
-
-        return invoicesCreated;
+            return invoicesCreated;
+        });
     }
 
     async findInvoices(filterInvoiceDto: FilterInvoiceDto, role: Role, userId: number) {
@@ -115,8 +134,20 @@ export class InvoiceService {
 
     async getInvoicePdf(id: number, role: Role, userId: number) {
         const invoice = await this.findOne(id, role, userId);
-        const fileName = `invoices/${invoice.monthIssued}/${invoice.id + '_' + invoice.parent.firstName + '_' + invoice.parent.lastName}.pdf`;
-        return this.s3Service.downloadFile(fileName);
+
+        try {
+            return await this.s3Service.downloadFile(invoicePdfKey(invoice.monthIssued, invoice.id));
+        } catch (error: unknown) {
+            // A stored invoice whose PDF is missing is a 404 with a message that says so, not a
+            // 500 claiming the server broke. It happens for every invoice written straight to the
+            // database rather than issued through this service — every row `pnpm seed` creates,
+            // for one, which made the download button on the admin invoice screen fail on a
+            // freshly seeded database.
+            if (error instanceof ObjectNotFoundError) {
+                throw new NotFoundException('The PDF for this invoice has not been generated');
+            }
+            throw error;
+        }
     }
 
     async calculateAmount(parentId: number, monthIssued: string): Promise<number> {
@@ -143,13 +174,19 @@ export class InvoiceService {
         const results = await Promise.all(
             dto.parentIds.map(async (parentId) =>
                 this.calculateAmount(parentId, dto.monthIssued)
-                    .then((amount) => ({
-                        parentId,
-                        amount,
-                    }))
-                    .catch(() => null),
+                    .then((amount) => ({ parentId, amount, error: null as string | null }))
+                    // Only the expected case is absorbed - a parent with no children, or no such
+                    // parent, is a row the preview reports on rather than a reason to fail the
+                    // whole call. Anything else used to vanish here too, so an admin previewing
+                    // ten parents silently got seven rows and no hint that three had failed.
+                    .catch((error: unknown) => {
+                        if (error instanceof NotFoundException) {
+                            return { parentId, amount: null, error: error.message };
+                        }
+                        throw error;
+                    }),
             ),
         );
-        return results.filter((res) => res !== null);
+        return results;
     }
 }

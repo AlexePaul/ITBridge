@@ -48,7 +48,12 @@ export const useProfileApi = () => {
       ProfileSetup.value = false;
       return createdProfile;
     } catch (err: any) {
-      return err.data?.statusCode || 500;
+      // Rethrow. This used to `return err.data?.statusCode || 500`, so a 400 arrived at the caller
+      // as the number 400 and profile-setup.vue navigated away as if the profile had been created —
+      // while the setup flag stayed set, so the middleware bounced the parent straight back to an
+      // empty form, with no message. An unfinishable loop that looked like nothing at all.
+      console.error("Failed to create profile:", err);
+      throw err;
     }
   };
 
