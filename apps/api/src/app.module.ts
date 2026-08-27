@@ -10,25 +10,11 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { DiscountModule } from './modules/discount/discount.module';
-
-const dbHost = process.env.DB_HOST || 'localhost';
-const dbPort = parseInt(process.env.DB_PORT || '5432', 10);
-const dbUser = process.env.DB_USER || 'itbridge';
-const dbPassword = process.env.DB_PASSWORD || 'dev_password';
-const dbName = process.env.DB_NAME || 'itbridge_db';
+import { dataSourceOptions } from './data-source';
 
 @Module({
     imports: [
-        TypeOrmModule.forRoot({
-            type: 'postgres',
-            host: dbHost,
-            port: dbPort,
-            username: dbUser,
-            password: dbPassword,
-            database: dbName,
-            entities: [__dirname + '/**/*.entity{.ts,.js}'],
-            synchronize: true,
-        }),
+        TypeOrmModule.forRoot(dataSourceOptions),
         AuthModule,
         UserModule,
         EntitiesModule,

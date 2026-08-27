@@ -99,27 +99,17 @@ describe('PaymentService', () => {
             await expect(service.findOne(1, Role.PARENT, 42)).rejects.toThrow(NotFoundException);
         });
 
-        // Bug: in `findPayments` the block that narrows to the user appears twice, so the same
-        // `leftJoin('parent.user', 'user')` and `andWhere('user.id = ...')` get added twice.
-        // TypeORM rejects a duplicate alias at execution time. The test describes the correct shape
-        // and is marked `.failing` while the duplication exists — it turns red once someone removes
-        // it.
-        it.failing('should not add the narrowing twice', async () => {
+        // `findPayments` used to apply the narrowing block twice, adding the same
+        // `leftJoin('parent.user', 'user')` and `andWhere('user.id = ...')` in two places, which
+        // TypeORM rejects as a duplicate alias at execution time.
+        it('adds the narrowing exactly once', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             paymentRepo.createQueryBuilder!.mockReturnValue(qb);
 
             await service.findPayments({}, Role.PARENT, 42);
 
             expect(qb.leftJoinCalls.filter((r) => r === 'parent.user')).toHaveLength(1);
-        });
-
-        it('documents the current duplication in findPayments', async () => {
-            const qb = createMockQueryBuilder({ many: [] });
-            paymentRepo.createQueryBuilder!.mockReturnValue(qb);
-
-            await service.findPayments({}, Role.PARENT, 42);
-
-            expect(qb.leftJoinCalls.filter((r) => r === 'parent.user')).toHaveLength(2);
+            expect(qb.andWhereCalls.filter(([c]) => c.includes('user.id'))).toHaveLength(1);
         });
     });
 

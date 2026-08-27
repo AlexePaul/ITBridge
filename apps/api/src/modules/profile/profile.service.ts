@@ -22,13 +22,21 @@ export class ProfileService {
                 throw new ConflictException('Profile already exists for this user');
             }
         }
-        const existingEmail = await this.profileRepository.findOne({ where: { email: createProfileDto.email } });
-        if (existingEmail) {
-            throw new ConflictException('Email is already in use');
+        // The guards matter: `findOne({ where: { email: undefined } })` drops the undefined
+        // condition and degenerates into "find any profile", so a profile with no contact details
+        // used to collide with the first row in the table. Contact fields are nullable by design —
+        // an admin creates a profile with just a name and links an account later.
+        if (createProfileDto.email) {
+            const existingEmail = await this.profileRepository.findOne({ where: { email: createProfileDto.email } });
+            if (existingEmail) {
+                throw new ConflictException('Email is already in use');
+            }
         }
-        const existingPhone = await this.profileRepository.findOne({ where: { phone: createProfileDto.phone } });
-        if (existingPhone) {
-            throw new ConflictException('Phone number is already in use');
+        if (createProfileDto.phone) {
+            const existingPhone = await this.profileRepository.findOne({ where: { phone: createProfileDto.phone } });
+            if (existingPhone) {
+                throw new ConflictException('Phone number is already in use');
+            }
         }
         const profile = this.profileRepository.create({
             ...createProfileDto,

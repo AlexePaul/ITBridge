@@ -10,23 +10,23 @@ export class S3Service implements OnModuleInit {
         const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
         const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
+        // `AWS_S3_ENDPOINT` points the client somewhere other than AWS. Unset in production, where
+        // the SDK resolves the real endpoint from the region; set to the local MinIO in development
+        // and in CI. Path-style addressing goes with it: MinIO serves buckets as `/bucket/key`
+        // rather than as a `bucket.host` subdomain, which has no DNS entry locally.
+        const endpoint = process.env.AWS_S3_ENDPOINT;
+
         if (!region) {
             throw new Error('Missing AWS configuration. Please set AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY environment variables.');
         }
 
-        if (accessKeyId && secretAccessKey) {
-            this.s3Client = new S3Client({
-                region,
-                credentials: {
-                    accessKeyId,
-                    secretAccessKey,
-                },
-            });
-        } else {
-            this.s3Client = new S3Client({
-                region,
-            });
-        }
+        this.s3Client = new S3Client({
+            region,
+            ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
+            // Without an explicit pair the SDK falls back to its default credential chain, which in
+            // production means the IAM instance role.
+            ...(accessKeyId && secretAccessKey ? { credentials: { accessKeyId, secretAccessKey } } : {}),
+        });
     }
 
     async uploadFile(fileBuffer: Buffer, fileName: string, bucket: string = process.env.AWS_S3_BUCKET ?? '') {

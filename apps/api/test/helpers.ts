@@ -12,16 +12,25 @@ import { Role } from 'src/enum/role.enum';
  * Boots the real application, with guards, routing and Postgres — only S3 and PDF generation are
  * replaced, because they leave the process and have nothing to verify here.
  */
-export async function createTestApp(): Promise<{ app: INestApplication<App>; dataSource: DataSource }> {
+export async function createTestApp(options: { realStorage?: boolean } = {}): Promise<{
+    app: INestApplication<App>;
+    dataSource: DataSource;
+}> {
     // `app.listen(0)` opens a single server, on a free port, for the whole lifetime of the suite.
     // The alternative — handing `app.getHttpServer()` straight to supertest — makes supertest spin
     // up an ephemeral server on every call, which turned out to be a source of flaky failures.
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
-        .overrideProvider(S3Service)
-        .useValue({ uploadFile: jest.fn(), downloadFile: jest.fn() })
-        .overrideProvider(PdfService)
-        .useValue({ generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-')) })
-        .compile();
+    // `realStorage` keeps the actual S3 client and PDF generator, for the one suite that exercises
+    // them against MinIO. Everywhere else they are stubbed: they leave the process, and no other
+    // test is about them.
+    const builder = Test.createTestingModule({ imports: [AppModule] });
+    if (!options.realStorage) {
+        builder
+            .overrideProvider(S3Service)
+            .useValue({ uploadFile: jest.fn(), downloadFile: jest.fn() })
+            .overrideProvider(PdfService)
+            .useValue({ generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-')) });
+    }
+    const moduleRef = await builder.compile();
 
     const app = moduleRef.createNestApplication<INestApplication<App>>();
     await app.init();

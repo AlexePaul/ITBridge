@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { CreateInvoiceDto } from './dto/createInvoice.dto';
@@ -20,25 +20,51 @@ export class InvoiceService {
         @InjectRepository(Discount) private readonly discountRepository: Repository<Discount>,
         private readonly pdfService: PdfService,
         private readonly s3Service: S3Service,
+        private readonly dataSource: DataSource,
     ) {}
 
+    /**
+     * Issues one invoice per parent.
+     *
+     * Each invoice is written and its PDF uploaded inside a single transaction. That ordering
+     * matters: the file name embeds the invoice id, so the row has to exist before the upload — but
+     * if the upload then fails, the row must not survive. Without the transaction a failed upload
+     * left a persisted invoice with no PDF, the caller saw a 500 and retried, and the retry hit
+     * `@Unique(['parent', 'monthIssued'])` — so one S3 hiccup wedged invoicing for that parent and
+     * month until somebody deleted the row by hand.
+     *
+     * The upload happens while the transaction is open, which holds it across a network call. At
+     * this scale that is the right trade: a slow issue beats a half-written one.
+     */
     async createInvoice(createInvoiceDto: CreateInvoiceDto) {
         const invoicesCreated: Invoice[] = [];
+
         for (const parentId of createInvoiceDto.parentIds) {
             const parent = await this.profileRepository.findOne({ where: { id: parentId } });
             if (!parent) throw new NotFoundException('Parent profile not found');
 
-            const invoice = new Invoice();
-            invoice.amount = await this.calculateAmount(parentId, createInvoiceDto.monthIssued);
-            invoice.dateIssued = new Date(createInvoiceDto.dateIssued);
-            invoice.monthIssued = createInvoiceDto.monthIssued;
-            invoice.status = InvoiceStatus.PENDING;
-            invoice.parent = parent;
-            invoicesCreated.push(await this.invoiceRepository.save(invoice));
-            const pdfBuffer = await this.pdfService.generateInvoicePdf(invoice);
-            const fileName = `invoices/${invoice.monthIssued}/${invoice.id + '_' + invoice.parent.firstName + '_' + invoice.parent.lastName}.pdf`;
-            await this.s3Service.uploadFile(pdfBuffer, fileName);
+            const amount = await this.calculateAmount(parentId, createInvoiceDto.monthIssued);
+
+            const saved = await this.dataSource.transaction(async (manager) => {
+                const invoice = new Invoice();
+                invoice.amount = amount;
+                invoice.dateIssued = new Date(createInvoiceDto.dateIssued);
+                invoice.monthIssued = createInvoiceDto.monthIssued;
+                invoice.status = InvoiceStatus.PENDING;
+                invoice.parent = parent;
+
+                const persisted = await manager.save(invoice);
+
+                const pdfBuffer = await this.pdfService.generateInvoicePdf(persisted);
+                const fileName = `invoices/${persisted.monthIssued}/${persisted.id}_${parent.firstName}_${parent.lastName}.pdf`;
+                await this.s3Service.uploadFile(pdfBuffer, fileName);
+
+                return persisted;
+            });
+
+            invoicesCreated.push(saved);
         }
+
         return invoicesCreated;
     }
 
