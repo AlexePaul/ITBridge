@@ -46,19 +46,22 @@ export class PaymentService {
         if (filter.dateFrom) qb.andWhere('payment.date >= :from', { from: filter.dateFrom });
         if (filter.dateTo) qb.andWhere('payment.date <= :to', { to: filter.dateTo });
 
-        if (role !== Role.ADMIN) {
-            qb.leftJoin('parent.user', 'user').andWhere('user.id = :userId', { userId });
-        }
-
         return qb.getMany();
     }
 
     async findOne(id: number, role: Role, userId: number) {
         const qb = this.paymentRepo.createQueryBuilder('payment').leftJoinAndSelect('payment.invoice', 'invoice').leftJoinAndSelect('invoice.parent', 'parent');
+
+        // `andWhere` throughout, never `where`. A `where()` call *replaces* the whole clause, so the
+        // narrowing below used to be wiped out by the id filter that followed it — and every parent
+        // could read every other family's payment, joined profile included. Add the id first so no
+        // later condition can be the one that resets the builder.
+        qb.andWhere('payment.id = :id', { id });
         if (role !== Role.ADMIN) {
             qb.leftJoin('parent.user', 'user').andWhere('user.id = :userId', { userId });
         }
-        const payment = await qb.where('payment.id = :id', { id }).getOne();
+
+        const payment = await qb.getOne();
         if (!payment) throw new NotFoundException('Payment not found');
 
         return payment;

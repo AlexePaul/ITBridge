@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import PDFDocument from 'pdfkit';
 import * as fs from 'fs';
 import path from 'path';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -37,7 +38,6 @@ export class PdfService {
             })),
         ];
         const total = invoice.amount;
-        const PDFDocument = (await import('pdfkit')).default;
         return new Promise((resolve, reject) => {
             const doc = new PDFDocument({ size: 'A4', margin: 50 });
             const chunks: Buffer[] = [];
@@ -45,14 +45,19 @@ export class PdfService {
             doc.on('end', () => resolve(Buffer.concat(chunks)));
             doc.on('error', reject);
 
-            // Use font from /src/assets/fonts (relative to project root)
-            const fontPath = path.join(process.cwd(), 'src/assets/fonts/Roboto-Regular.ttf');
+            // Resolved from this file, not from the working directory. `process.cwd()` happened to
+            // work only because `src/` sits next to `dist/` in a checkout; running from anywhere
+            // else, or shipping only `dist`, produced a PDF with no fonts. `nest-cli.json` copies
+            // `src/assets` into `dist/assets`, so the same relative path holds compiled and under
+            // ts-node.
+            const assetsDir = path.join(__dirname, '..', '..', 'assets');
+            const fontPath = path.join(assetsDir, 'fonts/Roboto-Regular.ttf');
             doc.registerFont('Roboto', fontPath);
-            const fontBoldPath = path.join(process.cwd(), 'src/assets/fonts/Roboto-Bold.ttf');
+            const fontBoldPath = path.join(assetsDir, 'fonts/Roboto-Bold.ttf');
             doc.registerFont('Roboto-Bold', fontBoldPath);
             doc.font('Roboto'); // Use the font
 
-            const logoPath = path.join(process.cwd(), 'src/assets/logo.png');
+            const logoPath = path.join(assetsDir, 'logo.png');
             if (fs.existsSync(logoPath)) {
                 doc.image(logoPath, 50, 45, { width: 50 });
             }

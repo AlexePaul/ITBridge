@@ -30,11 +30,15 @@ pentru infrastructura locală, adică Postgres.
 ## Pornire
 
 ```bash
-cp .env.example .env    # completează secretele JWT
+cp .env.example .env                  # completează secretele JWT
 pnpm install
-docker compose up -d
+docker compose up -d                  # Postgres + MinIO
+pnpm --filter api migration:run       # creează schema
+pnpm seed                             # date de dezvoltare (opțional, dar recomandat)
 pnpm dev
 ```
+
+După seed, intri cu utilizatorul `admin` și parola `parola123`.
 
 Atât. `pnpm dev` pornește ambele aplicații cu hot reload, încarcă `.env` de la rădăcină și le
 transmite variabilele — nu mai e nevoie de nimic pe linia de comandă. API pe
@@ -108,6 +112,32 @@ propriul origin.
 **Backend.** Nu e deployat nicăieri în acest moment. Ținta e AWS EC2 cu PM2, Postgres pe aceeași
 instanță și Caddy pentru TLS; se face în [E01](docs/epics/E01-infrastructura-medii.md), S4.
 
+## Schema bazei de date
+
+Schema evoluează **exclusiv prin migrări**, în `apps/api/src/migrations/`. `synchronize` e oprit:
+TypeORM nu mai alterează nimic singur la pornire.
+
+Fluxul când schimbi o entitate:
+
+```bash
+pnpm --filter api migration:generate src/migrations/AddSomething
+pnpm --filter api migration:run
+```
+
+Migrarea generată se citește înainte de commit — `migration:generate` produce SQL, nu intenții, iar
+o redenumire de coloană îi apare ca `DROP` plus `ADD`. Dacă asta ar pierde date, se rescrie de mână.
+
+> **O entitate schimbată fără migrare nu mai rupe nimic la pornire — rupe la prima interogare, în
+> producție.** De aceea CI rulează `check:schema`: construiește o bază de unică folosință din
+> migrări și întreabă TypeORM dacă ar mai avea ceva de schimbat. Dacă da, PR-ul cade și îți spune
+> exact ce comandă să rulezi.
+
+`pnpm seed` reconstruiește o bază locală plauzibilă: un admin, șase grupe pe tot programul
+săptămânal, unsprezece părinți (unii fără cont, ca fluxul de legare ulterioară să fie vizibil),
+paisprezece copii (inclusiv o familie cu trei, ca bug-ul de preț să fie reproductibil de mână),
+prezențe pe două luni în urmă și facturi în toate stările. Șterge tot înainte, deci e idempotent,
+și refuză să ruleze pe altceva decât localhost fără `SEED_ALLOW_NON_LOCAL=1`.
+
 ## Testare
 
 | Nivel                  | Unde                                 | Ce verifică                                                                          |
@@ -135,9 +165,8 @@ nu o plasă de siguranță.
 
 ## Stare cunoscută
 
-Două bug-uri sunt documentate ca teste `it.failing` — trec cât timp bug-ul există, devin roșii când
-e reparat. Reparațiile țin de [E05](docs/epics/E05-robustete-backend.md) și
-[E15](docs/epics/E15-pricing-facturare.md):
+Un singur bug rămâne documentat ca test `it.failing` — trece cât timp bug-ul există, devine roșu
+când e reparat. Reparația ține de [E15](docs/epics/E15-pricing-facturare.md):
 
 - **Calculul de preț nu respectă regula convenită și nu are ramură pentru trei sau mai mulți
   copii.** Regula, și sursa de adevăr pentru orice discuție despre prețuri, e **350 de lei pe lună
@@ -145,10 +174,13 @@ e reparat. Reparațiile țin de [E05](docs/epics/E05-robustete-backend.md) și
   Codul îi trece pe amândoi la 250 și scoate 500, iar de la trei copii în sus suma iese 0 și
   reducerile o duc pe negativ. Backend-ul nu rulează momentan; până rulează, documentația e cea
   corectă, nu codul.
-- **Un al doilea profil fără email și telefon primește 409.** Verificarea de unicitate face
-  `findOne({ where: { email: undefined } })`, iar TypeORM elimină condiția nedefinită — interogarea
-  devine „găsește orice profil". Blochează fluxul în care adminul creează profiluri fără date de
-  contact.
+
+Bug-ul de 409 la al doilea profil fără date de contact a fost reparat în
+[E04](docs/epics/E04-migrari-date.md), iar testul lui e acum unul obișnuit, de regresie.
+
+**Ce nu acoperă revocarea de sesiuni:** `logout` și `logout-all` invalidează refresh tokenul
+imediat, dar un access token deja emis rămâne valid până la 15 minute, fiindcă `AuthGuard` verifică
+doar semnătura. E un compromis deliberat — vezi „Capcane" în [CLAUDE.md](CLAUDE.md).
 
 `pnpm lint` e curat: zero erori, zero avertismente. Familia `no-unsafe-*` e pe `error` în codul de
 producție și oprită doar în fișierele de test, unde `res.body` din supertest și valorile mock-urilor

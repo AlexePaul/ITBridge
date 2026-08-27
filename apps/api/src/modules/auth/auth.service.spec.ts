@@ -6,20 +6,42 @@ import { AuthService } from './auth.service';
 import { User } from 'src/entities/user.entity';
 import { jwtConstants } from 'src/constants/jwtConstants';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
+import { SessionService } from './session.service';
 
 describe('AuthService', () => {
     let service: AuthService;
     let jwtService: JwtService;
     let userRepo: MockRepository;
+    let sessions: Record<string, jest.Mock>;
 
     beforeEach(async () => {
         userRepo = createMockRepository();
+
+        // `register` and `login` look the user up case-insensitively, which needs a query builder
+        // rather than `findOne`. The builder's `getOne` delegates to the same `findOne` mock, so
+        // every test below still says "the repository holds this user" in one place, and the
+        // recorded `where` clause stays assertable.
+        userRepo.createQueryBuilder!.mockImplementation(() => {
+            const qb: Record<string, jest.Mock> = {};
+            qb.where = jest.fn().mockReturnValue(qb);
+            qb.andWhere = jest.fn().mockReturnValue(qb);
+            qb.getOne = jest.fn(() => userRepo.findOne!() as Promise<unknown>);
+            return qb;
+        });
+
+        sessions = {
+            startSession: jest.fn(),
+            rotate: jest.fn(),
+            revoke: jest.fn(),
+            revokeAllForUser: jest.fn(),
+            listActive: jest.fn().mockResolvedValue([]),
+        };
 
         // A real JwtService, not a mock: issued tokens must be verifiable, and the expiry test
         // would be meaningless against a mock.
         const module: TestingModule = await Test.createTestingModule({
             imports: [JwtModule.register({})],
-            providers: [AuthService, provideMockRepository(User, userRepo)],
+            providers: [AuthService, provideMockRepository(User, userRepo), { provide: SessionService, useValue: sessions }],
         }).compile();
 
         service = module.get(AuthService);

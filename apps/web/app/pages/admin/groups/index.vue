@@ -61,6 +61,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import { WEEKDAYS_IN_ORDER, WEEKDAY_LABELS } from "~/types/group.types";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { formatTime } from "~/composables/useUtils";
@@ -74,14 +75,9 @@ definePageMeta({
   title: "Gestionarea Grupelor",
 });
 
-const days = [
-  { label: "Luni", id: 1 },
-  { label: "Marti", id: 2 },
-  { label: "Miercuri", id: 3 },
-  { label: "Joi", id: 4 },
-  { label: "Vineri", id: 5 },
-  { label: "Sambata", id: 6 },
-];
+// The third hand-written copy of this list, and the last one. It stopped at Saturday, so a Sunday
+// group — which the API and both group forms accept — rendered in no section at all.
+const days = WEEKDAYS_IN_ORDER.map((id) => ({ id, label: WEEKDAY_LABELS[id] }));
 const groupsApi = useGroupsApi();
 const childrenStore = useChildrenStore();
 const groupsStore = useGroupsStore();

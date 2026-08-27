@@ -12,16 +12,37 @@ import { Role } from 'src/enum/role.enum';
  * Boots the real application, with guards, routing and Postgres — only S3 and PDF generation are
  * replaced, because they leave the process and have nothing to verify here.
  */
-export async function createTestApp(): Promise<{ app: INestApplication<App>; dataSource: DataSource }> {
+export async function createTestApp(options: { realStorage?: boolean; throttling?: boolean } = {}): Promise<{
+    app: INestApplication<App>;
+    dataSource: DataSource;
+}> {
     // `app.listen(0)` opens a single server, on a free port, for the whole lifetime of the suite.
     // The alternative — handing `app.getHttpServer()` straight to supertest — makes supertest spin
     // up an ephemeral server on every call, which turned out to be a source of flaky failures.
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
-        .overrideProvider(S3Service)
-        .useValue({ uploadFile: jest.fn(), downloadFile: jest.fn() })
-        .overrideProvider(PdfService)
-        .useValue({ generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-')) })
-        .compile();
+    // `realStorage` keeps the actual S3 client and PDF generator, for the one suite that exercises
+    // them against MinIO. Everywhere else they are stubbed: they leave the process, and no other
+    // test is about them.
+    const builder = Test.createTestingModule({ imports: [AppModule] });
+
+    // Rate limiting is off by default. Suites register a handful of users in `beforeEach`, which
+    // over a couple of dozen tests goes well past a limit meant for a human at a login form — the
+    // throttler would be measuring the test suite, not the behaviour under test. The one suite that
+    // is about throttling asks for it.
+    process.env.RATE_LIMIT_ENABLED = options.throttling ? 'true' : 'false';
+    if (!options.realStorage) {
+        builder
+            .overrideProvider(S3Service)
+            .useValue({
+                uploadFile: jest.fn(),
+                // A Buffer, not `undefined`: the controller streams what this returns, so a bare
+                // `jest.fn()` turns every stubbed download into a 500 that looks like a real one.
+                downloadFile: jest.fn().mockResolvedValue(Buffer.from('%PDF-')),
+                isReachable: jest.fn().mockResolvedValue(true),
+            })
+            .overrideProvider(PdfService)
+            .useValue({ generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-')) });
+    }
+    const moduleRef = await builder.compile();
 
     const app = moduleRef.createNestApplication<INestApplication<App>>();
     await app.init();
@@ -30,7 +51,7 @@ export async function createTestApp(): Promise<{ app: INestApplication<App>; dat
     return { app, dataSource: app.get(DataSource) };
 }
 
-/** Wipes every table between suites, keeping the schema created by `synchronize`. */
+/** Wipes every table between suites. The schema itself comes from the migrations. */
 export async function truncateAll(dataSource: DataSource): Promise<void> {
     const tables = dataSource.entityMetadatas.map((m) => `"${m.tableName}"`).join(', ');
     await dataSource.query(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`);

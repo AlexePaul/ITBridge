@@ -8,6 +8,7 @@ import { CreateChildDto } from './dto/createChild.dto';
 import { FilterChildDto } from './dto/filterChild.dto';
 import { UpdateChildDto } from './dto/updateChild.dto';
 import { Group } from 'src/entities/group.entity';
+import { applyDefined } from 'src/common/apply-defined';
 
 @Injectable()
 export class ChildService {
@@ -75,7 +76,7 @@ export class ChildService {
             throw new ForbiddenException('You do not have permission to update this child');
         }
 
-        Object.assign(child, updateChildDto);
+        applyDefined(child, updateChildDto);
         return this.childRepository.save(child);
     }
 

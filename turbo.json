@@ -16,7 +16,12 @@
     "CORS_ORIGINS",
     "DB_*",
     "JWT_*",
-    "AWS_*"
+    "AWS_*",
+    "MINIO_*",
+    "TEST_DB_NAME",
+    "RATE_LIMIT_ENABLED",
+    "SEED_ALLOW_NON_LOCAL",
+    "SKIP_ENV_VALIDATION"
   ],
 
   // The root `.env` feeds into the cache hash: a configuration change invalidates the builds
@@ -26,7 +31,11 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".output/**"]
+      // `.vercel/output` belongs here alongside the others: building on Vercel makes Nuxt use its
+      // Vercel preset, which writes there instead of to `.output`. Left undeclared, a cache hit
+      // restores nothing at that path while turbo replays the build log as if it had — and the
+      // deploy then fails with "No Output Directory found", having seemingly just built fine.
+      "outputs": ["dist/**", ".output/**", ".vercel/output/**"]
     },
     "typecheck": {
       "dependsOn": ["^build"]
@@ -34,6 +43,10 @@
     "lint": {},
     "test": {
       "dependsOn": ["^build"]
+    },
+    "test:cov": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
     },
     "test:e2e": {
       "dependsOn": ["^build"],

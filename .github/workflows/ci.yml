@@ -48,8 +48,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # `test:cov`, not `test`: the per-file coverage thresholds in apps/api/package.json were
+      # configured and then never executed by anything, so they guaranteed nothing — the same shape
+      # of problem as 22 DTO files whose decorators had never run.
       - name: Unit tests
-        run: pnpm test
+        run: pnpm test:cov
 
       - name: Build
         run: pnpm build
@@ -84,6 +87,10 @@ jobs:
       DB_PASSWORD: dev_password
       TEST_DB_NAME: itbridge_test
       AWS_REGION: eu-central-1
+      AWS_S3_ENDPOINT: http://localhost:9000
+      AWS_S3_BUCKET: itbridge-local
+      AWS_ACCESS_KEY_ID: itbridge
+      AWS_SECRET_ACCESS_KEY: dev_password
 
     steps:
       - uses: actions/checkout@v5
@@ -98,7 +105,28 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # `test/global-setup.ts` creates the `itbridge_test` database itself. TypeORM builds the
-      # schema through `synchronize: true` - that changes once migrations land, in E04.
+      # Started as a plain container rather than a service, because the official MinIO image needs
+      # a command (`server /data`) and `services:` has nowhere to put one. The bucket is created by
+      # `test/global-setup.ts`, not by the image.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=itbridge \
+            -e MINIO_ROOT_PASSWORD=dev_password \
+            minio/minio:latest server /data
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 2
+          done
+          curl -sf http://localhost:9000/minio/health/live
+
+      # Entities changed without a matching migration are invisible until production: everything
+      # compiles and the tests pass against the old schema. This builds a throwaway database from
+      # the migrations and asks TypeORM whether anything would still need to change.
+      - name: Schema drift
+        run: pnpm --filter api check:schema
+
+      # `test/global-setup.ts` creates the `itbridge_test` database and brings it up to date by
+      # running the migrations - the same path production takes.
       - name: Integration tests
         run: pnpm --filter api test:e2e

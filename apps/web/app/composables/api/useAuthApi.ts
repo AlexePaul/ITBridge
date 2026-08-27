@@ -40,5 +40,26 @@ export const useAuthApi = () => {
     return response;
   };
 
-  return { login, register };
+  /**
+   * Real logout: tells the server to revoke the refresh token, rather than only forgetting it here.
+   *
+   * Without this call E05/S7 was delivered on the backend and unused — the sessions row stayed
+   * live and the token kept working for its full seven days after the user pressed "log out".
+   * Deliberately best-effort: the local session must be cleared even if the request fails, and
+   * revoking an unknown token is a no-op server-side, so there is nothing to report to the user.
+   */
+  const logout = async () => {
+    const refreshToken = tokenStore.refreshToken;
+    if (!refreshToken) return;
+    try {
+      await api<{ message: string }>("/auth/logout", {
+        method: "POST",
+        body: { refreshToken },
+      });
+    } catch (err) {
+      console.error("Logout request failed; clearing the local session anyway:", err);
+    }
+  };
+
+  return { login, register, logout };
 };

@@ -2,16 +2,24 @@ import type { ISODate, TimeOfDay } from './common';
 import type { Group } from './group';
 
 /**
- * The values `AttendanceService.createAttendance` actually writes: `'regular'` for a child in their
- * own group, `'make-up'` for one attending a catch-up session.
+ * What kind of session an attendance record belongs to.
  *
- * Beware: two further values exist in the code that the service never writes and that do not belong
- * here — the column default in `attendance.entity.ts` is `'normal'`, and the `@ApiProperty` example
- * on `markAttendance.dto.ts` says `'catch-up'`. Those are inconsistent leftovers; the default can
- * still show up on rows inserted straight into the database, which is why consumers treat unknown
- * values with a fallback rather than an error.
+ * A database enum now, so these are the only values the column accepts — the old varchar defaulted
+ * to `'normal'`, which the service never wrote and the frontend could not render, so any row
+ * created outside `createAttendance` showed up with an empty session type.
  */
-export type AttendanceType = 'regular' | 'make-up';
+export enum AttendanceType {
+    /** The child's own group. */
+    REGULAR = 'regular',
+    /** A catch-up session, attended with a group that is not the child's own. */
+    MAKE_UP = 'make-up',
+}
+
+/** Romanian names — this is what a parent reads in the attendance table. */
+export const ATTENDANCE_TYPE_LABELS: Record<AttendanceType, string> = {
+    [AttendanceType.REGULAR]: 'Normală',
+    [AttendanceType.MAKE_UP]: 'Recuperare',
+};
 
 export interface Attendance {
     id: number;

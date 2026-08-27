@@ -74,9 +74,11 @@ onMounted(async () => {
 function getColorByDate(date: Date, child: any) {
   if (!child.group) return undefined;
 
-  const dayOfWeek = date.getUTCDay() + 1; // 1 (Sunday) to 7 (Saturday)
+  // ISO weekday, matching Group.weekday: Monday is 1, Sunday is 7. `getUTCDay()` returns
+  // Sunday = 0 through Saturday = 6, so `+ 1` alone shifted every day by one and the calendar
+  // highlighted each child's lesson on the day before it actually happens.
+  const dayOfWeek = ((date.getUTCDay() + 6) % 7) + 1;
   const attendanceRecordForDate = attendanceStore.attendancesByChildIdAndDate(child.id, date);
-  console.log("Attendance Record for", date.toDateString(), ":", attendanceRecordForDate);
   if (child.group.weekday === dayOfWeek) {
     if (date > new Date()) {
       return "neutral";

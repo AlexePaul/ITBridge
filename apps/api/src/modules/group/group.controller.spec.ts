@@ -27,7 +27,7 @@ describe('GroupController', () => {
 
     it('passes the id and body to update', async () => {
         const { controller, service } = await build();
-        await controller.updateGroup(7, { weekday: 3 } as never);
+        await controller.updateGroup(7, { weekday: 3 });
         expect(service.updateGroup).toHaveBeenCalledWith(7, { weekday: 3 });
     });
 });

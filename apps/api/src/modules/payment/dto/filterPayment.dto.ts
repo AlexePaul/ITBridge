@@ -1,9 +1,11 @@
+import { Type } from 'class-transformer';
 import { IsOptional, IsNumber, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class FilterPaymentDto {
     @ApiPropertyOptional({ example: 1, description: 'Filter by invoice ID' })
     @IsOptional()
+    @Type(() => Number)
     @IsNumber()
     invoiceId?: number;
 

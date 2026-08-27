@@ -15,10 +15,23 @@ export class UserService {
         return this.userRepository.find();
     }
 
+    /**
+     * Accounts that have no profile attached yet — the other half of the flow where an admin creates
+     * a profile without an account and links the two later.
+     *
+     * This used to use `NOT IN` over a subquery selecting `profile.user_id`. That column is nullable,
+     * and in SQL `x NOT IN (1, 2, NULL)` evaluates to NULL rather than true, so the moment a single
+     * profile existed without an account the endpoint returned an empty list — always, and silently.
+     * `NOT EXISTS` has no such behaviour with NULLs.
+     */
     async getUsersWithoutProfile(): Promise<User[]> {
-        const subQuery = this.userRepository.manager.createQueryBuilder().select('profile.user_id').from('profiles', 'profile');
-
-        return this.userRepository.createQueryBuilder('user').where(`user.id NOT IN (${subQuery.getQuery()})`).getMany();
+        return this.userRepository
+            .createQueryBuilder('user')
+            .where((qb) => {
+                const subQuery = qb.subQuery().select('1').from('profiles', 'profile').where('profile.user_id = user.id').getQuery();
+                return `NOT EXISTS ${subQuery}`;
+            })
+            .getMany();
     }
 
     async getUserById(id: number): Promise<User> {

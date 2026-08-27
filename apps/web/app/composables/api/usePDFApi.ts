@@ -1,30 +1,24 @@
-import { useTokenStore } from "~/stores/tokenStore";
+import { useApi } from "./useApi";
 
 export function usePDFApi() {
-  const config = useRuntimeConfig();
-  const baseURL = config.public.apiBase || "http://localhost:3000";
-  const tokenStore = useTokenStore();
+  const api = useApi();
 
-  const fetchInvoicePdf = async (invoiceId: number): Promise<Blob | null> => {
-    try {
-      const token = tokenStore.accessToken;
-      const response = await fetch(`${baseURL}/invoices/${invoiceId}/pdf`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/pdf",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-      }
-
-      return await response.blob();
-    } catch (error) {
-      console.error("Error fetching PDF:", error);
-      return null;
-    }
+  /**
+   * Downloads an invoice PDF.
+   *
+   * Goes through `useApi` like every other call. It used to use a bare `fetch` with the access
+   * token pasted into a header, which meant it was the one request in the app with no refresh on
+   * 401 — a parent whose token had expired (fifteen minutes) got nothing at all, because the error
+   * was then swallowed into `null` with only a `console.error` to show for it.
+   */
+  const fetchInvoicePdf = async (invoiceId: number): Promise<Blob> => {
+    return api<Blob>(`/invoices/${invoiceId}/pdf`, {
+      method: "GET",
+      headers: { Accept: "application/pdf" },
+      // ofetch decides how to parse from the content type; a PDF has to be asked for explicitly or
+      // it comes back as a mangled string.
+      responseType: "blob",
+    });
   };
 
   return {

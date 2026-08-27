@@ -10,12 +10,12 @@ lunar se emit facturi (PDF în S3) și se înregistrează plățile.
 
 Monorepo pnpm, orchestrat cu Turborepo, plus Postgres ca infrastructură locală:
 
-| Workspace            | Stack                                               | Port |
-| -------------------- | --------------------------------------------------- | ---- |
-| `apps/api/`          | NestJS 11, TypeORM, JWT, PDFKit, AWS S3             | 3000 |
-| `apps/web/`          | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind                 | 3001 |
-| `packages/types/`    | contractul API partajat, `@itbridge/types`          | —    |
-| `docker-compose.yml` | Postgres 17 — singurul lucru care rulează în Docker | 5432 |
+| Workspace            | Stack                                                          | Port       |
+| -------------------- | -------------------------------------------------------------- | ---------- |
+| `apps/api/`          | NestJS 11, TypeORM, JWT, PDFKit, AWS S3                        | 3000       |
+| `apps/web/`          | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind                            | 3001       |
+| `packages/types/`    | contractul API partajat, `@itbridge/types`                     | —          |
+| `docker-compose.yml` | Postgres 17 + MinIO — singurele lucruri care rulează în Docker | 5432, 9000 |
 
 ## Comenzi
 
@@ -23,10 +23,12 @@ Toate de la rădăcină. Nu intra în `apps/*` să rulezi `npm` — nu există `
 mai există `node_modules` propriu.
 
 ```bash
-cp .env.example .env    # un singur .env, la rădăcină
+cp .env.example .env              # un singur .env, la rădăcină
 pnpm install
-docker compose up -d    # doar Postgres; aplicația rulează pe Node
-pnpm dev                # api + web, hot reload, fără variabile pe linia de comandă
+docker compose up -d              # Postgres + MinIO; aplicația rulează pe Node
+pnpm --filter api migration:run   # schema; synchronize e oprit
+pnpm seed                         # date de dezvoltare; admin / parola123
+pnpm dev                          # api + web, hot reload
 
 pnpm build          # turbo, în ordinea dependențelor
 pnpm typecheck      # toate workspace-urile
@@ -101,7 +103,12 @@ if (role !== Role.ADMIN) {
 }
 ```
 
-Vezi `apps/api/src/modules/invoice/invoice.service.ts:50`. Același tipar în `payment`, `child`, `profile` — respectă-l.
+Vezi `apps/api/src/modules/invoice/invoice.service.ts:92`. Același tipar în `payment`, `child`, `profile` — respectă-l.
+
+**Numai `andWhere`, niciodată `where`, după ce ai început să compui.** `qb.where()` _înlocuiește_
+toată clauza, deci un `where` pus după restrângerea pe utilizator o șterge fără niciun semn. Exact
+așa a scăpat `PaymentService.findOne`: orice părinte putea citi plata oricărei alte familii, cu
+profilul complet atașat. Dacă ai nevoie de o primă condiție, pune-o tot cu `andWhere`.
 
 **Frontend** — lanțul de autentificare are o ordine care contează:
 `apps/web/app/plugins/01.auth.client.ts` setează `authInitialized` → middleware-urile globale
@@ -152,17 +159,64 @@ Nu schimba asta: supertest ridică altfel un server efemer la fiecare cerere, ia
 intermitentă în chip înșelător — am văzut cereri neautentificate răspunzând 200, ceea ce arată ca o
 breșă de autentificare, dar era rotație de porturi.
 
-**Testele de integrare cer Postgres pornit.** `pnpm test:e2e` se conectează la baza
-`itbridge_test`, pe care și-o creează singur prin `apps/api/test/global-setup.ts`, dar serverul
-trebuie să ruleze: `docker compose up -d`. Schema o face TypeORM cu `synchronize: true`.
+**Testele de integrare cer Postgres _și_ MinIO pornite.** `pnpm test:e2e` se conectează la baza
+`itbridge_test`, pe care și-o creează singur prin `apps/api/test/global-setup.ts`, și creează tot
+acolo bucket-ul S3 — deci amândouă containerele trebuie să ruleze: `docker compose up -d`. Schema
+vine din migrări, aceeași cale ca în producție, deci o migrare lipsă sau stricată pică testele.
 
-**Validarea nu rulează.** 22 de fișiere DTO au decoratori `class-validator`, dar niciun
-`ValidationPipe` nu e înregistrat în `apps/api/src/main.ts` și nu există `APP_PIPE`. Body-uri brute ajung
-direct în servicii. Dacă adaugi un DTO, decoratorii lui nu fac nimic până nu se înregistrează
-pipe-ul global.
+Rulează-le de la rădăcină, cu `pnpm test:e2e`, nu cu `pnpm --filter api test:e2e`: al doilea
+pornește cu directorul de lucru în `apps/api`, unde nu există `.env`, deci nu vede portul MinIO din
+configurația ta.
 
-**Nu există migrări.** `apps/api/src/app.module.ts` rulează cu `synchronize: true`, deci TypeORM alterează
-schema singur la fiecare boot. Orice schimbare de entitate se aplică direct pe baza de date.
+**`scripts/` e exclus din `tsconfig.build.json`, intenționat.** Inclus, ar urca `rootDir` la
+rădăcina pachetului, iar `nest build` ar scrie `dist/src/main.js` în loc de `dist/main.js` — deci
+`start:prod` și deploy-ul s-ar rupe în tăcere. Scripturile rulează oricum prin ts-node.
+
+**Un `''` dintr-un formular nu e `undefined`, iar `@IsOptional()` nu-l sare.** Orice input HTML
+netastat se trimite ca string gol, deci `@IsOptional() @Length(1, 255)` respinge exact payload-ul pe
+care formularul îl produce mereu. Pe câmpurile opționale de text pune `@EmptyToUndefined()`
+(`apps/api/src/common/empty-to-undefined.ts`) înaintea validatorilor. Din cauza asta ecranul de
+completare a profilului a devenit imposibil de trecut în clipa în care validarea a fost pornită.
+
+**`@IsPhoneNumber()` fără regiune cere format internațional.** Numerele se scriu `0712345678` în
+România, deci decoratorul e `@IsPhoneNumber('RO')`, care acceptă și `+40712345678`. Frontend-ul
+normalizează la `+40…` înainte să trimită (`normalizePhone` din `composables/useUtils.ts`), ca
+verificarea de duplicat să compare o singură formă.
+
+**Coloanele `decimal` vin ca string din driver.** `@Column({ type: 'decimal' })` fără `transformer`
+declară `number` și livrează `"11"`. `contract.ts` nu prinde asta — compară declarații, nu
+comportament. Folosește `decimalAsNumber` din `apps/api/src/entities/decimal.transformer.ts`.
+
+**Validarea rulează, ca `APP_PIPE` în `app.module.ts`.** Deci se aplică și aplicațiilor construite
+în teste, nu doar celei din `main.ts`. `whitelist` plus `forbidNonWhitelisted`: un câmp pe care
+niciun DTO nu-l declară respinge cererea, nu e ignorat tăcut.
+
+`enableImplicitConversion` e **oprit** intenționat — ar converti înainte de validare, deci
+`@IsString()` ar accepta un număr transformându-l în string. Un câmp numeric care vine din query
+string are nevoie de `@Type(() => Number)` explicit.
+
+**`undefined` într-un `where` TypeORM înseamnă „ignoră condiția", nu „e null".** A produs deja două
+bug-uri: crearea de profiluri fără date de contact răspundea 409, iar logout-ul răspundea 200 fără
+să revoce nimic. Folosește `IsNull()`.
+
+**Configurația e validată la pornire**, în `apps/api/src/config/env.validation.ts`. Aplicația refuză
+să pornească fără secrete JWT, cu secrete sub 16 caractere, cu valorile implicite vechi, sau cu
+access și refresh identice. Uneltele de schemă trec pe lângă validare cu `SKIP_ENV_VALIDATION=true`,
+fiindcă au nevoie doar de configurația de bază de date.
+
+**Schema se schimbă doar prin migrări.** `synchronize` e `false`, iar configurația e într-un singur
+loc, `apps/api/src/data-source.ts`, citit și de aplicație și de CLI-ul TypeORM. O entitate schimbată
+fără migrare nu mai rupe la pornire — rupe la prima interogare care atinge coloana nouă. De asta CI
+rulează `check:schema`, care construiește o bază de unică folosință din migrări și verifică dacă
+entitățile au divergat.
+
+Când schimbi o entitate: `pnpm --filter api migration:generate src/migrations/<Nume>`, apoi citește
+SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD` — dacă asta
+ar pierde date, rescrie migrarea de mână.
+
+**Migrările nu rulează la boot.** `migrationsRun` e `false` intenționat: în deploy se rulează
+explicit, între build și `pm2 reload`, ca o migrare eșuată să oprească deploy-ul în loc să lase
+procesul să se restarteze în buclă.
 
 **`API_BASE`, nu `NUXT_PUBLIC_API_BASE`.** `apps/web/nuxt.config.ts` mapează
 `runtimeConfig.public.apiBase` pe `process.env.API_BASE`. Fără el, `apiBase` e `undefined` și
@@ -182,17 +236,32 @@ apară eroarea sub câmp, în rută fiindcă ruta e publică și oricine poate p
 403 — iar o cheie de trimitere restricționată nu poate interoga `/domains` ca să-ți spună asta
 dinainte. Ambele variabile sunt în `turbo.json`, la `globalEnv`, și trebuie setate și în Vercel.
 
+**S3-ul local e MinIO, prin `AWS_S3_ENDPOINT`.** Variabila scoate SDK-ul de pe AWS; în producție
+se lasă nesetată. `invoice-pdf.e2e-spec.ts` e singura suită care nu mock-uiește S3 și PDFKit — restul
+le înlocuiesc, fiindcă ies din proces.
+
+**`pdf.service.ts` își citește fonturile relativ la `__dirname`, nu la `process.cwd()`.** Le lua din
+`process.cwd()/src/assets`, ceea ce mergea doar fiindcă `src/` stă lângă `dist/` într-o clonă.
+`nest-cli.json` copiază acum `src/assets` în `dist/assets`. Dacă muți fișierul, potrivește calea.
+
 **`AWS_REGION` e obligatorie ca să pornească aplicația.** `S3Service.onModuleInit`
-(`apps/api/src/modules/invoice/s3.service.ts:13`) aruncă fără ea, deci backend-ul cade la
+(`apps/api/src/modules/invoice/s3.service.ts:28`) aruncă fără ea, deci backend-ul cade la
 boot, chiar dacă nu atingi nicio factură. Cheile de acces sunt opționale — lipsa lor duce SDK-ul pe
 lanțul implicit de credențiale, adică IAM instance role în producție. Mesajul de eroare cere trei
 variabile, dar verifică una singură.
 
-**Secrete JWT cu fallback.** `apps/api/src/constants/jwtConstants.ts` cade pe `'defaultAccessSecret'` /
-`'defaultRefreshSecret'` dacă variabilele lipsesc — fără avertisment.
+**Refresh tokenurile sunt urmăribile și revocabile.** Tabelul `sessions` ține un SHA-256 al
+fiecăruia, niciodată tokenul. Refresh-ul rotește, iar refolosirea unuia consumat revocă tot lanțul —
+semnalul de furt. `POST /auth/logout` nu cere access token, fiindcă acela e adesea deja expirat.
 
-**Refresh tokens nu pot fi revocate.** Sunt stateless, nu există logout server-side și nici
-listă de revocare.
+**Revocarea acționează doar pe refresh, nu și pe access.** `AuthGuard` verifică semnătura JWT și
+atât — nu atinge tabelul `sessions`. Deci după `logout` sau `logout-all`, un access token deja emis
+mai funcționează până la 15 minute. E compromisul acceptat: alternativa e o interogare în baza de
+date la fiecare cerere. Dacă vine o cerință de revocare instantanee, ăsta e locul de schimbat.
+
+**Clientul trebuie să salveze refresh tokenul întors de `/auth/refresh`.** Rotația îl consumă pe
+cel prezentat; dacă păstrezi tokenul vechi, a doua reîmprospătare arată ca un replay, iar serverul
+revocă tot lanțul. `useApi.ts` a avut exact bug-ul ăsta și deloga fiecare părinte la ~30 de minute.
 
 **Familia `no-unsafe-*` e pe `error` în codul de producție și oprită în teste.** Excepția pentru
 teste e îngustă și justificată: supertest tipează `res.body` ca `any`, iar valorile întoarse de
@@ -215,7 +284,7 @@ TypeError în loc să răspundă 403.
 **Nu rula `npm` în `apps/*`.** Nu mai există `package-lock.json` și nici `node_modules` propriu;
 totul trece prin `pnpm` de la rădăcină. Pentru un singur workspace, `pnpm --filter api <script>`.
 
-**Prețuri hardcodate, cu gaură la 3+ copii.** `apps/api/src/modules/invoice/invoice.service.ts:107` — 350 pentru un copil,
+**Prețuri hardcodate, cu gaură la 3+ copii.** `apps/api/src/modules/invoice/invoice.service.ts:162` — 350 pentru un copil,
 250×2 pentru doi, nicio ramură pentru trei sau mai mulți, deci `totalAmount` rămâne 0 și
 reducerile îl duc pe negativ. Regula convenită e 350 pentru primul copil și 250 pentru fiecare
 frate — deci 600 pentru doi, nu 500; vezi [E15](docs/epics/E15-pricing-facturare.md).
