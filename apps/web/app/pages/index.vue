@@ -39,7 +39,7 @@
       </div>
     </section>
 
-    <section class="section split" data-reveal>
+    <section class="section split split-even" data-reveal>
       <div>
         <span class="kicker">Momentele noastre</span>
         <h2 class="section-title">Ore în care se construiește ceva, la propriu</h2>
@@ -52,7 +52,7 @@
           <NuxtLink to="/about" class="link">Cunoaște echipa și locațiile →</NuxtLink>
         </p>
       </div>
-      <div class="plate-lg self-end">
+      <div class="plate-xl self-end">
         <PhotoSlideshow :photos="photos" label="Momente de la orele IT Bridge School" />
       </div>
     </section>

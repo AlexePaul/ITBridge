@@ -8,7 +8,7 @@ export interface SchoolLocation {
 
 export const SCHOOL_PHONE = "+40 732 273 347";
 export const SCHOOL_PHONE_HREF = "tel:+40732273347";
-export const SCHOOL_EMAIL = "alexepaul2011@gmail.com";
+export const SCHOOL_EMAIL = "office@itbridgeschool.com";
 
 export const SCHOOL_HOURS = ["Luni–vineri: 9:00–18:00", "Sâmbătă: 10:00–14:00", "Duminică: închis"];
 
