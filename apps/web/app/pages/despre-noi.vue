@@ -110,7 +110,7 @@ import { schoolGraph, breadcrumbNode, personNode, webPageNode } from "#shared/st
 import { useRuntimeConfig } from "#imports";
 
 definePageMeta({
-  layout: "default" as any,
+  layout: "default",
   title: "Despre noi",
 });
 

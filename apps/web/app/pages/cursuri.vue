@@ -136,7 +136,7 @@ import {
 import { useRuntimeConfig } from "#imports";
 
 definePageMeta({
-  layout: "default" as any,
+  layout: "default",
   title: "Cursuri",
 });
 

@@ -7,7 +7,7 @@ import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { useProfileInitialization } from "~/composables/useProfileInitialization";
 
 definePageMeta({
-  layout: "default" as any,
+  layout: "default",
   title: "Autentificare",
 });
 

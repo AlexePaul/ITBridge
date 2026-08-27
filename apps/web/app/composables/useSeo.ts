@@ -39,6 +39,11 @@ export const useSeo = (input: SeoInput) => {
     ogLocale: "ro_RO",
     ogImage: image,
     ogImageAlt: input.imageAlt ?? SITE_NAME,
+    // Facebook, LinkedIn and Slack commit to the large-card layout from these
+    // three; without them the first share of a URL often renders a thumbnail.
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
+    ogImageType: "image/jpeg",
     twitterCard: "summary_large_image",
     twitterTitle: input.title,
     twitterDescription: input.description,

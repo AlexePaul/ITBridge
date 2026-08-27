@@ -174,7 +174,7 @@ import { CONTENT_UPDATED, pageSeo } from "#shared/seo";
 import { breadcrumbNode, schoolGraph, webPageNode, withFaq } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
-definePageMeta({ layout: "default" as any });
+definePageMeta({ layout: "default" });
 
 useReveal();
 

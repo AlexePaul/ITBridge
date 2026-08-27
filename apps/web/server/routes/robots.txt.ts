@@ -9,6 +9,11 @@
  * crawlers are named too, and allowed: blocking them would not protect anything
  * a public brochure site cares about, and some of them feed the corpora that
  * later answer questions about Bucharest schools.
+ *
+ * /auth is deliberately NOT disallowed. Every public page links to the login
+ * form, so a crawler will find it; blocked, it can be listed as a bare URL with
+ * no snippet, because the noindex on the page is never fetched. Crawl-allowed
+ * plus noindex is the combination that actually keeps a page out.
  */
 export default defineEventHandler((event) => {
   const siteUrl = String(useRuntimeConfig(event).public.siteUrl).replace(/\/$/, "");
@@ -25,7 +30,6 @@ export default defineEventHandler((event) => {
 Allow: /
 Disallow: /admin/
 Disallow: /user/
-Disallow: /auth/
 
 # Retrieval crawlers — these decide whether the school can be cited in an
 # assistant's answer. Blocking any of them costs citations and protects nothing.
@@ -41,7 +45,6 @@ User-agent: meta-webindexer
 Allow: /
 Disallow: /admin/
 Disallow: /user/
-Disallow: /auth/
 
 # Training crawlers — allowed deliberately.
 User-agent: GPTBot
@@ -53,7 +56,6 @@ User-agent: CCBot
 Allow: /
 Disallow: /admin/
 Disallow: /user/
-Disallow: /auth/
 
 Sitemap: ${siteUrl}/sitemap.xml
 `;

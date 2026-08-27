@@ -115,7 +115,7 @@ import {
 } from "#shared/school";
 
 definePageMeta({
-  layout: "default" as any,
+  layout: "default",
   title: "Contact",
 });
 

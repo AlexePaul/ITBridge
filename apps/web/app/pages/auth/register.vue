@@ -5,7 +5,7 @@ import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
 
 definePageMeta({
-  layout: "default" as any,
+  layout: "default",
   title: "Înregistrare",
 });
 

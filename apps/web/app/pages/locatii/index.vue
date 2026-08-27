@@ -55,7 +55,7 @@ import { pageSeo } from "#shared/seo";
 import { schoolGraph, breadcrumbNode, webPageNode } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
-definePageMeta({ layout: "default" as any });
+definePageMeta({ layout: "default" });
 
 useReveal();
 

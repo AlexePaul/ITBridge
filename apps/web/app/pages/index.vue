@@ -2,7 +2,7 @@
   <div class="page">
     <section class="section-hero" data-reveal>
       <h1 class="display">
-        <span>Copiii nu doar folosesc tehnologia.</span>
+        <span>Copiii nu doar folosesc tehnologia. </span>
         <span>La noi învață să o creeze.</span>
       </h1>
       <p class="lede lede-loose">
@@ -94,7 +94,7 @@ import { schoolGraph, webPageNode } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
 definePageMeta({
-  layout: "default" as any,
+  layout: "default",
   title: "Acasă",
 });
 
