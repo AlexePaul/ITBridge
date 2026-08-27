@@ -52,9 +52,9 @@
           <NuxtLink to="/about" class="link">Cunoaște echipa și locațiile →</NuxtLink>
         </p>
       </div>
-      <figure class="plate plate-lg self-end">
-        <img src="/images/01.jpg" alt="Copii lucrând la proiecte în clasă" />
-      </figure>
+      <div class="plate-lg self-end">
+        <PhotoSlideshow :photos="photos" label="Momente de la orele IT Bridge School" />
+      </div>
     </section>
 
     <section class="section-close" data-reveal>
@@ -90,6 +90,23 @@ definePageMeta({
 });
 
 useReveal();
+
+const photos = [
+  {
+    src: "/images/paul-ana.jpg",
+    alt: "Alexe Vasile Paul și Alexe Ana Iulia, profesorii IT Bridge School",
+  },
+  { src: "/images/clasa-01.jpg", alt: "Trei elevi lucrând la laptopuri, în timpul orei" },
+  { src: "/images/clasa-02.jpg", alt: "Recapitulare cu rebus, proiectată pe tablă" },
+  {
+    src: "/images/clasa-03.jpg",
+    alt: "Oră despre istoria calculatoarelor, cu profesorul la tablă",
+  },
+  {
+    src: "/images/clasa-04.jpg",
+    alt: "Oră de programare în Scratch, cu proiectul afișat pe tablă",
+  },
+];
 
 const stats = [
   { value: "2", label: "Locații în București", highlighted: true },

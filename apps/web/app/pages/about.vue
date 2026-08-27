@@ -18,7 +18,7 @@
 
       <div class="split split-reverse split-start section" data-reveal>
         <figure class="plate portrait plate-md">
-          <img src="/images/Paul.jpeg" alt="Alexe Vasile Paul" />
+          <img src="/images/paul.jpg" alt="Alexe Vasile Paul" />
         </figure>
         <div>
           <h2 class="section-title">Alexe Vasile Paul</h2>
@@ -57,7 +57,7 @@
           </div>
         </div>
         <figure class="plate portrait plate-md self-end">
-          <img src="/images/Ana.jpeg" alt="Alexe Ana Iulia" />
+          <img src="/images/ana.jpg" alt="Alexe Ana Iulia" />
         </figure>
       </div>
     </section>
