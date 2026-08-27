@@ -45,7 +45,7 @@
         <h2 class="section-title">Ore în care se construiește ceva, la propriu</h2>
         <p class="body-text justified measure">
           Fiecare ședință de 1,5 ore se încheie cu ceva ce copilul a făcut singur: un joc în
-          Scratch, o pagină web, un program în Python. Grupele mici înseamnă că profesorul ajunge la
+          Scratch, o pagină web, un program în C++. Grupele mici înseamnă că profesorul ajunge la
           fiecare, la fiecare oră.
         </p>
         <p class="body-text">
@@ -119,7 +119,7 @@ const subjects = [
   {
     title: "Programare",
     body:
-      "De la Scratch la Python și C/C++, în funcție de vârstă și nivel. Copiii scriu cod de la " +
+      "De la Scratch la C și C++, în funcție de vârstă și nivel. Copiii scriu cod de la " +
       "primele ore și ajung, pas cu pas, la algoritmi, structuri de date și probleme de concurs.",
   },
   {

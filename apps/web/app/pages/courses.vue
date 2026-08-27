@@ -150,7 +150,7 @@ const courses = [
     title: "Clasa 7–8",
     level: "Intermediar–avansat",
     topics:
-      "Programare în Python, algoritmi și instrucțiuni de bază, site-uri web cu HTML, CSS și " +
+      "Programare în C++, algoritmi și instrucțiuni de bază, site-uri web cu HTML, CSS și " +
       "JavaScript, introducere în baze de date și pregătire pentru olimpiade școlare.",
   },
   {
