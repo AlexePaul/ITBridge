@@ -5,7 +5,7 @@
       <h1 class="page-title">Un nivel pentru fiecare vârstă.</h1>
       <p class="lede">
         Șase niveluri, de la primii pași pe calculator până la pregătirea pentru Bacalaureat și
-        olimpiade. Fiecare modul durează 8 săptămâni, cu ședințe de 1,5 ore în grupe mici.
+        olimpiade. Un modul durează 6–8 săptămâni, cu ședințe de 1,5 ore în grupe mici.
       </p>
     </section>
 
@@ -197,7 +197,7 @@ const faq = [
   {
     question: "Cât durează un curs?",
     answer:
-      "Un modul durează 8 săptămâni, cu o ședință de 1,5 ore pe săptămână. Grupele sunt " +
+      "Un modul durează 6–8 săptămâni, cu o ședință de 1,5 ore pe săptămână. Grupele sunt " +
       "mici, ca fiecare copil să primească atenție.",
   },
   {
