@@ -17,6 +17,7 @@ import { dataSourceOptions } from './data-source';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { AppThrottlerGuard } from './common/app-throttler.guard';
+import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 
 @Module({
     imports: [
@@ -69,6 +70,7 @@ import { AppThrottlerGuard } from './common/app-throttler.guard';
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
         // Runs before everything, so the id exists by the time the filter needs one.
-        consumer.apply(RequestIdMiddleware).forRoutes('*');
+        // Order matters: the id has to exist before the logger reads it.
+        consumer.apply(RequestIdMiddleware, RequestLoggerMiddleware).forRoutes('*');
     }
 }
