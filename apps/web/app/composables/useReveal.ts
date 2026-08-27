@@ -42,12 +42,20 @@ export const useReveal = () => {
     );
 
     await nextTick();
+    // One frame past nextTick, because on a client-side navigation the router
+    // resets the scroll position after the component mounts. Measured in the
+    // same tick, every element on the incoming page still carries the previous
+    // page's offset — usually a large negative `top` — so all of them looked
+    // on-screen and the whole page skipped its reveal.
+    await new Promise(requestAnimationFrame);
+
     document.querySelectorAll<HTMLElement>("[data-reveal]").forEach((element) => {
       // Whatever is already on screen has been painted opaque since first
       // paint; adding `reveal-on` would hide it and fade it back in, so every
       // page opened with a visible blink of its own hero. Mark those revealed
       // without an animation and observe only what is still below the fold.
-      if (element.getBoundingClientRect().top < window.innerHeight) {
+      const rect = element.getBoundingClientRect();
+      if (rect.bottom > 0 && rect.top < window.innerHeight) {
         element.classList.add("is-revealed");
         element.style.animation = "none";
         return;

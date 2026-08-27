@@ -179,7 +179,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { nextTick, reactive, ref } from "vue";
 import { useReveal } from "~/composables/useReveal";
 import { useSeo } from "~/composables/useSeo";
 import { useJsonLd } from "~/composables/useJsonLd";
@@ -196,6 +196,7 @@ import {
 import {
   CONTACT_SUBJECTS,
   HONEYPOT_FIELD,
+  contactErrorPayload,
   contactMessageSchema,
   fieldErrorsOf,
   type ContactField,
@@ -238,6 +239,17 @@ const composeAnother = () => {
   sent.value = false;
 };
 
+/**
+ * A submit that fails validation changes nothing a screen reader announces on
+ * its own: the errors appear far from the caret and the focus never moves. Put
+ * the caret on the first field that failed, and its `aria-describedby` reads
+ * the reason out with it.
+ */
+const focusFirstError = async () => {
+  await nextTick();
+  document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+};
+
 const onSubmit = async () => {
   if (loading.value) return;
 
@@ -247,6 +259,7 @@ const onSubmit = async () => {
   const result = contactMessageSchema.safeParse({ ...form });
   if (!result.success) {
     Object.assign(errors, fieldErrorsOf(result.error));
+    void focusFirstError();
     return;
   }
 
@@ -258,19 +271,16 @@ const onSubmit = async () => {
     await $fetch("/api/contact", { method: "POST", body: result.data });
     sent.value = true;
   } catch (error) {
-    // Nitro nests the payload one level deeper than it looks. The response body
-    // is `{ statusCode, statusMessage, message, data }`, where `message` is the
-    // English `statusMessage` h3 copies onto the error, and the `data` we passed
-    // to `createError` is a sibling of it. ofetch then puts that whole body on
-    // `error.data` — so the route's Romanian copy is at `error.data.data`.
-    // Reading `error.data.message` gets "Contact form not configured" instead.
-    // Only our own payload is ever Romanian; anything else falls back below.
-    const payload = (
-      error as { data?: { data?: { message?: string; fieldErrors?: typeof errors } } }
-    )?.data?.data;
-    if (payload?.fieldErrors) Object.assign(errors, payload.fieldErrors);
+    // Unwrapped in `shared/contact.ts`, where a test pins the shape — Nitro
+    // nests the route's payload a level below the English statusMessage, and
+    // reading the wrong one shipped "Contact form not configured" to parents.
+    const payload = contactErrorPayload(error);
+    if (payload.fieldErrors) {
+      Object.assign(errors, payload.fieldErrors);
+      void focusFirstError();
+    }
     errorMessage.value =
-      payload?.message ??
+      payload.message ??
       `Nu am putut trimite mesajul. Verifică-ți conexiunea sau scrie-ne la ${SCHOOL_EMAIL}.`;
   } finally {
     loading.value = false;

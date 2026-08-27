@@ -14,6 +14,13 @@
  * form, so a crawler will find it; blocked, it can be listed as a bare URL with
  * no snippet, because the noindex on the page is never fetched. Crawl-allowed
  * plus noindex is the combination that actually keeps a page out.
+ *
+ * KEEP THE THREE GROUPS IDENTICAL. Under RFC 9309 a crawler obeys only the
+ * single most specific group whose user-agent matches it, and ignores the
+ * wildcard group entirely. The three groups below carry the same rules, so
+ * nothing is lost today — but a Disallow added to the `*` group alone would
+ * silently not apply to any of the named crawlers, which is every AI crawler
+ * we care about. Add a path in all three, or in none.
  */
 export default defineEventHandler((event) => {
   const siteUrl = String(useRuntimeConfig(event).public.siteUrl).replace(/\/$/, "");

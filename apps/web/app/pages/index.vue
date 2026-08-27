@@ -64,7 +64,7 @@
 
     <section class="section-close" data-reveal>
       <figure>
-        <blockquote class="pull-quote">“{{ TESTIMONIALS.home.quote }}”</blockquote>
+        <blockquote class="pull-quote">„{{ TESTIMONIALS.home.quote }}”</blockquote>
         <figcaption class="pull-quote-source">— {{ TESTIMONIALS.home.source }}</figcaption>
       </figure>
     </section>

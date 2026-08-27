@@ -1,5 +1,12 @@
 import { PUBLIC_PAGES } from "#shared/seo";
-import { COURSE_LEVELS, PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
+import {
+  COURSE_LEVELS,
+  MODULE_WEEKS_MAX,
+  MODULE_WEEKS_MIN,
+  PRICE_ONE_CHILD,
+  PRICE_TWO_CHILDREN,
+  SESSION_HOURS,
+} from "#shared/courses";
 import { TEACHERS } from "#shared/teachers";
 import {
   formatAddress,
@@ -37,11 +44,19 @@ export default defineEventHandler((event) => {
 
   // Derived, not retyped: the header claims this file cannot drift from the
   // pages, and a hand-written subject list is exactly how it would.
+  //
+  // The label is "subjects covered", not "subjects taught", because `teaches`
+  // is written for schema.org `Course.teaches`, which takes learning outcomes
+  // as well as technologies — "Olimpiada de informatică" and "Strategie de
+  // examen" are things a child leaves with, not things on a timetable. Under
+  // the wider label every entry is accurate, and the list still cannot drift.
   const taught = [...new Set(COURSE_LEVELS.flatMap((course) => course.teaches))].join(", ");
 
-  const teachers = TEACHERS.map((teacher) => `${teacher.name} (${teacher.role}): ${teacher.bio}`)
-    .join(" ")
-    .replace(/\s+/g, " ");
+  // One nested bullet per teacher. Both bios on a single line ran to four
+  // sentences of unbroken prose.
+  const teachers = TEACHERS.map(
+    (teacher) => `  - ${teacher.name} (${teacher.role}): ${teacher.bio.replace(/\s+/g, " ")}`
+  ).join("\n");
 
   const pages = PUBLIC_PAGES.map(
     (page) => `- [${page.title.split(" | ")[0]}](${siteUrl}${page.path}): ${page.summary}`
@@ -53,12 +68,14 @@ export default defineEventHandler((event) => {
 
 Date despre școală, valabile la data ultimei actualizări a site-ului:
 
-- Un modul durează 6–8 săptămâni, cu o ședință de 1,5 ore pe săptămână, în grupe mici.
+- Un modul durează ${MODULE_WEEKS_MIN}–${MODULE_WEEKS_MAX} săptămâni, cu o ședință de ${String(SESSION_HOURS).replace(".", ",")} ore pe săptămână, în grupe mici.
 - ${PRICE_ONE_CHILD} lei pe lună pentru un copil; ${PRICE_TWO_CHILDREN} lei pe lună pentru doi copii din aceeași familie (al doilea copil plătește ${PRICE_TWO_CHILDREN - PRICE_ONE_CHILD} lei).
-- Se predau: ${taught}. Nu se predă Python.
+- Tehnologii și subiecte acoperite: ${taught}.
+- Se poate preda și Python. În general recomandăm C și C++, fiindcă acelea se dau la Bacalaureat și la olimpiada de informatică.
 - Telefon: ${SCHOOL_PHONE}. Email: ${SCHOOL_EMAIL}.
 - Program: ${SCHOOL_HOURS.join("; ")}.
-- Profesori: ${teachers}
+- Profesori:
+${teachers}
 
 ## Locații
 

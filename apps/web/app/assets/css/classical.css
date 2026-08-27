@@ -72,6 +72,10 @@
      text-weight accent goes one deep step down, and one light step up in the
      dark theme. */
   --color-accent-ink: var(--color-accent-700);
+  /* One step further in the same direction as the ink, so hover strengthens in
+     both themes. A fixed ramp step here does not work: the ink is theme-aware,
+     so accent-700 as a hover reads as 9.10:1 in light and 2.47:1 in dark. */
+  --color-accent-ink-hover: var(--color-accent-800);
 
   --font-heading-weight: 600;
 
@@ -110,6 +114,7 @@
   /* 36% against the deep ground is 3.09:1 — the same job as the light 50%. */
   --color-control-border: color-mix(in srgb, var(--color-text) 36%, transparent);
   --color-accent-ink: var(--color-accent-300);
+  --color-accent-ink-hover: var(--color-accent-200);
 
   --shadow-sm: 0 1px 2px color-mix(in srgb, #000 40%, transparent);
   --shadow-md: 0 3px 10px color-mix(in srgb, #000 45%, transparent);
@@ -432,7 +437,7 @@ h6 {
 }
 
 .link:hover {
-  color: var(--color-accent-700);
+  color: var(--color-accent-ink-hover);
 }
 
 .marker {
@@ -545,7 +550,9 @@ h6 {
 }
 
 .input:hover {
-  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+  /* Must beat the 50% resting border, not fall under it — 45% here predates
+     --color-control-border and dropped hover to 2.74:1 in the light theme. */
+  border-color: color-mix(in srgb, var(--color-text) 65%, transparent);
 }
 
 .input:focus-visible {
@@ -604,7 +611,7 @@ textarea.input {
 
 .seg-opt[aria-current="page"],
 .seg-opt[aria-pressed="true"] {
-  color: var(--color-accent);
+  color: var(--color-accent-ink);
   box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
