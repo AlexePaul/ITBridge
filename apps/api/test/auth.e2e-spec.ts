@@ -78,11 +78,30 @@ describe('Authentication (e2e)', () => {
         await request(app.getHttpServer()).get('/auth/me').set('Authorization', 'Bearer nu-e-un-jwt').expect(401);
     });
 
-    it('register always creates a PARENT, even when the request asks for ADMIN', async () => {
-        const res = await request(app.getHttpServer()).post('/auth/register').send({ username: 'siret', password: 'parola123', role: 'ADMIN' }).expect(201);
+    it('rejects a register body carrying an unexpected field, such as role', async () => {
+        // `forbidNonWhitelisted` refuses the request outright. Previously the field was silently
+        // dropped, which worked but told the caller nothing.
+        const res = await request(app.getHttpServer()).post('/auth/register').send({ username: 'siret', password: 'parola123', role: 'ADMIN' }).expect(400);
 
-        const me = await request(app.getHttpServer()).get('/auth/me').set('Authorization', `Bearer ${res.body.accessToken}`).expect(200);
+        expect(JSON.stringify(res.body)).toContain('role');
+    });
+
+    it('creates a PARENT for a well-formed register body', async () => {
+        const user = await registerUser(app, 'obisnuit');
+
+        const me = await request(app.getHttpServer()).get('/auth/me').set('Authorization', user.auth).expect(200);
 
         expect(me.body.role).toBe('PARENT');
+    });
+
+    it('rejects a password shorter than six characters', async () => {
+        // RegisterDto has asked for six since it was written; nothing enforced it until now.
+        const res = await request(app.getHttpServer()).post('/auth/register').send({ username: 'scurt', password: 'abc' }).expect(400);
+
+        expect(JSON.stringify(res.body)).toContain('password');
+    });
+
+    it('rejects a register body with no password at all', async () => {
+        await request(app.getHttpServer()).post('/auth/register').send({ username: 'fara' }).expect(400);
     });
 });

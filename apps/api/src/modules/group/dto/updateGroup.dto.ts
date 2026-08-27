@@ -1,31 +1,43 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsString, Matches, Max, Min } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 
+/**
+ * Every field is optional: this is a partial update. Before validation was enabled the decorators
+ * did nothing, so the missing `@IsOptional()` went unnoticed — switching the pipe on would have
+ * rejected every partial update with "startTime must be a string".
+ */
 export class updateGroupDto {
-    @ApiProperty({ example: 1, description: 'ISO weekday (1 = Monday, 7 = Sunday)' })
+    @ApiProperty({ required: false, example: 1, description: 'ISO weekday (1 = Monday, 7 = Sunday)' })
+    @IsOptional()
     @IsNumber()
     @Min(1)
     @Max(7)
-    weekday: number;
+    weekday?: number;
 
-    @ApiProperty({ example: '09:00', description: 'Start time in HH:MM format' })
+    @ApiProperty({ required: false, example: '09:00', description: 'Start time in HH:MM format' })
+    @IsOptional()
     @IsString()
     @Matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, { message: 'startTime must be in HH:MM format' })
-    startTime: string;
+    startTime?: string;
 
-    @ApiProperty({ example: '17:00', description: 'End time in HH:MM format' })
+    @ApiProperty({ required: false, example: '17:00', description: 'End time in HH:MM format' })
+    @IsOptional()
     @IsString()
     @Matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, { message: 'endTime must be in HH:MM format' })
-    endTime: string;
+    endTime?: string;
 
-    @ApiProperty({ example: 10, description: 'Minimum age of group members' })
+    @ApiProperty({ required: false, example: 10, description: 'Minimum age of group members' })
+    @IsOptional()
     @IsNumber()
-    minAge: number;
+    minAge?: number;
 
-    @ApiProperty({ example: 15, description: 'Maximum age of group members' })
+    @ApiProperty({ required: false, example: 15, description: 'Maximum age of group members' })
+    @IsOptional()
     @IsNumber()
-    maxAge: number;
+    maxAge?: number;
 
-    @ApiProperty({ example: true, description: 'Indicates if the group is active' })
-    isActive: boolean;
+    @ApiProperty({ required: false, example: true, description: 'Indicates if the group is active' })
+    @IsOptional()
+    @IsBoolean()
+    isActive?: boolean;
 }

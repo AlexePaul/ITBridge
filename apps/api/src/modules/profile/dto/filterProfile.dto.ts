@@ -1,4 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { IsOptional, IsEmail, Length, IsString, IsPhoneNumber, IsNumber } from 'class-validator';
 
 export class FilterProfileDto {
@@ -27,11 +28,13 @@ export class FilterProfileDto {
 
     @ApiPropertyOptional({ example: 1, required: false })
     @IsOptional()
+    @Type(() => Number)
     @IsNumber()
     profileId?: number;
 
     @ApiPropertyOptional({ example: 1, required: false, description: 'User ID' })
     @IsOptional()
+    @Type(() => Number)
     @IsNumber()
     userId?: number;
 }

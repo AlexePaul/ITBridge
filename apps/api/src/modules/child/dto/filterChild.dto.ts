@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class FilterChildDto {
@@ -13,11 +14,13 @@ export class FilterChildDto {
     lastName?: string;
 
     @ApiProperty({ example: 1, required: false })
+    @Type(() => Number)
     @IsNumber()
     @IsOptional()
     parentId?: number;
 
     @ApiProperty({ example: 1, required: false })
+    @Type(() => Number)
     @IsNumber()
     @IsOptional()
     childId?: number;
