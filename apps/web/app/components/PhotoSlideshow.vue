@@ -1,0 +1,164 @@
+<template>
+  <div
+    role="group"
+    aria-roledescription="carusel"
+    :aria-label="label"
+    @keydown.left.prevent="jumpTo(previousIndex)"
+    @keydown.right.prevent="jumpTo(nextIndex)"
+  >
+    <figure
+      class="plate slideshow"
+      @mouseenter="isHovered = true"
+      @mouseleave="isHovered = false"
+      @touchstart.passive="onTouchStart"
+      @touchend.passive="onTouchEnd"
+    >
+      <img
+        v-for="(photo, index) in photos"
+        :key="photo.src"
+        :src="loaded.has(index) ? photo.src : undefined"
+        :alt="photo.alt"
+        class="slide"
+        :class="{ 'is-current': index === current }"
+        :fetchpriority="index === 0 ? 'high' : undefined"
+        :aria-hidden="index === current ? undefined : 'true'"
+      />
+    </figure>
+
+    <div class="slideshow-controls">
+      <button
+        type="button"
+        class="btn btn-secondary btn-icon"
+        :aria-label="
+          isPlaying ? 'Oprește derularea fotografiilor' : 'Pornește derularea fotografiilor'
+        "
+        @click="isPlaying = !isPlaying"
+      >
+        <UIcon :name="isPlaying ? 'i-lucide-pause' : 'i-lucide-play'" class="size-4" />
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-secondary btn-icon"
+        aria-label="Fotografia anterioară"
+        @click="jumpTo(previousIndex)"
+      >
+        <UIcon name="i-lucide-chevron-left" class="size-4" />
+      </button>
+
+      <div class="dots">
+        <button
+          v-for="(photo, index) in photos"
+          :key="photo.src"
+          type="button"
+          class="dot"
+          :aria-current="index === current ? 'true' : undefined"
+          :aria-label="`Fotografia ${index + 1} din ${photos.length}`"
+          @click="jumpTo(index)"
+        ></button>
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-secondary btn-icon"
+        aria-label="Fotografia următoare"
+        @click="jumpTo(nextIndex)"
+      >
+        <UIcon name="i-lucide-chevron-right" class="size-4" />
+      </button>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+
+const props = withDefaults(
+  defineProps<{
+    photos: { src: string; alt: string }[];
+    label: string;
+    interval?: number;
+  }>(),
+  { interval: 5000 }
+);
+
+const current = ref(0);
+const isPlaying = ref(true);
+const isHovered = ref(false);
+let timer: ReturnType<typeof setInterval> | undefined;
+
+/**
+ * Which photographs have been fetched. Every slide is `position: absolute` in
+ * the same box, so all of them are inside the viewport and `loading="lazy"`
+ * defers nothing — the first paint pulled the whole set, most of it for a frame
+ * the reader may never reach. Only the current slide and its two neighbours
+ * carry a `src`; the set only ever grows, so a photograph already seen does not
+ * refetch or flicker when it comes round again, and the crossfade always has
+ * both frames in the DOM.
+ */
+const loaded = ref(new Set<number>());
+
+const preload = (index: number) => {
+  const count = props.photos.length;
+  const next = new Set(loaded.value);
+  for (const offset of [-1, 0, 1]) next.add((index + offset + count) % count);
+  loaded.value = next;
+};
+
+const nextIndex = computed(() => (current.value + 1) % props.photos.length);
+const previousIndex = computed(
+  () => (current.value - 1 + props.photos.length) % props.photos.length
+);
+
+function show(index: number) {
+  current.value = index;
+  preload(index);
+}
+
+preload(0);
+
+const stop = () => {
+  clearInterval(timer);
+  timer = undefined;
+};
+
+const start = () => {
+  stop();
+  timer = setInterval(() => {
+    if (!isHovered.value) show(nextIndex.value);
+  }, props.interval);
+};
+
+// Advancing on its own is motion the reader did not ask for: the pause control
+// is always there, and a reader who asked for less motion never gets it going.
+onMounted(() => {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    isPlaying.value = false;
+    return;
+  }
+  start();
+});
+
+watch(isPlaying, (playing) => (playing ? start() : stop()));
+
+onBeforeUnmount(stop);
+
+// Reaching a photograph by hand restarts the clock, so it does not slide away
+// a moment after it was asked for.
+const jumpTo = (index: number) => {
+  show(index);
+  if (isPlaying.value) start();
+};
+
+let touchStartX = 0;
+
+const onTouchStart = (event: TouchEvent) => {
+  touchStartX = event.changedTouches[0]?.clientX ?? 0;
+};
+
+const onTouchEnd = (event: TouchEvent) => {
+  const distance = (event.changedTouches[0]?.clientX ?? 0) - touchStartX;
+  if (Math.abs(distance) < 40) return;
+  jumpTo(distance < 0 ? nextIndex.value : previousIndex.value);
+};
+</script>

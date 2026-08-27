@@ -1,6 +1,6 @@
 import { authInitialized } from "~/plugins/01.auth.client";
 import { ProfileSetup } from "~/composables/useProfileInitialization";
-import { unauthenticatedRoutes } from "./01.auth.global";
+import { isProtectedRoute } from "./01.auth.global";
 
 // middleware/profile-setup.ts
 export default defineNuxtRouteMiddleware(async (to, from) => {
@@ -8,7 +8,8 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     return;
   }
 
-  if (unauthenticatedRoutes.includes(to.path)) {
+  // The public site is never interrupted by the profile-setup redirect.
+  if (!isProtectedRoute(to.path)) {
     return;
   }
 

@@ -10,11 +10,11 @@ lunar se emit facturi (PDF în S3) și se înregistrează plățile.
 
 Monorepo pnpm, orchestrat cu Turborepo, plus Postgres ca infrastructură locală:
 
-| Workspace            | Stack                                               | Port |
-| -------------------- | --------------------------------------------------- | ---- |
-| `apps/api/`          | NestJS 11, TypeORM, JWT, PDFKit, AWS S3             | 3000 |
-| `apps/web/`          | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind                 | 3001 |
-| `packages/types/`    | contractul API partajat, `@itbridge/types`          | —    |
+| Workspace            | Stack                                                          | Port       |
+| -------------------- | -------------------------------------------------------------- | ---------- |
+| `apps/api/`          | NestJS 11, TypeORM, JWT, PDFKit, AWS S3                        | 3000       |
+| `apps/web/`          | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind                            | 3001       |
+| `packages/types/`    | contractul API partajat, `@itbridge/types`                     | —          |
 | `docker-compose.yml` | Postgres 17 + MinIO — singurele lucruri care rulează în Docker | 5432, 9000 |
 
 ## Comenzi
@@ -45,7 +45,7 @@ prin `apps/api/src/load-env.ts`, importat înaintea oricărui modul care atinge 
 
 **O variabilă de mediu nouă trebuie declarată în `turbo.json`, la `globalEnv`.** Turbo rulează în
 mod `strict`: un task vede doar ce e declarat acolo, iar restul lipsesc fără niciun mesaj. E cea
-mai probabilă cauză când ceva „nu vede" o variabilă pe care tocmai ai pus-o în `.env`.
+mai probabilă cauză când ceva „nu vede” o variabilă pe care tocmai ai pus-o în `.env`.
 
 Swagger UI: `http://localhost:3000/api`. La fiecare boot, `apps/api/src/main.ts` scrie schema în
 `./swagger.json`, relativ la directorul din care rulează procesul. Fișierul e în `.gitignore`,
@@ -105,7 +105,7 @@ if (role !== Role.ADMIN) {
 
 Vezi `apps/api/src/modules/invoice/invoice.service.ts:92`. Același tipar în `payment`, `child`, `profile` — respectă-l.
 
-**Numai `andWhere`, niciodată `where`, după ce ai început să compui.** `qb.where()` *înlocuiește*
+**Numai `andWhere`, niciodată `where`, după ce ai început să compui.** `qb.where()` _înlocuiește_
 toată clauza, deci un `where` pus după restrângerea pe utilizator o șterge fără niciun semn. Exact
 așa a scăpat `PaymentService.findOne`: orice părinte putea citi plata oricărei alte familii, cu
 profilul complet atașat. Dacă ai nevoie de o primă condiție, pune-o tot cu `andWhere`.
@@ -122,6 +122,22 @@ concurente printr-un `refreshPromise` partajat. Nu apela `$fetch` direct — fol
 composable-urile din `apps/web/app/composables/api/`.
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
+
+**Partea publică nu atinge backend-ul.** Cele șapte pagini publice, formularul de contact,
+`robots.txt`, `sitemap.xml`, `llms.txt` și datele structurate funcționează fără `API_BASE` — de
+aceea site-ul stă în producție pe Vercel deși backend-ul nu e deployat. Faptele despre școală stau
+în `apps/web/shared/`, nu în pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts`
+(nivelurile și prețurile), `teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini),
+`structured-data.ts` (constructorii de JSON-LD). Aceleași constante alimentează pagina, graful
+JSON-LD, sitemap-ul și `llms.txt` — **dacă schimbi un preț sau o adresă, schimbi acolo, într-un
+singur loc.** Un număr scris de mână într-o pagină e un bug, nu o scurtătură: NAP inconsecvent e
+cea mai frecventă cauză de poziționare locală slabă.
+
+Fiecare pagină publică apelează `useSeo` o dată (titlu, descriere, canonical, OG, Twitter) și
+`useJsonLd` o dată, cu un singur `@graph`. Nodurile se leagă între ele prin `@id`, deci **orice nod
+referit trebuie să fie prezent în graful acelei pagini** — un `@id` care nu se rezolvă e ignorat
+tăcut de parser. Layout-ul `default` nu setează niciun titlu, ca să nu concureze cu `useSeo`; cel
+de `dashboard` pune `noindex, nofollow` pe tot ce e după autentificare.
 
 ## Convenții
 
@@ -159,7 +175,7 @@ Nu schimba asta: supertest ridică altfel un server efemer la fiecare cerere, ia
 intermitentă în chip înșelător — am văzut cereri neautentificate răspunzând 200, ceea ce arată ca o
 breșă de autentificare, dar era rotație de porturi.
 
-**Testele de integrare cer Postgres *și* MinIO pornite.** `pnpm test:e2e` se conectează la baza
+**Testele de integrare cer Postgres _și_ MinIO pornite.** `pnpm test:e2e` se conectează la baza
 `itbridge_test`, pe care și-o creează singur prin `apps/api/test/global-setup.ts`, și creează tot
 acolo bucket-ul S3 — deci amândouă containerele trebuie să ruleze: `docker compose up -d`. Schema
 vine din migrări, aceeași cale ca în producție, deci o migrare lipsă sau stricată pică testele.
@@ -195,7 +211,7 @@ niciun DTO nu-l declară respinge cererea, nu e ignorat tăcut.
 `@IsString()` ar accepta un număr transformându-l în string. Un câmp numeric care vine din query
 string are nevoie de `@Type(() => Number)` explicit.
 
-**`undefined` într-un `where` TypeORM înseamnă „ignoră condiția", nu „e null".** A produs deja două
+**`undefined` într-un `where` TypeORM înseamnă „ignoră condiția”, nu „e null”.** A produs deja două
 bug-uri: crearea de profiluri fără date de contact răspundea 409, iar logout-ul răspundea 200 fără
 să revoce nimic. Folosește `IsNull()`.
 
@@ -222,6 +238,33 @@ procesul să se restarteze în buclă.
 `runtimeConfig.public.apiBase` pe `process.env.API_BASE`. Fără el, `apiBase` e `undefined` și
 cererile pleacă spre origin-ul Nuxt. E în `.env.example` de la rădăcină și trebuie setat și în
 Vercel, inclusiv pe Preview.
+
+**`SITE_URL` se lasă NESETATĂ în Vercel** — invers față de `API_BASE`, de deasupra. Din ea se
+construiesc canonical, `og:url`, fiecare `<loc>` din sitemap, linia `Sitemap:` din `robots.txt` și
+toate `@id`-urile din JSON-LD. Nesetată, `nuxt.config.ts` cade pe `https://itbridgeschool.com`,
+care e domeniul real. O valoare de localhost copiată acolo scoate tot site-ul din index în primul
+ciclu de crawl. Se setează doar dacă se schimbă domeniul.
+
+**Payload-ul unei erori din Nitro e cu un nivel mai adânc decât pare.** `createError({ statusCode,
+statusMessage, data })` pune în răspuns `{ statusCode, statusMessage, message, data }`, unde
+`message` e `statusMessage`-ul **în engleză** pe care h3 îl copiază pe eroare, iar `data` e ce ai
+trimis tu. `ofetch` pune tot corpul ăla pe `error.data` — deci mesajul tău în română e la
+`error.data.data.message`, nu la `error.data.message`. Citind greșit, un părinte primea
+„Contact form not configured" în loc de textul românesc, exact pe ramura care se declanșează când
+`RESEND_API_KEY` lipsește la primul deploy. Vezi `apps/web/app/pages/contact.vue`.
+
+**Formularul de contact trimite dintr-o rută Nitro, nu din browser.** `RESEND_API_KEY` stă în
+`runtimeConfig`, în afara lui `public`, deci Nuxt nu îl scrie niciodată în bundle-ul clientului;
+singurul lucru care îl vede e `apps/web/server/api/contact.post.ts`. Nu-l muta în `public` și nu
+chema Resend din pagină: cheia poate trimite mail în numele domeniului școlii, nu are scope și nu
+are restricție de origine, deci într-un bundle e a oricărui vizitator care deschide tab-ul de
+network. Pe Vercel ruta se deployează ca funcție serverless lângă site, deci nu cere backend.
+
+Schema e una singură, în `apps/web/shared/contact.ts`, validată în ambele părți: în pagină ca să
+apară eroarea sub câmp, în rută fiindcă ruta e publică și oricine poate posta pe ea direct.
+`CONTACT_FROM` trebuie să fie pe un domeniu verificat în Resend, altfel fiecare trimitere pică cu
+403 — iar o cheie de trimitere restricționată nu poate interoga `/domains` ca să-ți spună asta
+dinainte. Ambele variabile sunt în `turbo.json`, la `globalEnv`, și trebuie setate și în Vercel.
 
 **S3-ul local e MinIO, prin `AWS_S3_ENDPOINT`.** Variabila scoate SDK-ul de pe AWS; în producție
 se lasă nesetată. `invoice-pdf.e2e-spec.ts` e singura suită care nu mock-uiește S3 și PDFKit — restul
@@ -273,7 +316,8 @@ totul trece prin `pnpm` de la rădăcină. Pentru un singur workspace, `pnpm --f
 
 **Prețuri hardcodate, cu gaură la 3+ copii.** `apps/api/src/modules/invoice/invoice.service.ts:162` — 350 pentru un copil,
 250×2 pentru doi, nicio ramură pentru trei sau mai mulți, deci `totalAmount` rămâne 0 și
-reducerile îl duc pe negativ.
+reducerile îl duc pe negativ. Regula convenită e 350 pentru primul copil și 250 pentru fiecare
+frate — deci 600 pentru doi, nu 500; vezi [E15](docs/epics/E15-pricing-facturare.md).
 
 ## Infrastructură — stare reală
 

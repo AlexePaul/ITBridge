@@ -1,6 +1,15 @@
 {
   "name": "IT Bridge School",
   "short_name": "ITBridge",
+  "description": "Școală de informatică pentru copii în București, cu două locații: Drumul Taberei și Străulești.",
+  "lang": "ro",
+  "dir": "ltr",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#f3f2f2",
+  "background_color": "#f3f2f2",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -11,7 +20,12 @@
       "src": "/android-chrome-512x512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
-  ],
-  "display": "standalone"
+  ]
 }

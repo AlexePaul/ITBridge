@@ -1,248 +1,166 @@
 <template>
-  <div>
-    <!-- Hero Section -->
-    <section class="py-24 px-6 text-center">
-      <div class="max-w-4xl mx-auto">
-        <h1 class="text-4xl md:text-5xl font-bold text-highlighted mb-4">
-          Academia de IT pentru copii
-        </h1>
-        <p class="text-xl md:text-2xl text-secondary font-semibold mb-6">
-          Învață, Crește, Reușește!
-        </p>
-        <p class="text-lg text-muted mb-8 max-w-2xl mx-auto">
-          Transformăm procesul de învățare într-o aventură captivantă! Copiii descoperă lumea
-          IT-ului prin activități interactive, jocuri educative și proiecte practice.
-        </p>
-        <div class="flex flex-wrap gap-4 justify-center">
-          <UButton
-            size="xl"
-            color="primary"
-            variant="solid"
-            label="Cursuri & Informații"
-            icon="i-lucide-book-open"
-            @click="navigateTo('/courses')"
-          />
-          <UButton
-            size="xl"
-            color="neutral"
-            variant="outline"
-            label="Contactează-ne"
-            icon="i-lucide-phone"
-            @click="navigateTo('/contact')"
-          />
-        </div>
+  <div class="page">
+    <section class="section-hero" data-reveal>
+      <h1 class="display">
+        <span>Copiii nu doar folosesc tehnologia. </span>
+        <span>La noi învață să o creeze</span>
+      </h1>
+      <p class="lede lede-loose">
+        IT Bridge School este o școală de informatică pentru copii, cu două locații în București —
+        <NuxtLink to="/locatii/drumul-taberei" class="link">Drumul Taberei</NuxtLink> și
+        <NuxtLink to="/locatii/straulesti" class="link">Străulești</NuxtLink>. De la primii pași pe
+        calculator până la C++, olimpiade și pregătirea pentru Bacalaureat, în grupe mici, cu
+        proiecte practice la fiecare ședință.
+      </p>
+      <div class="actions">
+        <NuxtLink to="/cursuri" class="btn btn-primary">Vezi cursurile</NuxtLink>
+        <NuxtLink to="/contact" class="btn btn-ghost">Programează o discuție</NuxtLink>
       </div>
     </section>
 
-    <!-- Image Carousel -->
-    <section class="py-16">
-      <UCard class="py-8 border-0" variant="soft">
-        <div class="max-w-6xl mx-auto">
-          <h2 class="text-3xl font-bold text-center text-highlighted mb-8">Momentele Noastre</h2>
-          <UCarousel
-            :items="carouselItems"
-            arrows
-            :prev-icon="prevIcon"
-            :next-icon="nextIcon"
-            :ui="{ item: 'basis-full md:basis-1/2 lg:basis-1/3' }"
-          >
-            <template #default="{ item }">
-              <div class="justify-center text-center p-4">
-                <p class="text-xl text-secondary font-semibold mb-4">{{ item.title }}</p>
-                <img
-                  v-if="item.image"
-                  :src="`/images/${item.image}`"
-                  alt="Carousel Image"
-                  class="w-auto h-72 object-cover block p-0 border border-neutral rounded-lg mx-auto"
-                />
-              </div>
-            </template>
-          </UCarousel>
-        </div>
-      </UCard>
-    </section>
+    <hr class="rule" />
 
-    <!-- Advantages Section -->
-    <section class="py-16 px-6">
-      <div class="max-w-6xl mx-auto">
-        <h2 class="text-3xl font-bold text-center text-highlighted mb-4">
-          Avantajele Cursurilor Noastre
-        </h2>
-        <p class="text-center text-muted mb-12 max-w-2xl mx-auto">
-          Înscrierea copilului tău la cursurile noastre de IT vine cu multiple beneficii care îi vor
-          dezvolta abilitățile tehnice.
-        </p>
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <UCard
-            v-for="advantage in advantages"
-            :key="advantage.title"
-            color="neutral"
-            variant="soft"
-          >
-            <div class="text-center">
-              <UIcon :name="advantage.icon" class="text-4xl text-secondary mb-4" />
-              <h3 class="font-semibold text-lg text-highlighted mb-2">
-                {{ advantage.title }}
-              </h3>
-              <p class="text-muted text-sm">
-                {{ advantage.description }}
-              </p>
-            </div>
-          </UCard>
-        </div>
-      </div>
-    </section>
-
-    <!-- Features Section -->
-    <section class="py-16">
-      <UCard color="neutral" class="py-8" variant="soft">
-        <div class="max-w-6xl mx-auto">
-          <div class="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 class="text-3xl font-bold text-highlighted mb-6">
-                Alegerea cursurilor noastre reprezintă un pas important
-              </h2>
-              <p class="text-muted mb-6">
-                Dezvoltă competențele necesare pentru viitorul digital al copilului tău. Cursurile
-                sunt structurate astfel încât copiii să dezvolte capacitatea de gândire și viziune
-                în elaborarea și planificarea sarcinilor.
-              </p>
-              <ul class="space-y-3">
-                <li v-for="feature in features" :key="feature" class="flex items-center gap-3">
-                  <UIcon name="i-lucide-check-circle" class="text-xl text-secondary" />
-                  <span class="text-muted">{{ feature }}</span>
-                </li>
-              </ul>
-            </div>
-            <img
-              src="/images/laptop.png"
-              alt="Classroom Image"
-              class="h-90 w-auto mx-auto rounded-lg mb-4 border border-neutral"
-            />
-          </div>
-        </div>
-      </UCard>
-    </section>
-
-    <!-- CTA Section -->
-    <section class="py-16 px-6">
-      <div class="max-w-4xl mx-auto">
-        <UCard color="neutral" class="text-center p-8" variant="soft">
-          <h2 class="text-3xl font-bold text-highlighted mb-4">Suntem aici să te ajutăm!</h2>
-          <p class="text-muted mb-8 text-lg">
-            Ai întrebări sau dorești mai multe detalii? Contactează-ne acum și hai să găsim soluția
-            potrivită pentru tine!
+    <section class="section" aria-label="IT Bridge School, în cifre" data-reveal>
+      <div class="stats-grid">
+        <div v-for="stat in stats" :key="stat.label">
+          <p class="stat-num">
+            <AnimatedNumber :value="stat.value" />
           </p>
-          <div class="flex flex-wrap gap-4 justify-center">
-            <UButton
-              size="xl"
-              color="primary"
-              variant="solid"
-              label="Contact"
-              icon="i-lucide-mail"
-              @click="navigateTo('/contact')"
-            />
-            <UButton
-              size="xl"
-              color="neutral"
-              variant="outline"
-              label="+40 732 273 347"
-              icon="i-lucide-phone"
-              href="tel:+40732273347"
-            />
-          </div>
-        </UCard>
+          <p class="stat-label">{{ stat.label }}</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <section class="section" data-reveal>
+      <h2 class="kicker tnum">Ce învață copiii</h2>
+      <div class="cols-3 cols-ruled">
+        <div v-for="subject in subjects" :key="subject.title">
+          <h3 class="block-title">{{ subject.title }}</h3>
+          <p class="body-text justified">{{ subject.body }}</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section split split-even" data-reveal>
+      <div>
+        <h2 class="kicker">Momentele noastre</h2>
+        <h3 class="section-title">Ore în care se construiește ceva, la propriu</h3>
+        <p class="body-text justified measure">
+          Fiecare ședință de 1,5 ore se termină cu ceva lucrat de copil: un desen digital la
+          nivelurile mici, un joc în Scratch la mijloc, o pagină web sau un program în C++ la cele
+          mari. Grupele sunt mici tocmai ca profesorul să ajungă la fiecare copil în timpul orei, nu
+          doar la cei care ridică mâna.
+        </p>
+        <p class="body-text">
+          <NuxtLink to="/despre-noi" class="link">Cunoaște echipa și locațiile →</NuxtLink>
+        </p>
+      </div>
+      <div class="plate-xl self-end">
+        <PhotoSlideshow :photos="photos" label="Momente de la orele IT Bridge School" />
+      </div>
+    </section>
+
+    <section class="section-close" data-reveal>
+      <figure>
+        <blockquote class="pull-quote">“{{ TESTIMONIALS.home.quote }}”</blockquote>
+        <figcaption class="pull-quote-source">— {{ TESTIMONIALS.home.source }}</figcaption>
+      </figure>
+    </section>
+
+    <hr class="rule" />
+
+    <section class="section-close" data-reveal>
+      <h2 class="block-title">Vezi ce locuri sunt libere</h2>
+      <p class="body-text measure-wide">
+        Scrie-ne sau sună-ne: stabilim împreună nivelul potrivit și verificăm ce grupe au locuri, la
+        locația mai aproape de tine.
+      </p>
+      <div class="actions">
+        <NuxtLink to="/contact" class="btn btn-primary">Scrie-ne</NuxtLink>
+        <a :href="SCHOOL_PHONE_HREF" class="btn btn-ghost tnum">{{ SCHOOL_PHONE }}</a>
       </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useUserStore } from "~/stores/userStore";
-import { ref } from "vue";
+import { useReveal } from "~/composables/useReveal";
+import { useSeo } from "~/composables/useSeo";
+import { useJsonLd } from "~/composables/useJsonLd";
+import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
+import { pageSeo } from "#shared/seo";
+import { TESTIMONIALS } from "#shared/testimonials";
+import { schoolGraph, webPageNode } from "#shared/structured-data";
+import { useRuntimeConfig } from "#imports";
 
 definePageMeta({
-  layout: "default" as any,
+  layout: "default",
+  title: "Acasă",
 });
 
-defineProps<{
-  prevIcon?: string;
-  nextIcon?: string;
-}>();
+useReveal();
 
-const userStore = useUserStore();
+const seo = pageSeo("/");
+useSeo({ ...seo, imageAlt: "IT Bridge School — cursuri de informatică pentru copii" });
 
-const setLayout = () => {
-  if (userStore.user?.role === "ADMIN") {
-    setPageLayout("default" as any);
-  } else {
-    setPageLayout("default" as any);
-  }
-};
+const site = String(useRuntimeConfig().public.siteUrl);
+useJsonLd([...schoolGraph(site), webPageNode(site, seo)]);
 
-onMounted(() => {
-  setLayout();
-});
-
-watch(
-  () => userStore.user,
-  () => {
-    setLayout();
-  }
-);
-
-const carouselItems = [
-  { title: "Activități practice", image: "03.jpeg" },
-  { title: "Proiecte creative", image: "01.jpg" },
-  { title: "Lecții interactive", image: "02.jpeg" },
-  { title: "Momente de succes", image: "05.jpeg" },
-  { title: "Echipa noastră", image: "04.jpeg" },
-];
-
-const advantages = [
+const photos = [
   {
-    icon: "i-lucide-laptop",
-    title: "Competențe Digitale Esențiale",
-    description:
-      "Copilul va învăța să folosească aplicații și instrumente tehnologice moderne, fundamentale pentru succesul academic.",
+    src: "/images/paul-ana.jpg",
+    alt: "Alexe Vasile Paul și Alexe Ana Iulia, profesorii IT Bridge School",
+  },
+  { src: "/images/clasa-01.jpg", alt: "Oră la sala din Drumul Taberei, elevi la laptopuri" },
+  { src: "/images/clasa-02.jpg", alt: "Recapitulare cu rebus, la sala din Drumul Taberei" },
+  {
+    src: "/images/straulesti-01.jpg",
+    alt: "Oră la sala din Străulești, cu profesorul lângă un elev",
   },
   {
-    icon: "i-lucide-code",
-    title: "Abilități de Programare",
-    description:
-      "Elevii își vor dezvolta abilități de programare, învățând limbaje populare precum Python, Java și C++.",
+    src: "/images/clasa-03.jpg",
+    alt: "Oră despre istoria calculatoarelor, la sala din Drumul Taberei",
   },
   {
-    icon: "i-lucide-brain",
-    title: "Gândire Logică",
-    description:
-      "Exercițiile și proiectele practice îi vor ajuta pe copii să își dezvolte gândirea critică și abilitățile de soluționare.",
+    src: "/images/clasa-04.jpg",
+    alt: "Doi elevi lucrează în Scratch, cu proiectul afișat pe tabla din sala de curs",
   },
   {
-    icon: "i-lucide-lightbulb",
-    title: "Creativitate și Inovație",
-    description:
-      "Cu ajutorul instrumentelor precum Scratch, Tinkercad și Canva, copiii vor explora latura creativă a tehnologiei.",
-  },
-  {
-    icon: "i-lucide-rocket",
-    title: "Adaptare la Noile Tehnologii",
-    description:
-      "Cursurile noastre îi vor pregăti pe copii să se adapteze rapid la noile tehnologii din domeniul IT.",
-  },
-  {
-    icon: "i-lucide-book-open",
-    title: "Acces la Resurse și Suport",
-    description:
-      "Elevii beneficiază de acces la materiale educaționale actualizate și suport constant din partea profesorilor.",
+    src: "/images/straulesti-02.jpg",
+    alt: "Oră despre combinațiile de taste, la sala din Străulești",
   },
 ];
 
-const features = [
-  "Durata fiecărui modul: 32 săptămâni",
-  "Sesiuni de 1.5 ore",
-  "Grupe mici pentru atenție personalizată",
-  "Proiecte practice și aplicabile",
-  "Mediu relaxat și prietenos",
+// No accent on any of them: one gold numeral pulled the eye to whichever
+// figure carried it, and that was the number of addresses — the least
+// interesting thing about the school. Order carries the emphasis instead.
+const stats = [
+  { value: "6", label: "Niveluri, de la clasa 0 la BAC" },
+  { value: "6–8", label: "Săptămâni într-un modul" },
+  { value: "1,5", label: "Ore pe ședință" },
+  { value: "2", label: "Locații în București" },
+];
+
+const subjects = [
+  {
+    title: "Programare",
+    body:
+      "De la Scratch la C și C++, în funcție de vârstă și nivel. Copiii scriu cod de la " +
+      "primele ore și ajung, pas cu pas, la algoritmi, structuri de date și probleme de concurs.",
+  },
+  {
+    title: "Gândire logică",
+    body:
+      "Exercițiile și proiectele practice antrenează gândirea critică și descompunerea " +
+      "problemelor — abilități care se văd la școală, la examene și mult după.",
+  },
+  {
+    title: "Creativitate digitală",
+    body:
+      "Cu Scratch, Tinkercad și Canva, copiii explorează latura creativă a tehnologiei: desen " +
+      "digital, modelare 3D și proiecte pe care le arată cu mândrie acasă.",
+  },
 ];
 </script>

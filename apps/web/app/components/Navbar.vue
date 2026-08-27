@@ -1,105 +1,68 @@
 <template>
-  <UHeader>
-    <template #title>
-      <NuxtLink to="/" class="font-bold text-lg text-highlighted">IT Bridge School</NuxtLink>
-    </template>
-    <UNavigationMenu :items="baseNavigationItems" orientation="horizontal" class="mt-3" />
-    <template #right>
-      <div class="hidden items-center gap-3 md:flex">
+  <header class="nav">
+    <div class="page nav-inner" :class="{ 'nav-open': isOpen }">
+      <NuxtLink to="/" class="nav-brand" @click="isOpen = false">IT Bridge School</NuxtLink>
+
+      <button
+        type="button"
+        class="btn btn-secondary btn-icon nav-toggle"
+        :aria-expanded="isOpen"
+        aria-controls="nav-menu"
+        :aria-label="isOpen ? 'Închide meniul' : 'Deschide meniul'"
+        @click="isOpen = !isOpen"
+      >
+        <UIcon :name="isOpen ? 'i-lucide-x' : 'i-lucide-menu'" class="size-4" />
+      </button>
+
+      <nav id="nav-menu" class="nav-links" aria-label="Navigare principală">
+        <NuxtLink
+          v-for="item in navigationItems"
+          :key="item.to"
+          :to="item.to"
+          class="nav-link"
+          @click="isOpen = false"
+        >
+          {{ item.label }}
+        </NuxtLink>
+      </nav>
+
+      <div class="nav-actions">
         <template v-if="!userStore.user">
-          <UButton
-            label="Autentificare"
-            size="md"
-            color="primary"
-            variant="outline"
-            @click="navigateTo('/auth/login')"
-          />
-          <UButton
-            label="Înregistrare"
-            size="md"
-            color="primary"
-            variant="subtle"
-            @click="navigateTo('/auth/register')"
-          />
+          <NuxtLink to="/contact" class="btn btn-primary" @click="isOpen = false">
+            Înscrie-ți copilul
+          </NuxtLink>
+          <NuxtLink to="/auth/login" class="btn btn-ghost" @click="isOpen = false">Cont</NuxtLink>
         </template>
         <template v-else>
-          <UButton
-            label="Dashboard"
-            size="md"
-            color="primary"
-            variant="outline"
-            @click="handleDashboard"
-          />
-          <UButton
-            label="Logout"
-            size="md"
-            color="primary"
-            variant="outline"
-            @click="handleLogout"
-          />
+          <NuxtLink :to="dashboardRoute" class="btn btn-primary" @click="isOpen = false">
+            Contul meu
+          </NuxtLink>
+          <button type="button" class="btn btn-ghost" @click="handleLogout">Ieși din cont</button>
         </template>
-        <UColorModeSwitch />
       </div>
-    </template>
-    <template #body>
-      <!-- mobile menu -->
-      <UNavigationMenu orientation="vertical" :items="baseNavigationItems" />
-      <div class="flex flex-col items-start gap-3 mt-1 px-3">
-        <template v-if="!userStore.user">
-          <UButton
-            label="Autentificare"
-            size="md"
-            color="primary"
-            variant="outline"
-            @click="navigateTo('/auth/login')"
-          />
-          <UButton
-            label="Înregistrare"
-            size="md"
-            color="primary"
-            variant="subtle"
-            @click="navigateTo('/auth/register')"
-          />
-        </template>
-        <template v-else>
-          <UButton
-            label="Tablou de Bord"
-            size="md"
-            color="primary"
-            variant="outline"
-            @click="handleDashboard"
-          />
-          <UButton
-            label="Logout"
-            size="md"
-            color="primary"
-            variant="outline"
-            @click="handleLogout"
-          />
-        </template>
-        <UColorModeSwitch />
-      </div>
-    </template>
-  </UHeader>
+    </div>
+  </header>
 </template>
+
 <script setup lang="ts">
+import { computed, ref } from "vue";
 import { useLogout } from "~/composables/useLogout";
 import { useUserStore } from "~/stores/userStore";
+
 const userStore = useUserStore();
 const { handleLogout } = useLogout();
 
-const baseNavigationItems = [
-  { label: "Home", to: "/", icon: "i-lucide-home" },
-  { label: "Cursuri", to: "/courses", icon: "i-lucide-book-open" },
-  { label: "Contact", to: "/contact", icon: "i-lucide-mail" },
-  { label: "Despre noi", to: "/about", icon: "i-lucide-badge-info" },
+const isOpen = ref(false);
+
+const navigationItems = [
+  { label: "Acasă", to: "/" },
+  { label: "Cursuri", to: "/cursuri" },
+  { label: "Locații", to: "/locatii" },
+  { label: "Despre noi", to: "/despre-noi" },
+  { label: "Contact", to: "/contact" },
 ];
 
-const handleDashboard = () => {
-  if (userStore.user?.role === "ADMIN") {
-    navigateTo("/admin/dashboard");
-  } else {
-    navigateTo("/user/profile");
-  }
-};
+const dashboardRoute = computed(() =>
+  userStore.user?.role === "ADMIN" ? "/admin/dashboard" : "/user/profile"
+);
 </script>

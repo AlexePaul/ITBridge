@@ -59,13 +59,15 @@ export const useApi = () => {
     };
 
     try {
-      return await client<T>(url, { ...opts, headers: buildHeaders() });
+      // The generic is the caller's contract; $fetch widens it to
+      // TypedInternalResponse once the app has server routes of its own.
+      return (await client<T>(url, { ...opts, headers: buildHeaders() })) as T;
     } catch (err: any) {
       const status = err?.status || err?.response?.status;
       if (status === 401) {
         try {
           await ensureRefreshed();
-          return await client<T>(url, { ...opts, headers: buildHeaders() });
+          return (await client<T>(url, { ...opts, headers: buildHeaders() })) as T;
         } catch (refreshErr) {
           tokenStore.clearTokens();
           throw refreshErr;
