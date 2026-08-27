@@ -1,6 +1,6 @@
 # E05 · Robustețe backend
 
-**Status:** propus · **Pistă:** Fundație · **Depinde de:** E03, E04 · **Blochează:** E06, E07, E17
+**Status:** livrat · **Pistă:** Fundație · **Depinde de:** E03, E04 · **Blochează:** E06, E07, E17
 
 ## Problemă
 
@@ -65,6 +65,34 @@ greșiți sau prea stricți, iar activarea lor va rupe fluxuri care astăzi merg
 câmp. Un body cu un câmp în plus e respins. Toate testele de integrare din
 [E03](E03-testare-ci.md) trec.
 
+**Livrat.** Pipe-ul e înregistrat ca `APP_PIPE`, nu în `main.ts`, ca să se aplice și aplicațiilor
+construite în teste. Un pipe pus doar în `main.ts` ar fi lăsat testele să ruleze pe body-uri
+nevalidate — exact mecanismul prin care 22 de fișiere DTO au ajuns cu decoratori care n-au rulat
+niciodată.
+
+**Modul permisiv cu logare, recomandat de epic, nu s-a mai justificat.** Sfatul presupune trafic de
+producție care s-ar rupe; nu există, aplicația n-a fost deployată niciodată. A fost pornit strict,
+iar testele de integrare au spus ce s-a schimbat: **un singur test**, cel care trimitea
+`role: 'ADMIN'` în plus. Acum e respins din start, nu ignorat tăcut.
+
+`enableImplicitConversion` e oprit deliberat. Convertește înainte să valideze, deci `@IsString()`
+ar accepta numărul 1234 transformându-l în `"1234"`, ceea ce golește de sens majoritatea
+decoratorilor de tip. Cele patru DTO-uri care chiar au nevoie de numere din query string o spun
+explicit, cu `@Type(() => Number)`.
+
+**Trei defecte de DTO au ieșit la iveală abia fiindcă decoratorii au început să ruleze:**
+
+- `markAttendanceDto` folosea `@ValidateNested({ each: true })` fără `@Type`, deci
+  class-transformer lăsa tablourile ca obiecte simple și decoratorii de pe clasa imbricată nu
+  rulau deloc. Un `childId` string trecea nestingherit.
+- `updateGroupDto` n-avea `@IsOptional()` pe niciun câmp, deci o actualizare parțială ar fi fost
+  respinsă pentru câmpurile pe care nu le trimitea.
+- `monthIssued` era doar `@IsString()`, în patru DTO-uri, deși coloana e `varchar(7)` și
+  `@Unique(['parent', 'monthIssued'])` se cheie pe șirul exact.
+
+Plus `@IsNotEmpty()` pe `parentIds`, care respinge doar `null` — `[]` emitea zero facturi și
+raporta succes.
+
 ### S2 · Formă unică de eroare
 
 Exception filter global. Fiecare eroare are `statusCode`, `message`, `code`, `requestId`, plus
@@ -73,6 +101,16 @@ constrângere unică devine 409 cu mesaj util, nu 500 cu SQL în el.
 
 **Acceptanță:** frontend-ul are un singur loc care interpretează erori. Niciun răspuns de eroare nu
 conține nume de tabele sau SQL.
+
+**Livrat.** `statusCode`, `code`, `message`, `requestId`, `path`, `timestamp`, plus `details` pe
+erorile de validare. `code` e partea stabilă: frontend-ul comută pe el, niciodată pe `message`.
+
+Erorile de bază de date sunt traduse, nu transmise: o violare de unicitate devine 409, una de cheie
+străină 400, restul 500 cu mesaj generic, fiindcă textul driverului numește tabele și coloane.
+Verificat cu o constrângere ridicată chiar de Postgres, nu doar cu una prinsă în service.
+
+Răspunsurile 5xx se loghează cu id și stack; cele 4xx nu — sunt problema apelantului și ar fi o cale
+ușoară de a inunda logurile.
 
 ### S3 · Configurație validată la pornire
 
@@ -83,6 +121,15 @@ din `it-bridge-backend/src/constants/jwtConstants.ts` dispar.
 **Acceptanță:** pornire fără `JWT_ACCESS_TOKEN_SECRET` eșuează cu mesaj explicit, în loc să meargă
 mai departe cu `'defaultAccessSecret'`.
 
+**Livrat, cu trei verificări dincolo de prezență:** secrete sub 16 caractere, valorile implicite
+publicate în repo, și secrete de access și refresh identice — ultima transformă tăcut un token de
+15 minute într-unul de șapte zile, fiindcă fiecare e atunci acceptat în locul celuilalt.
+
+**Fără `@nestjs/config`, pe care epicul îl numește.** Nimic nu injectează un `ConfigService`, deci
+modulul ar fi adus o dependență ESM-only pe care jest n-o poate încărca, fără niciun câștig la
+rulare. `load-env.ts` e oricum fișierul importat înaintea oricărei citiri din `process.env`, adică
+exact locul verificării.
+
 ### S4 · Logging structurat
 
 Logger JSON, cu id de corelare pe fiecare cerere, propagat în loguri. Fiecare cerere lasă o linie:
@@ -91,6 +138,15 @@ metodă, rută, status, durată, id de utilizator. Fără date personale în log
 
 **Acceptanță:** un id de corelare dintr-un răspuns de eroare regăsește tot lanțul în loguri.
 
+**Livrat.** O linie JSON per cerere: metodă, rută, status, durată, utilizator, id de corelare —
+același id pe care îl poartă răspunsul de eroare și antetul `x-request-id`. Un id trimis de apelant
+e păstrat, ca o urmă să supraviețuiască saltului dinspre frontend, dar numai dacă arată a id: altfel
+un client ar putea scrie text arbitrar în loguri.
+
+Deliberat **fără** body-uri de cerere sau de răspuns: conțin nume, e-mailuri și parole, iar un log e
+cel mai ușor loc în care scapi date personale fără să observi. Valorile cheilor sensibile din query
+sunt înlocuite.
+
 ### S5 · Health și readiness
 
 `GET /health` răspunde fără să atingă baza de date. `GET /ready` verifică baza de date și S3.
@@ -98,12 +154,24 @@ PM2 și uptime checker-ul le folosesc.
 
 **Acceptanță:** `/health` răspunde 200 în sub 50ms. `/ready` întoarce 503 cu Postgres oprit.
 
+**Livrat.** `/health` nu atinge nimic — un probe de liveness care ar interoga baza ar transforma o
+bază lentă într-o buclă de repornire. `/ready` verifică baza și răspunde 503 fără să spună de ce:
+e accesibil fără credențiale.
+
 ### S6 · Rate limiting
 
 Throttler pe `/auth/login`, `/auth/register`, `/auth/refresh`, și pe orice endpoint care trimite
 email după [E17](E17-comunicare-notificari.md). Limite pe IP și pe cont.
 
 **Acceptanță:** a unsprezecea încercare de login într-un minut primește 429.
+
+**Livrat, exact așa.** Zece pe minut la login, cinci la register, douăzeci la refresh, peste un
+plafon global mult mai larg, ca navigarea obișnuită să nu fie atinsă.
+
+`RATE_LIMIT_ENABLED=false` îl oprește de tot. E o opțiune reală de operare — în spatele unui CDN sau
+WAF care limitează deja, un al doilea limitator care numără IP-ul proxy-ului face mai mult rău decât
+bine — și e ce folosesc suitele de test, fiindcă zeci de teste care înregistrează utilizatori în
+`beforeEach` ar măsura suita, nu comportamentul. Implicit e pornit.
 
 ### S7 · Sesiuni revocabile și logout
 
@@ -113,6 +181,26 @@ deja consumat invalidează întregul lanț, ca semnal de furt. `POST /auth/logou
 
 **Acceptanță:** un logout face refresh tokenul inutilizabil imediat. Un părinte își poate vedea și
 încheia sesiunile active.
+
+**Livrat.** Tabel `sessions` în Postgres, nu Redis — vezi „Întrebări deschise". Tokenul nu se
+stochează niciodată: doar un SHA-256 al lui, ca un dump scurs al tabelei să nu ofere cuiva un set de
+sesiuni funcționale. SHA-256 și nu bcrypt, fiindcă valoarea e deja 256 de biți de aleatoriu semnat,
+deci n-are ce fi spart prin forță brută, iar fiecare refresh trebuie s-o caute după hash.
+
+Refresh-ul rotește: tokenul prezentat e consumat și înlocuit. O semnătură validă nu mai e de ajuns —
+tokenul trebuie să fie și cel viu al sesiunii lui.
+
+**Refolosirea unuia deja consumat revocă tot lanțul.** E semnalul de furt: clientul legitim și
+atacatorul nu pot ține amândoi cel mai nou token, deci un replay înseamnă că cineva a copiat unul.
+Furtul costă ambele sesiuni, în loc să treacă neobservat șapte zile.
+
+`POST /auth/logout` nu cere access token — cel de acces poate fi deja expirat, ceea ce e cazul
+obișnuit; credențiala e refresh tokenul din body, iar revocarea unuia necunoscut nu face nimic.
+Plus `POST /auth/logout-all` și `GET /auth/sessions`, care nu întoarce niciodată hash-urile.
+
+**Un bug prins pe drum:** refresh tokenul era semnat doar cu `sub`, deci două login-uri în aceeași
+secundă produceau un JWT identic octet cu octet — și hash identic pe o coloană unică. Are acum un
+`jti`.
 
 ### S8 · Audit de autorizare
 
@@ -130,11 +218,77 @@ if (role !== Role.ADMIN) {
 
 **Acceptanță:** tabelul e complet și fiecare rând are un test în [E03](E03-testare-ci.md).
 
+**Livrat, dar generat, nu scris de mână.** Un tabel întreținut manual e greșit din prima clipă în
+care cineva uită să-l actualizeze, iar un tabel de autorizare învechit e mai rău decât niciunul: se
+citește ca o garanție. `pnpm --filter api authorization:table` îl produce din aceleași metadate Nest
+pe care le verifică `src/authorization.spec.ts`, deci fiecare rând are deja test — nu prin
+disciplină, ci prin construcție.
+
+Coloana „restrâns pe date" e singura scrisă de mână: reflecția vede guard-ele, nu ce face
+service-ul. E lista din script, iar testele unitare cu `isScopedToUser` o verifică.
+
+| Method | Route | Handler | AuthGuard | Role | Row-scoped |
+|---|---|---|---|---|---|
+| PATCH | `/attendance/:attendanceId` | `AttendanceController.updateAttendance` | yes | ADMIN | — |
+| POST | `/attendance/:groupId` | `AttendanceController.createAttendance` | yes | ADMIN | — |
+| GET | `/attendance/child/:childId` | `AttendanceController.getAttendanceByChild` | yes | any | yes |
+| POST | `/auth/login` | `AuthController.login` | **public** | any | — |
+| POST | `/auth/logout` | `AuthController.logout` | **public** | any | — |
+| POST | `/auth/logout-all` | `AuthController.logoutEverywhere` | yes | any | yes |
+| GET | `/auth/me` | `AuthController.getProfile` | yes | any | — |
+| POST | `/auth/refresh` | `AuthController.refresh` | **public** | any | — |
+| POST | `/auth/register` | `AuthController.register` | **public** | any | — |
+| GET | `/auth/sessions` | `AuthController.sessions` | yes | any | yes |
+| GET | `/children` | `ChildController.findChildren` | yes | any | yes |
+| POST | `/children` | `ChildController.createChild` | yes | any | yes |
+| DELETE | `/children/:childId` | `ChildController.deleteChild` | yes | any | yes |
+| PUT | `/children/:childId` | `ChildController.updateChild` | yes | any | yes |
+| DELETE | `/children/:childId/groups/:groupId` | `ChildController.removeChildFromGroup` | yes | ADMIN | — |
+| POST | `/children/:childId/groups/:groupId` | `ChildController.assignChildToGroup` | yes | ADMIN | — |
+| GET | `/discounts` | `DiscountController.findDiscounts` | yes | ADMIN | — |
+| POST | `/discounts` | `DiscountController.createDiscount` | yes | ADMIN | — |
+| DELETE | `/discounts/:id` | `DiscountController.deleteDiscount` | yes | ADMIN | — |
+| PUT | `/discounts/:id` | `DiscountController.updateDiscount` | yes | ADMIN | — |
+| GET | `/groups` | `GroupController.getGroups` | yes | any | — |
+| POST | `/groups` | `GroupController.createGroup` | yes | ADMIN | — |
+| DELETE | `/groups/:id` | `GroupController.deleteGroup` | yes | ADMIN | — |
+| GET | `/groups/:id` | `GroupController.getGroupById` | yes | ADMIN | — |
+| PUT | `/groups/:id` | `GroupController.updateGroup` | yes | ADMIN | — |
+| GET | `/health` | `HealthController.health` | **public** | any | — |
+| GET | `/invoices` | `InvoiceController.findInvoices` | yes | any | yes |
+| POST | `/invoices` | `InvoiceController.createInvoice` | yes | ADMIN | — |
+| DELETE | `/invoices/:id` | `InvoiceController.remove` | yes | ADMIN | — |
+| GET | `/invoices/:id` | `InvoiceController.findOne` | yes | any | yes |
+| PUT | `/invoices/:id` | `InvoiceController.update` | yes | ADMIN | — |
+| GET | `/invoices/:id/pdf` | `InvoiceController.getInvoicePdf` | yes | any | yes |
+| POST | `/invoices/preview` | `InvoiceController.previewInvoicePdf` | yes | ADMIN | — |
+| GET | `/payments` | `PaymentController.findPayments` | yes | any | yes |
+| POST | `/payments` | `PaymentController.createPayment` | yes | ADMIN | — |
+| DELETE | `/payments/:id` | `PaymentController.deletePayment` | yes | ADMIN | — |
+| GET | `/payments/:id` | `PaymentController.findOne` | yes | any | yes |
+| PUT | `/payments/:id` | `PaymentController.updatePayment` | yes | ADMIN | — |
+| GET | `/profiles` | `ProfileController.findProfiles` | yes | any | yes |
+| POST | `/profiles` | `ProfileController.createProfile` | yes | any | yes |
+| DELETE | `/profiles/:profileId` | `ProfileController.deleteProfile` | yes | any | yes |
+| PUT | `/profiles/:profileId` | `ProfileController.updateProfile` | yes | any | yes |
+| GET | `/ready` | `HealthController.ready` | **public** | any | — |
+| GET | `/users` | `UserController.getAllUsers` | yes | ADMIN | — |
+| DELETE | `/users/:id` | `UserController.deleteUser` | yes | ADMIN | — |
+| GET | `/users/:id` | `UserController.getUserById` | yes | ADMIN | — |
+| PUT | `/users/:id` | `UserController.updateUser` | yes | ADMIN | — |
+| GET | `/users/without-profile` | `UserController.getUsersWithoutProfile` | yes | ADMIN | — |
+48 endpoints.
+
+De regenerat după fiecare endpoint nou.
+
 ### S9 · CORS din configurație
 
 Lista de origini vine dintr-o variabilă de mediu, nu din cod.
 
 **Acceptanță:** adăugarea unui domeniu nu cere redeploy de cod.
+
+**Livrat încă din [E01](E01-infrastructura-medii.md).** `CORS_ORIGINS` e o listă separată prin
+virgulă; fără ea rămân domeniul de producție și frontend-ul local.
 
 ## Dependențe
 
@@ -155,6 +309,19 @@ eroare are id de corelare. Logout-ul funcționează cu adevărat.
 
 ## Întrebări deschise
 
-- Sesiunile în Postgres sau în Redis? Postgres e suficient la volumul actual și evită o piesă de
-  infrastructură în plus.
-- Punem `ValidationPipe` întâi în modul permisiv cu logare? Recomand da, o săptămână.
+Ambele au primit răspuns.
+
+**Sesiunile în Postgres sau Redis?** Postgres, cum recomanda epicul. La volumul actual e suficient,
+iar o piesă de infrastructură în plus ar trebui operată. Tabelul are indecși pe `tokenHash` și
+`familyId`, care sunt singurele căi de căutare.
+
+**`ValidationPipe` întâi în modul permisiv?** Nu, și motivul e că premisa a dispărut: sfatul
+presupune trafic de producție care s-ar rupe, iar aplicația n-a fost deployată niciodată. A fost
+pornit strict, cu testele de integrare drept plasă. S-a rupt exact un test.
+
+## Ce a mai ieșit la iveală
+
+**`revokedAt: undefined` într-un `where` e eliminat de TypeORM**, la fel ca bug-ul de la crearea de
+profiluri din [E04](E04-migrari-date.md). Prima formă a lui `revoke()` folosea asta și nu revoca
+nimic — logout-ul răspundea 200 și tokenul continua să meargă. Acum e `IsNull()` explicit. Merită
+reținut ca tipar: în TypeORM, `undefined` într-o condiție înseamnă „ignoră condiția", nu „e null".

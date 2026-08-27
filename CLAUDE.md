@@ -163,10 +163,22 @@ deci o migrare lipsă sau stricată pică testele.
 rădăcina pachetului, iar `nest build` ar scrie `dist/src/main.js` în loc de `dist/main.js` — deci
 `start:prod` și deploy-ul s-ar rupe în tăcere. Scripturile rulează oricum prin ts-node.
 
-**Validarea nu rulează.** 22 de fișiere DTO au decoratori `class-validator`, dar niciun
-`ValidationPipe` nu e înregistrat în `apps/api/src/main.ts` și nu există `APP_PIPE`. Body-uri brute ajung
-direct în servicii. Dacă adaugi un DTO, decoratorii lui nu fac nimic până nu se înregistrează
-pipe-ul global.
+**Validarea rulează, ca `APP_PIPE` în `app.module.ts`.** Deci se aplică și aplicațiilor construite
+în teste, nu doar celei din `main.ts`. `whitelist` plus `forbidNonWhitelisted`: un câmp pe care
+niciun DTO nu-l declară respinge cererea, nu e ignorat tăcut.
+
+`enableImplicitConversion` e **oprit** intenționat — ar converti înainte de validare, deci
+`@IsString()` ar accepta un număr transformându-l în string. Un câmp numeric care vine din query
+string are nevoie de `@Type(() => Number)` explicit.
+
+**`undefined` într-un `where` TypeORM înseamnă „ignoră condiția", nu „e null".** A produs deja două
+bug-uri: crearea de profiluri fără date de contact răspundea 409, iar logout-ul răspundea 200 fără
+să revoce nimic. Folosește `IsNull()`.
+
+**Configurația e validată la pornire**, în `apps/api/src/config/env.validation.ts`. Aplicația refuză
+să pornească fără secrete JWT, cu secrete sub 16 caractere, cu valorile implicite vechi, sau cu
+access și refresh identice. Uneltele de schemă trec pe lângă validare cu `SKIP_ENV_VALIDATION=true`,
+fiindcă au nevoie doar de configurația de bază de date.
 
 **Schema se schimbă doar prin migrări.** `synchronize` e `false`, iar configurația e într-un singur
 loc, `apps/api/src/data-source.ts`, citit și de aplicație și de CLI-ul TypeORM. O entitate schimbată
@@ -201,11 +213,9 @@ boot, chiar dacă nu atingi nicio factură. Cheile de acces sunt opționale — 
 lanțul implicit de credențiale, adică IAM instance role în producție. Mesajul de eroare cere trei
 variabile, dar verifică una singură.
 
-**Secrete JWT cu fallback.** `apps/api/src/constants/jwtConstants.ts` cade pe `'defaultAccessSecret'` /
-`'defaultRefreshSecret'` dacă variabilele lipsesc — fără avertisment.
-
-**Refresh tokens nu pot fi revocate.** Sunt stateless, nu există logout server-side și nici
-listă de revocare.
+**Refresh tokenurile sunt urmăribile și revocabile.** Tabelul `sessions` ține un SHA-256 al
+fiecăruia, niciodată tokenul. Refresh-ul rotește, iar refolosirea unuia consumat revocă tot lanțul —
+semnalul de furt. `POST /auth/logout` nu cere access token, fiindcă acela e adesea deja expirat.
 
 **Familia `no-unsafe-*` e pe `error` în codul de producție și oprită în teste.** Excepția pentru
 teste e îngustă și justificată: supertest tipează `res.body` ca `any`, iar valorile întoarse de
