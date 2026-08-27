@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+@import "./classical.css";
 
 @theme {
   --container-8xl: 90rem;

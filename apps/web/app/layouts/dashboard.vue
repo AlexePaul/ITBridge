@@ -12,7 +12,6 @@
           <template #right>
             <div class="flex items-center gap-3">
               <span v-if="user">{{ user.username }}</span>
-              <UColorModeSwitch />
               <UButton
                 label="Logout"
                 size="md"

@@ -10,6 +10,12 @@ export default defineNuxtConfig({
   },
   modules: ["@nuxt/ui", "nuxt-auth-utils", "@pinia/nuxt"],
   css: ["~/assets/css/main.css"],
+  // The classical system is a light one; the dark palette follows the reader's
+  // own system setting rather than a switch in the header.
+  colorMode: {
+    preference: "system",
+    fallback: "light",
+  },
   app: {
     head: {
       link: [
@@ -19,7 +25,7 @@ export default defineNuxtConfig({
         { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
         { rel: "manifest", href: "/site.webmanifest" },
       ],
-      meta: [{ name: "theme-color", content: "#000000" }],
+      meta: [{ name: "theme-color", content: "#f3f2f2" }],
     },
   },
   runtimeConfig: {

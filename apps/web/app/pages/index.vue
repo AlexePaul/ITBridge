@@ -1,248 +1,129 @@
 <template>
-  <div>
-    <!-- Hero Section -->
-    <section class="py-24 px-6 text-center">
-      <div class="max-w-4xl mx-auto">
-        <h1 class="text-4xl md:text-5xl font-bold text-highlighted mb-4">
-          Academia de IT pentru copii
-        </h1>
-        <p class="text-xl md:text-2xl text-secondary font-semibold mb-6">
-          Învață, Crește, Reușește!
-        </p>
-        <p class="text-lg text-muted mb-8 max-w-2xl mx-auto">
-          Transformăm procesul de învățare într-o aventură captivantă! Copiii descoperă lumea
-          IT-ului prin activități interactive, jocuri educative și proiecte practice.
-        </p>
-        <div class="flex flex-wrap gap-4 justify-center">
-          <UButton
-            size="xl"
-            color="primary"
-            variant="solid"
-            label="Cursuri & Informații"
-            icon="i-lucide-book-open"
-            @click="navigateTo('/courses')"
-          />
-          <UButton
-            size="xl"
-            color="neutral"
-            variant="outline"
-            label="Contactează-ne"
-            icon="i-lucide-phone"
-            @click="navigateTo('/contact')"
-          />
+  <div class="page">
+    <section class="section-hero" data-reveal>
+      <h1 class="display">
+        <span>Copiii nu doar folosesc tehnologia.</span>
+        <span>La noi învață să o creeze.</span>
+      </h1>
+      <p class="lede lede-loose">
+        IT Bridge School este o școală de informatică pentru copii, cu două locații în București. De
+        la primii pași pe calculator până la pregătirea pentru Bacalaureat și olimpiade, în grupe
+        mici, cu proiecte practice la fiecare ședință.
+      </p>
+      <div class="actions">
+        <NuxtLink to="/courses" class="btn btn-primary">Vezi cursurile</NuxtLink>
+        <NuxtLink to="/contact" class="btn btn-ghost">Programează o discuție</NuxtLink>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <section class="section" aria-label="IT Bridge School, în cifre" data-reveal>
+      <div class="stats-grid">
+        <div v-for="stat in stats" :key="stat.label">
+          <p class="stat-num" :class="{ 'stat-accent': stat.highlighted }">{{ stat.value }}</p>
+          <p class="stat-label">{{ stat.label }}</p>
         </div>
       </div>
     </section>
 
-    <!-- Image Carousel -->
-    <section class="py-16">
-      <UCard class="py-8 border-0" variant="soft">
-        <div class="max-w-6xl mx-auto">
-          <h2 class="text-3xl font-bold text-center text-highlighted mb-8">Momentele Noastre</h2>
-          <UCarousel
-            :items="carouselItems"
-            arrows
-            :prev-icon="prevIcon"
-            :next-icon="nextIcon"
-            :ui="{ item: 'basis-full md:basis-1/2 lg:basis-1/3' }"
-          >
-            <template #default="{ item }">
-              <div class="justify-center text-center p-4">
-                <p class="text-xl text-secondary font-semibold mb-4">{{ item.title }}</p>
-                <img
-                  v-if="item.image"
-                  :src="`/images/${item.image}`"
-                  alt="Carousel Image"
-                  class="w-auto h-72 object-cover block p-0 border border-neutral rounded-lg mx-auto"
-                />
-              </div>
-            </template>
-          </UCarousel>
-        </div>
-      </UCard>
-    </section>
+    <hr class="rule" />
 
-    <!-- Advantages Section -->
-    <section class="py-16 px-6">
-      <div class="max-w-6xl mx-auto">
-        <h2 class="text-3xl font-bold text-center text-highlighted mb-4">
-          Avantajele Cursurilor Noastre
-        </h2>
-        <p class="text-center text-muted mb-12 max-w-2xl mx-auto">
-          Înscrierea copilului tău la cursurile noastre de IT vine cu multiple beneficii care îi vor
-          dezvolta abilitățile tehnice.
-        </p>
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <UCard
-            v-for="advantage in advantages"
-            :key="advantage.title"
-            color="neutral"
-            variant="soft"
-          >
-            <div class="text-center">
-              <UIcon :name="advantage.icon" class="text-4xl text-secondary mb-4" />
-              <h3 class="font-semibold text-lg text-highlighted mb-2">
-                {{ advantage.title }}
-              </h3>
-              <p class="text-muted text-sm">
-                {{ advantage.description }}
-              </p>
-            </div>
-          </UCard>
+    <section class="section" data-reveal>
+      <span class="kicker tnum">Ce învață copiii</span>
+      <div class="cols-3 cols-ruled">
+        <div v-for="subject in subjects" :key="subject.title">
+          <h2 class="block-title">{{ subject.title }}</h2>
+          <p class="body-text justified">{{ subject.body }}</p>
         </div>
       </div>
     </section>
 
-    <!-- Features Section -->
-    <section class="py-16">
-      <UCard color="neutral" class="py-8" variant="soft">
-        <div class="max-w-6xl mx-auto">
-          <div class="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 class="text-3xl font-bold text-highlighted mb-6">
-                Alegerea cursurilor noastre reprezintă un pas important
-              </h2>
-              <p class="text-muted mb-6">
-                Dezvoltă competențele necesare pentru viitorul digital al copilului tău. Cursurile
-                sunt structurate astfel încât copiii să dezvolte capacitatea de gândire și viziune
-                în elaborarea și planificarea sarcinilor.
-              </p>
-              <ul class="space-y-3">
-                <li v-for="feature in features" :key="feature" class="flex items-center gap-3">
-                  <UIcon name="i-lucide-check-circle" class="text-xl text-secondary" />
-                  <span class="text-muted">{{ feature }}</span>
-                </li>
-              </ul>
-            </div>
-            <img
-              src="/images/laptop.png"
-              alt="Classroom Image"
-              class="h-90 w-auto mx-auto rounded-lg mb-4 border border-neutral"
-            />
-          </div>
-        </div>
-      </UCard>
+    <section class="section split" data-reveal>
+      <div>
+        <span class="kicker">Momentele noastre</span>
+        <h2 class="section-title">Ore în care se construiește ceva, la propriu</h2>
+        <p class="body-text justified measure">
+          Fiecare ședință de 1,5 ore se încheie cu ceva ce copilul a făcut singur: un joc în
+          Scratch, o pagină web, un program în Python. Grupele mici înseamnă că profesorul ajunge la
+          fiecare, la fiecare oră.
+        </p>
+        <p class="body-text">
+          <NuxtLink to="/about" class="link">Cunoaște echipa și locațiile →</NuxtLink>
+        </p>
+      </div>
+      <figure class="plate plate-lg self-end">
+        <img src="/images/01.jpg" alt="Copii lucrând la proiecte în clasă" />
+      </figure>
     </section>
 
-    <!-- CTA Section -->
-    <section class="py-16 px-6">
-      <div class="max-w-4xl mx-auto">
-        <UCard color="neutral" class="text-center p-8" variant="soft">
-          <h2 class="text-3xl font-bold text-highlighted mb-4">Suntem aici să te ajutăm!</h2>
-          <p class="text-muted mb-8 text-lg">
-            Ai întrebări sau dorești mai multe detalii? Contactează-ne acum și hai să găsim soluția
-            potrivită pentru tine!
-          </p>
-          <div class="flex flex-wrap gap-4 justify-center">
-            <UButton
-              size="xl"
-              color="primary"
-              variant="solid"
-              label="Contact"
-              icon="i-lucide-mail"
-              @click="navigateTo('/contact')"
-            />
-            <UButton
-              size="xl"
-              color="neutral"
-              variant="outline"
-              label="+40 732 273 347"
-              icon="i-lucide-phone"
-              href="tel:+40732273347"
-            />
-          </div>
-        </UCard>
+    <section class="section-close" data-reveal>
+      <figure>
+        <blockquote class="pull-quote">“{{ testimonial.quote }}”</blockquote>
+        <figcaption class="pull-quote-source">— {{ testimonial.author }}</figcaption>
+      </figure>
+    </section>
+
+    <hr class="rule" />
+
+    <section class="section-close" data-reveal>
+      <h2 class="block-title">Locul copilului tău e încă liber</h2>
+      <p class="body-text measure-wide">
+        Scrie-ne sau sună-ne: stabilim împreună nivelul potrivit și grupa cu locuri libere, la
+        locația mai aproape de tine.
+      </p>
+      <div class="actions">
+        <NuxtLink to="/contact" class="btn btn-primary">Scrie-ne</NuxtLink>
+        <a :href="SCHOOL_PHONE_HREF" class="btn btn-ghost tnum">{{ SCHOOL_PHONE }}</a>
       </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useUserStore } from "~/stores/userStore";
-import { ref } from "vue";
+import { useReveal } from "~/composables/useReveal";
+import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "~/constants/school";
 
 definePageMeta({
   layout: "default" as any,
+  title: "Acasă",
 });
 
-defineProps<{
-  prevIcon?: string;
-  nextIcon?: string;
-}>();
+useReveal();
 
-const userStore = useUserStore();
+const stats = [
+  { value: "2", label: "Locații în București", highlighted: true },
+  { value: "6", label: "Niveluri, de la clasa 0 la BAC", highlighted: false },
+  { value: "32", label: "Săptămâni într-un modul", highlighted: false },
+  { value: "1,5", label: "Ore pe ședință", highlighted: false },
+];
 
-const setLayout = () => {
-  if (userStore.user?.role === "ADMIN") {
-    setPageLayout("default" as any);
-  } else {
-    setPageLayout("default" as any);
-  }
+const subjects = [
+  {
+    title: "Programare",
+    body:
+      "De la Scratch la Python și C/C++, în funcție de vârstă și nivel. Copiii scriu cod de la " +
+      "primele ore și ajung, pas cu pas, la algoritmi, structuri de date și probleme de concurs.",
+  },
+  {
+    title: "Gândire logică",
+    body:
+      "Exercițiile și proiectele practice antrenează gândirea critică și descompunerea " +
+      "problemelor — abilități care se văd la școală, la examene și mult după.",
+  },
+  {
+    title: "Creativitate digitală",
+    body:
+      "Cu Scratch, Tinkercad și Canva, copiii explorează latura creativă a tehnologiei: desen " +
+      "digital, modelare 3D și proiecte pe care le arată cu mândrie acasă.",
+  },
+];
+
+// TODO: replace with a real testimonial before launch.
+const testimonial = {
+  quote:
+    "După un modul, fiul meu a trecut de la jocuri pe tabletă la a-și face propriul joc în " +
+    "Scratch. Vine de la ore povestind ce a construit.",
+  author: "părinte, grupa de clasa 3-4",
 };
-
-onMounted(() => {
-  setLayout();
-});
-
-watch(
-  () => userStore.user,
-  () => {
-    setLayout();
-  }
-);
-
-const carouselItems = [
-  { title: "Activități practice", image: "03.jpeg" },
-  { title: "Proiecte creative", image: "01.jpg" },
-  { title: "Lecții interactive", image: "02.jpeg" },
-  { title: "Momente de succes", image: "05.jpeg" },
-  { title: "Echipa noastră", image: "04.jpeg" },
-];
-
-const advantages = [
-  {
-    icon: "i-lucide-laptop",
-    title: "Competențe Digitale Esențiale",
-    description:
-      "Copilul va învăța să folosească aplicații și instrumente tehnologice moderne, fundamentale pentru succesul academic.",
-  },
-  {
-    icon: "i-lucide-code",
-    title: "Abilități de Programare",
-    description:
-      "Elevii își vor dezvolta abilități de programare, învățând limbaje populare precum Python, Java și C++.",
-  },
-  {
-    icon: "i-lucide-brain",
-    title: "Gândire Logică",
-    description:
-      "Exercițiile și proiectele practice îi vor ajuta pe copii să își dezvolte gândirea critică și abilitățile de soluționare.",
-  },
-  {
-    icon: "i-lucide-lightbulb",
-    title: "Creativitate și Inovație",
-    description:
-      "Cu ajutorul instrumentelor precum Scratch, Tinkercad și Canva, copiii vor explora latura creativă a tehnologiei.",
-  },
-  {
-    icon: "i-lucide-rocket",
-    title: "Adaptare la Noile Tehnologii",
-    description:
-      "Cursurile noastre îi vor pregăti pe copii să se adapteze rapid la noile tehnologii din domeniul IT.",
-  },
-  {
-    icon: "i-lucide-book-open",
-    title: "Acces la Resurse și Suport",
-    description:
-      "Elevii beneficiază de acces la materiale educaționale actualizate și suport constant din partea profesorilor.",
-  },
-];
-
-const features = [
-  "Durata fiecărui modul: 32 săptămâni",
-  "Sesiuni de 1.5 ore",
-  "Grupe mici pentru atenție personalizată",
-  "Proiecte practice și aplicabile",
-  "Mediu relaxat și prietenos",
-];
 </script>

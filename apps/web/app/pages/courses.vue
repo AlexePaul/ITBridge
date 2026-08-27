@@ -1,195 +1,216 @@
 <template>
-  <div>
-    <!-- Classes Grid -->
-    <section class="py-16">
-      <UCard color="neutral" class="py-8 border-0" variant="soft">
-        <div class="max-w-6xl mx-auto">
-          <h2 class="text-3xl font-bold mb-12 text-center text-secondary">Clasele Noastre</h2>
-          <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <UCard
-              v-for="course in courses"
-              :key="course.title"
-              class="hover:shadow-lg transition-shadow"
-              color="neutral"
-              variant="soft"
-            >
-              <template #header>
-                <div>
-                  <h3 class="text-xl font-bold text-highlighted">{{ course.title }}</h3>
-                  <p class="text-sm text-secondary">{{ course.level }}</p>
-                </div>
-              </template>
-              <div class="h-60 overflow-y-auto mb-4">
-                <p class="text-sm font-semibold mb-2">Teme Acoperite:</p>
-                <ul class="text-sm text-muted space-y-1">
-                  <li v-for="topic in course.topics" :key="topic">• {{ topic }}</li>
-                </ul>
-              </div>
-              <template #footer>
-                <UButton block color="primary" to="/contact">Cere Informații</UButton>
-              </template>
-            </UCard>
-          </div>
-        </div>
-      </UCard>
+  <div class="page">
+    <section class="section-lead" data-reveal>
+      <span class="kicker">Cursuri</span>
+      <h1 class="page-title">Un nivel pentru fiecare vârstă.</h1>
+      <p class="lede">
+        Șase niveluri, de la primii pași pe calculator până la pregătirea pentru Bacalaureat și
+        olimpiade. Fiecare modul durează 32 de săptămâni, cu ședințe de 1,5 ore în grupe mici.
+      </p>
     </section>
 
-    <!-- Enrollment Info -->
-    <section class="py-20 px-4 sm:px-6 lg:px-8">
-      <div class="max-w-4xl mx-auto">
-        <h2 class="text-3xl font-bold mb-8 text-center text-highlighted">Cum Funcționează?</h2>
-        <div class="grid md:grid-cols-2 gap-8">
+    <hr class="rule" />
+
+    <section aria-label="Nivelurile de curs">
+      <div v-for="course in courses" :key="course.num" data-reveal>
+        <div class="course-row">
+          <p class="course-num">{{ course.num }}</p>
           <div>
-            <h3 class="text-xl font-semibold mb-4 text-highlighted">Procesul de Înregistrare</h3>
-            <ol class="space-y-3 text-muted">
-              <li v-for="(step, index) in enrollmentSteps" :key="index" class="flex gap-3">
-                <span class="font-bold text-primary">{{ index + 1 }}.</span>
-                <span>{{ step }}</span>
-              </li>
-            </ol>
+            <h2 class="item-title">{{ course.title }}</h2>
+            <p class="label-accent">{{ course.level }}</p>
           </div>
-          <div>
-            <h3 class="text-xl font-semibold mb-4 text-highlighted">De Ce Noi?</h3>
-            <ul class="space-y-3 text-muted">
-              <li v-for="benefit in benefits" :key="benefit" class="flex gap-2">
-                <UIcon name="i-lucide-check" class="text-primary w-5 h-5 shrink-0 mt-0.5" />
-                <span>{{ benefit }}</span>
-              </li>
-            </ul>
+          <p class="body-text justified">{{ course.topics }}</p>
+          <NuxtLink to="/contact" class="btn btn-secondary">Cere informații</NuxtLink>
+        </div>
+        <hr class="rule" />
+      </div>
+    </section>
+
+    <section class="section" data-reveal>
+      <span class="kicker">Cum funcționează</span>
+      <div class="cols-2">
+        <div>
+          <h2 class="block-title">De la primul telefon la prima ședință</h2>
+          <div class="stack">
+            <div v-for="(step, index) in steps" :key="step" class="marked">
+              <span class="marked-num">{{ index + 1 }}</span>
+              <span class="body-text">{{ step }}</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h2 class="block-title">De ce părinții ne aleg</h2>
+          <div class="stack">
+            <div v-for="benefit in benefits" :key="benefit" class="marked">
+              <UIcon name="i-lucide-check" class="marker size-4" />
+              <span class="body-text">{{ benefit }}</span>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- CTA Section -->
-    <section class="py-16">
-      <UCard color="neutral" class="py-8 border-0" variant="soft">
-        <div class="max-w-4xl mx-auto text-center">
-          <h2 class="text-3xl font-bold mb-6 text-highlighted">Gata să Pornim?</h2>
-          <p class="text-lg text-muted mb-8">
-            Contactează-ne astazi și descoperă cum îți putem ajuta să reușești la informatică.
-          </p>
-          <UButton size="lg" to="/contact">
-            <UIcon name="i-lucide-phone" class="mr-2" />
-            Cere Informații
-          </UButton>
+    <hr class="rule" />
+
+    <section class="section" aria-label="Prețuri" data-reveal>
+      <span class="kicker">Prețuri</span>
+      <div class="price-grid">
+        <div>
+          <p class="stat-num stat-accent">{{ PRICE_ONE_CHILD }} lei</p>
+          <p class="stat-label">Pe lună, pentru un copil</p>
         </div>
-      </UCard>
+        <div>
+          <p class="stat-num">peste {{ secondChildDiscount }}%</p>
+          <p class="stat-label">
+            Reducere la al doilea copil — {{ PRICE_TWO_CHILDREN }} lei pe lună pentru doi
+          </p>
+        </div>
+        <p class="body-text measure">
+          Prețul acoperă toate ședințele lunii, materialele de curs și accesul la resursele noastre.
+          Detalii complete la telefon sau pe email.
+        </p>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <section class="section" aria-label="Întrebări frecvente" data-reveal>
+      <span class="kicker">Întrebări frecvente</span>
+      <div class="cols-2">
+        <div v-for="entry in faq" :key="entry.question">
+          <h2 class="sub-title">{{ entry.question }}</h2>
+          <p class="body-text justified">{{ entry.answer }}</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
+    <section class="section-close" data-reveal>
+      <h2 class="block-title">Nu știi de unde să începi?</h2>
+      <p class="body-text measure-wide">
+        Spune-ne vârsta copilului și ce l-ar bucura să construiască — îți recomandăm nivelul
+        potrivit.
+      </p>
+      <div class="actions">
+        <NuxtLink to="/contact" class="btn btn-primary">Cere informații</NuxtLink>
+        <a :href="SCHOOL_PHONE_HREF" class="btn btn-ghost tnum">{{ SCHOOL_PHONE }}</a>
+      </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useReveal } from "~/composables/useReveal";
+import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "~/constants/school";
+
 definePageMeta({
   layout: "default" as any,
-  title: "Meditații Informatică - IT Bridge School",
+  title: "Cursuri",
 });
 
-const features = [
-  {
-    icon: "i-lucide-users-2",
-    title: "Meditații Interactive",
-    description: "Sesiuni pentru o învățare interactivă și suport mutual între colegi.",
-  },
-  {
-    icon: "i-lucide-book",
-    title: "Pregătire Examene",
-    description:
-      "Pregătire specifică pentru examene școlare și teste de evaluare. Cunoaștere a cerințelor și strategiilor de succes.",
-  },
-  {
-    icon: "i-lucide-target",
-    title: "Rezultate Garantate",
-    description:
-      "Rezultate demonstrabile cu progres măsurabil. Fiecare elev primește atenție dedicată.",
-  },
-];
+useReveal();
+
+const PRICE_ONE_CHILD = 350;
+const PRICE_TWO_CHILDREN = 600;
+
+// The second child is charged the difference — 250 instead of 350 — so the
+// saving is announced as a floor, never rounded up past what the family pays.
+const secondChildDiscount = Math.floor(
+  (1 - (PRICE_TWO_CHILDREN - PRICE_ONE_CHILD) / PRICE_ONE_CHILD) * 100
+);
 
 const courses = [
   {
-    title: "Clasa 0-2",
+    num: "01",
+    title: "Clasa 0–2",
     level: "Inițiere",
-    topics: [
-      "Cunoașterea calculatorului",
-      "Folosirea mouse-ului și tastaturii",
-      "Jocuri educative pe calculator",
-      "Introducere în concepte de bază",
-      "Creativitate prin desen digital 2D și 3D",
-    ],
+    topics:
+      "Cunoașterea calculatorului, folosirea mouse-ului și a tastaturii, jocuri educative, " +
+      "primele concepte de bază și creativitate prin desen digital 2D și 3D.",
   },
   {
-    title: "Clasa 3-4",
+    num: "02",
+    title: "Clasa 3–4",
     level: "Începători",
-    topics: [
-      "Noțiuni de bază în informatică",
-      "Folosirea sistemelor de operare",
-      "Aplicații Office (Word, PowerPoint, Excel)",
-      "Internet și siguranță online",
-      "Jocuri educative și programare simplă in Scratch",
-    ],
+    topics:
+      "Noțiuni de bază în informatică, sisteme de operare, aplicații Office (Word, PowerPoint, " +
+      "Excel), internet și siguranță online, primele programe în Scratch.",
   },
   {
-    title: "Clasa 5-6",
+    num: "03",
+    title: "Clasa 5–6",
     level: "Intermediar",
-    topics: [
-      "Introducere în algoritmi",
-      "Programare în Scratch",
-      "Proiecte practice",
-      "Dezvoltarea Site-urilor web simple",
-    ],
+    topics:
+      "Introducere în algoritmi, programare în Scratch, proiecte practice și primele site-uri " +
+      "web simple.",
   },
   {
-    title: "Clasa 7-8",
-    level: "Intermediar-Avansat",
-    topics: [
-      "Programare în Python",
-      "Algoritmi și instrucțiuni de bază",
-      "Proiecte practice",
-      "Dezvoltarea Site-urilor web (HTML, CSS, JavaScript)",
-      "Introducere în baze de date",
-      "Pregătire pentru olimpiade școlare",
-    ],
+    num: "04",
+    title: "Clasa 7–8",
+    level: "Intermediar–avansat",
+    topics:
+      "Programare în Python, algoritmi și instrucțiuni de bază, site-uri web cu HTML, CSS și " +
+      "JavaScript, introducere în baze de date și pregătire pentru olimpiade școlare.",
   },
   {
-    title: "Clasa 9-12",
+    num: "05",
+    title: "Clasa 9–12",
     level: "Avansat",
-    topics: [
-      "Algoritmi și complexitate",
-      "Programare în C/C++",
-      "Structuri de date avansate",
-      "Probleme de concurs",
-      "Pregătire BAC informatică",
-      "Baze de date (SQL)",
-      "Programe complexe",
-      "Pregătire pentru olimpiadă",
-    ],
+    topics:
+      "Algoritmi și complexitate, programare în C/C++, structuri de date avansate, probleme de " +
+      "concurs, baze de date SQL, pregătire pentru BAC și olimpiadă.",
   },
   {
+    num: "06",
     title: "Pregătire Bacalaureat",
     level: "Avansat",
-    topics: [
-      "Pregătirea pentru examenele de Bacalaureat",
-      "Algoritmi de concurs",
-      "Probleme tip pentru Bacalaureat",
-      "Timp și strategie de examen",
-      "Feedback și corecții",
-    ],
+    topics:
+      "Probleme tip pentru Bacalaureat, algoritmi de concurs, timp și strategie de examen, " +
+      "feedback și corecții la fiecare ședință.",
   },
 ];
 
-const enrollmentSteps = [
-  "Contactează-ne pentru a discuta nevoile tale",
-  "Te evaluăm pentru a determina nivelul potrivit",
-  "Alegi clasa potrivită pentru tine",
-  "Stabilim orar și program de meditații",
-  "Pornim cu primele meditații",
+const steps = [
+  "Ne contactezi și discutăm nevoile copilului",
+  "Facem o evaluare scurtă pentru nivelul potrivit",
+  "Alegem împreună clasa și locația",
+  "Stabilim orarul și programul ședințelor",
+  "Pornim cu primele ore",
 ];
 
 const benefits = [
   "Instructori experimentați și dedicați",
-  "Programe structurate și atenție personalizată",
+  "Programe structurate, cu atenție personalizată",
   "Rezultate demonstrabile",
   "Materiale și resurse de calitate",
-  "Flexibilitate în orar",
+  "Flexibilitate în orar, la două locații",
+];
+
+const faq = [
+  {
+    question: "Cum aleg nivelul potrivit?",
+    answer:
+      "Nu trebuie să-l alegi singur: la prima discuție evaluăm copilul și îți recomandăm clasa " +
+      "potrivită vârstei și experienței lui.",
+  },
+  {
+    question: "Cât durează un curs?",
+    answer:
+      "Un modul durează 32 de săptămâni, cu o ședință de 1,5 ore pe săptămână. Grupele sunt " +
+      "mici, ca fiecare copil să primească atenție.",
+  },
+  {
+    question: "Unde au loc cursurile?",
+    answer:
+      "În două locații din București — Strada Valea Oltului 73 și cea de-a doua locație a " +
+      "noastră. Alegi locația mai convenabilă la înscriere.",
+  },
+  {
+    question: "Ce se întâmplă la o ședință?",
+    answer:
+      "Fiecare oră combină teorie pe scurt cu lucru practic: copiii pleacă de la fiecare ședință " +
+      "cu ceva construit de ei — un program, un joc, o pagină web.",
+  },
 ];
 </script>
