@@ -18,9 +18,8 @@ Pentru primele șase luni realiste, vezi secțiunea [Ordinea recomandată](#ordi
 
 ## Stare curentă
 
-Frontend pe Vercel, funcționând ca prezentare statică. Backend nedeployat nicăieri. Validarea
-cererilor nu rulează, deși 22 de DTO-uri au decoratori. Platforma nu are noțiunea de locație, deși
-școala are două.
+Frontend pe Vercel, funcționând ca prezentare statică. Backend nedeployat nicăieri. Platforma nu are
+noțiunea de locație, deși școala are două.
 
 Curățenia de infrastructură din E01 a intrat: aplicația nu mai rulează în Docker, `docker-compose.yml`
 e doar Postgres, iar cele trei strategii de deploy moarte au dispărut din repo. Cheia Let's Encrypt
@@ -38,6 +37,10 @@ sunt reparate în E04, cu testele întoarse în teste de regresie: restrângerea
 `findPayments` și crearea unui al doilea profil fără date de contact, care întorcea 409 și bloca
 fluxul de admin. Al treilea — calculul de preț la trei copii — rămâne, fiindcă prețul corect se
 stabilește în [E15](E15-pricing-facturare.md).
+
+E05 a adus robustețea: validarea chiar rulează și a scos la iveală trei DTO-uri greșite, erorile au
+o formă unică fără SQL în ele, aplicația refuză să pornească prost configurată, refresh tokenurile
+sunt revocabile cu logout real și detectare de furt, iar `/health` și limitarea de rată există.
 
 E04 a oprit `synchronize: true`. Schema evoluează acum prin migrări, iar CI verifică pe fiecare PR
 că entitățile n-au divergat de ele. `pnpm seed` reconstruiește o bază locală plauzibilă în câteva
@@ -139,6 +142,8 @@ Fiecare epic are `Status` în antet: `propus` → `acceptat` → `în lucru` →
 
 [E02](E02-monorepo-tooling.md) și [E03](E03-testare-ci.md) sunt `livrate` — la E03, cu o singură
 rezervă: branch protection pe `main` se activează din Settings, nu din repo.
+
+[E05](E05-robustete-backend.md) e `livrat`.
 
 [E01](E01-infrastructura-medii.md) și [E04](E04-migrari-date.md) sunt `în lucru`, amândouă blocate
 în același punct: **nu există instanța EC2.** La E01 rămân S4 (deploy) și S6 (curățare de
