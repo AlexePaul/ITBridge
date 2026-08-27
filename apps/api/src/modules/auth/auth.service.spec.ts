@@ -6,20 +6,29 @@ import { AuthService } from './auth.service';
 import { User } from 'src/entities/user.entity';
 import { jwtConstants } from 'src/constants/jwtConstants';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
+import { SessionService } from './session.service';
 
 describe('AuthService', () => {
     let service: AuthService;
     let jwtService: JwtService;
     let userRepo: MockRepository;
+    let sessions: Record<string, jest.Mock>;
 
     beforeEach(async () => {
         userRepo = createMockRepository();
+        sessions = {
+            startSession: jest.fn(),
+            rotate: jest.fn(),
+            revoke: jest.fn(),
+            revokeAllForUser: jest.fn(),
+            listActive: jest.fn().mockResolvedValue([]),
+        };
 
         // A real JwtService, not a mock: issued tokens must be verifiable, and the expiry test
         // would be meaningless against a mock.
         const module: TestingModule = await Test.createTestingModule({
             imports: [JwtModule.register({})],
-            providers: [AuthService, provideMockRepository(User, userRepo)],
+            providers: [AuthService, provideMockRepository(User, userRepo), { provide: SessionService, useValue: sessions }],
         }).compile();
 
         service = module.get(AuthService);

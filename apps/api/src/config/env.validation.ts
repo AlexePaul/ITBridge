@@ -1,3 +1,7 @@
+// class-transformer reads design-time types through the metadata reflection API. `main.ts` imports
+// this polyfill already, but the standalone scripts (seed, schema drift) do not — and they reach
+// this file through `load-env`.
+import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MinLength, validateSync } from 'class-validator';
 
@@ -86,6 +90,11 @@ export class EnvironmentVariables {
     @IsOptional()
     @IsIn(['true', 'false'])
     RATE_LIMIT_ENABLED?: string;
+
+    /** Set only by the schema tooling, which needs the database settings and nothing else. */
+    @IsOptional()
+    @IsIn(['true', 'false'])
+    SKIP_ENV_VALIDATION?: string;
 }
 
 /** Values that used to be silent fallbacks. Refused outright now, wherever they come from. */

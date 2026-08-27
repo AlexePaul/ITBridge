@@ -44,6 +44,9 @@ const PUBLIC_ALLOWLIST = new Set([
     'AuthController.register', // account creation
     'AuthController.login',
     'AuthController.refresh', // authenticates itself, through the refresh token
+    // Logging out must work when the access token has already expired, which is the common case.
+    // The refresh token in the body is the credential, and revoking an unknown one does nothing.
+    'AuthController.logout',
 ]);
 
 interface Handler {
@@ -129,6 +132,8 @@ describe('authorization matrix', () => {
             'ChildController.createChild', // the service checks the parent profile
             'ChildController.updateChild',
             'ChildController.deleteChild',
+            'AuthController.logout',
+            'AuthController.logoutEverywhere', // revokes only the caller's own sessions
         ]);
 
         const writes = HANDLERS.filter((h) => WRITE_METHODS.includes(h.httpMethod));
