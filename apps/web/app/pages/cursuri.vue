@@ -83,8 +83,8 @@
         <p class="body-text measure">
           {{ PRICE_ONE_CHILD }} lei pe lună pentru un copil și {{ PRICE_TWO_CHILDREN }} lei pe lună
           pentru doi copii din aceeași familie — al doilea copil plătește
-          {{ PRICE_TWO_CHILDREN - PRICE_ONE_CHILD }} lei. Prețul acoperă toate ședințele lunii,
-          materialele de curs și accesul la resursele noastre. Aceleași prețuri la
+          {{ PRICE_TWO_CHILDREN - PRICE_ONE_CHILD }} lei. Prețul acoperă ședințele lunii și
+          materialele de curs. Aceleași prețuri la
           <NuxtLink to="/locatii/drumul-taberei" class="link">Drumul Taberei</NuxtLink> și la
           <NuxtLink to="/locatii/straulesti" class="link">Străulești</NuxtLink>.
         </p>

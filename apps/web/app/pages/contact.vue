@@ -60,7 +60,7 @@
             <UIcon name="i-lucide-phone" class="marker size-4.5" />
             <div>
               <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a>
-              <p class="note">Luni–vineri, 9:00–18:00</p>
+              <p class="note tnum">{{ SCHOOL_HOURS[0] }}, {{ SCHOOL_HOURS[1] }}</p>
             </div>
           </div>
           <div class="marked">

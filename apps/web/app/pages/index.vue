@@ -48,9 +48,9 @@
         <h2 class="kicker">Momentele noastre</h2>
         <h3 class="section-title">Ore în care se construiește ceva, la propriu</h3>
         <p class="body-text justified measure">
-          Fiecare ședință de 1,5 ore se încheie cu ceva ce copilul a făcut singur: un joc în
-          Scratch, o pagină web, un program în C++. Grupele mici înseamnă că profesorul ajunge la
-          fiecare, la fiecare oră.
+          Fiecare ședință de 1,5 ore se termină cu ceva lucrat de copil: un desen digital la
+          nivelurile mici, un joc în Scratch la mijloc, o pagină web sau un program în C++ la cele
+          mari. Grupele mici înseamnă că profesorul ajunge la fiecare, la fiecare oră.
         </p>
         <p class="body-text">
           <NuxtLink to="/despre-noi" class="link">Cunoaște echipa și locațiile →</NuxtLink>
@@ -63,17 +63,17 @@
 
     <section class="section-close" data-reveal>
       <p class="pull-quote">
-        Un copil care termină un modul la IT Bridge School pleacă cu ceva ce a construit singur — și
-        cu obiceiul de a se întreba cum funcționează lucrurile.
+        Un copil care termină un modul la IT Bridge School pleacă cu ceva ce a construit — și cu
+        obiceiul de a se întreba cum funcționează lucrurile.
       </p>
     </section>
 
     <hr class="rule" />
 
     <section class="section-close" data-reveal>
-      <h2 class="block-title">Locul copilului tău e încă liber</h2>
+      <h2 class="block-title">Vezi ce locuri sunt libere</h2>
       <p class="body-text measure-wide">
-        Scrie-ne sau sună-ne: stabilim împreună nivelul potrivit și grupa cu locuri libere, la
+        Scrie-ne sau sună-ne: stabilim împreună nivelul potrivit și verificăm ce grupe au locuri, la
         locația mai aproape de tine.
       </p>
       <div class="actions">

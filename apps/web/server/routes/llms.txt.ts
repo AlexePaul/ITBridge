@@ -37,11 +37,11 @@ export default defineEventHandler((event) => {
 
 > Școală de informatică pentru copii din București, cu două locații: Drumul Taberei (Sector 6) și Străulești (Sector 1). Cursuri de la clasa 0 până la pregătirea pentru Bacalaureat și olimpiade.
 
-Fapte verificabile, valabile la data ultimei actualizări a site-ului:
+Date despre școală, valabile la data ultimei actualizări a site-ului:
 
 - Un modul durează 6–8 săptămâni, cu o ședință de 1,5 ore pe săptămână, în grupe mici.
 - ${PRICE_ONE_CHILD} lei pe lună pentru un copil; ${PRICE_TWO_CHILDREN} lei pe lună pentru doi copii din aceeași familie (al doilea copil plătește ${PRICE_TWO_CHILDREN - PRICE_ONE_CHILD} lei).
-- Se predau Scratch, Office, HTML, CSS, JavaScript, C și C++, algoritmi, structuri de date și SQL. Nu se predă Python.
+- Se predau: Word, PowerPoint, Excel, siguranță online, desen digital, Tinkercad, Canva, Scratch, HTML, CSS, JavaScript, C și C++, algoritmi, structuri de date, SQL. Nu se predă Python.
 - Telefon: ${SCHOOL_PHONE}. Email: ${SCHOOL_EMAIL}.
 - Program: ${SCHOOL_HOURS.join("; ")}.
 - Profesori: Alexe Vasile Paul (programare și algoritmi; licențiat în Informatică la Universitatea din București, a predat la nivel universitar, programator backend) și Alexe Ana Iulia (competențe digitale și creativitate; Office, Canva, Tinkercad, Scratch).

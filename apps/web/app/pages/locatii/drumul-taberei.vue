@@ -184,15 +184,15 @@ const faq = [
   {
     question: "Poate veni copilul singur, cu metroul?",
     answer:
-      "Da, mulți elevi de gimnaziu vin singuri. Sala e la aproximativ 600 de metri de stația " +
-      "Valea Ialomiței și la 650 de metri de Constantin Brâncuși, ambele pe magistrala M5.",
+      "Sala e la aproximativ 600 de metri de stația Valea Ialomiței și la 650 de metri de " +
+      "Constantin Brâncuși, ambele pe magistrala M5 — un drum scurt, pe care merită să-l faceți " +
+      "împreună o dată, înainte să vină singur.",
   },
   {
     question: "Locuiesc în Militari. Cum ajung?",
     answer:
-      "Cu mașina, dinspre Bulevardul Timișoara. Militari nu e pe magistrala M5, care merge de la " +
-      "Eroilor până la Râul Doamnei, așa că din Militari drumul cu metroul ar însemna o " +
-      "schimbare — cei mai mulți părinți din Militari vin cu mașina.",
+      "Cel mai simplu cu mașina. Militari nu e pe magistrala M5, care merge de la Eroilor până " +
+      "la Râul Doamnei, așa că din Militari drumul cu metroul cere o schimbare.",
   },
   {
     question: "Copilul meu n-a mai făcut niciodată programare. E o problemă?",

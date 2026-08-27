@@ -1,4 +1,5 @@
-import { SCHOOL_LOCATIONS } from "./school";
+import { SCHOOL_PHONE } from "./school";
+import { PRICE_ONE_CHILD } from "./courses";
 
 /** Shown on the pages that carry facts, so a reader can see how fresh they are. */
 export const CONTENT_UPDATED = "august 2026";
@@ -19,7 +20,7 @@ const STATIC_PAGES: PageSeo[] = [
     title: "Cursuri de programare pentru copii în București | IT Bridge School",
     description:
       "Cursuri de informatică și programare pentru copii, de la clasa 0 la Bacalaureat, în grupe " +
-      "mici, la Drumul Taberei și Străulești. 350 lei pe lună, o ședință de 1,5 ore pe săptămână.",
+      `mici, la Drumul Taberei și Străulești. ${PRICE_ONE_CHILD} lei pe lună, o ședință de 1,5 ore pe săptămână.`,
     summary:
       "Prezentarea școlii: ce se învață, cele două locații din București, prețuri și contact.",
     priority: 1,
@@ -29,7 +30,7 @@ const STATIC_PAGES: PageSeo[] = [
     title: "Cursuri de programare pentru copii, 6–19 ani | IT Bridge School",
     description:
       "Șase niveluri, de la primii pași pe calculator la C++, algoritmi și pregătire de BAC. " +
-      "Module de 6–8 săptămâni, o ședință de 1,5 ore pe săptămână, 350 lei pe lună.",
+      `Module de 6–8 săptămâni, o ședință de 1,5 ore pe săptămână, ${PRICE_ONE_CHILD} lei pe lună.`,
     summary:
       "Cele șase niveluri de curs pe vârste, cum decurge înscrierea, prețurile și întrebările frecvente.",
     priority: 0.9,
@@ -47,7 +48,7 @@ const STATIC_PAGES: PageSeo[] = [
     path: "/contact",
     title: "Contact — telefon, email și cele două locații | IT Bridge School",
     description:
-      "Sună la +40 732 273 347 sau scrie la office@itbridgeschool.com. Cele două locații: " +
+      `Sună la ${SCHOOL_PHONE} sau scrie la office@itbridgeschool.com. Cele două locații: ` +
       "Strada Valea Oltului 73, Sector 6, și Șoseaua București–Târgoviște 19A, Sector 1.",
     summary: "Telefon, email, program de lucru, adresele și hărțile celor două locații.",
     priority: 0.7,
@@ -73,8 +74,8 @@ const LOCATION_PAGES: PageSeo[] = [
     path: "/locatii/drumul-taberei",
     title: "Cursuri de informatică pentru copii în Drumul Taberei | IT Bridge School",
     description:
-      "Sală de curs pe Strada Valea Oltului 73, Sector 6, la sub zece minute de mers pe jos de " +
-      "trei stații de metrou M5. Grupe mici, de la clasa 0 la Bacalaureat, 350 lei pe lună.",
+      "Sală de curs pe Strada Valea Oltului 73, Sector 6, la 600–850 de metri de trei stații de " +
+      `metrou M5. Grupe mici, de la clasa 0 la Bacalaureat, ${PRICE_ONE_CHILD} lei pe lună.`,
     summary:
       "Locația din Drumul Taberei: cum ajungi cu metroul M5 sau cu autobuzul, program, preț și " +
       "întrebări frecvente.",
@@ -85,7 +86,7 @@ const LOCATION_PAGES: PageSeo[] = [
     title: "Cursuri de informatică pentru copii în Străulești și Bucureștii Noi | IT Bridge School",
     description:
       "Sală de curs pe Șoseaua București–Târgoviște 19A, Sector 1, pentru familiile din " +
-      "Străulești, Bucureștii Noi, Băneasa, Chitila și Mogoșoaia. Aceleași șase niveluri, 350 lei pe lună.",
+      `Străulești, Bucureștii Noi, Băneasa, Chitila și Mogoșoaia. Aceleași șase niveluri, ${PRICE_ONE_CHILD} lei pe lună.`,
     summary:
       "Locația din Străulești: din ce zone vin copiii, cum ajungi cu mașina sau cu metroul M4, " +
       "program și preț.",

@@ -191,7 +191,9 @@ export const courseNode = (site: string, course: CourseLevel): Node => ({
       duration: isoDuration(SESSION_HOURS),
     },
     inLanguage: "ro-RO",
-    location: SCHOOL_LOCATIONS.map((location) => ({ "@id": ids.location(site, location.slug) })),
+    // Deliberately no `location`: the six levels exist, but which of them runs
+    // at which address in a given module is set at enrolment, and the pages say
+    // so. Naming both addresses here would assert twelve concurrent groups.
   },
 });
 
