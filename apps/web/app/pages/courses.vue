@@ -56,11 +56,15 @@
       <span class="kicker">Prețuri</span>
       <div class="price-grid">
         <div>
-          <p class="stat-num stat-accent">{{ PRICE_ONE_CHILD }} lei</p>
+          <p class="stat-num stat-accent">
+            <AnimatedNumber :value="`${PRICE_ONE_CHILD} lei`" />
+          </p>
           <p class="stat-label">Pe lună, pentru un copil</p>
         </div>
         <div>
-          <p class="stat-num">peste {{ secondChildDiscount }}%</p>
+          <p class="stat-num">
+            <AnimatedNumber :value="`peste ${secondChildDiscount}%`" />
+          </p>
           <p class="stat-label">
             Reducere la al doilea copil — {{ PRICE_TWO_CHILDREN }} lei pe lună pentru doi
           </p>

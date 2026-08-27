@@ -21,7 +21,9 @@
     <section class="section" aria-label="IT Bridge School, în cifre" data-reveal>
       <div class="stats-grid">
         <div v-for="stat in stats" :key="stat.label">
-          <p class="stat-num" :class="{ 'stat-accent': stat.highlighted }">{{ stat.value }}</p>
+          <p class="stat-num" :class="{ 'stat-accent': stat.highlighted }">
+            <AnimatedNumber :value="stat.value" />
+          </p>
           <p class="stat-label">{{ stat.label }}</p>
         </div>
       </div>

@@ -1095,3 +1095,20 @@ textarea.input {
     transition: none;
   }
 }
+
+/* — figures that count up — */
+.counter {
+  position: relative;
+  display: inline-block;
+}
+
+.counter-ghost {
+  visibility: hidden;
+}
+
+.counter-value {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: nowrap;
+}
