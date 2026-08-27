@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { DataSource, EntityManager } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { InvoiceService } from './invoice.service';
 import { PdfService } from './pdf.service';
@@ -15,6 +16,7 @@ describe('InvoiceService', () => {
     let profileRepo: MockRepository;
     let discountRepo: MockRepository;
     let s3: { uploadFile: jest.Mock; downloadFile: jest.Mock };
+    let transactionManager: { save: jest.Mock };
 
     /** A profile with `n` children, enough to get past the checks in `calculateAmount`. */
     const profileWithChildren = (n: number, id = 1) => ({
@@ -30,6 +32,11 @@ describe('InvoiceService', () => {
         discountRepo = createMockRepository();
         s3 = { uploadFile: jest.fn(), downloadFile: jest.fn() };
 
+        // `createInvoice` writes the row and uploads the PDF inside one transaction. The fake runs
+        // the callback with a manager whose `save` behaves like the repository's, so a rejected
+        // upload propagates exactly as it would in production.
+        transactionManager = { save: jest.fn() };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 InvoiceService,
@@ -38,6 +45,12 @@ describe('InvoiceService', () => {
                 provideMockRepository(Discount, discountRepo),
                 { provide: PdfService, useValue: { generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from('')) } },
                 { provide: S3Service, useValue: s3 },
+                {
+                    provide: DataSource,
+                    useValue: {
+                        transaction: jest.fn((cb: (m: EntityManager) => Promise<unknown>) => cb(transactionManager as unknown as EntityManager)),
+                    },
+                },
             ],
         }).compile();
 
@@ -164,7 +177,7 @@ describe('InvoiceService', () => {
         const setUpHappyPath = () => {
             profileRepo.findOne!.mockResolvedValue(profileWithChildren(1, 10));
             discountRepo.find!.mockResolvedValue([]);
-            invoiceRepo.save!.mockImplementation((inv: { id?: number }) => Promise.resolve({ ...inv, id: 55 }));
+            transactionManager.save.mockImplementation((inv: { id?: number }) => Promise.resolve({ ...inv, id: 55 }));
         };
 
         it('issues one invoice per parent, with the calculated amount', async () => {
@@ -173,7 +186,9 @@ describe('InvoiceService', () => {
             const created = await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' });
 
             expect(created).toHaveLength(1);
-            expect(invoiceRepo.save).toHaveBeenCalledWith(expect.objectContaining({ amount: 350, monthIssued: '2026-03', status: InvoiceStatus.PENDING }));
+            expect(transactionManager.save).toHaveBeenCalledWith(
+                expect.objectContaining({ amount: 350, monthIssued: '2026-03', status: InvoiceStatus.PENDING }),
+            );
         });
 
         it('issues the invoice as PENDING, not as paid', async () => {
@@ -181,7 +196,7 @@ describe('InvoiceService', () => {
 
             await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' });
 
-            expect((invoiceRepo.save!.mock.calls[0][0] as { status: InvoiceStatus }).status).toBe(InvoiceStatus.PENDING);
+            expect((transactionManager.save.mock.calls[0][0] as { status: InvoiceStatus }).status).toBe(InvoiceStatus.PENDING);
         });
 
         it('uploads a PDF to S3 under a predictable path, keyed by billing month', async () => {

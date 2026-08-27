@@ -189,6 +189,36 @@ Cel mai bun caz posibil, și simplifică semnificativ mai multe epic-uri:
 **Backup-urile merg în S3**, nu pe instanța EC2 — un backup pe același disc cu baza de date nu e
 backup.
 
+## Ce a ieșit la iveală când aplicația a rulat prima oară pe date
+
+Seed-ul e prima ocazie în care aplicația a rulat pe altceva decât o bază goală. Trecerea prin
+fluxurile reale, cu un admin și un părinte autentificați, a scos patru lucruri. Toate citirile și
+scrierile de bază funcționează; astea sunt excepțiile.
+
+**`GET /users/without-profile` întorcea listă goală, întotdeauna.** Interogarea folosea
+`user.id NOT IN (SELECT profile.user_id FROM profiles)`. Coloana e nullable, iar în SQL
+`x NOT IN (1, 2, NULL)` se evaluează la NULL, nu la adevărat — deci din clipa în care exista un
+singur profil fără cont, endpoint-ul nu mai returna nimic. Iar profilurile fără cont sunt exact
+motivul pentru care există fluxul. Rescris cu `NOT EXISTS`. Verificat pe seed: întoarce cele două
+conturi nelegate.
+
+**Emiterea de facturi nu era atomică.** `createInvoice` salva rândul, apoi genera PDF-ul și îl
+încărca în S3. Cu S3 indisponibil, factura rămânea în baza de date, apelantul primea 500 și
+reîncerca, iar reîncercarea lovea `@Unique(['parent', 'monthIssued'])` — deci un singur eșec de
+rețea bloca definitiv facturarea pentru acel părinte și acea lună, până când ștergea cineva rândul
+de mână. Reprodus și confirmat pe aplicația reală. Acum rândul și încărcarea sunt într-o
+tranzacție: verificat că un upload eșuat lasă zero facturi în urmă.
+
+**Calculul de preț produce sume negative în răspunsuri reale, nu doar în teste.**
+`POST /invoices/preview` pentru familia cu trei copii, cu o reducere de 25, întoarce
+`{"parentId": 2, "amount": -25}`. Bug-ul era deja documentat în [E03](E03-testare-ci.md); acum are
+și o dovadă din API. Rămâne al lui [E15](E15-pricing-facturare.md), care stabilește prețul corect.
+
+**Lipsa configurației S3 apare ca `500 Internal server error`.** `AWS_S3_BUCKET` e verificată abia
+la prima încărcare, deși mesajul din `S3Service.onModuleInit` pretinde că cere trei variabile.
+Nereparat intenționat: dacă bucket-ul devine obligatoriu la pornire, `pnpm dev` cade pentru oricine
+n-are AWS, iar asta e o decizie de produs — poate aplicația să pornească fără S3? — nu una tehnică.
+
 ## Ce rămâne
 
 | Story | Stare | Blocat de |

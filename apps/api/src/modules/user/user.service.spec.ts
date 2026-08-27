@@ -40,14 +40,34 @@ describe('UserService', () => {
         await expect(service.updateUser(1, { role: 'ADMIN' } as never)).rejects.toThrow(NotFoundException);
     });
 
-    it('getUsersWithoutProfile excludes users who already have a profile', async () => {
-        const sub = { select: jest.fn().mockReturnThis(), from: jest.fn().mockReturnThis(), getQuery: jest.fn().mockReturnValue('SUB') };
+    it('getUsersWithoutProfile asks the database rather than filtering in memory', async () => {
         const qb = { where: jest.fn().mockReturnThis(), getMany: jest.fn().mockResolvedValue([]) };
-        Object.defineProperty(userRepo, 'manager', { value: { createQueryBuilder: jest.fn().mockReturnValue(sub) }, configurable: true });
         userRepo.createQueryBuilder!.mockReturnValue(qb);
 
         await service.getUsersWithoutProfile();
 
-        expect(qb.where).toHaveBeenCalledWith(expect.stringContaining('NOT IN'));
+        expect(qb.getMany).toHaveBeenCalled();
+    });
+
+    it('getUsersWithoutProfile uses NOT EXISTS, never NOT IN', async () => {
+        // `profile.user_id` is nullable, and `x NOT IN (1, 2, NULL)` is NULL rather than true in
+        // SQL - so with a single account-less profile in the table the endpoint returned an empty
+        // list, always and silently. It backs the admin flow for linking an account to a profile,
+        // so it came up empty exactly when it mattered.
+        const qb = {
+            where: jest.fn().mockReturnThis(),
+            subQuery: jest.fn().mockReturnThis(),
+            select: jest.fn().mockReturnThis(),
+            from: jest.fn().mockReturnThis(),
+            getQuery: jest.fn().mockReturnValue('(SELECT 1 FROM profiles profile WHERE profile.user_id = user.id)'),
+            getMany: jest.fn().mockResolvedValue([]),
+        };
+        userRepo.createQueryBuilder!.mockReturnValue(qb);
+
+        await service.getUsersWithoutProfile();
+
+        const clause = (qb.where.mock.calls[0][0] as (b: typeof qb) => string)(qb);
+        expect(clause).toContain('NOT EXISTS');
+        expect(clause).not.toContain('NOT IN');
     });
 });
