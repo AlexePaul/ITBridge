@@ -77,6 +77,22 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      # MinIO speaks the S3 API, so `invoice-pdf.e2e-spec.ts` exercises the real client and the real
+      # PDF generator rather than stubs. Everything else still stubs both.
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: itbridge
+          MINIO_ROOT_PASSWORD: dev_password
+          MINIO_DEFAULT_BUCKETS: itbridge-local
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       DB_HOST: localhost
       DB_PORT: "5432"
@@ -84,6 +100,10 @@ jobs:
       DB_PASSWORD: dev_password
       TEST_DB_NAME: itbridge_test
       AWS_REGION: eu-central-1
+      AWS_S3_ENDPOINT: http://localhost:9000
+      AWS_S3_BUCKET: itbridge-local
+      AWS_ACCESS_KEY_ID: itbridge
+      AWS_SECRET_ACCESS_KEY: dev_password
 
     steps:
       - uses: actions/checkout@v5

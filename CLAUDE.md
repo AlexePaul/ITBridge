@@ -15,7 +15,7 @@ Monorepo pnpm, orchestrat cu Turborepo, plus Postgres ca infrastructură locală
 | `apps/api/`          | NestJS 11, TypeORM, JWT, PDFKit, AWS S3             | 3000 |
 | `apps/web/`          | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind                 | 3001 |
 | `packages/types/`    | contractul API partajat, `@itbridge/types`          | —    |
-| `docker-compose.yml` | Postgres 17 — singurul lucru care rulează în Docker | 5432 |
+| `docker-compose.yml` | Postgres 17 + MinIO — singurele lucruri care rulează în Docker | 5432, 9000 |
 
 ## Comenzi
 
@@ -186,6 +186,14 @@ procesul să se restarteze în buclă.
 `runtimeConfig.public.apiBase` pe `process.env.API_BASE`. Fără el, `apiBase` e `undefined` și
 cererile pleacă spre origin-ul Nuxt. E în `.env.example` de la rădăcină și trebuie setat și în
 Vercel, inclusiv pe Preview.
+
+**S3-ul local e MinIO, prin `AWS_S3_ENDPOINT`.** Variabila scoate SDK-ul de pe AWS; în producție
+se lasă nesetată. `invoice-pdf.e2e-spec.ts` e singura suită care nu mock-uiește S3 și PDFKit — restul
+le înlocuiesc, fiindcă ies din proces.
+
+**`pdf.service.ts` își citește fonturile relativ la `__dirname`, nu la `process.cwd()`.** Le lua din
+`process.cwd()/src/assets`, ceea ce mergea doar fiindcă `src/` stă lângă `dist/` într-o clonă.
+`nest-cli.json` copiază acum `src/assets` în `dist/assets`. Dacă muți fișierul, potrivește calea.
 
 **`AWS_REGION` e obligatorie ca să pornească aplicația.** `S3Service.onModuleInit`
 (`apps/api/src/modules/invoice/s3.service.ts:13`) aruncă fără ea, deci backend-ul cade la

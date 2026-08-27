@@ -32,7 +32,7 @@ pentru infrastructura locală, adică Postgres.
 ```bash
 cp .env.example .env                  # completează secretele JWT
 pnpm install
-docker compose up -d                  # Postgres
+docker compose up -d                  # Postgres + MinIO
 pnpm --filter api migration:run       # creează schema
 pnpm seed                             # date de dezvoltare (opțional, dar recomandat)
 pnpm dev

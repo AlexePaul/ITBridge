@@ -17,3 +17,10 @@ process.env.JWT_REFRESH_TOKEN_SECRET = 'test-refresh-secret';
 
 // S3Service.onModuleInit throws without it and the application does not start at all.
 process.env.AWS_REGION ??= 'eu-central-1';
+
+// Object storage points at MinIO, from docker-compose locally and from a service container in CI.
+// Only `invoice-pdf.e2e-spec.ts` actually reaches it; every other suite stubs S3 away.
+process.env.AWS_S3_ENDPOINT ??= `http://localhost:${process.env.MINIO_PORT ?? '9000'}`;
+process.env.AWS_S3_BUCKET ??= 'itbridge-local';
+process.env.AWS_ACCESS_KEY_ID ??= 'itbridge';
+process.env.AWS_SECRET_ACCESS_KEY ??= 'dev_password';

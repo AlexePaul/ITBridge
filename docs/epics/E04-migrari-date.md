@@ -219,6 +219,33 @@ la prima încărcare, deși mesajul din `S3Service.onModuleInit` pretinde că ce
 Nereparat intenționat: dacă bucket-ul devine obligatoriu la pornire, `pnpm dev` cade pentru oricine
 n-are AWS, iar asta e o decizie de produs — poate aplicația să pornească fără S3? — nu una tehnică.
 
+## MinIO, ca S3-ul să poată fi exercitat local
+
+Nu era în scopul epicului și niciun epic nu-l revendica: [E14](E14-proiecte-elevi.md) presupune că
+„infrastructura de S3 există și funcționează", [E07](E07-securitate-gdpr.md) acoperă doar
+credențialele de producție, iar [E06](E06-observabilitate-operare.md) îl pomenește ca scenariu de
+runbook. A intrat aici fiindcă tranzacția de mai sus era verificabilă doar pe direcția de eșec: fără
+un bucket, emiterea unei facturi dă 500 local, deci calea de succes nu rulase niciodată.
+
+MinIO vorbește API-ul S3, deci calea de cod e cea reală — același SDK, aceleași `PutObject` și
+`GetObject`, doar alt endpoint. E infrastructură locală, exact ca Postgres, deci intră în
+`docker-compose.yml` fără să contrazică decizia din [E01](E01-infrastructura-medii.md).
+
+`invoice-pdf.e2e-spec.ts` e acum singura suită care nu mock-uiește nici S3, nici PDFKit. A scos la
+iveală încă două lucruri care nu funcționaseră niciodată:
+
+**PDF-ul nu se putea genera sub jest.** `pdf.service.ts` încărca pdfkit cu `await import()`, iar VM-ul
+CJS al lui jest refuză importurile dinamice fără `--experimental-vm-modules`. Import static acum;
+pdfkit e oricum CommonJS.
+
+**Fonturile se încărcau din `process.cwd()/src/assets`.** Mergea doar fiindcă `src/` stă lângă `dist/`
+într-o clonă — un deploy care livrează doar `dist`, sau o pornire din alt director de lucru, ar fi
+produs PDF-uri fără fonturi. Rezolvate acum relativ la `__dirname`, iar `nest-cli.json` copiază
+asset-urile în `dist`. Verificat pornind aplicația din `/tmp`: PDF de 58 KB, cu ambele fonturi Roboto
+incorporate ca subseturi, ceea ce se întâmplă doar dacă s-au desenat efectiv glife.
+
+Prima factură emisă cap-coadă din istoria proiectului, de altfel.
+
 ## Ce rămâne
 
 | Story | Stare | Blocat de |
