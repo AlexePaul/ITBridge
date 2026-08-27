@@ -251,10 +251,20 @@ Prima factură emisă cap-coadă din istoria proiectului, de altfel.
 | Story | Stare | Blocat de |
 |---|---|---|
 | S1 · Migrarea de bază | ✅ livrat | — |
-| S2 · Migrările în deploy | parțial: comenzi și gardă CI | [E01](E01-infrastructura-medii.md), S4 — nu există instanță |
+| S2 · Migrările în deploy | ✅ cât se poate | — |
 | S3 · Seed | ✅ livrat | — |
-| S4 · Backup și restaurare | neînceput | instanța EC2 și bucket-ul S3 |
-| S5 · Retenție | neînceput | răspunsul contabilului, mai jos |
+| S4 · Backup și restaurare | amânat | instanța EC2 și bucket-ul S3 |
+| S5 · Retenție | amânat deliberat | se reia la final, vezi mai jos |
+
+**S2 se închide aici.** Nu a existat niciodată vreun deploy, deci nu există un pipeline în care să
+se cableze migrările. Ce ține de repo e livrat: comenzile, `migrationsRun: false` ca ele să fie
+rulate explicit, și garda de CI care prinde entitățile divergente. Pasul de `migration:run` între
+`build` și `pm2 reload` se scrie odată cu pipeline-ul însuși, în [E01](E01-infrastructura-medii.md),
+S4 — ca o linie, nu ca un story.
+
+**S5 e amânat deliberat, nu blocat din neglijență.** Retenția facturilor cere răspunsul
+contabilului, iar politica atinge oricum [E07](E07-securitate-gdpr.md). Se reia la finalul valului
+de fundație, când există și restul contextului de GDPR.
 
 ## Întrebări deschise
 
