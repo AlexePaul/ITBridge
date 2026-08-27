@@ -1,10 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ArrayNotEmpty, IsArray, IsNumber, IsString, Matches } from 'class-validator';
+import { ArrayNotEmpty, ArrayUnique, IsArray, IsNumber, IsString, Matches } from 'class-validator';
 
 export class GetPreviewDto {
     @ApiProperty({ example: [1, 2, 3] })
     @IsArray()
     @ArrayNotEmpty()
+    // Same rule as CreateInvoiceDto. Without it the preview happily rendered a duplicated parent
+    // and the create call that follows with the identical array then failed with 400.
+    @ArrayUnique()
     @IsNumber({}, { each: true })
     parentIds: number[];
 

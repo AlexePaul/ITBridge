@@ -13,6 +13,7 @@
     "build": "dotenv -e .env -- turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "test:cov": "turbo run test:cov",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write .",
     "prepare": "husky",

@@ -74,6 +74,7 @@
 
 <script setup lang="ts">
 import { WEEKDAYS_IN_ORDER, WEEKDAY_LABELS } from "~/types/group.types";
+import { apiErrorMessage } from "~/composables/useApiError";
 import * as z from "zod";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useNotifications } from "~/composables/useNotifications";
@@ -85,7 +86,7 @@ definePageMeta({
   title: "Adaugă Grup Nou",
 });
 
-const { success } = useNotifications();
+const { success, error } = useNotifications();
 
 // Built from the shared enum, so the list cannot drift from what the API accepts. The two
 // hand-written copies this replaces both stopped at Saturday, so a Sunday group could not be
@@ -128,8 +129,10 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
     await groupsApi.createGroup(payload);
     success("Grup creat cu succes");
     await navigateTo("/admin/groups");
-  } catch (err: any) {
-    console.error(err?.message || "Eroare la crearea grupului");
+  } catch (err: unknown) {
+    // The composable rethrows now, so this branch is reachable — it used to be dead, and a
+    // rejected create still showed "Grup creat cu succes" and navigated away.
+    error(apiErrorMessage(err, "Eroare la crearea grupului"));
   }
 }
 </script>

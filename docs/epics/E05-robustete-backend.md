@@ -155,8 +155,17 @@ PM2 și uptime checker-ul le folosesc.
 **Acceptanță:** `/health` răspunde 200 în sub 50ms. `/ready` întoarce 503 cu Postgres oprit.
 
 **Livrat.** `/health` nu atinge nimic — un probe de liveness care ar interoga baza ar transforma o
-bază lentă într-o buclă de repornire. `/ready` verifică baza și răspunde 503 fără să spună de ce:
-e accesibil fără credențiale.
+bază lentă într-o buclă de repornire. `/ready` verifică baza **și S3** și răspunde 503 fără să spună
+de ce: e accesibil fără credențiale.
+
+Ambele verificări au un timeout de două secunde. Fără el, `/ready` distingea „baza e oprită" (refuz
+de conexiune, 503 în milisecunde) dar nu și „baza e blocată": cu procesul Postgres suspendat,
+endpoint-ul nu răspundea deloc după douăzeci de secunde. Un probe care atârnă e mai rău decât unul
+care spune „nu sunt gata", fiindcă un load balancer nu are ce citi din el.
+
+Controllerul poartă `@SkipThrottle()`. Altfel probe-urile consumă din plafonul global de 300/minut,
+partajat cu traficul real — iar în spatele unui proxy totul se numără pe aceeași cheie, deci un
+liveness check la o secundă își putea provoca singur 429, pe care PM2 îl citește ca proces mort.
 
 ### S6 · Rate limiting
 
@@ -165,8 +174,17 @@ email după [E17](E17-comunicare-notificari.md). Limite pe IP și pe cont.
 
 **Acceptanță:** a unsprezecea încercare de login într-un minut primește 429.
 
-**Livrat, exact așa.** Zece pe minut la login, cinci la register, douăzeci la refresh, peste un
-plafon global mult mai larg, ca navigarea obișnuită să nu fie atinsă.
+**Livrat parțial.** Zece pe minut la login, cinci la register, douăzeci la refresh, peste un plafon
+global mult mai larg, ca navigarea obișnuită să nu fie atinsă. Acceptanța — a unsprezecea încercare
+într-un minut primește 429 — e îndeplinită.
+
+**Limitele pe cont nu există.** Story-ul cere „limite pe IP și pe cont"; e implementat doar pe IP.
+Un atac distribuit pe un singur cont trece pe sub plafon, fiindcă fiecare adresă rămâne sub zece
+încercări. Rămâne de făcut, alături de limitele pe e-mail din [E17](E17-comunicare-notificari.md).
+
+`app.set('trust proxy', 1)` e obligatoriu și e pus în `main.ts`: fără el, în spatele lui Caddy
+`req.ip` e adresa proxy-ului pentru toată lumea, iar limita de zece login-uri pe minut devine
+globală pe toată școala.
 
 `RATE_LIMIT_ENABLED=false` îl oprește de tot. E o opțiune reală de operare — în spatele unui CDN sau
 WAF care limitează deja, un al doilea limitator care numără IP-ul proxy-ului face mai mult rău decât
@@ -198,6 +216,18 @@ Furtul costă ambele sesiuni, în loc să treacă neobservat șapte zile.
 obișnuit; credențiala e refresh tokenul din body, iar revocarea unuia necunoscut nu face nimic.
 Plus `POST /auth/logout-all` și `GET /auth/sessions`, care nu întoarce niciodată hash-urile.
 
+**Revocarea acoperă refresh-ul, nu și access tokenul.** `AuthGuard` verifică doar semnătura JWT, deci
+după `logout-all` un access token deja emis mai merge până la 15 minute. Compromis deliberat:
+alternativa e o interogare în baza de date la fiecare cerere autentificată. Scris aici fiindcă
+„logout-ul funcționează cu adevărat" din Definition of Done se citea altfel.
+
+**Rotația e atomică sub concurență, cu blocare pe rând.** Prima formă claim-uia tokenul cu un UPDATE
+condiționat și insera succesorul în afara oricărei tranzacții — deci un replay concurent putea
+detecta refolosirea și mătura familia *înainte* ca succesorul să fi fost inserat, iar tokenul rămânea
+viu. Reprodus cu cinci refresh-uri simultane: patru 401-uri, și succesorul funcționa în continuare.
+Acum tranzacția ia `SELECT … FOR UPDATE` pe rândul tokenului, iar măturarea familiei se face după
+commit, în afara tranzacției — altfel 401-ul de după ar da rollback tocmai revocării.
+
 **Un bug prins pe drum:** refresh tokenul era semnat doar cu `sub`, deci două login-uri în aceeași
 secundă produceau un JWT identic octet cu octet — și hash identic pe o coloană unică. Are acum un
 `jti`.
@@ -221,8 +251,15 @@ if (role !== Role.ADMIN) {
 **Livrat, dar generat, nu scris de mână.** Un tabel întreținut manual e greșit din prima clipă în
 care cineva uită să-l actualizeze, iar un tabel de autorizare învechit e mai rău decât niciunul: se
 citește ca o garanție. `pnpm --filter api authorization:table` îl produce din aceleași metadate Nest
-pe care le verifică `src/authorization.spec.ts`, deci fiecare rând are deja test — nu prin
-disciplină, ci prin construcție.
+pe care le verifică `src/authorization.spec.ts`.
+
+**Prima versiune nu se ținea de promisiune.** Lista de controllere era scrisă de mână, în două
+copii — una în test, una în script — și divergaseră deja în același PR: scriptul știa de
+`HealthController`, testul nu. Deci două rânduri din tabel apăreau ca „public" fără ca vreun test
+să le fi verificat vreodată, exact garanția pe care textul o vindea. Acum lista e una singură,
+`src/testing/controllers.ts`, iar `authorization.spec.ts` compară separat lista cu fișierele
+`*.controller.ts` de pe disc: un controller nou care nu e trecut în ea pică suita, în loc să-și
+scoată tăcut toate endpoint-urile din matrice.
 
 Coloana „restrâns pe date" e singura scrisă de mână: reflecția vede guard-ele, nu ce face
 service-ul. E lista din script, iar testele unitare cu `isScopedToUser` o verifică.
@@ -307,6 +344,33 @@ executate va respinge cereri care astăzi trec. Frontend-ul trimite probabil câ
 Nicio cerere nevalidată nu ajunge într-un service. Aplicația nu pornește configurată greșit. Fiecare
 eroare are id de corelare. Logout-ul funcționează cu adevărat.
 
+## Ce a scos la iveală al doilea review
+
+Prima trecere a livrat E05 cu 120 de teste de integrare verzi. O a doua trecere, adversarială și cu
+aplicația chiar pornită pe date de seed, a găsit lucruri pe care nicio suită nu le atingea. Sunt
+scrise aici fiindcă tiparul se repetă, nu bug-urile.
+
+**O breșă de autorizare, într-un singur caracter.** `PaymentService.findOne` compunea restrângerea
+pe utilizator cu `andWhere` și apoi adăuga filtrul pe id cu `where` — care *înlocuiește* toată
+clauza. Orice părinte autentificat putea citi plata oricărei alte familii, cu factura și profilul
+complet atașate: nume, e-mail, telefon, adresă. Testul unitar `isScopedToUser` verifica doar că s-a
+adăugat un `andWhere`, nu că a supraviețuit. Reprodus cu doi părinți reali.
+
+**Bug-urile de contract nu se văd din backend.** Trei dintre cele mai grave — telefonul, adresa
+goală, tokenul de refresh aruncat de client — sunt toate în `apps/web`, toate provocate de o
+schimbare din `apps/api`, și niciuna vizibilă din testele de integrare.
+
+**Ce nu se vede fără concurență.** Rotația de tokenuri trecea toate testele secvențial și pica la
+cinci cereri simultane. Testele secvențiale sunt un eșantion, nu o dovadă, pe orice cod care are
+stare partajată.
+
+**Ce nu se vede fără să rulezi.** `/ready` întorcea corect 503 cu baza *oprită* și atârna la
+nesfârșit cu baza *blocată*. Diferența nu se citește din cod; se vede punând containerul pe pauză.
+
+**Cifre care sunau a garanție.** „Toate cele 48 de rânduri au deja teste" — două nu aveau.
+Un `coverageThreshold` configurat pe trei fișiere, pe care CI nu-l rula. `session.service.ts`, care
+duce tot S7, avea 19% acoperire și niciun test unitar.
+
 ## Întrebări deschise
 
 Ambele au primit răspuns.
@@ -315,9 +379,26 @@ Ambele au primit răspuns.
 iar o piesă de infrastructură în plus ar trebui operată. Tabelul are indecși pe `tokenHash` și
 `familyId`, care sunt singurele căi de căutare.
 
-**`ValidationPipe` întâi în modul permisiv?** Nu, și motivul e că premisa a dispărut: sfatul
-presupune trafic de producție care s-ar rupe, iar aplicația n-a fost deployată niciodată. A fost
-pornit strict, cu testele de integrare drept plasă. S-a rupt exact un test.
+**`ValidationPipe` întâi în modul permisiv?** Nu — dar motivul scris aici prima oară era greșit, și
+a costat.
+
+Argumentul era „premisa a dispărut: sfatul presupune trafic de producție care s-ar rupe, iar
+aplicația n-a fost deployată niciodată". Premisa acoperea însă doar jumătate din expunere:
+**backend-ul** n-a fost deployat, dar frontend-ul e pe Vercel și e un client viu. Iar testele de
+integrare își construiesc singure payload-urile, deci prin construcție nu pot prinde o ruptură de
+contract între frontend și backend. „S-a rupt exact un test" a fost citit ca dovadă că nu s-a rupt
+nimic altceva.
+
+Ce se rupsese de fapt, descoperit abia la un al doilea review: ecranul de completare a profilului —
+pasul obligatoriu prin care trece orice părinte nou — devenise imposibil de trecut. Formularul cere
+exact zece cifre la telefon, API-ul cerea format internațional; niciun număr nu satisface ambele.
+Câmpul de adresă lăsat gol trimite `""`, pe care `@IsOptional() @Length(1, 255)` îl respinge. Iar
+compozabilul înghițea eroarea și întorcea codul de status, deci pagina naviga ca la succes, fără
+mesaj, și middleware-ul o trimitea înapoi la formular. O buclă infinită, tăcută, cu 120 de teste de
+integrare verzi.
+
+**Regula care rămâne:** un story nu e livrat cât timp singurul client real nu a fost verificat pe el.
+O verificare de contract care rulează doar pe jumătatea de backend nu e o verificare de contract.
 
 ## Ce a mai ieșit la iveală
 

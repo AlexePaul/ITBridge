@@ -12,7 +12,12 @@
     "CORS_ORIGINS",
     "DB_*",
     "JWT_*",
-    "AWS_*"
+    "AWS_*",
+    "MINIO_*",
+    "TEST_DB_NAME",
+    "RATE_LIMIT_ENABLED",
+    "SEED_ALLOW_NON_LOCAL",
+    "SKIP_ENV_VALIDATION"
   ],
 
   // The root `.env` feeds into the cache hash: a configuration change invalidates the builds
@@ -34,6 +39,10 @@
     "lint": {},
     "test": {
       "dependsOn": ["^build"]
+    },
+    "test:cov": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
     },
     "test:e2e": {
       "dependsOn": ["^build"],

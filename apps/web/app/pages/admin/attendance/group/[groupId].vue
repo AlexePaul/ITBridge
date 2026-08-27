@@ -141,6 +141,8 @@
   </UModal>
 </template>
 <script setup lang="ts">
+import { apiErrorMessage } from "~/composables/useApiError";
+import { useNotifications } from "~/composables/useNotifications";
 import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
@@ -225,12 +227,21 @@ onMounted(async () => {
   }
 });
 
+const { success, error } = useNotifications();
+
 const handleBack = () => {
   navigateTo("/admin/attendance/group");
 };
 
 const handleSubmit = async () => {
-  // Convert attendance map to array for submission
+  // A group with nobody in it has nothing to record, and the API refuses an empty list outright
+  // (`@ArrayNotEmpty`). Caught here so the teacher gets a sentence rather than an unhandled
+  // rejection and a page that simply does not move.
+  if (children.value.length === 0) {
+    error("Grupa nu are niciun copil, deci nu există prezență de salvat.");
+    return;
+  }
+
   const submissionData = {
     childrenAttendance: children.value.map((child) => ({
       childId: child.id,
@@ -239,8 +250,13 @@ const handleSubmit = async () => {
     date: attendanceDate.value,
     startTime: attendanceStartTime.value,
   };
-  console.log("Submitting attendance data:", submissionData);
-  await attendanceApi.markGroupAttendance(parseInt(groupId.value), submissionData);
-  navigateTo("/admin/attendance/group");
+
+  try {
+    await attendanceApi.markGroupAttendance(parseInt(groupId.value), submissionData);
+    success("Prezența a fost salvată");
+    navigateTo("/admin/attendance/group");
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut salva prezența."));
+  }
 };
 </script>

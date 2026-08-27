@@ -16,6 +16,19 @@ describe('AuthService', () => {
 
     beforeEach(async () => {
         userRepo = createMockRepository();
+
+        // `register` and `login` look the user up case-insensitively, which needs a query builder
+        // rather than `findOne`. The builder's `getOne` delegates to the same `findOne` mock, so
+        // every test below still says "the repository holds this user" in one place, and the
+        // recorded `where` clause stays assertable.
+        userRepo.createQueryBuilder!.mockImplementation(() => {
+            const qb: Record<string, jest.Mock> = {};
+            qb.where = jest.fn().mockReturnValue(qb);
+            qb.andWhere = jest.fn().mockReturnValue(qb);
+            qb.getOne = jest.fn(() => userRepo.findOne!() as Promise<unknown>);
+            return qb;
+        });
+
         sessions = {
             startSession: jest.fn(),
             rotate: jest.fn(),

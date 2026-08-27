@@ -25,7 +25,7 @@ mai există `node_modules` propriu.
 ```bash
 cp .env.example .env              # un singur .env, la rădăcină
 pnpm install
-docker compose up -d              # doar Postgres; aplicația rulează pe Node
+docker compose up -d              # Postgres + MinIO; aplicația rulează pe Node
 pnpm --filter api migration:run   # schema; synchronize e oprit
 pnpm seed                         # date de dezvoltare; admin / parola123
 pnpm dev                          # api + web, hot reload
@@ -103,7 +103,12 @@ if (role !== Role.ADMIN) {
 }
 ```
 
-Vezi `apps/api/src/modules/invoice/invoice.service.ts:50`. Același tipar în `payment`, `child`, `profile` — respectă-l.
+Vezi `apps/api/src/modules/invoice/invoice.service.ts:92`. Același tipar în `payment`, `child`, `profile` — respectă-l.
+
+**Numai `andWhere`, niciodată `where`, după ce ai început să compui.** `qb.where()` *înlocuiește*
+toată clauza, deci un `where` pus după restrângerea pe utilizator o șterge fără niciun semn. Exact
+așa a scăpat `PaymentService.findOne`: orice părinte putea citi plata oricărei alte familii, cu
+profilul complet atașat. Dacă ai nevoie de o primă condiție, pune-o tot cu `andWhere`.
 
 **Frontend** — lanțul de autentificare are o ordine care contează:
 `apps/web/app/plugins/01.auth.client.ts` setează `authInitialized` → middleware-urile globale
@@ -154,14 +159,33 @@ Nu schimba asta: supertest ridică altfel un server efemer la fiecare cerere, ia
 intermitentă în chip înșelător — am văzut cereri neautentificate răspunzând 200, ceea ce arată ca o
 breșă de autentificare, dar era rotație de porturi.
 
-**Testele de integrare cer Postgres pornit.** `pnpm test:e2e` se conectează la baza
-`itbridge_test`, pe care și-o creează singur prin `apps/api/test/global-setup.ts`, dar serverul
-trebuie să ruleze: `docker compose up -d`. Schema vine din migrări, aceeași cale ca în producție,
-deci o migrare lipsă sau stricată pică testele.
+**Testele de integrare cer Postgres *și* MinIO pornite.** `pnpm test:e2e` se conectează la baza
+`itbridge_test`, pe care și-o creează singur prin `apps/api/test/global-setup.ts`, și creează tot
+acolo bucket-ul S3 — deci amândouă containerele trebuie să ruleze: `docker compose up -d`. Schema
+vine din migrări, aceeași cale ca în producție, deci o migrare lipsă sau stricată pică testele.
+
+Rulează-le de la rădăcină, cu `pnpm test:e2e`, nu cu `pnpm --filter api test:e2e`: al doilea
+pornește cu directorul de lucru în `apps/api`, unde nu există `.env`, deci nu vede portul MinIO din
+configurația ta.
 
 **`scripts/` e exclus din `tsconfig.build.json`, intenționat.** Inclus, ar urca `rootDir` la
 rădăcina pachetului, iar `nest build` ar scrie `dist/src/main.js` în loc de `dist/main.js` — deci
 `start:prod` și deploy-ul s-ar rupe în tăcere. Scripturile rulează oricum prin ts-node.
+
+**Un `''` dintr-un formular nu e `undefined`, iar `@IsOptional()` nu-l sare.** Orice input HTML
+netastat se trimite ca string gol, deci `@IsOptional() @Length(1, 255)` respinge exact payload-ul pe
+care formularul îl produce mereu. Pe câmpurile opționale de text pune `@EmptyToUndefined()`
+(`apps/api/src/common/empty-to-undefined.ts`) înaintea validatorilor. Din cauza asta ecranul de
+completare a profilului a devenit imposibil de trecut în clipa în care validarea a fost pornită.
+
+**`@IsPhoneNumber()` fără regiune cere format internațional.** Numerele se scriu `0712345678` în
+România, deci decoratorul e `@IsPhoneNumber('RO')`, care acceptă și `+40712345678`. Frontend-ul
+normalizează la `+40…` înainte să trimită (`normalizePhone` din `composables/useUtils.ts`), ca
+verificarea de duplicat să compare o singură formă.
+
+**Coloanele `decimal` vin ca string din driver.** `@Column({ type: 'decimal' })` fără `transformer`
+declară `number` și livrează `"11"`. `contract.ts` nu prinde asta — compară declarații, nu
+comportament. Folosește `decimalAsNumber` din `apps/api/src/entities/decimal.transformer.ts`.
 
 **Validarea rulează, ca `APP_PIPE` în `app.module.ts`.** Deci se aplică și aplicațiilor construite
 în teste, nu doar celei din `main.ts`. `whitelist` plus `forbidNonWhitelisted`: un câmp pe care
@@ -208,7 +232,7 @@ le înlocuiesc, fiindcă ies din proces.
 `nest-cli.json` copiază acum `src/assets` în `dist/assets`. Dacă muți fișierul, potrivește calea.
 
 **`AWS_REGION` e obligatorie ca să pornească aplicația.** `S3Service.onModuleInit`
-(`apps/api/src/modules/invoice/s3.service.ts:13`) aruncă fără ea, deci backend-ul cade la
+(`apps/api/src/modules/invoice/s3.service.ts:28`) aruncă fără ea, deci backend-ul cade la
 boot, chiar dacă nu atingi nicio factură. Cheile de acces sunt opționale — lipsa lor duce SDK-ul pe
 lanțul implicit de credențiale, adică IAM instance role în producție. Mesajul de eroare cere trei
 variabile, dar verifică una singură.
@@ -216,6 +240,15 @@ variabile, dar verifică una singură.
 **Refresh tokenurile sunt urmăribile și revocabile.** Tabelul `sessions` ține un SHA-256 al
 fiecăruia, niciodată tokenul. Refresh-ul rotește, iar refolosirea unuia consumat revocă tot lanțul —
 semnalul de furt. `POST /auth/logout` nu cere access token, fiindcă acela e adesea deja expirat.
+
+**Revocarea acționează doar pe refresh, nu și pe access.** `AuthGuard` verifică semnătura JWT și
+atât — nu atinge tabelul `sessions`. Deci după `logout` sau `logout-all`, un access token deja emis
+mai funcționează până la 15 minute. E compromisul acceptat: alternativa e o interogare în baza de
+date la fiecare cerere. Dacă vine o cerință de revocare instantanee, ăsta e locul de schimbat.
+
+**Clientul trebuie să salveze refresh tokenul întors de `/auth/refresh`.** Rotația îl consumă pe
+cel prezentat; dacă păstrezi tokenul vechi, a doua reîmprospătare arată ca un replay, iar serverul
+revocă tot lanțul. `useApi.ts` a avut exact bug-ul ăsta și deloga fiecare părinte la ~30 de minute.
 
 **Familia `no-unsafe-*` e pe `error` în codul de producție și oprită în teste.** Excepția pentru
 teste e îngustă și justificată: supertest tipează `res.body` ca `any`, iar valorile întoarse de
@@ -238,7 +271,7 @@ TypeError în loc să răspundă 403.
 **Nu rula `npm` în `apps/*`.** Nu mai există `package-lock.json` și nici `node_modules` propriu;
 totul trece prin `pnpm` de la rădăcină. Pentru un singur workspace, `pnpm --filter api <script>`.
 
-**Prețuri hardcodate, cu gaură la 3+ copii.** `apps/api/src/modules/invoice/invoice.service.ts:107` — 350 pentru un copil,
+**Prețuri hardcodate, cu gaură la 3+ copii.** `apps/api/src/modules/invoice/invoice.service.ts:162` — 350 pentru un copil,
 250×2 pentru doi, nicio ramură pentru trei sau mai mulți, deci `totalAmount` rămâne 0 și
 reducerile îl duc pe negativ.
 

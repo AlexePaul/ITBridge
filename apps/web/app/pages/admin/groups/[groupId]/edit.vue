@@ -94,6 +94,7 @@
 
 <script setup lang="ts">
 import { WEEKDAYS_IN_ORDER, WEEKDAY_LABELS } from "~/types/group.types";
+import { apiErrorMessage } from "~/composables/useApiError";
 import * as z from "zod";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useNotifications } from "~/composables/useNotifications";
@@ -175,8 +176,8 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
     await groupsApi.updateGroup(route.params.groupId as string, payload);
     success("Grup actualizat cu succes");
     await navigateTo("/admin/groups");
-  } catch (err: any) {
-    error(err?.message || "Eroare la actualizarea grupului");
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Eroare la actualizarea grupului"));
   }
 }
 </script>

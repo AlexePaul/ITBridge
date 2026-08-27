@@ -27,12 +27,17 @@ export class AuthService {
     }
 
     async register(registerDto: RegisterDto, userAgent?: string) {
-        const preExistingUser = await this.userRepository.findOne({
-            where: { username: registerDto.username },
-        });
+        // Case-insensitive, and registration is public. Comparing exactly let anyone create
+        // `Admin` and `ADMIN` alongside a real `admin`, which is an impersonation vector in a UI
+        // that shows usernames — and inconsistent with every other lookup in the app, all of which
+        // already compare with `lower()`.
+        const preExistingUser = await this.userRepository
+            .createQueryBuilder('user')
+            .where('lower(user.username) = lower(:username)', { username: registerDto.username })
+            .getOne();
 
         if (preExistingUser) {
-            throw new ConflictException('User with given email or phone already exists');
+            throw new ConflictException('A user with this username already exists');
         }
 
         const saltRounds = 10;
@@ -55,9 +60,12 @@ export class AuthService {
     }
 
     async login(loginDto: LoginDto, userAgent?: string) {
-        const user = await this.userRepository.findOne({
-            where: { username: loginDto.username },
-        });
+        // Matched the same way registration checks for collisions, so the account you are stopped
+        // from creating is the account you can sign in to.
+        const user = await this.userRepository
+            .createQueryBuilder('user')
+            .where('lower(user.username) = lower(:username)', { username: loginDto.username })
+            .getOne();
 
         if (!user) {
             throw new UnauthorizedException('Invalid credentials');

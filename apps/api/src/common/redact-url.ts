@@ -1,5 +1,25 @@
-/** Query keys whose values never appear in a log or an error body. See E07. */
-const SENSITIVE_QUERY_KEYS = ['password', 'token', 'refreshToken', 'secret', 'email', 'phone'];
+/**
+ * Query keys whose values never appear in a log or an error body. See E07.
+ *
+ * Names belong here as much as contact details do: `/profiles?firstName=Ana` and
+ * `/children?lastName=Popescu` are ordinary search requests, and the request logger's own reason
+ * for never logging bodies is that they "carry names, emails and passwords". Two of the three were
+ * covered.
+ *
+ * Matched case-insensitively, and after URL-decoding the key, so `?Email=` and `?e%6Dail=` do not
+ * slip past a list written in one particular spelling.
+ */
+const SENSITIVE_QUERY_KEYS = ['password', 'token', 'refreshtoken', 'accesstoken', 'secret', 'email', 'phone', 'firstname', 'lastname', 'address', 'username'];
+
+function isSensitive(rawKey: string): boolean {
+    let key = rawKey;
+    try {
+        key = decodeURIComponent(rawKey);
+    } catch {
+        // A malformed escape is not a reason to stop redacting; fall back to the raw key.
+    }
+    return SENSITIVE_QUERY_KEYS.includes(key.toLowerCase());
+}
 
 /**
  * Replaces the values of sensitive query keys, keeping the shape of the URL readable.
@@ -23,7 +43,7 @@ export function redactUrl(url: string): string {
         .split('&')
         .map((pair) => {
             const [key] = pair.split('=');
-            return SENSITIVE_QUERY_KEYS.includes(key) ? `${key}=[redacted]` : pair;
+            return isSensitive(key) ? `${key}=[redacted]` : pair;
         })
         .join('&');
 

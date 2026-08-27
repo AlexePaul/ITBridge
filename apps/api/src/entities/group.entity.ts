@@ -1,6 +1,7 @@
 import { Check, Column, Entity, OneToMany, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { Child } from './child.entity';
 import { Weekday } from '../enum/weekday.enum';
+import { decimalAsNumber } from './decimal.transformer';
 
 @Entity('groups')
 @Unique(['weekday', 'startTime'])
@@ -27,10 +28,14 @@ export class Group {
     @Column({ type: 'time' })
     endTime: string;
 
-    @Column({ type: 'decimal' })
+    // `decimal` hands back a string from the driver, so without a transformer these left the API
+    // as `"11"` while `@itbridge/types` — and this very declaration — say `number`. `contract.ts`
+    // cannot catch that: both sides agree at the type level and only the runtime disagrees. Same
+    // transformer `Invoice.amount` already uses.
+    @Column({ type: 'decimal', transformer: decimalAsNumber })
     minAge: number;
 
-    @Column({ type: 'decimal' })
+    @Column({ type: 'decimal', transformer: decimalAsNumber })
     maxAge: number;
 
     @OneToMany(() => Child, (child) => child.group)

@@ -173,3 +173,88 @@ describe("useApi", () => {
     expect(calls.filter((c) => c === "/auth/refresh")).toHaveLength(2);
   });
 });
+
+describe("useApi — rotating refresh tokens", () => {
+  /**
+   * The backend rotates: the refresh token sent to /auth/refresh is consumed and the response
+   * carries its successor. Storing only the access token left the spent token in the cookie, so
+   * the *next* refresh replayed it, the server read that as theft, revoked the whole session
+   * family and the parent was thrown back to the login screen — roughly half an hour into every
+   * session, for every user.
+   */
+  it("stores the rotated refresh token, not just the access token", async () => {
+    const sent: unknown[] = [];
+    let refreshed = false;
+    handler = (url, opts) => {
+      if (url === "/auth/refresh") {
+        sent.push((opts.body as { refreshToken: string }).refreshToken);
+        refreshed = true;
+        return Promise.resolve({ accessToken: "acces-nou", refreshToken: "refresh-nou" });
+      }
+      if (!refreshed) return Promise.reject(httpError(401));
+      return Promise.resolve({ ok: true });
+    };
+
+    const api = await loadUseApi();
+    await api("/invoices");
+
+    expect(sent).toEqual(["refresh-vechi"]);
+    expect(tokenStore.setRefreshToken).toHaveBeenCalledWith("refresh-nou");
+  });
+
+  it("sends the successor on the next refresh, never the consumed one", async () => {
+    const sent: string[] = [];
+    let issued = 0;
+    let unauthorized = true;
+    handler = (url, opts) => {
+      if (url === "/auth/refresh") {
+        sent.push((opts.body as { refreshToken: string }).refreshToken);
+        issued += 1;
+        tokenStore.refreshToken = `refresh-${issued}`;
+        unauthorized = false;
+        return Promise.resolve({ accessToken: `acces-${issued}`, refreshToken: `refresh-${issued}` });
+      }
+      if (unauthorized) return Promise.reject(httpError(401));
+      return Promise.resolve({ ok: true });
+    };
+    tokenStore.setRefreshToken.mockImplementation((t: string) => {
+      tokenStore.refreshToken = t;
+    });
+
+    const api = await loadUseApi();
+    await api("/invoices");
+    unauthorized = true;
+    await api("/invoices");
+
+    // The second refresh must not repeat the first token. It used to, which is exactly what the
+    // server's reuse detection is built to punish.
+    expect(sent).toEqual(["refresh-vechi", "refresh-1"]);
+    expect(new Set(sent).size).toBe(sent.length);
+  });
+
+  it("shares one refresh across composables, so two of them cannot race the rotation", async () => {
+    let refreshCalls = 0;
+    let unauthorized = true;
+    handler = (url) => {
+      if (url === "/auth/refresh") {
+        refreshCalls += 1;
+        unauthorized = false;
+        return Promise.resolve({ accessToken: "acces-nou", refreshToken: "refresh-nou" });
+      }
+      if (unauthorized) return Promise.reject(httpError(401));
+      return Promise.resolve({ ok: true });
+    };
+
+    // Two separate useApi() calls, the way two composables on one page each build their own.
+    vi.resetModules();
+    const mod = await import("~/composables/api/useApi");
+    const first = mod.useApi();
+    const second = mod.useApi();
+
+    await Promise.all([first("/children"), second("/invoices")]);
+
+    // One rotation, not two. When the promise was per-composable, the loser presented the token the
+    // winner had just consumed and the server revoked the family.
+    expect(refreshCalls).toBe(1);
+  });
+});

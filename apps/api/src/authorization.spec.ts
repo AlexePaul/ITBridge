@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import * as fs from 'fs';
+import * as path from 'path';
 import { PATH_METADATA, METHOD_METADATA, GUARDS_METADATA } from '@nestjs/common/constants';
 import { RequestMethod } from '@nestjs/common';
 import { AuthGuard } from './guards/auth.guard';
@@ -6,38 +8,7 @@ import { RolesGuard } from './guards/role.guard';
 import { ROLE_KEY } from './decorators/role.decorator';
 import { Role } from './enum/role.enum';
 
-import { AuthController } from './modules/auth/auth.controller';
-import { UserController } from './modules/user/user.controller';
-import { ProfileController } from './modules/profile/profile.controller';
-import { ChildController } from './modules/child/child.controller';
-import { GroupController } from './modules/group/group.controller';
-import { AttendanceController } from './modules/attendance/attendance.controller';
-import { InvoiceController } from './modules/invoice/invoice.controller';
-import { PaymentController } from './modules/payment/payment.controller';
-import { DiscountController } from './modules/discount/discount.controller';
-
-/**
- * The authorization matrix, read from Nest metadata.
- *
- * The idea, from E03/S4: protection must not depend on human discipline at every new endpoint. The
- * test enumerates every handler in every controller on its own, so an endpoint added tomorrow
- * without `@UseGuards` shows up here without anyone writing a test for it.
- *
- * This checks metadata, not HTTP: it needs no database and runs in milliseconds. The integration
- * tests under `test/` separately verify that the guards actually reject.
- */
-
-const CONTROLLERS = [
-    AuthController,
-    UserController,
-    ProfileController,
-    ChildController,
-    GroupController,
-    AttendanceController,
-    InvoiceController,
-    PaymentController,
-    DiscountController,
-];
+import { CONTROLLERS } from './testing/controllers';
 
 /** Endpoints allowed to be public, with the reason. Everything else must carry AuthGuard. */
 const PUBLIC_ALLOWLIST = new Set([
@@ -47,6 +18,9 @@ const PUBLIC_ALLOWLIST = new Set([
     // Logging out must work when the access token has already expired, which is the common case.
     // The refresh token in the body is the credential, and revoking an unknown one does nothing.
     'AuthController.logout',
+    // A liveness/readiness checker has no credentials, and neither endpoint reveals anything.
+    'HealthController.health',
+    'HealthController.ready',
 ]);
 
 interface Handler {
@@ -85,6 +59,32 @@ function handlersOf(controller: new (...args: never[]) => object): Handler[] {
 const HANDLERS = CONTROLLERS.flatMap(handlersOf);
 
 describe('authorization matrix', () => {
+    it('covers every controller file on disk', () => {
+        // The list in `testing/controllers.ts` is still written by hand, so this is what stops it
+        // being forgotten. A whole controller missing from it used to opt every one of its
+        // endpoints out of the matrix silently — which is exactly what happened to HealthController
+        // when it was added, while the docs claimed the coverage was automatic.
+        const modulesDir = path.join(__dirname, 'modules');
+        const onDisk = fs
+            .readdirSync(modulesDir, { withFileTypes: true })
+            .filter((entry) => entry.isDirectory())
+            .flatMap((entry) =>
+                fs
+                    .readdirSync(path.join(modulesDir, entry.name))
+                    .filter((file) => file.endsWith('.controller.ts'))
+                    .map((file) => path.join(entry.name, file)),
+            );
+
+        const known = new Set(CONTROLLERS.map((c) => c.name));
+        const missing = onDisk.filter((file) => {
+            const source = fs.readFileSync(path.join(modulesDir, file), 'utf8');
+            const names = [...source.matchAll(/export class (\w+)/g)].map((m) => m[1]);
+            return names.length > 0 && !names.some((name) => known.has(name));
+        });
+
+        expect(missing).toEqual([]);
+    });
+
     it('finds handlers in every controller', () => {
         // A safety net for the test itself: if reflection breaks, everything below would pass empty.
         expect(HANDLERS.length).toBeGreaterThan(20);

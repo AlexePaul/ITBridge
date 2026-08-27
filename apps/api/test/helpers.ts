@@ -32,7 +32,13 @@ export async function createTestApp(options: { realStorage?: boolean; throttling
     if (!options.realStorage) {
         builder
             .overrideProvider(S3Service)
-            .useValue({ uploadFile: jest.fn(), downloadFile: jest.fn() })
+            .useValue({
+                uploadFile: jest.fn(),
+                // A Buffer, not `undefined`: the controller streams what this returns, so a bare
+                // `jest.fn()` turns every stubbed download into a 500 that looks like a real one.
+                downloadFile: jest.fn().mockResolvedValue(Buffer.from('%PDF-')),
+                isReachable: jest.fn().mockResolvedValue(true),
+            })
             .overrideProvider(PdfService)
             .useValue({ generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-')) });
     }
@@ -45,7 +51,7 @@ export async function createTestApp(options: { realStorage?: boolean; throttling
     return { app, dataSource: app.get(DataSource) };
 }
 
-/** Wipes every table between suites, keeping the schema created by `synchronize`. */
+/** Wipes every table between suites. The schema itself comes from the migrations. */
 export async function truncateAll(dataSource: DataSource): Promise<void> {
     const tables = dataSource.entityMetadatas.map((m) => `"${m.tableName}"`).join(', ');
     await dataSource.query(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`);

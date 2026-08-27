@@ -21,6 +21,11 @@ export class EnumColumns1787826933496 implements MigrationInterface {
         // Rows written before the service settled on these two values carried 'normal' or
         // 'catch-up'. Map them rather than dropping them: 'normal' meant a child's own group, and
         // 'catch-up' was the DTO example's spelling of a make-up session.
+        //
+        // 'catch-up' needs its own statement. Folding it into the catch-all below turned every
+        // make-up session into a regular one — the opposite of what the comment above promises,
+        // and unrecoverable once the column is an enum.
+        await queryRunner.query(`UPDATE "attendances" SET "type" = 'make-up' WHERE "type" = 'catch-up'`);
         await queryRunner.query(`UPDATE "attendances" SET "type" = 'regular' WHERE "type" NOT IN ('regular', 'make-up')`);
         await queryRunner.query(`ALTER TABLE "attendances" ALTER COLUMN "type" DROP DEFAULT`);
         await queryRunner.query(
@@ -30,6 +35,12 @@ export class EnumColumns1787826933496 implements MigrationInterface {
 
         // --- users.role: varchar -> enum ------------------------------------------------------
         await queryRunner.query(`CREATE TYPE "public"."users_role_enum" AS ENUM('PARENT', 'ADMIN')`);
+        // Normalised before the cast, for the same reason attendances are. `PUT /users/:id` used to
+        // take `role` as a bare string, so a database written to by the old code can hold 'admin'
+        // in the wrong case — and an uncastable value aborts the entire migration run, on boot,
+        // with no obvious cause.
+        await queryRunner.query(`UPDATE "users" SET "role" = upper("role") WHERE "role" <> upper("role")`);
+        await queryRunner.query(`UPDATE "users" SET "role" = 'PARENT' WHERE "role" NOT IN ('PARENT', 'ADMIN')`);
         await queryRunner.query(`ALTER TABLE "users" ALTER COLUMN "role" TYPE "public"."users_role_enum" USING "role"::"public"."users_role_enum"`);
 
         // --- groups.weekday: an int that has to be an ISO weekday ------------------------------

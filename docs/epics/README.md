@@ -146,10 +146,10 @@ rezervă: branch protection pe `main` se activează din Settings, nu din repo.
 [E05](E05-robustete-backend.md) e `livrat`.
 
 [E01](E01-infrastructura-medii.md) și [E04](E04-migrari-date.md) sunt `în lucru`, amândouă blocate
-în același punct: **nu există instanța EC2.** La E01 rămân S4 (deploy) și S6 (curățare de
-branch-uri); la E04, S2 e livrat parțial — comenzile și garda de CI există, cablarea în deploy nu —
-iar S4 (backup) și S5 (retenție) așteaptă, primul instanța, al doilea răspunsul contabilului despre
-cât se păstrează facturile.
+în același punct: **nu există instanța EC2.** La E01 rămâne S4 (deploy) — S6, curățarea de
+branch-uri, e făcută. La E04, S2 e livrat parțial — comenzile și garda de CI există, cablarea în
+deploy nu — iar S4 (backup) și S5 (retenție) așteaptă, primul instanța, al doilea răspunsul
+contabilului despre cât se păstrează facturile.
 
 Restul sunt `propus`.
 

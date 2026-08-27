@@ -6,39 +6,7 @@ import { RolesGuard } from '../src/guards/role.guard';
 import { ROLE_KEY } from '../src/decorators/role.decorator';
 import { Role } from '../src/enum/role.enum';
 
-import { AuthController } from '../src/modules/auth/auth.controller';
-import { UserController } from '../src/modules/user/user.controller';
-import { ProfileController } from '../src/modules/profile/profile.controller';
-import { ChildController } from '../src/modules/child/child.controller';
-import { GroupController } from '../src/modules/group/group.controller';
-import { AttendanceController } from '../src/modules/attendance/attendance.controller';
-import { InvoiceController } from '../src/modules/invoice/invoice.controller';
-import { PaymentController } from '../src/modules/payment/payment.controller';
-import { DiscountController } from '../src/modules/discount/discount.controller';
-import { HealthController } from '../src/modules/health/health.controller';
-
-/**
- * Prints the authorization table E05/S8 asks for, read from the same Nest metadata that
- * `src/authorization.spec.ts` asserts against.
- *
- * Generated rather than written by hand on purpose: a table maintained manually is wrong the first
- * time somebody forgets to update it, and a stale authorization table is worse than none — it reads
- * like a guarantee. Regenerate with:
- *
- *     pnpm --filter api authorization:table
- */
-const CONTROLLERS = [
-    AuthController,
-    UserController,
-    ProfileController,
-    ChildController,
-    GroupController,
-    AttendanceController,
-    InvoiceController,
-    PaymentController,
-    DiscountController,
-    HealthController,
-];
+import { CONTROLLERS } from '../src/testing/controllers';
 
 /** Services that narrow their queries to the authenticated user for non-admins. */
 const ROW_SCOPED = new Set([

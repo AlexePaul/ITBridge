@@ -1,6 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { QueryFailedError } from 'typeorm';
+import { randomUUID } from 'crypto';
 import { RequestWithId } from './request-id.middleware';
 import { redactUrl } from './redact-url';
 
@@ -38,7 +39,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse<Response>();
         const request = ctx.getRequest<Request>();
-        const requestId = (request as RequestWithId).requestId ?? 'unknown';
+        // Minted here when the middleware never ran. Express rejects a malformed JSON body inside
+        // its own body parser, which sits ahead of Nest's middleware, so those requests reached the
+        // filter with no id at all and every one of them was reported as `"unknown"` — precisely
+        // the requests hardest to trace, all sharing one useless correlation id.
+        const requestId = (request as RequestWithId).requestId ?? randomUUID();
 
         const body = this.toErrorResponse(exception, request, requestId);
 
@@ -46,7 +51,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
         // 4xx is the caller's problem and would otherwise be an easy way to flood the logs.
         if (body.statusCode >= 500) {
             this.logger.error(
-                `${body.requestId} ${request.method} ${request.url} -> ${body.statusCode} ${body.code}`,
+                // `body.path`, not `request.url`: the body is redacted and this line was not, so the
+                // log kept the clear-text copy of exactly what the response had just hidden.
+                `${body.requestId} ${request.method} ${body.path} -> ${body.statusCode} ${body.code}`,
                 exception instanceof Error ? exception.stack : String(exception),
             );
         }
@@ -75,10 +82,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
                         details: message,
                     };
                 }
-                return { ...base, statusCode, code: this.codeFor(statusCode, error), message: message ?? exception.message };
+                return { ...base, statusCode, code: this.codeFor(statusCode, error), message: this.safeMessage(message ?? exception.message, request) };
             }
 
-            return { ...base, statusCode, code: this.codeFor(statusCode), message: String(payload) };
+            return { ...base, statusCode, code: this.codeFor(statusCode), message: this.safeMessage(String(payload), request) };
         }
 
         if (exception instanceof QueryFailedError) {
@@ -104,12 +111,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
         switch (pgCode) {
             case PG_UNIQUE_VIOLATION:
                 return { statusCode: HttpStatus.CONFLICT, code: 'ALREADY_EXISTS', message: 'A record with these values already exists' };
-            case PG_FOREIGN_KEY_VIOLATION:
-                return {
-                    statusCode: HttpStatus.BAD_REQUEST,
-                    code: 'RELATED_RECORD_MISSING',
-                    message: 'A referenced record does not exist',
-                };
+            case PG_FOREIGN_KEY_VIOLATION: {
+                // The same code covers two opposite situations: pointing at a row that is not there
+                // (the caller sent a bad id — 400), and deleting a row something else still points
+                // at (the caller's request conflicts with existing data — 409). Reporting the
+                // second as "a referenced record does not exist" told an admin the exact opposite
+                // of what happened.
+                const isDelete = /^\s*delete\b/i.test((error as unknown as { query?: string }).query ?? '');
+                return isDelete
+                    ? {
+                          statusCode: HttpStatus.CONFLICT,
+                          code: 'STILL_REFERENCED',
+                          message: 'This record is still referenced by other records',
+                      }
+                    : {
+                          statusCode: HttpStatus.BAD_REQUEST,
+                          code: 'RELATED_RECORD_MISSING',
+                          message: 'A referenced record does not exist',
+                      };
+            }
             case PG_NOT_NULL_VIOLATION:
                 return { statusCode: HttpStatus.BAD_REQUEST, code: 'MISSING_REQUIRED_FIELD', message: 'A required field was missing' };
             case PG_INVALID_TEXT_REPRESENTATION:
@@ -119,6 +139,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
             default:
                 return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, code: 'DATABASE_ERROR', message: 'Internal server error' };
         }
+    }
+
+    /**
+     * Keeps a framework-generated message from undoing the redaction applied to `path`.
+     *
+     * Nest's not-found handler throws `Cannot GET ${req.originalUrl}`, so a 404 answered with a
+     * redacted `path` and, in the same JSON object, a `message` carrying the raw query string —
+     * email and token in the clear. Any message that embeds the request URL gets the redacted one.
+     */
+    private safeMessage(message: string, request: Request): string {
+        const raw = request.originalUrl || request.url;
+        if (!raw || !message.includes(raw)) return message;
+        return message.split(raw).join(redactUrl(raw));
     }
 
     private codeFor(statusCode: number, error?: string): string {

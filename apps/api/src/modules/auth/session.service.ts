@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit, UnauthorizedException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, LessThan, MoreThan, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, IsNull, LessThan, MoreThan, Repository } from 'typeorm';
 import { createHash, randomUUID } from 'crypto';
 import { Session } from 'src/entities/session.entity';
 import { User } from 'src/entities/user.entity';
@@ -28,6 +28,13 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
      */
     onModuleInit(): void {
         const oneDay = 24 * 60 * 60 * 1000;
+
+        // Once at startup, then daily. Without the startup run, a process restarted more often than
+        // every 24 hours never reaches the first tick — and a deploy a day, which is the plan for
+        // this backend, means the purge would have run exactly zero times in production while the
+        // table grew by a row per login and per refresh.
+        void this.purgeExpired().catch((error: unknown) => this.logger.error('Session purge failed', String(error)));
+
         this.purgeTimer = setInterval(() => {
             void this.purgeExpired().catch((error: unknown) => this.logger.error('Session purge failed', String(error)));
         }, oneDay);
@@ -38,7 +45,10 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
         if (this.purgeTimer) clearInterval(this.purgeTimer);
     }
 
-    constructor(@InjectRepository(Session) private readonly sessionRepository: Repository<Session>) {}
+    constructor(
+        @InjectRepository(Session) private readonly sessionRepository: Repository<Session>,
+        @InjectDataSource() private readonly dataSource: DataSource,
+    ) {}
 
     static hash(token: string): string {
         return createHash('sha256').update(token).digest('hex');
@@ -67,38 +77,71 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
      */
     async rotate(refreshToken: string, nextToken: string, expiresAt: Date, userAgent?: string): Promise<Session> {
         const tokenHash = SessionService.hash(refreshToken);
-        const session = await this.sessionRepository.findOne({ where: { tokenHash }, relations: ['user'] });
 
-        if (!session) {
-            throw new UnauthorizedException('Invalid refresh token');
-        }
+        // The whole rotation is one transaction that takes a write lock on the presented token's
+        // row. That lock is what makes the family mechanism actually hold under concurrency.
+        //
+        // The earlier version claimed the token with a conditional UPDATE and then inserted the
+        // successor outside any transaction. That is atomic for the claim but not for the pair, so
+        // a second request carrying the same token could lose the claim, detect the replay and run
+        // `revokeFamily` *before* the winner had inserted the successor — the sweep found nothing
+        // to revoke and the successor stayed live. Reuse was reported and then not acted on, which
+        // is the one outcome the whole design exists to prevent. Reproduced with five concurrent
+        // refreshes: four 401s, and the successor token still worked afterwards.
+        //
+        // With the lock, the loser blocks until the winner commits, so by the time it sweeps the
+        // family the successor row is committed and visible, and gets revoked with the rest.
+        const outcome = await this.dataSource.transaction<{ replayOf: string } | { successor: Session }>(async (manager) => {
+            // A raw `SELECT ... FOR UPDATE` rather than `findOne({ lock })`: TypeORM turns a
+            // `relations` option into a LEFT JOIN, and Postgres refuses `FOR UPDATE` on the
+            // nullable side of an outer join. The columns needed are few enough to name.
+            const rows = await manager.query<
+                { id: number; familyId: string; expiresAt: Date; revokedAt: Date | null; userAgent: string | null; user_id: number }[]
+            >('SELECT id, "familyId", "expiresAt", "revokedAt", "userAgent", user_id FROM sessions WHERE "tokenHash" = $1 FOR UPDATE', [tokenHash]);
 
-        if (session.expiresAt.getTime() <= Date.now()) {
-            throw new UnauthorizedException('Refresh token has expired');
-        }
+            const session = rows[0];
 
-        // Claiming the token is a single conditional UPDATE, not a read followed by a write. Two
-        // concurrent refreshes carrying the same token would otherwise both see `revokedAt === null`
-        // and both mint a successor, leaving one login with two live tokens and no reuse detected —
-        // which is the one thing the family mechanism exists to catch. Exactly one of them can
-        // affect a row here; the loser is treated as a replay.
-        const claim = await this.sessionRepository.update({ tokenHash, revokedAt: IsNull() }, { revokedAt: new Date() });
+            if (!session) {
+                throw new UnauthorizedException('Invalid refresh token');
+            }
 
-        if (claim.affected === 0) {
-            await this.revokeFamily(session.familyId);
+            if (new Date(session.expiresAt).getTime() <= Date.now()) {
+                throw new UnauthorizedException('Refresh token has expired');
+            }
+
+            if (session.revokedAt !== null) {
+                // Someone already consumed this token — either a replay, or the legitimate client
+                // racing itself. Either way the chain can no longer be trusted.
+                //
+                // Reported, not acted on, here: the sweep has to happen *outside* this transaction,
+                // because the 401 that follows it would otherwise roll the revocation back along
+                // with everything else. Releasing the lock first is safe — having seen `revokedAt`
+                // set means the winner already committed, so its successor row exists and the sweep
+                // will find it.
+                return { replayOf: session.familyId };
+            }
+
+            await manager.update(Session, { id: session.id }, { revokedAt: new Date() });
+
+            const successor = await manager.save(
+                manager.create(Session, {
+                    user: { id: session.user_id } as User,
+                    tokenHash: SessionService.hash(nextToken),
+                    familyId: session.familyId,
+                    expiresAt,
+                    revokedAt: null,
+                    userAgent: userAgent?.slice(0, 255) ?? session.userAgent,
+                }),
+            );
+            return { successor };
+        });
+
+        if ('replayOf' in outcome) {
+            await this.revokeFamily(outcome.replayOf);
             throw new UnauthorizedException('Refresh token has already been used');
         }
 
-        return this.sessionRepository.save(
-            this.sessionRepository.create({
-                user: session.user,
-                tokenHash: SessionService.hash(nextToken),
-                familyId: session.familyId,
-                expiresAt,
-                revokedAt: null,
-                userAgent: userAgent?.slice(0, 255) ?? session.userAgent,
-            }),
-        );
+        return outcome.successor;
     }
 
     /**
