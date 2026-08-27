@@ -7,6 +7,7 @@ import { Role } from 'src/enum/role.enum';
 import { FilterProfileDto } from './dto/filterProfile.dto';
 import { Repository } from 'typeorm';
 import { UpdateProfileDto } from './dto/updateProfile.dto';
+import { applyDefined } from 'src/common/apply-defined';
 
 @Injectable()
 export class ProfileService {
@@ -115,7 +116,7 @@ export class ProfileService {
             }
         }
 
-        Object.assign(profile, updateProfileDto);
+        applyDefined(profile, updateProfileDto);
         const updatedProfile = await this.profileRepository.save(profile);
         updatedProfile.user = undefined;
         return updatedProfile;

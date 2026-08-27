@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ApiResponse } from '@nestjs/swagger';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -15,6 +15,8 @@ import { DataSource } from 'typeorm';
  */
 @Controller()
 export class HealthController {
+    private readonly logger = new Logger('Health');
+
     constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
     @Get('health')
@@ -33,9 +35,14 @@ export class HealthController {
         try {
             await this.dataSource.query('SELECT 1');
             checks.database = 'ok';
-        } catch {
-            // The reason stays in the logs. A readiness probe is reachable without credentials, so
-            // it says whether we are ready, not why not.
+        } catch (error) {
+            // The cause is logged here and nowhere else: the filter only ever sees the
+            // ServiceUnavailableException below, so without this line an operator learns that
+            // readiness failed and nothing about why — which is the one thing the probe is for.
+            this.logger.error('Readiness check failed', error instanceof Error ? error.stack : String(error));
+
+            // The response stays bare: a readiness probe is reachable without credentials, so it
+            // says whether we are ready, not why not.
             throw new ServiceUnavailableException('Database unreachable');
         }
 

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, LessThan, MoreThan, Repository } from 'typeorm';
 import { createHash, randomUUID } from 'crypto';
@@ -14,7 +14,30 @@ import { User } from 'src/entities/user.entity';
  * one up by hash.
  */
 @Injectable()
-export class SessionService {
+export class SessionService implements OnModuleInit, OnModuleDestroy {
+    private readonly logger = new Logger('Sessions');
+    private purgeTimer?: NodeJS.Timeout;
+
+    /**
+     * Schedules the purge on a plain interval rather than through `@nestjs/schedule`, which is
+     * ESM-only and cannot be loaded by jest — the same reason `@nestjs/config` was left out. A
+     * daily sweep needs no cron expression.
+     *
+     * `unref()` keeps the timer from holding the process open, which would otherwise stop tests
+     * and a graceful shutdown from ever finishing.
+     */
+    onModuleInit(): void {
+        const oneDay = 24 * 60 * 60 * 1000;
+        this.purgeTimer = setInterval(() => {
+            void this.purgeExpired().catch((error: unknown) => this.logger.error('Session purge failed', String(error)));
+        }, oneDay);
+        this.purgeTimer.unref();
+    }
+
+    onModuleDestroy(): void {
+        if (this.purgeTimer) clearInterval(this.purgeTimer);
+    }
+
     constructor(@InjectRepository(Session) private readonly sessionRepository: Repository<Session>) {}
 
     static hash(token: string): string {
@@ -50,17 +73,21 @@ export class SessionService {
             throw new UnauthorizedException('Invalid refresh token');
         }
 
-        if (session.revokedAt !== null) {
-            await this.revokeFamily(session.familyId);
-            throw new UnauthorizedException('Refresh token has already been used');
-        }
-
         if (session.expiresAt.getTime() <= Date.now()) {
             throw new UnauthorizedException('Refresh token has expired');
         }
 
-        session.revokedAt = new Date();
-        await this.sessionRepository.save(session);
+        // Claiming the token is a single conditional UPDATE, not a read followed by a write. Two
+        // concurrent refreshes carrying the same token would otherwise both see `revokedAt === null`
+        // and both mint a successor, leaving one login with two live tokens and no reuse detected —
+        // which is the one thing the family mechanism exists to catch. Exactly one of them can
+        // affect a row here; the loser is treated as a replay.
+        const claim = await this.sessionRepository.update({ tokenHash, revokedAt: IsNull() }, { revokedAt: new Date() });
+
+        if (claim.affected === 0) {
+            await this.revokeFamily(session.familyId);
+            throw new UnauthorizedException('Refresh token has already been used');
+        }
 
         return this.sessionRepository.save(
             this.sessionRepository.create({
@@ -103,9 +130,20 @@ export class SessionService {
         return sessions.map(({ id, createdAt, expiresAt, userAgent }) => ({ id, createdAt, expiresAt, userAgent }));
     }
 
-    /** Housekeeping: expired rows carry no information once they can no longer be presented. */
+    /**
+     * Housekeeping: expired rows carry no information once they can no longer be presented.
+     *
+     * Scheduled from `onModuleInit` rather than merely available. Written as a method nobody
+     * called, the table would have grown by one row per login and per refresh forever — nothing
+     * breaking loudly, which is exactly why it would go unnoticed.
+     */
     async purgeExpired(): Promise<number> {
         const result = await this.sessionRepository.delete({ expiresAt: LessThan(new Date()) });
-        return result.affected ?? 0;
+        const removed = result.affected ?? 0;
+
+        if (removed > 0) {
+            this.logger.log(`Purged ${removed} expired session(s)`);
+        }
+        return removed;
     }
 }

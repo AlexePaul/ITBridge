@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Group } from 'src/entities/group.entity';
 import { Repository } from 'typeorm/repository/Repository';
 import { createGroupDto } from './dto/createGroup.dto';
+import { applyDefined } from 'src/common/apply-defined';
 
 @Injectable()
 export class GroupService {
@@ -32,7 +33,7 @@ export class GroupService {
 
     async updateGroup(id: number, updateGroupDto: Partial<createGroupDto>): Promise<Group> {
         const group = await this.getGroupById(id);
-        Object.assign(group, updateGroupDto);
+        applyDefined(group, updateGroupDto);
         return this.groupRepository.save(group);
     }
 

@@ -1,9 +1,7 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 import { RequestWithId } from './request-id.middleware';
-
-/** Query keys never written to the logs, even as part of a URL. See E07. */
-const SENSITIVE_QUERY_KEYS = ['password', 'token', 'refreshToken', 'secret', 'email', 'phone'];
+import { redactUrl } from './redact-url';
 
 /**
  * One line per request: method, route, status, duration, user, correlation id.
@@ -30,7 +28,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
             const line = JSON.stringify({
                 requestId,
                 method: req.method,
-                path: this.redactQuery(req.originalUrl),
+                path: redactUrl(req.originalUrl),
                 statusCode: res.statusCode,
                 durationMs: Math.round(durationMs * 100) / 100,
                 userId,
@@ -44,21 +42,5 @@ export class RequestLoggerMiddleware implements NestMiddleware {
         });
 
         next();
-    }
-
-    /** Replaces the values of sensitive query keys, keeping the shape of the URL readable. */
-    private redactQuery(url: string): string {
-        const [path, query] = url.split('?');
-        if (!query) return path;
-
-        const redacted = query
-            .split('&')
-            .map((pair) => {
-                const [key] = pair.split('=');
-                return SENSITIVE_QUERY_KEYS.includes(key) ? `${key}=[redacted]` : pair;
-            })
-            .join('&');
-
-        return `${path}?${redacted}`;
     }
 }

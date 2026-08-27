@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logge
 import { Request, Response } from 'express';
 import { QueryFailedError } from 'typeorm';
 import { RequestWithId } from './request-id.middleware';
+import { redactUrl } from './redact-url';
 
 /**
  * One shape for every error leaving the API.
@@ -52,7 +53,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     private toErrorResponse(exception: unknown, request: Request, requestId: string): ErrorResponse {
-        const base = { requestId, path: request.url, timestamp: new Date().toISOString() };
+        // Redacted with the same rule the logger uses: an error body is seen by more places than a
+        // server log, so it cannot be the less careful of the two.
+        const base = { requestId, path: redactUrl(request.url), timestamp: new Date().toISOString() };
 
         if (exception instanceof HttpException) {
             const statusCode = exception.getStatus();

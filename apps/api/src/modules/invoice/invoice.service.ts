@@ -26,26 +26,34 @@ export class InvoiceService {
     /**
      * Issues one invoice per parent.
      *
-     * Each invoice is written and its PDF uploaded inside a single transaction. That ordering
-     * matters: the file name embeds the invoice id, so the row has to exist before the upload — but
-     * if the upload then fails, the row must not survive. Without the transaction a failed upload
-     * left a persisted invoice with no PDF, the caller saw a 500 and retried, and the retry hit
-     * `@Unique(['parent', 'monthIssued'])` — so one S3 hiccup wedged invoicing for that parent and
-     * month until somebody deleted the row by hand.
+     * The whole batch is one transaction. Ordering matters: the file name embeds the invoice id, so
+     * each row has to exist before its upload — but if an upload then fails, no row may survive.
+     * Without this, a failed upload left a persisted invoice with no PDF, the caller saw a 500 and
+     * retried, and the retry hit `@Unique(['parent', 'monthIssued'])`, wedging invoicing for that
+     * parent and month until somebody deleted the row by hand.
      *
-     * The upload happens while the transaction is open, which holds it across a network call. At
-     * this scale that is the right trade: a slow issue beats a half-written one.
+     * The transaction spans every parent rather than each one separately, so a failure on the third
+     * parent does not leave the first two committed with the caller told only that the request
+     * failed — which would move the same wedge from the single invoice to the batch.
+     *
+     * Uploads happen while the transaction is open, holding it across network calls. At this scale
+     * that is the right trade: a slow issue beats a half-written one.
      */
     async createInvoice(createInvoiceDto: CreateInvoiceDto) {
-        const invoicesCreated: Invoice[] = [];
+        // Resolved before the transaction opens: a missing parent should fail the request without
+        // having held a transaction across an S3 round trip first.
+        const parents = await Promise.all(
+            createInvoiceDto.parentIds.map(async (parentId) => {
+                const parent = await this.profileRepository.findOne({ where: { id: parentId } });
+                if (!parent) throw new NotFoundException('Parent profile not found');
+                return { parent, amount: await this.calculateAmount(parentId, createInvoiceDto.monthIssued) };
+            }),
+        );
 
-        for (const parentId of createInvoiceDto.parentIds) {
-            const parent = await this.profileRepository.findOne({ where: { id: parentId } });
-            if (!parent) throw new NotFoundException('Parent profile not found');
+        return this.dataSource.transaction(async (manager) => {
+            const invoicesCreated: Invoice[] = [];
 
-            const amount = await this.calculateAmount(parentId, createInvoiceDto.monthIssued);
-
-            const saved = await this.dataSource.transaction(async (manager) => {
+            for (const { parent, amount } of parents) {
                 const invoice = new Invoice();
                 invoice.amount = amount;
                 invoice.dateIssued = new Date(createInvoiceDto.dateIssued);
@@ -59,13 +67,11 @@ export class InvoiceService {
                 const fileName = `invoices/${persisted.monthIssued}/${persisted.id}_${parent.firstName}_${parent.lastName}.pdf`;
                 await this.s3Service.uploadFile(pdfBuffer, fileName);
 
-                return persisted;
-            });
+                invoicesCreated.push(persisted);
+            }
 
-            invoicesCreated.push(saved);
-        }
-
-        return invoicesCreated;
+            return invoicesCreated;
+        });
     }
 
     async findInvoices(filterInvoiceDto: FilterInvoiceDto, role: Role, userId: number) {
