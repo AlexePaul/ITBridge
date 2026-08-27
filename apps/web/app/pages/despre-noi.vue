@@ -56,6 +56,15 @@
     <hr class="rule" />
 
     <section class="section" data-reveal>
+      <figure>
+        <blockquote class="quote measure-wide">“{{ TESTIMONIALS.about.quote }}”</blockquote>
+        <figcaption class="quote-source">— {{ TESTIMONIALS.about.source }}</figcaption>
+      </figure>
+    </section>
+
+    <hr class="rule" />
+
+    <section class="section" data-reveal>
       <h2 class="kicker">Valorile noastre</h2>
       <div class="cols-3 cols-ruled">
         <div v-for="value in values" :key="value.title">
@@ -106,6 +115,7 @@ import { useJsonLd } from "~/composables/useJsonLd";
 import { SCHOOL_LOCATIONS } from "#shared/school";
 import { TEACHERS } from "#shared/teachers";
 import { pageSeo } from "#shared/seo";
+import { TESTIMONIALS } from "#shared/testimonials";
 import { schoolGraph, breadcrumbNode, personNode, webPageNode } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 

@@ -1138,3 +1138,21 @@ textarea.input {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* — a parent's words, smaller than the display pull-quote — */
+.quote {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: 21px;
+  line-height: 32px;
+  letter-spacing: -0.005em;
+  margin: 0;
+  text-indent: -0.34em;
+}
+
+.quote-source {
+  font-size: 14px;
+  line-height: 24px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  margin: var(--rhythm-1) 0 0;
+}

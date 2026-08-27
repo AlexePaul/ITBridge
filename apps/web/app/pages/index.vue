@@ -62,10 +62,10 @@
     </section>
 
     <section class="section-close" data-reveal>
-      <p class="pull-quote">
-        Un copil care termină un modul la IT Bridge School pleacă cu ceva ce a construit — și cu
-        obiceiul de a se întreba cum funcționează lucrurile.
-      </p>
+      <figure>
+        <blockquote class="pull-quote">“{{ TESTIMONIALS.home.quote }}”</blockquote>
+        <figcaption class="pull-quote-source">— {{ TESTIMONIALS.home.source }}</figcaption>
+      </figure>
     </section>
 
     <hr class="rule" />
@@ -90,6 +90,7 @@ import { useSeo } from "~/composables/useSeo";
 import { useJsonLd } from "~/composables/useJsonLd";
 import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 import { pageSeo } from "#shared/seo";
+import { TESTIMONIALS } from "#shared/testimonials";
 import { schoolGraph, webPageNode } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 

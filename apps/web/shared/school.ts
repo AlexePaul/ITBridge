@@ -57,8 +57,8 @@ export const SCHOOL_OPENING_HOURS: OpeningHours[] = [
     closes: "20:00",
     label: "Luni–vineri: 9:00–20:00",
   },
-  { days: ["Saturday"], opens: "10:00", closes: "14:00", label: "Sâmbătă: 10:00–14:00" },
-  { days: ["Sunday"], opens: null, closes: null, label: "Duminică: închis" },
+  { days: ["Saturday"], opens: "09:00", closes: "16:00", label: "Sâmbătă: 9:00–16:00" },
+  { days: ["Sunday"], opens: "09:00", closes: "12:00", label: "Duminică: 9:00–12:00" },
 ];
 
 /** Kept for the pages that only print the hours. */

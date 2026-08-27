@@ -106,6 +106,18 @@
 
     <hr class="rule" />
 
+    <section class="section" data-reveal>
+      <h2 class="kicker">Ce spun părinții</h2>
+      <div class="cols-2">
+        <figure v-for="entry in TESTIMONIALS.courses" :key="entry.source">
+          <blockquote class="quote">“{{ entry.quote }}”</blockquote>
+          <figcaption class="quote-source">— {{ entry.source }}</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <hr class="rule" />
+
     <section class="section-close" data-reveal>
       <h2 class="block-title">Nu știi de unde să începi?</h2>
       <p class="body-text measure-wide">
@@ -127,6 +139,7 @@ import { useJsonLd } from "~/composables/useJsonLd";
 import { SCHOOL_LOCATIONS, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 import { COURSE_LEVELS, PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
 import { CONTENT_UPDATED, pageSeo } from "#shared/seo";
+import { TESTIMONIALS } from "#shared/testimonials";
 import {
   schoolGraph,
   breadcrumbNode,
