@@ -1,5 +1,7 @@
-import { SCHOOL_PHONE } from "./school";
-import { PRICE_ONE_CHILD } from "./courses";
+import { SCHOOL_EMAIL, SCHOOL_PHONE } from "./school";
+import { MODULE_WEEKS_MAX, MODULE_WEEKS_MIN, PRICE_ONE_CHILD, SESSION_HOURS } from "./courses";
+
+const sessionLength = String(SESSION_HOURS).replace(".", ",");
 
 /** Shown on the pages that carry facts, so a reader can see how fresh they are. */
 export const CONTENT_UPDATED = "august 2026";
@@ -17,7 +19,7 @@ export interface PageSeo {
 const STATIC_PAGES: PageSeo[] = [
   {
     path: "/",
-    title: "Cursuri de programare pentru copii în București | IT Bridge",
+    title: "Cursuri de programare pentru copii în București | IT Bridge School",
     description:
       `${PRICE_ONE_CHILD} lei pe lună, grupe mici, două locații — Drumul Taberei și Străulești. ` +
       "Informatică și programare pentru copii, de la clasa 0 până la Bacalaureat.",
@@ -27,17 +29,18 @@ const STATIC_PAGES: PageSeo[] = [
   },
   {
     path: "/cursuri",
-    title: "Cursuri de programare pentru copii, 6–19 ani | IT Bridge",
+    title: "Cursuri de programare pentru copii, 6–19 ani | IT Bridge School",
     description:
-      "Șase niveluri, de la primii pași pe calculator la C++ și pregătire de BAC. Module de 6–8 " +
-      `săptămâni, o ședință de 1,5 ore, ${PRICE_ONE_CHILD} lei pe lună.`,
+      `Șase niveluri, de la primii pași pe calculator la C++ și pregătire de BAC. Module de ` +
+      `${MODULE_WEEKS_MIN}–${MODULE_WEEKS_MAX} săptămâni, o ședință de ${sessionLength} ore, ` +
+      `${PRICE_ONE_CHILD} lei pe lună.`,
     summary:
       "Cele șase niveluri de curs pe vârste, cum decurge înscrierea, prețurile și întrebările frecvente.",
     priority: 0.9,
   },
   {
     path: "/despre-noi",
-    title: "Profesorii — Alexe Vasile Paul și Alexe Ana Iulia | IT Bridge",
+    title: "Profesorii — Alexe Vasile Paul și Alexe Ana Iulia | IT Bridge School",
     description:
       "Cine predă la IT Bridge School: Alexe Vasile Paul, programare și algoritmi, și Alexe Ana " +
       "Iulia, competențe digitale și creativitate.",
@@ -48,8 +51,8 @@ const STATIC_PAGES: PageSeo[] = [
     path: "/contact",
     title: "Contact — telefon, email și locațiile | IT Bridge School",
     description:
-      `Telefon ${SCHOOL_PHONE}, email office@itbridgeschool.com. Două locații: Valea Oltului 73, ` +
-      "Sector 6, și Șos. București–Târgoviște 19A, Sector 1.",
+      `Telefon ${SCHOOL_PHONE}, email ${SCHOOL_EMAIL}. Două locații: Valea Oltului 73, Sector 6, ` +
+      "și Șos. București–Târgoviște 19A, Sector 1.",
     summary: "Telefon, email, program de lucru, adresele și hărțile celor două locații.",
     priority: 0.7,
   },
@@ -72,13 +75,10 @@ const LOCATIONS_INDEX: PageSeo = {
 const LOCATION_PAGES: PageSeo[] = [
   {
     path: "/locatii/drumul-taberei",
-    // The brand is dropped from the two location titles: at 72 and 86 characters
-    // they were being cut in the result page, and the phrase a parent types is
-    // worth more there than a suffix the h1 and the URL already carry.
-    title: "Cursuri de informatică pentru copii în Drumul Taberei",
+    title: "Cursuri de informatică pentru copii în Drumul Taberei | IT Bridge School",
     description:
-      "Valea Oltului 73, Sector 6, la 600–850 m de trei stații de metrou M5. Grupe mici, de la " +
-      `clasa 0 la Bacalaureat, ${PRICE_ONE_CHILD} lei pe lună.`,
+      "Cursuri de programare pentru copii pe Valea Oltului 73, Sector 6, la 600–850 m de trei " +
+      `stații de metrou M5. Grupe mici, ${PRICE_ONE_CHILD} lei pe lună.`,
     summary:
       "Locația din Drumul Taberei: cum ajungi cu metroul M5 sau cu autobuzul, program, preț și " +
       "întrebări frecvente.",
@@ -86,10 +86,10 @@ const LOCATION_PAGES: PageSeo[] = [
   },
   {
     path: "/locatii/straulesti",
-    title: "Cursuri de informatică pentru copii în Străulești",
+    title: "Cursuri de informatică pentru copii în Străulești | IT Bridge School",
     description:
-      "Șos. București–Târgoviște 19A, Sector 1 — pentru Străulești, Bucureștii Noi, Băneasa, " +
-      `Chitila și Mogoșoaia. Șase niveluri, ${PRICE_ONE_CHILD} lei pe lună.`,
+      "Cursuri de programare pentru copii pe Șos. București–Târgoviște 19A, Sector 1 — pentru " +
+      `Străulești, Bucureștii Noi, Chitila și Mogoșoaia. ${PRICE_ONE_CHILD} lei pe lună.`,
     summary:
       "Locația din Străulești: din ce zone vin copiii, cum ajungi cu mașina sau cu metroul M4, " +
       "program și preț.",

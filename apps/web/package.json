@@ -9,7 +9,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
-    "lint": "prettier --check app",
+    "lint": "prettier --check app shared server",
     "test": "vitest run",
     "test:watch": "vitest"
   },

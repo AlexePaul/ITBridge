@@ -28,16 +28,15 @@
           <p class="body-text">
             Trei stații de pe magistrala M5 sunt la distanță de mers pe jos: Valea Ialomiței, la
             aproximativ 600 de metri, Constantin Brâncuși, la aproximativ 650 de metri, și Râul
-            Doamnei, la aproximativ 850 de metri — între șapte și douăsprezece minute de mers. Mulți
-            elevi de gimnaziu vin singuri de la metrou.
+            Doamnei, la aproximativ 850 de metri — între șapte și douăsprezece minute de mers,
+            măsurat în linie dreaptă pe hartă.
           </p>
         </div>
         <div>
           <h3 class="block-title">Cu autobuzul sau cu mașina</h3>
           <p class="body-text">
             Stația de autobuz „Valea Oltului" e chiar pe stradă, iar stațiile „Valea Ialomiței" și
-            „Drumul Taberei 98" sunt la câteva minute de mers. Cu mașina se ajunge dinspre
-            Bulevardul Timișoara și dinspre Drumul Taberei.
+            „Drumul Taberei 98" sunt la câteva minute de mers.
           </p>
         </div>
       </div>
@@ -48,9 +47,9 @@
     <section class="section" data-reveal>
       <h2 class="kicker">Din ce zone vin copiii aici</h2>
       <p class="body-text measure-wide">
-        Locația din Drumul Taberei acoperă vestul Bucureștiului. Vin copii din Drumul Taberei,
-        Militari, Ghencea și Răzoare — tot Sectorul 6, plus zonele învecinate din Sectorul 5. Dacă
-        stai în nordul orașului, ai
+        Cei mai mulți copii vin din Drumul Taberei, pentru că sala e în cartier. Vin și din Militari
+        și din Ghencea, de unde drumul cu mașina e scurt, și din Răzoare. Dacă stai în nordul
+        orașului, ai
         <NuxtLink to="/locatii/straulesti" class="link">a doua locație, în Străulești</NuxtLink>, cu
         aceleași cursuri și aceleași prețuri.
       </p>
@@ -60,16 +59,16 @@
 
     <section class="section split split-even split-start" data-reveal>
       <div>
-        <h2 class="kicker">Ce învață copiii la această sală</h2>
-        <h3 class="section-title">Aceleași șase niveluri, de la clasa 0 la Bacalaureat</h3>
+        <h2 class="kicker">Cum se formează grupa</h2>
+        <h3 class="section-title">Nivelul se stabilește înainte de prima ședință</h3>
         <p class="body-text">
-          Programa e aceeași la ambele locații: de la primii pași pe calculator și desen digital, la
-          Office și siguranță online, apoi Scratch, algoritmi și primele pagini web, iar la
-          nivelurile mari C++, structuri de date, pregătire pentru olimpiadă și pentru Bacalaureat.
+          Nu alegi tu nivelul dintr-o listă. La prima discuție facem o evaluare scurtă, ca să vedem
+          de unde pornește copilul: unul de clasa a 6-a care a mai lucrat în Scratch nu intră în
+          aceeași grupă cu unul care deschide prima oară editorul.
         </p>
         <p class="body-text">
-          Ce grupe se țin efectiv aici în modulul curent și la ce ore se stabilește la înscriere —
-          sună-ne și îți spunem ce locuri sunt libere la Drumul Taberei.
+          Ce grupe rulează la Drumul Taberei într-un modul și la ce ore depinde de câți copii sunt
+          înscriși pe fiecare nivel. Sună-ne și îți spunem ce e liber aici, pe Valea Oltului.
         </p>
         <p class="body-text">
           <NuxtLink to="/cursuri" class="link">Vezi cele șase niveluri și prețurile →</NuxtLink>
@@ -171,7 +170,7 @@ import {
 } from "#shared/school";
 import { PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
 import { CONTENT_UPDATED, pageSeo } from "#shared/seo";
-import { breadcrumbNode, schoolGraph, webPageNode, withFaq } from "#shared/structured-data";
+import { breadcrumbNode, ids, schoolGraph, webPageNode, withFaq } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
 definePageMeta({ layout: "default" });
@@ -197,14 +196,8 @@ const faq = [
   {
     question: "Copilul meu n-a mai făcut niciodată programare. E o problemă?",
     answer:
-      "Nu. Trei dintre cele șase niveluri pornesc de la zero, iar la prima discuție facem o " +
-      "evaluare scurtă tocmai ca să nimerim grupa potrivită.",
-  },
-  {
-    question: "Ce grupe se țin la Drumul Taberei?",
-    answer:
-      "Depinde de modul: grupele se formează pe niveluri, în funcție de câți copii sunt înscriși " +
-      "pe fiecare. Sună-ne și îți spunem ce grupe rulează acum la Valea Oltului și la ce ore.",
+      "Nu. Primele două niveluri, clasa 0–2 și clasa 3–4, pornesc de la zero, iar la prima " +
+      "discuție facem o evaluare scurtă tocmai ca să nimerim grupa potrivită.",
   },
 ];
 
@@ -214,7 +207,7 @@ useSeo(seo);
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([
   ...schoolGraph(site),
-  withFaq(webPageNode(site, seo), faq),
+  withFaq(webPageNode(site, seo, ids.location(site, location.slug)), faq),
   breadcrumbNode(site, [
     { name: "Acasă", path: "/" },
     { name: "Locații", path: "/locatii" },

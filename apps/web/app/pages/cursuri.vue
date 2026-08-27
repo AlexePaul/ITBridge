@@ -189,7 +189,8 @@ const faq = [
     question: "Ce se întâmplă la o ședință?",
     answer:
       "Fiecare oră combină teorie pe scurt cu lucru practic: copiii pleacă de la fiecare ședință " +
-      "cu ceva construit de ei — un program, un joc, o pagină web.",
+      "cu ceva lucrat de ei — un desen digital la nivelurile mici, un joc sau un program la cele " +
+      "mari.",
   },
 ];
 

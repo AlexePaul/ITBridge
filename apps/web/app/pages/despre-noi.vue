@@ -123,10 +123,10 @@ const [paul, ana] = TEACHERS as [(typeof TEACHERS)[0], (typeof TEACHERS)[0]];
 // nothing at all.
 const values = [
   {
-    title: "Fiecare oră se termină cu ceva construit",
+    title: "Fiecare oră se termină cu ceva lucrat",
     body:
-      "Copilul pleacă de la fiecare ședință cu un program, un joc sau o pagină web făcută de el, " +
-      "nu cu notițe.",
+      "Copilul pleacă de la fiecare ședință cu ceva făcut de el — un desen digital la nivelurile " +
+      "mici, un joc în Scratch la mijloc, o pagină web sau un program la cele mari. Nu cu notițe.",
   },
   {
     title: "Aceiași doi profesori, tot modulul",

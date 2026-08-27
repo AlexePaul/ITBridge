@@ -2,9 +2,7 @@
   <div class="page">
     <section class="section-lead" data-reveal>
       <span class="kicker">Locația Străulești</span>
-      <h1 class="page-title">
-        Cursuri de informatică pentru copii în Străulești și Bucureștii Noi
-      </h1>
+      <h1 class="page-title">Cursuri de informatică pentru copii în Străulești</h1>
       <p class="lede">
         A doua sală a IT Bridge School e în nordul Bucureștiului, pe {{ location.street }},
         {{ location.district }}, în Străulești — la câteva minute de Bucureștii Noi. Aceleași șase
@@ -75,8 +73,9 @@
         <div>
           <h3 class="block-title">Gimnaziu și liceu</h3>
           <p class="body-text">
-            Algoritmi și Scratch la clasele 5–6, apoi C++, HTML, CSS și JavaScript la 7–8, iar la
-            liceu structuri de date, probleme de concurs, SQL și pregătire pentru Bacalaureat.
+            Algoritmi, Scratch și primele pagini web la clasele 5–6, apoi C++, HTML, CSS și
+            JavaScript la 7–8, iar la liceu structuri de date, probleme de concurs, SQL și pregătire
+            pentru Bacalaureat.
           </p>
         </div>
       </div>
@@ -173,7 +172,7 @@ import {
 } from "#shared/school";
 import { PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
 import { CONTENT_UPDATED, pageSeo } from "#shared/seo";
-import { breadcrumbNode, schoolGraph, webPageNode, withFaq } from "#shared/structured-data";
+import { breadcrumbNode, ids, schoolGraph, webPageNode, withFaq } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
 definePageMeta({ layout: "default" });
@@ -201,12 +200,6 @@ const faq = [
       "Da: aceleași șase niveluri, aceeași programă și același preț. Diferă doar sala și orarul " +
       "grupelor, care depinde de câți copii sunt înscriși pe fiecare nivel la fiecare locație.",
   },
-  {
-    question: "Ce grupe se țin în Străulești?",
-    answer:
-      "Se stabilește la începutul fiecărui modul, în funcție de înscrieri. Sună-ne și îți spunem " +
-      "ce grupe rulează acum aici și la ce ore.",
-  },
 ];
 
 const seo = pageSeo("/locatii/straulesti");
@@ -215,7 +208,7 @@ useSeo(seo);
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([
   ...schoolGraph(site),
-  withFaq(webPageNode(site, seo), faq),
+  withFaq(webPageNode(site, seo, ids.location(site, location.slug)), faq),
   breadcrumbNode(site, [
     { name: "Acasă", path: "/" },
     { name: "Locații", path: "/locatii" },

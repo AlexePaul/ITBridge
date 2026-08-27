@@ -12,6 +12,7 @@ import {
   COURSE_LEVELS,
   MODULE_WEEKS_MIN,
   PRICE_ONE_CHILD,
+  PRICE_TWO_CHILDREN,
   SESSION_HOURS,
   type CourseLevel,
 } from "./courses";
@@ -61,7 +62,7 @@ export const organizationNode = (site: string): Node => ({
     "pregătirea pentru Bacalaureat și olimpiade, în grupe mici, la două locații.",
   telephone: SCHOOL_PHONE_E164,
   email: SCHOOL_EMAIL,
-  priceRange: `${PRICE_ONE_CHILD} RON`,
+  priceRange: `${PRICE_ONE_CHILD}–${PRICE_TWO_CHILDREN} RON`,
   currenciesAccepted: "RON",
   address: postalAddress(SCHOOL_LOCATIONS[0]!),
   sameAs: [SCHOOL_SOCIAL.instagram, SCHOOL_SOCIAL.facebook, SCHOOL_SOCIAL.tiktok],
@@ -87,7 +88,7 @@ export const locationNode = (site: string, location: SchoolLocation): Node => ({
   hasMap: location.mapLink,
   areaServed: location.areaServed.map((area) => ({ "@type": "Place", name: area })),
   openingHoursSpecification: openingHours(),
-  priceRange: `${PRICE_ONE_CHILD} RON`,
+  priceRange: `${PRICE_ONE_CHILD}–${PRICE_TWO_CHILDREN} RON`,
   // No image: the photographs on file are of the school, but which room is
   // which has not been confirmed, and a LocalBusiness node claiming the wrong
   // interior is worse than one claiming none.
@@ -115,7 +116,9 @@ export const websiteNode = (site: string): Node => ({
 
 export const webPageNode = (
   site: string,
-  page: { path: string; title: string; description: string }
+  page: { path: string; title: string; description: string },
+  /** A location page is about that address, not only about the school. */
+  about?: string
 ): Node => ({
   "@type": "WebPage",
   "@id": ids.page(site, page.path),
@@ -123,7 +126,7 @@ export const webPageNode = (
   name: page.title,
   description: page.description,
   isPartOf: { "@id": ids.website(site) },
-  about: { "@id": ids.organization(site) },
+  about: { "@id": about ?? ids.organization(site) },
   inLanguage: "ro-RO",
 });
 
@@ -181,8 +184,8 @@ export const courseNode = (site: string, course: CourseLevel): Node => ({
   hasCourseInstance: {
     "@type": "CourseInstance",
     courseMode: "Onsite",
-    // The workload is the module, not one session: MODULE_WEEKS_MIN sessions of
-    // SESSION_HOURS each, stated at the floor of the 6–8 week range.
+    // One 1.5-hour session a week, for the 6 weeks at the floor of the 6–8
+    // week range. courseWorkload is the total; the schedule is the rhythm.
     courseWorkload: isoDuration(SESSION_HOURS * MODULE_WEEKS_MIN),
     courseSchedule: {
       "@type": "Schedule",
@@ -191,9 +194,10 @@ export const courseNode = (site: string, course: CourseLevel): Node => ({
       duration: isoDuration(SESSION_HOURS),
     },
     inLanguage: "ro-RO",
-    // Deliberately no `location`: the six levels exist, but which of them runs
-    // at which address in a given module is set at enrolment, and the pages say
-    // so. Naming both addresses here would assert twelve concurrent groups.
+    // No `location`: every level exists at the school, but which of them runs
+    // at which address in a given module is set at enrolment, and the pages
+    // say exactly that. Naming both addresses would assert twelve concurrent
+    // groups. The two addresses are in the graph as their own nodes.
   },
 });
 
@@ -217,9 +221,6 @@ export const courseListNode = (site: string): Node => ({
     item: courseNode(site, course),
   })),
 });
-
-export const allCourseNodes = (site: string) =>
-  COURSE_LEVELS.map((course) => courseNode(site, course));
 
 /**
  * Folded into the page node rather than emitted beside it: FAQPage is a
@@ -248,7 +249,3 @@ export const personNode = (
   image: `${trimSlash(site)}${teacher.image}`,
   worksFor: { "@id": ids.organization(site) },
 });
-
-/** Used by llms.txt and by the location pages' summary line. */
-export const locationSummary = (location: SchoolLocation) =>
-  `${SCHOOL_NAME} — ${location.neighbourhood}, ${formatAddress(location)}`;

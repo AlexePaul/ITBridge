@@ -26,7 +26,13 @@ export const COURSE_LEVELS: CourseLevel[] = [
     topics:
       "Cunoașterea calculatorului, folosirea mouse-ului și a tastaturii, jocuri educative, " +
       "primele concepte de bază și creativitate prin desen digital 2D și 3D.",
-    teaches: ["Utilizarea calculatorului", "Desen digital 2D", "Modelare 3D", "Jocuri educative"],
+    teaches: [
+      "Utilizarea calculatorului",
+      "Desen digital 2D",
+      "Modelare 3D cu Tinkercad",
+      "Canva",
+      "Jocuri educative",
+    ],
   },
   {
     slug: "clasa-3-4",

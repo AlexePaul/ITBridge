@@ -21,8 +21,6 @@ export interface SchoolLocation {
   name: string;
   /** The neighbourhood a parent would search for. */
   neighbourhood: string;
-  /** How the area is named in titles — sometimes wider than the neighbourhood. */
-  searchName: string;
   street: string;
   district: string;
   postalCode: string;
@@ -68,7 +66,6 @@ export const SCHOOL_LOCATIONS: SchoolLocation[] = [
     slug: "drumul-taberei",
     name: "Drumul Taberei",
     neighbourhood: "Drumul Taberei",
-    searchName: "Drumul Taberei",
     street: "Strada Valea Oltului 73",
     district: "Sector 6",
     postalCode: "061971",
@@ -86,7 +83,6 @@ export const SCHOOL_LOCATIONS: SchoolLocation[] = [
     slug: "straulesti",
     name: "Străulești",
     neighbourhood: "Străulești",
-    searchName: "Străulești și Bucureștii Noi",
     street: "Șoseaua București–Târgoviște 19A",
     district: "Sector 1",
     postalCode: "013534",
