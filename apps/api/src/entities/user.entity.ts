@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToOne } from 'typeorm';
 import { Profile } from './profile.entity';
+import { Role } from '../enum/role.enum';
 
 @Entity('users')
 export class User {
@@ -12,8 +13,10 @@ export class User {
     @Column({ type: 'varchar', length: 255 })
     passwordHash: string;
 
-    @Column({ type: 'varchar', length: 20 })
-    role: 'ADMIN' | 'PARENT';
+    // An enum column, so `'admin'` in the wrong case cannot be written at all. The `Role` enum
+    // already existed and was used everywhere except here, where the type was a bare string union.
+    @Column({ type: 'enum', enum: Role })
+    role: Role;
 
     @CreateDateColumn({
         type: 'timestamptz',

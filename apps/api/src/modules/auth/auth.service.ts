@@ -9,6 +9,7 @@ import { LoginDto } from 'src/modules/auth/dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
 import { RefreshTokenDto } from 'src/modules/auth/dto/refreshToken.dto';
 import { jwtConstants } from 'src/constants/jwtConstants';
+import { Role } from 'src/enum/role.enum';
 import { SessionService } from './session.service';
 
 @Injectable()
@@ -40,7 +41,7 @@ export class AuthService {
         const user = this.userRepository.create({
             username: registerDto.username,
             passwordHash: passwordHash,
-            role: 'PARENT',
+            role: Role.PARENT,
         });
         await this.userRepository.save(user);
         const tokens = this.generateTokens(user.id, user.username, user.role);

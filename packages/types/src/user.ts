@@ -1,7 +1,10 @@
 import type { ISODateTime } from './common';
 
 /** Mirrors `Role` in `apps/api/src/enum/role.enum.ts`. */
-export type Role = 'ADMIN' | 'PARENT';
+export enum Role {
+    PARENT = 'PARENT',
+    ADMIN = 'ADMIN',
+}
 
 export interface User {
     id: number;

@@ -10,6 +10,8 @@ import { Invoice, InvoiceStatus } from '../entities/invoice.entity';
 import { Payment } from '../entities/payment.entity';
 import { Discount } from '../entities/discount.entity';
 import { Role } from '../enum/role.enum';
+import { Weekday } from '../enum/weekday.enum';
+import { AttendanceType } from '../enum/attendance-type.enum';
 
 /**
  * Fills a local database with data that looks like the real thing, so the admin screens are not
@@ -29,13 +31,13 @@ const LAST_NAMES = ['Popescu', 'Ionescu', 'Dumitrescu', 'Georgescu', 'Stan', 'Ma
 const CHILD_NAMES = ['Maria', 'Andrei', 'Sofia', 'Matei', 'Ilinca', 'Luca', 'Daria', 'Vlad', 'Ruxandra', 'Tudor'];
 
 /** Weekly timetable: three afternoon slots on four weekdays, split by age band. */
-const GROUP_SLOTS: { weekday: number; startTime: string; endTime: string; minAge: number; maxAge: number }[] = [
-    { weekday: 1, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10 },
-    { weekday: 1, startTime: '18:00:00', endTime: '19:30:00', minAge: 11, maxAge: 14 },
-    { weekday: 2, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10 },
-    { weekday: 3, startTime: '16:00:00', endTime: '17:30:00', minAge: 8, maxAge: 12 },
-    { weekday: 3, startTime: '18:00:00', endTime: '19:30:00', minAge: 13, maxAge: 16 },
-    { weekday: 4, startTime: '17:00:00', endTime: '18:30:00', minAge: 9, maxAge: 13 },
+const GROUP_SLOTS: { weekday: Weekday; startTime: string; endTime: string; minAge: number; maxAge: number }[] = [
+    { weekday: Weekday.MONDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10 },
+    { weekday: Weekday.MONDAY, startTime: '18:00:00', endTime: '19:30:00', minAge: 11, maxAge: 14 },
+    { weekday: Weekday.TUESDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10 },
+    { weekday: Weekday.WEDNESDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 8, maxAge: 12 },
+    { weekday: Weekday.WEDNESDAY, startTime: '18:00:00', endTime: '19:30:00', minAge: 13, maxAge: 16 },
+    { weekday: Weekday.THURSDAY, startTime: '17:00:00', endTime: '18:30:00', minAge: 9, maxAge: 13 },
 ];
 
 function assertLocalDatabase(dataSource: DataSource): void {
@@ -191,7 +193,7 @@ export async function seed(dataSource: DataSource): Promise<void> {
                     group: child.group,
                     date,
                     startTime: child.group.startTime,
-                    type: 'regular',
+                    type: AttendanceType.REGULAR,
                     present,
                 }),
             );

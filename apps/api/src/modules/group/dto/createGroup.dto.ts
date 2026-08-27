@@ -1,12 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsString, Max, Min, Matches } from 'class-validator';
+import { IsEnum, IsNumber, IsString, Matches } from 'class-validator';
+import { Weekday } from 'src/enum/weekday.enum';
 
 export class createGroupDto {
-    @ApiProperty({ example: 1, description: 'ISO weekday (1 = Monday, 7 = Sunday)' })
-    @IsNumber()
-    @Min(1)
-    @Max(7)
-    weekday: number;
+    @ApiProperty({ example: Weekday.MONDAY, enum: Weekday, description: 'ISO weekday (1 = Monday, 7 = Sunday)' })
+    @IsEnum(Weekday)
+    weekday: Weekday;
 
     @ApiProperty({ example: '09:00', description: 'Start time in HH:MM format' })
     @IsString()

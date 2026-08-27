@@ -1,4 +1,5 @@
 export * from './common';
+export * from './weekday';
 export * from './user';
 export * from './profile';
 export * from './child';

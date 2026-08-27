@@ -16,6 +16,34 @@ import { dataSourceOptions } from '../src/data-source';
  * missing or broken fails the test run rather than being papered over.
  */
 export default async function globalSetup(): Promise<void> {
+    // jest reports a failure in here as a bare `AggregateError` with no cause attached, which is
+    // useless: the usual reason is that `docker compose up -d` has not been run, or MinIO is up but
+    // its container never started. Each step says what it was doing and what to do about it.
+    await withContext('connecting to Postgres and preparing the test database', prepareDatabase);
+    await withContext('creating the object storage bucket', ensureBucket);
+}
+
+async function withContext(what: string, step: () => Promise<void>): Promise<void> {
+    try {
+        await step();
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(
+            [
+                `Test setup failed while ${what}.`,
+                `  ${reason}`,
+                '',
+                '  Both Postgres and MinIO have to be running:',
+                '    docker compose up -d',
+                '',
+                '  If a port is already taken, set MINIO_PORT / MINIO_CONSOLE_PORT in .env and',
+                '  point AWS_S3_ENDPOINT at the same port.',
+            ].join('\n'),
+        );
+    }
+}
+
+async function prepareDatabase(): Promise<void> {
     const dbName = process.env.TEST_DB_NAME ?? 'itbridge_test';
 
     const admin = new Client({
@@ -38,8 +66,6 @@ export default async function globalSetup(): Promise<void> {
     await dataSource.initialize();
     await dataSource.runMigrations();
     await dataSource.destroy();
-
-    await ensureBucket();
 }
 
 /**

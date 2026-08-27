@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsNumber, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Matches } from 'class-validator';
+import { Weekday } from 'src/enum/weekday.enum';
 
 /**
  * Every field is optional: this is a partial update. Before validation was enabled the decorators
@@ -7,12 +8,10 @@ import { IsBoolean, IsNumber, IsOptional, IsString, Matches, Max, Min } from 'cl
  * rejected every partial update with "startTime must be a string".
  */
 export class updateGroupDto {
-    @ApiProperty({ required: false, example: 1, description: 'ISO weekday (1 = Monday, 7 = Sunday)' })
+    @ApiProperty({ required: false, example: Weekday.MONDAY, enum: Weekday, description: 'ISO weekday (1 = Monday, 7 = Sunday)' })
     @IsOptional()
-    @IsNumber()
-    @Min(1)
-    @Max(7)
-    weekday?: number;
+    @IsEnum(Weekday)
+    weekday?: Weekday;
 
     @ApiProperty({ required: false, example: '09:00', description: 'Start time in HH:MM format' })
     @IsOptional()
