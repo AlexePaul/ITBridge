@@ -110,7 +110,7 @@
       <h2 class="kicker">Ce spun părinții</h2>
       <div class="cols-2">
         <figure v-for="entry in TESTIMONIALS.courses" :key="entry.source">
-          <blockquote class="quote">“{{ entry.quote }}”</blockquote>
+          <blockquote class="quote">„{{ entry.quote }}”</blockquote>
           <figcaption class="quote-source">— {{ entry.source }}</figcaption>
         </figure>
       </div>

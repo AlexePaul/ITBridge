@@ -81,3 +81,26 @@ export const fieldErrorsOf = (error: z.ZodError): Partial<Record<ContactField, s
   }
   return errors;
 };
+
+/**
+ * What the page should show when `/api/contact` refuses.
+ *
+ * Nitro nests the payload one level deeper than it looks. `createError({ data })`
+ * produces a response body of `{ statusCode, statusMessage, message, data }`,
+ * where `message` is the **English** `statusMessage` that h3 copies onto the
+ * error, and the `data` the route passed is a sibling of it. ofetch then hands
+ * that whole body to the client as `error.data` — so the route's Romanian copy
+ * lives at `error.data.data`, and reading `error.data.message` gets
+ * "Contact form not configured" instead.
+ *
+ * That is exactly the bug this function exists to make untestable to reintroduce:
+ * only our own payload is ever Romanian, so nothing else is read out of the
+ * body. A network error, which carries no body at all, falls back.
+ */
+export interface ContactErrorPayload {
+  message?: string;
+  fieldErrors?: Partial<Record<ContactField, string>>;
+}
+
+export const contactErrorPayload = (error: unknown): ContactErrorPayload =>
+  (error as { data?: { data?: ContactErrorPayload } } | null | undefined)?.data?.data ?? {};

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   CONTACT_SUBJECTS,
+  contactErrorPayload,
   contactMessageSchema,
   fieldErrorsOf,
   replyToAddress,
@@ -102,5 +103,53 @@ describe("rateLimit", () => {
   it("reports the seconds left, for Retry-After", () => {
     rateLimit("ip", 1, 60_000, 0);
     expect(rateLimit("ip", 1, 60_000, 10_000).retryAfter).toBe(50);
+  });
+});
+
+describe("contactErrorPayload", () => {
+  /**
+   * The body Nitro actually sends for `createError({ statusCode, statusMessage,
+   * data })`. `message` is the English `statusMessage` h3 copies onto the error;
+   * the route's own payload is the sibling `data`. ofetch hands this whole
+   * object to the client as `error.data`.
+   *
+   * This shape is the thing that broke: the page read `error.data.message` and
+   * showed Romanian parents "Contact form not configured".
+   */
+  const nitroError = (statusMessage: string, data: unknown) => ({
+    data: { error: true, statusCode: 503, statusMessage, message: statusMessage, data },
+  });
+
+  it("reads the route's message, not the English statusMessage beside it", () => {
+    const error = nitroError("Contact form not configured", {
+      message: "Nu am putut trimite mesajul.",
+    });
+    expect(contactErrorPayload(error).message).toBe("Nu am putut trimite mesajul.");
+  });
+
+  it("never surfaces the English statusMessage, whatever the body carries", () => {
+    const error = nitroError("Too many requests", { message: "Ai trimis deja câteva mesaje." });
+    expect(contactErrorPayload(error).message).not.toBe("Too many requests");
+  });
+
+  it("carries fieldErrors through, so a 400 lands under the right fields", () => {
+    const error = nitroError("Invalid contact message", {
+      message: "Verifică datele din formular.",
+      fieldErrors: { name: "Scrie-ne numele tău" },
+    });
+    expect(contactErrorPayload(error).fieldErrors).toEqual({ name: "Scrie-ne numele tău" });
+  });
+
+  it("returns nothing for a network error, which carries no body at all", () => {
+    expect(contactErrorPayload(new Error("Failed to fetch"))).toEqual({});
+  });
+
+  it("returns nothing rather than throwing on null or undefined", () => {
+    expect(contactErrorPayload(null)).toEqual({});
+    expect(contactErrorPayload(undefined)).toEqual({});
+  });
+
+  it("ignores a body that has no nested payload of ours", () => {
+    expect(contactErrorPayload({ data: { statusCode: 500, message: "Server Error" } })).toEqual({});
   });
 });

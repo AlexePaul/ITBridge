@@ -1,5 +1,12 @@
 import { PUBLIC_PAGES } from "#shared/seo";
-import { COURSE_LEVELS, PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
+import {
+  COURSE_LEVELS,
+  MODULE_WEEKS_MAX,
+  MODULE_WEEKS_MIN,
+  PRICE_ONE_CHILD,
+  PRICE_TWO_CHILDREN,
+  SESSION_HOURS,
+} from "#shared/courses";
 import { TEACHERS } from "#shared/teachers";
 import {
   formatAddress,
@@ -61,10 +68,10 @@ export default defineEventHandler((event) => {
 
 Date despre școală, valabile la data ultimei actualizări a site-ului:
 
-- Un modul durează 6–8 săptămâni, cu o ședință de 1,5 ore pe săptămână, în grupe mici.
+- Un modul durează ${MODULE_WEEKS_MIN}–${MODULE_WEEKS_MAX} săptămâni, cu o ședință de ${String(SESSION_HOURS).replace(".", ",")} ore pe săptămână, în grupe mici.
 - ${PRICE_ONE_CHILD} lei pe lună pentru un copil; ${PRICE_TWO_CHILDREN} lei pe lună pentru doi copii din aceeași familie (al doilea copil plătește ${PRICE_TWO_CHILDREN - PRICE_ONE_CHILD} lei).
 - Tehnologii și subiecte acoperite: ${taught}.
-- Python nu face parte din programa standard, dar se poate preda la cerere, dacă un părinte îl vrea pentru copil.
+- Se poate preda și Python. În general recomandăm C și C++, fiindcă acelea se dau la Bacalaureat și la olimpiada de informatică.
 - Telefon: ${SCHOOL_PHONE}. Email: ${SCHOOL_EMAIL}.
 - Program: ${SCHOOL_HOURS.join("; ")}.
 - Profesori:

@@ -57,7 +57,7 @@
 
     <section class="section" data-reveal>
       <figure>
-        <blockquote class="quote measure-wide">“{{ TESTIMONIALS.about.quote }}”</blockquote>
+        <blockquote class="quote measure-wide">„{{ TESTIMONIALS.about.quote }}”</blockquote>
         <figcaption class="quote-source">— {{ TESTIMONIALS.about.source }}</figcaption>
       </figure>
     </section>

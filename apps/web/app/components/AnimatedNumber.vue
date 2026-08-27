@@ -52,29 +52,37 @@ onMounted(() => {
   if (!root.value) return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-  // Anything already on screen counts straight away. Zeroing every figure and
-  // then waiting for the 0.4 threshold leaves one that is on screen but only
-  // partly visible — and never scrolled further — reading "0" for good, which
-  // on /cursuri is the price. A figure that never animated beats a wrong one.
-  const rect = root.value.getBoundingClientRect();
   display.value = render(0);
 
-  if (rect.top < window.innerHeight && rect.bottom > 0) {
-    count(performance.now());
-    return;
-  }
+  // Measured a frame late, because on a client-side navigation the router
+  // resets the scroll after mount — in the same tick the rect still describes
+  // where this figure sat on the previous page, and a figure that is really
+  // below the fold would count up unseen.
+  requestAnimationFrame(() => {
+    if (!root.value) return;
 
-  observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting && entry.boundingClientRect.bottom >= 0) continue;
-        observer?.disconnect();
-        count(performance.now());
-      }
-    },
-    { threshold: 0.4 }
-  );
-  observer.observe(root.value);
+    // Anything already on screen counts straight away. Zeroing every figure and
+    // then waiting for the 0.4 threshold leaves one that is on screen but only
+    // partly visible — and never scrolled further — reading "0" for good, which
+    // on /cursuri is the price. A figure that never animated beats a wrong one.
+    const rect = root.value.getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) {
+      count(performance.now());
+      return;
+    }
+
+    observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting && entry.boundingClientRect.bottom >= 0) continue;
+          observer?.disconnect();
+          count(performance.now());
+        }
+      },
+      { threshold: 0.4 }
+    );
+    observer.observe(root.value);
+  });
 });
 
 onBeforeUnmount(() => {

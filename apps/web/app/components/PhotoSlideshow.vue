@@ -8,6 +8,7 @@
   >
     <figure
       class="plate slideshow"
+      :aria-live="isPlaying ? 'off' : 'polite'"
       @mouseenter="isHovered = true"
       @mouseleave="isHovered = false"
       @touchstart.passive="onTouchStart"
@@ -54,6 +55,8 @@
           class="dot"
           :aria-current="index === current ? 'true' : undefined"
           :aria-label="`Fotografia ${index + 1} din ${photos.length}`"
+          @mouseenter="preloadOnly(index)"
+          @focus="preloadOnly(index)"
           @click="jumpTo(index)"
         ></button>
       </div>
@@ -103,6 +106,17 @@ const preload = (index: number) => {
   const next = new Set(loaded.value);
   for (const offset of [-1, 0, 1]) next.add((index + offset + count) % count);
   loaded.value = next;
+};
+
+/**
+ * The dots can jump anywhere, and a jump of two or more assigned a src in the
+ * same tick the slide gained `is-current` — so that one photograph faded in
+ * while it was still downloading. Pointing at or tabbing to a dot is enough
+ * warning to fetch it.
+ */
+const preloadOnly = (index: number) => {
+  if (loaded.value.has(index)) return;
+  loaded.value = new Set(loaded.value).add(index);
 };
 
 const nextIndex = computed(() => (current.value + 1) % props.photos.length);
