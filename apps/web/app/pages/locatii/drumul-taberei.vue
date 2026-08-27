@@ -67,18 +67,18 @@
           aceeași grupă cu unul care deschide prima oară editorul.
         </p>
         <p class="body-text">
-          Ce grupe rulează la Drumul Taberei într-un modul și la ce ore depinde de câți copii sunt
-          înscriși pe fiecare nivel. Sună-ne și îți spunem ce e liber aici, pe Valea Oltului.
+          Orarul se face înainte de începerea modulului, în funcție de câți copii sunt înscriși pe
+          fiecare nivel. Dacă vrei un loc la Drumul Taberei, sună-ne și te anunțăm ce grupe se
+          formează și la ce ore.
         </p>
         <p class="body-text">
           <NuxtLink to="/cursuri" class="link">Vezi cele șase niveluri și prețurile →</NuxtLink>
         </p>
       </div>
-      <!-- TODO: replace with a photograph of this room. -->
       <figure class="plate">
         <img
-          src="/images/clasa-02.jpg"
-          alt="Elevi la o oră de informatică la IT Bridge School"
+          :src="location.image"
+          :alt="location.imageAlt"
           width="1200"
           height="1171"
           loading="lazy"

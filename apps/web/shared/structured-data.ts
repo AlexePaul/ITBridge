@@ -89,9 +89,7 @@ export const locationNode = (site: string, location: SchoolLocation): Node => ({
   areaServed: location.areaServed.map((area) => ({ "@type": "Place", name: area })),
   openingHoursSpecification: openingHours(),
   priceRange: `${PRICE_ONE_CHILD}–${PRICE_TWO_CHILDREN} RON`,
-  // No image: the photographs on file are of the school, but which room is
-  // which has not been confirmed, and a LocalBusiness node claiming the wrong
-  // interior is worse than one claiming none.
+  image: `${trimSlash(site)}${location.image}`,
 });
 
 /**

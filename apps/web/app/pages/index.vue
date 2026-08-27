@@ -111,15 +111,19 @@ const photos = [
     src: "/images/paul-ana.jpg",
     alt: "Alexe Vasile Paul și Alexe Ana Iulia, profesorii IT Bridge School",
   },
-  { src: "/images/clasa-01.jpg", alt: "Trei elevi lucrând la laptopuri, în timpul orei" },
-  { src: "/images/clasa-02.jpg", alt: "Recapitulare cu rebus, proiectată pe tablă" },
+  { src: "/images/clasa-01.jpg", alt: "Oră la sala din Drumul Taberei, elevi la laptopuri" },
+  { src: "/images/clasa-02.jpg", alt: "Recapitulare cu rebus, la sala din Drumul Taberei" },
   {
-    src: "/images/clasa-03.jpg",
-    alt: "Oră despre istoria calculatoarelor, cu profesorul la tablă",
+    src: "/images/straulesti-01.jpg",
+    alt: "Oră la sala din Străulești, cu profesorul lângă un elev",
   },
   {
-    src: "/images/clasa-04.jpg",
-    alt: "Oră de programare în Scratch, cu proiectul afișat pe tablă",
+    src: "/images/clasa-03.jpg",
+    alt: "Oră despre istoria calculatoarelor, la sala din Drumul Taberei",
+  },
+  {
+    src: "/images/straulesti-02.jpg",
+    alt: "Oră despre combinațiile de taste, la sala din Străulești",
   },
 ];
 

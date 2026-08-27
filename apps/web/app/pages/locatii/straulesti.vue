@@ -33,13 +33,12 @@
     <hr class="rule" />
 
     <section class="section split split-even split-start" data-reveal>
-      <!-- TODO: replace with a photograph of this room. -->
       <figure class="plate">
         <img
-          src="/images/clasa-04.jpg"
-          alt="Oră de programare în Scratch la IT Bridge School"
-          width="1200"
-          height="1113"
+          :src="location.image"
+          :alt="location.imageAlt"
+          width="900"
+          height="910"
           loading="lazy"
         />
       </figure>
@@ -80,8 +79,9 @@
         </div>
       </div>
       <p class="body-text measure-wide">
-        Ce grupe se țin efectiv în Străulești în modulul curent și la ce ore se stabilește la
-        înscriere. <NuxtLink to="/cursuri" class="link">Vezi programa completă →</NuxtLink>
+        Grupele din Străulești se formează înainte de fiecare modul, iar orarul se stabilește
+        atunci, în funcție de înscrieri. Sună-ne dacă vrei un loc și te anunțăm.
+        <NuxtLink to="/cursuri" class="link">Vezi programa completă →</NuxtLink>
       </p>
     </section>
 

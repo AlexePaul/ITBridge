@@ -32,6 +32,9 @@ export interface SchoolLocation {
   areaServed: string[];
   mapEmbedUrl: string;
   mapLink: string;
+  /** A photograph of this room, not of the other one. */
+  image: string;
+  imageAlt: string;
 }
 
 export const SCHOOL_NAME = "IT Bridge School";
@@ -42,17 +45,17 @@ export const SCHOOL_PHONE_HREF = `tel:${SCHOOL_PHONE_E164}`;
 export const SCHOOL_EMAIL = "office@itbridgeschool.com";
 
 export const SCHOOL_SOCIAL = {
-  instagram: "https://www.instagram.com/itbridgeschool",
-  facebook: "https://www.facebook.com/share/19z5TxEu7F/",
-  tiktok: "https://www.tiktok.com/@itbridgeschool",
+  instagram: "https://www.instagram.com/bridgeschool.cursurideit/",
+  facebook: "https://www.facebook.com/profile.php?id=61583759176265",
+  tiktok: "https://www.tiktok.com/@bridgeschool.it.cursuri",
 };
 
 export const SCHOOL_OPENING_HOURS: OpeningHours[] = [
   {
     days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
     opens: "09:00",
-    closes: "18:00",
-    label: "Luni–vineri: 9:00–18:00",
+    closes: "20:00",
+    label: "Luni–vineri: 9:00–20:00",
   },
   { days: ["Saturday"], opens: "10:00", closes: "14:00", label: "Sâmbătă: 10:00–14:00" },
   { days: ["Sunday"], opens: null, closes: null, label: "Duminică: închis" },
@@ -78,6 +81,8 @@ export const SCHOOL_LOCATIONS: SchoolLocation[] = [
       "https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d5699.683885857019!2d26.013984!3d44.415889!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x40b20041575f3945%3A0xfb045a6b8c5a127!2sStrada%20Valea%20Oltului%2073%2C%20Bucure%C8%99ti%2C%20Romania!5e0!3m2!1sen!2sus!4v1768175036715!5m2!1sen!2sus",
     mapLink:
       "https://www.google.com/maps/search/?api=1&query=Strada+Valea+Oltului+73%2C+Bucure%C8%99ti",
+    image: "/images/clasa-02.jpg",
+    imageAlt: "Sala de curs din Drumul Taberei, pe Strada Valea Oltului 73",
   },
   {
     slug: "straulesti",
@@ -103,6 +108,8 @@ export const SCHOOL_LOCATIONS: SchoolLocation[] = [
       "https://maps.google.com/maps?q=Soseaua%20Bucuresti-Targoviste%2019A%2C%20Bucuresti&z=16&hl=ro&output=embed",
     mapLink:
       "https://www.google.com/maps/search/?api=1&query=%C8%98oseaua+Bucure%C8%99ti-T%C3%A2rgovi%C8%99te+19A%2C+Bucure%C8%99ti",
+    image: "/images/straulesti-01.jpg",
+    imageAlt: "Sala de curs din Străulești, pe Șoseaua București–Târgoviște 19A",
   },
 ];
 

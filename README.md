@@ -139,8 +139,12 @@ Două bug-uri sunt documentate ca teste `it.failing` — trec cât timp bug-ul e
 e reparat. Reparațiile țin de [E05](docs/epics/E05-robustete-backend.md) și
 [E15](docs/epics/E15-pricing-facturare.md):
 
-- **Calculul de preț nu are ramură pentru trei sau mai mulți copii**, deci suma iese 0, iar
-  reducerile o duc pe negativ.
+- **Calculul de preț nu respectă regula convenită și nu are ramură pentru trei sau mai mulți
+  copii.** Regula, și sursa de adevăr pentru orice discuție despre prețuri, e **350 de lei pe lună
+  pentru primul copil și 250 pentru fiecare frate** — deci 600 pentru doi, cât scrie și pe site.
+  Codul îi trece pe amândoi la 250 și scoate 500, iar de la trei copii în sus suma iese 0 și
+  reducerile o duc pe negativ. Backend-ul nu rulează momentan; până rulează, documentația e cea
+  corectă, nu codul.
 - **Un al doilea profil fără email și telefon primește 409.** Verificarea de unicitate face
   `findOne({ where: { email: undefined } })`, iar TypeORM elimină condiția nedefinită — interogarea
   devine „găsește orice profil". Blochează fluxul în care adminul creează profiluri fără date de

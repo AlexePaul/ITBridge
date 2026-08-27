@@ -156,8 +156,10 @@ de azi — 350 pentru primul copil, 250 pentru fiecare frate — și tot ce se s
 la modul e unitatea, nu principiul. Ce dispare e ieftinirea retroactivă a primului copil, de la 350
 la 250, pe care o face codul actual.
 
-Reducerea pe frate iese ceva mai mare în modelul lunar (250 din 350 înseamnă −28,6%) decât cei −25%
-de mai sus, așa că site-ul public o anunță ca „peste 25%" — o formulare adevărată în ambele modele.
+Site-ul public nu anunță niciun procent. Arată cele două sume una lângă alta — 350 de lei pe
+lună pentru un copil, 600 pentru doi — pentru că o reducere scrisă ca procent se citește față de
+baza pe care o are cititorul în minte, iar „250 din 350" și „600 în loc de 700" dau două procente
+diferite pentru aceeași ofertă.
 
 **Acceptanță:** teste pentru unu, doi, trei, patru și cinci copii, cu sumele din tabel. Nicio
 combinație de copii și reduceri nu produce sumă zero sau negativă.

@@ -74,10 +74,11 @@
         </div>
         <div>
           <p class="stat-num">
-            <AnimatedNumber :value="`peste ${secondChildDiscount}%`" />
+            <AnimatedNumber :value="`${PRICE_TWO_CHILDREN} lei`" />
           </p>
           <p class="stat-label">
-            Reducere la al doilea copil — {{ PRICE_TWO_CHILDREN }} lei pe lună pentru doi
+            Pe lună, pentru doi copii din aceeași familie — al doilea plătește
+            {{ PRICE_TWO_CHILDREN - PRICE_ONE_CHILD }} lei
           </p>
         </div>
         <p class="body-text measure">
@@ -142,11 +143,9 @@ definePageMeta({
 
 useReveal();
 
-// The second child is charged the difference — 250 instead of 350. The saving
-// is announced in steps of five, rounded down, so the number stays round and
-// never promises more than the family actually saves.
-const secondChildSaving = 1 - (PRICE_TWO_CHILDREN - PRICE_ONE_CHILD) / PRICE_ONE_CHILD;
-const secondChildDiscount = Math.floor((secondChildSaving * 100) / 5) * 5;
+// The two figures are shown side by side rather than as a percentage: a
+// discount printed in stat-size type is read against whichever base the reader
+// has in mind, and 250-off-350 and 600-instead-of-700 are different numbers.
 
 const steps = [
   "Ne contactezi și discutăm nevoile copilului",
