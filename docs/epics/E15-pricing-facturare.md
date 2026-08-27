@@ -10,12 +10,17 @@ Modelul de facturare actual e lunar, cu prețuri hardcodate, și are un bug care
 
 ```ts
 if (profile.children.length === 1) totalAmount = 350;
-else if (profile.children.length === 2) totalAmount = 250 * profile.children.length;
+else if (profile.children.length === 2)
+  totalAmount = 250 * profile.children.length;
 ```
 
 **Nu există ramură pentru trei sau mai mulți copii.** `totalAmount` rămâne `0`, iar reducerile
 aplicate imediat după îl duc pe negativ. O familie cu trei copii primește o factură de zero lei sau
 mai puțin.
+
+Nici suma pentru doi copii nu e cea convenită. Regula e **350 pentru primul copil și 250 pentru
+fiecare frate**, adică 600 de lei pe lună pentru doi. Codul îi trece pe amândoi la 250, scoate 500
+și ieftinește retroactiv și primul copil.
 
 Restul modelului e la fel de rigid:
 
@@ -102,10 +107,10 @@ Totalul se verifică prin adunare, iar suma facturilor emise din ea e exact 1225
 
 Părintele alege la înscriere, iar alegerea determină **câte facturi se emit**:
 
-| Plan | Facturi | Sume (un copil) |
-|---|---|---|
-| Integral | 1 | 700 la înscriere |
-| În două tranșe | 2 | 350 la înscriere, 350 la mijlocul modulului |
+| Plan           | Facturi | Sume (un copil)                             |
+| -------------- | ------- | ------------------------------------------- |
+| Integral       | 1       | 700 la înscriere                            |
+| În două tranșe | 2       | 350 la înscriere, 350 la mijlocul modulului |
 
 Aceeași sumă totală în ambele cazuri: plata integrală nu primește reducere, tranșele nu primesc
 penalizare.
@@ -139,16 +144,20 @@ modulului. Un copil care abandonează după prima nu primește a doua, și nu se
 de rangul copilului în familie, nu o serie de ramuri `if`, deci bugul de la trei copii dispare prin
 construcție.
 
-| Copii | Calcul | Total / modul |
-|---|---|---|
-| 1 | 700 | **700** |
-| 2 | 700 + 525 | **1225** |
-| 3 | 700 + 525 + 525 | **1750** |
-| 4 | 700 + 525 × 3 | **2275** |
+| Copii | Calcul          | Total / modul |
+| ----- | --------------- | ------------- |
+| 1     | 700             | **700**       |
+| 2     | 700 + 525       | **1225**      |
+| 3     | 700 + 525 + 525 | **1750**      |
+| 4     | 700 + 525 × 3   | **2275**      |
 
-Procentul e configurabil, ca și pragul de la care se aplică. Spre deosebire de regula veche — unde
-apariția celui de-al doilea copil ieftinea retroactiv și primul copil, de la 350 la 250 — aici
-primul copil plătește mereu întreg.
+Procentul e configurabil, ca și pragul de la care se aplică. Forma regulii o are deja modelul lunar
+de azi — 350 pentru primul copil, 250 pentru fiecare frate — și tot ce se schimbă odată cu trecerea
+la modul e unitatea, nu principiul. Ce dispare e ieftinirea retroactivă a primului copil, de la 350
+la 250, pe care o face codul actual.
+
+Reducerea pe frate iese ceva mai mare în modelul lunar (250 din 350 înseamnă −28,6%) decât cei −25%
+de mai sus, așa că site-ul public o anunță ca „peste 25%" — o formulare adevărată în ambele modele.
 
 **Acceptanță:** teste pentru unu, doi, trei, patru și cinci copii, cu sumele din tabel. Nicio
 combinație de copii și reduceri nu produce sumă zero sau negativă.
@@ -213,13 +222,13 @@ funcționează. Nicio combinație de copii și reduceri nu produce o sumă absur
 
 ## Decizii luate
 
-| Decizie | Valoare |
-|---|---|
-| Unitate de facturare | Modulul școlar, 6-8 ședințe, ~5 pe an |
-| Preț | **700 lei fix**, indiferent de durata modulului |
-| Planuri de plată | Integral (1 factură), sau două tranșe egale (2 facturi, a doua la mijlocul modulului) |
-| Reducere frați | **−25% de la al doilea copil în jos**, primul întreg |
-| Abandon la mijloc | Fără returnare; a doua factură nu se mai emite |
+| Decizie              | Valoare                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Unitate de facturare | Modulul școlar, 6-8 ședințe, ~5 pe an                                                 |
+| Preț                 | **700 lei fix**, indiferent de durata modulului                                       |
+| Planuri de plată     | Integral (1 factură), sau două tranșe egale (2 facturi, a doua la mijlocul modulului) |
+| Reducere frați       | **−25% de la al doilea copil în jos**, primul întreg                                  |
+| Abandon la mijloc    | Fără returnare; a doua factură nu se mai emite                                        |
 
 **Prețul fix pe durată variabilă e o decizie conștientă**, nu o scăpare. Ședința costă efectiv
 117 lei într-un modul de 6 săptămâni și 87 într-unul de 8. Peste un an școlar se echilibrează —

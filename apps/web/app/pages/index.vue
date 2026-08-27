@@ -94,7 +94,7 @@ useReveal();
 const stats = [
   { value: "2", label: "Locații în București", highlighted: true },
   { value: "6", label: "Niveluri, de la clasa 0 la BAC", highlighted: false },
-  { value: "32", label: "Săptămâni într-un modul", highlighted: false },
+  { value: "8", label: "Săptămâni într-un modul", highlighted: false },
   { value: "1,5", label: "Ore pe ședință", highlighted: false },
 ];
 

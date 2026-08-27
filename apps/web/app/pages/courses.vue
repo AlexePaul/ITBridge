@@ -5,7 +5,7 @@
       <h1 class="page-title">Un nivel pentru fiecare vârstă.</h1>
       <p class="lede">
         Șase niveluri, de la primii pași pe calculator până la pregătirea pentru Bacalaureat și
-        olimpiade. Fiecare modul durează 32 de săptămâni, cu ședințe de 1,5 ore în grupe mici.
+        olimpiade. Fiecare modul durează 8 săptămâni, cu ședințe de 1,5 ore în grupe mici.
       </p>
     </section>
 
@@ -114,11 +114,11 @@ useReveal();
 const PRICE_ONE_CHILD = 350;
 const PRICE_TWO_CHILDREN = 600;
 
-// The second child is charged the difference — 250 instead of 350 — so the
-// saving is announced as a floor, never rounded up past what the family pays.
-const secondChildDiscount = Math.floor(
-  (1 - (PRICE_TWO_CHILDREN - PRICE_ONE_CHILD) / PRICE_ONE_CHILD) * 100
-);
+// The second child is charged the difference — 250 instead of 350. The saving
+// is announced in steps of five, rounded down, so the number stays round and
+// never promises more than the family actually saves.
+const secondChildSaving = 1 - (PRICE_TWO_CHILDREN - PRICE_ONE_CHILD) / PRICE_ONE_CHILD;
+const secondChildDiscount = Math.floor((secondChildSaving * 100) / 5) * 5;
 
 const courses = [
   {
@@ -197,7 +197,7 @@ const faq = [
   {
     question: "Cât durează un curs?",
     answer:
-      "Un modul durează 32 de săptămâni, cu o ședință de 1,5 ore pe săptămână. Grupele sunt " +
+      "Un modul durează 8 săptămâni, cu o ședință de 1,5 ore pe săptămână. Grupele sunt " +
       "mici, ca fiecare copil să primească atenție.",
   },
   {

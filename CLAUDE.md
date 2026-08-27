@@ -204,7 +204,8 @@ totul trece prin `pnpm` de la rădăcină. Pentru un singur workspace, `pnpm --f
 
 **Prețuri hardcodate, cu gaură la 3+ copii.** `apps/api/src/modules/invoice/invoice.service.ts:107` — 350 pentru un copil,
 250×2 pentru doi, nicio ramură pentru trei sau mai mulți, deci `totalAmount` rămâne 0 și
-reducerile îl duc pe negativ.
+reducerile îl duc pe negativ. Regula convenită e 350 pentru primul copil și 250 pentru fiecare
+frate — deci 600 pentru doi, nu 500; vezi [E15](docs/epics/E15-pricing-facturare.md).
 
 ## Infrastructură — stare reală
 
