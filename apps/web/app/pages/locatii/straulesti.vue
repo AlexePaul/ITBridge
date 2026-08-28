@@ -5,7 +5,7 @@
       <h1 class="page-title">Cursuri de informatică pentru copii în Străulești</h1>
       <p class="lede">
         A doua sală a IT Bridge School e în nordul Bucureștiului, pe {{ location.street }},
-        {{ location.district }}, în Străulești — la câteva minute de Bucureștii Noi. Aceleași șase
+        {{ location.district }}, în Străulești, la câteva minute de Bucureștii Noi. Aceleași șase
         niveluri de programare ca la Drumul Taberei, de la clasa 0 până la pregătirea pentru
         Bacalaureat, în grupe mici, cu o ședință de 1,5 ore pe săptămână.
       </p>
@@ -25,7 +25,7 @@
       <p class="body-text measure-wide">
         Sala din Străulești e făcută pentru familiile din nordul orașului. Vin copii din Străulești
         și din Bucureștii Noi, din Dămăroaia și din Băneasa. Vin și din Chitila și din Mogoșoaia,
-        care sunt la câteva minute pe Șoseaua București–Târgoviște și pentru care un curs în centrul
+        care sunt la câteva minute pe Șoseaua București-Târgoviște și pentru care un curs în centrul
         Bucureștiului ar însemna un drum mult mai lung.
       </p>
     </section>
@@ -46,8 +46,8 @@
         <h2 class="kicker">Cum ajungi pe șosea</h2>
         <h3 class="section-title">Cu mașina de pe șosea, sau cu metroul M4</h3>
         <p class="body-text">
-          Adresa e pe Șoseaua București–Târgoviște, la ieșirea spre nord, deci cei mai mulți părinți
-          vin cu mașina — inclusiv din Mogoșoaia și Chitila, fără să intre în oraș.
+          Adresa e pe Șoseaua București-Târgoviște, la ieșirea spre nord, deci cei mai mulți părinți
+          vin cu mașina, inclusiv din Mogoșoaia și Chitila, fără să intre în oraș.
         </p>
         <p class="body-text">
           Cu transportul în comun, stația de metrou Străulești, capătul magistralei M4, e la
@@ -91,7 +91,7 @@
       <h2 class="kicker">Adresa și programul</h2>
       <div class="cols-2">
         <div class="card card-lg">
-          <h3 class="sub-title">{{ SCHOOL_NAME }} — {{ location.neighbourhood }}</h3>
+          <h3 class="sub-title">{{ SCHOOL_NAME }}, {{ location.neighbourhood }}</h3>
           <p class="body-text">
             {{ location.street }}<br />
             {{ location.district }}, {{ location.postalCode }} {{ location.city }}
@@ -107,7 +107,7 @@
           <h3 class="sub-title">Cât costă</h3>
           <p class="body-text">
             {{ PRICE_ONE_CHILD }} lei pe lună pentru un copil. {{ PRICE_TWO_CHILDREN }} lei pe lună
-            pentru doi copii din aceeași familie — al doilea copil plătește
+            pentru doi copii din aceeași familie: al doilea copil plătește
             {{ PRICE_TWO_CHILDREN - PRICE_ONE_CHILD }} lei. Un modul durează 6–8 săptămâni.
           </p>
           <p class="body-text">
@@ -120,7 +120,7 @@
       <div class="plate map-plate">
         <iframe
           :src="location.mapEmbedUrl"
-          :title="`Hartă — ${SCHOOL_NAME} ${location.neighbourhood}`"
+          :title="`Hartă: ${SCHOOL_NAME} ${location.neighbourhood}`"
           width="100%"
           height="320"
           style="border: 0"
@@ -185,7 +185,7 @@ const faq = [
   {
     question: "Vin copii și din Mogoșoaia sau din Chitila?",
     answer:
-      "Da. Sala din Străulești e pe Șoseaua București–Târgoviște, la câteva minute de Mogoșoaia " +
+      "Da. Sala din Străulești e pe Șoseaua București-Târgoviște, la câteva minute de Mogoșoaia " +
       "și de Chitila, așa că familiile din nordul Ilfovului ajung la IT Bridge School fără să " +
       "intre în oraș.",
   },

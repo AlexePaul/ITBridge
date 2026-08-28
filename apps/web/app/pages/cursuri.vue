@@ -77,13 +77,13 @@
             <AnimatedNumber :value="`${PRICE_TWO_CHILDREN} lei`" />
           </p>
           <p class="stat-label">
-            Pe lună, pentru doi copii din aceeași familie — al doilea plătește
+            Pe lună, pentru doi copii din aceeași familie. Al doilea plătește
             {{ PRICE_TWO_CHILDREN - PRICE_ONE_CHILD }} lei
           </p>
         </div>
         <p class="body-text measure">
           {{ PRICE_ONE_CHILD }} lei pe lună pentru un copil și {{ PRICE_TWO_CHILDREN }} lei pe lună
-          pentru doi copii din aceeași familie — al doilea copil plătește
+          pentru doi copii din aceeași familie: al doilea copil plătește
           {{ PRICE_TWO_CHILDREN - PRICE_ONE_CHILD }} lei. Prețul acoperă ședințele lunii și
           materialele de curs. Aceleași prețuri la
           <NuxtLink to="/locatii/drumul-taberei" class="link">Drumul Taberei</NuxtLink> și la
@@ -111,7 +111,7 @@
       <div class="cols-2">
         <figure v-for="entry in TESTIMONIALS.courses" :key="entry.source">
           <blockquote class="quote">„{{ entry.quote }}”</blockquote>
-          <figcaption class="quote-source">— {{ entry.source }}</figcaption>
+          <figcaption class="quote-source">{{ entry.source }}</figcaption>
         </figure>
       </div>
     </section>
@@ -121,7 +121,7 @@
     <section class="section-close" data-reveal>
       <h2 class="block-title">Nu știi de unde să începi?</h2>
       <p class="body-text measure-wide">
-        Spune-ne vârsta copilului și ce l-ar bucura să construiască — îți recomandăm nivelul
+        Spune-ne vârsta copilului și ce l-ar bucura să construiască. Îți recomandăm nivelul
         potrivit.
       </p>
       <div class="actions">
@@ -172,9 +172,9 @@ const steps = [
 // here before and said nothing a parent could verify.
 const benefits = [
   "Doi profesori, aceiași de la un modul la altul",
-  "Alexe Vasile Paul — licențiat în Informatică la Universitatea din București, a predat la nivel universitar",
+  "Alexe Vasile Paul, licențiat în Informatică la Universitatea din București, a predat la nivel universitar",
   "Grupe mici, o ședință de 1,5 ore pe săptămână",
-  "C++, algoritmi și structuri de date — programa după care se dau olimpiada și Bacalaureatul",
+  "C++, algoritmi și structuri de date: programa după care se dau olimpiada și Bacalaureatul",
   "Două locații: Drumul Taberei și Străulești",
 ];
 
@@ -194,15 +194,15 @@ const faq = [
   {
     question: "Unde au loc cursurile?",
     answer:
-      `În două locații din București — ${SCHOOL_LOCATIONS.map((location) => location.street).join(" și ")}. ` +
+      `În două locații din București: ${SCHOOL_LOCATIONS.map((location) => location.street).join(" și ")}. ` +
       "Alegi locația mai convenabilă la înscriere.",
   },
   {
     question: "Ce se întâmplă la o ședință?",
     answer:
       "Fiecare oră combină teorie pe scurt cu lucru practic: copiii pleacă de la fiecare ședință " +
-      "cu ceva lucrat de ei — un desen digital la nivelurile mici, un joc sau un program la cele " +
-      "mari.",
+      "cu ceva lucrat de ei (un desen digital la nivelurile mici, un joc sau un program la cele " +
+      "mari).",
   },
 ];
 

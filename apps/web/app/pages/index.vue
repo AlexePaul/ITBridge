@@ -6,7 +6,7 @@
         <span>La noi învață să o creeze</span>
       </h1>
       <p class="lede lede-loose">
-        IT Bridge School este o școală de informatică pentru copii, cu două locații în București —
+        IT Bridge School este o școală de informatică pentru copii, cu două locații în București:
         <NuxtLink to="/locatii/drumul-taberei" class="link">Drumul Taberei</NuxtLink> și
         <NuxtLink to="/locatii/straulesti" class="link">Străulești</NuxtLink>. De la primii pași pe
         calculator până la C++, olimpiade și pregătirea pentru Bacalaureat, în grupe mici, cu
@@ -65,7 +65,7 @@
     <section class="section-close" data-reveal>
       <figure>
         <blockquote class="pull-quote">„{{ TESTIMONIALS.home.quote }}”</blockquote>
-        <figcaption class="pull-quote-source">— {{ TESTIMONIALS.home.source }}</figcaption>
+        <figcaption class="pull-quote-source">{{ TESTIMONIALS.home.source }}</figcaption>
       </figure>
     </section>
 
@@ -103,7 +103,7 @@ definePageMeta({
 useReveal();
 
 const seo = pageSeo("/");
-useSeo({ ...seo, imageAlt: "IT Bridge School — cursuri de informatică pentru copii" });
+useSeo({ ...seo, imageAlt: "IT Bridge School, cursuri de informatică pentru copii" });
 
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([...schoolGraph(site), webPageNode(site, seo)]);
@@ -154,7 +154,7 @@ const subjects = [
     title: "Gândire logică",
     body:
       "Exercițiile și proiectele practice antrenează gândirea critică și descompunerea " +
-      "problemelor — abilități care se văd la școală, la examene și mult după.",
+      "problemelor, abilități care se văd la școală, la examene și mult după.",
   },
   {
     title: "Creativitate digitală",

@@ -28,8 +28,8 @@
           <p class="body-text">
             Trei stații de pe magistrala M5 sunt la distanță de mers pe jos: Valea Ialomiței, la
             aproximativ 600 de metri, Constantin Brâncuși, la aproximativ 650 de metri, și Râul
-            Doamnei, la aproximativ 850 de metri — între șapte și douăsprezece minute de mers,
-            măsurat în linie dreaptă pe hartă.
+            Doamnei, la aproximativ 850 de metri, măsurat în linie dreaptă pe hartă. Înseamnă între
+            șapte și douăsprezece minute de mers.
           </p>
         </div>
         <div>
@@ -92,7 +92,7 @@
       <h2 class="kicker">Unde ne găsești</h2>
       <div class="cols-2">
         <div class="card card-lg">
-          <h3 class="sub-title">{{ SCHOOL_NAME }} — {{ location.neighbourhood }}</h3>
+          <h3 class="sub-title">{{ SCHOOL_NAME }}, {{ location.neighbourhood }}</h3>
           <p class="body-text">
             {{ location.street }}<br />
             {{ location.district }}, {{ location.postalCode }} {{ location.city }}
@@ -108,7 +108,7 @@
           <h3 class="sub-title">Cât costă</h3>
           <p class="body-text">
             {{ PRICE_ONE_CHILD }} lei pe lună pentru un copil. {{ PRICE_TWO_CHILDREN }} lei pe lună
-            pentru doi copii din aceeași familie — al doilea copil plătește
+            pentru doi copii din aceeași familie: al doilea copil plătește
             {{ PRICE_TWO_CHILDREN - PRICE_ONE_CHILD }} lei. Un modul durează 6–8 săptămâni, cu o
             ședință de 1,5 ore pe săptămână.
           </p>
@@ -118,7 +118,7 @@
       <div class="plate map-plate">
         <iframe
           :src="location.mapEmbedUrl"
-          :title="`Hartă — ${SCHOOL_NAME} ${location.neighbourhood}`"
+          :title="`Hartă: ${SCHOOL_NAME} ${location.neighbourhood}`"
           width="100%"
           height="320"
           style="border: 0"
@@ -184,8 +184,8 @@ const faq = [
     question: "Poate veni copilul singur, cu metroul?",
     answer:
       "Sala e la aproximativ 600 de metri de stația Valea Ialomiței și la 650 de metri de " +
-      "Constantin Brâncuși, ambele pe magistrala M5 — un drum scurt, pe care merită să-l faceți " +
-      "împreună o dată, înainte să vină singur.",
+      "Constantin Brâncuși, ambele pe magistrala M5. E un drum scurt, pe care merită să-l " +
+      "faceți împreună o dată, înainte să vină singur.",
   },
   {
     question: "Locuiesc în Militari. Cum ajung?",

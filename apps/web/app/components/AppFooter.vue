@@ -37,7 +37,7 @@
               :to="`/locatii/${location.slug}`"
               class="footer-link"
             >
-              {{ location.neighbourhood }} — {{ location.street }}
+              {{ location.neighbourhood }}, {{ location.street }}
             </NuxtLink>
           </div>
         </div>
@@ -95,6 +95,6 @@ const socialNetworks = [
 ];
 
 const locationLine = computed(() =>
-  SCHOOL_LOCATIONS.map((location) => `${location.name} — ${location.street}`).join(" · ")
+  SCHOOL_LOCATIONS.map((location) => `${location.name}, ${location.street}`).join(" · ")
 );
 </script>
