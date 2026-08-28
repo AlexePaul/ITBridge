@@ -1,3 +1,5 @@
+import { legacyRouteRules } from "./shared/legacy-redirects";
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
@@ -90,5 +92,8 @@ export default defineNuxtConfig({
     },
     "/courses": { redirect: { to: "/cursuri", statusCode: 301 } },
     "/about": { redirect: { to: "/despre-noi", statusCode: 301 } },
+    // The other set of stray links: paths from the WordPress site that used to
+    // serve itbridgeschool.ro, which now redirects here and keeps the path.
+    ...legacyRouteRules(),
   },
 });
