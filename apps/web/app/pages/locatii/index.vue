@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <section class="section-lead" data-reveal>
+    <section class="section-lead" data-intro>
       <span class="kicker">Locații</span>
       <h1 class="page-title">Două săli de curs în București</h1>
       <p class="lede">
@@ -12,8 +12,8 @@
 
     <hr class="rule" />
 
-    <section class="section" data-reveal>
-      <div class="cols-2">
+    <section class="section">
+      <div class="cols-2" data-reveal-children>
         <div v-for="location in SCHOOL_LOCATIONS" :key="location.slug" class="card card-lg">
           <h2 class="sub-title">{{ location.neighbourhood }}</h2>
           <p class="body-text">

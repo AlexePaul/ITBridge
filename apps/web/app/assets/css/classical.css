@@ -91,6 +91,16 @@
   --radius-lg: 7px;
   --ui-radius: var(--radius-md);
 
+  /* Motion — one easing family, three speeds and a single stagger step, so
+     everything that moves on the site reads as the same hand. Nothing outside
+     this file picks its own curve or duration. */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-line: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 0.25s;
+  --dur-mid: 0.55s;
+  --dur-slow: 0.85s;
+  --stagger: 75ms;
+
   /* Elevation — a whisper: soft ink-tinted shadows on the light ground. */
   --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
   --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
@@ -124,6 +134,12 @@
 /* ══════════════════════════════════════════════════════════════════════════
    Base
    ══════════════════════════════════════════════════════════════════════ */
+
+html {
+  /* The header is sticky, so an anchor landing at the very top of the viewport
+     would land underneath it. */
+  scroll-padding-top: 88px;
+}
 
 body {
   background: var(--color-bg);
@@ -324,6 +340,13 @@ h6 {
 
 .display > span {
   display: block;
+  /* Each line is the mask its own text rises out of. The padding keeps the
+     comma below ș and ț — and the ascender of î — off the clip edge; the
+     matching negative margin gives the space straight back, so the mask costs
+     the heading nothing in layout. */
+  overflow: hidden;
+  padding: 0.08em 0 0.2em;
+  margin: -0.08em 0 -0.2em;
 }
 
 .page-title {
@@ -434,10 +457,17 @@ h6 {
 .link {
   color: var(--color-accent-ink);
   text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    text-decoration-thickness var(--dur-fast) var(--ease-out),
+    text-underline-offset var(--dur-fast) var(--ease-out);
 }
 
 .link:hover {
   color: var(--color-accent-ink-hover);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
 }
 
 .marker {
@@ -452,6 +482,9 @@ h6 {
 
 /* — buttons: the primary is an accent outline, never a fill — */
 .btn {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -468,6 +501,32 @@ h6 {
   padding: var(--space-2) calc(var(--space-3) * 1.2);
   border-radius: var(--radius-md);
   white-space: nowrap;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+/* The hover state is drawn across the button from its leading edge, the same
+   way the rules are struck — a fill that arrives rather than one that blinks
+   on. The variants below only give it a color. */
+.btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.4s var(--ease-out);
+}
+
+.btn:not(:disabled):hover::before,
+.btn:not(:disabled):focus-visible::before {
+  transform: none;
+}
+
+.btn:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 .btn:disabled {
@@ -484,7 +543,7 @@ h6 {
   border-color: var(--color-accent);
 }
 
-.btn-primary:hover {
+.btn-primary::before {
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
@@ -496,7 +555,7 @@ h6 {
   border-color: var(--color-divider);
 }
 
-.btn-secondary:hover {
+.btn-secondary::before {
   background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
@@ -509,7 +568,7 @@ h6 {
   padding-inline: var(--space-1);
 }
 
-.btn-ghost:hover {
+.btn-ghost::before {
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
@@ -638,6 +697,22 @@ textarea.input {
   border-color: var(--color-accent);
 }
 
+/* A card that leads somewhere lifts under the pointer; one that only carries
+   an alert or a form stays where it is, because nothing happens if it is
+   clicked. */
+.card {
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.card:has(a):hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
+  box-shadow: var(--shadow-md);
+}
+
 .elev-sm {
   box-shadow: var(--shadow-sm);
 }
@@ -652,7 +727,50 @@ textarea.input {
 
 /* — the header bar — */
 .nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   border-bottom: 1px solid var(--color-divider);
+  background: color-mix(in srgb, var(--color-bg) 86%, transparent);
+  backdrop-filter: blur(12px) saturate(1.3);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+/* Once the page has moved under it, the bar earns an edge — and gives back
+   some of its height, because a header a reader is scrolling past is chrome,
+   not the masthead it was at the top of the page. */
+.nav.is-stuck {
+  background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+
+.nav.is-stuck .nav-inner {
+  padding-block: calc(var(--space-3) * 0.6);
+}
+
+.nav.is-stuck .nav-brand {
+  font-size: 16.5px;
+}
+
+/* How far down the page the reader is, drawn on the header's own hairline.
+   Scaled from a custom property rather than a width, so it never lays out. */
+.nav-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--color-accent);
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left center;
+  opacity: 0;
+  transition: opacity var(--dur-mid) var(--ease-out);
+}
+
+.nav.is-stuck .nav-progress {
+  opacity: 1;
 }
 
 .nav-inner {
@@ -661,6 +779,7 @@ textarea.input {
   gap: var(--space-4);
   padding-block: var(--space-3);
   flex-wrap: wrap;
+  transition: padding-block var(--dur-mid) var(--ease-out);
 }
 
 .nav-links,
@@ -711,13 +830,39 @@ textarea.input {
   margin-right: auto;
   text-decoration: none;
   color: inherit;
+  transition: font-size var(--dur-mid) var(--ease-out);
 }
 
 .nav-link {
+  position: relative;
   color: inherit;
   text-decoration: none;
   font-size: 14px;
   white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+/* Grows from the leading edge on the way in and retracts to the trailing one
+   on the way out, so the two directions are not the same gesture reversed. */
+.nav-link::after,
+.footer-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.nav-link:hover::after,
+.nav-link[aria-current="page"]::after,
+.footer-link:hover::after {
+  transform: none;
+  transform-origin: left center;
 }
 
 .nav-link:hover,
@@ -732,6 +877,16 @@ textarea.input {
   border: 6px solid var(--color-surface);
   outline: 1px solid var(--color-divider);
   margin: 0;
+  /* The photograph moves inside the mat now — on hover, and on scroll where
+     the browser can drive it — so the mat has to hold it. */
+  overflow: hidden;
+  transition: filter var(--dur-slow) var(--ease-out);
+}
+
+/* The archival grade lifts while the photograph is being looked at: it warms
+   to nearly its own color, and settles back when the pointer leaves. */
+.plate:hover {
+  filter: sepia(0.04) saturate(0.98) contrast(1.02);
 }
 
 .plate img,
@@ -745,23 +900,98 @@ textarea.input {
   transform: scale(1.015);
 }
 
+/* Where the browser can run an animation off the scroll position, the
+   photograph drifts inside its mat as the mat crosses the viewport — parallax
+   proper, on the compositor, with no scroll handler behind it. The drift owns
+   the transform, so in those browsers it replaces the hover scale above; the
+   warm-up on the plate is what answers the pointer either way. */
+@keyframes classical-drift {
+  from {
+    transform: scale(1.07) translateY(-2.2%);
+  }
+
+  to {
+    transform: scale(1.07) translateY(2.2%);
+  }
+}
+
+/* The first screen recedes as it is scrolled past rather than sliding out
+   flat: it holds still for the first third of its exit, then lifts and fades
+   under the header. It is at rest — opaque, unmoved — at the top of the page,
+   so nothing here is in the way of the first paint. */
+@keyframes classical-recede {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  30% {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0.4;
+    transform: translateY(-32px);
+  }
+}
+
+/* The ledger's numerals ink in as their row arrives at reading position —
+   scrubbed by the scroll rather than triggered by it, so scrolling back up
+   takes them out again. Opacity only: the row's hover still owns the
+   numeral's transform. */
+@keyframes classical-ink {
+  from {
+    opacity: 0.25;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .plate:not(.slideshow) img {
+      animation: classical-drift linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+    }
+
+    [data-intro] {
+      animation: classical-recede linear both;
+      animation-timeline: view();
+      animation-range: exit 0% exit 95%;
+    }
+
+    .course-num {
+      animation: classical-ink linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 28%;
+    }
+  }
+}
+
 .portrait img {
   aspect-ratio: 2 / 3;
   object-fit: cover;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Reveal — blocks rise as they scroll in. Hidden only once the observer is
-   mounted, so a page without JavaScript still reads.
+   Motion
+
+   Four movements, one hand:
+
+     · the intro    — the hero of every page, played from first paint with no
+                      JavaScript in the way;
+     · the reveal   — blocks rise as they scroll in, hidden only once the
+                      observer is mounted, so a page without JavaScript reads;
+     · the draw     — every hairline rule is struck from left to right;
+     · the wipe     — a photograph is uncovered inside its mat.
+
+   Everything below is off under `prefers-reduced-motion`, at the foot of the
+   section.
    ══════════════════════════════════════════════════════════════════════ */
-
-.reveal-on [data-reveal]:not(.is-revealed) {
-  opacity: 0;
-}
-
-.reveal-on [data-reveal].is-revealed {
-  animation: classical-rise 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both;
-}
 
 @keyframes classical-rise {
   from {
@@ -775,18 +1005,245 @@ textarea.input {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .reveal-on [data-reveal]:not(.is-revealed) {
-    opacity: 1;
+/* Past 100%, because the mask is taller than the line it holds: the padding
+   that keeps the diacritics off the clip edge would otherwise leave the top
+   sliver of the text showing at rest. */
+@keyframes classical-line {
+  from {
+    transform: translateY(125%);
   }
 
-  .reveal-on [data-reveal].is-revealed {
+  to {
+    transform: none;
+  }
+}
+
+@keyframes classical-draw {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes classical-wipe {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* — the intro: no observer, no `reveal-on`, nothing to wait for. A reader who
+     arrives with JavaScript disabled still gets it, and the first screen is
+     moving while the rest of the page is still being wired up. — */
+@media (prefers-reduced-motion: no-preference) {
+  [data-intro] > * {
+    animation: classical-rise 0.62s var(--ease-out) both;
+  }
+
+  [data-intro] > *:nth-child(2) {
+    animation-delay: 90ms;
+  }
+
+  [data-intro] > *:nth-child(3) {
+    animation-delay: 170ms;
+  }
+
+  [data-intro] > *:nth-child(4) {
+    animation-delay: 250ms;
+  }
+
+  [data-intro] > *:nth-child(n + 5) {
+    animation-delay: 320ms;
+  }
+
+  /* The display sets its own lines instead, each rising out from behind the
+     one above it. The heading element itself is left alone: it is the largest
+     text on the page and usually what LCP is measured on, so it is painted
+     rather than faded, and the first line starts moving on the first frame. */
+  [data-intro] > .display {
     animation: none;
   }
 
+  [data-intro] .display > span > span {
+    display: block;
+    animation: classical-line 0.9s var(--ease-line) both;
+  }
+
+  [data-intro] .display > span:nth-child(2) > span {
+    animation-delay: 110ms;
+  }
+
+  [data-intro] .display > span:nth-child(n + 3) > span {
+    animation-delay: 220ms;
+  }
+}
+
+/* — the reveal — */
+
+/* `data-reveal` moves the block itself; `data-reveal-children` leaves the
+   container where it is and brings its items in one after another, which is
+   what a grid of cards or a numbered list wants. */
+.reveal-on [data-reveal]:not(.is-revealed),
+.reveal-on [data-reveal-children]:not(.is-revealed) > * {
+  opacity: 0;
+}
+
+.reveal-on [data-reveal].is-revealed:not(.reveal-instant) {
+  animation: classical-rise var(--dur-mid) var(--ease-out) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+.reveal-on [data-reveal-children].is-revealed:not(.reveal-instant) > * {
+  animation: classical-rise var(--dur-mid) var(--ease-out) both;
+  animation-delay: calc(var(--reveal-delay, 0ms) + var(--stagger) * var(--reveal-index, 0));
+}
+
+/* The cascade is capped rather than run to the end of the list: a ninth item
+   waiting three quarters of a second reads as a page that has stopped loading. */
+.reveal-on [data-reveal-children] > *:nth-child(2) {
+  --reveal-index: 1;
+}
+
+.reveal-on [data-reveal-children] > *:nth-child(3) {
+  --reveal-index: 2;
+}
+
+.reveal-on [data-reveal-children] > *:nth-child(4) {
+  --reveal-index: 3;
+}
+
+.reveal-on [data-reveal-children] > *:nth-child(5) {
+  --reveal-index: 4;
+}
+
+.reveal-on [data-reveal-children] > *:nth-child(n + 6) {
+  --reveal-index: 5;
+}
+
+/* — the draw: every rule on the site, without a page having to ask — */
+.reveal-on hr.rule {
+  transform-origin: left center;
+}
+
+.reveal-on hr.rule:not(.is-revealed) {
+  transform: scaleX(0);
+}
+
+.reveal-on hr.rule.is-revealed:not(.reveal-instant) {
+  animation: classical-draw var(--dur-slow) var(--ease-line) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+/* — the wipe: the mat fills with the photograph, a beat behind the block it
+     sits in, so the two do not move as one slab — */
+.reveal-on [data-reveal]:not(.is-revealed) .plate,
+.reveal-on [data-reveal-children]:not(.is-revealed) .plate {
+  clip-path: inset(0 0 100% 0);
+}
+
+.reveal-on [data-reveal].is-revealed:not(.reveal-instant) .plate,
+.reveal-on [data-reveal-children].is-revealed:not(.reveal-instant) .plate {
+  animation: classical-wipe var(--dur-slow) var(--ease-line) both;
+  animation-delay: calc(var(--reveal-delay, 0ms) + 120ms);
+}
+
+/* Whatever was already on screen when the observer mounted has been painted
+   since first paint. It is marked done and left alone — replaying it would
+   show the reader a blink of their own hero. */
+.reveal-on [data-reveal].reveal-instant,
+.reveal-on [data-reveal-children].reveal-instant > *,
+.reveal-on hr.rule.reveal-instant {
+  animation: none;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on [data-reveal]:not(.is-revealed),
+  .reveal-on [data-reveal-children]:not(.is-revealed) > * {
+    opacity: 1;
+  }
+
+  .reveal-on hr.rule:not(.is-revealed) {
+    transform: none;
+  }
+
+  .reveal-on [data-reveal]:not(.is-revealed) .plate,
+  .reveal-on [data-reveal-children]:not(.is-revealed) .plate {
+    clip-path: none;
+  }
+
+  .reveal-on [data-reveal].is-revealed,
+  .reveal-on [data-reveal-children].is-revealed > *,
+  .reveal-on hr.rule.is-revealed,
+  .reveal-on [data-reveal].is-revealed .plate,
+  .reveal-on [data-reveal-children].is-revealed .plate {
+    animation: none;
+  }
+
+  .plate,
   .plate img,
-  .plate iframe {
+  .plate iframe,
+  .btn,
+  .btn::before,
+  .card,
+  .course-row,
+  .course-num,
+  .nav,
+  .nav-inner,
+  .nav-brand,
+  .nav-link::after,
+  .footer-link::after,
+  .social,
+  .dot {
     transition: none;
+  }
+
+  .nav-progress {
+    display: none;
+  }
+}
+
+/* — between pages: the outgoing one settles, the incoming one lifts in. Nuxt
+     runs these `out-in`, so the reveal observer on the incoming page measures
+     a viewport nothing else is moving through. — */
+.page-enter-active {
+  transition:
+    opacity 0.32s var(--ease-out),
+    transform 0.32s var(--ease-out);
+}
+
+.page-leave-active {
+  transition:
+    opacity 0.18s ease-in,
+    transform 0.18s ease-in;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active,
+  .page-leave-active {
+    transition: none;
+  }
+
+  .page-enter-from,
+  .page-leave-to {
+    opacity: 1;
+    transform: none;
   }
 }
 
@@ -815,13 +1272,18 @@ textarea.input {
 .footer-links {
   display: flex;
   flex-direction: column;
+  /* Aligned to the start so a link — and the underline it grows — is as wide
+     as its own text rather than as the whole column. */
+  align-items: flex-start;
   gap: 8px;
   font-size: 14px;
 }
 
 .footer-link {
+  position: relative;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .footer-link:hover {
@@ -837,10 +1299,16 @@ textarea.input {
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-sm);
   color: var(--color-text);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
 .social:hover {
+  transform: translateY(-3px);
   border-color: var(--color-accent);
+  color: var(--color-accent-ink);
 }
 
 .social > span {
@@ -925,6 +1393,16 @@ textarea.input {
   gap: var(--rhythm-2);
   align-items: baseline;
   padding-block: var(--rhythm-3);
+  /* Pulled out and padded back by the same amount, so the wash the hover
+     paints has a margin to sit in without moving the ledger's columns. */
+  margin-inline: calc(var(--space-3) * -1);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-md);
+  transition: background var(--dur-mid) var(--ease-out);
+}
+
+.course-row:hover {
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
 }
 
 .course-num {
@@ -935,6 +1413,14 @@ textarea.input {
   font-feature-settings: "tnum" 1;
   color: var(--color-accent);
   margin: 0;
+  transition:
+    transform var(--dur-mid) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.course-row:hover .course-num {
+  transform: translateX(6px);
+  color: var(--color-accent-ink);
 }
 
 /* A kicker that sits under a title rather than above it. */
@@ -1106,16 +1592,20 @@ textarea.input {
   height: 100%;
   object-fit: contain;
   opacity: 0;
+  /* Held a little large while it waits, so the one that comes up is still
+     settling for a beat after it has finished appearing. */
+  transform: scale(1.04);
   transition:
     opacity 0.35s ease,
-    transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+    transform 0.6s var(--ease-out);
 }
 
 .slideshow .slide.is-current {
   opacity: 1;
+  transform: none;
   transition:
     opacity 0.45s ease 0.35s,
-    transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+    transform 2.4s var(--ease-line) 0.35s;
 }
 
 .slideshow-controls {
@@ -1139,19 +1629,26 @@ textarea.input {
   border: 1px solid var(--color-control-border);
   background: transparent;
   cursor: pointer;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
 .dot:hover {
+  transform: scale(1.35);
   border-color: var(--color-accent);
 }
 
 .dot[aria-current="true"] {
+  transform: scale(1.25);
   background: var(--color-accent);
   border-color: var(--color-accent);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .slideshow .slide {
+    transform: none;
     transition: none;
   }
 }

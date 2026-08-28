@@ -2,7 +2,7 @@
   <footer>
     <hr class="rule" />
     <div class="page section">
-      <div class="footer-grid footer-grid-5">
+      <div class="footer-grid footer-grid-5" data-reveal-children>
         <div>
           <p class="footer-title">IT Bridge School</p>
           <p class="footer-note">

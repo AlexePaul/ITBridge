@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <section class="section-lead" data-reveal>
+    <section class="section-lead" data-intro>
       <span class="kicker">Contact</span>
       <h1 class="page-title">Hai să stăm de vorbă</h1>
       <p class="lede">
@@ -135,7 +135,7 @@
 
       <div>
         <h2 class="block-title">Direct</h2>
-        <div class="stack stack-wide">
+        <div class="stack stack-wide" data-reveal-children>
           <div class="marked">
             <UIcon name="i-lucide-phone" class="marker size-4.5" />
             <div>

@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <section class="section-lead" data-reveal>
+    <section class="section-lead" data-intro>
       <span class="kicker">Cursuri</span>
       <h1 class="page-title">Un nivel pentru fiecare vârstă</h1>
       <p class="lede">
@@ -37,7 +37,7 @@
       <div class="cols-2">
         <div>
           <h3 class="block-title">De la primul telefon la prima ședință</h3>
-          <div class="stack">
+          <div class="stack" data-reveal-children>
             <div v-for="(step, index) in steps" :key="step" class="marked">
               <span class="marked-num">{{ index + 1 }}</span>
               <span class="body-text">{{ step }}</span>
@@ -51,7 +51,7 @@
             <NuxtLink to="/despre-noi" class="link">cei doi profesori ai școlii</NuxtLink>, nu de
             instructori care se schimbă de la un modul la altul.
           </p>
-          <div class="stack">
+          <div class="stack" data-reveal-children>
             <div v-for="benefit in benefits" :key="benefit" class="marked">
               <UIcon name="i-lucide-check" class="marker size-4" />
               <span class="body-text">{{ benefit }}</span>
@@ -65,7 +65,7 @@
 
     <section class="section" aria-label="Prețuri" data-reveal>
       <h2 class="kicker">Prețuri</h2>
-      <div class="price-grid">
+      <div class="price-grid" data-reveal-children>
         <div>
           <p class="stat-num stat-accent">
             <AnimatedNumber :value="`${PRICE_ONE_CHILD} lei`" />
@@ -96,7 +96,7 @@
 
     <section class="section" aria-label="Întrebări frecvente" data-reveal>
       <h2 class="kicker">Întrebări frecvente</h2>
-      <div class="cols-2">
+      <div class="cols-2" data-reveal-children>
         <div v-for="entry in faq" :key="entry.question">
           <h3 class="sub-title">{{ entry.question }}</h3>
           <p class="body-text justified">{{ entry.answer }}</p>
@@ -108,7 +108,7 @@
 
     <section class="section" data-reveal>
       <h2 class="kicker">Ce spun părinții</h2>
-      <div class="cols-2">
+      <div class="cols-2" data-reveal-children>
         <figure v-for="entry in TESTIMONIALS.courses" :key="entry.source">
           <blockquote class="quote">„{{ entry.quote }}”</blockquote>
           <figcaption class="quote-source">— {{ entry.source }}</figcaption>

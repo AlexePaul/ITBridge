@@ -1,11 +1,18 @@
 import { onBeforeUnmount, onMounted, nextTick } from "vue";
 
 /**
- * Blocks marked with `data-reveal` rise into place as they scroll in, with a
- * small stagger for the ones entering together. The hiding rule lives behind
- * the `reveal-on` class this sets on <html>, so a page whose JavaScript never
- * runs shows its content instead of an empty column.
+ * Blocks marked with `data-reveal` rise into place as they scroll in, blocks
+ * marked with `data-reveal-children` bring their items in one after another,
+ * and every `hr.rule` on the page is struck from left to right — the last one
+ * without a page having to ask for it. The hiding rules live behind the
+ * `reveal-on` class this sets on <html>, so a page whose JavaScript never runs
+ * shows its content instead of an empty column.
+ *
+ * The hero of a page is not on this observer: it carries `data-intro` and
+ * animates from first paint, in CSS alone.
  */
+const SELECTOR = "[data-reveal], [data-reveal-children], hr.rule";
+
 export const useReveal = () => {
   let observer: IntersectionObserver | undefined;
 
@@ -19,7 +26,9 @@ export const useReveal = () => {
 
     const reveal = (element: HTMLElement) => {
       observer?.unobserve(element);
-      element.style.animationDelay = `${Math.min(batch, 4) * 100}ms`;
+      // Read by the stylesheet, which adds the per-item stagger of a
+      // `data-reveal-children` grid on top of it.
+      element.style.setProperty("--reveal-delay", `${Math.min(batch, 4) * 100}ms`);
       batch += 1;
       clearTimeout(batchTimer);
       batchTimer = setTimeout(() => {
@@ -49,15 +58,14 @@ export const useReveal = () => {
     // on-screen and the whole page skipped its reveal.
     await new Promise(requestAnimationFrame);
 
-    document.querySelectorAll<HTMLElement>("[data-reveal]").forEach((element) => {
+    document.querySelectorAll<HTMLElement>(SELECTOR).forEach((element) => {
       // Whatever is already on screen has been painted opaque since first
       // paint; adding `reveal-on` would hide it and fade it back in, so every
       // page opened with a visible blink of its own hero. Mark those revealed
       // without an animation and observe only what is still below the fold.
       const rect = element.getBoundingClientRect();
       if (rect.bottom > 0 && rect.top < window.innerHeight) {
-        element.classList.add("is-revealed");
-        element.style.animation = "none";
+        element.classList.add("is-revealed", "reveal-instant");
         return;
       }
       observer?.observe(element);
