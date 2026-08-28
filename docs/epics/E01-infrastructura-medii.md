@@ -13,7 +13,10 @@ Repo-ul descrie trei strategii de deploy moarte, suprapuse peste una reală și 
 - `.github/workflows/aws.yml` — deploy prin SSH pe un EC2 care nu mai există, fără teste, fără
   health check, fără rollback. Face `pm2 delete` înainte de `pm2 start`, deci un build eșuat lasă
   serviciul jos.
-- `it-bridge-backend/fly.toml` plus branch-ul `flyio-new-files` — o încercare de Fly.io.
+- `it-bridge-backend/fly.toml` plus branch-ul `flyio-new-files` — o încercare de Fly.io. Calea e
+  cea de atunci: directorul a devenit `apps/api/` prin [E02](E02-monorepo-tooling.md), iar fișierul
+  a fost șters la S2. Rămâne scrisă așa și mai jos, în „În scop" și în S2, ca să se potrivească cu
+  ce arată istoricul git.
 - `greenlock-express` în `dependencies`, neimportat nicăieri în cod.
 
 Realitatea: frontend-ul e pe Vercel, configurat din dashboard, fără `vercel.json` în repo.
@@ -111,7 +114,7 @@ workflow scrise împotriva unui host imaginar sunt ficțiune, nu infrastructură
 
 Configurația Vercel a frontend-ului e consemnată în README: comandă de build în context de
 monorepo, director rădăcină, variabile. `API_BASE` e setat în Vercel și în `.env.example` local.
-README-ul nu mai menționează `NUXT_PUBLIC_API_BASE`, care nu e citit de `it-bridge-frontend/nuxt.config.ts`.
+README-ul nu mai menționează `NUXT_PUBLIC_API_BASE`, care nu e citit de `apps/web/nuxt.config.ts`.
 
 **Acceptanță:** login din producție funcționează capăt-la-capăt, de pe domeniul real.
 
@@ -122,7 +125,7 @@ dispărut, la fel și linkul rupt către `it-bridge-backend/src/swagger.json`.
 Două lucruri care au ieșit la iveală pe drum:
 
 - **Backend-ul nu citea deloc `.env`** — fără `dotenv`, fără `ConfigModule`. Un `.env.example`
-  ar fi fost decorativ. Adăugat `it-bridge-backend/src/load-env.ts`, importat primul în `main.ts`,
+  ar fi fost decorativ. Adăugat `apps/api/src/load-env.ts`, importat primul în `main.ts`,
   care apelează `process.loadEnvFile` — built-in Node, fără dependență nouă. Ordinea contează:
   `app.module.ts` citește `process.env` la încărcare, iar în CommonJS require-urile rulează în
   ordinea din sursă.

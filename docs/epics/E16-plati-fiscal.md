@@ -148,6 +148,9 @@ progres vizibil în interfață.
 La 3 pe secundă, 100 de facturi înseamnă minim ~34 de secunde. Cu marjă de siguranță, se planifică
 2 pe secundă.
 
+Coada nu se construiește aici: e cea din [E17](E17-comunicare-notificari.md) S3, iar ce adaugă S3-ul
+ăsta e limitarea de rată și progresul în interfață. Vezi [Dependențe](#dependențe).
+
 **Acceptanță:** emiterea pentru 100 de familii se termină fără blocare de acces și raportează
 individual ce a eșuat.
 
@@ -205,6 +208,21 @@ important e să fie vizibilă.
 
 [E15](E15-pricing-facturare.md). Nu se poate emite corect ce nu e calculat corect.
 
+**[E17](E17-comunicare-notificari.md) e necesar pentru S6 și S7.** Confirmarea de plată și mementoul
+de restanță sunt mesaje către părinți: fără canalul din E17 nu au pe unde pleca, iar acceptanțele lor
+— „părintele primește confirmarea în aceeași zi", „mementourile se opresc imediat la încasare" — nu
+se pot verifica. E17 înregistrează deja rândul pentru E16 în tabelul din Problema lui; aici se scrie
+și reciproca, ca dependența să se vadă din ambele părți. Nu e în antet fiindcă nu blochează epicul:
+S0-S5 se fac fără să plece niciun email.
+
+Tot din E17 vine și mecanismul de fundal. **Coada temperată la 3 apeluri pe secundă din S3 nu e o
+coadă proprie**: folosește mecanismul decis în [E17](E17-comunicare-notificari.md) S3, cu limitarea
+de rată ca politică peste el. La fel jobul care emite tranșa a doua la mijlocul modulului și cel de
+restanțe din S7. Miza e că `apps/api` nu are azi niciun scheduler și niciun broker în dependențe,
+deci prima implementare fixează alegerea pentru toate celelalte; două mecanisme paralele pe aceeași
+instanță ar însemna două comportamente la reîncercare și două locuri de căutat când un job nu a
+rulat.
+
 ## Riscuri
 
 **Abonamentul Platinum e o premisă, nu un detaliu.** Dacă nu e disponibil, tot epicul își schimbă
@@ -233,6 +251,20 @@ Divergențele între sisteme sunt vizibile.
 ## Întrebări deschise
 
 - **Abonamentul actual permite acces API?** Prima verificare, blochează tot restul.
+- **Ce date de facturare cere SmartBill — și, separat, e-Factura — pentru un document emis către o
+  persoană fizică?** Nume, adresă completă și telefon sunt sigure; se colectează oricum. Întrebarea
+  deschisă e dacă mai e nevoie de ceva, în special de **CNP**, sau dacă numele și adresa ajung.
+  Sunt două praguri diferite și pot să nu coincidă: ce acceptă API-ul la crearea clientului nu e
+  neapărat ce trece la transmiterea XML-ului în SPV, iar noi nu vedem al doilea pas — îl face
+  SmartBill. **Răspunsul vine de la contabil, nu din documentația API și nu din ghicit aici.**
+
+  Contează acum, nu la S2, fiindcă [E11](E11-inscrieri-capacitate.md) face datele de facturare
+  obligatorii chiar la înregistrarea părintelui, cu confirmare pe email. Lista trebuie să fie
+  corectă **înainte** ca formularul să ceară câmpurile. Un câmp lipsă, descoperit abia la prima
+  emitere, înseamnă recontactarea fiecărei familii deja înregistrate; un câmp cerut degeaba e o
+  dată personală colectată fără temei — cu atât mai mult dacă e CNP-ul, care nu e un câmp oarecare
+  și își aduce propriile obligații de temei, minimizare și retenție în
+  [E07](E07-securitate-gdpr.md).
 - Care e forma juridică a școlii și regimul de TVA? Se configurează în SmartBill, dar trebuie știut.
 - Ce procesator de plăți? Depinde de comisioane și de suportul pentru plăți recurente.
 - Plățile recurente automate sunt de dorit pentru tranșa a doua, sau părinții preferă manual?

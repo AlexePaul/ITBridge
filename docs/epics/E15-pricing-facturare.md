@@ -6,12 +6,12 @@
 
 Modelul de facturare actual e lunar, cu prețuri hardcodate, și are un bug care produce sume greșite.
 
-În `it-bridge-backend/src/modules/invoice/invoice.service.ts:107`:
+În `apps/api/src/modules/invoice/invoice.service.ts:162`, în `calculateAmount`:
 
 ```ts
+let totalAmount = 0;
 if (profile.children.length === 1) totalAmount = 350;
-else if (profile.children.length === 2)
-  totalAmount = 250 * profile.children.length;
+else if (profile.children.length === 2) totalAmount = 250 * profile.children.length;
 ```
 
 **Nu există ramură pentru trei sau mai mulți copii.** `totalAmount` rămâne `0`, iar reducerile
@@ -36,7 +36,7 @@ Restul modelului e la fel de rigid:
 Direcția nouă — **700 de lei pe modul**, plătibili integral sau în două tranșe — nu încape în acest
 model. Nu e o schimbare de constantă, e o schimbare de unitate de facturare: de la lună la modul.
 
-Și mai grav, în `it-bridge-backend/src/entities/payment.entity.ts`: **`Payment` nu are coloană de sumă.** Are `method`, `date`, și
+Și mai grav, în `apps/api/src/entities/payment.entity.ts`: **`Payment` nu are coloană de sumă.** Are `method`, `date`, și
 o relație unu-la-unu cu `Invoice`. Deci **plata în două tranșe nu poate fi reprezentată deloc** —
 nici măcar teoretic. Se rezolvă în [E16](E16-plati-fiscal.md), dar modelul de aici trebuie să o
 presupună.
@@ -189,9 +189,9 @@ SmartBill de 3 apeluri pe secundă face bucla imposibilă oricum.
 Documentul fiscal e emis de SmartBill, care produce și PDF-ul — vezi
 [E16](E16-plati-fiscal.md). Platforma stochează referința și link-ul, nu generează nimic.
 
-Generarea de facturi din `it-bridge-backend/src/modules/invoice/pdf.service.ts` se retrage. Serviciul rămâne în cod, cu fonturile Roboto
-și logo-ul din `it-bridge-backend/src/assets/`, pentru documentele **nefiscale** — certificatele din
-[E13](E13-progres-evaluare.md) și rapoartele de progres.
+Generarea de facturi din `apps/api/src/modules/invoice/pdf.service.ts` se retrage. Serviciul rămâne
+în cod, cu fonturile Roboto și logo-ul din `apps/api/src/assets/`, pentru documentele **nefiscale**
+— certificatele din [E13](E13-progres-evaluare.md) și rapoartele de progres.
 
 Ce trebuie să arate identic sunt **factura din portal și cea din SmartBill**: aceleași linii,
 aceleași sume, aceleași scadențe. Divergența dintre ele e exact ce urmărește
@@ -248,8 +248,34 @@ mai emite, iar nota de plată se închide la suma facturată. Dacă a fost integ
 nimic. Fiindcă a doua factură se emite la mijlocul modulului și nu la înscriere, abandonul nu cere
 stornarea niciunui document fiscal. Regula se comunică la înscriere, nu la plecare.
 
+Nu mai există excepție. Recomandarea din auditul anterior — recunoașterea dreptului de retragere în
+14 zile din OUG 34/2014, cu storno manual în SmartBill — **se scoate**, fiindcă și-a pierdut
+obiectul: dreptul acela se naște dintr-un contract încheiat la distanță sau în afara spațiului
+comercial, iar de acum nu se mai încheie niciunul. **Înscrierea o face adminul, nu părintele**, nu
+există auto-înscriere din portal ([E11](E11-inscrieri-capacitate.md)), iar **contractul se semnează
+fizic, la sediu** — platforma reține doar faptul că există unul semnat, cu data lui
+([E07](E07-securitate-gdpr.md) S8). Fără contract la distanță nu există drept de la care să nu se
+poată deroga, deci clauza de nereturnare nu mai e abuzivă, iar aici nu intră nici calculator de
+returnare, nici conductă de stornare în [E16](E16-plati-fiscal.md).
+
+Cele două fluxuri online care existau în discuție nu contrazic asta, și merită numite ca să nu fie
+reluate ca obiecție: [E20](E20-achizitie-lead.md) S2 programează o lecție de probă **gratuită**,
+deci nu încheie niciun contract și nu circulă niciun ban; [E16](E16-plati-fiscal.md) S4 încasează
+online o factură care decurge dintr-un contract deja semnat pe hârtie, deci **execută** un contract
+existent, nu încheie unul nou.
+
+Condiția în care se repune întrebarea, scrisă ca să fie recunoscută la timp: **dacă apare vreodată
+o înscriere care se finalizează online, sau o încasare de la o familie fără contract pe hârtie.**
+Ambele mută încheierea contractului în afara sediului, deci readuc termenul de 14 zile și, odată cu
+el, un caz real de stornat. Ziua în care una dintre ele se propune, întrebarea se pune înainte de
+implementare, nu după — și înainte ca [E07](E07-securitate-gdpr.md) S5 să publice termenii, fiindcă
+acolo regula devine text publicat.
+
 ## Întrebări deschise
 
+- ~~Retragerea în 14 zile la înscrierile online.~~ **Nu se mai pune.** Înscrierea o face adminul și
+  contractul se semnează fizic, deci nu există contract încheiat la distanță. Motivul complet și
+  condiția în care întrebarea revine, la [Decizii luate](#decizii-luate).
 - Prețul e același în ambele locații?
 - Un copil înscris la mijlocul unui modul plătește integral, sau proporțional cu ședințele rămase?
   Cu preț fix pe modul, varianta consecventă e integral — dar e greu de vândut cuiva care prinde
