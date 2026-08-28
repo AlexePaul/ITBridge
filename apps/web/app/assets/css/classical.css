@@ -1247,6 +1247,37 @@ textarea.input {
   }
 }
 
+/* — on paper —
+
+   Every other reader of this site is looking at a document that is being
+   painted: the reveal is released by script, and the intro and the scroll
+   timelines are released by the animation running. A print has neither. This
+   is the one place `!important` is right — an animated value outranks a normal
+   declaration in the cascade, and only an important one outranks it back — and
+   it is what keeps a page from printing with a faint hero or an empty column.
+*/
+@media print {
+  [data-intro],
+  [data-intro] > *,
+  [data-intro] .display > span > span,
+  .reveal-on [data-reveal],
+  .reveal-on [data-reveal-children] > *,
+  .reveal-on [data-reveal] .plate,
+  .reveal-on [data-reveal-children] .plate,
+  .reveal-on hr.rule,
+  .plate img,
+  .course-num {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+  }
+
+  .nav-progress {
+    display: none;
+  }
+}
+
 /* — the footer — */
 .footer-grid {
   display: grid;

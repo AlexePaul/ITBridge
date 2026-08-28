@@ -18,8 +18,9 @@ export const useReveal = () => {
 
   onMounted(async () => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    document.documentElement.classList.add("reveal-on");
+    // Nothing here degrades gracefully without the observer: `reveal-on` would
+    // hide every block below the fold and nothing would ever bring one back.
+    if (typeof IntersectionObserver === "undefined") return;
 
     let batch = 0;
     let batchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -57,6 +58,13 @@ export const useReveal = () => {
     // page's offset — usually a large negative `top` — so all of them looked
     // on-screen and the whole page skipped its reveal.
     await new Promise(requestAnimationFrame);
+
+    // Only now, with the observer built and the pass about to run: the class is
+    // what hides the page, so anything that could throw ahead of it — the media
+    // query, the observer's own constructor — has to throw while the page is
+    // still fully painted. Measuring before it costs nothing, because opacity
+    // does not move anything.
+    document.documentElement.classList.add("reveal-on");
 
     document.querySelectorAll<HTMLElement>(SELECTOR).forEach((element) => {
       // Whatever is already on screen has been painted opaque since first
