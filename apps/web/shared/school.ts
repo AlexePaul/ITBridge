@@ -87,9 +87,9 @@ export const SCHOOL_LOCATIONS: SchoolLocation[] = [
     slug: "straulesti",
     name: "Străulești",
     neighbourhood: "Străulești",
-    street: "Șoseaua București–Târgoviște 19A",
+    street: "Șoseaua București-Târgoviște 19A",
     district: "Sector 1",
-    postalCode: "013534",
+    postalCode: "013505",
     city: "București",
     region: "București",
     country: "RO",
@@ -108,7 +108,7 @@ export const SCHOOL_LOCATIONS: SchoolLocation[] = [
     mapLink:
       "https://www.google.com/maps/search/?api=1&query=%C8%98oseaua+Bucure%C8%99ti-T%C3%A2rgovi%C8%99te+19A%2C+Bucure%C8%99ti",
     image: "/images/straulesti-01.jpg",
-    imageAlt: "Sala de curs din Străulești, pe Șoseaua București–Târgoviște 19A",
+    imageAlt: "Sala de curs din Străulești, pe Șoseaua București-Târgoviște 19A",
   },
 ];
 

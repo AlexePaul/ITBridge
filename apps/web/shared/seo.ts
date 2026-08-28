@@ -21,7 +21,7 @@ const STATIC_PAGES: PageSeo[] = [
     path: "/",
     title: "Cursuri de programare pentru copii în București | IT Bridge School",
     description:
-      `${PRICE_ONE_CHILD} lei pe lună, grupe mici, două locații — Drumul Taberei și Străulești. ` +
+      `${PRICE_ONE_CHILD} lei pe lună, grupe mici, două locații (Drumul Taberei și Străulești). ` +
       "Informatică și programare pentru copii, de la clasa 0 până la Bacalaureat.",
     summary:
       "Prezentarea școlii: ce se învață, cele două locații din București, prețuri și contact.",
@@ -40,7 +40,7 @@ const STATIC_PAGES: PageSeo[] = [
   },
   {
     path: "/despre-noi",
-    title: "Profesorii — Alexe Vasile Paul și Alexe Ana Iulia | IT Bridge School",
+    title: "Profesorii: Alexe Vasile Paul și Alexe Ana Iulia | IT Bridge School",
     description:
       "Cine predă la IT Bridge School: Alexe Vasile Paul, programare și algoritmi, și Alexe Ana " +
       "Iulia, competențe digitale și creativitate.",
@@ -49,10 +49,10 @@ const STATIC_PAGES: PageSeo[] = [
   },
   {
     path: "/contact",
-    title: "Contact — telefon, email și locațiile | IT Bridge School",
+    title: "Contact: telefon, email și locațiile | IT Bridge School",
     description:
       `Telefon ${SCHOOL_PHONE}, email ${SCHOOL_EMAIL}. Două locații: Valea Oltului 73, Sector 6, ` +
-      "și Șos. București–Târgoviște 19A, Sector 1.",
+      "și Șos. București-Târgoviște 19A, Sector 1.",
     summary: "Telefon, email, program de lucru, adresele și hărțile celor două locații.",
     priority: 0.7,
   },
@@ -60,7 +60,7 @@ const STATIC_PAGES: PageSeo[] = [
 
 const LOCATIONS_INDEX: PageSeo = {
   path: "/locatii",
-  title: "Locații — Drumul Taberei și Străulești | IT Bridge School",
+  title: "Locații: Drumul Taberei și Străulești | IT Bridge School",
   description:
     "Două săli de curs în București: Valea Oltului 73, în Drumul Taberei, și Șos. București–" +
     "Târgoviște 19A, în Străulești. Aceeași programă la amândouă.",
@@ -92,7 +92,7 @@ const LOCATION_PAGES: PageSeo[] = [
     path: "/locatii/straulesti",
     title: "Cursuri de informatică pentru copii în Străulești",
     description:
-      "Cursuri de programare pentru copii pe Șos. București–Târgoviște 19A, Sector 1 — pentru " +
+      "Cursuri de programare pentru copii pe Șos. București-Târgoviște 19A, Sector 1, pentru " +
       `Străulești, Bucureștii Noi, Chitila și Mogoșoaia. ${PRICE_ONE_CHILD} lei pe lună.`,
     summary:
       "Locația din Străulești: din ce zone vin copiii, cum ajungi cu mașina sau cu metroul M4, " +

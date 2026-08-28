@@ -5,8 +5,8 @@
       <h1 class="page-title">Două săli de curs în București</h1>
       <p class="lede">
         La IT Bridge School se predă în două locații: în Drumul Taberei, Sectorul 6, și în
-        Străulești, Sectorul 1. Aceeași programă, aceleași șase niveluri și același preț la amândouă
-        — alegi locația mai apropiată de casă sau de școala copilului.
+        Străulești, Sectorul 1. Aceeași programă, aceleași șase niveluri și același preț la
+        amândouă. Alegi locația mai apropiată de casă sau de școala copilului.
       </p>
     </section>
 
@@ -35,7 +35,7 @@
     <section class="section-close" data-reveal>
       <h2 class="block-title">Nu ești sigur care ți se potrivește?</h2>
       <p class="body-text measure-wide">
-        Spune-ne unde stați și la ce oră v-ar conveni — îți spunem la care dintre cele două locații
+        Spune-ne unde stați și la ce oră v-ar conveni. Îți spunem la care dintre cele două locații
         sunt locuri libere în grupa potrivită copilului.
       </p>
       <div class="actions">

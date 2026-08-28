@@ -5,9 +5,9 @@
       <h1 class="page-title">Transformăm copiii în creatori de tehnologie</h1>
       <p class="lede justified">
         IT Bridge School este o școală de informatică pentru copii, cu două locații în București.
-        Credem că fiecare copil merită șansa de a-și atinge potențialul în IT — și că învățarea
-        merge cel mai bine prin practică: proiecte reale, grupe mici și profesori care ajung la
-        fiecare elev.
+        Credem că fiecare copil merită șansa de a-și atinge potențialul în IT și că învățarea merge
+        cel mai bine prin practică: proiecte reale, grupe mici și profesori care ajung la fiecare
+        elev.
       </p>
     </section>
 
@@ -58,7 +58,7 @@
     <section class="section" data-reveal>
       <figure>
         <blockquote class="quote measure-wide">„{{ TESTIMONIALS.about.quote }}”</blockquote>
-        <figcaption class="quote-source">— {{ TESTIMONIALS.about.source }}</figcaption>
+        <figcaption class="quote-source">{{ TESTIMONIALS.about.source }}</figcaption>
       </figure>
     </section>
 
@@ -135,7 +135,7 @@ const values = [
   {
     title: "Fiecare oră se termină cu ceva lucrat",
     body:
-      "Copilul pleacă de la fiecare ședință cu ceva făcut de el — un desen digital la nivelurile " +
+      "Copilul pleacă de la fiecare ședință cu ceva făcut de el: un desen digital la nivelurile " +
       "mici, un joc în Scratch la mijloc, o pagină web sau un program la cele mari. Nu cu notițe.",
   },
   {

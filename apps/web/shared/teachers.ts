@@ -17,13 +17,13 @@ export const TEACHERS: Teacher[] = [
     bio:
       "Licențiat în Informatică la Universitatea din București, cu lucrarea de licență despre " +
       "folosirea tehnologiei în educație. A predat informatică la nivel universitar ca asistent " +
-      "și lucrează ca programator backend — așa că exemplele de la ore vin direct din lumea " +
+      "și lucrează ca programator backend, așa că exemplele de la ore vin direct din lumea " +
       "reală a IT-ului.",
     highlights: [
       "Bacalaureat promovat cu nota 10 la informatică",
       "Admis la Universitatea din București pe baza rezultatelor la olimpiadele școlare",
       "Experiență de predare la nivel universitar, ca asistent",
-      "Programator backend activ — exemple concrete din industria IT, la fiecare curs",
+      "Programator backend activ: exemple concrete din industria IT, la fiecare curs",
     ],
     image: "/images/paul.jpg",
     imageAlt: "Alexe Vasile Paul, profesor de programare și algoritmi la IT Bridge School",
@@ -35,10 +35,10 @@ export const TEACHERS: Teacher[] = [
     bio:
       "Absolventă a Facultății de Economie Teoretică și Aplicată, cu o pasiune pentru educație " +
       "și pentru tehnologie ca instrument de învățare. Predă Office, Canva, Tinkercad și " +
-      "Scratch — cu răbdare, empatie și adaptare la ritmul fiecărui copil.",
+      "Scratch, cu răbdare, empatie și adaptare la ritmul fiecărui copil.",
     highlights: [
-      "Microsoft Office la nivel avansat — materiale educaționale interactive",
-      "Canva, Tinkercad și Scratch — creativitate, modelare 3D și bazele programării vizuale",
+      "Microsoft Office la nivel avansat: materiale educaționale interactive",
+      "Canva, Tinkercad și Scratch: creativitate, modelare 3D și bazele programării vizuale",
       "Explicarea conceptelor tehnice simplu și prietenos",
       "Un mediu de învățare sigur, interactiv și motivant",
     ],
