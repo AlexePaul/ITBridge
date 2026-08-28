@@ -3,8 +3,38 @@ import { MODULE_WEEKS_MAX, MODULE_WEEKS_MIN, PRICE_ONE_CHILD, SESSION_HOURS } fr
 
 const sessionLength = String(SESSION_HOURS).replace(".", ",");
 
-/** Shown on the pages that carry facts, so a reader can see how fresh they are. */
-export const CONTENT_UPDATED = "august 2026";
+/**
+ * The day the facts on the fact-carrying pages were last checked. Update this
+ * one line when a price, an address or a timetable changes.
+ *
+ * Machine-readable because `dateModified` in the structured data reads it, and
+ * a date is how a model settles a contradiction between two sources: prices and
+ * timetables outlive their accuracy in search results, in directories and in the
+ * memory of assistants trained a year ago, and an undated page loses that
+ * argument to a confident older one.
+ */
+export const CONTENT_UPDATED_ISO = "2026-08-28";
+
+const MONTHS_RO = [
+  "ianuarie",
+  "februarie",
+  "martie",
+  "aprilie",
+  "mai",
+  "iunie",
+  "iulie",
+  "august",
+  "septembrie",
+  "octombrie",
+  "noiembrie",
+  "decembrie",
+];
+
+/**
+ * The same day as a reader sees it, derived rather than retyped — two constants
+ * spelling one date is two constants that eventually disagree.
+ */
+export const CONTENT_UPDATED = `${MONTHS_RO[Number(CONTENT_UPDATED_ISO.slice(5, 7)) - 1]} ${CONTENT_UPDATED_ISO.slice(0, 4)}`;
 
 export interface PageSeo {
   path: string;

@@ -15,6 +15,7 @@ import {
   SESSION_HOURS,
   type CourseLevel,
 } from "./courses";
+import { CONTENT_UPDATED_ISO } from "./seo";
 
 type Node = Record<string, unknown>;
 
@@ -125,6 +126,9 @@ export const webPageNode = (
   isPartOf: { "@id": ids.website(site) },
   about: { "@id": about ?? ids.organization(site) },
   inLanguage: "ro-RO",
+  // The one signal that lets a reader — human or machine — tell this page from
+  // an older copy of the same facts still sitting in an index or a directory.
+  dateModified: CONTENT_UPDATED_ISO,
 });
 
 export const breadcrumbNode = (site: string, trail: { name: string; path: string }[]): Node => ({
