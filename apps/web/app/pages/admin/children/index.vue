@@ -217,7 +217,10 @@ const columns: TableColumn<Child>[] = [
     cell: ({ row }) => {
       const g = row.original.group;
       if (!g) return h("span", { class: "text-muted" }, "N/A");
-      return `#${g.id} • ${getWeekdayName(g.weekday)} • ${formatTime(g.startTime)} - ${formatTime(g.endTime)}`;
+      // The location belongs here, not only in the header: in "toate locațiile" mode this table
+      // does mix the two addresses, and a row reading "Sala 1" would not say which one.
+      const where = g.room ? ` • ${g.room.location.name} · ${g.room.name}` : "";
+      return `${g.name} • ${getWeekdayName(g.weekday)} • ${formatTime(g.startTime)} - ${formatTime(g.endTime)}${where}`;
     },
   },
   {

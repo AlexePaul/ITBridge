@@ -135,6 +135,16 @@ se adună la nimic real. Dacă apare cerința de raportare pe sedii, locul ei e
 Înregistrările fără locație — un copil încă nerepartizat — rămân vizibile în orice selecție. Sunt
 nealocate, nu în altă parte, și sunt exact ce caută un admin când deschide lista.
 
+Filtrul singur nu era de ajuns pentru „nicio listă nu amestecă locațiile fără să o spună": oriunde
+apare o grupă, apare acum și unde se ține. Ecranul de prezență o numește în titlu („Prezența ·
+Scratch Avansați / Marți, 16:00 – 17:30 · Drumul Taberei · Sala 2"), coloana „Grup" din lista de
+copii poartă locația pe fiecare rând — în modul „toate locațiile" chiar amestecă adresele — iar fișa
+unui părinte o arată per copil, fiindcă un părinte poate avea câte unul la fiecare adresă.
+
+Pagina părintelui (`user/dashboard.vue`) nu afișează deloc grupa, doar un calendar de prezență, deci
+nu are ce să spună ambiguu. Dacă ajunge să o afișeze, locația merge odată cu ea — dar asta e
+[E18](E18-frontend-portal.md), nu E08.
+
 ### S5 · Migrarea datelor existente
 
 Toate grupele existente sunt atribuite locației principale și unei săli implicite, cu semnalarea
@@ -200,8 +210,16 @@ Nicio entitate operațională nu e ambiguă în privința locului unde se întâ
 adăuga din interfață, fără cod.
 
 **Atins pentru grupe, săli și locații.** O a treia locație se adaugă din `/admin/locations`, cu
-sălile ei, iar grupele se pot muta acolo — fără migrare și fără cod. Rămân nivelul și profesorul de
-la S3, care așteaptă E10 și E09.
+sălile ei, iar grupele se pot muta acolo — fără migrare și fără cod. Fiecare loc din interfață în
+care apare o grupă spune și unde se ține.
+
+Rămân nivelul și profesorul principal de la S3, care așteaptă [E10](E10-curriculum-module.md) și
+[E09](E09-personal-roluri.md). **Nimic din ce mai rămâne în E08 nu se poate face fără ele** — epicul
+stă aici până când unul dintre cele două pornește.
+
+Riscul din secțiunea de mai sus se închide fără muncă: [E04](E04-migrari-date.md) a stabilit că nu
+există date de producție de păstrat, deci nu e nimic de corectat retroactiv. Migrarea le semnalează
+oricum, dacă apar.
 
 ## Întrebări deschise
 

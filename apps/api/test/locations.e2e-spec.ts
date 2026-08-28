@@ -209,6 +209,35 @@ describe('Locations, rooms and the timetable (e2e)', () => {
             expect(res.body.name).toBe('Scratch Avansați');
         });
 
+        /**
+         * `Group` in the shared contract has a required `room`, so every endpoint that hands a
+         * group to a client owes one. These three reach a group by different routes, and each was
+         * a separate `leftJoinAndSelect` that could be forgotten on its own — the frontend then
+         * renders "Sala 1" with no way to say which of the two it is.
+         */
+        it('carries the room and its location on a child, wherever the child comes from', async () => {
+            const { strRoom } = await seedBothLocations();
+            const group = await createGroup(groupBody(strRoom)).expect(201);
+
+            const profile = await request(app.getHttpServer())
+                .post('/profiles')
+                .set('Authorization', admin.auth)
+                .send({ firstName: 'Ana', lastName: 'Pop' })
+                .expect(201);
+            const child = await request(app.getHttpServer())
+                .post('/children')
+                .set('Authorization', admin.auth)
+                .send({ parentId: profile.body.id, firstName: 'Maria', lastName: 'Pop', birthDate: '2016-05-01' })
+                .expect(201);
+            await request(app.getHttpServer()).post(`/children/${child.body.id}/groups/${group.body.id}`).set('Authorization', admin.auth).expect(201);
+
+            const children = await request(app.getHttpServer()).get('/children').set('Authorization', admin.auth).expect(200);
+            expect(children.body[0].group.room.location.slug).toBe('straulesti');
+
+            const profiles = await request(app.getHttpServer()).get('/profiles').set('Authorization', admin.auth).expect(200);
+            expect(profiles.body[0].children[0].group.room.location.slug).toBe('straulesti');
+        });
+
         it('carries the room and its location on every group it returns', async () => {
             const { strRoom } = await seedBothLocations();
             await createGroup(groupBody(strRoom)).expect(201);

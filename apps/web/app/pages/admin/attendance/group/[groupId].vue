@@ -5,12 +5,16 @@
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-3xl font-bold">
-            Prezența Grupa {{ $route.params.groupId }} -
+            Prezența · {{ group?.name || `Grupa ${$route.params.groupId}` }}
+          </h1>
+          <p class="text-muted mt-1">
             {{ getWeekdayName(group?.weekday as number) }},
             {{ formatTime((group?.startTime as string) || "00:00:00") }} -
             {{ formatTime((group?.endTime as string) || "23:59:59") }}
-          </h1>
-          <p class="text-muted mt-1">Gestionează prezența copiilor din grupa</p>
+            <template v-if="group?.room">
+              · {{ group.room.location.name }} · {{ group.room.name }}
+            </template>
+          </p>
         </div>
         <UButton
           color="secondary"
