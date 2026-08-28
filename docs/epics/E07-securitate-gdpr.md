@@ -1,6 +1,6 @@
 # E07 · Securitate, GDPR și consimțământ
 
-**Status:** propus · **Pistă:** Fundație · **Depinde de:** E04, E05 · **Blochează:** E09, E14, E19, E22
+**Status:** propus · **Pistă:** Fundație · **Depinde de:** E04, E05 · **Blochează:** E09, E14, E19
 
 ## Problemă
 
@@ -19,10 +19,10 @@ strict regim, iar școala e operator de date, nu intermediar. Starea actuală nu
   copil, fără urmă.
 - **Nu există export sau ștergere de date la cerere**, deși sunt drepturi pe care un părinte le
   poate exercita oricând, cu termen legal de răspuns.
-- **Nu există contract de înscriere înregistrat.** Regulile pe care se sprijină banii și programul —
+- **Nu există evidența contractelor de înscriere.** Regulile pe care se sprijină banii și programul —
   „se cumpără un modul, nu un număr de ședințe" din [E12](E12-prezenta-orar.md), „fără returnare la
-  abandon" din [E15](E15-pricing-facturare.md) — sunt clauze contractuale, dar nu există niciun text
-  acceptat de cineva, la o dată anume, într-o versiune anume.
+  abandon" din [E15](E15-pricing-facturare.md) — sunt clauze contractuale, dar nimeni nu poate spune,
+  fără să caute prin bibliorafturi, dacă o familie anume a semnat și când.
 - **Datele de contact ale copiilor și părinților nu sunt clasificate.** Nimic nu spune ce e sensibil
   și ce nu, deci nimic nu împiedică o dată personală să ajungă într-un log sau într-un raport de
   eroare.
@@ -40,7 +40,8 @@ acordul explicit al părintelui, revocabil.
 - Audit log pe acțiunile administrative.
 - Export și ștergere la cerere.
 - Politică de confidențialitate, termeni, banner de cookie-uri.
-- Contractul de înscriere, ca document versionat, cu acceptarea înregistrată per înscriere.
+- Evidența contractelor de înscriere semnate pe hârtie: pentru fiecare înscriere, faptul, data și,
+  dacă e cazul, versiunea.
 - Managementul secretelor.
 - Contracte de prelucrare cu furnizorii.
 
@@ -48,7 +49,8 @@ acordul explicit al părintelui, revocabil.
 
 - Consultanță juridică. Acest epic pregătește platforma; textele legale — politica, termenii și
   contractul de înscriere — le scrie și le validează un avocat.
-- Semnătura electronică calificată. Vezi S8.
+- Textul contractului de înscriere ținut ca document versionat în platformă și acceptarea lui
+  digitală, cu tot ce ține de semnătură electronică. Contractul se semnează fizic. Vezi S8.
 
 ## Story-uri
 
@@ -56,7 +58,7 @@ acordul explicit al părintelui, revocabil.
 
 Un tabel cu fiecare câmp de date personale: unde e stocat, de ce, pe ce temei legal, cât se
 păstrează, cine îl poate vedea. Include datele copiilor — nume, dată de naștere, prezență, proiecte,
-fotografii.
+fotografiile lucrărilor.
 
 **Acceptanță:** tabelul e complet și fiecare câmp are temei legal identificat.
 
@@ -74,19 +76,23 @@ entitate proprie (`apps/api/src/entities/child.entity.ts`), iar consimțământu
 nicăieri — o căutare după `consent` în `apps/api/src` nu întoarce nimic. Deci schimbarea costă azi
 o linie de doc; după ce există primul rând, costă o migrare pe date reale.
 
-Cinci scopuri:
+Trei scopuri:
 
-1. **fotografierea copilului la curs și păstrarea fotografiei** — actul în sine, nu ce urmează;
-2. publicarea proiectelor pe vitrina publică din [E14](E14-proiecte-elevi.md) S6;
-3. fotografii și proiecte în materiale de marketing — [E19](E19-seo-geo.md);
-4. partajarea proiectului cu ceilalți părinți din grupă;
-5. comunicări comerciale.
+1. publicarea **lucrării** copilului pe vitrina publică din [E14](E14-proiecte-elevi.md) S6, cu
+   prenume, inițială și vârstă;
+2. lucrarea și fotografia ei în materiale de marketing — [E19](E19-seo-geo.md);
+3. comunicări comerciale.
 
-**Primul e distinct de al doilea intenționat.** Celelalte patru scopuri sunt toate în aval și
-presupun că fotografia există deja; niciunul nu acoperă momentul în care se apasă declanșatorul.
-Într-o sală, poza unei lucrări prinde de regulă mâini, fețe și copii din fundal — copii ai altor
-familii — iar în România imaginea persoanei e protejată separat de GDPR, prin art. 73 din Codul
-civil. Deci fotografierea are nevoie de temei propriu, nu de unul împrumutat de la publicare.
+**Fotografierea copilului nu e printre ele, fiindcă nu se întâmplă.** Se fotografiază lucrarea, nu
+copilul — fără fețe, fără copii în cadru, din clipa în care se apasă declanșatorul. Un scop de
+consimțământ pentru un act care nu are loc nu e o precauție în plus: e o bifă pe care S2 ar trebui
+totuși să o ceară, să o stocheze și să o verifice, fără ca răspunsul ei să schimbe vreodată ceva. Iar
+motivul pentru care fusese propus — imaginea persoanei e protejată în România separat de GDPR, prin
+art. 73 din Codul civil, deci ar avea nevoie de temei propriu, nu de unul împrumutat de la publicare
+— dispare odată cu obiectul: nu există imagine de persoană. Vezi [Decizii luate](#decizii-luate).
+
+**Partajarea proiectului cu ceilalți părinți din grupă a ieșit din listă din același motiv**: nu se
+face. Livrarea e privată, proiectul ajunge exclusiv la părintele copilului respectiv.
 
 **Livrarea proiectului propriu către propriul părinte nu depinde de niciunul dintre aceste
 acorduri.** E executarea contractului dintre școală și familie (S8), nu consimțământ. Altfel un
@@ -127,13 +133,9 @@ anonimizează în rest.
 Politică de confidențialitate, termeni și condiții, politică de cookie-uri, banner de consimțământ
 care chiar blochează scripturile neesențiale până la accept. Versionate, cu istoric al acceptărilor.
 
-Termenii validați de avocat trebuie să acopere explicit **dreptul legal de retragere în 14 zile la
-contractele încheiate la distanță** (OUG 34/2014). Înscrierea din portal sau prin telefon e contract
-la distanță, deci regula „fără returnare la abandon" din [E15](E15-pricing-facturare.md) nu poate
-deroga de la el prin decizie internă, iar o clauză de nereturnare absolută e clauză abuzivă.
-Cazurile sunt rare — proba e gratuită, deci „nu i-a plăcut" se consumă înainte să circule banii —
-dar corectura trebuie făcută *înainte* de redactare, nu după, și înainte ca
-[E16](E16-plati-fiscal.md) S4 să pună plata cu cardul în portal.
+Sunt documentele care privesc **vizitatorul** site-ului. Contractul dintre școală și familie e alt
+lucru și se semnează pe hârtie — vezi S8. Dreptul de retragere în 14 zile nu intră în ele; motivul e
+la [Decizii luate](#decizii-luate).
 
 **Acceptanță:** un vizitator nou nu are niciun cookie neesențial înainte de a accepta.
 
@@ -159,55 +161,56 @@ procesare în UE.
 
 **Acceptanță:** lista furnizorilor e completă, cu locul de procesare și statusul acordului.
 
-### S8 · Contractul de înscriere
+### S8 · Evidența contractului de înscriere
 
 S5 produce documentele care privesc **vizitatorul**: confidențialitate, termeni de site, cookie-uri.
-Contractul dintre școală și familie nu e produs de niciun epic, deși trei se sprijină pe el:
+Contractul dintre școală și familie e altceva, și trei epicuri se sprijină pe el:
 [E12](E12-prezenta-orar.md) spune că un părinte cumpără participarea la un modul, nu un număr
 garantat de ședințe, și că „formularea din factură și din termeni trebuie să reflecte asta";
 [E15](E15-pricing-facturare.md) decide „fără returnare la abandon", care e o clauză contractuală, nu
-o setare de sistem; [E11](E11-inscrieri-capacitate.md) recomandă auto-înscrierea din portal, moment
-în care acceptarea trebuie capturată și dovedibilă, fiindcă nu mai e nimeni în cameră.
+o setare de sistem; [E11](E11-inscrieri-capacitate.md) leagă înscrierea de o grupă anume.
 
-Platforma face trei lucruri, toate mecanice:
+**Contractul se semnează fizic.** Platforma nu ține textul, nu îl versionează și nu capturează
+acceptare digitală. Face un singur lucru: reține că pentru o înscriere **există contract semnat** —
+data semnării și, dacă textul ajunge să aibă versiuni, care versiune. Câteva câmpuri pe înscrierea
+din [E11](E11-inscrieri-capacitate.md), nu un subsistem de documente.
 
-- ține textul ca **document versionat**, cu aceeași mecanică din S5;
-- înregistrează **acceptarea la înscriere**: cine, ce versiune, când, pentru care `Enrollment` din
-  [E11](E11-inscrieri-capacitate.md);
-- îl arată părintelui în portal **în versiunea pe care a acceptat-o el**, nu în cea curentă. Un
-  contract afișat mereu în ultima versiune nu e o dovadă, e o afirmație.
+Motivul e că nu mai e nimic de capturat online. Nu există auto-înscriere: contul de părinte e inactiv
+până îl aprobă un admin, iar copilul e înscris în grupă tot de admin. Deci e mereu cineva în cameră
+când se semnează, iar hârtia se obține la fel de ușor ca o bifă. Ținut în platformă, textul ar fi
+cerut mecanica de versionare din S5, un ecran de acceptare, dovada acceptării și, la prima
+modificare, întrebarea ce se întâmplă cu familiile care au acceptat versiunea veche — muncă al cărei
+rezultat îl dă deja dosarul.
 
-Intră în exportul din S4 — un părinte care cere ce dețineți despre el primește și textul pe care l-a
-acceptat.
+Ce rezolvă câmpurile e o altă problemă, mai mică și reală: azi „a semnat familia X?" cere să caute
+cineva prin bibliorafturi, deci la câteva zeci de familii nimeni nu verifică preventiv și se află la
+momentul prost. Cu evidența în platformă, o înscriere fără contract se vede în listă, lângă ea.
 
-Reutilizează **entitatea de consimțământ din S2**, nu una paralelă: e același fapt — o persoană a
-acceptat un text versionat, la o dată, revocabil sau nu — cu alt scop și alt obiect. Două tabele
-pentru același fapt ar însemna două locuri de verificat înainte de fiecare afișare și două
-mecanisme de versionare de ținut în pas.
+Intră în exportul din S4 — un părinte care cere ce dețineți despre el află și că aveți înregistrat
+faptul că a semnat, cu data. Copia textului i-o dă școala din dosar; platforma nu o are.
 
-**Drepturile de imagine nu se redublează aici.** Contractul trimite la consimțământul granular din
-S2; altfel un părinte care retrage acordul foto ar apărea că reziliază contractul, iar retragerea —
-care trebuie să fie la fel de ușoară ca acordarea — ar deveni un act cu consecințe pe care nimeni nu
-și le asumă.
+Textul îl scrie și îl validează un avocat, ca restul documentelor legale, deci rămâne în afara
+scopului. Nu există acceptare digitală, deci nu se pune nici întrebarea despre semnătură electronică
+calificată.
 
-Textul îl scrie un avocat, ca restul documentelor legale, deci rămâne în afara scopului. **Fără
-semnătură electronică calificată:** acceptarea în portal, cu versiune, dată, utilizator și adresă
-IP, e proporțională cu miza — un modul de 700 de lei, acceptat dintr-un cont cu parolă, care e deja
-legat de familie prin `Profile`.
+**Drepturile de imagine nu se redublează aici.** Ce e de consimțit — publicarea lucrării — stă în
+consimțământul granular din S2, revocabil dintr-un click. Ca clauză în contractul de pe hârtie,
+retragerea acordului ar fi arătat ca o modificare de contract, iar retragerea trebuie să fie la fel
+de ușoară ca acordarea.
 
-**Acceptanță:** pentru orice înscriere se poate arăta exact ce text a acceptat familia și când, doi
-ani mai târziu.
+**Acceptanță:** pentru orice înscriere se poate spune, din platformă, dacă există contract semnat și
+din ce dată, fără să deschidă cineva un biblioraft. O înscriere fără contract se vede în listă.
 
-Blochează **auto-înscrierea din portal** ([E11](E11-inscrieri-capacitate.md), Întrebări deschise),
-nu [E11](E11-inscrieri-capacitate.md) S1: o înscriere făcută de admin poate colecta acceptarea pe
-hârtie până atunci, la fel ca azi.
+**Nu blochează nimic din [E11](E11-inscrieri-capacitate.md).** Singura situație în care acceptarea ar
+fi trebuit capturată digital era auto-înscrierea din portal, fiindcă acolo nu mai e nimeni în cameră.
+Nu se face — vezi [Decizii luate](#decizii-luate).
 
 ## Dependențe
 
 [E04](E04-migrari-date.md) pentru schema de consimțământ și audit,
 [E05](E05-robustete-backend.md) pentru filtrarea datelor din loguri.
 
-**Ce blochează E07, blochează la nivel de story.** Niciunul dintre cele patru epicuri din antet nu
+**Ce blochează E07, blochează la nivel de story.** Niciunul dintre cele trei epicuri din antet nu
 așteaptă E07 ca să înceapă; fiecare are câte un story care nu se poate bifa fără unul de aici:
 
 - [E09](E09-personal-roluri.md) S2 — rolul de profesor lărgește accesul la datele de contact ale
@@ -216,22 +219,19 @@ așteaptă E07 ca să înceapă; fiecare are câte un story care nu se poate bif
   nu reconstituie accesele deja făcute.
 - [E14](E14-proiecte-elevi.md) — vitrina publică nu poate arăta nimic fără consimțământul din S2.
 - [E19](E19-seo-geo.md) S8 — analiza de trafic respectă bannerul din S5.
-- [E22](E22-siguranta-copilului.md) S3 și S4 — alergiile și afecțiunile sunt categorie specială sub
-  art. 9 și își iau temeiul dintr-o bifă construită pe entitatea din S2, iar istoricul unei note de
-  incident e audit log-ul din S3, nu un model propriu.
 
 Dintre astea, doar [E14](E14-proiecte-elevi.md) are E07 în coloana „Depinde de" a tabelului din
 [README](README.md): acolo consimțământul e precondiție de model, nu criteriu de acceptanță — fără el
-epicul nu are ce livra. Celelalte trei sunt muchii slabe, de același fel cu cele care pleacă din
+epicul nu are ce livra. Celelalte două sunt muchii slabe, de același fel cu cele care pleacă din
 [E17](E17-comunicare-notificari.md) către E11, E12 și E16: epicurile se construiesc și se livrează
 fără E07, doar că rămân cu criterii nebifate. Locul lor e aici, în `Blochează`, și în graful din
 README — nu în coloana „Depinde de" — ca să nu fie descoperite ca surpriză la sfârșitul epicului
 blocat.
 
-**[E11](E11-inscrieri-capacitate.md) nu e în listă, intenționat.** S8 blochează auto-înscrierea din
-portal, care e încă o întrebare deschisă în E11, nu un story al lui — iar înscrierea făcută de admin,
-singura care există azi, merge mai departe fără nimic de aici. Muchia devine reală în clipa în care
-răspunsul la acea întrebare e „da"; atunci E11 intră în antet.
+**[E11](E11-inscrieri-capacitate.md) nu e în listă, iar acum e definitiv.** Muchia ar fi apărut doar
+prin auto-înscrierea din portal, unde acceptarea contractului ar fi trebuit capturată digital. Nu se
+face auto-înscriere: fiecare cont și fiecare înscriere trec printr-un admin. Evidența din S8 e un
+câmp pe înscrierea făcută de admin, nu o precondiție pentru ea.
 
 ## Riscuri
 
@@ -246,31 +246,45 @@ trebuie proiectată explicit.
 ## Definition of done
 
 Fiecare categorie de date personale are temei legal și termen de păstrare. Consimțământul e
-granular, revocabil și respectat automat. Pentru orice înscriere se știe ce text a acceptat familia,
-în ce versiune și când. Un audit extern ar găsi documentație, nu improvizație.
+granular, revocabil și respectat automat. Pentru orice înscriere se știe, din platformă, dacă există
+contract semnat, din ce dată și în ce versiune. Un audit extern ar găsi documentație, nu
+improvizație.
 
 ## Decizii luate
 
-**Fără detecție automată de fețe și fără blurare.** Ar fi răspunsul reflex la problema copiilor din
-fundal de la S2, și e greșit din trei motive. Un model de detecție ar rula pe aceeași instanță care
-ține și Postgres — vezi [E01](E01-infrastructura-medii.md) — pentru câteva zeci de fotografii pe
-săptămână. Detecția ratează exact cazurile grele, un profil parțial în penumbră, deci produce
-încredere falsă tocmai acolo unde revizuirea umană ar fi contat. Și, cel mai important, mută
-problema în aval: soluția ieftină e să nu existe fața în cadru, adică regula de fotografiere din
-[E14](E14-proiecte-elevi.md) S2 — fotografia se face asupra lucrării, nu asupra copilului — plus
-bifa de verificare dinaintea publicării din [E14](E14-proiecte-elevi.md) S6, care se face oricum,
-fiindcă vitrina se revizuiește înainte să apară. Se reia discuția doar dacă vitrina ajunge să
-publice fotografii pe care nu le mai vede nimeni înainte.
+**Se fotografiază lucrarea, nu copilul.** Regulă tare de la bun început, nu avertisment în procedură:
+fără fețe, fără copii în cadru. Din ea decurg două lucruri. Al cincilea scop de consimțământ propus
+mai devreme — fotografierea copilului la curs — a ieșit din S2, fiindcă nu mai are obiect: nu se
+consimte un act care nu se produce. Și problema copilului din fundal — poza unei lucrări care prinde
+în trecere copilul altei familii — dispare structural, nu prin verificare manuală înainte de
+publicare.
+
+**Fără detecție automată de fețe și fără blurare.** Ar fi răspunsul reflex la problema de mai sus, și
+ar fi fost greșit și atunci când problema exista. Un model de detecție ar rula pe aceeași instanță
+care ține și Postgres — vezi [E01](E01-infrastructura-medii.md) — pentru câteva zeci de fotografii pe
+săptămână, și ar rata exact cazurile grele, un profil parțial în penumbră, deci ar produce încredere
+falsă tocmai acolo unde ochiul omului ar fi contat. Soluția ieftină e să nu existe fața în cadru. Se
+reia discuția doar dacă regula de fotografiere se schimbă.
+
+**Livrarea e privată.** Proiectul și emailul de seară din [E14](E14-proiecte-elevi.md) ajung exclusiv
+la părintele copilului respectiv; nimic nu pleacă spre alte familii. De aceea „partajarea proiectului
+cu ceilalți părinți din grupă" a ieșit din lista de scopuri din S2 — un consimțământ pentru o
+difuzare care nu se face rămâne, totuși, un câmp de cerut, de stocat și de verificat.
+
+**Contractul de înscriere se semnează pe hârtie.** Platforma reține faptul, data și, dacă e cazul,
+versiunea — nu textul și nu acceptarea. Vezi S8.
+
+**Fără drept de retragere în 14 zile.** Termenii din S5 nu trebuie să acopere OUG 34/2014, cum se
+scrisese aici mai devreme, fiindcă nu se mai încheie contract la distanță: nu există auto-înscriere,
+contul de părinte se aprobă de admin, copilul e înscris de admin, iar contractul se semnează față în
+față. Regula „fără returnare la abandon" din [E15](E15-pricing-facturare.md) rămâne o clauză
+contractuală obișnuită, de validat de avocat ca oricare alta, nu o derogare de la un drept legal.
+Întrebarea se repune în clipa în care apare înscriere sau plată online fără contract semnat înainte —
+atunci contractul redevine încheiat la distanță, iar corectura trebuie făcută *înainte* de
+redactarea termenilor, nu după.
 
 ## Întrebări deschise
 
-- Acordul de imagine se ia ca bifă la înscriere, în același ecran cu contractul din S8, sau rămâne
-  hârtie separată, semnată? **Recomandare: bifă la înscriere.** *De confirmat.* O hârtie semnată nu
-  e legată de niciun rând din baza de date, deci codul nu o poate verifica înainte de publicare și
-  revocarea nu poate avea efect „în sub un minut" — cineva ar trebui să caute prin dosar și să
-  acționeze manual, exact ce încearcă S2 să elimine. Contraargumentul e real: forma scrisă e mai
-  solidă dacă un părinte contestă mai târziu că a dat acordul. De aceea textul bifei se scrie tot de
-  avocat, iar înregistrarea reține versiunea, data și utilizatorul.
 - Cine e responsabilul cu protecția datelor? La dimensiunea asta nu e obligatoriu un DPO formal,
   dar cineva trebuie să fie punctul de contact.
 - Vârsta de la care copilul însuși are drepturi de acces? În România, consimțământul digital e la 16

@@ -1,6 +1,6 @@
 # E04 · Migrări și integritatea datelor
 
-**Status:** în lucru · **Pistă:** Fundație · **Depinde de:** E02 · **Blochează:** E05, E07, E08, E10, E22
+**Status:** în lucru · **Pistă:** Fundație · **Depinde de:** E02 · **Blochează:** E05, E07, E08, E10
 
 ## Problemă
 

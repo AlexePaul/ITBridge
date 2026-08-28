@@ -36,7 +36,7 @@ cont, fără să mute fișiere și fără să caute prin liste.
 - Uploader cu fricțiune minimă, conștient de context.
 - Livrare automată către părinte.
 - Galerie în portalul părintelui.
-- Vitrină publică, cu consimțământ.
+- Vitrină publică a lucrărilor, cu consimțământ.
 - Corectarea unei atribuiri greșite.
 
 ## În afara scopului
@@ -134,11 +134,15 @@ idempotență pe fiecare încărcare**, aceeași disciplină ca la emiterea din 
 S2, ca o reîncercare să nu producă al doilea proiect și, în aceeași seară, a doua miniatură în
 emailul părintelui; fotografiile se redimensionează pe client înainte de trimitere.
 
-**Fotografia se face asupra lucrării, nu asupra copilului.** Uploaderul scrie asta pe ecran și
-adaugă: dacă în cadru intră alți copii, se decupează sau se reface. Uploaderul știe deja cine e în
-sesiune, deci marchează vizibil copiii fără acord de imagine — scopul de fotografiere din
-[E07](E07-securitate-gdpr.md) S2. Livrarea proiectului propriu către propriul părinte nu depinde de
-acel acord; publicarea și fotografierea, da.
+**Se fotografiază lucrarea, nu copilul.** Fără fețe, fără copii în cadru, de la bun început — vezi
+[Decizii luate](#decizii-luate). Nu e un avertisment pe ecran urmat de verificare, e regula după care
+se face poza: cadrul e ecranul, macheta, foaia sau obiectul construit. Nu există pasul „dacă a intrat
+un copil în cadru, se decupează sau se reface", fiindcă nu se ajunge acolo.
+
+Consecința pentru uploader e că **nu are ce marca și ce interoga înainte de încărcare.** Nu există
+copii fără acord de imagine, fiindcă nu se fotografiază copii. Livrarea proiectului propriu către
+propriul părinte nu depinde de niciun acord; publicarea lucrării pe vitrină, da — și aceea se
+verifică în S6, la afișare, nu în grabă la sfârșitul orei.
 
 **Acceptanță:** de la fișier pe ecran la proiect încărcat și atribuit copilului corect, în sub zece
 secunde, fără tastare. O încărcare întreruptă și reîncercată produce un singur proiect, iar
@@ -181,17 +185,26 @@ Un email per copil per proiect ar fi spam; unul pe zi e un ritual așteptat.
 
 Prin [E17](E17-comunicare-notificari.md), cu preferință de frecvență: imediat, zilnic sau săptămânal.
 
-**Destinatarul e `Profile.email` al părintelui copilului.** `User` nu are deloc coloană de email, iar
-`Profile.email` e `nullable` — înregistrarea cere doar username și parolă. Deci un profil fără
-adresă nu primește nimic și apare ca **nelivrat, motiv „fără adresă"**, în evidența din
-[E17](E17-comunicare-notificari.md) S5. Nu e sărit tăcut: un părinte care nu primește proiectele nu
-primește nici facturile, iar azi nimeni nu ar afla. Adresa devine obligatorie când o probă devine
-înscriere activă — regula stă în [E11](E11-inscrieri-capacitate.md), nu aici, fiindcă profilul fără
-date de contact e un flux intenționat și nu se strică.
+**Destinatarul e exclusiv `Profile.email` al părintelui acelui copil.** Un singur destinatar, nu o
+listă: nimic din ce a construit un copil nu ajunge la altă familie, nici ca miniatură, nici ca titlu,
+nici ca link. Emailul de seară se grupează **per părinte, peste propriii lui copii** — nu per grupă și
+nu per ședință. Nu există copie de curtoazie către grupă, către alți părinți sau către o listă a
+locației; dacă apare vreodată cerința, e un scop de consimțământ separat, nu o adăugare la acest
+email — vezi [Decizii luate](#decizii-luate).
+
+`User` nu are deloc coloană de email, iar `Profile.email` e `nullable`
+(`apps/api/src/entities/profile.entity.ts:17`). Un profil fără adresă nu primește nimic și apare ca
+**nelivrat, motiv „fără adresă"**, în evidența din [E17](E17-comunicare-notificari.md) S5. Nu e sărit
+tăcut: un părinte care nu primește proiectele nu primește nici facturile, iar azi nimeni nu ar afla.
+Cazul rămâne posibil doar pentru profilurile create de admin fără date de contact, care sunt un flux
+intenționat și nu se strică; pentru conturile făcute de părinte, adresa e obligatorie și confirmată de
+la înregistrare, iar regula stă în [E11](E11-inscrieri-capacitate.md), nu aici.
 
 **Acceptanță:** un părinte cu doi copii care au avut curs în aceeași zi primește **un** email, cu
 ambele, iar miniaturile se văd și offline, a doua zi dimineața. Un părinte fără adresă apare în
-evidența de livrare cu motiv explicit.
+evidența de livrare cu motiv explicit. Un test de integrare cu doi părinți reali, cu copii în aceeași
+grupă, arată că fiecare email conține doar proiectele propriului copil — aceeași disciplină ca
+suitele de autorizare din `apps/api/test/`.
 
 ### S5 · Galeria din portal
 
@@ -205,8 +218,12 @@ Fișierele se servesc ca atașament, niciodată inline de pe domeniul școlii �
 
 ### S6 · Vitrina publică
 
-Proiectele cu consimțământ explicit din [E07](E07-securitate-gdpr.md) apar pe o pagină publică:
-prenume și inițială, vârstă, modul, ce a construit.
+Se publică **lucrarea, nu copilul.** Imaginea e proiectul — ecranul, macheta, pagina construită — și
+prin regula din S2 nu conține niciun copil. Textul de lângă ea rămâne prenumele și inițiala, vârsta,
+modulul și ce a construit: sunt datele pe care le acoperă consimțământul explicit din
+[E07](E07-securitate-gdpr.md) și singurele care mai au sens când în imagine nu apare nimeni. Nimic
+altceva — fără nume de familie, fără grupă, fără locație, fiindcă împreună ar spune unde se află un
+copil anume, marți la 17:00.
 
 E cel mai puternic material de marketing pe care îl poate avea școala, pentru că e singurul care nu
 poate fi inventat. Alimentează direct [E19](E19-seo-geo.md): conținut proaspăt, specific, exact
@@ -221,9 +238,10 @@ backend deployat.
 
 Retragerea consimțământului scoate proiectul de pe site automat, fără intervenție manuală.
 
-Înainte ca o fotografie să devină publică, cineva confirmă că în cadru nu apare alt copil
-identificabil. Vitrina se revizuiește oricum înainte de publicare — e o bifă în fluxul existent, nu
-un flux nou. Fără detecție automată de fețe și fără blurare.
+**Nu există pas de verificare a cadrului înainte de publicare.** Regula din S2 îl face fără obiect:
+dacă nu se fotografiază copii, nu e nimic de căutat în imagine. Revizia de dinainte de publicare
+rămâne, dar se uită la ce merită arătat și la calitatea lucrării, nu la cine a intrat în poză. Fără
+detecție automată de fețe și fără blurare — nu pentru că ar fi scumpe, ci pentru că nu au ce apăra.
 
 **Acceptanță:** niciun proiect fără consimțământ activ nu e vizibil public. Revocarea are efect în
 sub un minut.
@@ -257,7 +275,8 @@ fișierul, iar adminul poate răspunde la „a apucat să plece emailul, și că
 ## Dependențe
 
 [E07](E07-securitate-gdpr.md) pentru consimțământ — **obligatoriu înainte**, nu după. Din el vin
-granularitatea `(Profile, Child, scop)`, scopul de fotografiere și audit log-ul din S3.
+granularitatea `(Profile, Child, scop)`, scopul de publicare a lucrării și audit log-ul din S3. Scopul
+de fotografiere a copilului, propus inițial acolo, nu mai există — vezi [Decizii luate](#decizii-luate).
 
 [E08](E08-multi-locatie.md) pentru sală și orar: uploaderul răspunde la „ce grupă e acum în sala
 asta", iar întrebarea nu are răspuns fără sală pe grupă.
@@ -286,16 +305,37 @@ testat cu profesorii pe hârtie înainte de a scrie cod, și măsurat după lans
 Accesul se face prin URL-uri semnate, cu termen scurt, verificate în backend — cu excepția
 miniaturii din email, care e atașament tocmai ca să nu existe URL cu viață lungă.
 
-**Fotografia dintr-o sală conține de regulă și alți copii.** E riscul cel mai ușor de subestimat,
-fiindcă nu arată ca o problemă tehnică. În România imaginea persoanei e protejată separat de GDPR
-(Cod civil, art. 73), iar copilul din fundal are altă familie și alt acord. Contramăsurile sunt în
-S2 (avertisment și marcarea copiilor fără acord) și S6 (verificare înainte de publicare), amândouă
-umane. Nu există plasă automată.
+**Copilul din fundal a fost riscul cel mai ușor de subestimat, și a fost scos, nu atenuat.** În
+România imaginea persoanei e protejată separat de GDPR (Cod civil, art. 73), iar copilul din fundal
+are altă familie și alt acord — deci contramăsura corectă nu e o verificare umană repetată de două
+ori pe săptămână, la sfârșitul orei, de un profesor grăbit. E regula de la captare: nu se
+fotografiază copii. Un risc pe care îl elimini din procedură nu mai are nevoie de plasă.
+
+Ce rămâne e riscul ca regula să se erodeze în timp — prima poză de grup la finalul unui modul, cerută
+cu cele mai bune intenții. De asta e scrisă ca regulă în S2 și ca decizie mai jos, nu ca sfat.
 
 **Fără antivirus, deocamdată** — consemnat aici ca să nu fie relitigat la fiecare revizie. Motivul e
 în [Decizii luate](#decizii-luate); condițiile care redeschid discuția sunt tot acolo.
 
 ## Decizii luate
+
+**Se fotografiază lucrarea, nu copilul. Livrarea e privată.** Decizia are două jumătăți care se
+susțin una pe alta.
+
+Prima: în cadru nu intră copii, de la bun început. Nu e un avertisment urmat de verificare manuală,
+fiindcă un avertisment se citește o dată și o verificare umană repetată de zeci de ori pe săptămână
+eșuează exact în ziua aglomerată. **Problema copilului din fundal dispare structural, nu prin
+proces**: poza cu un copil în ea nu se corectează, pur și simplu nu se face. Consecința e că nu mai
+rămâne nimic de decupat, de refăcut sau de bifat înainte de publicare.
+
+A doua: proiectele și emailul de seară ajung exclusiv la părintele copilului respectiv. Nimic nu
+pleacă spre altă familie. Vitrina publică rămâne în scop, dar publică **lucrarea**, cu prenumele,
+inițiala și vârsta din S6 — nu copilul.
+
+Consecința asupra [E07](E07-securitate-gdpr.md) S2: **scopul de consimțământ pentru fotografierea
+copilului nu mai are obiect și se scoate.** Ce se consimte e publicarea lucrării copilului. Un scop
+de consimțământ care nu poate fi încălcat, fiindcă situația nu se produce, e o casetă de bifat care
+dă fals sentimentul că cineva a decis ceva.
 
 **Fără registru de device-uri; se încarcă sub contul de profesor.** Un registru cu token hash,
 coduri de înrolare, rotație, revocare și ecran de admin înseamnă săptămâni de muncă pentru două
@@ -311,6 +351,13 @@ copii la aceeași încărcare și se creează câte un proiect pentru fiecare, c
 duplicat e mai ieftin decât o relație mulți-la-mulți cu consimțământ pe intersecție și revocare în
 cascadă — la care ar trebui decis, în plus, ce se întâmplă cu proiectul comun când un singur părinte
 retrage acordul.
+
+**Un copil are un părinte, cu o adresă.** Proiectele merg la un singur `Profile`, și acolo se
+opresc. Un al doilea profil pentru aceeași familie ar duplica copilul și ar rupe reducerea de frați,
+care se numără per familie: o familie cu doi copii ar plăti doi „primi copii" întregi. Dacă vreodată
+apare cerința reală a două adrese, soluția e un al doilea câmp de email pe `Profile` — o coloană — și
+tot **un singur email trimis la două adrese**, nu două trimiteri, care ar contrazice S6 din
+[E17](E17-comunicare-notificari.md).
 
 **Un singur bucket, prefix `projects/`; cheia doar din identificatori.** Un al doilea bucket ar
 promite izolare pe care nu o încasează nimeni la dimensiunea asta; separarea utilă e cea de prefix,
@@ -362,11 +409,9 @@ are proiecte reale, cu consimțământ.
 - Merită reluat registrul de device-uri? **Recomandare:** doar dacă ziua de observație arată că
   pasul de autentificare costă secundele care decid folosirea. *De confirmat.* Până atunci e muncă
   plătită înainte să se știe dacă rezolvă ceva.
-- Un copil are exact un `Profile`, deci proiectele merg la o singură adresă. **Recomandare:** rămâne
-  o adresă până cere cineva explicit. *De confirmat.* Un al doilea profil ar duplica copilul și ar
-  rupe reducerea de frați, care se numără per familie — o familie cu doi copii ar plăti doi „primi
-  copii" întregi. Dacă se cere, soluția e un al doilea câmp de email pe `Profile`, o coloană, și tot
-  **un singur email trimis la două adrese**, nu două, care ar contrazice S6 din
-  [E17](E17-comunicare-notificari.md).
-- Vor părinții să vadă proiectele altor copii din grupă? Ar fi motivant, dar e un scop de
-  consimțământ separat, deja prevăzut în [E07](E07-securitate-gdpr.md) S2.
+- ~~Un copil are exact un `Profile`, deci proiectele merg la o singură adresă — rămâne așa?~~
+  **Da, un copil are un părinte cu o adresă.** Motivul și ce s-ar face dacă se cere altceva sunt în
+  [Decizii luate](#decizii-luate).
+- ~~Vor părinții să vadă proiectele altor copii din grupă?~~ **Nu.** Livrarea e privată: nimic nu
+  ajunge la altă familie. Ce se poate arăta în afara familiei se arată pe vitrina publică, cu
+  consimțământ, și acolo e lucrarea, nu copilul.

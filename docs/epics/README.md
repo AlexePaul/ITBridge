@@ -9,7 +9,7 @@ sunt lucruri verificate în repo.
 
 ## Cum se citește
 
-Cele 22 de epic-uri de mai jos descriu **tot** ce îi trebuie unei platforme de management pentru
+Cele 21 de epic-uri de mai jos descriu **tot** ce îi trebuie unei platforme de management pentru
 o școală de IT cu mai multe locații. Nu sunt un angajament pentru următoarele șase luni — sunt
 harta completă, ca să nu descoperim la jumătatea drumului că o decizie luată devreme blochează
 ceva ce oricum trebuia făcut.
@@ -91,7 +91,6 @@ Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane”.
 | [E19](E19-seo-geo.md)                 | SEO, GEO și conținut                              | Public     | E08, E18                     | —      |
 | [E20](E20-achizitie-lead.md)          | Achiziție, lecții de probă și lead management     | Public     | E17, E18                     | **da** |
 | [E21](E21-raportare-analytics.md)     | Raportare și analytics                            | Business   | E12, E15, E16                | —      |
-| [E22](E22-siguranta-copilului.md)     | Siguranța copilului                               | Domeniu    | E04                          | **da** |
 
 ## Harta dependențelor
 
@@ -137,7 +136,6 @@ graph TD
   E12 --> E21[E21 Raportare]
   E15 --> E21
   E16 --> E21
-  E04 --> E22[E22 Siguranța copilului]
 ```
 
 Muchiile care pleacă din E17 către E11, E12 și E16 sunt mai slabe decât restul și de aceea nu apar
@@ -156,10 +154,6 @@ schema, iar cât timp rulăm cu `synchronize: true` fiecare dintre ele e o rulet
 **Val 2 — fundația de domeniu.** E05, E08, E10. Multi-locația și modelul de curriculum sunt
 schimbări structurale. Făcute după E11 sau E15 înseamnă rescriere, nu adăugare. E05 e livrat, E08 e
 în lucru; E10 e cel care rămâne, iar blocajul lui nu e cod, ci conținut — programa fiecărui modul.
-Tot în valul ăsta intră [E22](E22-siguranta-copilului.md) S1, câmpurile de siguranță pe `Child`:
-tehnic nu blochează nimic, dar e o migrare de câteva coloane și o secțiune de formular azi, față de
-un formular refăcut mai târziu — restul lui E22 merge în val 3, unde are nevoie de rolul de profesor
-din E09 și de ecranul de prezență din E12.
 
 **Val 3 — două piste în paralel, plus canalul.** Operațiuni (E09, E11, E12) și public (E18, E19)
 nu se ating: sunt fișiere diferite și obiective diferite, se pot duce simultan. Aici intră și
@@ -229,9 +223,14 @@ publică și oprite amândouă în același punct:
 Deci ordinea firească e [E01](E01-infrastructura-medii.md) S4 înaintea lui E18 S4 — un portal fără
 API nu se poate termina.
 
-Restul sunt `propus`, inclusiv [E22](E22-siguranta-copilului.md), care intră acum pe hartă: mută în
-platformă date pe care școala le ține deja, dar le ține pe WhatsApp — cel mai prost loc posibil
-pentru alergii și contacte de urgență, și indisponibil profesorului care suplinește.
+Restul sunt `propus`.
+
+**E22 · Siguranța copilului e anulat**, iar fișierul lui e șters din `docs/epics/`. Motivul e de
+scop, nu de prioritate: școala nu ține fișe medicale și nu vrea să înceapă. Datele de sănătate,
+notele de incident și persoanele autorizate la preluare ies complet din platformă, explicit, ca să
+nu fie repropuse la următoarea rundă de planificare. Singurul lucru păstrat e **contactul de
+urgență** — nu e dată de sănătate și costă un câmp — iar el a trecut în datele obligatorii de
+înscriere din [E11](E11-inscrieri-capacitate.md), lângă restul datelor cerute la înregistrare.
 
 ## Decizii deja luate
 
@@ -253,29 +252,25 @@ Consemnate aici ca să nu fie relitigate în fiecare epic. Fiecare e detaliată,
 
 ### Model de business
 
-| Decizie                    | Valoare                                                                                                                                  | Epic                               |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Unitate de facturare       | Modulul școlar: 6-8 ședințe, ~5 module pe an, delimitate de vacanțe                                                                      | [E10](E10-curriculum-module.md)    |
-| Preț                       | **700 lei fix per modul**, indiferent de durată                                                                                          | [E15](E15-pricing-facturare.md)    |
-| Planuri de plată           | Integral, sau două tranșe egale — **două facturi separate**, a doua emisă la mijlocul modulului                                          | [E15](E15-pricing-facturare.md)    |
-| Reducere frați             | **−25% de la al doilea copil în jos**; primul plătește întreg                                                                            | [E15](E15-pricing-facturare.md)    |
-| Facturare                  | **SmartBill** e sistemul de evidență fiscală. Platforma calculează, SmartBill emite.                                                     | [E16](E16-plati-fiscal.md)         |
-| Abandon la mijloc de modul | Fără returnare, cu excepția dreptului legal de retragere în 14 zile la contractele încheiate la distanță; a doua factură nu se mai emite | [E15](E15-pricing-facturare.md)    |
-| Recuperări                 | 2 per modul, doar absențe anunțate cu min. 3 ore înainte. Configurabil.                                                                  | [E12](E12-prezenta-orar.md)        |
-| Lecția de probă            | Gratuită                                                                                                                                 | [E11](E11-inscrieri-capacitate.md) |
+| Decizie                    | Valoare                                                                                                  | Epic                               |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Unitate de facturare       | Modulul școlar: 6-8 ședințe, ~5 module pe an, delimitate de vacanțe                                      | [E10](E10-curriculum-module.md)    |
+| Preț                       | **700 lei fix per modul**, indiferent de durată                                                          | [E15](E15-pricing-facturare.md)    |
+| Planuri de plată           | Integral, sau două tranșe egale — **două facturi separate**, a doua emisă la mijlocul modulului          | [E15](E15-pricing-facturare.md)    |
+| Reducere frați             | **−25% de la al doilea copil în jos**; primul plătește întreg                                            | [E15](E15-pricing-facturare.md)    |
+| Facturare                  | **SmartBill** e sistemul de evidență fiscală. Platforma calculează, SmartBill emite.                     | [E16](E16-plati-fiscal.md)         |
+| Abandon la mijloc de modul | Fără returnare; a doua factură nu se mai emite                                                           | [E15](E15-pricing-facturare.md)    |
+| Recuperări                 | 2 per modul, doar absențe anunțate cu min. 3 ore înainte. Configurabil.                                  | [E12](E12-prezenta-orar.md)        |
+| Lecția de probă            | Gratuită                                                                                                 | [E11](E11-inscrieri-capacitate.md) |
+| Înscriere                  | **Nu e self-service.** Contul de părinte se aprobă de un admin, iar copilul e înscris în grupă de admin. | [E11](E11-inscrieri-capacitate.md) |
+| Contract                   | Se semnează fizic. Platforma reține doar că există, cu data.                                             | [E07](E07-securitate-gdpr.md)      |
 
-**Excepția de 14 zile din rândul de abandon e recomandare, nu decizie luată.** Restul tabelului e
-aprobat; asta nu. Motivul pentru care apare totuși în rând: pentru înscrierea la sediu, „fără
-returnare” e o politică comercială apărabilă, dar înscrierea pe care o construiesc
-[E20](E20-achizitie-lead.md) S2, [E11](E11-inscrieri-capacitate.md) și
-[E16](E16-plati-fiscal.md) S4 — formular pe site, confirmare, plată cu cardul în portal — e contract
-încheiat la distanță, iar OUG 34/2014 dă 14 zile de retragere, de la care nu se poate deroga printr-o
-decizie internă. Frecvența e mică, fiindcă lecția de probă e gratuită și absoarbe cazul „nu i-a
-plăcut” înainte să circule banii. **Recomandare:** se recunoaște dreptul, iar cele câteva cazuri pe
-an se rezolvă manual, cu un storno în SmartBill. _De confirmat cu un avocat_, și de confirmat
-**înainte** ca [E07](E07-securitate-gdpr.md) S5 să redacteze termenii publicați și înainte ca E16 S4
-să pună plata cu cardul — o clauză de nereturnare absolută scrisă în termeni e mai greu de retras
-decât una care n-a fost publicată niciodată.
+**Excepția de 14 zile a dispărut din rândul de abandon fiindcă nu mai există contract încheiat la
+distanță:** înscrierea nu e self-service, contul de părinte îl aprobă un admin, iar contractul se
+semnează fizic, la sediu. OUG 34/2014 nu se aplică unui contract semnat față în față, deci „fără
+returnare” redevine ce era — o politică comercială obișnuită, apărabilă. Se repune în discuție în
+ziua în care apare înscriere online sau plată fără contract pe hârtie; momentul de urmărit e
+[E16](E16-plati-fiscal.md) S4, plata cu cardul în portal.
 
 Câteva consecințe care nu sunt evidente din tabel:
 
@@ -297,8 +292,10 @@ verifică înainte de orice cod.
 
 ### Acces și produs
 
-| Decizie                                         | Detaliu                                                         | Epic                          |
-| ----------------------------------------------- | --------------------------------------------------------------- | ----------------------------- |
-| Profesorul vede contactul complet al părinților | Doar grupele proprii, doar pe durata alocării, cu audit log     | [E09](E09-personal-roluri.md) |
-| Logo-ul există                                  | 500×500 PNG. Necesar un vectorial pentru tipar și afișare mare. | [E18](E18-frontend-portal.md) |
-| Uploader de proiecte                            | PWA conștientă de context, nu script de click dreapta           | [E14](E14-proiecte-elevi.md)  |
+| Decizie                                         | Detaliu                                                                      | Epic                               |
+| ----------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------- |
+| Profesorul vede contactul complet al părinților | Doar grupele proprii, doar pe durata alocării, cu audit log                  | [E09](E09-personal-roluri.md)      |
+| Logo-ul există                                  | 500×500 PNG. Necesar un vectorial pentru tipar și afișare mare.              | [E18](E18-frontend-portal.md)      |
+| Uploader de proiecte                            | PWA conștientă de context, nu script de click dreapta                        | [E14](E14-proiecte-elevi.md)       |
+| Datele contului                                 | Email confirmat, adresă și date de facturare obligatorii la înregistrare     | [E11](E11-inscrieri-capacitate.md) |
+| Proiectele copiilor                             | Ajung exclusiv la părintele copilului. Se fotografiază lucrarea, nu copilul. | [E14](E14-proiecte-elevi.md)       |

@@ -230,13 +230,7 @@ funcționează. Nicio combinație de copii și reduceri nu produce o sumă absur
 | Preț                 | **700 lei fix**, indiferent de durata modulului                                       |
 | Planuri de plată     | Integral (1 factură), sau două tranșe egale (2 facturi, a doua la mijlocul modulului) |
 | Reducere frați       | **−25% de la al doilea copil în jos**, primul întreg                                  |
-| Abandon la mijloc    | Fără returnare; a doua factură nu se mai emite (vezi mai jos, retragerea în 14 zile) |
-
-**Excepția de 14 zile din rândul de abandon e recomandare, nu decizie luată**, și de asta nu stă în
-tabel: celelalte rânduri sunt valori aprobate de patron — 700 de lei, tranșele, −25% — iar un rând
-citit singur nu arată care e care. Argumentul e mai jos, în paragraful despre contractele încheiate
-la distanță, și rezumat în [Întrebări deschise](#întrebări-deschise). [README](README.md) marchează
-același rând la fel.
+| Abandon la mijloc    | Fără returnare; a doua factură nu se mai emite                                        |
 
 **Prețul fix pe durată variabilă e o decizie conștientă**, nu o scăpare. Ședința costă efectiv
 117 lei într-un modul de 6 săptămâni și 87 într-unul de 8. Peste un an școlar se echilibrează —
@@ -252,27 +246,36 @@ elimină regula de trei simplă — vacanțele devin granițele modulelor, nu ex
 **La abandon** (S8, de adăugat): dacă plata a fost în tranșe, a doua factură pur și simplu nu se
 mai emite, iar nota de plată se închide la suma facturată. Dacă a fost integrală, nu se returnează
 nimic. Fiindcă a doua factură se emite la mijlocul modulului și nu la înscriere, abandonul nu cere
-stornarea niciunui document fiscal — **în cazul obișnuit**. Regula se comunică la înscriere, nu la
-plecare.
+stornarea niciunui document fiscal. Regula se comunică la înscriere, nu la plecare.
 
-Cazul care nu e obișnuit e retragerea în 14 zile. La un contract încheiat la distanță — adică exact
-ce construiește [E20](E20-achizitie-lead.md) S2, ce recomandă [E11](E11-inscrieri-capacitate.md) ca
-auto-înscriere și ce face [E16](E16-plati-fiscal.md) S4 cu plata în portal — OUG 34/2014 dă un drept
-de retragere de la care nu se poate deroga printr-o politică internă, iar o clauză de nereturnare
-absolută e clauză abuzivă. Acolo chiar există ceva de returnat, deci și de stornat. **Recomandare:**
-se recunoaște dreptul, iar cazul se rezolvă **manual, printr-un storno în SmartBill** — fără
-calculator de returnare aici și fără conductă de stornare în [E16](E16-plati-fiscal.md). *De
-confirmat.* Motivul e frecvența: proba e gratuită, deci „nu i-a plăcut" e absorbit înainte să circule
-banii, și rămân realist unul-două cazuri pe an — un mecanism ar costa mai mult decât cazurile pe care
-le acoperă. Confirmarea trebuie să vină **înainte** ca [E07](E07-securitate-gdpr.md) S5 să redacteze
-termenii, fiindcă acolo regula asta devine text publicat.
+Nu mai există excepție. Recomandarea din auditul anterior — recunoașterea dreptului de retragere în
+14 zile din OUG 34/2014, cu storno manual în SmartBill — **se scoate**, fiindcă și-a pierdut
+obiectul: dreptul acela se naște dintr-un contract încheiat la distanță sau în afara spațiului
+comercial, iar de acum nu se mai încheie niciunul. **Înscrierea o face adminul, nu părintele**, nu
+există auto-înscriere din portal ([E11](E11-inscrieri-capacitate.md)), iar **contractul se semnează
+fizic, la sediu** — platforma reține doar faptul că există unul semnat, cu data lui
+([E07](E07-securitate-gdpr.md) S8). Fără contract la distanță nu există drept de la care să nu se
+poată deroga, deci clauza de nereturnare nu mai e abuzivă, iar aici nu intră nici calculator de
+returnare, nici conductă de stornare în [E16](E16-plati-fiscal.md).
+
+Cele două fluxuri online care existau în discuție nu contrazic asta, și merită numite ca să nu fie
+reluate ca obiecție: [E20](E20-achizitie-lead.md) S2 programează o lecție de probă **gratuită**,
+deci nu încheie niciun contract și nu circulă niciun ban; [E16](E16-plati-fiscal.md) S4 încasează
+online o factură care decurge dintr-un contract deja semnat pe hârtie, deci **execută** un contract
+existent, nu încheie unul nou.
+
+Condiția în care se repune întrebarea, scrisă ca să fie recunoscută la timp: **dacă apare vreodată
+o înscriere care se finalizează online, sau o încasare de la o familie fără contract pe hârtie.**
+Ambele mută încheierea contractului în afara sediului, deci readuc termenul de 14 zile și, odată cu
+el, un caz real de stornat. Ziua în care una dintre ele se propune, întrebarea se pune înainte de
+implementare, nu după — și înainte ca [E07](E07-securitate-gdpr.md) S5 să publice termenii, fiindcă
+acolo regula devine text publicat.
 
 ## Întrebări deschise
 
-- **Retragerea în 14 zile la înscrierile online.** **Recomandare:** se recunoaște dreptul din OUG
-  34/2014, iar rambursarea se face manual, cu storno în SmartBill. *De confirmat.* Detaliile și
-  motivul, la [Decizii luate](#decizii-luate); e o chestiune juridică, nu una de implementare, deci
-  răspunsul vine de la avocat, nu din cod.
+- ~~Retragerea în 14 zile la înscrierile online.~~ **Nu se mai pune.** Înscrierea o face adminul și
+  contractul se semnează fizic, deci nu există contract încheiat la distanță. Motivul complet și
+  condiția în care întrebarea revine, la [Decizii luate](#decizii-luate).
 - Prețul e același în ambele locații?
 - Un copil înscris la mijlocul unui modul plătește integral, sau proporțional cu ședințele rămase?
   Cu preț fix pe modul, varianta consecventă e integral — dar e greu de vândut cuiva care prinde

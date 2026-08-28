@@ -251,6 +251,20 @@ Divergențele între sisteme sunt vizibile.
 ## Întrebări deschise
 
 - **Abonamentul actual permite acces API?** Prima verificare, blochează tot restul.
+- **Ce date de facturare cere SmartBill — și, separat, e-Factura — pentru un document emis către o
+  persoană fizică?** Nume, adresă completă și telefon sunt sigure; se colectează oricum. Întrebarea
+  deschisă e dacă mai e nevoie de ceva, în special de **CNP**, sau dacă numele și adresa ajung.
+  Sunt două praguri diferite și pot să nu coincidă: ce acceptă API-ul la crearea clientului nu e
+  neapărat ce trece la transmiterea XML-ului în SPV, iar noi nu vedem al doilea pas — îl face
+  SmartBill. **Răspunsul vine de la contabil, nu din documentația API și nu din ghicit aici.**
+
+  Contează acum, nu la S2, fiindcă [E11](E11-inscrieri-capacitate.md) face datele de facturare
+  obligatorii chiar la înregistrarea părintelui, cu confirmare pe email. Lista trebuie să fie
+  corectă **înainte** ca formularul să ceară câmpurile. Un câmp lipsă, descoperit abia la prima
+  emitere, înseamnă recontactarea fiecărei familii deja înregistrate; un câmp cerut degeaba e o
+  dată personală colectată fără temei — cu atât mai mult dacă e CNP-ul, care nu e un câmp oarecare
+  și își aduce propriile obligații de temei, minimizare și retenție în
+  [E07](E07-securitate-gdpr.md).
 - Care e forma juridică a școlii și regimul de TVA? Se configurează în SmartBill, dar trebuie știut.
 - Ce procesator de plăți? Depinde de comisioane și de suportul pentru plăți recurente.
 - Plățile recurente automate sunt de dorit pentru tranșa a doua, sau părinții preferă manual?

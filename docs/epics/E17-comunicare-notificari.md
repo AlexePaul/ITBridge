@@ -93,10 +93,15 @@ Locul de procesare și acordul de prelucrare rămân în [E07](E07-securitate-gd
 numește furnizorul, ca lista de acolo să se poată completa.
 
 **Precondiție, o interogare de rulat o dată:** câți părinți au azi `Profile.email` completat.
-Coloana e `nullable` (`apps/api/src/entities/profile.entity.ts`), iar înregistrarea cere doar
-username și parolă, deci răspunsul poate fi „puțini". Dacă e așa, colectarea adreselor e primul pas
-al epicului, nu o consecință a lui: restul story-urilor construiesc capacitatea de a trimite, dar nu
-și cui.
+Coloana e `nullable` (`apps/api/src/entities/profile.entity.ts`), iar înregistrarea cere azi doar
+username și parolă (`apps/api/src/modules/auth/dto/register.dto.ts`), deci răspunsul poate fi
+„puțini". Dacă e așa, colectarea adreselor e primul pas al epicului, nu o consecință a lui: restul
+story-urilor construiesc capacitatea de a trimite, dar nu și cui.
+
+Regula nouă — adresă obligatorie și confirmată la înregistrare, vezi
+[Decizii luate](#decizii-luate) — **nu răspunde la întrebarea asta**: se aplică înregistrărilor de
+după ea, nu familiilor deja în bază. Interogarea rămâne de rulat, iar recuperarea adreselor lipsă e
+muncă de recontactare, nu de cod.
 
 **Acceptanță:** un test de livrabilitate trece cu punctaj bun. Emailurile ajung în inbox la Gmail,
 Yahoo și Outlook.
@@ -166,17 +171,29 @@ Fiecare mesaj lasă înregistrare: destinatar, șablon, dată, stare, motiv de e
 răspunde la „a primit părintele anunțul de anulare?" — exact întrebarea care apare când cineva vine
 degeaba la curs.
 
-**Un părinte fără adresă apare ca nelivrat, cu motivul `fără adresă`. Nu e sărit tăcut.**
-`Profile.email` e `nullable` în `apps/api/src/entities/profile.entity.ts` și `@IsOptional()` în
-`CreateProfileDto`, iar un profil creat de admin nu are neapărat cont. Deci un părinte fără adresă
-nu e o excepție teoretică, e fluxul obișnuit al unei familii notate de pe telefon. Fără regula asta,
-absența destinatarului nu produce nici eroare, nici rând, nici alertă — și miza nu e rezumatul de
-proiecte din [E14](E14-proiecte-elevi.md) S4, e factura: familia aia nu primește nici documentul,
-nici mementoul de restanță, iar școala află când verifică încasările.
+**Un părinte fără adresă apare ca nelivrat, cu motivul `fără adresă`. Nu e sărit tăcut.** Regula
+rămâne, deși adresa a devenit obligatorie la înregistrare — **cazul s-a îngustat, nu a dispărut.**
+
+Ce s-a schimbat: un părinte care își face singur cont are de acum email obligatoriu și confirmat
+([E11](E11-inscrieri-capacitate.md)), deci familiile intrate pe drumul ăla au unde primi.
+
+Ce nu s-a schimbat: `Profile.email` rămâne `nullable` în `apps/api/src/entities/profile.entity.ts`
+și `@IsOptional()` în `CreateProfileDto` (`apps/api/src/modules/profile/dto/createProfile.dto.ts`),
+fiindcă **profilul creat de admin fără date de contact rămâne un flux valid** — o familie notată de
+pe telefon, completată după. Iar familiile alea nu sunt un caz marginal: copilul lor e înscris tot
+de admin, deci primesc facturi ca oricare altele. Fără regula de aici, absența destinatarului nu
+produce nici eroare, nici rând, nici alertă — și miza nu e rezumatul de proiecte din
+[E14](E14-proiecte-elevi.md) S4, e factura: familia aia nu primește nici documentul, nici mementoul
+de restanță, iar școala află când verifică încasările.
+
+Din același motiv, evidența are nevoie de **două motive distincte, nu de unul**: `fără adresă`, la
+profilul completat pe jumătate, și `adresă neconfirmată`, la contul înregistrat al cărui link de
+confirmare nu a fost apăsat. Arată la fel în listă — un părinte care nu a primit — dar se rezolvă
+diferit: primul cere un telefon, al doilea o retrimitere a linkului.
 
 **Acceptanță:** întrebarea „a primit părintele anunțul de anulare?" are răspuns din interfață, în
 sub un minut. Adminul vede din aceeași evidență cine nu a primit ultima factură și din ce motiv, iar
-părinții fără adresă apar acolo, cu motivul lor, nu lipsesc din listă.
+părinții fără adresă sau cu adresă neconfirmată apar acolo, cu motivul lor, nu lipsesc din listă.
 
 ### S6 · Rezumate în loc de rafale
 
@@ -219,9 +236,10 @@ o rafinare, e o cerință de la început.
 **Un email greșit trimis la toți nu se poate retrage.** Confirmare obligatorie și trimitere de test
 către admin înainte de orice difuzare în masă.
 
-**Adresele părinților sunt date personale.** `Profile.email` e opțional astăzi, deci unii părinți
-nu au adresă în sistem. Colectarea trebuie făcută cu temei și scop clar, iar lipsa adresei se vede
-în evidența din S5, nu se pierde.
+**Adresele părinților sunt date personale.** Faptul că adresa devine obligatorie la înregistrare nu
+scutește de temei și scop — o cere mai apăsat, fiindcă un câmp obligatoriu nu mai lasă părintelui
+alegerea. Iar în bază rămân profiluri fără adresă, create de admin: lipsa lor se vede în evidența
+din S5, nu se pierde.
 
 **Cheia de expediere poate trimite în numele domeniului școlii.** E motivul pentru care nu stă în
 `public` la Nuxt și nu se cheamă din browser. Aceeași disciplină se aplică și cheii din `apps/api`.
@@ -239,6 +257,31 @@ evidență, inclusiv cele care nu au avut unde să plece. Preferințele sunt res
 | Chei de expediere | **Două** chei și două adrese: una pentru formularul public, alta pentru mailul către părinți |
 | Locul de trimitere către părinți | `apps/api`, printr-un `MailService`. Ruta Nitro rămâne doar a formularului public |
 | Substrat pentru coadă și joburi | **Postgres**, în procesul API. Fără Redis, fără BullMQ |
+| Destinatarul unui mesaj despre un copil | **Părintele lui, exclusiv.** Un copil are un `Profile`, cu o adresă |
+| Adresa de email a părintelui | **Obligatorie și confirmată la înregistrare.** Profilul creat de admin rămâne fără |
+
+**Un copil, un părinte, o adresă.** Întrebarea „ce facem când copilul are doi părinți care vor
+amândoi mesajele?" se închide cu răspunsul ăsta, nu cu o listă de destinatari. Motivul e cel
+consemnat deja în [E14](E14-proiecte-elevi.md): un al doilea `Profile` ar duplica copilul și ar rupe
+reducerea de frați, care se numără per familie — o familie cu doi copii ar plăti doi „primi copii"
+întregi ([E15](E15-pricing-facturare.md) S4). Dacă vreodată se cere, forma nu e un al doilea profil,
+ci o a doua adresă pe același `Profile`, o coloană, și **tot un singur mesaj trimis la două
+adrese**, nu două mesaje — altfel S6 devine minciună pentru jumătate din familii.
+
+**Nimic despre un copil nu ajunge la altă familie.** Proiectul, rezumatul de seară, prezența,
+factura, mementoul de restanță — fiecare are exact un destinatar, părintele copilului respectiv.
+Anunțurile din S7 sunt singura excepție și sunt exact reversul: se adresează unei grupe sau unei
+locații și **nu au voie să conțină date despre un copil anume**. Un anunț care numește un copil e o
+scurgere, nu un anunț, iar previzualizarea obligatorie de dinaintea difuzării e locul unde se
+prinde. Regula nu e o preferință de produs: e ce face diferența între „platforma trimite mesaje" și
+„platforma răspândește date despre copii".
+
+**Adresa obligatorie la înregistrare** e decizia care închide întrebarea deschisă de ieri. Se aplică
+înregistrării făcute de părinte — `RegisterDto` cere azi doar `username` și `password`
+(`apps/api/src/modules/auth/dto/register.dto.ts`) — și **nu** fluxului în care un admin creează un
+profil fără date de contact, care rămâne intenționat. Regula se scrie în
+[E11](E11-inscrieri-capacitate.md), nu aici; aici contează doar consecința: canalul are pe unde
+pleca pentru familiile venite pe drumul obișnuit, iar restul se văd în evidența din S5.
 
 **Cheile separate** costă o variabilă de mediu și un rând în `turbo.json`. Motivul e scris deja în
 cod: comentariul din `apps/web/server/utils/rate-limit.ts` recunoaște că limitatorul e per-instanță,
@@ -257,11 +300,10 @@ nu scalează la volume mari; la volumul ăsta, pragul nu se atinge.
 
 ## Întrebări deschise
 
-- **Adresa de email devine obligatorie?** **Recomandare:** obligatorie în momentul în care o probă
-  devine înscriere activă, nu la crearea profilului. *De confirmat.* Motivul: profilul fără date de
-  contact e un flux intenționat — un admin notează o familie de pe telefon și completează după — și
-  nu merită stricat. Dar din clipa în care familia are o înscriere activă i se emit facturi, iar o
-  factură care nu are unde să plece e o pierdere de bani, nu o notificare ratată. Regula se scrie în
-  [E11](E11-inscrieri-capacitate.md).
+- ~~Adresa de email devine obligatorie?~~ **Da, la înregistrare, și confirmată prin link.** Fluxul
+  în care un admin creează un profil fără date de contact rămâne neatins. Detaliile la
+  [Decizii luate](#decizii-luate), regula în [E11](E11-inscrieri-capacitate.md).
+- ~~Ce se întâmplă când un copil are doi părinți care vor amândoi mesajele?~~ **Un copil are un
+  părinte, cu o adresă.** Motivul, la [Decizii luate](#decizii-luate).
 - Rămâne WhatsApp canalul principal pentru urgențe, în afara platformei?
 - Cine scrie textele? Sunt fața școlii și merită scrise cu grijă, nu generate.
