@@ -9,8 +9,13 @@
 
 Ce lipsește:
 
-- **Capacitate.** `Group` nu are număr maxim de locuri. Nimic nu împiedică al doisprezecelea copil
-  într-o sală cu zece calculatoare.
+- **Capacitate neaplicată.** `Group.capacity` există din [E08](E08-multi-locatie.md) — coloană
+  `int`, cu `CHK_groups_capacity_positive` în `apps/api/src/entities/group.entity.ts` și validată
+  server-side să nu depășească sala (`GroupService.assertFitsInRoom`, cod `GROUP_OVER_ROOM_CAPACITY`).
+  Dar **nimic nu o verifică la înscriere**: `ChildService.assignChildToGroup`
+  (`apps/api/src/modules/child/child.service.ts:105`) setează cheia străină indiferent de câți copii
+  sunt deja acolo. Numărul maxim e declarat și nerespectat, ceea ce e mai rău decât să lipsească —
+  adminul îl citește ca pe o garanție.
 - **Istoric.** `Child.group` e o singură referință. Când un copil se mută dintr-o grupă în alta,
   legătura veche se pierde. Nu poți răspunde la "în ce grupă era în octombrie?", ceea ce e exact
   informația de care ai nevoie când verifici o factură contestată.
@@ -53,17 +58,19 @@ cere un loc singur, iar o grupă plină pune cererea pe listă în loc să o ref
 `încheiată`, `abandonată`, `transferată`), motiv la ieșire. Înlocuiește legătura directă
 `Child.group`, care rămâne cel mult ca proprietate derivată pentru compatibilitate.
 
-**Acceptanță:** "în ce grupă era copilul X pe 15 octombrie" are răspuns exact. Istoricul actual e
-migrat cât se poate de fidel, iar ce nu se poate reconstitui e marcat ca atare.
+**Acceptanță:** "în ce grupă era copilul X pe 15 octombrie" are răspuns exact. Nu există istoric de
+migrat — vezi [Decizii luate](#decizii-luate). Seed-ul produce înscrieri cu perioadă și stare, iar
+interogarea de mai sus se verifică pe ele.
 
 ### S2 · Capacitate și listă de așteptare
 
-`Group` are capacitate maximă, derivată implicit din capacitatea sălii. Depășirea e blocată, cu
-excepție explicită pentru admin, care lasă urmă în audit log. O grupă plină acceptă înscrieri pe
-listă de așteptare, cu ordine și dată.
+Capacitatea grupei există deja și e plafonată de sală — [E08](E08-multi-locatie.md) S3. Ce lipsește e
+**aplicarea ei la înscriere**: depășirea se blochează, cu excepție explicită pentru admin, care lasă
+urmă în audit log. O grupă plină acceptă înscrieri pe listă de așteptare, cu ordine și dată.
 
 Când se eliberează un loc, primul de pe listă e notificat automat, prin
-[E17](E17-comunicare-notificari.md), cu termen de răspuns.
+[E17](E17-comunicare-notificari.md), cu termen de răspuns. Fără canalul din E17 story-ul nu se poate
+încheia — a doua jumătate a acceptanței e o notificare trimisă.
 
 **Acceptanță:** înscrierea peste capacitate e refuzată cu mesaj util și ofertă de listă. Eliberarea
 unui loc declanșează notificarea în sub un minut.
@@ -75,6 +82,13 @@ O înscriere în starea `probă`, cu o singură ședință, care nu se factureaz
 
 Rata de conversie de la probă la înscriere e una dintre cele mai importante cifre de business și
 intră în [E21](E21-raportare-analytics.md).
+
+Trecerea probei în înscriere activă e și **singurul moment în care platforma știe sigur că are nevoie
+de o adresă de email** pentru familia respectivă: de aici încolo pleacă facturi, memento-uri de
+restanță și anunțuri de anulare. `Profile.email` e azi `nullable` și `@IsOptional()`
+(`apps/api/src/entities/profile.entity.ts:17`, `dto/createProfile.dto.ts`), iar `User` nu are deloc
+coloană de email — deci o înscriere activă poate exista fără nicio adresă unde să trimiți ceva. Vezi
+recomandarea din [Întrebări deschise](#întrebări-deschise).
 
 **Acceptanță:** o probă programată apare în lista profesorului, marcată distinct, și nu generează
 factură.
@@ -111,6 +125,11 @@ manuală.
 [E08](E08-multi-locatie.md) pentru sală și capacitate, [E09](E09-personal-roluri.md) pentru profesor,
 [E10](E10-curriculum-module.md) pentru modul.
 
+**[E17](E17-comunicare-notificari.md) e necesar pentru S2.** Acceptanța cere ca eliberarea unui loc
+să declanșeze notificarea în sub un minut, iar canalul prin care pleacă nu există încă. Fără el, S2
+poate livra cel mult lista de așteptare, nu și promisiunea făcută celui de pe ea — exact riscul de
+mai jos. Același canal ține și mementoul de probă din [Decizii luate](#decizii-luate).
+
 ## Riscuri
 
 **Lista de așteptare creează o promisiune.** Dacă notificarea nu pleacă sau pleacă târziu, părintele
@@ -134,11 +153,22 @@ obligatorii tocmai pentru că proba e gratuită:
   deodată.
 
 **Nu există date istorice de reconstruit** — vezi [E04](E04-migrari-date.md). S1 se simplifică:
-`Enrollment` se construiește curat, fără aproximarea înscrierilor vechi din prezențe, iar riscul
-menționat mai jos dispare.
+`Enrollment` se construiește curat, fără aproximarea înscrierilor vechi din prezențe.
 
 ## Întrebări deschise
 
 - Cât timp are cineva de pe lista de așteptare să confirme un loc eliberat?
 - Se poate înscrie părintele singur din portal, sau rămâne operațiune de admin? Recomand
   auto-înscriere cu confirmare, dar schimbă fluxul.
+- Devine adresa de email obligatorie pentru o familie cu înscriere activă?
+  **Recomandare:** obligatorie la trecerea probei în înscriere activă (S3), **nu** la crearea
+  profilului. *De confirmat.*
+  Motivul pentru „obligatorie": din acel moment familia primește facturi și memento-uri de restanță,
+  iar un profil fără adresă nu le primește, **tăcut**: nimic nu semnalează că nu au fost trimise, nici
+  familiei, nici adminului. Motivul
+  pentru „nu la crearea profilului": un `Profile` fără cont și fără date de contact, creat de admin
+  dintr-un telefon, e un flux intenționat al platformei (`Profile.user`, `email` și `phone` sunt
+  toate `nullable`, iar `GET /users/without-profile` servește legarea ulterioară) — condiționarea
+  creării ar strica exact fluxul prin care intră majoritatea familiilor. Regula atinge și
+  [E15](E15-pricing-facturare.md), [E16](E16-plati-fiscal.md) și evidența de livrări din
+  [E17](E17-comunicare-notificari.md).

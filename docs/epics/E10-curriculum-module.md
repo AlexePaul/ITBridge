@@ -1,12 +1,24 @@
 # E10 · Curriculum și catalog de module
 
-**Status:** propus · **Pistă:** Domeniu · **Depinde de:** E04 · **Blochează:** E11, E13, E15
+**Status:** propus · **Pistă:** Domeniu · **Depinde de:** E04 · **Blochează:** E11, E13, E14, E15
 
 ## Problemă
 
 Platforma nu știe **ce** predă școala. Nu există curs, nu există modul, nu există nivel, nu există
-programă. `Group` are doar `minAge` și `maxAge`, ca `decimal`, ceea ce sugerează că vârsta ține loc
-de nivel.
+programă.
+
+Grupa nu mai e problema. După [E08](E08-multi-locatie.md), `Group` are nume, sală (deci și locație),
+capacitate și un interval de vârstă în `int` — vezi `apps/api/src/entities/group.entity.ts`. Ce
+lipsește nu mai e descrierea grupei, ci conținutul ei: nivelul rămâne implicit în vârstă, iar ce se
+predă efectiv nu e reprezentat nicăieri.
+
+**E08 S3 s-a oprit exact aici.** Grupei îi mai lipsesc două câmpuri — nivelul din catalog și
+profesorul principal — iar primul vine din acest epic. Comentariul de pe `minAge`
+(`apps/api/src/entities/group.entity.ts:50-52`) confirmă direcția: `int` acum, cu perechea
+posibil înlocuită de nivelul din catalog la E10. Motivul pentru care vârstele au rămas totuși
+câmpuri e scris în [E08](E08-multi-locatie.md), S3 — legarea lor de catalog acum ar fi însemnat să
+blocheze E08 de un epic blocat el însuși de conținut. Deci și E08 stă până pornește E10 sau
+[E09](E09-personal-roluri.md).
 
 Asta blochează trei lucruri simultan:
 

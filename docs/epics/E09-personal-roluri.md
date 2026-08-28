@@ -1,10 +1,10 @@
 # E09 · Personal, roluri și permisiuni
 
-**Status:** propus · **Pistă:** Domeniu · **Depinde de:** E08 · **Blochează:** E11, E12, E13
+**Status:** propus · **Pistă:** Domeniu · **Depinde de:** E08 · **Blochează:** E11, E12, E13, E14
 
 ## Problemă
 
-Există exact două roluri, în `it-bridge-backend/src/enum/role.enum.ts`:
+Există exact două roluri, în `apps/api/src/enum/role.enum.ts`:
 
 ```ts
 export enum Role { PARENT = 'PARENT', ADMIN = 'ADMIN' }
@@ -64,7 +64,7 @@ copiii din grupele lui.
 
 Tiparul de filtrare pe date din service, care astăzi filtrează după utilizator pentru părinți, se
 extinde cu filtrare după locație pentru coordonatori și profesori. Aplicat consecvent, ca în
-`it-bridge-backend/src/modules/invoice/invoice.service.ts:50`.
+`apps/api/src/modules/invoice/invoice.service.ts:92`.
 
 **Acceptanță:** auditul din [E05](E05-robustete-backend.md), S8 acoperă și dimensiunea de locație,
 cu test pentru fiecare rol.
@@ -93,6 +93,14 @@ grupelor în [E11](E11-inscrieri-capacitate.md) și la detectarea conflictelor.
 ## Dependențe
 
 [E08](E08-multi-locatie.md). Rolurile restrânse pe locație presupun că locația există.
+
+[E07](E07-securitate-gdpr.md), S3 — jurnalul de audit. Nu blochează epicul întreg, dar blochează
+S2: decizia din „Decizii luate", că profesorul vede datele de contact complete ale părinților din
+grupele lui, e apărabilă doar cu jurnalul care o însoțește. Fără el nu există răspuns la „cine a
+avut acces la datele acestei familii", iar limitarea rămâne o promisiune scrisă în docs, nu un
+fapt verificabil. **Deci E07 S3 se livrează odată cu S2, nu după.** Un rol de profesor pus în
+producție înaintea jurnalului lărgește accesul la date de contact fără să lase urmă — iar un jurnal
+pornit mai târziu nu repară nimic retroactiv, fiindcă accesele deja făcute nu se reconstituie.
 
 ## Riscuri
 

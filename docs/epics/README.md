@@ -9,7 +9,7 @@ sunt lucruri verificate în repo.
 
 ## Cum se citește
 
-Cele 21 de epic-uri de mai jos descriu **tot** ce îi trebuie unei platforme de management pentru
+Cele 22 de epic-uri de mai jos descriu **tot** ce îi trebuie unei platforme de management pentru
 o școală de IT cu mai multe locații. Nu sunt un angajament pentru următoarele șase luni — sunt
 harta completă, ca să nu descoperim la jumătatea drumului că o decizie luată devreme blochează
 ceva ce oricum trebuia făcut.
@@ -18,8 +18,14 @@ Pentru primele șase luni realiste, vezi secțiunea [Ordinea recomandată](#ordi
 
 ## Stare curentă
 
-Frontend pe Vercel, funcționând ca prezentare statică. Backend nedeployat nicăieri. Platforma nu are
-noțiunea de locație, deși școala are două.
+Frontend pe Vercel, funcționând ca prezentare statică. Backend nedeployat nicăieri — de aceea stă pe
+loc [E01](E01-infrastructura-medii.md) S4, care așteaptă instanța EC2, și odată cu el tot ce are
+nevoie de un API care rulează: [E18](E18-frontend-portal.md) S4 și S5, backupul din
+[E04](E04-migrari-date.md) S4, [E14](E14-proiecte-elevi.md) S3b (ffmpeg pe host) și S6 (vitrina
+publică), și [E20](E20-achizitie-lead.md) S6 (lead-ul scris din formularul de contact). Șase
+story-uri din patru epicuri, toate în așteptarea aceleiași instanțe — de aceea S4 din E01 nu e o
+sarcină de infrastructură printre altele, ci pragul peste care nu trece nimic altceva. Locația e
+dimensiune de primă clasă din [E08](E08-multi-locatie.md).
 
 Curățenia de infrastructură din E01 a intrat: aplicația nu mai rulează în Docker, `docker-compose.yml`
 e doar Postgres, iar cele trei strategii de deploy moarte au dispărut din repo. Cheia Let's Encrypt
@@ -47,36 +53,45 @@ că entitățile n-au divergat de ele. `pnpm seed` reconstruiește o bază local
 secunde.
 
 E08 a adus locația: `Location` și `Room` există, fiecare grupă se ține într-o sală, iar
-constrângerea care interzicea două grupe la aceeași oră *în toată școala* a fost înlocuită cu una pe
+constrângerea care interzicea două grupe la aceeași oră _în toată școala_ a fost înlocuită cu una pe
 sală. Zona de admin are un selector de locație, iar o a treia adresă se adaugă din interfață.
+
+Tot din E08, grupa a devenit descriptibilă: are nume, sală — deci implicit locație — și `capacity`
+`NOT NULL`, validată să nu depășească capacitatea sălii, iar `minAge`/`maxAge` sunt acum `int`, nu
+`decimal` (`apps/api/src/entities/group.entity.ts`). Consecința pentru epicurile din aval:
+[E11](E11-inscrieri-capacitate.md) nu mai trebuie să inventeze capacitatea, doar să o aplice la
+înscriere — azi nimic nu o verifică. Ce a rămas din E08 sunt nivelul din catalog
+([E10](E10-curriculum-module.md)) și profesorul principal ([E09](E09-personal-roluri.md)), deci
+epicul stă până pornește unul dintre ele.
 
 Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane”.
 
 ## Tabel
 
-| #                                     | Epic                                              | Pistă      | Depinde de    | Schemă |
-| ------------------------------------- | ------------------------------------------------- | ---------- | ------------- | ------ |
-| [E01](E01-infrastructura-medii.md)    | Curățenie infrastructură și medii de rulare       | Fundație   | —             | —      |
-| [E02](E02-monorepo-tooling.md)        | Monorepo: pnpm, Turborepo și fluxul de dezvoltare | Fundație   | E01           | —      |
-| [E03](E03-testare-ci.md)              | Testare și CI                                     | Fundație   | E02           | —      |
-| [E04](E04-migrari-date.md)            | Migrări și integritatea datelor                   | Fundație   | E02           | **da** |
-| [E05](E05-robustete-backend.md)       | Robustețe backend                                 | Fundație   | E03, E04      | —      |
-| [E06](E06-observabilitate-operare.md) | Observabilitate și operare                        | Fundație   | E01, E05      | —      |
-| [E07](E07-securitate-gdpr.md)         | Securitate, GDPR și consimțământ                  | Fundație   | E04, E05      | **da** |
-| [E08](E08-multi-locatie.md)           | Multi-locație și săli                             | Domeniu    | E04           | **da** |
-| [E09](E09-personal-roluri.md)         | Personal, roluri și permisiuni                    | Domeniu    | E08           | **da** |
-| [E10](E10-curriculum-module.md)       | Curriculum și catalog de module                   | Domeniu    | E04           | **da** |
-| [E11](E11-inscrieri-capacitate.md)    | Înscrieri, grupe și capacitate                    | Operațiuni | E08, E09, E10 | **da** |
-| [E12](E12-prezenta-orar.md)           | Prezență, recuperări și orar                      | Operațiuni | E11           | **da** |
-| [E13](E13-progres-evaluare.md)        | Progres, evaluare și feedback                     | Operațiuni | E10, E12      | **da** |
-| [E14](E14-proiecte-elevi.md)          | Proiectele elevilor                               | Operațiuni | E07, E08, E17 | **da** |
-| [E15](E15-pricing-facturare.md)       | Pricing și facturare v2                           | Bani       | E10, E11      | **da** |
-| [E16](E16-plati-fiscal.md)            | Plăți online, încasări și conformitate fiscală    | Bani       | E15           | **da** |
-| [E17](E17-comunicare-notificari.md)   | Comunicare și notificări                          | Comunicare | E05, E06      | **da** |
-| [E18](E18-frontend-portal.md)         | Frontend: design system și portal părinte         | Public     | E03           | —      |
-| [E19](E19-seo-geo.md)                 | SEO, GEO și conținut                              | Public     | E08, E18      | —      |
-| [E20](E20-achizitie-lead.md)          | Achiziție, lecții de probă și lead management     | Public     | E17, E18      | **da** |
-| [E21](E21-raportare-analytics.md)     | Raportare și analytics                            | Business   | E12, E15, E16 | —      |
+| #                                     | Epic                                              | Pistă      | Depinde de                   | Schemă |
+| ------------------------------------- | ------------------------------------------------- | ---------- | ---------------------------- | ------ |
+| [E01](E01-infrastructura-medii.md)    | Curățenie infrastructură și medii de rulare       | Fundație   | —                            | —      |
+| [E02](E02-monorepo-tooling.md)        | Monorepo: pnpm, Turborepo și fluxul de dezvoltare | Fundație   | E01                          | —      |
+| [E03](E03-testare-ci.md)              | Testare și CI                                     | Fundație   | E02                          | —      |
+| [E04](E04-migrari-date.md)            | Migrări și integritatea datelor                   | Fundație   | E02                          | **da** |
+| [E05](E05-robustete-backend.md)       | Robustețe backend                                 | Fundație   | E03, E04                     | —      |
+| [E06](E06-observabilitate-operare.md) | Observabilitate și operare                        | Fundație   | E01, E05                     | —      |
+| [E07](E07-securitate-gdpr.md)         | Securitate, GDPR și consimțământ                  | Fundație   | E04, E05                     | **da** |
+| [E08](E08-multi-locatie.md)           | Multi-locație și săli                             | Domeniu    | E04                          | **da** |
+| [E09](E09-personal-roluri.md)         | Personal, roluri și permisiuni                    | Domeniu    | E08                          | **da** |
+| [E10](E10-curriculum-module.md)       | Curriculum și catalog de module                   | Domeniu    | E04                          | **da** |
+| [E11](E11-inscrieri-capacitate.md)    | Înscrieri, grupe și capacitate                    | Operațiuni | E08, E09, E10                | **da** |
+| [E12](E12-prezenta-orar.md)           | Prezență, recuperări și orar                      | Operațiuni | E11                          | **da** |
+| [E13](E13-progres-evaluare.md)        | Progres, evaluare și feedback                     | Operațiuni | E10, E12                     | **da** |
+| [E14](E14-proiecte-elevi.md)          | Proiectele elevilor                               | Operațiuni | E07, E08, E09, E10, E12, E17 | **da** |
+| [E15](E15-pricing-facturare.md)       | Pricing și facturare v2                           | Bani       | E10, E11                     | **da** |
+| [E16](E16-plati-fiscal.md)            | Plăți online, încasări și conformitate fiscală    | Bani       | E15                          | **da** |
+| [E17](E17-comunicare-notificari.md)   | Comunicare și notificări                          | Comunicare | E05, E06                     | **da** |
+| [E18](E18-frontend-portal.md)         | Frontend: design system și portal părinte         | Public     | E03                          | —      |
+| [E19](E19-seo-geo.md)                 | SEO, GEO și conținut                              | Public     | E08, E18                     | —      |
+| [E20](E20-achizitie-lead.md)          | Achiziție, lecții de probă și lead management     | Public     | E17, E18                     | **da** |
+| [E21](E21-raportare-analytics.md)     | Raportare și analytics                            | Business   | E12, E15, E16                | —      |
+| [E22](E22-siguranta-copilului.md)     | Siguranța copilului                               | Domeniu    | E04                          | **da** |
 
 ## Harta dependențelor
 
@@ -102,12 +117,18 @@ graph TD
   E12 --> E13
   E07 --> E14[E14 Proiecte elevi]
   E08 --> E14
+  E09 --> E14
+  E10 --> E14
+  E12 --> E14
   E17 --> E14
   E10 --> E15[E15 Pricing v2]
   E11 --> E15
   E15 --> E16[E16 Plăți & fiscal]
   E05 --> E17[E17 Comunicare]
   E06 --> E17
+  E17 --> E11
+  E17 --> E12
+  E17 --> E16
   E03 --> E18[E18 Frontend & portal]
   E08 --> E19[E19 SEO & GEO]
   E18 --> E19
@@ -116,7 +137,15 @@ graph TD
   E12 --> E21[E21 Raportare]
   E15 --> E21
   E16 --> E21
+  E04 --> E22[E22 Siguranța copilului]
 ```
+
+Muchiile care pleacă din E17 către E11, E12 și E16 sunt mai slabe decât restul și de aceea nu apar
+în coloana „Depinde de” din tabel: epicurile alea se pot construi și livra fără canal de
+comunicare, dar câteva criterii de acceptanță din ele — locul eliberat care anunță lista de
+așteptare, anularea unei ședințe, confirmarea de plată și mementoul de restanță — nu se pot bifa
+până nu există E17. Le desenăm ca să nu fie descoperite ca surpriză la sfârșitul lui E11 — de
+aceea [Ordinea recomandată](#ordinea-recomandată) urcă E17 S1–S3 în val 3, lângă E11 și E12.
 
 ## Ordinea recomandată
 
@@ -127,12 +156,32 @@ schema, iar cât timp rulăm cu `synchronize: true` fiecare dintre ele e o rulet
 **Val 2 — fundația de domeniu.** E05, E08, E10. Multi-locația și modelul de curriculum sunt
 schimbări structurale. Făcute după E11 sau E15 înseamnă rescriere, nu adăugare. E05 e livrat, E08 e
 în lucru; E10 e cel care rămâne, iar blocajul lui nu e cod, ci conținut — programa fiecărui modul.
+Tot în valul ăsta intră [E22](E22-siguranta-copilului.md) S1, câmpurile de siguranță pe `Child`:
+tehnic nu blochează nimic, dar e o migrare de câteva coloane și o secțiune de formular azi, față de
+un formular refăcut mai târziu — restul lui E22 merge în val 3, unde are nevoie de rolul de profesor
+din E09 și de ecranul de prezență din E12.
 
-**Val 3 — două piste în paralel.** Operațiuni (E09, E11, E12) și public (E18, E19) nu se ating.
-Sunt fișiere diferite și obiective diferite, se pot duce simultan.
+**Val 3 — două piste în paralel, plus canalul.** Operațiuni (E09, E11, E12) și public (E18, E19)
+nu se ating: sunt fișiere diferite și obiective diferite, se pot duce simultan. Aici intră și
+[E17](E17-comunicare-notificari.md) **S1–S3** — furnizorul, șabloanele și coada — nu tot epicul.
+Motivul e cel din nota de sub graf: fără canal, [E11](E11-inscrieri-capacitate.md) S2 se termină cu o
+listă de așteptare care nu anunță pe nimeni, iar [E12](E12-prezenta-orar.md) S5 și S7 rămân fără
+anunțul de anulare și fără cel de absență. E17 depinde doar de [E05](E05-robustete-backend.md), care
+e livrat, și de [E06](E06-observabilitate-operare.md), care oricum se strecoară devreme — deci nimic
+nu-l ține în val 4.
 
-**Val 4 — bani și livrare.** E15, E16, E17, E14. Aici se schimbă modelul de business, deci
-trebuie să existe deja plasa de siguranță din E03.
+Varianta cealaltă e legitimă: E11 și E12 se pot livra fără partea de notificare. Atunci însă se
+scrie de la început că acele criterii de acceptanță rămân deschise până în val 4, ca revenirea la
+ele să fie planificată, nu descoperită.
+
+Un lucru rămâne de val 4 oricum: scheduler-ul din E17 S3 nu are unde să ruleze continuu până nu
+există instanța din [E01](E01-infrastructura-medii.md) S4. Coada se construiește și se testează
+înainte; pornirea ei permanentă vine odată cu deploy-ul.
+
+**Val 4 — bani și livrare.** E15, E16, restul lui E17 (S4–S8) și E14. Aici se schimbă modelul de
+business, deci trebuie să existe deja plasa de siguranță din E03. [E16](E16-plati-fiscal.md) S6 și
+S7 — confirmarea de plată și mementoul de restanță — cer același canal, dar sunt în același val cu
+el, deci nu produc decalajul care apare la E11 și E12.
 
 **Val 5 — creștere și măsurare.** E20, E21, E13.
 
@@ -180,7 +229,9 @@ publică și oprite amândouă în același punct:
 Deci ordinea firească e [E01](E01-infrastructura-medii.md) S4 înaintea lui E18 S4 — un portal fără
 API nu se poate termina.
 
-Restul sunt `propus`.
+Restul sunt `propus`, inclusiv [E22](E22-siguranta-copilului.md), care intră acum pe hartă: mută în
+platformă date pe care școala le ține deja, dar le ține pe WhatsApp — cel mai prost loc posibil
+pentru alergii și contacte de urgență, și indisponibil profesorului care suplinește.
 
 ## Decizii deja luate
 
@@ -189,30 +240,44 @@ Consemnate aici ca să nu fie relitigate în fiecare epic. Fiecare e detaliată,
 
 ### Rulare și infrastructură
 
-| Decizie                              | Detaliu                                                                    | Epic                               |
-| ------------------------------------ | -------------------------------------------------------------------------- | ---------------------------------- |
-| Fără Docker pentru aplicație         | Nici în dev, nici în producție. Docker doar pentru Postgres local.         | [E01](E01-infrastructura-medii.md) |
-| Backend pe AWS EC2                   | Cu PM2. `aws.yml` se rescrie, nu se șterge — cu `pm2 reload` și rollback.  | [E01](E01-infrastructura-medii.md) |
-| Postgres pe instanța EC2             | Backup-urile merg în S3. Proba de restaurare devine obligatorie.           | [E04](E04-migrari-date.md)         |
-| S3 pentru fișiere, fără chei statice | IAM instance role în loc de `AWS_ACCESS_KEY_ID`.                           | [E07](E07-securitate-gdpr.md)      |
-| Frontend pe Vercel                   | Rămâne.                                                                    | [E01](E01-infrastructura-medii.md) |
-| pnpm workspaces plus Turborepo       | Lockfile unic. `pnpm dev` pornește ambele; `dev:api` și `dev:web` separat. | [E02](E02-monorepo-tooling.md)     |
-| Fără date de producție de păstrat    | Baza se reconstruiește de la zero. Simplifică mult E04, E11 și E12.        | [E04](E04-migrari-date.md)         |
+| Decizie                              | Detaliu                                                                                                                        | Epic                                |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Fără Docker pentru aplicație         | Nici în dev, nici în producție. Docker doar pentru Postgres local.                                                             | [E01](E01-infrastructura-medii.md)  |
+| Backend pe AWS EC2                   | Cu PM2. `aws.yml` se rescrie, nu se șterge — cu `pm2 reload` și rollback.                                                      | [E01](E01-infrastructura-medii.md)  |
+| Postgres pe instanța EC2             | Backup-urile merg în S3. Proba de restaurare devine obligatorie.                                                               | [E04](E04-migrari-date.md)          |
+| S3 pentru fișiere, fără chei statice | IAM instance role în loc de `AWS_ACCESS_KEY_ID`.                                                                               | [E07](E07-securitate-gdpr.md)       |
+| Frontend pe Vercel                   | Rămâne.                                                                                                                        | [E01](E01-infrastructura-medii.md)  |
+| pnpm workspaces plus Turborepo       | Lockfile unic. `pnpm dev` pornește ambele; `dev:api` și `dev:web` separat.                                                     | [E02](E02-monorepo-tooling.md)      |
+| Fără date de producție de păstrat    | Baza se reconstruiește de la zero. Simplifică mult E04, E11 și E12.                                                            | [E04](E04-migrari-date.md)          |
+| Joburi de fundal                     | Tabel outbox în Postgres, cu scheduler în procesul API. Fără Redis, fără BullMQ; mecanismul de scheduler se fixează în E17 S3. | [E17](E17-comunicare-notificari.md) |
 
 ### Model de business
 
-| Decizie                    | Valoare                                                                                         | Epic                               |
-| -------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Unitate de facturare       | Modulul școlar: 6-8 ședințe, ~5 module pe an, delimitate de vacanțe                             | [E10](E10-curriculum-module.md)    |
-| Preț                       | **700 lei fix per modul**, indiferent de durată                                                 | [E15](E15-pricing-facturare.md)    |
-| Planuri de plată           | Integral, sau două tranșe egale — **două facturi separate**, a doua emisă la mijlocul modulului | [E15](E15-pricing-facturare.md)    |
-| Reducere frați             | **−25% de la al doilea copil în jos**; primul plătește întreg                                   | [E15](E15-pricing-facturare.md)    |
-| Facturare                  | **SmartBill** e sistemul de evidență fiscală. Platforma calculează, SmartBill emite.            | [E16](E16-plati-fiscal.md)         |
-| Abandon la mijloc de modul | Fără returnare; a doua factură nu se mai emite                                                  | [E15](E15-pricing-facturare.md)    |
-| Recuperări                 | 2 per modul, doar absențe anunțate cu min. 3 ore înainte. Configurabil.                         | [E12](E12-prezenta-orar.md)        |
-| Lecția de probă            | Gratuită                                                                                        | [E11](E11-inscrieri-capacitate.md) |
+| Decizie                    | Valoare                                                                                                                                  | Epic                               |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Unitate de facturare       | Modulul școlar: 6-8 ședințe, ~5 module pe an, delimitate de vacanțe                                                                      | [E10](E10-curriculum-module.md)    |
+| Preț                       | **700 lei fix per modul**, indiferent de durată                                                                                          | [E15](E15-pricing-facturare.md)    |
+| Planuri de plată           | Integral, sau două tranșe egale — **două facturi separate**, a doua emisă la mijlocul modulului                                          | [E15](E15-pricing-facturare.md)    |
+| Reducere frați             | **−25% de la al doilea copil în jos**; primul plătește întreg                                                                            | [E15](E15-pricing-facturare.md)    |
+| Facturare                  | **SmartBill** e sistemul de evidență fiscală. Platforma calculează, SmartBill emite.                                                     | [E16](E16-plati-fiscal.md)         |
+| Abandon la mijloc de modul | Fără returnare, cu excepția dreptului legal de retragere în 14 zile la contractele încheiate la distanță; a doua factură nu se mai emite | [E15](E15-pricing-facturare.md)    |
+| Recuperări                 | 2 per modul, doar absențe anunțate cu min. 3 ore înainte. Configurabil.                                                                  | [E12](E12-prezenta-orar.md)        |
+| Lecția de probă            | Gratuită                                                                                                                                 | [E11](E11-inscrieri-capacitate.md) |
 
-Două consecințe care nu sunt evidente din tabel:
+**Excepția de 14 zile din rândul de abandon e recomandare, nu decizie luată.** Restul tabelului e
+aprobat; asta nu. Motivul pentru care apare totuși în rând: pentru înscrierea la sediu, „fără
+returnare” e o politică comercială apărabilă, dar înscrierea pe care o construiesc
+[E20](E20-achizitie-lead.md) S2, [E11](E11-inscrieri-capacitate.md) și
+[E16](E16-plati-fiscal.md) S4 — formular pe site, confirmare, plată cu cardul în portal — e contract
+încheiat la distanță, iar OUG 34/2014 dă 14 zile de retragere, de la care nu se poate deroga printr-o
+decizie internă. Frecvența e mică, fiindcă lecția de probă e gratuită și absoarbe cazul „nu i-a
+plăcut” înainte să circule banii. **Recomandare:** se recunoaște dreptul, iar cele câteva cazuri pe
+an se rezolvă manual, cu un storno în SmartBill. _De confirmat cu un avocat_, și de confirmat
+**înainte** ca [E07](E07-securitate-gdpr.md) S5 să redacteze termenii publicați și înainte ca E16 S4
+să pună plata cu cardul — o clauză de nereturnare absolută scrisă în termeni e mai greu de retras
+decât una care n-a fost publicată niciodată.
+
+Câteva consecințe care nu sunt evidente din tabel:
 
 **Calendarul școlar devine date de bază.** Fiindcă vacanțele delimitează modulele, iar modulul e
 unitatea de facturare, calendarul determină ce se facturează și când. [E10](E10-curriculum-module.md)
@@ -223,8 +288,9 @@ un modul, nu un număr garantat de ședințe. Recuperarea rămâne instrument de
 iar formularea din factură și din termeni trebuie să reflecte asta.
 
 **Platforma nu mai emite facturi.** Cu SmartBill ca sistem de evidență fiscală, ies din scop
-numerotarea, TVA-ul, e-Factura și PDF-ul de factură. `it-bridge-backend/src/modules/invoice/pdf.service.ts` rămâne doar pentru documente
-nefiscale — certificatele din [E13](E13-progres-evaluare.md). În schimb intră în scop două lucruri
+numerotarea, TVA-ul, e-Factura și PDF-ul de factură. `apps/api/src/modules/invoice/pdf.service.ts`
+rămâne doar pentru documente nefiscale — certificatele din [E13](E13-progres-evaluare.md). În
+schimb intră în scop două lucruri
 noi: sincronizarea între două sisteme cu stări proprii, și o coadă temperată la **3 apeluri pe
 secundă**, limita API-ului SmartBill. Premisa comercială — abonament **Facturare Platinum** — se
 verifică înainte de orice cod.

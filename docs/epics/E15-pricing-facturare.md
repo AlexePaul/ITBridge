@@ -6,12 +6,12 @@
 
 Modelul de facturare actual e lunar, cu prețuri hardcodate, și are un bug care produce sume greșite.
 
-În `it-bridge-backend/src/modules/invoice/invoice.service.ts:107`:
+În `apps/api/src/modules/invoice/invoice.service.ts:162`, în `calculateAmount`:
 
 ```ts
+let totalAmount = 0;
 if (profile.children.length === 1) totalAmount = 350;
-else if (profile.children.length === 2)
-  totalAmount = 250 * profile.children.length;
+else if (profile.children.length === 2) totalAmount = 250 * profile.children.length;
 ```
 
 **Nu există ramură pentru trei sau mai mulți copii.** `totalAmount` rămâne `0`, iar reducerile
@@ -36,7 +36,7 @@ Restul modelului e la fel de rigid:
 Direcția nouă — **700 de lei pe modul**, plătibili integral sau în două tranșe — nu încape în acest
 model. Nu e o schimbare de constantă, e o schimbare de unitate de facturare: de la lună la modul.
 
-Și mai grav, în `it-bridge-backend/src/entities/payment.entity.ts`: **`Payment` nu are coloană de sumă.** Are `method`, `date`, și
+Și mai grav, în `apps/api/src/entities/payment.entity.ts`: **`Payment` nu are coloană de sumă.** Are `method`, `date`, și
 o relație unu-la-unu cu `Invoice`. Deci **plata în două tranșe nu poate fi reprezentată deloc** —
 nici măcar teoretic. Se rezolvă în [E16](E16-plati-fiscal.md), dar modelul de aici trebuie să o
 presupună.
@@ -189,9 +189,9 @@ SmartBill de 3 apeluri pe secundă face bucla imposibilă oricum.
 Documentul fiscal e emis de SmartBill, care produce și PDF-ul — vezi
 [E16](E16-plati-fiscal.md). Platforma stochează referința și link-ul, nu generează nimic.
 
-Generarea de facturi din `it-bridge-backend/src/modules/invoice/pdf.service.ts` se retrage. Serviciul rămâne în cod, cu fonturile Roboto
-și logo-ul din `it-bridge-backend/src/assets/`, pentru documentele **nefiscale** — certificatele din
-[E13](E13-progres-evaluare.md) și rapoartele de progres.
+Generarea de facturi din `apps/api/src/modules/invoice/pdf.service.ts` se retrage. Serviciul rămâne
+în cod, cu fonturile Roboto și logo-ul din `apps/api/src/assets/`, pentru documentele **nefiscale**
+— certificatele din [E13](E13-progres-evaluare.md) și rapoartele de progres.
 
 Ce trebuie să arate identic sunt **factura din portal și cea din SmartBill**: aceleași linii,
 aceleași sume, aceleași scadențe. Divergența dintre ele e exact ce urmărește
@@ -230,7 +230,13 @@ funcționează. Nicio combinație de copii și reduceri nu produce o sumă absur
 | Preț                 | **700 lei fix**, indiferent de durata modulului                                       |
 | Planuri de plată     | Integral (1 factură), sau două tranșe egale (2 facturi, a doua la mijlocul modulului) |
 | Reducere frați       | **−25% de la al doilea copil în jos**, primul întreg                                  |
-| Abandon la mijloc    | Fără returnare; a doua factură nu se mai emite                                        |
+| Abandon la mijloc    | Fără returnare; a doua factură nu se mai emite (vezi mai jos, retragerea în 14 zile) |
+
+**Excepția de 14 zile din rândul de abandon e recomandare, nu decizie luată**, și de asta nu stă în
+tabel: celelalte rânduri sunt valori aprobate de patron — 700 de lei, tranșele, −25% — iar un rând
+citit singur nu arată care e care. Argumentul e mai jos, în paragraful despre contractele încheiate
+la distanță, și rezumat în [Întrebări deschise](#întrebări-deschise). [README](README.md) marchează
+același rând la fel.
 
 **Prețul fix pe durată variabilă e o decizie conștientă**, nu o scăpare. Ședința costă efectiv
 117 lei într-un modul de 6 săptămâni și 87 într-unul de 8. Peste un an școlar se echilibrează —
@@ -246,10 +252,27 @@ elimină regula de trei simplă — vacanțele devin granițele modulelor, nu ex
 **La abandon** (S8, de adăugat): dacă plata a fost în tranșe, a doua factură pur și simplu nu se
 mai emite, iar nota de plată se închide la suma facturată. Dacă a fost integrală, nu se returnează
 nimic. Fiindcă a doua factură se emite la mijlocul modulului și nu la înscriere, abandonul nu cere
-stornarea niciunui document fiscal. Regula se comunică la înscriere, nu la plecare.
+stornarea niciunui document fiscal — **în cazul obișnuit**. Regula se comunică la înscriere, nu la
+plecare.
+
+Cazul care nu e obișnuit e retragerea în 14 zile. La un contract încheiat la distanță — adică exact
+ce construiește [E20](E20-achizitie-lead.md) S2, ce recomandă [E11](E11-inscrieri-capacitate.md) ca
+auto-înscriere și ce face [E16](E16-plati-fiscal.md) S4 cu plata în portal — OUG 34/2014 dă un drept
+de retragere de la care nu se poate deroga printr-o politică internă, iar o clauză de nereturnare
+absolută e clauză abuzivă. Acolo chiar există ceva de returnat, deci și de stornat. **Recomandare:**
+se recunoaște dreptul, iar cazul se rezolvă **manual, printr-un storno în SmartBill** — fără
+calculator de returnare aici și fără conductă de stornare în [E16](E16-plati-fiscal.md). *De
+confirmat.* Motivul e frecvența: proba e gratuită, deci „nu i-a plăcut" e absorbit înainte să circule
+banii, și rămân realist unul-două cazuri pe an — un mecanism ar costa mai mult decât cazurile pe care
+le acoperă. Confirmarea trebuie să vină **înainte** ca [E07](E07-securitate-gdpr.md) S5 să redacteze
+termenii, fiindcă acolo regula asta devine text publicat.
 
 ## Întrebări deschise
 
+- **Retragerea în 14 zile la înscrierile online.** **Recomandare:** se recunoaște dreptul din OUG
+  34/2014, iar rambursarea se face manual, cu storno în SmartBill. *De confirmat.* Detaliile și
+  motivul, la [Decizii luate](#decizii-luate); e o chestiune juridică, nu una de implementare, deci
+  răspunsul vine de la avocat, nu din cod.
 - Prețul e același în ambele locații?
 - Un copil înscris la mijlocul unui modul plătește integral, sau proporțional cu ședințele rămase?
   Cu preț fix pe modul, varianta consecventă e integral — dar e greu de vândut cuiva care prinde

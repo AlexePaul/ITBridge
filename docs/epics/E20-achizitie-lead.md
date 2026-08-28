@@ -4,18 +4,23 @@
 
 ## Problemă
 
-Site-ul nu are niciun mecanism de conversie. `it-bridge-frontend/app/pages/contact.vue` afișează telefon, email și program.
-Atât. Nu există formular, nu există programare, nu există nimic care să transforme un vizitator
-interesat într-o programare.
+Site-ul are un formular de contact — `apps/web/app/pages/contact.vue`, cu ruta
+`apps/web/server/api/contact.post.ts` și schema partajată în `apps/web/shared/contact.ts` — dar
+mesajul pleacă pe email către adresa școlii și nu lasă nicio urmă în platformă. Nu există programare
+la probă, nu există noțiunea de lead.
 
-Deci pâlnia arată așa: părintele găsește site-ul, citește, și trebuie să sune. Fiecare pas pierde
-oameni, iar cel mai mare pierde cei mai mulți — sunatul cere efort și curaj, mai ales seara, când
-oamenii caută de fapt.
+Deci pâlnia se termină într-o cutie poștală. Nu se poate spune câte cereri au fost, care a rămas
+fără răspuns, sau care s-a transformat în înscriere — informația trăiește în inbox, în ordinea în
+care a sosit, și dispare odată cu el. Iar cine vrea o probă tot trebuie să sune, fiindcă formularul
+nu programează nimic: cere efort și curaj, mai ales seara, când oamenii caută de fapt.
+
+Epicul repară a doua jumătate, nu prima: **mesajul de contact rămâne un email**, iar pâlnia se
+măsoară de la programarea la probă încolo. Motivul e în [Decizii luate](#decizii-luate).
 
 Ce lipsește complet:
 
-- **Nu există noțiunea de lead.** Cineva care întreabă și nu se înscrie nu lasă nicio urmă. Nu poți
-  reveni la el, nu poți ști câți au fost.
+- **Nu există noțiunea de lead.** Cineva care întreabă și nu se înscrie nu lasă nicio urmă în
+  platformă. Nu poți reveni la el, nu poți ști câți au fost.
 - **Nu există programare la lecție de probă**, deși proba e mecanismul principal de conversie într-o
   școală.
 - **Nu se măsoară nimic.** Nu știi de unde vin oamenii, câți întreabă, câți vin la probă, câți se
@@ -41,12 +46,13 @@ cerere e urmărită până la înscriere sau la un "nu" explicit. Se știe ce ca
 - Urmărire și memento-uri.
 - Măsurarea pâlniei.
 - Program de recomandare.
-- Formulare de contact care chiar funcționează.
 
 ## În afara scopului
 
 - Conținutul care aduce trafic — vezi [E19](E19-seo-geo.md).
 - Ce se întâmplă după înscriere — vezi [E11](E11-inscrieri-capacitate.md).
+- **Formularul de contact.** Rămâne exact cum e: trimite un email din ruta Nitro și nu lasă urmă în
+  platformă — vezi [Decizii luate](#decizii-luate).
 
 ## Story-uri
 
@@ -69,8 +75,18 @@ libere — date din [E11](E11-inscrieri-capacitate.md) — alege ora, lasă date
 Sub două minute, fără telefon, funcțional pe mobil. Confirmarea și memento-ul cu o zi înainte pleacă
 prin [E17](E17-comunicare-notificari.md).
 
+E un formular public care scrie în baza de date date despre un copil, deci are nevoie de aceeași
+protecție ca formularul de contact — și tiparul e deja scris. Ruta de contact are un honeypot
+(`HONEYPOT_FIELD` din `apps/web/shared/contact.ts`, verificat în rută, care răspunde 200 și nu
+trimite nimic) și o limită de cinci trimiteri la 15 minute per IP. Cât valorează a doua o spune
+singur comentariul din `apps/web/server/utils/rate-limit.ts`: contorul stă în memoria unei instanțe
+serverless, deci prinde bucla care cade pe o instanță caldă, nu o inundație distribuită. Pragul a
+fost ales pentru un email; aici, unde fiecare trimitere devine un rând în bază, se reevaluează.
+Cerința rămâne cea veche — protecție care nu enervează un părinte real.
+
 **Acceptanță:** o programare completă durează sub două minute pe telefon. Proba apare direct în
-lista profesorului.
+lista profesorului. Un mesaj prins de honeypot nu creează lead, iar expeditorul primește același
+răspuns ca la o trimitere reușită.
 
 ### S3 · Urmărire
 
@@ -102,13 +118,6 @@ oricum între ei. Merită doar să fie sprijinit și măsurat.
 **Acceptanță:** un părinte generează o legătură de recomandare din portal, iar beneficiul se aplică
 automat la înscrierea celui recomandat.
 
-### S6 · Formulare de contact
-
-Pe fiecare pagină publică, potrivite contextului: pe pagina unui modul, întrebarea e despre acel
-modul, cu datele precompletate. Cu protecție anti-spam care nu enervează utilizatorii reali.
-
-**Acceptanță:** trimiterea unui formular creează lead și confirmare automată în sub un minut.
-
 ## Dependențe
 
 [E17](E17-comunicare-notificari.md) pentru confirmări și memento-uri,
@@ -133,6 +142,25 @@ Programarea la probă funcționează fără telefon. Fiecare lead are stare și 
 măsoară pe sursă și pe locație.
 
 ## Decizii luate
+
+**Formularul de contact rămâne pe email, trimis din frontend.** Nu scrie `Lead`, nu atinge
+backend-ul, nu se schimbă.
+
+Alternativa — aceeași trimitere produce și un rând în Postgres — sună ieftin și nu e. Cele șapte
+pagini publice funcționează astăzi fără `API_BASE`, și exact de aceea site-ul stă în producție deși
+backend-ul nu e deployat nicăieri. Un formular care cere API-ul leagă singura pagină de conversie de
+singura instanță EC2, iar ca să nu o lege trebuie o ramură de rezervă: dacă API-ul tace, mesajul tot
+pleacă pe email și lead-ul lipsește. Adică două căi de scriere și o stare parțială de întreținut,
+pentru un mesaj care oricum ajunge la un om care îl citește.
+
+Costul deciziei, spus pe față: **un mesaj de contact nu lasă nicio urmă în platformă.** Nu se poate
+număra câte întrebări au venit, nici ce s-a ales din ele. Se acceptă, pentru că întrebarea care
+contează comercial nu e „câți au scris", ci „câți au venit la probă și câți s-au înscris" — iar aia
+se măsoară din S2 încolo, unde există oricum un rând, fiindcă o programare are dată, copil și
+locație.
+
+Se reia dacă volumul de mesaje ajunge să nu mai încapă într-un inbox, sau dacă cineva chiar
+întreabă care a rămas fără răspuns.
 
 **Proba e gratuită** — vezi [E11](E11-inscrieri-capacitate.md).
 

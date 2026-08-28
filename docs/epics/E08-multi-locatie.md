@@ -24,7 +24,7 @@ Scratch Începători, sala 2, Titan, maxim 10 copii, profesor Ana".
 
 Fără locație, nimic din ce urmează nu e corect: nu știi unde e programat un copil, nu poți raporta
 gradul de ocupare pe sedii, un profesor nu poate fi alocat unei săli, iar uploaderul de proiecte din
-[E14](E14-proiecte-elevi.md) nu poate ști ce calculator din ce sală aparține cărei grupe.
+[E14](E14-proiecte-elevi.md) nu poate ști ce grupă e programată acum în ce sală.
 
 ## Rezultat
 

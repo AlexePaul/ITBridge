@@ -148,6 +148,9 @@ progres vizibil în interfață.
 La 3 pe secundă, 100 de facturi înseamnă minim ~34 de secunde. Cu marjă de siguranță, se planifică
 2 pe secundă.
 
+Coada nu se construiește aici: e cea din [E17](E17-comunicare-notificari.md) S3, iar ce adaugă S3-ul
+ăsta e limitarea de rată și progresul în interfață. Vezi [Dependențe](#dependențe).
+
 **Acceptanță:** emiterea pentru 100 de familii se termină fără blocare de acces și raportează
 individual ce a eșuat.
 
@@ -204,6 +207,21 @@ important e să fie vizibilă.
 ## Dependențe
 
 [E15](E15-pricing-facturare.md). Nu se poate emite corect ce nu e calculat corect.
+
+**[E17](E17-comunicare-notificari.md) e necesar pentru S6 și S7.** Confirmarea de plată și mementoul
+de restanță sunt mesaje către părinți: fără canalul din E17 nu au pe unde pleca, iar acceptanțele lor
+— „părintele primește confirmarea în aceeași zi", „mementourile se opresc imediat la încasare" — nu
+se pot verifica. E17 înregistrează deja rândul pentru E16 în tabelul din Problema lui; aici se scrie
+și reciproca, ca dependența să se vadă din ambele părți. Nu e în antet fiindcă nu blochează epicul:
+S0-S5 se fac fără să plece niciun email.
+
+Tot din E17 vine și mecanismul de fundal. **Coada temperată la 3 apeluri pe secundă din S3 nu e o
+coadă proprie**: folosește mecanismul decis în [E17](E17-comunicare-notificari.md) S3, cu limitarea
+de rată ca politică peste el. La fel jobul care emite tranșa a doua la mijlocul modulului și cel de
+restanțe din S7. Miza e că `apps/api` nu are azi niciun scheduler și niciun broker în dependențe,
+deci prima implementare fixează alegerea pentru toate celelalte; două mecanisme paralele pe aceeași
+instanță ar însemna două comportamente la reîncercare și două locuri de căutat când un job nu a
+rulat.
 
 ## Riscuri
 
