@@ -11,7 +11,10 @@ import { onBeforeUnmount, onMounted, nextTick } from "vue";
  * The hero of a page is not on this observer: it carries `data-intro` and
  * animates from first paint, in CSS alone.
  */
-const SELECTOR = "[data-reveal], [data-reveal-children], hr.rule";
+// A plate is in here on its own account, not as a descendant of a block: a
+// section barely over the fold counts as already seen, and the photograph
+// inside it can still be a screen further down.
+const SELECTOR = "[data-reveal], [data-reveal-children], hr.rule, .plate";
 
 export const useReveal = () => {
   let observer: IntersectionObserver | undefined;
@@ -66,13 +69,20 @@ export const useReveal = () => {
     // does not move anything.
     document.documentElement.classList.add("reveal-on");
 
+    // Whatever is already on screen has been painted opaque since first paint;
+    // adding `reveal-on` would hide it and fade it back in, so every page
+    // opened with a visible blink of its own hero. But "on screen" was the
+    // whole viewport down to the last pixel, and that is too much: an element
+    // whose top edge merely grazes the bottom of the window is one the reader
+    // has to scroll to read, and counting it as seen cost the first portrait
+    // on /despre-noi its wipe on a laptop window, over 108px of mat nobody was
+    // looking at. The fold is the bottom fifth of the first screen; the blink
+    // this still guards against is anything above it.
+    const fold = window.innerHeight * 0.8;
+
     document.querySelectorAll<HTMLElement>(SELECTOR).forEach((element) => {
-      // Whatever is already on screen has been painted opaque since first
-      // paint; adding `reveal-on` would hide it and fade it back in, so every
-      // page opened with a visible blink of its own hero. Mark those revealed
-      // without an animation and observe only what is still below the fold.
       const rect = element.getBoundingClientRect();
-      if (rect.bottom > 0 && rect.top < window.innerHeight) {
+      if (rect.bottom > 0 && rect.top < fold) {
         element.classList.add("is-revealed", "reveal-instant");
         return;
       }

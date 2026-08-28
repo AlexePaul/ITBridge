@@ -880,13 +880,15 @@ textarea.input {
   /* The photograph moves inside the mat now — on hover, and on scroll where
      the browser can drive it — so the mat has to hold it. */
   overflow: hidden;
-  transition: filter var(--dur-slow) var(--ease-out);
+  transition: filter var(--dur-mid) var(--ease-out);
 }
 
-/* The archival grade lifts while the photograph is being looked at: it warms
-   to nearly its own color, and settles back when the pointer leaves. */
+/* The archival grade lifts while the photograph is being looked at: all the
+   way off, to the photograph's own color, and back when the pointer leaves.
+   Most of the way off read as a slightly different brown — if the grade is
+   going to come off at all, it has to be legible that it did. */
 .plate:hover {
-  filter: sepia(0.04) saturate(0.98) contrast(1.02);
+  filter: sepia(0) saturate(1) contrast(1);
 }
 
 .plate img,
@@ -905,13 +907,19 @@ textarea.input {
    proper, on the compositor, with no scroll handler behind it. The drift owns
    the transform, so in those browsers it replaces the hover scale above; the
    warm-up on the plate is what answers the pointer either way. */
+/* 4.5% each way against a 600px-tall plate is about 55px of travel over the
+   whole crossing — a parallax rate of roughly 4%. At 2.2% it measured 27px,
+   which is a real number and an invisible one: there is nothing to read the
+   movement against except the mat edge, so it has to be worth reading. The
+   scale is what keeps the photograph covering the frame at both extremes,
+   which is why it moves with the drift. */
 @keyframes classical-drift {
   from {
-    transform: scale(1.07) translateY(-2.2%);
+    transform: scale(1.1) translateY(-4.5%);
   }
 
   to {
-    transform: scale(1.07) translateY(2.2%);
+    transform: scale(1.1) translateY(4.5%);
   }
 }
 
@@ -1141,14 +1149,20 @@ textarea.input {
 }
 
 /* — the wipe: the mat fills with the photograph, a beat behind the block it
-     sits in, so the two do not move as one slab — */
-.reveal-on [data-reveal]:not(.is-revealed) .plate,
-.reveal-on [data-reveal-children]:not(.is-revealed) .plate {
+     sits in, so the two do not move as one slab.
+
+     A plate is observed in its own right rather than following the block
+     around it. Reading the block's state instead meant a section whose top
+     edge had barely crossed the fold counted as already seen — and on a laptop
+     window that is exactly where the first portrait's section sits, so the one
+     photograph most readers scroll to was the one that never wiped, while the
+     photograph itself was hundreds of pixels below the fold. Judged on its own
+     geometry, a plate animates when the plate is what is out of sight. — */
+.reveal-on .plate:not(.is-revealed) {
   clip-path: inset(0 0 100% 0);
 }
 
-.reveal-on [data-reveal].is-revealed:not(.reveal-instant) .plate,
-.reveal-on [data-reveal-children].is-revealed:not(.reveal-instant) .plate {
+.reveal-on .plate.is-revealed:not(.reveal-instant) {
   animation: classical-wipe var(--dur-slow) var(--ease-line) both;
   animation-delay: calc(var(--reveal-delay, 0ms) + 120ms);
 }
@@ -1158,7 +1172,8 @@ textarea.input {
    show the reader a blink of their own hero. */
 .reveal-on [data-reveal].reveal-instant,
 .reveal-on [data-reveal-children].reveal-instant > *,
-.reveal-on hr.rule.reveal-instant {
+.reveal-on hr.rule.reveal-instant,
+.reveal-on .plate.reveal-instant {
   animation: none;
   opacity: 1;
 }
@@ -1173,16 +1188,14 @@ textarea.input {
     transform: none;
   }
 
-  .reveal-on [data-reveal]:not(.is-revealed) .plate,
-  .reveal-on [data-reveal-children]:not(.is-revealed) .plate {
+  .reveal-on .plate:not(.is-revealed) {
     clip-path: none;
   }
 
   .reveal-on [data-reveal].is-revealed,
   .reveal-on [data-reveal-children].is-revealed > *,
   .reveal-on hr.rule.is-revealed,
-  .reveal-on [data-reveal].is-revealed .plate,
-  .reveal-on [data-reveal-children].is-revealed .plate {
+  .reveal-on .plate.is-revealed {
     animation: none;
   }
 
@@ -1214,24 +1227,24 @@ textarea.input {
      a viewport nothing else is moving through. — */
 .page-enter-active {
   transition:
-    opacity 0.32s var(--ease-out),
-    transform 0.32s var(--ease-out);
+    opacity 0.38s var(--ease-out),
+    transform 0.38s var(--ease-out);
 }
 
 .page-leave-active {
   transition:
-    opacity 0.18s ease-in,
-    transform 0.18s ease-in;
+    opacity 0.2s ease-in,
+    transform 0.2s ease-in;
 }
 
 .page-enter-from {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(16px);
 }
 
 .page-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
+  transform: translateY(-10px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1262,8 +1275,7 @@ textarea.input {
   [data-intro] .display > span > span,
   .reveal-on [data-reveal],
   .reveal-on [data-reveal-children] > *,
-  .reveal-on [data-reveal] .plate,
-  .reveal-on [data-reveal-children] .plate,
+  .reveal-on .plate,
   .reveal-on hr.rule,
   .plate img,
   .course-num {
