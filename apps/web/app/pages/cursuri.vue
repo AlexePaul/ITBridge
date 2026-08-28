@@ -192,6 +192,16 @@ const faq = [
       "mici, ca fiecare copil să primească atenție.",
   },
   {
+    // The question a parent asks first, and the one an outdated figure in a
+    // search result or an assistant's answer gets wrong most often. Stated with
+    // the date it was checked, so the page can be told apart from an older copy.
+    question: "Cât costă?",
+    answer:
+      `${PRICE_ONE_CHILD} lei pe lună pentru un copil și ${PRICE_TWO_CHILDREN} lei pe lună pentru ` +
+      `doi copii din aceeași familie, adică ${PRICE_TWO_CHILDREN - PRICE_ONE_CHILD} lei pentru al ` +
+      `doilea copil. Preț verificat în ${CONTENT_UPDATED}.`,
+  },
+  {
     question: "Unde au loc cursurile?",
     answer:
       `În două locații din București: ${SCHOOL_LOCATIONS.map((location) => location.street).join(" și ")}. ` +

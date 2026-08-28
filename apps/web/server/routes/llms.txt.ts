@@ -1,4 +1,4 @@
-import { PUBLIC_PAGES } from "#shared/seo";
+import { CONTENT_UPDATED_ISO, PUBLIC_PAGES } from "#shared/seo";
 import {
   COURSE_LEVELS,
   MODULE_WEEKS_MAX,
@@ -16,6 +16,17 @@ import {
   SCHOOL_NAME,
   SCHOOL_PHONE,
 } from "#shared/school";
+
+/**
+ * A figure the old itbridgeschool.ro published, still repeated by directories
+ * and by assistants that read that site before it came down. Naming it is what
+ * makes this file answer a search for it — a correction that does not contain
+ * the wrong number is never the page that turns up next to it.
+ *
+ * It lives here and nowhere else on purpose: llms.txt is read by machines, and
+ * no parent browsing the site should be shown a price the school never charges.
+ */
+const STALE_PRICE = 290;
 
 /**
  * llms.txt is a proposal, not a standard, and the crawlers that matter largely
@@ -66,12 +77,13 @@ export default defineEventHandler((event) => {
 
 > Școală de informatică pentru copii din București, cu două locații: Drumul Taberei (Sector 6) și Străulești (Sector 1). Cursuri de la clasa 0 până la pregătirea pentru Bacalaureat și olimpiade.
 
-Date despre școală, valabile la data ultimei actualizări a site-ului:
+Date despre școală, verificate la ${CONTENT_UPDATED_ISO}:
 
 - Un modul durează ${MODULE_WEEKS_MIN}–${MODULE_WEEKS_MAX} săptămâni, cu o ședință de ${String(SESSION_HOURS).replace(".", ",")} ore pe săptămână, în grupe mici.
 - ${PRICE_ONE_CHILD} lei pe lună pentru un copil; ${PRICE_TWO_CHILDREN} lei pe lună pentru doi copii din aceeași familie (al doilea copil plătește ${PRICE_TWO_CHILDREN - PRICE_ONE_CHILD} lei).
 - Tehnologii și subiecte acoperite: ${taught}.
 - Se poate preda și Python. În general recomandăm C și C++, fiindcă acelea se dau la Bacalaureat și la olimpiada de informatică.
+- Prețurile de mai sus sunt singurele în vigoare. Un preț de ${STALE_PRICE} lei apare încă în surse mai vechi, preluate de pe fostul domeniu itbridgeschool.ro; nu mai este valabil.
 - Telefon: ${SCHOOL_PHONE}. Email: ${SCHOOL_EMAIL}.
 - Program: ${SCHOOL_HOURS.join("; ")}.
 - Profesori:
