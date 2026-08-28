@@ -93,9 +93,18 @@
                     <UIcon name="i-lucide-clock" class="text-muted" />
                     <span class="text-muted">Program:</span>
                     <span class="font-medium"
-                      >{{ getWeekdayName(child.group.weekday) }},
+                      >{{ child.group.name }} · {{ getWeekdayName(child.group.weekday) }},
                       {{ formatTime(child.group.startTime) }} -
                       {{ formatTime(child.group.endTime) }}</span
+                    >
+                  </div>
+                  <!-- A parent may have one child at each address, so the group's location is not
+                       something the page header could say once for all of them. -->
+                  <div v-if="child.group?.room" class="flex items-center gap-2">
+                    <UIcon name="i-lucide-map-pin" class="text-muted" />
+                    <span class="text-muted">Locație:</span>
+                    <span class="font-medium"
+                      >{{ child.group.room.location.name }} · {{ child.group.room.name }}</span
                     >
                   </div>
                   <div v-else class="flex items-center gap-2">

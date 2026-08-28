@@ -3,6 +3,8 @@ export * from './weekday';
 export * from './user';
 export * from './profile';
 export * from './child';
+export * from './location';
+export * from './room';
 export * from './group';
 export * from './attendance';
 export * from './invoice';

@@ -8,10 +8,15 @@
     ]"
   >
     <template #header>
-      <div class="flex items-start justify-between">
-        <div class="flex items-center gap-2">
-          <UBadge variant="subtle" color="secondary"> #{{ group.id }} </UBadge>
-          <UBadge v-if="!group.isActive" color="warning" variant="soft" size="sm"> Inactiv </UBadge>
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p class="font-semibold truncate">{{ group.name }}</p>
+          <div class="flex items-center gap-2 mt-1">
+            <UBadge variant="subtle" color="secondary"> #{{ group.id }} </UBadge>
+            <UBadge v-if="!group.isActive" color="warning" variant="soft" size="sm">
+              Inactiv
+            </UBadge>
+          </div>
         </div>
         <UButton color="neutral" variant="ghost" size="sm" icon="i-lucide-ellipsis-vertical" />
       </div>
@@ -26,6 +31,12 @@
       </span>
     </div>
 
+    <!-- Where -->
+    <div v-if="group.room" class="flex items-center gap-3 mb-3">
+      <UIcon name="i-lucide-map-pin" class="text-primary" />
+      <span class="text-sm">{{ group.room.location.name }} · {{ group.room.name }}</span>
+    </div>
+
     <!-- Age Range -->
     <div class="flex items-center gap-3 mb-4">
       <UIcon name="i-lucide-users" class="text-secondary" />
@@ -36,7 +47,8 @@
     <div class="flex items-center gap-3 mb-4 pt-3 border-t border-muted">
       <UIcon name="i-lucide-baby" class="text-warning" />
       <span class="text-sm text-muted">
-        {{ childrenStore.getChildrenNumberByGroupId(String(group.id)) }} copii inscrisi
+        {{ childrenStore.getChildrenNumberByGroupId(String(group.id)) }} din
+        {{ group.capacity }} locuri ocupate
       </span>
     </div>
 

@@ -94,7 +94,7 @@ export class AttendanceService {
 
         return this.attendanceRepository.find({
             where: { child: { id: childId } },
-            relations: ['group'],
+            relations: ['group', 'group.room', 'group.room.location'],
         });
     }
     async updateAttendanceStatus(attendanceId: number, present: boolean) {

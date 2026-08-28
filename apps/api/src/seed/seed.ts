@@ -5,6 +5,8 @@ import { User } from '../entities/user.entity';
 import { Profile } from '../entities/profile.entity';
 import { Child } from '../entities/child.entity';
 import { Group } from '../entities/group.entity';
+import { Location } from '../entities/location.entity';
+import { Room } from '../entities/room.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { Invoice, InvoiceStatus } from '../entities/invoice.entity';
 import { Payment } from '../entities/payment.entity';
@@ -33,14 +35,63 @@ const FIRST_NAMES = ['Ana', 'Bogdan', 'Cristina', 'David', 'Elena', 'Florin', 'G
 const LAST_NAMES = ['Popescu', 'Ionescu', 'Dumitrescu', 'Georgescu', 'Stan', 'Marin', 'Radu', 'Barbu'];
 const CHILD_NAMES = ['Maria', 'Andrei', 'Sofia', 'Matei', 'Ilinca', 'Luca', 'Daria', 'Vlad', 'Ruxandra', 'Tudor'];
 
-/** Weekly timetable: three afternoon slots on four weekdays, split by age band. */
-const GROUP_SLOTS: { weekday: Weekday; startTime: string; endTime: string; minAge: number; maxAge: number }[] = [
-    { weekday: Weekday.MONDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10 },
-    { weekday: Weekday.MONDAY, startTime: '18:00:00', endTime: '19:30:00', minAge: 11, maxAge: 14 },
-    { weekday: Weekday.TUESDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10 },
-    { weekday: Weekday.WEDNESDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 8, maxAge: 12 },
-    { weekday: Weekday.WEDNESDAY, startTime: '18:00:00', endTime: '19:30:00', minAge: 13, maxAge: 16 },
-    { weekday: Weekday.THURSDAY, startTime: '17:00:00', endTime: '18:30:00', minAge: 9, maxAge: 13 },
+/**
+ * The two real addresses, kept in step with `apps/web/shared/school.ts` and with the migration
+ * that inserts the same two rows into a database built from scratch.
+ */
+const LOCATIONS = [
+    {
+        name: 'Drumul Taberei',
+        slug: 'drumul-taberei',
+        street: 'Strada Valea Oltului 73',
+        city: 'București',
+        district: 'Sector 6',
+        postalCode: '061971',
+        latitude: 44.415847,
+        longitude: 26.013556,
+    },
+    {
+        name: 'Străulești',
+        slug: 'straulesti',
+        street: 'Șoseaua București-Târgoviște 19A',
+        city: 'București',
+        district: 'Sector 1',
+        postalCode: '013505',
+        latitude: 44.510623,
+        longitude: 26.020696,
+    },
+];
+
+/**
+ * Two rooms in Drumul Taberei, one in Străulești — enough for the timetable below to be plausible.
+ *
+ * Ten seats everywhere: that is the school's standard room, and the same number the migration
+ * writes for a database built from scratch. It is a default, not a rule — a room's capacity is
+ * edited from `/admin/locations`.
+ */
+const ROOM_CAPACITY = 10;
+
+const ROOMS: { name: string; locationSlug: string; capacity: number; computers: number }[] = [
+    { name: 'Sala 1', locationSlug: 'drumul-taberei', capacity: ROOM_CAPACITY, computers: ROOM_CAPACITY },
+    { name: 'Sala 2', locationSlug: 'drumul-taberei', capacity: ROOM_CAPACITY, computers: ROOM_CAPACITY },
+    { name: 'Sala 1', locationSlug: 'straulesti', capacity: ROOM_CAPACITY, computers: ROOM_CAPACITY },
+];
+
+/**
+ * Weekly timetable, split by age band and spread over the rooms.
+ *
+ * The Tuesday 16:00 pair is deliberate: the same slot in two different locations is exactly what
+ * the old school-wide uniqueness constraint made impossible, so seeding it keeps the fix visible
+ * in a freshly seeded database rather than only in a test.
+ */
+const GROUP_SLOTS: { name: string; weekday: Weekday; startTime: string; endTime: string; minAge: number; maxAge: number; room: string }[] = [
+    { name: 'Scratch Începători', weekday: Weekday.MONDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10, room: 'drumul-taberei/Sala 1' },
+    { name: 'Python Începători', weekday: Weekday.MONDAY, startTime: '18:00:00', endTime: '19:30:00', minAge: 11, maxAge: 14, room: 'drumul-taberei/Sala 1' },
+    { name: 'Scratch Avansați', weekday: Weekday.TUESDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 7, maxAge: 10, room: 'drumul-taberei/Sala 2' },
+    { name: 'Roblox Începători', weekday: Weekday.TUESDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 8, maxAge: 11, room: 'straulesti/Sala 1' },
+    { name: 'Web Începători', weekday: Weekday.WEDNESDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 8, maxAge: 12, room: 'drumul-taberei/Sala 1' },
+    { name: 'C++ Olimpiadă', weekday: Weekday.WEDNESDAY, startTime: '18:00:00', endTime: '19:30:00', minAge: 13, maxAge: 16, room: 'drumul-taberei/Sala 2' },
+    { name: 'Python Avansați', weekday: Weekday.THURSDAY, startTime: '17:00:00', endTime: '18:30:00', minAge: 9, maxAge: 13, room: 'straulesti/Sala 1' },
 ];
 
 function assertLocalDatabase(dataSource: DataSource): void {
@@ -94,8 +145,30 @@ export async function seed(dataSource: DataSource): Promise<void> {
         }),
     );
 
+    // --- Locations and rooms ------------------------------------------------------------------
+    const locations = await dataSource.getRepository(Location).save(LOCATIONS.map((location) => dataSource.getRepository(Location).create(location)));
+    const locationBySlug = new Map(locations.map((location) => [location.slug, location]));
+
+    const rooms = await dataSource.getRepository(Room).save(
+        ROOMS.map(({ locationSlug, ...room }) =>
+            dataSource.getRepository(Room).create({
+                ...room,
+                location: locationBySlug.get(locationSlug),
+                hasProjector: true,
+                hasWhiteboard: true,
+            }),
+        ),
+    );
+    const roomByKey = new Map(rooms.map((room) => [`${room.location.slug}/${room.name}`, room]));
+
     // --- Groups -----------------------------------------------------------------------------
-    const groups = await dataSource.getRepository(Group).save(GROUP_SLOTS.map((slot) => dataSource.getRepository(Group).create({ ...slot, isActive: true })));
+    const groups = await dataSource.getRepository(Group).save(
+        GROUP_SLOTS.map(({ room, ...slot }) => {
+            const target = roomByKey.get(room);
+            if (!target) throw new Error(`Seed timetable references a room that is not seeded: ${room}`);
+            return dataSource.getRepository(Group).create({ ...slot, room: target, capacity: target.capacity, isActive: true });
+        }),
+    );
 
     // --- Parents, with and without accounts -------------------------------------------------
     const profiles: Profile[] = [];

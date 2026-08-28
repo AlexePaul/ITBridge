@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
+import { createRoom, createTestApp, groupBody, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
 import { Weekday } from 'src/enum/weekday.enum';
 import { AttendanceType } from 'src/enum/attendance-type.enum';
 import { Role } from 'src/enum/role.enum';
@@ -16,6 +16,7 @@ describe('Checked value types (e2e)', () => {
     let app: INestApplication<App>;
     let dataSource: DataSource;
     let admin: TestUser;
+    let roomId: number;
 
     beforeAll(async () => {
         ({ app, dataSource } = await createTestApp());
@@ -28,13 +29,11 @@ describe('Checked value types (e2e)', () => {
     beforeEach(async () => {
         await truncateAll(dataSource);
         admin = await promoteToAdmin(app, dataSource, await registerUser(app, 'admin'));
+        roomId = await createRoom(app, admin);
     });
 
     const createGroup = (weekday: unknown) =>
-        request(app.getHttpServer())
-            .post('/groups')
-            .set('Authorization', admin.auth)
-            .send({ weekday, startTime: '16:00', endTime: '17:30', minAge: 7, maxAge: 10 });
+        request(app.getHttpServer()).post('/groups').set('Authorization', admin.auth).send(groupBody(roomId, { weekday }));
 
     describe('weekday is an ISO weekday', () => {
         it.each([[Weekday.MONDAY], [Weekday.SUNDAY]])('accepts %s', async (weekday) => {

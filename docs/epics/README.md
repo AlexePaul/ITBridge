@@ -46,6 +46,10 @@ E04 a oprit `synchronize: true`. Schema evoluează acum prin migrări, iar CI ve
 că entitățile n-au divergat de ele. `pnpm seed` reconstruiește o bază locală plauzibilă în câteva
 secunde.
 
+E08 a adus locația: `Location` și `Room` există, fiecare grupă se ține într-o sală, iar
+constrângerea care interzicea două grupe la aceeași oră *în toată școala* a fost înlocuită cu una pe
+sală. Zona de admin are un selector de locație, iar o a treia adresă se adaugă din interfață.
+
 Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane”.
 
 ## Tabel
@@ -121,7 +125,8 @@ graph TD
 schema, iar cât timp rulăm cu `synchronize: true` fiecare dintre ele e o ruletă.
 
 **Val 2 — fundația de domeniu.** E05, E08, E10. Multi-locația și modelul de curriculum sunt
-schimbări structurale. Făcute după E11 sau E15 înseamnă rescriere, nu adăugare.
+schimbări structurale. Făcute după E11 sau E15 înseamnă rescriere, nu adăugare. E05 e livrat, E08 e
+în lucru; E10 e cel care rămâne, iar blocajul lui nu e cod, ci conținut — programa fiecărui modul.
 
 **Val 3 — două piste în paralel.** Operațiuni (E09, E11, E12) și public (E18, E19) nu se ating.
 Sunt fișiere diferite și obiective diferite, se pot duce simultan.
@@ -144,6 +149,14 @@ Fiecare epic are `Status` în antet: `propus` → `acceptat` → `în lucru` →
 rezervă: branch protection pe `main` se activează din Settings, nu din repo.
 
 [E05](E05-robustete-backend.md) e `livrat`.
+
+[E08](E08-multi-locatie.md) e `în lucru`, cu S1, S2, S4 și S5 livrate și S3 parțial: grupa are nume,
+sală, locație și capacitate, dar nu are încă nivel din catalog ([E10](E10-curriculum-module.md)) și
+nici profesor principal ([E09](E09-personal-roluri.md)). Facturile și plățile nu respectă selectorul
+de locație, intenționat — sunt legate de părinte, iar un părinte poate avea copii la ambele adrese.
+Sălile au 10 locuri la ambele locații, ca valoare implicită — capacitatea, numele și starea
+fiecărei săli se editează din `/admin/locations`, fără migrare. Rămâne de confirmat câte săli are
+fiecare locație; migrarea presupune una.
 
 [E01](E01-infrastructura-medii.md) și [E04](E04-migrari-date.md) sunt `în lucru`, amândouă blocate
 în același punct: **nu există instanța EC2.** La E01 rămâne S4 (deploy) — S6, curățarea de

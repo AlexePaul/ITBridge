@@ -43,7 +43,12 @@ export class ChildService {
             .createQueryBuilder('child')
             .leftJoinAndSelect('child.parent', 'parent')
             .leftJoin('parent.user', 'user')
-            .leftJoinAndSelect('child.group', 'group');
+            // The room and its location come along, because `Group` in the shared contract carries
+            // them — a group returned without a room is a wire shape the frontend does not expect,
+            // and the admin's location filter has nothing to read.
+            .leftJoinAndSelect('child.group', 'group')
+            .leftJoinAndSelect('group.room', 'room')
+            .leftJoinAndSelect('room.location', 'location');
 
         if (role !== Role.ADMIN) {
             query.andWhere('user.id = :userId', { userId: sub });

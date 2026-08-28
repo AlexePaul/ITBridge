@@ -1,6 +1,6 @@
 import { useTokenStore } from "~/stores/tokenStore";
 import { useApi } from "./useApi";
-import type { Group } from "~/types/group.types";
+import type { Group, GroupPayload } from "~/types/group.types";
 import { useGroupsStore } from "~/stores/groupsStore";
 
 export const useGroupsApi = () => {
@@ -25,7 +25,7 @@ export const useGroupsApi = () => {
     }
   };
 
-  const createGroup = async (groupData: Partial<Group>) => {
+  const createGroup = async (groupData: Partial<GroupPayload>) => {
     try {
       const createdGroup = await api<Group>("/groups", {
         method: "POST",
@@ -44,7 +44,7 @@ export const useGroupsApi = () => {
     }
   };
 
-  const updateGroup = async (groupId: string, groupData: Partial<Group>) => {
+  const updateGroup = async (groupId: string, groupData: Partial<GroupPayload>) => {
     try {
       const updatedGroup = await api<Group>(`/groups/${groupId}`, {
         method: "PUT",

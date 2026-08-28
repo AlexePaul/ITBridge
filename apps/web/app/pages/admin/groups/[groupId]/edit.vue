@@ -21,6 +21,25 @@
     <!-- Form Card -->
     <UCard v-if="group" class="hover:shadow-lg transition-shadow">
       <UForm :schema="schema" :state="state" class="space-y-6" @submit="handleSubmit">
+        <!-- Name -->
+        <UFormField name="name">
+          <template #label>Numele grupei<span class="text-error">*</span></template>
+          <UInput v-model="state.name" placeholder="Scratch Începători" icon="i-lucide-tag" />
+        </UFormField>
+
+        <!-- Room -->
+        <UFormField name="roomId" help="Locația rezultă din sală.">
+          <template #label>Sala<span class="text-error">*</span></template>
+          <select
+            v-model.number="state.roomId"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+          >
+            <option v-for="room in roomOptions" :key="room.value" :value="room.value">
+              {{ room.label }}
+            </option>
+          </select>
+        </UFormField>
+
         <!-- Weekday -->
         <UFormField name="weekday">
           <template #label>Ziua săptămânii<span class="text-error">*</span></template>
@@ -45,6 +64,12 @@
             <UInput type="time" v-model="state.endTime" icon="i-lucide-clock" />
           </UFormField>
         </div>
+
+        <!-- Capacity -->
+        <UFormField name="capacity" help="Nu poate depăși numărul de locuri din sală.">
+          <template #label>Număr maxim de copii<span class="text-error">*</span></template>
+          <UInput type="number" v-model.number="state.capacity" icon="i-lucide-users-round" />
+        </UFormField>
 
         <!-- Age Range -->
         <div class="grid grid-cols-2 gap-6">
@@ -101,6 +126,9 @@ import { useNotifications } from "~/composables/useNotifications";
 import { useGroupsStore } from "~/stores/groupsStore";
 import type { Group } from "~/types/group.types";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
+import { useLocationsApi } from "~/composables/api/useLocationsApi";
+import { useRoomsApi } from "~/composables/api/useRoomsApi";
+import { useLocationStore } from "~/stores/locationStore";
 import { formatTime } from "~/composables/useUtils";
 
 definePageMeta({
@@ -121,10 +149,17 @@ const days = WEEKDAYS_IN_ORDER.map((id) => ({ id, label: WEEKDAY_LABELS[id] }));
 
 const group: Ref<Group | null> = ref(null);
 
+const locationStore = useLocationStore();
+const locationsApi = useLocationsApi();
+const roomsApi = useRoomsApi();
+
 const schema = z.object({
+  name: z.string().min(1, "Numele grupei este obligatoriu").max(120),
+  roomId: z.number({ error: "Sala este obligatorie" }).min(1, "Sala este obligatorie"),
   weekday: z.number().min(1, "Ziua săptămânii este obligatorie"),
   startTime: z.string().min(1, "Ora de început este obligatorie"),
   endTime: z.string().min(1, "Ora de sfârșit este obligatorie"),
+  capacity: z.number().min(1, "Numărul maxim de copii este obligatoriu"),
   minAge: z.number().min(1, "Vârsta minimă este obligatorie"),
   maxAge: z.number().min(1, "Vârsta maximă este obligatorie"),
   isActive: z.boolean(),
@@ -133,22 +168,64 @@ const schema = z.object({
 type Schema = z.output<typeof schema>;
 
 const state = reactive<Partial<Schema>>({
+  name: "",
+  roomId: undefined,
   weekday: 1,
   startTime: "",
   endTime: "",
+  capacity: undefined,
   minAge: undefined,
   maxAge: undefined,
   isActive: true,
 });
 
-onMounted(() => {
+/**
+ * The open rooms, plus whichever one this group is already in.
+ *
+ * A room that closed after the group was scheduled into it must stay in the list: dropping it
+ * would leave the select showing nothing, and saving would then move the group somewhere nobody
+ * asked for. The API allows the same thing — it only refuses a *move into* a closed room.
+ */
+const roomOptions = computed(() => {
+  const current = group.value?.room;
+  const rooms = locationStore.usableRooms.filter((room) => room.id !== current?.id);
+  return [...(current ? [current] : []), ...rooms].map((room) => ({
+    value: room.id,
+    label: `${room.location.name} · ${room.name} (${room.capacity} locuri)${
+      locationStore.isUsable(room) ? "" : " — inactivă"
+    }`,
+  }));
+});
+
+onMounted(async () => {
   const groupId = route.params.groupId as string;
+
+  // The store is filled by the groups list; arriving straight on this URL has to fetch first,
+  // otherwise the page reports "Grupul nu a fost găsit" for a group that exists.
+  if (groupsStore.groups.length === 0) {
+    try {
+      await groupsApi.fetchGroups();
+    } catch (err: unknown) {
+      error(apiErrorMessage(err, "Eroare la încărcarea grupului"));
+    }
+  }
+  try {
+    if (locationStore.rooms.length === 0) {
+      await Promise.all([locationsApi.fetchLocations(), roomsApi.fetchRooms()]);
+    }
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Eroare la încărcarea sălilor"));
+  }
+
   group.value = groupsStore.getGroupById(groupId) || null;
 
   if (group.value) {
+    state.name = group.value.name;
+    state.roomId = group.value.room?.id;
     state.weekday = group.value.weekday;
     state.startTime = formatTime(group.value.startTime);
     state.endTime = formatTime(group.value.endTime);
+    state.capacity = Number(group.value.capacity);
     state.minAge = Number(group.value.minAge);
     state.maxAge = Number(group.value.maxAge);
     state.isActive = group.value.isActive ?? true;
@@ -165,9 +242,12 @@ const handleBack = () => {
 async function handleSubmit(event: FormSubmitEvent<Schema>) {
   try {
     const payload = {
+      name: event.data.name,
+      roomId: Number(event.data.roomId),
       weekday: Number(event.data.weekday),
       startTime: event.data.startTime,
       endTime: event.data.endTime,
+      capacity: Number(event.data.capacity),
       minAge: Number(event.data.minAge),
       maxAge: Number(event.data.maxAge),
       isActive: event.data.isActive,

@@ -63,9 +63,9 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — nouă module feature în `apps/api/src/modules/`, toate după același tipar
-`controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `group`,
-`attendance`, `invoice`, `payment`, `discount`. Entitățile stau centralizat în `apps/api/src/entities/`
+**Backend** — unsprezece module feature în `apps/api/src/modules/`, toate după același tipar
+`controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `location`, `room`,
+`group`, `attendance`, `invoice`, `payment`, `discount`. Entitățile stau centralizat în `apps/api/src/entities/`
 și sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
 reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
 
@@ -74,11 +74,16 @@ intenționat: un admin poate crea un `Profile` fără cont, iar `GET /users/with
 servește fluxul de legare ulterioară. `Profile` e "părintele" în tot restul modelului.
 
 ```
-User ─1:1─ Profile ─1:N─ Child ─N:1─ Group
+User ─1:1─ Profile ─1:N─ Child ─N:1─ Group ─N:1─ Room ─N:1─ Location
                     │      └─1:N─ Attendance
                     ├─1:N─ Invoice ─1:1─ Payment
                     └─1:N─ Discount
 ```
+
+**Locația nu e un câmp pe grupă, ci o consecință a sălii.** `Group.room` e obligatoriu, `Room.location`
+la fel, deci fiecare grupă știe unde se ține fără să poată contrazice sala. Ștergerile sunt
+`RESTRICT` în ambele direcții, verificate întâi în serviciu, ca refuzul să ajungă la client ca 409 cu
+explicație, nu ca 500 de la driver.
 
 **Auth** — două roluri, `ADMIN` și `PARENT` (`apps/api/src/enum/role.enum.ts`). `register` creează
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
@@ -161,6 +166,9 @@ despre cod și despre git, nu despre proza de proiect.
 - Lunile de facturare sunt string-uri `'YYYY-MM'` (`monthIssued`), cu constrângere
   `@Unique(['parent', 'monthIssued'])` pe `Invoice`.
 - `Group.weekday` e zi ISO: 1 = luni, 7 = duminică.
+- Unicitatea orarului e pe **sală**, nu pe școală: `@Unique(['room', 'weekday', 'startTime'])`.
+- `Room.capacity` implicit e 10, dar e configurabil din `/admin/locations`; nu-l hardcoda nicăieri.
+- `isActive` pe `Location` și `Room` blochează **grupe noi**, nu editarea celor existente.
 
 ## Capcane
 
@@ -313,6 +321,25 @@ TypeError în loc să răspundă 403.
 
 **Nu rula `npm` în `apps/*`.** Nu mai există `package-lock.json` și nici `node_modules` propriu;
 totul trece prin `pnpm` de la rădăcină. Pentru un singur workspace, `pnpm --filter api <script>`.
+
+**Un conflict care merită explicat își pune propriul cod de eroare.** `AllExceptionsFilter` derivă
+codul din statusul HTTP, deci orice 409 ieșea ca `CONFLICT`, iar frontend-ul avea o singură
+propoziție pentru toate. Un serviciu poate acum să-și numească cazul:
+`new ConflictException({ message, error: 'GROUP_SLOT_TAKEN' })`. Dacă adaugi un cod, adaugă-i și
+propoziția în `MESSAGES` din `apps/web/app/composables/useApiError.ts` — altfel utilizatorul
+primește mesajul în engleză de la server.
+
+**`@itbridge/types` e CommonJS, iar Vite nu prebundle-uiește pachetele din workspace.** Le servește
+browserului ca sursă, deci `exports.Weekday = ...` ajunge într-un `<script type="module">` și pică
+cu „does not provide an export named 'Weekday'". Toată zona de admin importă o valoare din contract
+(`WEEKDAY_LABELS`), deci răspundea 500 în `pnpm dev`, în timp ce paginile publice — care importă doar
+tipuri, șterse la compilare — mergeau. Pachetul e listat acum în `vite.optimizeDeps.include`, în
+`nuxt.config.ts`. Dacă apar valori exportate dintr-un alt pachet local, are nevoie de aceeași linie.
+
+**`pnpm dev` face `^build` înainte; `pnpm --filter web dev` nu.** Task-ul `dev` din `turbo.json`
+depinde de `^build`, deci pornirea prin rădăcină construiește întâi `packages/types`. Pornit direct
+în workspace, Nuxt vede un `dist/` vechi sau inexistent și cade cu aceeași eroare de mai sus, care
+arată ca o problemă de cod și nu e.
 
 **Prețuri hardcodate, cu gaură la 3+ copii.** `apps/api/src/modules/invoice/invoice.service.ts:162` — 350 pentru un copil,
 250×2 pentru doi, nicio ramură pentru trei sau mai mulți, deci `totalAmount` rămâne 0 și

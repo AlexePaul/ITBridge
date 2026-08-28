@@ -8,6 +8,8 @@ import { EntitiesModule } from './entities/entities.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { ChildModule } from './modules/child/child.module';
 import { GroupModule } from './modules/group/group.module';
+import { LocationModule } from './modules/location/location.module';
+import { RoomModule } from './modules/room/room.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { PaymentModule } from './modules/payment/payment.module';
@@ -32,6 +34,8 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
         ProfileModule,
         ChildModule,
         GroupModule,
+        LocationModule,
+        RoomModule,
         AttendanceModule,
         InvoiceModule,
         PaymentModule,

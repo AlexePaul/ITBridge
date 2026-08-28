@@ -3,6 +3,8 @@ import { UserController } from 'src/modules/user/user.controller';
 import { ProfileController } from 'src/modules/profile/profile.controller';
 import { ChildController } from 'src/modules/child/child.controller';
 import { GroupController } from 'src/modules/group/group.controller';
+import { LocationController } from 'src/modules/location/location.controller';
+import { RoomController } from 'src/modules/room/room.controller';
 import { AttendanceController } from 'src/modules/attendance/attendance.controller';
 import { InvoiceController } from 'src/modules/invoice/invoice.controller';
 import { PaymentController } from 'src/modules/payment/payment.controller';
@@ -28,6 +30,8 @@ export const CONTROLLERS = [
     ProfileController,
     ChildController,
     GroupController,
+    LocationController,
+    RoomController,
     AttendanceController,
     InvoiceController,
     PaymentController,

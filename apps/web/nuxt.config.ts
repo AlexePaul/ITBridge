@@ -15,6 +15,21 @@ export default defineNuxtConfig({
   // NUXT_SESSION_PASSWORD it logged an error on every SSR render.
   modules: ["@nuxt/ui", "@pinia/nuxt"],
   css: ["~/assets/css/main.css"],
+
+  // `@itbridge/types` is a linked workspace package, and Vite leaves those out of its dependency
+  // pre-bundling — it serves them to the browser as source. The package is compiled to CommonJS,
+  // for `apps/api`, so the browser got `exports.Weekday = ...` and refused it with "does not
+  // provide an export named 'Weekday'". Every admin page imports a runtime value from the
+  // contract (`WEEKDAY_LABELS`), so the whole portal answered 500 under `pnpm dev` while the
+  // public pages — which import types only, erased at compile time — were fine.
+  //
+  // Listing it here makes Vite pre-bundle it into ESM like any other CommonJS dependency. It is
+  // dev-only: `nuxt build` bundles the package through Rollup, which handles CJS on its own.
+  vite: {
+    optimizeDeps: {
+      include: ["@itbridge/types"],
+    },
+  },
   // The classical system is a light one; the dark palette follows the reader's
   // own system setting rather than a switch in the header.
   colorMode: {

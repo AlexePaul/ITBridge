@@ -11,6 +11,7 @@
         <UDashboardNavbar :title="pageTitle" class="border-b">
           <template #right>
             <div class="flex items-center gap-3">
+              <LocationSwitcher v-if="isAdmin" />
               <span v-if="user">{{ user.username }}</span>
               <UButton
                 label="Logout"
@@ -89,6 +90,8 @@
 <script setup lang="ts">
 import { useLogout } from "~/composables/useLogout";
 import { useUserStore } from "~/stores/userStore";
+import { useLocationsApi } from "~/composables/api/useLocationsApi";
+import { useRoomsApi } from "~/composables/api/useRoomsApi";
 import { overdueInvoices, pendingInvoices } from "~/composables/api/useInvoiceApi";
 import { computed } from "vue";
 import { useRoute, useSeoMeta } from "#imports";
@@ -113,6 +116,21 @@ useHead(() => ({
 // The portal is behind a login; nothing in it belongs in a search index.
 useSeoMeta({ robots: "noindex, nofollow" });
 
+// Loaded once, here, rather than in each admin page: the switcher lives in this layout and every
+// page below it filters on the selection, so the list has to exist before the first page renders.
+if (isAdmin) {
+  const locationsApi = useLocationsApi();
+  const roomsApi = useRoomsApi();
+  onMounted(async () => {
+    try {
+      await Promise.all([locationsApi.fetchLocations(), roomsApi.fetchRooms()]);
+    } catch {
+      // The switcher then offers only "Toate locațiile", which is the honest thing to show when
+      // the list could not be loaded — and no page below is left waiting on it.
+    }
+  });
+}
+
 const navigationItems = computed(() => {
   const baseItems = [
     { label: "Acasă", to: "/", icon: "i-lucide-home" },
@@ -134,6 +152,7 @@ const navigationItems = computed(() => {
     { label: "Profiluri Utilizatori", to: "/admin/profiles", icon: "i-lucide-users" },
     { label: "Copii", to: "/admin/children", icon: "i-lucide-baby" },
     { label: "Grupe", to: "/admin/groups", icon: "i-lucide-users-round" },
+    { label: "Locații și săli", to: "/admin/locations", icon: "i-lucide-map-pin" },
     { label: "Prezență", to: "/admin/attendance", icon: "i-lucide-check-square" },
     { label: "Facturi", to: "/admin/invoices", icon: "i-lucide-notebook-pen" },
     { label: "Plăți", to: "/admin/payments", icon: "i-lucide-wallet" },
