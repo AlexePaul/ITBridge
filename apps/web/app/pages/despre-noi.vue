@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <section class="section-lead" data-reveal>
+    <section class="section-lead" data-intro>
       <span class="kicker">Despre noi</span>
       <h1 class="page-title">Transformăm copiii în creatori de tehnologie</h1>
       <p class="lede justified">
@@ -24,7 +24,7 @@
           <h3 class="section-title" :id="paul.slug">{{ paul.name }}</h3>
           <p class="label-accent">{{ paul.role }}</p>
           <p class="body-text justified">{{ paul.bio }}</p>
-          <div class="stack">
+          <div class="stack" data-reveal-children>
             <div v-for="item in paul.highlights" :key="item" class="marked">
               <UIcon name="i-lucide-arrow-right" class="marker size-4" />
               <span class="body-text">{{ item }}</span>
@@ -40,7 +40,7 @@
           <h3 class="section-title" :id="ana.slug">{{ ana.name }}</h3>
           <p class="label-accent">{{ ana.role }}</p>
           <p class="body-text justified">{{ ana.bio }}</p>
-          <div class="stack">
+          <div class="stack" data-reveal-children>
             <div v-for="item in ana.highlights" :key="item" class="marked">
               <UIcon name="i-lucide-arrow-right" class="marker size-4" />
               <span class="body-text">{{ item }}</span>
@@ -66,7 +66,7 @@
 
     <section class="section" data-reveal>
       <h2 class="kicker">Valorile noastre</h2>
-      <div class="cols-3 cols-ruled">
+      <div class="cols-3 cols-ruled" data-reveal-children>
         <div v-for="value in values" :key="value.title">
           <h3 class="block-title">{{ value.title }}</h3>
           <p class="body-text justified">{{ value.body }}</p>
@@ -78,7 +78,7 @@
 
     <section class="section" aria-label="Locațiile noastre" data-reveal>
       <h2 class="kicker">Locațiile noastre</h2>
-      <div class="cols-2">
+      <div class="cols-2" data-reveal-children>
         <div v-for="location in SCHOOL_LOCATIONS" :key="location.slug" class="card card-lg">
           <h3 class="sub-title">{{ location.neighbourhood }}</h3>
           <p class="body-text">

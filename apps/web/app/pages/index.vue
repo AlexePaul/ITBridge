@@ -1,9 +1,15 @@
 <template>
   <div class="page">
-    <section class="section-hero" data-reveal>
+    <!--
+      `data-intro` rather than `data-reveal`: the first screen is above the
+      fold on every device, so it has nothing to wait for an observer for. The
+      inner span of each display line is what the line's mask slides — the
+      outer one is the mask.
+    -->
+    <section class="section-hero" data-intro>
       <h1 class="display">
-        <span>Copiii nu doar folosesc tehnologia. </span>
-        <span>La noi învață să o creeze</span>
+        <span><span>Copiii nu doar folosesc tehnologia. </span></span>
+        <span><span>La noi învață să o creeze</span></span>
       </h1>
       <p class="lede lede-loose">
         IT Bridge School este o școală de informatică pentru copii, cu două locații în București:
@@ -20,8 +26,8 @@
 
     <hr class="rule" />
 
-    <section class="section" aria-label="IT Bridge School, în cifre" data-reveal>
-      <div class="stats-grid">
+    <section class="section" aria-label="IT Bridge School, în cifre">
+      <div class="stats-grid" data-reveal-children>
         <div v-for="stat in stats" :key="stat.label">
           <p class="stat-num">
             <AnimatedNumber :value="stat.value" />
@@ -35,7 +41,7 @@
 
     <section class="section" data-reveal>
       <h2 class="kicker tnum">Ce învață copiii</h2>
-      <div class="cols-3 cols-ruled">
+      <div class="cols-3 cols-ruled" data-reveal-children>
         <div v-for="subject in subjects" :key="subject.title">
           <h3 class="block-title">{{ subject.title }}</h3>
           <p class="body-text justified">{{ subject.body }}</p>

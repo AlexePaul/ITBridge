@@ -1,6 +1,6 @@
 <template>
   <div class="page">
-    <section class="section-lead" data-reveal>
+    <section class="section-lead" data-intro>
       <span class="kicker">Locația Drumul Taberei</span>
       <h1 class="page-title">Cursuri de informatică pentru copii în Drumul Taberei</h1>
       <p class="lede">

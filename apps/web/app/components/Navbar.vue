@@ -1,5 +1,5 @@
 <template>
-  <header class="nav">
+  <header class="nav" :class="{ 'is-stuck': isStuck }">
     <div class="page nav-inner" :class="{ 'nav-open': isOpen }">
       <NuxtLink to="/" class="nav-brand" @click="isOpen = false">IT Bridge School</NuxtLink>
 
@@ -41,11 +41,15 @@
         </template>
       </div>
     </div>
+
+    <!-- Decoration, and duplicated by the scrollbar the browser already draws,
+         so it stays out of the accessibility tree. -->
+    <div class="nav-progress" aria-hidden="true" :style="{ '--progress': progress }"></div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useLogout } from "~/composables/useLogout";
 import { useUserStore } from "~/stores/userStore";
 
@@ -53,6 +57,38 @@ const userStore = useUserStore();
 const { handleLogout } = useLogout();
 
 const isOpen = ref(false);
+
+// The bar is sticky: it takes an edge once the page has moved under it, and
+// carries how far down that page the reader is. Both are read on one rAF per
+// scroll burst rather than on every event, and neither exists on the server —
+// the header renders flat and gains the state on mount.
+const isStuck = ref(false);
+const progress = ref(0);
+let frame = 0;
+
+const measure = () => {
+  frame = 0;
+  const top = window.scrollY;
+  const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+  isStuck.value = top > 8;
+  progress.value = scrollable > 0 ? Math.min(top / scrollable, 1) : 0;
+};
+
+const onScroll = () => {
+  if (!frame) frame = requestAnimationFrame(measure);
+};
+
+onMounted(() => {
+  measure();
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll, { passive: true });
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("scroll", onScroll);
+  window.removeEventListener("resize", onScroll);
+  cancelAnimationFrame(frame);
+});
 
 const navigationItems = [
   { label: "Acasă", to: "/" },

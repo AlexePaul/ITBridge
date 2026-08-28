@@ -20,6 +20,11 @@ export default defineNuxtConfig({
     fallback: "light",
   },
   app: {
+    // Pages cross over instead of cutting: the outgoing one settles, the
+    // incoming one lifts in. `out-in` matters beyond taste — the reveal
+    // observer measures the incoming page against the viewport, and an
+    // overlapping outgoing page would still be scrolling through it.
+    pageTransition: { name: "page", mode: "out-in" },
     head: {
       htmlAttrs: { lang: "ro" },
       link: [

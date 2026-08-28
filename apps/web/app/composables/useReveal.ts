@@ -1,25 +1,38 @@
 import { onBeforeUnmount, onMounted, nextTick } from "vue";
 
 /**
- * Blocks marked with `data-reveal` rise into place as they scroll in, with a
- * small stagger for the ones entering together. The hiding rule lives behind
- * the `reveal-on` class this sets on <html>, so a page whose JavaScript never
- * runs shows its content instead of an empty column.
+ * Blocks marked with `data-reveal` rise into place as they scroll in, blocks
+ * marked with `data-reveal-children` bring their items in one after another,
+ * and every `hr.rule` on the page is struck from left to right — the last one
+ * without a page having to ask for it. The hiding rules live behind the
+ * `reveal-on` class this sets on <html>, so a page whose JavaScript never runs
+ * shows its content instead of an empty column.
+ *
+ * The hero of a page is not on this observer: it carries `data-intro` and
+ * animates from first paint, in CSS alone.
  */
+// A plate is in here on its own account, not as a descendant of a block: a
+// section barely over the fold counts as already seen, and the photograph
+// inside it can still be a screen further down.
+const SELECTOR = "[data-reveal], [data-reveal-children], hr.rule, .plate";
+
 export const useReveal = () => {
   let observer: IntersectionObserver | undefined;
 
   onMounted(async () => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    document.documentElement.classList.add("reveal-on");
+    // Nothing here degrades gracefully without the observer: `reveal-on` would
+    // hide every block below the fold and nothing would ever bring one back.
+    if (typeof IntersectionObserver === "undefined") return;
 
     let batch = 0;
     let batchTimer: ReturnType<typeof setTimeout> | undefined;
 
     const reveal = (element: HTMLElement) => {
       observer?.unobserve(element);
-      element.style.animationDelay = `${Math.min(batch, 4) * 100}ms`;
+      // Read by the stylesheet, which adds the per-item stagger of a
+      // `data-reveal-children` grid on top of it.
+      element.style.setProperty("--reveal-delay", `${Math.min(batch, 4) * 100}ms`);
       batch += 1;
       clearTimeout(batchTimer);
       batchTimer = setTimeout(() => {
@@ -49,15 +62,28 @@ export const useReveal = () => {
     // on-screen and the whole page skipped its reveal.
     await new Promise(requestAnimationFrame);
 
-    document.querySelectorAll<HTMLElement>("[data-reveal]").forEach((element) => {
-      // Whatever is already on screen has been painted opaque since first
-      // paint; adding `reveal-on` would hide it and fade it back in, so every
-      // page opened with a visible blink of its own hero. Mark those revealed
-      // without an animation and observe only what is still below the fold.
+    // Only now, with the observer built and the pass about to run: the class is
+    // what hides the page, so anything that could throw ahead of it — the media
+    // query, the observer's own constructor — has to throw while the page is
+    // still fully painted. Measuring before it costs nothing, because opacity
+    // does not move anything.
+    document.documentElement.classList.add("reveal-on");
+
+    // Whatever is already on screen has been painted opaque since first paint;
+    // adding `reveal-on` would hide it and fade it back in, so every page
+    // opened with a visible blink of its own hero. But "on screen" was the
+    // whole viewport down to the last pixel, and that is too much: an element
+    // whose top edge merely grazes the bottom of the window is one the reader
+    // has to scroll to read, and counting it as seen cost the first portrait
+    // on /despre-noi its wipe on a laptop window, over 108px of mat nobody was
+    // looking at. The fold is the bottom fifth of the first screen; the blink
+    // this still guards against is anything above it.
+    const fold = window.innerHeight * 0.8;
+
+    document.querySelectorAll<HTMLElement>(SELECTOR).forEach((element) => {
       const rect = element.getBoundingClientRect();
-      if (rect.bottom > 0 && rect.top < window.innerHeight) {
-        element.classList.add("is-revealed");
-        element.style.animation = "none";
+      if (rect.bottom > 0 && rect.top < fold) {
+        element.classList.add("is-revealed", "reveal-instant");
         return;
       }
       observer?.observe(element);
