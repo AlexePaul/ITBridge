@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-3xl font-bold">Gestionează Copii</h1>
-        <p class="text-muted mt-1">Adaugă sau elimină copii din grup</p>
+        <p class="text-muted mt-1">{{ subtitle }}</p>
       </div>
       <UButton
         color="secondary"
@@ -129,6 +129,8 @@ import { useNotifications } from "~/composables/useNotifications";
 import { useGroupsStore } from "~/stores/groupsStore";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
+import { useGroupsApi } from "~/composables/api/useGroupsApi";
+import { apiErrorMessage } from "~/composables/useApiError";
 import type { Group } from "~/types/group.types";
 import type { Child } from "~/types/child.types";
 
@@ -143,14 +145,34 @@ const { success, error } = useNotifications();
 const groupsStore = useGroupsStore();
 const childrenStore = useChildrenStore();
 const childrenApi = useChildrenApi();
+const groupsApi = useGroupsApi();
 
 const group: Ref<Group | null> = ref(null);
 const childrenInGroup: Ref<Child[]> = ref([]);
 const childrenWithoutGroup: Ref<Child[]> = ref([]);
 const isLoading = ref(false);
 
-onMounted(() => {
+/** "Adaugă sau elimină copii din Scratch Începători · Drumul Taberei · Sala 1". */
+const subtitle = computed(() => {
+  const current = group.value;
+  if (!current) return "Adaugă sau elimină copii din grup";
+  const where = current.room ? ` · ${current.room.location.name} · ${current.room.name}` : "";
+  return `Adaugă sau elimină copii din ${current.name}${where}`;
+});
+
+onMounted(async () => {
   const groupId = route.params.groupId as string;
+
+  // Both stores are filled by the lists this page is normally reached from, but a hard load
+  // straight onto this URL arrives with them empty — and the page then reported "Grupul nu a fost
+  // găsit" for a group that exists, and bounced back to the list.
+  try {
+    if (groupsStore.groups.length === 0) await groupsApi.fetchGroups();
+    if (childrenStore.children.length === 0) await childrenApi.fetchChildren();
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Eroare la încărcarea grupului"));
+  }
+
   group.value = groupsStore.getGroupById(groupId) || null;
 
   if (group.value) {

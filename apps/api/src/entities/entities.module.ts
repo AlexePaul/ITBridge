@@ -9,9 +9,11 @@ import { Invoice } from './invoice.entity';
 import { Payment } from './payment.entity';
 import { Discount } from './discount.entity';
 import { Session } from './session.entity';
+import { Location } from './location.entity';
+import { Room } from './room.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User, Profile, Child, Group, Attendance, Invoice, Payment, Discount, Session])],
+    imports: [TypeOrmModule.forFeature([User, Profile, Child, Group, Attendance, Invoice, Payment, Discount, Session, Location, Room])],
     exports: [TypeOrmModule],
 })
 export class EntitiesModule {}

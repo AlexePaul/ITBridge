@@ -21,6 +21,25 @@
     <!-- Form Card -->
     <UCard class="hover:shadow-lg transition-shadow">
       <UForm :schema="schema" :state="state" class="space-y-6" @submit="handleSubmit">
+        <!-- Name -->
+        <UFormField name="name">
+          <template #label>Numele grupei<span class="text-error">*</span></template>
+          <UInput v-model="state.name" placeholder="Scratch Începători" icon="i-lucide-tag" />
+        </UFormField>
+
+        <!-- Room -->
+        <UFormField name="roomId" help="Locația rezultă din sală.">
+          <template #label>Sala<span class="text-error">*</span></template>
+          <select
+            v-model.number="state.roomId"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+          >
+            <option v-for="room in roomOptions" :key="room.value" :value="room.value">
+              {{ room.label }}
+            </option>
+          </select>
+        </UFormField>
+
         <!-- Weekday -->
         <UFormField name="weekday">
           <template #label>Ziua săptămânii<span class="text-error">*</span></template>
@@ -45,6 +64,12 @@
             <UInput type="time" v-model="state.endTime" icon="i-lucide-clock" />
           </UFormField>
         </div>
+
+        <!-- Capacity -->
+        <UFormField name="capacity" help="Nu poate depăși numărul de locuri din sală.">
+          <template #label>Număr maxim de copii<span class="text-error">*</span></template>
+          <UInput type="number" v-model.number="state.capacity" icon="i-lucide-users-round" />
+        </UFormField>
 
         <!-- Age Range -->
         <div class="grid grid-cols-2 gap-6">
@@ -79,6 +104,9 @@ import * as z from "zod";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useNotifications } from "~/composables/useNotifications";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
+import { useLocationsApi } from "~/composables/api/useLocationsApi";
+import { useRoomsApi } from "~/composables/api/useRoomsApi";
+import { useLocationStore } from "~/stores/locationStore";
 
 definePageMeta({
   layout: "dashboard" as any,
@@ -94,10 +122,17 @@ const { success, error } = useNotifications();
 const days = WEEKDAYS_IN_ORDER.map((id) => ({ id, label: WEEKDAY_LABELS[id] }));
 const groupsApi = useGroupsApi();
 
+const locationStore = useLocationStore();
+const locationsApi = useLocationsApi();
+const roomsApi = useRoomsApi();
+
 const schema = z.object({
+  name: z.string().min(1, "Numele grupei este obligatoriu").max(120),
+  roomId: z.number({ error: "Sala este obligatorie" }).min(1, "Sala este obligatorie"),
   weekday: z.number().min(1, "Ziua săptămânii este obligatorie"),
   startTime: z.string().min(1, "Ora de începent este obligatorie"),
   endTime: z.string().min(1, "Ora de sfârșit este obligatorie"),
+  capacity: z.number().min(1, "Numărul maxim de copii este obligatoriu"),
   minAge: z.number().min(1, "Vârsta minimă este obligatorie"),
   maxAge: z.number().min(1, "Vârsta maximă este obligatorie"),
 });
@@ -105,12 +140,55 @@ const schema = z.object({
 type Schema = z.output<typeof schema>;
 
 const state = reactive<Partial<Schema>>({
+  name: "",
+  roomId: undefined,
   weekday: 1,
   startTime: "",
   endTime: "",
+  capacity: undefined,
   minAge: undefined,
   maxAge: undefined,
 });
+
+// Every open room, each labelled with its address: a group is created *somewhere*, and "Sala 1"
+// alone does not say where — both locations have one. Closed rooms are left out because the API
+// refuses them (`ROOM_INACTIVE`), so offering one would only produce a form that fails on submit.
+const roomOptions = computed(() =>
+  locationStore.usableRooms.map((room) => ({
+    value: room.id,
+    label: `${room.location.name} · ${room.name} (${room.capacity} locuri)`,
+  }))
+);
+
+onMounted(async () => {
+  try {
+    if (locationStore.rooms.length === 0) {
+      await Promise.all([locationsApi.fetchLocations(), roomsApi.fetchRooms()]);
+    }
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Eroare la încărcarea sălilor"));
+  }
+  // Preselect a room at whatever location the header is showing, so the common case is one click.
+  const preferred =
+    locationStore.roomsInSelection.find((room) => locationStore.isUsable(room)) ??
+    locationStore.usableRooms[0];
+  if (preferred) {
+    state.roomId = preferred.id;
+    state.capacity = preferred.capacity;
+  }
+});
+
+// The API refuses a group larger than its room, so follow the room rather than let the admin
+// submit a number that is going to be rejected.
+watch(
+  () => state.roomId,
+  (roomId) => {
+    const room = locationStore.rooms.find((item) => item.id === roomId);
+    if (room && (state.capacity === undefined || state.capacity > room.capacity)) {
+      state.capacity = room.capacity;
+    }
+  }
+);
 
 const handleBack = () => {
   navigateTo("/admin/groups");
@@ -119,9 +197,12 @@ const handleBack = () => {
 async function handleSubmit(event: FormSubmitEvent<Schema>) {
   try {
     const payload = {
+      name: event.data.name,
+      roomId: event.data.roomId,
       weekday: event.data.weekday,
       startTime: event.data.startTime,
       endTime: event.data.endTime,
+      capacity: event.data.capacity,
       minAge: event.data.minAge,
       maxAge: event.data.maxAge,
     };

@@ -14,7 +14,7 @@ describe('GroupController', () => {
 
     it('passes the create DTO to the service', async () => {
         const { controller, service } = await build();
-        const dto = { weekday: 1, startTime: '09:00', endTime: '10:30', minAge: 7, maxAge: 10 };
+        const dto = { name: 'Scratch Începători', weekday: 1, startTime: '09:00', endTime: '10:30', roomId: 1, capacity: 10, minAge: 7, maxAge: 10 };
         await controller.createGroup(dto);
         expect(service.createGroup).toHaveBeenCalledWith(dto);
     });

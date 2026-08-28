@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
+import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser, createRoom, groupBody } from './helpers';
 
 /** Regression cover for the defects the code review turned up. */
 describe('Review findings (e2e)', () => {
@@ -31,7 +31,7 @@ describe('Review findings (e2e)', () => {
             const created = await request(app.getHttpServer())
                 .post('/groups')
                 .set('Authorization', admin.auth)
-                .send({ weekday: 1, startTime: '16:00', endTime: '17:30', minAge: 7, maxAge: 10 })
+                .send(groupBody(await createRoom(app, admin)))
                 .expect(201);
 
             const res = await request(app.getHttpServer()).put(`/groups/${created.body.id}`).set('Authorization', admin.auth).send({ weekday: 5 }).expect(200);

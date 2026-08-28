@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
+import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser, createRoom, groupBody } from './helpers';
 
 /**
  * Regression cover for the defects a second review pass turned up on E05.
@@ -247,12 +247,16 @@ describe('E05 review fixes (e2e)', () => {
          * `decimal` comes back from the driver as a string. The entity and the shared contract both
          * declare `number`, and `contract.ts` compares declarations, so nothing caught that the
          * wire format disagreed with both of them.
+         *
+         * The two age columns became `integer` in E08 — an age in half-years was never meaningful —
+         * so this now guards the conversion rather than the transformer. It still fails the same
+         * way if either column goes back to `decimal` without one.
          */
         it('returns group ages as numbers, not strings', async () => {
             await request(app.getHttpServer())
                 .post('/groups')
                 .set('Authorization', admin.auth)
-                .send({ weekday: 1, startTime: '16:00', endTime: '17:30', minAge: 7, maxAge: 10 })
+                .send(groupBody(await createRoom(app, admin)))
                 .expect(201);
 
             const res = await request(app.getHttpServer()).get('/groups').set('Authorization', admin.auth).expect(200);

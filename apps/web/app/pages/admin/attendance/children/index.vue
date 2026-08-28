@@ -57,6 +57,7 @@
 </template>
 <script setup lang="ts">
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
+import { useLocationStore } from "~/stores/locationStore";
 import type { Child } from "~/types/child.types";
 
 definePageMeta({
@@ -66,6 +67,7 @@ definePageMeta({
 });
 
 const childrenApi = useChildrenApi();
+const locationStore = useLocationStore();
 const searchQuery = ref("");
 const searchResults: Ref<Child[]> = ref([]);
 const allChildren: Ref<Child[]> = ref([]);
@@ -77,7 +79,12 @@ const filterChildren = () => {
   }
 
   const query = searchQuery.value.toLowerCase();
-  searchResults.value = allChildren.value.filter((child) => {
+  // The search is scoped to the location in the header, like every other admin list. Children
+  // without a group match in any selection — they are unassigned, not elsewhere.
+  const inSelection = allChildren.value.filter((child) =>
+    locationStore.matchesSelection(child.group?.room?.location.id ?? null)
+  );
+  searchResults.value = inSelection.filter((child) => {
     const firstNameMatch = child.firstName?.toLowerCase().includes(query) ?? false;
     const lastNameMatch = child.lastName?.toLowerCase().includes(query) ?? false;
     const idMatch = String(child.id).includes(query);
@@ -100,4 +107,8 @@ onMounted(async () => {
 watch(searchQuery, () => {
   filterChildren();
 });
+
+// Switching location while a search is open has to re-run it, or the results keep describing the
+// location the admin has just left.
+watch(() => locationStore.selectedLocationId, filterChildren);
 </script>

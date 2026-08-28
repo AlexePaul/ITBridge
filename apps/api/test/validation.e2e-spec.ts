@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
+import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser, createRoom, groupBody } from './helpers';
 
 /**
  * Cover for E05/S1. Until the pipe was registered, the class-validator decorators on 22 DTO files
@@ -38,7 +38,7 @@ describe('Request validation (e2e)', () => {
         const group = await request(app.getHttpServer())
             .post('/groups')
             .set('Authorization', admin.auth)
-            .send({ weekday: 1, startTime: '16:00', endTime: '17:30', minAge: 7, maxAge: 10 })
+            .send(groupBody(await createRoom(app, admin)))
             .expect(201);
         groupId = group.body.id as number;
     });

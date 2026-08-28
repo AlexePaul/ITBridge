@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-3xl font-bold">Grupe</h1>
-        <p class="text-muted mt-1">Gestionează toate grupele școlii după zi și oră</p>
+        <p class="text-muted mt-1">{{ subtitle }}</p>
       </div>
       <UButton
         color="secondary"
@@ -17,7 +17,7 @@
         Adaugă Grup nou
       </UButton>
       <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
-        {{ groups.length }} total
+        {{ visibleGroups.length }} total
       </UBadge>
     </div>
 
@@ -67,6 +67,7 @@ import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { formatTime } from "~/composables/useUtils";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useGroupsStore } from "~/stores/groupsStore";
+import { useLocationStore } from "~/stores/locationStore";
 import type { Group } from "~/types/group.types";
 
 definePageMeta({
@@ -84,14 +85,27 @@ const groupsStore = useGroupsStore();
 const childrenApi = useChildrenApi();
 
 const groups: Ref<Group[]> = ref([]);
+const locationStore = useLocationStore();
 
 onMounted(async () => {
   groups.value = await groupsApi.fetchGroups();
   await childrenApi.fetchChildren();
 });
 
+// The header says which location is being shown; this list has to agree with it, or the count and
+// the schedule below describe a different school than the one the admin selected.
+const visibleGroups = computed(() =>
+  groups.value.filter((group) => locationStore.matchesSelection(group.room?.location.id ?? null))
+);
+
+const subtitle = computed(() =>
+  locationStore.isShowingAll
+    ? "Toate grupele școlii, din ambele locații, după zi și oră"
+    : `Grupele din ${locationStore.selectedLocation?.name ?? ""}, după zi și oră`
+);
+
 const groupsByDay = (dayId: number) => {
-  return groups.value
+  return visibleGroups.value
     .filter((g) => g.weekday === dayId)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 };

@@ -179,6 +179,8 @@ describe('Row-level authorization (e2e)', () => {
         it.each([
             ['POST', '/groups'],
             ['POST', '/discounts'],
+            ['POST', '/locations'],
+            ['POST', '/rooms'],
         ])('%s %s refuses a PARENT with 403', async (_method, path) => {
             await request(app.getHttpServer()).post(path).set('Authorization', ana.auth).send({}).expect(403);
         });
@@ -189,7 +191,7 @@ describe('Row-level authorization (e2e)', () => {
     });
 
     describe('without authentication', () => {
-        it.each([['/invoices'], ['/children'], ['/profiles'], ['/users']])('GET %s returns 401', async (path) => {
+        it.each([['/invoices'], ['/children'], ['/profiles'], ['/users'], ['/locations'], ['/rooms']])('GET %s returns 401', async (path) => {
             await request(app.getHttpServer()).get(path).expect(401);
         });
     });

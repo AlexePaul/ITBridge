@@ -17,6 +17,8 @@ import type { User } from './entities/user.entity';
 import type { Profile } from './entities/profile.entity';
 import type { Child } from './entities/child.entity';
 import type { Group } from './entities/group.entity';
+import type { Location } from './entities/location.entity';
+import type { Room } from './entities/room.entity';
 import type { Attendance } from './entities/attendance.entity';
 import type { Invoice } from './entities/invoice.entity';
 import type { Payment } from './entities/payment.entity';
@@ -35,6 +37,8 @@ type _User = Check<Pick<Wire.User, 'id' | 'username' | 'role'>, Pick<Serialized<
 type _Profile = Check<Pick<Wire.ProfileSummary, 'id' | 'firstName' | 'lastName'>, Pick<Serialized<Profile>, 'id' | 'firstName' | 'lastName'>>;
 type _Child = Check<Pick<Wire.Child, 'id' | 'firstName' | 'lastName' | 'birthDate'>, Pick<Serialized<Child>, 'id' | 'firstName' | 'lastName' | 'birthDate'>>;
 type _Group = Check<Omit<Wire.Group, never>, Omit<Serialized<Group>, 'children'>>;
+type _Location = Check<Omit<Wire.Location, never>, Omit<Serialized<Location>, 'rooms'>>;
+type _Room = Check<Omit<Wire.Room, never>, Omit<Serialized<Room>, 'groups'>>;
 
 // The enums have to agree value for value, not merely be enums of the same shape. Two independent
 // declarations of "ISO weekday" would otherwise be free to drift — one starting at 0, say.

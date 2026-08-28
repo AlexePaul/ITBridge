@@ -41,6 +41,16 @@ const MESSAGES: Record<string, string> = {
   MISSING_REQUIRED_FIELD: "Un câmp obligatoriu lipsește.",
   INVALID_VALUE: "Un câmp are o valoare de tipul greșit.",
   SERVICE_UNAVAILABLE: "Serviciul este momentan indisponibil. Încearcă din nou.",
+
+  // E08. "Există deja o înregistrare cu aceste date" is true of all of these and useful for none:
+  // an admin who has just double-booked a room needs to know that is what happened.
+  GROUP_SLOT_TAKEN: "Sala este deja ocupată în acest interval de altă grupă.",
+  GROUP_OVER_ROOM_CAPACITY: "Grupa are mai multe locuri decât încap în sală.",
+  LOCATION_SLUG_TAKEN: "Există deja o locație cu acest identificator (slug).",
+  LOCATION_HAS_ROOMS: "Locația are săli. Șterge sau mută întâi sălile.",
+  ROOM_NAME_TAKEN: "Există deja o sală cu acest nume la această locație.",
+  ROOM_HAS_GROUPS: "Sala găzduiește grupe. Mută întâi grupele în altă sală.",
+  ROOM_INACTIVE: "Sala sau locația este inactivă, deci nu poate primi grupe noi.",
 };
 
 /**

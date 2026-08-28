@@ -163,6 +163,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
             [HttpStatus.CONFLICT]: 'CONFLICT',
             [HttpStatus.TOO_MANY_REQUESTS]: 'TOO_MANY_REQUESTS',
         };
-        return known[statusCode] ?? (error ? error.toUpperCase().replace(/\s+/g, '_') : 'ERROR');
+        // `error` wins over the status default, so a service can name *which* conflict it hit:
+        // `new ConflictException({ message, error: 'GROUP_SLOT_TAKEN' })`. The frontend has one
+        // Romanian sentence per code, and "there is already a record with these values" is not a
+        // useful thing to tell an admin who has just double-booked a room.
+        //
+        // This does not change the codes anything already emits. Nest fills `error` with the
+        // status text — 'Conflict', 'Not Found' — and normalising those gives back exactly the
+        // entries in the map above.
+        if (error) return error.toUpperCase().replace(/\s+/g, '_');
+        return known[statusCode] ?? 'ERROR';
     }
 }

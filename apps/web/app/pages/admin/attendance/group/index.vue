@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-3xl font-bold">Evidență Grup</h1>
-        <p class="text-muted mt-1">Gestionează prezența copiilor dintr-un grup</p>
+        <p class="text-muted mt-1">{{ subtitle }}</p>
       </div>
       <UButton
         color="secondary"
@@ -27,12 +27,7 @@
       <form @submit.prevent="handleSubmit" class="space-y-6">
         <!-- Group Selection Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <template
-            v-for="group in groups
-              .sort((a, b) => a.weekday - b.weekday)
-              .filter((group) => group.isActive)"
-            :key="group.id"
-          >
+          <template v-for="group in selectableGroups" :key="group.id">
             <div class="cursor-pointer" @click="groupId = group.id">
               <GroupCard
                 :group="group"
@@ -70,6 +65,7 @@
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { useNotifications } from "~/composables/useNotifications";
+import { useLocationStore } from "~/stores/locationStore";
 import type { Group } from "~/types/group.types";
 
 definePageMeta({
@@ -83,6 +79,22 @@ const groupId = ref<number | null>(null);
 const groups: Ref<Group[]> = ref([]);
 const childrenApi = useChildrenApi();
 const groupsApi = useGroupsApi();
+const locationStore = useLocationStore();
+
+// Sorted and filtered here rather than in the template: `.sort()` on the array a `v-for` is
+// iterating mutates the ref in place on every render.
+const selectableGroups = computed(() =>
+  groups.value
+    .filter((group) => group.isActive && locationStore.matchesSelection(group.room?.location.id))
+    .slice()
+    .sort((a, b) => a.weekday - b.weekday || a.startTime.localeCompare(b.startTime))
+);
+
+const subtitle = computed(() =>
+  locationStore.isShowingAll
+    ? "Gestionează prezența copiilor dintr-un grup, din ambele locații"
+    : `Gestionează prezența grupelor din ${locationStore.selectedLocation?.name ?? ""}`
+);
 
 const handleBack = () => {
   navigateTo("/admin/attendance");

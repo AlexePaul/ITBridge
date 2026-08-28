@@ -54,7 +54,10 @@ export class ProfileService {
             .createQueryBuilder('profile')
             .leftJoinAndSelect('profile.user', 'user')
             .leftJoinAndSelect('profile.children', 'child')
-            .leftJoinAndSelect('child.group', 'group');
+            .leftJoinAndSelect('child.group', 'group')
+            // Same reason as in `ChildService.findChildren`: the contract's `Group` has a room.
+            .leftJoinAndSelect('group.room', 'room')
+            .leftJoinAndSelect('room.location', 'location');
 
         if (filters.userId) {
             queryBuilder.andWhere('user.id = :userId', { userId: filters.userId });

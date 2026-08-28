@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-3xl font-bold">Copii</h1>
-        <p class="text-muted mt-1">Vizualizează și gestionează toți copiii</p>
+        <p class="text-muted mt-1">{{ subtitle }}</p>
       </div>
       <div class="flex items-center gap-3">
         <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
@@ -42,7 +42,7 @@
 
       <div class="flex justify-between items-center mt-4 pt-4 border-t">
         <div class="text-sm text-muted">
-          Afișez {{ filteredChildren.length }} din {{ children.length }} copii
+          Afișez {{ filteredChildren.length }} din {{ childrenInSelection.length }} copii
         </div>
         <UButton
           color="neutral"
@@ -68,8 +68,10 @@ import type { TableColumn } from "@nuxt/ui";
 import type { Child } from "~/types/child.types";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
+import { useLocationStore } from "~/stores/locationStore";
 
 const childrenApi = useChildrenApi();
+const locationStore = useLocationStore();
 const UBadge = resolveComponent("UBadge");
 const UIcon = resolveComponent("UIcon");
 const UDropdownMenu = resolveComponent("UDropdownMenu");
@@ -98,9 +100,26 @@ const hasActiveFilters = computed(() => {
   return !!filters.value.search;
 });
 
+/**
+ * A child belongs to a location through their group's room. Children with no group yet stay
+ * visible in every selection: they are unassigned, not assigned elsewhere, and they are exactly
+ * who an admin opens this page to find.
+ */
+const childrenInSelection = computed(() =>
+  children.value.filter((child) =>
+    locationStore.matchesSelection(child.group?.room?.location.id ?? null)
+  )
+);
+
+const subtitle = computed(() =>
+  locationStore.isShowingAll
+    ? "Toți copiii, din ambele locații"
+    : `Copiii din ${locationStore.selectedLocation?.name ?? ""}, plus cei fără grupă`
+);
+
 const filteredChildren = computed(() => {
   const f = filters.value;
-  let result = [...children.value];
+  let result = [...childrenInSelection.value];
 
   // Global search across name, parent and group
   if (f.search) {
