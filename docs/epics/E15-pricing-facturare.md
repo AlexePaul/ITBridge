@@ -53,6 +53,7 @@ suma corectă.
 - Facturare pe modul, cu linii detaliate.
 - Planuri de plată: integral sau în tranșe.
 - Reguli pentru mai mulți copii, corecte la orice număr.
+- Înscrierea la mijlocul unui modul, cu plată proporțională.
 - Reduceri cu tip și regulă.
 - Regenerarea PDF-ului.
 - Previzualizare înainte de emitere.
@@ -70,8 +71,9 @@ valabil de la, valabil până la, sumă, monedă. Versionat, ca o schimbare de t
 istoricul facturilor deja emise.
 
 Prețul e **pe modul, nu pe ședință**: 700 lei, indiferent dacă modulul are 6, 7 sau 8 ședințe.
-Modelul nu trebuie să conțină niciun calcul per ședință — dacă apare unul, e semn că s-a strecurat
-presupunerea greșită.
+Catalogul nu capătă niciodată o coloană de preț pe ședință — dacă apare una, e semn că s-a strecurat
+presupunerea greșită. Singurul loc în care suma se împarte la ședințe e înscrierea la mijlocul unui
+modul, S8, iar acolo divizorul se calculează la fața locului, din durata modulului respectiv.
 
 Constantele `350` și `250` dispar din cod.
 
@@ -200,6 +202,57 @@ aceleași sume, aceleași scadențe. Divergența dintre ele e exact ce urmăreș
 **Acceptanță:** nicio factură nu mai e generată cu PDFKit. Factura din portal se potrivește la leu
 cu documentul SmartBill.
 
+### S8 · Înscrierea la mijlocul unui modul
+
+Un copil care intră după ce modulul a început plătește **proporțional cu ședințele rămase**, nu
+prețul întreg. La un modul de 8 ședințe, cine intră după a patra plătește jumătate: 350 de lei. La
+unul de 6, cine intră tot după a patra prinde două ședințe și plătește 700 × 2/6, adică 233.
+
+Baza de calcul e **calendarul modulului din [E10](E10-curriculum-module.md), nu prezența efectivă**.
+Ședințele rămase se numără o singură dată, la data înscrierii, și de acolo înainte suma e fixă —
+altfel factura n-ar putea fi emisă decât după ce se termină modulul, adică după ce s-a consumat tot
+ce se facturează. Absențele de după înscriere nu scad suma; ele se rezolvă prin recuperările din
+[E12](E12-prezenta-orar.md), care sunt un instrument de retenție, nu o corecție de preț.
+
+**Pro-rata scoate la vedere valoarea unei ședințe, iar ea diferă de la modul la modul.** 700 / 6 dă
+116,67, 700 / 8 dă 87,50. Nu e o inconsecvență de reparat, e consecința directă a prețului fix din
+S1: dacă ședința ar valora la fel peste tot, prețul modulului n-ar mai putea fi fix, ci ar deveni
+număr de ședințe × tarif. Cine găsește mai târziu cele două numere diferite și e tentat să le
+uniformizeze desface decizia de bază, nu repară un bug. Divizorul există **numai** pentru intrările
+la mijloc.
+
+Din același motiv, linia de pe factură se scrie tot în unități de modul — „Scratch Începători ·
+modul 2 · jumătate de modul" —, nu „4 ședințe × 87,50". Regula de comunicare din
+[Decizii luate](#decizii-luate) rămâne întreagă: prețul se spune pe modul, iar tariful pe ședință nu
+se tipărește nicăieri, tocmai fiindcă invită la comparația care deranjează.
+
+**Recomandări, fiecare cu motivul ei:**
+
+- **Rotunjirea se face la leu, pe totalul liniei, nu pe prețul unitar.** 700 / 6 nu are reprezentare
+  exactă în bani, iar dacă rotunjești unitarul și înmulțești pe urmă, eroarea se multiplică în total.
+  Suma ajunge pe un document fiscal și e adesea plătită în numerar la sediu — un rest de bani pe care
+  nu-l are nimeni în buzunar e o problemă la casă, nu o rafinare de precizie. Restul de rotunjire se
+  tratează ca la S3: rămâne pe linie, iar totalul notei de plată e mereu exact suma liniilor ei.
+- **Reducerea de frați se aplică după pro-rata, pe suma proporțională.** Pentru o reducere
+  procentuală ordinea nu schimbă rezultatul, dar S5 admite și reduceri **fixe** — iar o reducere de
+  100 de lei aplicată înaintea proporționării s-ar înjumătăți odată cu ea și ar valora 50. O sumă
+  acordată în lei trebuie să rămână acea sumă, indiferent când intră copilul în modul.
+- **Rangul copilului în familie se stabilește pe prețul întreg al modulului, înainte de pro-rata.**
+  Altfel „primul copil", cel care plătește 700, ar fi cel care se nimerește să aibă suma mai mare
+  după proporționare, iar o înscriere la mijloc ar rearanja tăcut ce plătește un frate înscris de
+  luni de zile. Cine e primul nu are voie să depindă de data la care intră al doilea.
+- **O înscriere pro-rata se facturează o singură dată, integral, nu în două tranșe.** Planul din S3
+  presupune un modul care mai are un mijloc în față; la o intrare după ședința 4 din 8, jobul de
+  tranșă a doua ori nu mai are pe ce să se declanșeze, ori se declanșează imediat după prima
+  factură. În plus ar dubla documentele fiscale și apelurile SmartBill pentru o sumă de ordinul a
+  350 de lei — vezi limita de 3 apeluri pe secundă din [E16](E16-plati-fiscal.md). Tranșele rămân
+  pentru înscrierile făcute la începutul modulului.
+
+**Acceptanță:** un copil înscris înaintea ședinței 5 dintr-un modul de 8 primește o factură de 350;
+același copil, într-un modul de 6, primește 233. O familie cu un copil înscris de la început și unul
+intrat la mijloc plătește 700 pentru primul și pro-rata minus 25% pentru al doilea, iar totalul e
+suma liniilor, la leu. Nicio notă de plată pro-rata nu generează a doua tranșă.
+
 ## Dependențe
 
 [E10](E10-curriculum-module.md) pentru ce e un modul, [E11](E11-inscrieri-capacitate.md) pentru cine
@@ -214,13 +267,18 @@ citibile, marcate ca model vechi. Nu se recalculează retroactiv.
 **Trecerea de la lună la modul schimbă fluxul de numerar.** Dacă modulele mai multor grupe încep în
 aceeași săptămână, încasările se concentrează. Merită simulat înainte.
 
-**Regulile de recuperare din [E12](E12-prezenta-orar.md) devin obligații contractuale.** Când
-factura spune 12 ședințe, cele 12 ședințe sunt datorate. Cele două epicuri trebuie decise împreună.
+**Formularea facturii poate transforma recuperările în datorie.**
+[E12](E12-prezenta-orar.md) a decis că recuperarea e un instrument de retenție, nu o datorie
+contractuală, fiindcă părintele cumpără participarea la un modul, nu un număr garantat de ședințe.
+Distincția ține exact cât timp niciun document nu numără ședințe: o linie scrisă „12 ședințe ×
+87,50" promite douăsprezece, iar absența devine ceva ce se datorează înapoi. De aceea liniile se
+scriu în unități de modul, inclusiv la pro-rata (S8). Cele două epicuri trebuie decise împreună.
 
 ## Definition of done
 
 Niciun preț în cod. Fiecare factură are linii care se adună la total. Planurile în tranșe
-funcționează. Nicio combinație de copii și reduceri nu produce o sumă absurdă.
+funcționează. O înscriere la mijlocul unui modul produce o sumă proporțională, rotunjită la leu.
+Nicio combinație de copii, reduceri și proporționări nu produce o sumă absurdă.
 
 ## Decizii luate
 
@@ -230,6 +288,7 @@ funcționează. Nicio combinație de copii și reduceri nu produce o sumă absur
 | Preț                 | **700 lei fix**, indiferent de durata modulului                                       |
 | Planuri de plată     | Integral (1 factură), sau două tranșe egale (2 facturi, a doua la mijlocul modulului) |
 | Reducere frați       | **−25% de la al doilea copil în jos**, primul întreg                                  |
+| Înscriere la mijloc  | **Pro-rata pe ședințele rămase**, rotunjit la leu, o singură factură — vezi S8        |
 | Abandon la mijloc    | Fără returnare; a doua factură nu se mai emite                                        |
 
 **Prețul fix pe durată variabilă e o decizie conștientă**, nu o scăpare. Ședința costă efectiv
@@ -239,11 +298,15 @@ modul scurt plătește vizibil mai mult pe ședință. Merită anticipat în fel
 prețul: **„700 lei pe modul", niciodată „x lei pe ședință"**, pentru că a doua formulare invită
 exact la comparația care deranjează.
 
+Pro-rata din S8 e singurul loc în care cele două numere devin vizibile pe o factură. Nu se
+uniformizează — motivul complet e scris acolo, ca să nu fie „reparat" de cineva care le vede
+alăturate și crede că a găsit o eroare.
+
 Pentru context, față de modelul vechi: 350 lei pe lună, cu ajustările manuale de vacanță, ieșea în
 jur de 3150 lei pe an de copil. Modelul nou dă ~3500, deci **crește venitul cu ~11%** și, în plus,
 elimină regula de trei simplă — vacanțele devin granițele modulelor, nu excepții de calculat.
 
-**La abandon** (S8, de adăugat): dacă plata a fost în tranșe, a doua factură pur și simplu nu se
+**La abandon**: dacă plata a fost în tranșe, a doua factură pur și simplu nu se
 mai emite, iar nota de plată se închide la suma facturată. Dacă a fost integrală, nu se returnează
 nimic. Fiindcă a doua factură se emite la mijlocul modulului și nu la înscriere, abandonul nu cere
 stornarea niciunui document fiscal. Regula se comunică la înscriere, nu la plecare.
@@ -260,9 +323,10 @@ returnare, nici conductă de stornare în [E16](E16-plati-fiscal.md).
 
 Cele două fluxuri online care existau în discuție nu contrazic asta, și merită numite ca să nu fie
 reluate ca obiecție: [E20](E20-achizitie-lead.md) S2 programează o lecție de probă **gratuită**,
-deci nu încheie niciun contract și nu circulă niciun ban; [E16](E16-plati-fiscal.md) S4 încasează
-online o factură care decurge dintr-un contract deja semnat pe hârtie, deci **execută** un contract
-existent, nu încheie unul nou.
+deci nu încheie niciun contract și nu circulă niciun ban; plata online din
+[E16](E16-plati-fiscal.md) S4 — între timp amânată, dar argumentul rămâne valabil în ziua în care se
+reia — ar încasa o factură care decurge dintr-un contract deja semnat pe hârtie, deci ar **executa**
+un contract existent, nu ar încheia unul nou.
 
 Condiția în care se repune întrebarea, scrisă ca să fie recunoscută la timp: **dacă apare vreodată
 o înscriere care se finalizează online, sau o încasare de la o familie fără contract pe hârtie.**
@@ -277,6 +341,7 @@ acolo regula devine text publicat.
   contractul se semnează fizic, deci nu există contract încheiat la distanță. Motivul complet și
   condiția în care întrebarea revine, la [Decizii luate](#decizii-luate).
 - Prețul e același în ambele locații?
-- Un copil înscris la mijlocul unui modul plătește integral, sau proporțional cu ședințele rămase?
-  Cu preț fix pe modul, varianta consecventă e integral — dar e greu de vândut cuiva care prinde
-  doar 3 din 7 ședințe.
+- ~~Un copil înscris la mijlocul unui modul plătește integral, sau proporțional cu ședințele
+  rămase?~~ **Proporțional**, pe ședințele rămase din modul, rotunjit la leu, într-o singură
+  factură. Regula, exemplele și motivul pentru care asta nu contrazice prețul fix pe modul sunt la
+  S8.

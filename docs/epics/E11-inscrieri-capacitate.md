@@ -80,14 +80,22 @@ grupă plină pune cererea pe listă în loc să o piardă.
 
 `Enrollment`: copil, grupă, modul, dată de început, dată de sfârșit, stare (`probă`, `activă`,
 `încheiată`, `abandonată`, `transferată`), motiv la ieșire. Înlocuiește legătura directă
-`Child.group`, care rămâne cel mult ca proprietate derivată pentru compatibilitate.
+`Child.group` (`apps/api/src/entities/child.entity.ts`, `ManyToOne` nullable către `Group`), care
+rămâne cel mult ca proprietate derivată pentru compatibilitate.
+
+**Un copil are cel mult o înscriere în vigoare la un moment dat** — D6. `Enrollment` adaugă timp și
+istoric, nu simultaneitate: mai multe rânduri per copil înseamnă „a fost în grupa A până în martie,
+în grupa B din aprilie", niciodată „e în amândouă acum". Regula se aplică la scriere, nu doar în
+interfață, și numără și starea `probă`: un copil cu o probă programată nu poate primi a doua în altă
+grupă. Fără verificarea asta, „o singură grupă" ar fi o convenție pe care primul admin grăbit o
+încalcă fără să afle nimeni.
 
 Înscrierea o creează adminul, în toate stările. Nu există cale prin care un părinte autentificat să
 scrie o `Enrollment` — vezi D2. Matricea din `apps/api/src/authorization.spec.ts` o va prinde
 oricum: un handler nou fără `@Roles(Role.ADMIN)` apare acolo fără să scrie nimeni un test.
 
 **Acceptanță:** "în ce grupă era copilul X pe 15 octombrie" are răspuns exact. Nu există istoric de
-migrat — vezi [Decizii luate](#decizii-luate). Seed-ul produce înscrieri cu perioadă și stare, iar
+migrat — vezi [Decizii luate](#decizii-luate), D9. Seed-ul produce înscrieri cu perioadă și stare, iar
 interogarea de mai sus se verifică pe ele. Un `POST` de înscriere cu token de părinte răspunde 403.
 
 ### S2 · Contul de părinte: date complete, email confirmat, aprobat de admin
@@ -103,11 +111,17 @@ Se schimbă trei lucruri, toate pe fluxul de înregistrare făcută de părinte:
 
 1. **`register` cere datele complete.** Nume, prenume, email, telefon, adresă și contactul de
    urgență de mai jos intră în `RegisterDto`, obligatorii, și se scriu într-un `Profile` creat în
-   aceeași tranzacție cu `User`-ul. Nu mai există fereastra dintre „cont creat" și „profil
-   completat", deci nu mai există nici starea în care ecranul de setup e singurul lucru care ține
-   datele. `address` e azi o singură coloană `varchar(255)`, text liber; dacă factura cere
-   componente separate — stradă, oraș, județ, cod poștal — acolo se decide, în
-   [E16](E16-plati-fiscal.md), nu aici.
+   aceeași tranzacție cu `User`-ul. `RegisterDto` are azi exact `username` și `password`
+   (`apps/api/src/modules/auth/dto/register.dto.ts`), deci toate câmpurile de mai sus sunt câmpuri
+   noi. Nu mai există fereastra dintre „cont creat" și „profil completat", deci nu mai există nici
+   starea în care ecranul de setup e singurul lucru care ține datele.
+
+   **Lista e închisă și nu conține CNP** — vezi D8. Pentru factură, SmartBill cere numele și
+   adresa; telefonul și emailul se cer fiindcă fără ele nu poți opera școala, nu fiindcă le-ar cere
+   fiscul. `address` rămâne o singură coloană `varchar(255)`, text liber; dacă documentul cere
+   componente separate — stradă, oraș, județ, cod poștal — asta e o schimbare de formă a aceluiași
+   câmp și se decide în [E16](E16-plati-fiscal.md), nu o lărgire a listei.
+
 2. **Emailul se confirmă printr-un link.** Adresa scrisă la înregistrare nu e adresa verificată. Se
    trimite un token cu expirare, iar contul rămâne neconfirmat până e deschis. Canalul de trimitere
    e cel din [E17](E17-comunicare-notificari.md) — fără el, story-ul nu se poate încheia, la fel ca
@@ -154,6 +168,20 @@ Capacitatea grupei există deja și e plafonată de sală — [E08](E08-multi-lo
 **aplicarea ei la înscriere**: depășirea se blochează, cu excepție explicită pentru admin, care lasă
 urmă în audit log. O grupă plină acceptă înscrieri pe listă de așteptare, cu ordine și dată.
 
+**Regula de ocupare numără și probele.** O `Enrollment` în starea `probă` consumă un loc cât ține
+proba, exact ca una activă — vezi D7. Deci o grupă de 10 cu 10 copii înscriși nu poate primi un copil
+la probă, iar una cu 9 înscriși și o probă programată e plină. Motivul e fizic și nu se negociază: un
+copil la probă stă pe un scaun, la un calculator, în aceeași sală. Numărul care contează la orice
+verificare de capacitate e **înscrierile active plus probele programate care nu s-au consumat încă**,
+niciodată doar primele.
+
+Locul ținut de o probă se eliberează când proba se încheie — devine înscriere activă, caz în care
+locul rămâne ocupat de aceeași familie, sau se închide cu motiv (S4), caz în care se eliberează și
+declanșează notificarea către primul de pe lista de așteptare. O probă care nu se încheie niciodată
+ține un loc la nesfârșit; de aceea lista „probe ținute, fără decizie" din
+[E20](E20-achizitie-lead.md) S3 nu e doar o unealtă comercială, ci și mecanismul care ține
+capacitatea onestă.
+
 Pe listă ajung cererile adunate de admin — de la telefon, de la o probă, sau din
 [E20](E20-achizitie-lead.md). Nu există formular prin care părintele să se pună singur pe listă;
 vezi D2.
@@ -163,12 +191,20 @@ Când se eliberează un loc, primul de pe listă e notificat automat, prin
 încheia — a doua jumătate a acceptanței e o notificare trimisă.
 
 **Acceptanță:** înscrierea peste capacitate e refuzată cu mesaj util și ofertă de listă. Eliberarea
-unui loc declanșează notificarea în sub un minut.
+unui loc declanșează notificarea în sub un minut. O grupă de 10 cu 9 înscriși și o probă programată
+refuză a doua probă, cu același mesaj ca la o înscriere peste capacitate — nu cu unul separat, fiindcă
+nu e o limită separată.
 
 ### S4 · Lecție de probă
 
 O înscriere în starea `probă`, cu o singură ședință, care nu se facturează. La final, se transformă
 în înscriere activă sau se închide, cu motiv înregistrat.
+
+**Gratuită nu înseamnă fără cost.** Proba ocupă un loc din cele ale sălii, ca orice înscriere — D7 —,
+deci o grupă plină nu o poate primi, iar formularul public din [E20](E20-achizitie-lead.md) S2 nu are
+voie să o ofere. Consecința pentru fluxul comercial e că oferta de probe e limitată de aceleași
+scaune care limitează înscrierile: dacă toate grupele de o vârstă sunt pline, singurul lucru pe care
+îl mai poate face pâlnia e lista de așteptare, nu încă o probă.
 
 Rata de conversie de la probă la înscriere e una dintre cele mai importante cifre de business și
 intră în [E21](E21-raportare-analytics.md).
@@ -178,8 +214,8 @@ să existe contul activ, deci înainte de orice probă — memento-ul de dinaint
 plece. Singurele familii fără adresă rămân cele introduse de admin la telefon, iar acolo lipsa se
 completează înainte de prima factură, nu la trecerea probei în înscriere activă.
 
-**Acceptanță:** o probă programată apare în lista profesorului, marcată distinct, și nu generează
-factură.
+**Acceptanță:** o probă programată apare în lista de prezență a grupei, marcată distinct, și nu
+generează factură. Numărul de locuri afișat pentru acea grupă scade cu unu în clipa programării.
 
 ### S5 · Transferuri
 
@@ -187,16 +223,30 @@ Mutarea unui copil în altă grupă, eventual în altă locație, închide însc
 `transfer` și o deschide pe cea nouă, păstrând legătura. Efectul asupra facturii curente e calculat
 și afișat înainte de confirmare.
 
+Transferul e **singurul** mod în care un copil își schimbă grupa, tocmai fiindcă D6 interzice a doua
+înscriere în vigoare. Deci ordinea contează: se închide prima, se deschide a doua, într-o singură
+tranzacție. Altfel fie apar două înscrise simultan, fie copilul rămâne fără niciuna dacă a doua
+scriere pică — iar la capacitate, locul eliberat în grupa veche trebuie să se elibereze exact atunci,
+nu mai devreme, ca să nu-l ia cineva de pe lista de așteptare într-un transfer care nu s-a încheiat.
+
 **Acceptanță:** după transfer, istoricul arată ambele perioade, iar factura reflectă corect
 schimbarea.
 
 ### S6 · Verificări de compatibilitate
 
-La înscriere se verifică: vârsta față de intervalul grupei, cerințele prealabile ale modulului,
-suprapunerea cu alte grupe ale aceluiași copil. Avertismente, nu blocaje — adminul poate trece peste,
-motivat.
+La înscriere se verifică vârsta față de intervalul grupei (`minAge` / `maxAge`, azi `int` pe
+`Group`) și cerințele prealabile ale modulului din [E10](E10-curriculum-module.md). Avertismente, nu
+blocaje — adminul poate trece peste, motivat.
+
+**Suprapunerea de orar cu altă grupă a aceluiași copil a ieșit din listă.** Nu mai e un caz de
+verificat, fiindcă nu mai e un caz posibil: D6 spune că un copil are o singură înscriere în vigoare,
+iar regula e aplicată la S1. Ce rămâne blocaj tare, nu avertisment, e tot acolo — capacitatea, la S3.
+Aici sunt doar lucrurile despre care un admin poate avea dreptate împotriva sistemului: un copil de
+10 ani și jumătate matur pentru o grupă de 11-14 e o judecată de om, un al unsprezecelea scaun într-o
+sală de zece nu e.
 
 **Acceptanță:** înscrierea unui copil de 7 ani într-o grupă de 11-14 ani cere confirmare explicită.
+Înscrierea lui într-o a doua grupă e refuzată, nu confirmabilă.
 
 ### S7 · Formarea grupelor
 
@@ -217,11 +267,13 @@ manuală.
 emailului e un mesaj trimis; fără canal, contul nu poate fi confirmat, deci nici activat. La S3,
 acceptanța cere ca eliberarea unui loc să declanșeze notificarea în sub un minut. Fără E17, S3 poate
 livra cel mult lista de așteptare, nu și promisiunea făcută celui de pe ea — exact riscul de mai jos.
-Același canal ține și mementoul de probă din [Decizii luate](#decizii-luate).
+Același canal ține și mementoul de probă din [Decizii luate](#decizii-luate), D5.
 
-**[E16](E16-plati-fiscal.md) poate lărgi lista de câmpuri din S2**, dacă răspunsul contabilului e că
-factura B2C cere mai mult decât nume, adresă și telefon. Lista minimă din S2 nu se blochează până
-atunci — se adaugă un câmp, nu se rescrie fluxul.
+**[E16](E16-plati-fiscal.md) nu mai lărgește lista de câmpuri din S2.** Era scris aici ca dependență
+deschisă, în ipoteza că factura B2C ar putea cere mai mult decât nume, adresă și telefon — în
+special CNP. Răspunsul a venit și e „nu": SmartBill cere numele și adresa, atât (D8). Deci S2 poate
+fi construit cu lista lui, iar E16 nu mai e o necunoscută care atârnă deasupra formularului de
+înregistrare.
 
 ## Riscuri
 
@@ -235,9 +287,9 @@ altfel D2 transformă o înscriere în tăcere.
 
 ## Definition of done
 
-Fiecare participare a unui copil la o grupă are perioadă și stare. Capacitatea e respectată.
-Transferurile păstrează istoricul. Nicio familie cu înscriere activă nu e fără email confirmat și
-fără adresă.
+Fiecare participare a unui copil la o grupă are perioadă și stare, și nu există două în vigoare
+deodată. Capacitatea sălii e respectată de toată lumea, inclusiv de probe. Transferurile păstrează
+istoricul. Nicio familie cu înscriere activă nu e fără email confirmat și fără adresă.
 
 ## Decizii luate
 
@@ -261,11 +313,23 @@ n-a vorbit niciodată cu școala.
 
 Recomandarea de auto-înscriere cu confirmare, formulată aici ca întrebare deschisă, **cade**.
 
-Consecința juridică e la fel de importantă: împreună cu D5 — contractul de înscriere se semnează
+Consecința juridică e la fel de importantă: împreună cu D3 — contractul de înscriere se semnează
 fizic —, D2 **elimină problema retragerii în 14 zile**. Nu mai există contract încheiat la distanță,
 deci OUG 34/2014 nu se aplică, iar recomandările construite pe ea din [E15](E15-pricing-facturare.md)
 și din [README](README.md) se scot. Se repune în discuție dacă apare vreodată înscriere sau plată
 online fără contract pe hârtie — adică exact în ziua în care S2 ar căpăta un buton „plătește acum".
+
+**D3 · Contractul de înscriere se semnează pe hârtie.** Platforma nu ține textul, nu îl versionează
+și nu capturează acceptare digitală. Reține un singur lucru: că pentru o înscriere **există contract
+semnat**, cu data semnării — câteva câmpuri pe `Enrollment` din S1, nu un subsistem de documente.
+Regula e a lui [E07](E07-securitate-gdpr.md) S8 și e consemnată aici fiindcă înscrierea e locul unde
+se vede, iar D2 se sprijină pe ea.
+
+Motivul e că nu mai e nimic de capturat online. Prin D2, contul de părinte îl aprobă un admin și
+copilul e înscris în grupă tot de un admin, deci e mereu cineva în cameră când se semnează, iar
+hârtia se obține la fel de ușor ca o bifă. Ținută în platformă, acceptarea ar fi cerut versionarea
+textului, un ecran de acceptare, dovada acceptării și, la prima modificare, întrebarea ce se
+întâmplă cu familiile care au semnat versiunea veche — muncă al cărei rezultat îl dă deja dosarul.
 
 **D4 · Din propunerea de siguranță a copilului rămâne un singur câmp: contactul de urgență.**
 Epicul dedicat se anulează. Contactul de urgență se păstrează fiindcă nu e dată de sănătate, costă un
@@ -274,17 +338,67 @@ părintele nu răspunde. Datele de sănătate, notele de incident și persoanele
 ies complet din scop, scrise explicit în [În afara scopului](#în-afara-scopului) tocmai ca să nu
 reintre pe ușa din dos, câte un câmp o dată.
 
-**Lecția de probă e gratuită.** Bariera minimă la intrare, cele mai multe programări.
+**D5 · Lecția de probă e gratuită.** Bariera minimă la intrare, cele mai multe programări.
 
 Costul deciziei e neprezentarea: un loc blocat de cineva care nu mai vine. Două măsuri, care devin
 obligatorii tocmai pentru că proba e gratuită:
 
 - **Memento automat cu o zi înainte**, prin [E17](E17-comunicare-notificari.md). E singura măsură
   care reduce vizibil neprezentările când nu există miză financiară.
-- **Plafon de probe simultane per grupă**, ca un curs să nu fie deraiat de patru copii noi
-  deodată.
+- **Locul ținut de probă se eliberează repede.** Un plafon separat de probe simultane per grupă a
+  fost propus aici și **cade**: proba consumă un loc obișnuit (D7), deci grupa e deja plafonată de
+  sală, iar un al doilea prag ar fi două numere care spun același lucru și pot să nu fie de acord.
+  Ce rămâne de apărat e altceva — un loc blocat de o probă la care nimeni nu s-a prezentat și pe
+  care nimeni nu a închis-o. Măsura e închiderea probei cu motiv, ținută vizibilă de lista „probe
+  ținute, fără decizie" din [E20](E20-achizitie-lead.md) S3.
 
-**Nu există date istorice de reconstruit** — vezi [E04](E04-migrari-date.md). S1 se simplifică:
+**D6 · Un copil e într-o singură grupă.** Nu există participare la două grupe în paralel, nici la
+aceeași locație, nici la două. Motivul e al școlii și e despre copil, nu despre software: două
+drumuri pe săptămână sunt prea mult la vârsta asta. Vor exista părinți care cer altceva; răspunsul e
+nu, iar platforma nu ține un câmp care să pretindă contrariul.
+
+Modelul actual e deja așa — `Child.group` e o singură referință `ManyToOne`, nullable pentru copiii
+nerepartizați. Decizia nu schimbă nimic tehnic azi; schimbă ce are voie să facă S1, care altfel ar fi
+transformat firesc relația în una la mai multe. `Enrollment` rămâne o listă de rânduri per copil,
+fiindcă istoricul e motivul pentru care există, dar cu invariantul „cel mult unul în vigoare",
+aplicat la scriere. Închide și întrebarea deschisă din [E08](E08-multi-locatie.md) — un copil nu
+poate fi în grupe din locații diferite, fiindcă nu poate fi în două grupe.
+
+Se reia doar dacă apare un format explicit de „a doua ședință", cu preț și orar proprii. Atunci nu e
+un copil în două grupe, e un produs nou.
+
+**D7 · O sală de 10 locuri per locație, iar proba consumă un loc.** Două lucruri care merg
+împreună, fiindcă amândouă spun același număr.
+
+Sala: fiecare locație are, azi, o singură sală de 10 locuri. E deja în migrarea din
+[E08](E08-multi-locatie.md) (`1787909549491-LocationsAndRooms.ts` inserează „Sala 1" cu 10 locuri și
+10 calculatoare per locație) și se editează integral din `/admin/locations`, `PUT /rooms/:id`. Se
+consemnează ca decizie, nu ca schimbare: 10 e valoarea reală, nu o presupunere de migrare, iar o
+sală în plus sau o capacitate mai mare sunt operațiuni de configurare. Capacitatea grupei nu poate
+depăși capacitatea sălii — `GROUP_OVER_ROOM_CAPACITY`.
+
+Proba: o lecție de probă ocupă unul dintre cele 10 locuri, cât ține. Deci o grupă plină nu primește
+un copil la probă, iar orice loc liber afișat undeva în platformă e calculat ca `capacity` minus
+înscrierile active minus probele programate. Nu există un plafon separat de probe — a se vedea
+bulina de mai sus: ar fi al doilea număr pentru aceeași sală.
+
+Consecința care se simte în afara epicului e la [E20](E20-achizitie-lead.md) S2: formularul public
+de programare nu poate oferi o grupă fără loc liber. Nu e o restricție de interfață, e aceeași
+regulă de capacitate, verificată în același loc — altfel un părinte primește o confirmare pentru un
+scaun care nu există.
+
+**D8 · Datele obligatorii la înregistrare sunt nume, prenume, adresă, telefon și email. Fără CNP.**
+Lista din S2 se închide aici. SmartBill cere pentru facturarea unei persoane fizice doar numele și
+adresa; telefonul și emailul se cer fiindcă fără ele nu poți suna o familie și nu poți trimite o
+factură, nu dintr-o cerință fiscală. Contactul de urgență (D4) se adaugă la ele, tot obligatoriu, și
+tot din motive de operare.
+
+CNP-ul **nu se colectează.** Nu e un câmp oarecare: își aduce propriile obligații de temei,
+minimizare și retenție în [E07](E07-securitate-gdpr.md), iar un câmp cerut degeaba e o dată
+personală strânsă fără motiv. Întrebarea deschisă adăugată în [E16](E16-plati-fiscal.md) — dacă
+factura B2C are nevoie de el — are răspuns și se închide acolo.
+
+**D9 · Nu există date istorice de reconstruit** — vezi [E04](E04-migrari-date.md). S1 se simplifică:
 `Enrollment` se construiește curat, fără aproximarea înscrierilor vechi din prezențe.
 
 ## Întrebări deschise

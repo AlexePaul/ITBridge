@@ -22,22 +22,30 @@ informația nu lasă urmă: nimeni nu poate spune dacă un părinte a fost anun�
 
 Șapte epic-uri depind de existența acestui canal:
 
-| Epic | Ce trimite |
-|---|---|
-| [E11](E11-inscrieri-capacitate.md) | loc eliberat de pe lista de așteptare |
-| [E12](E12-prezenta-orar.md) | absență, anulare de ședință, recuperare care expiră |
-| [E13](E13-progres-evaluare.md) | raport de final de modul, certificat |
-| [E14](E14-proiecte-elevi.md) | proiectele copilului, rezumat zilnic |
-| [E15](E15-pricing-facturare.md) | factură emisă |
-| [E16](E16-plati-fiscal.md) | confirmare de plată, memento de restanță |
-| [E20](E20-achizitie-lead.md) | confirmare de programare la lecția de probă |
+| Epic | Ce trimite | Cine declanșează |
+|---|---|---|
+| [E11](E11-inscrieri-capacitate.md) | loc eliberat de pe lista de așteptare | eveniment, automat |
+| [E12](E12-prezenta-orar.md) | absență, anulare de ședință, recuperare care expiră | eveniment, automat |
+| [E13](E13-progres-evaluare.md) | raport de final de modul, certificat | închiderea modulului, automat |
+| [E14](E14-proiecte-elevi.md) | documentele copilului | **adminul, pe grupă** |
+| [E15](E15-pricing-facturare.md) | factură emisă | emiterea, automat |
+| [E16](E16-plati-fiscal.md) | confirmare de plată, memento de restanță | eveniment, plus job programat |
+| [E20](E20-achizitie-lead.md) | confirmare de programare la lecția de probă | eveniment, automat |
+
+A treia coloană e o decizie, nu o observație. Tot ce scrie „automat" pleacă fiindcă s-a întâmplat
+ceva în bază: o factură emisă, o ședință anulată, un loc eliberat. Rândul lui
+[E14](E14-proiecte-elevi.md) nu mai e așa. **Documentele copiilor pleacă atunci când adminul apasă un
+buton**, după ce s-a uitat pe lista de documente noi ale grupei — nu automat, seara. E un mod de
+declanșare distinct, cu propriul story, S9, și cu propriul motiv în
+[Decizii luate](#decizii-luate).
 
 Cinci dintre ele sunt **blocate**, nu doar interesate: au criterii de acceptanță care nu pot fi
 îndeplinite fără canalul de aici. [E11](E11-inscrieri-capacitate.md) S2 — „eliberarea unui loc
 declanșează notificarea în sub un minut". [E12](E12-prezenta-orar.md) S5 și S7 — „anularea unei
 ședințe notifică toată grupa în sub cinci minute", „părintele află de o absență neanunțată în aceeași
 zi". [E16](E16-plati-fiscal.md) S6 și S7 — confirmarea de plată în aceeași zi și memento-urile de
-restanță. [E14](E14-proiecte-elevi.md) S4 — rezumatul de seară.
+restanță. [E14](E14-proiecte-elevi.md) — documentul unui copil ajunge la părintele lui prin email;
+acolo s-a schimbat cine apasă butonul, nu faptul că e nevoie de canal.
 [E20](E20-achizitie-lead.md) S2 și S3 — confirmarea programării și mementoul cu o zi înainte, plus
 recontactarea celor care nu s-au prezentat; epicul își numește singur mementoul cerință, nu
 rafinare, fiindcă fără el neprezentările la o probă gratuită ajung frecvent la o treime. De aceea
@@ -64,7 +72,8 @@ când trebuie, atât cât a acceptat.
 - Preferințe și dezabonare.
 - Evidența livrărilor, inclusiv a celor care nu au avut unde să plece.
 - Anunțuri către grupe și locații.
-- Evaluarea unui canal secundar.
+- Trimitere declanșată de admin, pe grupă, cu stare per document.
+- Linkuri WhatsApp gata de copiat, fără integrare cu un furnizor — **propus, nu decis**; vezi S8.
 
 ## În afara scopului
 
@@ -135,13 +144,20 @@ Mecanismul, scris aici o dată ca să nu-l inventeze fiecare epic pe al lui:
 
 Substratul e Postgres, nu Redis — vezi [Decizii luate](#decizii-luate).
 
-Coada nu e doar pentru emailuri. Cinci story-uri din alte epic-uri presupun deja un job programat,
+Coada nu e doar pentru emailuri. Patru story-uri din alte epic-uri presupun deja un job programat,
 fără să spună al cui e: [E15](E15-pricing-facturare.md) S3 (a doua tranșă, la mijlocul modulului —
 decizie luată, nu propunere), [E16](E16-plati-fiscal.md) S3 (emiterea temperată sub limita SmartBill
-de 3 apeluri pe secundă), [E16](E16-plati-fiscal.md) S7 (memento-urile de restanță),
-[E04](E04-migrari-date.md) S5 (retenția) și [E14](E14-proiecte-elevi.md) S4 (rezumatul de seară).
-Toate folosesc mecanismul de aici. Altfel ies cinci cozi, fiecare cu propria reîncercare și propria
-idee despre ce înseamnă un eșec permanent.
+de 3 apeluri pe secundă), [E16](E16-plati-fiscal.md) S7 (memento-urile de restanță) și
+[E04](E04-migrari-date.md) S5 (retenția). Toate folosesc mecanismul de aici. Altfel ies patru cozi,
+fiecare cu propria reîncercare și propria idee despre ce înseamnă un eșec permanent.
+
+**Coada rămâne necesară și acolo unde declanșatorul e un om.** Trimiterea pe grupă din S9 e un
+singur click care produce zece-douăzeci de mesaje, fiecare către alt părinte, în aceeași secundă —
+exact tiparul în care furnizorul răspunde cu o limitare de rată la al șaptelea. Fără outbox,
+jumătate din grupă ar rămâne fără document și nimeni n-ar ști care jumătate. Cu el, butonul răspunde
+„s-a pus la trimitere", nu „s-a trimis", iar reîncercarea e treaba scheduler-ului. Deci S3 nu se
+îngustează fiindcă E14 a ieșit din lista de joburi programate; declanșatorul s-a mutat, mecanismul
+nu.
 
 Driftul a început deja. `apps/api/src/modules/auth/session.service.ts:38` programează purjarea
 sesiunilor expirate cu un `setInterval` propriu, iar comentariul de deasupra spune de ce:
@@ -182,18 +198,31 @@ Ce nu s-a schimbat: `Profile.email` rămâne `nullable` în `apps/api/src/entiti
 fiindcă **profilul creat de admin fără date de contact rămâne un flux valid** — o familie notată de
 pe telefon, completată după. Iar familiile alea nu sunt un caz marginal: copilul lor e înscris tot
 de admin, deci primesc facturi ca oricare altele. Fără regula de aici, absența destinatarului nu
-produce nici eroare, nici rând, nici alertă — și miza nu e rezumatul de proiecte din
-[E14](E14-proiecte-elevi.md) S4, e factura: familia aia nu primește nici documentul, nici mementoul
-de restanță, iar școala află când verifică încasările.
+produce nici eroare, nici rând, nici alertă — și miza nu e documentul copilului din
+[E14](E14-proiecte-elevi.md), e factura: familia aia nu primește nici documentul, nici mementoul de
+restanță, iar școala află când verifică încasările.
 
 Din același motiv, evidența are nevoie de **două motive distincte, nu de unul**: `fără adresă`, la
 profilul completat pe jumătate, și `adresă neconfirmată`, la contul înregistrat al cărui link de
 confirmare nu a fost apăsat. Arată la fel în listă — un părinte care nu a primit — dar se rezolvă
 diferit: primul cere un telefon, al doilea o retrimitere a linkului.
 
+**Starea trăiește și pe document, nu doar pe mesaj.** Documentele din
+[E14](E14-proiecte-elevi.md) sosesc pe grupă, iar adminul se uită la ele înainte să apese butonul din
+S9 — deci fiecare document are trei stări vizibile în lista grupei: **nou** (urcat, netrimis),
+**trimis**, **eroare**. Sunt proiecția stării din outbox înapoi pe document, nu un al doilea adevăr
+ținut de mână.
+
+Fără ea, ecranul de dinaintea butonului nu poate spune ce a mai rămas de trimis, iar a doua trecere
+a adminului peste aceeași grupă retrimite ce plecase deja. `eroare` e starea care contează cel mai
+mult: un mesaj oprit ca eșec permanent trebuie să se vadă **în lista grupei**, unde se uită omul, nu
+doar în lista de mesaje, unde nu intră nimeni din proprie inițiativă.
+
 **Acceptanță:** întrebarea „a primit părintele anunțul de anulare?" are răspuns din interfață, în
 sub un minut. Adminul vede din aceeași evidență cine nu a primit ultima factură și din ce motiv, iar
 părinții fără adresă sau cu adresă neconfirmată apar acolo, cu motivul lor, nu lipsesc din listă.
+După o trimitere pe grupă, lista de documente arată câte au plecat, câte au eșuat și câte au rămas
+noi.
 
 ### S6 · Rezumate în loc de rafale
 
@@ -212,12 +241,116 @@ Un admin trimite un mesaj către o grupă, o locație sau toți părinții, cu p
 **Acceptanță:** un anunț către o locație ajunge la toți părinții activi de acolo, cu raport de
 livrare.
 
-### S8 · Canal secundar
+### S8 · WhatsApp, în forma cea mai ieftină — propunere
 
-Evaluarea SMS sau WhatsApp Business pentru mesajele urgente — o anulare cu două ore înainte nu se
-citește pe email. Costul per mesaj face diferența, deci se rezervă strict pentru urgențe.
+**Statutul story-ului ăstuia e altul decât al restului epicului.** Tot ce urmează e o recomandare
+argumentată, nu o decizie luată. Celelalte rânduri din [Decizii luate](#decizii-luate) vin de la
+patron; forma canalului secundar nu — deci stă în [Întrebări deschise](#întrebări-deschise) până e
+confirmată sau respinsă, iar cine citește epicul ca să implementeze nu are voie să o ia drept
+stabilită.
 
-**Acceptanță:** decizia e luată și documentată, cu costuri estimate.
+Un email nu se citește în două ore, iar o anulare anunțată cu două ore înainte trebuie citită în
+două ore. Părinții sunt deja pe WhatsApp — întrebarea nu e dacă se folosește, ci **cât plătește
+școala ca să-l folosească.**
+
+Ce se propune: o pagină în admin care listează, pe grupă, **câte un link `wa.me` per copil**, cu
+textul mesajului precompletat din același șablon ca emailul. Adminul apasă linkul, i se deschide
+conversația cu părintele, cu textul deja scris, și trimite. Atât.
+
+**Ce nu rezolvă.** Un link către un document trimis pe WhatsApp duce tot la ecranul de
+autentificare — accesul la fișiere trece prin cont, nu prin cunoașterea adresei
+([E14](E14-proiecte-elevi.md), Decizii luate). Deci canalul ăsta câștigă la *citit*, nu la *drum
+scurtat*: mesajul ajunge sub ochii părintelui în minute în loc de ore, dar pașii de după rămân
+aceiași. Merită spus, fiindcă tentația evidentă odată ce pagina există e să pui în ea linkuri care
+merg fără cont, ceea ce ar anula decizia din E14 fără ca cineva să observe.
+
+**De ce forma asta și nu WhatsApp Business API.** API-ul cere un furnizor intermediar, un contract
+cu el, un business verificat la Meta, șabloane aprobate în avans pe categorii, tarifare per
+conversație și o fereastră de 24 de ore în afara căreia se poate trimite doar un șablon aprobat.
+Toate astea ca să plece câteva zeci de mesaje pe săptămână. Varianta cu linkuri **costă un ecran**:
+nu costă un furnizor, un contract și o verificare de business. Mesajul pleacă de pe numărul omului
+care oricum vorbește cu părinții azi, deci nu are nevoie nici de aprobare de șablon, nici de plată
+per conversație.
+
+Concret, e mai puțin decât pare: `Profile.phone` există deja în
+`apps/api/src/entities/profile.entity.ts` și e unic, iar frontend-ul normalizează la `+40…` înainte
+să trimită (`normalizePhone` din `apps/web/app/composables/useUtils.ts`), deci constructorul de link
+are o singură formă de tratat și tot ce face e să scoată `+`-ul și să pună textul URL-encodat.
+
+**Ce lipsește ca propunerea să devină decizie: cifrele.** Argumentul de mai sus e structural — cere,
+contract, verificare — și rămâne valabil oricare ar fi tariful. Dar formularea inițială a story-ului
+cerea „costuri estimate", iar un argument calitativ nu ține locul unei comparații. Înainte de
+confirmare se scriu, alături, patru numere:
+
+- abonamentul lunar al furnizorului intermediar, în euro pe lună, cerut de la doi furnizori, nu de
+  la unul;
+- tariful Meta per conversație pentru categoria potrivită mesajelor de aici (utilitare, inițiate de
+  școală), pentru România — nu tariful generic din pagina de marketing;
+- volumul lunar de mesaje urgente, estimat din realitatea de azi: câte anulări și câte întârzieri au
+  fost în ultimele trei luni. Fără el, tariful per conversație nu se transformă în cost lunar;
+- costul variantei propuse: zilele de dezvoltare ale ecranului, plus minutele de admin per grupă per
+  trimitere — al doilea e costul recurent și e cel care crește, vezi mai jos.
+
+Cifrele nu se inventează aici. Se cer, se scriu în epic și abia atunci propunerea se confirmă sau
+cade. Dacă răspunsul e API-ul, S8 se rescrie, nu se extinde.
+
+**Costul propunerii, scris ca să nu fie descoperit.** Nimic nu e automat: nu pleacă nimic la 8
+dimineața, nu există reîncercare, și **nu există dovadă de livrare** — platforma nu are de unde ști
+dacă adminul chiar a apăsat „trimite" în WhatsApp. Deci evidența din S5 rămâne despre email, iar
+WhatsApp-ul nu produce acolo o stare `trimis` pe care nimeni n-a verificat-o. O stare falsă ar fi
+mai rea decât lipsa ei: pe una falsă se ia decizia „părintele știe".
+
+Al doilea cost e că nu scalează. La câteva sute de familii, un link pe copil devine muncă de om cu
+ora, și **atunci** se redeschide întrebarea API-ului — condiția e scrisă aici tocmai ca revenirea la
+ea să fie planificată, nu descoperită.
+
+În schimb, propunerea e deliberat una care se poate arunca: dacă se alege API-ul, mai târziu sau de
+la început, ecranul de linkuri dispare fără să lase nimic în urmă — niciun tabel, nicio stare, nicio
+migrare. Ăsta e argumentul care rămâne în picioare și dacă cifrele ies în favoarea API-ului: costul
+de a te răzgândi e aproape zero.
+
+`Profile.phone` e `nullable`, ca și adresa de email. Un copil al cărui părinte nu are telefon apare
+în listă marcat ca atare, nu lipsește din ea — aceeași regulă ca la S5, din același motiv: absența
+unui destinatar e o informație, nu un rând de sărit.
+
+**Acceptanță, în două trepte.** Întâi, cea care lipsește azi: cele patru numere de mai sus sunt
+scrise în epic, unul lângă altul, iar patronul confirmă sau respinge propunerea. Abia după aceea, a
+doua: adminul deschide pagina unei grupe, are câte un link gata de copiat per copil, cu text în
+română precompletat, și trimite fără să tasteze nimic de mână; copiii ai căror părinți nu au telefon
+apar în listă, marcați.
+
+### S9 · Trimitere declanșată de admin
+
+Documentele copiilor nu pleacă singure. Adminul deschide grupa, vede documentele noi urcate de
+agentul din [E14](E14-proiecte-elevi.md), bifează ce se trimite și apasă un buton.
+
+**De ce un buton și nu un job de seară.** Un job de seară presupune că nimeni nu trebuie să se uite
+la ce pleacă. Presupunerea e falsă exact aici: un document urcat dintr-un folder de rețea poate fi
+al altui copil, poate fi ilizibil, poate avea în cadru un copil în loc de lucrarea lui — iar între
+folder și părinte singurul filtru posibil e un om. Butonul nu e o comoditate de interfață, e
+**momentul în care cineva își asumă ce pleacă.** Odată trimis, un email nu se retrage; regula e
+aceeași ca la difuzările din S7, doar că aici obiectul e un copil anume.
+
+Ce înseamnă mecanic:
+
+- Selecția e pe grupă și pe document, dar **trimiterea se desface per părinte**: un click produce N
+  mesaje, fiecare cu exact un destinatar și exact documentele copilului lui. Asta e diferența față
+  de anunțul din S7, care e un text către o grupă și **nu are voie** să conțină date despre un copil
+  anume. Aici totul e despre un copil anume — tocmai de aceea nu poate fi o difuzare.
+- Cele N mesaje intră în outbox-ul din S3 și pleacă de acolo. Butonul confirmă că s-au pus la
+  trimitere, nu că au ajuns.
+- **A doua apăsare nu retrimite.** Un document `trimis` e sărit, iar adminul vede de ce. Fără asta,
+  un click nervos pe o conexiune lentă dublează tot grupul.
+- Regula din S6 se aplică și ea: desfacerea e **per părinte, nu per copil.** Un părinte cu copii în
+  două grupe, trimise amândouă în aceeași zi, primește un mesaj cu amândouă, nu două mesaje. Faptul
+  că declanșatorul e un om nu e o portiță prin care iese o rafală.
+- Preferințele din S4 se aplică și aici: butonul nu le calcă. Un părinte dezabonat de la documente
+  apare ca nelivrat, cu motivul lui, în evidența din S5 — nu primește mesajul și nici nu dispare
+  tăcut din raportul trimiterii.
+
+**Acceptanță:** adminul bifează opt documente dintr-o grupă și apasă o dată; opt părinți primesc
+fiecare documentul copilului lui, și nimeni altceva. A doua apăsare nu trimite nimic. Un părinte
+fără adresă, cu adresă neconfirmată sau dezabonat apare în raportul trimiterii cu motivul lui.
 
 ## Dependențe
 
@@ -236,6 +369,12 @@ o rafinare, e o cerință de la început.
 **Un email greșit trimis la toți nu se poate retrage.** Confirmare obligatorie și trimitere de test
 către admin înainte de orice difuzare în masă.
 
+**Ce depinde de un buton nu pleacă dacă nu apasă nimeni.** E reversul deciziei din S9: jobul de
+seară pleca și într-o zi aglomerată, butonul nu. Riscul nu se închide cu disciplină, ci cu
+vizibilitate — lista grupei arată câte documente sunt `nou` și de câte zile, iar cifra se vede din
+meniul zonei de admin, nu doar dacă intri pe grupă. Un document rămas `nou` de trei zile e o
+problemă operațională, nu o stare.
+
 **Adresele părinților sunt date personale.** Faptul că adresa devine obligatorie la înregistrare nu
 scutește de temei și scop — o cere mai apăsat, fiindcă un câmp obligatoriu nu mai lasă părintelui
 alegerea. Iar în bază rămân profiluri fără adresă, create de admin: lipsa lor se vede în evidența
@@ -249,6 +388,10 @@ din S5, nu se pierde.
 Toate epic-urile dependente folosesc acest sistem, niciunul nu trimite direct. Fiecare mesaj are
 evidență, inclusiv cele care nu au avut unde să plece. Preferințele sunt respectate.
 
+Fiecare mesaj despre un copil are un declanșator numit: fie o regulă automată scrisă în epicul care
+o cere, fie un om care a apăsat un buton. Niciun document nu e într-o stare pe care interfața n-o
+arată.
+
 ## Decizii luate
 
 | Decizie | Valoare |
@@ -259,6 +402,13 @@ evidență, inclusiv cele care nu au avut unde să plece. Preferințele sunt res
 | Substrat pentru coadă și joburi | **Postgres**, în procesul API. Fără Redis, fără BullMQ |
 | Destinatarul unui mesaj despre un copil | **Părintele lui, exclusiv.** Un copil are un `Profile`, cu o adresă |
 | Adresa de email a părintelui | **Obligatorie și confirmată la înregistrare.** Profilul creat de admin rămâne fără |
+| Trimiterea documentelor către părinți | **Adminul apasă butonul**, pe grupă, după ce se uită la ce pleacă. Nimic nu pleacă automat, seara |
+| Starea unui document | **nou / trimis / eroare**, vizibilă în lista grupei, nu doar în evidența de mesaje |
+
+Canalul secundar **nu e în tabelul ăsta**, deși a fost pentru scurt timp. Forma propusă la S8 —
+linkuri `wa.me`, nu WhatsApp Business API — e o recomandare a echipei, nu o decizie a patronului, și
+stă la [Întrebări deschise](#întrebări-deschise) până primește un răspuns. Diferența nu e formală:
+tabelul ăsta e citit ca listă de lucruri care nu se mai discută.
 
 **Un copil, un părinte, o adresă.** Întrebarea „ce facem când copilul are doi părinți care vor
 amândoi mesajele?" se închide cu răspunsul ăsta, nu cu o listă de destinatari. Motivul e cel
@@ -268,8 +418,8 @@ reducerea de frați, care se numără per familie — o familie cu doi copii ar 
 ci o a doua adresă pe același `Profile`, o coloană, și **tot un singur mesaj trimis la două
 adrese**, nu două mesaje — altfel S6 devine minciună pentru jumătate din familii.
 
-**Nimic despre un copil nu ajunge la altă familie.** Proiectul, rezumatul de seară, prezența,
-factura, mementoul de restanță — fiecare are exact un destinatar, părintele copilului respectiv.
+**Nimic despre un copil nu ajunge la altă familie.** Documentul, prezența, factura, mementoul de
+restanță — fiecare are exact un destinatar, părintele copilului respectiv.
 Anunțurile din S7 sunt singura excepție și sunt exact reversul: se adresează unei grupe sau unei
 locații și **nu au voie să conțină date despre un copil anume**. Un anunț care numește un copil e o
 scurgere, nu un anunț, iar previzualizarea obligatorie de dinaintea difuzării e locul unde se
@@ -282,6 +432,14 @@ prinde. Regula nu e o preferință de produs: e ce face diferența între „pla
 profil fără date de contact, care rămâne intenționat. Regula se scrie în
 [E11](E11-inscrieri-capacitate.md), nu aici; aici contează doar consecința: canalul are pe unde
 pleca pentru familiile venite pe drumul obișnuit, iar restul se văd în evidența din S5.
+
+**Trimiterea o declanșează adminul, nu ceasul.** Decizia vine odată cu rescrierea fluxului din
+[E14](E14-proiecte-elevi.md): documentele urcă singure dintr-un folder de rețea, dar ultimul pas
+rămâne al unui om, care se uită pe grupă și apasă. Motivul e cel din S9 — între un folder urmărit
+automat și cutia poștală a unui părinte, singura verificare posibilă că documentul e al copilului
+potrivit e o pereche de ochi. Consecința pentru epicul ăsta e că „automat" nu mai e singurul mod de
+declanșare, deci tabelul din Problemă are o coloană în plus, iar outbox-ul din S3 servește și un
+declanșator uman.
 
 **Cheile separate** costă o variabilă de mediu și un rând în `turbo.json`. Motivul e scris deja în
 cod: comentariul din `apps/web/server/utils/rate-limit.ts` recunoaște că limitatorul e per-instanță,
@@ -305,5 +463,10 @@ nu scalează la volume mari; la volumul ăsta, pragul nu se atinge.
   [Decizii luate](#decizii-luate), regula în [E11](E11-inscrieri-capacitate.md).
 - ~~Ce se întâmplă când un copil are doi părinți care vor amândoi mesajele?~~ **Un copil are un
   părinte, cu o adresă.** Motivul, la [Decizii luate](#decizii-luate).
-- Rămâne WhatsApp canalul principal pentru urgențe, în afara platformei?
+- Rămâne WhatsApp canalul principal pentru urgențe, în afara platformei? **Propunere, de confirmat:
+  da, prin linkuri `wa.me` — platforma pregătește mesajul, omul îl trimite de pe telefonul lui, fără
+  WhatsApp Business API.** E singurul lucru din epicul ăsta pe care l-a propus echipa, nu l-a decis
+  patronul, deci a rămas aici și nu a urcat la [Decizii luate](#decizii-luate). Argumentul,
+  costurile pe care le lasă neacoperite și pragul la care întrebarea se redeschide oricum — la S8.
+  De confirmat cu cele patru cifre de acolo pe masă.
 - Cine scrie textele? Sunt fața școlii și merită scrise cu grijă, nu generate.

@@ -85,6 +85,25 @@ libere — date din [E11](E11-inscrieri-capacitate.md) — alege ora, lasă date
 Sub două minute, fără telefon, funcțional pe mobil. Confirmarea și memento-ul cu o zi înainte pleacă
 prin [E17](E17-comunicare-notificari.md).
 
+**„Cu locuri libere" e o condiție tare, nu un filtru de curtoazie.** O probă ocupă unul dintre cele
+10 locuri ale sălii cât ține — [E11](E11-inscrieri-capacitate.md), D7 —, deci o grupă plină nu poate
+primi un copil la probă și **formularul public nu are voie să o ofere**. Locurile libere se
+calculează la fel peste tot: capacitatea grupei minus înscrierile active minus probele deja
+programate.
+
+Practic, asta cere trei lucruri de la S2:
+
+- Lista de ore afișată se construiește din grupele cu cel puțin un loc liber, nu din toate grupele
+  compatibile ca vârstă.
+- Verificarea se reface **la trimitere**, nu doar la afișare. Între momentul în care părintele
+  deschide pagina și cel în care apasă butonul, ultimul loc poate fi luat de altcineva sau de un
+  admin din interfață; ecranul e o fotografie, nu o rezervare.
+- Când nu mai există niciun loc la locația și vârsta cerute, fluxul nu se termină într-un mesaj de
+  eroare. Colectează aceleași date și creează un lead fără probă programată, marcat „nu erau
+  locuri" — de unde adminul îl pune pe lista de așteptare din [E11](E11-inscrieri-capacitate.md) S3,
+  care e prin D2 tot o operațiune de admin. Părintele nu se pune singur pe listă, dar nici nu pleacă
+  de pe site fără să lase nimic, ceea ce e singurul rezultat cu adevărat prost.
+
 **Fluxul rămâne public și după decizia de a nu avea auto-înscriere**, fiindcă nu e o înscriere: o
 programare la probă e un lead, nu o obligație, și nu creează cont. Contul de părinte vine mai
 târziu, creat sau aprobat de admin — vezi [Decizii luate](#decizii-luate); niciun cont ieșit din
@@ -102,8 +121,10 @@ fost ales pentru un email; aici, unde fiecare trimitere devine un rând în baz�
 Cerința rămâne cea veche — protecție care nu enervează un părinte real.
 
 **Acceptanță:** o programare completă durează sub două minute pe telefon. Proba apare direct în
-lista profesorului. Un mesaj prins de honeypot nu creează lead, iar expeditorul primește același
-răspuns ca la o trimitere reușită.
+lista de prezență a grupei, iar numărul de locuri libere al grupei scade cu unu. O grupă plină nu
+apare deloc printre orele oferite, iar o trimitere pentru un loc luat între timp e refuzată, cu
+oferta de a fi contactat. Un mesaj prins de honeypot nu creează lead, iar expeditorul primește
+același răspuns ca la o trimitere reușită.
 
 ### S3 · Urmărire
 
@@ -144,7 +165,13 @@ transformă o problemă de urmărire într-o concluzie greșită despre curs. De
 și timpul de la probă ținută la decizie — dacă mediana crește, vinovată e lista din S3, nu ora de
 curs.
 
-**Acceptanță:** raportul răspunde la "ce canal aduce cele mai multe înscrieri, și la ce cost".
+A doua cifră de urmărit e **cererile care nu au găsit loc**: câți au ajuns la formular și au plecat
+fără oră de probă, pe locație și pe vârstă. E singura măsură a cererii pe care școala nu o poate
+servi, și e invizibilă altfel — un părinte care nu găsește nicio oră liberă nu apare în nicio rată de
+conversie, fiindcă n-a intrat niciodată în pâlnie.
+
+**Acceptanță:** raportul răspunde la "ce canal aduce cele mai multe înscrieri, și la ce cost", și la
+"câți oameni am refuzat luna asta fiindcă erau grupele pline".
 
 ### S5 · Recomandări
 
@@ -181,14 +208,19 @@ acopere.
 [E07](E07-securitate-gdpr.md): temei legal, termen de păstrare pentru cei care nu se înscriu,
 consimțământ pentru comunicări comerciale.
 
-**Programarea automată poate suprapopula grupele cu probe.** Trebuie limitat numărul de probe
-simultane per grupă, altfel cursul are de suferit.
+**Riscul de suprapopulare cu probe s-a închis, și s-a mutat.** Formularul nu poate umple o grupă cu
+copii noi, fiindcă fiecare probă consumă un loc din cele 10 ale sălii și grupele pline nu se mai
+oferă — [E11](E11-inscrieri-capacitate.md), D7. Ce rămâne e riscul invers: **pâlnia se oprește când
+grupele sunt pline.** Un părinte care găsește site-ul în octombrie, la mijloc de modul, poate să nu
+aibă nicio oră de ales. Măsura nu e tehnică — sunt săli și grupe în plus, adică o decizie de
+business, luată din cifrele lui S4 — dar platforma trebuie să o facă vizibilă: câte cereri au ajuns
+la „nu erau locuri", pe locație și pe vârstă, e cifra care spune când merită deschisă o grupă nouă.
 
 ## Definition of done
 
-Programarea la probă funcționează fără telefon. Fiecare lead are stare și responsabil. Nicio probă
-ținută nu rămâne fără decizie scrisă — înscriere sau motiv de pierdere. Pâlnia se măsoară pe sursă
-și pe locație.
+Programarea la probă funcționează fără telefon și nu promite niciodată un loc care nu există. Fiecare
+lead are stare și responsabil. Nicio probă ținută nu rămâne fără decizie scrisă — înscriere sau motiv
+de pierdere. Pâlnia se măsoară pe sursă și pe locație, inclusiv cererile oprite de lipsa locurilor.
 
 ## Decizii luate
 
@@ -244,6 +276,22 @@ mai are obiect. Se repune întrebarea în clipa în care apare fie înscriere di
 online fără contract semnat fizic — atunci formularul de programare devine primul pas al unei
 relații contractuale, nu doar o cerere de informații.
 
+**O probă ocupă un loc din grupă. Nu există plafon separat de probe.**
+
+Întrebarea „câte probe simultane suportă o grupă fără să deranjeze cursul" avea un răspuns implicit
+greșit — că ar exista un al doilea număr, de reglat separat. Nu există. Sala are 10 locuri, un copil
+la probă stă pe unul dintre ele, iar grupa e plină când înscrierile active plus probele programate
+ajung la capacitate. Vezi [E11](E11-inscrieri-capacitate.md), D7, unde e regula.
+
+Un plafon separat ar fi însemnat două numere pentru aceeași sală, care se pot contrazice: „maxim 3
+probe" într-o grupă cu un singur loc liber promite trei scaune care nu există. Efectul căutat —
+cursul să nu fie deraiat de patru copii noi deodată — se obține oricum, fiindcă cele patru locuri
+trebuie să fie libere ca să poată fi oferite.
+
+Pentru S2, consecința e directă: **formularul public nu poate oferi o grupă fără loc liber.** Nu ca
+politețe de interfață, ci fiindcă e aceeași verificare de capacitate care refuză o înscriere, făcută
+în același loc.
+
 **Proba e gratuită** — vezi [E11](E11-inscrieri-capacitate.md).
 
 Pentru acest epic, consecința e că S2 și S3 se schimbă la fel de mult ca S1:
@@ -258,5 +306,7 @@ Pentru acest epic, consecința e că S2 și S3 se schimbă la fel de mult ca S1:
 ## Întrebări deschise
 
 - Cine răspunde lead-urilor, și în cât timp?
-- Câte probe simultane suportă o grupă fără să deranjeze cursul?
+- ~~Câte probe simultane suportă o grupă fără să deranjeze cursul?~~ Nu e o limită separată: proba
+  ocupă un loc din cele 10 ale sălii, deci limita e capacitatea grupei. Vezi
+  [Decizii luate](#decizii-luate).
 - Care e beneficiul la recomandare, și cine îl suportă?

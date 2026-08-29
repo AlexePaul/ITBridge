@@ -1,6 +1,7 @@
 # E07 · Securitate, GDPR și consimțământ
 
-**Status:** propus · **Pistă:** Fundație · **Depinde de:** E04, E05 · **Blochează:** E09, E14, E19
+**Status:** propus · **Pistă:** Fundație · **Depinde de:** E04, E05 · **Blochează:** E14, E19; E09 doar
+odată cu reluarea lui S2
 
 ## Problemă
 
@@ -210,19 +211,22 @@ Nu se face — vezi [Decizii luate](#decizii-luate).
 [E04](E04-migrari-date.md) pentru schema de consimțământ și audit,
 [E05](E05-robustete-backend.md) pentru filtrarea datelor din loguri.
 
-**Ce blochează E07, blochează la nivel de story.** Niciunul dintre cele trei epicuri din antet nu
-așteaptă E07 ca să înceapă; fiecare are câte un story care nu se poate bifa fără unul de aici:
+**Ce blochează E07, blochează la nivel de story.** Niciun epic de mai jos nu așteaptă E07 ca să
+înceapă; fiecare are câte un story care nu se poate bifa fără unul de aici:
 
-- [E09](E09-personal-roluri.md) S2 — rolul de profesor lărgește accesul la datele de contact ale
-  părinților, iar decizia e apărabilă doar cu jurnalul din S3. E09 spune același lucru din partea
-  cealaltă, în „Dependențe": S3 se livrează odată cu S2, nu după, fiindcă un jurnal pornit mai târziu
-  nu reconstituie accesele deja făcute.
 - [E14](E14-proiecte-elevi.md) — vitrina publică nu poate arăta nimic fără consimțământul din S2.
 - [E19](E19-seo-geo.md) S8 — analiza de trafic respectă bannerul din S5.
+- [E09](E09-personal-roluri.md) S2 — **muchie suspendată, nu desființată.** Exista fiindcă rolul de
+  profesor lărgea accesul la datele de contact ale părinților, iar decizia era apărabilă doar
+  însoțită de jurnalul din S3. Nu se mai implementează rolul: profesorul e admin și vede tot prin
+  rol, nu printr-o excepție, deci nu se lărgește niciun acces și nu se cere nicio urmă în plus. E09
+  spune același lucru din partea cealaltă, în „Dependențe". Redevine blocantă în ziua în care se reia
+  E09 S2, cu motivul neatins: un jurnal pornit după nu reconstituie accesele deja făcute, deci S3 se
+  livrează odată cu S2, nu după.
 
 Dintre astea, doar [E14](E14-proiecte-elevi.md) are E07 în coloana „Depinde de" a tabelului din
 [README](README.md): acolo consimțământul e precondiție de model, nu criteriu de acceptanță — fără el
-epicul nu are ce livra. Celelalte două sunt muchii slabe, de același fel cu cele care pleacă din
+epicul nu are ce livra. Celelalte sunt muchii slabe, de același fel cu cele care pleacă din
 [E17](E17-comunicare-notificari.md) către E11, E12 și E16: epicurile se construiesc și se livrează
 fără E07, doar că rămân cu criterii nebifate. Locul lor e aici, în `Blochează`, și în graful din
 README — nu în coloana „Depinde de" — ca să nu fie descoperite ca surpriză la sfârșitul epicului
@@ -273,6 +277,14 @@ difuzare care nu se face rămâne, totuși, un câmp de cerut, de stocat și de 
 
 **Contractul de înscriere se semnează pe hârtie.** Platforma reține faptul, data și, dacă e cazul,
 versiunea — nu textul și nu acceptarea. Vezi S8.
+
+**Nu există rol de profesor, deci E07 nu mai blochează E09 azi.** Cei doi oameni care predau sunt
+proprietarii școlii și au rol de admin; rolurile `TEACHER` și `LOCATION_MANAGER` nu se implementează
+acum. Cade odată cu ele și decizia „profesorul vede datele de contact complete ale părinților din
+grupele lui", care era singurul motiv pentru care [E09](E09-personal-roluri.md) S2 avea nevoie de
+jurnalul din S3: nu se consemnează un acces în plus care nu se acordă nimănui. S3 rămâne în scop din
+celelalte motive din [Problemă](#problemă) — o factură modificată fără urmă e independentă de cine
+predă. Se reia, cu dependență cu tot, la primul profesor care nu e proprietar.
 
 **Fără drept de retragere în 14 zile.** Termenii din S5 nu trebuie să acopere OUG 34/2014, cum se
 scrisese aici mai devreme, fiindcă nu se mai încheie contract la distanță: nu există auto-înscriere,
