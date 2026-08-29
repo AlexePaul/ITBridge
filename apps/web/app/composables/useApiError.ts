@@ -51,6 +51,10 @@ const MESSAGES: Record<string, string> = {
   ROOM_NAME_TAKEN: "Există deja o sală cu acest nume la această locație.",
   ROOM_HAS_GROUPS: "Sala găzduiește grupe. Mută întâi grupele în altă sală.",
   ROOM_INACTIVE: "Sala sau locația este inactivă, deci nu poate primi grupe noi.",
+
+  // E12. Only reachable by opening an inactive group's attendance page directly - the listing
+  // filters them out - but without an entry here the admin gets the English sentence from the API.
+  GROUP_INACTIVE: "Grupa este inactivă. Reactiveaz-o înainte să îi generezi orarul.",
 };
 
 /**

@@ -112,10 +112,27 @@
             placeholder="Selectează ora de curs..."
             class="w-full"
           />
-          <p v-if="sessionOptions.length === 0" class="text-sm text-warning mt-2">
-            Grupa nu are ore programate fără prezență înregistrată. Generează orarul din pagina de
-            grupe.
-          </p>
+          <div v-if="sessionOptions.length === 0" class="mt-2 space-y-2">
+            <p class="text-sm text-warning">
+              Grupa nu are ore programate fără prezență înregistrată. Generează-i orarul chiar de
+              aici, pentru ultimele 4 săptămâni și pentru următoarele 8.
+            </p>
+            <UButton
+              color="primary"
+              variant="soft"
+              size="sm"
+              icon="i-lucide-calendar-plus"
+              :loading="isGeneratingSchedule"
+              :disabled="isGeneratingSchedule"
+              @click="handleGenerateSchedule"
+            >
+              Generează orarul grupei
+            </UButton>
+            <p class="text-xs text-muted">
+              Poți apăsa liniștit de mai multe ori: orele care există deja rămân neatinse, iar cele
+              anulate nu sunt reînviate.
+            </p>
+          </div>
         </div>
         <UModal title="Confirmare Salvare Prezență">
           <UButton class="ml-auto" color="primary" size="lg" :disabled="!selectedSessionId">
@@ -156,8 +173,9 @@ import { apiErrorMessage } from "~/composables/useApiError";
 import { useNotifications } from "~/composables/useNotifications";
 import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
-import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
+import { DEFAULT_HORIZON_WEEKS, useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
+import { generatedScheduleMessage } from "~/composables/useClassSessionSchedule";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useGroupsStore } from "~/stores/groupsStore";
@@ -181,6 +199,7 @@ const attendanceApi = useAttendanceApi();
 const classSessionsApi = useClassSessionsApi();
 const sessions: Ref<ClassSessionWithAttendance[]> = ref([]);
 const selectedSessionId = ref<number | undefined>(undefined);
+const isGeneratingSchedule = ref(false);
 
 /** How far back the picker looks. Beyond this, a forgotten register is a data-entry job, not a screen. */
 const SESSION_WINDOW_DAYS = 28;
@@ -266,18 +285,13 @@ const removeChildFromList = (childId: number) => {
   availableChildren.value.push(childrenStore.getChildById(childId) as Child);
 };
 
-onMounted(async () => {
-  await childrenApi.fetchChildren();
-  children.value = await childrenStore.getChildrenByGroupId(groupId.value);
-  availableChildren.value = await childrenStore.getChildrenNotInGroupId(groupId.value);
-  await groupsApi.fetchGroups();
-  group.value = groupsStore.getGroupById(groupId.value as string);
-
-  // Initialize attendance data map with all group children
-  children.value.forEach((child) => {
-    attendanceData[String(child.id)] = true; // Default to present
-  });
-
+/**
+ * The classes this screen can take a register for, and the selection that follows from them.
+ *
+ * Called again after generating, so the picker fills in without a page reload - the whole point of
+ * putting the button in the empty state.
+ */
+const loadSessions = async () => {
   const today = new Date();
   sessions.value = await classSessionsApi.fetchSessions({
     groupId: parseInt(groupId.value),
@@ -290,12 +304,56 @@ onMounted(async () => {
   // The most recent unmarked class, which is the one the teacher has just taught. `sessionOptions`
   // is already newest-first, so that is the head of the list.
   selectedSessionId.value = sessionOptions.value[0]?.value;
+};
+
+onMounted(async () => {
+  await childrenApi.fetchChildren();
+  children.value = await childrenStore.getChildrenByGroupId(groupId.value);
+  availableChildren.value = await childrenStore.getChildrenNotInGroupId(groupId.value);
+  await groupsApi.fetchGroups();
+  group.value = groupsStore.getGroupById(groupId.value as string);
+
+  // Initialize attendance data map with all group children
+  children.value.forEach((child) => {
+    attendanceData[String(child.id)] = true; // Default to present
+  });
+
+  await loadSessions();
 });
 
 const { success, error } = useNotifications();
 
 const handleBack = () => {
   navigateTo("/admin/attendance/group");
+};
+
+/**
+ * Generates this group's timetable, from where the admin is actually blocked.
+ *
+ * The horizon starts at the beginning of the picker's own window, not today, and that is the whole
+ * point: an admin lands here to record a register for a class that has already happened, and a
+ * run that only writes future classes would leave the picker just as empty as it found it. Four
+ * weeks back fills exactly what this screen can offer, and `DEFAULT_HORIZON_WEEKS` on top leaves
+ * the group with the same eight weeks ahead that generating from the groups page would give it.
+ *
+ * Safe to repeat: the API is idempotent by (group, day), so a second press writes nothing and
+ * cannot resurrect a cancelled class.
+ */
+const handleGenerateSchedule = async () => {
+  isGeneratingSchedule.value = true;
+  try {
+    const result = await classSessionsApi.generateSessions({
+      groupId: parseInt(groupId.value),
+      from: isoDate(addDays(new Date(), -SESSION_WINDOW_DAYS)),
+      weeks: SESSION_WINDOW_DAYS / 7 + DEFAULT_HORIZON_WEEKS,
+    });
+    await loadSessions();
+    success(generatedScheduleMessage(result));
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut genera orarul grupei."));
+  } finally {
+    isGeneratingSchedule.value = false;
+  }
 };
 
 const handleSubmit = async () => {
