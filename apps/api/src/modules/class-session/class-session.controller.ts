@@ -89,4 +89,20 @@ export class ClassSessionController {
     async cancelSession(@Param('id', ParseIntPipe) id: number, @Body() cancelClassSessionDto: CancelClassSessionDto) {
         return this.classSessionService.cancelSession(id, cancelClassSessionDto);
     }
+
+    @Put(':id/reinstate')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiOperation({
+        summary: 'Put back a class that was called off',
+        description:
+            'For the cancellation made by mistake, or the class taught anyway. Without it the mistake is a dead end: attendance refuses a cancelled session, and generation is idempotent so it never resurrects one. The session returns to `scheduled`, not `held` — reinstating says the class exists again, not that anyone has confirmed it happened.',
+    })
+    @ApiResponse({ status: 200, description: 'Session reinstated' })
+    @ApiResponse({ status: 404, description: 'Class session not found' })
+    @ApiResponse({ status: 409, description: 'The session is not cancelled' })
+    async reinstateSession(@Param('id', ParseIntPipe) id: number) {
+        return this.classSessionService.reinstateSession(id);
+    }
 }

@@ -1,6 +1,17 @@
 # E17 · Comunicare și notificări
 
-**Status:** propus · **Pistă:** Comunicare · **Depinde de:** E05, E06 · **Blochează:** E11, E12, E14, E16, E20
+**Status:** în lucru · **Pistă:** Comunicare · **Depinde de:** E05, E06 · **Blochează:** E11, E12, E14, E16, E20
+
+**A început din altă parte.** Nimeni nu a pornit E17 ca epic. A pornit
+[E12](E12-prezenta-orar.md), iar jobul zilnic cerut de patron — un email către școală cu ședințele
+de ieri rămase fără prezență marcată — avea nevoie de un canal pe care `apps/api` nu îl avea. S-a
+construit exact atât cât cerea el: `MailService` din S1 și outbox-ul cu scheduler-ul lui din S3,
+amândouă parțiale. S2 și S4–S8 nu există deloc.
+
+Două lucruri de citit înainte de orice altceva: **scheduler-ul nu rulează în producție până la
+[E01](E01-infrastructura-medii.md) S4**, fiindcă backend-ul nu e deployat nicăieri și nu există
+fișierul de ecosistem care să-l fixeze pe o singură instanță; și **niciun mesaj nu a plecat încă
+spre un părinte** — singurul destinatar de până acum e adresa școlii.
 
 ## Problemă
 
@@ -16,21 +27,26 @@ serverless pe Vercel, care nu vede baza de date.
 
 Distincția contează, fiindcă schimbă ce e S1: nu se alege un furnizor, se confirmă unul.
 
+**Paragraful de dinainte descrie starea de până la [E12](E12-prezenta-orar.md)**, și se citește ca
+motivul pentru care s-a construit ce s-a construit. Între timp `apps/api` are un `MailService` și o
+coadă — S1 și S3, amândouă parțiale. Restul enumerării stă în picioare: nu există șabloane și nu
+există o evidență a ce s-a trimis, iar către un părinte tot nu a plecat nimic.
+
 Toată comunicarea cu părinții se face astăzi în afara platformei — cel mai probabil pe WhatsApp și
 telefon. Funcționează la o locație și douăzeci de familii. La două locații nu mai scalează, iar
 informația nu lasă urmă: nimeni nu poate spune dacă un părinte a fost anunțat de o anulare.
 
 Șapte epic-uri depind de existența acestui canal:
 
-| Epic | Ce trimite | Cine declanșează |
-|---|---|---|
-| [E11](E11-inscrieri-capacitate.md) | loc eliberat de pe lista de așteptare | eveniment, automat |
-| [E12](E12-prezenta-orar.md) | absență, anulare de ședință, recuperare care expiră | eveniment, automat |
-| [E13](E13-progres-evaluare.md) | raport de final de modul, certificat | închiderea modulului, automat |
-| [E14](E14-proiecte-elevi.md) | documentele copilului | **adminul, pe grupă** |
-| [E15](E15-pricing-facturare.md) | factură emisă | emiterea, automat |
-| [E16](E16-plati-fiscal.md) | confirmare de plată, memento de restanță | eveniment, plus job programat |
-| [E20](E20-achizitie-lead.md) | confirmare de programare la lecția de probă | eveniment, automat |
+| Epic                               | Ce trimite                                          | Cine declanșează              |
+| ---------------------------------- | --------------------------------------------------- | ----------------------------- |
+| [E11](E11-inscrieri-capacitate.md) | loc eliberat de pe lista de așteptare               | eveniment, automat            |
+| [E12](E12-prezenta-orar.md)        | absență, anulare de ședință, recuperare care expiră | eveniment, automat            |
+| [E13](E13-progres-evaluare.md)     | raport de final de modul, certificat                | închiderea modulului, automat |
+| [E14](E14-proiecte-elevi.md)       | documentele copilului                               | **adminul, pe grupă**         |
+| [E15](E15-pricing-facturare.md)    | factură emisă                                       | emiterea, automat             |
+| [E16](E16-plati-fiscal.md)         | confirmare de plată, memento de restanță            | eveniment, plus job programat |
+| [E20](E20-achizitie-lead.md)       | confirmare de programare la lecția de probă         | eveniment, automat            |
 
 A treia coloană e o decizie, nu o observație. Tot ce scrie „automat" pleacă fiindcă s-a întâmplat
 ceva în bază: o factură emisă, o ședință anulată, un loc eliberat. Rândul lui
@@ -119,6 +135,28 @@ muncă de recontactare, nu de cod.
 **Acceptanță:** un test de livrabilitate trece cu punctaj bun. Emailurile ajung în inbox la Gmail,
 Yahoo și Outlook.
 
+**Livrat parțial — partea de cod, nu partea de operare.**
+`apps/api/src/modules/mail/mail.service.ts` e singurul loc din backend care vorbește cu furnizorul:
+un POST autentificat pe `https://api.resend.com/emails`, fără SDK, aceeași cerere pe care ar
+face-o pachetul `resend`. Nimic din aplicație nu îl cheamă direct — totul trece prin outbox-ul din
+S3, altfel dispare exact garanția pentru care există el.
+
+Cheile sunt separate, cum s-a decis: `MAIL_RESEND_API_KEY` și `MAIL_FROM`, distincte de
+`RESEND_API_KEY` și `CONTACT_FROM` ale rutei publice, declarate în `turbo.json` prin `MAIL_*` și
+validate în `apps/api/src/config/env.validation.ts`. Amândouă sunt **opționale**: fără ele
+aplicația pornește normal, `MailService` o spune o dată la boot, iar mesajele se scriu oricum în
+coadă. Configurația lipsă e tratată ca eșec **temporar**, nu permanent, deci un deploy care pune
+cheia recuperează ce s-a acumulat — dar numai în cele ~2 ore de reîncercări din S3, după care
+rândurile trec pe `failed` cu motivul scris pe ele. Expeditorul din `.env.example` e `notificari@`,
+nu `noreply@`: un părinte care primește un anunț de anulare apasă „răspunde".
+
+**Rămâne tot ce cere acceptanța de mai sus**, fiindcă nimic din ea nu se poate face din repo:
+testul de livrabilitate la Gmail, Yahoo și Outlook, SPF/DKIM/DMARC verificate pentru adresa nouă de
+expediere, și întrebarea de volum și de plan. Rămâne și **precondiția din capul story-ului** — câți
+părinți au azi `Profile.email` completat. Niciuna nu s-a putut atinge: a doua cheie nu e emisă,
+backend-ul nu rulează nicăieri, iar singurul destinatar de până acum e adresa școlii din
+`MAIL_OFFICE_ADDRESS`. Ce s-a livrat e capacitatea de a trimite, nu dovada că ajunge.
+
 ### S2 · Șabloane
 
 Șabloane versionate, cu date interpolate, în română, responsive, cu variantă text. Previzualizabile
@@ -173,6 +211,56 @@ integral în Postgres. Purjarea sesiunilor se mută pe același scheduler odată
 
 **Acceptanță:** furnizorul indisponibil o oră nu pierde niciun mesaj și nu blochează nimic. Două
 treceri simultane ale scheduler-ului nu trimit același mesaj de două ori.
+
+**Livrat parțial. Mecanismul e întreg; nu rulează nicăieri și îl folosește un singur apelant.**
+
+Ce există: tabelul `outbox`, din migrarea `1787994566464-ClassSessionsAndOutbox.ts`, cu entitatea
+`apps/api/src/entities/outbox-message.entity.ts`, plus `OutboxService` și `OutboxDispatcher` în
+`apps/api/src/modules/mail/`.
+
+- `queue()` primește `EntityManager`-ul apelantului, deci rândul se scrie **în aceeași tranzacție**
+  cu operațiunea care îl provoacă. Duplicatul se refuză cu `ON CONFLICT DO NOTHING` pe `dedupeKey`,
+  nu cu o excepție prinsă: o instrucțiune eșuată în tranzacția apelantului o abortează pe toată, deci
+  un mesaj repetat ar fi dus factura cu el.
+- Revendicarea e `SELECT … FOR UPDATE SKIP LOCKED`, într-o tranzacție separată de trimitere —
+  altfel un lot de 25 ar ține 25 de rânduri blocate cât e furnizorul de lent. Încercarea se numără
+  **la revendicare**, nu după răspuns, iar `nextAttemptAt` se mută înainte de eliberare: un proces
+  ucis la mijloc nu pierde nimic și nu retrimite imediat.
+- Pauză crescătoare: 2 minute, dublate, plafon o oră, 7 încercări. Ultima cade la ~2 ore, adică
+  dincolo de „furnizor picat o oră" din acceptanță, nu exact pe ea. Un refuz permanent — 4xx, mai
+  puțin 408 și 429 — oprește rândul din prima, fără să aștepte epuizarea celor șapte: aceeași cerere
+  ar primi același refuz.
+- 550 ms între trimiterile aceluiași lot, fiindcă planul curent Resend dă două cereri pe secundă;
+  fără pauză, a doua jumătate a lotului se întoarce 429 și coada își petrece timpul cerându-și scuze
+  singură.
+- Scheduler la 30 de secunde, o singură trecere odată, oprit de `MAIL_OUTBOX_ENABLED=false` —
+  suitele de integrare o setează, ca o trecere de fundal să nu miște rândurile sub aserțiuni.
+- **Obstacolul cu `@nestjs/schedule` s-a rezolvat, prin versiune, nu prin configurație de jest.**
+  Story-ul cerea să nu fie presupus rezolvat: v12 exportă ESM și moare în ts-jest, v6 e CommonJS și
+  se încarcă, deci dependența e fixată la `^6.0.1`. Nimic din setup-ul de teste nu trebuie să știe
+  că pachetul există.
+
+Ce lipsește:
+
+- **Scheduler-ul nu rulează în producție**, și nu e o omisiune: nu există unde. Backend-ul nu e
+  deployat, iar fixarea pe o singură instanță se scrie în fișierul de ecosistem din
+  [E01](E01-infrastructura-medii.md) S4, care nu există. `FOR UPDATE SKIP LOCKED` face două treceri
+  inofensive una față de alta, dar doi workeri PM2 s-ar trezi amândoi la fiecare tic. Până atunci,
+  coada e construită și testată, nu pornită.
+- **Rândul nu ține „șablon plus datele de interpolat", cum scrie mai sus, ci corpul deja randat**
+  (`bodyText`, `bodyHtml`). Șabloanele sunt S2 și nu există, deci un identificator de șablon ar fi
+  numele a ceva inexistent — și are un dezavantaj și după ce S2 se face: un șablon editat între
+  punerea în coadă și trimitere ar schimba un mesaj deja aprobat. Ce e în coadă e ce pleacă.
+  Coloana de HTML e acolo goală tocmai ca S2 să nu ceară o migrare.
+- **Un singur apelant**, jobul zilnic din [E12](E12-prezenta-orar.md). Nicio operațiune de business
+  nu pune încă nimic în coadă, deci „factura și mesajul ei se salvează sau se pierd împreună" e
+  mecanism disponibil, nu mecanism folosit.
+- **Purjarea sesiunilor nu s-a mutat.** Stă tot pe `setInterval`-ul ei din
+  `apps/api/src/modules/auth/session.service.ts`. Motivul pentru care era acolo a dispărut — există
+  un scheduler —, deci mutarea a rămas o datorie, nu un blocaj.
+- Rândurile oprite ca eșec permanent **nu se văd nicăieri.** `OutboxMessage` nu are controller și nu
+  are intrare în `apps/api/src/contract.ts`, intenționat: evidența pe care o citește un admin e S5.
+  Până atunci, „a primit părintele anunțul?" se răspunde cu un `SELECT`.
 
 ### S4 · Preferințe și dezabonare
 
@@ -293,8 +381,9 @@ fără adresă sau cu adresă neconfirmată apare în raportul trimiterii cu mot
 [E06](E06-observabilitate-operare.md) pentru alertare la eșecuri de livrare.
 
 S3 mai are o dependență proprie, de infrastructură: [E01](E01-infrastructura-medii.md) S4 e cel care
-scrie fișierul de ecosistem și, odată cu el, locul unde rulează scheduler-ul. Până există instanța,
-coada se poate construi și testa, dar nu are unde să ruleze continuu.
+scrie fișierul de ecosistem și, odată cu el, locul unde rulează scheduler-ul. Coada e acum
+construită și testată — și tot fără unde să ruleze continuu. Dependența nu mai e o prognoză, e
+starea de azi: tot ce se pune în `outbox` rămâne acolo până când există instanța.
 
 ## Riscuri
 
@@ -329,16 +418,17 @@ arată.
 
 ## Decizii luate
 
-| Decizie | Valoare |
-| --- | --- |
-| Furnizor de email | **Resend**, deja în uz și cu domeniul de expediere verificat |
-| Chei de expediere | **Două** chei și două adrese: una pentru formularul public, alta pentru mailul către părinți |
-| Locul de trimitere către părinți | `apps/api`, printr-un `MailService`. Ruta Nitro rămâne doar a formularului public |
-| Substrat pentru coadă și joburi | **Postgres**, în procesul API. Fără Redis, fără BullMQ |
-| Destinatarul unui mesaj despre un copil | **Părintele lui, exclusiv.** Un copil are un `Profile`, cu o adresă |
-| Adresa de email a părintelui | **Obligatorie și confirmată la înregistrare.** Profilul creat de admin rămâne fără |
-| Trimiterea documentelor către părinți | **Adminul apasă butonul**, pe grupă, după ce se uită la ce pleacă. Nimic nu pleacă automat, seara |
-| Starea unui document | **nou / trimis / eroare**, vizibilă în lista grupei, nu doar în evidența de mesaje |
+| Decizie                                 | Valoare                                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Furnizor de email                       | **Resend**, deja în uz și cu domeniul de expediere verificat                                      |
+| Chei de expediere                       | **Două** chei și două adrese: una pentru formularul public, alta pentru mailul către părinți      |
+| Locul de trimitere către părinți        | `apps/api`, printr-un `MailService`. Ruta Nitro rămâne doar a formularului public                 |
+| Substrat pentru coadă și joburi         | **Postgres**, în procesul API. Fără Redis, fără BullMQ                                            |
+| Ceasul din backend                      | `@nestjs/schedule` **fixat la `^6.0.1`**: v12 exportă ESM și moare în ts-jest, v6 e CommonJS      |
+| Destinatarul unui mesaj despre un copil | **Părintele lui, exclusiv.** Un copil are un `Profile`, cu o adresă                               |
+| Adresa de email a părintelui            | **Obligatorie și confirmată la înregistrare.** Profilul creat de admin rămâne fără                |
+| Trimiterea documentelor către părinți   | **Adminul apasă butonul**, pe grupă, după ce se uită la ce pleacă. Nimic nu pleacă automat, seara |
+| Starea unui document                    | **nou / trimis / eroare**, vizibilă în lista grupei, nu doar în evidența de mesaje                |
 
 **Fără canal secundar în MVP.** Emailul e singurul canal. Propunerea echipei — o pagină de admin cu
 câte un link `wa.me` per copil, cu mesajul precompletat, trimis de pe telefonul omului — a fost
@@ -411,4 +501,6 @@ nu scalează la volume mari; la volumul ăsta, pragul nu se atinge.
 - ~~Rămâne WhatsApp canalul principal pentru urgențe, în afara platformei?~~ **Rămâne exact acolo
   unde e azi: în afara platformei.** Nu se construiește nimic pentru el în MVP — vezi
   [Decizii luate](#decizii-luate). Omul deschide WhatsApp și scrie, ca acum.
-- Cine scrie textele? Sunt fața școlii și merită scrise cu grijă, nu generate.
+- Cine scrie textele? Sunt fața școlii și merită scrise cu grijă, nu generate. **Blochează S2**, și
+  numai S2: ce s-a livrat până acum pune în coadă un corp deja randat, iar singurul destinatar e
+  adresa școlii.

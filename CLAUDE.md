@@ -63,12 +63,13 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — treisprezece module feature în `apps/api/src/modules/`, toate după același tipar
+**Backend** — paisprezece module în `apps/api/src/modules/`, douăsprezece după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `location`, `room`,
-`group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, plus `mail`, care n-are
-controller fiindcă nimic din el nu e expus pe HTTP. Entitățile stau centralizat în `apps/api/src/entities/`
-și sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
-reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
+`group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`. Celelalte două ies din
+tipar: `mail` n-are controller, fiindcă nimic din el nu e expus pe HTTP, iar `health` n-are decât
+atât. Entitățile stau centralizat în `apps/api/src/entities/` și sunt expuse tuturor modulelor prin
+`EntitiesModule` (un singur `TypeOrmModule.forFeature` reexportat), deci un modul nou importă
+`EntitiesModule`, nu entitățile individual.
 
 **Model de date** — `User` (credențiale) și `Profile` (date de contact) sunt separate
 intenționat: un admin poate crea un `Profile` fără cont, iar `GET /users/without-profile`
@@ -308,6 +309,16 @@ date la fiecare cerere. Dacă vine o cerință de revocare instantanee, ăsta e 
 cel prezentat; dacă păstrezi tokenul vechi, a doua reîmprospătare arată ca un replay, iar serverul
 revocă tot lanțul. `useApi.ts` a avut exact bug-ul ăsta și deloga fiecare părinte la ~30 de minute.
 
+**Nimic din datele utilizatorului nu se ține în cookie.** Limita e ~4 KB per cookie, iar depășirea
+nu produce nicio eroare: browserul aruncă tăcut, `useCookie` citește mai departe o valoare goală și
+codul funcționează „corect" pe date care nu există. Prezența a stat acolo, iar o înregistrare cară
+ședința întreagă, cu grupa, sala și locația ei — măsurat pe `GET /attendance/child/:id`, **7 ședințe
+înseamnă 11,7 KB JSON și 18,6 KB URI-encoded**. Cookie-ul dispărea după vreo ședință, iar calendarul
+părintelui se randa gol, ceea ce se citește ca „copilul n-a venit niciodată". `attendanceStore` și
+`classSessionStore` sunt în memorie; în cookies rămân doar tokenurile și locația selectată, adică
+zeci de octeți. Testul care ține linia (`apps/web/test/stores.spec.ts`) verifică mecanismul, nu
+mărimea — unul pe dimensiune ar trece și cu bug-ul pus la loc.
+
 **`@nestjs/schedule` rămâne pe `^6.0.1`, ultimul major CommonJS.** De la v12 pachetul e ESM și
 moare în ts-jest cu `SyntaxError: Unexpected token 'export'` — nu doar în testul care îl importă, ci
 în orice suită care ajunge la `app.module.ts`. Un `pnpm up` care îl urcă rupe toate testele deodată,
@@ -319,6 +330,12 @@ cu un mesaj care nu spune de ce. Ăsta e și motivul pentru care nu există `@ne
 dispare cuvântul „tranzacțional": mesajul se scrie odată cu operațiunea care îl provoacă, sau
 niciunul dintre ele. Un serviciu care cheamă `send()` dintr-un handler HTTP a readus exact
 defecțiunea pentru care există coada: o factură care cade fiindcă furnizorul de email e picat.
+Coada e una singură, și pentru orice canal care s-ar adăuga — nu scrie a doua.
+
+`MailService` e în `apps/api` fiindcă acolo trebuie să fie: ruta Nitro din
+`apps/web/server/api/contact.post.ts` se deployează pe Vercel ca funcție serverless, care nu vede
+Postgres, iar tot ce trimite backend-ul se compune din date din Postgres. Rămâne unde e, pentru
+formularul public și numai pentru el; nu unifica cele două direcții, în niciun sens.
 
 Cheia e `MAIL_RESEND_API_KEY`, **nu** `RESEND_API_KEY` — aia e a formularului public de contact, și
 E17 a decis două chei și doi expeditori tocmai ca o rafală pe ruta publică să nu consume cota
@@ -345,6 +362,26 @@ Mesajul pleacă doar dacă există ședințe nemarcate, și e unul singur pe zi:
 **Scheduler-ul trebuie să ruleze într-o singură instanță.** `FOR UPDATE SKIP LOCKED` face două
 treceri simultane inofensive una față de alta, dar doi worker-i PM2 s-ar trezi amândoi la fiecare
 tick. Fixarea se face în fișierul de ecosistem din E01 S4, care nu există încă.
+
+**Orizontul de opt săptămâni nu se rulează singur.** Ședințele se scriu doar la cerere, prin
+`POST /class-sessions/generate` (admin); nu există niciun job care să le scrie. Tot ce e programat
+în backend sunt trei lucruri, și niciunul nu generează orar: dispecerul de outbox (`@Interval`),
+mementoul de la 10:00 (`@Cron`) și purjarea sesiunilor, care stă în continuare pe un `setInterval`
+propriu în `apps/api/src/modules/auth/session.service.ts`. Iar prezența se marchează pe
+`POST /attendance/session/:classSessionId`, deci fără ședință generată marcarea răspunde 404 și
+ecranul n-are ce afișa. Generarea e idempotentă pe `(group, date)` și lasă neatins ce există deja,
+indiferent de stare — se poate chema oricând și de oricâte ori, iar o a doua rulare nu învie o
+ședință anulată. Până când E01 S4 aduce procesul care poate purta un cron, o cheamă cineva.
+
+**Datele calendaristice se construiesc din componente locale, niciodată printr-un ocol prin UTC.**
+TypeORM scrie o coloană `date` citind componentele locale ale valorii, iar `new Date('2026-08-29')`
+e miezul nopții **UTC** — deci la vest de Greenwich se salvează ziua dinainte. În sens invers,
+`toISOString().slice(0, 10)` pe o dată construită local dă ziua dinainte la est de Greenwich, adică
+exact în România. Amândouă capetele au deja unelte: `parseIsoDate`, `toIsoDate` și `addDays` din
+`apps/api/src/modules/class-session/class-session.dates.ts`, iar în frontend `toDateKey` și
+`todayKey` din `apps/web/app/composables/useAttendanceCalendar.ts`, care compară string-uri
+`YYYY-MM-DD` și nu ating deloc `Date`. Greșeala e de exact o zi, apare doar în unele fusuri și nu se
+vede la review.
 
 **Familia `no-unsafe-*` e pe `error` în codul de producție și oprită în teste.** Excepția pentru
 teste e îngustă și justificată: supertest tipează `res.body` ca `any`, iar valorile întoarse de

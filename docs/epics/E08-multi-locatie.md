@@ -118,13 +118,13 @@ un criteriu independent.
 de nivel: la momentul livrării, legarea lor de catalog ar fi însemnat să blocheze E08 de un epic
 blocat el însuși de lipsa programei scrise.
 
-**Motivul acela e istoric, nu actual.** E10 nu mai așteaptă conținutul: structura e cunoscută și
-decisă, iar entitățile, ecranele de admin prin care se introduc modulele și lecțiile și expunerea
-publică se construiesc acum — programa intră prin aceleași ecrane când e scrisă. Deci ce mai
-deblochează S3 sunt două epice care pot porni: [E09](E09-personal-roluri.md) S4 pentru profesorul
-principal și nivelul din [E10](E10-curriculum-module.md). Vârstele rămân `int` până când nivelul
-există efectiv în catalog — atunci se decide dacă îl înlocuiesc sau stau lângă el —, dar asta e o
-decizie care așteaptă un câmp, nu un text.
+**Motivul acela e istoric, dar concluzia s-a schimbat de două ori.** Întâi în bine: E10 nu mai
+aștepta conținutul, fiindcă structura e cunoscută și decisă, deci s-ar fi putut construi în jurul
+programei nescrise. Apoi în rău: [E10](E10-curriculum-module.md) **a ieșit din MVP**, respins de
+patron — vezi [docs/epics/README.md](README.md), „Ordinea recomandată". Deci ce mai deblochează S3 e
+un singur epic care poate porni, [E09](E09-personal-roluri.md) S4, pentru profesorul principal.
+Nivelul nu mai vine de nicăieri în MVP, iar `minAge`/`maxAge` rămân `int` și rămân câmpuri — decizia
+dacă nivelul le înlocuiește sau stă lângă ele se amână odată cu E10.
 
 ### S4 · Locația în interfață
 
@@ -244,8 +244,10 @@ sălile ei, iar grupele se pot muta acolo — fără migrare și fără cod. Fie
 care apare o grupă spune și unde se ține.
 
 Rămân nivelul și profesorul principal de la S3, care așteaptă [E10](E10-curriculum-module.md) și
-[E09](E09-personal-roluri.md). **Nimic din ce mai rămâne în E08 nu se poate face fără ele** — epicul
-stă aici până când unul dintre cele două pornește.
+[E09](E09-personal-roluri.md). **Nimic din ce mai rămâne în E08 nu se poate face fără ele** — iar
+acum, cu E10 în afara MVP-ului, epicul stă aici până pornește E09. Cu profesorul principal pus,
+singurul lucru care mai lipsește din S3 e nivelul, deci S3 se închide cât se poate închide și
+nivelul revine odată cu E10.
 
 Riscul din secțiunea de mai sus se închide fără muncă: [E04](E04-migrari-date.md) a stabilit că nu
 există date de producție de păstrat, deci nu e nimic de corectat retroactiv. Migrarea le semnalează

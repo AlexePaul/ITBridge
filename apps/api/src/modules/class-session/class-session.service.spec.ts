@@ -343,4 +343,45 @@ describe('ClassSessionService', () => {
             expect(sessionRepo.save).not.toHaveBeenCalled();
         });
     });
+
+    /**
+     * Without reinstatement a mistaken cancellation is a dead end: marking refuses a cancelled
+     * session, and generation is idempotent so it never brings one back. The admin would be left
+     * with a class that happened and no way to say who was there.
+     */
+    describe('reinstatement', () => {
+        const cancelled = { id: 3, status: ClassSessionStatus.CANCELLED, notes: 'Anulată: Profesor bolnav' };
+
+        beforeEach(() => {
+            sessionRepo.findOne!.mockResolvedValue({ ...cancelled });
+            sessionRepo.save!.mockImplementation((row: unknown) => Promise.resolve(row));
+        });
+
+        it('puts the class back as scheduled, not as held', async () => {
+            const back = await service.reinstateSession(3);
+
+            // `held` would claim someone confirmed the class took place. Only marking the register
+            // says that, and the register is still empty at this point.
+            expect(back.status).toBe(ClassSessionStatus.SCHEDULED);
+        });
+
+        it('keeps the cancellation in the notes, and adds the reversal', async () => {
+            const back = await service.reinstateSession(3);
+
+            // A parent asking "was there a class that day?" deserves the whole sequence, not a
+            // timetable that quietly pretends the cancellation never happened.
+            expect(back.notes).toBe('Anulată: Profesor bolnav\n\nReactivată.');
+        });
+
+        it('rejects a session that does not exist', async () => {
+            sessionRepo.findOne!.mockResolvedValue(null);
+            await expect(service.reinstateSession(99)).rejects.toThrow(NotFoundException);
+        });
+
+        it('refuses to reinstate a session that was never cancelled', async () => {
+            sessionRepo.findOne!.mockResolvedValue({ ...cancelled, status: ClassSessionStatus.SCHEDULED });
+            await expect(service.reinstateSession(3)).rejects.toThrow(ConflictException);
+            expect(sessionRepo.save).not.toHaveBeenCalled();
+        });
+    });
 });

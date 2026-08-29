@@ -220,6 +220,39 @@ export class ClassSessionService {
         return this.classSessionRepository.save(session);
     }
 
+    /**
+     * Undoes a cancellation, for the class that was cancelled by mistake or taught anyway.
+     *
+     * Without this the mistake is a dead end: attendance refuses a cancelled session, and
+     * generation is idempotent so it will not resurrect one either. The admin would be left with a
+     * class that happened, no way to record who was there, and no way to say so.
+     *
+     * The status goes back to `scheduled` rather than `held`, because reinstating says the class
+     * exists again, not that anyone has yet confirmed it took place — that is what marking the
+     * register is for. The cancellation note is kept: the timetable should still show that this day
+     * was called off and then put back, since that is exactly the sequence a parent will ask about.
+     */
+    async reinstateSession(id: number): Promise<ClassSession> {
+        const session = await this.classSessionRepository.findOne({
+            where: { id },
+            relations: { group: { room: { location: true } }, room: { location: true } },
+        });
+        if (!session) {
+            throw new NotFoundException('Class session not found');
+        }
+        if (session.status !== ClassSessionStatus.CANCELLED) {
+            throw new ConflictException({
+                message: 'This class session is not cancelled, so there is nothing to reinstate',
+                error: 'CLASS_SESSION_NOT_CANCELLED',
+            });
+        }
+
+        const note = 'Reactivată.';
+        session.notes = session.notes === null || session.notes.trim() === '' ? note : `${session.notes}\n\n${note}`;
+        session.status = ClassSessionStatus.SCHEDULED;
+        return this.classSessionRepository.save(session);
+    }
+
     private async findGroupsToGenerateFor(groupId?: number): Promise<Group[]> {
         if (groupId === undefined) {
             // The room comes along because it is copied onto every session generated below.
