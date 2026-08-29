@@ -42,7 +42,16 @@ se întâmplă. Adăugarea unei a treia locații e o operațiune de configurare,
 ## În afara scopului
 
 - Permisiuni pe locație — vezi [E09](E09-personal-roluri.md).
-- Detectarea conflictelor de orar și listele de așteptare — vezi [E11](E11-inscrieri-capacitate.md).
+- Listele de așteptare și regula de capacitate aplicată la înscriere — vezi
+  [E11](E11-inscrieri-capacitate.md).
+- Detectarea conflictelor de orar, care nu e un singur subiect și nu stă într-un singur epic.
+  Conflictul de **sală** e deja rezolvat aici, de constrângerea unică din S2: aceeași sală, aceeași
+  zi, aceeași oră de început nu se poate rezerva de două ori. Conflictul de **profesor** între
+  locații — aceeași persoană alocată la două grupe care se suprapun, la adrese diferite — e
+  revendicat și amânat explicit în [E09](E09-personal-roluri.md), fiindcă orarul e făcut azi de
+  aceiași doi oameni care predau. Suprapunerea de orar între două grupe ale **aceluiași copil** nu
+  mai e un caz posibil: un copil e într-o singură grupă, vezi
+  [E11](E11-inscrieri-capacitate.md) D6.
 - Paginile publice per locație — vezi [E19](E19-seo-geo.md).
 
 ## Story-uri
@@ -107,8 +116,16 @@ un criteriu independent.
 
 **Rămân nivelul și profesorul principal**, fiindcă vin din [E10](E10-curriculum-module.md) și
 [E09](E09-personal-roluri.md), amândouă neîncepute. Vârstele au rămas câmpuri, nu au fost înlocuite
-de nivel: legarea lor de catalog acum ar fi însemnat să blocheze E08 de un epic blocat el însuși de
-conținut.
+de nivel: la momentul livrării, legarea lor de catalog ar fi însemnat să blocheze E08 de un epic
+blocat el însuși de lipsa programei scrise.
+
+**Motivul acela e istoric, nu actual.** E10 nu mai așteaptă conținutul: structura e cunoscută și
+decisă, iar entitățile, ecranele de admin prin care se introduc modulele și lecțiile și expunerea
+publică se construiesc acum — programa intră prin aceleași ecrane când e scrisă. Deci ce mai
+deblochează S3 sunt două epice care pot porni: [E09](E09-personal-roluri.md) S4 pentru profesorul
+principal și nivelul din [E10](E10-curriculum-module.md). Vârstele rămân `int` până când nivelul
+există efectiv în catalog — atunci se decide dacă îl înlocuiesc sau stau lângă el —, dar asta e o
+decizie care așteaptă un câmp, nu un text.
 
 ### S4 · Locația în interfață
 
@@ -200,6 +217,20 @@ o locație care dispare în clipa dezactivării arată ca pierdere de date.
 șterg. Baza de date ar refuza oricum, dar ca eroare de driver ajunge la client un 500 generic;
 întrebarea pusă întâi transformă refuzul într-un răspuns.
 
+**O singură sală per locație, de 10 locuri, extensibilă din interfață.** E valoarea reală, nu o
+presupunere de migrare: fiecare dintre cele două adrese are azi o sală. Migrarea
+`1787909549491-LocationsAndRooms.ts` inserează „Sala 1" cu 10 locuri și 10 calculatoare per locație,
+iar seed-ul folosește aceleași valori. Se consemnează ca decizie fiindcă nu schimbă nimic tehnic —
+confirmă ce e deja în migrare și în `/admin/locations` — dar scoate numărul din zona de presupunere:
+[E11](E11-inscrieri-capacitate.md) îl folosește ca plafon de înscriere, deci trebuie să fie un fapt
+asumat, nu o valoare moștenită dintr-un `INSERT`.
+
+Extensibilitatea e partea care contează: a doua sală, sau o capacitate mai mare, sunt operațiuni de
+configurare — `POST /rooms`, `PUT /rooms/:id`, din aceeași pagină — fără migrare și fără cod, iar
+limita nouă se aplică imediat la crearea grupelor prin `GROUP_OVER_ROOM_CAPACITY`. Aceeași decizie e
+scrisă și în [E11](E11-inscrieri-capacitate.md) D7, împreună cu partea care ține de acolo: o lecție
+de probă consumă unul dintre cele 10 locuri, deci nu există un al doilea număr pentru aceeași sală.
+
 **Vârstele au devenit `int`.** Erau `decimal`, ceea ce cerea un transformer ca driverul să nu întoarcă
 `"11"`, pentru o rezoluție de care nu a avut nimeni nevoie. Migrarea convertește cu `round()`, nu cu
 un cast simplu, ca un 10.5 scris de vechiul cod să devină 11 în loc să oprească migrarea.
@@ -227,13 +258,17 @@ oricum, dacă apar.
   `apps/web/shared/school.ts`, cu slug și coordonate. Migrarea și seed-ul folosesc exact aceleași
   valori.
 - ~~De câte locuri e o sală?~~ **10, la ambele locații.** Migrarea creează o sală „Sala 1" de 10
-  locuri per locație, iar seed-ul folosește aceeași valoare peste tot. E o valoare implicită, nu o
-  regulă: capacitatea fiecărei săli se editează din `/admin/locations` (`PUT /rooms/:id`), fără
-  migrare și fără cod, iar limita nouă se aplică imediat la crearea grupelor.
-- Câte săli are de fapt fiecare locație rămâne de confirmat — migrarea presupune una. Se adaugă din
-  aceeași pagină. Devine important la [E11](E11-inscrieri-capacitate.md), unde capacitatea sălii
-  intră în regula de înscriere.
-- Un copil poate fi înscris în grupe din locații diferite? Astăzi `Child.group` e o singură grupă,
-  deci întrebarea nu se pune încă; devine reală în [E11](E11-inscrieri-capacitate.md).
+  locuri per locație, iar seed-ul folosește aceeași valoare peste tot. E o valoare confirmată, nu
+  presupusă — vezi [Decizii luate](#decizii-luate) —, dar nu e cimentată: capacitatea fiecărei săli
+  se editează din `/admin/locations` (`PUT /rooms/:id`), fără migrare și fără cod, iar limita nouă se
+  aplică imediat la crearea grupelor.
+- ~~Câte săli are de fapt fiecare locație?~~ **Una, de 10 locuri, la fiecare.** Exact ce presupune
+  migrarea, confirmat ca fapt — vezi [Decizii luate](#decizii-luate). A doua sală se adaugă din
+  `/admin/locations` în ziua în care apare, fără migrare. Capacitatea sălii intră ca plafon în regula
+  de înscriere din [E11](E11-inscrieri-capacitate.md) D7.
+- ~~Un copil poate fi înscris în grupe din locații diferite?~~ **Nu**, fiindcă nu poate fi în două
+  grupe deloc — [E11](E11-inscrieri-capacitate.md) D6. Motivul e al școlii și e despre copil: două
+  drumuri pe săptămână sunt prea mult la vârsta asta. `Child.group` rămâne o singură referință, iar
+  `Enrollment` păstrează istoricul cu invariantul „cel mult unul în vigoare".
 - Prețurile diferă pe locație? Dacă da, [E15](E15-pricing-facturare.md) trebuie să știe de la
   început. `Location` nu are câmp de preț — dacă răspunsul e „da", acolo se adaugă.
