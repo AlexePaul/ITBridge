@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useAttendanceStore } from "~/stores/attendanceStore";
@@ -86,10 +86,11 @@ describe("attendanceStore", () => {
     setActivePinia(createPinia());
   });
 
+  // The day lives on the class the mark belongs to. The record's own `date` and `startTime` are
+  // gone from the contract, and the store now reads through `classSession`.
   const record = (date: string) => ({
     id: 1,
-    date,
-    startTime: "09:00:00",
+    classSession: { id: 1, date, startTime: "09:00:00" } as never,
     type: "regular" as const,
     present: true,
     group: { id: 10 } as never,
@@ -107,11 +108,23 @@ describe("attendanceStore", () => {
     expect(useAttendanceStore().attendancesByChildId(99)).toEqual([]);
   });
 
-  it("finds the attendance record for a given day", () => {
-    const store = useAttendanceStore();
-    store.setAttendance(7, [record("2026-03-10"), record("2026-03-17")]);
+  /**
+   * Prezența a stat într-un cookie și nu a încăput niciodată: o înregistrare cară ședința întreagă,
+   * cu grupa, sala și locația, deci șapte ședințe înseamnă 18,6 KB URI-encoded, față de limita de
+   * ~4 KB. Browserul arunca pur și simplu cookie-ul, fără nicio eroare, iar calendarul părintelui
+   * se randa gol — ca și cum copilul n-ar fi fost la nicio oră.
+   *
+   * Testul se uită la mecanism, nu la mărime, fiindcă `useCookie` e dublat aici și nu impune nicio
+   * limită: un test pe dimensiune ar trece și cu bug-ul la loc.
+   */
+  it("nu ține prezența într-un cookie — nu încape, iar eșecul e tăcut", () => {
+    const useCookieSpy = vi.fn(() => ({ value: {} }));
+    vi.stubGlobal("useCookie", useCookieSpy);
 
-    expect(store.attendancesByChildIdAndDate(7, new Date("2026-03-17"))).toBeDefined();
-    expect(store.attendancesByChildIdAndDate(7, new Date("2026-03-24"))).toBeUndefined();
+    const store = useAttendanceStore();
+    store.setAttendance(7, [record("2026-03-10")]);
+
+    expect(store.attendancesByChildId(7)).toHaveLength(1);
+    expect(useCookieSpy).not.toHaveBeenCalled();
   });
 });

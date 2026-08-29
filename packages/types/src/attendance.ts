@@ -1,4 +1,4 @@
-import type { ISODate, TimeOfDay } from './common';
+import type { ClassSession } from './class-session';
 import type { Group } from './group';
 
 /**
@@ -23,9 +23,19 @@ export const ATTENDANCE_TYPE_LABELS: Record<AttendanceType, string> = {
 
 export interface Attendance {
     id: number;
+    /**
+     * The class this mark is about. It carries the date, the hours, the room and the status.
+     *
+     * The record used to hold its own `date` and `startTime`. They are gone: the session has them,
+     * and a copy that nothing keeps in step is a second answer to "when was this class?" waiting to
+     * disagree with the first.
+     */
+    classSession: ClassSession;
+    /**
+     * The group the child sat with. Same value as `classSession.group`, kept while the attendance
+     * screens still filter on it directly; the session is where it will come from.
+     */
     group: Group;
-    date: ISODate;
-    startTime: TimeOfDay;
     type: AttendanceType;
     present: boolean;
 }

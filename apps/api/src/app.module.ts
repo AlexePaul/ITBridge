@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule, ValidationPipe } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './modules/auth/auth.module';
@@ -10,11 +11,13 @@ import { ChildModule } from './modules/child/child.module';
 import { GroupModule } from './modules/group/group.module';
 import { LocationModule } from './modules/location/location.module';
 import { RoomModule } from './modules/room/room.module';
+import { ClassSessionModule } from './modules/class-session/class-session.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { DiscountModule } from './modules/discount/discount.module';
 import { HealthModule } from './modules/health/health.module';
+import { MailModule } from './modules/mail/mail.module';
 import { dataSourceOptions } from './data-source';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { RequestIdMiddleware } from './common/request-id.middleware';
@@ -27,6 +30,11 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
         // much tighter limit via @Throttle. Without any of this, /auth/login accepted attempts as
         // fast as they arrived.
         ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 300 }]),
+        // The cron/interval runtime, for the outbox dispatcher and the scheduled jobs that follow
+        // it. Pinned to `@nestjs/schedule` v6: v12 is ESM-only and cannot be loaded by jest, which
+        // is why `session.service.ts` still schedules its purge on a bare `setInterval`. That purge
+        // moves here once someone touches it — E17/S3 always intended one scheduler, not two.
+        ScheduleModule.forRoot(),
         TypeOrmModule.forRoot(dataSourceOptions),
         AuthModule,
         UserModule,
@@ -36,11 +44,13 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
         GroupModule,
         LocationModule,
         RoomModule,
+        ClassSessionModule,
         AttendanceModule,
         InvoiceModule,
         PaymentModule,
         DiscountModule,
         HealthModule,
+        MailModule,
     ],
     providers: [
         {

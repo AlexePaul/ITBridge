@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createRoom, createTestApp, groupBody, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
+import { createClassSession, createRoom, createTestApp, groupBody, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
 import { Weekday } from 'src/enum/weekday.enum';
 import { AttendanceType } from 'src/enum/attendance-type.enum';
 import { Role } from 'src/enum/role.enum';
@@ -80,10 +80,13 @@ describe('Checked value types (e2e)', () => {
                 .send({ parentId: profile.body.id, firstName: 'Maria', lastName: 'Pop', birthDate: '2016-01-01' })
                 .expect(201);
 
+            // The register hangs off a session now, not off a date and an hour posted with the body.
+            const classSessionId = await createClassSession(dataSource, group.body.id as number);
+
             await request(app.getHttpServer())
-                .post(`/attendance/${group.body.id}`)
+                .post(`/attendance/session/${classSessionId}`)
                 .set('Authorization', admin.auth)
-                .send({ childrenAttendance: [{ childId: 1, present: true }], date: '2026-03-10', startTime: '16:00' })
+                .send({ childrenAttendance: [{ childId: 1, present: true }] })
                 .expect(201);
 
             await expect(dataSource.query(`UPDATE attendances SET type = 'normal'`)).rejects.toThrow(/invalid input value for enum/);

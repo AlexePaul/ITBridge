@@ -86,6 +86,40 @@ export class EnvironmentVariables {
     @IsString()
     CORS_ORIGINS?: string;
 
+    /**
+     * Resend key for the mail this backend sends (E17). Deliberately **optional**: local
+     * development has no key and must still boot. A missing key is not a silent no-op either — the
+     * message is written to `outbox`, the send fails, and the reason stays on the row. `MailService`
+     * says so once at startup rather than leaving the first sign of it in a table nobody watches.
+     *
+     * Not the same key as the contact form's `RESEND_API_KEY`, and not the same sender as
+     * `CONTACT_FROM`. E17 decided on two of each so the public form cannot burn the quota the
+     * school's own messages depend on.
+     */
+    @IsOptional()
+    @IsString()
+    MAIL_RESEND_API_KEY?: string;
+
+    /** Sender for the above. Must be on a domain verified in Resend, or every send answers 403. */
+    @IsOptional()
+    @IsString()
+    MAIL_FROM?: string;
+
+    /** `false` stops the outbox scheduler; queueing still works. The e2e suites set it. */
+    @IsOptional()
+    @IsIn(['true', 'false'])
+    MAIL_OUTBOX_ENABLED?: string;
+
+    /**
+     * Where the school's own operational mail goes — today, the daily reminder about registers
+     * nobody took (E12/S7). Optional: unset falls back to the address the public site publishes,
+     * `office@itbridgeschool.com`, so the reminder always has somewhere to land. It exists as a
+     * variable so the office can redirect it without a deploy.
+     */
+    @IsOptional()
+    @IsString()
+    MAIL_OFFICE_ADDRESS?: string;
+
     /** `false` disables rate limiting entirely; see `AppThrottlerGuard`. Defaults to enabled. */
     @IsOptional()
     @IsIn(['true', 'false'])

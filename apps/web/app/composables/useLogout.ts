@@ -4,6 +4,7 @@ import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { overdueInvoices, pendingInvoices } from "./api/useInvoiceApi";
 import { useAttendanceStore } from "~/stores/attendanceStore";
+import { useClassSessionStore } from "~/stores/classSessionStore";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useProfileStore } from "~/stores/profileStore";
 
@@ -11,6 +12,7 @@ export const useLogout = () => {
   const tokenStore = useTokenStore();
   const userStore = useUserStore();
   const attendanceStore = useAttendanceStore();
+  const classSessionStore = useClassSessionStore();
   const childrenStore = useChildrenStore();
   const profileStore = useProfileStore();
   const authApi = useAuthApi();
@@ -25,6 +27,7 @@ export const useLogout = () => {
     tokenStore.clearTokens();
     userStore.logout();
     attendanceStore.clearAttendance();
+    classSessionStore.clearSessions();
     childrenStore.clearChildren();
     profileStore.clearProfile();
 

@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser, createRoom, groupBody } from './helpers';
+import { createClassSession, createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser, createRoom, groupBody } from './helpers';
 
 /**
  * Cover for E05/S1. Until the pipe was registered, the class-validator decorators on 22 DTO files
@@ -15,6 +15,7 @@ describe('Request validation (e2e)', () => {
     let admin: TestUser;
     let parentId: number;
     let groupId: number;
+    let classSessionId: number;
 
     beforeAll(async () => {
         ({ app, dataSource } = await createTestApp());
@@ -41,6 +42,7 @@ describe('Request validation (e2e)', () => {
             .send(groupBody(await createRoom(app, admin)))
             .expect(201);
         groupId = group.body.id as number;
+        classSessionId = await createClassSession(dataSource, groupId);
     });
 
     const post = (path: string, body: Record<string, unknown>) => request(app.getHttpServer()).post(path).set('Authorization', admin.auth).send(body);
@@ -79,16 +81,21 @@ describe('Request validation (e2e)', () => {
         it('validates inside a nested array, not just its shape', async () => {
             // `@ValidateNested` without `@Type` leaves the entries as plain objects, so the
             // decorators on ChildAttendanceDto never ran. A string childId used to sail through.
-            await post(`/attendance/${groupId}`, {
+            await post(`/attendance/session/${classSessionId}`, {
                 childrenAttendance: [{ childId: 'not-a-number', present: true }],
-                date: '2026-03-10',
-                startTime: '16:00',
             }).expect(400);
         });
 
         it('rejects an empty attendance array', async () => {
-            await post(`/attendance/${groupId}`, {
-                childrenAttendance: [],
+            await post(`/attendance/session/${classSessionId}`, { childrenAttendance: [] }).expect(400);
+        });
+
+        it('rejects a body that still describes the class with a date and an hour', async () => {
+            // The old client sent `{ childrenAttendance, date, startTime }` to `/attendance/:groupId`.
+            // Both fields are gone from the DTO, and `forbidNonWhitelisted` turns a stale client into
+            // a 400 rather than a silently ignored half of its request.
+            await post(`/attendance/session/${classSessionId}`, {
+                childrenAttendance: [{ childId: 1, present: true }],
                 date: '2026-03-10',
                 startTime: '16:00',
             }).expect(400);

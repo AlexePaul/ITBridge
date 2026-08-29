@@ -54,7 +54,26 @@ export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(
         getOne: jest.fn().mockResolvedValue(result.one ?? null),
     };
 
-    for (const method of ['leftJoinAndSelect', 'innerJoin', 'innerJoinAndSelect', 'orderBy', 'skip', 'take', 'select', 'where']) {
+    // `addOrderBy` and `loadRelationCountAndMap` are here because the class-session queries chain
+    // them; a chaining method missing from this list returns undefined and the next call in the
+    // chain throws, which reads as a service bug rather than a gap in the double.
+    for (const method of [
+        'leftJoinAndSelect',
+        'innerJoin',
+        'innerJoinAndSelect',
+        'loadRelationCountAndMap',
+        'orderBy',
+        'addOrderBy',
+        'skip',
+        'take',
+        'limit',
+        'select',
+        'where',
+        // The outbox claim's vocabulary. A test asserts the batch was asked for with
+        // FOR UPDATE SKIP LOCKED, which is what keeps two schedulers off the same message.
+        'setLock',
+        'setOnLocked',
+    ]) {
         qb[method] = jest.fn().mockReturnValue(qb);
     }
     qb.leftJoin = jest.fn((relation: string) => {
@@ -77,4 +96,30 @@ export function isScopedToUser(qb: RecordedCalls, userId: number): boolean {
     return (
         qb.leftJoinCalls.includes('parent.user') && qb.andWhereCalls.some(([condition, params]) => condition.includes('user.id') && params?.userId === userId)
     );
+}
+
+/**
+ * A fake insert builder, for the `.insert().values().orIgnore().returning('*')` chain.
+ *
+ * `OutboxService.queue` inserts that way rather than with `save` plus a caught unique violation,
+ * because a failed statement inside the caller's transaction aborts the whole transaction — a
+ * duplicate notification would take the invoice down with it. `raw` is what `RETURNING` gave back:
+ * the inserted row, or nothing at all when `ON CONFLICT DO NOTHING` did nothing.
+ */
+export interface MockInsertBuilder {
+    insert: jest.Mock;
+    into: jest.Mock;
+    values: jest.Mock;
+    orIgnore: jest.Mock;
+    returning: jest.Mock;
+    execute: jest.Mock;
+}
+
+export function createMockInsertBuilder(raw: unknown[]): MockInsertBuilder {
+    const qb: Partial<MockInsertBuilder> = {};
+    for (const method of ['insert', 'into', 'values', 'orIgnore', 'returning'] as const) {
+        qb[method] = jest.fn().mockReturnValue(qb);
+    }
+    qb.execute = jest.fn().mockResolvedValue({ raw, identifiers: [], generatedMaps: [] });
+    return qb as MockInsertBuilder;
 }

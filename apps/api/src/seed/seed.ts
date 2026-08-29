@@ -8,6 +8,7 @@ import { Group } from '../entities/group.entity';
 import { Location } from '../entities/location.entity';
 import { Room } from '../entities/room.entity';
 import { Attendance } from '../entities/attendance.entity';
+import { ClassSession } from '../entities/class-session.entity';
 import { Invoice, InvoiceStatus } from '../entities/invoice.entity';
 import { Payment } from '../entities/payment.entity';
 import { Discount } from '../entities/discount.entity';
@@ -17,6 +18,9 @@ import { S3Service } from '../modules/invoice/s3.service';
 import { invoicePdfKey } from '../modules/invoice/invoice.service';
 import { Weekday } from '../enum/weekday.enum';
 import { AttendanceType } from '../enum/attendance-type.enum';
+import { ClassSessionStatus } from '../enum/class-session-status.enum';
+import { DEFAULT_HORIZON_WEEKS } from '../modules/class-session/class-session.service';
+import { addDays, occurrencesOf } from '../modules/class-session/class-session.dates';
 
 /**
  * Fills a local database with data that looks like the real thing, so the admin screens are not
@@ -30,6 +34,9 @@ const PASSWORD = 'parola123';
 
 /** Deterministic output: the same command twice gives the same database. */
 const SEED_TODAY = new Date('2026-03-16T09:00:00.000Z');
+
+/** How much timetable is written behind the seed date. Attendance exists for all of it but the last week. */
+const HISTORY_WEEKS = 8;
 
 const FIRST_NAMES = ['Ana', 'Bogdan', 'Cristina', 'David', 'Elena', 'Florin', 'Gabriela', 'Horia', 'Ioana', 'Lucian'];
 const LAST_NAMES = ['Popescu', 'Ionescu', 'Dumitrescu', 'Georgescu', 'Stan', 'Marin', 'Radu', 'Barbu'];
@@ -261,23 +268,69 @@ export async function seed(dataSource: DataSource): Promise<void> {
         );
     }
 
-    // --- Attendance, two months back --------------------------------------------------------
+    // --- Timetable ----------------------------------------------------------------------------
+    // A class is a row now, and attendance points at it, so the timetable has to exist before any
+    // mark can. The window straddles the seed date: eight weeks behind, so the attendance history
+    // has classes to hang off, and `DEFAULT_HORIZON_WEEKS` ahead, so a freshly seeded database
+    // looks like one where generation has just run.
+    const classSessionRepo = dataSource.getRepository(ClassSession);
+
+    // Local midnight of the seed day. TypeORM writes a `date` column from the value's *local*
+    // components, so the UTC-midnight dates `daysAgo` produces land on the previous day in every
+    // timezone west of Greenwich — see the note at the top of `class-session.dates.ts`.
+    const seedToday = new Date(SEED_TODAY.getUTCFullYear(), SEED_TODAY.getUTCMonth(), SEED_TODAY.getUTCDate());
+    const historyFrom = addDays(seedToday, -HISTORY_WEEKS * 7);
+    const horizonUntil = addDays(seedToday, DEFAULT_HORIZON_WEEKS * 7);
+    // Classes in the last week are past but deliberately left `scheduled` and unmarked, so the
+    // unmarked-attendance report and the reminder it feeds have something to show. Without them
+    // both are empty on a fresh seed, which reads as "all clear" rather than "no data".
+    const markedUntil = addDays(seedToday, -7);
+
+    const sessions = await classSessionRepo.save(
+        groups.flatMap((group) =>
+            occurrencesOf(group.weekday, historyFrom, horizonUntil).map((date) =>
+                classSessionRepo.create({
+                    group,
+                    // Copied from the group, exactly as generation does it.
+                    room: group.room,
+                    date,
+                    startTime: group.startTime,
+                    endTime: group.endTime,
+                    status: date.getTime() < markedUntil.getTime() ? ClassSessionStatus.HELD : ClassSessionStatus.SCHEDULED,
+                    notes: null,
+                }),
+            ),
+        ),
+    );
+
+    // One cancelled class, so the timetable shows the third status and the cancellation note.
+    const toCancel = sessions.find((session) => session.date.getTime() > seedToday.getTime());
+    if (toCancel) {
+        toCancel.status = ClassSessionStatus.CANCELLED;
+        toCancel.notes = 'Anulată: profesor bolnav';
+        await classSessionRepo.save(toCancel);
+    }
+
+    // --- Attendance, on the classes that were held ---------------------------------------------
     const attendanceRepo = dataSource.getRepository(Attendance);
-    const records: Attendance[] = [];
+    const childrenByGroup = new Map<number, Child[]>();
     for (const child of children) {
         if (!child.group) continue;
-        for (let week = 0; week < 8; week++) {
-            const date = daysAgo(week * 7 + 1);
-            // Roughly one absence in seven, deterministic rather than random.
-            const present = (child.id + week) % 7 !== 0;
+        childrenByGroup.set(child.group.id, [...(childrenByGroup.get(child.group.id) ?? []), child]);
+    }
+
+    const records: Attendance[] = [];
+    for (const session of sessions) {
+        if (session.status !== ClassSessionStatus.HELD) continue;
+        for (const child of childrenByGroup.get(session.group.id) ?? []) {
             records.push(
                 attendanceRepo.create({
                     child,
-                    group: child.group,
-                    date,
-                    startTime: child.group.startTime,
+                    classSession: session,
+                    group: session.group,
                     type: AttendanceType.REGULAR,
-                    present,
+                    // Roughly one absence in seven, deterministic rather than random.
+                    present: (child.id + session.id) % 7 !== 0,
                 }),
             );
         }

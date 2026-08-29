@@ -127,6 +127,33 @@ export async function createRoom(
     return room.body.id as number;
 }
 
+/**
+ * Inserts one class session for a group and returns its id.
+ *
+ * Straight into the database on purpose: attendance is now posted against a session id, but nothing
+ * creates sessions over HTTP yet — they come from the generator that reads the group timetable, and
+ * that is a separate piece of E12. Date, hours and room are taken from the group, which is exactly
+ * what the generator will do. This helper is the seam until an endpoint exists to replace it.
+ */
+export async function createClassSession(
+    dataSource: DataSource,
+    groupId: number,
+    overrides: { date?: string; status?: 'scheduled' | 'held' | 'cancelled' } = {},
+): Promise<number> {
+    const rows = await dataSource.query<{ id: number }[]>(
+        `INSERT INTO "class_sessions" ("group_id", "date", "startTime", "endTime", "room_id", "status")
+         SELECT g."id", $2, g."startTime", g."endTime", g."room_id", $3
+         FROM "groups" g WHERE g."id" = $1
+         RETURNING "id"`,
+        [groupId, overrides.date ?? '2026-03-10', overrides.status ?? 'scheduled'],
+    );
+
+    if (rows.length === 0) {
+        throw new Error(`No group with id ${groupId}, so there is nothing to hang a class session on`);
+    }
+    return rows[0].id;
+}
+
 /** A complete, valid group body. Spread the overrides in to change one field at a time. */
 export function groupBody(roomId: number, overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return { name: 'Scratch Începători', weekday: 1, startTime: '16:00', endTime: '17:30', roomId, capacity: 10, minAge: 7, maxAge: 10, ...overrides };

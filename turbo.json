@@ -12,6 +12,10 @@
     "SITE_URL",
     "RESEND_API_KEY",
     "CONTACT_FROM",
+    // The backend's own mail settings, separate from the two above on purpose: E17 decided on two
+    // Resend keys and two sending addresses, so that a burned quota or a revoked key on the public
+    // contact form cannot silence the messages the school sends to parents.
+    "MAIL_*",
     "VERCEL_ENV",
     "CORS_ORIGINS",
     "DB_*",

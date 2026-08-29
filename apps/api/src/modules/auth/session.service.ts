@@ -19,9 +19,12 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
     private purgeTimer?: NodeJS.Timeout;
 
     /**
-     * Schedules the purge on a plain interval rather than through `@nestjs/schedule`, which is
-     * ESM-only and cannot be loaded by jest — the same reason `@nestjs/config` was left out. A
-     * daily sweep needs no cron expression.
+     * Schedules the purge on a plain interval rather than through `@nestjs/schedule`. That was
+     * once because the package could not be loaded by jest at all; it is now installed, pinned to
+     * v6, which is the last CommonJS major — v12 is ESM and still dies in ts-jest. So the reason
+     * this stays a bare interval is smaller than it was: a daily sweep needs no cron expression,
+     * and moving it is a change nobody has had cause to make. E17/S3 wants one scheduler rather
+     * than two, so the next person to touch this should move it onto `@Cron` and delete the timer.
      *
      * `unref()` keeps the timer from holding the process open, which would otherwise stop tests
      * and a graceful shutdown from ever finishing.

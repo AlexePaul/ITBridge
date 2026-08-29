@@ -12,18 +12,25 @@ import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 export class AttendanceController {
     constructor(private readonly attendanceService: AttendanceService) {}
 
-    @Post('/:groupId')
+    /**
+     * The path is `session/:classSessionId`, not `:groupId`.
+     *
+     * The change of shape is deliberate rather than a rename: had the parameter kept its position,
+     * a client still sending a group id would have gone on succeeding and written the register
+     * against whichever session happened to carry that number. A different path 404s instead.
+     */
+    @Post('session/:classSessionId')
     @ApiBearerAuth()
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.ADMIN)
     @ApiResponse({ status: 201, description: 'Attendance record created successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
-    @ApiResponse({ status: 400, description: 'Bad Request' })
+    @ApiResponse({ status: 400, description: 'Bad Request: malformed body, a child of the group is missing, or the session is cancelled' })
     @ApiResponse({ status: 404, description: 'Not Found' })
     @ApiResponse({ status: 409, description: 'Conflict: Attendance record already exists' })
-    async createAttendance(@Param('groupId', ParseIntPipe) groupId: number, @Body() markAttendanceDto: markAttendanceDto) {
-        return this.attendanceService.createAttendance(groupId, markAttendanceDto);
+    async createAttendance(@Param('classSessionId', ParseIntPipe) classSessionId: number, @Body() markAttendanceDto: markAttendanceDto) {
+        return this.attendanceService.createAttendance(classSessionId, markAttendanceDto);
     }
 
     @Get('child/:childId')

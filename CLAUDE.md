@@ -63,9 +63,10 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — unsprezece module feature în `apps/api/src/modules/`, toate după același tipar
+**Backend** — treisprezece module feature în `apps/api/src/modules/`, toate după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `location`, `room`,
-`group`, `attendance`, `invoice`, `payment`, `discount`. Entitățile stau centralizat în `apps/api/src/entities/`
+`group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, plus `mail`, care n-are
+controller fiindcă nimic din el nu e expus pe HTTP. Entitățile stau centralizat în `apps/api/src/entities/`
 și sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
 reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
 
@@ -75,10 +76,16 @@ servește fluxul de legare ulterioară. `Profile` e "părintele" în tot restul 
 
 ```
 User ─1:1─ Profile ─1:N─ Child ─N:1─ Group ─N:1─ Room ─N:1─ Location
-                    │      └─1:N─ Attendance
+                    │      └─1:N─ Attendance ─N:1─ ClassSession ─N:1─ Group
                     ├─1:N─ Invoice ─1:1─ Payment
                     └─1:N─ Discount
 ```
+
+**Prezența se leagă de ședință, nu de o dată și o oră.** `ClassSession` (tabelul `class_sessions`)
+e ședința din orar, generată din programul grupei pe un orizont rulant de opt săptămâni, idempotent
+pe `(group, date)`. Nu există calendar de vacanțe — E12 S2 nu e construit — deci se generează
+ședințe și în vacanță, iar cele căzute acolo se anulează manual. Numele are prefix fiindcă
+`Session` e deja luat de tabelul de refresh tokenuri.
 
 **Locația nu e un câmp pe grupă, ci o consecință a sălii.** `Group.room` e obligatoriu, `Room.location`
 la fel, deci fiecare grupă știe unde se ține fără să poată contrazice sala. Ștergerile sunt
@@ -300,6 +307,44 @@ date la fiecare cerere. Dacă vine o cerință de revocare instantanee, ăsta e 
 **Clientul trebuie să salveze refresh tokenul întors de `/auth/refresh`.** Rotația îl consumă pe
 cel prezentat; dacă păstrezi tokenul vechi, a doua reîmprospătare arată ca un replay, iar serverul
 revocă tot lanțul. `useApi.ts` a avut exact bug-ul ăsta și deloga fiecare părinte la ~30 de minute.
+
+**`@nestjs/schedule` rămâne pe `^6.0.1`, ultimul major CommonJS.** De la v12 pachetul e ESM și
+moare în ts-jest cu `SyntaxError: Unexpected token 'export'` — nu doar în testul care îl importă, ci
+în orice suită care ajunge la `app.module.ts`. Un `pnpm up` care îl urcă rupe toate testele deodată,
+cu un mesaj care nu spune de ce. Ăsta e și motivul pentru care nu există `@nestjs/config`.
+
+**Mailul din backend pleacă prin outbox, niciodată direct.** `MailService`
+(`apps/api/src/modules/mail/mail.service.ts`) e implementarea; ce injectezi într-un modul e
+`OutboxService`. `queue()` primește opțional `EntityManager`-ul tranzacției tale — dă-i-l, altfel
+dispare cuvântul „tranzacțional": mesajul se scrie odată cu operațiunea care îl provoacă, sau
+niciunul dintre ele. Un serviciu care cheamă `send()` dintr-un handler HTTP a readus exact
+defecțiunea pentru care există coada: o factură care cade fiindcă furnizorul de email e picat.
+
+Cheia e `MAIL_RESEND_API_KEY`, **nu** `RESEND_API_KEY` — aia e a formularului public de contact, și
+E17 a decis două chei și doi expeditori tocmai ca o rafală pe ruta publică să nu consume cota
+mesajelor către părinți. Amândouă sunt opționale: fără ele aplicația pornește, iar mesajele rămân în
+`outbox` cu motivul scris în `lastError`. `MAIL_OUTBOX_ENABLED=false` oprește doar scheduler-ul;
+testele de integrare îl setează, ca o trecere de fundal să nu miște rândurile sub aserțiuni.
+
+**Job-urile cu cron sunt oprite sub `NODE_ENV=test`, prin `disabled` pe decorator.** Jest setează
+variabila singur, iar ambele suite construiesc `AppModule`-ul real: o rulare care prinde exact
+secunda de declanșare ar scrie un rând în `outbox` în mijlocul aserțiunilor altcuiva, o dată pe an
+și niciodată reproductibil. Consecința pentru tine: **un `@Cron` nu se declanșează în teste**, deci
+logica de selecție se scrie ca metodă publică, iar cron-ul doar o cheamă — vezi
+`apps/api/src/modules/class-session/unmarked-attendance.job.ts`, care își face treaba în
+`reportFor(date)`. Testele cheamă metoda; ce testează cron-ul e ora, și aia nu se testează.
+
+**Mementoul zilnic de prezență pleacă la 10:00 pe fusul școlii, nu al serverului.** `@Cron` primește
+`timeZone: 'Europe/Bucharest'`, iar ziua raportată se calculează prin `Intl` pe același fus — altfel
+un server în alt fus ar întreba de altă zi decât cea care tocmai s-a încheiat la școală, și ar
+raporta liniște. Adresa e `MAIL_OFFICE_ADDRESS`, opțională, cu `office@itbridgeschool.com` ca
+implicit; e prinsă deja de wildcard-ul `MAIL_*` din `turbo.json`, deci nu-i trebuie linie proprie.
+Mesajul pleacă doar dacă există ședințe nemarcate, și e unul singur pe zi: `dedupeKey`-ul e
+`unmarked-attendance:<zi>`, deci o repornire la 10:05 nu trimite a doua oară.
+
+**Scheduler-ul trebuie să ruleze într-o singură instanță.** `FOR UPDATE SKIP LOCKED` face două
+treceri simultane inofensive una față de alta, dar doi worker-i PM2 s-ar trezi amândoi la fiecare
+tick. Fixarea se face în fișierul de ecosistem din E01 S4, care nu există încă.
 
 **Familia `no-unsafe-*` e pe `error` în codul de producție și oprită în teste.** Excepția pentru
 teste e îngustă și justificată: supertest tipează `res.body` ca `any`, iar valorile întoarse de

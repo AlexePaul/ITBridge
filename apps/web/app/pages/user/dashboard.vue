@@ -21,11 +21,7 @@
         color="primary"
       >
         <template #day="{ day }">
-          <UChip
-            :show="!!getColorByDate(day.toDate('UTC'), child)"
-            :color="getColorByDate(day.toDate('UTC'), child)"
-            size="sm"
-          >
+          <UChip :show="!!dayColor(day, child)" :color="dayColor(day, child)" size="sm">
             {{ day.day }}
           </UChip>
         </template>
@@ -38,26 +34,43 @@
           zi.
         </li>
         <li>
-          <strong class="text-neutral">Alb/Negru:</strong> Reprezinta o ora planificata în viitor.
+          <strong class="text-info">Albastru:</strong> A avut loc o oră, dar prezența încă nu a fost
+          marcată de profesor. Nu înseamnă că a lipsit copilul.
+        </li>
+        <li>
+          <strong class="text-neutral">Alb/Negru:</strong> Reprezintă o oră planificată în viitor.
+        </li>
+        <li>
+          Zilele fără niciun punct sunt zile în care grupa nu a avut oră, inclusiv orele anulate.
         </li>
       </ul>
       <p class="text-muted text-xs">
         Notă: Dacă observați discrepanțe în situația școlară a copilului dvs., vă rugăm să
-        contactați administrația școlii pentru clarificări. De asemenea, vacantele scoalare nu sunt
-        marcate în calendar.
+        contactați administrația școlii pentru clarificări.
       </p>
     </UCard>
   </div>
 </template>
 <script setup lang="ts">
-import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { onMounted, computed } from "vue";
+import { useChildrenApi } from "~/composables/api/useChildrenApi";
+import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
+import {
+  calendarDayColor,
+  toDateKey,
+  todayKey,
+  type CalendarDayParts,
+} from "~/composables/useAttendanceCalendar";
 import { useAttendanceStore } from "~/stores/attendanceStore";
 import { useChildrenStore } from "~/stores/childrenStore";
+import { useClassSessionStore } from "~/stores/classSessionStore";
+import type { Child } from "~/types/child.types";
 
 const childrenApi = useChildrenApi();
+const classSessionsApi = useClassSessionsApi();
 const attendanceStore = useAttendanceStore();
 const childrenStore = useChildrenStore();
+const classSessionStore = useClassSessionStore();
 
 const childrenList = computed(() => childrenStore.children);
 
@@ -68,29 +81,40 @@ definePageMeta({
 
 onMounted(async () => {
   await childrenApi.fetchChildren();
-  for (const child of childrenList.value) await childrenApi.fetchChildrenAttendance(child.id);
+
+  await Promise.all(
+    childrenList.value.map((child) => childrenApi.fetchChildrenAttendance(child.id))
+  );
+
+  // One request per distinct group, not per child: siblings in the same group share a timetable.
+  const groupIds = new Set(
+    childrenList.value
+      .map((child) => child.group?.id)
+      .filter((id): id is number => id !== undefined)
+  );
+  await Promise.all([...groupIds].map((groupId) => classSessionsApi.fetchGroupSessions(groupId)));
 });
 
-function getColorByDate(date: Date, child: any) {
-  if (!child.group) return undefined;
+/**
+ * Recomputed once per render rather than per day, so a calendar with 42 cells does not build 42
+ * dates. It does not tick over midnight, which is fine: nothing on this screen changes at 00:00
+ * that a reload will not pick up.
+ */
+const today = computed(() => todayKey());
 
-  // ISO weekday, matching Group.weekday: Monday is 1, Sunday is 7. `getUTCDay()` returns
-  // Sunday = 0 through Saturday = 6, so `+ 1` alone shifted every day by one and the calendar
-  // highlighted each child's lesson on the day before it actually happens.
-  const dayOfWeek = ((date.getUTCDay() + 6) % 7) + 1;
-  const attendanceRecordForDate = attendanceStore.attendancesByChildIdAndDate(child.id, date);
-  if (child.group.weekday === dayOfWeek) {
-    if (date > new Date()) {
-      return "neutral";
-    } else if (attendanceRecordForDate && attendanceRecordForDate.present) {
-      return "success";
-    } else {
-      return "error";
-    }
-  } else if (attendanceRecordForDate?.present) {
-    return "warning";
-  } else {
-    return undefined;
-  }
+/**
+ * The colour of one calendar cell.
+ *
+ * The decision itself lives in `useAttendanceCalendar`, as a pure function over the child's marks
+ * and their group's timetable - which is what makes it testable, and what stopped it from guessing
+ * a class into existence out of `group.weekday`.
+ */
+function dayColor(day: CalendarDayParts, child: Child) {
+  return calendarDayColor({
+    date: toDateKey(day),
+    today: today.value,
+    attendance: attendanceStore.attendancesByChildId(child.id),
+    sessions: child.group ? classSessionStore.sessionsByGroupId(child.group.id) : [],
+  });
 }
 </script>

@@ -5,6 +5,7 @@ import { ChildController } from 'src/modules/child/child.controller';
 import { GroupController } from 'src/modules/group/group.controller';
 import { LocationController } from 'src/modules/location/location.controller';
 import { RoomController } from 'src/modules/room/room.controller';
+import { ClassSessionController } from 'src/modules/class-session/class-session.controller';
 import { AttendanceController } from 'src/modules/attendance/attendance.controller';
 import { InvoiceController } from 'src/modules/invoice/invoice.controller';
 import { PaymentController } from 'src/modules/payment/payment.controller';
@@ -32,6 +33,7 @@ export const CONTROLLERS = [
     GroupController,
     LocationController,
     RoomController,
+    ClassSessionController,
     AttendanceController,
     InvoiceController,
     PaymentController,
