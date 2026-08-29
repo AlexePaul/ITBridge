@@ -36,13 +36,13 @@ Punctele tăiate au fost rezolvate; sunt lăsate ca să se vadă de unde s-a ple
   dintr-un șablon.
 
 **GEO** — optimizarea pentru motoarele generative — e o problemă înrudită, dar nu identică. Când un
-părinte întreabă un asistent AI "unde îmi duc copilul de 9 ani să învețe programare în [oraș]",
+părinte întreabă un asistent AI "unde îmi duc copilul de 9 ani să învețe programare în București",
 răspunsul se construiește din surse pe care modelul le poate citi și cita. Un site fără date
 structurate, fără afirmații verificabile și fără conținut specific nu are cum să fie citat.
 
 ## Rezultat
 
-Un părinte care caută cursuri de programare pentru copii în orașele voastre găsește școala, în
+Un părinte care caută cursuri de programare pentru copii în București găsește școala, în
 Google și în asistenții AI. Fiecare locație și fiecare modul are propria pagină care poate fi găsită.
 
 ## În scop
@@ -141,8 +141,8 @@ niciunul după.
 
 Ce diferă față de SEO clasic:
 
-- **Afirmații verificabile și specifice.** "Grupe de maximum 10 copii, 12 ședințe pe modul, în două
-  locații în [oraș]" e citabil. "Cea mai bună școală de IT" nu e.
+- **Afirmații verificabile și specifice.** "Grupe de maximum 10 copii, 6-8 ședințe pe modul, în două
+  locații în București" e citabil. "Cea mai bună școală de IT" nu e.
 - **Întrebare și răspuns explicit.** Conținut structurat ca răspuns direct la o întrebare, cu
   răspunsul în primul paragraf.
 - **`llms.txt`** la rădăcină, care descrie ce e site-ul și ce conține.
@@ -152,7 +152,7 @@ Ce diferă față de SEO clasic:
 - **Prezență în surse terțe** pe care modelele le consultă: directoare locale, recenzii Google,
   presă locală.
 
-**Acceptanță:** o întrebare de tipul "unde învață copiii programare în [oraș]" pusă unui asistent AI
+**Acceptanță:** o întrebare de tipul "unde învață copiii programare în București" pusă unui asistent AI
 returnează școala. Măsurat periodic, manual — nu există încă unealtă serioasă pentru asta.
 
 ### S8 · Măsurare — muncă viitoare, cere domeniul live

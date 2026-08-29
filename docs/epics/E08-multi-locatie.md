@@ -23,8 +23,7 @@ de început, oră de sfârșit, interval de vârstă și un flag `isActive`. Nu 
 Scratch Începători, sala 2, Titan, maxim 10 copii, profesor Ana".
 
 Fără locație, nimic din ce urmează nu e corect: nu știi unde e programat un copil, nu poți raporta
-gradul de ocupare pe sedii, un profesor nu poate fi alocat unei săli, iar uploaderul de proiecte din
-[E14](E14-proiecte-elevi.md) nu poate ști ce grupă e programată acum în ce sală.
+gradul de ocupare pe sedii și nu poți aloca un profesor unei săli.
 
 ## Rezultat
 

@@ -173,13 +173,21 @@ treceri simultane ale scheduler-ului nu trimit același mesaj de două ori.
 ### S4 · Preferințe și dezabonare
 
 Fiecare părinte alege ce primește și cât de des: imediat, rezumat zilnic, rezumat săptămânal.
-Mesajele tranzacționale — factură, plată, anulare de ședință — nu se pot opri. Cele opționale —
-proiecte, marketing — da.
+Mesajele tranzacționale — factură, plată, anulare de ședință, documentul propriului copil — nu se
+pot opri. **Opțional rămâne doar marketingul.**
+
+**Documentul propriului copil nu stă pe o bifă.** E executarea contractului dintre școală și
+familie, nu consimțământ — vezi [E07](E07-securitate-gdpr.md) S8 și
+[E14](E14-proiecte-elevi.md) S4. Motivul e și practic, nu doar formal: dacă livrarea ar depinde de
+acordul de marketing, un părinte care refuză marketingul ar înceta să primească munca copilului
+lui, iar acordul ar deveni condiție de serviciu — moment în care nu mai e liber exprimat, deci nu
+mai e valabil nici pentru marketing. Preferința de frecvență nu îl oprește nici ea; gruparea per
+părinte din S6 rămâne, fiindcă ea schimbă ambalajul, nu dacă mesajul ajunge.
 
 Distincția e și legală, și de bun-simț.
 
-**Acceptanță:** dezabonarea de la marketing nu oprește facturile. Legătura de dezabonare
-funcționează dintr-un click.
+**Acceptanță:** dezabonarea de la marketing nu oprește facturile și nici documentele copilului.
+Legătura de dezabonare funcționează dintr-un click.
 
 ### S5 · Evidența livrărilor
 
@@ -344,13 +352,14 @@ Ce înseamnă mecanic:
 - Regula din S6 se aplică și ea: desfacerea e **per părinte, nu per copil.** Un părinte cu copii în
   două grupe, trimise amândouă în aceeași zi, primește un mesaj cu amândouă, nu două mesaje. Faptul
   că declanșatorul e un om nu e o portiță prin care iese o rafală.
-- Preferințele din S4 se aplică și aici: butonul nu le calcă. Un părinte dezabonat de la documente
-  apare ca nelivrat, cu motivul lui, în evidența din S5 — nu primește mesajul și nici nu dispare
-  tăcut din raportul trimiterii.
+- **Dezabonarea nu se aplică aici**: documentul propriului copil e tranzacțional (S4), deci
+  butonul nu are ce bifă să calce. Ce oprește totuși un mesaj e lipsa destinatarului — părinte fără
+  adresă, sau cu adresă neconfirmată. Ăla apare ca nelivrat, cu motivul lui, în evidența din S5:
+  nu primește mesajul și nici nu dispare tăcut din raportul trimiterii.
 
 **Acceptanță:** adminul bifează opt documente dintr-o grupă și apasă o dată; opt părinți primesc
 fiecare documentul copilului lui, și nimeni altceva. A doua apăsare nu trimite nimic. Un părinte
-fără adresă, cu adresă neconfirmată sau dezabonat apare în raportul trimiterii cu motivul lui.
+fără adresă sau cu adresă neconfirmată apare în raportul trimiterii cu motivul lui.
 
 ## Dependențe
 

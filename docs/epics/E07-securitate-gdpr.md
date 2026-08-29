@@ -99,8 +99,8 @@ face. Livrarea e privată, proiectul ajunge exclusiv la părintele copilului res
 acorduri.** E executarea contractului dintre școală și familie (S8), nu consimțământ. Altfel un
 părinte care refuză marketingul ar înceta să primească munca copilului lui, iar acordul ar deveni
 condiție de serviciu — moment în care nu mai e liber exprimat, deci nu mai e valabil nici pentru
-marketing. Emailul de seară din [E14](E14-proiecte-elevi.md) S4 pleacă indiferent de bifele de mai
-sus.
+marketing. Trimiterea pe grupă din [E14](E14-proiecte-elevi.md) S4, pe care o apasă adminul după
+revizie, pleacă indiferent de bifele de mai sus.
 
 Revocarea trebuie să aibă efect **retroactiv și automat**: un proiect publicat dispare de pe site
 când părintele retrage acordul, fără intervenție manuală.
@@ -270,8 +270,8 @@ săptămână, și ar rata exact cazurile grele, un profil parțial în penumbr�
 falsă tocmai acolo unde ochiul omului ar fi contat. Soluția ieftină e să nu existe fața în cadru. Se
 reia discuția doar dacă regula de fotografiere se schimbă.
 
-**Livrarea e privată.** Proiectul și emailul de seară din [E14](E14-proiecte-elevi.md) ajung exclusiv
-la părintele copilului respectiv; nimic nu pleacă spre alte familii. De aceea „partajarea proiectului
+**Livrarea e privată.** Proiectul și emailul declanșat de admin din [E14](E14-proiecte-elevi.md) ajung
+exclusiv la părintele copilului respectiv; nimic nu pleacă spre alte familii. De aceea „partajarea proiectului
 cu ceilalți părinți din grupă" a ieșit din lista de scopuri din S2 — un consimțământ pentru o
 difuzare care nu se face rămâne, totuși, un câmp de cerut, de stocat și de verificat.
 

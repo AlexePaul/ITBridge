@@ -25,9 +25,11 @@ Ce lipsește:
   profesorul nu știe dinainte pe cine să aștepte.
 - **Recuperarea e o etichetă, nu un mecanism.** Marcajul `make-up` de mai sus consemnează că un copil
   a fost prezent în altă grupă; nimic nu spune că avea dreptul, nimeni nu l-a programat și nimic nu
-  se consumă. Când trecerea la facturarea pe modul din [E15](E15-pricing-facturare.md) va promite un
-  număr fix de ședințe, absența devine o obligație contractuală: dacă părintele a plătit 12 ședințe
-  și copilul a lipsit la două, ori le recuperează, ori i se datorează ceva.
+  se consumă. Cu prețul fix pe modul din [E15](E15-pricing-facturare.md), absența nu naște o
+  datorie: părintele cumpără participarea la un modul de 6-8 ședințe, nu ședințele la bucată. Miza e
+  de retenție, nu juridică — un copil care lipsește la două din șase ședințe rămâne în urmă, iar
+  școala nu are nici cum să-i ofere recuperarea, nici cum să arate că a oferit-o. Vezi
+  [Decizii luate](#decizii-luate).
 - **Nu există orar.** Ședințele nu sunt entități; se deduc din `Group.weekday` plus `startTime`.
   Deci nu poți anula o ședință, nu poți muta una, nu poți marca vacanțele școlare, nu poți gestiona
   o zi liberă legală. Cu regula veche de trei simplă pe lunile cu vacanță, asta se compensa manual.
@@ -80,7 +82,7 @@ vacanțele.
 Vacanțele școlare și zilele libere legale sunt configurabile, pe locație — pentru cazul în care o
 locație are program diferit. Generarea de ședințe le ocolește automat.
 
-**Acceptanță:** un modul de 12 ședințe care traversează vacanța de iarnă se termină cu două
+**Acceptanță:** un modul de 8 ședințe care traversează vacanța de iarnă se termină cu două
 săptămâni mai târziu, corect calculat, fără intervenție.
 
 ### S3 · Absențe anunțate

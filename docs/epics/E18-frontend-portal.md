@@ -160,11 +160,19 @@ neverificată deloc — se face odată cu S4 și S5.
 
 ### S7 · Interfața profesorului — muncă viitoare
 
-Ecranele din [E12](E12-prezenta-orar.md) și [E14](E14-proiecte-elevi.md) sunt folosite în picioare,
-într-o sală, de pe telefon. Ținte de atingere mari, contrast bun, funcționale pe conexiune slabă.
+Ecranul de marcare a prezenței din [E12](E12-prezenta-orar.md) S6 e folosit în picioare, într-o
+sală, de pe telefon. Ținte de atingere mari, contrast bun, funcțional pe conexiune slabă.
 
-**Acceptanță:** un profesor marchează prezența și încarcă un proiect de pe telefon, fără să
-mărească pagina.
+**Încărcarea unui proiect de pe telefon nu mai e pe listă.**
+[E14](E14-proiecte-elevi.md) a scos-o explicit din scop: fișierele intră prin agentul care
+oglindește un folder de rețea, iar profesorul doar salvează lucrarea acolo, din programul în care
+s-a lucrat. Nu există gest în interfață, deci nu există ecran de proiectat.
+
+Ce rămâne dinspre [E14](E14-proiecte-elevi.md) e revizia: lista documentelor noi pe grupă și butonul
+de trimitere din [E17](E17-comunicare-notificari.md) S9. Alea sunt **ecrane de admin, la birou** —
+se proiectează cu restul zonei de admin, nu după regulile de telefon de mai sus.
+
+**Acceptanță:** un profesor marchează prezența unei grupe de pe telefon, fără să mărească pagina.
 
 ## Dependențe
 
@@ -203,4 +211,7 @@ echilibrul dintre „e pentru copii” și „e o școală serioasă” descris 
 ## Întrebări deschise
 
 - Se aduce un designer, sau se merge pe un sistem existent adaptat?
-- Portalul e și aplicație instalabilă pe telefon? Ar ajuta la [E14](E14-proiecte-elevi.md).
+- Portalul e și aplicație instalabilă pe telefon? Nu pentru proiecte —
+  [E14](E14-proiecte-elevi.md) a evaluat varianta aplicației instalabile și a respins-o, fiindcă
+  adăuga un gest profesorului. Întrebarea rămâne pentru portalul părintelui: notificări și acces
+  rapid la orar, prezență și facturi.
