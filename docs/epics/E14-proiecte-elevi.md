@@ -237,7 +237,7 @@ un răspuns scris, da sau nu, înainte să se construiască ceva pe el.
 ### S4 · Trimiterea către părinte
 
 **Nimic nu pleacă automat.** Adminul deschide grupa, vede documentele noi urcate de agent, bifează ce
-se trimite și apasă. Mecanismul e integral în [E17](E17-comunicare-notificari.md) S9; aici se scrie
+se trimite și apasă. Mecanismul e integral în [E17](E17-comunicare-notificari.md) S8; aici se scrie
 doar ce înseamnă pentru proiecte.
 
 **De ce un buton și nu un job de seară** e argumentat în E17 S9 și nu se repetă aici. Ce ține de E14
@@ -446,7 +446,7 @@ punct de eșec, nicio cale de pe telefon — sunt enumerate în S2 și acceptate
 
 **Trimiterea o apasă adminul, nu ceasul.** Nu există job de seară. Între un folder în care poate
 ateriza orice și cutia poștală a unui părinte, singura verificare posibilă că documentul e al
-copilului potrivit e o pereche de ochi. Decizia e a lui [E17](E17-comunicare-notificari.md) S9; aici
+copilului potrivit e o pereche de ochi. Decizia e a lui [E17](E17-comunicare-notificari.md) S8; aici
 se consemnează consecința: `Project` are stare, iar galeria și emailul văd doar ce a fost trimis.
 
 **Nu există rol de profesor; agentul și butonul rulează sub `ADMIN`.** Toți cei care se autentifică
@@ -553,16 +553,15 @@ producție deși backend-ul nu e deployat.
 **Accesul la un fișier trece prin cont, nu prin cunoașterea linkului.** `/files/<uuid>` cere
 autentificare; backend-ul verifică filiația copil-părinte și abia apoi emite URL-ul semnat de S3.
 
-Alternativa — un URL neghicibil care merge fără cont — ar fi făcut linkul utilizabil direct dintr-o
-conversație de WhatsApp, ceea ce e chiar avantajul ei. A fost respinsă fiindcă un link care merge
+Alternativa era un URL neghicibil care merge fără cont. A fost respinsă fiindcă un link care merge
 fără cont merge pentru oricine îl primește mai departe, iar ce se deschide e munca unui copil cu
 numele lui pe ea. Nu e o scurgere gravă — [S6](#s6--vitrina-publică) publică oricum lucrări, nu
 copii — dar diferența de efort între cele două variante e un ecran de login, iar diferența de
 control e totală.
 
-Consecința, scrisă ca să nu surprindă pe nimeni: **linkul pus într-un mesaj de WhatsApp e un anunț,
-nu o livrare.** Părintele care îl deschide ajunge la autentificare. WhatsApp rămâne util fiindcă
-mesajul e văzut, nu fiindcă scurtează drumul — vezi [E17](E17-comunicare-notificari.md) S8.
+Consecința, pentru orice canal care ar duce linkul altundeva decât în email: **linkul e un anunț, nu
+o livrare.** Cine îl deschide ajunge la autentificare. Conta când se discuta un canal secundar;
+[E17](E17-comunicare-notificari.md) l-a scos din MVP, deci deocamdată nu se pune.
 
 ## Definition of done
 

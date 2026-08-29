@@ -380,7 +380,8 @@ verifică înainte de orice cod.
 | Proiectele copiilor                             | Ajung exclusiv la părintele copilului. Se fotografiază lucrarea, nu copilul.                             | [E14](E14-proiecte-elevi.md)        |
 | Trimiterea documentelor către părinți           | **Adminul apasă butonul**, pe grupă, după ce se uită la ce pleacă. Nimic nu pleacă automat, seara        | [E17](E17-comunicare-notificari.md) |
 
-Canalul secundar **nu e în tabel, fiindcă nu e decizie.** Linkurile WhatsApp copiabile din admin, în
-locul unei integrări cu WhatsApp Business API, sunt o propunere a echipei, nu o alegere a
-patronului — singurul lucru din E17 despre care stă scris așa. Rămâne de confirmat; vezi
-[E17](E17-comunicare-notificari.md) S8 și întrebările deschise de acolo.
+Canalul secundar **nu e în tabel fiindcă nu există.** Emailul e singurul canal din MVP. Propunerea
+echipei — o pagină de admin cu câte un link `wa.me` per copil, în locul unei integrări cu WhatsApp
+Business API — a fost respinsă de patron pentru MVP. Argumentul e păstrat în
+[E17](E17-comunicare-notificari.md), la Decizii luate, împreună cu pragul la care se redeschide, ca
+să nu fie refăcut de la zero.

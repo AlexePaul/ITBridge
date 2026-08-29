@@ -169,7 +169,7 @@ oglindește un folder de rețea, iar profesorul doar salvează lucrarea acolo, d
 s-a lucrat. Nu există gest în interfață, deci nu există ecran de proiectat.
 
 Ce rămâne dinspre [E14](E14-proiecte-elevi.md) e revizia: lista documentelor noi pe grupă și butonul
-de trimitere din [E17](E17-comunicare-notificari.md) S9. Alea sunt **ecrane de admin, la birou** —
+de trimitere din [E17](E17-comunicare-notificari.md) S8. Alea sunt **ecrane de admin, la birou** —
 se proiectează cu restul zonei de admin, nu după regulile de telefon de mai sus.
 
 **Acceptanță:** un profesor marchează prezența unei grupe de pe telefon, fără să mărească pagina.

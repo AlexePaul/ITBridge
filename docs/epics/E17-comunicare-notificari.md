@@ -36,7 +36,7 @@ A treia coloană e o decizie, nu o observație. Tot ce scrie „automat" pleacă
 ceva în bază: o factură emisă, o ședință anulată, un loc eliberat. Rândul lui
 [E14](E14-proiecte-elevi.md) nu mai e așa. **Documentele copiilor pleacă atunci când adminul apasă un
 buton**, după ce s-a uitat pe lista de documente noi ale grupei — nu automat, seara. E un mod de
-declanșare distinct, cu propriul story, S9, și cu propriul motiv în
+declanșare distinct, cu propriul story, S8, și cu propriul motiv în
 [Decizii luate](#decizii-luate).
 
 Cinci dintre ele sunt **blocate**, nu doar interesate: au criterii de acceptanță care nu pot fi
@@ -73,9 +73,13 @@ când trebuie, atât cât a acceptat.
 - Evidența livrărilor, inclusiv a celor care nu au avut unde să plece.
 - Anunțuri către grupe și locații.
 - Trimitere declanșată de admin, pe grupă, cu stare per document.
-- Linkuri WhatsApp gata de copiat, fără integrare cu un furnizor — **propus, nu decis**; vezi S8.
 
 ## În afara scopului
+
+- **WhatsApp, sub orice formă.** Patronul a respins canalul secundar pentru MVP. Ce s-a propus și a
+  căzut era o pagină de admin cu câte un link `wa.me` per copil, cu textul precompletat — nu un
+  buton de WhatsApp pe site-ul public. Se consemnează în [Decizii luate](#decizii-luate) ce formă ar
+  lua dacă se reia, ca argumentul să nu fie refăcut de la zero.
 
 - Conținutul de marketing — vezi [E20](E20-achizitie-lead.md). Aici se construiește țeava.
 
@@ -151,7 +155,7 @@ de 3 apeluri pe secundă), [E16](E16-plati-fiscal.md) S7 (memento-urile de resta
 [E04](E04-migrari-date.md) S5 (retenția). Toate folosesc mecanismul de aici. Altfel ies patru cozi,
 fiecare cu propria reîncercare și propria idee despre ce înseamnă un eșec permanent.
 
-**Coada rămâne necesară și acolo unde declanșatorul e un om.** Trimiterea pe grupă din S9 e un
+**Coada rămâne necesară și acolo unde declanșatorul e un om.** Trimiterea pe grupă din S8 e un
 singur click care produce zece-douăzeci de mesaje, fiecare către alt părinte, în aceeași secundă —
 exact tiparul în care furnizorul răspunde cu o limitare de rată la al șaptelea. Fără outbox,
 jumătate din grupă ar rămâne fără document și nimeni n-ar ști care jumătate. Cu el, butonul răspunde
@@ -217,7 +221,7 @@ diferit: primul cere un telefon, al doilea o retrimitere a linkului.
 
 **Starea trăiește și pe document, nu doar pe mesaj.** Documentele din
 [E14](E14-proiecte-elevi.md) sosesc pe grupă, iar adminul se uită la ele înainte să apese butonul din
-S9 — deci fiecare document are trei stări vizibile în lista grupei: **nou** (urcat, netrimis),
+S8 — deci fiecare document are trei stări vizibile în lista grupei: **nou** (urcat, netrimis),
 **trimis**, **eroare**. Sunt proiecția stării din outbox înapoi pe document, nu un al doilea adevăr
 ținut de mână.
 
@@ -249,85 +253,7 @@ Un admin trimite un mesaj către o grupă, o locație sau toți părinții, cu p
 **Acceptanță:** un anunț către o locație ajunge la toți părinții activi de acolo, cu raport de
 livrare.
 
-### S8 · WhatsApp, în forma cea mai ieftină — propunere
-
-**Statutul story-ului ăstuia e altul decât al restului epicului.** Tot ce urmează e o recomandare
-argumentată, nu o decizie luată. Celelalte rânduri din [Decizii luate](#decizii-luate) vin de la
-patron; forma canalului secundar nu — deci stă în [Întrebări deschise](#întrebări-deschise) până e
-confirmată sau respinsă, iar cine citește epicul ca să implementeze nu are voie să o ia drept
-stabilită.
-
-Un email nu se citește în două ore, iar o anulare anunțată cu două ore înainte trebuie citită în
-două ore. Părinții sunt deja pe WhatsApp — întrebarea nu e dacă se folosește, ci **cât plătește
-școala ca să-l folosească.**
-
-Ce se propune: o pagină în admin care listează, pe grupă, **câte un link `wa.me` per copil**, cu
-textul mesajului precompletat din același șablon ca emailul. Adminul apasă linkul, i se deschide
-conversația cu părintele, cu textul deja scris, și trimite. Atât.
-
-**Ce nu rezolvă.** Un link către un document trimis pe WhatsApp duce tot la ecranul de
-autentificare — accesul la fișiere trece prin cont, nu prin cunoașterea adresei
-([E14](E14-proiecte-elevi.md), Decizii luate). Deci canalul ăsta câștigă la *citit*, nu la *drum
-scurtat*: mesajul ajunge sub ochii părintelui în minute în loc de ore, dar pașii de după rămân
-aceiași. Merită spus, fiindcă tentația evidentă odată ce pagina există e să pui în ea linkuri care
-merg fără cont, ceea ce ar anula decizia din E14 fără ca cineva să observe.
-
-**De ce forma asta și nu WhatsApp Business API.** API-ul cere un furnizor intermediar, un contract
-cu el, un business verificat la Meta, șabloane aprobate în avans pe categorii, tarifare per
-conversație și o fereastră de 24 de ore în afara căreia se poate trimite doar un șablon aprobat.
-Toate astea ca să plece câteva zeci de mesaje pe săptămână. Varianta cu linkuri **costă un ecran**:
-nu costă un furnizor, un contract și o verificare de business. Mesajul pleacă de pe numărul omului
-care oricum vorbește cu părinții azi, deci nu are nevoie nici de aprobare de șablon, nici de plată
-per conversație.
-
-Concret, e mai puțin decât pare: `Profile.phone` există deja în
-`apps/api/src/entities/profile.entity.ts` și e unic, iar frontend-ul normalizează la `+40…` înainte
-să trimită (`normalizePhone` din `apps/web/app/composables/useUtils.ts`), deci constructorul de link
-are o singură formă de tratat și tot ce face e să scoată `+`-ul și să pună textul URL-encodat.
-
-**Ce lipsește ca propunerea să devină decizie: cifrele.** Argumentul de mai sus e structural — cere,
-contract, verificare — și rămâne valabil oricare ar fi tariful. Dar formularea inițială a story-ului
-cerea „costuri estimate", iar un argument calitativ nu ține locul unei comparații. Înainte de
-confirmare se scriu, alături, patru numere:
-
-- abonamentul lunar al furnizorului intermediar, în euro pe lună, cerut de la doi furnizori, nu de
-  la unul;
-- tariful Meta per conversație pentru categoria potrivită mesajelor de aici (utilitare, inițiate de
-  școală), pentru România — nu tariful generic din pagina de marketing;
-- volumul lunar de mesaje urgente, estimat din realitatea de azi: câte anulări și câte întârzieri au
-  fost în ultimele trei luni. Fără el, tariful per conversație nu se transformă în cost lunar;
-- costul variantei propuse: zilele de dezvoltare ale ecranului, plus minutele de admin per grupă per
-  trimitere — al doilea e costul recurent și e cel care crește, vezi mai jos.
-
-Cifrele nu se inventează aici. Se cer, se scriu în epic și abia atunci propunerea se confirmă sau
-cade. Dacă răspunsul e API-ul, S8 se rescrie, nu se extinde.
-
-**Costul propunerii, scris ca să nu fie descoperit.** Nimic nu e automat: nu pleacă nimic la 8
-dimineața, nu există reîncercare, și **nu există dovadă de livrare** — platforma nu are de unde ști
-dacă adminul chiar a apăsat „trimite" în WhatsApp. Deci evidența din S5 rămâne despre email, iar
-WhatsApp-ul nu produce acolo o stare `trimis` pe care nimeni n-a verificat-o. O stare falsă ar fi
-mai rea decât lipsa ei: pe una falsă se ia decizia „părintele știe".
-
-Al doilea cost e că nu scalează. La câteva sute de familii, un link pe copil devine muncă de om cu
-ora, și **atunci** se redeschide întrebarea API-ului — condiția e scrisă aici tocmai ca revenirea la
-ea să fie planificată, nu descoperită.
-
-În schimb, propunerea e deliberat una care se poate arunca: dacă se alege API-ul, mai târziu sau de
-la început, ecranul de linkuri dispare fără să lase nimic în urmă — niciun tabel, nicio stare, nicio
-migrare. Ăsta e argumentul care rămâne în picioare și dacă cifrele ies în favoarea API-ului: costul
-de a te răzgândi e aproape zero.
-
-`Profile.phone` e `nullable`, ca și adresa de email. Un copil al cărui părinte nu are telefon apare
-în listă marcat ca atare, nu lipsește din ea — aceeași regulă ca la S5, din același motiv: absența
-unui destinatar e o informație, nu un rând de sărit.
-
-**Acceptanță, în două trepte.** Întâi, cea care lipsește azi: cele patru numere de mai sus sunt
-scrise în epic, unul lângă altul, iar patronul confirmă sau respinge propunerea. Abia după aceea, a
-doua: adminul deschide pagina unei grupe, are câte un link gata de copiat per copil, cu text în
-română precompletat, și trimite fără să tasteze nimic de mână; copiii ai căror părinți nu au telefon
-apar în listă, marcați.
-
-### S9 · Trimitere declanșată de admin
+### S8 · Trimitere declanșată de admin
 
 Documentele copiilor nu pleacă singure. Adminul deschide grupa, vede documentele noi urcate de
 agentul din [E14](E14-proiecte-elevi.md), bifează ce se trimite și apasă un buton.
@@ -378,7 +304,7 @@ o rafinare, e o cerință de la început.
 **Un email greșit trimis la toți nu se poate retrage.** Confirmare obligatorie și trimitere de test
 către admin înainte de orice difuzare în masă.
 
-**Ce depinde de un buton nu pleacă dacă nu apasă nimeni.** E reversul deciziei din S9: jobul de
+**Ce depinde de un buton nu pleacă dacă nu apasă nimeni.** E reversul deciziei din S8: jobul de
 seară pleca și într-o zi aglomerată, butonul nu. Riscul nu se închide cu disciplină, ci cu
 vizibilitate — lista grupei arată câte documente sunt `nou` și de câte zile, iar cifra se vede din
 meniul zonei de admin, nu doar dacă intri pe grupă. Un document rămas `nou` de trei zile e o
@@ -414,10 +340,20 @@ arată.
 | Trimiterea documentelor către părinți | **Adminul apasă butonul**, pe grupă, după ce se uită la ce pleacă. Nimic nu pleacă automat, seara |
 | Starea unui document | **nou / trimis / eroare**, vizibilă în lista grupei, nu doar în evidența de mesaje |
 
-Canalul secundar **nu e în tabelul ăsta**, deși a fost pentru scurt timp. Forma propusă la S8 —
-linkuri `wa.me`, nu WhatsApp Business API — e o recomandare a echipei, nu o decizie a patronului, și
-stă la [Întrebări deschise](#întrebări-deschise) până primește un răspuns. Diferența nu e formală:
-tabelul ăsta e citit ca listă de lucruri care nu se mai discută.
+**Fără canal secundar în MVP.** Emailul e singurul canal. Propunerea echipei — o pagină de admin cu
+câte un link `wa.me` per copil, cu mesajul precompletat, trimis de pe telefonul omului — a fost
+respinsă de patron pentru MVP.
+
+Argumentul se păstrează aici, ca să nu fie refăcut: dacă se reia vreodată, forma e linkurile, nu
+WhatsApp Business API. API-ul cere un furnizor intermediar, un contract cu el, un business verificat
+la Meta, șabloane aprobate în avans și tarifare per conversație — pentru câteva zeci de mesaje pe
+săptămână. Ce nu acoperă varianta cu linkuri, și de aceea nu e gratis: nimic nu e automat, nu există
+reîncercare, și **nu există dovadă de livrare** — platforma nu are de unde ști dacă omul chiar a
+apăsat trimite. De asta evidența din S5 rămâne despre email și nu inventează o stare `trimis`
+neverificată; una falsă ar fi mai rea decât lipsa ei, fiindcă pe ea se ia decizia „părintele știe".
+
+Pragul la care se redeschide: câteva sute de familii, unde un link pe copil devine muncă de om cu
+ora.
 
 **Un copil, un părinte, o adresă.** Întrebarea „ce facem când copilul are doi părinți care vor
 amândoi mesajele?" se închide cu răspunsul ăsta, nu cu o listă de destinatari. Motivul e cel
@@ -444,7 +380,7 @@ pleca pentru familiile venite pe drumul obișnuit, iar restul se văd în eviden
 
 **Trimiterea o declanșează adminul, nu ceasul.** Decizia vine odată cu rescrierea fluxului din
 [E14](E14-proiecte-elevi.md): documentele urcă singure dintr-un folder de rețea, dar ultimul pas
-rămâne al unui om, care se uită pe grupă și apasă. Motivul e cel din S9 — între un folder urmărit
+rămâne al unui om, care se uită pe grupă și apasă. Motivul e cel din S8 — între un folder urmărit
 automat și cutia poștală a unui părinte, singura verificare posibilă că documentul e al copilului
 potrivit e o pereche de ochi. Consecința pentru epicul ăsta e că „automat" nu mai e singurul mod de
 declanșare, deci tabelul din Problemă are o coloană în plus, iar outbox-ul din S3 servește și un
@@ -472,10 +408,7 @@ nu scalează la volume mari; la volumul ăsta, pragul nu se atinge.
   [Decizii luate](#decizii-luate), regula în [E11](E11-inscrieri-capacitate.md).
 - ~~Ce se întâmplă când un copil are doi părinți care vor amândoi mesajele?~~ **Un copil are un
   părinte, cu o adresă.** Motivul, la [Decizii luate](#decizii-luate).
-- Rămâne WhatsApp canalul principal pentru urgențe, în afara platformei? **Propunere, de confirmat:
-  da, prin linkuri `wa.me` — platforma pregătește mesajul, omul îl trimite de pe telefonul lui, fără
-  WhatsApp Business API.** E singurul lucru din epicul ăsta pe care l-a propus echipa, nu l-a decis
-  patronul, deci a rămas aici și nu a urcat la [Decizii luate](#decizii-luate). Argumentul,
-  costurile pe care le lasă neacoperite și pragul la care întrebarea se redeschide oricum — la S8.
-  De confirmat cu cele patru cifre de acolo pe masă.
+- ~~Rămâne WhatsApp canalul principal pentru urgențe, în afara platformei?~~ **Rămâne exact acolo
+  unde e azi: în afara platformei.** Nu se construiește nimic pentru el în MVP — vezi
+  [Decizii luate](#decizii-luate). Omul deschide WhatsApp și scrie, ca acum.
 - Cine scrie textele? Sunt fața școlii și merită scrise cu grijă, nu generate.
