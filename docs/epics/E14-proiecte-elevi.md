@@ -270,10 +270,9 @@ intenționat și nu se strică.
 Nu blochează nimic: emailul pleacă cu miniatură, titlu și link către portal, iar linia apare când
 modulele sunt introduse. E10 se construiește în jurul conținutului lipsă, nu îl așteaptă.
 
-**Consecință pentru [E07](E07-securitate-gdpr.md):** acolo scrie că „emailul de seară din E14 S4
-pleacă indiferent de bifele" de preferințe. Emailul de seară nu mai există; ce rămâne adevărat e că
-documentul propriului copil către propriul părinte e o livrare tranzacțională, nu marketing, deci nu
-se oprește din preferințele de frecvență. Formularea se corectează în E07, nu aici.
+**Consecință pentru [E07](E07-securitate-gdpr.md):** documentul propriului copil către propriul
+părinte e o livrare tranzacțională, nu marketing, deci nu se oprește din preferințele de frecvență —
+nu pentru că adminul îl declanșează manual, ci pentru că e executarea contractului.
 
 **Acceptanță:** un părinte cu doi copii în aceeași trimitere primește **un** email, cu ambele, iar
 miniaturile se văd și offline, a doua zi dimineața. Un părinte fără adresă apare în evidența de
@@ -374,8 +373,7 @@ de fotografiere a copilului, propus inițial acolo, nu mai există — vezi [Dec
 arborele de foldere. Dependența s-a **subțiat**, nu a dispărut: întrebarea „ce grupă e programată
 acum în sala asta" nu se mai pune nicăieri, fiindcă nu mai există ecran care s-o pună. Ce rămâne e
 `Group.name` plus sala, ca folderele celor două locații să nu se confunde — și amândouă sunt deja
-livrate în E08 S1–S3. Formularea din Problema lui E08, care încă spune că uploaderul din E14 nu poate
-ști ce grupă e în ce sală, se corectează acolo.
+livrate în E08 S1–S3.
 
 [E09](E09-personal-roluri.md) **nu mai e o dependență.** Nu se mai așteaptă nici rolul de profesor,
 care nu se face, nici `Staff`: agentul urcă sub un cont dedicat, iar butonul îl apasă un admin. Vezi

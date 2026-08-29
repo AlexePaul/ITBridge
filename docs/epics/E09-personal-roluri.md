@@ -177,11 +177,6 @@ Antetul a fost corectat. Ce era acolo, și ce a mai rămas adevărat:
   pentru ecranul „ce grupă e în sală acum". Fluxul lui se schimbă: încărcarea vine de la un agent
   local, iar trimiterea o apasă un admin. Cine apasă e un `User` cu rol `ADMIN`, care există deja.
 
-Rămâne de aliniat un singur lucru: în [README](README.md), E14 are în continuare `E09` în coloana
-„Depinde de", iar graful desenează muchia `E09 --> E14`. Amândouă se scot. E09 nu-i mai datorează
-nimic lui E14: nici rolul de profesor, care nu se face, nici `Staff`, de care fluxul nou — agent
-local care încarcă, admin care trimite — nu are nevoie.
-
 ## Riscuri
 
 **Un `Staff` fără roluri poate părea inutil și poate fi tăiat de cineva grăbit.** Nu e: e singurul

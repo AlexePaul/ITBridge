@@ -215,6 +215,8 @@ la S4 sunt secvențiale prin construcție — ce vine după ce, nu ce se poate f
 - ~~Un copil poate urma două module în paralel?~~ **Nu**, și nici nu se face configurabil. Vezi
   [Decizii luate](#decizii-luate).
 - ~~Ce se întâmplă cu un copil care se înscrie la mijlocul unui modul?~~ Se facturează **pro-rata pe
-  ședințele efectiv făcute**. Regula, cu rotunjirea și ordinea față de reducerea de frați, se scrie
-  în [E15](E15-pricing-facturare.md) — aici doar se reține că `Module` trebuie să dea numărul de
-  ședințe și data fiecăreia, altfel proporția nu se poate calcula.
+  ședințele rămase**, numărate din **calendarul modulului**, nu din prezența efectivă: ședințele
+  rămase se știu în ziua înscrierii, prezența abia la final, iar o factură care ar aștepta prezența
+  s-ar emite după ce s-a consumat tot ce facturează. Regula, cu rotunjirea și ordinea față de
+  reducerea de frați, se scrie în [E15](E15-pricing-facturare.md) — aici doar se reține că `Module`
+  trebuie să dea numărul de ședințe și data fiecăreia, altfel proporția nu se poate calcula.

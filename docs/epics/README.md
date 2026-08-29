@@ -22,10 +22,9 @@ Frontend pe Vercel, funcționând ca prezentare statică. Backend nedeployat nic
 loc [E01](E01-infrastructura-medii.md) S4, care așteaptă instanța EC2, și odată cu el tot ce are
 nevoie de un API care rulează: [E18](E18-frontend-portal.md) S4 și S5, backupul din
 [E04](E04-migrari-date.md) S4, [E14](E14-proiecte-elevi.md) S3b (ffmpeg pe host) și S6 (vitrina
-publică), și [E20](E20-achizitie-lead.md) S6 (lead-ul scris din formularul de contact). Șase
-story-uri din patru epicuri, toate în așteptarea aceleiași instanțe — de aceea S4 din E01 nu e o
-sarcină de infrastructură printre altele, ci pragul peste care nu trece nimic altceva. Locația e
-dimensiune de primă clasă din [E08](E08-multi-locatie.md).
+publică). Cinci story-uri din trei epicuri, toate în așteptarea aceleiași instanțe — de aceea S4 din
+E01 nu e o sarcină de infrastructură printre altele, ci pragul peste care nu trece nimic altceva.
+Locația e dimensiune de primă clasă din [E08](E08-multi-locatie.md).
 
 Curățenia de infrastructură din E01 a intrat: aplicația nu mai rulează în Docker, `docker-compose.yml`
 e doar Postgres, iar cele trei strategii de deploy moarte au dispărut din repo. Cheia Let's Encrypt
@@ -159,8 +158,7 @@ dar nu îi mai trebuie niciun rol. [E14](E14-proiecte-elevi.md) **nu mai depinde
 rolul de profesor pentru autorul încărcării, iar în fluxul nou încărcarea vine de la un agent local
 și trimiterea o apasă un admin — un cont care există deja. De aceea E09 a ieșit din rândul lui E14
 în tabel și muchia `E09 --> E14` nu mai e desenată. Sursa e [E09](E09-personal-roluri.md),
-secțiunea „Ce blochează, de fapt”; antetul lui [E14](E14-proiecte-elevi.md) încă listează E09 și se
-corectează odată cu rescrierea epicului, care e în curs.
+secțiunea „Ce blochează, de fapt”.
 
 Graful nu poate desena tot ce scrie în antetul lui E09. Acolo scrie „Blochează: **E08 S3**” — o
 dependență la nivel de story, nu de epic, iar tabelul și graful nu au unde să o pună: în desen apare
@@ -381,4 +379,8 @@ verifică înainte de orice cod.
 | Datele contului                                 | Email confirmat, adresă și date de facturare obligatorii la înregistrare                                 | [E11](E11-inscrieri-capacitate.md)  |
 | Proiectele copiilor                             | Ajung exclusiv la părintele copilului. Se fotografiază lucrarea, nu copilul.                             | [E14](E14-proiecte-elevi.md)        |
 | Trimiterea documentelor către părinți           | **Adminul apasă butonul**, pe grupă, după ce se uită la ce pleacă. Nimic nu pleacă automat, seara        | [E17](E17-comunicare-notificari.md) |
-| Canal secundar                                  | **WhatsApp prin linkuri copiabile** în admin, nu integrare cu WhatsApp Business API                      | [E17](E17-comunicare-notificari.md) |
+
+Canalul secundar **nu e în tabel, fiindcă nu e decizie.** Linkurile WhatsApp copiabile din admin, în
+locul unei integrări cu WhatsApp Business API, sunt o propunere a echipei, nu o alegere a
+patronului — singurul lucru din E17 despre care stă scris așa. Rămâne de confirmat; vezi
+[E17](E17-comunicare-notificari.md) S8 și întrebările deschise de acolo.

@@ -57,6 +57,7 @@ suma corectă.
 - Reduceri cu tip și regulă.
 - Regenerarea PDF-ului.
 - Previzualizare înainte de emitere.
+- Trecerea prețului de pe site-ul public de pe lună pe modul, odată cu catalogul.
 
 ## În afara scopului
 
@@ -158,13 +159,31 @@ de azi — 350 pentru primul copil, 250 pentru fiecare frate — și tot ce se s
 la modul e unitatea, nu principiul. Ce dispare e ieftinirea retroactivă a primului copil, de la 350
 la 250, pe care o face codul actual.
 
-Site-ul public nu anunță niciun procent. Arată cele două sume una lângă alta — 350 de lei pe
-lună pentru un copil, 600 pentru doi — pentru că o reducere scrisă ca procent se citește față de
-baza pe care o are cititorul în minte, iar „250 din 350" și „600 în loc de 700" dau două procente
-diferite pentru aceeași ofertă.
+Site-ul public nu anunță niciun procent. Arată cele două sume una lângă alta — 700 de lei pe modul
+pentru un copil, 1225 pentru doi — pentru că o sumă se verifică dintr-o privire, în timp ce un
+procent cere cititorului să știe baza și să facă el scăderea. „−25%" și „al doilea copil plătește
+525 de lei" sunt aceeași ofertă; a doua formulare nu are nevoie de nimic în plus ca să fie crezută.
+
+**Trecerea site-ului public pe prețul de modul face parte din livrarea acestui epic** — niciun alt
+story nu o acoperă, iar catalogul din S1 fără ea lasă școala cu două prețuri publicate simultan.
+Sumele stau azi în `apps/web/shared/courses.ts:119-120`, ca `PRICE_ONE_CHILD = 350` și
+`PRICE_TWO_CHILDREN = 600`, și sunt citite din șase locuri: pagina `cursuri.vue`, cele două pagini
+de locație, `shared/seo.ts` (descrierile meta), `shared/structured-data.ts` (`priceRange` și nodul
+`Offer`) și `server/routes/llms.txt.ts`. Nu e de ajuns să se schimbe cele două numere: unitatea e
+scrisă separat, ca „lei pe lună" în texte și ca `unitText: "lună"`, `unitCode: "MON"` și
+`category: "Subscription"` în JSON-LD, deci se schimbă și ea, în toate cele șase. Diferența calculată
+în pagini rămâne validă ca formă — 1225 − 700 dă exact prețul fratelui, cum 600 − 350 îl dădea pe
+cel de azi.
+
+Până atunci **site-ul rămâne neatins: 350/600 pe lună e modelul în vigoare, deci afișarea e
+corectă**, nu o restanță. Se schimbă în clipa în care catalogul din S1 începe să emită facturi pe
+modul, nu mai devreme — un preț publicat înaintea celui facturat e o promisiune pe care școala încă
+nu o poate onora.
 
 **Acceptanță:** teste pentru unu, doi, trei, patru și cinci copii, cu sumele din tabel. Nicio
-combinație de copii și reduceri nu produce sumă zero sau negativă.
+combinație de copii și reduceri nu produce sumă zero sau negativă. La final, nicio pagină publică,
+niciun `Offer` și nicio descriere meta nu mai spune „pe lună", iar sumele afișate sunt cele pe care
+le facturează catalogul.
 
 ### S5 · Reduceri cu tip
 
@@ -270,8 +289,8 @@ aceeași săptămână, încasările se concentrează. Merită simulat înainte.
 **Formularea facturii poate transforma recuperările în datorie.**
 [E12](E12-prezenta-orar.md) a decis că recuperarea e un instrument de retenție, nu o datorie
 contractuală, fiindcă părintele cumpără participarea la un modul, nu un număr garantat de ședințe.
-Distincția ține exact cât timp niciun document nu numără ședințe: o linie scrisă „12 ședințe ×
-87,50" promite douăsprezece, iar absența devine ceva ce se datorează înapoi. De aceea liniile se
+Distincția ține exact cât timp niciun document nu numără ședințe: o linie scrisă „8 ședințe ×
+87,50" promite opt, iar absența devine ceva ce se datorează înapoi. De aceea liniile se
 scriu în unități de modul, inclusiv la pro-rata (S8). Cele două epicuri trebuie decise împreună.
 
 ## Definition of done
