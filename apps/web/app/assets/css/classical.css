@@ -1329,6 +1329,17 @@ textarea.input {
   transition: color var(--dur-fast) var(--ease-out);
 }
 
+/* A phone number is one token, not a sentence: broken across two lines it reads as
+   "+40 732" and "273 347", two half-numbers nobody can dial. It survives `nowrap`
+   safely because it is short — under half the column even on a 320px screen — so
+   this cannot push the footer into a horizontal scroll.
+   The hours below share `.tnum` deliberately and are NOT covered: they are long
+   enough to overflow if forbidden to wrap, and breaking after "Luni–vineri:" reads
+   fine. Only the range itself must stay whole, which it does. */
+.footer-link[href^="tel:"] {
+  white-space: nowrap;
+}
+
 .footer-link:hover {
   color: var(--color-accent-ink);
 }
