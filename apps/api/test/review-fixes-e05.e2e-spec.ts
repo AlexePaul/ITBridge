@@ -2,7 +2,18 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, ownProfileId, promoteToAdmin, registerUser, registrationBody, truncateAll, TestUser, createRoom, groupBody } from './helpers';
+import {
+    createTestApp,
+    enrolInNewGroup,
+    ownProfileId,
+    promoteToAdmin,
+    registerUser,
+    registrationBody,
+    truncateAll,
+    TestUser,
+    createRoom,
+    groupBody,
+} from './helpers';
 
 /**
  * Regression cover for the defects a second review pass turned up on E05.
@@ -43,11 +54,14 @@ describe('E05 review fixes (e2e)', () => {
             // a 409 by design.
             const profileId = await ownProfileId(app, user);
 
-            await request(app.getHttpServer())
+            const child = await request(app.getHttpServer())
                 .post('/children')
                 .set('Authorization', user.auth)
                 .send({ firstName: 'Copil', lastName: 'Test', birthDate: '2016-01-01', parentId: profileId })
                 .expect(201);
+
+            // An invoice counts active enrolments now, not children on file (E11/S4).
+            await enrolInNewGroup(app, admin, [child.body.id as number], { name: `Grupa ${key}` });
 
             const invoices = await request(app.getHttpServer())
                 .post('/invoices')
@@ -225,11 +239,12 @@ describe('E05 review fixes (e2e)', () => {
         it('a stored PDF survives the parent being renamed', async () => {
             const profileId = await ownProfileId(app, ana);
 
-            await request(app.getHttpServer())
+            const child = await request(app.getHttpServer())
                 .post('/children')
                 .set('Authorization', ana.auth)
                 .send({ firstName: 'Copil', lastName: 'Popescu', birthDate: '2016-01-01', parentId: profileId })
                 .expect(201);
+            await enrolInNewGroup(app, admin, [child.body.id as number]);
 
             const invoices = await request(app.getHttpServer())
                 .post('/invoices')

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { EnrollmentService, WAITLIST_RESPONSE_HOURS } from './enrollment.service';
+import { ageOf, bandFor, compatibilityWarnings, EnrollmentService, WAITLIST_RESPONSE_HOURS } from './enrollment.service';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Child } from 'src/entities/child.entity';
@@ -30,8 +30,23 @@ describe('EnrollmentService', () => {
 
     /** A family whose account passes both E11/S2 gates. */
     const activeParent = { id: 5, role: Role.PARENT, emailConfirmedAt: new Date(), approvalStatus: ApprovalStatus.APPROVED };
-    const child = { id: 1, firstName: 'Maria', parent: { id: 10, email: 'ana@example.com', user: activeParent } };
-    const group = (overrides: Record<string, unknown> = {}) => ({ id: 2, name: 'Scratch Începători', capacity: 10, isActive: true, ...overrides });
+    const child = {
+        id: 1,
+        firstName: 'Maria',
+        // Nine years old at the seed date, comfortably inside the 7-12 band below, so the age check
+        // stays out of the way of every test that is not about it.
+        birthDate: `${new Date().getFullYear() - 9}-01-01`,
+        parent: { id: 10, email: 'ana@example.com', user: activeParent },
+    };
+    const group = (overrides: Record<string, unknown> = {}) => ({
+        id: 2,
+        name: 'Scratch Începători',
+        capacity: 10,
+        isActive: true,
+        minAge: 7,
+        maxAge: 12,
+        ...overrides,
+    });
 
     beforeEach(async () => {
         enrollmentRepo = createMockRepository();
@@ -354,6 +369,161 @@ describe('EnrollmentService', () => {
         });
     });
 
+    describe('transfer (S5)', () => {
+        const current = { id: 9, status: EnrollmentStatus.ACTIVE, group: { id: 3, name: 'Python' }, contractSignedAt: '2026-01-01' };
+
+        beforeEach(() => {
+            enrollmentRepo.findOne!.mockResolvedValue(current);
+        });
+
+        it('closes the old enrolment and opens the new one, in one transaction', async () => {
+            await service.transfer({ childId: 1, toGroupId: 2 }, 42);
+
+            // Either way round without the transaction gives two live enrolments or a child with
+            // none — and at capacity, a seat that frees before the transfer completes.
+            expect(manager.update).toHaveBeenCalledWith(
+                Enrollment,
+                { id: 9 },
+                expect.objectContaining({ status: EnrollmentStatus.TRANSFERRED, endDate: expect.any(String) }),
+            );
+            expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ group: { id: 2 }, endDate: null }));
+        });
+
+        it('carries the status across, so a trial that moves is still a trial', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ ...current, status: EnrollmentStatus.TRIAL });
+
+            await service.transfer({ childId: 1, toGroupId: 2 }, 42);
+
+            // Promoting it here would enrol a family that has not decided yet.
+            expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ status: EnrollmentStatus.TRIAL }));
+        });
+
+        it('carries the signed contract across, because it is the same enrolment continuing', async () => {
+            await service.transfer({ childId: 1, toGroupId: 2 }, 42);
+
+            expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ contractSignedAt: '2026-01-01' }));
+        });
+
+        it('names the destination in the exit reason when nobody gives one', async () => {
+            await service.transfer({ childId: 1, toGroupId: 2 }, 42);
+
+            const update = manager.update.mock.calls.find((call) => call[0] === Enrollment);
+            expect((update?.[2] as { exitReason: string }).exitReason).toContain('Scratch Începători');
+        });
+
+        it('refuses when there is nothing to transfer from', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue(null);
+
+            const error = await service.transfer({ childId: 1, toGroupId: 2 }, 42).catch((e: unknown) => e);
+            expect(responseOf(error).error).toBe('NOTHING_TO_TRANSFER');
+        });
+
+        it('refuses a transfer into the group the child is already in', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ ...current, group: { id: 2, name: 'Scratch Începători' } });
+
+            const error = await service.transfer({ childId: 1, toGroupId: 2 }, 42).catch((e: unknown) => e);
+            expect(responseOf(error).error).toBe('ALREADY_IN_GROUP');
+        });
+
+        it('checks capacity on the destination', async () => {
+            enrollmentRepo.count!.mockResolvedValue(10);
+
+            const error = await service.transfer({ childId: 1, toGroupId: 2 }, 42).catch((e: unknown) => e);
+            expect(responseOf(error).error).toBe('GROUP_FULL');
+        });
+
+        it('does not offer the freed seat to the queue', async () => {
+            enrollmentRepo.count!.mockResolvedValue(5);
+            waitlistRepo.findOne!.mockResolvedValue({
+                id: 4,
+                child: { firstName: 'Vlad', parent: { email: 'x@example.com' } },
+                group: { id: 3, name: 'Python' },
+            });
+
+            await service.transfer({ childId: 1, toGroupId: 2 }, 42);
+
+            // The seat is not free: it is being handed to this child. The queue is asked only when
+            // a seat genuinely leaves the group.
+            expect(outbox.queue).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('resolveTrial (S4)', () => {
+        const trial = { id: 9, status: EnrollmentStatus.TRIAL, child: { id: 1 }, group: { id: 2 }, contractSignedAt: null };
+
+        beforeEach(() => {
+            enrollmentRepo.findOne!.mockResolvedValue(trial);
+            enrollmentRepo.findOneOrFail!.mockResolvedValue({ ...trial, status: EnrollmentStatus.ACTIVE });
+        });
+
+        it('keeps the same row when the family stays, so the history reads as one period', async () => {
+            await service.resolveTrial(9, { accepted: true });
+
+            expect(manager.update).toHaveBeenCalledWith(Enrollment, { id: 9 }, expect.objectContaining({ status: EnrollmentStatus.ACTIVE }));
+            expect(manager.save).not.toHaveBeenCalled();
+        });
+
+        it('frees the seat and runs the queue when the family does not continue', async () => {
+            enrollmentRepo.count!.mockResolvedValue(5);
+            waitlistRepo.findOne!.mockResolvedValue({
+                id: 4,
+                child: { firstName: 'Vlad', parent: { email: 'x@example.com' } },
+                group: { id: 2, name: 'Scratch Începători' },
+            });
+
+            await service.resolveTrial(9, { accepted: false, reason: 'Nu s-a potrivit programul' });
+
+            expect(manager.update).toHaveBeenCalledWith(
+                Enrollment,
+                { id: 9 },
+                expect.objectContaining({ status: EnrollmentStatus.WITHDRAWN, exitReason: 'Nu s-a potrivit programul' }),
+            );
+            expect(outbox.queue).toHaveBeenCalled();
+        });
+
+        it('refuses to resolve something that is not a trial', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ ...trial, status: EnrollmentStatus.ACTIVE });
+
+            const error = await service.resolveTrial(9, { accepted: true }).catch((e: unknown) => e);
+            expect(responseOf(error).error).toBe('NOT_A_TRIAL');
+        });
+    });
+
+    describe('compatibility (S6)', () => {
+        it('refuses once with the ages named, and accepts on the retry', async () => {
+            const sevenYearOld = { ...child, birthDate: `${new Date().getFullYear() - 7}-01-01` };
+            childRepo.findOne!.mockResolvedValue(sevenYearOld);
+            groupRepo.findOne!.mockResolvedValue(group({ minAge: 11, maxAge: 14 }));
+
+            // A warning has to mean something: an admin enrolling a seven-year-old in an 11-14
+            // group should have had to see that and say yes.
+            const error = await service.enrol({ childId: 1, groupId: 2 }, 42).catch((e: unknown) => e);
+            expect(responseOf(error).error).toBe('COMPATIBILITY_WARNINGS');
+            expect(responseOf(error).message).toContain('11-14');
+
+            await service.enrol({ childId: 1, groupId: 2, acknowledgeWarnings: true }, 42);
+            expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.anything());
+        });
+
+        it('says nothing when the age fits', async () => {
+            await service.enrol({ childId: 1, groupId: 2 }, 42);
+
+            expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.anything());
+        });
+
+        it('is a warning, not a block — unlike capacity', async () => {
+            const sevenYearOld = { ...child, birthDate: `${new Date().getFullYear() - 7}-01-01` };
+            childRepo.findOne!.mockResolvedValue(sevenYearOld);
+            groupRepo.findOne!.mockResolvedValue(group({ minAge: 11, maxAge: 14, capacity: 10 }));
+            enrollmentRepo.count!.mockResolvedValue(10);
+
+            // Capacity is checked first and refuses outright: acknowledging warnings must not be a
+            // way past a full room, because an eleventh chair is not a judgement call.
+            const error = await service.enrol({ childId: 1, groupId: 2, acknowledgeWarnings: true }, 42).catch((e: unknown) => e);
+            expect(responseOf(error).error).toBe('GROUP_FULL');
+        });
+    });
+
     describe('historyFor', () => {
         it('asks for the whole history, newest first', async () => {
             enrollmentRepo.find!.mockResolvedValue([]);
@@ -366,5 +536,46 @@ describe('EnrollmentService', () => {
                 order: { startDate: 'DESC', id: 'DESC' },
             });
         });
+    });
+});
+
+describe('compatibilityWarnings', () => {
+    const bornYearsAgo = (years: number) => `${new Date().getFullYear() - years}-01-01`;
+
+    it('warns below the band and above it, and stays quiet inside', () => {
+        const band = { minAge: 9, maxAge: 12, name: 'Scratch' };
+
+        expect(compatibilityWarnings({ birthDate: bornYearsAgo(7) as never }, band)[0]?.code).toBe('AGE_BELOW_GROUP');
+        expect(compatibilityWarnings({ birthDate: bornYearsAgo(15) as never }, band)[0]?.code).toBe('AGE_ABOVE_GROUP');
+        expect(compatibilityWarnings({ birthDate: bornYearsAgo(10) as never }, band)).toEqual([]);
+    });
+
+    it('treats the boundaries as inside the band', () => {
+        const band = { minAge: 9, maxAge: 12, name: 'Scratch' };
+
+        expect(compatibilityWarnings({ birthDate: bornYearsAgo(9) as never }, band)).toEqual([]);
+        expect(compatibilityWarnings({ birthDate: bornYearsAgo(12) as never }, band)).toEqual([]);
+    });
+});
+
+describe('ageOf', () => {
+    it('counts whole years, not calendar-year differences', () => {
+        // Born on New Year's Eve, asked about on New Year's Day: one day old, not one year.
+        expect(ageOf('2025-12-31', new Date('2026-01-01T12:00:00Z'))).toBe(0);
+        expect(ageOf('2026-01-01', new Date('2026-12-31T12:00:00Z'))).toBe(0);
+        expect(ageOf('2016-06-15', new Date('2026-06-15T12:00:00Z'))).toBe(10);
+        expect(ageOf('2016-06-15', new Date('2026-06-14T12:00:00Z'))).toBe(9);
+    });
+});
+
+describe('bandFor', () => {
+    it("puts every age in exactly one band, including the ones outside the school's range", () => {
+        expect(bandFor(6)).toBe('6–8 ani');
+        expect(bandFor(9)).toBe('9–10 ani');
+        expect(bandFor(12)).toBe('11–12 ani');
+        expect(bandFor(14)).toBe('13–14 ani');
+        // A child of four still lands somewhere rather than disappearing from the screen.
+        expect(bandFor(4)).toBe('6–8 ani');
+        expect(bandFor(17)).toBe('15+ ani');
     });
 });

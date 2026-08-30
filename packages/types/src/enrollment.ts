@@ -73,3 +73,17 @@ export interface WaitlistEntry {
     child?: Child;
     group?: Group;
 }
+
+/**
+ * One row of the group-formation screen — E11/S7: children nobody has placed, bucketed by age band
+ * and by the location they asked for.
+ *
+ * `locationId` is `null` for children who are on nobody's waiting list — they have expressed no
+ * preference, so they count towards a new group anywhere.
+ */
+export interface DemandBucket {
+    locationId: number | null;
+    locationName: string;
+    ageBand: string;
+    children: { id: number; firstName: string; lastName: string; age: number }[];
+}

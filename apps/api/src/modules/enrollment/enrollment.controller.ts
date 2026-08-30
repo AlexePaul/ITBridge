@@ -4,11 +4,13 @@ import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { RolesGuard } from 'src/guards/role.guard';
-import { EnrollmentService } from './enrollment.service';
+import { EnrollmentService, schoolToday } from './enrollment.service';
 import { CreateEnrollmentDto } from './dto/createEnrollment.dto';
 import { CloseEnrollmentDto } from './dto/closeEnrollment.dto';
 import { CreateWaitlistEntryDto } from './dto/createWaitlistEntry.dto';
 import { RemoveWaitlistEntryDto } from './dto/removeWaitlistEntry.dto';
+import { TransferEnrollmentDto } from './dto/transferEnrollment.dto';
+import { ResolveTrialDto } from './dto/resolveTrial.dto';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 /**
@@ -44,7 +46,10 @@ export class EnrollmentController {
     @ApiOperation({ summary: 'Cine era în grupă la o dată anume' })
     @ApiResponse({ status: 200, description: 'Enrollments covering that date' })
     async membersOn(@Param('groupId', ParseIntPipe) groupId: number, @Query('date') date?: string) {
-        return this.enrollmentService.membersOn(groupId, date ?? new Date().toISOString().slice(0, 10));
+        // The default is the school's day, not UTC's. `startDate` is written in Europe/Bucharest,
+        // so between midnight there and midnight in UTC a `toISOString()` default asked about
+        // yesterday — and an enrolment opened an hour ago was missing from its own group's roster.
+        return this.enrollmentService.membersOn(groupId, date ?? schoolToday());
     }
 
     @Get('group/:groupId/occupancy')
@@ -84,6 +89,62 @@ export class EnrollmentController {
     @ApiResponse({ status: 409, description: 'ENROLLMENT_ALREADY_CLOSED' })
     async close(@Param('id', ParseIntPipe) id: number, @Body() closeEnrollmentDto: CloseEnrollmentDto) {
         return this.enrollmentService.close(id, closeEnrollmentDto);
+    }
+
+    @Post('transfer')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Mută un copil în altă grupă',
+        description:
+            'Singurul mod în care un copil își schimbă grupa, fiindcă D6 interzice a doua înscriere în vigoare. Închide vechea înscriere și o deschide pe cea nouă într-o singură tranzacție.',
+    })
+    @ApiResponse({ status: 201, description: 'Transferred' })
+    @ApiResponse({ status: 409, description: 'NOTHING_TO_TRANSFER, ALREADY_IN_GROUP, GROUP_FULL or COMPATIBILITY_WARNINGS' })
+    async transfer(@Body() transferEnrollmentDto: TransferEnrollmentDto, @Request() req: AuthenticatedRequest) {
+        return this.enrollmentService.transfer(transferEnrollmentDto, req.user.sub);
+    }
+
+    @Put(':id/resolve-trial')
+    @HttpCode(200)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Confirmă sau închide o probă',
+        description: 'Confirmarea păstrează același loc și același rând, deci istoricul citește o perioadă continuă. Închiderea eliberează locul.',
+    })
+    @ApiResponse({ status: 200, description: 'Resolved' })
+    @ApiResponse({ status: 409, description: 'NOT_A_TRIAL' })
+    async resolveTrial(@Param('id', ParseIntPipe) id: number, @Body() resolveTrialDto: ResolveTrialDto) {
+        return this.enrollmentService.resolveTrial(id, resolveTrialDto);
+    }
+
+    @Get('trials/unresolved')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Probe fără decizie',
+        description: 'O probă nerezolvată ține un loc la nesfârșit. Asta e lista care ține capacitatea onestă.',
+    })
+    @ApiResponse({ status: 200, description: 'Trials still awaiting a decision, oldest first' })
+    async unresolvedTrials(@Query('olderThanDays') olderThanDays?: string) {
+        return this.enrollmentService.unresolvedTrials(Number(olderThanDays ?? 0) || 0);
+    }
+
+    @Get('demand')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Cerere neacoperită, pe vârstă și locație',
+        description: 'Răspunde la „am destui copii pentru o grupă nouă de Scratch la Titan?". Fără disponibilitatea profesorilor — aia e E09.',
+    })
+    @ApiResponse({ status: 200, description: 'Unplaced demand, biggest bucket first' })
+    async demand() {
+        return this.enrollmentService.unmetDemand();
     }
 
     @Get('waitlist/group/:groupId')

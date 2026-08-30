@@ -1,4 +1,5 @@
 export type {
+  DemandBucket,
   Enrollment,
   EnrollmentStatus,
   GroupOccupancy,

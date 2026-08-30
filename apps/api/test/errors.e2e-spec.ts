@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
+import { createTestApp, enrolInNewGroup, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
 
 /**
  * Cover for E05/S2. Errors used to leave the API in whatever shape Nest, TypeORM or a `throw` in a
@@ -119,11 +119,14 @@ describe('Error shape (e2e)', () => {
                 .send({ firstName: 'Ana', lastName: 'Pop', email: 'ana@example.com', phone: '+40700000001' })
                 .expect(201);
 
-            await request(app.getHttpServer())
+            const child = await request(app.getHttpServer())
                 .post('/children')
                 .set('Authorization', admin.auth)
                 .send({ parentId: profile.body.id, firstName: 'Maria', lastName: 'Pop', birthDate: '2016-01-01' })
                 .expect(201);
+
+            // An invoice counts active enrolments now, not children on file (E11/S4).
+            await enrolInNewGroup(app, admin, [child.body.id as number]);
 
             const invoice = { parentIds: [profile.body.id], monthIssued: '2026-03', dateIssued: '2026-03-01' };
             await request(app.getHttpServer()).post('/invoices').set('Authorization', admin.auth).send(invoice).expect(201);

@@ -84,6 +84,11 @@ const MESSAGES: Record<string, string> = {
   ENROLLMENT_STATUS_NOT_OPENABLE: "O înscriere nouă poate fi doar activă sau de probă.",
   ENROLLMENT_STATUS_NOT_CLOSING: "O înscriere se închide ca încheiată, abandonată sau transferată.",
   ALREADY_ON_WAITLIST: "Copilul este deja pe lista de așteptare a acestei grupe.",
+  NOTHING_TO_TRANSFER: "Copilul nu are o înscriere în vigoare. Înscrie-l direct, nu prin transfer.",
+  ALREADY_IN_GROUP: "Copilul este deja în această grupă.",
+  NOT_A_TRIAL: "Doar o probă poate fi confirmată sau închisă astfel.",
+  // `COMPATIBILITY_WARNINGS` arrives with the warnings themselves in the message — a generic line
+  // here would replace "are 7 ani, iar grupa e pentru 11-14" with "datele nu sunt valide".
 };
 
 /**

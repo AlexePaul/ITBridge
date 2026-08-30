@@ -212,6 +212,22 @@
         <span>Se încarcă...</span>
       </div>
     </UCard>
+
+    <UModal v-model:open="warningOpen" title="Confirmi înscrierea?">
+      <template #body>
+        <p>{{ warningMessage }}</p>
+        <p class="text-sm text-muted mt-3">
+          Poți continua — e un avertisment, nu o interdicție. Capacitatea sălii rămâne verificată
+          separat.
+        </p>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton color="neutral" variant="ghost" @click="warningOpen = false">Renunță</UButton>
+          <UButton color="primary" @click="confirmWarning">Înscrie oricum</UButton>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -222,7 +238,7 @@ import { useChildrenStore } from "~/stores/childrenStore";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
-import { apiErrorMessage } from "~/composables/useApiError";
+import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
 import type { Group } from "~/types/group.types";
 import type { Child } from "~/types/child.types";
 import type { GroupOccupancy, WaitlistEntry } from "~/types/enrollment.types";
@@ -248,6 +264,10 @@ const childrenWithoutGroup: Ref<Child[]> = ref([]);
 const occupancy: Ref<GroupOccupancy | null> = ref(null);
 const waitlist: Ref<WaitlistEntry[]> = ref([]);
 const isLoading = ref(false);
+
+const warningOpen = ref(false);
+const warningMessage = ref("");
+const warningChildId = ref<number | null>(null);
 
 /** "12.09.2026, ora 14:00" — the same shape as the deadline in the offer email. */
 const formatDeadline = (value: string) =>
@@ -317,11 +337,11 @@ const handleBack = () => {
   navigateTo("/admin/groups");
 };
 
-const handleAddChild = async (childId: number) => {
+const handleAddChild = async (childId: number, acknowledgeWarnings = false) => {
   try {
     isLoading.value = true;
     const groupId = group.value?.id as string | number;
-    await childrenApi.addChildToGroup(childId, String(groupId));
+    await childrenApi.addChildToGroup(childId, String(groupId), acknowledgeWarnings);
 
     // Move child from without group to in group (for UI)
     const childIndex = childrenWithoutGroup.value.findIndex((c) => c.id === childId);
@@ -332,13 +352,27 @@ const handleAddChild = async (childId: number) => {
     await refreshSeats(Number(groupId));
     success("Copil adăugat la grup");
   } catch (err: unknown) {
-    // The API names the case — a full group, a child already enrolled elsewhere, a family still
-    // waiting for approval — and `useApiError` has the Romanian sentence for each. `err.message`
-    // used to swallow all of that into "Eroare la adăugarea copilului".
+    // E11/S6 refuses once with the ages named and accepts on the retry, so this is where the
+    // question gets asked. A warning that could not be answered would be a block wearing the wrong
+    // word; a warning answered silently would be no check at all.
+    if (apiErrorCode(err) === "COMPATIBILITY_WARNINGS") {
+      warningChildId.value = childId;
+      warningMessage.value = apiErrorMessage(err);
+      warningOpen.value = true;
+      return;
+    }
+    // The API names the rest — a full group, a child already enrolled elsewhere, a family still
+    // waiting for approval — and `useApiError` has the Romanian sentence for each.
     error(apiErrorMessage(err, "Eroare la adăugarea copilului"));
   } finally {
     isLoading.value = false;
   }
+};
+
+const confirmWarning = async () => {
+  const childId = warningChildId.value;
+  warningOpen.value = false;
+  if (childId !== null) await handleAddChild(childId, true);
 };
 
 const handleRemoveChild = async (childId: number) => {

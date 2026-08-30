@@ -6,6 +6,7 @@ import type {
   GroupOccupancy,
   WaitlistEntry,
   WaitlistStatus,
+  DemandBucket,
 } from "~/types/enrollment.types";
 
 /**
@@ -31,6 +32,45 @@ export const useEnrollmentsApi = () => {
   const fetchOccupancy = async (groupId: number) =>
     api<GroupOccupancy>(`/enrollments/group/${groupId}/occupancy`, { headers: authHeader() });
 
+  /** Who was in the group on a given day, with the status of each enrolment. */
+  const fetchMembers = async (groupId: number, date?: string) =>
+    api<Enrollment[]>(`/enrollments/group/${groupId}/members${date ? `?date=${date}` : ""}`, {
+      headers: authHeader(),
+    });
+
+  /** Trials nobody has decided on. A trial left open holds a seat for ever. */
+  const fetchUnresolvedTrials = async (olderThanDays = 0) =>
+    api<Enrollment[]>(`/enrollments/trials/unresolved?olderThanDays=${olderThanDays}`, {
+      headers: authHeader(),
+    });
+
+  /** Unplaced demand, bucketed by age and location — E11/S7. */
+  const fetchDemand = async () =>
+    api<DemandBucket[]>("/enrollments/demand", { headers: authHeader() });
+
+  const transfer = async (payload: {
+    childId: number;
+    toGroupId: number;
+    reason?: string;
+    allowOverCapacity?: boolean;
+    acknowledgeWarnings?: boolean;
+  }) =>
+    api<Enrollment>("/enrollments/transfer", {
+      method: "POST",
+      headers: authHeader(),
+      body: payload,
+    });
+
+  const resolveTrial = async (
+    id: number,
+    payload: { accepted: boolean; reason?: string; contractSignedAt?: string }
+  ) =>
+    api<Enrollment>(`/enrollments/${id}/resolve-trial`, {
+      method: "PUT",
+      headers: authHeader(),
+      body: payload,
+    });
+
   const enrol = async (payload: {
     childId: number;
     groupId: number;
@@ -38,6 +78,7 @@ export const useEnrollmentsApi = () => {
     startDate?: string;
     contractSignedAt?: string;
     allowOverCapacity?: boolean;
+    acknowledgeWarnings?: boolean;
   }) => api<Enrollment>("/enrollments", { method: "POST", headers: authHeader(), body: payload });
 
   const closeEnrollment = async (
@@ -69,7 +110,12 @@ export const useEnrollmentsApi = () => {
 
   return {
     fetchHistory,
+    fetchMembers,
     fetchOccupancy,
+    fetchUnresolvedTrials,
+    fetchDemand,
+    transfer,
+    resolveTrial,
     enrol,
     closeEnrollment,
     fetchWaitlist,

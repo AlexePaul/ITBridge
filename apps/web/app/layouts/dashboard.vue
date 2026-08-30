@@ -156,6 +156,7 @@ const navigationItems = computed(() => {
     { label: "Profiluri Utilizatori", to: "/admin/profiles", icon: "i-lucide-users" },
     { label: "Copii", to: "/admin/children", icon: "i-lucide-baby" },
     { label: "Grupe", to: "/admin/groups", icon: "i-lucide-users-round" },
+    { label: "Formarea grupelor", to: "/admin/formare", icon: "i-lucide-user-plus" },
     { label: "Locații și săli", to: "/admin/locations", icon: "i-lucide-map-pin" },
     { label: "Prezență", to: "/admin/attendance", icon: "i-lucide-check-square" },
     { label: "Facturi", to: "/admin/invoices", icon: "i-lucide-notebook-pen" },

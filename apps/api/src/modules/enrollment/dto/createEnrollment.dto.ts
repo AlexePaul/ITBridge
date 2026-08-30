@@ -48,4 +48,16 @@ export class CreateEnrollmentDto {
     @IsOptional()
     @IsBoolean()
     allowOverCapacity?: boolean;
+
+    /**
+     * Confirms the soft checks from S6 — today, an age outside the group's band.
+     *
+     * Separate from `allowOverCapacity` because the two are different kinds of decision. Capacity is
+     * a fact about the room and an admin cannot be right against it; an age band is a judgement
+     * about a child and an admin often can.
+     */
+    @ApiPropertyOptional({ default: false })
+    @IsOptional()
+    @IsBoolean()
+    acknowledgeWarnings?: boolean;
 }

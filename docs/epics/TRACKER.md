@@ -3,7 +3,7 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 30 august 2026, pe `develop`, plus PR-ul de E11 S1+S3 care încă nu e mergeat.
+**Ultima actualizare:** 31 august 2026, pe `develop`, plus PR-ul care încheie E11.
 
 ## Legendă
 
@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **141 de story-uri** în 21 de epicuri: 40 livrate, 9 parțiale, 2 scrise dar nemergeate,
-10 blocate, 4 scoase din scop, 76 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
+Din **141 de story-uri** în 21 de epicuri: 42 livrate, 11 parțiale, 2 scrise dar nemergeate,
+10 blocate, 4 scoase din scop, 72 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
 înseamnă adesea „construit, dar nu rulează nicăieri".
 
 ---
@@ -130,15 +130,15 @@ Din **141 de story-uri** în 21 de epicuri: 40 livrate, 9 parțiale, 2 scrise da
 
 ## Operațiuni
 
-### E11 · Înscrieri, grupe și capacitate — `în lucru`
+### E11 · Înscrieri, grupe și capacitate — `livrat`
 
-- [r] S1 · Entitatea de înscriere — perioadă, istoric și starea; „o singură înscriere în vigoare" e index parțial, nu doar verificare în serviciu. `Child.group` rămâne, derivată
+- [x] S1 · Entitatea de înscriere — perioadă, istoric și starea; „o singură înscriere în vigoare" e index parțial, nu doar verificare în serviciu. `Child.group` rămâne, derivată
 - [x] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
-- [r] S3 · Capacitate și listă de așteptare — aplicată, probele numărate ca locuri; lista oferă automat locul eliberat. **Fără măturarea ofertelor expirate**, și fără jurnalul de audit al excepției (E06)
-- [ ] S4 · Lecție de probă — ocupă un loc din grupă
-- [ ] S5 · Transferuri
-- [ ] S6 · Verificări de compatibilitate
-- [ ] S7 · Formarea grupelor
+- [x] S3 · Capacitate și listă de așteptare — aplicată, probele numărate ca locuri; lista oferă automat locul eliberat. **Fără măturarea ofertelor expirate**, și fără jurnalul de audit al excepției (E06)
+- [r] S4 · Lecție de probă — ocupă un loc, apare distinct în catalog, se confirmă sau se închide. **Facturarea numără acum doar înscrierile active**, deci nici proba, nici un copil fără grupă
+- [r] S5 · Transferuri — o singură tranzacție, starea și contractul trec mai departe. Efectul pe factură nu se afișează fiindcă prețul e lunar și pe familie, nu pe grupă
+- [~] S6 · Verificări de compatibilitate — vârsta, ca avertisment care cere confirmare. **Fără cerințele prealabile de modul**, fiindcă E10 nu se face
+- [~] S7 · Formarea grupelor — cererea neacoperită pe vârstă și locație, plus probele fără decizie. **Fără disponibilitatea profesorilor** (E09)
 
 ### E12 · Prezență, recuperări și orar — `în lucru`
 
@@ -181,7 +181,7 @@ Din **141 de story-uri** în 21 de epicuri: 40 livrate, 9 parțiale, 2 scrise da
 - [ ] S1 · Catalogul de prețuri
 - [ ] S2 · Factura pe modul, cu linii
 - [ ] S3 · Planuri de plată
-- [x] S4 · Regula pentru mai mulți copii — 350 + 250 pe frate, într-un singur loc; ambele bug-uri reparate
+- [x] S4 · Regula pentru mai mulți copii — 350 + 250 pe frate, într-un singur loc; ambele bug-uri reparate. Din E11/S4, suma numără doar copiii înscriși activ
 - [ ] S5 · Reduceri cu tip
 - [ ] S6 · Previzualizare și emitere în masă
 - [ ] S7 · PDF-ul nu se mai generează local
@@ -296,8 +296,8 @@ care școala a vorbit cel mai mult și, după E11, cel mai mare gol funcțional 
 plătește pentru o afirmație. Agentul local de Windows și vitrina publică rămân pe dinafară — al
 doilea cere consimțământul din E07.
 
-Din E11 au mai rămas S4 (proba ca flux propriu), S5 (transferuri), S6 și S7. Niciunul nu blochează
-altceva.
+E11 e închis. Ce a rămas parțial din el — cerințele prealabile de modul la S6, disponibilitatea
+profesorilor la S7 — depinde de E10 și E09, nu de E11.
 
 ---
 

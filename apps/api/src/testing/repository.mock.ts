@@ -47,7 +47,7 @@ export interface MockQueryBuilder<T extends ObjectLiteral = ObjectLiteral> exten
     leftJoinCalls: string[];
 }
 
-export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(result: { many?: T[]; one?: T | null }): MockQueryBuilder<T> {
+export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(result: { many?: T[]; one?: T | null; count?: number }): MockQueryBuilder<T> {
     const andWhereCalls: [string, Record<string, unknown> | undefined][] = [];
     const leftJoinCalls: string[] = [];
 
@@ -56,6 +56,9 @@ export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(
         leftJoinCalls,
         getMany: jest.fn().mockResolvedValue(result.many ?? []),
         getOne: jest.fn().mockResolvedValue(result.one ?? null),
+        // `getCount` rather than `count`: a service asking "how many rows match" through the
+        // builder needs the same double as one asking for the rows themselves.
+        getCount: jest.fn().mockResolvedValue(result.count ?? 0),
     };
 
     // `addOrderBy` and `loadRelationCountAndMap` are here because the class-session queries chain

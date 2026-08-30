@@ -7,6 +7,8 @@ import { S3Service } from './s3.service';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Discount } from 'src/entities/discount.entity';
+import { Enrollment } from 'src/entities/enrollment.entity';
+import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { Role } from 'src/enum/role.enum';
 import { createMockQueryBuilder, createMockRepository, isScopedToUser, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 
@@ -15,21 +17,25 @@ describe('InvoiceService', () => {
     let invoiceRepo: MockRepository;
     let profileRepo: MockRepository;
     let discountRepo: MockRepository;
+    let enrollmentRepo: MockRepository;
     let s3: { uploadFile: jest.Mock; downloadFile: jest.Mock };
     let transactionManager: { save: jest.Mock };
 
-    /** A profile with `n` children, enough to get past the checks in `calculateAmount`. */
-    const profileWithChildren = (n: number, id = 1) => ({
-        id,
-        firstName: 'Ana',
-        lastName: 'Pop',
-        children: Array.from({ length: n }, (_, i) => ({ id: i + 1 })),
-    });
+    const aProfile = (id = 1) => ({ id, firstName: 'Ana', lastName: 'Pop' });
+
+    /**
+     * How many of this family's children are actively enrolled — which is what the amount counts
+     * since E11/S4. A trial is free, and a child in no group is not attending.
+     */
+    const withEnrolledChildren = (n: number) => {
+        enrollmentRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ count: n }));
+    };
 
     beforeEach(async () => {
         invoiceRepo = createMockRepository();
         profileRepo = createMockRepository();
         discountRepo = createMockRepository();
+        enrollmentRepo = createMockRepository();
         s3 = { uploadFile: jest.fn(), downloadFile: jest.fn() };
 
         // `createInvoice` writes the row and uploads the PDF inside one transaction. The fake runs
@@ -43,6 +49,7 @@ describe('InvoiceService', () => {
                 provideMockRepository(Invoice, invoiceRepo),
                 provideMockRepository(Profile, profileRepo),
                 provideMockRepository(Discount, discountRepo),
+                provideMockRepository(Enrollment, enrollmentRepo),
                 { provide: PdfService, useValue: { generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from('')) } },
                 { provide: S3Service, useValue: s3 },
                 {
@@ -63,7 +70,8 @@ describe('InvoiceService', () => {
         });
 
         it('filters discounts by parent and month', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(1, 7));
+            profileRepo.findOne!.mockResolvedValue(aProfile(7));
+            withEnrolledChildren(1);
             await service.calculateAmount(7, '2026-03');
             expect(discountRepo.find).toHaveBeenCalledWith({
                 where: { parent: { id: 7 }, monthIssued: '2026-03' },
@@ -72,12 +80,26 @@ describe('InvoiceService', () => {
 
         it('rejects a parent that does not exist', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
+            withEnrolledChildren(1);
             await expect(service.calculateAmount(99, '2026-03')).rejects.toThrow(NotFoundException);
         });
 
-        it('rejects a parent with no children', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(0));
+        it('rejects a parent whose children are not enrolled anywhere', async () => {
+            profileRepo.findOne!.mockResolvedValue(aProfile());
+            withEnrolledChildren(0);
             await expect(service.calculateAmount(1, '2026-03')).rejects.toThrow(NotFoundException);
+        });
+
+        it('counts only ACTIVE enrolments, so a trial is not billed', async () => {
+            profileRepo.findOne!.mockResolvedValue(aProfile());
+            const qb = createMockQueryBuilder({ count: 1 });
+            enrollmentRepo.createQueryBuilder!.mockReturnValue(qb);
+
+            await service.calculateAmount(1, '2026-03');
+
+            // E11/S4 says a trial does not generate an invoice. It is free; billing it would make
+            // the point of offering one collapse on the first invoice.
+            expect(qb.andWhereCalls.some(([, params]) => params?.status === EnrollmentStatus.ACTIVE)).toBe(true);
         });
 
         // These three were `it.failing` for as long as the bug lived: two children were charged
@@ -85,27 +107,31 @@ describe('InvoiceService', () => {
         // discount then took it negative. They are ordinary regression tests now.
 
         it('charges 350 for one child', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(1));
+            profileRepo.findOne!.mockResolvedValue(aProfile());
+            withEnrolledChildren(1);
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(350);
         });
 
         // 350 for the first child plus 250 for the sibling. It used to compute 250 x 2, which is
         // the number the public site has never shown.
         it('charges 600 for two children, not 500', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(2));
+            profileRepo.findOne!.mockResolvedValue(aProfile());
+            withEnrolledChildren(2);
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(600);
         });
 
         it('charges 850 for three children, and keeps going for four', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(3));
+            profileRepo.findOne!.mockResolvedValue(aProfile());
+            withEnrolledChildren(3);
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(850);
 
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(4));
+            withEnrolledChildren(4);
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(1100);
         });
 
         it('subtracts the discounts for that month', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(1));
+            profileRepo.findOne!.mockResolvedValue(aProfile());
+            withEnrolledChildren(1);
             discountRepo.find!.mockResolvedValue([{ value: 50 }, { value: 25 }]);
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(275);
         });
@@ -113,7 +139,8 @@ describe('InvoiceService', () => {
         // A discount larger than the invoice is a typo, not a credit note. Nothing downstream
         // expects a negative invoice, and the school has never meant to issue one.
         it('never returns a negative amount, however large the discount', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(1));
+            profileRepo.findOne!.mockResolvedValue(aProfile());
+            withEnrolledChildren(1);
             discountRepo.find!.mockResolvedValue([{ value: 5000 }]);
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(0);
         });
@@ -165,7 +192,8 @@ describe('InvoiceService', () => {
 
     describe('createInvoice', () => {
         const setUpHappyPath = () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(1, 10));
+            profileRepo.findOne!.mockResolvedValue(aProfile(10));
+            withEnrolledChildren(1);
             discountRepo.find!.mockResolvedValue([]);
             transactionManager.save.mockImplementation((inv: { id?: number }) => Promise.resolve({ ...inv, id: 55 }));
         };
@@ -255,9 +283,8 @@ describe('InvoiceService', () => {
 
     describe('getPreview', () => {
         it('reports parents whose calculation fails instead of failing the whole request', async () => {
-            profileRepo.findOne!.mockImplementation(({ where }: { where: { id: number } }) =>
-                Promise.resolve(where.id === 1 ? profileWithChildren(1, 1) : null),
-            );
+            profileRepo.findOne!.mockImplementation(({ where }: { where: { id: number } }) => Promise.resolve(where.id === 1 ? aProfile(1) : null));
+            withEnrolledChildren(1);
             discountRepo.find!.mockResolvedValue([]);
 
             // The failing parent is reported rather than dropped: an admin previewing ten parents

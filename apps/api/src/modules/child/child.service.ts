@@ -116,8 +116,8 @@ export class ChildService {
      * The alternative was to keep setting the column here and *also* record an enrolment, which is
      * two writers for one fact and exactly the drift the derived column is supposed to avoid.
      */
-    async assignChildToGroup(childId: number, groupId: number, actingUserId: number) {
-        return this.enrollmentService.enrol({ childId, groupId }, actingUserId);
+    async assignChildToGroup(childId: number, groupId: number, actingUserId: number, acknowledgeWarnings = false) {
+        return this.enrollmentService.enrol({ childId, groupId, acknowledgeWarnings }, actingUserId);
     }
 
     /**

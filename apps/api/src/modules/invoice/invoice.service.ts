@@ -9,6 +9,8 @@ import { FilterInvoiceDto } from './dto/filterInvoice.dto';
 import { Role } from 'src/enum/role.enum';
 import { PdfService } from './pdf.service';
 import { Discount } from 'src/entities/discount.entity';
+import { Enrollment } from 'src/entities/enrollment.entity';
+import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { GetPreviewDto } from './dto/getPreview.dto';
 import { ObjectNotFoundError, S3Service } from './s3.service';
 import { amountAfterDiscounts } from './pricing';
@@ -32,6 +34,7 @@ export class InvoiceService {
         @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
         @InjectRepository(Discount) private readonly discountRepository: Repository<Discount>,
+        @InjectRepository(Enrollment) private readonly enrollmentRepository: Repository<Enrollment>,
         private readonly pdfService: PdfService,
         private readonly s3Service: S3Service,
         private readonly dataSource: DataSource,
@@ -151,13 +154,35 @@ export class InvoiceService {
         }
     }
 
+    /**
+     * What a family owes for a month.
+     *
+     * **Counts children with an `ACTIVE` enrolment, not children on file.** Two things follow from
+     * that, and the second was a live bug:
+     *
+     *  - A trial is not billed — E11/S4 says so in as many words. A trial is free; billing it would
+     *    make the whole point of offering one collapse on the first invoice.
+     *  - A child registered but placed in no group is not billed either. That was already wrong
+     *    before trials existed: the price is per child attending, and the family of a child who has
+     *    not started yet was being charged for them.
+     *
+     * If the school ever wants to bill a family whose child is between groups for a month, that is a
+     * pricing decision and belongs in E15 — not a quiet count of rows in `children`.
+     */
     async calculateAmount(parentId: number, monthIssued: string): Promise<number> {
-        const profile = await this.profileRepository.findOne({ where: { id: parentId }, relations: ['children'] });
+        const profile = await this.profileRepository.findOne({ where: { id: parentId } });
 
         if (!profile) throw new NotFoundException('Parent profile not found');
 
-        if (profile.children.length === 0) {
-            throw new NotFoundException('Parent has no children');
+        const billableChildren = await this.enrollmentRepository
+            .createQueryBuilder('enrollment')
+            .leftJoin('enrollment.child', 'child')
+            .where('child.parent_id = :parentId', { parentId })
+            .andWhere('enrollment.status = :status', { status: EnrollmentStatus.ACTIVE })
+            .getCount();
+
+        if (billableChildren === 0) {
+            throw new NotFoundException('Parent has no enrolled children');
         }
         const discounts = await this.discountRepository.find({ where: { parent: { id: profile.id }, monthIssued: monthIssued } });
 
@@ -165,7 +190,7 @@ export class InvoiceService {
         // separately, in the seed — where it charged 500 for two children instead of 600 and
         // nothing at all for three.
         return amountAfterDiscounts(
-            profile.children.length,
+            billableChildren,
             discounts.map((discount) => discount.value),
         );
     }
