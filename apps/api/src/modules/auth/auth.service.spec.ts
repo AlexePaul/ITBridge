@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
@@ -218,6 +218,18 @@ describe('AuthService', () => {
             expect(manager.save).not.toHaveBeenCalled();
         });
 
+        it('rejects a phone number that already belongs to another family', async () => {
+            userRepo.findOne!.mockResolvedValue(null);
+            // Free on email, taken on phone: the two checks are separate so the parent is told
+            // which of the two fields to change.
+            profileRepo.findOne!.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 4, phone: '0712345678' });
+
+            await expect(service.register(REGISTRATION)).rejects.toMatchObject({
+                response: { error: 'PHONE_TAKEN' },
+            });
+            expect(manager.save).not.toHaveBeenCalled();
+        });
+
         it('rejects an email address that already belongs to another family', async () => {
             userRepo.findOne!.mockResolvedValue(null);
             profileRepo.findOne!.mockResolvedValue({ id: 4, email: 'ana@example.com' });
@@ -263,6 +275,26 @@ describe('AuthService', () => {
         });
     });
 
+    describe('confirmEmail', () => {
+        it('reports both gates, not just the one it opened', async () => {
+            confirmations.confirm.mockResolvedValue({ id: 7, role: 'PARENT', emailConfirmedAt: new Date(), approvalStatus: ApprovalStatus.PENDING });
+
+            // "Confirmed" is not "usable". Telling a parent to go and sign in when an admin has not
+            // approved them yet would be a worse kind of wrong than saying nothing.
+            await expect(service.confirmEmail('tok-abc')).resolves.toMatchObject({
+                emailConfirmed: true,
+                approvalStatus: ApprovalStatus.PENDING,
+                active: false,
+            });
+        });
+
+        it('reports the account as active once an admin has also approved', async () => {
+            confirmations.confirm.mockResolvedValue({ id: 7, role: 'PARENT', emailConfirmedAt: new Date(), approvalStatus: ApprovalStatus.APPROVED });
+
+            await expect(service.confirmEmail('tok-abc')).resolves.toMatchObject({ active: true });
+        });
+    });
+
     describe('resendConfirmation', () => {
         it('sends to the address on file, never to one supplied by the caller', async () => {
             userRepo.findOne!.mockResolvedValue({ id: 7, emailConfirmedAt: null });
@@ -283,6 +315,24 @@ describe('AuthService', () => {
                 response: { error: 'EMAIL_ALREADY_CONFIRMED' },
             });
             expect(outbox.queue).not.toHaveBeenCalled();
+        });
+
+        it('refuses when there is no address on file', async () => {
+            userRepo.findOne!.mockResolvedValue({ id: 7, emailConfirmedAt: null });
+            profileRepo.findOne!.mockResolvedValue({ id: 4, firstName: 'Ana', email: null });
+
+            // The admin-typed-it-in-from-a-phone-call profile. Nothing to send to, and saying so is
+            // better than queueing a message addressed to nobody.
+            await expect(service.resendConfirmation(7)).rejects.toMatchObject({
+                response: { error: 'NO_EMAIL_ON_FILE' },
+            });
+            expect(outbox.queue).not.toHaveBeenCalled();
+        });
+
+        it('404s on a user that does not exist', async () => {
+            userRepo.findOne!.mockResolvedValue(null);
+
+            await expect(service.resendConfirmation(99)).rejects.toThrow(NotFoundException);
         });
     });
 
@@ -369,6 +419,47 @@ describe('AuthService', () => {
 
             const select = (userRepo.findOne!.mock.calls[0][0] as { select: string[] }).select;
             expect(select).not.toContain('passwordHash');
+        });
+
+        it('carries the state of both gates, because every page of the portal needs it', async () => {
+            userRepo.findOne!.mockResolvedValue({
+                id: 3,
+                username: 'ana',
+                role: 'PARENT',
+                emailConfirmedAt: null,
+                approvalStatus: ApprovalStatus.PENDING,
+            });
+
+            await expect(service.getUserProfile(3)).resolves.toMatchObject({
+                emailConfirmed: false,
+                approvalStatus: ApprovalStatus.PENDING,
+                active: false,
+            });
+        });
+
+        it('returns null for a user that is gone, rather than a half-built object', async () => {
+            userRepo.findOne!.mockResolvedValue(null);
+
+            await expect(service.getUserProfile(99)).resolves.toBeNull();
+        });
+    });
+
+    describe('sessions', () => {
+        // Thin delegations, but they are the whole of "log out actually logs you out" (E05/S7) and
+        // nothing else asserted that they reach the session service at all.
+        it('logout revokes the presented refresh token', async () => {
+            await service.logout('r');
+            expect(sessions.revoke).toHaveBeenCalledWith('r');
+        });
+
+        it('logout-all revokes only the calling user', async () => {
+            await service.logoutEverywhere(7);
+            expect(sessions.revokeAllForUser).toHaveBeenCalledWith(7);
+        });
+
+        it('listing sessions asks only for the calling user', async () => {
+            await service.listSessions(7);
+            expect(sessions.listActive).toHaveBeenCalledWith(7);
         });
     });
 });
