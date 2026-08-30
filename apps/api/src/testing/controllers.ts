@@ -2,6 +2,7 @@ import { AuthController } from 'src/modules/auth/auth.controller';
 import { UserController } from 'src/modules/user/user.controller';
 import { ProfileController } from 'src/modules/profile/profile.controller';
 import { ChildController } from 'src/modules/child/child.controller';
+import { EnrollmentController } from 'src/modules/enrollment/enrollment.controller';
 import { GroupController } from 'src/modules/group/group.controller';
 import { LocationController } from 'src/modules/location/location.controller';
 import { RoomController } from 'src/modules/room/room.controller';
@@ -30,6 +31,7 @@ export const CONTROLLERS = [
     UserController,
     ProfileController,
     ChildController,
+    EnrollmentController,
     GroupController,
     LocationController,
     RoomController,
