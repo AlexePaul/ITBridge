@@ -177,9 +177,10 @@ Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 7 scrise da
 > de facturi în `apps/api/src/modules/storage/`, iar `outbox` a primit o coloană `attachments`,
 > fiindcă miniatura pleacă atașată inline, nu ca URL semnat.
 >
-> **Întrebarea de teren rămâne deschisă:** se poate salva direct pe drive-ul mapat, din Scratch și
-> din Tinkercad? Codul presupune că da. Dacă nu, se schimbă structura de foldere și pragurile —
-> configurație, nu arhitectură.
+> **Întrebarea de teren s-a închis prin decizie:** unde programul nu poate salva direct pe drive-ul
+> mapat, profesorul mută fișierul în folderul copilului. Nu se schimbă nicio linie de cod; se schimbă
+> argumentul — „zero gesturi unde se poate, unul mic unde nu". Ce se măsoară după lansare rămâne
+> procentul de ședințe cu cel puțin un document.
 
 ---
 

@@ -49,9 +49,11 @@ niciun câmp `isPublic` nicăieri. Un boolean pe `Project` ar fi fost al doilea 
 răspunde la aceeași întrebare, fără precedență între ele, iar o revocare ar fi lăsat în urmă rânduri
 care încă spun „da". Vitrina așteaptă înregistrarea care o guvernează.
 
-**Întrebarea de teren rămâne deschisă** — „se poate salva direct pe drive-ul mapat, din Scratch și
-din Tinkercad?". Codul s-a scris pe ipoteza că da. Dacă răspunsul e nu, ce se schimbă e structura de
-foldere și pragul de mărime, adică configurație; agentul, ingestia și revizia rămân.
+**Întrebarea de teren s-a închis prin decizie, nu prin observație:** unde programul nu poate salva
+direct pe drive-ul mapat, profesorul mută fișierul în folderul copilului, iar asta e acceptat. Codul
+nu se schimbă — agentul urmărește folderul și nu are de unde ști cum a ajuns fișierul acolo. Ce se
+schimbă e argumentul epicului, și merită spus pe față: fluxul nu mai e „zero gesturi" peste tot, ci
+„zero gesturi unde se poate, unul mic unde nu". Vezi [Riscuri](#riscuri).
 
 ## Problemă
 
@@ -525,9 +527,19 @@ birou, peste trei săptămâni.
 **Riscul numărul unu e ca folderul să devină al doilea loc, nu primul.** Câștigul întreg vine din
 faptul că lucrarea se **salvează** direct acolo. Dacă profesorul salvează pe Desktop și copiază
 seara, s-a reintrodus exact gestul în plus care a omorât ideile de dinainte, plus o copiere manuală.
-De verificat pe teren, înainte de cod: se poate salva direct pe drive-ul mapat din Scratch, din
-Tinkercad, din editorul folosit la fiecare nivel? Măsurat după lansare: procentul de ședințe cu cel
-puțin un document. Sub 70%, agentul nu e greșit — locul folderului e.
+
+**Riscul rămâne, dar mutarea manuală e acceptată ca variantă de rezervă** — decizia patronului. Acolo
+unde programul nu poate salva direct pe drive-ul mapat — Scratch în browser e cazul evident,
+descărcarea pleacă în `Downloads` fără să întrebe — profesorul trage fișierul în folderul copilului.
+Nu se schimbă nimic în cod: agentul urmărește folderul și nu are de unde ști cum a ajuns fișierul
+acolo. Ce se schimbă e argumentul: fluxul nu mai e „zero gesturi" peste tot, ci „zero gesturi unde se
+poate, unul mic unde nu". Costul e real și e asumat.
+
+Măsurat după lansare: procentul de ședințe cu cel puțin un document. Sub 70%, întrebarea nu mai e
+unde stă folderul — e dacă mutarea aia se face. Răspunsul, dacă nu se face, e un folder `_de_sortat`
+per grupă, urmărit și el de agent, cu atribuirea făcută de admin pe ecranul grupei: același ecran ca
+la `_neatribuite`, deci nu cere nimic nou. Mută gestul de la profesor la admin, ceea ce e un
+compromis diferit, nu o soluție mai bună — de aceea nu se construiește înainte să fie nevoie.
 
 **Un punct unic de eșec, într-un birou.** Calculatorul oprit, mutat sau reinstalat oprește tot
 fluxul, iar tăcerea lui e ambiguă. Pulsul și alerta din S2 nu sunt un rafinament, sunt condiția în
@@ -694,10 +706,13 @@ livrare din [E17](E17-comunicare-notificari.md). Vitrina publică are proiecte r
 
 ## Întrebări deschise
 
-- **Se poate salva direct pe drive-ul mapat, din programele folosite la curs?** E întrebarea care
-  decide epicul, și se răspunde într-o zi de observație într-un curs real, înainte de cod. Tot acolo
-  se află ce se salvează, concret, și dacă `.sb3` e chiar cazul principal — răspunsul fixează și
-  limitele de dimensiune din S1.
+- ~~Se poate salva direct pe drive-ul mapat, din programele folosite la curs?~~ **Nu mai blochează
+  nimic.** Unde se poate, se salvează direct; unde nu — Scratch în browser descarcă în `Downloads`
+  fără să întrebe — profesorul mută fișierul în folderul copilului, iar asta e acceptat ca variantă
+  de rezervă. Vezi [Riscuri](#riscuri) pentru ce se face dacă mutarea nu se întâmplă în practică.
+- **Ce se salvează, concret, și cât de mari sunt fișierele?** Rămâne de văzut într-o zi de observație,
+  dar nu ține nimic pe loc: limitele din S1 sunt un ordin de mărime care merge, nu o politică, iar
+  schimbarea lor e o constantă în `file-types.ts`.
 - **Rămâne calculatorul din birou pornit?** _De confirmat._ **Recomandare:** pornit permanent, cu
   agentul ca serviciu Windows care repornește singur, plus pulsul din S2. Alternativa — pornit doar
   în program — e acceptabilă, dar atunci întârzierea de încărcare devine o proprietate a fluxului și

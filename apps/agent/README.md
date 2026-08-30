@@ -26,6 +26,11 @@ din el.
 **Nimic nu se șterge de pe partajare.** Ce s-a urcat se mută în `_urcate`, ce nu s-a putut atribui se
 mută în `_neatribuite` și apare pe ecranul grupei cu motivul.
 
+**Dacă programul nu poate salva direct pe drive-ul mapat, se mută fișierul acolo.** Scratch în
+browser, de exemplu, descarcă în `Downloads` fără să întrebe. Agentul nu are de unde ști cum a ajuns
+fișierul în folder și nici nu-l interesează — tras cu mouse-ul e la fel de bun ca salvat direct. E
+un gest în plus și e asumat; spune-le profesorilor asta din prima, ca să nu-l descopere singuri.
+
 ## Ce îi trebuie
 
 - Node 22 sau mai nou. Agentul **nu are nicio dependență de runtime** — `fetch`, `FormData` și
