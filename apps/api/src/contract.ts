@@ -28,6 +28,7 @@ import type { Weekday } from './enum/weekday.enum';
 import type { AttendanceType } from './enum/attendance-type.enum';
 import type { ClassSessionStatus } from './enum/class-session-status.enum';
 import type { Role } from './enum/role.enum';
+import type { ApprovalStatus } from './enum/approval-status.enum';
 
 /** Fails compilation when `Actual` does not satisfy `Expected` on the shared fields. */
 type Covers<Expected, Actual> = Actual extends Expected ? true : { missingOrMismatched: Expected };
@@ -36,7 +37,12 @@ type Check<Expected, Actual extends Expected> = Covers<Expected, Actual>;
 
 // Each line compiles only if the serialized entity covers the shape from the contract.
 type _User = Check<Pick<Wire.User, 'id' | 'username' | 'role'>, Pick<Serialized<User>, 'id' | 'username' | 'role'>>;
+type _ApprovalStatus = Check<Wire.ApprovalStatus, ApprovalStatus>;
 type _Profile = Check<Pick<Wire.ProfileSummary, 'id' | 'firstName' | 'lastName'>, Pick<Serialized<Profile>, 'id' | 'firstName' | 'lastName'>>;
+type _ProfileEmergency = Check<
+    Pick<Wire.ProfileSummary, 'emergencyContactName' | 'emergencyContactRelation' | 'emergencyContactPhone'>,
+    Pick<Serialized<Profile>, 'emergencyContactName' | 'emergencyContactRelation' | 'emergencyContactPhone'>
+>;
 type _Child = Check<Pick<Wire.Child, 'id' | 'firstName' | 'lastName' | 'birthDate'>, Pick<Serialized<Child>, 'id' | 'firstName' | 'lastName' | 'birthDate'>>;
 type _Group = Check<Omit<Wire.Group, never>, Omit<Serialized<Group>, 'children'>>;
 type _Location = Check<Omit<Wire.Location, never>, Omit<Serialized<Location>, 'rooms'>>;

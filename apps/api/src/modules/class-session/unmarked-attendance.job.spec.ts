@@ -2,7 +2,8 @@ import { ClassSession } from 'src/entities/class-session.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { OutboxService, QueuedMessage } from 'src/modules/mail/outbox.service';
 import { ClassSessionService } from './class-session.service';
-import { composeUnmarkedReminder, DEFAULT_OFFICE_ADDRESS, previousDay, schoolDateOf, UnmarkedAttendanceJob } from './unmarked-attendance.job';
+import { composeUnmarkedReminder, previousDay, schoolDateOf, UnmarkedAttendanceJob } from './unmarked-attendance.job';
+import { DEFAULT_OFFICE_ADDRESS } from 'src/modules/mail/office-address';
 
 /**
  * The daily reminder, tested without waiting for ten in the morning.

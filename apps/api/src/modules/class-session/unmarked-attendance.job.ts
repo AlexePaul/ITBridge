@@ -5,6 +5,7 @@ import { OutboxService } from 'src/modules/mail/outbox.service';
 import { Weekday } from 'src/enum/weekday.enum';
 import { ClassSessionService } from './class-session.service';
 import { addDays, isoWeekday, parseIsoDate, toIsoDate } from './class-session.dates';
+import { officeAddress } from 'src/modules/mail/office-address';
 
 /**
  * The daily reminder about registers nobody took, from E12/S7.
@@ -43,13 +44,6 @@ export const DAILY_AT_TEN = '0 10 * * *';
 export const SCHOOL_TIME_ZONE = 'Europe/Bucharest';
 
 /**
- * Where the reminder goes when `MAIL_OFFICE_ADDRESS` is unset. The same address the public site
- * publishes, from `apps/web/shared/school.ts` — copied rather than imported, because `apps/api`
- * does not depend on `apps/web` and this is the fallback, not the source of truth.
- */
-export const DEFAULT_OFFICE_ADDRESS = 'office@itbridgeschool.com';
-
-/**
  * One message per day reported on, enforced by the database.
  *
  * This is what makes the job safe to re-run: a restart at 10:05 after a run at 10:00, a manual
@@ -79,7 +73,7 @@ export class UnmarkedAttendanceJob {
      * Read once, at construction: changing it means restarting the process either way, and a value
      * that can change between two lines of the same job is worse than one that cannot.
      */
-    private readonly recipient = process.env.MAIL_OFFICE_ADDRESS?.trim() || DEFAULT_OFFICE_ADDRESS;
+    private readonly recipient = officeAddress();
 
     constructor(
         private readonly classSessionService: ClassSessionService,

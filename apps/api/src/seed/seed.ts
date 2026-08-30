@@ -13,6 +13,7 @@ import { Invoice, InvoiceStatus } from '../entities/invoice.entity';
 import { Payment } from '../entities/payment.entity';
 import { Discount } from '../entities/discount.entity';
 import { Role } from '../enum/role.enum';
+import { ApprovalStatus } from '../enum/approval-status.enum';
 import { PdfService } from '../modules/invoice/pdf.service';
 import { S3Service } from '../modules/invoice/s3.service';
 import { invoicePdfKey } from '../modules/invoice/invoice.service';
@@ -119,6 +120,24 @@ async function truncateAll(dataSource: DataSource): Promise<void> {
     await dataSource.query(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`);
 }
 
+/**
+ * Which of the two E11/S2 gates are open for the i-th seeded parent.
+ *
+ * Two accounts are deliberately left waiting, and for different reasons, so that `/admin/approvals`
+ * is not an empty screen on a fresh database and so that both rows an admin can meet are there: a
+ * family who confirmed their address and needs a decision, and one who registered and never opened
+ * the mail. Everybody else is grandfathered in, as the migration does for real accounts.
+ */
+function accountGatesFor(index: number): { emailConfirmedAt: Date | null; approvalStatus: ApprovalStatus; approvalDecidedAt: Date | null } {
+    if (index === 1) {
+        return { emailConfirmedAt: daysAgo(2), approvalStatus: ApprovalStatus.PENDING, approvalDecidedAt: null };
+    }
+    if (index === 4) {
+        return { emailConfirmedAt: null, approvalStatus: ApprovalStatus.PENDING, approvalDecidedAt: null };
+    }
+    return { emailConfirmedAt: daysAgo(30), approvalStatus: ApprovalStatus.APPROVED, approvalDecidedAt: daysAgo(30) };
+}
+
 /** Date `n` days before the fixed seed date, at midnight. */
 function daysAgo(n: number): Date {
     const d = new Date(SEED_TODAY);
@@ -141,7 +160,18 @@ export async function seed(dataSource: DataSource): Promise<void> {
     const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
     // --- Admin ------------------------------------------------------------------------------
-    const admin = await dataSource.getRepository(User).save(dataSource.getRepository(User).create({ username: 'admin', passwordHash, role: Role.ADMIN }));
+    // Both gates open, though `isAccountActive` exempts admins anyway. Written out so the row says
+    // what is true rather than leaving the column defaults to imply an admin is awaiting approval.
+    const admin = await dataSource.getRepository(User).save(
+        dataSource.getRepository(User).create({
+            username: 'admin',
+            passwordHash,
+            role: Role.ADMIN,
+            emailConfirmedAt: daysAgo(90),
+            approvalStatus: ApprovalStatus.APPROVED,
+            approvalDecidedAt: daysAgo(90),
+        }),
+    );
     await dataSource.getRepository(Profile).save(
         dataSource.getRepository(Profile).create({
             user: admin,
@@ -187,12 +217,19 @@ export async function seed(dataSource: DataSource): Promise<void> {
         // Every third parent has no account yet: that is the flow `GET /users/without-profile`
         // and the later linking exist for, and it should be visible in the admin screens.
         const hasAccount = i % 3 !== 2;
+
+        // The E11/S2 gates, spread across the accounts that do exist, so the approvals screen has
+        // every case in it on a fresh seed rather than being empty until someone registers by hand:
+        // one waiting with the address confirmed, one waiting without, and everybody else active.
+        const gates = accountGatesFor(i);
+
         const user = hasAccount
             ? await dataSource.getRepository(User).save(
                   dataSource.getRepository(User).create({
                       username: `${firstName.toLowerCase()}.${lastName.toLowerCase()}`,
                       passwordHash,
                       role: Role.PARENT,
+                      ...gates,
                   }),
               )
             : null;
@@ -206,15 +243,30 @@ export async function seed(dataSource: DataSource): Promise<void> {
                     email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`,
                     phone: `+4072${String(1000000 + i).slice(-7)}`,
                     address: `Strada Exemplu ${i + 1}, București`,
+                    emergencyContactName: `${LAST_NAMES[(i + 1) % LAST_NAMES.length]} ${lastName}`,
+                    emergencyContactRelation: i % 2 === 0 ? 'bunica' : 'unchi',
+                    emergencyContactPhone: `+4073${String(1000000 + i).slice(-7)}`,
                 }),
             ),
         );
     }
 
     // A couple of accounts with no profile at all, so the linking screen has something to show.
-    await dataSource
-        .getRepository(User)
-        .save(['parinte.nou', 'parinte.nelegat'].map((username) => dataSource.getRepository(User).create({ username, passwordHash, role: Role.PARENT })));
+    // Active, deliberately: they are a fixture for `GET /users/without-profile`, not registrations
+    // waiting on a decision, and leaving them pending would put two rows in the approvals queue
+    // that no admin can act on usefully — the queue is meant to be a real to-do list.
+    await dataSource.getRepository(User).save(
+        ['parinte.nou', 'parinte.nelegat'].map((username) =>
+            dataSource.getRepository(User).create({
+                username,
+                passwordHash,
+                role: Role.PARENT,
+                emailConfirmedAt: daysAgo(60),
+                approvalStatus: ApprovalStatus.APPROVED,
+                approvalDecidedAt: daysAgo(60),
+            }),
+        ),
+    );
 
     // --- Children ---------------------------------------------------------------------------
     const children: Child[] = [];

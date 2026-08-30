@@ -13,7 +13,23 @@ describe('AuthController', () => {
             logout: jest.fn().mockResolvedValue({ message: 'Logged out' }),
             logoutEverywhere: jest.fn().mockResolvedValue({ message: 'All sessions ended' }),
             listSessions: jest.fn().mockResolvedValue([]),
+            confirmEmail: jest.fn().mockResolvedValue({ emailConfirmed: true, active: false }),
+            resendConfirmation: jest.fn().mockResolvedValue({ message: 'Am retrimis linkul de confirmare' }),
         });
+
+    /** Every field `RegisterDto` requires since E11/S2. */
+    const registration = {
+        username: 'ana',
+        password: 'secret',
+        firstName: 'Ana',
+        lastName: 'Popescu',
+        email: 'ana@example.com',
+        phone: '0712345678',
+        address: 'Str. Exemplu 12',
+        emergencyContactName: 'Maria Popescu',
+        emergencyContactRelation: 'bunica',
+        emergencyContactPhone: '0723456789',
+    };
 
     it('passes credentials to the service without touching them', async () => {
         const { controller, service } = await build();
@@ -24,9 +40,20 @@ describe('AuthController', () => {
 
     it('register delegates to the service', async () => {
         const { controller, service } = await build();
-        const dto = { username: 'ana', password: 'secret' };
-        await controller.register(dto, 'jest');
-        expect(service.register).toHaveBeenCalledWith(dto, 'jest');
+        await controller.register(registration, 'jest');
+        expect(service.register).toHaveBeenCalledWith(registration, 'jest');
+    });
+
+    it('confirm-email passes the token through, and nothing else', async () => {
+        const { controller, service } = await build();
+        await controller.confirmEmail({ token: 'tok-abc' });
+        expect(service.confirmEmail).toHaveBeenCalledWith('tok-abc');
+    });
+
+    it('resend-confirmation identifies the user from the token, not from the body', async () => {
+        const { controller, service } = await build();
+        await controller.resendConfirmation(requestOf(Role.PARENT, 42));
+        expect(service.resendConfirmation).toHaveBeenCalledWith(42);
     });
 
     it('refresh delegates to the service', async () => {

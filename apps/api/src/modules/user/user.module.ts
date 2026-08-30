@@ -1,15 +1,16 @@
 import { Module } from '@nestjs/common';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
+import { AccountApprovalService } from './account-approval.service';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { RolesGuard } from 'src/guards/role.guard';
 import { JwtModule } from '@nestjs/jwt';
-import { User } from 'src/entities/user.entity';
-import { TypeOrmModule } from '@nestjs/typeorm/dist/typeorm.module';
+import { EntitiesModule } from 'src/entities/entities.module';
+import { MailModule } from 'src/modules/mail/mail.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User]), JwtModule.register({})],
+    imports: [EntitiesModule, MailModule, JwtModule.register({})],
     controllers: [UserController],
-    providers: [UserService, AuthGuard, RolesGuard],
+    providers: [UserService, AccountApprovalService, AuthGuard, RolesGuard],
 })
 export class UserModule {}

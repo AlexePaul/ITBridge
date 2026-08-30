@@ -25,6 +25,9 @@
         </UDashboardNavbar>
       </template>
       <template #body>
+        <!-- E11/S2: why the portal below is empty, when it is. -->
+        <AccountStatusNotice />
+
         <!-- Overdue Invoice Alert -->
         <UCard
           v-if="overdueInvoices && !isAdmin"
@@ -149,6 +152,7 @@ const navigationItems = computed(() => {
       to: "/admin/dashboard",
       icon: "i-lucide-layout-dashboard",
     },
+    { label: "Conturi în așteptare", to: "/admin/approvals", icon: "i-lucide-user-check" },
     { label: "Profiluri Utilizatori", to: "/admin/profiles", icon: "i-lucide-users" },
     { label: "Copii", to: "/admin/children", icon: "i-lucide-baby" },
     { label: "Grupe", to: "/admin/groups", icon: "i-lucide-users-round" },

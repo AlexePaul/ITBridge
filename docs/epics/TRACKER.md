@@ -3,7 +3,7 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 29 august 2026, pe `develop`, plus PR #27 care încă nu e mergeat.
+**Ultima actualizare:** 30 august 2026, pe `develop`, plus PR-ul de E11 S2 care încă nu e mergeat.
 
 ## Legendă
 
@@ -14,8 +14,9 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **141 de story-uri** în 21 de epicuri: 37 livrate, 5 parțiale, 5 scrise dar nemergeate,
-10 blocate, 4 scoase din scop, 80 neîncepute.
+Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 1 scris dar nemergeat,
+10 blocate, 4 scoase din scop, 78 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
+înseamnă adesea „construit, dar nu rulează nicăieri".
 
 ---
 
@@ -129,25 +130,25 @@ Din **141 de story-uri** în 21 de epicuri: 37 livrate, 5 parțiale, 5 scrise da
 
 ## Operațiuni
 
-### E11 · Înscrieri, grupe și capacitate — `propus`
+### E11 · Înscrieri, grupe și capacitate — `în lucru`
 
 - [ ] S1 · Entitatea de înscriere
-- [ ] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin
+- [r] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
 - [ ] S3 · Capacitate și listă de așteptare — capacitatea există din E08, dar nimic nu o aplică la înscriere
 - [ ] S4 · Lecție de probă — ocupă un loc din grupă
 - [ ] S5 · Transferuri
 - [ ] S6 · Verificări de compatibilitate
 - [ ] S7 · Formarea grupelor
 
-### E12 · Prezență, recuperări și orar — în PR #27
+### E12 · Prezență, recuperări și orar — `în lucru`
 
-- [r] S1 · Ședința ca entitate — livrat **redus**: fără modul și lecție, fiindcă E10 nu se face
+- [x] S1 · Ședința ca entitate — livrat **redus**: fără modul și lecție, fiindcă E10 nu se face
 - [!] S2 · Calendar de vacanțe — nelivrat; ședințele se generează pe toate săptămânile, iar una căzută în vacanță se anulează manual
 - [ ] S3 · Absențe anunțate
 - [ ] S4 · Recuperări
-- [r] S5 · Anulări și mutări — **doar anularea, doar prin API**; fără ecran, fără notificare
+- [~] S5 · Anulări și mutări — **doar anularea și reactivarea**; fără mutare, fără notificare
 - [ ] S6 · Marcarea prezenței pe telefon
-- [r] S7 · Notificări — livrat **altceva decât cere story-ul**: mementoul zilnic de la 10:00 către școală, cerut explicit. Notificările către părinți rămân nelivrate
+- [~] S7 · Notificări — livrat **altceva decât cere story-ul**: mementoul zilnic de la 10:00 către școală, cerut explicit. Notificările către părinți rămân nelivrate
 
 ### E13 · Progres, evaluare și feedback — `propus`
 
@@ -180,7 +181,7 @@ Din **141 de story-uri** în 21 de epicuri: 37 livrate, 5 parțiale, 5 scrise da
 - [ ] S1 · Catalogul de prețuri
 - [ ] S2 · Factura pe modul, cu linii
 - [ ] S3 · Planuri de plată
-- [ ] S4 · Regula pentru mai mulți copii — **aici stau două bug-uri vii**
+- [x] S4 · Regula pentru mai mulți copii — 350 + 250 pe frate, într-un singur loc; ambele bug-uri reparate
 - [ ] S5 · Reduceri cu tip
 - [ ] S6 · Previzualizare și emitere în masă
 - [ ] S7 · PDF-ul nu se mai generează local
@@ -208,9 +209,9 @@ Din **141 de story-uri** în 21 de epicuri: 37 livrate, 5 parțiale, 5 scrise da
 
 ### E17 · Comunicare și notificări — în PR #27
 
-- [r] S1 · Furnizorul și livrabilitatea — parțial: `MailService` există în `apps/api`; SPF/DKIM/DMARC și partea de operare, nu
+- [~] S1 · Furnizorul și livrabilitatea — parțial: `MailService` există în `apps/api`; SPF/DKIM/DMARC și partea de operare, nu
 - [ ] S2 · Șabloane
-- [r] S3 · Coadă și reîncercare — parțial: outbox-ul e întreg, dar **nu rulează nicăieri** până la deploy, și îl folosește un singur apelant
+- [~] S3 · Coadă și reîncercare — parțial: outbox-ul e întreg, dar **nu rulează nicăieri** până la deploy. Îl folosesc acum patru apelanți: mementoul zilnic din E12 și cele trei mesaje de cont din E11 S2
 - [ ] S4 · Preferințe și dezabonare
 - [ ] S5 · Evidența livrărilor
 - [ ] S6 · Rezumate în loc de rafale
@@ -280,7 +281,6 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 | Cine           | Ce                                | Ce ține în loc                                                                                |
 | -------------- | --------------------------------- | --------------------------------------------------------------------------------------------- |
 | **Tu**         | Instanța EC2                      | E01 S4, E18 S4, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șase story-uri din patru epicuri |
-| **Tu**         | Merge pe PR #27                   | E12 și infrastructura de mail; scrise, verificate, verzi în CI                                |
 | **Tu**         | Două profiluri Google Business    | E19 S3, partea din afara site-ului                                                            |
 | **Școala**     | Programa și calendarul vacanțelor | Prima factură pe modul, E19 S4. Nu blochează construcția                                      |
 | **Contabil**   | Cât se păstrează facturile        | E04 S5                                                                                        |
@@ -291,9 +291,11 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 **Cu instanța EC2:** E01 S4, deploy-ul. În ziua în care merge, portalul părintelui, prezența și
 facturile devin lucruri pe care le poate folosi cineva.
 
-**Fără ea:** E11 — contul de părinte cu date obligatorii și aprobare de admin, plus aplicarea
-capacității la înscriere. Alternativa e E15, unde bugul de facturare la trei copii e viu în modelul
-folosit azi.
+**Fără ea:** restul lui E11. S2 e livrat — contul de părinte are acum date obligatorii, confirmare
+de email și aprobare de admin. Ce rămâne e S1, entitatea de înscriere cu perioadă și istoric, și S3,
+aplicarea capacității: `Group.capacity` e în continuare un număr declarat pe care nimic nu îl
+verifică la înscriere, iar asta e mai rău decât să lipsească, fiindcă adminul îl citește ca pe o
+garanție.
 
 ---
 

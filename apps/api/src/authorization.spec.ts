@@ -18,6 +18,10 @@ const PUBLIC_ALLOWLIST = new Set([
     // Logging out must work when the access token has already expired, which is the common case.
     // The refresh token in the body is the credential, and revoking an unknown one does nothing.
     'AuthController.logout',
+    // The confirmation link from E11/S2 is opened in a mail client, often on a device that has
+    // never signed in. Requiring the account it unlocks would be a circle; the token is the
+    // credential, exactly as on `logout`.
+    'AuthController.confirmEmail',
     // A liveness/readiness checker has no credentials, and neither endpoint reveals anything.
     'HealthController.health',
     'HealthController.ready',
@@ -134,6 +138,10 @@ describe('authorization matrix', () => {
             'ChildController.deleteChild',
             'AuthController.logout',
             'AuthController.logoutEverywhere', // revokes only the caller's own sessions
+            'AuthController.confirmEmail', // public; the token in the body is the credential
+            // Sends only to the address already on file, for the caller's own account — it takes no
+            // address, so a session cannot be used to point a confirmation somewhere else.
+            'AuthController.resendConfirmation',
         ]);
 
         const writes = HANDLERS.filter((h) => WRITE_METHODS.includes(h.httpMethod));

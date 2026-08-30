@@ -48,8 +48,15 @@ export async function createTestApp(options: { realStorage?: boolean; throttling
     await app.init();
     await app.listen(0);
 
-    return { app, dataSource: app.get(DataSource) };
+    const dataSource = app.get(DataSource);
+    // Remembered so `registerUser` can open the E11/S2 gates without every one of its several
+    // hundred call sites having to be handed a DataSource it does not otherwise care about.
+    lastDataSource = dataSource;
+    return { app, dataSource };
 }
+
+/** Set by `createTestApp`; a suite runs in its own process, so there is only ever one. */
+let lastDataSource: DataSource | null = null;
 
 /** Wipes every table between suites. The schema itself comes from the migrations. */
 export async function truncateAll(dataSource: DataSource): Promise<void> {
@@ -65,19 +72,83 @@ export interface TestUser {
     auth: string;
 }
 
-/** Registers a user through the API and returns their tokens. Registration always yields PARENT. */
-export async function registerUser(app: INestApplication<App>, username: string, password = 'parola123'): Promise<TestUser> {
-    const res = await request(app.getHttpServer()).post('/auth/register').send({ username, password }).expect(201);
+/**
+ * Distinct phone numbers across a whole suite run.
+ *
+ * `Profile.phone` is unique, so two registrations sharing a number is a 409 — which would look like
+ * a bug in whatever the suite was actually testing. Counting is enough: the databases are truncated
+ * between tests, and the counter only has to outlive one process.
+ */
+let phoneCounter = 0;
+
+/** Everything E11/S2 requires of a registration, derived from the username so it stays unique. */
+export function registrationBody(username: string, password = 'parola123'): Record<string, unknown> {
+    phoneCounter += 1;
+    return {
+        username,
+        password,
+        firstName: username,
+        lastName: 'Test',
+        email: `${username}@example.com`,
+        phone: `07${String(10_000_000 + phoneCounter).slice(-8)}`,
+        address: 'Str. Exemplu 1, București',
+        emergencyContactName: 'Contact Urgență',
+        emergencyContactRelation: 'bunica',
+        emergencyContactPhone: `07${String(90_000_000 + phoneCounter).slice(-8)}`,
+    };
+}
+
+/**
+ * Registers a parent through the API and returns their tokens.
+ *
+ * **Both E11/S2 gates are opened by default**, straight in the database. Almost every suite wants a
+ * usable family and is testing something else entirely; leaving the gates shut would make dozens of
+ * unrelated tests fail on a rule they are not about. Pass `{ active: false }` to get the account as
+ * a real registration leaves it — which is what the account-gates suite does.
+ */
+export async function registerUser(
+    app: INestApplication<App>,
+    username: string,
+    password = 'parola123',
+    options: { active?: boolean } = {},
+): Promise<TestUser> {
+    const res = await request(app.getHttpServer()).post('/auth/register').send(registrationBody(username, password)).expect(201);
 
     const me = await request(app.getHttpServer()).get('/auth/me').set('Authorization', `Bearer ${res.body.accessToken}`).expect(200);
+    const userId = me.body.id as number;
+
+    if (options.active !== false) {
+        if (!lastDataSource) throw new Error('registerUser needs createTestApp to have run first');
+        await activateAccount(lastDataSource, userId);
+    }
 
     return {
-        userId: me.body.id as number,
+        userId,
         username,
         accessToken: res.body.accessToken as string,
         refreshToken: res.body.refreshToken as string,
         auth: `Bearer ${res.body.accessToken}`,
     };
+}
+
+/**
+ * The id of the profile a registration created for this user.
+ *
+ * Since E11/S2 there is no window in which a registered parent has no profile: `register` writes
+ * both in one transaction. Suites that used to `POST /profiles` for a freshly registered parent now
+ * get a 409 on the unique email, which reads as an authorization bug and is not one — they want
+ * this instead.
+ */
+export async function ownProfileId(app: INestApplication<App>, user: TestUser): Promise<number> {
+    const res = await request(app.getHttpServer()).get('/profiles').set('Authorization', user.auth).expect(200);
+    const profiles = res.body as { id: number }[];
+    if (profiles.length !== 1) throw new Error(`Expected exactly one profile for ${user.username}, found ${profiles.length}`);
+    return profiles[0].id;
+}
+
+/** Opens both gates on an account, the way the migration grandfathers in accounts that predate them. */
+export async function activateAccount(dataSource: DataSource, userId: number): Promise<void> {
+    await dataSource.query(`UPDATE users SET "emailConfirmedAt" = now(), "approvalStatus" = 'APPROVED', "approvalDecidedAt" = now() WHERE id = $1`, [userId]);
 }
 
 /**

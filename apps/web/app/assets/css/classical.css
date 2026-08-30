@@ -630,6 +630,47 @@ textarea.input {
   color: var(--color-accent-ink);
 }
 
+/* What the field is for, under the label rather than in a tooltip. */
+.field-hint {
+  font-size: 12px;
+  margin: 5px 0 0;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
+/* Two fields on one line above 520px, stacked below it — the registration form has three such
+   pairs, and on a phone they have to be one per row or the inputs stop being tappable. */
+.field-row {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 520px) {
+  .field-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* The emergency-contact group. A real <fieldset>, so a screen reader announces the legend with
+   each field inside it; the default browser border is dropped for the rule above the legend. */
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-divider);
+}
+
+.fieldset > legend {
+  padding: 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 .checkbox {
   display: flex;
   align-items: center;

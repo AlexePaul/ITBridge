@@ -2,14 +2,17 @@
 import { defineStore } from "pinia";
 import { useApi } from "~/composables/api/useApi";
 import { useTokenStore } from "./tokenStore";
-import type { User } from "~/types/user.types";
+import type { CurrentUser } from "~/types/user.types";
 import { ref, readonly } from "vue";
 
 export const useUserStore = defineStore("user", () => {
   const api = useApi();
   const tokenStore = useTokenStore();
 
-  const user = ref<User | null>(null);
+  // `CurrentUser`, not `User`: `/auth/me` also carries the state of the two account gates from
+  // E11/S2, and every screen in the portal has to know — a pending account is shown a waiting
+  // notice instead of an empty dashboard that reads as a bug.
+  const user = ref<CurrentUser | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -18,7 +21,7 @@ export const useUserStore = defineStore("user", () => {
     error.value = null;
 
     try {
-      const response = await api<User>("/auth/me", {
+      const response = await api<CurrentUser>("/auth/me", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${tokenStore.accessToken}`,
