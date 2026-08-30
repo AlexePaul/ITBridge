@@ -67,9 +67,11 @@ export class ChildController {
     async assignChildToGroup(
         @Param('childId', ParseIntPipe) childId: number,
         @Param('groupId', ParseIntPipe) groupId: number,
-        @Request() _req: AuthenticatedRequest,
+        @Request() req: AuthenticatedRequest,
     ) {
-        return this.childService.assignChildToGroup(childId, groupId);
+        // The acting user is passed on because an over-capacity enrolment names whoever made it in
+        // the log. This route never allows one, but the service takes the same argument either way.
+        return this.childService.assignChildToGroup(childId, groupId, req.user.sub);
     }
 
     @Delete('/:childId/groups/:groupId')

@@ -17,6 +17,10 @@ export function createMockRepository<T extends ObjectLiteral = ObjectLiteral>():
         find: jest.fn(),
         findOne: jest.fn(),
         findOneBy: jest.fn(),
+        // `findOneOrFail` is what a service reaches for when the row must exist by construction —
+        // reading back a row it has just written inside its own transaction, say. Missing from the
+        // double, the call returns undefined and the failure reads as a service bug.
+        findOneOrFail: jest.fn(),
         save: jest.fn(),
         create: jest.fn(),
         delete: jest.fn(),

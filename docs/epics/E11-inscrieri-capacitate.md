@@ -1,6 +1,6 @@
 # E11 · Înscrieri, grupe și capacitate
 
-**Status:** în lucru — **S2 livrat** · **Pistă:** Operațiuni · **Depinde de:** E08, E09, E10 · **Blochează:** E12, E15
+**Status:** în lucru — **S1, S2 și S3 livrate** · **Pistă:** Operațiuni · **Depinde de:** E08, E09, E10 · **Blochează:** E12, E15
 
 ## Problemă
 
@@ -11,19 +11,19 @@ cheie străină.
 
 Ce lipsește:
 
-- **Capacitate neaplicată.** `Group.capacity` există din [E08](E08-multi-locatie.md) — coloană
+- ~~**Capacitate neaplicată.**~~ **Rezolvat de S3.** `Group.capacity` există din [E08](E08-multi-locatie.md) — coloană
   `int`, cu `CHK_groups_capacity_positive` în `apps/api/src/entities/group.entity.ts` și validată
   server-side să nu depășească sala (`GroupService.assertFitsInRoom`, cod `GROUP_OVER_ROOM_CAPACITY`).
   Dar **nimic nu o verifică la înscriere**: `ChildService.assignChildToGroup`
   (`apps/api/src/modules/child/child.service.ts:105`) setează cheia străină indiferent de câți copii
   sunt deja acolo. Numărul maxim e declarat și nerespectat, ceea ce e mai rău decât să lipsească —
   adminul îl citește ca pe o garanție.
-- **Istoric.** `Child.group` e o singură referință. Când un copil se mută dintr-o grupă în alta,
+- ~~**Istoric.**~~ **Rezolvat de S1.** `Child.group` e o singură referință. Când un copil se mută dintr-o grupă în alta,
   legătura veche se pierde. Nu poți răspunde la "în ce grupă era în octombrie?", ceea ce e exact
   informația de care ai nevoie când verifici o factură contestată.
-- **Perioadă.** Nu există dată de început și de sfârșit ale participării. Un copil e în grupă sau
+- ~~**Perioadă.**~~ **Rezolvat de S1.** Nu există dată de început și de sfârșit ale participării. Un copil e în grupă sau
   nu, atemporal.
-- **Listă de așteptare.** O grupă plină nu are unde ține cererile.
+- ~~**Listă de așteptare.**~~ **Rezolvat de S3.** O grupă plină nu are unde ține cererile.
 - **Lecție de probă.** Nu există noțiunea, deși e mecanismul principal prin care un copil devine
   elev.
 - **Compatibilitate.** Nimic nu verifică dacă vârsta copilului se potrivește cu intervalul grupei
@@ -77,7 +77,34 @@ grupă plină pune cererea pe listă în loc să o piardă.
 
 ## Story-uri
 
-### S1 · Entitatea de înscriere
+### S1 · Entitatea de înscriere — **LIVRAT**
+
+> **Ce s-a construit.** `Enrollment`: copil, grupă, stare, perioadă, motiv la ieșire, plus data
+> contractului semnat pe hârtie (D3). Fără coloană de modul — E10 a ieșit din scop, iar o coloană pe
+> care nimic n-o scrie și nimic n-o citește se adaugă în ziua în care există un catalog.
+>
+> **Invariantul „o singură înscriere în vigoare" e index parțial, nu doar verificare în serviciu.**
+> `UQ_enrollments_one_in_force` face imposibil ce `EnrollmentService` refuză politicos: serviciul
+> verifică întâi ca refuzul să ajungă la client ca 409 cu motiv, dar doi admini care apasă în
+> aceeași secundă nu sunt un caz pe care verificarea în aplicație îl poate acoperi. Un test de
+> integrare încearcă inserarea prin SQL direct, ocolind serviciul, exact ca să dovedească asta.
+>
+> **`Child.group` rămâne, ca proprietate derivată** — exact ce permite story-ul. Șase interogări o
+> citesc, două dintre ele relevante pentru securitate: filtrarea orarului pentru părinte și cine
+> poate fi marcat prezent. Are un singur scriitor, `EnrollmentService`, care o scrie în aceeași
+> tranzacție cu rândul care o justifică; un test de integrare verifică după fiecare operațiune că
+> cele două spun același lucru. Rescrierea celor șase interogări în același PR care introduce
+> entitatea ar fi înmulțit raza de explozie.
+>
+> `POST /children/:childId/groups/:groupId` și perechea ei de ștergere au rămas — sunt ce apelează
+> deja ecranele — dar sunt acum o ușă subțire către `EnrollmentService`. Scoaterea din grupă
+> **închide** înscrierea, nu o șterge: istoricul e tot rostul tabelului, iar un loc eliberat de un
+> rând dispărut e un loc despre care nu știe nimeni.
+>
+> Migrarea creează câte o înscriere activă pentru fiecare copil care are deja o grupă. Fără ea,
+> coloana derivată ar contrazice tabelul din prima dimineață. Istoric mai vechi nu se reconstruiește
+> — D9.
+
 
 `Enrollment`: copil, grupă, modul, dată de început, dată de sfârșit, stare (`probă`, `activă`,
 `încheiată`, `abandonată`, `transferată`), motiv la ieșire. Înlocuiește legătura directă
@@ -116,9 +143,9 @@ interogarea de mai sus se verifică pe ele. Un `POST` de înscriere cu token de 
 > înainte. O poartă nouă aplicată retroactiv ar fi fost o schimbare de date deghizată în schimbare
 > de schemă.
 >
-> **Ce nu s-a construit din acest story:** nimic. Restul epicului — S1, S3, S4, S5, S6, S7 — e
-> neatins, deci capacitatea grupei rămâne în continuare declarată și neaplicată, iar înscrierea
-> rămâne o cheie străină pe `Child`, fără istoric.
+> **Ce nu s-a construit din acest story:** nimic. Ce a rămas din epic după S1, S2 și S3 e S4 (proba
+> ca flux propriu, cu ședință și fără factură), S5 (transferuri), S6 (verificări de compatibilitate)
+> și S7 (formarea grupelor).
 
 
 Până la acest story `register` cerea `username` și `password`, atât — `RegisterDto` avea exact cele
@@ -185,7 +212,31 @@ odată cu el; sunt în [În afara scopului](#în-afara-scopului), explicit, ca s
 - `POST /profiles` fără email, telefon și adresă, cu token de admin, răspunde în continuare 201 — și
   există un test care ține fluxul ăsta viu, ca să nu fie strâns din greșeală odată cu `register`.
 
-### S3 · Capacitate și listă de așteptare
+### S3 · Capacitate și listă de așteptare — **LIVRAT**
+
+> **Ce s-a construit.** Capacitatea se aplică la înscriere, și numărul care contează e
+> **înscrierile în vigoare — active plus probe programate**, niciodată doar primele. Un test de
+> integrare pune o grupă de două locuri cu un copil înscris și o probă și verifică refuzul, fiindcă
+> ăsta e cazul care se pierde cel mai ușor.
+>
+> Excepția pentru admin există, dar cere un câmp explicit (`allowOverCapacity`) și lasă un
+> `warn` în log cu cine a făcut-o. **Jurnalul de audit pe care îl cere story-ul nu există** — e E06.
+> Până atunci asta e jumătatea onestă a promisiunii, nu promisiunea întreagă.
+>
+> Lista de așteptare: `WaitlistEntry`, ordonată după momentul cererii, cu index parțial care
+> împiedică o a doua cerere deschisă pentru același copil și aceeași grupă. Închiderea unei
+> înscrieri oferă locul primului de pe listă **în aceeași tranzacție** și îi scrie emailul în outbox
+> — o ofertă care supraviețuiește căderii procesului între cele două scrieri e singura variantă de
+> „sub un minut" care ține. Un refuz sau o retragere a unei oferte trece locul mai departe imediat.
+>
+> **Termenul de răspuns e 48 de ore**, ca ipoteză de lucru, nu ca decizie a școlii — vezi
+> [Întrebări deschise](#întrebări-deschise). E constantă în cod, nu setare, ca să fie o modificare
+> despre care se discută.
+>
+> **Ce nu s-a construit:** nimic nu mătură automat ofertele expirate. Locul se re-oferă când se mai
+> eliberează unul sau când un admin scoate cererea de pe listă. Un job de măturat e o sarcină
+> programată și își are locul lângă celelalte în ziua în care rulează ceva (E01/S4).
+
 
 Capacitatea grupei există deja și e plafonată de sală — [E08](E08-multi-locatie.md) S3. Ce lipsește e
 **aplicarea ei la înscriere**: depășirea se blochează, cu excepție explicită pentru admin, care lasă
@@ -431,7 +482,11 @@ factura B2C are nevoie de el — are răspuns și se închide acolo.
 
 ## Întrebări deschise
 
-- Cât timp are cineva de pe lista de așteptare să confirme un loc eliberat?
+- Cât timp are cineva de pe lista de așteptare să confirme un loc eliberat? **Implementat cu 48 de
+  ore**, ca ipoteză — două zile lucrătoare, destul pentru un părinte care își citește mailul seara
+  și nu atât cât să lase următoarea familie să aștepte după cineva care s-a răzgândit. Rămâne
+  deschisă până o confirmă școala; e `WAITLIST_RESPONSE_HOURS` în
+  `apps/api/src/modules/enrollment/enrollment.service.ts`.
 **Închisă la implementarea S2: un cont neconfirmat sau neaprobat *se poate* autentifica.** Portalul
 îi arată o notificare cu ce mai lipsește, iar dacă adresa nu e confirmată, butonul de retrimitere a
 linkului. Un login care refuză fără să explice ar lăsa o familie care așteaptă să nu poată distinge

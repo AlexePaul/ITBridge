@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Child } from 'src/entities/child.entity';
 import { Profile } from 'src/entities/profile.entity';
@@ -9,7 +9,8 @@ import { FilterChildDto } from './dto/filterChild.dto';
 import { UpdateChildDto } from './dto/updateChild.dto';
 import { Group } from 'src/entities/group.entity';
 import { applyDefined } from 'src/common/apply-defined';
-import { isAccountActive } from 'src/entities/user.entity';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
+import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 
 @Injectable()
 export class ChildService {
@@ -17,6 +18,7 @@ export class ChildService {
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
+        private readonly enrollmentService: EnrollmentService,
     ) {}
 
     async createChild(createChildDto: CreateChildDto, role: Role, userId: number) {
@@ -104,49 +106,34 @@ export class ChildService {
     }
 
     /**
-     * Puts a child in a group. Admin-only, and it stays that way — D2: the parent does not choose
-     * the group, the school does.
+     * Puts a child in a group — by opening an enrolment, not by writing a foreign key.
      *
-     * The account gate from E11/S2 is enforced here, which is the one place it changes an outcome:
-     * a family whose account has not been confirmed and approved cannot have a child enrolled. The
-     * epic's acceptance says exactly this, and it is the reason the two gates are more than a
-     * status badge on a screen.
+     * Since E11/S1 this is a thin front door onto `EnrollmentService`, kept because the route
+     * `POST /children/:childId/groups/:groupId` is what the admin screens already call. Everything
+     * that used to live here — the account gate from S2, and now the one-group rule and the
+     * capacity rule — lives there, in the one place that writes `Child.group`.
+     *
+     * The alternative was to keep setting the column here and *also* record an enrolment, which is
+     * two writers for one fact and exactly the drift the derived column is supposed to avoid.
      */
-    async assignChildToGroup(childId: number, groupId: number) {
-        const child = await this.childRepository.findOne({
-            where: { id: childId },
-            relations: { parent: { user: true } },
-        });
-        if (!child) {
-            throw new NotFoundException('Child not found');
-        }
-
-        // `parent.user` is nullable by design: an admin can enter a family from a phone call, with
-        // no account at all. There is nothing to confirm and nobody to approve in that case, so the
-        // gate does not apply — applying it would block the flow the platform deliberately keeps.
-        const parentAccount = child.parent?.user;
-        if (parentAccount && !isAccountActive(parentAccount)) {
-            throw new ConflictException({
-                message: 'Contul părintelui nu este activ. Trebuie confirmat prin email și aprobat înainte de înscriere.',
-                error: 'PARENT_ACCOUNT_NOT_ACTIVE',
-            });
-        }
-        const group = await this.groupRepository.findOne({ where: { id: groupId } });
-        if (!group) {
-            throw new NotFoundException('Group not found');
-        }
-
-        child.group = { id: groupId } as Group;
-        return this.childRepository.save(child);
+    async assignChildToGroup(childId: number, groupId: number, actingUserId: number) {
+        return this.enrollmentService.enrol({ childId, groupId }, actingUserId);
     }
 
+    /**
+     * Takes a child out of a group, closing the enrolment as withdrawn.
+     *
+     * The seat is freed and offered to whoever is waiting, which is `EnrollmentService.close`'s
+     * job. Removing the child by blanking `Child.group` would have left the enrolment open, the
+     * history wrong, and the seat held by nobody.
+     */
     async removeChildFromGroup(childId: number, groupId: number) {
-        const child = await this.childRepository.findOne({ where: { id: childId, group: { id: groupId } } });
-        if (!child) {
+        const inForce = await this.enrollmentService.inForceFor(childId);
+        if (!inForce || inForce.group.id !== groupId) {
             throw new NotFoundException('Child not found in the specified group');
         }
 
-        child.group = null;
-        return this.childRepository.save(child);
+        await this.enrollmentService.close(inForce.id, { status: EnrollmentStatus.WITHDRAWN });
+        return { message: 'Child removed from the group' };
     }
 }

@@ -8,6 +8,7 @@ import { UserModule } from './modules/user/user.module';
 import { EntitiesModule } from './entities/entities.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { ChildModule } from './modules/child/child.module';
+import { EnrollmentModule } from './modules/enrollment/enrollment.module';
 import { GroupModule } from './modules/group/group.module';
 import { LocationModule } from './modules/location/location.module';
 import { RoomModule } from './modules/room/room.module';
@@ -41,6 +42,7 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
         EntitiesModule,
         ProfileModule,
         ChildModule,
+        EnrollmentModule,
         GroupModule,
         LocationModule,
         RoomModule,

@@ -54,6 +54,53 @@
       </div>
     </UForm>
   </UCard>
+
+  <!--
+    E11/S1. The history is the answer to "which group was this child in last October" — the question
+    the old single foreign key on `Child` could not answer at all, and the one that comes up when a
+    family disputes an invoice.
+  -->
+  <UCard variant="subtle" class="max-w-2xl mx-auto mt-6">
+    <template #header>
+      <div class="flex items-center gap-2">
+        <UIcon name="i-lucide-history" class="text-primary" />
+        <h2 class="text-xl font-bold">Istoricul înscrierilor</h2>
+      </div>
+    </template>
+
+    <div v-if="historyLoading" class="py-6 text-center text-muted">Se încarcă…</div>
+
+    <div v-else-if="history.length === 0" class="py-6 text-center">
+      <p class="text-muted">Copilul nu a fost înscris în nicio grupă.</p>
+    </div>
+
+    <div v-else class="space-y-3">
+      <div
+        v-for="entry in history"
+        :key="entry.id"
+        class="flex items-start justify-between gap-4 p-4 border border-gray-200 rounded-lg"
+      >
+        <div>
+          <p class="font-semibold">
+            {{ entry.group?.name ?? "Grupă ștearsă" }}
+            <UBadge
+              :color="entry.endDate === null ? 'success' : 'neutral'"
+              variant="subtle"
+              size="sm"
+              class="ml-2"
+            >
+              {{ ENROLLMENT_STATUS_LABELS[entry.status] }}
+            </UBadge>
+          </p>
+          <p class="text-sm text-muted">{{ periodOf(entry) }}</p>
+          <p v-if="entry.exitReason" class="text-sm text-muted">{{ entry.exitReason }}</p>
+        </div>
+        <p v-if="entry.contractSignedAt" class="text-sm text-muted whitespace-nowrap">
+          Contract {{ formatDate(entry.contractSignedAt) }}
+        </p>
+      </div>
+    </div>
+  </UCard>
 </template>
 
 <script setup lang="ts">
@@ -65,13 +112,28 @@ import { parseDate } from "@internationalized/date";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { normalizeName } from "~/composables/useUtils";
+import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
+import type { Enrollment } from "~/types/enrollment.types";
+import { ENROLLMENT_STATUS_LABELS } from "~/types/enrollment.types";
 
 const route = useRoute();
 const inputDate = ref();
 const childrenStore = useChildrenStore();
 const childrenApi = useChildrenApi();
+const enrollmentsApi = useEnrollmentsApi();
 
 const { success } = useNotifications();
+
+const history = ref<Enrollment[]>([]);
+const historyLoading = ref(true);
+
+const formatDate = (value: string) => new Intl.DateTimeFormat("ro-RO").format(new Date(value));
+
+/** "din 10.01.2026" while it runs, "10.01.2026 – 31.03.2026" once it is history. */
+const periodOf = (entry: Enrollment) =>
+  entry.endDate === null
+    ? `din ${formatDate(entry.startDate)}`
+    : `${formatDate(entry.startDate)} – ${formatDate(entry.endDate)}`;
 
 definePageMeta({
   layout: "dashboard" as any,
@@ -111,6 +173,16 @@ onMounted(async () => {
     state.lastName = child.lastName;
     state.birthDate = parseDate(child.birthDate);
     state.createdAt = child.createdAt;
+  }
+
+  try {
+    history.value = (await enrollmentsApi.fetchHistory(Number(childId))) ?? [];
+  } catch {
+    // The form above is the point of this page; a history that failed to load should not stop it
+    // from being usable.
+    history.value = [];
+  } finally {
+    historyLoading.value = false;
   }
 });
 

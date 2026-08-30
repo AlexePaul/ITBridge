@@ -19,6 +19,41 @@
     </div>
 
     <div v-if="group" class="space-y-8">
+      <!--
+        Occupancy comes from the server, not from `childrenInGroup.length`. The two differ the
+        moment a trial is booked: a trial holds a seat (D7) without the child appearing in the list
+        below, so a number counted here would tell an admin a group has room when it does not.
+      -->
+      <UCard v-if="occupancy" class="border" variant="subtle">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div class="flex items-center gap-3 flex-1">
+            <UIcon
+              :name="occupancy.free > 0 ? 'i-lucide-armchair' : 'i-lucide-user-x'"
+              class="text-2xl"
+              :class="occupancy.free > 0 ? 'text-success' : 'text-warning'"
+            />
+            <div>
+              <p class="font-bold text-lg">
+                {{ occupancy.taken }} din {{ occupancy.capacity }} locuri ocupate
+              </p>
+              <p class="text-sm text-muted">
+                {{
+                  occupancy.free > 0
+                    ? `${occupancy.free} ${occupancy.free === 1 ? "loc liber" : "locuri libere"}`
+                    : "Grupa este plină. Copiii noi merg pe lista de așteptare."
+                }}
+                <template v-if="occupancy.taken !== childrenInGroup.length">
+                  · include {{ occupancy.taken - childrenInGroup.length }} probă/probe programate
+                </template>
+              </p>
+            </div>
+          </div>
+          <UBadge v-if="occupancy.waiting > 0" color="warning" variant="subtle" size="lg">
+            {{ occupancy.waiting }} pe listă
+          </UBadge>
+        </div>
+      </UCard>
+
       <!-- Children in Group Section -->
       <UCard class="hover:shadow-lg transition-shadow">
         <template #header>
@@ -103,6 +138,62 @@
         </div>
       </UCard>
 
+      <!-- Waiting list -->
+      <UCard v-if="waitlist.length > 0" class="hover:shadow-lg transition-shadow">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-clock" class="text-warning" />
+            <h2 class="text-2xl font-bold">Listă de așteptare</h2>
+            <UBadge color="warning" variant="subtle">{{ waitlist.length }}</UBadge>
+          </div>
+        </template>
+
+        <p class="text-sm text-muted mb-4">
+          În ordinea în care s-a cerut. Când se eliberează un loc, îl oferim automat primului de pe
+          listă și îi trimitem un email.
+        </p>
+
+        <div class="space-y-3">
+          <div
+            v-for="(entry, index) in waitlist"
+            :key="entry.id"
+            class="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+          >
+            <div class="flex items-center gap-3">
+              <UBadge variant="subtle" color="secondary" class="w-8 justify-center">
+                {{ index + 1 }}
+              </UBadge>
+              <div>
+                <p class="font-semibold">
+                  {{ entry.child?.firstName }} {{ entry.child?.lastName }}
+                  <UBadge
+                    :color="entry.status === 'OFFERED' ? 'warning' : 'neutral'"
+                    variant="subtle"
+                    size="sm"
+                    class="ml-2"
+                  >
+                    {{ WAITLIST_STATUS_LABELS[entry.status] }}
+                  </UBadge>
+                </p>
+                <p v-if="entry.note" class="text-sm text-muted">{{ entry.note }}</p>
+                <p v-if="entry.respondBy" class="text-sm text-warning">
+                  Așteptăm răspuns până pe {{ formatDeadline(entry.respondBy) }}
+                </p>
+              </div>
+            </div>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-x"
+              @click="handleRemoveFromWaitlist(entry.id)"
+            >
+              Scoate
+            </UButton>
+          </div>
+        </div>
+      </UCard>
+
       <!-- Save Changes -->
       <div class="flex gap-3 justify-center">
         <UButton color="primary" variant="subtle" size="md" class="w-40" @click="handleSaveChanges">
@@ -130,9 +221,12 @@ import { useGroupsStore } from "~/stores/groupsStore";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
+import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
 import { apiErrorMessage } from "~/composables/useApiError";
 import type { Group } from "~/types/group.types";
 import type { Child } from "~/types/child.types";
+import type { GroupOccupancy, WaitlistEntry } from "~/types/enrollment.types";
+import { WAITLIST_STATUS_LABELS } from "~/types/enrollment.types";
 
 definePageMeta({
   layout: "dashboard" as any,
@@ -146,11 +240,45 @@ const groupsStore = useGroupsStore();
 const childrenStore = useChildrenStore();
 const childrenApi = useChildrenApi();
 const groupsApi = useGroupsApi();
+const enrollmentsApi = useEnrollmentsApi();
 
 const group: Ref<Group | null> = ref(null);
 const childrenInGroup: Ref<Child[]> = ref([]);
 const childrenWithoutGroup: Ref<Child[]> = ref([]);
+const occupancy: Ref<GroupOccupancy | null> = ref(null);
+const waitlist: Ref<WaitlistEntry[]> = ref([]);
 const isLoading = ref(false);
+
+/** "12.09.2026, ora 14:00" — the same shape as the deadline in the offer email. */
+const formatDeadline = (value: string) =>
+  new Intl.DateTimeFormat("ro-RO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+
+/**
+ * Occupancy and the queue, re-read after anything that could change either.
+ *
+ * Kept as one call rather than adjusted by hand after each action: the number depends on trials the
+ * page never lists, so incrementing a local counter would drift the first time somebody books one.
+ */
+const refreshSeats = async (groupId: number) => {
+  try {
+    const [seats, queue] = await Promise.all([
+      enrollmentsApi.fetchOccupancy(groupId),
+      enrollmentsApi.fetchWaitlist(groupId),
+    ]);
+    occupancy.value = seats;
+    waitlist.value = queue ?? [];
+  } catch {
+    // The rest of the page still works without these; showing a wrong number would be worse than
+    // showing none.
+    occupancy.value = null;
+  }
+};
 
 /** "Adaugă sau elimină copii din Scratch Începători · Drumul Taberei · Sala 1". */
 const subtitle = computed(() => {
@@ -178,6 +306,7 @@ onMounted(async () => {
   if (group.value) {
     childrenInGroup.value = childrenStore.getChildrenByGroupId(groupId);
     childrenWithoutGroup.value = childrenStore.getChildrenWithoutGroup();
+    await refreshSeats(Number(groupId));
   } else {
     error("Grupul nu a fost găsit");
     navigateTo("/admin/groups");
@@ -200,9 +329,13 @@ const handleAddChild = async (childId: number) => {
       const child = childrenWithoutGroup.value.splice(childIndex, 1)[0];
       childrenInGroup.value.push(child as Child);
     }
+    await refreshSeats(Number(groupId));
     success("Copil adăugat la grup");
-  } catch (err: any) {
-    error(err?.message || "Eroare la adăugarea copilului");
+  } catch (err: unknown) {
+    // The API names the case — a full group, a child already enrolled elsewhere, a family still
+    // waiting for approval — and `useApiError` has the Romanian sentence for each. `err.message`
+    // used to swallow all of that into "Eroare la adăugarea copilului".
+    error(apiErrorMessage(err, "Eroare la adăugarea copilului"));
   } finally {
     isLoading.value = false;
   }
@@ -220,9 +353,23 @@ const handleRemoveChild = async (childId: number) => {
       const child = childrenInGroup.value.splice(childIndex, 1)[0];
       childrenWithoutGroup.value.push(child as Child);
     }
+    await refreshSeats(Number(groupId));
     success("Copil eliminat din grup");
-  } catch (err: any) {
-    error(err?.message || "Eroare la eliminarea copilului");
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Eroare la eliminarea copilului"));
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const handleRemoveFromWaitlist = async (entryId: number) => {
+  try {
+    isLoading.value = true;
+    await enrollmentsApi.removeFromWaitlist(entryId);
+    await refreshSeats(Number(group.value?.id));
+    success("Cererea a fost scoasă de pe listă");
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Eroare la scoaterea de pe listă"));
   } finally {
     isLoading.value = false;
   }

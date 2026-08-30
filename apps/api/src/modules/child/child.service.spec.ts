@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ChildService } from './child.service';
 import { Child } from 'src/entities/child.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Group } from 'src/entities/group.entity';
 import { Role } from 'src/enum/role.enum';
-import { ApprovalStatus } from 'src/enum/approval-status.enum';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { createMockQueryBuilder, createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 
 describe('ChildService', () => {
@@ -13,6 +13,7 @@ describe('ChildService', () => {
     let childRepo: MockRepository;
     let profileRepo: MockRepository;
     let groupRepo: MockRepository;
+    let enrollments: Record<string, jest.Mock>;
 
     /** A child of the parent whose account is `ownerUserId`. */
     const childOwnedBy = (ownerUserId: number) => ({
@@ -24,6 +25,11 @@ describe('ChildService', () => {
         childRepo = createMockRepository();
         profileRepo = createMockRepository();
         groupRepo = createMockRepository();
+        enrollments = {
+            enrol: jest.fn().mockResolvedValue({ id: 9 }),
+            close: jest.fn().mockResolvedValue({ id: 9 }),
+            inForceFor: jest.fn().mockResolvedValue(null),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -31,6 +37,7 @@ describe('ChildService', () => {
                 provideMockRepository(Child, childRepo),
                 provideMockRepository(Profile, profileRepo),
                 provideMockRepository(Group, groupRepo),
+                { provide: EnrollmentService, useValue: enrollments },
             ],
         }).compile();
 
@@ -154,72 +161,38 @@ describe('ChildService', () => {
         });
     });
 
-    describe('assignChildToGroup', () => {
-        /** Both E11/S2 gates open: the address is confirmed and an admin has approved. */
-        const activeAccount = { id: 5, role: Role.PARENT, emailConfirmedAt: new Date(), approvalStatus: ApprovalStatus.APPROVED };
+    describe('the group endpoints', () => {
+        // Since E11/S1 these are a front door onto `EnrollmentService`: the one-group rule, the
+        // capacity rule and the account gate all live there, in the one place that writes
+        // `Child.group`. What is worth asserting here is that nothing writes the column behind its
+        // back — which is the whole reason the delegation exists.
+        it('assigns by opening an enrolment, not by writing the column', async () => {
+            await service.assignChildToGroup(1, 2, 42);
 
-        const childOf = (user: unknown) => ({ id: 1, parent: { id: 10, user } });
-
-        beforeEach(() => {
-            groupRepo.findOne!.mockResolvedValue({ id: 2 });
-            childRepo.save!.mockImplementation((child: unknown) => Promise.resolve(child));
-        });
-
-        it('assigns when both gates are open', async () => {
-            childRepo.findOne!.mockResolvedValue(childOf(activeAccount));
-
-            await service.assignChildToGroup(1, 2);
-
-            expect(childRepo.save).toHaveBeenCalled();
-        });
-
-        it('refuses while the address is still unconfirmed', async () => {
-            childRepo.findOne!.mockResolvedValue(childOf({ ...activeAccount, emailConfirmedAt: null }));
-
-            await expect(service.assignChildToGroup(1, 2)).rejects.toMatchObject({
-                response: { error: 'PARENT_ACCOUNT_NOT_ACTIVE' },
-            });
+            expect(enrollments.enrol).toHaveBeenCalledWith({ childId: 1, groupId: 2 }, 42);
             expect(childRepo.save).not.toHaveBeenCalled();
         });
 
-        it('refuses while an admin has not approved the family', async () => {
-            childRepo.findOne!.mockResolvedValue(childOf({ ...activeAccount, approvalStatus: ApprovalStatus.PENDING }));
+        it('removes by closing the enrolment in force, so the seat is actually freed', async () => {
+            enrollments.inForceFor.mockResolvedValue({ id: 9, group: { id: 2 } });
 
-            await expect(service.assignChildToGroup(1, 2)).rejects.toThrow(ConflictException);
+            await service.removeChildFromGroup(1, 2);
+
+            expect(enrollments.close).toHaveBeenCalledWith(9, { status: 'WITHDRAWN' });
             expect(childRepo.save).not.toHaveBeenCalled();
         });
 
-        it('refuses a family whose account was rejected', async () => {
-            childRepo.findOne!.mockResolvedValue(childOf({ ...activeAccount, approvalStatus: ApprovalStatus.REJECTED }));
+        it('404s when the child is not in the group it is being removed from', async () => {
+            enrollments.inForceFor.mockResolvedValue({ id: 9, group: { id: 7 } });
 
-            await expect(service.assignChildToGroup(1, 2)).rejects.toThrow(ConflictException);
+            await expect(service.removeChildFromGroup(1, 2)).rejects.toThrow(NotFoundException);
+            expect(enrollments.close).not.toHaveBeenCalled();
         });
 
-        it('assigns a child whose family has no account at all', async () => {
-            childRepo.findOne!.mockResolvedValue(childOf(null));
+        it('404s when the child is in no group at all', async () => {
+            enrollments.inForceFor.mockResolvedValue(null);
 
-            // The admin-typed-it-in-from-a-phone-call flow. There is nothing to confirm and nobody
-            // to approve, so applying the gate would block a road the platform deliberately keeps.
-            await service.assignChildToGroup(1, 2);
-
-            expect(childRepo.save).toHaveBeenCalled();
-        });
-
-        it('loads the parent account, or the gate would silently pass on every child', async () => {
-            childRepo.findOne!.mockResolvedValue(childOf(activeAccount));
-
-            await service.assignChildToGroup(1, 2);
-
-            // Without the relation, `child.parent?.user` is undefined for everyone and the check
-            // above is dead code that always allows.
-            expect(childRepo.findOne!.mock.calls[0][0]).toMatchObject({ relations: { parent: { user: true } } });
-        });
-
-        it('404s on a group that does not exist, before touching the child', async () => {
-            childRepo.findOne!.mockResolvedValue(childOf(activeAccount));
-            groupRepo.findOne!.mockResolvedValue(null);
-
-            await expect(service.assignChildToGroup(1, 99)).rejects.toThrow(NotFoundException);
+            await expect(service.removeChildFromGroup(1, 2)).rejects.toThrow(NotFoundException);
         });
     });
 });

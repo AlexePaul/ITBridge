@@ -14,6 +14,8 @@ import { Location } from './location.entity';
 import { Room } from './room.entity';
 import { OutboxMessage } from './outbox-message.entity';
 import { EmailConfirmation } from './email-confirmation.entity';
+import { Enrollment } from './enrollment.entity';
+import { WaitlistEntry } from './waitlist-entry.entity';
 
 @Module({
     imports: [
@@ -32,6 +34,8 @@ import { EmailConfirmation } from './email-confirmation.entity';
             Room,
             OutboxMessage,
             EmailConfirmation,
+            Enrollment,
+            WaitlistEntry,
         ]),
     ],
     exports: [TypeOrmModule],

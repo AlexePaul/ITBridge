@@ -3,7 +3,7 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 30 august 2026, pe `develop`, plus PR-ul de E11 S2 care încă nu e mergeat.
+**Ultima actualizare:** 30 august 2026, pe `develop`, plus PR-ul de E11 S1+S3 care încă nu e mergeat.
 
 ## Legendă
 
@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 1 scris dar nemergeat,
-10 blocate, 4 scoase din scop, 78 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
+Din **141 de story-uri** în 21 de epicuri: 40 livrate, 9 parțiale, 2 scrise dar nemergeate,
+10 blocate, 4 scoase din scop, 76 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
 înseamnă adesea „construit, dar nu rulează nicăieri".
 
 ---
@@ -132,9 +132,9 @@ Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 1 scris dar
 
 ### E11 · Înscrieri, grupe și capacitate — `în lucru`
 
-- [ ] S1 · Entitatea de înscriere
-- [r] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
-- [ ] S3 · Capacitate și listă de așteptare — capacitatea există din E08, dar nimic nu o aplică la înscriere
+- [r] S1 · Entitatea de înscriere — perioadă, istoric și starea; „o singură înscriere în vigoare" e index parțial, nu doar verificare în serviciu. `Child.group` rămâne, derivată
+- [x] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
+- [r] S3 · Capacitate și listă de așteptare — aplicată, probele numărate ca locuri; lista oferă automat locul eliberat. **Fără măturarea ofertelor expirate**, și fără jurnalul de audit al excepției (E06)
 - [ ] S4 · Lecție de probă — ocupă un loc din grupă
 - [ ] S5 · Transferuri
 - [ ] S6 · Verificări de compatibilitate
@@ -291,11 +291,13 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 **Cu instanța EC2:** E01 S4, deploy-ul. În ziua în care merge, portalul părintelui, prezența și
 facturile devin lucruri pe care le poate folosi cineva.
 
-**Fără ea:** restul lui E11. S2 e livrat — contul de părinte are acum date obligatorii, confirmare
-de email și aprobare de admin. Ce rămâne e S1, entitatea de înscriere cu perioadă și istoric, și S3,
-aplicarea capacității: `Group.capacity` e în continuare un număr declarat pe care nimic nu îl
-verifică la înscriere, iar asta e mai rău decât să lipsească, fiindcă adminul îl citește ca pe o
-garanție.
+**Fără ea:** E14, proiectele elevilor — modelul, ingestia și trimiterea către părinte. E lucrul de
+care școala a vorbit cel mai mult și, după E11, cel mai mare gol funcțional rămas: fără el părintele
+plătește pentru o afirmație. Agentul local de Windows și vitrina publică rămân pe dinafară — al
+doilea cere consimțământul din E07.
+
+Din E11 au mai rămas S4 (proba ca flux propriu), S5 (transferuri), S6 și S7. Niciunul nu blochează
+altceva.
 
 ---
 

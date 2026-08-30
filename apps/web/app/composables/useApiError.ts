@@ -75,6 +75,15 @@ const MESSAGES: Record<string, string> = {
     "Contul părintelui nu este activ. Trebuie confirmat prin email și aprobat înainte de înscriere.",
   ACCOUNT_ALREADY_APPROVED: "Contul este deja aprobat.",
   NOT_A_PARENT_ACCOUNT: "Doar conturile de părinte trec prin aprobare.",
+
+  // E11/S1 and S3. `GROUP_FULL` arrives with its own sentence from the server, naming the numbers,
+  // so it is deliberately absent here — the generic line would be a downgrade.
+  CHILD_ALREADY_ENROLLED:
+    "Copilul are deja o înscriere în vigoare. Fă un transfer, nu o a doua înscriere.",
+  ENROLLMENT_ALREADY_CLOSED: "Înscrierea este deja închisă.",
+  ENROLLMENT_STATUS_NOT_OPENABLE: "O înscriere nouă poate fi doar activă sau de probă.",
+  ENROLLMENT_STATUS_NOT_CLOSING: "O înscriere se închide ca încheiată, abandonată sau transferată.",
+  ALREADY_ON_WAITLIST: "Copilul este deja pe lista de așteptare a acestei grupe.",
 };
 
 /**

@@ -63,9 +63,9 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — paisprezece module în `apps/api/src/modules/`, douăsprezece după același tipar
+**Backend** — cincisprezece module în `apps/api/src/modules/`, treisprezece după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `location`, `room`,
-`group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`. Celelalte două ies din
+`group`, `enrollment`, `class-session`, `attendance`, `invoice`, `payment`, `discount`. Celelalte două ies din
 tipar: `mail` n-are controller, fiindcă nimic din el nu e expus pe HTTP, iar `health` n-are decât
 atât. Entitățile stau centralizat în `apps/api/src/entities/` și sunt expuse tuturor modulelor prin
 `EntitiesModule` (un singur `TypeOrmModule.forFeature` reexportat), deci un modul nou importă
@@ -77,10 +77,29 @@ servește fluxul de legare ulterioară. `Profile` e "părintele" în tot restul 
 
 ```
 User ─1:1─ Profile ─1:N─ Child ─N:1─ Group ─N:1─ Room ─N:1─ Location
+                    │      ├─1:N─ Enrollment ─N:1─ Group
+                    │      ├─1:N─ WaitlistEntry ─N:1─ Group
                     │      └─1:N─ Attendance ─N:1─ ClassSession ─N:1─ Group
                     ├─1:N─ Invoice ─1:1─ Payment
                     └─1:N─ Discount
 ```
+
+**`Child.group` e derivată, nu un fapt.** Din E11/S1, participarea unui copil la o grupă e un rând
+în `enrollments`, cu perioadă, stare și motiv la ieșire. Coloana de pe `Child` a rămas fiindcă șase
+interogări o citesc — printre ele filtrarea orarului pentru părinte și cine poate fi marcat prezent
+— dar are **un singur scriitor**, `EnrollmentService`, care o scrie în aceeași tranzacție cu
+înscrierea care o justifică. Nu o scrie de mână nicăieri; dacă ai nevoie să schimbi grupa unui copil,
+deschizi sau închizi o înscriere.
+
+Două reguli sunt aplicate **și în baza de date**, prin indecși parțiali, nu doar în serviciu:
+`UQ_enrollments_one_in_force` (un copil are cel mult o înscriere `TRIAL` sau `ACTIVE` — D6) și
+`UQ_waitlist_one_open_per_child_group`. Serviciul verifică întâi, ca refuzul să fie un 409 cu motiv;
+indexul e acolo pentru doi admini care apasă în aceeași secundă.
+
+**Proba ocupă un loc.** Orice număr de „locuri ocupate" e `TRIAL` plus `ACTIVE`, niciodată doar al
+doilea — un copil la probă stă pe un scaun, la un calculator, în aceeași sală (D7). Numără-le prin
+`EnrollmentService.occupancyOf`, nu din lungimea listei de copii afișate: lista nu conține probele,
+deci un număr calculat din ea spune că o grupă plină mai are loc.
 
 **Prezența se leagă de ședință, nu de o dată și o oră.** `ClassSession` (tabelul `class_sessions`)
 e ședința din orar, generată din programul grupei pe un orizont rulant de opt săptămâni, idempotent
@@ -431,13 +450,17 @@ propoziție pentru toate. Un serviciu poate acum să-și numească cazul:
 propoziția în `MESSAGES` din `apps/web/app/composables/useApiError.ts` — altfel utilizatorul
 primește mesajul în engleză de la server.
 
-**Nu adăuga `enum`-uri noi în `@itbridge/types`; scrie uniuni de literali.** Pachetul e CommonJS,
-Vite îl prebundle-uiește, iar prebundler-ul a aruncat corpul unui `enum` nou ca fiind cod mort,
-păstrând linia `exports.ApprovalStatus = void 0` de deasupra. Importul s-a rezolvat la `undefined`,
-iar comparația a aruncat **înăuntrul unui `computed`**, tăcut — componenta care depindea de el pur și
-simplu nu s-a mai randat, fără nicio eroare în build și fără nimic roșu în teste. `ApprovalStatus` e
-acum `'PENDING' | 'APPROVED' | 'REJECTED'`, adică exact ce e pe sârmă. `Weekday` și `Role` rămân
-`enum` fiindcă sunt mai vechi și sunt folosite ca valori; nimic nou nu mai trebuie să fie.
+**`@itbridge/types` nu mai primește valori de rulare — nici `enum`-uri, nici hărți de etichete.**
+Doar tipuri, și uniuni de literali unde altfel ai pune un `enum`. Pachetul e CommonJS, Vite îl
+prebundle-uiește, iar o valoare exportată de acolo a ajuns în browser ca `undefined` de **două ori**:
+o dată un `enum` căruia prebundler-ul i-a aruncat corpul păstrându-i linia de export, o dată o hartă
+de etichete. De fiecare dată eșecul a fost tăcut — comparația aruncă **înăuntrul unui `computed`**,
+Vue abandonează subarborele, iar o componentă pur și simplu nu se randează. Build verde, teste verzi,
+ecran gol.
+
+Etichetele în română stau lângă ecranele care le afișează (`apps/web/app/types/*.types.ts`), și e
+oricum locul lor: contractul descrie ce trece pe sârmă, iar pe sârmă trece `'TRIAL'`, nu `'Probă'`.
+`Weekday`, `Role` și `WEEKDAY_LABELS` sunt mai vechi și rămân; nimic nou nu li se alătură.
 
 **`@itbridge/types` e CommonJS, iar Vite nu prebundle-uiește pachetele din workspace.** Le servește
 browserului ca sursă, deci `exports.Weekday = ...` ajunge într-un `<script type="module">` și pică
