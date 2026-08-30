@@ -21,9 +21,11 @@ Pentru primele șase luni realiste, vezi secțiunea [Ordinea recomandată](#ordi
 Frontend pe Vercel, funcționând ca prezentare statică. Backend nedeployat nicăieri — de aceea stă pe
 loc [E01](E01-infrastructura-medii.md) S4, care așteaptă instanța EC2, și odată cu el tot ce are
 nevoie de un API care rulează: [E18](E18-frontend-portal.md) S4 și S5, backupul din
-[E04](E04-migrari-date.md) S4, [E14](E14-proiecte-elevi.md) S3b (ffmpeg pe host) și S6 (vitrina
-publică). Cinci story-uri din trei epicuri, toate în așteptarea aceleiași instanțe — de aceea S4 din
-E01 nu e o sarcină de infrastructură printre altele, ci pragul peste care nu trece nimic altceva.
+[E04](E04-migrari-date.md) S4, [E14](E14-proiecte-elevi.md) S3b (ffmpeg pe host), S5 (galeria
+părintelui, scrisă și netestabilă pe viu) și S6 (vitrina publică). Șase story-uri din trei epicuri,
+toate în așteptarea aceleiași instanțe — de aceea S4 din E01 nu e o sarcină de infrastructură printre
+altele, ci pragul peste care nu trece nimic altceva. Agentul din E14 e primul lucru construit care nu
+are nici măcar unde să se conecteze.
 Locația e dimensiune de primă clasă din [E08](E08-multi-locatie.md).
 
 Curățenia de infrastructură din E01 a intrat: aplicația nu mai rulează în Docker, `docker-compose.yml`
@@ -98,6 +100,27 @@ iar „nemarcat" are culoare proprie și o legendă care spune că nu înseamnă
 Ce nu a intrat din E12: calendarul de vacanțe, absențele anunțate, recuperările, ecranul de anulare
 și de mutare — anularea individuală există doar prin API, fără ecran și fără notificare —, marcarea
 pe telefon și notificările către părinți. Ultimele cer [E17](E17-comunicare-notificari.md) întreg.
+
+[E14](E14-proiecte-elevi.md) a intrat aproape întreg, și odată cu el a treia aplicație din monorepo:
+`apps/agent`, un serviciu Node care rulează pe un singur calculator Windows din birou, ține o
+partajare de rețea oglindită după grupe și copii, și urcă ce salvează profesorii acolo. Nimeni nu se
+autentifică la sfârșitul orei și nimeni nu deschide nimic — gestul e cel pe care profesorul îl face
+oricum. Adminul deschide grupa, se uită la ce a apărut și apasă un buton; fiecare părinte primește
+un singur email, cu exact documentele copilului lui.
+
+Două lucruri s-au schimbat în afara epicului. `S3Service` a ieșit din modulul de facturi în
+`apps/api/src/modules/storage/` și a încetat să eticheteze totul `application/pdf` — un `.sb3` urcat
+prin el înainte ar fi fost servit înapoi ca PDF. Iar `outbox` a primit o coloană `attachments`, care
+ține **chei, nu octeți**: miniatura pleacă atașată inline, fiindcă un URL semnat e o imagine ruptă
+când părintele deschide mailul a doua zi dimineața.
+
+Ce n-a intrat din E14 sunt exact cele două story-uri care depindeau de altcineva: miniaturile de
+video, care cer ffmpeg pe un host, și **vitrina publică, care cere consimțământul din
+[E07](E07-securitate-gdpr.md) S2**. A doua e vizibilă în model prin absență: nu există niciun câmp
+`isPublic` nicăieri, fiindcă un boolean pe `Project` ar fi fost al doilea loc în care se poate
+răspunde la aceeași întrebare, fără precedență între ele. Consecința pentru planificare e că E07 S2
+și-a găsit primul consumator real: nu mai e o precauție, e ce ține pe loc materialul de marketing
+din [E19](E19-seo-geo.md).
 
 Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane”.
 

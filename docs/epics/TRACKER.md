@@ -3,7 +3,8 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 30 august 2026, pe `develop`, plus PR-ul de E11 S2 care încă nu e mergeat.
+**Ultima actualizare:** 30 august 2026, pe `develop`, plus PR-urile de E11 S2 și E14 care încă nu
+sunt mergeate.
 
 ## Legendă
 
@@ -14,8 +15,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 1 scris dar nemergeat,
-10 blocate, 4 scoase din scop, 78 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
+Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 7 scrise dar nemergeate,
+10 blocate, 4 scoase din scop, 72 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
 înseamnă adesea „construit, dar nu rulează nicăieri".
 
 ---
@@ -158,19 +159,27 @@ Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 1 scris dar
 - [ ] S4 · Certificat
 - [ ] S5 · Progresul în portal
 
-### E14 · Proiectele elevilor — `propus`
+### E14 · Proiectele elevilor — `în lucru`
 
-- [ ] S1 · Modelul de proiect
-- [ ] S2 · Agentul local și folderul oglindit
-- [ ] S3a · Miniatură pentru imagini
+- [r] S1 · Modelul de proiect — fără instantaneu de consimțământ și fără `isPublic`; vin cu E07 S2
+- [r] S2 · Agentul local și folderul oglindit — `apps/agent`, fără dependențe de runtime. Vizibilitatea
+  pulsului da, **alertarea nu**: canalul e E06 S3 și nu există
+- [r] S3a · Miniatură pentru imagini
 - [!] S3b · Miniaturi pentru video și `.sb3` — cere ffmpeg pe host, deci deploy
-- [ ] S4 · Trimiterea către părinte
-- [ ] S5 · Galeria din portal
-- [!] S6 · Vitrina publică — cere backend deployat
-- [ ] S7 · Corectarea unei atribuiri greșite
+- [r] S4 · Trimiterea către părinte — părinții fără adresă apar în raportul trimiterii, nu în
+  evidența din E17 S5, care nu există
+- [r] S5 · Galeria din portal — scrisă și testată; nu se poate arăta nimănui până la E01 S4
+- [!] S6 · Vitrina publică — cere backend deployat **și** consimțământul din E07 S2
+- [r] S7 · Corectarea unei atribuiri greșite — urma stă pe `Project`, nu în audit log-ul din E07 S3
 
-> Complet specificat, gata de construit. Fluxul e: agent local pe calculatorul cu share-ul de rețea,
-> profesorul salvează în folderul copilului, adminul revizuiește pe grupă și apasă trimite.
+> Fluxul merge cap la cap: profesorul salvează în folderul copilului, agentul urcă, adminul se uită
+> pe grupă și apasă, părintele deschide în portal. `S3Service` s-a generalizat și a ieșit din modulul
+> de facturi în `apps/api/src/modules/storage/`, iar `outbox` a primit o coloană `attachments`,
+> fiindcă miniatura pleacă atașată inline, nu ca URL semnat.
+>
+> **Întrebarea de teren rămâne deschisă:** se poate salva direct pe drive-ul mapat, din Scratch și
+> din Tinkercad? Codul presupune că da. Dacă nu, se schimbă structura de foldere și pragurile —
+> configurație, nu arhitectură.
 
 ---
 
@@ -278,13 +287,13 @@ Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 1 scris dar
 
 Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
-| Cine           | Ce                                | Ce ține în loc                                                                                |
-| -------------- | --------------------------------- | --------------------------------------------------------------------------------------------- |
-| **Tu**         | Instanța EC2                      | E01 S4, E18 S4, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șase story-uri din patru epicuri |
-| **Tu**         | Două profiluri Google Business    | E19 S3, partea din afara site-ului                                                            |
-| **Școala**     | Programa și calendarul vacanțelor | Prima factură pe modul, E19 S4. Nu blochează construcția                                      |
-| **Contabil**   | Cât se păstrează facturile        | E04 S5                                                                                        |
-| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                        |
+| Cine           | Ce                                | Ce ține în loc                                                                                     |
+| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Tu**         | Instanța EC2                      | E01 S4, E18 S4, E04 S4, E14 S3b, S5 și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
+| **Tu**         | Două profiluri Google Business    | E19 S3, partea din afara site-ului                                                                 |
+| **Școala**     | Programa și calendarul vacanțelor | Prima factură pe modul, E19 S4. Nu blochează construcția                                           |
+| **Contabil**   | Cât se păstrează facturile        | E04 S5                                                                                             |
+| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                             |
 
 ## Ce urmează
 
@@ -296,6 +305,11 @@ de email și aprobare de admin. Ce rămâne e S1, entitatea de înscriere cu per
 aplicarea capacității: `Group.capacity` e în continuare un număr declarat pe care nimic nu îl
 verifică la înscriere, iar asta e mai rău decât să lipsească, fiindcă adminul îl citește ca pe o
 garanție.
+
+**Sau [E07](E07-securitate-gdpr.md) S2**, consimțământul, care s-a scumpit ca valoare acum că E14 e
+construit: e singurul lucru care mai stă între vitrina publică și existență, iar vitrina alimentează
+direct [E19](E19-seo-geo.md). E și primul lucru din E07 care are un consumator real, nu unul
+prognozat.
 
 ---
 

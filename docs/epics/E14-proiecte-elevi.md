@@ -1,6 +1,6 @@
 # E14 · Proiectele elevilor
 
-**Status:** propus · **Pistă:** Operațiuni · **Depinde de:** E07, E08, E10, E12, E17 · **Blochează:** E19
+**Status:** în lucru — **S1, S2, S3a, S4, S5 și S7 livrate** · **Pistă:** Operațiuni · **Depinde de:** E07, E08, E10, E12, E17 · **Blochează:** E19
 
 **Fluxul de încărcare s-a schimbat, și cu el jumătate din epic.** Nu mai există aplicație web de
 încărcat, nici uploader autentificat cu contul profesorului, nici email automat de seară. În locul
@@ -12,6 +12,46 @@ email"; fiecare părinte primește doar documentul copilului lui.
 Odată cu asta cade și dependența de rolul de profesor: **nu există rol `TEACHER`**, toți cei care se
 autentifică sunt admini — vezi [E09](E09-personal-roluri.md). Antetul de mai sus nu mai listează
 E09, iar motivul e în [Decizii luate](#decizii-luate).
+
+## Ce s-a livrat
+
+Șase story-uri din opt. Fluxul merge cap la cap: profesorul salvează în folderul copilului, agentul
+urcă, adminul se uită pe grupă și apasă, părintele deschide în portal.
+
+- **S1** — `projects`, `project_versions`, `project_files`, `project_links`, plus
+  `unassigned_files` și `agent_status`. Cheia de obiect e `projects/{projectId}/{versionId}/{fileId}`
+  și e **derivată, nu stocată**: două locuri care spun unde stă un obiect ajung să se contrazică, iar
+  contrazicerea e tăcută. `S3Service` s-a generalizat și a ieșit din modulul de facturi în
+  `apps/api/src/modules/storage/` — nu mai etichetează totul `application/pdf`, și știe HeadObject,
+  ștergere, stream și URL semnat.
+- **S2** — `apps/agent`, workspace Node/TypeScript **fără nicio dependență de runtime**: `fetch`,
+  `FormData` și `crypto` sunt din Node 22. Oglindește folderele, urcă, mută în `_urcate\<data>`, mută
+  ce nu poate atribui în `_neatribuite` și raportează, bate pulsul. Procedura de instalare e în
+  [apps/agent/README.md](../../apps/agent/README.md). Ingestia e idempotentă pe `{childId}:{sha256}`,
+  cu index unic — o reîncercare după o conexiune căzută nu produce al doilea proiect.
+- **S3a** — miniaturi prin `sharp`, cu timeout, plafon la intrare și scară de calitate până sub
+  100KB. Eșecul nu blochează încărcarea, niciodată.
+- **S4** — butonul de pe grupă. Un click produce N mesaje, fiecare cu **exact un destinatar și exact
+  documentele copilului lui**; un părinte cu doi copii primește unul singur. A doua apăsare nu
+  trimite nimic. Miniatura pleacă **atașată inline (CID)**, deci `outbox` a primit o coloană
+  `attachments` care ține chei, nu octeți.
+- **S5** — `/user/proiecte` și `/files/<uuid>`, amândouă după autentificare. Descărcarea unui fișier
+  trece prin backend, care verifică filiația și abia apoi semnează un URL cu `attachment`. Arhiva
+  întreagă a unui copil se descarcă dintr-un singur loc, streamată.
+- **S7** — reatribuire fără reîncărcare, ștergere, și un link de sesizare pentru părinte. Sesizarea e
+  singura scriere pe care o poate face un părinte aici, și e un mesaj către birou, nu o schimbare pe
+  document.
+
+**Ce nu s-a livrat, și de ce:** S3b are nevoie de ffmpeg pe un host care nu există
+([E01](E01-infrastructura-medii.md) S4), iar **S6 are nevoie de consimțământul din
+[E07](E07-securitate-gdpr.md) S2, care nu e construit.** Consecința e scrisă în cod: nu există
+niciun câmp `isPublic` nicăieri. Un boolean pe `Project` ar fi fost al doilea loc în care se poate
+răspunde la aceeași întrebare, fără precedență între ele, iar o revocare ar fi lăsat în urmă rânduri
+care încă spun „da". Vitrina așteaptă înregistrarea care o guvernează.
+
+**Întrebarea de teren rămâne deschisă** — „se poate salva direct pe drive-ul mapat, din Scratch și
+din Tinkercad?". Codul s-a scris pe ipoteza că da. Dacă răspunsul e nu, ce se schimbă e structura de
+foldere și pragul de mărime, adică configurație; agentul, ingestia și revizia rămân.
 
 ## Problemă
 
@@ -75,7 +115,7 @@ consimțământ pentru publicare.
 
 **Un proiect are fișiere, linkuri, sau amândouă.** Un link e un URL cu etichetă. Catalogul din
 `apps/web/shared/courses.ts` pune Tinkercad și Canva la Clasa 0–2, cel mai tânăr grup, iar la Clasa
-5–6 apar primele pagini web: acolo munca copilului *e* linkul, nu un fișier de exportat. Un model
+5–6 apar primele pagini web: acolo munca copilului _e_ linkul, nu un fișier de exportat. Un model
 care cere fișier obligatoriu exclude exact grupele de început — și, în fluxul nou, e singura formă
 prin care o lucrare care trăiește online intră în sistem.
 
@@ -109,6 +149,15 @@ precedență între ele, iar o revocare ar lăsa în urmă rânduri care încă 
 **Acceptanță:** un proiect are cel puțin un fișier **sau** un link, e legat de un copil și de o dată
 concretă, are una dintre cele trei stări, și nu poate deveni public decât dacă interogarea de
 consimțământ pentru copilul lui răspunde afirmativ în momentul afișării.
+
+**Livrat**, cu o abatere de consemnat: **nu există `isPublic` și nici instantaneu de consimțământ pe
+`Project`.** Motivul e chiar regula de mai sus. Instantaneul ar fi fost util doar pentru viteza
+vitrinei, iar vitrina nu se poate livra fără sursa de adevăr din [E07](E07-securitate-gdpr.md) S2 —
+deci un câmp acum ar fi fost o coloană care nu apără nimic și pe care cineva ar fi putut-o citi
+cândva ca răspuns. Se adaugă odată cu S6, împreună cu regula de precedență.
+
+Cerința „cel puțin un fișier sau un link" e verificată în serviciu, fiindcă „una dintre două colecții
+e nevidă" nu e o constrângere pe care o poate purta o coloană.
 
 ### S2 · Agentul local și folderul oglindit
 
@@ -205,6 +254,19 @@ starea `nou`, în mai puțin de un minut, fără ca nimeni să se autentifice. O
 nimic și o reîncercare nu produce două proiecte. Un fișier neatribuibil apare în `_neatribuite` și pe
 ecran, cu motiv. Un agent care nu mai raportează e vizibil în interfață și declanșează alertă.
 
+**Livrat**, cu trei precizări:
+
+- **Nu `fs.watch`, ci scanare la 30 de secunde.** Notificările de modificare peste SMB se pierd tăcut,
+  nu se întârzie, iar un eveniment pierdut e un fișier care nu urcă niciodată. O parcurgere de
+  directoare pe o partajare cu câteva zeci de foldere e ieftină și își revine singură după o pană.
+- **Alertarea nu e livrată, vizibilitatea da.** Ecranul spune „agentul nu a mai raportat de 3 ore";
+  canalul de alertare e [E06](E06-observabilitate-operare.md) S3 și nu există. Riscul rămâne
+  acceptabil fiindcă cifra se vede din interfață, nu fiindcă sună ceva.
+- **Drumul pentru fișiere mari există în API, dar agentul nu îl folosește încă.** `POST
+/projects/uploads/register` întoarce un URL semnat și `POST /projects/files/:id/complete` confirmă
+  că obiectul chiar a ajuns; agentul refuză deocamdată extensiile video la scanare. Video-ul oricum
+  n-are ce face fără S3b.
+
 ### S3a · Miniatură pentru imagini
 
 Prima livrare, în proces: miniatură pentru capturi de ecran și fotografii, adică pentru majoritatea
@@ -218,6 +280,13 @@ de nume de fișiere nu e o revizie.
 
 **Acceptanță:** peste 90% dintre proiectele cu cel puțin o imagine au miniatură automată. Un fișier
 care depășește timeout-ul se încarcă oricum.
+
+**Livrat.** `sharp`, latura lungă la 480px, JPEG pe o scară de calitate care coboară până când intră
+sub 100KB — plafonul vine din S4, unde miniatura pleacă atașată. Rularea e **după commit**, niciodată
+înăuntrul lui: o miniatură are voie să eșueze, iar dacă ar eșua în tranzacție ar lua încărcarea cu
+ea. Reîncodarea are un efect secundar care merită numit, fiindcă octeții vin de pe o partajare pe
+care poate scrie orice mașină din școală: ce iese e o imagine produsă de `sharp`, nu un fișier
+primit, deci un poliglot valid și ca imagine și ca altceva nu supraviețuiește drumului.
 
 ### S3b · Miniaturi pentru video și `.sb3`
 
@@ -233,6 +302,12 @@ miniatura vine dintr-o captură salvată de profesor în același folder, lâng�
 
 **Acceptanță:** un video încărcat primește miniatură fără să întârzie ingestia. Spike-ul `.sb3` are
 un răspuns scris, da sau nu, înainte să se construiască ceva pe el.
+
+**Nelivrat**, blocat de [E01](E01-infrastructura-medii.md) S4: ffmpeg are nevoie de un host, iar
+host-ul nu există. Ce s-a livrat în avans e locul unde intră — `ThumbnailService` are o singură
+metodă, `fromImage`, iar un `fromVideo` alături de ea nu atinge nimic din ingestie. Spike-ul `.sb3`
+n-a fost făcut și nu trebuie făcut înainte de ffmpeg: dacă răspunsul e „nu", varianta de rezervă e o
+captură salvată de profesor lângă `.sb3`, iar aia merge deja azi.
 
 ### S4 · Trimiterea către părinte
 
@@ -281,6 +356,24 @@ livrare cu motiv explicit. Un test de integrare cu doi părinți reali, cu copii
 arată că fiecare email conține doar documentele propriului copil — aceeași disciplină ca suitele de
 autorizare din `apps/api/test/`.
 
+**Livrat**, inclusiv testul cerut: `apps/api/test/projects.e2e-spec.ts` pune doi părinți reali cu
+copii în aceeași grupă și verifică pe rândurile din `outbox` că mesajul Mariei nu conține nimic al
+copilului Elenei — nici titlu, nici link, nici prenume.
+
+Două abateri:
+
+- **Evidența de livrare din [E17](E17-comunicare-notificari.md) S5 nu există**, deci părinții fără
+  adresă apar în **raportul trimiterii**, pe ecran, nu într-un registru. Nu dispar tăcut, dar nici nu
+  rămân undeva de citit a doua zi. Se mută acolo când S5 se construiește.
+- **Coada a învățat să poarte atașamente**, fiindcă altfel miniatura n-avea cum să plece inline.
+  `outbox.attachments` ține **chei, nu octeți**: base64 într-o coloană `text` ar fi îngrășat fiecare
+  interogare de revendicare pentru date de care e nevoie o singură secundă. Un obiect care lipsește
+  între timp nu oprește mesajul — pleacă fără poză.
+
+Un document cu fișiere neîncărcate complet e sărit, cu motiv. E o stare reală, nu o precauție:
+drumul cu URL semnat scrie rândul înainte să existe obiectul, iar un link către nimic e mai rău
+decât o întârziere.
+
 ### S5 · Galeria din portal
 
 Fiecare copil are o pagină cu tot ce a construit, în ordine cronologică, filtrabilă pe modul.
@@ -306,6 +399,14 @@ Fișierele se servesc ca atașament, niciodată inline de pe domeniul școlii �
 nu vede în ea niciun document netrimis. Un link `/files/<uuid>` deschis fără cont duce la
 autentificare, iar același link deschis de alt părinte răspunde 403 — nu 404, fiindcă resursa
 există; și nu o pagină goală, fiindcă un refuz tăcut e mai greu de raportat decât unul explicit.
+
+**Livrat.** Arhiva se **streamează**: obiectele se citesc din bucket pe măsură ce zip-ul se scrie în
+răspuns, deci procesul ține un fișier o dată, nu munca unui copil pe un semestru. E aceeași greșeală
+ca un upload buferat, venită din direcția opusă.
+
+Ecranele nu se pot arăta nimănui până la [E01](E01-infrastructura-medii.md) S4 — sunt pagini de după
+autentificare, iar backend-ul nu e deployat. Blocajul e al lui [E18](E18-frontend-portal.md) S4, nu
+al acestui story: codul e scris și testat.
 
 ### S6 · Vitrina publică
 
@@ -337,6 +438,16 @@ detecție automată de fețe și fără blurare — nu pentru că ar fi scumpe, 
 **Acceptanță:** niciun proiect fără consimțământ activ nu e vizibil public. Revocarea are efect în
 sub un minut.
 
+**Nelivrat**, și blocat de două lucruri, nu de unul. Cel de infrastructură e cunoscut:
+[E01](E01-infrastructura-medii.md) S4, fiindcă vitrina e prima pagină publică din tot site-ul care
+are nevoie de backend. **Cel care contează mai mult e [E07](E07-securitate-gdpr.md) S2:** fără
+înregistrarea de consimțământ pe `(Profile, Child, scop)` nu există nimic de interogat în momentul
+afișării, iar „publică doar dacă cineva a bifat undeva" nu e o regulă, e o presupunere.
+
+Consecința e vizibilă în model: **nu există `isPublic` pe `Project`, deloc.** Nu e o omisiune. E
+alegerea de a nu avea un al doilea loc în care se poate răspunde la aceeași întrebare înainte să
+existe primul.
+
 ### S7 · Corectarea unei atribuiri greșite
 
 Un fișier se salvează într-un folder, iar folderul de lângă e al altui copil. Greșeala apare în prima
@@ -363,6 +474,16 @@ Trei mecanisme, în ordinea valorii:
 
 **Acceptanță:** un proiect atribuit greșit se poate muta la copilul corect fără să se reîncarce
 fișierul, iar adminul poate răspunde la „a apucat să plece emailul, și către cine?" din interfață.
+
+**Livrat.** Mutarea nu atinge nimic în stocare, fiindcă cheia ține identificatorii proiectului, nu ai
+copilului — aceeași proprietate pentru care merita insistat pe chei fără nume, apărută în alt loc.
+Ecranul arată adresa către care a plecat, când a plecat, și spune explicit să sune, nu să trimită un
+al doilea email.
+
+Urma corecției stă în trei coloane pe `Project` — de la cine, când, cine a mutat — **nu în audit
+log-ul din [E07](E07-securitate-gdpr.md) S3, care nu există.** Se mută acolo când e construit. A
+pierde „de la cine" ar face o livrare greșită netrasabilă, iar asta e o divulgare de date personale,
+nu o jenă.
 
 ## Dependențe
 
@@ -577,7 +698,7 @@ livrare din [E17](E17-comunicare-notificari.md). Vitrina publică are proiecte r
   decide epicul, și se răspunde într-o zi de observație într-un curs real, înainte de cod. Tot acolo
   se află ce se salvează, concret, și dacă `.sb3` e chiar cazul principal — răspunsul fixează și
   limitele de dimensiune din S1.
-- **Rămâne calculatorul din birou pornit?** *De confirmat.* **Recomandare:** pornit permanent, cu
+- **Rămâne calculatorul din birou pornit?** _De confirmat._ **Recomandare:** pornit permanent, cu
   agentul ca serviciu Windows care repornește singur, plus pulsul din S2. Alternativa — pornit doar
   în program — e acceptabilă, dar atunci întârzierea de încărcare devine o proprietate a fluxului și
   trebuie spusă adminului în interfață, nu descoperită.
