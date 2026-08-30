@@ -18,6 +18,8 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { DiscountModule } from './modules/discount/discount.module';
 import { HealthModule } from './modules/health/health.module';
 import { MailModule } from './modules/mail/mail.module';
+import { StorageModule } from './modules/storage/storage.module';
+import { ProjectModule } from './modules/project/project.module';
 import { dataSourceOptions } from './data-source';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { RequestIdMiddleware } from './common/request-id.middleware';
@@ -51,6 +53,8 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
         DiscountModule,
         HealthModule,
         MailModule,
+        StorageModule,
+        ProjectModule,
     ],
     providers: [
         {

@@ -11,6 +11,8 @@ import { InvoiceController } from 'src/modules/invoice/invoice.controller';
 import { PaymentController } from 'src/modules/payment/payment.controller';
 import { DiscountController } from 'src/modules/discount/discount.controller';
 import { HealthController } from 'src/modules/health/health.controller';
+import { ProjectController } from 'src/modules/project/project.controller';
+import { AgentController } from 'src/modules/project/agent.controller';
 
 /**
  * Every HTTP surface the application exposes, in one place.
@@ -39,4 +41,6 @@ export const CONTROLLERS = [
     PaymentController,
     DiscountController,
     HealthController,
+    ProjectController,
+    AgentController,
 ];

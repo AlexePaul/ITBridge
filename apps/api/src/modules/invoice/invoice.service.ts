@@ -10,7 +10,7 @@ import { Role } from 'src/enum/role.enum';
 import { PdfService } from './pdf.service';
 import { Discount } from 'src/entities/discount.entity';
 import { GetPreviewDto } from './dto/getPreview.dto';
-import { ObjectNotFoundError, S3Service } from './s3.service';
+import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
 import { amountAfterDiscounts } from './pricing';
 
 /**
@@ -79,7 +79,7 @@ export class InvoiceService {
 
                 const pdfBuffer = await this.pdfService.generateInvoicePdf(persisted);
                 const fileName = invoicePdfKey(persisted.monthIssued, persisted.id);
-                await this.s3Service.uploadFile(pdfBuffer, fileName);
+                await this.s3Service.putObject({ key: fileName, body: pdfBuffer, contentType: 'application/pdf' });
 
                 invoicesCreated.push(persisted);
             }

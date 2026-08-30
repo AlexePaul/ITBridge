@@ -30,6 +30,7 @@
   },
   "lint-staged": {
     "apps/api/**/*.ts": "prettier --write",
+    "apps/agent/**/*.ts": "prettier --write",
     "packages/**/*.ts": "prettier --write",
     "apps/web/**/*.{ts,vue,css}": "prettier --write",
     "*.{json,md,yaml,yml}": "prettier --write"

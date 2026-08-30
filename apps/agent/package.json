@@ -1,0 +1,23 @@
+{
+    "name": "agent",
+    "version": "0.1.0",
+    "private": true,
+    "description": "The upload agent: watches a network share and sends what teachers save there to the API (E14/S2)",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "lint": "prettier --check src",
+        "start": "node dist/index.js",
+        "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+        "test": "tsc -p tsconfig.json && node --test dist/*.test.js"
+    },
+    "dependencies": {
+        "@itbridge/types": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.7",
+        "prettier": "^3.7.4",
+        "typescript": "^5.9.3"
+    }
+}

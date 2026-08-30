@@ -16,6 +16,11 @@
     // Resend keys and two sending addresses, so that a burned quota or a revoked key on the public
     // contact form cannot silence the messages the school sends to parents.
     "MAIL_*",
+    // The upload agent's own settings (E14/S2). It runs as a Windows service on a machine in the
+    // school office and reads its own `.env`, not this one — but the prefix is declared here anyway,
+    // because turbo's strict mode hides anything undeclared without a message, and the failure that
+    // would produce is an agent that starts, heartbeats cheerfully and uploads nothing.
+    "ITBRIDGE_*",
     "VERCEL_ENV",
     "CORS_ORIGINS",
     "DB_*",

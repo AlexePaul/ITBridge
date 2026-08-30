@@ -2,6 +2,18 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 
 import { OutboxStatus } from '../enum/outbox-status.enum';
 
 /**
+ * One file to hang off a message, named by where it lives in the bucket.
+ *
+ * `contentId` is what the HTML body references as `cid:…`; without it the attachment is a download
+ * rather than a picture in the message.
+ */
+export interface OutboxAttachment {
+    filename: string;
+    contentId: string;
+    storageKey: string;
+}
+
+/**
  * One email waiting to be sent. The transactional outbox from E17/S3.
  *
  * The point of the table is the word *transactional*: the row is written in the same transaction
@@ -91,6 +103,23 @@ export class OutboxMessage {
      */
     @Column({ type: 'varchar', length: 255, nullable: true, unique: true })
     dedupeKey: string | null;
+
+    /**
+     * Inline attachments, resolved from object storage at send time rather than carried here.
+     *
+     * E14/S4 mails a child's work to their parent with the thumbnail **attached inline (CID)**, not
+     * behind a signed URL. A signed URL is a broken image the next morning — SigV4 does not reach
+     * past seven days however generously it is read — and a long-lived one would leave a picture of
+     * a minor's work reachable from a mailbox forever. An attachment shows offline and leaves
+     * nothing behind.
+     *
+     * The column holds keys, not bytes. Base64 of even a small image in a text column would bloat
+     * every claim query that reads this table, for data that is only needed in the second the
+     * message is handed to the provider. A key whose object has since gone means the message still
+     * goes out, without the picture.
+     */
+    @Column({ type: 'jsonb', nullable: true })
+    attachments: OutboxAttachment[] | null;
 
     @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;

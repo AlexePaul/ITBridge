@@ -3,7 +3,7 @@ import { ApiResponse } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { S3Service } from 'src/modules/invoice/s3.service';
+import { S3Service } from 'src/modules/storage/s3.service';
 
 /** A probe that waits forever is worse than one that says "not ready" — see `withTimeout`. */
 const CHECK_TIMEOUT_MS = 2_000;

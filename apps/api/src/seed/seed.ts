@@ -15,7 +15,16 @@ import { Discount } from '../entities/discount.entity';
 import { Role } from '../enum/role.enum';
 import { ApprovalStatus } from '../enum/approval-status.enum';
 import { PdfService } from '../modules/invoice/pdf.service';
-import { S3Service } from '../modules/invoice/s3.service';
+import sharp from 'sharp';
+import { S3Service } from '../modules/storage/s3.service';
+import { Project } from '../entities/project.entity';
+import { ProjectVersion } from '../entities/project-version.entity';
+import { ProjectFile } from '../entities/project-file.entity';
+import { ProjectLink } from '../entities/project-link.entity';
+import { ProjectStatus } from '../enum/project-status.enum';
+import { ProjectSource } from '../enum/project-source.enum';
+import { ThumbnailService } from '../modules/project/thumbnail.service';
+import { hashContent, ingestionKey, projectFileKey, projectThumbnailKey } from '../modules/project/project.keys';
 import { invoicePdfKey } from '../modules/invoice/invoice.service';
 import { Weekday } from '../enum/weekday.enum';
 import { AttendanceType } from '../enum/attendance-type.enum';
@@ -473,10 +482,100 @@ export async function seedInvoicePdfs(dataSource: DataSource): Promise<{ uploade
     let uploaded = 0;
     for (const invoice of invoices) {
         const buffer = await pdfService.generateInvoicePdf(invoice);
-        await s3.uploadFile(buffer, invoicePdfKey(invoice.monthIssued, invoice.id));
+        await s3.putObject({ key: invoicePdfKey(invoice.monthIssued, invoice.id), body: buffer, contentType: 'application/pdf' });
         uploaded++;
     }
     return { uploaded, skipped: null };
+}
+
+/**
+ * A handful of projects, so the E14 screens are not empty on a fresh database.
+ *
+ * Three shapes, because they are the three an admin has to be able to tell apart: something waiting
+ * for review, something already sent, and a project that is a link rather than a file — which is what
+ * the youngest groups produce, where the work lives in Tinkercad or Canva.
+ *
+ * Best-effort about storage, like the invoice PDFs above: without MinIO the link projects still
+ * appear and the file ones are skipped, so a developer with no bucket still gets usable screens.
+ */
+export async function seedProjects(dataSource: DataSource): Promise<{ projects: number; skipped: string | null }> {
+    const children = await dataSource.getRepository(Child).find({ relations: ['group', 'parent'], order: { id: 'ASC' } });
+    const withGroup = children.filter((child) => child.group).slice(0, 4);
+    if (withGroup.length === 0) return { projects: 0, skipped: 'no children in groups' };
+
+    const projectRepo = dataSource.getRepository(Project);
+    const versionRepo = dataSource.getRepository(ProjectVersion);
+    const fileRepo = dataSource.getRepository(ProjectFile);
+    const linkRepo = dataSource.getRepository(ProjectLink);
+
+    const s3 = new S3Service();
+    let storage = true;
+    try {
+        s3.onModuleInit();
+        storage = await s3.isReachable();
+    } catch {
+        storage = false;
+    }
+
+    let created = 0;
+
+    // A link project for the youngest child in the list: no file, no bucket, still a real project.
+    const linkProject = await projectRepo.save(
+        projectRepo.create({
+            child: withGroup[0],
+            title: 'Orașul din Tinkercad',
+            description: 'Prima machetă 3D, cu blocuri și un parc.',
+            capturedOn: daysAgo(3),
+            status: ProjectStatus.NEW,
+            source: ProjectSource.ADMIN,
+        }),
+    );
+    await linkRepo.save(linkRepo.create({ project: linkProject, label: 'Macheta în Tinkercad', url: 'https://www.tinkercad.com/things/exemplu' }));
+    created++;
+
+    if (storage) {
+        // A 640x480 gradient stands in for a screenshot: real bytes, so the thumbnail pipeline and
+        // the download both work on a seeded database instead of only in tests.
+        const png = await sharp({ create: { width: 640, height: 480, channels: 3, background: { r: 90, g: 120, b: 220 } } })
+            .png()
+            .toBuffer();
+        const thumbnails = new ThumbnailService();
+
+        for (const [index, child] of withGroup.slice(1).entries()) {
+            const sent = index === 0;
+            const project = await projectRepo.save(
+                projectRepo.create({
+                    child,
+                    title: sent ? 'Jocul cu labirint' : 'Robotul care evită obstacole',
+                    capturedOn: daysAgo(sent ? 10 : 1),
+                    status: sent ? ProjectStatus.SENT : ProjectStatus.NEW,
+                    source: ProjectSource.AGENT,
+                    ...(sent ? { sentAt: daysAgo(9), sentToEmail: child.parent?.email ?? null } : {}),
+                }),
+            );
+            const version = await versionRepo.save(versionRepo.create({ project, versionNumber: 1 }));
+            const file = await fileRepo.save(
+                fileRepo.create({
+                    version,
+                    originalName: 'captura.png',
+                    contentType: 'image/png',
+                    sizeBytes: png.length,
+                    ingestionKey: ingestionKey(child.id, hashContent(png)),
+                    uploadedAt: new Date(),
+                }),
+            );
+            await s3.putObject({ key: projectFileKey(project.id, version.id, file.id), body: png, contentType: 'image/png' });
+
+            const thumbnail = await thumbnails.fromImage(png);
+            if (thumbnail) {
+                await s3.putObject({ key: projectThumbnailKey(project.id), body: thumbnail, contentType: 'image/jpeg' });
+                await projectRepo.update(project.id, { hasThumbnail: true });
+            }
+            created++;
+        }
+    }
+
+    return { projects: created, skipped: storage ? null : 'object storage not reachable' };
 }
 
 async function main(): Promise<void> {
@@ -484,6 +583,7 @@ async function main(): Promise<void> {
     try {
         await seed(AppDataSource);
         const pdfs = await seedInvoicePdfs(AppDataSource);
+        const projects = await seedProjects(AppDataSource);
         const counts = await Promise.all(
             AppDataSource.entityMetadatas.map(async (m) => {
                 const rows = await AppDataSource.query<{ count: string }[]>(`SELECT count(*) FROM "${m.tableName}"`);
@@ -493,6 +593,9 @@ async function main(): Promise<void> {
         console.log(`Seed complete (as of ${SEED_TODAY.toISOString().slice(0, 10)}).`);
         console.log(counts.join('\n'));
         console.log(pdfs.skipped ? `invoice PDFs: skipped (${pdfs.skipped})` : `invoice PDFs: ${pdfs.uploaded} uploaded`);
+        console.log(
+            projects.skipped ? `projects: ${projects.projects} created, files skipped (${projects.skipped})` : `projects: ${projects.projects} created`,
+        );
         console.log(`\nSign in as "admin" with the password "${PASSWORD}".`);
     } finally {
         await AppDataSource.destroy();

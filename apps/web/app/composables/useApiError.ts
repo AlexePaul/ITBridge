@@ -75,6 +75,22 @@ const MESSAGES: Record<string, string> = {
     "Contul părintelui nu este activ. Trebuie confirmat prin email și aprobat înainte de înscriere.",
   ACCOUNT_ALREADY_APPROVED: "Contul este deja aprobat.",
   NOT_A_PARENT_ACCOUNT: "Doar conturile de părinte trec prin aprobare.",
+
+  // E14. Every one of these is something an admin or a parent can actually hit, and the shared
+  // "există deja o înregistrare" or "nu ai dreptul" would be true of all of them and useful for
+  // none — a teacher whose export was refused needs to know it was the file type, not the rules.
+  PROJECT_NOT_YOURS: "Documentul aparține altei familii.",
+  PROJECT_EMPTY: "Un proiect are nevoie de cel puțin un fișier sau un link.",
+  PROJECT_ALREADY_ASSIGNED: "Documentul este deja al acelui copil.",
+  PROJECT_CHILD_MISMATCH: "Proiectul acela este al altui copil.",
+  PROJECT_FILE_TOO_LARGE: "Fișierul depășește limita de dimensiune.",
+  PROJECT_FILE_TYPE_NOT_ALLOWED: "Tipul acesta de fișier nu este acceptat.",
+  PROJECT_FILE_CONTENT_MISMATCH: "Fișierul nu este ce spune extensia lui.",
+  PROJECT_FILE_NOT_UPLOADED: "Fișierul nu s-a încărcat complet încă.",
+  PROJECT_FILE_ALREADY_UPLOADED: "Fișierul acesta este deja încărcat pentru copilul respectiv.",
+  PROJECT_FILE_NEEDS_DIRECT_UPLOAD: "Fișierele video se încarcă direct în stocare, nu prin API.",
+  PROJECT_FILE_NOT_DIRECT_UPLOADABLE: "Doar fișierele video se încarcă direct în stocare.",
+  PROJECT_CONTENT_HASH_MISMATCH: "Fișierul nu corespunde cu suma de control trimisă.",
 };
 
 /**

@@ -28,3 +28,27 @@ export function loginUrl(): string {
 export function approvalsUrl(): string {
     return `${siteBase()}/admin/approvals`;
 }
+
+/**
+ * Where a mailed document sends the parent. E14/S5.
+ *
+ * **The link is an announcement, not a delivery.** It carries a random identifier rather than the
+ * child's name, and the page behind it asks for a login: the backend checks the child is theirs and
+ * only then signs a URL that the browser downloads with. A link that works without an account works
+ * for whoever it is forwarded to, and what opens is a named child's work.
+ *
+ * No storage URL ever goes into an email, a message or a log.
+ */
+export function projectUrl(publicId: string): string {
+    return `${siteBase()}/files/${encodeURIComponent(publicId)}`;
+}
+
+/** The parent's own gallery: everything their children have made, in one place. */
+export function projectGalleryUrl(): string {
+    return `${siteBase()}/user/proiecte`;
+}
+
+/** The group screen an admin reviews uploads on, for the internal "something needs looking at" mail. */
+export function adminGroupProjectsUrl(groupId: number): string {
+    return `${siteBase()}/admin/proiecte/grupa/${groupId}`;
+}

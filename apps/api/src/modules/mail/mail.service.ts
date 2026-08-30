@@ -36,7 +36,30 @@ export interface MailMessage {
     text: string;
     html?: string | null;
     replyTo?: string | null;
+    attachments?: MailAttachment[];
 }
+
+/**
+ * One attachment, already read into memory.
+ *
+ * `contentId` makes it inline: the HTML body refers to it as `cid:<contentId>` and the client
+ * renders it in place instead of listing it at the bottom. That is how E14 puts a thumbnail of a
+ * child's work in front of a parent without a URL that outlives the email.
+ */
+export interface MailAttachment {
+    filename: string;
+    /** Base64, as Resend's API takes it. */
+    content: string;
+    contentId?: string;
+}
+
+/**
+ * Total attachment budget for one message, before base64. Resend's own limit is far higher; this is
+ * E14's — a thumbnail is capped at ~100KB precisely so the mail stays small enough to open on a
+ * phone with one bar of signal, and a message with several children's work in it should not add up
+ * to something else.
+ */
+export const MAX_ATTACHMENT_BYTES = 400 * 1024;
 
 /**
  * No API key, or no sending address. Separate from a rejected send because the cause is a
@@ -163,6 +186,18 @@ export class MailService implements OnModuleInit {
                     text: message.text,
                     ...(message.html ? { html: message.html } : {}),
                     ...(message.replyTo ? { reply_to: message.replyTo } : {}),
+                    ...(message.attachments?.length
+                        ? {
+                              attachments: message.attachments.map((attachment) => ({
+                                  filename: attachment.filename,
+                                  content: attachment.content,
+                                  // Resend spells it `content_id`, and it is what turns an
+                                  // attachment into an inline image rather than a file at the foot
+                                  // of the message.
+                                  ...(attachment.contentId ? { content_id: attachment.contentId } : {}),
+                              })),
+                          }
+                        : {}),
                 }),
                 signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
             });

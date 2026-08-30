@@ -144,6 +144,7 @@ const navigationItems = computed(() => {
     { label: "Profil", to: "/user/profile", icon: "i-lucide-user" },
     { label: "Situatia Scolara", to: "/user/dashboard", icon: "i-lucide-chart-bar" },
     { label: "Istoric Plati", to: "/user/payments", icon: "i-lucide-credit-card" },
+    { label: "Proiectele copiilor", to: "/user/proiecte", icon: "i-lucide-sparkles" },
   ];
 
   const adminPages = [
@@ -158,6 +159,7 @@ const navigationItems = computed(() => {
     { label: "Grupe", to: "/admin/groups", icon: "i-lucide-users-round" },
     { label: "Locații și săli", to: "/admin/locations", icon: "i-lucide-map-pin" },
     { label: "Prezență", to: "/admin/attendance", icon: "i-lucide-check-square" },
+    { label: "Proiecte", to: "/admin/proiecte", icon: "i-lucide-sparkles" },
     { label: "Facturi", to: "/admin/invoices", icon: "i-lucide-notebook-pen" },
     { label: "Plăți", to: "/admin/payments", icon: "i-lucide-wallet" },
   ];

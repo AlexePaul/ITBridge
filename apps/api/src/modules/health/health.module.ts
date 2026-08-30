@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { HealthController } from './health.controller';
-import { S3Service } from 'src/modules/invoice/s3.service';
+import { StorageModule } from 'src/modules/storage/storage.module';
 
-// S3Service is provided here rather than imported from InvoiceModule: it holds no state beyond its
-// client and pulling in the whole invoice module for a HeadBucket call would drag the PDF service
-// and its repositories along with it.
-@Module({ controllers: [HealthController], providers: [S3Service] })
+// The storage module, not a locally provided copy of `S3Service`. It used to construct its own so
+// that a HeadBucket call would not drag invoicing, its PDF service and its repositories in behind
+// it; now that storage is a module of its own, importing it costs nothing it does not need.
+@Module({ imports: [StorageModule], controllers: [HealthController] })
 export class HealthModule {}

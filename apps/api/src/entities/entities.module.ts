@@ -14,6 +14,12 @@ import { Location } from './location.entity';
 import { Room } from './room.entity';
 import { OutboxMessage } from './outbox-message.entity';
 import { EmailConfirmation } from './email-confirmation.entity';
+import { Project } from './project.entity';
+import { ProjectVersion } from './project-version.entity';
+import { ProjectFile } from './project-file.entity';
+import { ProjectLink } from './project-link.entity';
+import { UnassignedFile } from './unassigned-file.entity';
+import { AgentStatus } from './agent-status.entity';
 
 @Module({
     imports: [
@@ -32,6 +38,12 @@ import { EmailConfirmation } from './email-confirmation.entity';
             Room,
             OutboxMessage,
             EmailConfirmation,
+            Project,
+            ProjectVersion,
+            ProjectFile,
+            ProjectLink,
+            UnassignedFile,
+            AgentStatus,
         ]),
     ],
     exports: [TypeOrmModule],
