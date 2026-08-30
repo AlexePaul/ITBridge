@@ -13,10 +13,26 @@ import { Session } from './session.entity';
 import { Location } from './location.entity';
 import { Room } from './room.entity';
 import { OutboxMessage } from './outbox-message.entity';
+import { EmailConfirmation } from './email-confirmation.entity';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([User, Profile, Child, Group, Attendance, ClassSession, Invoice, Payment, Discount, Session, Location, Room, OutboxMessage]),
+        TypeOrmModule.forFeature([
+            User,
+            Profile,
+            Child,
+            Group,
+            Attendance,
+            ClassSession,
+            Invoice,
+            Payment,
+            Discount,
+            Session,
+            Location,
+            Room,
+            OutboxMessage,
+            EmailConfirmation,
+        ]),
     ],
     exports: [TypeOrmModule],
 })

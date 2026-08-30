@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Type } from '@nestjs/common';
+import { Provider, Type } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 /**
@@ -12,12 +12,20 @@ export async function buildController<C, S extends object>(
     controller: Type<C>,
     service: Type<S>,
     mock: Partial<Record<keyof S, jest.Mock>>,
+    /**
+     * Anything else the controller's constructor asks for. `UserController` took a second service
+     * when E11 gave it the approvals queue, and Nest refuses to build a controller whose
+     * dependencies it cannot resolve — so this is the seam for the second one rather than a reason
+     * to hand-roll a testing module.
+     */
+    extraProviders: Provider[] = [],
 ): Promise<{ controller: C; service: Partial<Record<keyof S, jest.Mock>> }> {
     const module: TestingModule = await Test.createTestingModule({
         controllers: [controller],
         providers: [
             { provide: service, useValue: mock },
             { provide: JwtService, useValue: { verifyAsync: jest.fn(), verify: jest.fn(), sign: jest.fn() } },
+            ...extraProviders,
         ],
     }).compile();
 

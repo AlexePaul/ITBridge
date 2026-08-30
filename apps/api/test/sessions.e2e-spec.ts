@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, truncateAll } from './helpers';
+import { createTestApp, registrationBody, truncateAll } from './helpers';
 
 /**
  * Cover for E05/S7. Refresh tokens used to be purely stateless: valid for seven days, with no
@@ -25,7 +25,7 @@ describe('Sessions and logout (e2e)', () => {
     });
 
     const register = async (username = 'ana') => {
-        const res = await request(app.getHttpServer()).post('/auth/register').send({ username, password: 'parola123' }).expect(201);
+        const res = await request(app.getHttpServer()).post('/auth/register').send(registrationBody(username)).expect(201);
         return res.body as { accessToken: string; refreshToken: string };
     };
 

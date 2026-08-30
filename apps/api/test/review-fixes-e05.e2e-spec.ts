@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser, createRoom, groupBody } from './helpers';
+import { createTestApp, ownProfileId, promoteToAdmin, registerUser, registrationBody, truncateAll, TestUser, createRoom, groupBody } from './helpers';
 
 /**
  * Regression cover for the defects a second review pass turned up on E05.
@@ -39,22 +39,20 @@ describe('E05 review fixes (e2e)', () => {
         const ids: Record<string, number> = {};
 
         for (const [key, user] of Object.entries({ ana, bogdan })) {
-            const profile = await request(app.getHttpServer())
-                .post('/profiles')
-                .set('Authorization', user.auth)
-                .send({ firstName: key, lastName: 'Test', email: `${key}@example.com` })
-                .expect(201);
+            // Registration already wrote the profile (E11/S2); a second one for the same account is
+            // a 409 by design.
+            const profileId = await ownProfileId(app, user);
 
             await request(app.getHttpServer())
                 .post('/children')
                 .set('Authorization', user.auth)
-                .send({ firstName: 'Copil', lastName: 'Test', birthDate: '2016-01-01', parentId: profile.body.id })
+                .send({ firstName: 'Copil', lastName: 'Test', birthDate: '2016-01-01', parentId: profileId })
                 .expect(201);
 
             const invoices = await request(app.getHttpServer())
                 .post('/invoices')
                 .set('Authorization', admin.auth)
-                .send({ parentIds: [profile.body.id], dateIssued: '2026-03-01', monthIssued: key === 'ana' ? '2026-03' : '2026-04' })
+                .send({ parentIds: [profileId], dateIssued: '2026-03-01', monthIssued: key === 'ana' ? '2026-03' : '2026-04' })
                 .expect(201);
 
             const payment = await request(app.getHttpServer())
@@ -137,10 +135,14 @@ describe('E05 review fixes (e2e)', () => {
          * sends. Together with the phone format this made the mandatory onboarding screen
          * impossible to complete.
          */
+        // These go through the admin token now. E11/S2 gave `register` the parent's contact
+        // details, so a parent already has a profile and a second one is a 409 — but the flow these
+        // tests are about, an admin entering a family with whatever details they happen to have, is
+        // deliberately unchanged, and that is the road where the fields are still optional.
         it('accepts a profile with an empty address', async () => {
             const res = await request(app.getHttpServer())
                 .post('/profiles')
-                .set('Authorization', ana.auth)
+                .set('Authorization', admin.auth)
                 .send({ firstName: 'Ana', lastName: 'Test', phone: '0712345678', address: '' })
                 .expect(201);
 
@@ -150,7 +152,7 @@ describe('E05 review fixes (e2e)', () => {
         it('accepts a Romanian phone written the local way', async () => {
             await request(app.getHttpServer())
                 .post('/profiles')
-                .set('Authorization', ana.auth)
+                .set('Authorization', admin.auth)
                 .send({ firstName: 'Ana', lastName: 'Test', phone: '0712345678' })
                 .expect(201);
         });
@@ -158,7 +160,7 @@ describe('E05 review fixes (e2e)', () => {
         it('still accepts the international form', async () => {
             await request(app.getHttpServer())
                 .post('/profiles')
-                .set('Authorization', bogdan.auth)
+                .set('Authorization', admin.auth)
                 .send({ firstName: 'Bogdan', lastName: 'Test', phone: '+40712345679' })
                 .expect(201);
         });
@@ -166,7 +168,7 @@ describe('E05 review fixes (e2e)', () => {
         it('still rejects a phone number that is not one', async () => {
             const res = await request(app.getHttpServer())
                 .post('/profiles')
-                .set('Authorization', ana.auth)
+                .set('Authorization', admin.auth)
                 .send({ firstName: 'Ana', lastName: 'Test', phone: 'nu-e-telefon' })
                 .expect(400);
 
@@ -176,9 +178,14 @@ describe('E05 review fixes (e2e)', () => {
 
     describe('usernames', () => {
         it('refuses a username that differs only by case', async () => {
-            const res = await request(app.getHttpServer()).post('/auth/register').send({ username: 'ANA.REVIEW', password: 'parola123' }).expect(409);
+            const res = await request(app.getHttpServer())
+                .post('/auth/register')
+                .send({ ...registrationBody('ANA.REVIEW'), email: 'ana.review.upper@example.com' })
+                .expect(409);
 
-            expect(res.body.code).toBe('CONFLICT');
+            // `USERNAME_TAKEN` since E11/S2: registration can now conflict on three different
+            // things, and one shared `CONFLICT` left the parent to guess which.
+            expect(res.body.code).toBe('USERNAME_TAKEN');
         });
 
         it('signs in regardless of how the username is capitalised', async () => {
@@ -216,25 +223,21 @@ describe('E05 review fixes (e2e)', () => {
          * invoice that parent had ever received permanently unreachable.
          */
         it('a stored PDF survives the parent being renamed', async () => {
-            const profile = await request(app.getHttpServer())
-                .post('/profiles')
-                .set('Authorization', ana.auth)
-                .send({ firstName: 'Ana', lastName: 'Popescu' })
-                .expect(201);
+            const profileId = await ownProfileId(app, ana);
 
             await request(app.getHttpServer())
                 .post('/children')
                 .set('Authorization', ana.auth)
-                .send({ firstName: 'Copil', lastName: 'Popescu', birthDate: '2016-01-01', parentId: profile.body.id })
+                .send({ firstName: 'Copil', lastName: 'Popescu', birthDate: '2016-01-01', parentId: profileId })
                 .expect(201);
 
             const invoices = await request(app.getHttpServer())
                 .post('/invoices')
                 .set('Authorization', admin.auth)
-                .send({ parentIds: [profile.body.id], dateIssued: '2026-03-01', monthIssued: '2026-03' })
+                .send({ parentIds: [profileId], dateIssued: '2026-03-01', monthIssued: '2026-03' })
                 .expect(201);
 
-            await request(app.getHttpServer()).put(`/profiles/${profile.body.id}`).set('Authorization', admin.auth).send({ lastName: 'Ionescu' }).expect(200);
+            await request(app.getHttpServer()).put(`/profiles/${profileId}`).set('Authorization', admin.auth).send({ lastName: 'Ionescu' }).expect(200);
 
             // S3 is stubbed in this suite, so what is asserted is that the lookup still resolves —
             // `invoice-pdf.e2e-spec.ts` covers the real round trip against MinIO.
@@ -265,11 +268,7 @@ describe('E05 review fixes (e2e)', () => {
         });
 
         it('returns a discount value as a number', async () => {
-            const profile = await request(app.getHttpServer())
-                .post('/profiles')
-                .set('Authorization', ana.auth)
-                .send({ firstName: 'Ana', lastName: 'Test' })
-                .expect(201);
+            const profile = { body: { id: await ownProfileId(app, ana) } };
 
             await request(app.getHttpServer())
                 .post('/discounts')

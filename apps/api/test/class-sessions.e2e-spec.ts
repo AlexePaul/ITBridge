@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createClassSession, createRoom, createTestApp, groupBody, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { createClassSession, createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
 
 /**
  * Who may read the timetable, against a real database.
@@ -42,17 +42,15 @@ describe('Class session visibility (e2e)', () => {
     }
 
     /** Registers a parent, gives them a profile and one child, and enrols the child in a group. */
-    async function enrolFamily(username: string, childName: string, phone: string, groupId: number): Promise<TestUser> {
+    async function enrolFamily(username: string, childName: string, _phone: string, groupId: number): Promise<TestUser> {
         const parent = await registerUser(app, username);
-        const profile = await request(app.getHttpServer())
-            .post('/profiles')
-            .set('Authorization', parent.auth)
-            .send({ firstName: childName, lastName: 'Pop', email: `${username}@example.com`, phone })
-            .expect(201);
+        // The profile arrived with the registration; `_phone` is left in the signature so the call
+        // sites still read as "two distinct families".
+        const parentId = await ownProfileId(app, parent);
         const child = await request(app.getHttpServer())
             .post('/children')
             .set('Authorization', parent.auth)
-            .send({ parentId: profile.body.id as number, firstName: childName, lastName: 'Pop', birthDate: '2015-05-05' })
+            .send({ parentId, firstName: childName, lastName: 'Pop', birthDate: '2015-05-05' })
             .expect(201);
         await request(app.getHttpServer())
             .post(`/children/${child.body.id as number}/groups/${groupId}`)
@@ -131,15 +129,10 @@ describe('Class session visibility (e2e)', () => {
 
     it('shows a parent whose child is in no group nothing at all', async () => {
         const carmen = await registerUser(app, 'carmen');
-        const profile = await request(app.getHttpServer())
-            .post('/profiles')
-            .set('Authorization', carmen.auth)
-            .send({ firstName: 'Carmen', lastName: 'Ion', email: 'carmen@example.com', phone: '+40700000003' })
-            .expect(201);
         await request(app.getHttpServer())
             .post('/children')
             .set('Authorization', carmen.auth)
-            .send({ parentId: profile.body.id as number, firstName: 'Vlad', lastName: 'Ion', birthDate: '2016-01-01' })
+            .send({ parentId: await ownProfileId(app, carmen), firstName: 'Vlad', lastName: 'Ion', birthDate: '2016-01-01' })
             .expect(201);
 
         expect(await listAs(carmen)).toEqual([]);

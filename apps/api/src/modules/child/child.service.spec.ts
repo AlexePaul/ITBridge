@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ChildService } from './child.service';
 import { Child } from 'src/entities/child.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Group } from 'src/entities/group.entity';
 import { Role } from 'src/enum/role.enum';
+import { ApprovalStatus } from 'src/enum/approval-status.enum';
 import { createMockQueryBuilder, createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 
 describe('ChildService', () => {
@@ -150,6 +151,75 @@ describe('ChildService', () => {
 
             await expect(service.deleteChild(1, Role.PARENT, 5)).resolves.toMatchObject({ message: expect.any(String) });
             expect(childRepo.delete).toHaveBeenCalledWith(1);
+        });
+    });
+
+    describe('assignChildToGroup', () => {
+        /** Both E11/S2 gates open: the address is confirmed and an admin has approved. */
+        const activeAccount = { id: 5, role: Role.PARENT, emailConfirmedAt: new Date(), approvalStatus: ApprovalStatus.APPROVED };
+
+        const childOf = (user: unknown) => ({ id: 1, parent: { id: 10, user } });
+
+        beforeEach(() => {
+            groupRepo.findOne!.mockResolvedValue({ id: 2 });
+            childRepo.save!.mockImplementation((child: unknown) => Promise.resolve(child));
+        });
+
+        it('assigns when both gates are open', async () => {
+            childRepo.findOne!.mockResolvedValue(childOf(activeAccount));
+
+            await service.assignChildToGroup(1, 2);
+
+            expect(childRepo.save).toHaveBeenCalled();
+        });
+
+        it('refuses while the address is still unconfirmed', async () => {
+            childRepo.findOne!.mockResolvedValue(childOf({ ...activeAccount, emailConfirmedAt: null }));
+
+            await expect(service.assignChildToGroup(1, 2)).rejects.toMatchObject({
+                response: { error: 'PARENT_ACCOUNT_NOT_ACTIVE' },
+            });
+            expect(childRepo.save).not.toHaveBeenCalled();
+        });
+
+        it('refuses while an admin has not approved the family', async () => {
+            childRepo.findOne!.mockResolvedValue(childOf({ ...activeAccount, approvalStatus: ApprovalStatus.PENDING }));
+
+            await expect(service.assignChildToGroup(1, 2)).rejects.toThrow(ConflictException);
+            expect(childRepo.save).not.toHaveBeenCalled();
+        });
+
+        it('refuses a family whose account was rejected', async () => {
+            childRepo.findOne!.mockResolvedValue(childOf({ ...activeAccount, approvalStatus: ApprovalStatus.REJECTED }));
+
+            await expect(service.assignChildToGroup(1, 2)).rejects.toThrow(ConflictException);
+        });
+
+        it('assigns a child whose family has no account at all', async () => {
+            childRepo.findOne!.mockResolvedValue(childOf(null));
+
+            // The admin-typed-it-in-from-a-phone-call flow. There is nothing to confirm and nobody
+            // to approve, so applying the gate would block a road the platform deliberately keeps.
+            await service.assignChildToGroup(1, 2);
+
+            expect(childRepo.save).toHaveBeenCalled();
+        });
+
+        it('loads the parent account, or the gate would silently pass on every child', async () => {
+            childRepo.findOne!.mockResolvedValue(childOf(activeAccount));
+
+            await service.assignChildToGroup(1, 2);
+
+            // Without the relation, `child.parent?.user` is undefined for everyone and the check
+            // above is dead code that always allows.
+            expect(childRepo.findOne!.mock.calls[0][0]).toMatchObject({ relations: { parent: { user: true } } });
+        });
+
+        it('404s on a group that does not exist, before touching the child', async () => {
+            childRepo.findOne!.mockResolvedValue(childOf(activeAccount));
+            groupRepo.findOne!.mockResolvedValue(null);
+
+            await expect(service.assignChildToGroup(1, 99)).rejects.toThrow(NotFoundException);
         });
     });
 });

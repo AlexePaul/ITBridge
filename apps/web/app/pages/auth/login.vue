@@ -48,5 +48,5 @@ async function onSubmit(payload: { username: string; password: string }) {
 </script>
 
 <template>
-  <AuthPanel mode="login" :loading="isLoading" :error-message="errorMessage" @submit="onSubmit" />
+  <AuthPanel mode="login" :loading="isLoading" :error-message="errorMessage" @login="onSubmit" />
 </template>

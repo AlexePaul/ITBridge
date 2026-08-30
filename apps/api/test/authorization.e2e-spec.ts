@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createClassSession, createRoom, createTestApp, groupBody, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { createClassSession, createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
 
 /**
  * Row-level authorization, verified over HTTP. The unit tests show the queries *contain* the
@@ -43,23 +43,16 @@ describe('Row-level authorization (e2e)', () => {
 
         // Distinct email and phone are mandatory: see profile-creation.e2e-spec.ts. A profile with
         // no contact details makes the uniqueness check answer 409 for the second one.
-        anaProfileId = await createProfile(ana, 'Ana', 'Pop', 'ana@example.com', '+40700000001');
-        bogdanProfileId = await createProfile(bogdan, 'Bogdan', 'Ion', 'bogdan@example.com', '+40700000002');
+        // Registration writes the profile (E11/S2), so there is nothing left to create here — and
+        // trying would be a 409 on the unique email rather than a second profile.
+        anaProfileId = await ownProfileId(app, ana);
+        bogdanProfileId = await ownProfileId(app, bogdan);
 
         mariaId = await createChild(ana, anaProfileId, 'Maria');
         raduId = await createChild(bogdan, bogdanProfileId, 'Radu');
 
         anaInvoiceId = await createInvoice(anaProfileId);
     });
-
-    const createProfile = async (user: TestUser, firstName: string, lastName: string, email: string, phone: string): Promise<number> => {
-        const res = await request(app.getHttpServer())
-            .post('/profiles')
-            .set('Authorization', user.auth)
-            .send({ firstName, lastName, email, phone })
-            .expect(201);
-        return res.body.id as number;
-    };
 
     const createChild = async (user: TestUser, parentId: number, firstName: string): Promise<number> => {
         const res = await request(app.getHttpServer())

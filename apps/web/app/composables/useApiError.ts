@@ -55,6 +55,26 @@ const MESSAGES: Record<string, string> = {
   // E12. Only reachable by opening an inactive group's attendance page directly - the listing
   // filters them out - but without an entry here the admin gets the English sentence from the API.
   GROUP_INACTIVE: "Grupa este inactivă. Reactiveaz-o înainte să îi generezi orarul.",
+
+  // E11/S2. Registration can now collide on three different things, and one shared "există deja o
+  // înregistrare cu aceste date" left a parent whose email was taken changing their username.
+  USERNAME_TAKEN: "Există deja un cont cu acest nume de utilizator. Alege altul.",
+  EMAIL_TAKEN: "Există deja un cont cu această adresă de email.",
+  PHONE_TAKEN: "Există deja un cont cu acest număr de telefon.",
+
+  // The confirmation link. Three separate cases, because what the reader should do differs in each:
+  // ask for a new link, nothing at all, or check they copied the whole address.
+  CONFIRMATION_TOKEN_INVALID:
+    "Linkul de confirmare nu este valid. Verifică dacă l-ai copiat întreg.",
+  CONFIRMATION_TOKEN_USED: "Linkul a fost deja folosit — adresa ta este confirmată.",
+  CONFIRMATION_TOKEN_EXPIRED: "Linkul de confirmare a expirat. Cere unul nou din contul tău.",
+  EMAIL_ALREADY_CONFIRMED: "Adresa ta de email este deja confirmată.",
+  NO_EMAIL_ON_FILE: "Contul nu are o adresă de email pe care să trimitem confirmarea.",
+
+  PARENT_ACCOUNT_NOT_ACTIVE:
+    "Contul părintelui nu este activ. Trebuie confirmat prin email și aprobat înainte de înscriere.",
+  ACCOUNT_ALREADY_APPROVED: "Contul este deja aprobat.",
+  NOT_A_PARENT_ACCOUNT: "Doar conturile de părinte trec prin aprobare.",
 };
 
 /**

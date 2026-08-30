@@ -3,8 +3,8 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
-import { UnmarkedAttendanceJob } from 'src/modules/class-session/unmarked-attendance.job';
-import { createClassSession, createRoom, createTestApp, groupBody, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { DEDUPE_PREFIX, UnmarkedAttendanceJob } from 'src/modules/class-session/unmarked-attendance.job';
+import { createClassSession, createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
 
 /**
  * The daily reminder about registers nobody took, against a real database.
@@ -33,8 +33,20 @@ describe('Daily unmarked-attendance reminder (e2e)', () => {
     const QUIET_DAY = '2026-03-09';
     const REPORT_DAY = '2026-03-10';
 
+    /**
+     * The reminder's messages, and only those.
+     *
+     * The queue is shared: since E11/S2 every registration in `beforeEach` writes a confirmation
+     * link and an office notice into the same table, and this suite is about neither. Filtering on
+     * the reminder's own `dedupeKey` prefix keeps the assertions counting what they claim to count.
+     */
     async function outboxRows(): Promise<OutboxMessage[]> {
-        return dataSource.getRepository(OutboxMessage).find({ order: { id: 'ASC' } });
+        return dataSource
+            .getRepository(OutboxMessage)
+            .createQueryBuilder('message')
+            .where('message."dedupeKey" LIKE :prefix', { prefix: `${DEDUPE_PREFIX}%` })
+            .orderBy('message.id', 'ASC')
+            .getMany();
     }
 
     async function markAttendance(classSessionId: number): Promise<void> {
@@ -60,15 +72,10 @@ describe('Daily unmarked-attendance reminder (e2e)', () => {
         admin = await promoteToAdmin(app, dataSource, await registerUser(app, 'admin'));
         parent = await registerUser(app, 'ana');
 
-        const profile = await request(app.getHttpServer())
-            .post('/profiles')
-            .set('Authorization', parent.auth)
-            .send({ firstName: 'Ana', lastName: 'Pop', email: 'ana@example.com', phone: '+40700000001' })
-            .expect(201);
         const child = await request(app.getHttpServer())
             .post('/children')
             .set('Authorization', parent.auth)
-            .send({ parentId: profile.body.id as number, firstName: 'Maria', lastName: 'Pop', birthDate: '2015-05-05' })
+            .send({ parentId: await ownProfileId(app, parent), firstName: 'Maria', lastName: 'Pop', birthDate: '2015-05-05' })
             .expect(201);
         childId = child.body.id as number;
 

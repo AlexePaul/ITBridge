@@ -1,6 +1,6 @@
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { Provider } from '@nestjs/common';
-import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
+import { EntityManager, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 
 /**
  * Helpers for service unit tests. Services receive TypeORM repositories through injection, and
@@ -62,6 +62,7 @@ export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(
         'innerJoin',
         'innerJoinAndSelect',
         'loadRelationCountAndMap',
+        'addSelect',
         'orderBy',
         'addOrderBy',
         'skip',
@@ -122,4 +123,45 @@ export function createMockInsertBuilder(raw: unknown[]): MockInsertBuilder {
     }
     qb.execute = jest.fn().mockResolvedValue({ raw, identifiers: [], generatedMaps: [] });
     return qb as MockInsertBuilder;
+}
+
+/**
+ * A stand-in for the `EntityManager` handed to a `dataSource.transaction` callback.
+ *
+ * Services that write more than one row do it in a transaction — a registration writes the user,
+ * the profile, the confirmation token and two outbox messages, and either all of that happens or
+ * none of it does. A unit test still wants to assert *what* was written without a database, so the
+ * manager records its calls and `getRepository` hands back the same doubles the service would have
+ * been injected with.
+ */
+export interface MockEntityManager {
+    create: jest.Mock;
+    save: jest.Mock;
+    update: jest.Mock;
+    getRepository: jest.Mock;
+}
+
+export function createMockEntityManager(repositories: Map<unknown, MockRepository> = new Map()): MockEntityManager {
+    return {
+        // The real `create` merges the literal onto a new entity instance; for assertions the
+        // literal itself is the interesting part, so it comes straight back.
+        create: jest.fn((_entity: unknown, data: unknown) => data),
+        save: jest.fn((_entityOrData: unknown, data?: unknown) => Promise.resolve(data ?? _entityOrData)),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+        getRepository: jest.fn((entity: unknown) => repositories.get(entity) ?? createMockRepository()),
+    };
+}
+
+/**
+ * A `DataSource` whose `transaction` simply runs the callback with the given manager.
+ *
+ * No rollback is simulated: what the tests need is that the writes were *offered* to one manager,
+ * which is what makes them one unit of work. Whether Postgres honours a rollback is Postgres's
+ * business and is covered by the integration suite.
+ */
+export function provideMockDataSource(manager: MockEntityManager): Provider {
+    const dataSource = {
+        transaction: jest.fn((runInTransaction: (manager: EntityManager) => Promise<unknown>) => runInTransaction(manager as unknown as EntityManager)),
+    };
+    return { provide: getDataSourceToken(), useValue: dataSource };
 }

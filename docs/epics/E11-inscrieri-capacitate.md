@@ -1,6 +1,6 @@
 # E11 · Înscrieri, grupe și capacitate
 
-**Status:** propus · **Pistă:** Operațiuni · **Depinde de:** E08, E09, E10 · **Blochează:** E12, E15
+**Status:** în lucru — **S2 livrat** · **Pistă:** Operațiuni · **Depinde de:** E08, E09, E10 · **Blochează:** E12, E15
 
 ## Problemă
 
@@ -28,7 +28,8 @@ Ce lipsește:
   elev.
 - **Compatibilitate.** Nimic nu verifică dacă vârsta copilului se potrivește cu intervalul grupei
   sau dacă are cerințele prealabile ale modulului din [E10](E10-curriculum-module.md).
-- **Familia poate exista fără nicio dată de contact.** `RegisterDto`
+- ~~**Familia poate exista fără nicio dată de contact.**~~ **Rezolvat de S2.** Descrierea de mai jos
+  e păstrată fiindcă explică de ce s-a construit ce s-a construit. `RegisterDto`
   (`apps/api/src/modules/auth/dto/register.dto.ts`) cere exact două câmpuri, `username` și
   `password`. `AuthService.register` creează `User`-ul cu `role: Role.PARENT` și îi întoarce pe loc
   perechea de tokenuri — nu există confirmare de adresă și nu există stare de cont neaprobat, fiindcă
@@ -98,16 +99,38 @@ oricum: un handler nou fără `@Roles(Role.ADMIN)` apare acolo fără să scrie 
 migrat — vezi [Decizii luate](#decizii-luate), D9. Seed-ul produce înscrieri cu perioadă și stare, iar
 interogarea de mai sus se verifică pe ele. Un `POST` de înscriere cu token de părinte răspunde 403.
 
-### S2 · Contul de părinte: date complete, email confirmat, aprobat de admin
+### S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — **LIVRAT**
 
-Astăzi `register` cere `username` și `password`, atât — `RegisterDto` are exact cele două câmpuri, cu
-`@Length(1, 30)` și `@MinLength(6)`. Datele de contact se cer abia după autentificare, în ecranul
+> **Ce s-a construit.** `POST /auth/register` cere acum toate datele din D8 plus contactul de
+> urgență și scrie `User` + `Profile` + tokenul de confirmare + două mesaje în outbox **într-o
+> singură tranzacție**. Cele două porți sunt două coloane independente pe `User` —
+> `emailConfirmedAt` și `approvalStatus` — iar „activ" e derivat din ele prin `isAccountActive`,
+> nu stocat. Confirmarea trece prin `POST /auth/confirm-email` (public, tokenul e credențialul) și
+> prin tabelul `email_confirmations`, care ține un SHA-256 al tokenului, niciodată tokenul, exact
+> ca `sessions`. Adminul are `GET /users/pending`, `POST /users/:id/approve` și
+> `POST /users/:id/reject`, plus ecranul `/admin/approvals`. Un copil nu poate fi repartizat într-o
+> grupă cât timp contul familiei nu e activ — `PARENT_ACCOUNT_NOT_ACTIVE`, verificat în
+> `ChildService.assignChildToGroup`.
+>
+> Migrarea `AccountGates` marchează drept confirmate și aprobate toate conturile care existau
+> înainte. O poartă nouă aplicată retroactiv ar fi fost o schimbare de date deghizată în schimbare
+> de schemă.
+>
+> **Ce nu s-a construit din acest story:** nimic. Restul epicului — S1, S3, S4, S5, S6, S7 — e
+> neatins, deci capacitatea grupei rămâne în continuare declarată și neaplicată, iar înscrierea
+> rămâne o cheie străină pe `Child`, fără istoric.
+
+
+Până la acest story `register` cerea `username` și `password`, atât — `RegisterDto` avea exact cele
+două câmpuri, cu `@Length(1, 30)` și `@MinLength(6)`. Datele de contact se cereau abia după
+autentificare, în ecranul
 `/user/profile-setup` spre care împinge `apps/web/app/middleware/02.profile-setup.global.ts`, și
-acolo sunt opționale: în `CreateProfileDto` doar `firstName` și `lastName` sunt obligatorii, iar
+acolo erau opționale: în `CreateProfileDto` doar `firstName` și `lastName` sunt obligatorii, iar
 `email`, `phone` și `address` au `@EmptyToUndefined() @IsOptional()`. În entitate, `Profile.email`,
-`Profile.phone` și `Profile.address` sunt toate `nullable`, iar `Profile.user` la fel.
+`Profile.phone` și `Profile.address` rămân `nullable`, iar `Profile.user` la fel — pentru celălalt
+drum, cel al adminului.
 
-Se schimbă trei lucruri, toate pe fluxul de înregistrare făcută de părinte:
+S-au schimbat trei lucruri, toate pe fluxul de înregistrare făcută de părinte:
 
 1. **`register` cere datele complete.** Nume, prenume, email, telefon, adresă și contactul de
    urgență de mai jos intră în `RegisterDto`, obligatorii, și se scriu într-un `Profile` creat în
@@ -148,7 +171,7 @@ suna în gol. Datele de sănătate, notele de incident și persoanele autorizate
 odată cu el; sunt în [În afara scopului](#în-afara-scopului), explicit, ca să nu fie repropuse ca
 „încă un câmp, tot acolo".
 
-**Acceptanță:**
+**Acceptanță** — toate verificate în `apps/api/test/account-gates.e2e-spec.ts`:
 
 - `POST /auth/register` fără email, fără adresă sau fără contact de urgență răspunde 400, cu
   mesajul pe câmpul lipsă. Un `''` trimis de un input netastat e tot 400, nu 201 — deci pe câmpurile
@@ -409,6 +432,10 @@ factura B2C are nevoie de el — are răspuns și se închide acolo.
 ## Întrebări deschise
 
 - Cât timp are cineva de pe lista de așteptare să confirme un loc eliberat?
-- Un cont neconfirmat sau neaprobat se poate autentifica, sau primește 401 la login? Ambele variante
-  respectă D2; diferă doar ce vede părintele — un portal gol cu un mesaj de așteptare, sau un ecran
-  de login care refuză fără să explice de ce. Prima e mai onestă, a doua e mai puțin cod.
+**Închisă la implementarea S2: un cont neconfirmat sau neaprobat *se poate* autentifica.** Portalul
+îi arată o notificare cu ce mai lipsește, iar dacă adresa nu e confirmată, butonul de retrimitere a
+linkului. Un login care refuză fără să explice ar lăsa o familie care așteaptă să nu poată distinge
+„încă nu v-am aprobat" de „site-ul e stricat" — și, mai practic, retrimiterea linkului n-ar mai avea
+de unde să fie cerută. Contul nu poate face nimic: singura operațiune pe care o deblochează
+aprobarea, repartizarea într-o grupă, e oricum a adminului, iar restul portalului e gol prin
+construcție, fiindcă familia n-are încă nici grupă, nici factură.

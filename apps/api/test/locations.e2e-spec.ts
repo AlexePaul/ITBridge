@@ -234,8 +234,11 @@ describe('Locations, rooms and the timetable (e2e)', () => {
             const children = await request(app.getHttpServer()).get('/children').set('Authorization', admin.auth).expect(200);
             expect(children.body[0].group.room.location.slug).toBe('straulesti');
 
+            // Not `[0]`: since E11/S2 the admin's own registration wrote a profile too, and it has
+            // no children. The one under test is the one that does.
             const profiles = await request(app.getHttpServer()).get('/profiles').set('Authorization', admin.auth).expect(200);
-            expect(profiles.body[0].children[0].group.room.location.slug).toBe('straulesti');
+            const withChild = (profiles.body as { children: { group: { room: { location: { slug: string } } } }[] }[]).find((p) => p.children.length > 0);
+            expect(withChild?.children[0].group.room.location.slug).toBe('straulesti');
         });
 
         it('carries the room and its location on every group it returns', async () => {

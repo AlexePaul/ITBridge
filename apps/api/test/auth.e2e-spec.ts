@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, registerUser, truncateAll } from './helpers';
+import { createTestApp, registerUser, registrationBody, truncateAll } from './helpers';
 
 describe('Authentication (e2e)', () => {
     let app: INestApplication<App>;
@@ -39,7 +39,10 @@ describe('Authentication (e2e)', () => {
     it('refuses a second account with the same username', async () => {
         await registerUser(app, 'ana');
 
-        await request(app.getHttpServer()).post('/auth/register').send({ username: 'ana', password: 'altceva' }).expect(409);
+        await request(app.getHttpServer())
+            .post('/auth/register')
+            .send({ ...registrationBody('ana'), email: 'altcineva@example.com' })
+            .expect(409);
     });
 
     it('login with the correct password returns tokens', async () => {
@@ -81,7 +84,10 @@ describe('Authentication (e2e)', () => {
     it('rejects a register body carrying an unexpected field, such as role', async () => {
         // `forbidNonWhitelisted` refuses the request outright. Previously the field was silently
         // dropped, which worked but told the caller nothing.
-        const res = await request(app.getHttpServer()).post('/auth/register').send({ username: 'siret', password: 'parola123', role: 'ADMIN' }).expect(400);
+        const res = await request(app.getHttpServer())
+            .post('/auth/register')
+            .send({ ...registrationBody('siret'), role: 'ADMIN' })
+            .expect(400);
 
         expect(JSON.stringify(res.body)).toContain('role');
     });
@@ -96,7 +102,10 @@ describe('Authentication (e2e)', () => {
 
     it('rejects a password shorter than six characters', async () => {
         // RegisterDto has asked for six since it was written; nothing enforced it until now.
-        const res = await request(app.getHttpServer()).post('/auth/register').send({ username: 'scurt', password: 'abc' }).expect(400);
+        const res = await request(app.getHttpServer())
+            .post('/auth/register')
+            .send({ ...registrationBody('scurt'), password: 'abc' })
+            .expect(400);
 
         expect(JSON.stringify(res.body)).toContain('password');
     });

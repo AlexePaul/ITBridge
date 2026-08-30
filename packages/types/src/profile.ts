@@ -11,6 +11,14 @@ export interface ProfileSummary {
     email?: string | null;
     phone?: string | null;
     address?: string | null;
+    /**
+     * Who to call when a child is hurt and the parent does not answer. Required of a parent who
+     * registers (E11/S2), absent on the profiles an admin types in from a phone call — hence
+     * nullable here, like the contact fields above it.
+     */
+    emergencyContactName?: string | null;
+    emergencyContactRelation?: string | null;
+    emergencyContactPhone?: string | null;
 }
 
 export interface Profile extends ProfileSummary {

@@ -1,1 +1,1 @@
-export type { LoginResponse } from "@itbridge/types";
+export type { ConfirmEmailResponse, LoginResponse } from "@itbridge/types";

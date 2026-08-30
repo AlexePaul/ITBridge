@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 import { LoginDto } from 'src/modules/auth/dto/login.dto';
 import { RefreshTokenDto } from 'src/modules/auth/dto/refreshToken.dto';
+import { ConfirmEmailDto } from 'src/modules/auth/dto/confirm-email.dto';
 import { AuthGuard } from 'src/guards/auth.guard';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
@@ -30,6 +31,43 @@ export class AuthController {
     })
     async register(@Body() registerDto: RegisterDto, @Headers('user-agent') userAgent?: string) {
         return this.authService.register(registerDto, userAgent);
+    }
+
+    /**
+     * The link from the confirmation mail lands here — E11/S2, the first gate.
+     *
+     * No guard, deliberately: the parent may open the link on a phone that has never signed in, and
+     * a gate that required the account it unlocks would be a circle. The token is the credential,
+     * as it is on `logout`.
+     *
+     * Throttled harder than login. The endpoint is public and takes a bearer secret, so it is the
+     * one place in the app where guessing has a target; ten a minute leaves no room for that and
+     * plenty for a parent clicking twice.
+     */
+    @Throttle({ default: { ttl: 60_000, limit: 10 } })
+    @Post('confirm-email')
+    @HttpCode(200)
+    @ApiResponse({ status: 200, description: 'Email address confirmed' })
+    @ApiResponse({ status: 400, description: 'Token missing, expired, already used or unknown' })
+    async confirmEmail(@Body() confirmEmailDto: ConfirmEmailDto) {
+        return this.authService.confirmEmail(confirmEmailDto.token);
+    }
+
+    /**
+     * A new link, to the address already on file — never to one supplied in the request.
+     *
+     * Three a minute: a parent who did not get the first mail will press this twice, and anything
+     * beyond that is somebody using the school's sending quota as a way to mail a third party.
+     */
+    @Throttle({ default: { ttl: 60_000, limit: 3 } })
+    @Post('resend-confirmation')
+    @HttpCode(200)
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'A fresh confirmation link was queued' })
+    @ApiResponse({ status: 400, description: 'Already confirmed, or no address on file' })
+    async resendConfirmation(@Request() req: AuthenticatedRequest) {
+        return this.authService.resendConfirmation(req.user.sub);
     }
 
     @Throttle({ default: { ttl: 60_000, limit: 20 } })
