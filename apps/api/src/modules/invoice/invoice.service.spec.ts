@@ -3,7 +3,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { InvoiceService } from './invoice.service';
 import { PdfService } from './pdf.service';
-import { S3Service } from './s3.service';
+import { S3Service } from 'src/modules/storage/s3.service';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Discount } from 'src/entities/discount.entity';
@@ -15,7 +15,7 @@ describe('InvoiceService', () => {
     let invoiceRepo: MockRepository;
     let profileRepo: MockRepository;
     let discountRepo: MockRepository;
-    let s3: { uploadFile: jest.Mock; downloadFile: jest.Mock };
+    let s3: { putObject: jest.Mock; downloadFile: jest.Mock };
     let transactionManager: { save: jest.Mock };
 
     /** A profile with `n` children, enough to get past the checks in `calculateAmount`. */
@@ -30,7 +30,7 @@ describe('InvoiceService', () => {
         invoiceRepo = createMockRepository();
         profileRepo = createMockRepository();
         discountRepo = createMockRepository();
-        s3 = { uploadFile: jest.fn(), downloadFile: jest.fn() };
+        s3 = { putObject: jest.fn(), downloadFile: jest.fn() };
 
         // `createInvoice` writes the row and uploads the PDF inside one transaction. The fake runs
         // the callback with a manager whose `save` behaves like the repository's, so a rejected
@@ -194,7 +194,13 @@ describe('InvoiceService', () => {
 
             await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' });
 
-            expect(s3.uploadFile).toHaveBeenCalledWith(expect.any(Buffer), expect.stringMatching(/^invoices\/2026-03\/.*\.pdf$/));
+            // The type is now an argument rather than a constant inside the client, so the assertion
+            // covers it: an invoice stored as anything other than a PDF would be served back wrong.
+            expect(s3.putObject).toHaveBeenCalledWith({
+                key: expect.stringMatching(/^invoices\/2026-03\/.*\.pdf$/),
+                body: expect.any(Buffer),
+                contentType: 'application/pdf',
+            });
         });
 
         it('processes several parents in a single request', async () => {

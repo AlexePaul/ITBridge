@@ -139,6 +139,15 @@ export interface MockEntityManager {
     save: jest.Mock;
     update: jest.Mock;
     getRepository: jest.Mock;
+    /**
+     * Left undefined by default, and installed by the suites that need it.
+     *
+     * A manager's query builder is two different things depending on how it is called — a select
+     * when given an entity and an alias, an insert when given nothing — so a single default double
+     * would hand one of the two callers the wrong shape, which fails inside the service and reads as
+     * a bug there. The test that needs it says which one it means.
+     */
+    createQueryBuilder?: jest.Mock;
 }
 
 export function createMockEntityManager(repositories: Map<unknown, MockRepository> = new Map()): MockEntityManager {

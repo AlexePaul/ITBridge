@@ -4,7 +4,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from 'src/app.module';
-import { S3Service } from 'src/modules/invoice/s3.service';
+import { S3Service } from 'src/modules/storage/s3.service';
 import { PdfService } from 'src/modules/invoice/pdf.service';
 import { Role } from 'src/enum/role.enum';
 
@@ -33,11 +33,20 @@ export async function createTestApp(options: { realStorage?: boolean; throttling
         builder
             .overrideProvider(S3Service)
             .useValue({
-                uploadFile: jest.fn(),
+                putObject: jest.fn(),
                 // A Buffer, not `undefined`: the controller streams what this returns, so a bare
                 // `jest.fn()` turns every stubbed download into a 500 that looks like a real one.
                 downloadFile: jest.fn().mockResolvedValue(Buffer.from('%PDF-')),
                 isReachable: jest.fn().mockResolvedValue(true),
+                // E14's half of the client. The signed URL is a plausible-looking string rather than
+                // a real signature: what the suites check is that one is only *issued* after the
+                // ownership question has been answered, which is this application's business, not
+                // the SDK's.
+                presignedDownloadUrl: jest.fn().mockResolvedValue('https://storage.example/signed'),
+                presignedUploadUrl: jest.fn().mockResolvedValue('https://storage.example/upload'),
+                headObject: jest.fn().mockResolvedValue({ sizeBytes: 1024, contentType: 'video/mp4' }),
+                downloadStream: jest.fn(),
+                deleteObject: jest.fn(),
             })
             .overrideProvider(PdfService)
             .useValue({ generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from('%PDF-')) });

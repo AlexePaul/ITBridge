@@ -12,6 +12,7 @@ import {
     provideMockRepository,
 } from 'src/testing/repository.mock';
 import { MailNotConfiguredError, MailSendError, MailService } from './mail.service';
+import { S3Service } from 'src/modules/storage/s3.service';
 import { backoffFrom, MAX_ATTEMPTS, OutboxService } from './outbox.service';
 
 const MINUTE = 60 * 1000;
@@ -31,6 +32,7 @@ function makeMessage(overrides: Partial<OutboxMessage> = {}): OutboxMessage {
         nextAttemptAt: new Date('2026-03-02T09:00:00.000Z'),
         lastError: null,
         dedupeKey: null,
+        attachments: null,
         createdAt: new Date('2026-03-02T09:00:00.000Z'),
         sentAt: null,
         ...overrides,
@@ -41,6 +43,7 @@ describe('OutboxService', () => {
     let service: OutboxService;
     let outboxRepo: MockRepository;
     let mailService: { send: jest.Mock };
+    let s3Service: { downloadFile: jest.Mock };
     let dataSource: { transaction: jest.Mock };
 
     /** The rows the fake database holds. Both the claim and the outcome write back into this. */
@@ -83,6 +86,8 @@ describe('OutboxService', () => {
          * makes the second one come back empty instead of waiting. The mock reproduces the
          * consequence; that the code asks for that lock mode is asserted separately, below.
          */
+        s3Service = { downloadFile: jest.fn().mockRejectedValue(new Error('no attachment expected in this suite')) };
+
         let inFlight: Promise<unknown> = Promise.resolve();
         dataSource = {
             transaction: jest.fn((callback: (manager: EntityManager) => Promise<unknown>) => {
@@ -98,6 +103,10 @@ describe('OutboxService', () => {
                 provideMockRepository(OutboxMessage, outboxRepo),
                 { provide: getDataSourceToken(), useValue: dataSource },
                 { provide: MailService, useValue: mailService },
+                // Attachments are read out of the bucket at send time. Nothing in this suite queues
+                // one, so a client that would throw if called is the right double: a test that
+                // starts attaching something has to say so.
+                { provide: S3Service, useValue: s3Service },
             ],
         }).compile();
         service = module.get(OutboxService);
