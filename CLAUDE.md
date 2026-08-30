@@ -97,6 +97,23 @@ explicație, nu ca 500 de la driver.
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
 access (15 min) / refresh (7 zile), cu secrete distincte în `apps/api/src/constants/jwtConstants.ts`.
 
+**Un cont de părinte trece prin două porți înainte să fie folosibil** (E11 S2). Sunt două coloane
+independente pe `User`, nu un singur status: `emailConfirmedAt` — părintele a deschis linkul trimis
+la înregistrare — și `approvalStatus` — un admin a recunoscut familia. „Activ" nu e stocat, e derivat
+prin `isAccountActive` din `apps/api/src/entities/user.entity.ts`, fiindcă o a treia coloană ar fi
+liberă să contrazică primele două. Adminii sunt exceptați: nimeni nu-i confirmă și nu-i aprobă.
+Porțile se pot deschide în orice ordine, iar singurul lucru pe care îl blochează efectiv e
+repartizarea unui copil într-o grupă (`PARENT_ACCOUNT_NOT_ACTIVE`). **Un cont neactiv se poate
+autentifica** — portalul îi arată ce mai lipsește și butonul de retrimitere a linkului; un login care
+refuză fără să explice ar lăsa familia să nu distingă „încă nu" de „stricat".
+
+**`register` scrie și `Profile`-ul, în aceeași tranzacție.** Nu mai există fereastra în care un cont
+există fără date de contact, deci `/user/profile-setup` nu mai are ce cere unui părinte nou. Celălalt
+drum către un `Profile` — adminul care introduce o familie de la telefon, prin `POST /profiles` —
+rămâne exact cum era, cu toate câmpurile opționale. Sunt două uși cu reguli diferite, fiindcă au
+surse de adevăr diferite. Un test ține fluxul adminului viu, ca să nu fie strâns din greșeală odată
+cu `register`.
+
 Protecția se compune per-handler, nu global:
 
 ```ts
@@ -330,7 +347,10 @@ cu un mesaj care nu spune de ce. Ăsta e și motivul pentru care nu există `@ne
 dispare cuvântul „tranzacțional": mesajul se scrie odată cu operațiunea care îl provoacă, sau
 niciunul dintre ele. Un serviciu care cheamă `send()` dintr-un handler HTTP a readus exact
 defecțiunea pentru care există coada: o factură care cade fiindcă furnizorul de email e picat.
-Coada e una singură, și pentru orice canal care s-ar adăuga — nu scrie a doua.
+Coada e una singură, și pentru orice canal care s-ar adăuga — nu scrie a doua. Adresa biroului se
+citește prin `officeAddress()` din `apps/api/src/modules/mail/office-address.ts`, nu din job-ul care
+o folosea prima: acum trimit acolo două lucruri diferite, iar al doilea n-avea de ce să importe din
+`class-session` ca să scrie un email.
 
 `MailService` e în `apps/api` fiindcă acolo trebuie să fie: ruta Nitro din
 `apps/web/server/api/contact.post.ts` se deployează pe Vercel ca funcție serverless, care nu vede
@@ -411,6 +431,14 @@ propoziție pentru toate. Un serviciu poate acum să-și numească cazul:
 propoziția în `MESSAGES` din `apps/web/app/composables/useApiError.ts` — altfel utilizatorul
 primește mesajul în engleză de la server.
 
+**Nu adăuga `enum`-uri noi în `@itbridge/types`; scrie uniuni de literali.** Pachetul e CommonJS,
+Vite îl prebundle-uiește, iar prebundler-ul a aruncat corpul unui `enum` nou ca fiind cod mort,
+păstrând linia `exports.ApprovalStatus = void 0` de deasupra. Importul s-a rezolvat la `undefined`,
+iar comparația a aruncat **înăuntrul unui `computed`**, tăcut — componenta care depindea de el pur și
+simplu nu s-a mai randat, fără nicio eroare în build și fără nimic roșu în teste. `ApprovalStatus` e
+acum `'PENDING' | 'APPROVED' | 'REJECTED'`, adică exact ce e pe sârmă. `Weekday` și `Role` rămân
+`enum` fiindcă sunt mai vechi și sunt folosite ca valori; nimic nou nu mai trebuie să fie.
+
 **`@itbridge/types` e CommonJS, iar Vite nu prebundle-uiește pachetele din workspace.** Le servește
 browserului ca sursă, deci `exports.Weekday = ...` ajunge într-un `<script type="module">` și pică
 cu „does not provide an export named 'Weekday'". Toată zona de admin importă o valoare din contract
@@ -423,10 +451,13 @@ depinde de `^build`, deci pornirea prin rădăcină construiește întâi `packa
 în workspace, Nuxt vede un `dist/` vechi sau inexistent și cade cu aceeași eroare de mai sus, care
 arată ca o problemă de cod și nu e.
 
-**Prețuri hardcodate, cu gaură la 3+ copii.** `apps/api/src/modules/invoice/invoice.service.ts:162` — 350 pentru un copil,
-250×2 pentru doi, nicio ramură pentru trei sau mai mulți, deci `totalAmount` rămâne 0 și
-reducerile îl duc pe negativ. Regula convenită e 350 pentru primul copil și 250 pentru fiecare
-frate — deci 600 pentru doi, nu 500; vezi [E15](docs/epics/E15-pricing-facturare.md).
+**Regula de preț stă într-un singur loc: `apps/api/src/modules/invoice/pricing.ts`.** 350 pentru
+primul copil, 250 pentru fiecare frate — deci 600 la doi, 850 la trei. Era scrisă de două ori, în
+serviciu și în seed, iar ambele copii aveau aceleași două bug-uri: doi copii se facturau cu 500, iar
+la trei sau mai mulți `totalAmount` rămânea 0 și reducerile îl duceau pe negativ. Dacă se schimbă
+prețul, se schimbă acolo; `apps/web/shared/courses.ts` ține aceleași cifre pentru site și trebuie
+potrivit odată cu el. Modelul pe module — 700, −25% de la al doilea copil — e altceva și e tot în
+[E15](docs/epics/E15-pricing-facturare.md).
 
 ## Infrastructură — stare reală
 
@@ -467,8 +498,10 @@ auto-importurile (`ref`, `useCookie`, `$fetch`) sunt puse la loc în `test/setup
 
 **Bug-urile cunoscute sunt scrise ca `it.failing`**, nu ca teste care cimentează comportamentul
 greșit. Un astfel de test trece cât timp bug-ul există și devine roșu în clipa în care e reparat —
-moment în care se șterge `.failing`. Vezi calculul de preț la trei copii și crearea de profiluri
-fără date de contact.
+moment în care se șterge `.failing`. Convenția și-a făcut deja treaba de două ori: testele de preț
+la doi și la trei copii au devenit teste de regresie când bug-ul a fost reparat, iar unul care
+cimenta comportamentul greșit — „charges 250 per child for two children" — a fost șters. Vezi
+crearea de profiluri fără date de contact pentru un exemplu încă viu.
 
 ## Planul de lucru
 

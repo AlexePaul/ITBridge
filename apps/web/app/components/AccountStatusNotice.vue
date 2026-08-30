@@ -41,7 +41,6 @@ import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 
-
 /**
  * What a parent sees while their account is still behind one of the two gates from E11/S2.
  *
