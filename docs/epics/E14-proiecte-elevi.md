@@ -268,7 +268,8 @@ intenționat și nu se strică.
 **Linia „ce s-a învățat" rămâne goală până există programa.** Textul vine din lecția din
 [E10](E10-curriculum-module.md), iar programa scrisă poate să nu existe până la finalul vacanței.
 Nu blochează nimic: emailul pleacă cu miniatură, titlu și link către portal, iar linia apare când
-modulele sunt introduse. E10 se construiește în jurul conținutului lipsă, nu îl așteaptă.
+modulele sunt introduse. Între timp [E10](E10-curriculum-module.md) a ieșit din MVP, deci „când" e
+mai departe decât părea — dar consecința e aceeași linie goală, nu un blocaj.
 
 **Consecință pentru [E07](E07-securitate-gdpr.md):** documentul propriului copil către propriul
 părinte e o livrare tranzacțională, nu marketing, deci nu se oprește din preferințele de frecvență —
@@ -380,8 +381,9 @@ care nu se face, nici `Staff`: agentul urcă sub un cont dedicat, iar butonul î
 E09, „Ce blochează, de fapt", și [Decizii luate](#decizii-luate).
 
 [E10](E10-curriculum-module.md) pentru modul și lecție în S1, și pentru „ce s-a învățat" din emailul
-trimis. Nu e blocantă: E10 nu mai așteaptă programa scrisă, iar E14 livrează cu linia goală până când
-modulele sunt introduse.
+trimis. Nu e blocantă, și e important că nu e: E10 a ieșit din MVP, iar E14 livrează cu linia goală
+și fără cele două relații până când modulele există. Aceeași alegere a făcut-o și
+[E12](E12-prezenta-orar.md) S1, care s-a livrat fără ele.
 
 [E12](E12-prezenta-orar.md) pentru ședință: `Project` se leagă de una, iar `ClassSession` se scrie
 acolo. Prezența nu mai ordonează nicio listă și nu se deduce din nimic — vezi

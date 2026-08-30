@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { createClassSession, createRoom, createTestApp, groupBody, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
 
 /**
  * Row-level authorization, verified over HTTP. The unit tests show the queries *contain* the
@@ -22,6 +22,8 @@ describe('Row-level authorization (e2e)', () => {
     let anaProfileId: number;
     let bogdanProfileId: number;
     let anaInvoiceId: number;
+    let mariaId: number;
+    let raduId: number;
 
     beforeAll(async () => {
         ({ app, dataSource } = await createTestApp());
@@ -44,8 +46,8 @@ describe('Row-level authorization (e2e)', () => {
         anaProfileId = await createProfile(ana, 'Ana', 'Pop', 'ana@example.com', '+40700000001');
         bogdanProfileId = await createProfile(bogdan, 'Bogdan', 'Ion', 'bogdan@example.com', '+40700000002');
 
-        await createChild(ana, anaProfileId, 'Maria');
-        await createChild(bogdan, bogdanProfileId, 'Radu');
+        mariaId = await createChild(ana, anaProfileId, 'Maria');
+        raduId = await createChild(bogdan, bogdanProfileId, 'Radu');
 
         anaInvoiceId = await createInvoice(anaProfileId);
     });
@@ -166,6 +168,106 @@ describe('Row-level authorization (e2e)', () => {
             const res = await request(app.getHttpServer()).get('/profiles').set('Authorization', admin.auth).expect(200);
             expect(res.body.length).toBeGreaterThanOrEqual(2);
         });
+    });
+
+    describe('attendance', () => {
+        // The register moved onto `ClassSession`, so the fixtures did too: a group, a session of
+        // that group, and marks posted against the session id. What is being checked has not
+        // moved — a parent reads their own child's attendance and nobody else's.
+        let classSessionId: number;
+
+        beforeEach(async () => {
+            const roomId = await createRoom(app, admin);
+            const group = await request(app.getHttpServer()).post('/groups').set('Authorization', admin.auth).send(groupBody(roomId)).expect(201);
+            const groupId = group.body.id as number;
+
+            // No endpoint puts a child in a group yet, so this is the direct route. Enrolment
+            // arrives with E11.
+            await dataSource.query('UPDATE children SET group_id = $1 WHERE id = ANY($2)', [groupId, [mariaId, raduId]]);
+
+            classSessionId = await createClassSession(dataSource, groupId);
+
+            await request(app.getHttpServer())
+                .post(`/attendance/session/${classSessionId}`)
+                .set('Authorization', admin.auth)
+                .send({
+                    childrenAttendance: [
+                        { childId: mariaId, present: true },
+                        { childId: raduId, present: false },
+                    ],
+                })
+                .expect(201);
+        });
+
+        it("a parent reads their own child's attendance, and gets the class along with it", async () => {
+            const res = await request(app.getHttpServer()).get(`/attendance/child/${mariaId}`).set('Authorization', ana.auth).expect(200);
+
+            expect(res.body).toHaveLength(1);
+            expect(res.body[0].present).toBe(true);
+            // The date and the hours are only on the session now — a record without it would say
+            // "present" with no answer to "at what?".
+            expect(res.body[0].classSession.id).toBe(classSessionId);
+            expect(res.body[0].classSession.date).toBe('2026-03-10');
+            expect(res.body[0].classSession.room.location).toBeTruthy();
+            expect(res.body[0].date).toBeUndefined();
+        });
+
+        it("a parent cannot read another parent's child's attendance", async () => {
+            await request(app.getHttpServer()).get(`/attendance/child/${raduId}`).set('Authorization', ana.auth).expect(403);
+        });
+
+        it("an admin reads anyone's attendance", async () => {
+            await request(app.getHttpServer()).get(`/attendance/child/${raduId}`).set('Authorization', admin.auth).expect(200);
+        });
+
+        it('a parent cannot mark attendance', async () => {
+            await request(app.getHttpServer())
+                .post(`/attendance/session/${classSessionId}`)
+                .set('Authorization', ana.auth)
+                .send({ childrenAttendance: [{ childId: mariaId, present: true }] })
+                .expect(403);
+        });
+
+        it('marking the same session twice is refused', async () => {
+            await request(app.getHttpServer())
+                .post(`/attendance/session/${classSessionId}`)
+                .set('Authorization', admin.auth)
+                .send({
+                    childrenAttendance: [
+                        { childId: mariaId, present: true },
+                        { childId: raduId, present: true },
+                    ],
+                })
+                .expect(409);
+        });
+
+        it('a class session that does not exist is a 404, not a row written against nothing', async () => {
+            await request(app.getHttpServer())
+                .post('/attendance/session/999999')
+                .set('Authorization', admin.auth)
+                .send({ childrenAttendance: [{ childId: mariaId, present: true }] })
+                .expect(404);
+        });
+
+        it('a cancelled session cannot be marked', async () => {
+            const cancelled = await createClassSession(dataSource, (await groupOf(mariaId)) as number, { date: '2026-03-17', status: 'cancelled' });
+
+            await request(app.getHttpServer())
+                .post(`/attendance/session/${cancelled}`)
+                .set('Authorization', admin.auth)
+                .send({
+                    childrenAttendance: [
+                        { childId: mariaId, present: true },
+                        { childId: raduId, present: true },
+                    ],
+                })
+                .expect(400);
+        });
+
+        const groupOf = async (childId: number): Promise<number | null> => {
+            const rows = await dataSource.query<{ group_id: number | null }[]>('SELECT group_id FROM children WHERE id = $1', [childId]);
+            return rows[0].group_id;
+        };
     });
 
     describe('admin-only endpoints', () => {

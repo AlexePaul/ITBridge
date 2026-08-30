@@ -20,11 +20,13 @@ import type { Group } from './entities/group.entity';
 import type { Location } from './entities/location.entity';
 import type { Room } from './entities/room.entity';
 import type { Attendance } from './entities/attendance.entity';
+import type { ClassSession } from './entities/class-session.entity';
 import type { Invoice } from './entities/invoice.entity';
 import type { Payment } from './entities/payment.entity';
 import type { Discount } from './entities/discount.entity';
 import type { Weekday } from './enum/weekday.enum';
 import type { AttendanceType } from './enum/attendance-type.enum';
+import type { ClassSessionStatus } from './enum/class-session-status.enum';
 import type { Role } from './enum/role.enum';
 
 /** Fails compilation when `Actual` does not satisfy `Expected` on the shared fields. */
@@ -39,6 +41,7 @@ type _Child = Check<Pick<Wire.Child, 'id' | 'firstName' | 'lastName' | 'birthDat
 type _Group = Check<Omit<Wire.Group, never>, Omit<Serialized<Group>, 'children'>>;
 type _Location = Check<Omit<Wire.Location, never>, Omit<Serialized<Location>, 'rooms'>>;
 type _Room = Check<Omit<Wire.Room, never>, Omit<Serialized<Room>, 'groups'>>;
+type _ClassSession = Check<Omit<Wire.ClassSession, never>, Omit<Serialized<ClassSession>, 'attendances'>>;
 
 // The enums have to agree value for value, not merely be enums of the same shape. Two independent
 // declarations of "ISO weekday" would otherwise be free to drift — one starting at 0, say.
@@ -46,12 +49,19 @@ type _Weekday = Check<Wire.Weekday, Weekday>;
 type _WeekdayBack = Check<Weekday, Wire.Weekday>;
 type _AttendanceType = Check<Wire.AttendanceType, AttendanceType>;
 type _AttendanceTypeBack = Check<AttendanceType, Wire.AttendanceType>;
+type _ClassSessionStatus = Check<Wire.ClassSessionStatus, ClassSessionStatus>;
+type _ClassSessionStatusBack = Check<ClassSessionStatus, Wire.ClassSessionStatus>;
 type _Role = Check<Wire.Role, Role>;
 type _RoleBack = Check<Role, Wire.Role>;
-type _Attendance = Check<Pick<Wire.Attendance, 'id' | 'date' | 'startTime' | 'present'>, Pick<Serialized<Attendance>, 'id' | 'date' | 'startTime' | 'present'>>;
+// `date` and `startTime` used to be checked here. They are on the session now, not on the mark.
+type _Attendance = Check<Pick<Wire.Attendance, 'id' | 'type' | 'present'>, Pick<Serialized<Attendance>, 'id' | 'type' | 'present'>>;
 type _Invoice = Check<
     Pick<Wire.Invoice, 'id' | 'amount' | 'dateIssued' | 'monthIssued' | 'status'>,
     Pick<Serialized<Invoice>, 'id' | 'amount' | 'dateIssued' | 'monthIssued' | 'status'>
 >;
 type _Payment = Check<Pick<Wire.Payment, 'id' | 'method' | 'date'>, Pick<Serialized<Payment>, 'id' | 'method' | 'date'>>;
 type _Discount = Check<Pick<Wire.Discount, 'id' | 'name' | 'value' | 'monthIssued'>, Pick<Serialized<Discount>, 'id' | 'name' | 'value' | 'monthIssued'>>;
+
+// `OutboxMessage` has no entry here on purpose: nothing serves it. It is an internal queue, drained
+// by a scheduler, and E17/S3 is explicit that the operation which queues a message does not wait
+// for it. The delivery record an admin reads is E17/S5, and that is when it acquires a wire shape.

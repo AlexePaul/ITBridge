@@ -2,11 +2,25 @@
 
 **Status:** propus · **Pistă:** Domeniu · **Depinde de:** E04 · **Blochează:** E11, E13, E14, E15
 
-**Nu mai e blocat.** Programa scrisă încă nu există și poate să nu existe până la finalul vacanței.
-Nu se așteaptă după ea: structura e cunoscută, iar decizia luată e să se construiască în jurul
-conținutului lipsă — entitățile, ecranele de admin prin care se introduc modulele și lecțiile,
-expunerea publică. Programa intră prin aceleași ecrane când e scrisă. Ce rămâne efectiv de așteptat
-sunt exact două lucruri, enumerate în [Decizii luate](#decizii-luate).
+**Iese din MVP, respins de patron.** Nu e anulat și fișierul rămâne aici: decizia e despre moment,
+nu despre scop. Motivul e o neînțelegere de cuvânt — prin „curriculum" patronul a înțeles **programa
+publicată părinților**, ce se învață ședință cu ședință, ca material de arătat afară, iar aia nu e
+MVP. Nici catalogul de module ca structură internă, care e ce propune epicul, nu se sprijină pe
+realitatea de azi: unitatea de facturare nu e modulul, ci luna. Vezi
+[docs/epics/README.md](README.md), „Ordinea recomandată".
+
+Restul fișierului se citește cu asta în minte. În particular, ce scria aici înainte — că epicul
+**nu mai e blocat**, fiindcă structura e cunoscută și se poate construi în jurul conținutului lipsă
+— rămâne adevărat și e motivul pentru care nimic de mai jos nu se rescrie: în ziua în care revine,
+revine cu argumentul intact. Ce s-a schimbat nu e fezabilitatea, e prioritatea.
+
+Două consecințe imediate, ca să nu fie descoperite mai târziu:
+
+- **[E12](E12-prezenta-orar.md) S1 s-a livrat fără modul și fără lecție.** `ClassSession` nu are
+  relațiile pe care le presupune epicul ăsta, iar generarea merge pe un orizont rulant de opt
+  săptămâni în loc de „pe durata modulului". Când E10 revine, alea se atașează ca relații nullable.
+- **E08 S3 nu-și mai primește nivelul din catalog de aici.** Singurul lucru care mai poate închide
+  story-ul e profesorul principal din [E09](E09-personal-roluri.md).
 
 ## Problemă
 
@@ -23,8 +37,8 @@ profesorul principal — iar primul vine din acest epic. Comentariul de pe `minA
 (`apps/api/src/entities/group.entity.ts:50-52`) confirmă direcția: `int` acum, cu perechea
 posibil înlocuită de nivelul din catalog la E10. Motivul pentru care vârstele au rămas totuși
 câmpuri e scris în [E08](E08-multi-locatie.md), S3 — legarea lor de catalog acum ar fi însemnat să
-blocheze E08 de un epic blocat el însuși de conținut. Deci și E08 stă până pornește E10 sau
-[E09](E09-personal-roluri.md) — iar E10 nu mai așteaptă programa, deci deblocarea vine de aici.
+blocheze E08 de un epic blocat el însuși de conținut. Deci și E08 stătea până pornea E10 sau
+[E09](E09-personal-roluri.md) — iar acum, cu E10 în afara MVP-ului, deblocarea vine exclusiv din E09.
 
 Asta blochează trei lucruri simultan:
 
@@ -122,8 +136,9 @@ propriu, indexabil — publicat când are ce indexa.
 **Catalogul e muncă de conținut, nu de programare — dar nu mai e blocaj.** Structura se face în
 câteva zile; scrierea programei pentru fiecare modul, cu obiective și rezultate, ia mult mai mult și
 nu poate fi delegată unui dezvoltator. Ce s-a schimbat e că cele două nu mai stau în serie:
-entitățile, ecranele de admin și expunerea publică se construiesc acum, iar programa se introduce
-prin ele când e scrisă.
+entitățile, ecranele de admin și expunerea publică se pot construi fără programă, iar ea se
+introduce prin ele când e scrisă. „Se pot", nu „se construiesc": epicul a ieșit între timp din MVP,
+deci nu se lucrează la el — vezi nota din capul fișierului.
 
 Riscul rămas e altul, și e de disciplină: **un catalog gol arată la fel cu unul terminat.** Ecranele
 merg, API-ul răspunde, testele trec — și nu e nimic înăuntru. De aceea acceptanța fiecărui story se
@@ -162,6 +177,11 @@ Efectul asupra structurii: **calendarul școlar devine date de bază, nu o facil
 [E12](E12-prezenta-orar.md), S2 — calendarul de vacanțe — nu mai e opțional și nici secundar: el
 definește când începe și se termină fiecare modul, deci și ce se facturează. Cele două epicuri se
 ating aici și merită implementate în aceeași perioadă.
+
+**Legătura asta a căzut odată cu ieșirea din MVP.** Fără module de delimitat, calendarul de vacanțe
+redevine ce părea la început — o listă de zile în care nu se ține curs — și nu mai atinge facturarea.
+Argumentul de mai sus revine intact în ziua în care revine E10; vezi
+[E12](E12-prezenta-orar.md), „Decizii luate".
 
 Structura anuală, pentru referință:
 

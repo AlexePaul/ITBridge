@@ -6,6 +6,7 @@ export * from './child';
 export * from './location';
 export * from './room';
 export * from './group';
+export * from './class-session';
 export * from './attendance';
 export * from './invoice';
 export * from './payment';

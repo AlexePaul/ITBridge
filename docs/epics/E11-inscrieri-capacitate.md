@@ -263,6 +263,11 @@ manuală.
 [E08](E08-multi-locatie.md) pentru sală și capacitate, [E09](E09-personal-roluri.md) pentru profesor,
 [E10](E10-curriculum-module.md) pentru modul.
 
+**E10 a ieșit din MVP, și asta nu oprește E11.** Singurul loc în care E11 îl folosește sunt
+cerințele prealabile ale modulului din S6, iar acolo verificarea e un avertisment, nu un blocaj:
+S6 se livrează pe vârstă și pe capacitate, iar cerințele prealabile se adaugă la aceeași verificare
+în ziua în care există module. Restul epicului nu atinge catalogul deloc.
+
 **[E17](E17-comunicare-notificari.md) e necesar pentru S2 și S3.** La S2, linkul de confirmare a
 emailului e un mesaj trimis; fără canal, contul nu poate fi confirmat, deci nici activat. La S3,
 acceptanța cere ca eliberarea unui loc să declanșeze notificarea în sub un minut. Fără E17, S3 poate

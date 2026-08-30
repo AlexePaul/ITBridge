@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayNotEmpty, IsArray, IsBoolean, IsNumber, IsString, Matches, ValidateNested } from 'class-validator';
+import { ArrayNotEmpty, IsArray, IsBoolean, IsNumber, ValidateNested } from 'class-validator';
 
 class ChildAttendanceDto {
     @ApiProperty({ example: 1, description: 'ID of the child' })
@@ -12,6 +12,15 @@ class ChildAttendanceDto {
     present: boolean;
 }
 
+/**
+ * The body carries only who was there. **Which class it was is the `classSessionId` in the path.**
+ *
+ * `date` and `startTime` used to live here, and the pair identified the class by description: the
+ * caller told the server what hour it thought the group met at, and the server believed it. Nothing
+ * checked that a class was scheduled then, two callers could disagree by a minute and produce two
+ * different classes, and a cancelled session was invisible to the whole flow. The session is a row
+ * now, so the client names it instead of describing it.
+ */
 export class markAttendanceDto {
     @ApiProperty({
         // No `type` here: ChildAttendanceDto has no such field, the service decides regular versus
@@ -31,14 +40,4 @@ export class markAttendanceDto {
     @ValidateNested({ each: true })
     @Type(() => ChildAttendanceDto)
     childrenAttendance: ChildAttendanceDto[];
-
-    @ApiProperty({ example: '2024-10-01', description: 'Date of attendance in YYYY-MM-DD format' })
-    @IsString()
-    @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'date must be in YYYY-MM-DD format' })
-    date: string;
-
-    @ApiProperty({ example: '09:00', description: 'Start time in HH:MM format' })
-    @IsString()
-    @Matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, { message: 'startTime must be in HH:MM format' })
-    startTime: string;
 }

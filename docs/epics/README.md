@@ -63,11 +63,41 @@ Tot din E08, grupa a devenit descriptibilă: are nume, sală — deci implicit l
 ([E10](E10-curriculum-module.md)) și profesorul principal ([E09](E09-personal-roluri.md)), deci
 epicul stă până pornește unul dintre ele.
 
-Amândouă s-au deblocat între timp, din decizii, nu din cod. [E10](E10-curriculum-module.md) nu mai
-așteaptă programa: structura e cunoscută, deci entitățile, ecranele de admin și expunerea publică se
-construiesc acum, iar ce lipsește e doar conținutul de pus în ele. Iar
-[E09](E09-personal-roluri.md) s-a micșorat: nu se implementează rol de profesor, dar `Staff` și
-alocarea profesorului pe grupă rămân — exact bucata de care are nevoie E08 S3.
+Cele două au luat între timp drumuri opuse, amândouă din decizii, nu din cod.
+[E09](E09-personal-roluri.md) s-a micșorat și a rămas: nu se implementează rol de profesor, dar
+`Staff` și alocarea profesorului pe grupă rămân — exact bucata de care are nevoie E08 S3.
+[E10](E10-curriculum-module.md), în schimb, **a ieșit din MVP**, respins de patron — motivul e la
+[Ordinea recomandată](#ordinea-recomandată). Consecința pentru E08 S3 e că nivelul din catalog nu
+mai vine de nicăieri: singurul lucru care mai poate închide story-ul e profesorul principal din E09,
+iar `minAge`/`maxAge` rămân câmpuri, nu o consecință a nivelului.
+
+E12 a început, și a început cu partea de care atârnă restul: **ședința e acum un rând în tabel.**
+`ClassSession` (`class_sessions`) ține grupa, data, intervalul, sala și starea
+`scheduled | held | cancelled`, se generează idempotent din orarul grupei pe un orizont rulant de
+opt săptămâni, iar prezența se leagă de ea — unicitatea a trecut de la `(copil, dată, oră)` la
+`(copil, ședință)`. Migrarea a construit ședințele din combinațiile deja existente în `attendances`,
+fără pierdere de date. Nu există legătură la modul sau lecție: [E10](E10-curriculum-module.md) a
+ieșit din MVP, vezi [Ordinea recomandată](#ordinea-recomandată).
+
+Odată cu ea a intrat și prima bucată din [E17](E17-comunicare-notificari.md), fiindcă jobul cerut
+explicit de patron nu avea pe unde pleca: la 10:00, ședințele de ieri rămase `scheduled` și fără
+nicio prezență se adună într-un singur email către adresa școlii, iar în zilele în care totul e
+marcat nu pleacă nimic. `apps/api` nu putea trimite nimic până atunci — Resend era doar în ruta
+Nitro a formularului de contact, care rulează pe Vercel și nu vede baza de date. Deci s-au construit
+`MailService` și tabelul `outbox`, cât a cerut jobul; **scheduler-ul care golește coada nu rulează
+în producție până la [E01](E01-infrastructura-medii.md) S4.**
+
+Tot aici s-au reparat două bug-uri mai vechi decât branch-ul, amândouă în calendarul părintelui.
+Prezența stătea într-un cookie: măsurat pe API-ul real, șapte ședințe înseamnă 11,7 KB de JSON și
+18,6 KB URI-encoded, față de limita de ~4 KB, deci browserul arunca tăcut cookie-ul după vreo
+ședință și calendarul se randa gol — se citea ca „copilul n-a venit niciodată". Iar culorile se
+ghiceau din `Group.weekday`: o zi din trecut care se potrivea cu ziua grupei și nu avea înregistrare
+devenea roșu, „absent", inclusiv în luni în care nu existase nicio ședință. Acum se citesc ședințele,
+iar „nemarcat" are culoare proprie și o legendă care spune că nu înseamnă absență.
+
+Ce nu a intrat din E12: calendarul de vacanțe, absențele anunțate, recuperările, ecranul de anulare
+și de mutare — anularea individuală există doar prin API, fără ecran și fără notificare —, marcarea
+pe telefon și notificările către părinți. Ultimele cer [E17](E17-comunicare-notificari.md) întreg.
 
 Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane”.
 
@@ -172,12 +202,27 @@ singură ordine — E08 S1–S5 (livrate) → E09 S1 → E09 S4 → E08 S3 înch
 împreună, și fără ele restul se construiește pe nisip. E04 în special: șapte epic-uri schimbă
 schema, iar cât timp rulăm cu `synchronize: true` fiecare dintre ele e o ruletă.
 
-**Val 2 — fundația de domeniu.** E05, E08, E10. Multi-locația și modelul de curriculum sunt
-schimbări structurale. Făcute după E11 sau E15 înseamnă rescriere, nu adăugare. E05 e livrat, E08 e
-în lucru; E10 e cel care rămâne — și **nu mai e blocat.** Structura e decisă (cinci module pe an, 6-8
-ședințe, delimitate de vacanțe), deci entitățile, ecranele de admin prin care se introduc modulele și
-lecțiile și expunerea publică se construiesc acum. Ce lipsește e programa propriu-zisă, deci singurul
-lucru care așteaptă e seed-ul cu date reale — un fișier de date, nu o piesă de arhitectură.
+**Val 2 — fundația de domeniu.** E05 și E08. Multi-locația e o schimbare structurală: făcută după
+E11 sau E15 înseamnă rescriere, nu adăugare. E05 e livrat, E08 e în lucru.
+
+**[E10](E10-curriculum-module.md) a ieșit din val, respins de patron ca ne-MVP.** Rândurile de mai
+sus spuneau până acum că e piesa care rămâne de făcut în valul 2 și că „nu mai e blocat" — nu mai e
+adevărat, iar epicul se citește cu asta în minte. Motivul e o neînțelegere de cuvânt, nu o
+schimbare de prioritate: prin „curriculum" patronul a înțeles **programa publicată părinților** —
+ce se învață, ședință cu ședință, ca material de arătat afară —, iar aia nu e MVP. Ce propunea
+epicul, catalogul de module ca structură internă, nu se sprijină nici el pe realitatea de azi:
+**unitatea de facturare nu e modulul, ci luna.** Codul facturează `monthIssued` de forma `'YYYY-MM'`,
+350 de lei pentru un copil și 250 de fiecare la doi
+(`apps/api/src/modules/invoice/invoice.service.ts`), și asta rămâne.
+
+Consecința pentru restul hărții, ca să nu fie descoperită mai târziu: rândurile „unitate de
+facturare" și „preț" din [Decizii deja luate](#decizii-deja-luate) — modulul școlar, 700 de lei fix —
+descriu o **țintă**, nu practica de azi, iar tot ce derivă din ele în
+[E15](E15-pricing-facturare.md) (pro-rata pe ședințele rămase, a doua tranșă la mijlocul modulului)
+așteaptă aceeași discuție. Nu se șterg de aici: sunt decizii luate cu patronul, doar că despre un
+model care nu a intrat încă. [E13](E13-progres-evaluare.md) și [E14](E14-proiecte-elevi.md), care
+depind de E10, rămân unde sunt. Iar E08 S3 nu-și mai primește nivelul din catalog — vezi
+[Stare curentă](#stare-curentă).
 
 **Val 3 — două piste în paralel, plus canalul.** Operațiuni (E09, E11, E12) și public (E18, E19)
 nu se ating: sunt fișiere diferite și obiective diferite, se pot duce simultan. E09 s-a micșorat:
@@ -188,6 +233,11 @@ listă de așteptare care nu anunță pe nimeni, iar [E12](E12-prezenta-orar.md)
 anunțul de anulare și fără cel de absență. E17 depinde doar de [E05](E05-robustete-backend.md), care
 e livrat, și de [E06](E06-observabilitate-operare.md), care oricum se strecoară devreme — deci nimic
 nu-l ține în val 4.
+
+Ordinea asta s-a rupt deja, și nu în rău: E12 S1 a intrat înaintea lui E11, iar odată cu el bucăți
+din E17 S1 și S3 — vezi [Stare curentă](#stare-curentă). Ședința ca entitate nu avea nevoie de
+înscrieri ca să fie corectă, iar jobul zilnic a tras canalul după el. Ce rămâne din valul 3 e
+neatins: E09, E11, restul lui E12, E18 S4–S5, E19, și S2 din E17.
 
 Varianta cealaltă e legitimă: E11 și E12 se pot livra fără partea de notificare. Atunci însă se
 scrie de la început că acele criterii de acceptanță rămân deschise până în val 4, ca revenirea la
@@ -206,7 +256,10 @@ el, deci nu produc decalajul care apare la E11 și E12.
 
 E06 și E07 se pot strecura oriunde după val 1, și cu cât mai devreme cu atât mai bine.
 
-Primele șase luni, realist: **val 1 complet, val 2 complet, plus E18 și E15.** Restul e an doi.
+Primele șase luni, realist: **val 1 complet, val 2 complet, plus E18.** E15 era și el pe
+listă și rămâne posibil, dar nu în forma din tabelul de decizii: fără E10, ce se poate face acum e
+reparat calculul lunar de azi — gaura de la trei copii și în jos —, nu trecerea la facturare pe
+modul. Restul e an doi.
 
 ## Legendă status
 
@@ -220,12 +273,30 @@ rezervă: branch protection pe `main` se activează din Settings, nu din repo.
 
 [E08](E08-multi-locatie.md) e `în lucru`, cu S1, S2, S4 și S5 livrate și S3 parțial: grupa are nume,
 sală, locație și capacitate, dar nu are încă nivel din catalog ([E10](E10-curriculum-module.md)) și
-nici profesor principal ([E09](E09-personal-roluri.md)). Facturile și plățile nu respectă selectorul
+nici profesor principal ([E09](E09-personal-roluri.md)) — iar cu E10 în afara MVP-ului, singurul
+dintre cele două care mai poate veni e al doilea. Facturile și plățile nu respectă selectorul
 de locație, intenționat — sunt legate de părinte, iar un părinte poate avea copii la ambele adrese.
 Sălile au 10 locuri la ambele locații — capacitatea, numele și starea fiecărei săli se editează din
 `/admin/locations`, fără migrare. Întrebarea „câte săli are fiecare locație" s-a închis cu **una**,
 exact ce presupune migrarea; 10 locuri și o sală sunt de acum decizie, nu presupunere, iar a doua
 sală se adaugă din aceeași pagină în ziua în care apare.
+
+[E12](E12-prezenta-orar.md) e `în lucru`, cu S1 livrat într-o formă redusă: ședința e o entitate,
+prezența se leagă de ea, iar jobul zilnic despre prezența nemarcată pune mesajul în coadă. Fără
+legătură la modul sau lecție, fiindcă [E10](E10-curriculum-module.md) a ieșit din MVP. Restul —
+vacanțe (S2), absențe anunțate (S3), recuperări (S4), anulări și mutări cu ecran și notificare (S5),
+marcarea pe telefon (S6), notificările către părinți (S7) — e neînceput. Anularea cu notificare din
+S5 și tot S7 cer [E17](E17-comunicare-notificari.md) întreg, iar restul e în afara tăieturii de MVP
+agreate cu patronul.
+
+[E17](E17-comunicare-notificari.md) e `în lucru`, dar numai cât a cerut jobul de mai sus. Din S1
+există `MailService` în `apps/api`, cu cheia și expeditorul lui, separate de ale formularului
+public; din S3 există tabelul `outbox`, scrierea în tranzacția apelantului și scheduler-ul cu
+`FOR UPDATE SKIP LOCKED` și pauză crescătoare. **Scheduler-ul nu rulează în producție până la
+[E01](E01-infrastructura-medii.md) S4** — nu există instanța și nici fișierul de ecosistem care să-l
+fixeze pe una singură. Nu există șabloane (S2), preferințe și dezabonare (S4), evidența pe care o
+citește un admin (S5), rezumate (S6), anunțuri (S7) și trimitere pe grupă (S8). Singurul destinatar
+de până acum e adresa școlii: **niciun mesaj nu a plecat încă spre un părinte.**
 
 [E01](E01-infrastructura-medii.md) și [E04](E04-migrari-date.md) sunt `în lucru`, amândouă blocate
 în același punct: **nu există instanța EC2.** La E01 rămâne S4 (deploy) — S6, curățarea de
@@ -250,10 +321,11 @@ publică și oprite amândouă în același punct:
 Deci ordinea firească e [E01](E01-infrastructura-medii.md) S4 înaintea lui E18 S4 — un portal fără
 API nu se poate termina.
 
-[E10](E10-curriculum-module.md) rămâne `propus`, dar nu mai e blocat de conținut: structura
-modulului e decisă, deci se construiesc entitățile, ecranele de admin și expunerea publică, iar
-programa se introduce prin ele când e scrisă. Blocajul de dinainte — „nu putem începe până nu există
-curriculum" — a dispărut; a rămas doar un seed fără date reale.
+[E10](E10-curriculum-module.md) rămâne `propus` și **iese din MVP**, respins de patron. Nu e anulat
+ca E22 de mai jos și fișierul rămâne unde e — decizia e despre moment, nu despre scop —, dar nu mai
+are val. Motivul, pe larg, la [Ordinea recomandată](#ordinea-recomandată): prin „curriculum"
+patronul a înțeles programa publicată părinților, care nu e MVP, iar facturarea pe modul nu e
+realitatea de azi.
 
 [E09](E09-personal-roluri.md) rămâne `propus` și **s-a micșorat**: rolurile `TEACHER` și
 `LOCATION_MANAGER` nu se implementează acum, deci cad și restrângerea pe locație, și dependența de
@@ -285,10 +357,19 @@ Consemnate aici ca să nu fie relitigate în fiecare epic. Fiecare e detaliată,
 | Frontend pe Vercel                   | Rămâne.                                                                                                                                       | [E01](E01-infrastructura-medii.md)  |
 | pnpm workspaces plus Turborepo       | Lockfile unic. `pnpm dev` pornește ambele; `dev:api` și `dev:web` separat.                                                                    | [E02](E02-monorepo-tooling.md)      |
 | Fără date de producție de păstrat    | Baza se reconstruiește de la zero. Simplifică mult E04, E11 și E12.                                                                           | [E04](E04-migrari-date.md)          |
-| Joburi de fundal                     | Tabel outbox în Postgres, cu scheduler în procesul API. Fără Redis, fără BullMQ; mecanismul de scheduler se fixează în E17 S3.                | [E17](E17-comunicare-notificari.md) |
+| Joburi de fundal                     | Tabel outbox în Postgres, cu scheduler în procesul API. Fără Redis, fără BullMQ. Construit, dar fără unde să ruleze continuu până la E01 S4.  | [E17](E17-comunicare-notificari.md) |
 | O sală per locație, 10 locuri        | Valoare implicită, nu regulă: numărul de locuri, numele și starea fiecărei săli se editează din `/admin/locations`, fără migrare și fără cod. | [E08](E08-multi-locatie.md)         |
 
 ### Model de business
+
+**Fiecare rând care spune „modul" descrie o țintă, nu practica de azi.** Unitatea de facturare,
+prețul de 700 de lei, tranșele, pro-rata la înscrierea la mijloc, abandonul la mijloc și cele două
+recuperări per modul au fost decise cu patronul, dar se sprijină toate pe
+[E10](E10-curriculum-module.md), care a ieșit din MVP — vezi
+[Ordinea recomandată](#ordinea-recomandată). Ce facturează codul azi e luna: `monthIssued` de forma
+`'YYYY-MM'`, 350 de lei pentru un copil și 250 de fiecare la doi
+(`apps/api/src/modules/invoice/invoice.service.ts`), deci nici reducerea de frați nu are azi forma
+din tabel. Rândurile rămân aici fiindcă sunt decizii, nu propuneri; ce s-a schimbat e când intră.
 
 | Decizie                      | Valoare                                                                                                        | Epic                               |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------- |

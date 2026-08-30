@@ -28,3 +28,9 @@ process.env.AWS_SECRET_ACCESS_KEY ??= 'dev_password';
 
 // Off unless a suite asks for it; see `createTestApp`.
 process.env.RATE_LIMIT_ENABLED = 'false';
+
+// The outbox scheduler stays off in the integration suites. It is a background timer that claims
+// rows and moves `attempts` and `nextAttemptAt` forward; a pass landing in the middle of a test
+// would change the table underneath its assertions, intermittently and only on a slow machine.
+// Queueing is unaffected, so a suite can still check that a message was written.
+process.env.MAIL_OUTBOX_ENABLED = 'false';
