@@ -62,22 +62,6 @@ describe('InvoiceService', () => {
             discountRepo.find!.mockResolvedValue([]);
         });
 
-        it('charges 350 for a single child', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(1));
-            await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(350);
-        });
-
-        it('charges 250 per child for two children, i.e. 500', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(2));
-            await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(500);
-        });
-
-        it('subtracts the discounts for that month', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(1));
-            discountRepo.find!.mockResolvedValue([{ value: 50 }, { value: 25 }]);
-            await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(275);
-        });
-
         it('filters discounts by parent and month', async () => {
             profileRepo.findOne!.mockResolvedValue(profileWithChildren(1, 7));
             await service.calculateAmount(7, '2026-03');
@@ -96,36 +80,42 @@ describe('InvoiceService', () => {
             await expect(service.calculateAmount(1, '2026-03')).rejects.toThrow(NotFoundException);
         });
 
-        // --- Known bug: there is no branch for three or more children. ---
-        //
-        // The tests below describe the *desired* behaviour, not the current one, exactly as the
-        // "Risks" section of E03 asks: a test written over the bug would cement the bug.
-        //
-        // `it.failing` passes while the assertion fails and turns red the moment someone fixes the
-        // calculation — at which point `.failing` gets deleted. So CI stays green while the bug is
-        // documented executably, not in a comment nobody reads.
-        //
-        // The final pricing lands in E15 (700 lei per module, -25% from the second child on), so we
-        // do not invent a formula here: we only pin down that the result must never be 0 or
-        // negative.
+        // These three were `it.failing` for as long as the bug lived: two children were charged
+        // 500 instead of 600, and three or more had no branch at all, so the total stayed 0 and a
+        // discount then took it negative. They are ordinary regression tests now.
 
-        it.failing('should charge something, not 0, for three children', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(3));
-            await expect(service.calculateAmount(1, '2026-03')).resolves.toBeGreaterThan(0);
+        it('charges 350 for one child', async () => {
+            profileRepo.findOne!.mockResolvedValue(profileWithChildren(1));
+            await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(350);
         });
 
-        it.failing('must never charge a negative amount when discounts apply to three children', async () => {
-            profileRepo.findOne!.mockResolvedValue(profileWithChildren(3));
-            discountRepo.find!.mockResolvedValue([{ value: 50 }]);
-            await expect(service.calculateAmount(1, '2026-03')).resolves.toBeGreaterThanOrEqual(0);
+        // 350 for the first child plus 250 for the sibling. It used to compute 250 x 2, which is
+        // the number the public site has never shown.
+        it('charges 600 for two children, not 500', async () => {
+            profileRepo.findOne!.mockResolvedValue(profileWithChildren(2));
+            await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(600);
         });
 
-        it('documents the current behaviour for three children: 0, and negative once discounted', async () => {
+        it('charges 850 for three children, and keeps going for four', async () => {
             profileRepo.findOne!.mockResolvedValue(profileWithChildren(3));
+            await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(850);
+
+            profileRepo.findOne!.mockResolvedValue(profileWithChildren(4));
+            await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(1100);
+        });
+
+        it('subtracts the discounts for that month', async () => {
+            profileRepo.findOne!.mockResolvedValue(profileWithChildren(1));
+            discountRepo.find!.mockResolvedValue([{ value: 50 }, { value: 25 }]);
+            await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(275);
+        });
+
+        // A discount larger than the invoice is a typo, not a credit note. Nothing downstream
+        // expects a negative invoice, and the school has never meant to issue one.
+        it('never returns a negative amount, however large the discount', async () => {
+            profileRepo.findOne!.mockResolvedValue(profileWithChildren(1));
+            discountRepo.find!.mockResolvedValue([{ value: 5000 }]);
             await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(0);
-
-            discountRepo.find!.mockResolvedValue([{ value: 50 }]);
-            await expect(service.calculateAmount(1, '2026-03')).resolves.toBe(-50);
         });
     });
 

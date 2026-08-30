@@ -21,6 +21,7 @@ import { AttendanceType } from '../enum/attendance-type.enum';
 import { ClassSessionStatus } from '../enum/class-session-status.enum';
 import { DEFAULT_HORIZON_WEEKS } from '../modules/class-session/class-session.service';
 import { addDays, occurrencesOf } from '../modules/class-session/class-session.dates';
+import { monthlyAmountFor } from '../modules/invoice/pricing';
 
 /**
  * Fills a local database with data that looks like the real thing, so the admin screens are not
@@ -344,7 +345,9 @@ export async function seed(dataSource: DataSource): Promise<void> {
     for (let i = 0; i < profiles.length; i++) {
         const parent = profiles[i];
         const childCount = children.filter((c) => c.parent.id === parent.id).length;
-        const amount = childCount === 1 ? 350 : childCount === 2 ? 500 : 0;
+        // Same rule the invoice service uses, not a second copy of it — the copy is what let the
+        // seed and the service disagree, both wrongly, for as long as they did.
+        const amount = monthlyAmountFor(childCount);
 
         // `@Unique(['parent', 'monthIssued'])` means one invoice per parent per month.
         for (let back = 0; back < 3; back++) {

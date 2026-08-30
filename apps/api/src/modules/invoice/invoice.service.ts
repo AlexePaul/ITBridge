@@ -11,6 +11,7 @@ import { PdfService } from './pdf.service';
 import { Discount } from 'src/entities/discount.entity';
 import { GetPreviewDto } from './dto/getPreview.dto';
 import { ObjectNotFoundError, S3Service } from './s3.service';
+import { amountAfterDiscounts } from './pricing';
 
 /**
  * Where an invoice's PDF lives in object storage.
@@ -158,16 +159,15 @@ export class InvoiceService {
         if (profile.children.length === 0) {
             throw new NotFoundException('Parent has no children');
         }
-        let totalAmount = 0;
-        if (profile.children.length === 1) totalAmount = 350;
-        else if (profile.children.length === 2) totalAmount = 250 * profile.children.length;
-
         const discounts = await this.discountRepository.find({ where: { parent: { id: profile.id }, monthIssued: monthIssued } });
-        for (const discount of discounts) {
-            totalAmount -= discount.value;
-        }
 
-        return totalAmount;
+        // The rule itself lives in `pricing.ts`, with the reasoning. It used to be inline here and,
+        // separately, in the seed — where it charged 500 for two children instead of 600 and
+        // nothing at all for three.
+        return amountAfterDiscounts(
+            profile.children.length,
+            discounts.map((discount) => discount.value),
+        );
     }
 
     async getPreview(dto: GetPreviewDto) {
