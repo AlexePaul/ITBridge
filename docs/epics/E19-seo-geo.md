@@ -36,13 +36,13 @@ Punctele tăiate au fost rezolvate; sunt lăsate ca să se vadă de unde s-a ple
   dintr-un șablon.
 
 **GEO** — optimizarea pentru motoarele generative — e o problemă înrudită, dar nu identică. Când un
-părinte întreabă un asistent AI "unde îmi duc copilul de 9 ani să învețe programare în [oraș]",
+părinte întreabă un asistent AI "unde îmi duc copilul de 9 ani să învețe programare în București",
 răspunsul se construiește din surse pe care modelul le poate citi și cita. Un site fără date
 structurate, fără afirmații verificabile și fără conținut specific nu are cum să fie citat.
 
 ## Rezultat
 
-Un părinte care caută cursuri de programare pentru copii în orașele voastre găsește școala, în
+Un părinte care caută cursuri de programare pentru copii în București găsește școala, în
 Google și în asistenții AI. Fiecare locație și fiecare modul are propria pagină care poate fi găsită.
 
 ## În scop
@@ -118,12 +118,26 @@ comercială mult mai clară decât pagina principală.
 
 **Acceptanță:** fiecare modul are pagină indexabilă, generată din catalog.
 
-### S5 · Performanță — muncă viitoare
+### S5 · Performanță — **LIVRAT**
 
 Core Web Vitals în verde pe mobil, unde e majoritatea traficului. Depinde aproape în întregime de
 [E18](E18-frontend-portal.md), S2.
 
 **Acceptanță:** LCP sub 2.5s, INP sub 200ms, CLS sub 0.1, măsurate pe date reale, nu în laborator.
+
+**Livrat odată cu [E18](E18-frontend-portal.md) S2**, fiindcă era același lucru. Imaginile coboară de
+la **1056KB la 239KB** — 77% mai puțin — prin `srcset` pe lățimile reale ale layout-ului și WebP cu
+rezervă JPEG. Prima imagine a caruselului, care e LCP-ul paginii principale, are `<link rel=preload>`
+cu `imagesrcset`, deci browserul începe să o ia în dimensiunea corectă înainte să termine de parsat
+foaia de stil.
+
+CLS era deja rezolvat înainte: fiecare imagine are `width` și `height`, iar caruselul are
+`aspect-ratio` pe container, deci nimic nu sare.
+
+**Ce rămâne de făcut, și nu se poate acum:** măsurarea *pe date reale*, adică pe trafic. Cere
+domeniul live și câteva zile de date în Search Console. Cifrele de mai sus sunt de laborator, ceea ce
+acceptanța spune explicit că nu e suficient — deci story-ul e livrat ca lucrare, dar confirmarea vine
+de la Google.
 
 ### S6 · Conținut — muncă viitoare, blocat
 
@@ -141,8 +155,8 @@ niciunul după.
 
 Ce diferă față de SEO clasic:
 
-- **Afirmații verificabile și specifice.** "Grupe de maximum 10 copii, 12 ședințe pe modul, în două
-  locații în [oraș]" e citabil. "Cea mai bună școală de IT" nu e.
+- **Afirmații verificabile și specifice.** "Grupe de maximum 10 copii, 6-8 ședințe pe modul, în două
+  locații în București" e citabil. "Cea mai bună școală de IT" nu e.
 - **Întrebare și răspuns explicit.** Conținut structurat ca răspuns direct la o întrebare, cu
   răspunsul în primul paragraf.
 - **`llms.txt`** la rădăcină, care descrie ce e site-ul și ce conține.
@@ -152,7 +166,7 @@ Ce diferă față de SEO clasic:
 - **Prezență în surse terțe** pe care modelele le consultă: directoare locale, recenzii Google,
   presă locală.
 
-**Acceptanță:** o întrebare de tipul "unde învață copiii programare în [oraș]" pusă unui asistent AI
+**Acceptanță:** o întrebare de tipul "unde învață copiii programare în București" pusă unui asistent AI
 returnează școala. Măsurat periodic, manual — nu există încă unealtă serioasă pentru asta.
 
 ### S8 · Măsurare — muncă viitoare, cere domeniul live

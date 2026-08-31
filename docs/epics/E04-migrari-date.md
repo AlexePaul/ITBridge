@@ -4,7 +4,8 @@
 
 ## Problemă
 
-`it-bridge-backend/src/app.module.ts` configurează TypeORM cu `synchronize: true`. La fiecare pornire, TypeORM compară
+`it-bridge-backend/src/app.module.ts` (calea de atunci; azi `apps/api/src/app.module.ts`)
+configurează TypeORM cu `synchronize: true`. La fiecare pornire, TypeORM compară
 entitățile din cod cu schema din baza de date și o alterează ca să se potrivească. În dezvoltare e
 comod. Pe date reale e un mecanism de pierdere de date: o redenumire de coloană devine `DROP COLUMN`
 urmat de `ADD COLUMN`, în tăcere, fără confirmare și fără cale de întoarcere.
@@ -147,9 +148,21 @@ păstrare), proiecte ale copiilor, conturi inactive. Implementată ca job progra
 
 **Acceptanță:** politica e documentată, implementată și verificabilă.
 
-**Neînceput, și blocat pe o decizie, nu pe cod.** Retenția facturilor depinde de răspunsul din
-„Întrebări deschise", care cere contabilul. A implementa un job de ștergere înainte de a ști ce are
-voie să șteargă e mai rău decât a nu avea niciunul.
+**Neînceput, dar nu mai e blocat pe contabil.**
+
+**Decizia școlii: documentul fiscal stă în SmartBill, nu la noi.** Platforma nu păstrează PDF-ul
+facturii ca arhivă — SmartBill e cel care are obligația de păstrare și instrumentele pentru ea. Ce
+ține platforma e *evidența*: rândul din `invoices`, cu suma, luna, starea și plata, care e ce
+răspunde la „ce a plătit familia asta în martie" fără să fie un document fiscal.
+
+Consecința pentru retenție e că întrebarea grea a dispărut. Nu mai trebuie să știm câți ani se
+păstrează o factură, fiindcă nu noi o păstrăm. Rămâne politica pentru restul — prezențe vechi,
+proiecte ale copiilor, conturi inactive — care e o decizie a școlii, nu a contabilului.
+
+Consecința pentru cod e mai concretă și e la [E16](E16-plati-fiscal.md): **azi generăm PDF-uri cu
+PDFKit și le urcăm în S3**, fiindcă până la SmartBill ele sunt singurul document care există. În
+ziua în care SmartBill emite, generarea locală se scoate, iar linkul de descărcare din portal
+trimite către documentul lui. Până atunci PDF-ul nostru rămâne, ca să nu rămână familia fără nimic.
 
 ## Dependențe
 

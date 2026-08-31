@@ -6,7 +6,7 @@
 
 Platforma colectează date, dar nu răspunde la nicio întrebare de business.
 
-`it-bridge-frontend/app/pages/admin/dashboard.vue` există, dar nu există niciun endpoint de agregare în backend — nicio
+`apps/web/app/pages/admin/dashboard.vue` există, dar nu există niciun endpoint de agregare în backend — nicio
 rută de statistici, niciun raport. Deci fiecare întrebare se rezolvă prin numărat manual în liste,
 sau nu se rezolvă deloc.
 
