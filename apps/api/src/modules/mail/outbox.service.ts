@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
-import { OutboxMessage } from 'src/entities/outbox-message.entity';
+import { OutboxAttachment, OutboxMessage } from 'src/entities/outbox-message.entity';
 import { OutboxStatus } from 'src/enum/outbox-status.enum';
-import { MailSendError, MailService } from './mail.service';
+import { S3Service } from 'src/modules/storage/s3.service';
+import { MailAttachment, MailSendError, MailService, MAX_ATTACHMENT_BYTES } from './mail.service';
 
 /**
  * The transactional outbox from E17/S3: messages are written down, then sent.
@@ -65,6 +66,11 @@ export interface QueuedMessage {
      * them the same key and the database refuses the second — see `OutboxMessage.dedupeKey`.
      */
     dedupeKey?: string | null;
+    /**
+     * Files to hang off the message, named by storage key rather than carried as bytes. Read when
+     * the message is handed to the provider — see `OutboxMessage.attachments`.
+     */
+    attachments?: OutboxAttachment[] | null;
 }
 
 export interface DispatchResult {
@@ -88,6 +94,7 @@ export class OutboxService {
         @InjectRepository(OutboxMessage) private readonly outboxRepository: Repository<OutboxMessage>,
         @InjectDataSource() private readonly dataSource: DataSource,
         private readonly mailService: MailService,
+        private readonly s3Service: S3Service,
     ) {}
 
     /**
@@ -119,6 +126,7 @@ export class OutboxService {
                 bodyText: message.bodyText,
                 bodyHtml: message.bodyHtml ?? null,
                 dedupeKey: message.dedupeKey ?? null,
+                attachments: message.attachments?.length ? message.attachments : null,
             })
             .orIgnore()
             .returning('*')
@@ -221,6 +229,8 @@ export class OutboxService {
      * Closing that needs an idempotency key at the provider, which is E17/S5 territory.
      */
     private async deliver(message: OutboxMessage): Promise<boolean> {
+        const attachments = await this.resolveAttachments(message);
+
         let failure: unknown;
         try {
             await this.mailService.send({
@@ -228,6 +238,7 @@ export class OutboxService {
                 subject: message.subject,
                 text: message.bodyText,
                 html: message.bodyHtml,
+                ...(attachments.length ? { attachments } : {}),
             });
         } catch (error: unknown) {
             failure = error;
@@ -244,6 +255,44 @@ export class OutboxService {
             lastError: null,
         });
         return true;
+    }
+
+    /**
+     * Reads the attachments named on the row out of object storage.
+     *
+     * **A missing or oversized object does not stop the message.** The picture is the nicer half of
+     * E14's email, and the half that matters is the link into the portal: a parent who gets a
+     * message with a broken thumbnail has still been told their child built something, whereas a
+     * message held back over an image is a document nobody hears about. Whatever went wrong is
+     * logged, not written to `lastError`, which is reserved for what the provider said.
+     */
+    private async resolveAttachments(message: OutboxMessage): Promise<MailAttachment[]> {
+        if (!message.attachments?.length) return [];
+
+        const resolved: MailAttachment[] = [];
+        let total = 0;
+
+        for (const attachment of message.attachments) {
+            try {
+                const bytes = await this.s3Service.downloadFile(attachment.storageKey);
+                total += bytes.length;
+                if (total > MAX_ATTACHMENT_BYTES) {
+                    this.logger.warn(`Message ${message.id}: attachments over the size budget, sending without ${attachment.filename}`);
+                    break;
+                }
+                resolved.push({
+                    filename: attachment.filename,
+                    content: bytes.toString('base64'),
+                    contentId: attachment.contentId,
+                });
+            } catch (error: unknown) {
+                this.logger.warn(
+                    `Message ${message.id}: could not read attachment ${attachment.filename}: ${error instanceof Error ? error.message : String(error)}`,
+                );
+            }
+        }
+
+        return resolved;
     }
 
     /**

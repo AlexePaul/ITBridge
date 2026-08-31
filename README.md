@@ -11,12 +11,13 @@ Pentru context de arhitectură și capcane, vezi [CLAUDE.md](CLAUDE.md). Pentru 
 
 Monorepo pnpm, orchestrat cu Turborepo.
 
-| Workspace                        | Ce e                                 | Port local | Producție                                                                |
-| -------------------------------- | ------------------------------------ | ---------- | ------------------------------------------------------------------------ |
-| [apps/api](apps/api)             | NestJS 11, TypeORM, JWT, PDFKit, S3  | 3000       | nedeployat încă — vezi [E01](docs/epics/E01-infrastructura-medii.md), S4 |
-| [apps/web](apps/web)             | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind  | 3001       | Vercel                                                                   |
-| [packages/types](packages/types) | Contractul API partajat de cele două | —          | —                                                                        |
-| Postgres 17                      | `docker-compose.yml`                 | 5432       | pe instanța de backend                                                   |
+| Workspace                        | Ce e                                           | Port local | Producție                                                                |
+| -------------------------------- | ---------------------------------------------- | ---------- | ------------------------------------------------------------------------ |
+| [apps/api](apps/api)             | NestJS 11, TypeORM, JWT, PDFKit, S3, sharp     | 3000       | nedeployat încă — vezi [E01](docs/epics/E01-infrastructura-medii.md), S4 |
+| [apps/web](apps/web)             | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind            | 3001       | Vercel                                                                   |
+| [apps/agent](apps/agent)         | Agentul de încărcare: Node 22, fără dependențe | —          | un calculator Windows din biroul școlii                                  |
+| [packages/types](packages/types) | Contractul API partajat de cele trei           | —          | —                                                                        |
+| Postgres 17                      | `docker-compose.yml`                           | 5432       | pe instanța de backend                                                   |
 
 **Aplicația nu rulează în Docker.** Nici local, nici în producție. Docker e folosit exclusiv
 pentru infrastructura locală, adică Postgres.
@@ -157,6 +158,7 @@ prezențe pe două luni în urmă și facturi în toate stările. Șterge tot î
 | Matricea de autorizare | `apps/api/src/authorization.spec.ts` | guard-ele și rolurile fiecărui handler, enumerate automat din metadate               |
 | Integrare              | `apps/api/test/*.e2e-spec.ts`        | aplicația reală pe Postgres: doi părinți, iar unul nu vede datele celuilalt          |
 | Frontend               | `apps/web/test/*.spec.ts`            | `useApi` (refresh pe 401, de-duplicare) și store-urile                               |
+| Agent                  | `apps/agent/src/*.test.ts`           | regulile de nume de folder și citirea unui link dintr-un fișier, cu `node --test`    |
 
 Testele de integrare au nevoie de Postgres pornit. Își creează singure baza `itbridge_test`.
 

@@ -3,8 +3,7 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 31 august 2026, pe `develop`. Singurul PR deschis e
-[#31](https://github.com/AlexePaul/ITBridge/pull/31), E14 — în conflict, și cu CI-ul real nerulat.
+**Ultima actualizare:** 31 august 2026, pe `develop`, cu E14 mergeat.
 
 ## Legendă
 
@@ -15,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 44 livrate, 10 parțiale, 3 scrise dar nemergeate,
-9 blocate, 4 scoase din scop, 72 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
+Din **142 de story-uri** în 21 de epicuri: 50 livrate, 10 parțiale, 3 scrise dar nemergeate,
+9 blocate, 4 scoase din scop, 66 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
 înseamnă adesea „construit, dar nu rulează nicăieri".
 
 ---
@@ -159,16 +158,16 @@ Din **142 de story-uri** în 21 de epicuri: 44 livrate, 10 parțiale, 3 scrise d
 - [ ] S4 · Certificat
 - [ ] S5 · Progresul în portal
 
-### E14 · Proiectele elevilor — `propus`
+### E14 · Proiectele elevilor — `în lucru`
 
-- [ ] S1 · Modelul de proiect
-- [ ] S2 · Agentul local și folderul oglindit
-- [ ] S3a · Miniatură pentru imagini
+- [x] S1 · Modelul de proiect — fără instantaneu de consimțământ și fără `isPublic`; vin cu E07 S2
+- [x] S2 · Agentul local și folderul oglindit — `apps/agent`, fără dependențe de runtime. Vizibilitatea pulsului da, **alertarea nu**: canalul e E06 S3 și nu există
+- [x] S3a · Miniatură pentru imagini
 - [!] S3b · Miniaturi pentru video și `.sb3` — cere ffmpeg pe host, deci deploy
-- [ ] S4 · Trimiterea către părinte
-- [ ] S5 · Galeria din portal
-- [!] S6 · Vitrina publică — cere backend deployat
-- [ ] S7 · Corectarea unei atribuiri greșite
+- [x] S4 · Trimiterea către părinte — părinții fără adresă apar în raportul trimiterii, nu în evidența din E17 S5, care nu există
+- [x] S5 · Galeria din portal — scrisă și testată; nu se poate arăta nimănui până la E01 S4
+- [!] S6 · Vitrina publică — cere backend deployat **și** consimțământul din E07 S2
+- [x] S7 · Corectarea unei atribuiri greșite — urma stă pe `Project`, nu în audit log-ul din E07 S3
 
 > Complet specificat, gata de construit. Fluxul e: agent local pe calculatorul cu share-ul de rețea,
 > profesorul salvează în folderul copilului, adminul revizuiește pe grupă și apasă trimite.
@@ -295,12 +294,9 @@ facturile devin lucruri pe care le poate folosi cineva.
 
 **Fără ea, în ordinea asta:**
 
-1. **E14, proiectele elevilor** — scris, dar în [PR #31](https://github.com/AlexePaul/ITBridge/pull/31),
-   care e în conflict cu `develop` și pe care CI-ul real n-a rulat niciodată. Are nevoie de un rebase
-   atent pe `invoice.service.ts` înainte de orice altceva.
-2. **E12 S2, calendarul zilelor fără curs** — soluția e scrisă în epic și nu mai e blocată de nimic
+1. **E12 S2, calendarul zilelor fără curs** — soluția e scrisă în epic și nu mai e blocată de nimic
    în afară de datele din ordinul de ministru. O entitate, o migrare, un ecran mic.
-3. **E18 S5, jumătatea de componente** — tiparul de tabel, cel de formular, stările de încărcare, gol
+2. **E18 S5, jumătatea de componente** — tiparul de tabel, cel de formular, stările de încărcare, gol
    și eroare, și mutarea zonei de admin pe jetoanele din `classical.css`. Nu cere un API care rulează,
    iar costul crește cu fiecare ecran adăugat: erau 25, sunt 32.
 

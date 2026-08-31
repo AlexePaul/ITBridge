@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { EntitiesModule } from 'src/entities/entities.module';
+import { StorageModule } from 'src/modules/storage/storage.module';
 import { MailService } from './mail.service';
 import { OutboxDispatcher } from './outbox.dispatcher';
 import { OutboxService } from './outbox.service';
@@ -17,7 +18,9 @@ import { OutboxService } from './outbox.service';
  * (E17/S2) is the one legitimate caller that must not go through the queue.
  */
 @Module({
-    imports: [EntitiesModule],
+    // `StorageModule` because a queued message may carry attachments by key: the bytes are read
+    // from the bucket at send time, not carried through the queue. See `OutboxMessage.attachments`.
+    imports: [EntitiesModule, StorageModule],
     providers: [MailService, OutboxService, OutboxDispatcher],
     exports: [MailService, OutboxService],
 })

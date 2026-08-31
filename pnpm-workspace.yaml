@@ -3,12 +3,13 @@ packages:
   - "packages/*"
 
 # pnpm 10 nu rulează scripturi de instalare decât pentru pachetele listate aici. Cele de mai jos
-# au nevoie: bcrypt compilează un binding nativ, esbuild și unrs-resolver descarcă binarul
+# au nevoie: bcrypt compilează un binding nativ, esbuild, sharp și unrs-resolver descarcă binarul
 # potrivit platformei, vue-demi își alege build-ul după versiunea de Vue. Fără ele, backend-ul
-# cade la primul hash de parolă și Nuxt nu pornește.
+# cade la primul hash de parolă și Nuxt nu pornește, iar miniaturile din E14 nu se pot genera.
 # `@scarf/scarf` e doar telemetrie și rămâne blocat intenționat.
 onlyBuiltDependencies:
   - bcrypt
   - esbuild
+  - sharp
   - unrs-resolver
   - vue-demi

@@ -9,6 +9,7 @@ export * from './group';
 export * from './enrollment';
 export * from './class-session';
 export * from './attendance';
+export * from './project';
 export * from './invoice';
 export * from './payment';
 export * from './discount';

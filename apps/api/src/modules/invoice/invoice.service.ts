@@ -13,7 +13,9 @@ import { Enrollment } from 'src/entities/enrollment.entity';
 import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { GetPreviewDto } from './dto/getPreview.dto';
 import { IssueFromSessionsDto } from './dto/issueFromSessions.dto';
-import { ObjectNotFoundError, S3Service } from './s3.service';
+// E14 moved `S3Service` out of this module: it is no longer only about invoices, it stores
+// children's project files too.
+import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
 import { amountAfterDiscounts, sessionAmountAfterDiscounts } from './pricing';
 
 /** One family's row on the issuing screen, with the children whose sessions have to be counted. */
@@ -102,7 +104,7 @@ export class InvoiceService {
 
                 const pdfBuffer = await this.pdfService.generateInvoicePdf(persisted);
                 const fileName = invoicePdfKey(persisted.monthIssued, persisted.id);
-                await this.s3Service.uploadFile(pdfBuffer, fileName);
+                await this.s3Service.putObject({ key: fileName, body: pdfBuffer, contentType: 'application/pdf' });
 
                 invoicesCreated.push(persisted);
             }
@@ -334,7 +336,13 @@ export class InvoiceService {
 
                 if (amount > 0) {
                     const pdfBuffer = await this.pdfService.generateInvoicePdf(persisted);
-                    await this.s3Service.uploadFile(pdfBuffer, invoicePdfKey(persisted.monthIssued, persisted.id));
+                    // `putObject`, not `uploadFile`: E14 generalised the client when project files
+                    // started going through it, and the content type is no longer assumed to be PDF.
+                    await this.s3Service.putObject({
+                        key: invoicePdfKey(persisted.monthIssued, persisted.id),
+                        body: pdfBuffer,
+                        contentType: 'application/pdf',
+                    });
                     created.push(persisted);
                 } else {
                     // No PDF: there is nothing to print, nobody to ask for money, and an empty

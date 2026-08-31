@@ -10,12 +10,18 @@ lunar se emit facturi (PDF în S3) și se înregistrează plățile.
 
 Monorepo pnpm, orchestrat cu Turborepo, plus Postgres ca infrastructură locală:
 
-| Workspace            | Stack                                                          | Port       |
-| -------------------- | -------------------------------------------------------------- | ---------- |
-| `apps/api/`          | NestJS 11, TypeORM, JWT, PDFKit, AWS S3                        | 3000       |
-| `apps/web/`          | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind                            | 3001       |
-| `packages/types/`    | contractul API partajat, `@itbridge/types`                     | —          |
-| `docker-compose.yml` | Postgres 17 + MinIO — singurele lucruri care rulează în Docker | 5432, 9000 |
+| Workspace            | Stack                                                                 | Port       |
+| -------------------- | --------------------------------------------------------------------- | ---------- |
+| `apps/api/`          | NestJS 11, TypeORM, JWT, PDFKit, AWS S3, sharp                        | 3000       |
+| `apps/web/`          | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind                                   | 3001       |
+| `apps/agent/`        | Node 22 simplu, **zero dependențe de runtime** — agentul de încărcare | —          |
+| `packages/types/`    | contractul API partajat, `@itbridge/types`                            | —          |
+| `docker-compose.yml` | Postgres 17 + MinIO — singurele lucruri care rulează în Docker        | 5432, 9000 |
+
+`apps/agent` nu rulează local și nu pornește cu `pnpm dev`: e un serviciu Windows care stă pe
+calculatorul din birou al școlii, urmărește o partajare de rețea și urcă prin API ce salvează
+profesorii acolo (E14 S2). Se construiește cu `pnpm --filter agent build`; instalarea e în
+[apps/agent/README.md](apps/agent/README.md).
 
 ## Comenzi
 
@@ -63,13 +69,21 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — cincisprezece module în `apps/api/src/modules/`, treisprezece după același tipar
-`controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `location`, `room`,
-`group`, `enrollment`, `class-session`, `attendance`, `invoice`, `payment`, `discount`. Celelalte două ies din
-tipar: `mail` n-are controller, fiindcă nimic din el nu e expus pe HTTP, iar `health` n-are decât
-atât. Entitățile stau centralizat în `apps/api/src/entities/` și sunt expuse tuturor modulelor prin
-`EntitiesModule` (un singur `TypeOrmModule.forFeature` reexportat), deci un modul nou importă
-`EntitiesModule`, nu entitățile individual.
+**Backend** — șaptesprezece module în `apps/api/src/modules/`, treisprezece după același tipar
+`controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
+`room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`. Patru ies din
+tipar: `mail` și `storage` n-au controller, fiindcă nimic din ele nu e expus pe HTTP, `health` n-are
+decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
+(agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
+ce ia părintele acasă, ce cere agentul. Entitățile stau centralizat în `apps/api/src/entities/` și
+sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
+reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
+
+**Stocarea de obiecte e un modul propriu, `storage`.** `S3Service` stătea în modulul de facturi și
+știa un singur tip de fișier: fixa `ContentType: 'application/pdf'` pe orice upload. E14 are nevoie
+de `.sb3`, de JPEG și de video, deci serviciul s-a generalizat și s-a mutat — `putObject` cere acum
+tipul ca argument, iar clientul știe `HeadObject`, ștergere, stream și URL semnat. Bucket-ul rămâne
+unul singur; `projects/` stă lângă `invoices/`.
 
 **Model de date** — `User` (credențiale) și `Profile` (date de contact) sunt separate
 intenționat: un admin poate crea un `Profile` fără cont, iar `GET /users/without-profile`
@@ -79,7 +93,9 @@ servește fluxul de legare ulterioară. `Profile` e "părintele" în tot restul 
 User ─1:1─ Profile ─1:N─ Child ─N:1─ Group ─N:1─ Room ─N:1─ Location
                     │      ├─1:N─ Enrollment ─N:1─ Group
                     │      ├─1:N─ WaitlistEntry ─N:1─ Group
-                    │      └─1:N─ Attendance ─N:1─ ClassSession ─N:1─ Group
+                    │      ├─1:N─ Attendance ─N:1─ ClassSession ─N:1─ Group
+                    │      └─1:N─ Project ─1:N─ ProjectVersion ─1:N─ ProjectFile
+                    │                    └─1:N─ ProjectLink
                     ├─1:N─ Invoice ─1:1─ Payment
                     └─1:N─ Discount
 ```
@@ -120,6 +136,23 @@ e ședința din orar, generată din programul grupei pe un orizont rulant de opt
 pe `(group, date)`. Nu există calendar de vacanțe — E12 S2 nu e construit — deci se generează
 ședințe și în vacanță, iar cele căzute acolo se anulează manual. Numele are prefix fiindcă
 `Session` e deja luat de tabelul de refresh tokenuri.
+
+**Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
+salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin
+`POST /projects/ingest`, apare pe ecranul grupei în starea `nou`, iar un admin bifează și apasă. Abia
+atunci se scriu mesajele în `outbox`, unul per **părinte** — nu per copil, ca un părinte cu doi copii
+să primească un singur email. Trei consecințe de ținut minte:
+
+- **Cheile de obiect se derivă, nu se stochează.** `projectFileKey(projectId, versionId, fileId)` și
+  `projectThumbnailKey(projectId)` din `apps/api/src/modules/project/project.keys.ts` sunt singura
+  definiție a locului. Numai identificatori, niciodată numele copilului — cheia ajunge în URL-uri
+  semnate și în loguri, iar lecția e deja plătită pe facturi.
+- **Încărcarea e idempotentă pe conținut**, nu pe nume: `{childId}:{sha256}`, cu index unic pe
+  `project_files.ingestionKey`. Cheia e scopată pe copil, ca doi copii care salvează același fișier
+  de pornire să nu se anuleze unul pe altul.
+- **Un părinte vede doar ce a fost trimis.** Restrângerea e în serviciu, ca peste tot, și adaugă
+  `status = 'sent'` pe lângă restrângerea pe utilizator. Portalul nu are voie să fie portița prin
+  care se vede ce n-a verificat încă nimeni.
 
 **Locația nu e un câmp pe grupă, ci o consecință a sălii.** `Group.room` e obligatoriu, `Room.location`
 la fel, deci fiecare grupă știe unde se ține fără să poată contrazice sala. Ștergerile sunt
@@ -341,10 +374,43 @@ le înlocuiesc, fiindcă ies din proces.
 `nest-cli.json` copiază acum `src/assets` în `dist/assets`. Dacă muți fișierul, potrivește calea.
 
 **`AWS_REGION` e obligatorie ca să pornească aplicația.** `S3Service.onModuleInit`
-(`apps/api/src/modules/invoice/s3.service.ts:28`) aruncă fără ea, deci backend-ul cade la
+(`apps/api/src/modules/storage/s3.service.ts`) aruncă fără ea, deci backend-ul cade la
 boot, chiar dacă nu atingi nicio factură. Cheile de acces sunt opționale — lipsa lor duce SDK-ul pe
 lanțul implicit de credențiale, adică IAM instance role în producție. Mesajul de eroare cere trei
 variabile, dar verifică una singură.
+
+**`archiver` rămâne pe `^7`, ultimul major CommonJS.** v8 e `"type": "module"` și cade în ts-jest cu
+`SyntaxError: Unexpected token 'export'`, exact ca `@nestjs/schedule` v12. Aceeași capcană, al doilea
+pachet — dacă adaugi o dependență și testele pică deodată cu un mesaj care nu spune de ce, verifică
+întâi `type` din `package.json`-ul ei. Din același motiv verificarea tipului real de fișier e scrisă
+de mână în `apps/api/src/modules/project/file-types.ts` în loc să folosească `file-type`, care e
+ESM-only de la v19: sunt opt semnături, adică treizeci de linii.
+
+**`sharp` are nevoie de scripturi de instalare**, deci e în `onlyBuiltDependencies` din
+`pnpm-workspace.yaml`. Fără el nu se generează nicio miniatură — dar nici nu se rupe nimic: E14
+tratează eșecul de miniaturizare ca pe un rezultat normal, iar proiectul se încarcă oricum.
+
+**`projects.publicId` se generează în entitate, printr-un `@BeforeInsert`, nu prin `DEFAULT
+gen_random_uuid()`.** Funcția e în core de la Postgres 13 și ar merge perfect, dar TypeORM nu știe să
+compare un default de funcție cu ce raportează baza, deci `check:schema` ar declara drift la fiecare
+rulare și ar emite un `DROP DEFAULT` urmat de un `SET DEFAULT` identic. O gardă care pică pe fiecare
+PR nu mai e citită. Consecința: un proiect creat printr-un query builder n-ar primi identificator —
+nimic nu face asta, iar `ON CONFLICT DO NOTHING` e necesar pe `project_files`, nu pe `projects`.
+
+**Ordinea rutelor contează în `ProjectController`, și nicăieri altundeva în repo.**
+`link/:publicId`, `child/:childId/archive`, `group/:groupId/missing` și `send` sunt declarate
+înaintea lui `:id/…`, fiindcă Nest potrivește în ordinea declarării și `:id` are `ParseIntPipe`, care
+răspunde 400 la un UUID.
+
+**Singurul lucru servit `inline` de pe domeniul școlii e miniatura.** Fișierele urcate se servesc
+prin URL semnat cu `Content-Disposition: attachment`, fiindcă vin de pe o partajare pe care poate
+scrie orice mașină din școală. Miniatura e altceva: octeții ei au fost produși de `sharp` pe server,
+deci un poliglot valid și ca imagine și ca altceva n-a supraviețuit reîncodării. Are `nosniff`
+oricum. Nu extinde excepția la altceva.
+
+**`outbox.attachments` ține chei, nu octeți.** Obiectul se citește din bucket în secunda în care
+mesajul e predat furnizorului. Base64 în coloană ar îngrășa fiecare interogare de revendicare pentru
+date de care e nevoie o dată; iar un obiect care lipsește nu oprește mesajul — pleacă fără poză.
 
 **Refresh tokenurile sunt urmăribile și revocabile.** Tabelul `sessions` ține un SHA-256 al
 fiecăruia, niciodată tokenul. Refresh-ul rotește, iar refolosirea unuia consumat revocă tot lanțul —
@@ -545,6 +611,10 @@ Trei niveluri, cu roluri diferite:
 
 Frontend-ul are vitest în `apps/web/test/`. Rulează sursa direct, fără să pornească Nuxt;
 auto-importurile (`ref`, `useCookie`, `$fetch`) sunt puse la loc în `test/setup.ts`.
+
+`apps/agent` folosește `node --test`, fără jest și fără nicio unealtă proprie — n-are motiv să
+capete una. `pnpm --filter agent test` compilează întâi și rulează din `dist`: un `.ts` cu `import`
+e interpretat de Node ca modul ES, iar acolo importurile fără extensie nu se rezolvă.
 
 **Bug-urile cunoscute sunt scrise ca `it.failing`**, nu ca teste care cimentează comportamentul
 greșit. Un astfel de test trece cât timp bug-ul există și devine roșu în clipa în care e reparat —

@@ -16,6 +16,12 @@ import { OutboxMessage } from './outbox-message.entity';
 import { EmailConfirmation } from './email-confirmation.entity';
 import { Enrollment } from './enrollment.entity';
 import { WaitlistEntry } from './waitlist-entry.entity';
+import { Project } from './project.entity';
+import { ProjectVersion } from './project-version.entity';
+import { ProjectFile } from './project-file.entity';
+import { ProjectLink } from './project-link.entity';
+import { UnassignedFile } from './unassigned-file.entity';
+import { AgentStatus } from './agent-status.entity';
 
 @Module({
     imports: [
@@ -36,6 +42,12 @@ import { WaitlistEntry } from './waitlist-entry.entity';
             EmailConfirmation,
             Enrollment,
             WaitlistEntry,
+            Project,
+            ProjectVersion,
+            ProjectFile,
+            ProjectLink,
+            UnassignedFile,
+            AgentStatus,
         ]),
     ],
     exports: [TypeOrmModule],
