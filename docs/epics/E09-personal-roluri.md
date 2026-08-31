@@ -1,6 +1,21 @@
 # E09 · Personal și alocare
 
-**Status:** propus · **Pistă:** Domeniu · **Depinde de:** E08 · **Blochează:** E08 S3, E11
+**Status:** **scos din MVP** · **Pistă:** Domeniu · **Depinde de:** E08 · **Blochează:** E08 S3, E11
+
+> ## Scos din MVP
+>
+> **Nu există rol `TEACHER`: toți cei care se autentifică sunt admini.** Decizia e a școlii și e
+> consecventă cu felul în care lucrează — o școală mică, unde cei care predau sunt și cei care
+> administrează.
+>
+> Ce rămâne blocat de asta, și e în regulă să rămână: profesorul principal pe grupă
+> ([E08](E08-multi-locatie.md) S3), disponibilitatea profesorilor din ecranul de formare a grupelor
+> ([E11](E11-inscrieri-capacitate.md) S7), și interfața de profesor optimizată pentru telefon
+> ([E18](E18-frontend-portal.md) S7). Toate trei sunt scrise ca livrate parțial, cu jumătatea care
+> lipsește numită — nu ca goluri tăcute.
+>
+> Se reia dacă școala angajează pe cineva care predă fără să administreze. Până atunci, un rol în
+> plus e o permisiune de întreținut fără nimeni care s-o folosească.
 
 ## Problemă
 

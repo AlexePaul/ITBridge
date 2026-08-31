@@ -69,15 +69,15 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — șaisprezece module în `apps/api/src/modules/`, douăsprezece după același tipar
-`controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `location`, `room`,
-`group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`. Patru ies din tipar:
-`mail` și `storage` n-au controller, fiindcă nimic din ele nu e expus pe HTTP, `health` n-are decât
-atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite (agentul
-de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire, ce ia
-părintele acasă, ce cere agentul. Entitățile stau centralizat în `apps/api/src/entities/` și sunt
-expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature` reexportat),
-deci un modul nou importă `EntitiesModule`, nu entitățile individual.
+**Backend** — șaptesprezece module în `apps/api/src/modules/`, treisprezece după același tipar
+`controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
+`room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`. Patru ies din
+tipar: `mail` și `storage` n-au controller, fiindcă nimic din ele nu e expus pe HTTP, `health` n-are
+decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
+(agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
+ce ia părintele acasă, ce cere agentul. Entitățile stau centralizat în `apps/api/src/entities/` și
+sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
+reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
 
 **Stocarea de obiecte e un modul propriu, `storage`.** `S3Service` stătea în modulul de facturi și
 știa un singur tip de fișier: fixa `ContentType: 'application/pdf'` pe orice upload. E14 are nevoie
@@ -91,12 +91,45 @@ servește fluxul de legare ulterioară. `Profile` e "părintele" în tot restul 
 
 ```
 User ─1:1─ Profile ─1:N─ Child ─N:1─ Group ─N:1─ Room ─N:1─ Location
+                    │      ├─1:N─ Enrollment ─N:1─ Group
+                    │      ├─1:N─ WaitlistEntry ─N:1─ Group
                     │      ├─1:N─ Attendance ─N:1─ ClassSession ─N:1─ Group
                     │      └─1:N─ Project ─1:N─ ProjectVersion ─1:N─ ProjectFile
                     │                    └─1:N─ ProjectLink
                     ├─1:N─ Invoice ─1:1─ Payment
                     └─1:N─ Discount
 ```
+
+**`Child.group` e derivată, nu un fapt.** Din E11/S1, participarea unui copil la o grupă e un rând
+în `enrollments`, cu perioadă, stare și motiv la ieșire. Coloana de pe `Child` a rămas fiindcă șase
+interogări o citesc — printre ele filtrarea orarului pentru părinte și cine poate fi marcat prezent
+— dar are **un singur scriitor**, `EnrollmentService`, care o scrie în aceeași tranzacție cu
+înscrierea care o justifică. Nu o scrie de mână nicăieri; dacă ai nevoie să schimbi grupa unui copil,
+deschizi sau închizi o înscriere.
+
+Două reguli sunt aplicate **și în baza de date**, prin indecși parțiali, nu doar în serviciu:
+`UQ_enrollments_one_in_force` (un copil are cel mult o înscriere `TRIAL` sau `ACTIVE` — D6) și
+`UQ_waitlist_one_open_per_child_group`. Serviciul verifică întâi, ca refuzul să fie un 409 cu motiv;
+indexul e acolo pentru doi admini care apasă în aceeași secundă.
+
+**Proba ocupă un loc, dar nu se facturează.** Orice număr de „locuri ocupate" e `TRIAL` plus
+`ACTIVE`, niciodată doar al doilea — un copil la probă stă pe un scaun, la un calculator, în aceeași
+sală (D7). Numără-le prin `EnrollmentService.occupancyOf`, nu din lungimea listei de copii afișate:
+lista nu conține probele, deci un număr calculat din ea spune că o grupă plină mai are loc.
+
+**Factura numără înscrierile `ACTIVE`, nu copiii din familie.** Din E11/S4: proba e gratuită, iar un
+copil care nu e în nicio grupă nu vine, deci nu plătește. Al doilea caz era greșit dinainte să existe
+probele. Dacă schimbi asta, e o decizie de preț și e a E15 — nu o numărare de rânduri în `children`.
+
+**Un copil își schimbă grupa doar prin transfer**, `POST /enrollments/transfer`: închide vechea
+înscriere și o deschide pe cea nouă într-o singură tranzacție. Locul eliberat de un transfer **nu**
+se oferă listei de așteptare — nu e liber, se dă acestui copil. Coada e întrebată doar când un loc
+chiar pleacă din grupă.
+
+**Verificarea de vârstă e avertisment, nu blocaj** (E11/S6): prima cerere primește 409
+`COMPATIBILITY_WARNINGS` cu vârstele în mesaj, a doua trece cu `acknowledgeWarnings: true`. Nu e o
+cale de acces peste capacitate — aia se verifică prima și refuză oricum. Dacă adaugi un endpoint care
+înscrie, dă-i și câmpul: un avertisment fără cale de răspuns e un blocaj cu numele greșit.
 
 **Prezența se leagă de ședință, nu de o dată și o oră.** `ClassSession` (tabelul `class_sessions`)
 e ședința din orar, generată din programul grupei pe un orizont rulant de opt săptămâni, idempotent
@@ -497,13 +530,17 @@ propoziție pentru toate. Un serviciu poate acum să-și numească cazul:
 propoziția în `MESSAGES` din `apps/web/app/composables/useApiError.ts` — altfel utilizatorul
 primește mesajul în engleză de la server.
 
-**Nu adăuga `enum`-uri noi în `@itbridge/types`; scrie uniuni de literali.** Pachetul e CommonJS,
-Vite îl prebundle-uiește, iar prebundler-ul a aruncat corpul unui `enum` nou ca fiind cod mort,
-păstrând linia `exports.ApprovalStatus = void 0` de deasupra. Importul s-a rezolvat la `undefined`,
-iar comparația a aruncat **înăuntrul unui `computed`**, tăcut — componenta care depindea de el pur și
-simplu nu s-a mai randat, fără nicio eroare în build și fără nimic roșu în teste. `ApprovalStatus` e
-acum `'PENDING' | 'APPROVED' | 'REJECTED'`, adică exact ce e pe sârmă. `Weekday` și `Role` rămân
-`enum` fiindcă sunt mai vechi și sunt folosite ca valori; nimic nou nu mai trebuie să fie.
+**`@itbridge/types` nu mai primește valori de rulare — nici `enum`-uri, nici hărți de etichete.**
+Doar tipuri, și uniuni de literali unde altfel ai pune un `enum`. Pachetul e CommonJS, Vite îl
+prebundle-uiește, iar o valoare exportată de acolo a ajuns în browser ca `undefined` de **două ori**:
+o dată un `enum` căruia prebundler-ul i-a aruncat corpul păstrându-i linia de export, o dată o hartă
+de etichete. De fiecare dată eșecul a fost tăcut — comparația aruncă **înăuntrul unui `computed`**,
+Vue abandonează subarborele, iar o componentă pur și simplu nu se randează. Build verde, teste verzi,
+ecran gol.
+
+Etichetele în română stau lângă ecranele care le afișează (`apps/web/app/types/*.types.ts`), și e
+oricum locul lor: contractul descrie ce trece pe sârmă, iar pe sârmă trece `'TRIAL'`, nu `'Probă'`.
+`Weekday`, `Role` și `WEEKDAY_LABELS` sunt mai vechi și rămân; nimic nou nu li se alătură.
 
 **`@itbridge/types` e CommonJS, iar Vite nu prebundle-uiește pachetele din workspace.** Le servește
 browserului ca sursă, deci `exports.Weekday = ...` ajunge într-un `<script type="module">` și pică
@@ -517,13 +554,26 @@ depinde de `^build`, deci pornirea prin rădăcină construiește întâi `packa
 în workspace, Nuxt vede un `dist/` vechi sau inexistent și cade cu aceeași eroare de mai sus, care
 arată ca o problemă de cod și nu e.
 
-**Regula de preț stă într-un singur loc: `apps/api/src/modules/invoice/pricing.ts`.** 350 pentru
-primul copil, 250 pentru fiecare frate — deci 600 la doi, 850 la trei. Era scrisă de două ori, în
-serviciu și în seed, iar ambele copii aveau aceleași două bug-uri: doi copii se facturau cu 500, iar
-la trei sau mai mulți `totalAmount` rămânea 0 și reducerile îl duceau pe negativ. Dacă se schimbă
-prețul, se schimbă acolo; `apps/web/shared/courses.ts` ține aceleași cifre pentru site și trebuie
-potrivit odată cu el. Modelul pe module — 700, −25% de la al doilea copil — e altceva și e tot în
-[E15](docs/epics/E15-pricing-facturare.md).
+**Prețul e pe ședință, nu pe lună: `apps/api/src/modules/invoice/pricing.ts`.** 87,50 lei/ședință
+primul copil, 62,50 fiecare frate. Pe o lună de patru ședințe iese exact 350 și 600 — numerele pe
+care le știe toată lumea — dar o lună cu vacanță costă mai puțin, automat. Asta a făcut școala
+dintotdeauna cu calculatorul; codul factura 350 fix și supra-factura fiecare lună scurtă.
+
+**Tariful întreg merge la copilul cu cele mai multe ședințe**, restul iau tariful de frate. Sortarea
+e toată regula: fără ea, suma ar depinde de ordinea rândurilor dintr-o interogare. Un copil cu zero
+ședințe nu consumă tariful întreg.
+
+**Emiterea se face din `/admin/invoices/emitere`**, nu prin `POST /invoices`: un ecran cu familiile
+ca arbore, o valoare per copil, total jos, un buton. Serverul facturează numerele de pe ecran, nu
+și le recalculează — cine apasă s-a uitat la fiecare. Ruta veche există în continuare pentru
+`calculateAmount`, care numără înscrieri active și e folosită de previzualizare.
+
+**Zero e un răspuns, nu un câmp gol.** O lună fără plată se scrie ca factură `waived`, de 0 lei,
+fără PDF. Rândul există fiindcă n-are bani în el: fără el, o familie fără factură pe octombrie arată
+la fel cu una a cărei lună a uitat-o cineva. `GET /invoices/:id/pdf` răspunde 404 pe ele, explicit.
+
+`apps/web/shared/courses.ts` ține cifrele pentru site și **încă spune „350 lei pe lună"** — adică
+prețul unei luni pline, nu regula. Dacă atingi prețul, potrivește-le pe amândouă.
 
 ## Infrastructură — stare reală
 

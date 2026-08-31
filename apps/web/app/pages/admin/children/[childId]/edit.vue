@@ -54,6 +54,80 @@
       </div>
     </UForm>
   </UCard>
+
+  <!--
+    E11/S1. The history is the answer to "which group was this child in last October" — the question
+    the old single foreign key on `Child` could not answer at all, and the one that comes up when a
+    family disputes an invoice.
+  -->
+  <UCard variant="subtle" class="max-w-2xl mx-auto mt-6">
+    <template #header>
+      <div class="flex items-center gap-2">
+        <UIcon name="i-lucide-history" class="text-primary" />
+        <h2 class="text-xl font-bold">Istoricul înscrierilor</h2>
+      </div>
+    </template>
+
+    <div v-if="historyLoading" class="py-6 text-center text-muted">Se încarcă…</div>
+
+    <div v-else-if="history.length === 0" class="py-6 text-center">
+      <p class="text-muted">Copilul nu a fost înscris în nicio grupă.</p>
+    </div>
+
+    <div v-else class="space-y-3">
+      <div
+        v-for="entry in history"
+        :key="entry.id"
+        class="flex items-start justify-between gap-4 p-4 border border-gray-200 rounded-lg"
+      >
+        <div>
+          <p class="font-semibold">
+            {{ entry.group?.name ?? "Grupă ștearsă" }}
+            <UBadge
+              :color="entry.endDate === null ? 'success' : 'neutral'"
+              variant="subtle"
+              size="sm"
+              class="ml-2"
+            >
+              {{ ENROLLMENT_STATUS_LABELS[entry.status] }}
+            </UBadge>
+          </p>
+          <p class="text-sm text-muted">{{ periodOf(entry) }}</p>
+          <p v-if="entry.exitReason" class="text-sm text-muted">{{ entry.exitReason }}</p>
+        </div>
+        <p v-if="entry.contractSignedAt" class="text-sm text-muted whitespace-nowrap">
+          Contract {{ formatDate(entry.contractSignedAt) }}
+        </p>
+      </div>
+    </div>
+
+    <template v-if="inForce" #footer>
+      <!--
+        E11/S5. A transfer is the only way a child changes group, because D6 forbids a second
+        enrolment in force — so this is a move, not an add, and it says so.
+      -->
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+        <USelect
+          v-model="transferTargetId"
+          :items="transferOptions"
+          placeholder="Mută în altă grupă…"
+          class="flex-1"
+        />
+        <UButton
+          color="primary"
+          :disabled="!transferTargetId || transferring"
+          :loading="transferring"
+          @click="handleTransfer"
+        >
+          Transferă
+        </UButton>
+      </div>
+      <p class="text-sm text-muted mt-2">
+        Închide înscrierea curentă și o deschide pe cea nouă, într-o singură operațiune. Istoricul
+        păstrează ambele perioade.
+      </p>
+    </template>
+  </UCard>
 </template>
 
 <script setup lang="ts">
@@ -65,13 +139,47 @@ import { parseDate } from "@internationalized/date";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { normalizeName } from "~/composables/useUtils";
+import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
+import type { Enrollment } from "~/types/enrollment.types";
+import { ENROLLMENT_STATUS_LABELS } from "~/types/enrollment.types";
+import { useGroupsApi } from "~/composables/api/useGroupsApi";
+import { useGroupsStore } from "~/stores/groupsStore";
+import { apiErrorMessage } from "~/composables/useApiError";
 
 const route = useRoute();
 const inputDate = ref();
 const childrenStore = useChildrenStore();
 const childrenApi = useChildrenApi();
+const enrollmentsApi = useEnrollmentsApi();
 
 const { success } = useNotifications();
+
+const groupsApi = useGroupsApi();
+const groupsStore = useGroupsStore();
+const { error: notifyError } = useNotifications();
+
+const history = ref<Enrollment[]>([]);
+const historyLoading = ref(true);
+const transferTargetId = ref<number | undefined>();
+const transferring = ref(false);
+
+/** The enrolment still running, if any. Only one can be, by D6. */
+const inForce = computed(() => history.value.find((entry) => entry.endDate === null));
+
+/** Every other active group — a transfer into the group the child is already in is refused anyway. */
+const transferOptions = computed(() =>
+  groupsStore.groups
+    .filter((group) => group.isActive && group.id !== inForce.value?.group?.id)
+    .map((group) => ({ label: group.name, value: group.id }))
+);
+
+const formatDate = (value: string) => new Intl.DateTimeFormat("ro-RO").format(new Date(value));
+
+/** "din 10.01.2026" while it runs, "10.01.2026 – 31.03.2026" once it is history. */
+const periodOf = (entry: Enrollment) =>
+  entry.endDate === null
+    ? `din ${formatDate(entry.startDate)}`
+    : `${formatDate(entry.startDate)} – ${formatDate(entry.endDate)}`;
 
 definePageMeta({
   layout: "dashboard" as any,
@@ -112,7 +220,43 @@ onMounted(async () => {
     state.birthDate = parseDate(child.birthDate);
     state.createdAt = child.createdAt;
   }
+
+  try {
+    await groupsApi.fetchGroups();
+  } catch {
+    // The transfer control simply has nothing to offer; the history below still loads.
+  }
+
+  try {
+    history.value = (await enrollmentsApi.fetchHistory(Number(childId))) ?? [];
+  } catch {
+    // The form above is the point of this page; a history that failed to load should not stop it
+    // from being usable.
+    history.value = [];
+  } finally {
+    historyLoading.value = false;
+  }
 });
+
+async function handleTransfer() {
+  if (!transferTargetId.value) return;
+  transferring.value = true;
+  try {
+    await enrollmentsApi.transfer({
+      childId: Number(route.params.childId),
+      toGroupId: transferTargetId.value,
+    });
+    success("Copilul a fost transferat");
+    transferTargetId.value = undefined;
+    history.value = (await enrollmentsApi.fetchHistory(Number(route.params.childId))) ?? [];
+  } catch (err) {
+    // A full group, an age outside the band, an inactive group — the server names each, and
+    // `useApiError` has the Romanian sentence.
+    notifyError("Transferul nu s-a putut face", apiErrorMessage(err));
+  } finally {
+    transferring.value = false;
+  }
+}
 
 async function handleSubmit(event: FormSubmitEvent<Schema>) {
   const childId = Number(route.params.childId);

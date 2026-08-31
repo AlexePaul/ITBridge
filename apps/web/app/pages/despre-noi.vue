@@ -18,7 +18,15 @@
 
       <div class="split split-reverse split-start section" data-reveal>
         <figure class="plate portrait plate-md">
-          <img :src="paul.image" :alt="paul.imageAlt" width="900" height="1350" loading="lazy" />
+          <NuxtPicture
+            format="webp"
+            :src="paul.image"
+            :alt="paul.imageAlt"
+            width="900"
+            height="1350"
+            sizes="sm:100vw md:50vw lg:460px"
+            loading="lazy"
+          />
         </figure>
         <div>
           <h3 class="section-title" :id="paul.slug">{{ paul.name }}</h3>
@@ -48,7 +56,15 @@
           </div>
         </div>
         <figure class="plate portrait plate-md self-end">
-          <img :src="ana.image" :alt="ana.imageAlt" width="900" height="1350" loading="lazy" />
+          <NuxtPicture
+            format="webp"
+            :src="ana.image"
+            :alt="ana.imageAlt"
+            width="900"
+            height="1350"
+            sizes="sm:100vw md:50vw lg:460px"
+            loading="lazy"
+          />
         </figure>
       </div>
     </section>

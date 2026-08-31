@@ -17,6 +17,9 @@ import type { User } from './entities/user.entity';
 import type { Profile } from './entities/profile.entity';
 import type { Child } from './entities/child.entity';
 import type { Group } from './entities/group.entity';
+import type { Enrollment } from './entities/enrollment.entity';
+import type { InvoiceWorksheetRow } from './modules/invoice/invoice.service';
+import type { WaitlistEntry } from './entities/waitlist-entry.entity';
 import type { Location } from './entities/location.entity';
 import type { Room } from './entities/room.entity';
 import type { Attendance } from './entities/attendance.entity';
@@ -35,6 +38,8 @@ import type { AttendanceType } from './enum/attendance-type.enum';
 import type { ClassSessionStatus } from './enum/class-session-status.enum';
 import type { Role } from './enum/role.enum';
 import type { ApprovalStatus } from './enum/approval-status.enum';
+import type { EnrollmentStatus } from './enum/enrollment-status.enum';
+import type { WaitlistStatus } from './enum/waitlist-status.enum';
 import type { ProjectStatus } from './enum/project-status.enum';
 import type { ProjectSource } from './enum/project-source.enum';
 import type { UnassignedFileReason } from './enum/unassigned-file-reason.enum';
@@ -56,6 +61,24 @@ type _Child = Check<Pick<Wire.Child, 'id' | 'firstName' | 'lastName' | 'birthDat
 type _Group = Check<Omit<Wire.Group, never>, Omit<Serialized<Group>, 'children'>>;
 type _Location = Check<Omit<Wire.Location, never>, Omit<Serialized<Location>, 'rooms'>>;
 type _Room = Check<Omit<Wire.Room, never>, Omit<Serialized<Room>, 'groups'>>;
+
+// E11/S1 and S3. The status checks are the load-bearing ones: the wire types are unions of literals
+// while the entities use enums, so these lines are what stops a status added on one side from
+// silently not existing on the other.
+// The worksheet row is assembled in the service rather than serialized from an entity, so the
+// check here is that the two descriptions of it agree — the backend's own interface against the
+// wire's. Without it the screen and the endpoint could drift a field apart in silence.
+type _InvoiceWorksheetRow = Check<Wire.InvoiceWorksheetRow, InvoiceWorksheetRow>;
+type _EnrollmentStatus = Check<Wire.EnrollmentStatus, EnrollmentStatus>;
+type _WaitlistStatus = Check<Wire.WaitlistStatus, WaitlistStatus>;
+type _Enrollment = Check<
+    Pick<Wire.Enrollment, 'id' | 'status' | 'startDate' | 'endDate' | 'exitReason' | 'contractSignedAt'>,
+    Pick<Serialized<Enrollment>, 'id' | 'status' | 'startDate' | 'endDate' | 'exitReason' | 'contractSignedAt'>
+>;
+type _WaitlistEntry = Check<
+    Pick<Wire.WaitlistEntry, 'id' | 'status' | 'createdAt' | 'offeredAt' | 'respondBy' | 'note'>,
+    Pick<Serialized<WaitlistEntry>, 'id' | 'status' | 'createdAt' | 'offeredAt' | 'respondBy' | 'note'>
+>;
 type _ClassSession = Check<Omit<Wire.ClassSession, never>, Omit<Serialized<ClassSession>, 'attendances'>>;
 
 // E14. Checked field by field rather than whole, because the entity carries several things that

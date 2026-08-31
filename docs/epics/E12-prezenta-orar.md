@@ -151,6 +151,39 @@ Motivul din [Decizii luate](#decizii-luate) pentru care „S2 devine mai importa
 dispărut odată cu E10: fără module de delimitat, calendarul de vacanțe redevine ce părea la început
 — o listă de zile în care nu se ține curs. Rămâne de făcut, dar nu mai determină ce se facturează.
 
+> ## Soluția propusă
+>
+> **O entitate cu două câmpuri și un ecran de cinci minute pe an.**
+>
+> ```
+> NonTeachingPeriod: startDate, endDate, name, location (nullable)
+> ```
+>
+> Un interval, nu o zi: o vacanță de două săptămâni e un rând, nu paisprezece. O sărbătoare legală e
+> un rând cu aceleași date la ambele capete. Structura anului școlar românesc înseamnă **cinci
+> intervale de vacanță plus vreo cinci-șase zile libere** — sub douăsprezece rânduri pe an, tastate
+> o dată, din ordinul de ministru publicat primăvara.
+>
+> `location` nullable rezolvă cerința din story fără s-o complice: gol înseamnă „toată școala", ceea
+> ce e cazul pentru absolut toate vacanțele naționale; se completează doar dacă o locație chiar are
+> vreodată program diferit.
+>
+> **Ce se schimbă în cod e o singură linie de gândire:** `generateForGroup` sare peste orice dată
+> acoperită de un interval. Ședințele deja generate în vacanțe nu se șterg — se anulează, prin
+> același `CANCELLED` care există, ca istoricul să spună ce s-a întâmplat și nu doar ce a rămas.
+>
+> **Ce apără de o dată tastată greșit** e același lucru care apără ecranul de emitere: la salvare
+> vezi imediat consecința — „grupa de luni pierde 2 ședințe în decembrie, primele pe 22 și 29" —
+> deci o greșeală se vede ca un număr ciudat, nu ca o ședință lipsă descoperită în ianuarie.
+>
+> **Nu e blocat de nimic.** Nu cere E10, nu cere deploy, nu cere nicio decizie de la nimeni în afară
+> de datele din ordin. Costul e o entitate, o migrare, un ecran mic și o condiție în generator.
+>
+> **De ce merită făcut chiar dacă nu mai determină facturarea:** azi ecranul de prezență arată
+> ședințe în vacanță, iar cineva trebuie să-și amintească să le anuleze. Un lucru pe care trebuie
+> să ți-l amintești în fiecare decembrie e un lucru pe care într-un decembrie îl vei uita — și
+> atunci raportul de prezență nemarcată din S7 va cere socoteală pentru ore care n-au existat.
+
 ### S3 · Absențe anunțate
 
 Un părinte anunță din portal, cu motiv și termen minim. Profesorul vede dinainte cine lipsește.

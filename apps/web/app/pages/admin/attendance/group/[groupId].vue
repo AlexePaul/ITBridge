@@ -34,9 +34,24 @@
           <UCard class="mb-4">
             <template #header>
               <div class="items-center justify-between flex">
-                <UBadge color="secondary" variant="subtle" size="lg" class="w-10 justify-center">
-                  #{{ child.id }}
-                </UBadge>
+                <div class="flex items-center gap-2">
+                  <UBadge color="secondary" variant="subtle" size="lg" class="w-10 justify-center">
+                    #{{ child.id }}
+                  </UBadge>
+                  <!--
+                    E11/S4: a trial has to be visible in the register. The child is in the group and
+                    is marked present or absent like anyone else — they are sitting there — but the
+                    teacher should know this is somebody deciding whether to stay.
+                  -->
+                  <UBadge
+                    v-if="trialChildIds.has(child.id)"
+                    color="info"
+                    variant="subtle"
+                    size="sm"
+                  >
+                    Probă
+                  </UBadge>
+                </div>
                 <template v-if="String(child?.group?.id) !== groupId">
                   <UButton
                     icon="i-lucide-x"
@@ -178,6 +193,7 @@ import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { generatedScheduleMessage } from "~/composables/useClassSessionSchedule";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { useChildrenStore } from "~/stores/childrenStore";
+import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
 import { useGroupsStore } from "~/stores/groupsStore";
 import type { Child } from "~/types/child.types";
 import type { Group } from "~/types/group.types";
@@ -187,7 +203,17 @@ import { ClassSessionStatus } from "~/types/class-session.types";
 const route = useRoute();
 const childrenStore = useChildrenStore();
 const childrenApi = useChildrenApi();
+const enrollmentsApi = useEnrollmentsApi();
 const children: Ref<Child[]> = ref([]);
+
+/**
+ * Which of the children in the register are on a trial.
+ *
+ * Read from the enrolments rather than inferred from the child, because "on trial" is a property of
+ * the enrolment, not of the person — the same child can be a trial in September and enrolled in
+ * October.
+ */
+const trialChildIds = ref<Set<number>>(new Set());
 const searchQuery = ref("");
 const filteredChildren: Ref<Child[]> = ref([]);
 const availableChildren: Ref<Child[]> = ref([]);
@@ -312,6 +338,18 @@ onMounted(async () => {
   availableChildren.value = await childrenStore.getChildrenNotInGroupId(groupId.value);
   await groupsApi.fetchGroups();
   group.value = groupsStore.getGroupById(groupId.value as string);
+
+  try {
+    const members = await enrollmentsApi.fetchMembers(Number(groupId.value));
+    trialChildIds.value = new Set(
+      (members ?? [])
+        .filter((entry) => entry.status === "TRIAL")
+        .map((entry) => entry.child?.id ?? -1)
+    );
+  } catch {
+    // The register still works without the badges; a missing badge is better than a blank page.
+    trialChildIds.value = new Set();
+  }
 
   // Initialize attendance data map with all group children
   children.value.forEach((child) => {

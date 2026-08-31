@@ -14,6 +14,10 @@ import { Payment } from '../entities/payment.entity';
 import { Discount } from '../entities/discount.entity';
 import { Role } from '../enum/role.enum';
 import { ApprovalStatus } from '../enum/approval-status.enum';
+import { Enrollment } from '../entities/enrollment.entity';
+import { WaitlistEntry } from '../entities/waitlist-entry.entity';
+import { EnrollmentStatus } from '../enum/enrollment-status.enum';
+import { WaitlistStatus } from '../enum/waitlist-status.enum';
 import { PdfService } from '../modules/invoice/pdf.service';
 import sharp from 'sharp';
 import { S3Service } from '../modules/storage/s3.service';
@@ -30,7 +34,7 @@ import { Weekday } from '../enum/weekday.enum';
 import { AttendanceType } from '../enum/attendance-type.enum';
 import { ClassSessionStatus } from '../enum/class-session-status.enum';
 import { DEFAULT_HORIZON_WEEKS } from '../modules/class-session/class-session.service';
-import { addDays, occurrencesOf } from '../modules/class-session/class-session.dates';
+import { addDays, occurrencesOf, toIsoDate } from '../modules/class-session/class-session.dates';
 import { monthlyAmountFor } from '../modules/invoice/pricing';
 
 /**
@@ -303,9 +307,11 @@ export async function seed(dataSource: DataSource): Promise<void> {
                         firstName: CHILD_NAMES[index % CHILD_NAMES.length],
                         lastName: profiles[i].lastName,
                         birthDate,
-                        // The last two are left unassigned, so the "children without a group"
-                        // screen is not empty either.
-                        group: index < plannedChildren - 2 ? groups[index % groups.length] : null,
+                        // The last three are left unassigned. One of them becomes the booked trial
+                        // below and two go on the waiting list, which leaves the "copii fără grupă"
+                        // screen populated and gives the queue an order to be in — a list of one
+                        // demonstrates nothing about what happens when a seat frees.
+                        group: index < plannedChildren - 3 ? groups[index % groups.length] : null,
                     }),
                 ),
             );
@@ -327,6 +333,82 @@ export async function seed(dataSource: DataSource): Promise<void> {
                     group: groups[0],
                 }),
             ),
+        );
+    }
+
+    // --- Enrolments and the waiting list ------------------------------------------------------
+    // `Child.group` is derived (E11/S1), so every child with a group needs the enrolment that
+    // justifies it — otherwise the admin screens show a group the enrolment table denies. On top of
+    // the plain ones, three cases the screens exist for: a real history, a booked trial, and a
+    // group with more people wanting in than it has seats.
+    const enrollmentRepo = dataSource.getRepository(Enrollment);
+
+    for (const child of children) {
+        if (!child.group) continue;
+        await enrollmentRepo.save(
+            enrollmentRepo.create({
+                child,
+                group: child.group,
+                status: EnrollmentStatus.ACTIVE,
+                startDate: toIsoDate(daysAgo(120)),
+                endDate: null,
+                exitReason: null,
+                contractSignedAt: toIsoDate(daysAgo(121)),
+            }),
+        );
+    }
+
+    // One child who has been somewhere else before: this is the row that answers "in what group was
+    // this child in October", which is the whole reason the table exists.
+    const movedChild = children.find((child) => child.group && child.group.id !== groups[0].id);
+    if (movedChild) {
+        await enrollmentRepo.save(
+            enrollmentRepo.create({
+                child: movedChild,
+                group: groups[0],
+                status: EnrollmentStatus.TRANSFERRED,
+                startDate: toIsoDate(daysAgo(300)),
+                endDate: toIsoDate(daysAgo(121)),
+                exitReason: 'Transfer la altă grupă, la cererea familiei',
+                contractSignedAt: toIsoDate(daysAgo(301)),
+            }),
+        );
+    }
+
+    // A trial booked in the last group, so the occupancy figures on screen include one and somebody
+    // has to notice that a trial takes a seat like anything else (D7).
+    const trialChild = children.find((child) => !child.group);
+    if (trialChild) {
+        const trialGroup = groups[groups.length - 1];
+        await enrollmentRepo.save(
+            enrollmentRepo.create({
+                child: trialChild,
+                group: trialGroup,
+                status: EnrollmentStatus.TRIAL,
+                startDate: toIsoDate(daysAgo(-3)),
+                endDate: null,
+                exitReason: null,
+                contractSignedAt: null,
+            }),
+        );
+        await dataSource.getRepository(Child).update({ id: trialChild.id }, { group: trialGroup });
+        trialChild.group = trialGroup;
+    }
+
+    // And a queue on the busiest group, so the waiting-list screen is not empty and the "offer the
+    // freed seat" path has somebody to offer it to the first time anyone closes an enrolment.
+    const waitlistRepo = dataSource.getRepository(WaitlistEntry);
+    const queuedChildren = children.filter((child) => !child.group).slice(0, 2);
+    for (const child of queuedChildren) {
+        await waitlistRepo.save(
+            waitlistRepo.create({
+                child,
+                group: groups[0],
+                status: WaitlistStatus.WAITING,
+                note: child === queuedChildren[0] ? 'Sună după ora 17' : null,
+                offeredAt: null,
+                respondBy: null,
+            }),
         );
     }
 

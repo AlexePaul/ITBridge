@@ -14,6 +14,8 @@ import { Location } from './location.entity';
 import { Room } from './room.entity';
 import { OutboxMessage } from './outbox-message.entity';
 import { EmailConfirmation } from './email-confirmation.entity';
+import { Enrollment } from './enrollment.entity';
+import { WaitlistEntry } from './waitlist-entry.entity';
 import { Project } from './project.entity';
 import { ProjectVersion } from './project-version.entity';
 import { ProjectFile } from './project-file.entity';
@@ -38,6 +40,8 @@ import { AgentStatus } from './agent-status.entity';
             Room,
             OutboxMessage,
             EmailConfirmation,
+            Enrollment,
+            WaitlistEntry,
             Project,
             ProjectVersion,
             ProjectFile,

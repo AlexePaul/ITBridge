@@ -76,6 +76,20 @@ const MESSAGES: Record<string, string> = {
   ACCOUNT_ALREADY_APPROVED: "Contul este deja aprobat.",
   NOT_A_PARENT_ACCOUNT: "Doar conturile de părinte trec prin aprobare.",
 
+  // E11/S1 and S3. `GROUP_FULL` arrives with its own sentence from the server, naming the numbers,
+  // so it is deliberately absent here — the generic line would be a downgrade.
+  CHILD_ALREADY_ENROLLED:
+    "Copilul are deja o înscriere în vigoare. Fă un transfer, nu o a doua înscriere.",
+  ENROLLMENT_ALREADY_CLOSED: "Înscrierea este deja închisă.",
+  ENROLLMENT_STATUS_NOT_OPENABLE: "O înscriere nouă poate fi doar activă sau de probă.",
+  ENROLLMENT_STATUS_NOT_CLOSING: "O înscriere se închide ca încheiată, abandonată sau transferată.",
+  ALREADY_ON_WAITLIST: "Copilul este deja pe lista de așteptare a acestei grupe.",
+  NOTHING_TO_TRANSFER: "Copilul nu are o înscriere în vigoare. Înscrie-l direct, nu prin transfer.",
+  ALREADY_IN_GROUP: "Copilul este deja în această grupă.",
+  NOT_A_TRIAL: "Doar o probă poate fi confirmată sau închisă astfel.",
+  // `COMPATIBILITY_WARNINGS` arrives with the warnings themselves in the message — a generic line
+  // here would replace "are 7 ani, iar grupa e pentru 11-14" with "datele nu sunt valide".
+
   // E14. Every one of these is something an admin or a parent can actually hit, and the shared
   // "există deja o înregistrare" or "nu ai dreptul" would be true of all of them and useful for
   // none — a teacher whose export was refused needs to know it was the file type, not the rules.

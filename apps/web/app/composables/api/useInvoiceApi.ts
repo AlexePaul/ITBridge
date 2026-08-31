@@ -1,4 +1,4 @@
-import type { Invoice } from "~/types/invoice.types";
+import type { Invoice, InvoiceWorksheetRow, IssueInvoicesResult } from "~/types/invoice.types";
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import { date } from "zod";
@@ -73,7 +73,32 @@ export const useInvoiceApi = () => {
     }
   };
 
+  /**
+   * The month's issuing worksheet: every family, every child, every group — and no amounts.
+   *
+   * The arithmetic happens on the screen as the counts are typed. A total arriving pre-computed
+   * would invite pressing the button without reading it.
+   */
+  const fetchWorksheet = async (monthIssued: string) =>
+    api<InvoiceWorksheetRow[]>(`/invoices/worksheet?monthIssued=${monthIssued}`, {
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** Issues the month from the counts on screen. The server bills those numbers, not its own. */
+  const issueInvoices = async (payload: {
+    monthIssued: string;
+    dateIssued: string;
+    families: { parentId: number; children: { childId: number; sessions: number }[] }[];
+  }) =>
+    api<IssueInvoicesResult>("/invoices/issue", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: payload,
+    });
+
   return {
+    fetchWorksheet,
+    issueInvoices,
     getInvoices,
     fetchInvoices,
     previewInvoices,

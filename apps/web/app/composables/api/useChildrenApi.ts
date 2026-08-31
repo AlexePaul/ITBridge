@@ -60,14 +60,21 @@ export const useChildrenApi = () => {
     return updatedChild;
   };
 
-  const addChildToGroup = async (childId: number, groupId: string) => {
+  /**
+   * Puts a child in a group — which since E11/S1 opens an enrolment.
+   *
+   * `acknowledgeWarnings` answers the soft checks from S6: an age outside the group's band refuses
+   * the first attempt and names the numbers, and this is how the screen says "yes, I know". It does
+   * not get past a full group; capacity is checked first and is not a judgement call.
+   */
+  const addChildToGroup = async (childId: number, groupId: string, acknowledgeWarnings = false) => {
     const updatedChild = await api<Child>(`/children/${childId}/groups/${groupId}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${tokenStore.accessToken}`,
       },
+      body: { acknowledgeWarnings },
     });
-    console.log(`Child ${childId} added to group ${groupId}:`, updatedChild);
     return updatedChild;
   };
 

@@ -5,6 +5,7 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { CreateChildDto } from './dto/createChild.dto';
 import { FilterChildDto } from './dto/filterChild.dto';
 import { UpdateChildDto } from './dto/updateChild.dto';
+import { AssignToGroupDto } from './dto/assignToGroup.dto';
 import { RolesGuard } from 'src/guards/role.guard';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
@@ -67,9 +68,12 @@ export class ChildController {
     async assignChildToGroup(
         @Param('childId', ParseIntPipe) childId: number,
         @Param('groupId', ParseIntPipe) groupId: number,
-        @Request() _req: AuthenticatedRequest,
+        @Body() assignToGroupDto: AssignToGroupDto,
+        @Request() req: AuthenticatedRequest,
     ) {
-        return this.childService.assignChildToGroup(childId, groupId);
+        // The acting user is passed on because an over-capacity enrolment names whoever made it in
+        // the log. This route never allows one, but the service takes the same argument either way.
+        return this.childService.assignChildToGroup(childId, groupId, req.user.sub, assignToGroupDto.acknowledgeWarnings === true);
     }
 
     @Delete('/:childId/groups/:groupId')

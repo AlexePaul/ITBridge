@@ -76,11 +76,13 @@
         </p>
       </div>
       <figure class="plate">
-        <img
+        <NuxtPicture
+          format="webp"
           :src="location.image"
           :alt="location.imageAlt"
           width="1200"
           height="1171"
+          sizes="sm:100vw md:50vw lg:560px"
           loading="lazy"
         />
       </figure>

@@ -17,6 +17,10 @@ export function createMockRepository<T extends ObjectLiteral = ObjectLiteral>():
         find: jest.fn(),
         findOne: jest.fn(),
         findOneBy: jest.fn(),
+        // `findOneOrFail` is what a service reaches for when the row must exist by construction —
+        // reading back a row it has just written inside its own transaction, say. Missing from the
+        // double, the call returns undefined and the failure reads as a service bug.
+        findOneOrFail: jest.fn(),
         save: jest.fn(),
         create: jest.fn(),
         delete: jest.fn(),
@@ -43,7 +47,7 @@ export interface MockQueryBuilder<T extends ObjectLiteral = ObjectLiteral> exten
     leftJoinCalls: string[];
 }
 
-export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(result: { many?: T[]; one?: T | null }): MockQueryBuilder<T> {
+export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(result: { many?: T[]; one?: T | null; count?: number }): MockQueryBuilder<T> {
     const andWhereCalls: [string, Record<string, unknown> | undefined][] = [];
     const leftJoinCalls: string[] = [];
 
@@ -52,6 +56,9 @@ export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(
         leftJoinCalls,
         getMany: jest.fn().mockResolvedValue(result.many ?? []),
         getOne: jest.fn().mockResolvedValue(result.one ?? null),
+        // `getCount` rather than `count`: a service asking "how many rows match" through the
+        // builder needs the same double as one asking for the rows themselves.
+        getCount: jest.fn().mockResolvedValue(result.count ?? 0),
     };
 
     // `addOrderBy` and `loadRelationCountAndMap` are here because the class-session queries chain

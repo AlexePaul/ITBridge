@@ -3,8 +3,7 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 30 august 2026, pe `develop`, plus PR-urile de E11 S2 și E14 care încă nu
-sunt mergeate.
+**Ultima actualizare:** 31 august 2026, pe `develop`, cu E14 mergeat.
 
 ## Legendă
 
@@ -15,8 +14,8 @@ sunt mergeate.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 7 scrise dar nemergeate,
-10 blocate, 4 scoase din scop, 72 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
+Din **142 de story-uri** în 21 de epicuri: 50 livrate, 10 parțiale, 3 scrise dar nemergeate,
+9 blocate, 4 scoase din scop, 66 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
 înseamnă adesea „construit, dar nu rulează nicăieri".
 
 ---
@@ -58,7 +57,7 @@ Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 7 scrise da
 - [~] S2 · Migrările în deploy — comenzile și garda de CI există; cablarea în deploy nu, fiindcă nu există deploy
 - [x] S3 · Seed pentru dezvoltare
 - [!] S4 · Backup și restaurare — așteaptă instanța
-- [!] S5 · Retenție — așteaptă răspunsul contabilului: cât se păstrează facturile
+- [ ] S5 · Retenție — **nu mai așteaptă contabilul**: documentul fiscal stă în SmartBill, noi ținem doar evidența. Rămâne politica pentru prezențe, proiecte și conturi inactive
 
 ### E05 · Robustețe backend — `livrat`
 
@@ -96,27 +95,27 @@ Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 7 scrise da
 
 ## Domeniu
 
-### E08 · Multi-locație și săli — `în lucru`
+### E08 · Multi-locație și săli — `livrat pentru MVP`
 
 - [x] S1 · Entitățile de locație și sală
 - [x] S2 · Corectarea constrângerii de unicitate
-- [~] S3 · Grupa devine descriptibilă — are nume, sală, locație, capacitate; **nu are nivel (E10, scos din MVP) și nici profesor (E09)**
+- [~] S3 · Grupa devine descriptibilă — are nume, sală, locație, capacitate. **Închis pentru MVP:** nivelul vine din E10 și profesorul din E09, ambele scoase din MVP
 - [x] S4 · Locația în interfață
 - [x] S5 · Migrarea datelor existente
 
 > Facturile și plățile nu respectă selectorul de locație, intenționat: sunt legate de părinte, iar un
 > părinte poate avea copii la ambele adrese.
 
-### E09 · Personal și alocare — `propus`
+### E09 · Personal și alocare — `scos din MVP`
 
 - [ ] S1 · Entitatea de personal
-- [ ] S4 · Profesor pe grupă — **piesa pe care E08 S3 o așteaptă**
+- [ ] S4 · Profesor pe grupă — **fără relevanță în MVP**: toți cei care se autentifică sunt admini
 - [ ] S6 · Disponibilitate
 - ~~S2 · Roluri noi~~ — amânat: fără rol de profesor deocamdată, toți sunt admin
 - ~~S3 · Restrângere pe locație~~ — amânat, cade odată cu rolurile
 - ~~S5 · Invitație pentru personal~~ — amânat, cade odată cu rolurile
 
-### E10 · Curriculum și catalog de module — `propus`, scos din MVP
+### E10 · Curriculum și catalog de module — `scos din MVP`
 
 - [ ] S1 · Curs și modul
 - [ ] S2 · Lecții și competențe
@@ -131,20 +130,20 @@ Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 7 scrise da
 
 ## Operațiuni
 
-### E11 · Înscrieri, grupe și capacitate — `în lucru`
+### E11 · Înscrieri, grupe și capacitate — `livrat`
 
-- [ ] S1 · Entitatea de înscriere
-- [r] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
-- [ ] S3 · Capacitate și listă de așteptare — capacitatea există din E08, dar nimic nu o aplică la înscriere
-- [ ] S4 · Lecție de probă — ocupă un loc din grupă
-- [ ] S5 · Transferuri
-- [ ] S6 · Verificări de compatibilitate
-- [ ] S7 · Formarea grupelor
+- [x] S1 · Entitatea de înscriere — perioadă, istoric și starea; „o singură înscriere în vigoare" e index parțial, nu doar verificare în serviciu. `Child.group` rămâne, derivată
+- [x] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
+- [x] S3 · Capacitate și listă de așteptare — aplicată, probele numărate ca locuri; lista oferă automat locul eliberat. **Fără măturarea ofertelor expirate**, și fără jurnalul de audit al excepției (E06)
+- [x] S4 · Lecție de probă — ocupă un loc, apare distinct în catalog, se confirmă sau se închide. **Facturarea numără acum doar înscrierile active**, deci nici proba, nici un copil fără grupă
+- [x] S5 · Transferuri — o singură tranzacție, starea și contractul trec mai departe. Efectul pe factură nu se afișează fiindcă prețul e per ședință și pe familie, nu pe grupă
+- [~] S6 · Verificări de compatibilitate — vârsta, ca avertisment care cere confirmare. **Acceptat ca stare finală pentru MVP**; cerințele prealabile de modul aparțin lui E10, scos din MVP
+- [~] S7 · Formarea grupelor — cererea neacoperită pe vârstă și locație, plus probele fără decizie. **Fără disponibilitatea profesorilor** (E09)
 
 ### E12 · Prezență, recuperări și orar — `în lucru`
 
 - [x] S1 · Ședința ca entitate — livrat **redus**: fără modul și lecție, fiindcă E10 nu se face
-- [!] S2 · Calendar de vacanțe — nelivrat; ședințele se generează pe toate săptămânile, iar una căzută în vacanță se anulează manual
+- [ ] S2 · Calendar de vacanțe — **soluție propusă în epic**, nu mai e blocat: o entitate `NonTeachingPeriod` cu intervale, ~12 rânduri pe an, plus o condiție în generator
 - [ ] S3 · Absențe anunțate
 - [ ] S4 · Recuperări
 - [~] S5 · Anulări și mutări — **doar anularea și reactivarea**; fără mutare, fără notificare
@@ -161,37 +160,29 @@ Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 7 scrise da
 
 ### E14 · Proiectele elevilor — `în lucru`
 
-- [r] S1 · Modelul de proiect — fără instantaneu de consimțământ și fără `isPublic`; vin cu E07 S2
-- [r] S2 · Agentul local și folderul oglindit — `apps/agent`, fără dependențe de runtime. Vizibilitatea
-  pulsului da, **alertarea nu**: canalul e E06 S3 și nu există
-- [r] S3a · Miniatură pentru imagini
+- [x] S1 · Modelul de proiect — fără instantaneu de consimțământ și fără `isPublic`; vin cu E07 S2
+- [x] S2 · Agentul local și folderul oglindit — `apps/agent`, fără dependențe de runtime. Vizibilitatea pulsului da, **alertarea nu**: canalul e E06 S3 și nu există
+- [x] S3a · Miniatură pentru imagini
 - [!] S3b · Miniaturi pentru video și `.sb3` — cere ffmpeg pe host, deci deploy
-- [r] S4 · Trimiterea către părinte — părinții fără adresă apar în raportul trimiterii, nu în
-  evidența din E17 S5, care nu există
-- [r] S5 · Galeria din portal — scrisă și testată; nu se poate arăta nimănui până la E01 S4
+- [x] S4 · Trimiterea către părinte — părinții fără adresă apar în raportul trimiterii, nu în evidența din E17 S5, care nu există
+- [x] S5 · Galeria din portal — scrisă și testată; nu se poate arăta nimănui până la E01 S4
 - [!] S6 · Vitrina publică — cere backend deployat **și** consimțământul din E07 S2
-- [r] S7 · Corectarea unei atribuiri greșite — urma stă pe `Project`, nu în audit log-ul din E07 S3
+- [x] S7 · Corectarea unei atribuiri greșite — urma stă pe `Project`, nu în audit log-ul din E07 S3
 
-> Fluxul merge cap la cap: profesorul salvează în folderul copilului, agentul urcă, adminul se uită
-> pe grupă și apasă, părintele deschide în portal. `S3Service` s-a generalizat și a ieșit din modulul
-> de facturi în `apps/api/src/modules/storage/`, iar `outbox` a primit o coloană `attachments`,
-> fiindcă miniatura pleacă atașată inline, nu ca URL semnat.
->
-> **Întrebarea de teren s-a închis prin decizie:** unde programul nu poate salva direct pe drive-ul
-> mapat, profesorul mută fișierul în folderul copilului. Nu se schimbă nicio linie de cod; se schimbă
-> argumentul — „zero gesturi unde se poate, unul mic unde nu". Ce se măsoară după lansare rămâne
-> procentul de ședințe cu cel puțin un document.
+> Complet specificat, gata de construit. Fluxul e: agent local pe calculatorul cu share-ul de rețea,
+> profesorul salvează în folderul copilului, adminul revizuiește pe grupă și apasă trimite.
 
 ---
 
 ## Bani
 
-### E15 · Pricing și facturare v2 — `propus`
+### E15 · Pricing și facturare v2 — `în lucru`
 
+- [r] S0 · Prețul pe ședință și ecranul de emitere — 87,50/62,50 per ședință, arbore familie→copii, zero se consemnează ca `waived`. **Facturarea pe modul a fost analizată și abandonată**, vezi caseta din epic
 - [ ] S1 · Catalogul de prețuri
 - [ ] S2 · Factura pe modul, cu linii
 - [ ] S3 · Planuri de plată
-- [x] S4 · Regula pentru mai mulți copii — 350 + 250 pe frate, într-un singur loc; ambele bug-uri reparate
+- [x] S4 · Regula pentru mai mulți copii — 350 + 250 pe frate, într-un singur loc; ambele bug-uri reparate. Din E11/S4, suma numără doar copiii înscriși activ
 - [ ] S5 · Reduceri cu tip
 - [ ] S6 · Previzualizare și emitere în masă
 - [ ] S7 · PDF-ul nu se mai generează local
@@ -237,10 +228,10 @@ Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 7 scrise da
 ### E18 · Frontend: design system și portal — `în lucru`
 
 - [x] S1 · Fundația de design
-- [~] S2 · Pipeline de imagini — imaginile sunt sub 200KB, dar `@nuxt/image` tot nu e instalat
+- [r] S2 · Pipeline de imagini — `@nuxt/image`, WebP cu rezervă JPEG, `srcset` pe lățimile reale: **1056KB → 239KB**. AVIF măsurat și respins
 - [x] S3 · Paginile publice
-- [!] S4 · Portalul părintelui — **blocat de deploy**: paginile de după autentificare nu se pot nici testa, nici arăta
-- [ ] S5 · Uniformizarea zonei de admin
+- [!] S4 · Portalul părintelui — **cerut explicit de școală: rescriere, nu retuș.** Blocat de deploy: paginile de după autentificare nu se pot nici testa, nici arăta
+- [!] S5 · Uniformizarea zonei de admin — **cerut explicit.** 32 de ecrane, fiecare cu tiparele lui; costul crește cu fiecare epic livrat. Jumătatea de componente se poate face înainte de deploy
 - [~] S6 · Accesibilitate — verificarea în CI lipsește
 - [ ] S7 · Interfața profesorului — fără rol separat, e o vedere din zona de admin, nu o zonă a ei
 
@@ -250,7 +241,7 @@ Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 7 scrise da
 - [x] S2 · Date structurate
 - [~] S3 · Pagini locale — livrat pe site; **rămâne partea din afara lui: două profiluri Google Business verificate, unul per adresă**
 - [!] S4 · Pagini de modul — așteaptă E10, care e scos din MVP
-- [ ] S5 · Performanță — se face odată cu E18 S2
+- [r] S5 · Performanță — livrat odată cu E18 S2; rămâne confirmarea pe trafic real, care cere domeniul live
 - [!] S6 · Conținut — blocat de „cine scrie textele"
 - [x] S7 · Pregătire pentru motoare generative
 - [!] S8 · Măsurare — cere domeniul live și Search Console
@@ -288,29 +279,29 @@ Din **141 de story-uri** în 21 de epicuri: 39 livrate, 9 parțiale, 7 scrise da
 
 Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
-| Cine           | Ce                                | Ce ține în loc                                                                                     |
-| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **Tu**         | Instanța EC2                      | E01 S4, E18 S4, E04 S4, E14 S3b, S5 și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
-| **Tu**         | Două profiluri Google Business    | E19 S3, partea din afara site-ului                                                                 |
-| **Școala**     | Programa și calendarul vacanțelor | Prima factură pe modul, E19 S4. Nu blochează construcția                                           |
-| **Contabil**   | Cât se păstrează facturile        | E04 S5                                                                                             |
-| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                             |
+| Cine           | Ce                                | Ce ține în loc                                                                                |
+| -------------- | --------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
+| **Tu**         | Datele anului școlar din ordin    | E12 S2 — cinci intervale de vacanță și vreo șase zile libere, tastate o dată pe an           |
+| **Tu**         | Două profiluri Google Business    | E19 S3, partea din afara site-ului                                                            |
+| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                 |
+| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                        |
 
 ## Ce urmează
 
 **Cu instanța EC2:** E01 S4, deploy-ul. În ziua în care merge, portalul părintelui, prezența și
 facturile devin lucruri pe care le poate folosi cineva.
 
-**Fără ea:** restul lui E11. S2 e livrat — contul de părinte are acum date obligatorii, confirmare
-de email și aprobare de admin. Ce rămâne e S1, entitatea de înscriere cu perioadă și istoric, și S3,
-aplicarea capacității: `Group.capacity` e în continuare un număr declarat pe care nimic nu îl
-verifică la înscriere, iar asta e mai rău decât să lipsească, fiindcă adminul îl citește ca pe o
-garanție.
+**Fără ea, în ordinea asta:**
 
-**Sau [E07](E07-securitate-gdpr.md) S2**, consimțământul, care s-a scumpit ca valoare acum că E14 e
-construit: e singurul lucru care mai stă între vitrina publică și existență, iar vitrina alimentează
-direct [E19](E19-seo-geo.md). E și primul lucru din E07 care are un consumator real, nu unul
-prognozat.
+1. **E12 S2, calendarul zilelor fără curs** — soluția e scrisă în epic și nu mai e blocată de nimic
+   în afară de datele din ordinul de ministru. O entitate, o migrare, un ecran mic.
+2. **E18 S5, jumătatea de componente** — tiparul de tabel, cel de formular, stările de încărcare, gol
+   și eroare, și mutarea zonei de admin pe jetoanele din `classical.css`. Nu cere un API care rulează,
+   iar costul crește cu fiecare ecran adăugat: erau 25, sunt 32.
+
+E11 e închis. Ce a rămas parțial din el — cerințele prealabile de modul la S6, disponibilitatea
+profesorilor la S7 — depinde de E10 și E09, nu de E11.
 
 ---
 
