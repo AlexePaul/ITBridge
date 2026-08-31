@@ -34,7 +34,8 @@ un gest în plus și e asumat; spune-le profesorilor asta din prima, ca să nu-l
 ## Ce îi trebuie
 
 - Node 22 sau mai nou. Agentul **nu are nicio dependență de runtime** — `fetch`, `FormData` și
-  `crypto` sunt din Node.
+  `crypto` sunt din Node, iar ce iese din compilare nu importă nimic din afara lui. Nu se copiază
+  niciun `node_modules` pe calculatorul din birou.
 - Un cont dedicat în platformă, cu rol `ADMIN`. Nu există alt rol: E09 a amânat rolurile, deci
   credențiala agentului poate face tot ce poate face un admin. E acceptat pentru că mașina stă în
   birou; **se reia la primul profesor care nu e proprietar.**
@@ -42,57 +43,60 @@ un gest în plus și e asumat; spune-le profesorilor asta din prima, ca să nu-l
 
 ## Instalare pe calculatorul din birou
 
-1. **Construiește pachetul**, de pe mașina de dezvoltare:
+Clonează repo-ul pe calculatorul din birou, deschide **PowerShell ca administrator** și rulează:
 
-    ```bash
-    pnpm --filter agent build
-    ```
+```powershell
+cd apps\agent
+.\install.ps1
+```
 
-    Copiază pe calculatorul din birou `apps/agent/dist`, `apps/agent/package.json` și
-    `node_modules` (sunt doar tipuri, deci practic gol).
+Te întreabă ce nu i-ai dat pe linia de comandă — adresa API, utilizatorul agentului și parola lui,
+folderul cu proiecte — apoi construiește ce trebuie construit, copiază în `C:\itbridge-agent`, scrie
+`.env`, înregistrează sarcina care pornește la boot și o pornește. La final îți arată primele linii
+din log, ca să nu pleci de la mașină fără să știi dacă merge.
 
-2. **Scrie `.env`** lângă `dist`, în folderul din care pornește serviciul:
+Cu toate răspunsurile dinainte, dintr-o singură comandă:
 
-    ```ini
-    ITBRIDGE_API_BASE=https://api.itbridgeschool.com
-    ITBRIDGE_AGENT_USERNAME=agent-birou
-    ITBRIDGE_AGENT_PASSWORD=...
-    ITBRIDGE_AGENT_ROOT=P:\Proiecte
-    ITBRIDGE_AGENT_NAME=birou-straulesti
-    ```
+```powershell
+.\install.ps1 -ApiBase https://api.itbridgeschool.com -AgentUser agent-birou -Root D:\Proiecte -AgentName birou-straulesti
+```
 
-    Restul au valori implicite bune: scanare la 30s, oglindire la 15 minute, puls la 5 minute.
+Dezinstalare: `.\install.ps1 -Uninstall`. Scoate sarcina și lasă `C:\itbridge-agent` pe disc — acolo
+sunt log-urile și tokenul salvat, iar o reinstalare peste ele nu arată ca o primă instalare.
 
-3. **Verifică o dată, în consolă**, înainte să faci serviciu din el:
+### Calea către foldere: locală, nu drive mapat
 
-    ```
-    node dist\index.js
-    ```
+**`-Root` trebuie să fie o cale locală pe calculatorul ăsta** — `D:\Proiecte`, nu `P:\Proiecte`.
+Aranjamentul normal e că acest calculator **găzduiește** partajarea, iar mașinile din laborator au
+`P:` mapat la ea.
 
-    Ar trebui să scrie `Watching P:\Proiecte every 30s.` și să creeze folderele. Dacă o variabilă
-    lipsește, refuză să pornească și spune care — intenționat: un agent care pornește fără calea către
-    partajare ar bate pulsul vesel în timp ce nu urcă nimic, adică exact tăcerea ambiguă pe care pulsul
-    trebuie s-o elimine.
+Motivul e o capcană clasică de Windows, și installerul refuză explicit ca să n-o descoperi singur: o
+literă de drive mapat aparține sesiunii unui utilizator logat, iar o sarcină pornită la boot n-are
+niciuna. Agentul ar porni, ar bate pulsul vesel și n-ar urca nimic — adică exact tăcerea ambiguă pe
+care pulsul există ca s-o elimine.
 
-4. **Fă-l serviciu Windows**, ca să pornească odată cu calculatorul și să se repornească singur.
-   Cu [NSSM](https://nssm.cc/):
+Dacă folderul e totuși pe alt calculator, dă calea UNC și un cont care are drepturi pe ea:
 
-    ```
-    nssm install ITBridgeAgent "C:\Program Files\nodejs\node.exe" "C:\itbridge-agent\dist\index.js"
-    nssm set ITBridgeAgent AppDirectory C:\itbridge-agent
-    nssm set ITBridgeAgent AppStdout C:\itbridge-agent\logs\out.log
-    nssm set ITBridgeAgent AppStderr C:\itbridge-agent\logs\err.log
-    nssm set ITBridgeAgent AppRotateFiles 1
-    nssm start ITBridgeAgent
-    ```
+```powershell
+.\install.ps1 -Root \\SRV\Proiecte -RunAsUser DOMENIU\cont-birou
+```
 
-    Agentul nu-și scrie propriul fișier de log tocmai pentru asta: NSSM prinde deja stdout și stderr și
-    le rotește, iar un al doilea log ar însemna două locuri de căutat și unul care umple un disc dintr-un
-    birou în care nu intră nimeni.
+### Sarcină programată, nu serviciu Windows
 
-5. **Confirmă din interfață.** `/admin/proiecte` arată când a raportat agentul ultima oară. După trei
-   ore fără puls, ecranul spune explicit că a tăcut — pentru că altfel „azi n-a urcat nimic" și
-   „calculatorul e oprit" arată identic.
+Un serviciu Windows trebuie să vorbească protocolul Service Control Manager, ceea ce `node.exe` nu
+face — de aia există NSSM și celelalte wrappere. O sarcină programată cu declanșator la pornire face
+aceeași treabă, e în Windows din start și nu cere nimic descărcat. „Clonez și rulez" era ideea.
+
+Ce e configurat: pornire la boot, repornire la un minut dacă moare, fără limită de timp de execuție,
+o singură instanță, iar stdout și stderr merg în `C:\itbridge-agent\logs\agent.log`. Agentul scrie
+o linie per trecere doar când s-a întâmplat ceva, deci fișierul crește cu câțiva kiloocteți pe zi și
+n-are nevoie de rotație.
+
+### După instalare
+
+Deschide `/admin/proiecte`. Acolo scrie când a raportat agentul ultima oară. **După trei ore fără
+puls ecranul spune explicit că a tăcut** — pentru că altfel „azi n-a urcat nimic" și „calculatorul e
+oprit" arată identic. Asta e jumătatea care face uitatul de el sigur.
 
 ## Drepturile pe partajare
 

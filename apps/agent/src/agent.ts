@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import type { AgentMirror } from '@itbridge/types';
 import { ApiClient } from './api-client';
 import type { AgentConfig } from './config';
@@ -42,6 +43,7 @@ export class Agent {
     ) {}
 
     async start(): Promise<void> {
+        this.warnIfRootUnreachable();
         await this.api.authenticate();
         await this.refreshMirror();
         await this.pass();
@@ -105,6 +107,30 @@ export class Agent {
             log.error(`Pass failed: ${this.lastError}`);
         } finally {
             this.running = false;
+        }
+    }
+
+    /**
+     * Says something useful when the watched folder is not there, and carries on anyway.
+     *
+     * A warning rather than a refusal: the share can be briefly unreachable at boot, before the
+     * network is up, and an agent that gave up then would stay down until somebody noticed. The
+     * mirror creates the folder if it can, the pass fails harmlessly if it cannot, and the heartbeat
+     * carries the reason either way.
+     *
+     * The message names the trap it is almost always hiding. `P:\Proiecte` works when you type it
+     * and not at all from a task started at boot, because a mapped drive letter belongs to a
+     * logged-in session and a task at boot has none — so the agent comes up, beats healthily and
+     * uploads nothing, which is precisely the ambiguous silence the heartbeat exists to remove.
+     */
+    private warnIfRootUnreachable(): void {
+        if (fs.existsSync(this.config.root)) return;
+
+        log.warn(`The watched folder ${this.config.root} is not reachable right now.`);
+        if (/^[A-Za-z]:/.test(this.config.root)) {
+            log.warn(
+                'If that is a mapped network drive, a service cannot see it: use the UNC path, or run on the machine that hosts the folder.',
+            );
         }
     }
 
