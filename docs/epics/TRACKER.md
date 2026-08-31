@@ -3,7 +3,7 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 31 august 2026, pe `develop`, plus PR-ul care încheie E11.
+**Ultima actualizare:** 31 august 2026, pe `develop`, plus PR-ul de facturare pe ședințe.
 
 ## Legendă
 
@@ -14,7 +14,7 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **141 de story-uri** în 21 de epicuri: 42 livrate, 11 parțiale, 2 scrise dar nemergeate,
+Din **142 de story-uri** în 21 de epicuri: 44 livrate, 11 parțiale, 1 scris dar nemergeat,
 10 blocate, 4 scoase din scop, 72 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
 înseamnă adesea „construit, dar nu rulează nicăieri".
 
@@ -135,8 +135,8 @@ Din **141 de story-uri** în 21 de epicuri: 42 livrate, 11 parțiale, 2 scrise d
 - [x] S1 · Entitatea de înscriere — perioadă, istoric și starea; „o singură înscriere în vigoare" e index parțial, nu doar verificare în serviciu. `Child.group` rămâne, derivată
 - [x] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
 - [x] S3 · Capacitate și listă de așteptare — aplicată, probele numărate ca locuri; lista oferă automat locul eliberat. **Fără măturarea ofertelor expirate**, și fără jurnalul de audit al excepției (E06)
-- [r] S4 · Lecție de probă — ocupă un loc, apare distinct în catalog, se confirmă sau se închide. **Facturarea numără acum doar înscrierile active**, deci nici proba, nici un copil fără grupă
-- [r] S5 · Transferuri — o singură tranzacție, starea și contractul trec mai departe. Efectul pe factură nu se afișează fiindcă prețul e lunar și pe familie, nu pe grupă
+- [x] S4 · Lecție de probă — ocupă un loc, apare distinct în catalog, se confirmă sau se închide. **Facturarea numără acum doar înscrierile active**, deci nici proba, nici un copil fără grupă
+- [x] S5 · Transferuri — o singură tranzacție, starea și contractul trec mai departe. Efectul pe factură nu se afișează fiindcă prețul e per ședință și pe familie, nu pe grupă
 - [~] S6 · Verificări de compatibilitate — vârsta, ca avertisment care cere confirmare. **Fără cerințele prealabile de modul**, fiindcă E10 nu se face
 - [~] S7 · Formarea grupelor — cererea neacoperită pe vârstă și locație, plus probele fără decizie. **Fără disponibilitatea profesorilor** (E09)
 
@@ -176,8 +176,9 @@ Din **141 de story-uri** în 21 de epicuri: 42 livrate, 11 parțiale, 2 scrise d
 
 ## Bani
 
-### E15 · Pricing și facturare v2 — `propus`
+### E15 · Pricing și facturare v2 — `în lucru`
 
+- [r] S0 · Prețul pe ședință și ecranul de emitere — 87,50/62,50 per ședință, arbore familie→copii, zero se consemnează ca `waived`. **Facturarea pe modul a fost analizată și abandonată**, vezi caseta din epic
 - [ ] S1 · Catalogul de prețuri
 - [ ] S2 · Factura pe modul, cu linii
 - [ ] S3 · Planuri de plată

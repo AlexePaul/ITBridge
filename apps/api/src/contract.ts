@@ -18,6 +18,7 @@ import type { Profile } from './entities/profile.entity';
 import type { Child } from './entities/child.entity';
 import type { Group } from './entities/group.entity';
 import type { Enrollment } from './entities/enrollment.entity';
+import type { InvoiceWorksheetRow } from './modules/invoice/invoice.service';
 import type { WaitlistEntry } from './entities/waitlist-entry.entity';
 import type { Location } from './entities/location.entity';
 import type { Room } from './entities/room.entity';
@@ -55,6 +56,10 @@ type _Room = Check<Omit<Wire.Room, never>, Omit<Serialized<Room>, 'groups'>>;
 // E11/S1 and S3. The status checks are the load-bearing ones: the wire types are unions of literals
 // while the entities use enums, so these lines are what stops a status added on one side from
 // silently not existing on the other.
+// The worksheet row is assembled in the service rather than serialized from an entity, so the
+// check here is that the two descriptions of it agree — the backend's own interface against the
+// wire's. Without it the screen and the endpoint could drift a field apart in silence.
+type _InvoiceWorksheetRow = Check<Wire.InvoiceWorksheetRow, InvoiceWorksheetRow>;
 type _EnrollmentStatus = Check<Wire.EnrollmentStatus, EnrollmentStatus>;
 type _WaitlistStatus = Check<Wire.WaitlistStatus, WaitlistStatus>;
 type _Enrollment = Check<
