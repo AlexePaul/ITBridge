@@ -1,13 +1,8 @@
 <template>
-  <div class="w-full max-w-5xl mx-auto px-4 py-6 space-y-8">
-    <div>
-      <h1 class="text-3xl font-bold">Calendar școlar</h1>
-      <p class="text-muted mt-1">
-        Vacanțele și zilele libere. Generatorul de orar sare peste zilele de aici, iar ședințele
-        deja programate în interval se anulează când adaugi intervalul.
-      </p>
-    </div>
-
+  <AdminPage
+    title="Calendar școlar"
+    subtitle="Vacanțele și zilele libere. Generatorul de orar sare peste zilele de aici, iar ședințele deja programate în interval se anulează când adaugi intervalul."
+  >
     <UCard>
       <template #header>
         <h2 class="text-xl font-semibold">Adaugă un interval</h2>
@@ -19,19 +14,7 @@
             <UInput v-model="draft.name" placeholder="Vacanța de iarnă" class="w-full" />
           </UFormField>
           <UFormField label="Locație">
-            <select
-              v-model="draft.locationId"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-            >
-              <option :value="null">Toată școala</option>
-              <option
-                v-for="location in locationStore.locations"
-                :key="location.id"
-                :value="location.id"
-              >
-                {{ location.name }}
-              </option>
-            </select>
+            <USelect v-model="draft.locationId" :items="locationItems" class="w-full" />
           </UFormField>
           <UFormField label="Prima zi" required>
             <UInput v-model="draft.startDate" type="date" class="w-full" />
@@ -85,51 +68,65 @@
       </form>
     </UCard>
 
-    <div v-if="loading" class="text-center py-12 text-muted">Se încarcă…</div>
+    <AdminLoading v-if="loading" />
 
-    <div
+    <AdminEmpty
       v-else-if="periods.length === 0"
-      class="text-center py-12 border border-dashed border-muted rounded-lg"
-    >
-      <UIcon name="i-lucide-calendar-off" class="mx-auto text-4xl text-muted mb-3" />
-      <p class="text-muted">Niciun interval încă. Orarul se generează pe toate săptămânile.</p>
-    </div>
+      icon="i-lucide-calendar-off"
+      title="Niciun interval încă"
+      description="Orarul se generează pe toate săptămânile până nu există unul."
+    />
 
     <div v-else class="space-y-6">
       <section v-for="year in years" :key="year.label" class="space-y-3">
         <h2 class="text-sm font-semibold text-muted uppercase tracking-wide">{{ year.label }}</h2>
         <div class="space-y-2">
-          <div
+          <AdminListRow
             v-for="period in year.periods"
             :key="period.id"
-            class="flex items-center justify-between gap-4 border border-muted rounded-lg px-4 py-3"
-            :class="isPast(period) && 'opacity-60'"
+            :title="period.name"
+            :subtitle="rangeLabel(period)"
+            :dimmed="isPast(period)"
           >
-            <div class="min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-medium">{{ period.name }}</span>
-                <UBadge v-if="period.location" color="neutral" variant="soft" size="sm">
-                  {{ period.location.name }}
-                </UBadge>
-                <UBadge v-if="isPast(period)" color="neutral" variant="subtle" size="sm">
-                  Trecut
-                </UBadge>
-              </div>
-              <p class="text-muted text-sm mt-0.5 tabular-nums">{{ rangeLabel(period) }}</p>
-            </div>
-            <UButton
-              color="error"
-              variant="ghost"
-              size="sm"
-              icon="i-lucide-trash-2"
-              :aria-label="`Șterge ${period.name}`"
-              @click="handleDelete(period)"
-            />
-          </div>
+            <template #badges>
+              <UBadge v-if="period.location" color="neutral" variant="soft" size="sm">
+                {{ period.location.name }}
+              </UBadge>
+              <UBadge v-if="isPast(period)" color="neutral" variant="subtle" size="sm">
+                Trecut
+              </UBadge>
+            </template>
+            <template #actions>
+              <UButton
+                color="error"
+                variant="ghost"
+                size="sm"
+                icon="i-lucide-trash-2"
+                :aria-label="`Șterge ${period.name}`"
+                @click="askDelete(period)"
+              />
+            </template>
+          </AdminListRow>
         </div>
       </section>
     </div>
-  </div>
+
+    <AdminConfirmModal
+      v-model:open="deleteOpen"
+      :title="`Ștergi „${toDelete?.name}\u201d?`"
+      confirm-label="Șterge intervalul"
+      danger
+      :loading="deleting"
+      @confirm="handleDelete"
+    >
+      <template #body>
+        <p class="text-sm">
+          Ședințele pe care le-a anulat rămân anulate — reactivarea se face per ședință, din orarul
+          grupei.
+        </p>
+      </template>
+    </AdminConfirmModal>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
@@ -161,6 +158,11 @@ const draft = reactive({
   endDate: "",
   locationId: null as number | null,
 });
+
+const locationItems = computed(() => [
+  { value: null, label: "Toată școala" },
+  ...locationStore.locations.map((location) => ({ value: location.id, label: location.name })),
+]);
 
 const rangeChosen = computed(() => Boolean(draft.startDate && draft.endDate));
 const datesReversed = computed(() => rangeChosen.value && draft.endDate < draft.startDate);
@@ -334,20 +336,29 @@ const handleSubmit = async () => {
   }
 };
 
-const handleDelete = async (period: NonTeachingPeriod) => {
-  // Worth confirming: the sessions it cancelled do not come back, and that is not obvious from
-  // a bin icon.
-  const confirmed = confirm(
-    `Ștergi „${period.name}"?\n\nȘedințele pe care le-a anulat rămân anulate — reactivarea se face per ședință, din orarul grupei.`
-  );
-  if (!confirmed) return;
+// Worth confirming: the sessions the period cancelled do not come back, and that is not obvious
+// from a bin icon. The modal can say so; the browser `confirm()` it replaces could only shout.
+const deleteOpen = ref(false);
+const deleting = ref(false);
+const toDelete = ref<NonTeachingPeriod | null>(null);
 
+const askDelete = (period: NonTeachingPeriod) => {
+  toDelete.value = period;
+  deleteOpen.value = true;
+};
+
+const handleDelete = async () => {
+  if (!toDelete.value) return;
+  deleting.value = true;
   try {
-    const result = await classSessionsApi.deleteNonTeachingPeriod(period.id);
+    const result = await classSessionsApi.deleteNonTeachingPeriod(toDelete.value.id);
     success(result.message);
+    deleteOpen.value = false;
     await load();
   } catch (err: unknown) {
     error(apiErrorMessage(err, "Eroare la ștergerea intervalului"));
+  } finally {
+    deleting.value = false;
   }
 };
 </script>
