@@ -6,6 +6,7 @@ import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { toIsoDate } from './class-session.dates';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
+import { Room } from 'src/entities/room.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { Weekday } from 'src/enum/weekday.enum';
 import { Role } from 'src/enum/role.enum';
@@ -33,6 +34,7 @@ describe('ClassSessionService', () => {
     let service: ClassSessionService;
     let sessionRepo: MockRepository;
     let groupRepo: MockRepository;
+    let roomRepo: MockRepository;
     /** The school calendar. Every test but one runs with nothing closed. */
     let closedDates: jest.Mock;
 
@@ -56,12 +58,14 @@ describe('ClassSessionService', () => {
     beforeEach(async () => {
         sessionRepo = createMockRepository();
         groupRepo = createMockRepository();
+        roomRepo = createMockRepository();
         closedDates = jest.fn().mockResolvedValue(new Set<string>());
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 ClassSessionService,
                 provideMockRepository(ClassSession, sessionRepo),
                 provideMockRepository(Group, groupRepo),
+                provideMockRepository(Room, roomRepo),
                 { provide: NonTeachingPeriodService, useValue: { datesIn: closedDates } },
             ],
         }).compile();
@@ -347,6 +351,117 @@ describe('ClassSessionService', () => {
         it('rejects a reversed interval rather than reporting an empty all-clear', async () => {
             await expect(service.findUnmarkedSessions({ dateFrom: '2026-09-07', dateTo: '2026-09-01' })).rejects.toThrow(BadRequestException);
             expect(qb.getMany).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('moving', () => {
+        const monday = {
+            id: 3,
+            status: ClassSessionStatus.SCHEDULED,
+            notes: null,
+            attendances: [],
+            date: new Date(2026, 8, 7),
+            startTime: '16:00:00',
+            endTime: '17:30:00',
+            group: { id: 7 },
+            room: { id: 1, location: { id: 1 } },
+        };
+        /** No same-day session, no room clash — the queries `moveSession` runs, in order. */
+        const clearRunway = () => {
+            sessionRepo.findOne!.mockResolvedValueOnce({ ...monday, room: { ...monday.room } }).mockResolvedValue(null);
+            sessionRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: null }));
+            sessionRepo.save!.mockImplementation((row: unknown) => Promise.resolve(row));
+        };
+
+        it('changes the day, and the note says where the class used to be', async () => {
+            clearRunway();
+
+            const moved = await service.moveSession(3, { date: '2026-09-08', reason: 'Sala ocupată' });
+
+            expect(toIsoDate(moved.date)).toBe('2026-09-08');
+            // The question a parent asks is "when was it supposed to be?".
+            expect(moved.notes).toContain('Mutată (de pe 2026-09-07 16:00): Sala ocupată');
+        });
+
+        it('keeps what was not named: an hour-only move leaves the day alone', async () => {
+            clearRunway();
+
+            const moved = await service.moveSession(3, { startTime: '17:00', endTime: '18:30', reason: 'Decalaj' });
+
+            expect(toIsoDate(moved.date)).toBe('2026-09-07');
+            expect(moved.startTime).toBe('17:00:00');
+        });
+
+        it('refuses a move that names no target — that is a mistyped request, not a no-op', async () => {
+            sessionRepo.findOne!.mockResolvedValue({ ...monday });
+
+            await expect(service.moveSession(3, { reason: 'De ce nu' })).rejects.toThrow(BadRequestException);
+            expect(sessionRepo.save).not.toHaveBeenCalled();
+        });
+
+        it('refuses a cancelled session — moving it would hide the cancellation', async () => {
+            sessionRepo.findOne!.mockResolvedValue({ ...monday, status: ClassSessionStatus.CANCELLED });
+
+            await expect(service.moveSession(3, { date: '2026-09-08', reason: 'X' })).rejects.toThrow(ConflictException);
+        });
+
+        it('refuses a class already taught — it has marks, and it happened at the old time', async () => {
+            sessionRepo.findOne!.mockResolvedValue({ ...monday, attendances: [{ id: 1 }] });
+
+            await expect(service.moveSession(3, { date: '2026-09-08', reason: 'X' })).rejects.toThrow(ConflictException);
+        });
+
+        it('obeys the school calendar — a class cannot be moved into the winter break', async () => {
+            clearRunway();
+            closedDates.mockResolvedValue(new Set(['2026-12-21']));
+
+            const error = await service.moveSession(3, { date: '2026-12-21', reason: 'X' }).catch((e: unknown) => e);
+
+            expect((error as ConflictException).getResponse()).toMatchObject({ error: 'MOVED_ONTO_NON_TEACHING_DAY' });
+            expect(sessionRepo.save).not.toHaveBeenCalled();
+        });
+
+        it('refuses a day the group already has a class on, before the unique index has to', async () => {
+            sessionRepo.findOne!.mockResolvedValueOnce({ ...monday }).mockResolvedValue({ id: 44 });
+            sessionRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: null }));
+
+            const error = await service.moveSession(3, { date: '2026-09-08', reason: 'X' }).catch((e: unknown) => e);
+
+            expect((error as ConflictException).getResponse()).toMatchObject({ error: 'GROUP_ALREADY_HAS_SESSION_THAT_DAY' });
+        });
+
+        it('refuses a room already taken at an overlapping hour by a live class', async () => {
+            sessionRepo.findOne!.mockResolvedValueOnce({ ...monday }).mockResolvedValue(null);
+            sessionRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: { id: 9, startTime: '16:30:00', endTime: '18:00:00' } as never }));
+
+            const error = await service.moveSession(3, { startTime: '17:00', endTime: '18:30', reason: 'X' }).catch((e: unknown) => e);
+
+            expect((error as ConflictException).getResponse()).toMatchObject({ error: 'ROOM_BUSY_AT_THAT_TIME' });
+        });
+
+        it("moves into another room, checked per that room's own location", async () => {
+            clearRunway();
+            roomRepo.findOne!.mockResolvedValue({ id: 2, location: { id: 2 } });
+
+            const moved = await service.moveSession(3, { roomId: 2, reason: 'Sala 1 în lucrări' });
+
+            expect(moved.room).toMatchObject({ id: 2 });
+            // The calendar is asked about the TARGET room's location: a closure at the old
+            // address must not block a move to the other one.
+            expect(closedDates).toHaveBeenCalledWith(expect.any(Date), expect.any(Date), 2);
+        });
+
+        it('404s on a room that does not exist', async () => {
+            sessionRepo.findOne!.mockResolvedValue({ ...monday });
+            roomRepo.findOne!.mockResolvedValue(null);
+
+            await expect(service.moveSession(3, { roomId: 99, reason: 'X' })).rejects.toThrow(NotFoundException);
+        });
+
+        it('refuses an end before the start', async () => {
+            sessionRepo.findOne!.mockResolvedValue({ ...monday });
+
+            await expect(service.moveSession(3, { startTime: '17:00', endTime: '16:00', reason: 'X' })).rejects.toThrow(BadRequestException);
         });
     });
 

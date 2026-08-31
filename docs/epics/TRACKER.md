@@ -146,7 +146,7 @@ nu rulează nicăieri".
 - [x] S2 · Calendar de vacanțe — livrat: `NonTeachingPeriod`, ecranul `/admin/calendar` cu previzualizarea a ce se anulează, iar generatorul sare peste zilele închise, pe locație
 - [ ] S3 · Absențe anunțate
 - [ ] S4 · Recuperări
-- [~] S5 · Anulări și mutări — **doar anularea și reactivarea**; fără mutare, fără notificare
+- [~] S5 · Anulări și mutări — anularea, reactivarea și acum **mutarea** (`PUT /class-sessions/:id/move`, cu calendarul școlar respectat și sala verificată de ciocniri); fără ecran, fără notificare
 - [~] S6 · Marcarea prezenței pe telefon — livrat fără poze (`Child` n-are câmp, e o decizie E07/E14): `/admin/attendance/azi`, salvare la fiecare apăsare, coadă locală pe rețea picată, buton „Sună părintele" la absență
 - [~] S7 · Notificări — livrat **altceva decât cere story-ul**: mementoul zilnic de la 10:00 către școală, cerut explicit. Notificările către părinți rămân nelivrate
 
