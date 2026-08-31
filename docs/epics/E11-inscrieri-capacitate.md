@@ -350,6 +350,11 @@ schimbarea.
 >
 > **Ce lipsește: cerințele prealabile de modul.** E10 e în afara scopului, deci nu există catalog
 > care să aibă cerințe. Se adaugă la aceeași listă în ziua în care există unul — forma e pregătită.
+>
+> **Acceptat de școală ca stare finală pentru MVP.** Verificarea de vârstă ca avertisment e tot ce
+> trebuie cât timp nu există catalog: singura verificare tare de care depinde ceva — capacitatea —
+> e la S3 și e tare. Story-ul nu mai e „parțial fiindcă e neterminat", ci „parțial fiindcă a doua
+> jumătate aparține unui epic scos din MVP".
 
 
 La înscriere se verifică vârsta față de intervalul grupei (`minAge` / `maxAge`, azi `int` pe
