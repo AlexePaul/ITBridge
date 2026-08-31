@@ -164,6 +164,36 @@ de admin înainte de trimitere.
 
 **Acceptanță:** un șablon se modifică fără deploy. Fiecare are previzualizare cu date de test.
 
+**Livrat**, cu o împărțire care e tot designul: **implicitele în cod, editările în bază.**
+`template-defaults.ts` ține formularea din fabrică a fiecărui șablon, lângă variabilele pe care le
+înțelege și datele de test ale previzualizării; tabelul `mail_templates` ține doar ce a editat
+școala. „Revino la original" înseamnă ștergerea rândului, un deploy cu texte mai bune nu calcă
+peste editările nimănui, iar acceptanța — modificabil fără deploy — e rândul însuși. Versiunea
+numără salvările; 1 e codul.
+
+**Setul de chei e închis**: editorul personalizează formularea, nu poate inventa un tip de mesaj,
+fiindcă un șablon fără expeditor e un rând pe care nu-l va citi nimic. Patru chei azi — confirmarea
+adresei, cont aprobat, cont refuzat, plus mesajul intern către birou — adică exact mesajele de cont
+din E11/S2, care au fost mutate de pe funcțiile din `account-mail.ts` (șters) pe
+`MailTemplateService.render`. Celelalte trei expeditoare (mementoul E12, oferta de listă de
+așteptare, livrarea de proiecte E14) compun liste în corp și rămân pe compunere directă; drumul lor
+e să precalculeze lista într-o variabilă, când va merita.
+
+**Interpolarea e `{{nume}}` și atât** — fără condiții, fără bucle: un text editat într-un textarea
+nu are voie să aibă un limbaj de programare în el. Valorile se scapă în varianta HTML și rămân
+întregi în text (un părinte pe nume O'Brien&Co e un nume, nu markup), iar un placeholder greșit
+rămâne **vizibil** în loc să dispară — previzualizarea e plasa de siguranță și nu poate prinde ce
+nu se vede. Varianta HTML există acum pe mesajele către părinți: un cadru cu stiluri inline, că
+clienții de mail aruncă `<style>`-urile cu entuziasm.
+
+**Ecranul** e `/admin/emailuri`, construit pe componentele din E18 S5a: listă cu insignă
+„Personalizat", editor cu subiect/text/HTML și lista variabilelor, previzualizare **a ce e tastat,
+nu a ce e salvat** — cererile sunt secvențiate cu un token, ca un răspuns întârziat pentru o
+versiune veche a draftului să nu-l acopere pe cel curent — și revenire la v1 prin modal, cu
+propoziția care contează: mesajele deja în coadă nu se schimbă, ele au fost scrise cu textul
+valabil la momentul cozii. Outbox-ul stochează corpuri **randate**, prin decizia veche din S3, deci
+un șablon editat între coadă și trimitere nu rescrie un mesaj deja aprobat.
+
 ### S3 · Coadă și reîncercare
 
 Trimiterea e asincronă, cu reîncercare la eșec temporar și oprire la eșec permanent. Nicio operațiune

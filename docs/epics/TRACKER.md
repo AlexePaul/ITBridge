@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 53 livrate, 11 parțiale, 9 blocate, 4 scoase din scop,
-65 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **142 de story-uri** în 21 de epicuri: 55 livrate, 13 parțiale, 8 blocate, 4 scoase din scop,
+62 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -146,8 +146,8 @@ nu rulează nicăieri".
 - [x] S2 · Calendar de vacanțe — livrat: `NonTeachingPeriod`, ecranul `/admin/calendar` cu previzualizarea a ce se anulează, iar generatorul sare peste zilele închise, pe locație
 - [ ] S3 · Absențe anunțate
 - [ ] S4 · Recuperări
-- [~] S5 · Anulări și mutări — **doar anularea și reactivarea**; fără mutare, fără notificare
-- [ ] S6 · Marcarea prezenței pe telefon
+- [~] S5 · Anulări și mutări — anularea, reactivarea și acum **mutarea** (`PUT /class-sessions/:id/move`, cu calendarul școlar respectat și sala verificată de ciocniri); fără ecran, fără notificare
+- [~] S6 · Marcarea prezenței pe telefon — livrat fără poze (`Child` n-are câmp, e o decizie E07/E14): `/admin/attendance/azi`, salvare la fiecare apăsare, coadă locală pe rețea picată, buton „Sună părintele" la absență
 - [~] S7 · Notificări — livrat **altceva decât cere story-ul**: mementoul zilnic de la 10:00 către școală, cerut explicit. Notificările către părinți rămân nelivrate
 
 ### E13 · Progres, evaluare și feedback — `propus`
@@ -192,10 +192,10 @@ nu rulează nicăieri".
 > la doi copii calculează 500 în loc de 600; la trei sau mai mulți nu există ramură, deci factura
 > iese 0 lei, iar reducerile o duc pe negativ. Două teste `it.failing` le documentează.
 
-### E16 · Încasări și facturare prin SmartBill — `propus`
+### E16 · Încasări și facturare prin SmartBill — `în lucru`
 
 - [ ] S0 · Verificarea premisei — abonamentul Facturare Platinum, înainte de orice cod
-- [ ] S1 · Modelul de plată refăcut — `Payment` nu are sumă, deci nicio plată nu poate fi confruntată cu un extras
+- [x] S1 · Modelul de plată refăcut — sumă, metodă închisă, stare, referință de extras, cine a înregistrat-o; mulți-la-unu cu factura, starea facturii derivată din plățile reușite. **Fără câmpurile SmartBill de pe factură** — alea așteaptă S0
 - [ ] S2 · Emiterea prin SmartBill
 - [ ] S3 · Emiterea în masă, temperată — 3 apeluri pe secundă
 - ~~S4 · Plata cu cardul în portal~~ — amânată; se încasează prin transfer sau numerar
@@ -211,7 +211,7 @@ nu rulează nicăieri".
 ### E17 · Comunicare și notificări — în PR #27
 
 - [~] S1 · Furnizorul și livrabilitatea — parțial: `MailService` există în `apps/api`; SPF/DKIM/DMARC și partea de operare, nu
-- [ ] S2 · Șabloane
+- [x] S2 · Șabloane — implicitele în cod, editările în `mail_templates`; ecranul `/admin/emailuri` cu previzualizare pe draft; mesajele de cont din E11 S2 mutate pe `render()`, cu variantă HTML
 - [~] S3 · Coadă și reîncercare — parțial: outbox-ul e întreg, dar **nu rulează nicăieri** până la deploy. Îl folosesc acum patru apelanți: mementoul zilnic din E12 și cele trei mesaje de cont din E11 S2
 - [ ] S4 · Preferințe și dezabonare
 - [ ] S5 · Evidența livrărilor
@@ -231,7 +231,7 @@ nu rulează nicăieri".
 - [x] S2 · Pipeline de imagini — `@nuxt/image`, WebP cu rezervă JPEG, `srcset` pe lățimile reale: **1056KB → 239KB**. AVIF măsurat și respins
 - [x] S3 · Paginile publice
 - [!] S4 · Portalul părintelui — **cerut explicit de școală: rescriere, nu retuș.** Blocat de deploy: paginile de după autentificare nu se pot nici testa, nici arăta
-- [!] S5 · Uniformizarea zonei de admin — **cerut explicit.** 32 de ecrane, fiecare cu tiparele lui; costul crește cu fiecare epic livrat. Jumătatea de componente se poate face înainte de deploy
+- [~] S5 · Uniformizarea zonei de admin — **jumătatea de componente livrată**: `AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`, pe un catalog al celor 7 dialecte de tabel și 5 de formular; `/admin/calendar` migrat ca dovadă. Migrarea celor 32 de ecrane (S5b) rămâne blocată de deploy
 - [~] S6 · Accesibilitate — verificarea în CI lipsește
 - [ ] S7 · Interfața profesorului — fără rol separat, e o vedere din zona de admin, nu o zonă a ei
 
@@ -292,11 +292,8 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 **Cu instanța EC2:** E01 S4, deploy-ul. În ziua în care merge, portalul părintelui, prezența și
 facturile devin lucruri pe care le poate folosi cineva.
 
-**Fără ea, în ordinea asta:**
-
-1. **E18 S5, jumătatea de componente** — tiparul de tabel, cel de formular, stările de încărcare, gol
-   și eroare, și mutarea zonei de admin pe jetoanele din `classical.css`. Nu cere un API care rulează,
-   iar costul crește cu fiecare ecran adăugat: erau 25, sunt 33.
+**Fără ea:** jumătatea de componente din E18 S5 e făcută; ce rămâne nedependent de deploy e în
+E12 (S3, S6), E16 (S5, S7 pe modelul nou de plată) și E17 (S2, S5).
 
 E11 e închis. Ce a rămas parțial din el — cerințele prealabile de modul la S6, disponibilitatea
 profesorilor la S7 — depinde de E10 și E09, nu de E11.

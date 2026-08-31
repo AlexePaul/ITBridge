@@ -271,9 +271,16 @@ nu mai e blocat de canal — `MailService` și coada `outbox` sunt în `apps/api
 dar mesajul nu e scris, iar coada n-are unde să ruleze continuu până la
 [E01](E01-infrastructura-medii.md) S4. Acceptanța de cinci minute rămâne neatinsă.
 
-**Mutarea nu există deloc.** `date`, `startTime` și `room` sunt coloane, deci mutarea e în principiu
-o editare, dar niciun endpoint nu le schimbă. Vezi și decizia despre stările ședinței, mai jos: stare
-de „mutată" nu există, fiindcă o ședință mutată e una căreia i s-au schimbat coloanele.
+**Mutarea există acum**: `PUT /class-sessions/:id/move` — altă zi, altă oră, altă sală, oricare din
+ele, cu motiv obligatoriu exact ca la anulare. E o editare a rândului, nu un rând nou — stare de
+„mutată" nu există, conform deciziei de mai jos — deci catalogul rămâne atașat, iar nota păstrează
+de unde a plecat ședința, fiindcă aia e întrebarea pe care o pune un părinte. Refuză, în ordine:
+ședințele anulate (reactivezi întâi), pe cele deja ținute (au prezențe — s-au întâmplat la ora
+veche), mutarea care nu schimbă nimic, o zi din calendarul școlar (**S2 nu are ușă laterală** —
+verificat pe locația sălii țintă, nu a celei vechi), o zi în care grupa are deja oră (indexul unic
+ar refuza oricum; verificarea întâi transformă eroarea de driver în propoziție) și o sală ocupată
+la ora aia de altă ședință vie — cele anulate nu blochează, sala lor e liberă în fapt. Tot fără
+ecran, ca și anularea; și tot fără notificare, care rămâne la E17.
 
 ### S6 · Marcarea prezenței pe telefon
 
@@ -282,12 +289,36 @@ Funcționează pe conexiune slabă și reține local dacă pică rețeaua.
 
 **Acceptanță:** marcarea unei grupe de zece copii durează sub 20 de secunde pe telefon.
 
-**Nelivrat.** Ecranul de marcare rămâne cel de admin,
-`apps/web/app/pages/admin/attendance/group/[groupId].vue`, schimbat doar cât cerea S1: nu se mai
-alege o dată liberă din calendar, ci o **ședință** din orar, iar cele anulate și cele deja marcate
-nu apar în listă — preselectată e cea mai recentă nemarcată, adică exact ora pe care profesorul
-tocmai a ținut-o. Atât. Nu are poze, nu are salvare automată și nu reține nimic local dacă pică
-rețeaua.
+**Livrat, fără poze**: `/admin/attendance/azi`, un ecran gândit pentru telefonul din sală. Ședințele
+de azi (una singură te bagă direct în catalog), copiii grupei cu două ținte de mărimea degetului —
+Prezent / Absent — și **salvare la fiecare apăsare**, nu la un buton de submit.
+
+Sub el stau două rute noi, croite pe conexiunea slabă din acceptanță:
+
+- `GET /attendance/session/:id/register` — **tot catalogul într-un singur payload**: ședința, copiii,
+  marcajele existente și telefonul părintelui per copil. O cerere în loc de patru, fiindcă
+  apelantul e un telefon pe ce semnal prinde. `present` e trivalent: `null` înseamnă „încă n-a spus
+  nimeni", care e alt fapt decât absent.
+- `PUT /attendance/session/:id/child/:childId` — un marcaj, **upsert idempotent**, spre deosebire de
+  POST-ul în masă care refuză duplicatele pe bună dreptate pentru un catalog întreg. Ecranul
+  salvează la fiecare apăsare și reia din coadă când revine rețeaua, deci același marcaj poate sosi
+  de două ori, iar o răzgândire sosește ca a doua scriere — un 409 aici ar transforma fiecare
+  reîncercare în eroare.
+
+**Reține local dacă pică rețeaua**: un marcaj refuzat de rețea intră într-o coadă în `localStorage`
+(`useAttendanceQueue.ts` — partea pură e ținută de vitest, inclusiv cazul în care storage-ul aruncă
+într-o fereastră privată) și se retrimite la evenimentul `online` sau din bannerul cu numărul de
+marcaje în așteptare. Răzgândirile înlocuiesc marcajul vechi din coadă în loc să-l dubleze. Un 4xx —
+ședință anulată, copil dispărut — **nu** intră în coadă: serverul a spus nu, iar reîncercarea nu l-ar
+răzgândi.
+
+Din S7 e livrat aici și butonul de apel: un copil marcat absent cu telefon în profil primește
+**„Sună părintele"**, un `tel:` direct în rând — profesorul e deja în ecranul ăla, cu telefonul în
+mână.
+
+**Fără poze**, deși schița story-ului le numește: `Child` nu are câmp de poză, iar a-l adăuga e o
+întrebare de stocare și consimțământ care aparține E07/E14, nu ecranului ăstuia. Ecranul vechi de
+marcare pe desktop rămâne neschimbat, pentru cataloagele din urmă și pentru recuperări.
 
 ### S7 · Notificări
 
