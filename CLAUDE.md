@@ -90,7 +90,8 @@ două seturi de tipuri divergeau tăcut.
 **Backend** — șaptesprezece module în `apps/api/src/modules/`, treisprezece după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
 `room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`. Patru ies din
-tipar: `mail` și `storage` n-au controller, fiindcă nimic din ele nu e expus pe HTTP, `health` n-are
+tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
+și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
 decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
 (agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
 ce ia părintele acasă, ce cere agentul. Entitățile stau centralizat în `apps/api/src/entities/` și
