@@ -192,6 +192,39 @@ deploy, nu după.
 
 **Acceptanță:** o pagină nouă de admin se construiește din componente existente, fără CSS nou.
 
+**Livrat parțial: jumătatea de componente** — cea care nu cere un API care rulează. Înaintea
+oricărui cod s-a făcut un catalog al dialectelor pe toate cele 28 de ecrane: **7 feluri de tabel**
+(UTable cu trei sub-dialecte de `h()`, un `<table>` nativ, rânduri din div-uri, grile de carduri),
+**5 feluri de formular** — inclusiv două ecrane rămase pe `UFormGroup` din @nuxt/ui v2, care în v4
+nu randează nimic —, **opt apariții** ale aceluiași `<select>` nativ cu șirul lui de clase
+`border-gray-300`, și ~19 ecrane fără nicio stare de încărcare. Componentele sunt forma majoritară
+a fiecărui tipar, nu o invenție:
+
+- `AdminPage` — scheletul de pagină: titlu, subtitlu, slot de acțiuni, „Înapoi", lățime;
+- `AdminLoading` / `AdminEmpty` / `AdminError` — triada de stări; eroarea primește o propoziție
+  deja tradusă prin `apiErrorMessage`, ca să existe un singur traducător;
+- `AdminTable` — vocabularul de `h()` copiat de trei ecrane de index, ca și configurare declarativă:
+  coloane `id` / `badge` / `date` / `money`, antet cu iconiță, dropdown de acțiuni, gol în română.
+  Tipul `date` formatează din componentele string-ului, niciodată prin `new Date()` — capcana UTC
+  din CLAUDE.md. Fără sortare/paginare, deliberat: azi totul se ia întreg, iar contractul de
+  paginare e o schimbare de API pe care backend-ul nedeployat n-o cere încă;
+- `AdminListRow` — rândul identitate-plus-acțiuni pe care șase ecrane îl desenau de mână, pe
+  jetoane în loc de `border-gray-200`;
+- `AdminFormActions` — rândul de submit: `type="submit"` fără `@click` pereche (dublul-foc), cu
+  `loading` în semnătură fiindcă 7 din 10 formulare au livrat fără el;
+- `AdminConfirmModal` — un singur idiom de confirmare, care înlocuiește `confirm()` de browser și
+  cele trei subsoluri de modal cu ordini diferite de butoane;
+- `formatDateKey` / `formatLei` în `useAdminFormat.ts` — pure și ținute de vitest.
+
+**Ecranul-dovadă e `/admin/calendar`** (E12 S2), migrat integral: shell, triadă, rânduri, USelect
+în locul select-ului nativ, iar ștergerea a trecut de pe `confirm()` pe modal.
+
+**Rămân pentru S5b** — migrarea celor 32 de ecrane, planificată de catalog: salvarea de la v2 a
+celor două formulare, măturarea de limbă (dropdown-uri în engleză, „No data"), `AdminDateField`
+(izolarea hack-ului fragil de popover din children/edit), bara de filtre (trei forme incompatibile
+azi — se extrage după ce migrarea arată care supraviețuiește) și grila de carduri (cinci ecrane,
+patru semantici; înainte de orice partajare, `GroupCard` trebuie mutat pe `occupancyOf` — D7).
+
 ### S6 · Accesibilitate — livrat parțial
 
 Contrast conform WCAG AA, navigare completă din tastatură, focus vizibil, etichete și roluri ARIA,

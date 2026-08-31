@@ -14,7 +14,7 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 54 livrate, 11 parțiale, 9 blocate, 4 scoase din scop,
+Din **142 de story-uri** în 21 de epicuri: 54 livrate, 12 parțiale, 8 blocate, 4 scoase din scop,
 64 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
@@ -231,7 +231,7 @@ nu rulează nicăieri".
 - [x] S2 · Pipeline de imagini — `@nuxt/image`, WebP cu rezervă JPEG, `srcset` pe lățimile reale: **1056KB → 239KB**. AVIF măsurat și respins
 - [x] S3 · Paginile publice
 - [!] S4 · Portalul părintelui — **cerut explicit de școală: rescriere, nu retuș.** Blocat de deploy: paginile de după autentificare nu se pot nici testa, nici arăta
-- [!] S5 · Uniformizarea zonei de admin — **cerut explicit.** 32 de ecrane, fiecare cu tiparele lui; costul crește cu fiecare epic livrat. Jumătatea de componente se poate face înainte de deploy
+- [~] S5 · Uniformizarea zonei de admin — **jumătatea de componente livrată**: `AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`, pe un catalog al celor 7 dialecte de tabel și 5 de formular; `/admin/calendar` migrat ca dovadă. Migrarea celor 32 de ecrane (S5b) rămâne blocată de deploy
 - [~] S6 · Accesibilitate — verificarea în CI lipsește
 - [ ] S7 · Interfața profesorului — fără rol separat, e o vedere din zona de admin, nu o zonă a ei
 
@@ -292,11 +292,8 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 **Cu instanța EC2:** E01 S4, deploy-ul. În ziua în care merge, portalul părintelui, prezența și
 facturile devin lucruri pe care le poate folosi cineva.
 
-**Fără ea, în ordinea asta:**
-
-1. **E18 S5, jumătatea de componente** — tiparul de tabel, cel de formular, stările de încărcare, gol
-   și eroare, și mutarea zonei de admin pe jetoanele din `classical.css`. Nu cere un API care rulează,
-   iar costul crește cu fiecare ecran adăugat: erau 25, sunt 33.
+**Fără ea:** jumătatea de componente din E18 S5 e făcută; ce rămâne nedependent de deploy e în
+E12 (S3, S6), E16 (S5, S7 pe modelul nou de plată) și E17 (S2, S5).
 
 E11 e închis. Ce a rămas parțial din el — cerințele prealabile de modul la S6, disponibilitatea
 profesorilor la S7 — depinde de E10 și E09, nu de E11.
