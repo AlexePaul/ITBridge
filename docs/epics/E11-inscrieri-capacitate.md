@@ -1,6 +1,6 @@
 # E11 · Înscrieri, grupe și capacitate
 
-**Status:** în lucru — **S1, S2 și S3 livrate** · **Pistă:** Operațiuni · **Depinde de:** E08, E09, E10 · **Blochează:** E12, E15
+**Status:** **livrat** · **Pistă:** Operațiuni · **Depinde de:** E08, E09, E10 · **Blochează:** E12, E15
 
 ## Problemă
 
@@ -269,7 +269,23 @@ unui loc declanșează notificarea în sub un minut. O grupă de 10 cu 9 înscri
 refuză a doua probă, cu același mesaj ca la o înscriere peste capacitate — nu cu unul separat, fiindcă
 nu e o limită separată.
 
-### S4 · Lecție de probă
+### S4 · Lecție de probă — **LIVRAT**
+
+> **Ce s-a construit.** Starea `TRIAL` exista din S1; ce lipsea era ce se întâmplă în jurul ei.
+> Proba apare în catalogul grupei cu insignă distinctă, `PUT /enrollments/:id/resolve-trial` o
+> transformă în înscriere sau o închide cu motiv, iar `GET /enrollments/trials/unresolved` e lista
+> pe care o cere D5 — o probă pe care n-o închide nimeni ține un loc la nesfârșit.
+>
+> Confirmarea **păstrează același rând**, nu deschide altul: istoricul citește o perioadă continuă,
+> nu două lipite, iar locul rămâne al aceleiași familii fără să treacă prin coadă.
+>
+> **Și facturarea s-a schimbat, fiindcă altfel proba nu era gratuită.** `calculateAmount` număra
+> toți copiii din familie; acum numără doar înscrierile `ACTIVE`. Consecința e mai largă decât
+> proba: **un copil care nu e în nicio grupă nu se mai facturează**, ceea ce era greșit dinainte să
+> existe probele — prețul e pe copil care vine, iar familia unui copil nerepartizat plătea pentru
+> el. Dacă școala vrea totuși să factureze o familie al cărei copil e între grupe o lună, aia e o
+> decizie de preț și e a [E15](E15-pricing-facturare.md), nu o numărare tăcută de rânduri.
+
 
 O înscriere în starea `probă`, cu o singură ședință, care nu se facturează. La final, se transformă
 în înscriere activă sau se închide, cu motiv înregistrat.
@@ -291,7 +307,22 @@ completează înainte de prima factură, nu la trecerea probei în înscriere ac
 **Acceptanță:** o probă programată apare în lista de prezență a grupei, marcată distinct, și nu
 generează factură. Numărul de locuri afișat pentru acea grupă scade cu unu în clipa programării.
 
-### S5 · Transferuri
+### S5 · Transferuri — **LIVRAT**
+
+> **Ce s-a construit.** `POST /enrollments/transfer`: închide vechea înscriere ca `TRANSFERRED` și
+> o deschide pe cea nouă, într-o singură tranzacție. Starea trece mai departe — o probă care se mută
+> rămâne probă, fiindcă altfel am înscrie o familie care încă nu s-a hotărât — și data contractului
+> la fel, fiindcă e aceeași înscriere care continuă.
+>
+> **Locul eliberat nu se oferă cozii.** Nu e liber: se dă acestui copil. Coada e întrebată doar când
+> un loc chiar pleacă din grupă. Fără regula asta, un transfer ar promite același scaun la două
+> familii pentru câteva milisecunde — și la capacitate exact atât trebuie.
+>
+> **Efectul asupra facturii curente nu se afișează, fiindcă nu există.** Prețul e lunar și pe
+> familie, nu pe grupă (vezi `pricing.ts`), deci un transfer între grupe nu schimbă suma cu nimic. În
+> ziua în care [E15](E15-pricing-facturare.md) aduce prețul pe modul, aici e locul unde apare
+> calculul.
+
 
 Mutarea unui copil în altă grupă, eventual în altă locație, închide înscrierea veche cu motivul
 `transfer` și o deschide pe cea nouă, păstrând legătura. Efectul asupra facturii curente e calculat
@@ -306,7 +337,20 @@ nu mai devreme, ca să nu-l ia cineva de pe lista de așteptare într-un transfe
 **Acceptanță:** după transfer, istoricul arată ambele perioade, iar factura reflectă corect
 schimbarea.
 
-### S6 · Verificări de compatibilitate
+### S6 · Verificări de compatibilitate — **LIVRAT PARȚIAL**
+
+> **Ce s-a construit.** Verificarea de vârstă față de `minAge` / `maxAge`, ca **avertisment care
+> cere confirmare**: prima cerere e refuzată cu 409 `COMPATIBILITY_WARNINGS` și cu vârstele în
+> mesaj, a doua, cu `acknowledgeWarnings: true`, trece. Două pași, nu o linie de log — „avertisment"
+> trebuie să însemne ceva, iar un mesaj pe care nu-l citește nimeni e la fel cu nicio verificare.
+>
+> Confirmarea avertismentelor **nu** e o cale de acces peste capacitate: aia se verifică prima și
+> refuză oricum. Un copil de zece ani și jumătate matur pentru 11-14 e o judecată de om; al
+> unsprezecelea scaun într-o sală de zece nu e.
+>
+> **Ce lipsește: cerințele prealabile de modul.** E10 e în afara scopului, deci nu există catalog
+> care să aibă cerințe. Se adaugă la aceeași listă în ziua în care există unul — forma e pregătită.
+
 
 La înscriere se verifică vârsta față de intervalul grupei (`minAge` / `maxAge`, azi `int` pe
 `Group`) și cerințele prealabile ale modulului din [E10](E10-curriculum-module.md). Avertismente, nu
@@ -322,7 +366,18 @@ sală de zece nu e.
 **Acceptanță:** înscrierea unui copil de 7 ani într-o grupă de 11-14 ani cere confirmare explicită.
 Înscrierea lui într-o a doua grupă e refuzată, nu confirmabilă.
 
-### S7 · Formarea grupelor
+### S7 · Formarea grupelor — **LIVRAT PARȚIAL**
+
+> **Ce s-a construit.** `/admin/formare`: copiii pe care nu i-a repartizat nimeni, grupați pe bandă
+> de vârstă și pe locația cerută, cu cel mai mare grup primul. Cererea înseamnă listele de așteptare
+> **plus** copiii fără nicio grupă — a doua jumătate contează, fiindcă un copil înregistrat și
+> nerepartizat e cerere pe care n-a scris-o nimeni nicăieri. Pe același ecran stau și probele fără
+> decizie, cu butoanele care le închid.
+>
+> **Ce lipsește: disponibilitatea profesorilor.** E [E09](E09-personal-roluri.md), și nu există rol
+> `TEACHER`, deci nu există disponibilitate de citit. Sălile libere se văd pe `/admin/locations` și
+> nu se dublează aici.
+
 
 Un ecran care arată cererile neasignate — de pe lista de așteptare și din
 [E20](E20-achizitie-lead.md) — grupate pe vârstă, nivel și locație, ca să se vadă când s-au adunat

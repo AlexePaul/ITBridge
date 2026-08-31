@@ -169,8 +169,16 @@ describe('ChildService', () => {
         it('assigns by opening an enrolment, not by writing the column', async () => {
             await service.assignChildToGroup(1, 2, 42);
 
-            expect(enrollments.enrol).toHaveBeenCalledWith({ childId: 1, groupId: 2 }, 42);
+            // `acknowledgeWarnings` defaults to false: the S6 age check refuses once and asks, and
+            // this route answers only when the screen passes the confirmation through.
+            expect(enrollments.enrol).toHaveBeenCalledWith({ childId: 1, groupId: 2, acknowledgeWarnings: false }, 42);
             expect(childRepo.save).not.toHaveBeenCalled();
+        });
+
+        it('passes the S6 confirmation through when the screen sends one', async () => {
+            await service.assignChildToGroup(1, 2, 42, true);
+
+            expect(enrollments.enrol).toHaveBeenCalledWith({ childId: 1, groupId: 2, acknowledgeWarnings: true }, 42);
         });
 
         it('removes by closing the enrolment in force, so the seat is actually freed', async () => {

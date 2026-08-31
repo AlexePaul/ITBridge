@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
+import { createTestApp, enrolInNewGroup, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
 
 /**
  * The one suite that does **not** stub S3 or the PDF generator.
@@ -37,11 +37,14 @@ describe('Invoice PDF, against real object storage (e2e)', () => {
             .expect(201);
         parentId = profile.body.id as number;
 
-        await request(app.getHttpServer())
+        const child = await request(app.getHttpServer())
             .post('/children')
             .set('Authorization', admin.auth)
             .send({ parentId, firstName: 'Maria', lastName: 'Pop', birthDate: '2016-04-04' })
             .expect(201);
+
+        // An invoice needs an active enrolment behind it now, not merely a child on file (E11/S4).
+        await enrolInNewGroup(app, admin, [child.body.id as number]);
     });
 
     const issue = async (monthIssued: string) => {

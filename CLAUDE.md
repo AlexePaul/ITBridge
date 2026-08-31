@@ -96,10 +96,24 @@ Două reguli sunt aplicate **și în baza de date**, prin indecși parțiali, nu
 `UQ_waitlist_one_open_per_child_group`. Serviciul verifică întâi, ca refuzul să fie un 409 cu motiv;
 indexul e acolo pentru doi admini care apasă în aceeași secundă.
 
-**Proba ocupă un loc.** Orice număr de „locuri ocupate" e `TRIAL` plus `ACTIVE`, niciodată doar al
-doilea — un copil la probă stă pe un scaun, la un calculator, în aceeași sală (D7). Numără-le prin
-`EnrollmentService.occupancyOf`, nu din lungimea listei de copii afișate: lista nu conține probele,
-deci un număr calculat din ea spune că o grupă plină mai are loc.
+**Proba ocupă un loc, dar nu se facturează.** Orice număr de „locuri ocupate" e `TRIAL` plus
+`ACTIVE`, niciodată doar al doilea — un copil la probă stă pe un scaun, la un calculator, în aceeași
+sală (D7). Numără-le prin `EnrollmentService.occupancyOf`, nu din lungimea listei de copii afișate:
+lista nu conține probele, deci un număr calculat din ea spune că o grupă plină mai are loc.
+
+**Factura numără înscrierile `ACTIVE`, nu copiii din familie.** Din E11/S4: proba e gratuită, iar un
+copil care nu e în nicio grupă nu vine, deci nu plătește. Al doilea caz era greșit dinainte să existe
+probele. Dacă schimbi asta, e o decizie de preț și e a E15 — nu o numărare de rânduri în `children`.
+
+**Un copil își schimbă grupa doar prin transfer**, `POST /enrollments/transfer`: închide vechea
+înscriere și o deschide pe cea nouă într-o singură tranzacție. Locul eliberat de un transfer **nu**
+se oferă listei de așteptare — nu e liber, se dă acestui copil. Coada e întrebată doar când un loc
+chiar pleacă din grupă.
+
+**Verificarea de vârstă e avertisment, nu blocaj** (E11/S6): prima cerere primește 409
+`COMPATIBILITY_WARNINGS` cu vârstele în mesaj, a doua trece cu `acknowledgeWarnings: true`. Nu e o
+cale de acces peste capacitate — aia se verifică prima și refuză oricum. Dacă adaugi un endpoint care
+înscrie, dă-i și câmpul: un avertisment fără cale de răspuns e un blocaj cu numele greșit.
 
 **Prezența se leagă de ședință, nu de o dată și o oră.** `ClassSession` (tabelul `class_sessions`)
 e ședința din orar, generată din programul grupei pe un orizont rulant de opt săptămâni, idempotent

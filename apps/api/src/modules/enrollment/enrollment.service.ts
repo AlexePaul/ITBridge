@@ -10,6 +10,7 @@ import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { isAccountActive } from 'src/entities/user.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { composeWaitlistOffer } from './waitlist-mail';
+import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 
 /**
  * Everything that decides where a child sits — E11/S1 and S3.
@@ -37,6 +38,19 @@ import { composeWaitlistOffer } from './waitlist-mail';
  * waiting on somebody who has stopped caring.
  */
 export const WAITLIST_RESPONSE_HOURS = 48;
+
+/**
+ * Something an admin should see before enrolling, and may then decide is fine — E11/S6.
+ *
+ * Warnings, not blocks, and the line between the two is drawn on purpose: these are the things an
+ * admin can be **right about against the system**. A ten-and-a-half-year-old ready for an 11–14
+ * group is a judgement about a child; an eleventh chair in a room of ten is not a judgement at all,
+ * which is why capacity refuses outright and this only asks.
+ */
+export interface CompatibilityWarning {
+    code: string;
+    message: string;
+}
 
 export interface GroupOccupancy {
     groupId: number;
@@ -149,6 +163,7 @@ export class EnrollmentService {
             startDate?: string;
             contractSignedAt?: string | null;
             allowOverCapacity?: boolean;
+            acknowledgeWarnings?: boolean;
         },
         actingUserId: number,
     ): Promise<Enrollment> {
@@ -183,6 +198,7 @@ export class EnrollmentService {
                 });
             }
             await this.assertRoomForOneMore(group, manager, input.allowOverCapacity === true, actingUserId);
+            this.assertCompatible(child, group, input.acknowledgeWarnings === true);
 
             const enrollment = await manager.save(Enrollment, {
                 child: { id: input.childId } as Child,
@@ -252,6 +268,227 @@ export class EnrollmentService {
             this.logger.log(`Enrollment ${enrollmentId} closed as ${input.status}; seat in group ${enrollment.group.id} released.`);
             return manager.getRepository(Enrollment).findOneOrFail({ where: { id: enrollmentId }, relations: { group: true } });
         });
+    }
+
+    /**
+     * Moves a child to another group — E11/S5, and the **only** way a child changes group.
+     *
+     * D6 forbids a second enrolment in force, so the order is not a detail: the old one closes and
+     * the new one opens inside a single transaction. Either way round without the transaction gives
+     * you two live enrolments or a child with none, and at capacity it gives you a seat that frees
+     * before the transfer completes — long enough for somebody on the waiting list to be offered it.
+     *
+     * The freed seat is deliberately **not** offered to the queue here. It is not free: it is being
+     * handed to this child, and the queue is asked only when a seat genuinely leaves the group.
+     */
+    async transfer(
+        input: { childId: number; toGroupId: number; reason?: string; allowOverCapacity?: boolean; acknowledgeWarnings?: boolean },
+        actingUserId: number,
+    ): Promise<Enrollment> {
+        return this.dataSource.transaction(async (manager) => {
+            const current = await this.inForceFor(input.childId, manager);
+            if (!current) {
+                throw new ConflictException({
+                    message: 'Copilul nu are o înscriere în vigoare, deci nu are de unde fi transferat. Înscrie-l direct.',
+                    error: 'NOTHING_TO_TRANSFER',
+                });
+            }
+            if (current.group.id === input.toGroupId) {
+                throw new ConflictException({
+                    message: 'Copilul este deja în această grupă',
+                    error: 'ALREADY_IN_GROUP',
+                });
+            }
+
+            const child = await manager.getRepository(Child).findOne({ where: { id: input.childId }, relations: { parent: { user: true } } });
+            if (!child) {
+                throw new NotFoundException('Child not found');
+            }
+            const target = await manager.getRepository(Group).findOne({ where: { id: input.toGroupId } });
+            if (!target) {
+                throw new NotFoundException('Group not found');
+            }
+
+            this.assertParentAccountActive(child);
+            if (!target.isActive) {
+                throw new ConflictException({ message: 'Grupa este inactivă și nu poate primi înscrieri noi', error: 'GROUP_INACTIVE' });
+            }
+            await this.assertRoomForOneMore(target, manager, input.allowOverCapacity === true, actingUserId);
+            this.assertCompatible(child, target, input.acknowledgeWarnings === true);
+
+            const now = today();
+            await manager.update(
+                Enrollment,
+                { id: current.id },
+                { status: EnrollmentStatus.TRANSFERRED, endDate: now, exitReason: input.reason ?? `Transfer în grupa ${target.name}` },
+            );
+
+            const opened = await manager.save(Enrollment, {
+                child: { id: input.childId } as Child,
+                group: { id: input.toGroupId } as Group,
+                // A transfer carries the status across: a trial that moves group is still a trial,
+                // and promoting it to active here would enrol a family that has not decided yet.
+                status: current.status,
+                startDate: now,
+                endDate: null,
+                exitReason: null,
+                contractSignedAt: current.contractSignedAt,
+            });
+
+            await this.syncDerivedGroup(input.childId, manager);
+
+            this.logger.log(`Child ${input.childId} transferred from group ${current.group.id} to ${input.toGroupId}.`);
+            return opened;
+        });
+    }
+
+    /**
+     * Turns a trial into a real enrolment, or closes it — E11/S4.
+     *
+     * A trial that is never resolved holds a seat for ever, which is why E20's "trials held, no
+     * decision" list is not only a commercial tool but the thing that keeps capacity honest.
+     * Accepting keeps the same seat and the same row, so the history reads as one continuous
+     * period rather than two adjacent ones.
+     */
+    async resolveTrial(enrollmentId: number, input: { accepted: boolean; reason?: string; contractSignedAt?: string }): Promise<Enrollment> {
+        return this.dataSource.transaction(async (manager) => {
+            const trial = await manager.getRepository(Enrollment).findOne({ where: { id: enrollmentId }, relations: { child: true, group: true } });
+            if (!trial) {
+                throw new NotFoundException('Enrollment not found');
+            }
+            if (trial.status !== EnrollmentStatus.TRIAL) {
+                throw new ConflictException({
+                    message: 'Doar o înscriere de probă poate fi confirmată sau închisă în felul acesta',
+                    error: 'NOT_A_TRIAL',
+                });
+            }
+
+            if (input.accepted) {
+                await manager.update(
+                    Enrollment,
+                    { id: enrollmentId },
+                    { status: EnrollmentStatus.ACTIVE, contractSignedAt: input.contractSignedAt ?? trial.contractSignedAt },
+                );
+                this.logger.log(`Trial ${enrollmentId} became an active enrolment.`);
+            } else {
+                await manager.update(
+                    Enrollment,
+                    { id: enrollmentId },
+                    { status: EnrollmentStatus.WITHDRAWN, endDate: today(), exitReason: input.reason ?? 'Proba nu s-a transformat în înscriere' },
+                );
+                await this.syncDerivedGroup(trial.child.id, manager);
+                // Only here is the seat genuinely leaving the group, so only here is the queue asked.
+                await this.offerFreedSeat(trial.group.id, manager);
+                this.logger.log(`Trial ${enrollmentId} closed; seat in group ${trial.group.id} released.`);
+            }
+
+            return manager.getRepository(Enrollment).findOneOrFail({ where: { id: enrollmentId }, relations: { group: true } });
+        });
+    }
+
+    /**
+     * Trials that have been sitting there without a decision — E11/S4, and the mechanism behind
+     * D5's promise that a free trial does not quietly cost a seat for ever.
+     */
+    async unresolvedTrials(olderThanDays = 0): Promise<Enrollment[]> {
+        const cutoff = toIsoDate(addDays(parseIsoDate(today()), -olderThanDays));
+        return this.enrollmentRepository
+            .createQueryBuilder('enrollment')
+            .leftJoinAndSelect('enrollment.group', 'group')
+            .leftJoin('enrollment.child', 'child')
+            .addSelect(['child.id', 'child.firstName', 'child.lastName'])
+            .where('enrollment.status = :status', { status: EnrollmentStatus.TRIAL })
+            .andWhere('enrollment.startDate <= :cutoff', { cutoff })
+            .orderBy('enrollment.startDate', 'ASC')
+            .getMany();
+    }
+
+    /**
+     * Where the unmet demand is — E11/S7.
+     *
+     * Buckets the children nobody has placed by age and by location, so "do I have enough children
+     * for a new Scratch group at Titan?" stops being a question somebody answers by reading two
+     * lists side by side. Demand is the waiting list plus the children with no group at all; the
+     * second half matters because a child registered and never placed is demand nobody wrote down.
+     *
+     * **Teacher availability is not considered.** That is E09, and there is no `TEACHER` role yet —
+     * the epic asks for it and this is the half that can be built today. Free rooms are visible on
+     * `/admin/locations` rather than duplicated here.
+     */
+    async unmetDemand(): Promise<
+        { locationId: number | null; locationName: string; ageBand: string; children: { id: number; firstName: string; lastName: string; age: number }[] }[]
+    > {
+        const waiting = await this.waitlistRepository
+            .createQueryBuilder('entry')
+            .leftJoin('entry.child', 'child')
+            .addSelect(['child.id', 'child.firstName', 'child.lastName', 'child.birthDate'])
+            .leftJoin('entry.group', 'group')
+            .addSelect(['group.id'])
+            .leftJoin('group.room', 'room')
+            .addSelect(['room.id'])
+            .leftJoin('room.location', 'location')
+            // Every step of the chain has to be selected, not only the last: without `group.id` and
+            // `room.id` the relation objects come back undefined and every child lands in the
+            // "no location preference" bucket, silently.
+            .addSelect(['location.id', 'location.name'])
+            .where('entry.status = :status', { status: WaitlistStatus.WAITING })
+            .getMany();
+
+        const unplaced = await this.childRepository
+            .createQueryBuilder('child')
+            .where('child.group_id IS NULL')
+            .andWhere((qb) => {
+                // Children with no group *and* no enrolment in force. A child mid-trial has a group,
+                // so they are excluded already; this guards the case where the derived column and
+                // the table could ever disagree.
+                const sub = qb
+                    .subQuery()
+                    .select('1')
+                    .from(Enrollment, 'enrollment')
+                    .where('enrollment.child_id = child.id')
+                    .andWhere('enrollment.status IN (:...inForce)', { inForce: [...IN_FORCE_STATUSES] })
+                    .getQuery();
+                return `NOT EXISTS ${sub}`;
+            })
+            .getMany();
+
+        const buckets = new Map<
+            string,
+            {
+                locationId: number | null;
+                locationName: string;
+                ageBand: string;
+                children: Map<number, { id: number; firstName: string; lastName: string; age: number }>;
+            }
+        >();
+
+        const add = (child: { id: number; firstName: string; lastName: string; birthDate: Date | string }, locationId: number | null, locationName: string) => {
+            const age = ageOf(child.birthDate);
+            const ageBand = bandFor(age);
+            const key = `${locationId ?? 'any'}|${ageBand}`;
+            if (!buckets.has(key)) {
+                buckets.set(key, { locationId, locationName, ageBand, children: new Map() });
+            }
+            buckets.get(key)?.children.set(child.id, { id: child.id, firstName: child.firstName, lastName: child.lastName, age });
+        };
+
+        const queued = new Set<number>();
+        for (const entry of waiting) {
+            const location = entry.group?.room?.location;
+            queued.add(entry.child.id);
+            add(entry.child, location?.id ?? null, location?.name ?? 'Locație nespecificată');
+        }
+        for (const child of unplaced) {
+            // A child already counted through a waiting list is not *also* demand with no
+            // preference: they have said where they want to go. Counting them twice made the same
+            // name appear in two buckets and inflated every total on the screen.
+            if (queued.has(child.id)) continue;
+            add(child, null, 'Fără preferință de locație');
+        }
+
+        return [...buckets.values()]
+            .map((bucket) => ({ ...bucket, children: [...bucket.children.values()].sort((a, b) => a.age - b.age) }))
+            .sort((a, b) => b.children.length - a.children.length);
     }
 
     // ---- the waiting list ------------------------------------------------------------------
@@ -426,6 +663,35 @@ export class EnrollmentService {
     }
 
     /**
+     * The soft checks — E11/S6. Refuses once, with the warnings named, and accepts on the retry.
+     *
+     * Two-step rather than a silent pass, because "warning" has to mean something: an admin who
+     * enrols a seven-year-old in an 11–14 group should have had to see that and say yes. A message
+     * logged where nobody reads it would be the same as no check.
+     *
+     * Module prerequisites are the other half of this story and are **not** here: E10 is out of
+     * scope, so there is no catalogue to have prerequisites in. They join this same list on the day
+     * one exists — the shape is ready for them.
+     */
+    private assertCompatible(child: Child, group: Group, acknowledged: boolean): void {
+        const warnings = compatibilityWarnings(child, group);
+        if (warnings.length === 0 || acknowledged) {
+            return;
+        }
+
+        throw new ConflictException({
+            message: warnings.map((warning) => warning.message).join(' '),
+            error: 'COMPATIBILITY_WARNINGS',
+            details: warnings,
+        });
+    }
+
+    /** The same checks, without throwing — for a screen that wants to warn before the button. */
+    warningsFor(child: Child, group: Group): CompatibilityWarning[] {
+        return compatibilityWarnings(child, group);
+    }
+
+    /**
      * Makes `Child.group` say what the enrolments say.
      *
      * The one place that writes it. Six queries still read the column — including the parent's
@@ -436,6 +702,57 @@ export class EnrollmentService {
         const inForce = await this.inForceFor(childId, manager);
         await manager.update(Child, { id: childId }, { group: inForce ? { id: inForce.group.id } : null });
     }
+}
+
+/**
+ * Age in whole years, as of today. `Group.minAge` and `maxAge` are integers, so this is too.
+ *
+ * A `date` column arrives as a string from the driver and as a `Date` from an in-memory entity, and
+ * both reach here.
+ */
+export function ageOf(birthDate: Date | string, now: Date = new Date()): number {
+    const born = typeof birthDate === 'string' ? parseIsoDate(birthDate.slice(0, 10)) : birthDate;
+    let age = now.getFullYear() - born.getFullYear();
+    const monthDelta = now.getMonth() - born.getMonth();
+    if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < born.getDate())) {
+        age -= 1;
+    }
+    return age;
+}
+
+/**
+ * The bands the school actually teaches in, from `apps/web/shared/courses.ts`.
+ *
+ * Copied rather than imported — `apps/api` does not depend on `apps/web` — and used only to group
+ * unmet demand into rows an admin can act on. A child two years outside every band still lands in
+ * the nearest one rather than vanishing from the screen.
+ */
+export function bandFor(age: number): string {
+    if (age <= 8) return '6–8 ani';
+    if (age <= 10) return '9–10 ani';
+    if (age <= 12) return '11–12 ani';
+    if (age <= 14) return '13–14 ani';
+    return '15+ ani';
+}
+
+/** The soft checks of E11/S6, as a plain function so a screen can ask without a service. */
+export function compatibilityWarnings(child: Pick<Child, 'birthDate'>, group: Pick<Group, 'minAge' | 'maxAge' | 'name'>): CompatibilityWarning[] {
+    const warnings: CompatibilityWarning[] = [];
+    const age = ageOf(child.birthDate);
+
+    if (age < group.minAge) {
+        warnings.push({
+            code: 'AGE_BELOW_GROUP',
+            message: `Copilul are ${age} ani, iar grupa „${group.name}" este pentru ${group.minAge}-${group.maxAge} ani.`,
+        });
+    } else if (age > group.maxAge) {
+        warnings.push({
+            code: 'AGE_ABOVE_GROUP',
+            message: `Copilul are ${age} ani, iar grupa „${group.name}" este pentru ${group.minAge}-${group.maxAge} ani.`,
+        });
+    }
+
+    return warnings;
 }
 
 /** Today, as `YYYY-MM-DD`. A `date` column wants a date, and the school's day is the calendar's. */

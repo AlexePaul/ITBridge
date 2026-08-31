@@ -100,6 +100,33 @@
         </p>
       </div>
     </div>
+
+    <template v-if="inForce" #footer>
+      <!--
+        E11/S5. A transfer is the only way a child changes group, because D6 forbids a second
+        enrolment in force — so this is a move, not an add, and it says so.
+      -->
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+        <USelect
+          v-model="transferTargetId"
+          :items="transferOptions"
+          placeholder="Mută în altă grupă…"
+          class="flex-1"
+        />
+        <UButton
+          color="primary"
+          :disabled="!transferTargetId || transferring"
+          :loading="transferring"
+          @click="handleTransfer"
+        >
+          Transferă
+        </UButton>
+      </div>
+      <p class="text-sm text-muted mt-2">
+        Închide înscrierea curentă și o deschide pe cea nouă, într-o singură operațiune. Istoricul
+        păstrează ambele perioade.
+      </p>
+    </template>
   </UCard>
 </template>
 
@@ -115,6 +142,9 @@ import { normalizeName } from "~/composables/useUtils";
 import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
 import type { Enrollment } from "~/types/enrollment.types";
 import { ENROLLMENT_STATUS_LABELS } from "~/types/enrollment.types";
+import { useGroupsApi } from "~/composables/api/useGroupsApi";
+import { useGroupsStore } from "~/stores/groupsStore";
+import { apiErrorMessage } from "~/composables/useApiError";
 
 const route = useRoute();
 const inputDate = ref();
@@ -124,8 +154,24 @@ const enrollmentsApi = useEnrollmentsApi();
 
 const { success } = useNotifications();
 
+const groupsApi = useGroupsApi();
+const groupsStore = useGroupsStore();
+const { error: notifyError } = useNotifications();
+
 const history = ref<Enrollment[]>([]);
 const historyLoading = ref(true);
+const transferTargetId = ref<number | undefined>();
+const transferring = ref(false);
+
+/** The enrolment still running, if any. Only one can be, by D6. */
+const inForce = computed(() => history.value.find((entry) => entry.endDate === null));
+
+/** Every other active group — a transfer into the group the child is already in is refused anyway. */
+const transferOptions = computed(() =>
+  groupsStore.groups
+    .filter((group) => group.isActive && group.id !== inForce.value?.group?.id)
+    .map((group) => ({ label: group.name, value: group.id }))
+);
 
 const formatDate = (value: string) => new Intl.DateTimeFormat("ro-RO").format(new Date(value));
 
@@ -176,6 +222,12 @@ onMounted(async () => {
   }
 
   try {
+    await groupsApi.fetchGroups();
+  } catch {
+    // The transfer control simply has nothing to offer; the history below still loads.
+  }
+
+  try {
     history.value = (await enrollmentsApi.fetchHistory(Number(childId))) ?? [];
   } catch {
     // The form above is the point of this page; a history that failed to load should not stop it
@@ -185,6 +237,26 @@ onMounted(async () => {
     historyLoading.value = false;
   }
 });
+
+async function handleTransfer() {
+  if (!transferTargetId.value) return;
+  transferring.value = true;
+  try {
+    await enrollmentsApi.transfer({
+      childId: Number(route.params.childId),
+      toGroupId: transferTargetId.value,
+    });
+    success("Copilul a fost transferat");
+    transferTargetId.value = undefined;
+    history.value = (await enrollmentsApi.fetchHistory(Number(route.params.childId))) ?? [];
+  } catch (err) {
+    // A full group, an age outside the band, an inactive group — the server names each, and
+    // `useApiError` has the Romanian sentence.
+    notifyError("Transferul nu s-a putut face", apiErrorMessage(err));
+  } finally {
+    transferring.value = false;
+  }
+}
 
 async function handleSubmit(event: FormSubmitEvent<Schema>) {
   const childId = Number(route.params.childId);

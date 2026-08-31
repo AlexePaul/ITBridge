@@ -425,6 +425,300 @@ describe('Enrolments and capacity (e2e)', () => {
         });
     });
 
+    describe('transfers (S5)', () => {
+        it('closes one period and opens another, keeping both in the history', async () => {
+            const childId = await makeChild();
+            const from = await makeGroup({ name: 'Scratch', startTime: '16:00', endTime: '17:30' });
+            const to = await makeGroup({ name: 'Python', startTime: '18:00', endTime: '19:30' });
+            await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId, groupId: from }).expect(201);
+
+            await request(app.getHttpServer())
+                .post('/enrollments/transfer')
+                .set('Authorization', admin.auth)
+                .send({ childId, toGroupId: to, reason: 'Familia a cerut marțea' })
+                .expect(201);
+
+            const history = await request(app.getHttpServer()).get(`/enrollments/child/${childId}`).set('Authorization', admin.auth).expect(200);
+            expect(history.body).toHaveLength(2);
+            const closed = history.body.find((row: { status: string }) => row.status === 'TRANSFERRED');
+            expect(closed).toMatchObject({ exitReason: 'Familia a cerut marțea', endDate: expect.any(String) });
+
+            // `Child.group` follows, and D6 still holds: exactly one enrolment is in force.
+            expect(await derivedGroupOf(childId)).toBe(to);
+            const stillOpen = history.body.filter((row: { endDate: string | null }) => row.endDate === null);
+            expect(stillOpen).toHaveLength(1);
+        });
+
+        it('frees the old seat and fills the new one, in one step', async () => {
+            const childId = await makeChild();
+            const from = await makeGroup({ name: 'Scratch', startTime: '16:00', endTime: '17:30', capacity: 1 });
+            const to = await makeGroup({ name: 'Python', startTime: '18:00', endTime: '19:30', capacity: 1 });
+            await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId, groupId: from }).expect(201);
+
+            await request(app.getHttpServer()).post('/enrollments/transfer').set('Authorization', admin.auth).send({ childId, toGroupId: to }).expect(201);
+
+            const oldSeats = await request(app.getHttpServer()).get(`/enrollments/group/${from}/occupancy`).set('Authorization', admin.auth).expect(200);
+            const newSeats = await request(app.getHttpServer()).get(`/enrollments/group/${to}/occupancy`).set('Authorization', admin.auth).expect(200);
+            expect(oldSeats.body).toMatchObject({ taken: 0, free: 1 });
+            expect(newSeats.body).toMatchObject({ taken: 1, free: 0 });
+        });
+
+        it('does not hand the vacated seat to the waiting list', async () => {
+            const childId = await makeChild();
+            const from = await makeGroup({ name: 'Scratch', startTime: '16:00', endTime: '17:30', capacity: 1 });
+            const to = await makeGroup({ name: 'Python', startTime: '18:00', endTime: '19:30' });
+            await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId, groupId: from }).expect(201);
+            await request(app.getHttpServer())
+                .post('/enrollments/waitlist')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId: from })
+                .expect(201);
+            await dataSource.query('DELETE FROM outbox');
+
+            await request(app.getHttpServer()).post('/enrollments/transfer').set('Authorization', admin.auth).send({ childId, toGroupId: to }).expect(201);
+
+            // The seat is not free — it is being handed to this child. A transfer that offered it
+            // away mid-flight would promise the same chair to two families.
+            const queue = await request(app.getHttpServer()).get(`/enrollments/waitlist/group/${from}`).set('Authorization', admin.auth).expect(200);
+            expect(queue.body[0].status).toBe('WAITING');
+        });
+
+        it('refuses when the child has nothing to transfer from', async () => {
+            const res = await request(app.getHttpServer())
+                .post('/enrollments/transfer')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), toGroupId: await makeGroup() })
+                .expect(409);
+            expect(res.body.code).toBe('NOTHING_TO_TRANSFER');
+        });
+    });
+
+    describe('trials (S4)', () => {
+        it('takes a seat while it runs and gives it back when it closes', async () => {
+            const groupId = await makeGroup({ capacity: 1 });
+            const childId = await makeChild();
+            const trial = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId, groupId, status: 'TRIAL' })
+                .expect(201);
+
+            let seats = await request(app.getHttpServer()).get(`/enrollments/group/${groupId}/occupancy`).set('Authorization', admin.auth).expect(200);
+            expect(seats.body).toMatchObject({ taken: 1, free: 0 });
+
+            await request(app.getHttpServer())
+                .put(`/enrollments/${trial.body.id}/resolve-trial`)
+                .set('Authorization', admin.auth)
+                .send({ accepted: false, reason: 'Nu s-a potrivit programul' })
+                .expect(200);
+
+            seats = await request(app.getHttpServer()).get(`/enrollments/group/${groupId}/occupancy`).set('Authorization', admin.auth).expect(200);
+            expect(seats.body).toMatchObject({ taken: 0, free: 1 });
+            expect(await derivedGroupOf(childId)).toBeNull();
+        });
+
+        it('becomes a real enrolment on the same row, so the history reads as one period', async () => {
+            const groupId = await makeGroup();
+            const childId = await makeChild();
+            const trial = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId, groupId, status: 'TRIAL', startDate: '2026-02-01' })
+                .expect(201);
+
+            await request(app.getHttpServer())
+                .put(`/enrollments/${trial.body.id}/resolve-trial`)
+                .set('Authorization', admin.auth)
+                .send({ accepted: true })
+                .expect(200);
+
+            const history = await request(app.getHttpServer()).get(`/enrollments/child/${childId}`).set('Authorization', admin.auth).expect(200);
+            expect(history.body).toHaveLength(1);
+            expect(history.body[0]).toMatchObject({ status: 'ACTIVE', startDate: '2026-02-01', endDate: null });
+        });
+
+        it('appears in the group roster, marked as a trial', async () => {
+            const groupId = await makeGroup();
+            const childId = await makeChild();
+            await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId, groupId, status: 'TRIAL' }).expect(201);
+
+            const members = await request(app.getHttpServer()).get(`/enrollments/group/${groupId}/members`).set('Authorization', admin.auth).expect(200);
+            expect(members.body).toHaveLength(1);
+            expect(members.body[0].status).toBe('TRIAL');
+        });
+
+        it('lists trials that nobody has decided on', async () => {
+            const groupId = await makeGroup();
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId, status: 'TRIAL' })
+                .expect(201);
+
+            // A trial nobody closes holds a seat for ever; this list is what keeps capacity honest.
+            const res = await request(app.getHttpServer()).get('/enrollments/trials/unresolved').set('Authorization', admin.auth).expect(200);
+            expect(res.body).toHaveLength(1);
+        });
+
+        it('refuses to resolve something that is not a trial', async () => {
+            const groupId = await makeGroup();
+            const enrolled = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId })
+                .expect(201);
+
+            const res = await request(app.getHttpServer())
+                .put(`/enrollments/${enrolled.body.id}/resolve-trial`)
+                .set('Authorization', admin.auth)
+                .send({ accepted: true })
+                .expect(409);
+            expect(res.body.code).toBe('NOT_A_TRIAL');
+        });
+    });
+
+    describe('compatibility (S6)', () => {
+        it('asks for confirmation when the age is outside the group band, then accepts', async () => {
+            const groupId = await makeGroup({ minAge: 11, maxAge: 14 });
+            const childId = await makeChild(); // born 2016, so seven or eight
+
+            const refused = await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId, groupId }).expect(409);
+            expect(refused.body.code).toBe('COMPATIBILITY_WARNINGS');
+            expect(refused.body.message).toContain('11-14');
+
+            // A warning, not a block: the admin can be right about a child, unlike about a chair.
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId, groupId, acknowledgeWarnings: true })
+                .expect(201);
+        });
+
+        it('says nothing when the age fits', async () => {
+            const groupId = await makeGroup({ minAge: 6, maxAge: 16 });
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId })
+                .expect(201);
+        });
+
+        it('does not let acknowledging warnings past a full group', async () => {
+            const groupId = await makeGroup({ capacity: 1, minAge: 11, maxAge: 14 });
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId, acknowledgeWarnings: true })
+                .expect(201);
+
+            const res = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId, acknowledgeWarnings: true })
+                .expect(409);
+            expect(res.body.code).toBe('GROUP_FULL');
+        });
+    });
+
+    describe('unmet demand (S7)', () => {
+        it('buckets unplaced children by age band', async () => {
+            const groupId = await makeGroup({ capacity: 1 });
+            await makeChild();
+            await makeChild();
+
+            const res = await request(app.getHttpServer()).get('/enrollments/demand').set('Authorization', admin.auth).expect(200);
+
+            expect(res.body.length).toBeGreaterThan(0);
+            const total = res.body.reduce((sum: number, bucket: { children: unknown[] }) => sum + bucket.children.length, 0);
+            expect(total).toBe(2);
+            expect(res.body[0].ageBand).toEqual(expect.any(String));
+            expect(groupId).toEqual(expect.any(Number));
+        });
+
+        it('drops a child from the demand the moment they are enrolled', async () => {
+            const groupId = await makeGroup();
+            const childId = await makeChild();
+
+            await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId, groupId }).expect(201);
+
+            const res = await request(app.getHttpServer()).get('/enrollments/demand').set('Authorization', admin.auth).expect(200);
+            const total = res.body.reduce((sum: number, bucket: { children: unknown[] }) => sum + bucket.children.length, 0);
+            expect(total).toBe(0);
+        });
+
+        it('counts a child on a waiting list against the location they asked for, once', async () => {
+            const groupId = await makeGroup({ capacity: 1 });
+            const childId = await makeChild();
+            await request(app.getHttpServer()).post('/enrollments/waitlist').set('Authorization', admin.auth).send({ childId, groupId }).expect(201);
+
+            const res = await request(app.getHttpServer()).get('/enrollments/demand').set('Authorization', admin.auth).expect(200);
+
+            expect(res.body.some((bucket: { locationName: string }) => bucket.locationName === 'Drumul Taberei')).toBe(true);
+            // A child on a waiting list has no group either, so they satisfy both queries. Counting
+            // them twice put the same name in two buckets and inflated every total on the screen.
+            const total = res.body.reduce((sum: number, bucket: { children: unknown[] }) => sum + bucket.children.length, 0);
+            expect(total).toBe(1);
+        });
+    });
+
+    describe('billing follows enrolment (S4)', () => {
+        it('does not invoice a family whose only child is on a trial', async () => {
+            const groupId = await makeGroup();
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId, status: 'TRIAL' })
+                .expect(201);
+
+            const parentId = await ownProfileId(app, parent);
+            const preview = await request(app.getHttpServer())
+                .post('/invoices/preview')
+                .set('Authorization', admin.auth)
+                .send({ parentIds: [parentId], monthIssued: '2026-03' })
+                .expect(201);
+
+            // A trial is free. Billing it would make the point of offering one collapse on the
+            // first invoice.
+            expect(preview.body[0]).toMatchObject({ amount: null });
+        });
+
+        it('invoices the family once the trial becomes a real enrolment', async () => {
+            const groupId = await makeGroup();
+            const trial = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId, status: 'TRIAL' })
+                .expect(201);
+            await request(app.getHttpServer())
+                .put(`/enrollments/${trial.body.id}/resolve-trial`)
+                .set('Authorization', admin.auth)
+                .send({ accepted: true })
+                .expect(200);
+
+            const parentId = await ownProfileId(app, parent);
+            const preview = await request(app.getHttpServer())
+                .post('/invoices/preview')
+                .set('Authorization', admin.auth)
+                .send({ parentIds: [parentId], monthIssued: '2026-03' })
+                .expect(201);
+            expect(preview.body[0]).toMatchObject({ amount: 350 });
+        });
+
+        it('does not invoice a family whose child is in no group at all', async () => {
+            await makeChild();
+            const parentId = await ownProfileId(app, parent);
+
+            // This was wrong before trials existed: the price is per child attending, and a family
+            // whose child had not started was being charged for them.
+            const preview = await request(app.getHttpServer())
+                .post('/invoices/preview')
+                .set('Authorization', admin.auth)
+                .send({ parentIds: [parentId], monthIssued: '2026-03' })
+                .expect(201);
+            expect(preview.body[0]).toMatchObject({ amount: null });
+        });
+    });
+
     describe('authorization', () => {
         it('refuses a parent everywhere, including the reads', async () => {
             const groupId = await makeGroup();
@@ -436,6 +730,13 @@ describe('Enrolments and capacity (e2e)', () => {
             await request(app.getHttpServer()).get(`/enrollments/group/${groupId}/occupancy`).set('Authorization', parent.auth).expect(403);
             await request(app.getHttpServer()).post('/enrollments').set('Authorization', parent.auth).send({ childId, groupId }).expect(403);
             await request(app.getHttpServer()).post('/enrollments/waitlist').set('Authorization', parent.auth).send({ childId, groupId }).expect(403);
+            await request(app.getHttpServer())
+                .post('/enrollments/transfer')
+                .set('Authorization', parent.auth)
+                .send({ childId, toGroupId: groupId })
+                .expect(403);
+            await request(app.getHttpServer()).get('/enrollments/demand').set('Authorization', parent.auth).expect(403);
+            await request(app.getHttpServer()).get('/enrollments/trials/unresolved').set('Authorization', parent.auth).expect(403);
         });
 
         it('refuses an unauthenticated caller', async () => {

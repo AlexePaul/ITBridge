@@ -226,6 +226,40 @@ export async function createClassSession(
 }
 
 /** A complete, valid group body. Spread the overrides in to change one field at a time. */
+/**
+ * Enrols a child in a group, which is what makes their family billable.
+ *
+ * Since E11/S4 an invoice counts children with an `ACTIVE` enrolment, not children on file — a
+ * trial is free and a child in no group is not attending. Suites that issue invoices therefore have
+ * to place their children first; before, a child existing was enough.
+ */
+export async function enrolChild(app: INestApplication<App>, admin: TestUser, childId: number, groupId: number): Promise<void> {
+    await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId, groupId }).expect(201);
+}
+
+/**
+ * A room, a group in it, and every one of `childIds` enrolled — the shortest path to a family an
+ * invoice can be issued for.
+ */
+export async function enrolInNewGroup(
+    app: INestApplication<App>,
+    admin: TestUser,
+    childIds: number[],
+    overrides: Record<string, unknown> = {},
+): Promise<number> {
+    const roomId = await createRoom(app, admin, { slug: `billing-${Math.abs(childIds[0] ?? 0)}`, name: 'Facturare' });
+    const group = await request(app.getHttpServer()).post('/groups').set('Authorization', admin.auth).send(groupBody(roomId, overrides)).expect(201);
+    const groupId = group.body.id as number;
+    for (const childId of childIds) {
+        await enrolChild(app, admin, childId, groupId);
+    }
+    return groupId;
+}
+
 export function groupBody(roomId: number, overrides: Record<string, unknown> = {}): Record<string, unknown> {
-    return { name: 'Scratch Începători', weekday: 1, startTime: '16:00', endTime: '17:30', roomId, capacity: 10, minAge: 7, maxAge: 10, ...overrides };
+    // A deliberately wide age band. E11/S6 refuses an enrolment whose age falls outside it and asks
+    // for confirmation, which is right — but almost no suite is about ages, and a narrow default
+    // made a dozen unrelated tests fail on a rule they never mention. Suites that *are* about the
+    // band pass their own `minAge` / `maxAge`.
+    return { name: 'Scratch Începători', weekday: 1, startTime: '16:00', endTime: '17:30', roomId, capacity: 10, minAge: 5, maxAge: 18, ...overrides };
 }

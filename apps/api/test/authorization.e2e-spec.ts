@@ -2,7 +2,18 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createClassSession, createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import {
+    createClassSession,
+    createRoom,
+    createTestApp,
+    groupBody,
+    enrolInNewGroup,
+    ownProfileId,
+    promoteToAdmin,
+    registerUser,
+    TestUser,
+    truncateAll,
+} from './helpers';
 
 /**
  * Row-level authorization, verified over HTTP. The unit tests show the queries *contain* the
@@ -50,6 +61,10 @@ describe('Row-level authorization (e2e)', () => {
 
         mariaId = await createChild(ana, anaProfileId, 'Maria');
         raduId = await createChild(bogdan, bogdanProfileId, 'Radu');
+
+        // Both children have to be in a group before an invoice exists for their family: since
+        // E11/S4 the amount counts active enrolments, not children on file.
+        await enrolInNewGroup(app, admin, [mariaId, raduId]);
 
         anaInvoiceId = await createInvoice(anaProfileId);
     });

@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser, createRoom, groupBody } from './helpers';
+import { createTestApp, enrolInNewGroup, promoteToAdmin, registerUser, truncateAll, TestUser, createRoom, groupBody } from './helpers';
 
 /** Regression cover for the defects the code review turned up. */
 describe('Review findings (e2e)', () => {
@@ -113,6 +113,7 @@ describe('Review findings (e2e)', () => {
     describe('issuing invoices is all-or-nothing across the batch', () => {
         it('commits nothing when one parent in the batch fails', async () => {
             const parents: number[] = [];
+            const childIds: number[] = [];
             for (const name of ['Ana', 'Bogdan']) {
                 const profile = await request(app.getHttpServer())
                     .post('/profiles')
@@ -126,12 +127,16 @@ describe('Review findings (e2e)', () => {
                     .expect(201);
                 parents.push(profile.body.id as number);
 
-                await request(app.getHttpServer())
+                const child = await request(app.getHttpServer())
                     .post('/children')
                     .set('Authorization', admin.auth)
                     .send({ parentId: profile.body.id, firstName: 'C', lastName: 'Pop', birthDate: '2016-01-01' })
                     .expect(201);
+                childIds.push(child.body.id as number);
             }
+
+            // Both families must be billable, which since E11/S4 means actively enrolled.
+            await enrolInNewGroup(app, admin, childIds);
 
             // The second parent already has an invoice for the month, so the batch trips the unique
             // constraint partway through. The first parent's invoice must not survive that.
