@@ -3,9 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
+import { Room } from 'src/entities/room.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { Role } from 'src/enum/role.enum';
 import { CancelClassSessionDto } from './dto/cancelClassSession.dto';
+import { MoveClassSessionDto } from './dto/moveClassSession.dto';
 import { FilterClassSessionDto } from './dto/filterClassSession.dto';
 import { GenerateClassSessionsDto } from './dto/generateClassSessions.dto';
 import { UnmarkedClassSessionsDto } from './dto/unmarkedClassSessions.dto';
@@ -47,6 +49,7 @@ export class ClassSessionService {
     constructor(
         @InjectRepository(ClassSession) private readonly classSessionRepository: Repository<ClassSession>,
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
+        @InjectRepository(Room) private readonly roomRepository: Repository<Room>,
         private readonly nonTeachingPeriodService: NonTeachingPeriodService,
     ) {}
 
@@ -244,6 +247,121 @@ export class ClassSessionService {
      * register is for. The cancellation note is kept: the timetable should still show that this day
      * was called off and then put back, since that is exactly the sequence a parent will ask about.
      */
+    /**
+     * Moves one class: another day, another hour, another room — any of them — E12/S5.
+     *
+     * An edit of the row, not a new row: there is no "moved" status by decision, the register stays
+     * attached, and the timetable simply tells the truth about where the class now is. What it
+     * refuses, in the order checked:
+     *
+     * - a cancelled class (reinstate it first — moving it would hide the cancellation);
+     * - a class already taught (it has marks; the class happened at the old time, and moving it
+     *   would rewrite history under the register);
+     * - a move that names no target field — that is a mistyped request, not a no-op;
+     * - a target day the school calendar closes: the move must obey S2 exactly as generation does,
+     *   or the calendar would have a side door;
+     * - a target day where the group already has a class (`UQ_class_sessions_group_date` would
+     *   refuse anyway; checking first turns the driver error into a sentence);
+     * - a target room already taken at that hour by another live class.
+     */
+    async moveSession(id: number, dto: MoveClassSessionDto): Promise<ClassSession> {
+        const session = await this.classSessionRepository.findOne({
+            where: { id },
+            relations: { group: { room: { location: true } }, room: { location: true }, attendances: true },
+        });
+        if (!session) {
+            throw new NotFoundException('Class session not found');
+        }
+        if (session.status === ClassSessionStatus.CANCELLED) {
+            throw new ConflictException({
+                message: 'Ședința e anulată — reactiveaz-o înainte s-o muți.',
+                error: 'CLASS_SESSION_CANCELLED',
+            });
+        }
+        if (session.attendances.length > 0) {
+            throw new ConflictException({
+                message: 'Ședința are deja prezențe înregistrate, deci s-a ținut — nu mai poate fi mutată.',
+                error: 'CLASS_SESSION_HAS_ATTENDANCE',
+            });
+        }
+        if (dto.date === undefined && dto.startTime === undefined && dto.endTime === undefined && dto.roomId === undefined) {
+            throw new BadRequestException({
+                message: 'Mutarea nu schimbă nimic — alege o zi, o oră sau o sală.',
+                error: 'MOVE_CHANGES_NOTHING',
+            });
+        }
+
+        const targetDate = dto.date === undefined ? toIsoDate(session.date) : toIsoDate(parseIsoDate(dto.date));
+        const targetStart = dto.startTime === undefined ? session.startTime.slice(0, 5) : dto.startTime;
+        const targetEnd = dto.endTime === undefined ? session.endTime.slice(0, 5) : dto.endTime;
+        if (targetEnd <= targetStart) {
+            throw new BadRequestException({
+                message: 'Ora de sfârșit este înaintea celei de început.',
+                error: 'SESSION_ENDS_BEFORE_IT_STARTS',
+            });
+        }
+
+        let targetRoom = session.room;
+        if (dto.roomId !== undefined && dto.roomId !== session.room.id) {
+            const room = await this.roomRepository.findOne({ where: { id: dto.roomId }, relations: { location: true } });
+            if (!room) {
+                throw new NotFoundException('Room not found');
+            }
+            targetRoom = room;
+        }
+
+        // The move obeys the school calendar exactly as generation does — otherwise the calendar
+        // has a side door, and a class moved into the winter break shows up on a day the whole
+        // school knows is off.
+        const targetDay = parseIsoDate(targetDate);
+        const closed = await this.nonTeachingPeriodService.datesIn(targetDay, addDays(targetDay, 1), targetRoom.location?.id ?? null);
+        if (closed.has(targetDate)) {
+            throw new ConflictException({
+                message: `Pe ${targetDate} nu se ține curs — ziua e în calendarul școlar.`,
+                error: 'MOVED_ONTO_NON_TEACHING_DAY',
+            });
+        }
+
+        if (targetDate !== toIsoDate(session.date)) {
+            const sameDay = await this.classSessionRepository.findOne({
+                where: { group: { id: session.group.id }, date: targetDay },
+            });
+            if (sameDay) {
+                throw new ConflictException({
+                    message: `Grupa are deja o ședință pe ${targetDate}.`,
+                    error: 'GROUP_ALREADY_HAS_SESSION_THAT_DAY',
+                });
+            }
+        }
+
+        // A live class already in the target room at an overlapping hour. Cancelled ones do not
+        // count — their room is free in fact, whatever the row says.
+        const clash = await this.classSessionRepository
+            .createQueryBuilder('session')
+            .leftJoin('session.room', 'room')
+            .andWhere('room.id = :roomId', { roomId: targetRoom.id })
+            .andWhere('session.date = :date', { date: targetDate })
+            .andWhere('session.id != :id', { id })
+            .andWhere('session.status != :cancelled', { cancelled: ClassSessionStatus.CANCELLED })
+            .andWhere('session.startTime < :end AND :start < session.endTime', { start: targetStart, end: targetEnd })
+            .getOne();
+        if (clash) {
+            throw new ConflictException({
+                message: `Sala e ocupată atunci de altă ședință (${clash.startTime.slice(0, 5)}–${clash.endTime.slice(0, 5)}).`,
+                error: 'ROOM_BUSY_AT_THAT_TIME',
+            });
+        }
+
+        // The note keeps where the class used to be, because that is the question a parent asks.
+        const note = `Mutată (de pe ${toIsoDate(session.date)} ${session.startTime.slice(0, 5)}): ${dto.reason}`;
+        session.notes = session.notes === null || session.notes.trim() === '' ? note : `${session.notes}\n\n${note}`;
+        session.date = targetDay;
+        session.startTime = `${targetStart}:00`;
+        session.endTime = `${targetEnd}:00`;
+        session.room = targetRoom;
+        return this.classSessionRepository.save(session);
+    }
+
     async reinstateSession(id: number): Promise<ClassSession> {
         const session = await this.classSessionRepository.findOne({
             where: { id },

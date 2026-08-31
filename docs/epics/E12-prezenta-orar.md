@@ -271,9 +271,16 @@ nu mai e blocat de canal — `MailService` și coada `outbox` sunt în `apps/api
 dar mesajul nu e scris, iar coada n-are unde să ruleze continuu până la
 [E01](E01-infrastructura-medii.md) S4. Acceptanța de cinci minute rămâne neatinsă.
 
-**Mutarea nu există deloc.** `date`, `startTime` și `room` sunt coloane, deci mutarea e în principiu
-o editare, dar niciun endpoint nu le schimbă. Vezi și decizia despre stările ședinței, mai jos: stare
-de „mutată" nu există, fiindcă o ședință mutată e una căreia i s-au schimbat coloanele.
+**Mutarea există acum**: `PUT /class-sessions/:id/move` — altă zi, altă oră, altă sală, oricare din
+ele, cu motiv obligatoriu exact ca la anulare. E o editare a rândului, nu un rând nou — stare de
+„mutată" nu există, conform deciziei de mai jos — deci catalogul rămâne atașat, iar nota păstrează
+de unde a plecat ședința, fiindcă aia e întrebarea pe care o pune un părinte. Refuză, în ordine:
+ședințele anulate (reactivezi întâi), pe cele deja ținute (au prezențe — s-au întâmplat la ora
+veche), mutarea care nu schimbă nimic, o zi din calendarul școlar (**S2 nu are ușă laterală** —
+verificat pe locația sălii țintă, nu a celei vechi), o zi în care grupa are deja oră (indexul unic
+ar refuza oricum; verificarea întâi transformă eroarea de driver în propoziție) și o sală ocupată
+la ora aia de altă ședință vie — cele anulate nu blochează, sala lor e liberă în fapt. Tot fără
+ecran, ca și anularea; și tot fără notificare, care rămâne la E17.
 
 ### S6 · Marcarea prezenței pe telefon
 

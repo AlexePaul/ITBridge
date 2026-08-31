@@ -7,6 +7,7 @@ import { Role } from 'src/enum/role.enum';
 import { ClassSessionService } from './class-session.service';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { CancelClassSessionDto } from './dto/cancelClassSession.dto';
+import { MoveClassSessionDto } from './dto/moveClassSession.dto';
 import { CreateNonTeachingPeriodDto } from './dto/nonTeachingPeriod.dto';
 import { FilterClassSessionDto } from './dto/filterClassSession.dto';
 import { GenerateClassSessionsDto } from './dto/generateClassSessions.dto';
@@ -28,7 +29,7 @@ export class ClassSessionController {
         summary: 'Write the next weeks of timetable from the group schedule',
         description:
             'Idempotent: a session that already exists for a group on a day is left untouched, whatever its status, so re-running never resurrects a cancelled class. ' +
-            'There is no holiday calendar yet (E12/S2), so sessions are generated on every week including school holidays; cancel those by hand.',
+            'Obeys the school calendar (E12/S2): weeks falling in a non-teaching period are skipped and counted in `skipped`, per location.',
     })
     @ApiResponse({ status: 201, description: 'Sessions generated; the response says how many were created and how many were already there' })
     @ApiResponse({ status: 404, description: 'Group not found' })
@@ -138,6 +139,28 @@ export class ClassSessionController {
     @ApiResponse({ status: 400, description: 'The interval is reversed, or a date is not a real day' })
     async getUnmarkedSessions(@Query() range: UnmarkedClassSessionsDto) {
         return this.classSessionService.findUnmarkedSessions(range);
+    }
+
+    @Put(':id/move')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Mută o ședință: altă zi, altă oră, altă sală',
+        description:
+            'O editare a rândului, nu un rând nou: nu există stare de „mutată", catalogul rămâne atașat, iar nota păstrează de unde a plecat. ' +
+            'Refuză ședințele anulate și pe cele deja ținute, zilele din calendarul școlar, zilele în care grupa are deja oră și sălile ocupate la ora aia.',
+    })
+    @ApiResponse({ status: 200, description: 'Session moved' })
+    @ApiResponse({ status: 400, description: 'MOVE_CHANGES_NOTHING or SESSION_ENDS_BEFORE_IT_STARTS' })
+    @ApiResponse({ status: 404, description: 'No such session or room' })
+    @ApiResponse({
+        status: 409,
+        description:
+            'CLASS_SESSION_CANCELLED, CLASS_SESSION_HAS_ATTENDANCE, MOVED_ONTO_NON_TEACHING_DAY, GROUP_ALREADY_HAS_SESSION_THAT_DAY or ROOM_BUSY_AT_THAT_TIME',
+    })
+    async moveSession(@Param('id', ParseIntPipe) id: number, @Body() moveClassSessionDto: MoveClassSessionDto) {
+        return this.classSessionService.moveSession(id, moveClassSessionDto);
     }
 
     @Put(':id/cancel')
