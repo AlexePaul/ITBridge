@@ -102,7 +102,7 @@ centrală a acestui epic.
 **Acceptanță:** nicio culoare și nicio dimensiune de font scrise direct într-o componentă. —
 **Îndeplinită** pe paginile publice și pe componentele partajate.
 
-### S2 · Pipeline de imagini — livrat parțial
+### S2 · Pipeline de imagini — **LIVRAT**
 
 `@nuxt/image` instalat și folosit peste tot. Formate moderne, dimensiuni responsive, încărcare
 întârziată sub prima vizualizare, dimensiuni explicite ca să nu sară layout-ul. Fișierele `-old`
@@ -116,9 +116,28 @@ layout-ului sub 0.1.
 layout; `loading="lazy"` sub prima vizualizare; caruselul de pe prima pagină încarcă doar cadrul
 curent și vecinii lui.
 
-**Ce rămâne:** `@nuxt/image` nu e instalat, deci nu există nici `srcset`, nici WebP/AVIF, nici
-redimensionare la cerere. Cele zece JPEG-uri ar coborî la ~670KB la calitate echivalentă. Merită
-făcut împreună cu S5 din [E19](E19-seo-geo.md), nu separat.
+**Livrat.** `@nuxt/image` e instalat, iar cele patru locuri cu imagini folosesc `<NuxtPicture>`:
+`srcset` pe lățimile din `classical.css`, WebP cu JPEG ca rezervă, redimensionare la cerere.
+
+Măsurat pe cele nouă fotografii, la 620px — lățimea pe care o cere efectiv layout-ul:
+
+| | Total |
+| --- | --- |
+| Originale, servite brut | **1056 KB** |
+| JPEG redimensionat | 373 KB |
+| AVIF | 347 KB |
+| **WebP** | **239 KB** |
+
+**AVIF a fost măsurat și respins**, ceea ce e invers față de ce ai presupune. La calitatea asta e
+abia mai bun decât un JPEG redimensionat, iar pe o poză e chiar mai mare — encoder-ul AVIF din sharp,
+la efortul lui implicit, nu e bun aici. Cum browserul ia **primul** `<source>` care se potrivește,
+a-l pune pe AVIF înainte ar fi însemnat să servim tuturor varianta mai slabă. Dacă se reia, se
+măsoară întâi.
+
+Estimarea din story era ~670KB; rezultatul e 239KB, fiindcă cea mai mare parte a câștigului nu vine
+din format, ci din faptul că nu mai trimitem o poză de 1200px într-un slot de 620.
+
+Asta livrează și [E19](E19-seo-geo.md) S5, care era același lucru privit dinspre SEO.
 
 ### S3 · Paginile publice — livrat
 

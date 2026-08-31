@@ -34,11 +34,13 @@
 
     <section class="section split split-even split-start" data-reveal>
       <figure class="plate">
-        <img
+        <NuxtPicture
+          format="webp"
           :src="location.image"
           :alt="location.imageAlt"
           width="900"
           height="910"
+          sizes="sm:100vw md:50vw lg:560px"
           loading="lazy"
         />
       </figure>

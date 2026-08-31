@@ -15,8 +15,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 44 livrate, 11 parțiale, 1 scris dar nemergeat,
-9 blocate, 4 scoase din scop, 73 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
+Din **142 de story-uri** în 21 de epicuri: 44 livrate, 10 parțiale, 3 scrise dar nemergeate,
+9 blocate, 4 scoase din scop, 72 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
 înseamnă adesea „construit, dar nu rulează nicăieri".
 
 ---
@@ -229,7 +229,7 @@ Din **142 de story-uri** în 21 de epicuri: 44 livrate, 11 parțiale, 1 scris da
 ### E18 · Frontend: design system și portal — `în lucru`
 
 - [x] S1 · Fundația de design
-- [~] S2 · Pipeline de imagini — imaginile sunt sub 200KB, dar `@nuxt/image` tot nu e instalat
+- [r] S2 · Pipeline de imagini — `@nuxt/image`, WebP cu rezervă JPEG, `srcset` pe lățimile reale: **1056KB → 239KB**. AVIF măsurat și respins
 - [x] S3 · Paginile publice
 - [!] S4 · Portalul părintelui — **cerut explicit de școală: rescriere, nu retuș.** Blocat de deploy: paginile de după autentificare nu se pot nici testa, nici arăta
 - [!] S5 · Uniformizarea zonei de admin — **cerut explicit.** 32 de ecrane, fiecare cu tiparele lui; costul crește cu fiecare epic livrat. Jumătatea de componente se poate face înainte de deploy
@@ -242,7 +242,7 @@ Din **142 de story-uri** în 21 de epicuri: 44 livrate, 11 parțiale, 1 scris da
 - [x] S2 · Date structurate
 - [~] S3 · Pagini locale — livrat pe site; **rămâne partea din afara lui: două profiluri Google Business verificate, unul per adresă**
 - [!] S4 · Pagini de modul — așteaptă E10, care e scos din MVP
-- [ ] S5 · Performanță — se face odată cu E18 S2
+- [r] S5 · Performanță — livrat odată cu E18 S2; rămâne confirmarea pe trafic real, care cere domeniul live
 - [!] S6 · Conținut — blocat de „cine scrie textele"
 - [x] S7 · Pregătire pentru motoare generative
 - [!] S8 · Măsurare — cere domeniul live și Search Console
@@ -295,16 +295,12 @@ facturile devin lucruri pe care le poate folosi cineva.
 
 **Fără ea, în ordinea asta:**
 
-1. **E18 S2 + E19 S5 — pipeline-ul de imagini.** Cerut ASAP de școală, și pe bună dreptate: nu
-   depinde de nimic, iar site-ul public e singurul lucru care chiar rulează în producție. `@nuxt/image`
-   aduce WebP/AVIF și `srcset`; cele zece fotografii coboară de la ~1,1MB la ~670KB, ceea ce mută
-   direct Core Web Vitals — adică E19 S5, care e același lucru privit din partea de SEO.
-2. **E14, proiectele elevilor** — scris, dar în [PR #31](https://github.com/AlexePaul/ITBridge/pull/31),
+1. **E14, proiectele elevilor** — scris, dar în [PR #31](https://github.com/AlexePaul/ITBridge/pull/31),
    care e în conflict cu `develop` și pe care CI-ul real n-a rulat niciodată. Are nevoie de un rebase
    atent pe `invoice.service.ts` înainte de orice altceva.
-3. **E12 S2, calendarul zilelor fără curs** — soluția e scrisă în epic și nu mai e blocată de nimic
+2. **E12 S2, calendarul zilelor fără curs** — soluția e scrisă în epic și nu mai e blocată de nimic
    în afară de datele din ordinul de ministru. O entitate, o migrare, un ecran mic.
-4. **E18 S5, jumătatea de componente** — tiparul de tabel, cel de formular, stările de încărcare, gol
+3. **E18 S5, jumătatea de componente** — tiparul de tabel, cel de formular, stările de încărcare, gol
    și eroare, și mutarea zonei de admin pe jetoanele din `classical.css`. Nu cere un API care rulează,
    iar costul crește cu fiecare ecran adăugat: erau 25, sunt 32.
 

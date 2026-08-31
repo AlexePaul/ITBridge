@@ -118,12 +118,26 @@ comercială mult mai clară decât pagina principală.
 
 **Acceptanță:** fiecare modul are pagină indexabilă, generată din catalog.
 
-### S5 · Performanță — muncă viitoare
+### S5 · Performanță — **LIVRAT**
 
 Core Web Vitals în verde pe mobil, unde e majoritatea traficului. Depinde aproape în întregime de
 [E18](E18-frontend-portal.md), S2.
 
 **Acceptanță:** LCP sub 2.5s, INP sub 200ms, CLS sub 0.1, măsurate pe date reale, nu în laborator.
+
+**Livrat odată cu [E18](E18-frontend-portal.md) S2**, fiindcă era același lucru. Imaginile coboară de
+la **1056KB la 239KB** — 77% mai puțin — prin `srcset` pe lățimile reale ale layout-ului și WebP cu
+rezervă JPEG. Prima imagine a caruselului, care e LCP-ul paginii principale, are `<link rel=preload>`
+cu `imagesrcset`, deci browserul începe să o ia în dimensiunea corectă înainte să termine de parsat
+foaia de stil.
+
+CLS era deja rezolvat înainte: fiecare imagine are `width` și `height`, iar caruselul are
+`aspect-ratio` pe container, deci nimic nu sare.
+
+**Ce rămâne de făcut, și nu se poate acum:** măsurarea *pe date reale*, adică pe trafic. Cere
+domeniul live și câteva zile de date în Search Console. Cifrele de mai sus sunt de laborator, ceea ce
+acceptanța spune explicit că nu e suficient — deci story-ul e livrat ca lucrare, dar confirmarea vine
+de la Google.
 
 ### S6 · Conținut — muncă viitoare, blocat
 
