@@ -23,6 +23,24 @@ calculatorul din birou al școlii, urmărește o partajare de rețea și urcă p
 profesorii acolo (E14 S2). Se construiește cu `pnpm --filter agent build`; instalarea e în
 [apps/agent/README.md](apps/agent/README.md).
 
+## Cele două branch-uri
+
+**`main` e site-ul public. `develop` e restul.**
+
+Vercel servește `main`, iar paginile publice nu ating backend-ul — de asta site-ul stă în producție
+deși API-ul nu e deployat nicăieri. Tot ce e după autentificare — portalul, zona de admin, întreg
+`apps/api` de după E08 — trăiește pe `develop` și rămâne acolo până există instanța de care are
+nevoie ([E01](docs/epics/E01-infrastructura-medii.md), S4).
+
+În `main` intră doar ce afectează site-ul public și poate fi verificat fără backend: conținut, SEO,
+performanță, corecturi de interfață publică. Se aduc prin cherry-pick, nu prin merge din `develop` —
+un merge ar trage în producție jumătate de platformă care n-are unde să ruleze.
+
+**Documentația din `docs/` și fișierul ăsta sunt identice pe ambele branch-uri**, fiindcă descriu
+proiectul, nu ramura. Deci pe `main` vei citi despre module care nu există în arborele de sub tine —
+`enrollment`, `project`, `storage` — și e în regulă: sunt pe `develop`. Ce **nu** e în regulă e ca
+cele două copii ale documentației să divergă; dacă atingi una, adu-o și pe cealaltă.
+
 ## Comenzi
 
 Toate de la rădăcină. Nu intra în `apps/*` să rulezi `npm` — nu există `package-lock.json` și nu
