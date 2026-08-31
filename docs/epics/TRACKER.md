@@ -14,9 +14,9 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 51 livrate, 10 parțiale, 3 scrise dar nemergeate,
-9 blocate, 4 scoase din scop, 65 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
-înseamnă adesea „construit, dar nu rulează nicăieri".
+Din **142 de story-uri** în 21 de epicuri: 53 livrate, 11 parțiale, 9 blocate, 4 scoase din scop,
+65 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+nu rulează nicăieri".
 
 ---
 
@@ -178,7 +178,7 @@ Din **142 de story-uri** în 21 de epicuri: 51 livrate, 10 parțiale, 3 scrise d
 
 ### E15 · Pricing și facturare v2 — `în lucru`
 
-- [r] S0 · Prețul pe ședință și ecranul de emitere — 87,50/62,50 per ședință, arbore familie→copii, zero se consemnează ca `waived`. **Facturarea pe modul a fost analizată și abandonată**, vezi caseta din epic
+- [x] S0 · Prețul pe ședință și ecranul de emitere — 87,50/62,50 per ședință, arbore familie→copii, zero se consemnează ca `waived`. **Facturarea pe modul a fost analizată și abandonată**, vezi caseta din epic
 - [ ] S1 · Catalogul de prețuri
 - [ ] S2 · Factura pe modul, cu linii
 - [ ] S3 · Planuri de plată
@@ -228,7 +228,7 @@ Din **142 de story-uri** în 21 de epicuri: 51 livrate, 10 parțiale, 3 scrise d
 ### E18 · Frontend: design system și portal — `în lucru`
 
 - [x] S1 · Fundația de design
-- [r] S2 · Pipeline de imagini — `@nuxt/image`, WebP cu rezervă JPEG, `srcset` pe lățimile reale: **1056KB → 239KB**. AVIF măsurat și respins
+- [x] S2 · Pipeline de imagini — `@nuxt/image`, WebP cu rezervă JPEG, `srcset` pe lățimile reale: **1056KB → 239KB**. AVIF măsurat și respins
 - [x] S3 · Paginile publice
 - [!] S4 · Portalul părintelui — **cerut explicit de școală: rescriere, nu retuș.** Blocat de deploy: paginile de după autentificare nu se pot nici testa, nici arăta
 - [!] S5 · Uniformizarea zonei de admin — **cerut explicit.** 32 de ecrane, fiecare cu tiparele lui; costul crește cu fiecare epic livrat. Jumătatea de componente se poate face înainte de deploy
@@ -241,7 +241,7 @@ Din **142 de story-uri** în 21 de epicuri: 51 livrate, 10 parțiale, 3 scrise d
 - [x] S2 · Date structurate
 - [~] S3 · Pagini locale — livrat pe site; **rămâne partea din afara lui: două profiluri Google Business verificate, unul per adresă**
 - [!] S4 · Pagini de modul — așteaptă E10, care e scos din MVP
-- [r] S5 · Performanță — livrat odată cu E18 S2; rămâne confirmarea pe trafic real, care cere domeniul live
+- [~] S5 · Performanță — livrat odată cu E18 S2; rămâne confirmarea pe trafic real, care cere domeniul live
 - [!] S6 · Conținut — blocat de „cine scrie textele"
 - [x] S7 · Pregătire pentru motoare generative
 - [!] S8 · Măsurare — cere domeniul live și Search Console
