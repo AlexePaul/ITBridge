@@ -13,7 +13,7 @@ export default defineNuxtConfig({
   // `nuxt-auth-utils` was registered but never used — authentication runs
   // through the NestJS backend, not a Nitro session — and without
   // NUXT_SESSION_PASSWORD it logged an error on every SSR render.
-  modules: ["@nuxt/ui", "@pinia/nuxt"],
+  modules: ["@nuxt/ui", "@nuxt/image", "@pinia/nuxt"],
   css: ["~/assets/css/main.css"],
   // The classical system is a light one; the dark palette follows the reader's
   // own system setting rather than a switch in the header.
@@ -45,6 +45,37 @@ export default defineNuxtConfig({
         { name: "theme-color", content: "#201f1d", media: "(prefers-color-scheme: dark)" },
       ],
     },
+  },
+
+  // Images are served in AVIF/WebP at the size the layout actually asks for, instead of one
+  // full-resolution JPEG per slot. The ten photographs came to ~1.1MB brut; the same pictures at
+  // equivalent quality are roughly 40% of that, which is E18/S2 and — since it is almost entirely
+  // what decides LCP on a phone — E19/S5 as well.
+  //
+  // No `provider` is set on purpose. Locally that means IPX, which resizes in the Nitro server; on
+  // Vercel the module detects the preset and hands the work to Vercel's own optimiser. Pinning one
+  // would break the other.
+  //
+  // `screens` matches the breakpoints `classical.css` is drawn on, so a generated `srcset` offers
+  // widths the layout can actually use rather than a generic ladder.
+  //
+  // The format is chosen per component, not here: `<NuxtPicture format="webp">` emits a `<source>`
+  // and keeps the original JPEG as the `<img>` fallback. `<NuxtImg>` renders a single `<img>`, so it
+  // could only ever serve one format — either no modern format at all, or no fallback for the
+  // browsers that lack it.
+  //
+  // **WebP only, and AVIF deliberately not**, which is the opposite of what one would assume.
+  // Measured on these nine photographs at 620px, the width the layout actually asks for:
+  //
+  //     original 1056KB · resized JPEG 373KB · AVIF 347KB · WebP 239KB
+  //
+  // AVIF is barely better than a resized JPEG here, and on one picture it is larger. sharp's AVIF
+  // encoder at its default effort is not good at this quality; WebP at 72 is. Since a browser takes
+  // the *first* matching `<source>`, listing AVIF first would have served every modern browser the
+  // worse of the two. If this is revisited, measure before adding it back.
+  image: {
+    quality: 72,
+    screens: { xs: 380, sm: 520, md: 760, lg: 1024, xl: 1280 },
   },
 
   // Cormorant Garamond and Lora are self-hosted by @nuxt/fonts (pulled in by

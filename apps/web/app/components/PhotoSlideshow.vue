@@ -14,16 +14,33 @@
       @touchstart.passive="onTouchStart"
       @touchend.passive="onTouchEnd"
     >
-      <img
-        v-for="(photo, index) in photos"
-        :key="photo.src"
-        :src="loaded.has(index) ? photo.src : undefined"
-        :alt="photo.alt"
-        class="slide"
-        :class="{ 'is-current': index === current }"
-        :fetchpriority="index === 0 ? 'high' : undefined"
-        :aria-hidden="index === current ? undefined : 'true'"
-      />
+      <!--
+        `v-if` inside the loop rather than on it: a slide that has not been reached yet renders
+        nothing at all, which is the same lazy strategy as before — `NuxtImg` needs a real `src`, so
+        the old trick of passing `undefined` is not available. Removing the element is safe because
+        the figure carries `aspect-ratio: 1 / 1` and every slide is `position: absolute; inset: 0`,
+        so its height never depended on the pictures.
+
+        `preload` on the first one, not `fetchpriority`: it emits a `<link rel="preload">` carrying
+        the generated `imagesrcset`, so the browser starts the LCP image while the stylesheet is
+        still parsing, and starts the *right* size of it.
+      -->
+      <template v-for="(photo, index) in photos" :key="photo.src">
+        <NuxtPicture
+          v-if="loaded.has(index)"
+          format="webp"
+          :src="photo.src"
+          :alt="photo.alt"
+          class="slide"
+          width="1200"
+          height="1200"
+          sizes="sm:100vw md:70vw lg:620px"
+          :preload="index === 0"
+          :loading="index === 0 ? 'eager' : 'lazy'"
+          :class="{ 'is-current': index === current }"
+          :aria-hidden="index === current ? undefined : 'true'"
+        />
+      </template>
     </figure>
 
     <div class="slideshow-controls">
