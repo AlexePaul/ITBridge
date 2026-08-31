@@ -73,7 +73,11 @@ describe('Tap-to-mark attendance (e2e)', () => {
         });
 
         it('is closed to parents', async () => {
-            await request(app.getHttpServer()).put(`/attendance/session/${sessionId}/child/${childId}`).set('Authorization', parent.auth).send({ present: true }).expect(403);
+            await request(app.getHttpServer())
+                .put(`/attendance/session/${sessionId}/child/${childId}`)
+                .set('Authorization', parent.auth)
+                .send({ present: true })
+                .expect(403);
         });
     });
 
