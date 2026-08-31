@@ -1,6 +1,37 @@
 # E15 · Pricing și facturare v2
 
-**Status:** propus · **Pistă:** Bani · **Depinde de:** E10, E11 · **Blochează:** E16, E21
+**Status:** în lucru — **prețul pe ședință e livrat** · **Pistă:** Bani · **Depinde de:** E10, E11 · **Blochează:** E16, E21
+
+> ## Ce s-a decis, și ce s-a livrat
+>
+> **Unitatea de facturare rămâne luna. Prețul e pe ședință.**
+>
+> `87,50 lei/ședință` pentru primul copil, `62,50` pentru fiecare frate — adică exact numerele pe
+> care le știe toată lumea (350 și 600 pe o lună de patru ședințe), dar corecte și în lunile scurte.
+> Asta e ce a făcut școala dintotdeauna, cu calculatorul, în fiecare lună; codul factura 350 fix și
+> ar fi supra-facturat fiecare lună cu vacanță.
+>
+> **De ce nu pe modul.** S-a analizat serios trecerea pe modulele anului școlar, la 700 lei/modul.
+> Singurul lucru pe care îl cumpăra era „nu mai numeri nimic" — iar odată ce ecranul de emitere
+> există, nu mai numeri nimic oricum. Rămâneau: același număr de facturi (10 pe an), aceiași bani,
+> o scumpire de 14% pe care nimeni n-o ceruse, o entitate nouă, o migrare, și un concept în plus de
+> explicat părinților. Modulul rezolvă o problemă pe care ecranul o rezolvase deja.
+>
+> Dacă vreodată apare prețul pe modul, revine cu **catalogul** din E10 — nu ca schimbare de unitate,
+> ci fiindcă atunci un modul chiar e un produs, cu conținut și cu un preț al lui.
+>
+> **Livrat:** ecranul `/admin/invoices/emitere` — arbore familie → copii, o valoare per copil,
+> validare că fiecare câmp are un răspuns, sumele calculate în timp real, total jos, un buton.
+> Emiterea creează o factură pe familie, cu tariful întreg pe copilul cu cele mai multe ședințe.
+>
+> **Zero e un răspuns, nu un câmp gol.** O lună fără plată — copilul n-a putut veni, sau școala a
+> decis să nu taxeze — se scrie în baza de date ca factură `waived`, de 0 lei, fără PDF. Rândul
+> există tocmai fiindcă n-are bani în el: o familie fără nicio factură pe octombrie arată la fel cu
+> o familie a cărei lună a uitat-o cineva, și doar a doua trebuie căutată.
+>
+> **Nelivrat din story-urile de mai jos:** catalogul de prețuri (S1), factura cu linii (S2),
+> planurile de plată (S3), tipurile de reducere (S5), PDF-ul din SmartBill (S7). Facturarea pe modul
+> nu mai e obiectiv.
 
 ## Problemă
 
@@ -31,10 +62,13 @@ Restul modelului e la fel de rigid:
 - Suma se calculează la emitere și se pierde apoi. Nu există detaliere pe linii, deci nici factura,
   nici PDF-ul nu pot arăta din ce se compune.
 - Reducerile din `Discount` au doar `value`, fără tip. Nu se știe dacă e sumă fixă sau procent.
-- Lunile cu vacanță se ajustau cu regula de trei simplă, manual.
+- ~~Lunile cu vacanță se ajustau cu regula de trei simplă, manual.~~ **Rezolvat:** ecranul de
+  emitere cere numărul de ședințe per copil și înmulțește. Calculul manual a dispărut; ce a rămas e
+  o valoare de tastat, verificată de o pereche de ochi înainte să plece ceva.
 
-Direcția nouă — **700 de lei pe modul**, plătibili integral sau în două tranșe — nu încape în acest
-model. Nu e o schimbare de constantă, e o schimbare de unitate de facturare: de la lună la modul.
+~~Direcția nouă — **700 de lei pe modul**, plătibili integral sau în două tranșe — nu încape în acest
+model.~~ **Direcția aceea a fost analizată și abandonată** — vezi caseta de sus. Unitatea rămâne
+luna; ce s-a schimbat e că prețul e pe ședință, deci lunile scurte costă mai puțin, automat.
 
 Și mai grav, în `apps/api/src/entities/payment.entity.ts`: **`Payment` nu are coloană de sumă.** Are `method`, `date`, și
 o relație unu-la-unu cu `Invoice`. Deci **plata în două tranșe nu poate fi reprezentată deloc** —

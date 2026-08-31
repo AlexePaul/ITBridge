@@ -488,13 +488,26 @@ depinde de `^build`, deci pornirea prin rădăcină construiește întâi `packa
 în workspace, Nuxt vede un `dist/` vechi sau inexistent și cade cu aceeași eroare de mai sus, care
 arată ca o problemă de cod și nu e.
 
-**Regula de preț stă într-un singur loc: `apps/api/src/modules/invoice/pricing.ts`.** 350 pentru
-primul copil, 250 pentru fiecare frate — deci 600 la doi, 850 la trei. Era scrisă de două ori, în
-serviciu și în seed, iar ambele copii aveau aceleași două bug-uri: doi copii se facturau cu 500, iar
-la trei sau mai mulți `totalAmount` rămânea 0 și reducerile îl duceau pe negativ. Dacă se schimbă
-prețul, se schimbă acolo; `apps/web/shared/courses.ts` ține aceleași cifre pentru site și trebuie
-potrivit odată cu el. Modelul pe module — 700, −25% de la al doilea copil — e altceva și e tot în
-[E15](docs/epics/E15-pricing-facturare.md).
+**Prețul e pe ședință, nu pe lună: `apps/api/src/modules/invoice/pricing.ts`.** 87,50 lei/ședință
+primul copil, 62,50 fiecare frate. Pe o lună de patru ședințe iese exact 350 și 600 — numerele pe
+care le știe toată lumea — dar o lună cu vacanță costă mai puțin, automat. Asta a făcut școala
+dintotdeauna cu calculatorul; codul factura 350 fix și supra-factura fiecare lună scurtă.
+
+**Tariful întreg merge la copilul cu cele mai multe ședințe**, restul iau tariful de frate. Sortarea
+e toată regula: fără ea, suma ar depinde de ordinea rândurilor dintr-o interogare. Un copil cu zero
+ședințe nu consumă tariful întreg.
+
+**Emiterea se face din `/admin/invoices/emitere`**, nu prin `POST /invoices`: un ecran cu familiile
+ca arbore, o valoare per copil, total jos, un buton. Serverul facturează numerele de pe ecran, nu
+și le recalculează — cine apasă s-a uitat la fiecare. Ruta veche există în continuare pentru
+`calculateAmount`, care numără înscrieri active și e folosită de previzualizare.
+
+**Zero e un răspuns, nu un câmp gol.** O lună fără plată se scrie ca factură `waived`, de 0 lei,
+fără PDF. Rândul există fiindcă n-are bani în el: fără el, o familie fără factură pe octombrie arată
+la fel cu una a cărei lună a uitat-o cineva. `GET /invoices/:id/pdf` răspunde 404 pe ele, explicit.
+
+`apps/web/shared/courses.ts` ține cifrele pentru site și **încă spune „350 lei pe lună"** — adică
+prețul unei luni pline, nu regula. Dacă atingi prețul, potrivește-le pe amândouă.
 
 ## Infrastructură — stare reală
 

@@ -281,6 +281,121 @@ describe('InvoiceService', () => {
         });
     });
 
+    describe('getWorksheet', () => {
+        beforeEach(() => {
+            invoiceRepo.find!.mockResolvedValue([]);
+        });
+
+        const withProfiles = (profiles: unknown[]) => {
+            profileRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ many: profiles as never[] }));
+        };
+
+        it('returns a family with its children and their groups, and no amount', async () => {
+            withProfiles([
+                {
+                    id: 1,
+                    firstName: 'Ana',
+                    lastName: 'Pop',
+                    email: 'ana@example.com',
+                    children: [{ id: 5, firstName: 'Maria', lastName: 'Pop', group: { id: 2, name: 'Scratch', weekday: 1 } }],
+                },
+            ]);
+
+            const [row] = await service.getWorksheet('2026-10');
+
+            // No amount on the wire: the arithmetic belongs on the screen, where somebody reads it.
+            expect(row).toEqual({
+                parentId: 1,
+                parentName: 'Pop Ana',
+                email: 'ana@example.com',
+                alreadyInvoiced: false,
+                children: [{ childId: 5, childName: 'Maria Pop', groupId: 2, groupName: 'Scratch', weekday: 1 }],
+            });
+        });
+
+        it('leaves out a family whose children are in no group', async () => {
+            withProfiles([{ id: 1, firstName: 'Ana', lastName: 'Pop', children: [{ id: 5, firstName: 'Maria', lastName: 'Pop', group: null }] }]);
+
+            // Nothing to count and nothing to owe. A row that must be filled in with zero is worse
+            // than no row.
+            await expect(service.getWorksheet('2026-10')).resolves.toEqual([]);
+        });
+
+        it('marks a family that already has an invoice for the month', async () => {
+            withProfiles([
+                {
+                    id: 1,
+                    firstName: 'Ana',
+                    lastName: 'Pop',
+                    children: [{ id: 5, firstName: 'Maria', lastName: 'Pop', group: { id: 2, name: 'S', weekday: 1 } }],
+                },
+            ]);
+            invoiceRepo.find!.mockResolvedValue([{ id: 9, parent: { id: 1 } }]);
+
+            // This is what makes the screen safe to run a second time after somebody enrols on the
+            // fifth: `@Unique(['parent', 'monthIssued'])` fails the whole pass otherwise.
+            const [row] = await service.getWorksheet('2026-10');
+            expect(row.alreadyInvoiced).toBe(true);
+        });
+    });
+
+    describe('issueFromSessions', () => {
+        const family = (parentId: number, sessions: number[]) => ({
+            parentId,
+            children: sessions.map((count, index) => ({ childId: index + 1, sessions: count })),
+        });
+
+        beforeEach(() => {
+            profileRepo.findOne!.mockImplementation(({ where }: { where: { id: number } }) => Promise.resolve(aProfile(where.id)));
+            invoiceRepo.findOne!.mockResolvedValue(null);
+            discountRepo.find!.mockResolvedValue([]);
+            transactionManager.save.mockImplementation((invoice: { amount: number }) => Promise.resolve({ ...invoice, id: 55 }));
+        });
+
+        it('bills the sessions it was given, not a figure of its own', async () => {
+            const result = await service.issueFromSessions({ monthIssued: '2026-10', dateIssued: '2026-10-01', families: [family(1, [2])] });
+
+            // The person pressing the button has looked at every number. A server that quietly
+            // substituted its own would issue a different invoice from the one on screen.
+            expect(result.issued[0].amount).toBe(175);
+        });
+
+        it("takes the month's discounts off", async () => {
+            discountRepo.find!.mockResolvedValue([{ value: 50 }]);
+
+            const result = await service.issueFromSessions({ monthIssued: '2026-10', dateIssued: '2026-10-01', families: [family(1, [4])] });
+            expect(result.issued[0].amount).toBe(300);
+        });
+
+        it('records a month that comes to nothing, without a PDF', async () => {
+            const result = await service.issueFromSessions({ monthIssued: '2026-10', dateIssued: '2026-10-01', families: [family(1, [0])] });
+
+            // The row is the point: no invoice at all looks the same as a month nobody got round to.
+            expect(result.issued).toHaveLength(0);
+            expect(result.waived).toHaveLength(1);
+            expect(result.waived[0].status).toBe(InvoiceStatus.WAIVED);
+            expect(s3.uploadFile).not.toHaveBeenCalled();
+        });
+
+        it('skips a family already invoiced rather than failing the whole pass', async () => {
+            invoiceRepo.findOne!.mockResolvedValue({ id: 9 });
+
+            const result = await service.issueFromSessions({ monthIssued: '2026-10', dateIssued: '2026-10-01', families: [family(1, [4])] });
+
+            expect(result.skipped).toEqual([{ parentId: 1, reason: 'ALREADY_INVOICED' }]);
+            expect(result.issued).toHaveLength(0);
+        });
+
+        it('404s on a parent that does not exist, before writing anything', async () => {
+            profileRepo.findOne!.mockResolvedValue(null);
+
+            await expect(service.issueFromSessions({ monthIssued: '2026-10', dateIssued: '2026-10-01', families: [family(99, [4])] })).rejects.toThrow(
+                NotFoundException,
+            );
+            expect(transactionManager.save).not.toHaveBeenCalled();
+        });
+    });
+
     describe('getPreview', () => {
         it('reports parents whose calculation fails instead of failing the whole request', async () => {
             profileRepo.findOne!.mockImplementation(({ where }: { where: { id: number } }) => Promise.resolve(where.id === 1 ? aProfile(1) : null));

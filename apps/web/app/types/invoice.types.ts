@@ -1,1 +1,6 @@
-export type { Invoice, InvoiceStatus } from "@itbridge/types";
+export type {
+  Invoice,
+  InvoiceStatus,
+  InvoiceWorksheetRow,
+  IssueInvoicesResult,
+} from "@itbridge/types";

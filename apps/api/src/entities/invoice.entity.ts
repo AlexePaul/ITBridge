@@ -6,6 +6,16 @@ export enum InvoiceStatus {
     PENDING = 'pending',
     PAID = 'paid',
     OVERDUE = 'overdue',
+    /**
+     * The month was handled and the family owes nothing — E15.
+     *
+     * A child who could not come at all, or a month the school decided not to charge for. The row
+     * exists precisely **because** there is no money in it: without it, a family with no invoice for
+     * October is indistinguishable from a family whose October nobody got round to, and the second
+     * is the one you need to find. Amount is zero, no PDF is generated, and nothing is sent — there
+     * is nothing to print and nobody to ask for money.
+     */
+    WAIVED = 'waived',
 }
 
 @Entity('invoices')
