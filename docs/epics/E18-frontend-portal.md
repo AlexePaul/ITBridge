@@ -6,6 +6,34 @@
 imaginilor e rezolvată, pipeline-ul nu. **Rămân:** S4, S5, S6, S7, toate după autentificare sau în
 CI. S4 și S5 nu se pot demonstra până nu rulează un backend — vezi [E01](E01-infrastructura-medii.md), S4.
 
+> ## Cerut de școală: rescrierea întregii zone de după login
+>
+> **Tot ce e după autentificare arată prost și trebuie refăcut, nu peticit.** Nu e o observație
+> despre o pagină anume — e despre toate: cele **4 pagini de portal** și cele **32 de ecrane de
+> admin**, inclusiv cele adăugate recent (`/admin/approvals`, `/admin/formare`,
+> `/admin/invoices/emitere`).
+>
+> Motivul e vizibil cu ochiul liber: **paginile publice au fost rescrise pe sistemul din S1, cele
+> autentificate nu.** Publicul folosește `classical.css` — paletă proprie, scară tipografică,
+> spațiere. Zona autentificată folosește componentele Nuxt UI cu valorile implicite, iar `app.config.ts`
+> doar mapează `primary` și `neutral` peste ele. Rezultatul e că un părinte trece de la un site care
+> arată ca o școală serioasă la un panou care arată ca un instrument intern — exact în momentul în
+> care tocmai a plătit.
+>
+> Cele 28 de ecrane au fost construite în momente diferite, cu tipare diferite de tabel, filtrare,
+> formular, stare goală și mesaj de eroare. De aceea e **rescriere, nu retuș**: cât timp nu există un
+> tipar comun, fiecare ecran nou adaugă un al 29-lea dialect. Asta e S5, iar S4 e echivalentul pentru
+> portalul părintelui — ambele își păstrează conținutul, dar niciunul nu mai e „muncă viitoare
+> opțională".
+>
+> **Rămâne blocat de deploy, și asta nu s-a schimbat.** Un portal care nu poate fi nici testat pe
+> date reale, nici arătat cuiva, se rescrie degeaba — vezi [E01](E01-infrastructura-medii.md) S4. Ce
+> se schimbă e prioritatea: în ziua în care backend-ul rulează, S4 și S5 sunt primele, nu ultimele.
+>
+> **Ce se poate face înainte de deploy**, fiindcă nu cere un API care răspunde: tiparul de tabel, cel
+> de formular, stările de încărcare, gol și eroare, și mutarea zonei de admin pe aceleași jetoane ca
+> `classical.css`. Adică jumătatea de S5 care e despre componente, nu despre date.
+
 ## Problemă
 
 Frontend-ul funcționează, dar arată ca un proiect intern, iar obiectivul declarat e opusul: să se
@@ -119,8 +147,10 @@ date încă spun asta explicit, nu rămân goale.
 
 **Acceptanță:** un părinte cu doi copii comută între ei fără să se piardă.
 
-**Neînceput, și blocat.** Cele trei pagini vechi (`dashboard`, `profile`, `payments`) există
-neatinse, pe layout-ul `dashboard`, nerescrise pe sistemul din S1. Blocajul nu e de design, ci de
+**Neînceput, blocat, și cerut explicit de școală.** Cele trei pagini vechi (`dashboard`, `profile`,
+`payments`) există neatinse, pe layout-ul `dashboard`, nerescrise pe sistemul din S1 — iar contrastul
+cu paginile publice, care *au* fost rescrise, e primul lucru pe care îl vede un părinte după ce se
+autentifică. Blocajul nu e de design, ci de
 infrastructură: **backend-ul nu e deployat**, deci nimic din ce e după login nu vorbește cu un API
 care rulează. Un portal care nu poate fi nici testat pe date reale, nici arătat cuiva, se rescrie
 degeaba. Ordinea corectă e [E01](E01-infrastructura-medii.md) S4 înainte de S4 de aici.
@@ -129,11 +159,17 @@ Până atunci, paginile autentificate poartă `noindex, nofollow` din layout-ul 
 `/admin/` și `/user/` sunt excluse din `robots.txt` — deci starea lor neterminată nu ajunge în
 index și nu strică ce s-a câștigat în [E19](E19-seo-geo.md).
 
-### S5 · Uniformizarea zonei de admin — muncă viitoare
+### S5 · Uniformizarea zonei de admin — muncă viitoare, **cerută explicit**
 
 Un tipar unic de tabel — sortare, filtrare, paginare, acțiuni în masă, stare goală. Un tipar unic de
-formular, cu validare și erori. Toate cele 25 de pagini aliniate. Selectorul de locație din
+formular, cu validare și erori. Toate paginile aliniate. Selectorul de locație din
 [E08](E08-multi-locatie.md) integrat în antet.
+
+**Nu mai sunt 25 de pagini, ci 32**, iar numărul crește cu fiecare epic livrat: E11 a adăugat
+`/admin/approvals` și `/admin/formare`, E15 a adăugat `/admin/invoices/emitere`. Fiecare a fost
+construit cu tiparele pe care le-a găsit, adică fiecare a mai adăugat un dialect. **Costul crește cu
+întârzierea**, ceea ce e argumentul pentru care jumătatea de componente merită făcută înainte de
+deploy, nu după.
 
 **Acceptanță:** o pagină nouă de admin se construiește din componente existente, fără CSS nou.
 

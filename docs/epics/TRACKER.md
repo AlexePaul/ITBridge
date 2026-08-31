@@ -15,7 +15,7 @@ adunate într-un loc.
 - ~~tăiat~~ scos din scop prin decizie
 
 Din **142 de story-uri** în 21 de epicuri: 44 livrate, 11 parțiale, 1 scris dar nemergeat,
-10 blocate, 4 scoase din scop, 72 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
+11 blocate, 4 scoase din scop, 71 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
 înseamnă adesea „construit, dar nu rulează nicăieri".
 
 ---
@@ -230,8 +230,8 @@ Din **142 de story-uri** în 21 de epicuri: 44 livrate, 11 parțiale, 1 scris da
 - [x] S1 · Fundația de design
 - [~] S2 · Pipeline de imagini — imaginile sunt sub 200KB, dar `@nuxt/image` tot nu e instalat
 - [x] S3 · Paginile publice
-- [!] S4 · Portalul părintelui — **blocat de deploy**: paginile de după autentificare nu se pot nici testa, nici arăta
-- [ ] S5 · Uniformizarea zonei de admin
+- [!] S4 · Portalul părintelui — **cerut explicit de școală: rescriere, nu retuș.** Blocat de deploy: paginile de după autentificare nu se pot nici testa, nici arăta
+- [!] S5 · Uniformizarea zonei de admin — **cerut explicit.** 32 de ecrane, fiecare cu tiparele lui; costul crește cu fiecare epic livrat. Jumătatea de componente se poate face înainte de deploy
 - [~] S6 · Accesibilitate — verificarea în CI lipsește
 - [ ] S7 · Interfața profesorului — fără rol separat, e o vedere din zona de admin, nu o zonă a ei
 
@@ -281,9 +281,9 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
 | Cine           | Ce                                | Ce ține în loc                                                                                |
 | -------------- | --------------------------------- | --------------------------------------------------------------------------------------------- |
-| **Tu**         | Instanța EC2                      | E01 S4, E18 S4, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șase story-uri din patru epicuri |
+| **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
 | **Tu**         | Două profiluri Google Business    | E19 S3, partea din afara site-ului                                                            |
-| **Școala**     | Programa și calendarul vacanțelor | Prima factură pe modul, E19 S4. Nu blochează construcția                                      |
+| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                 |
 | **Contabil**   | Cât se păstrează facturile        | E04 S5                                                                                        |
 | **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                        |
 
@@ -292,10 +292,14 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 **Cu instanța EC2:** E01 S4, deploy-ul. În ziua în care merge, portalul părintelui, prezența și
 facturile devin lucruri pe care le poate folosi cineva.
 
-**Fără ea:** E14, proiectele elevilor — modelul, ingestia și trimiterea către părinte. E lucrul de
-care școala a vorbit cel mai mult și, după E11, cel mai mare gol funcțional rămas: fără el părintele
-plătește pentru o afirmație. Agentul local de Windows și vitrina publică rămân pe dinafară — al
-doilea cere consimțământul din E07.
+**Fără ea, două lucruri, în ordinea asta:**
+
+1. **E14, proiectele elevilor** — scris, dar în [PR #31](https://github.com/AlexePaul/ITBridge/pull/31),
+   care e în conflict cu `develop` și pe care CI-ul real n-a rulat niciodată. Are nevoie de un rebase
+   atent pe `invoice.service.ts` înainte de orice altceva.
+2. **E18 S5, jumătatea de componente** — tiparul de tabel, cel de formular, stările de încărcare, gol
+   și eroare, și mutarea zonei de admin pe jetoanele din `classical.css`. Nu cere un API care rulează,
+   iar costul crește cu fiecare ecran adăugat: erau 25, sunt 32.
 
 E11 e închis. Ce a rămas parțial din el — cerințele prealabile de modul la S6, disponibilitatea
 profesorilor la S7 — depinde de E10 și E09, nu de E11.
