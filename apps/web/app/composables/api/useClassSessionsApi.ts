@@ -5,6 +5,8 @@ import type {
   ClassSessionStatus,
   ClassSessionWithAttendance,
   GenerateClassSessionsResult,
+  NonTeachingImpact,
+  NonTeachingPeriod,
 } from "~/types/class-session.types";
 import type { EntityId } from "~/types/entityId";
 
@@ -26,6 +28,19 @@ export interface GenerateSessionsPayload {
   from?: string;
   /** How many weeks ahead. The API refuses anything outside 1..52. */
   weeks?: number;
+}
+
+/**
+ * Body for `POST /class-sessions/non-teaching`. `locationId` absent means the whole school, which
+ * is every school holiday and every national one — that is, all of them so far.
+ */
+export interface CreateNonTeachingPeriodPayload {
+  name: string;
+  /** `YYYY-MM-DD`. */
+  startDate: string;
+  /** `YYYY-MM-DD`, inclusive: a single day is the same date twice. */
+  endDate: string;
+  locationId?: number | null;
 }
 
 /** The rolling horizon the API generates by default, mirrored here so a screen can say "8 weeks". */
@@ -99,9 +114,66 @@ export const useClassSessionsApi = () => {
       body: payload,
     });
 
+  /** The school calendar: holidays and days off, soonest first. Admin only. */
+  const fetchNonTeachingPeriods = async () =>
+    api<NonTeachingPeriod[]>("/class-sessions/non-teaching", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /**
+   * What a period *would* cancel, without writing anything.
+   *
+   * The screen asks this on every change to the dates, so a mistyped year shows up as "grupa de
+   * luni pierde 8 ședințe" before the button is pressed rather than as a gap noticed in January.
+   * `locationId` is stripped when absent, for the reason `fetchSessions` records: an undefined in
+   * a query string reaches the API as the string "undefined" and comes back a 400.
+   */
+  const fetchNonTeachingImpact = async (params: {
+    startDate: string;
+    endDate: string;
+    locationId?: number | null;
+  }) => {
+    const query: Record<string, string | number> = {
+      startDate: params.startDate,
+      endDate: params.endDate,
+    };
+    if (params.locationId) query.locationId = params.locationId;
+
+    return api<NonTeachingImpact>("/class-sessions/non-teaching/impact", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      query,
+    });
+  };
+
+  /**
+   * Adds a period and cancels the classes inside it, answering how many it cancelled.
+   *
+   * Cancels rather than deletes, so the timetable keeps saying the class existed and did not
+   * happen. Refused with `PERIOD_OVERLAPS` if any existing period covers any of the same days.
+   */
+  const createNonTeachingPeriod = async (payload: CreateNonTeachingPeriodPayload) =>
+    api<{ period: NonTeachingPeriod; cancelled: number }>("/class-sessions/non-teaching", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: payload,
+    });
+
+  /** Removes a period. The sessions it cancelled stay cancelled — the API is explicit about that. */
+  const deleteNonTeachingPeriod = async (id: EntityId) =>
+    api<{ message: string }>(`/class-sessions/non-teaching/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
   return {
     fetchSessions,
     fetchGroupSessions,
     generateSessions,
+    fetchNonTeachingPeriods,
+    fetchNonTeachingImpact,
+    createNonTeachingPeriod,
+    deleteNonTeachingPeriod,
   };
 };

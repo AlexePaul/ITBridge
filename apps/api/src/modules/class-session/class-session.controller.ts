@@ -1,11 +1,13 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, Query, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Post, Put, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { RolesGuard } from 'src/guards/role.guard';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
 import { ClassSessionService } from './class-session.service';
+import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { CancelClassSessionDto } from './dto/cancelClassSession.dto';
+import { CreateNonTeachingPeriodDto } from './dto/nonTeachingPeriod.dto';
 import { FilterClassSessionDto } from './dto/filterClassSession.dto';
 import { GenerateClassSessionsDto } from './dto/generateClassSessions.dto';
 import { UnmarkedClassSessionsDto } from './dto/unmarkedClassSessions.dto';
@@ -13,7 +15,10 @@ import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('class-sessions')
 export class ClassSessionController {
-    constructor(private readonly classSessionService: ClassSessionService) {}
+    constructor(
+        private readonly classSessionService: ClassSessionService,
+        private readonly nonTeachingPeriodService: NonTeachingPeriodService,
+    ) {}
 
     @Post('generate')
     @ApiBearerAuth()
@@ -42,6 +47,63 @@ export class ClassSessionController {
      * answer is an empty list, because the rows are simply not theirs to see. `hasAttendance` stays
      * a boolean about the class, never about a named child.
      */
+    /**
+     * The days the school does not teach — E12/S2.
+     *
+     * Declared above the parameter routes: Nest matches in declaration order, and a literal placed
+     * after `:id` would be parsed as an id.
+     */
+    @Get('non-teaching')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Vacanțele și zilele libere, în ordine cronologică' })
+    @ApiResponse({ status: 200, description: 'Every non-teaching period, soonest first' })
+    async nonTeachingPeriods() {
+        return this.nonTeachingPeriodService.findAll();
+    }
+
+    @Get('non-teaching/impact')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Ce ar anula un interval, înainte să fie adăugat',
+        description: 'Plasa de siguranță a ecranului: o dată tastată greșit se vede ca „grupa de luni pierde 8 ședințe", nu ca un gol descoperit în ianuarie.',
+    })
+    @ApiResponse({ status: 200, description: 'Scheduled sessions the period would cancel, grouped' })
+    async nonTeachingImpact(@Query('startDate') startDate: string, @Query('endDate') endDate: string, @Query('locationId') locationId?: string) {
+        return this.nonTeachingPeriodService.impactOf({ startDate, endDate, locationId: locationId ? Number(locationId) : null });
+    }
+
+    @Post('non-teaching')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Adaugă un interval fără curs și anulează ședințele din el',
+        description: 'Anulează, nu șterge: o ședință care era în orar și nu s-a ținut e un fapt despre trimestru.',
+    })
+    @ApiResponse({ status: 201, description: 'Period added, with how many sessions it cancelled' })
+    @ApiResponse({ status: 409, description: 'PERIOD_OVERLAPS' })
+    async createNonTeachingPeriod(@Body() dto: CreateNonTeachingPeriodDto) {
+        return this.nonTeachingPeriodService.create(dto);
+    }
+
+    @Delete('non-teaching/:id')
+    @HttpCode(200)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Șterge un interval',
+        description: 'Ședințele pe care le-a anulat rămân anulate — reactivarea e o decizie per ședință, prin ruta ei.',
+    })
+    @ApiResponse({ status: 200, description: 'Removed' })
+    async removeNonTeachingPeriod(@Param('id', ParseIntPipe) id: number) {
+        return this.nonTeachingPeriodService.remove(id);
+    }
+
     @Get()
     @ApiBearerAuth()
     @UseGuards(AuthGuard)

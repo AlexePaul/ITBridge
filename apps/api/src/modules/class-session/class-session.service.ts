@@ -10,6 +10,7 @@ import { FilterClassSessionDto } from './dto/filterClassSession.dto';
 import { GenerateClassSessionsDto } from './dto/generateClassSessions.dto';
 import { UnmarkedClassSessionsDto } from './dto/unmarkedClassSessions.dto';
 import { addDays, occurrencesOf, parseIsoDate, startOfToday, toIsoDate } from './class-session.dates';
+import { NonTeachingPeriodService } from './non-teaching-period.service';
 
 /** The rolling horizon from E12/S1: eight weeks of timetable, always. */
 export const DEFAULT_HORIZON_WEEKS = 8;
@@ -30,6 +31,12 @@ export interface GenerateClassSessionsResult {
     created: number;
     /** Sessions the horizon wanted that were already there. On a second run this is everything. */
     existing: number;
+    /**
+     * Weeks in the horizon that fall on a non-teaching day and were therefore never written —
+     * E12/S2. Reported rather than silent: "generated 0" on a week of school holiday should read as
+     * the calendar working, not as the generator failing.
+     */
+    skipped: number;
     sessions: ClassSession[];
 }
 
@@ -40,6 +47,7 @@ export class ClassSessionService {
     constructor(
         @InjectRepository(ClassSession) private readonly classSessionRepository: Repository<ClassSession>,
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
+        private readonly nonTeachingPeriodService: NonTeachingPeriodService,
     ) {}
 
     /**
@@ -52,9 +60,10 @@ export class ClassSessionService {
      * the response instead of a 409. Two generations racing each other therefore end in a conflict
      * rather than a doubled timetable, which is the failure worth having.
      *
-     * **There is no holiday calendar.** E12/S2 is not built, so sessions are written on every week
-     * in the horizon, school holidays included, and one that falls in a holiday is cancelled by
-     * hand. Stated here rather than left to be discovered in December.
+     * **Obeys the school calendar** (E12/S2): a week whose day falls inside a non-teaching period
+     * is skipped rather than written, and counted in `skipped` so a short term is explained rather
+     * than merely observed. Periods are matched per location, so a closure at one address leaves
+     * the other's timetable alone.
      */
     async generateSessions(dto: GenerateClassSessionsDto): Promise<GenerateClassSessionsResult> {
         const weeks = dto.weeks ?? DEFAULT_HORIZON_WEEKS;
@@ -67,15 +76,17 @@ export class ClassSessionService {
 
         const created: ClassSession[] = [];
         let existing = 0;
+        let skipped = 0;
         for (const group of groups) {
             const result = await this.generateForGroup(group, from, until);
             created.push(...result.created);
             existing += result.existing;
+            skipped += result.skipped;
         }
 
         this.logger.log(
             `Generated ${created.length} class session(s) for ${groups.length} group(s) between ${toIsoDate(from)} and ${toIsoDate(addDays(until, -1))}; ` +
-                `${existing} already existed.`,
+                `${existing} already existed, ${skipped} skipped as non-teaching days.`,
         );
 
         return {
@@ -84,6 +95,7 @@ export class ClassSessionService {
             groups: groups.length,
             created: created.length,
             existing,
+            skipped,
             sessions: created,
         };
     }
@@ -254,12 +266,18 @@ export class ClassSessionService {
     }
 
     private async findGroupsToGenerateFor(groupId?: number): Promise<Group[]> {
+        // The room comes along because it is copied onto every session generated below, and its
+        // location because the school calendar is asked per location: a period declared for one
+        // address must not empty the other one's timetable. Without `room.location` loaded, every
+        // group read as location-less and every local closure applied to the whole school —
+        // silently, since the sessions it removed simply never appeared.
+        const relations = { room: { location: true } };
+
         if (groupId === undefined) {
-            // The room comes along because it is copied onto every session generated below.
-            return this.groupRepository.find({ where: { isActive: true }, relations: { room: true } });
+            return this.groupRepository.find({ where: { isActive: true }, relations });
         }
 
-        const group = await this.groupRepository.findOne({ where: { id: groupId }, relations: { room: true } });
+        const group = await this.groupRepository.findOne({ where: { id: groupId }, relations });
         if (!group) {
             throw new NotFoundException('Group not found');
         }
@@ -275,10 +293,22 @@ export class ClassSessionService {
         return [group];
     }
 
-    private async generateForGroup(group: Group, from: Date, until: Date): Promise<{ created: ClassSession[]; existing: number }> {
-        const wanted = occurrencesOf(group.weekday, from, until);
+    private async generateForGroup(group: Group, from: Date, until: Date): Promise<{ created: ClassSession[]; existing: number; skipped: number }> {
+        const everyWeek = occurrencesOf(group.weekday, from, until);
+        if (everyWeek.length === 0) {
+            return { created: [], existing: 0, skipped: 0 };
+        }
+
+        // E12/S2: the school year has holidays in it, and until this existed the generator wrote
+        // classes straight through the winter break for somebody to cancel by hand every December.
+        // Asked per group, because a period can be limited to one location and a group's location
+        // is a consequence of its room.
+        const closed = await this.nonTeachingPeriodService.datesIn(from, until, group.room?.location?.id ?? null);
+        const wanted = everyWeek.filter((date) => !closed.has(toIsoDate(date)));
+        const skipped = everyWeek.length - wanted.length;
+
         if (wanted.length === 0) {
-            return { created: [], existing: 0 };
+            return { created: [], existing: 0, skipped };
         }
 
         const known = await this.classSessionRepository.find({
@@ -290,7 +320,7 @@ export class ClassSessionService {
         const taken = new Set(known.map((session) => toIsoDate(session.date)));
         const missing = wanted.filter((date) => !taken.has(toIsoDate(date)));
         if (missing.length === 0) {
-            return { created: [], existing: wanted.length };
+            return { created: [], existing: wanted.length, skipped };
         }
 
         const rows = missing.map((date) =>
@@ -307,7 +337,7 @@ export class ClassSessionService {
             }),
         );
         const created = await this.classSessionRepository.save(rows);
-        return { created, existing: wanted.length - missing.length };
+        return { created, existing: wanted.length - missing.length, skipped };
     }
 
     /**

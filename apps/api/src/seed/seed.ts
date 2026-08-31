@@ -9,6 +9,7 @@ import { Location } from '../entities/location.entity';
 import { Room } from '../entities/room.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { ClassSession } from '../entities/class-session.entity';
+import { NonTeachingPeriod } from '../entities/non-teaching-period.entity';
 import { Invoice, InvoiceStatus } from '../entities/invoice.entity';
 import { Payment } from '../entities/payment.entity';
 import { Discount } from '../entities/discount.entity';
@@ -430,21 +431,74 @@ export async function seed(dataSource: DataSource): Promise<void> {
     // both are empty on a fresh seed, which reads as "all clear" rather than "no data".
     const markedUntil = addDays(seedToday, -7);
 
+    // --- School calendar ------------------------------------------------------------------------
+    // Seeded before the timetable, because the timetable obeys it: `generateForGroup` skips these
+    // days, so a seeded database that ignored them would not look like a generated one.
+    //
+    // The dates are illustrative, not the ministry's. The real calendar comes from the order
+    // published each summer and is typed into `/admin/calendar`; what matters here is that the
+    // screen opens with all three shapes on it — a fortnight, a single day, and one that applies to
+    // only one address — and that a fresh database has a `skipped` count to show. 1 Mai is the one
+    // real date: it is a fixed national holiday.
+    const periodRepo = dataSource.getRepository(NonTeachingPeriod);
+    const nonTeachingPeriods = await periodRepo.save([
+        periodRepo.create({
+            name: 'Vacanța de primăvară',
+            startDate: toIsoDate(addDays(seedToday, 18)),
+            endDate: toIsoDate(addDays(seedToday, 29)),
+            location: null,
+        }),
+        periodRepo.create({ name: '1 Mai', startDate: '2026-05-01', endDate: '2026-05-01', location: null }),
+        // In the past, so the list opens with a "Trecut" row as well as upcoming ones.
+        periodRepo.create({
+            name: 'Zile libere de iarnă',
+            startDate: toIsoDate(addDays(seedToday, -40)),
+            endDate: toIsoDate(addDays(seedToday, -38)),
+            location: null,
+        }),
+        // One address only, so the screen shows the location badge and the generator's per-location
+        // filtering has something to filter.
+        periodRepo.create({
+            name: 'Lucrări în sală',
+            startDate: toIsoDate(addDays(seedToday, 10)),
+            endDate: toIsoDate(addDays(seedToday, 10)),
+            location: locations[1] ?? null,
+        }),
+    ]);
+
+    /** The non-teaching days that apply to one location: the school-wide ones plus its own. */
+    const closedDatesAt = (locationId: number): Set<string> => {
+        const dates = new Set<string>();
+        for (const period of nonTeachingPeriods) {
+            if (period.location && period.location.id !== locationId) continue;
+            let cursor = new Date(`${period.startDate}T00:00:00`);
+            const last = new Date(`${period.endDate}T00:00:00`);
+            while (cursor <= last) {
+                dates.add(toIsoDate(cursor));
+                cursor = addDays(cursor, 1);
+            }
+        }
+        return dates;
+    };
+
     const sessions = await classSessionRepo.save(
-        groups.flatMap((group) =>
-            occurrencesOf(group.weekday, historyFrom, horizonUntil).map((date) =>
-                classSessionRepo.create({
-                    group,
-                    // Copied from the group, exactly as generation does it.
-                    room: group.room,
-                    date,
-                    startTime: group.startTime,
-                    endTime: group.endTime,
-                    status: date.getTime() < markedUntil.getTime() ? ClassSessionStatus.HELD : ClassSessionStatus.SCHEDULED,
-                    notes: null,
-                }),
-            ),
-        ),
+        groups.flatMap((group) => {
+            const closed = closedDatesAt(group.room.location.id);
+            return occurrencesOf(group.weekday, historyFrom, horizonUntil)
+                .filter((date) => !closed.has(toIsoDate(date)))
+                .map((date) =>
+                    classSessionRepo.create({
+                        group,
+                        // Copied from the group, exactly as generation does it.
+                        room: group.room,
+                        date,
+                        startTime: group.startTime,
+                        endTime: group.endTime,
+                        status: date.getTime() < markedUntil.getTime() ? ClassSessionStatus.HELD : ClassSessionStatus.SCHEDULED,
+                        notes: null,
+                    }),
+                );
+        }),
     );
 
     // One cancelled class, so the timetable shows the third status and the cancellation note.

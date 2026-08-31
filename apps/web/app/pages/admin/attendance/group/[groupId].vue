@@ -198,7 +198,7 @@ import { useGroupsStore } from "~/stores/groupsStore";
 import type { Child } from "~/types/child.types";
 import type { Group } from "~/types/group.types";
 import type { ClassSessionWithAttendance } from "~/types/class-session.types";
-import { ClassSessionStatus } from "~/types/class-session.types";
+import { SessionStatus } from "~/types/class-session.types";
 
 const route = useRoute();
 const childrenStore = useChildrenStore();
@@ -254,7 +254,7 @@ const addDays = (date: Date, days: number): Date =>
  */
 const sessionOptions = computed(() =>
   sessions.value
-    .filter((session) => session.status !== ClassSessionStatus.CANCELLED && !session.hasAttendance)
+    .filter((session) => session.status !== SessionStatus.CANCELLED && !session.hasAttendance)
     .sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime))
     .map((session) => ({
       value: session.id,

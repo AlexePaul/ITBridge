@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ObjectLiteral } from 'typeorm';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { ClassSessionService } from './class-session.service';
+import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { toIsoDate } from './class-session.dates';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
@@ -32,6 +33,8 @@ describe('ClassSessionService', () => {
     let service: ClassSessionService;
     let sessionRepo: MockRepository;
     let groupRepo: MockRepository;
+    /** The school calendar. Every test but one runs with nothing closed. */
+    let closedDates: jest.Mock;
 
     const room = { id: 1, name: 'Sala 1', location: { id: 1, name: 'Drumul Taberei' } };
     const group = {
@@ -53,8 +56,14 @@ describe('ClassSessionService', () => {
     beforeEach(async () => {
         sessionRepo = createMockRepository();
         groupRepo = createMockRepository();
+        closedDates = jest.fn().mockResolvedValue(new Set<string>());
         const module: TestingModule = await Test.createTestingModule({
-            providers: [ClassSessionService, provideMockRepository(ClassSession, sessionRepo), provideMockRepository(Group, groupRepo)],
+            providers: [
+                ClassSessionService,
+                provideMockRepository(ClassSession, sessionRepo),
+                provideMockRepository(Group, groupRepo),
+                { provide: NonTeachingPeriodService, useValue: { datesIn: closedDates } },
+            ],
         }).compile();
         service = module.get(ClassSessionService);
 
@@ -142,6 +151,45 @@ describe('ClassSessionService', () => {
             await service.generateSessions({ from: FROM });
 
             expect(groupRepo.find).toHaveBeenCalledWith(expect.objectContaining({ where: { isActive: true } }));
+        });
+
+        it('skips the days the school is closed, and says how many it skipped', async () => {
+            // 2026-09-02 and 2026-09-09 are the first two Wednesdays of the horizon.
+            closedDates.mockResolvedValue(new Set(['2026-09-02', '2026-09-09']));
+
+            const result = await service.generateSessions({ groupId: 7, from: FROM });
+
+            expect(savedDates()).not.toContain('2026-09-02');
+            expect(savedDates()).not.toContain('2026-09-09');
+            expect(result.created).toBe(6);
+            // Silence would look like a group with a shorter term for no stated reason.
+            expect(result.skipped).toBe(2);
+        });
+
+        it("asks the calendar about this group's own location", async () => {
+            await service.generateSessions({ groupId: 7, from: FROM });
+
+            // A holiday declared for Străulești must not empty the Drumul Taberei timetable.
+            expect(closedDates).toHaveBeenCalledWith(expect.any(Date), expect.any(Date), 1);
+        });
+
+        it('reports nothing skipped when the calendar is empty', async () => {
+            const result = await service.generateSessions({ groupId: 7, from: FROM });
+            expect(result.skipped).toBe(0);
+        });
+
+        it("loads the group's location, not just its room", async () => {
+            await service.generateSessions({ groupId: 7, from: FROM });
+
+            // The stub group here carries `room.location` whether or not the service asks for it,
+            // so only the relation list itself can show the bug: without it every group read as
+            // location-less and a closure at one address emptied both.
+            expect(groupRepo.findOne).toHaveBeenCalledWith(expect.objectContaining({ relations: { room: { location: true } } }));
+        });
+
+        it('loads it for the whole-school run too', async () => {
+            await service.generateSessions({ from: FROM });
+            expect(groupRepo.find).toHaveBeenCalledWith(expect.objectContaining({ relations: { room: { location: true } } }));
         });
 
         it('rejects a group that does not exist', async () => {

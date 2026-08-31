@@ -9,7 +9,7 @@ import {
 import type { Attendance } from "~/types/attendance.types";
 import { AttendanceType } from "~/types/attendance.types";
 import type { ClassSessionWithAttendance } from "~/types/class-session.types";
-import { ClassSessionStatus } from "~/types/class-session.types";
+import { SessionStatus } from "~/types/class-session.types";
 
 /**
  * The bug this replaces, in one sentence: the calendar decided a class had happened by comparing
@@ -31,7 +31,7 @@ const session = (
     startTime: "16:00:00",
     endTime: "17:30:00",
     room: { id: 1, name: "Sala 1" },
-    status: ClassSessionStatus.SCHEDULED,
+    status: SessionStatus.SCHEDULED,
     notes: null,
     hasAttendance: false,
     ...overrides,
@@ -126,14 +126,14 @@ describe("calendarDayState", () => {
   it("paints nothing on a cancelled class: no class happened, so nobody was absent from it", () => {
     const date = "2026-08-17";
     const cancelled = session(date, {
-      status: ClassSessionStatus.CANCELLED,
+      status: SessionStatus.CANCELLED,
       notes: "Anulată: profesor bolnav",
     });
     expect(stateOn(date, [], [cancelled])).toBeUndefined();
   });
 
   it("paints nothing on a cancelled class in the future either", () => {
-    const cancelled = session("2026-09-07", { status: ClassSessionStatus.CANCELLED });
+    const cancelled = session("2026-09-07", { status: SessionStatus.CANCELLED });
     expect(stateOn("2026-09-07", [], [cancelled])).toBeUndefined();
   });
 

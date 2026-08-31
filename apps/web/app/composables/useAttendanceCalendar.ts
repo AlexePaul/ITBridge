@@ -1,7 +1,7 @@
 import type { Attendance } from "~/types/attendance.types";
 import { AttendanceType } from "~/types/attendance.types";
 import type { ClassSession, ClassSessionWithAttendance } from "~/types/class-session.types";
-import { ClassSessionStatus } from "~/types/class-session.types";
+import { SessionStatus } from "~/types/class-session.types";
 
 /**
  * What one day of a child's calendar actually says.
@@ -84,7 +84,7 @@ export function todayKey(now: Date = new Date()): string {
  * day the group never meets.
  */
 function countsAsClass(session: Pick<ClassSession, "status">): boolean {
-  return session.status !== ClassSessionStatus.CANCELLED;
+  return session.status !== SessionStatus.CANCELLED;
 }
 
 /**
