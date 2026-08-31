@@ -118,6 +118,15 @@ un criteriu independent.
 de nivel: la momentul livrării, legarea lor de catalog ar fi însemnat să blocheze E08 de un epic
 blocat el însuși de lipsa programei scrise.
 
+**Închis pentru MVP.** Cele două câmpuri care lipsesc vin din două epicuri **scoase amândouă din
+MVP**: nivelul din [E10](E10-curriculum-module.md), respins de patron, și profesorul principal din
+[E09](E09-personal-roluri.md) S4, care nu are relevanță cât timp toți cei care se autentifică sunt
+admini. Deci S3 nu mai așteaptă nimic ce se poate întâmpla înăuntrul MVP-ului: se reia odată cu
+epicurile lor, dacă și când revin.
+
+Ce are grupa azi — nume, sală, deci locație, capacitate aplicată, interval de vârstă — e suficient
+pentru tot ce se sprijină pe ea: orarul, prezența, capacitatea la înscriere și facturarea.
+
 **Motivul acela e istoric, dar concluzia s-a schimbat de două ori.** Întâi în bine: E10 nu mai
 aștepta conținutul, fiindcă structura e cunoscută și decisă, deci s-ar fi putut construi în jurul
 programei nescrise. Apoi în rău: [E10](E10-curriculum-module.md) **a ieșit din MVP**, respins de
