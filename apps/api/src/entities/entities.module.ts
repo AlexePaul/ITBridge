@@ -16,6 +16,7 @@ import { OutboxMessage } from './outbox-message.entity';
 import { EmailConfirmation } from './email-confirmation.entity';
 import { Enrollment } from './enrollment.entity';
 import { WaitlistEntry } from './waitlist-entry.entity';
+import { NonTeachingPeriod } from './non-teaching-period.entity';
 import { Project } from './project.entity';
 import { ProjectVersion } from './project-version.entity';
 import { ProjectFile } from './project-file.entity';
@@ -42,6 +43,7 @@ import { AgentStatus } from './agent-status.entity';
             EmailConfirmation,
             Enrollment,
             WaitlistEntry,
+            NonTeachingPeriod,
             Project,
             ProjectVersion,
             ProjectFile,

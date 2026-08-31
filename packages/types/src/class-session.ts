@@ -1,28 +1,26 @@
-import type { ISODate, TimeOfDay } from './common';
+import type { ISODate, ISODateTime, TimeOfDay } from './common';
 import type { Group } from './group';
+import type { Location } from './location';
 import type { Room } from './room';
 
 /**
- * The life of one scheduled class.
+ * The life of one scheduled class. Mirrors `ClassSessionStatus` in
+ * `apps/api/src/enum/class-session-status.enum.ts`.
  *
  * Three values, not the four E12/S1 sketches: a moved session is one whose date, time or room
  * changed, and those are fields, not a state.
+ *
+ * A union of literals rather than an `enum`, and the Romanian labels have moved to
+ * `apps/web/app/types/class-session.types.ts`. This package is CommonJS, Vite pre-bundles it, and a
+ * runtime value exported from here has twice reached the browser as `undefined` — silently, because
+ * the lookup throws inside a `computed` and Vue simply drops that subtree. `'scheduled'` is what
+ * goes over the wire; `'Programată'` is something only a screen needs.
+ *
+ * - `scheduled` — generated from the group timetable, not yet taught.
+ * - `held` — it happened.
+ * - `cancelled` — it will not happen: a holiday, a sick teacher, a snow day.
  */
-export enum ClassSessionStatus {
-    /** Generated from the group timetable, not yet taught. */
-    SCHEDULED = 'scheduled',
-    /** It happened. */
-    HELD = 'held',
-    /** It will not happen: a holiday, a sick teacher, a snow day. */
-    CANCELLED = 'cancelled',
-}
-
-/** Romanian names — this is what an admin reads in the timetable. */
-export const CLASS_SESSION_STATUS_LABELS: Record<ClassSessionStatus, string> = {
-    [ClassSessionStatus.SCHEDULED]: 'Programată',
-    [ClassSessionStatus.HELD]: 'Ținută',
-    [ClassSessionStatus.CANCELLED]: 'Anulată',
-};
+export type ClassSessionStatus = 'scheduled' | 'held' | 'cancelled';
 
 /**
  * One class of one group, on one day.
@@ -51,4 +49,31 @@ export interface ClassSession {
  */
 export interface ClassSessionWithAttendance extends ClassSession {
     hasAttendance: boolean;
+}
+
+/**
+ * A stretch of days on which the school does not teach — E12/S2.
+ *
+ * A period, not a day: a fortnight of holiday is one row, a public holiday is one row with both
+ * dates equal. `location` absent means the whole school, which is the case for all of them today.
+ */
+export interface NonTeachingPeriod {
+    id: number;
+    name: string;
+    startDate: ISODate;
+    /** Inclusive. */
+    endDate: ISODate;
+    location?: Location | null;
+    createdAt: ISODateTime;
+}
+
+/**
+ * What adding a period would cancel, asked before it is added.
+ *
+ * This is the safety net of the screen: a mistyped date shows up as "grupa de luni pierde 8
+ * ședințe" rather than as a gap somebody notices in January.
+ */
+export interface NonTeachingImpact {
+    affected: { id: number; date: ISODate; groupId: number; groupName: string }[];
+    byGroup: { groupId: number; groupName: string; count: number; dates: ISODate[] }[];
 }

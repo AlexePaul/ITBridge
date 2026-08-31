@@ -20,6 +20,7 @@ import type { Group } from './entities/group.entity';
 import type { Enrollment } from './entities/enrollment.entity';
 import type { InvoiceWorksheetRow } from './modules/invoice/invoice.service';
 import type { WaitlistEntry } from './entities/waitlist-entry.entity';
+import type { NonTeachingPeriod } from './entities/non-teaching-period.entity';
 import type { Location } from './entities/location.entity';
 import type { Room } from './entities/room.entity';
 import type { Attendance } from './entities/attendance.entity';
@@ -69,6 +70,12 @@ type _Room = Check<Omit<Wire.Room, never>, Omit<Serialized<Room>, 'groups'>>;
 // check here is that the two descriptions of it agree — the backend's own interface against the
 // wire's. Without it the screen and the endpoint could drift a field apart in silence.
 type _InvoiceWorksheetRow = Check<Wire.InvoiceWorksheetRow, InvoiceWorksheetRow>;
+// E12/S2. The dates are `date` columns, which the driver hands back as strings — the same shape the
+// wire has — so this check is about the fields existing, not about `Serialized` converting them.
+type _NonTeachingPeriod = Check<
+    Pick<Wire.NonTeachingPeriod, 'id' | 'name' | 'startDate' | 'endDate'>,
+    Pick<Serialized<NonTeachingPeriod>, 'id' | 'name' | 'startDate' | 'endDate'>
+>;
 type _EnrollmentStatus = Check<Wire.EnrollmentStatus, EnrollmentStatus>;
 type _WaitlistStatus = Check<Wire.WaitlistStatus, WaitlistStatus>;
 type _Enrollment = Check<
@@ -109,8 +116,10 @@ type _Weekday = Check<Wire.Weekday, Weekday>;
 type _WeekdayBack = Check<Weekday, Wire.Weekday>;
 type _AttendanceType = Check<Wire.AttendanceType, AttendanceType>;
 type _AttendanceTypeBack = Check<AttendanceType, Wire.AttendanceType>;
-type _ClassSessionStatus = Check<Wire.ClassSessionStatus, ClassSessionStatus>;
-type _ClassSessionStatusBack = Check<ClassSessionStatus, Wire.ClassSessionStatus>;
+// Through `${Enum}` for the same reason E14's three are, below: the contract side is a union of
+// literals now, and an enum is nominal, so neither direction of `extends` holds between them.
+type _ClassSessionStatus = Check<Wire.ClassSessionStatus, `${ClassSessionStatus}`>;
+type _ClassSessionStatusBack = Check<`${ClassSessionStatus}`, Wire.ClassSessionStatus>;
 type _Role = Check<Wire.Role, Role>;
 // E14's three are compared through `${Enum}` — the union of the enum's *values* — because the
 // contract side is a union of literals, not an enum, and a TypeScript enum is nominal: neither
