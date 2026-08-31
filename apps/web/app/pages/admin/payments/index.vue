@@ -34,6 +34,11 @@ import type { Profile } from "~/types/profile.types";
 import { usePaymentsApi } from "~/composables/api/usePaymentsApi";
 import type { Payment } from "~/types/payment.types";
 import { usePaymentsStore } from "~/stores/paymentsStore";
+import {
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_STATUS_COLORS,
+  PAYMENT_STATUS_LABELS,
+} from "~/types/payment.types";
 
 const paymentsApi = usePaymentsApi();
 const paymentsStore = usePaymentsStore();
@@ -95,30 +100,40 @@ const columns: TableColumn<Payment>[] = [
     },
   },
   {
-    accessorKey: "Type",
+    accessorKey: "method",
     header: () =>
       h("div", { class: "flex items-center gap-2" }, [
         h(UIcon, { name: "i-lucide-wallet-minimal", class: "text-secondary" }),
-        h("span", "Tip Tranzacție"),
+        h("span", "Metodă"),
       ]),
-    cell: ({ row }) => {
-      const color =
-        {
-          credit_card: "primary" as const,
-          cash: "secondary" as const,
-        }[row.original.method as string] || "neutral";
-      const method =
-        {
-          credit_card: "Card de Credit",
-          cash: "Numerar",
-        }[row.original.method as string] || "Necunoscut";
-      return h(UBadge, { class: "capitalize", variant: "subtle", color }, () => method);
-    },
+    cell: ({ row }) =>
+      h(
+        UBadge,
+        { variant: "subtle", color: row.original.method === "cash" ? "secondary" : "primary" },
+        () => PAYMENT_METHOD_LABELS[row.original.method]
+      ),
+  },
+  {
+    accessorKey: "status",
+    header: "Stare",
+    cell: ({ row }) =>
+      h(
+        UBadge,
+        { variant: "subtle", color: PAYMENT_STATUS_COLORS[row.original.status] },
+        () => PAYMENT_STATUS_LABELS[row.original.status]
+      ),
   },
   {
     accessorKey: "amount",
     header: () => h("div", { class: "text-right" }, "Sumă"),
-    cell: ({ row }) => h("div", { class: "text-right" }, `${row.original.invoice?.amount} RON`),
+    // The payment's own figure, not the invoice total — since E16/S1 the two can differ, and
+    // the difference (an instalment) is exactly what this column exists to show.
+    cell: ({ row }) => h("div", { class: "text-right tabular-nums" }, `${row.original.amount} RON`),
+  },
+  {
+    accessorKey: "externalReference",
+    header: "Referință",
+    cell: ({ row }) => row.original.externalReference || h("span", { class: "text-muted" }, "—"),
   },
   {
     id: "actions",

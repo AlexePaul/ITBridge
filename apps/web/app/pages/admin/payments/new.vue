@@ -3,9 +3,9 @@
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-3xl font-bold">Adaugă Plată Nouă</h1>
-        <p class="text-muted mt-1">Creează o plată nouă pentru o factură existentă</p>
+        <p class="text-muted mt-1">Înregistrează o sumă încasată pentru o factură existentă</p>
       </div>
-      <UButton @click="navigateTo('/admin/payments')" variant="outline"> Înapoi </UButton>
+      <UButton variant="outline" @click="navigateTo('/admin/payments')"> Înapoi </UButton>
     </div>
 
     <div class="max-w-md mx-auto">
@@ -14,49 +14,70 @@
           <h2 class="text-lg font-semibold">Detalii Plată</h2>
         </template>
 
-        <UForm :state="formState" @submit="createPayment" class="flex flex-col gap-4">
-          <UFormGroup label="Factură" name="invoiceId" class="w-full" required>
+        <UForm :state="formState" class="flex flex-col gap-4" @submit="createPayment">
+          <UFormField label="Factură" name="invoiceId" class="w-full" required>
             <UInputMenu
               v-model="formState.invoiceId"
               :items="invoiceItems"
               :loading="isLoadingInvoices"
               placeholder="Caută după nume sau factură..."
-              searchable
-              value-attribute="value"
-              option-attribute="label"
               class="w-full"
             />
-          </UFormGroup>
+          </UFormField>
 
-          <UFormGroup label="Metodă de plată" name="method" class="w-full">
+          <UFormField
+            label="Suma încasată (lei)"
+            name="amount"
+            class="w-full"
+            required
+            help="Se poate încasa și parțial — factura rămâne în așteptare până e acoperită."
+          >
+            <UInput
+              v-model.number="formState.amount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="350"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField label="Metodă de plată" name="method" class="w-full">
             <USelect
               v-model="formState.method"
               :items="paymentMethods"
               placeholder="Selectează metoda de plată"
-              value-attribute="value"
-              option-attribute="label"
               class="w-full"
             />
-          </UFormGroup>
+          </UFormField>
 
-          <UFormGroup label="Data plății" name="date" class="w-full" required>
-            <UInput
-              v-model="formState.date"
-              type="date"
-              placeholder="Selectează data"
-              class="w-full"
-            />
-          </UFormGroup>
+          <UFormField
+            v-if="formState.method === 'bank_transfer'"
+            label="Referință (nr. OP)"
+            name="externalReference"
+            class="w-full"
+            help="Numărul ordinului de plată — singurul lucru după care încasarea se regăsește în extras."
+          >
+            <UInput v-model="formState.externalReference" placeholder="OP 1234" class="w-full" />
+          </UFormField>
+
+          <UFormField label="Data plății" name="date" class="w-full" required>
+            <UInput v-model="formState.date" type="date" class="w-full" />
+          </UFormField>
+
+          <UFormField label="Observații" name="notes" class="w-full">
+            <UInput v-model="formState.notes" placeholder="Opțional" class="w-full" />
+          </UFormField>
 
           <UButton
             type="submit"
             :loading="isLoading"
-            :disabled="!formState.invoiceId || !formState.date || isLoading"
+            :disabled="!canSubmit"
             color="primary"
             variant="subtle"
             class="w-full"
           >
-            Creează Plata
+            Înregistrează Plata
           </UButton>
         </UForm>
       </UCard>
@@ -68,7 +89,10 @@
 import { usePaymentsApi } from "~/composables/api/usePaymentsApi";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { useNotifications } from "~/composables/useNotifications";
+import { apiErrorMessage } from "~/composables/useApiError";
 import type { Invoice } from "~/types/invoice.types";
+import type { PaymentMethod } from "~/types/payment.types";
+import { PAYMENT_METHOD_LABELS } from "~/types/payment.types";
 
 definePageMeta({
   layout: "dashboard" as any,
@@ -86,15 +110,17 @@ const invoices = ref<Invoice[]>([]);
 
 const formState = reactive({
   invoiceId: undefined as { value: number; label: string } | undefined,
-  method: "cash",
+  amount: undefined as number | undefined,
+  method: "cash" as PaymentMethod,
   date: new Date().toISOString().split("T")[0],
+  externalReference: "",
+  notes: "",
 });
 
-const paymentMethods = [
-  { value: "cash", label: "Numerar" },
-  { value: "card", label: "Card (transfer bancar)" },
-  { value: "other", label: "Altele" },
-];
+const paymentMethods = (Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((value) => ({
+  value,
+  label: PAYMENT_METHOD_LABELS[value],
+}));
 
 const monthNames = [
   "Ianuarie",
@@ -117,13 +143,34 @@ const formatMonth = (monthIssued: string) => {
 };
 
 const invoiceItems = computed(() => {
+  // Pending and overdue both take money; paid and waived do not.
   return invoices.value
-    .filter((invoice) => invoice.status === "pending")
+    .filter((invoice) => invoice.status === "pending" || invoice.status === "overdue")
     .map((invoice) => ({
       value: invoice.id,
       label: `Factură #${invoice.id} - ${invoice.parent?.firstName} ${invoice.parent?.lastName} - ${formatMonth(invoice.monthIssued)} - ${invoice.amount} RON`,
     }));
 });
+
+// Picking an invoice prefills the amount with its total — the common case is paying in full, and
+// a partial payment is one keystroke away.
+watch(
+  () => formState.invoiceId,
+  (selected) => {
+    if (!selected) return;
+    const invoice = invoices.value.find((i) => i.id === selected.value);
+    if (invoice) formState.amount = invoice.amount;
+  }
+);
+
+const canSubmit = computed(
+  () =>
+    Boolean(formState.invoiceId) &&
+    Boolean(formState.date) &&
+    typeof formState.amount === "number" &&
+    formState.amount > 0 &&
+    !isLoading.value
+);
 
 const loadInvoices = async () => {
   isLoadingInvoices.value = true;
@@ -131,33 +178,30 @@ const loadInvoices = async () => {
     await invoiceApi.fetchInvoices();
     invoices.value = invoiceApi.getInvoices();
   } catch (err) {
-    console.error("Error loading invoices:", err);
-    error("Eroare", "Nu s-au putut încărca facturile");
+    error("Eroare", apiErrorMessage(err, "Nu s-au putut încărca facturile"));
   } finally {
     isLoadingInvoices.value = false;
   }
 };
 
 const createPayment = async () => {
-  if (!formState.invoiceId || !formState.date) {
-    error("Eroare", "Te rog completează toate câmpurile obligatorii");
-    return;
-  }
+  if (!canSubmit.value || !formState.invoiceId) return;
 
   isLoading.value = true;
   try {
     await paymentsApi.createPayment({
       invoiceId: formState.invoiceId.value,
+      amount: formState.amount!,
       method: formState.method,
-      date: formState.date,
+      date: formState.date as string,
+      externalReference: formState.externalReference || undefined,
+      notes: formState.notes || undefined,
     });
 
-    success("Succes", "Plata a fost creată cu succes");
-
+    success("Succes", "Plata a fost înregistrată");
     navigateTo("/admin/payments");
   } catch (err) {
-    console.error("Error creating payment:", err);
-    error("Eroare", "Nu s-a putut crea plata");
+    error("Eroare", apiErrorMessage(err, "Nu s-a putut înregistra plata"));
   } finally {
     isLoading.value = false;
   }

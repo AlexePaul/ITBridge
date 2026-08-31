@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 53 livrate, 11 parțiale, 9 blocate, 4 scoase din scop,
-65 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **142 de story-uri** în 21 de epicuri: 54 livrate, 11 parțiale, 9 blocate, 4 scoase din scop,
+64 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -192,10 +192,10 @@ nu rulează nicăieri".
 > la doi copii calculează 500 în loc de 600; la trei sau mai mulți nu există ramură, deci factura
 > iese 0 lei, iar reducerile o duc pe negativ. Două teste `it.failing` le documentează.
 
-### E16 · Încasări și facturare prin SmartBill — `propus`
+### E16 · Încasări și facturare prin SmartBill — `în lucru`
 
 - [ ] S0 · Verificarea premisei — abonamentul Facturare Platinum, înainte de orice cod
-- [ ] S1 · Modelul de plată refăcut — `Payment` nu are sumă, deci nicio plată nu poate fi confruntată cu un extras
+- [x] S1 · Modelul de plată refăcut — sumă, metodă închisă, stare, referință de extras, cine a înregistrat-o; mulți-la-unu cu factura, starea facturii derivată din plățile reușite. **Fără câmpurile SmartBill de pe factură** — alea așteaptă S0
 - [ ] S2 · Emiterea prin SmartBill
 - [ ] S3 · Emiterea în masă, temperată — 3 apeluri pe secundă
 - ~~S4 · Plata cu cardul în portal~~ — amânată; se încasează prin transfer sau numerar

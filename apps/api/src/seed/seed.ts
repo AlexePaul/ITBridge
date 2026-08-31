@@ -34,6 +34,8 @@ import { invoicePdfKey } from '../modules/invoice/invoice.service';
 import { Weekday } from '../enum/weekday.enum';
 import { AttendanceType } from '../enum/attendance-type.enum';
 import { ClassSessionStatus } from '../enum/class-session-status.enum';
+import { PaymentMethod } from '../enum/payment-method.enum';
+import { PaymentStatus } from '../enum/payment-status.enum';
 import { DEFAULT_HORIZON_WEEKS } from '../modules/class-session/class-session.service';
 import { addDays, occurrencesOf, toIsoDate } from '../modules/class-session/class-session.dates';
 import { monthlyAmountFor } from '../modules/invoice/pricing';
@@ -558,16 +560,38 @@ export async function seed(dataSource: DataSource): Promise<void> {
 
             const invoice = await invoiceRepo.save(invoiceRepo.create({ parent, amount, dateIssued, monthIssued, status }));
 
+            // The derived rule, mirrored: a PAID invoice is one whose succeeded payments cover it.
+            // The first family's paid months arrive in two instalments, so the screens have a
+            // multi-payment invoice to show; everyone else pays in one.
             if (status === InvoiceStatus.PAID) {
-                const payment = await paymentRepo.save(
+                const method = i % 2 === 0 ? PaymentMethod.BANK_TRANSFER : PaymentMethod.CASH;
+                const halves = i === 0 ? [Math.round(amount * 50) / 100, amount - Math.round(amount * 50) / 100] : [amount];
+                for (let part = 0; part < halves.length; part++) {
+                    await paymentRepo.save(
+                        paymentRepo.create({
+                            invoice,
+                            amount: halves[part],
+                            method,
+                            status: PaymentStatus.SUCCEEDED,
+                            date: daysAgo(back * 30 + 1 - part),
+                            externalReference: method === PaymentMethod.BANK_TRANSFER ? `OP ${1000 + i * 10 + back * 2 + part}` : null,
+                        }),
+                    );
+                }
+            }
+
+            // One family carries a partial payment on the current month: 100 of the total, invoice
+            // still pending. That is the state the whole E16/S1 rework exists to represent.
+            if (status === InvoiceStatus.PENDING && back === 0 && i === 1 && amount > 100) {
+                await paymentRepo.save(
                     paymentRepo.create({
                         invoice,
-                        method: i % 2 === 0 ? 'card' : 'cash',
-                        date: daysAgo(back * 30 + 1),
+                        amount: 100,
+                        method: PaymentMethod.CASH,
+                        status: PaymentStatus.SUCCEEDED,
+                        date: daysAgo(2),
                     }),
                 );
-                invoice.payment = payment;
-                await invoiceRepo.save(invoice);
             }
         }
     }
