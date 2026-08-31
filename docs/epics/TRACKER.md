@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 50 livrate, 10 parțiale, 3 scrise dar nemergeate,
-9 blocate, 4 scoase din scop, 66 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
+Din **142 de story-uri** în 21 de epicuri: 51 livrate, 10 parțiale, 3 scrise dar nemergeate,
+9 blocate, 4 scoase din scop, 65 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial"
 înseamnă adesea „construit, dar nu rulează nicăieri".
 
 ---
@@ -143,7 +143,7 @@ Din **142 de story-uri** în 21 de epicuri: 50 livrate, 10 parțiale, 3 scrise d
 ### E12 · Prezență, recuperări și orar — `în lucru`
 
 - [x] S1 · Ședința ca entitate — livrat **redus**: fără modul și lecție, fiindcă E10 nu se face
-- [ ] S2 · Calendar de vacanțe — **soluție propusă în epic**, nu mai e blocat: o entitate `NonTeachingPeriod` cu intervale, ~12 rânduri pe an, plus o condiție în generator
+- [x] S2 · Calendar de vacanțe — livrat: `NonTeachingPeriod`, ecranul `/admin/calendar` cu previzualizarea a ce se anulează, iar generatorul sare peste zilele închise, pe locație
 - [ ] S3 · Absențe anunțate
 - [ ] S4 · Recuperări
 - [~] S5 · Anulări și mutări — **doar anularea și reactivarea**; fără mutare, fără notificare
@@ -282,7 +282,7 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 | Cine           | Ce                                | Ce ține în loc                                                                                |
 | -------------- | --------------------------------- | --------------------------------------------------------------------------------------------- |
 | **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
-| **Tu**         | Datele anului școlar din ordin    | E12 S2 — cinci intervale de vacanță și vreo șase zile libere, tastate o dată pe an           |
+| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an       |
 | **Tu**         | Două profiluri Google Business    | E19 S3, partea din afara site-ului                                                            |
 | **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                 |
 | **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                        |
@@ -294,11 +294,9 @@ facturile devin lucruri pe care le poate folosi cineva.
 
 **Fără ea, în ordinea asta:**
 
-1. **E12 S2, calendarul zilelor fără curs** — soluția e scrisă în epic și nu mai e blocată de nimic
-   în afară de datele din ordinul de ministru. O entitate, o migrare, un ecran mic.
-2. **E18 S5, jumătatea de componente** — tiparul de tabel, cel de formular, stările de încărcare, gol
+1. **E18 S5, jumătatea de componente** — tiparul de tabel, cel de formular, stările de încărcare, gol
    și eroare, și mutarea zonei de admin pe jetoanele din `classical.css`. Nu cere un API care rulează,
-   iar costul crește cu fiecare ecran adăugat: erau 25, sunt 32.
+   iar costul crește cu fiecare ecran adăugat: erau 25, sunt 33.
 
 E11 e închis. Ce a rămas parțial din el — cerințele prealabile de modul la S6, disponibilitatea
 profesorilor la S7 — depinde de E10 și E09, nu de E11.

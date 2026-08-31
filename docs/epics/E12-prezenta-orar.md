@@ -143,13 +143,43 @@ locație are program diferit. Generarea de ședințe le ocolește automat.
 **Acceptanță:** un modul de 8 ședințe care traversează vacanța de iarnă se termină cu două
 săptămâni mai târziu, corect calculat, fără intervenție.
 
-**Nelivrat.** Generarea scrie ședințe pe fiecare săptămână din orizont, vacanțele incluse, iar una
-căzută în vacanță se anulează de mână prin S5 — decizia e scrisă mai jos și e consemnată și în cod,
-pe `ClassSessionStatus.CANCELLED` și pe `generateSessions`, ca să nu fie descoperită în decembrie.
+**Livrat**, exact ca soluția propusă mai jos: `NonTeachingPeriod` cu patru câmpuri, patru rute pe
+`ClassSessionController`, ecranul `/admin/calendar` și o condiție în generator.
+
+Un interval, nu o zi — o vacanță de două săptămâni e un rând, o sărbătoare legală e un rând cu
+aceleași date la ambele capete, iar anul școlar românesc încape în sub douăsprezece rânduri.
+`location` gol înseamnă „toată școala", ceea ce sunt toate intervalele de până acum.
+
+`generateForGroup` sare peste zilele acoperite și le numără separat, în `skipped`: un trimestru mai
+scurt e explicat, nu doar observat. Adăugarea unui interval **anulează** ședințele deja programate
+în el, nu le șterge — o ședință care era în orar și nu s-a ținut e un fapt despre trimestru, iar
+`CANCELLED` e deja ce înțeleg ecranul de prezență și raportul din S7. Nota ședinței păstrează
+numele intervalului, deci motivul supraviețuiește. Ștergerea unui interval **nu** le reactivează:
+o ședință anulată de vacanță și una anulată fiindcă profesorul a fost bolnav arată la fel după
+aceea, iar școala poate să fi reprogramat în jurul amândurora — reactivarea rămâne o decizie per
+ședință, prin ruta ei din S5.
+
+Plasa de siguranță din propunere e `GET /class-sessions/non-teaching/impact`, interogat de ecran la
+fiecare schimbare de dată: „se anulează 4 ședințe din 2 grupe", cu zilele fiecărei grupe, **înainte**
+de salvare. Un an tastat greșit se vede ca un număr ciudat, nu ca un gol descoperit în ianuarie.
+
+Suprapunerile sunt refuzate cu `PERIOD_OVERLAPS`, iar mesajul numește intervalul cu care s-a
+ciocnit. Refuzul e deliberat simetric — orice suprapunere de date, indiferent de locație. Regula mai
+îngustă („doar ciocnirile care chiar ating aceleași săli") ar fi lăsat o vacanță pe toată școala să
+intre peste o închidere doar la Străulești, refuzând aceleași două în ordinea inversă; acceptarea ar
+fi depins de care a fost tastată prima.
+
+Un bug prins de testele de integrare, nu de cele unitare: `findGroupsToGenerateFor` încărca `room`,
+dar nu și `room.location`, deci fiecare grupă se citea ca fiind fără locație și **orice** interval
+local golea orarul întregii școli. Tăcut, fiindcă ședințele pe care le scotea pur și simplu nu
+apăreau. Fixture-ul din testul unitar avea relația oricum populată; doar o bază de date reală putea
+să arate diferența.
 
 Motivul din [Decizii luate](#decizii-luate) pentru care „S2 devine mai important decât părea" a
-dispărut odată cu E10: fără module de delimitat, calendarul de vacanțe redevine ce părea la început
-— o listă de zile în care nu se ține curs. Rămâne de făcut, dar nu mai determină ce se facturează.
+dispărut odată cu E10: fără module de delimitat, calendarul de vacanțe a redevenit ce părea la
+început — o listă de zile în care nu se ține curs. A fost făcut oricum, pentru motivul de la finalul
+propunerii: un lucru de care trebuie să-ți amintești în fiecare decembrie e un lucru pe care
+într-un decembrie îl vei uita.
 
 > ## Soluția propusă
 >
@@ -231,9 +261,10 @@ anulată, și una care are prezențe înregistrate — aia s-a ținut, orice ar 
 anularea ei ar lăsa marcaje atârnate de o oră care oficial n-a existat, exact ce crede raportul de
 nemarcate.
 
-**Nu există ecran.** Anularea se face cu o cerere HTTP, deci de un dezvoltator, nu de un admin — și
-tot ea e singura cale prin care se scoate din orar o ședință căzută în vacanță, cât timp S2 nu
-există.
+**Nu există ecran.** Anularea se face cu o cerere HTTP, deci de un dezvoltator, nu de un admin.
+Nu mai e însă singura cale prin care se scoate din orar o ședință căzută în vacanță: de la S2,
+ecranul `/admin/calendar` le anulează pe toate deodată, iar ruta asta rămâne pentru cazul punctual —
+profesorul bolnav, ziua cu zăpadă.
 
 **Nu pleacă nicio notificare și nu se creează niciun drept de recuperare.** Al doilea cere S4. Primul
 nu mai e blocat de canal — `MailService` și coada `outbox` sunt în `apps/api` de la jobul zilnic —,
@@ -386,18 +417,24 @@ există date de producție de păstrat și numește explicit E12 S1 ca pierzând
 [E08](E08-multi-locatie.md) ar face reconstrucția imprecisă: nu e nimic de reconstruit, iar
 constrângerea care provoca decalajul a fost deja corectată.
 
-**Ședințele se generează pe un orizont rulant de opt săptămâni, fără calendar de vacanțe.** S1 cerea
-generare pe durata modulului, ocolind vacanțele. Nici modulul, nici calendarul nu există — primul
-fiindcă E10 a fost tăiat, al doilea fiindcă e S2 și n-a fost făcut. Alternativele erau să nu existe
-orar deloc până apar amândouă, sau să existe unul care merge înainte cu opt săptămâni și greșește
-previzibil în vacanțe. A doua, fiindcă orarul e ce face posibil restul: prezența legată de o ședință,
-raportul de nemarcate, calendarul părintelui.
+**Ședințele se generează pe un orizont rulant de opt săptămâni.** S1 cerea generare pe durata
+modulului, ocolind vacanțele. Nici modulul, nici calendarul nu existau atunci — primul fiindcă E10 a
+fost tăiat, al doilea fiindcă era S2. Alternativele erau să nu existe orar deloc până apar amândouă,
+sau să existe unul care merge înainte cu opt săptămâni și greșește previzibil în vacanțe. A doua,
+fiindcă orarul e ce face posibil restul: prezența legată de o ședință, raportul de nemarcate,
+calendarul părintelui.
 
-**O ședință căzută în vacanță se anulează manual**, prin `PUT /class-sessions/:id/cancel`, cu motivul
-scris în `notes`. E o operațiune de câteva minute de câteva ori pe an, nu o gaură care se lărgește —
-și e reversibilă în direcția bună: când S2 apare, calendarul de vacanțe împiedică generarea de la
-început, iar anulările vechi rămân corecte, fiindcă spun exact ce s-a întâmplat. Regenerarea nu le
-strică: e idempotentă pe `(grupă, dată)` și nu atinge o ședință existentă, indiferent de stare.
+Orizontul rulant a rămas; jumătatea greșită s-a reparat la S2, care e chiar calendarul de vacanțe.
+Modulul nu a mai apărut și nici nu mai trebuie: orizontul de opt săptămâni care sare peste vacanțe
+face exact ce cerea acceptanța story-ului — un modul de 8 ședințe care traversează vacanța de iarnă
+se termină cu două săptămâni mai târziu, fără intervenție.
+
+**O ședință căzută în vacanță se anula manual**, prin `PUT /class-sessions/:id/cancel`, cu motivul
+scris în `notes` — până la S2. Decizia s-a dovedit reversibilă în direcția anunțată: calendarul
+împiedică acum generarea de la început, iar anulările vechi au rămas corecte, fiindcă spun exact ce
+s-a întâmplat. Regenerarea nu le strică, fiind idempotentă pe `(grupă, dată)` și fără să atingă o
+ședință existentă, indiferent de stare — proprietate pe care se sprijină și calendarul: după ce un
+interval a anulat o ședință, oricâte generări ar mai rula, nu o pun înapoi.
 
 **„Nemarcat" nu e „absent", și are culoare proprie.** Calendarul părintelui distinge acum cinci stări
 — planificat, prezent, absent, nemarcat, recuperare —, iar legenda din `user/dashboard.vue` spune în
