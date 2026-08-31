@@ -1,4 +1,9 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { AuthGuard } from 'src/guards/auth.guard';
+import { RolesGuard } from 'src/guards/role.guard';
+import { MailTemplateController } from './mail-template.controller';
+import { MailTemplateService } from './mail-template.service';
 import { EntitiesModule } from 'src/entities/entities.module';
 import { StorageModule } from 'src/modules/storage/storage.module';
 import { MailService } from './mail.service';
@@ -20,8 +25,9 @@ import { OutboxService } from './outbox.service';
 @Module({
     // `StorageModule` because a queued message may carry attachments by key: the bytes are read
     // from the bucket at send time, not carried through the queue. See `OutboxMessage.attachments`.
-    imports: [EntitiesModule, StorageModule],
-    providers: [MailService, OutboxService, OutboxDispatcher],
-    exports: [MailService, OutboxService],
+    imports: [EntitiesModule, StorageModule, JwtModule.register({})],
+    controllers: [MailTemplateController],
+    providers: [MailService, OutboxService, OutboxDispatcher, MailTemplateService, AuthGuard, RolesGuard],
+    exports: [MailService, OutboxService, MailTemplateService],
 })
 export class MailModule {}

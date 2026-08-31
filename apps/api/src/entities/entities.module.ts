@@ -13,6 +13,7 @@ import { Session } from './session.entity';
 import { Location } from './location.entity';
 import { Room } from './room.entity';
 import { OutboxMessage } from './outbox-message.entity';
+import { MailTemplate } from './mail-template.entity';
 import { EmailConfirmation } from './email-confirmation.entity';
 import { Enrollment } from './enrollment.entity';
 import { WaitlistEntry } from './waitlist-entry.entity';
@@ -40,6 +41,7 @@ import { AgentStatus } from './agent-status.entity';
             Location,
             Room,
             OutboxMessage,
+            MailTemplate,
             EmailConfirmation,
             Enrollment,
             WaitlistEntry,
