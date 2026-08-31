@@ -59,7 +59,7 @@ describe('Payments (e2e)', () => {
 
     const invoiceStatus = async (): Promise<string> => {
         const rows = await dataSource.query<{ status: string }[]>('SELECT "status" FROM "invoices" WHERE "id" = $1', [invoiceId]);
-        return rows[0]!.status;
+        return rows[0].status;
     };
 
     describe('the derivation, for real', () => {
