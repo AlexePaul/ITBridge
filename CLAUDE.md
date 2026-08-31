@@ -151,9 +151,23 @@ cale de acces peste capacitate — aia se verifică prima și refuză oricum. Da
 
 **Prezența se leagă de ședință, nu de o dată și o oră.** `ClassSession` (tabelul `class_sessions`)
 e ședința din orar, generată din programul grupei pe un orizont rulant de opt săptămâni, idempotent
-pe `(group, date)`. Nu există calendar de vacanțe — E12 S2 nu e construit — deci se generează
-ședințe și în vacanță, iar cele căzute acolo se anulează manual. Numele are prefix fiindcă
-`Session` e deja luat de tabelul de refresh tokenuri.
+pe `(group, date)`. Numele are prefix fiindcă `Session` e deja luat de tabelul de refresh tokenuri.
+
+**Orarul ascultă de calendarul școlar, iar calendarul anulează, nu șterge.** `NonTeachingPeriod`
+(E12 S2) e un **interval**, nu o zi: o vacanță de două săptămâni e un rând, o sărbătoare legală e un
+rând cu aceleași date la ambele capete. `location` gol înseamnă „toată școala". Trei reguli care se
+încalcă ușor:
+
+- `generateForGroup` sare peste zilele acoperite și le numără în `skipped`. **Grupele se încarcă cu
+  `relations: { room: { location: true } }`** — fără `location`, fiecare grupă se citește ca fiind
+  fără locație și orice interval local golește orarul întregii școli, tăcut, fiindcă ședințele pe
+  care le scoate pur și simplu nu apar. Testul unitar nu prinde asta: fixture-ul lui are relația
+  oricum populată.
+- Adăugarea unui interval trece ședințele din el în `CANCELLED` și le scrie numele intervalului în
+  `notes`. Ștergerea intervalului **nu** le reactivează — o ședință anulată de vacanță și una anulată
+  fiindcă profesorul a fost bolnav arată la fel după aceea. Reactivarea e per ședință.
+- Suprapunerile sunt refuzate simetric, indiferent de locație (`PERIOD_OVERLAPS`). Regula mai îngustă
+  ar face acceptarea să depindă de ordinea în care au fost tastate cele două intervale.
 
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin
@@ -559,6 +573,13 @@ ecran gol.
 Etichetele în română stau lângă ecranele care le afișează (`apps/web/app/types/*.types.ts`), și e
 oricum locul lor: contractul descrie ce trece pe sârmă, iar pe sârmă trece `'TRIAL'`, nu `'Probă'`.
 `Weekday`, `Role` și `WEEKDAY_LABELS` sunt mai vechi și rămân; nimic nou nu li se alătură.
+`ClassSessionStatus` a fost convertit la o uniune de literali la E12 S2, iar etichetele lui au
+plecat în `apps/web/app/types/class-session.types.ts`, lângă `SessionStatus` — obiectul
+`as const satisfies` cu care se compară un ecran.
+
+În `contract.ts`, o uniune de literali se compară cu enum-ul din API prin `` `${Enum}` ``: enum-ul e
+nominal, deci niciun sens al lui `extends` nu ține între cele două, oricât de identice ar fi
+valorile. Template literal-ul îl reduce exact la string-urile care pleacă pe sârmă.
 
 **`@itbridge/types` e CommonJS, iar Vite nu prebundle-uiește pachetele din workspace.** Le servește
 browserului ca sursă, deci `exports.Weekday = ...` ajunge într-un `<script type="module">` și pică
