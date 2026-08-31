@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 54 livrate, 12 parțiale, 8 blocate, 4 scoase din scop,
-64 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **142 de story-uri** în 21 de epicuri: 54 livrate, 13 parțiale, 8 blocate, 4 scoase din scop,
+63 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -147,7 +147,7 @@ nu rulează nicăieri".
 - [ ] S3 · Absențe anunțate
 - [ ] S4 · Recuperări
 - [~] S5 · Anulări și mutări — **doar anularea și reactivarea**; fără mutare, fără notificare
-- [ ] S6 · Marcarea prezenței pe telefon
+- [~] S6 · Marcarea prezenței pe telefon — livrat fără poze (`Child` n-are câmp, e o decizie E07/E14): `/admin/attendance/azi`, salvare la fiecare apăsare, coadă locală pe rețea picată, buton „Sună părintele" la absență
 - [~] S7 · Notificări — livrat **altceva decât cere story-ul**: mementoul zilnic de la 10:00 către școală, cerut explicit. Notificările către părinți rămân nelivrate
 
 ### E13 · Progres, evaluare și feedback — `propus`

@@ -5,6 +5,7 @@ import { Attendance } from 'src/entities/attendance.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Child } from 'src/entities/child.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
+import { AttendanceType } from 'src/enum/attendance-type.enum';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 
 describe('AttendanceService', () => {
@@ -172,6 +173,123 @@ describe('AttendanceService', () => {
             expect(where.classSession).toEqual({ id: 3 });
             expect(where).not.toHaveProperty('date');
             expect(where).not.toHaveProperty('startTime');
+        });
+    });
+
+    describe('sessionRegister', () => {
+        const child = (id: number, first: string, last: string, phone: string | null = '0712345678') => ({
+            id,
+            firstName: first,
+            lastName: last,
+            parent: phone === null ? {} : { phone },
+        });
+
+        beforeEach(() => {
+            classSessionRepo.findOne!.mockResolvedValue({
+                id: 9,
+                date: '2026-09-07',
+                startTime: '16:00:00',
+                endTime: '17:30:00',
+                status: ClassSessionStatus.SCHEDULED,
+                group: { id: 5, name: 'Scratch', children: [child(2, 'Ana', 'Pop'), child(1, 'Vlad', 'Ionescu')] },
+            });
+            attendanceRepo.find!.mockResolvedValue([]);
+        });
+
+        it('lists every child of the group, sorted by name, with no mark as null', async () => {
+            const register = await service.sessionRegister(9);
+
+            expect(register.entries.map((entry) => entry.lastName)).toEqual(['Ionescu', 'Pop']);
+            // Three-valued on purpose: "nobody has said yet" is a different fact from absent.
+            expect(register.entries[0]).toMatchObject({ present: null, attendanceId: null, parentPhone: '0712345678' });
+        });
+
+        it('carries the existing marks, so a half-marked register reopens as it was left', async () => {
+            attendanceRepo.find!.mockResolvedValue([{ id: 31, present: false, type: AttendanceType.REGULAR, child: child(2, 'Ana', 'Pop') }]);
+
+            const register = await service.sessionRegister(9);
+
+            const ana = register.entries.find((entry) => entry.childId === 2);
+            expect(ana).toMatchObject({ present: false, attendanceId: 31 });
+        });
+
+        it('includes a make-up child who is marked here but not in the group', async () => {
+            attendanceRepo.find!.mockResolvedValue([{ id: 32, present: true, type: AttendanceType.MAKE_UP, child: child(7, 'Dan', 'Radu') }]);
+
+            const register = await service.sessionRegister(9);
+
+            // Dropping the row would hide a mark the bulk endpoint wrote.
+            expect(register.entries.find((entry) => entry.childId === 7)).toMatchObject({ type: AttendanceType.MAKE_UP, present: true });
+        });
+
+        it('answers null for a family with no phone, not a button that dials nowhere', async () => {
+            classSessionRepo.findOne!.mockResolvedValue({
+                id: 9,
+                date: '2026-09-07',
+                startTime: '16:00:00',
+                endTime: '17:30:00',
+                status: ClassSessionStatus.SCHEDULED,
+                group: { id: 5, name: 'Scratch', children: [child(2, 'Ana', 'Pop', null)] },
+            });
+
+            const register = await service.sessionRegister(9);
+            expect(register.entries[0].parentPhone).toBeNull();
+        });
+
+        it('404s on a session that does not exist', async () => {
+            classSessionRepo.findOne!.mockResolvedValue(null);
+            await expect(service.sessionRegister(99)).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    describe('upsertMark', () => {
+        beforeEach(() => {
+            classSessionRepo.findOne!.mockResolvedValue({
+                id: 9,
+                status: ClassSessionStatus.SCHEDULED,
+                group: { id: 5, children: [{ id: 2 }] },
+            });
+            childRepo.findOne!.mockResolvedValue({ id: 2 });
+            attendanceRepo.findOne!.mockResolvedValue(null);
+            attendanceRepo.save!.mockImplementation((record: unknown) => Promise.resolve(record));
+        });
+
+        it('creates the mark on the first tap, as a regular one for a group child', async () => {
+            await service.upsertMark(9, 2, true);
+
+            expect(attendanceRepo.save).toHaveBeenCalledWith(expect.objectContaining({ present: true, type: AttendanceType.REGULAR }));
+        });
+
+        it('rewrites the same row on a changed mind, instead of refusing a duplicate', async () => {
+            const existing = { id: 31, present: true };
+            attendanceRepo.findOne!.mockResolvedValue(existing);
+
+            await service.upsertMark(9, 2, false);
+
+            // The phone screen retries from a local queue, so the same mark may arrive twice; a
+            // 409 here would turn every retry into an error.
+            expect(existing.present).toBe(false);
+            expect(attendanceRepo.save).toHaveBeenCalledWith(existing);
+        });
+
+        it('writes a make-up for a child outside the group', async () => {
+            childRepo.findOne!.mockResolvedValue({ id: 7 });
+
+            await service.upsertMark(9, 7, true);
+
+            expect(attendanceRepo.save).toHaveBeenCalledWith(expect.objectContaining({ type: AttendanceType.MAKE_UP }));
+        });
+
+        it('refuses a cancelled session — the class did not happen', async () => {
+            classSessionRepo.findOne!.mockResolvedValue({ id: 9, status: ClassSessionStatus.CANCELLED, group: { children: [] } });
+
+            await expect(service.upsertMark(9, 2, true)).rejects.toThrow(BadRequestException);
+            expect(attendanceRepo.save).not.toHaveBeenCalled();
+        });
+
+        it('404s on a child that does not exist', async () => {
+            childRepo.findOne!.mockResolvedValue(null);
+            await expect(service.upsertMark(9, 99, true)).rejects.toThrow(NotFoundException);
         });
     });
 

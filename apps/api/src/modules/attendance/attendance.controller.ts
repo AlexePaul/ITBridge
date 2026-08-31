@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards, Request, Patch, Query, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, UseGuards, Request, Patch, Query, ParseIntPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
@@ -6,6 +6,7 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { RolesGuard } from 'src/guards/role.guard';
 import { AttendanceService } from './attendance.service';
 import { markAttendanceDto } from './dto/markAttendance.dto';
+import { UpsertMarkDto } from './dto/upsertMark.dto';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('attendance')
@@ -31,6 +32,40 @@ export class AttendanceController {
     @ApiResponse({ status: 409, description: 'Conflict: Attendance record already exists' })
     async createAttendance(@Param('classSessionId', ParseIntPipe) classSessionId: number, @Body() markAttendanceDto: markAttendanceDto) {
         return this.attendanceService.createAttendance(classSessionId, markAttendanceDto);
+    }
+
+    /**
+     * The whole register of one class, in one payload: session, children, existing marks, and the
+     * parent's phone per child. One request because the caller is a phone in a classroom — E12/S6.
+     */
+    @Get('session/:classSessionId/register')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiResponse({ status: 200, description: 'The register: session, entries with marks and parent phones' })
+    @ApiResponse({ status: 404, description: 'No such class session' })
+    async sessionRegister(@Param('classSessionId', ParseIntPipe) classSessionId: number) {
+        return this.attendanceService.sessionRegister(classSessionId);
+    }
+
+    /**
+     * One tap, one mark — idempotent upsert, unlike the bulk POST above. The phone screen saves on
+     * every tap and retries from a local queue, so the same mark may arrive twice and a changed
+     * mind arrives as a second write; a duplicate here is a no-op, not a 409.
+     */
+    @Put('session/:classSessionId/child/:childId')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiResponse({ status: 200, description: 'Mark written' })
+    @ApiResponse({ status: 400, description: 'The session is cancelled' })
+    @ApiResponse({ status: 404, description: 'No such session or child' })
+    async upsertMark(
+        @Param('classSessionId', ParseIntPipe) classSessionId: number,
+        @Param('childId', ParseIntPipe) childId: number,
+        @Body() dto: UpsertMarkDto,
+    ) {
+        return this.attendanceService.upsertMark(classSessionId, childId, dto.present);
     }
 
     @Get('child/:childId')

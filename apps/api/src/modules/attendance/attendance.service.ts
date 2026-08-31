@@ -101,6 +101,113 @@ export class AttendanceService {
         return this.attendanceRepository.save(attendanceRecords);
     }
 
+    /**
+     * The whole register of one class, in one payload — E12/S6.
+     *
+     * One request instead of four (session, group, children, marks), because the screen this serves
+     * is a phone in a classroom on whatever signal reaches it. Carries the parent's phone per child
+     * so an unannounced absence is one tap from a call (the S7 detail), and the existing mark per
+     * child so reopening a half-marked register shows what is already down.
+     */
+    async sessionRegister(classSessionId: number) {
+        const classSession = await this.classSessionRepository.findOne({
+            where: { id: classSessionId },
+            relations: { group: { children: { parent: true } } },
+        });
+        if (!classSession) {
+            throw new NotFoundException(`Class session with ID ${classSessionId} does not exist`);
+        }
+
+        const marks = await this.attendanceRepository.find({
+            where: { classSession: { id: classSessionId } },
+            relations: { child: { parent: true } },
+        });
+        const markByChild = new Map(marks.map((mark) => [mark.child.id, mark]));
+
+        const entryOf = (child: Child, type: AttendanceType) => {
+            const mark = markByChild.get(child.id);
+            return {
+                childId: child.id,
+                firstName: child.firstName,
+                lastName: child.lastName,
+                // For the tel: button. Absent when the profile has no phone — the screen shows
+                // nothing rather than a button that dials nowhere.
+                parentPhone: child.parent?.phone ?? null,
+                type,
+                present: mark ? mark.present : null,
+                attendanceId: mark ? mark.id : null,
+            };
+        };
+
+        const groupChildIds = new Set(classSession.group.children.map((child) => child.id));
+        const entries = classSession.group.children
+            .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+            .map((child) => entryOf(child, AttendanceType.REGULAR));
+        // A make-up child is not in the group but already has a mark on this class; the register
+        // still has to show them, or the screen would silently drop a row the bulk endpoint wrote.
+        for (const mark of marks) {
+            if (!groupChildIds.has(mark.child.id)) {
+                entries.push(entryOf(mark.child, mark.type));
+            }
+        }
+
+        return {
+            session: {
+                id: classSession.id,
+                date: classSession.date,
+                startTime: classSession.startTime,
+                endTime: classSession.endTime,
+                status: classSession.status,
+                groupId: classSession.group.id,
+                groupName: classSession.group.name,
+            },
+            entries,
+        };
+    }
+
+    /**
+     * One tap, one mark — E12/S6.
+     *
+     * An upsert, unlike the bulk POST above, and idempotent on purpose: the phone screen saves on
+     * every tap and retries from a local queue when the network comes back, so the same mark may
+     * arrive twice and a changed mind arrives as a second write. Refusing duplicates here (as the
+     * bulk endpoint rightly does for a full register) would turn every retry into an error.
+     */
+    async upsertMark(classSessionId: number, childId: number, present: boolean) {
+        const classSession = await this.classSessionRepository.findOne({
+            where: { id: classSessionId },
+            relations: { group: { children: true } },
+        });
+        if (!classSession) {
+            throw new NotFoundException(`Class session with ID ${classSessionId} does not exist`);
+        }
+        if (classSession.status === ClassSessionStatus.CANCELLED) {
+            throw new BadRequestException(`Class session with ID ${classSessionId} is cancelled; reinstate the session before recording attendance for it`);
+        }
+
+        const child = await this.childRepository.findOne({ where: { id: childId } });
+        if (!child) {
+            throw new NotFoundException(`Child with ID ${childId} was not found in the system`);
+        }
+
+        const existing = await this.attendanceRepository.findOne({
+            where: { classSession: { id: classSessionId }, child: { id: childId } },
+        });
+        if (existing) {
+            existing.present = present;
+            return this.attendanceRepository.save(existing);
+        }
+
+        const record = new Attendance();
+        record.child = child;
+        record.classSession = classSession;
+        record.present = present;
+        record.group = classSession.group;
+        // Same rule as the bulk endpoint: in the group means regular, anyone else is a make-up.
+        record.type = classSession.group.children.some((groupChild) => groupChild.id === childId) ? AttendanceType.REGULAR : AttendanceType.MAKE_UP;
+        return this.attendanceRepository.save(record);
+    }
+
     async getAttendanceByChild(childId: number, userRole: string, userId: number) {
         const child = await this.childRepository.findOne({
             where: { id: childId },
