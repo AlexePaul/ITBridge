@@ -2,7 +2,7 @@
  * What a parent receives when an admin presses send. E14/S4, carried by E17/S8.
  *
  * Plain functions, exported away from the service that queues them, so the wording can be asserted
- * without a queue or a database behind it — the same split as `account-mail.ts` and E12's reminder.
+ * without a queue or a database behind it — the same split as E12's reminder; the account mails have since moved to E17/S2 templates.
  *
  * Romanian, because parents read these. That is the exception CLAUDE.md carves out of the
  * everything-in-English rule; identifiers and comments here stay English.

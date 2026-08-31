@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 54 livrate, 13 parțiale, 8 blocate, 4 scoase din scop,
-63 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **142 de story-uri** în 21 de epicuri: 55 livrate, 13 parțiale, 8 blocate, 4 scoase din scop,
+62 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -211,7 +211,7 @@ nu rulează nicăieri".
 ### E17 · Comunicare și notificări — în PR #27
 
 - [~] S1 · Furnizorul și livrabilitatea — parțial: `MailService` există în `apps/api`; SPF/DKIM/DMARC și partea de operare, nu
-- [ ] S2 · Șabloane
+- [x] S2 · Șabloane — implicitele în cod, editările în `mail_templates`; ecranul `/admin/emailuri` cu previzualizare pe draft; mesajele de cont din E11 S2 mutate pe `render()`, cu variantă HTML
 - [~] S3 · Coadă și reîncercare — parțial: outbox-ul e întreg, dar **nu rulează nicăieri** până la deploy. Îl folosesc acum patru apelanți: mementoul zilnic din E12 și cele trei mesaje de cont din E11 S2
 - [ ] S4 · Preferințe și dezabonare
 - [ ] S5 · Evidența livrărilor

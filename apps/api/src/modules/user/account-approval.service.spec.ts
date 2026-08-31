@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AccountApprovalService } from './account-approval.service';
+import { MailTemplateService } from 'src/modules/mail/mail-template.service';
+import { MailTemplate } from 'src/entities/mail-template.entity';
 import { User } from 'src/entities/user.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Role } from 'src/enum/role.enum';
@@ -39,6 +41,10 @@ describe('AccountApprovalService', () => {
                 provideMockRepository(User, userRepo),
                 provideMockRepository(Profile, profileRepo),
                 { provide: OutboxService, useValue: outbox },
+                // Real template service, no overrides in the mock repo — the wording assertions
+                // hold against the shipped defaults.
+                MailTemplateService,
+                provideMockRepository(MailTemplate, createMockRepository()),
                 provideMockDataSource(manager),
             ],
         }).compile();

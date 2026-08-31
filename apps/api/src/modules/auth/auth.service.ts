@@ -16,7 +16,7 @@ import { SessionService } from './session.service';
 import { EmailConfirmationService } from './email-confirmation.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { officeAddress } from 'src/modules/mail/office-address';
-import { composeApprovalNeeded, composeEmailConfirmation } from './account-mail';
+import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { approvalsUrl, emailConfirmationUrl } from './portal-urls';
 
 @Injectable()
@@ -35,6 +35,7 @@ export class AuthService {
         private sessionService: SessionService,
         private emailConfirmationService: EmailConfirmationService,
         private outbox: OutboxService,
+        private mailTemplates: MailTemplateService,
         @InjectDataSource() private dataSource: DataSource,
     ) {}
 
@@ -115,14 +116,25 @@ export class AuthService {
 
             const { token } = await this.emailConfirmationService.issueFor(created, registerDto.email, now, manager);
 
-            const confirmation = composeEmailConfirmation(registerDto.firstName, emailConfirmationUrl(token));
-            await this.outbox.queue({ to: registerDto.email, subject: confirmation.subject, bodyText: confirmation.bodyText }, manager);
+            const confirmation = await this.mailTemplates.render('email-confirmation', {
+                firstName: registerDto.firstName,
+                confirmUrl: emailConfirmationUrl(token),
+            });
+            await this.outbox.queue(
+                { to: registerDto.email, subject: confirmation.subject, bodyText: confirmation.bodyText, bodyHtml: confirmation.bodyHtml ?? undefined },
+                manager,
+            );
 
             // The visible signal E11 asks for under "two gates before the first class". Without it,
             // an admin who does not think to open the approvals screen turns a registration into
             // silence, and the family has no way to tell that from a broken platform.
             const parentName = `${registerDto.firstName} ${registerDto.lastName}`;
-            const notice = composeApprovalNeeded(parentName, registerDto.email, registerDto.phone, approvalsUrl());
+            const notice = await this.mailTemplates.render('approval-needed', {
+                parentName,
+                email: registerDto.email,
+                phone: registerDto.phone,
+                approvalsUrl: approvalsUrl(),
+            });
             await this.outbox.queue({ to: this.office, subject: notice.subject, bodyText: notice.bodyText }, manager);
 
             return created;
@@ -209,8 +221,14 @@ export class AuthService {
         const now = new Date();
         await this.dataSource.transaction(async (manager) => {
             const { token } = await this.emailConfirmationService.issueFor(user, profile.email as string, now, manager);
-            const mail = composeEmailConfirmation(profile.firstName, emailConfirmationUrl(token));
-            await this.outbox.queue({ to: profile.email as string, subject: mail.subject, bodyText: mail.bodyText }, manager);
+            const mail = await this.mailTemplates.render('email-confirmation', {
+                firstName: profile.firstName,
+                confirmUrl: emailConfirmationUrl(token),
+            });
+            await this.outbox.queue(
+                { to: profile.email as string, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined },
+                manager,
+            );
         });
 
         this.logger.log(`Reissued an email confirmation for user ${userId}.`);

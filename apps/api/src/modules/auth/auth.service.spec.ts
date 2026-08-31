@@ -3,6 +3,8 @@ import { ConflictException, NotFoundException, UnauthorizedException } from '@ne
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
+import { MailTemplateService } from 'src/modules/mail/mail-template.service';
+import { MailTemplate } from 'src/entities/mail-template.entity';
 import { User } from 'src/entities/user.entity';
 import { jwtConstants } from 'src/constants/jwtConstants';
 import {
@@ -107,6 +109,10 @@ describe('AuthService', () => {
                 { provide: SessionService, useValue: sessions },
                 { provide: EmailConfirmationService, useValue: confirmations },
                 { provide: OutboxService, useValue: outbox },
+                // The real template service over a repo with no overrides: the wording assertions
+                // below then hold against the shipped defaults, which is what actually goes out.
+                MailTemplateService,
+                provideMockRepository(MailTemplate, createMockRepository()),
                 provideMockDataSource(manager),
             ],
         }).compile();

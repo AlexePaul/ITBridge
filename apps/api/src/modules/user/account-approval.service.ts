@@ -6,7 +6,7 @@ import { Profile } from 'src/entities/profile.entity';
 import { Role } from 'src/enum/role.enum';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
 import { OutboxService } from 'src/modules/mail/outbox.service';
-import { composeAccountApproved, composeAccountRejected } from 'src/modules/auth/account-mail';
+import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { loginUrl } from 'src/modules/auth/portal-urls';
 import { officeAddress } from 'src/modules/mail/office-address';
 
@@ -41,6 +41,7 @@ export class AccountApprovalService {
         @InjectRepository(User) private readonly userRepository: Repository<User>,
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
         private readonly outbox: OutboxService,
+        private readonly mailTemplates: MailTemplateService,
         @InjectDataSource() private readonly dataSource: DataSource,
     ) {}
 
@@ -113,8 +114,8 @@ export class AccountApprovalService {
             await manager.update(User, { id: userId }, { approvalStatus: ApprovalStatus.APPROVED, approvalDecidedAt: now, rejectionReason: null });
 
             if (profile?.email) {
-                const mail = composeAccountApproved(profile.firstName, loginUrl());
-                await this.outbox.queue({ to: profile.email, subject: mail.subject, bodyText: mail.bodyText }, manager);
+                const mail = await this.mailTemplates.render('account-approved', { firstName: profile.firstName, portalUrl: loginUrl() });
+                await this.outbox.queue({ to: profile.email, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined }, manager);
             } else {
                 // A family typed in from a phone call has no address yet. Nothing to send, and
                 // nothing broken — but worth a line, because "the parent was never told" is
@@ -132,8 +133,8 @@ export class AccountApprovalService {
      *
      * Deleting it would free the username and the address, so the same person could register again
      * and land back at the top of the queue with nothing to show they had been refused before. The
-     * reason is stored for admins and, deliberately, does not travel in the mail — see
-     * `composeAccountRejected`.
+     * reason is stored for admins and, deliberately, does not travel in the mail — see the
+     * `account-rejected` template's description in `template-defaults.ts`.
      */
     async reject(userId: number, reason?: string): Promise<{ message: string }> {
         const user = await this.requireParent(userId);
@@ -156,8 +157,8 @@ export class AccountApprovalService {
             await manager.update(User, { id: userId }, { approvalStatus: ApprovalStatus.REJECTED, approvalDecidedAt: now, rejectionReason: reason ?? null });
 
             if (profile?.email) {
-                const mail = composeAccountRejected(profile.firstName, this.office);
-                await this.outbox.queue({ to: profile.email, subject: mail.subject, bodyText: mail.bodyText }, manager);
+                const mail = await this.mailTemplates.render('account-rejected', { firstName: profile.firstName, officeEmail: this.office });
+                await this.outbox.queue({ to: profile.email, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined }, manager);
             }
         });
 
