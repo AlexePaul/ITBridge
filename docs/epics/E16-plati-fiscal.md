@@ -182,6 +182,38 @@ Starea facturii se derivă din suma plăților reușite față de total — nu s
 factură încasată și a doua neemisă arată `parțial achitată`, cu restul afișat. Plata parțială
 există la nivel de notă, nu de factură.
 
+**Livrat**, cu o tăietură deliberată: partea de plată în întregime, partea de SmartBill deloc.
+
+`Payment` are acum sumă (`decimal`, prin `decimalAsNumber`), metodă ca enum închis (`cash`,
+`bank_transfer`), stare (`initiated`, `succeeded`, `failed`, `reversed`), referință externă —
+numărul OP-ului sau al chitanței, singurul lucru după care o încasare se regăsește în extras —,
+observații, cine a înregistrat-o și `createdAt`. Relația cu `Invoice` e mulți-la-unu: FK-ul s-a
+mutat de pe `invoices.payment_id` pe `payments.invoice_id`, iar migrarea cară legăturile existente
+și umple suma din totalul facturii — sub modelul vechi, un rând de plată însemna exact „plătită
+integral", deci totalul e ce a susținut rândul dintotdeauna.
+
+**Starea facturii e derivată, cu un singur scriitor** — același tipar ca `Child.group`:
+`PaymentService.recomputeInvoiceStatus` adună plățile `succeeded` și compară cu totalul, în aceeași
+tranzacție cu scrierea care o provoacă. Acoperit înseamnă `paid`; neacoperit înseamnă ce era înainte
+să intre banii — `overdue` rămâne `overdue`, fiindcă întârzierea e un fapt despre calendar, nu
+despre sold. `waived` nu e atins niciodată, iar o plată pe o factură `waived` e refuzată cu
+`INVOICE_WAIVED`: banii apăruți pe o lună la care școala a renunțat sunt semn că s-a ales rândul
+greșit. O plată parțială lasă factura în așteptare — 100 din 350 nu e „plătită", care era exact
+bug-ul modelului vechi, unde existența rândului marca factura.
+
+**Cine a înregistrat-o trece pe sârmă doar ca `id` și `username`.** `User.passwordHash` n-are
+`select: false`, deci un `leftJoinAndSelect` pe relație ar fi publicat hash-ul fiecărui admin
+oricărui părinte cu o plată. Join-ul e gol plus `addSelect` numit, iar un test de integrare ține
+exact forma răspunsului: două chei, niciuna în plus.
+
+**Ce NU e în S1, deliberat:** câmpurile de legătură ale facturii cu SmartBill (serie, număr, id
+document, link PDF, stare de sincronizare). Ele aparțin integrării, iar S0 cere verificarea
+abonamentului **înainte de orice cod SmartBill** — coloane moarte scrise acum ar fi trebuit ghicite
+și probabil rescrise la S2. `Payment.smartbillReference` există deja, fiindcă e un varchar nullable
+pe entitatea oricum rescrisă, nu o schemă inventată în avans. Nota de plată din acceptanță ține de
+factura pe modul (E15 S2, abandonată); în modelul pe lună, „parțial achitată" trăiește la nivel de
+factură, prin suma plăților față de total.
+
 ### S2 · Emiterea prin SmartBill
 
 La confirmarea emiterii din [E15](E15-pricing-facturare.md) S6, platforma trimite documentul către

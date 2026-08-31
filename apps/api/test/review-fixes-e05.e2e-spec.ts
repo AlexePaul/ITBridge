@@ -72,7 +72,7 @@ describe('E05 review fixes (e2e)', () => {
             const payment = await request(app.getHttpServer())
                 .post('/payments')
                 .set('Authorization', admin.auth)
-                .send({ invoiceId: invoices.body[0].id, method: 'cash', date: '2026-03-05' })
+                .send({ invoiceId: invoices.body[0].id, amount: 350, method: 'cash', date: '2026-03-05' })
                 .expect(201);
 
             ids[key] = payment.body.id as number;

@@ -106,6 +106,9 @@ const MESSAGES: Record<string, string> = {
   PROJECT_FILE_NOT_DIRECT_UPLOADABLE: "Doar fișierele video se încarcă direct în stocare.",
   PROJECT_CONTENT_HASH_MISMATCH: "Fișierul nu corespunde cu suma de control trimisă.",
 
+  // E16/S1. Money against a month the school chose not to charge for — the row picked is wrong.
+  INVOICE_WAIVED: "Factura este anulată (0 lei) — nu se pot înregistra plăți pe ea.",
+
   // E12/S2. `PERIOD_OVERLAPS` and `PERIOD_ENDS_BEFORE_IT_STARTS` are deliberately absent: both
   // arrive already in Romanian, and the first names the period it collided with and its dates —
   // which is the whole answer. A generic line here would replace „se suprapune cu «Vacanța de

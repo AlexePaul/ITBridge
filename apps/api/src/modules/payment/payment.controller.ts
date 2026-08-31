@@ -19,8 +19,9 @@ export class PaymentController {
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
     @ApiResponse({ status: 201, description: 'Payment created' })
-    async createPayment(@Body() dto: CreatePaymentDto) {
-        return this.paymentService.createPayment(dto);
+    @ApiResponse({ status: 409, description: 'INVOICE_WAIVED — a waived month has nothing to pay' })
+    async createPayment(@Body() dto: CreatePaymentDto, @Request() req: AuthenticatedRequest) {
+        return this.paymentService.createPayment(dto, req.user.sub);
     }
 
     @Get()

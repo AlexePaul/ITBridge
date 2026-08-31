@@ -27,6 +27,8 @@ import type { Attendance } from './entities/attendance.entity';
 import type { ClassSession } from './entities/class-session.entity';
 import type { Invoice } from './entities/invoice.entity';
 import type { Payment } from './entities/payment.entity';
+import type { PaymentMethod } from './enum/payment-method.enum';
+import type { PaymentStatus } from './enum/payment-status.enum';
 import type { Discount } from './entities/discount.entity';
 import type { Project } from './entities/project.entity';
 import type { ProjectVersion } from './entities/project-version.entity';
@@ -140,7 +142,17 @@ type _Invoice = Check<
     Pick<Wire.Invoice, 'id' | 'amount' | 'dateIssued' | 'monthIssued' | 'status'>,
     Pick<Serialized<Invoice>, 'id' | 'amount' | 'dateIssued' | 'monthIssued' | 'status'>
 >;
-type _Payment = Check<Pick<Wire.Payment, 'id' | 'method' | 'date'>, Pick<Serialized<Payment>, 'id' | 'method' | 'date'>>;
+type _Payment = Check<
+    Pick<Wire.Payment, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'smartbillReference' | 'notes' | 'createdAt'>,
+    Pick<Serialized<Payment>, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'smartbillReference' | 'notes' | 'createdAt'>
+>;
+// `recordedBy` is deliberately not compared field-for-field: the entity holds a `User` relation,
+// but the service selects only `id` and `username` onto the wire — never the credentials row — and
+// the contract describes the wire.
+type _PaymentMethod = Check<Wire.PaymentMethod, `${PaymentMethod}`>;
+type _PaymentMethodBack = Check<`${PaymentMethod}`, Wire.PaymentMethod>;
+type _PaymentStatus = Check<Wire.PaymentStatus, `${PaymentStatus}`>;
+type _PaymentStatusBack = Check<`${PaymentStatus}`, Wire.PaymentStatus>;
 type _Discount = Check<Pick<Wire.Discount, 'id' | 'name' | 'value' | 'monthIssued'>, Pick<Serialized<Discount>, 'id' | 'name' | 'value' | 'monthIssued'>>;
 
 // `OutboxMessage` has no entry here on purpose: nothing serves it. It is an internal queue, drained

@@ -145,6 +145,9 @@ export interface MockEntityManager {
     create: jest.Mock;
     save: jest.Mock;
     update: jest.Mock;
+    delete: jest.Mock;
+    /** Left undefined by default; a suite whose transaction reads rows back installs its own. */
+    findOne?: jest.Mock;
     getRepository: jest.Mock;
     /**
      * Left undefined by default, and installed by the suites that need it.
@@ -164,6 +167,7 @@ export function createMockEntityManager(repositories: Map<unknown, MockRepositor
         create: jest.fn((_entity: unknown, data: unknown) => data),
         save: jest.fn((_entityOrData: unknown, data?: unknown) => Promise.resolve(data ?? _entityOrData)),
         update: jest.fn().mockResolvedValue({ affected: 1 }),
+        delete: jest.fn().mockResolvedValue({ affected: 1 }),
         getRepository: jest.fn((entity: unknown) => repositories.get(entity) ?? createMockRepository()),
     };
 }

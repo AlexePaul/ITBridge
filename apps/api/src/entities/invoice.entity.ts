@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { Profile } from './profile.entity';
 import { Payment } from './payment.entity';
 
@@ -50,8 +50,12 @@ export class Invoice {
     @Column({ type: 'enum', enum: InvoiceStatus, default: InvoiceStatus.PENDING })
     status: InvoiceStatus;
 
-    // optional one-to-one relation to payment — invoice is the owner and stores payment_id
-    @OneToOne(() => Payment, (payment) => payment.invoice, { nullable: true, cascade: false })
-    @JoinColumn({ name: 'payment_id' })
-    payment?: Payment | null;
+    /**
+     * Every sum received against this invoice — E16/S1. Many, not one: a family can pay in
+     * instalments, and each instalment has its own date, method and reference. Whether the invoice
+     * is paid is derived from the succeeded ones by `PaymentService.recomputeInvoiceStatus`, the
+     * only writer of the derived state — `status` is never set by hand next to a payment.
+     */
+    @OneToMany(() => Payment, (payment) => payment.invoice)
+    payments: Payment[];
 }
