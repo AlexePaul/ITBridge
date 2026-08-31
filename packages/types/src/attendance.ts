@@ -1,4 +1,5 @@
-import type { ClassSession } from './class-session';
+import type { ClassSession, ClassSessionStatus } from './class-session';
+import type { ISODate, TimeOfDay } from './common';
 import type { Group } from './group';
 
 /**
@@ -38,4 +39,41 @@ export interface Attendance {
     group: Group;
     type: AttendanceType;
     present: boolean;
+}
+
+/**
+ * One row of a class's register, as the tap-to-mark screen reads it — E12/S6.
+ *
+ * `present` is three-valued on purpose: `null` is "nobody has said yet", which is a different fact
+ * from absent. `parentPhone` is here so an unannounced absence is one tap from a call — the S7
+ * detail — and `null` when the profile has no phone, so the screen shows nothing rather than a
+ * button that dials nowhere.
+ */
+export interface SessionRegisterEntry {
+    childId: number;
+    firstName: string;
+    lastName: string;
+    parentPhone: string | null;
+    type: AttendanceType;
+    present: boolean | null;
+    attendanceId: number | null;
+}
+
+/**
+ * The whole register of one class, in one payload — session, children, existing marks.
+ *
+ * One request instead of four, because the caller is a phone in a classroom on whatever signal
+ * reaches it.
+ */
+export interface SessionRegister {
+    session: {
+        id: number;
+        date: ISODate;
+        startTime: TimeOfDay;
+        endTime: TimeOfDay;
+        status: ClassSessionStatus;
+        groupId: number;
+        groupName: string;
+    };
+    entries: SessionRegisterEntry[];
 }

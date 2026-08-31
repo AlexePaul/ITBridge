@@ -1,6 +1,6 @@
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
-import type { Attendance } from "~/types/attendance.types";
+import type { Attendance, SessionRegister } from "~/types/attendance.types";
 
 export const useAttendanceApi = () => {
   const api = useApi();
@@ -47,9 +47,38 @@ export const useAttendanceApi = () => {
     });
   };
 
+  /**
+   * The whole register of one class in one payload — session, children, marks, parent phones.
+   * One request because the caller is a phone in a classroom on whatever signal reaches it (E12/S6).
+   */
+  const fetchSessionRegister = async (classSessionId: number) => {
+    return api<SessionRegister>(`/attendance/session/${classSessionId}/register`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${tokenStore.accessToken}`,
+      },
+    });
+  };
+
+  /**
+   * One tap, one mark. Idempotent on the server, so the offline queue can retry it blindly:
+   * a duplicate is a no-op and a changed mind is a second write, never a 409.
+   */
+  const upsertMark = async (classSessionId: number, childId: number, present: boolean) => {
+    return api<Attendance>(`/attendance/session/${classSessionId}/child/${childId}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${tokenStore.accessToken}`,
+      },
+      body: { present },
+    });
+  };
+
   return {
     markSessionAttendance,
     updateAttendanceStatus,
     getAttendanceByChild,
+    fetchSessionRegister,
+    upsertMark,
   };
 };
