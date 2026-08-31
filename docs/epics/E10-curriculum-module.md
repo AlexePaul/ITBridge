@@ -1,12 +1,44 @@
 # E10 · Curriculum și catalog de module
 
-**Status:** propus · **Pistă:** Domeniu · **Depinde de:** E04 · **Blochează:** E11, E13, E15
+**Status:** propus · **Pistă:** Domeniu · **Depinde de:** E04 · **Blochează:** E11, E13, E14, E15
+
+**Iese din MVP, respins de patron.** Nu e anulat și fișierul rămâne aici: decizia e despre moment,
+nu despre scop. Motivul e o neînțelegere de cuvânt — prin „curriculum" patronul a înțeles **programa
+publicată părinților**, ce se învață ședință cu ședință, ca material de arătat afară, iar aia nu e
+MVP. Nici catalogul de module ca structură internă, care e ce propune epicul, nu se sprijină pe
+realitatea de azi: unitatea de facturare nu e modulul, ci luna. Vezi
+[docs/epics/README.md](README.md), „Ordinea recomandată".
+
+Restul fișierului se citește cu asta în minte. În particular, ce scria aici înainte — că epicul
+**nu mai e blocat**, fiindcă structura e cunoscută și se poate construi în jurul conținutului lipsă
+— rămâne adevărat și e motivul pentru care nimic de mai jos nu se rescrie: în ziua în care revine,
+revine cu argumentul intact. Ce s-a schimbat nu e fezabilitatea, e prioritatea.
+
+Două consecințe imediate, ca să nu fie descoperite mai târziu:
+
+- **[E12](E12-prezenta-orar.md) S1 s-a livrat fără modul și fără lecție.** `ClassSession` nu are
+  relațiile pe care le presupune epicul ăsta, iar generarea merge pe un orizont rulant de opt
+  săptămâni în loc de „pe durata modulului". Când E10 revine, alea se atașează ca relații nullable.
+- **E08 S3 nu-și mai primește nivelul din catalog de aici.** Singurul lucru care mai poate închide
+  story-ul e profesorul principal din [E09](E09-personal-roluri.md).
 
 ## Problemă
 
 Platforma nu știe **ce** predă școala. Nu există curs, nu există modul, nu există nivel, nu există
-programă. `Group` are doar `minAge` și `maxAge`, ca `decimal`, ceea ce sugerează că vârsta ține loc
-de nivel.
+programă.
+
+Grupa nu mai e problema. După [E08](E08-multi-locatie.md), `Group` are nume, sală (deci și locație),
+capacitate și un interval de vârstă în `int` — vezi `apps/api/src/entities/group.entity.ts`. Ce
+lipsește nu mai e descrierea grupei, ci conținutul ei: nivelul rămâne implicit în vârstă, iar ce se
+predă efectiv nu e reprezentat nicăieri.
+
+**E08 S3 s-a oprit exact aici.** Grupei îi mai lipsesc două câmpuri — nivelul din catalog și
+profesorul principal — iar primul vine din acest epic. Comentariul de pe `minAge`
+(`apps/api/src/entities/group.entity.ts:50-52`) confirmă direcția: `int` acum, cu perechea
+posibil înlocuită de nivelul din catalog la E10. Motivul pentru care vârstele au rămas totuși
+câmpuri e scris în [E08](E08-multi-locatie.md), S3 — legarea lor de catalog acum ar fi însemnat să
+blocheze E08 de un epic blocat el însuși de conținut. Deci și E08 stătea până pornea E10 sau
+[E09](E09-personal-roluri.md) — iar acum, cu E10 în afara MVP-ului, deblocarea vine exclusiv din E09.
 
 Asta blochează trei lucruri simultan:
 
@@ -30,6 +62,7 @@ modul concret. Facturarea, progresul și site-ul public citesc din aceeași surs
 ## În scop
 
 - Entitățile `Course`, `Module`, `Skill`, `Lesson`.
+- Ecranele de admin prin care se introduc și se editează modulele, lecțiile și competențele.
 - Legarea grupelor de modul.
 - Trasee de învățare între module.
 - Expunere publică a catalogului.
@@ -47,7 +80,9 @@ modul concret. Facturarea, progresul și site-ul public citesc din aceeași surs
 nume, curs, ordine, număr de ședințe, durata unei ședințe, interval de vârstă recomandat, cerințe
 prealabile, descriere publică, rezultate așteptate.
 
-**Acceptanță:** modulele reale predate acum sunt în catalog, cu numărul corect de ședințe.
+**Acceptanță:** un admin creează un modul din interfață — curs, ordine, număr de ședințe, vârstă,
+descriere — fără migrare și fără cod, iar grupele îl pot folosi. Introducerea modulelor reale e o
+operațiune de conținut peste ecranul livrat aici, nu o condiție ca story-ul să fie gata.
 
 ### S2 · Lecții și competențe
 
@@ -57,7 +92,9 @@ dobândită, legată de lecții și module, cu nivel.
 Aici se așază și materialele de curs, dacă vrei ca profesorii să le găsească în platformă și nu pe
 un drive.
 
-**Acceptanță:** un modul are lecțiile listate în ordine, fiecare cu competențele asociate.
+**Acceptanță:** un modul are lecțiile listate în ordine, fiecare cu competențele asociate, iar
+ordinea se schimbă din interfață. Se verifică pe un modul de test, cu titluri provizorii — lecțiile
+reale vin odată cu programa.
 
 ### S3 · Grupa predă un modul
 
@@ -77,12 +114,18 @@ din portal.
 
 ### S5 · Catalog public
 
-Paginile publice de cursuri se generează din catalog, nu din text scris de mână în `courses.vue`.
+Paginile publice de cursuri se generează din catalog, nu din constantele scrise de mână în
+`apps/web/shared/courses.ts`, de unde le citește azi `apps/web/app/pages/cursuri.vue`.
 Fiecare modul are pagină proprie, cu programă, rezultate, vârstă, durată, preț, și locațiile unde
 se predă.
 
+Paginile per modul din [E19](E19-seo-geo.md), S4, sunt pasul următor, nu acesta, și rămân în urmă
+intenționat: mecanismul se poate construi peste titluri provizorii, dar o pagină publicată peste ele
+e conținut subțire — exact lucrul care coboară un domeniu în loc să-l urce. Se publică atunci când
+fiecare modul are text real.
+
 **Acceptanță:** o modificare în catalog se vede pe site fără schimbare de cod. Fiecare modul are URL
-propriu, indexabil.
+propriu, indexabil — publicat când are ce indexa.
 
 ## Dependențe
 
@@ -90,9 +133,17 @@ propriu, indexabil.
 
 ## Riscuri
 
-**Catalogul e muncă de conținut, nu de programare.** Structura se face în câteva zile; scrierea
-programei pentru fiecare modul, cu obiective și rezultate, ia mult mai mult și nu poate fi delegată
-unui dezvoltator. E cel mai probabil punct de blocare al acestui epic.
+**Catalogul e muncă de conținut, nu de programare — dar nu mai e blocaj.** Structura se face în
+câteva zile; scrierea programei pentru fiecare modul, cu obiective și rezultate, ia mult mai mult și
+nu poate fi delegată unui dezvoltator. Ce s-a schimbat e că cele două nu mai stau în serie:
+entitățile, ecranele de admin și expunerea publică se pot construi fără programă, iar ea se
+introduce prin ele când e scrisă. „Se pot", nu „se construiesc": epicul a ieșit între timp din MVP,
+deci nu se lucrează la el — vezi nota din capul fișierului.
+
+Riscul rămas e altul, și e de disciplină: **un catalog gol arată la fel cu unul terminat.** Ecranele
+merg, API-ul răspunde, testele trec — și nu e nimic înăuntru. De aceea acceptanța fiecărui story se
+formulează pe date de test, iar „gata" se declară pe mecanism, nu pe conținut; iar publicarea
+paginilor de modul e legată explicit de existența textului real, nu de cea a codului.
 
 **Modelarea prea fină devine povară.** Dacă fiecare lecție cere zece câmpuri completate, nimeni nu
 le va completa. Începe cu minimul care servește facturarea și site-ul public, și adaugă doar ce se
@@ -102,6 +153,13 @@ dovedește util.
 
 Fiecare grupă activă predă un modul din catalog. Site-ul public se generează din el.
 [E15](E15-pricing-facturare.md) are pe ce să calculeze.
+
+Se citește în două trepte, fiindcă epicul se livrează în două trepte. **Mecanismul e gata** când un
+admin poate introduce un curs, modulele lui, lecțiile și competențele din interfață, poate lega o
+grupă de un modul, iar catalogul public se generează din baza de date și nu din
+`apps/web/shared/courses.ts`. **Catalogul e gata** când modulele reale sunt înăuntru — un pas de
+conținut, făcut prin ecranele de mai sus, care nu cere nicio livrare de cod și nu se numără la
+progresul acestui epic.
 
 ## Decizii luate
 
@@ -120,6 +178,11 @@ Efectul asupra structurii: **calendarul școlar devine date de bază, nu o facil
 definește când începe și se termină fiecare modul, deci și ce se facturează. Cele două epicuri se
 ating aici și merită implementate în aceeași perioadă.
 
+**Legătura asta a căzut odată cu ieșirea din MVP.** Fără module de delimitat, calendarul de vacanțe
+redevine ce părea la început — o listă de zile în care nu se ține curs — și nu mai atinge facturarea.
+Argumentul de mai sus revine intact în ziua în care revine E10; vezi
+[E12](E12-prezenta-orar.md), „Decizii luate".
+
 Structura anuală, pentru referință:
 
 | | Perioadă orientativă | Ședințe |
@@ -130,9 +193,50 @@ Structura anuală, pentru referință:
 | Modul 4 | martie – aprilie | ~7 |
 | Modul 5 | mai – iunie | ~8 |
 
+**E10 se construiește fără programa reală.** Structura de mai sus e tot ce trebuie știut ca să se
+scrie entitățile, migrările, ecranele de admin prin care se introduc modulele, lecțiile și
+competențele, și expunerea publică a catalogului. Conținutul intră prin aceleași ecrane, scris de
+cine îl scrie, fără cod și fără migrare. Motivul e literal: programa poate întârzia până la finalul
+vacanței, și nu are de ce să țină loc un epic întreg.
+
+Cele șase niveluri din `apps/web/shared/courses.ts` au deja slug, interval de vârstă, descriere
+scurtă și listă de subiecte predate, deci `Course` are de unde porni. Ce lipsește e nivelul de
+dedesubt: care sunt cele 5 module ale fiecărui nivel, ce lecții are fiecare modul și ce competență
+rezultă din fiecare lecție.
+
+Ce **nu** se poate face până vine programa, exact două lucruri:
+
+- **Seed-ul cu module reale.** `apps/api/src/seed/seed.ts` primește module de test, cu titluri
+  provizorii, ca grupele, prezența și facturarea să aibă pe ce rula. Datele reale nu ajung în seed
+  nici după aceea — locul lor e baza de producție, introdusă din interfață. Un seed care ar pretinde
+  că e programa școlii ar deveni a doua sursă de adevăr, ca de fiecare dată.
+- **Paginile per modul din [E19](E19-seo-geo.md), S4.** Sunt paginile cu intenție comercială clară,
+  și tocmai de aceea au nevoie de text real: ce se învață, ce iese copilul la final. Peste titluri
+  provizorii ar fi conținut subțire, indexat prost, și greu de reparat după prima trecere a
+  crawler-ului. Mecanismul se construiește; publicarea așteaptă textul.
+
+**Un copil urmează un singur modul odată.** Modelul actual spune deja asta — `Child.group` e o
+singură grupă, nullable (`apps/api/src/entities/child.entity.ts:29-31`), iar o grupă predă un
+singur modul — și rămâne așa. Motivul nu e tehnic: „e prea mult pentru copil să vină de două ori pe
+săptămână". Vor exista părinți care cer altceva; răspunsul e nu.
+
+Consecința pentru acest epic e că `Module` nu are nevoie de nicio relație directă cu `Child`, cu
+atât mai puțin de una many-to-many: ce urmează un copil se citește prin grupa lui. Iar traseele de
+la S4 sunt secvențiale prin construcție — ce vine după ce, nu ce se poate face în paralel.
+
 ## Întrebări deschise
 
 - Datele exacte de început și sfârșit ale celor 5 module, pentru anul școlar curent și următorul.
-- Care sunt modulele reale predate acum, pe nivel și vârstă?
-- Un copil poate urma două module în paralel?
-- Ce se întâmplă cu un copil care se înscrie la mijlocul unui modul?
+  Nu blochează construcția, dar blochează prima factură: din ele rezultă când începe și se termină
+  un modul, deci și ce se facturează. Sunt aceleași date cu calendarul de vacanțe din
+  [E12](E12-prezenta-orar.md), S2.
+- Care sunt modulele reale predate acum, pe nivel și vârstă? Rămâne deschisă ca **muncă de conținut,
+  nu ca blocaj** — răspunsul se introduce prin ecranele de admin, nu prin cod.
+- ~~Un copil poate urma două module în paralel?~~ **Nu**, și nici nu se face configurabil. Vezi
+  [Decizii luate](#decizii-luate).
+- ~~Ce se întâmplă cu un copil care se înscrie la mijlocul unui modul?~~ Se facturează **pro-rata pe
+  ședințele rămase**, numărate din **calendarul modulului**, nu din prezența efectivă: ședințele
+  rămase se știu în ziua înscrierii, prezența abia la final, iar o factură care ar aștepta prezența
+  s-ar emite după ce s-a consumat tot ce facturează. Regula, cu rotunjirea și ordinea față de
+  reducerea de frați, se scrie în [E15](E15-pricing-facturare.md) — aici doar se reține că `Module`
+  trebuie să dea numărul de ședințe și data fiecăreia, altfel proporția nu se poate calcula.

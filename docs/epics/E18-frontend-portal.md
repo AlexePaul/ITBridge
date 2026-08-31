@@ -6,6 +6,34 @@
 imaginilor e rezolvată, pipeline-ul nu. **Rămân:** S4, S5, S6, S7, toate după autentificare sau în
 CI. S4 și S5 nu se pot demonstra până nu rulează un backend — vezi [E01](E01-infrastructura-medii.md), S4.
 
+> ## Cerut de școală: rescrierea întregii zone de după login
+>
+> **Tot ce e după autentificare arată prost și trebuie refăcut, nu peticit.** Nu e o observație
+> despre o pagină anume — e despre toate: cele **4 pagini de portal** și cele **32 de ecrane de
+> admin**, inclusiv cele adăugate recent (`/admin/approvals`, `/admin/formare`,
+> `/admin/invoices/emitere`).
+>
+> Motivul e vizibil cu ochiul liber: **paginile publice au fost rescrise pe sistemul din S1, cele
+> autentificate nu.** Publicul folosește `classical.css` — paletă proprie, scară tipografică,
+> spațiere. Zona autentificată folosește componentele Nuxt UI cu valorile implicite, iar `app.config.ts`
+> doar mapează `primary` și `neutral` peste ele. Rezultatul e că un părinte trece de la un site care
+> arată ca o școală serioasă la un panou care arată ca un instrument intern — exact în momentul în
+> care tocmai a plătit.
+>
+> Cele 28 de ecrane au fost construite în momente diferite, cu tipare diferite de tabel, filtrare,
+> formular, stare goală și mesaj de eroare. De aceea e **rescriere, nu retuș**: cât timp nu există un
+> tipar comun, fiecare ecran nou adaugă un al 29-lea dialect. Asta e S5, iar S4 e echivalentul pentru
+> portalul părintelui — ambele își păstrează conținutul, dar niciunul nu mai e „muncă viitoare
+> opțională".
+>
+> **Rămâne blocat de deploy, și asta nu s-a schimbat.** Un portal care nu poate fi nici testat pe
+> date reale, nici arătat cuiva, se rescrie degeaba — vezi [E01](E01-infrastructura-medii.md) S4. Ce
+> se schimbă e prioritatea: în ziua în care backend-ul rulează, S4 și S5 sunt primele, nu ultimele.
+>
+> **Ce se poate face înainte de deploy**, fiindcă nu cere un API care răspunde: tiparul de tabel, cel
+> de formular, stările de încărcare, gol și eroare, și mutarea zonei de admin pe aceleași jetoane ca
+> `classical.css`. Adică jumătatea de S5 care e despre componente, nu despre date.
+
 ## Problemă
 
 Frontend-ul funcționează, dar arată ca un proiect intern, iar obiectivul declarat e opusul: să se
@@ -74,7 +102,7 @@ centrală a acestui epic.
 **Acceptanță:** nicio culoare și nicio dimensiune de font scrise direct într-o componentă. —
 **Îndeplinită** pe paginile publice și pe componentele partajate.
 
-### S2 · Pipeline de imagini — livrat parțial
+### S2 · Pipeline de imagini — **LIVRAT**
 
 `@nuxt/image` instalat și folosit peste tot. Formate moderne, dimensiuni responsive, încărcare
 întârziată sub prima vizualizare, dimensiuni explicite ca să nu sară layout-ul. Fișierele `-old`
@@ -88,9 +116,28 @@ layout-ului sub 0.1.
 layout; `loading="lazy"` sub prima vizualizare; caruselul de pe prima pagină încarcă doar cadrul
 curent și vecinii lui.
 
-**Ce rămâne:** `@nuxt/image` nu e instalat, deci nu există nici `srcset`, nici WebP/AVIF, nici
-redimensionare la cerere. Cele zece JPEG-uri ar coborî la ~670KB la calitate echivalentă. Merită
-făcut împreună cu S5 din [E19](E19-seo-geo.md), nu separat.
+**Livrat.** `@nuxt/image` e instalat, iar cele patru locuri cu imagini folosesc `<NuxtPicture>`:
+`srcset` pe lățimile din `classical.css`, WebP cu JPEG ca rezervă, redimensionare la cerere.
+
+Măsurat pe cele nouă fotografii, la 620px — lățimea pe care o cere efectiv layout-ul:
+
+| | Total |
+| --- | --- |
+| Originale, servite brut | **1056 KB** |
+| JPEG redimensionat | 373 KB |
+| AVIF | 347 KB |
+| **WebP** | **239 KB** |
+
+**AVIF a fost măsurat și respins**, ceea ce e invers față de ce ai presupune. La calitatea asta e
+abia mai bun decât un JPEG redimensionat, iar pe o poză e chiar mai mare — encoder-ul AVIF din sharp,
+la efortul lui implicit, nu e bun aici. Cum browserul ia **primul** `<source>` care se potrivește,
+a-l pune pe AVIF înainte ar fi însemnat să servim tuturor varianta mai slabă. Dacă se reia, se
+măsoară întâi.
+
+Estimarea din story era ~670KB; rezultatul e 239KB, fiindcă cea mai mare parte a câștigului nu vine
+din format, ci din faptul că nu mai trimitem o poză de 1200px într-un slot de 620.
+
+Asta livrează și [E19](E19-seo-geo.md) S5, care era același lucru privit dinspre SEO.
 
 ### S3 · Paginile publice — livrat
 
@@ -119,8 +166,10 @@ date încă spun asta explicit, nu rămân goale.
 
 **Acceptanță:** un părinte cu doi copii comută între ei fără să se piardă.
 
-**Neînceput, și blocat.** Cele trei pagini vechi (`dashboard`, `profile`, `payments`) există
-neatinse, pe layout-ul `dashboard`, nerescrise pe sistemul din S1. Blocajul nu e de design, ci de
+**Neînceput, blocat, și cerut explicit de școală.** Cele trei pagini vechi (`dashboard`, `profile`,
+`payments`) există neatinse, pe layout-ul `dashboard`, nerescrise pe sistemul din S1 — iar contrastul
+cu paginile publice, care *au* fost rescrise, e primul lucru pe care îl vede un părinte după ce se
+autentifică. Blocajul nu e de design, ci de
 infrastructură: **backend-ul nu e deployat**, deci nimic din ce e după login nu vorbește cu un API
 care rulează. Un portal care nu poate fi nici testat pe date reale, nici arătat cuiva, se rescrie
 degeaba. Ordinea corectă e [E01](E01-infrastructura-medii.md) S4 înainte de S4 de aici.
@@ -129,11 +178,17 @@ Până atunci, paginile autentificate poartă `noindex, nofollow` din layout-ul 
 `/admin/` și `/user/` sunt excluse din `robots.txt` — deci starea lor neterminată nu ajunge în
 index și nu strică ce s-a câștigat în [E19](E19-seo-geo.md).
 
-### S5 · Uniformizarea zonei de admin — muncă viitoare
+### S5 · Uniformizarea zonei de admin — muncă viitoare, **cerută explicit**
 
 Un tipar unic de tabel — sortare, filtrare, paginare, acțiuni în masă, stare goală. Un tipar unic de
-formular, cu validare și erori. Toate cele 25 de pagini aliniate. Selectorul de locație din
+formular, cu validare și erori. Toate paginile aliniate. Selectorul de locație din
 [E08](E08-multi-locatie.md) integrat în antet.
+
+**Nu mai sunt 25 de pagini, ci 32**, iar numărul crește cu fiecare epic livrat: E11 a adăugat
+`/admin/approvals` și `/admin/formare`, E15 a adăugat `/admin/invoices/emitere`. Fiecare a fost
+construit cu tiparele pe care le-a găsit, adică fiecare a mai adăugat un dialect. **Costul crește cu
+întârzierea**, ceea ce e argumentul pentru care jumătatea de componente merită făcută înainte de
+deploy, nu după.
 
 **Acceptanță:** o pagină nouă de admin se construiește din componente existente, fără CSS nou.
 
@@ -160,11 +215,19 @@ neverificată deloc — se face odată cu S4 și S5.
 
 ### S7 · Interfața profesorului — muncă viitoare
 
-Ecranele din [E12](E12-prezenta-orar.md) și [E14](E14-proiecte-elevi.md) sunt folosite în picioare,
-într-o sală, de pe telefon. Ținte de atingere mari, contrast bun, funcționale pe conexiune slabă.
+Ecranul de marcare a prezenței din [E12](E12-prezenta-orar.md) S6 e folosit în picioare, într-o
+sală, de pe telefon. Ținte de atingere mari, contrast bun, funcțional pe conexiune slabă.
 
-**Acceptanță:** un profesor marchează prezența și încarcă un proiect de pe telefon, fără să
-mărească pagina.
+**Încărcarea unui proiect de pe telefon nu mai e pe listă.**
+[E14](E14-proiecte-elevi.md) a scos-o explicit din scop: fișierele intră prin agentul care
+oglindește un folder de rețea, iar profesorul doar salvează lucrarea acolo, din programul în care
+s-a lucrat. Nu există gest în interfață, deci nu există ecran de proiectat.
+
+Ce rămâne dinspre [E14](E14-proiecte-elevi.md) e revizia: lista documentelor noi pe grupă și butonul
+de trimitere din [E17](E17-comunicare-notificari.md) S8. Alea sunt **ecrane de admin, la birou** —
+se proiectează cu restul zonei de admin, nu după regulile de telefon de mai sus.
+
+**Acceptanță:** un profesor marchează prezența unei grupe de pe telefon, fără să mărească pagina.
 
 ## Dependențe
 
@@ -203,4 +266,7 @@ echilibrul dintre „e pentru copii” și „e o școală serioasă” descris 
 ## Întrebări deschise
 
 - Se aduce un designer, sau se merge pe un sistem existent adaptat?
-- Portalul e și aplicație instalabilă pe telefon? Ar ajuta la [E14](E14-proiecte-elevi.md).
+- Portalul e și aplicație instalabilă pe telefon? Nu pentru proiecte —
+  [E14](E14-proiecte-elevi.md) a evaluat varianta aplicației instalabile și a respins-o, fiindcă
+  adăuga un gest profesorului. Întrebarea rămâne pentru portalul părintelui: notificări și acces
+  rapid la orar, prezență și facturi.

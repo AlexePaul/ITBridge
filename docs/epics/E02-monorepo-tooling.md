@@ -7,6 +7,10 @@
 Repo-ul e un monorepo doar prin faptul că are două directoare unul lângă altul. Nu există
 workspace, nu există rădăcină, nu există unealtă de orchestrare.
 
+Căile de mai jos sunt cele de dinaintea acestui epic: `it-bridge-backend/` și
+`it-bridge-frontend/` au devenit `apps/api/` și `apps/web/` la mutare, iar directoarele vechi nu
+mai există în repo.
+
 Consecințele concrete:
 
 - **Două instalări separate.** `it-bridge-backend/package-lock.json` are 479KB,
