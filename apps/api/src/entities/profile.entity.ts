@@ -59,4 +59,21 @@ export class Profile {
 
     @OneToMany(() => Discount, (discount) => discount.parent)
     discounts: Discount[];
+
+    /**
+     * Whether the family agreed to hear from the school about anything other than their own
+     * business — E17/S4.
+     *
+     * **Defaults to false**, and that is a decision rather than a shrug: consent nobody gave is not
+     * consent, and a column defaulting to true would make the first newsletter the moment the
+     * school discovers whether it was allowed to send it. A parent turns it on from their own
+     * settings.
+     *
+     * It gates marketing and nothing else. Invoices, receipts, a cancelled class and the child's
+     * own work are the school performing its contract, and they are never on a checkbox — if they
+     * were, refusing marketing would cost a family the things they are owed, and the consent would
+     * stop being freely given, which would invalidate it for marketing too.
+     */
+    @Column({ type: 'boolean', default: false })
+    marketingOptIn: boolean;
 }

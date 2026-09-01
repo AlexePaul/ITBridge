@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, IsEmail, Length, IsPhoneNumber } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsPhoneNumber, IsString, Length } from 'class-validator';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 export class UpdateProfileDto {
@@ -37,4 +37,14 @@ export class UpdateProfileDto {
     @IsString()
     @Length(1, 255)
     address?: string;
+
+    /**
+     * Whether the family wants to hear from the school about anything beyond their own business —
+     * E17/S4. It gates marketing and nothing else: invoices, receipts, a called-off class and the
+     * child's own work never rest on it.
+     */
+    @ApiProperty({ example: true, required: false, description: 'Marketing only. Never gates transactional mail.' })
+    @IsOptional()
+    @IsBoolean()
+    marketingOptIn?: boolean;
 }

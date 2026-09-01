@@ -115,6 +115,28 @@ export class OutboxService {
      * schedulers waking at the same second would both see nothing and both insert.
      */
     /**
+     * Queues a marketing message, or declines to — E17/S4.
+     *
+     * Returns `null` when the family has not opted in, and writes **nothing**: a parent who said no
+     * and does not receive a newsletter is the system working, not a delivery that failed. That is
+     * the line between this and `queueOrRecord` — S5 insists a message with nowhere to go leaves a
+     * row precisely because somebody *should* have been reached and was not. Here nobody should
+     * have been. The caller counts what it skipped; the delivery record stays a record of things
+     * that went wrong.
+     *
+     * There is no marketing sender yet. This exists so the guarantee is enforced from the first one
+     * rather than retrofitted around it — which is the moment it would be got wrong.
+     */
+    async queueMarketing(
+        recipient: { email: string | null | undefined; marketingOptIn: boolean },
+        message: Omit<QueuedMessage, 'to'>,
+        manager?: EntityManager,
+    ) {
+        if (!recipient.marketingOptIn) return null;
+        return this.queueOrRecord(recipient, message, manager);
+    }
+
+    /**
      * Queues the message, or records that it had nowhere to go — E17/S5.
      *
      * The whole point: a family with no address **is not skipped in silence.** Callers used to
