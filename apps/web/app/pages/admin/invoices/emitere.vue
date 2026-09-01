@@ -36,71 +36,83 @@
         levels have to be visible at once. Flattening it to one row per child would hide which
         children share a bill, which is exactly what the sibling rate depends on.
       -->
-      <UCard v-for="family in families" :key="family.parentId" class="border">
-        <div class="flex items-start justify-between gap-4 mb-3">
-          <div>
-            <p class="font-semibold text-lg">{{ family.parentName }}</p>
-            <p v-if="family.email" class="text-sm text-muted">{{ family.email }}</p>
-          </div>
-          <div class="text-right shrink-0">
-            <UBadge v-if="family.alreadyInvoiced" color="neutral" variant="subtle">
-              Deja facturat
-            </UBadge>
-            <template
-              v-else-if="(totals.get(family.parentId) ?? 0) === 0 && familyComplete(family)"
-            >
-              <UBadge color="info" variant="subtle">Fără plată</UBadge>
-              <p class="text-xs text-muted mt-1">se consemnează, fără factură</p>
-            </template>
-            <p v-else class="font-bold text-lg tabular-nums">
-              {{ formatLei(totals.get(family.parentId) ?? 0) }}
-            </p>
-          </div>
-        </div>
+      <template v-for="family in families" :key="family.parentId">
+        <!-- Where one group's run begins. The counting is done per group — somebody opens the
+             Monday timetable, sees March had four sessions, and types 4 down the column — so the
+             screen shows where that column starts and ends. -->
+        <h2
+          v-if="groupHeadingFor(family)"
+          class="text-sm font-semibold text-muted uppercase tracking-wide pt-2"
+        >
+          {{ groupHeadingFor(family) }}
+        </h2>
 
-        <div class="space-y-2 pl-4 border-l-2 border-gray-200">
-          <div
-            v-for="child in family.children"
-            :key="child.childId"
-            class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4"
-          >
-            <div class="flex-1 min-w-0">
-              <p class="truncate">{{ child.childName }}</p>
-              <p class="text-sm text-muted truncate">
-                {{ child.groupName }}
-                <template v-if="child.weekday"> · {{ weekdayLabel(child.weekday) }}</template>
+        <UCard class="border">
+          <div class="flex items-start justify-between gap-4 mb-3">
+            <div>
+              <p class="font-semibold text-lg">{{ family.parentName }}</p>
+              <p v-if="family.email" class="text-sm text-muted">{{ family.email }}</p>
+            </div>
+            <div class="text-right shrink-0">
+              <UBadge v-if="family.alreadyInvoiced" color="neutral" variant="subtle">
+                Deja facturat
+              </UBadge>
+              <template
+                v-else-if="(totals.get(family.parentId) ?? 0) === 0 && familyComplete(family)"
+              >
+                <UBadge color="info" variant="subtle">Fără plată</UBadge>
+                <p class="text-xs text-muted mt-1">se consemnează, fără factură</p>
+              </template>
+              <p v-else class="font-bold text-lg tabular-nums">
+                {{ formatLei(totals.get(family.parentId) ?? 0) }}
               </p>
             </div>
-
-            <UInput
-              v-model="sessions[child.childId]"
-              type="number"
-              min="0"
-              inputmode="numeric"
-              :disabled="family.alreadyInvoiced"
-              :color="isBlank(child.childId) ? 'error' : undefined"
-              placeholder="ore"
-              class="w-24"
-              @focus="selectAll"
-            />
-
-            <p
-              class="text-sm w-44 shrink-0 tabular-nums"
-              :class="isBlank(child.childId) ? 'text-warning' : 'text-muted'"
-            >
-              <template v-if="family.alreadyInvoiced">—</template>
-              <template v-else-if="isBlank(child.childId)">completează</template>
-              <!-- Zero is a real answer, not a blank one: the child did not come, or the school
-                   chose not to charge. It is recorded either way. -->
-              <template v-else-if="countOf(child.childId) === 0">nu se taxează</template>
-              <template v-else>
-                × {{ formatLei(rateFor(family.parentId, child.childId)) }} =
-                {{ formatLei(lineTotal(family.parentId, child.childId)) }}
-              </template>
-            </p>
           </div>
-        </div>
-      </UCard>
+
+          <div class="space-y-2 pl-4 border-l-2 border-gray-200">
+            <div
+              v-for="child in family.children"
+              :key="child.childId"
+              class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4"
+            >
+              <div class="flex-1 min-w-0">
+                <p class="truncate">{{ child.childName }}</p>
+                <p class="text-sm text-muted truncate">
+                  {{ child.groupName }}
+                  <template v-if="child.weekday"> · {{ weekdayLabel(child.weekday) }}</template>
+                </p>
+              </div>
+
+              <UInput
+                v-model="sessions[child.childId]"
+                type="number"
+                min="0"
+                inputmode="numeric"
+                :disabled="family.alreadyInvoiced"
+                :color="isBlank(child.childId) ? 'error' : undefined"
+                placeholder="ore"
+                class="w-24"
+                @focus="selectAll"
+              />
+
+              <p
+                class="text-sm w-44 shrink-0 tabular-nums"
+                :class="isBlank(child.childId) ? 'text-warning' : 'text-muted'"
+              >
+                <template v-if="family.alreadyInvoiced">—</template>
+                <template v-else-if="isBlank(child.childId)">completează</template>
+                <!-- Zero is a real answer, not a blank one: the child did not come, or the school
+                   chose not to charge. It is recorded either way. -->
+                <template v-else-if="countOf(child.childId) === 0">nu se taxează</template>
+                <template v-else>
+                  × {{ formatLei(rateFor(family.parentId, child.childId)) }} =
+                  {{ formatLei(lineTotal(family.parentId, child.childId)) }}
+                </template>
+              </p>
+            </div>
+          </div>
+        </UCard>
+      </template>
     </template>
 
     <!-- Pinned, because the total is the thing that catches a wrong number: one bad group is
@@ -144,6 +156,7 @@ import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { getWeekdayName } from "~/composables/useUtils";
+import { orderByGroup, primaryGroupOf } from "~/composables/useInvoiceWorksheetOrder";
 import type { InvoiceWorksheetRow } from "~/types/invoice.types";
 
 /**
@@ -170,7 +183,25 @@ const SIBLING_PER_SESSION = 62.5;
 const { fetchWorksheet, issueInvoices } = useInvoiceApi();
 const { success, error: notifyError } = useNotifications();
 
-const families = ref<InvoiceWorksheetRow[]>([]);
+const rawFamilies = ref<InvoiceWorksheetRow[]>([]);
+
+/** By group, not alphabetically — see `useInvoiceWorksheetOrder` for why. */
+const families = computed(() => orderByGroup(rawFamilies.value));
+
+/** The heading, shown only on the first family of each group's run. */
+const groupHeadingFor = (family: InvoiceWorksheetRow): string | null => {
+  const index = families.value.indexOf(family);
+  const own = primaryGroupOf(family);
+  const previous = index > 0 ? primaryGroupOf(families.value[index - 1]!) : null;
+
+  const key = (group: ReturnType<typeof primaryGroupOf>) => (group ? `${group.groupId}` : "none");
+  if (index > 0 && key(own) === key(previous)) return null;
+
+  if (!own) return "Fără grupă";
+  return own.weekday
+    ? `${own.groupName} · ${weekdayLabel(own.weekday)}`
+    : (own.groupName ?? "Fără grupă");
+};
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 const sending = ref(false);
@@ -284,7 +315,7 @@ const load = async () => {
   loading.value = true;
   loadError.value = null;
   try {
-    families.value = (await fetchWorksheet(monthIssued.value)) ?? [];
+    rawFamilies.value = (await fetchWorksheet(monthIssued.value)) ?? [];
     for (const key of Object.keys(sessions)) delete sessions[Number(key)];
   } catch (err) {
     loadError.value = apiErrorMessage(err, "Nu am putut încărca lista de familii.");

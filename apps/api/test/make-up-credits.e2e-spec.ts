@@ -64,8 +64,14 @@ describe('Make-up credits (e2e)', () => {
             .expect(201);
         hostGroupId = host.body.id as number;
 
-        // The missed class is today; the host class is a few days out, inside the 30-day window.
-        missedSessionId = await createClassSession(dataSource, ownGroupId, { date: iso(0) });
+        // **Tomorrow, not today.** A credit is earned only from a notice that arrived before the
+        // class started, so a missed class dated today makes this whole suite depend on the hour
+        // CI happens to run at: before 16:00 Bucharest it passes, after it does not, and the
+        // failure looks like a bug in the credit machinery rather than in the fixture. A class in
+        // the future is always announceable in time. Marking a future class absent is allowed —
+        // the register refuses only cancelled sessions — and what is under test here is the
+        // credit, not when registers are taken.
+        missedSessionId = await createClassSession(dataSource, ownGroupId, { date: iso(1) });
         hostSessionId = await createClassSession(dataSource, hostGroupId, { date: iso(5) });
     });
 
