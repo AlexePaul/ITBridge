@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 62 livrate, 15 parțiale, 7 blocate, 4 scoase din scop,
-54 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **146 de story-uri** în 22 de epicuri: 62 livrate, 15 parțiale, 8 blocate, 4 scoase din scop,
+57 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -57,7 +57,7 @@ nu rulează nicăieri".
 - [~] S2 · Migrările în deploy — comenzile și garda de CI există; cablarea în deploy nu, fiindcă nu există deploy
 - [x] S3 · Seed pentru dezvoltare
 - [!] S4 · Backup și restaurare — așteaptă instanța
-- [ ] S5 · Retenție — **nu mai așteaptă contabilul**: documentul fiscal stă în SmartBill, noi ținem doar evidența. Rămâne politica pentru prezențe, proiecte și conturi inactive
+- [!] S5 · Retenție — **decis**: ștergere logică pe contul familiei, aplicată de admin la retragere; facturile n-au nevoie de politică, stau în SmartBill. Blocat de termenii din E22, fiindcă „când dispar efectiv datele" cere un termen scris undeva unde familia l-a văzut
 
 ### E05 · Robustețe backend — `livrat`
 
@@ -296,6 +296,16 @@ E12 (S3, S6), E16 (S5, S7 pe modelul nou de plată) și E17 (S2, S5).
 
 E11 e închis. Ce a rămas parțial din el — cerințele prealabile de modul la S6, disponibilitatea
 profesorilor la S7 — depinde de E10 și E09, nu de E11.
+
+### E22 · Termeni, confidențialitate și ciclul de viață al datelor — `propus`
+
+- [ ] S1 · Inventarul a ce se stochează, derivat din entități
+- [ ] S2 · Termenii contului și nota de confidențialitate — **condiția de ieșire a platformei**: fără ei nu se deschide accesul familiilor
+- [ ] S3 · Termenul de păstrare, și ștergerea care chiar șterge — perechea ștergerii logice din E04 S5
+- [ ] S4 · Evidența acceptărilor, versionată
+
+> Ultimul prin decizie: termenii descriu ce face platforma, deci se scriu după ce platforma nu-și
+> mai schimbă forma. Scris prea devreme, un asemenea document e o minciună întreținută.
 
 ---
 
