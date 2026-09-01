@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 58 livrate, 15 parțiale, 7 blocate, 4 scoase din scop,
-58 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **142 de story-uri** în 21 de epicuri: 59 livrate, 15 parțiale, 7 blocate, 4 scoase din scop,
+57 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -214,7 +214,7 @@ nu rulează nicăieri".
 - [x] S2 · Șabloane — implicitele în cod, editările în `mail_templates`; ecranul `/admin/emailuri` cu previzualizare pe draft; mesajele de cont din E11 S2 mutate pe `render()`, cu variantă HTML
 - [~] S3 · Coadă și reîncercare — parțial: outbox-ul e întreg, dar **nu rulează nicăieri** până la deploy. Îl folosesc acum patru apelanți: mementoul zilnic din E12 și cele trei mesaje de cont din E11 S2
 - [ ] S4 · Preferințe și dezabonare
-- [ ] S5 · Evidența livrărilor
+- [x] S5 · Evidența livrărilor — `GET /deliveries` + ecranul `/admin/livrari`; starea `undeliverable` cu motiv tipizat, deci un părinte fără adresă nu mai e sărit tăcut. Doar de citit, fără reîncercare manuală
 - [ ] S6 · Rezumate în loc de rafale
 - [ ] S7 · Anunțuri
 - [ ] S8 · Trimitere declanșată de admin
@@ -284,7 +284,6 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 | **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
 | **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an       |
 | **Tu**         | Două profiluri Google Business    | E19 S3, partea din afara site-ului                                                            |
-| **Tu**         | Ștergerea recordului `api.` din DNS | Nimic — dar e un record orfan către un IP EC2 străin. Vezi riscul din E01                    |
 | **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                 |
 | **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                        |
 

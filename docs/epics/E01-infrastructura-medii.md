@@ -195,9 +195,18 @@ servește pe un hostname care poartă numele școlii. Poate chiar obține un cer
 fiindcă validarea HTTP-01 cere doar să răspunzi pe acel nume — deci un site cu lacăt, pe domeniul
 școlii, către familiile care au încredere în el.
 
-**Se rezolvă ștergând recordul.** Nu ne trebuie până nu există backend, iar la S4 se creează din nou,
-către hostul real. E același tipar cu cheia Let's Encrypt de mai jos: infrastructură veche, moartă,
-care încă are un nume care arată spre ea.
+**Decizia patronului: recordul rămâne**, fiindcă subdomeniul revine oricum în ziua în care backendul
+se deployează, iar ștergerea lui acum ar fi urmată de recrearea lui peste puțin timp.
+
+Ce rămâne adevărat, ca să fie scris undeva și nu doar spus o dată: expunerea nu e **numele**, e
+faptul că un record **A** arată spre un IP pe care nu-l controlăm. Numele poate sta oricât; dacă
+cineva vrea și una și alta, varianta care le împacă e să rămână intenția și să plece adresa — fie
+ștergând doar recordul A până la deploy, fie mutându-l pe un IP al nostru. Până atunci riscul e cel
+descris mai sus și e asumat.
+
+**Când se face S4, primul pas e să se verifice unde arată recordul înainte să fie refolosit** — nu
+să se presupună că e liber. E același tipar cu cheia Let's Encrypt de mai jos: infrastructură veche,
+moartă, care încă are un nume care arată spre ea.
 
 **Postgres în producție e o decizie separată de Postgres local.** Docker local e comod. În
 producție, un Postgres gestionat costă mai mult dar rezolvă backup-urile și actualizările; unul
