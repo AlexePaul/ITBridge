@@ -173,20 +173,40 @@ conversie, fiindcă n-a intrat niciodată în pâlnie.
 **Acceptanță:** raportul răspunde la "ce canal aduce cele mai multe înscrieri, și la ce cost", și la
 "câți oameni am refuzat luna asta fiindcă erau grupele pline".
 
-### S5 · Recomandări
+### S5 · Recomandări — **redus prin decizie la o reducere dată de mână**
 
-Un părinte existent recomandă altul, cu legătură urmăribilă și beneficiu pentru amândoi — o reducere
-la modulul următor, de pildă, aplicată prin [E15](E15-pricing-facturare.md).
+Un părinte existent recomandă altul. Familia care a recomandat primește **următoarea factură la
+jumătate**. Atât.
 
 Într-o școală pentru copii, e cel mai ieftin și mai eficient canal, pentru că părinții vorbesc
-oricum între ei. Merită doar să fie sprijinit și măsurat.
+oricum între ei. Ce s-a hotărât e că merită **onorat**, nu automatizat.
 
-Legătura duce la programarea la probă din S2, nu la o înscriere — capătul public al pâlniei e același
-pentru toată lumea. Ce face recomandarea e să atașeze sursa lead-ului, ca beneficiul să poată fi
-aplicat mai târziu fără ca cineva să-și amintească cine pe cine a trimis.
+**Reducerea o acordă patronul, manual. Nu există cod de recomandare, nu există legătură de
+generat, nu există nimic de dat mai departe.** Vezi [Decizii luate](#decizii-luate) — mecanismul de
+atribuire, care era tot costul story-ului, a fost tăiat.
 
-**Acceptanță:** un părinte generează o legătură de recomandare din portal, iar beneficiul se aplică
-fără intervenție manuală în clipa în care adminul înscrie copilul recomandat.
+Ce a rămas din story, deci, e o linie de reducere pe factura următoare, cu numele „Recomandare".
+Ce a căzut: legătura generată din portal, urmărirea sursei pe lead, aplicarea automată la înscriere,
+și măsurarea canalului în pâlnia din S4 — recomandările nu vor apărea acolo ca sursă, fiindcă nimic
+nu le înregistrează ca atare.
+
+**Acceptanță:** patronul poate pune, pe factura unei familii, o reducere de 50% din total, numită
+„Recomandare", iar factura iese exact la jumătate.
+
+**Nelivrat, și blocat de un lucru mic:** `Discount.value` e o sumă absolută în lei, nu un procent —
+tipul procentual e [E15](E15-pricing-facturare.md) S5. Până atunci reducerea se poate da oricum, ca
+valoare absolută: ecranul de emitere arată totalul familiei, iar jumătatea lui se tastează de mână.
+Funcționează și e onest să scriem că funcționează; ce lipsește e ca regula „50%" să fie a
+platformei, nu a celui care socotește.
+
+**Ce nu s-a hotărât încă:** dacă primește ceva și familia nou-venită. Story-ul cerea inițial
+„beneficiu pentru amândoi"; decizia numește un singur beneficiu, al celui care recomandă. Rămâne o
+întrebare deschisă, nu o omisiune.
+
+**Care e „următoarea factură":** prima emisă familiei care a recomandat **după ce copilul recomandat
+chiar a început** — nu după probă. Proba e gratuită și poate să nu se transforme în înscriere, iar o
+reducere dată pe o probă care nu continuă e un cadou, nu o recomandare. Asta e o presupunere scrisă
+aici ca să fie contrazisă dacă e greșită, nu o regulă venită de la patron.
 
 ## Dependențe
 
@@ -242,6 +262,32 @@ locație.
 
 Se reia dacă volumul de mesaje ajunge să nu mai încapă într-un inbox, sau dacă cineva chiar
 întreabă care a rămas fără răspuns.
+
+**Recomandările se onorează, nu se automatizează: 50% la factura următoare, date de patron.**
+
+Un părinte care aduce altul primește următoarea factură la jumătate. Fără cod de recomandare, fără
+legătură de generat din portal, fără atribuire automată.
+
+Motivul e că **tot costul unui sistem de recomandări e mașinăria de atribuire**, nu beneficiul: coduri
+care trebuie generate, distribuite și verificate; legături care trebuie să supraviețuiască unui
+WhatsApp; reguli pentru cine ia beneficiul când doi părinți revendică aceeași familie; și o
+verificare împotriva părintelui care se recomandă singur cu a doua adresă de email. Asta e mașinărie
+care rezolvă problema atribuirii **la scară**.
+
+Școala nu e la scara aia și, mai important, nu are problema. Sunt sub o sută de familii și un om care
+le știe pe nume. Când vine o familie nouă, spune la telefon cine i-a trimis — pentru că așa vorbesc
+oamenii, nu pentru că i-ar cere cineva un cod. Atribuirea e deja rezolvată, de conversație, gratis și
+mai corect decât ar face-o orice link.
+
+Ce cumpărăm cu decizia asta: beneficiul există de mâine, ca linie pe o factură, în loc să existe
+peste un epic. Ce plătim, spus pe față: **canalul nu se măsoară.** Nu vom putea spune câte înscrieri
+au venit din recomandări, fiindcă nimic nu le marchează ca atare — S4 va număra o familie recomandată
+la fel ca una venită de pe Google. Se acceptă cât timp răspunsul la „de unde vin copiii" se poate da
+din memorie; se reia în ziua în care nu se mai poate.
+
+Regula concretă e **50% din totalul facturii**, nu 50% din tariful unui copil: reducerea e a familiei,
+la fel ca prețul, care numără frații împreună. Iar plafonul din [E15](E15-pricing-facturare.md) S5 —
+o reducere nu duce totalul sub zero — se aplică și aici, deși la 50% nu are cum să muște.
 
 **Înscrierea nu e self-service. Programarea la probă rămâne publică.**
 
