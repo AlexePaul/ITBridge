@@ -148,7 +148,7 @@ nu rulează nicăieri".
 - [x] S4 · Recuperări — `MakeUpCredit` câștigat din anunț-în-termen plus absență reală, 30 de zile valabilitate, programare din portal, consumat de marcaj. Compatibilitatea e banda de vârstă, fiindcă modulele din E10 nu există
 - [~] S5 · Anulări și mutări — anularea, reactivarea și acum **mutarea** (`PUT /class-sessions/:id/move`, cu calendarul școlar respectat și sala verificată de ciocniri); fără ecran, fără notificare
 - [~] S6 · Marcarea prezenței pe telefon — livrat fără poze (`Child` n-are câmp, e o decizie E07/E14): `/admin/attendance/azi`, salvare la fiecare apăsare, coadă locală pe rețea picată, buton „Sună părintele" la absență
-- [~] S7 · Notificări — livrat **altceva decât cere story-ul**: mementoul zilnic de la 10:00 către școală, cerut explicit. Notificările către părinți rămân nelivrate
+- [~] S7 · Notificări — mementoul zilnic către școală, **plus cele două către părinte**: absență neanunțată în aceeași zi, și recuperare care expiră, cu 7 zile înainte. Rămâne doar mementoul de la minutul 15 din story
 
 ### E13 · Progres, evaluare și feedback — `propus`
 

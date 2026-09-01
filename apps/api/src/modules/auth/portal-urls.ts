@@ -24,6 +24,11 @@ export function loginUrl(): string {
     return `${siteBase()}/auth/login`;
 }
 
+/** Where a parent goes to announce an absence or book a make-up. E12/S3 and S4. */
+export function absencesUrl(): string {
+    return `${siteBase()}/user/absente`;
+}
+
 /** The admin screen the internal "somebody is waiting" mail points at. */
 export function approvalsUrl(): string {
     return `${siteBase()}/admin/approvals`;
