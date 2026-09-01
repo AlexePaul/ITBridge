@@ -543,6 +543,8 @@ secunda de declanșare ar scrie un rând în `outbox` în mijlocul aserțiunilor
 logica de selecție se scrie ca metodă publică, iar cron-ul doar o cheamă — vezi
 `apps/api/src/modules/class-session/unmarked-attendance.job.ts`, care își face treaba în
 `reportFor(date)`. Testele cheamă metoda; ce testează cron-ul e ora, și aia nu se testează.
+**`@Interval` n-are obiect de opțiuni**, deci acolo garda se scrie ca prima linie a metodei —
+`if (process.env.NODE_ENV === 'test') return;` — vezi `OutboxDispatcher` și `LateRegisterJob`.
 
 **Mementoul zilnic de prezență pleacă la 10:00 pe fusul școlii, nu al serverului.** `@Cron` primește
 `timeZone: 'Europe/Bucharest'`, iar ziua raportată se calculează prin `Intl` pe același fus — altfel
@@ -552,15 +554,34 @@ implicit; e prinsă deja de wildcard-ul `MAIL_*` din `turbo.json`, deci nu-i tre
 Mesajul pleacă doar dacă există ședințe nemarcate, și e unul singur pe zi: `dedupeKey`-ul e
 `unmarked-attendance:<zi>`, deci o repornire la 10:05 nu trimite a doua oară.
 
+**Al doilea memento de prezență pleacă în timpul orei, și fereastra lui are două capete.**
+`late-register.job.ts` (E12 S7) verifică din 5 în 5 minute și alertează biroul pentru o ședință care
+a început acum cel puțin 15 minute și n-are nicio prezență marcată. Capătul de sus e cel care se
+uită ușor: fereastra **se închide când se termină ora**, fiindcă singurul motiv pentru care mesajul
+există e că un telefon mai poate schimba răspunsul. Fără el, un proces picat toată după-amiaza s-ar
+trezi trimițând o duzină de alerte despre ore terminate demult — iar ce ratează fereastra apare
+oricum a doua zi la 10:00. `dedupeKey`-ul e `late-register:<idSedinta>`: ședința rămâne în fereastră
+tot restul orei, deci fără el biroul ar primi același mesaj la fiecare tick. Ambele mementouri pun
+aceeași întrebare, `ClassSessionService.findUnmarkedSessions` — „nemarcat" n-are voie să însemne
+două lucruri în funcție de care email îl citești.
+
+**Orele se compară ca text, în ceasul școlii, niciodată ca instante.** `schoolLocalStamp(now)` și
+`sessionStartStamp(session)` din `apps/api/src/modules/attendance/absence-notice.rules.ts` dau
+amândouă `YYYY-MM-DDTHH:mm` pe `Europe/Bucharest`, iar comparația e `<` pe string-uri. Ședința ține
+o dată locală și un `HH:mm:ss` local, deci orice comparație cu un instant UTC e capcana de o zi de
+mai jos, cu altă față. Când ai nevoie de „acum minus 15 minute", **mută instantul și apoi
+formatează** — nu scădea din text.
+
 **Scheduler-ul trebuie să ruleze într-o singură instanță.** `FOR UPDATE SKIP LOCKED` face două
 treceri simultane inofensive una față de alta, dar doi worker-i PM2 s-ar trezi amândoi la fiecare
 tick. Fixarea se face în fișierul de ecosistem din E01 S4, care nu există încă.
 
 **Orizontul de opt săptămâni nu se rulează singur.** Ședințele se scriu doar la cerere, prin
-`POST /class-sessions/generate` (admin); nu există niciun job care să le scrie. Tot ce e programat
-în backend sunt trei lucruri, și niciunul nu generează orar: dispecerul de outbox (`@Interval`),
-mementoul de la 10:00 (`@Cron`) și purjarea sesiunilor, care stă în continuare pe un `setInterval`
-propriu în `apps/api/src/modules/auth/session.service.ts`. Iar prezența se marchează pe
+`POST /class-sessions/generate` (admin); nu există niciun job care să le scrie. Ce e programat în
+backend — dispecerul de outbox și verificarea de la minutul 15 (`@Interval`), mementoul de la 10:00
+și cele două notificări către părinte (`@Cron`), plus purjarea sesiunilor, care stă în continuare pe
+un `setInterval` propriu în `apps/api/src/modules/auth/session.service.ts` — **nu generează orar**,
+niciunul. Iar prezența se marchează pe
 `POST /attendance/session/:classSessionId`, deci fără ședință generată marcarea răspunde 404 și
 ecranul n-are ce afișa. Generarea e idempotentă pe `(group, date)` și lasă neatins ce există deja,
 indiferent de stare — se poate chema oricând și de oricâte ori, iar o a doua rulare nu învie o
