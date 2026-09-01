@@ -30,6 +30,7 @@ import type { Payment } from './entities/payment.entity';
 import type { PaymentMethod } from './enum/payment-method.enum';
 import type { PaymentStatus } from './enum/payment-status.enum';
 import type { Discount } from './entities/discount.entity';
+import type { DiscountType } from './enum/discount-type.enum';
 import type { Project } from './entities/project.entity';
 import type { ProjectVersion } from './entities/project-version.entity';
 import type { ProjectFile } from './entities/project-file.entity';
@@ -154,6 +155,10 @@ type _PaymentMethodBack = Check<`${PaymentMethod}`, Wire.PaymentMethod>;
 type _PaymentStatus = Check<Wire.PaymentStatus, `${PaymentStatus}`>;
 type _PaymentStatusBack = Check<`${PaymentStatus}`, Wire.PaymentStatus>;
 type _Discount = Check<Pick<Wire.Discount, 'id' | 'name' | 'value' | 'monthIssued'>, Pick<Serialized<Discount>, 'id' | 'name' | 'value' | 'monthIssued'>>;
+// Through `${Enum}`, like the other literal unions: an enum is nominal, so neither direction of
+// `extends` holds between it and the strings it puts on the wire.
+type _DiscountType = Check<Wire.DiscountType, `${DiscountType}`>;
+type _DiscountTypeBack = Check<`${DiscountType}`, Wire.DiscountType>;
 
 // `OutboxMessage` has no entry here on purpose: nothing serves it. It is an internal queue, drained
 // by a scheduler, and E17/S3 is explicit that the operation which queues a message does not wait

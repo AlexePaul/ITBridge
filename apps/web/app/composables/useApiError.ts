@@ -106,6 +106,10 @@ const MESSAGES: Record<string, string> = {
   PROJECT_FILE_NOT_DIRECT_UPLOADABLE: "Doar fișierele video se încarcă direct în stocare.",
   PROJECT_CONTENT_HASH_MISMATCH: "Fișierul nu corespunde cu suma de control trimisă.",
 
+  // E15/S5. A percentage past 100 would take the invoice below zero, where the floor in pricing.ts
+  // silently clamps it — so the only visible symptom would be a month that cost nothing.
+  DISCOUNT_PERCENT_OVER_100: "O reducere procentuală nu poate depăși 100%.",
+
   // E16/S1. Money against a month the school chose not to charge for — the row picked is wrong.
   INVOICE_WAIVED: "Factura este anulată (0 lei) — nu se pot înregistra plăți pe ea.",
 

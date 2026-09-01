@@ -1,3 +1,5 @@
+import { DiscountType } from 'src/enum/discount-type.enum';
+
 /**
  * The monthly price of a family, in one place.
  *
@@ -81,6 +83,38 @@ export function roundToBani(value: number): number {
     return Math.round(value * 100) / 100;
 }
 
+/** Enough of a `Discount` to price it. Keeps this module free of the entity and of TypeORM. */
+export interface PricedDiscount {
+    type: DiscountType;
+    value: number;
+}
+
+/**
+ * What a set of discounts takes off a list price — E15/S5.
+ *
+ * **Every percentage is of the list price**, never of a running total, so the order the discounts
+ * happen to come back from the database in cannot change the invoice. That is the same property
+ * `amountForSessions` buys by sorting, and for the same reason: an amount that depends on row order
+ * is an amount nobody can check.
+ *
+ * The consequence, stated because it is a choice and not an accident: two 50% discounts take the
+ * invoice to zero rather than to a quarter. That is the reading anybody would expect from "half off
+ * and half off again", and the alternative — compounding — quietly makes a discount worth less than
+ * its name says.
+ *
+ * **The discount is rounded here, not at the end.** 25% of 262.50 is 65.625, which no invoice can
+ * hold; rounding it to 65.63 and letting the total follow gives 196.87, an arithmetic a parent can
+ * check on paper. Rounding only the total would print a 65.63 line beside a 196.88 total, and those
+ * two do not add up — which is the same principle as `roundToBani` itself, applied one step earlier.
+ */
+export function discountTotal(listPrice: number, discounts: PricedDiscount[]): number {
+    let off = 0;
+    for (const discount of discounts) {
+        off += discount.type === DiscountType.PERCENT ? (listPrice * discount.value) / 100 : discount.value;
+    }
+    return roundToBani(off);
+}
+
 /**
  * The list price with discounts applied, floored at zero.
  *
@@ -89,13 +123,13 @@ export function roundToBani(value: number): number {
  * to issue and which no downstream code expects. A discount larger than the invoice is capped and
  * the surplus is simply lost, because carrying it forward would be a decision nobody has made.
  */
-export function amountAfterDiscounts(childCount: number, discountValues: number[]): number {
-    const total = discountValues.reduce((left, value) => left - value, monthlyAmountFor(childCount));
-    return Math.max(0, total);
+export function amountAfterDiscounts(childCount: number, discounts: PricedDiscount[]): number {
+    const list = monthlyAmountFor(childCount);
+    return roundToBani(Math.max(0, list - discountTotal(list, discounts)));
 }
 
 /** The session-based amount with the month's discounts taken off, floored at zero for the same reason. */
-export function sessionAmountAfterDiscounts(sessionsPerChild: number[], discountValues: number[]): number {
-    const total = discountValues.reduce((left, value) => left - value, amountForSessions(sessionsPerChild));
-    return roundToBani(Math.max(0, total));
+export function sessionAmountAfterDiscounts(sessionsPerChild: number[], discounts: PricedDiscount[]): number {
+    const list = amountForSessions(sessionsPerChild);
+    return roundToBani(Math.max(0, list - discountTotal(list, discounts)));
 }

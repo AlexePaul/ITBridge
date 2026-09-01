@@ -166,6 +166,7 @@ const navigationItems = computed(() => {
     { label: "Facturi", to: "/admin/invoices", icon: "i-lucide-notebook-pen" },
     { label: "Emitere facturi", to: "/admin/invoices/emitere", icon: "i-lucide-file-plus" },
     { label: "Plăți", to: "/admin/payments", icon: "i-lucide-wallet" },
+    { label: "Reduceri", to: "/admin/reduceri", icon: "i-lucide-percent" },
     { label: "Șabloane de email", to: "/admin/emailuri", icon: "i-lucide-mail" },
   ];
 
