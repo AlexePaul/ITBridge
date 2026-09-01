@@ -150,10 +150,7 @@ describe('Absence notices (e2e)', () => {
         it('the announcement reaches the register, with the reason and whether it was in time', async () => {
             await announce(ana, { reason: 'Răcit, îl ținem acasă' }).expect(201);
 
-            const register = await request(app.getHttpServer())
-                .get(`/attendance/session/${sessionId}/register`)
-                .set('Authorization', admin.auth)
-                .expect(200);
+            const register = await request(app.getHttpServer()).get(`/attendance/session/${sessionId}/register`).set('Authorization', admin.auth).expect(200);
 
             const anaRow = register.body.entries.find((entry: { childId: number }) => entry.childId === anaChildId);
             expect(anaRow.announcedAbsence).toEqual({ reason: 'Răcit, îl ținem acasă', inTime: true });
