@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 59 livrate, 15 parțiale, 7 blocate, 4 scoase din scop,
-57 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **142 de story-uri** în 21 de epicuri: 60 livrate, 15 parțiale, 7 blocate, 4 scoase din scop,
+56 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -186,7 +186,7 @@ nu rulează nicăieri".
 - [~] S5 · Reduceri cu tip — **tipul livrat** (`fixed`/`percent`, plafon 100%, ecranul `/admin/reduceri`); scopul, condițiile și valabilitatea nu s-au construit, fiindcă n-au niciun client
 - [ ] S6 · Previzualizare și emitere în masă
 - [ ] S7 · PDF-ul nu se mai generează local
-- [ ] S8 · Înscrierea la mijlocul unui modul — pro-rata pe ședințele rămase
+- [x] S8 · Înscrierea la mijlocul unui modul — **rezolvat de modelul pe ședință**, nu de cod: cine intră pe 15 are mai puține ședințe în lună. Livrat aici: ecranul de emitere sortează familiile pe grupe, cum se și numără
 
 > **Bug-uri în modelul folosit azi**, în `apps/api/src/modules/invoice/invoice.service.ts`:
 > la doi copii calculează 500 în loc de 600; la trei sau mai mulți nu există ramură, deci factura
