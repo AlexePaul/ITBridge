@@ -227,6 +227,21 @@ model, nu prin verificare ulterioară.
 
 **Acceptanță:** o reducere de 200% e respinsă. Cumulul de reduceri nu produce sume negative.
 
+**Are acum un client concret, și e singurul de care se știe:** recomandarea din
+[E20](E20-achizitie-lead.md) S5 — **50% din totalul facturii**, dată de mână de patron familiei care
+a adus alta. Tipul procentual încetează astfel să fie o generalizare pusă la păstrare și devine
+lucrul care lipsește ca „50%" să fie o regulă a platformei, nu o socoteală a celui care emite.
+
+Până atunci reducerea se dă ca valoare absolută — ecranul de emitere arată totalul, iar jumătatea se
+tastează. Merge; ce se pierde e că nimic nu mai știe *de ce* suma aia, deci nici nu o poate reface
+luna următoare sau verifica dacă e corectă.
+
+Două note pentru când se construiește tipul: procentul se aplică pe **totalul familiei**, nu pe
+tariful unui copil, fiindcă și prețul e pe familie (frații se numără împreună); iar `Discount.value`
+e azi `decimal` în lei, deci coloana de tip decide cum se citește valoarea — un `50` înseamnă
+cincizeci de lei sau cincizeci la sută după cum spune tipul, și asta e exact genul de ambiguitate
+care cere migrare, nu doar o coloană nouă.
+
 ### S6 · Previzualizare și emitere în masă
 
 `POST /invoices/preview` există deja. Se extinde: adminul vede toate facturile care ar fi emise
