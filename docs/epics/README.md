@@ -149,6 +149,7 @@ Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane”.
 | [E19](E19-seo-geo.md)                 | SEO, GEO și conținut                              | Public     | E08, E18                | —      |
 | [E20](E20-achizitie-lead.md)          | Achiziție, lecții de probă și lead management     | Public     | E17, E18                | **da** |
 | [E21](E21-raportare-analytics.md)     | Raportare și analytics                            | Business   | E12, E15, E16           | —      |
+| [E22](E22-termeni-si-date.md)         | Termeni, confidențialitate și ciclul de viață al datelor | Fundație | toate            | **da** |
 
 ## Harta dependențelor
 
@@ -193,7 +194,13 @@ graph TD
   E12 --> E21[E21 Raportare]
   E15 --> E21
   E16 --> E21
+  E21 --> E22[E22 Termeni & date]
 ```
+
+E22 atârnă de toate, iar săgeata din E21 e doar ultima dintre ele — desenată așa fiindcă un nod cu
+douăzeci și una de muchii intrânde nu mai spune nimic. Motivul e la fel de simplu pe cât e de
+important: termenii descriu ce face platforma, deci se scriu după ce platforma nu-și mai schimbă
+forma.
 
 Muchiile care pleacă din E17 către E11, E12 și E16 sunt mai slabe decât restul și de aceea nu apar
 în coloana „Depinde de” din tabel: epicurile alea se pot construi și livra fără canal de
@@ -276,6 +283,10 @@ S7 — confirmarea de plată și mementoul de restanță — cer același canal,
 el, deci nu produc decalajul care apare la E11 și E12.
 
 **Val 5 — creștere și măsurare.** E20, E21, E13.
+
+**Val 6 — ce se scrie la sfârșit.** [E22](E22-termeni-si-date.md), singur. Nu blochează nimic din
+construcție și de asta e ultimul; condiția de ieșire e însă tare, și e scrisă în epic: **nu se
+deschide accesul familiilor la platformă fără termenii din S2.**
 
 E06 și E07 se pot strecura oriunde după val 1, și cu cât mai devreme cu atât mai bine.
 
