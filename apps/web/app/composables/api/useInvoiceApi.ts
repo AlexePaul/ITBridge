@@ -1,3 +1,4 @@
+import type { ArrearsRow } from "~/types/arrears.types";
 import type { Invoice, InvoiceWorksheetRow, IssueInvoicesResult } from "~/types/invoice.types";
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
@@ -96,7 +97,15 @@ export const useInvoiceApi = () => {
       body: payload,
     });
 
+  /** Who has not paid, oldest debt first — E16/S7. Admin only. */
+  const fetchArrears = async () =>
+    api<ArrearsRow[]>("/invoices/arrears", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
   return {
+    fetchArrears,
     fetchWorksheet,
     issueInvoices,
     getInvoices,

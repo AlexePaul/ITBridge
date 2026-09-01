@@ -10,6 +10,9 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { JwtModule } from '@nestjs/jwt/dist/jwt.module';
 import { PdfService } from './pdf.service';
 import { Discount } from 'src/entities/discount.entity';
+import { ArrearsService } from './arrears.service';
+import { ArrearsJob } from './arrears.job';
+import { MailModule } from 'src/modules/mail/mail.module';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { StorageModule } from 'src/modules/storage/storage.module';
 
@@ -19,8 +22,8 @@ import { StorageModule } from 'src/modules/storage/storage.module';
     //
     // `StorageModule` because `S3Service` is no longer only about invoices — E14 stores children's
     // project files through the same client.
-    imports: [TypeOrmModule.forFeature([Invoice, Payment, Profile, Discount, Enrollment]), JwtModule.register({}), StorageModule],
+    imports: [TypeOrmModule.forFeature([Invoice, Payment, Profile, Discount, Enrollment]), JwtModule.register({}), StorageModule, MailModule],
     controllers: [InvoiceController],
-    providers: [InvoiceService, PdfService, AuthGuard, RolesGuard],
+    providers: [InvoiceService, PdfService, ArrearsService, ArrearsJob, AuthGuard, RolesGuard],
 })
 export class InvoiceModule {}

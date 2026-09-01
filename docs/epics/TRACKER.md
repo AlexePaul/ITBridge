@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 60 livrate, 16 parțiale, 7 blocate, 4 scoase din scop,
-55 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **142 de story-uri** în 21 de epicuri: 61 livrate, 16 parțiale, 7 blocate, 4 scoase din scop,
+54 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -201,7 +201,7 @@ nu rulează nicăieri".
 - ~~S4 · Plata cu cardul în portal~~ — amânată; se încasează prin transfer sau numerar
 - [ ] S5 · Încasările: numerar și transfer bancar
 - [ ] S6 · Chitanțe și confirmări
-- [ ] S7 · Restanțe
+- [x] S7 · Restanțe — ecranul `/admin/restante` cu vechime, job zilnic care marchează și scrie (3 zile înainte, apoi săptămânal, tăcere după 60), termen de 14 zile derivat din data emiterii. Fără grupare pe locație: o familie poate avea copii la ambele adrese
 - [ ] S8 · Reconciliere și verificare
 
 ---
