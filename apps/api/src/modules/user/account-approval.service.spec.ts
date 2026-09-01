@@ -30,7 +30,7 @@ describe('AccountApprovalService', () => {
     beforeEach(async () => {
         userRepo = createMockRepository();
         profileRepo = createMockRepository();
-        outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }) };
+        outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }), queueOrRecord: jest.fn().mockResolvedValue({ id: 1 }) };
         manager = createMockEntityManager();
 
         profileRepo.findOne!.mockResolvedValue({ id: 4, firstName: 'Ana', email: 'ana@example.com' });
@@ -113,7 +113,7 @@ describe('AccountApprovalService', () => {
 
             await service.approve(7);
 
-            expect(outbox.queue).toHaveBeenCalledWith(expect.objectContaining({ to: 'ana@example.com' }), manager);
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith(expect.objectContaining({ email: 'ana@example.com' }), expect.anything(), manager);
         });
 
         it('is idempotent: a second admin clicking approve is told, not refused', async () => {
@@ -124,14 +124,17 @@ describe('AccountApprovalService', () => {
             expect(outbox.queue).not.toHaveBeenCalled();
         });
 
-        it('approves a family that has no email address, sending nothing', async () => {
+        it('approves a family with no address, and records that the message went nowhere', async () => {
             userRepo.findOne!.mockResolvedValue(pendingParent);
             profileRepo.findOne!.mockResolvedValue({ id: 4, firstName: 'Ana', email: null });
 
             await service.approve(7);
 
             expect(manager.update).toHaveBeenCalled();
-            expect(outbox.queue).not.toHaveBeenCalled();
+            // E17/S5 changed this from "sends nothing" to "records that it could not": the outbox
+            // is handed the recipient either way, and writes an `undeliverable` row when there is
+            // no address. Skipping quietly put the fact in a log nobody reads.
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null }, expect.anything(), manager);
         });
 
         it('refuses to approve an admin account', async () => {
@@ -168,7 +171,7 @@ describe('AccountApprovalService', () => {
 
             // The reason is a note one admin leaves another. Sending it would either leak internal
             // shorthand or make every admin word each note as if a parent would read it.
-            const [message] = outbox.queue.mock.calls[0] as [{ bodyText: string; subject: string }];
+            const [, message] = outbox.queueOrRecord.mock.calls[0] as [unknown, { bodyText: string; subject: string }];
             expect(message.bodyText).not.toContain('cont de test');
             expect(message.subject).not.toContain('cont de test');
         });

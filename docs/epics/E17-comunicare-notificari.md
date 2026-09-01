@@ -337,6 +337,39 @@ profilul completat pe jumătate, și `adresă neconfirmată`, la contul înregis
 confirmare nu a fost apăsat. Arată la fel în listă — un părinte care nu a primit — dar se rezolvă
 diferit: primul cere un telefon, al doilea o retrimitere a linkului.
 
+**Livrat.** `GET /deliveries` și `/deliveries/summary`, plus ecranul `/admin/livrari`: ce a plecat,
+ce n-a plecat și de ce, filtrabil pe stare, pe destinatar (potrivire slabă — adminul își amintește
+un nume, nu o adresă) și pe interval. Corpul mesajului vine cu rândul, fiindcă cine întreabă dacă o
+familie a fost anunțată vrea să vadă **ce** i s-ar fi spus.
+
+**Ce s-a schimbat de fapt e că nimeni nu mai e sărit tăcut.** Expeditorii se ramificau pe
+`if (profile.email)` și scriau un avertisment pe cealaltă ramură — adică puneau faptul într-un log
+pe care nu-l citește nimeni, iar „părintele n-a fost anunțat" arăta exact ca o coadă blocată.
+`OutboxService.queueOrRecord` primește acum destinatarul, oricare ar fi el, și scrie un rând
+`undeliverable` când n-are unde trimite. Rândul păstrează corpul; adresa rămâne **goală**, nu
+completată cu un substitut, fiindcă o adresă inventată ar fi imposibil de deosebit de una reală care
+a respins mesajul.
+
+`undeliverable` e terminal și nu e revendicat niciodată de dispecer, a cărui interogare cere
+`pending`: **niciun backoff nu face să apară o adresă.**
+
+**Cele două motive sunt o coloană tipizată, nu text liber în `lastError`**, fiindcă ecranul se
+ramifică pe ele: `no_address` cere un telefon, `unconfirmed_address` cere retrimiterea linkului.
+Arată identic într-o listă și se rezolvă altfel — exact de asta o singură valoare n-ar fi ajuns.
+
+**O duplicare de vocabular, scrisă ca să nu fie descoperită:** raportul de trimitere din
+[E14](E14-proiecte-elevi.md) S4 numește aceleași două cazuri `no_email` și `email_unconfirmed`.
+Cuvintele de aici sunt cele din story — „fără adresă" și „adresă neconfirmată" — și sunt cele
+canonice; tipul de pe sârmă se cheamă `DeliveryFailureReason` tocmai fiindcă `UndeliverableReason`
+era deja luat de E14. Raportul lui își păstrează vocabularul până îl atinge cineva. Ce s-a reparat
+acum e că trimiterea de proiecte **scrie și în evidență**, nu doar în raportul de pe ecran: raportul
+răspunde adminului care stă în fața ecranului, rândul din outbox răspunde întrebării puse peste trei
+săptămâni.
+
+**Evidența e doar de citit.** Nimic de aici nu reîncearcă, nu șterge și nu editează un mesaj. O
+reîncercare declanșată de om e altă decizie — ar trebui să răspundă la „și dacă totuși a fost
+livrat?" — iar story-ul cere evidența, nu comenzile.
+
 **Starea trăiește și pe document, nu doar pe mesaj.** Documentele din
 [E14](E14-proiecte-elevi.md) sosesc pe grupă, iar adminul se uită la ele înainte să apese butonul din
 S8 — deci fiecare document are trei stări vizibile în lista grupei: **nou** (urcat, netrimis),

@@ -28,6 +28,7 @@ function makeMessage(overrides: Partial<OutboxMessage> = {}): OutboxMessage {
         bodyText: 'Salut,',
         bodyHtml: null,
         status: OutboxStatus.PENDING,
+        undeliverableReason: null,
         attempts: 0,
         nextAttemptAt: new Date('2026-03-02T09:00:00.000Z'),
         lastError: null,
@@ -383,6 +384,71 @@ describe('OutboxService', () => {
                 elapsed += backoffFrom(now, attempt).getTime() - now.getTime();
             }
             expect(elapsed).toBeGreaterThan(60 * MINUTE);
+        });
+    });
+
+    describe('queueOrRecord — E17/S5', () => {
+        /** The insert builder the service writes through, plus what it was handed. */
+        const captureInsert = () => {
+            const values: Record<string, unknown>[] = [];
+            const qb: Record<string, jest.Mock> = {};
+            for (const method of ['insert', 'into', 'orIgnore', 'returning']) qb[method] = jest.fn(() => qb);
+            qb.values = jest.fn((v: Record<string, unknown>) => {
+                values.push(v);
+                return qb;
+            });
+            qb.execute = jest.fn().mockResolvedValue({ raw: [{ id: 1 }] });
+            outboxRepo.createQueryBuilder!.mockReturnValue(qb);
+            return values;
+        };
+
+        it('queues normally when there is a confirmed address', async () => {
+            const values = captureInsert();
+
+            await service.queueOrRecord({ email: 'ana@example.com', confirmed: true }, { subject: 'S', bodyText: 'B' });
+
+            expect(values[0]).toMatchObject({ to: 'ana@example.com' });
+            // The ordinary path names no status, so the column default decides — one place saying
+            // what a fresh message is.
+            expect(values[0]).not.toHaveProperty('status');
+        });
+
+        it('records a family with no address as undeliverable rather than skipping it', async () => {
+            const values = captureInsert();
+
+            await service.queueOrRecord({ email: null }, { subject: 'Factura pe martie', bodyText: 'B' });
+
+            // The row is the whole point: a warning in a log is not a record anybody reads, and
+            // "the parent was never told" then looks exactly like a queue that is stuck.
+            expect(values[0]).toMatchObject({ status: OutboxStatus.UNDELIVERABLE, undeliverableReason: 'no_address' });
+            // The body is kept, so an admin can see what the family did not get.
+            expect(values[0].subject).toBe('Factura pe martie');
+        });
+
+        it('leaves the address empty rather than inventing a placeholder', async () => {
+            const values = captureInsert();
+            await service.queueOrRecord({ email: undefined }, { subject: 'S', bodyText: 'B' });
+            // A fake address here would be indistinguishable from a real one that bounced.
+            expect(values[0].to).toBe('');
+        });
+
+        it('distinguishes an unconfirmed address, and keeps it', async () => {
+            const values = captureInsert();
+
+            await service.queueOrRecord({ email: 'ana@example.com', confirmed: false }, { subject: 'S', bodyText: 'B' });
+
+            // Two reasons, not one: this needs the link sent again, the other needs a phone call.
+            expect(values[0]).toMatchObject({
+                status: OutboxStatus.UNDELIVERABLE,
+                undeliverableReason: 'unconfirmed_address',
+                to: 'ana@example.com',
+            });
+        });
+
+        it('treats an unstated confirmation as fine — most callers know nothing about it', async () => {
+            const values = captureInsert();
+            await service.queueOrRecord({ email: 'ana@example.com' }, { subject: 'S', bodyText: 'B' });
+            expect(values[0]).not.toHaveProperty('undeliverableReason');
         });
     });
 });

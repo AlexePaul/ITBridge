@@ -514,6 +514,14 @@ mesajelor către părinți. Amândouă sunt opționale: fără ele aplicația po
 `outbox` cu motivul scris în `lastError`. `MAIL_OUTBOX_ENABLED=false` oprește doar scheduler-ul;
 testele de integrare îl setează, ca o trecere de fundal să nu miște rândurile sub aserțiuni.
 
+**Un mesaj care n-are unde să plece lasă un rând, nu o linie de log** (E17 S5). `queueOrRecord` din
+`OutboxService` primește destinatarul oricare ar fi el și scrie `undeliverable` cu motiv tipizat
+(`no_address` / `unconfirmed_address`) când n-are adresă — starea e terminală și dispecerul n-o
+revendică niciodată, fiindcă niciun backoff nu face să apară o adresă. Nu te ramifica pe
+`if (profile.email)` înainte de coadă: exact aia punea faptul într-un log pe care nu-l citește
+nimeni, iar „părintele n-a fost anunțat" arăta ca o coadă blocată. Adresa rămâne goală pe rândul
+nelivrabil — una inventată n-ar putea fi deosebită de una reală care a respins mesajul.
+
 **Job-urile cu cron sunt oprite sub `NODE_ENV=test`, prin `disabled` pe decorator.** Jest setează
 variabila singur, iar ambele suite construiesc `AppModule`-ul real: o rulare care prinde exact
 secunda de declanșare ar scrie un rând în `outbox` în mijlocul aserțiunilor altcuiva, o dată pe an

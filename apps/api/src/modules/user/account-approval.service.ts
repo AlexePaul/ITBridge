@@ -113,15 +113,16 @@ export class AccountApprovalService {
         await this.dataSource.transaction(async (manager) => {
             await manager.update(User, { id: userId }, { approvalStatus: ApprovalStatus.APPROVED, approvalDecidedAt: now, rejectionReason: null });
 
-            if (profile?.email) {
-                const mail = await this.mailTemplates.render('account-approved', { firstName: profile.firstName, portalUrl: loginUrl() });
-                await this.outbox.queue({ to: profile.email, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined }, manager);
-            } else {
-                // A family typed in from a phone call has no address yet. Nothing to send, and
-                // nothing broken — but worth a line, because "the parent was never told" is
-                // otherwise indistinguishable from a queue that is stuck.
-                this.logger.warn(`Approved user ${userId}, who has no email address on file; no notification sent.`);
-            }
+            // E17/S5: a family with no address is **recorded as undeliverable**, not skipped. The
+            // branch that used to live here logged a warning and moved on, which put the fact
+            // somewhere nobody reads — and "the parent was never told" then looked exactly like a
+            // queue that is stuck.
+            const mail = await this.mailTemplates.render('account-approved', { firstName: profile?.firstName ?? '', portalUrl: loginUrl() });
+            await this.outbox.queueOrRecord(
+                { email: profile?.email },
+                { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined },
+                manager,
+            );
         });
 
         this.logger.log(`User ${userId} approved.`);
@@ -156,10 +157,12 @@ export class AccountApprovalService {
         await this.dataSource.transaction(async (manager) => {
             await manager.update(User, { id: userId }, { approvalStatus: ApprovalStatus.REJECTED, approvalDecidedAt: now, rejectionReason: reason ?? null });
 
-            if (profile?.email) {
-                const mail = await this.mailTemplates.render('account-rejected', { firstName: profile.firstName, officeEmail: this.office });
-                await this.outbox.queue({ to: profile.email, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined }, manager);
-            }
+            const mail = await this.mailTemplates.render('account-rejected', { firstName: profile?.firstName ?? '', officeEmail: this.office });
+            await this.outbox.queueOrRecord(
+                { email: profile?.email },
+                { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined },
+                manager,
+            );
         });
 
         this.logger.log(`User ${userId} rejected.`);

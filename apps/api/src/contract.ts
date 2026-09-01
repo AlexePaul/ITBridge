@@ -47,6 +47,9 @@ import type { WaitlistStatus } from './enum/waitlist-status.enum';
 import type { ProjectStatus } from './enum/project-status.enum';
 import type { ProjectSource } from './enum/project-source.enum';
 import type { UnassignedFileReason } from './enum/unassigned-file-reason.enum';
+import type { OutboxMessage } from './entities/outbox-message.entity';
+import type { OutboxStatus } from './enum/outbox-status.enum';
+import type { DeliveryFailureReason } from './enum/delivery-failure-reason.enum';
 
 /** Fails compilation when `Actual` does not satisfy `Expected` on the shared fields. */
 type Covers<Expected, Actual> = Actual extends Expected ? true : { missingOrMismatched: Expected };
@@ -160,6 +163,18 @@ type _Discount = Check<Pick<Wire.Discount, 'id' | 'name' | 'value' | 'monthIssue
 type _DiscountType = Check<Wire.DiscountType, `${DiscountType}`>;
 type _DiscountTypeBack = Check<`${DiscountType}`, Wire.DiscountType>;
 
-// `OutboxMessage` has no entry here on purpose: nothing serves it. It is an internal queue, drained
+// E17/S5 gave the outbox a read surface, so the two statuses it puts on the wire are checked here.
+// The row itself is compared loosely — `DeliveryRecord` is the queue's shape minus the fields the
+// dispatcher owns (`nextAttemptAt`, `dedupeKey`, `attachments`), which the screen has no use for.
+type _DeliveryStatus = Check<Wire.DeliveryStatus, `${OutboxStatus}`>;
+type _DeliveryStatusBack = Check<`${OutboxStatus}`, Wire.DeliveryStatus>;
+type _DeliveryFailureReason = Check<Wire.DeliveryFailureReason, `${DeliveryFailureReason}`>;
+type _DeliveryFailureReasonBack = Check<`${DeliveryFailureReason}`, Wire.DeliveryFailureReason>;
+type _DeliveryRecord = Check<
+    Pick<Wire.DeliveryRecord, 'id' | 'to' | 'subject' | 'bodyText' | 'attempts' | 'lastError'>,
+    Pick<Serialized<OutboxMessage>, 'id' | 'to' | 'subject' | 'bodyText' | 'attempts' | 'lastError'>
+>;
+
+// The rest of `OutboxMessage` has no entry here on purpose: nothing serves it. It is an internal queue, drained
 // by a scheduler, and E17/S3 is explicit that the operation which queues a message does not wait
 // for it. The delivery record an admin reads is E17/S5, and that is when it acquires a wire shape.

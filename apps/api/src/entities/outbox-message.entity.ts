@@ -1,5 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 import { OutboxStatus } from '../enum/outbox-status.enum';
+import { DeliveryFailureReason } from '../enum/delivery-failure-reason.enum';
 
 /**
  * One file to hang off a message, named by where it lives in the bucket.
@@ -70,6 +71,16 @@ export class OutboxMessage {
 
     @Column({ type: 'enum', enum: OutboxStatus, default: OutboxStatus.PENDING })
     status: OutboxStatus;
+
+    /**
+     * Set only on `UNDELIVERABLE`, and it is the whole reason that status exists — E17/S5.
+     *
+     * Typed rather than folded into `lastError`, because the delivery screen branches on it: one
+     * case offers "sună familia", the other "retrimite linkul". Free text could carry the words but
+     * not the branch.
+     */
+    @Column({ type: 'enum', enum: DeliveryFailureReason, nullable: true })
+    undeliverableReason: DeliveryFailureReason | null;
 
     /** How many times the provider has been asked. Compared against the configured limit. */
     @Column({ type: 'int', default: 0 })

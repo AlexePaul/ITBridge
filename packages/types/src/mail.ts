@@ -1,4 +1,4 @@
-import type { ISODateTime } from './common';
+import type { ISODate, ISODateTime } from './common';
 
 /**
  * The mail template editor's wire shapes — E17/S2.
@@ -56,4 +56,56 @@ export interface PreviewMailTemplateDto {
     subject?: string;
     bodyText?: string;
     bodyHtml?: string | null;
+}
+
+/**
+ * Where a queued message is in its life — E17/S3 and S5. Mirrors `OutboxStatus` in
+ * `apps/api/src/enum/outbox-status.enum.ts`.
+ *
+ * `undeliverable` is the one E17/S5 added: never attempted, because there was nowhere to send it.
+ * Terminal — no backoff makes an address appear.
+ */
+export type DeliveryStatus = 'pending' | 'sent' | 'failed' | 'undeliverable';
+
+/**
+ * Why a message had nowhere to go. Two values, not one: they look identical in a list and are
+ * resolved differently — the first needs a phone call, the second a resent confirmation link.
+ *
+ * Not `UndeliverableReason`: E14's send report already owns that name for the same two cases in
+ * different words. These are E17/S5's own, and canonical.
+ */
+export type DeliveryFailureReason = 'no_address' | 'unconfirmed_address';
+
+/**
+ * One row of the delivery record — E17/S5.
+ *
+ * Answers „a primit părintele anunțul?", including for messages that never left. The body comes
+ * along because an admin asking whether a family was told needs to see what they would have been
+ * told.
+ */
+export interface DeliveryRecord {
+    id: number;
+    /** Empty when there was no address — never a placeholder, which would look like a real one. */
+    to: string;
+    subject: string;
+    bodyText: string;
+    bodyHtml: string | null;
+    status: DeliveryStatus;
+    /** Set only on `undeliverable`. */
+    undeliverableReason: DeliveryFailureReason | null;
+    attempts: number;
+    lastError: string | null;
+    createdAt: ISODateTime;
+    sentAt: ISODateTime | null;
+}
+
+/** How many messages sit in each state. Every state present, even at zero. */
+export type DeliverySummary = Record<DeliveryStatus, number>;
+
+export interface DeliveryLogFilter {
+    status?: DeliveryStatus;
+    to?: string;
+    from?: ISODate;
+    until?: ISODate;
+    limit?: number;
 }

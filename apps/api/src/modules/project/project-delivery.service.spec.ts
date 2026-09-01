@@ -57,12 +57,12 @@ function row(overrides: Partial<ProjectRow> = {}): ProjectRow {
 describe('ProjectDeliveryService', () => {
     let service: ProjectDeliveryService;
     let projectRepo: MockRepository;
-    let outbox: { queue: jest.Mock };
+    let outbox: { queue: jest.Mock; queueOrRecord: jest.Mock };
     let manager: MockEntityManager;
 
     beforeEach(async () => {
         projectRepo = createMockRepository();
-        outbox = { queue: jest.fn().mockResolvedValue({ id: 500 }) };
+        outbox = { queue: jest.fn().mockResolvedValue({ id: 500 }), queueOrRecord: jest.fn().mockResolvedValue({ id: 501 }) };
         manager = createMockEntityManager();
 
         const module: TestingModule = await Test.createTestingModule({
@@ -142,8 +142,9 @@ describe('ProjectDeliveryService', () => {
     });
 
     it('reports a parent with no address instead of skipping them quietly', async () => {
-        // A parent who does not receive their child's work is not receiving their invoices either,
-        // and today nobody would find out. E17/S5 is where this eventually lives.
+        // A parent who does not receive their child's work is not receiving their invoices either.
+        // The report answers the admin at the screen; since E17/S5 the outbox also gets a row, for
+        // the question asked three weeks later.
         projectRepo.find!.mockResolvedValue([
             row({ child: { id: 12, firstName: 'Andrei', parent: { id: 3, firstName: 'Maria', lastName: 'P', email: null, user: null } } }),
         ]);
@@ -152,6 +153,7 @@ describe('ProjectDeliveryService', () => {
 
         expect(outbox.queue).not.toHaveBeenCalled();
         expect(report.undeliverable).toEqual([expect.objectContaining({ parentId: 3, reason: 'no_email' })]);
+        expect(outbox.queueOrRecord).toHaveBeenCalledWith(expect.objectContaining({ email: null }), expect.anything());
     });
 
     it('refuses to write to an address nobody has proved is theirs', async () => {

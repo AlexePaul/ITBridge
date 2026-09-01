@@ -116,9 +116,17 @@ export class ProjectDeliveryService {
             const refusal = undeliverableReason(group[0]);
             if (refusal) {
                 // Not skipped silently: a parent who does not get their child's documents is not
-                // getting their invoices either, and today nobody would find out. E17/S5 is where
-                // this ends up living; until then the report is the record.
+                // getting their invoices either. The report answers the admin standing in front of
+                // the screen; the outbox row answers the question asked three weeks later — E17/S5,
+                // which now exists, so this writes to both.
                 report.undeliverable.push({ ...recipient, reason: refusal });
+                await this.outbox.queueOrRecord(
+                    { email: parent.email, confirmed: refusal !== 'email_unconfirmed' },
+                    {
+                        subject: `Proiectele lui ${group[0].child.firstName}`,
+                        bodyText: `Nu am putut trimite ${group.length} document(e) către ${recipient.parentName}.`,
+                    },
+                );
                 continue;
             }
 
