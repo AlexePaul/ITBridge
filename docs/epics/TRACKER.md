@@ -14,7 +14,7 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 61 livrate, 16 parțiale, 7 blocate, 4 scoase din scop,
+Din **142 de story-uri** în 21 de epicuri: 62 livrate, 15 parțiale, 7 blocate, 4 scoase din scop,
 54 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
@@ -148,7 +148,7 @@ nu rulează nicăieri".
 - [x] S4 · Recuperări — `MakeUpCredit` câștigat din anunț-în-termen plus absență reală, 30 de zile valabilitate, programare din portal, consumat de marcaj. Compatibilitatea e banda de vârstă, fiindcă modulele din E10 nu există
 - [~] S5 · Anulări și mutări — anularea, reactivarea și acum **mutarea** (`PUT /class-sessions/:id/move`, cu calendarul școlar respectat și sala verificată de ciocniri); fără ecran, fără notificare
 - [~] S6 · Marcarea prezenței pe telefon — livrat fără poze (`Child` n-are câmp, e o decizie E07/E14): `/admin/attendance/azi`, salvare la fiecare apăsare, coadă locală pe rețea picată, buton „Sună părintele" la absență
-- [~] S7 · Notificări — mementoul zilnic către școală, **plus cele două către părinte**: absență neanunțată în aceeași zi, și recuperare care expiră, cu 7 zile înainte. Rămâne doar mementoul de la minutul 15 din story
+- [~] S7 · Notificări — mementoul zilnic către școală, plus cele două către părinte, **amândouă despre recuperare**: câștigată (aceeași seară) și care expiră (7 zile înainte). Mesajul de absență a fost scos prin decizie — catalogul uitat/târziu/greșit îl făcea nesigur când era inofensiv și alarmant când nu. Rămâne mementoul de la minutul 15
 
 ### E13 · Progres, evaluare și feedback — `propus`
 
@@ -239,7 +239,7 @@ nu rulează nicăieri".
 
 - [x] S1 · Fundația tehnică
 - [x] S2 · Date structurate
-- [~] S3 · Pagini locale — livrat pe site; **rămâne partea din afara lui: două profiluri Google Business verificate, unul per adresă**
+- [x] S3 · Pagini locale — livrat pe site, **iar cele două profiluri Google Business sunt create**, unul per adresă
 - [!] S4 · Pagini de modul — așteaptă E10, care e scos din MVP
 - [~] S5 · Performanță — livrat odată cu E18 S2; rămâne confirmarea pe trafic real, care cere domeniul live
 - [!] S6 · Conținut — blocat de „cine scrie textele"
@@ -283,7 +283,6 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 | -------------- | --------------------------------- | --------------------------------------------------------------------------------------------- |
 | **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
 | **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an       |
-| **Tu**         | Două profiluri Google Business    | E19 S3, partea din afara site-ului                                                            |
 | **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                 |
 | **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                        |
 

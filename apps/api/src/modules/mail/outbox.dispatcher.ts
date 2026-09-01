@@ -50,7 +50,27 @@ export class OutboxDispatcher implements OnModuleInit {
         }
     }
 
+    /**
+     * The timer, and nothing else — `tick` is the work, exactly as every `@Cron` here keeps its
+     * selection in a plain method.
+     *
+     * **Off under `NODE_ENV=test`.** Jest sets that variable, and the unit config has no
+     * `setupFiles`, so `MAIL_OUTBOX_ENABLED=false` — which the e2e setup does set — never reaches a
+     * unit run. Any suite that builds the real `AppModule`, and the authorization matrix does,
+     * therefore started a timer that queried the database every few seconds and went on doing it
+     * while the module was being torn down; the symptom was one suite failing with `connection
+     * terminated` and passing on the re-run. Every `@Cron` in the codebase already carries this
+     * guard. The interval was the one job that did not.
+     *
+     * The guard is here rather than on `enabled` so `tick` stays callable — its own spec drives it
+     * directly, which is the point of splitting when from what.
+     */
     @Interval('outbox-dispatch', POLL_INTERVAL_MS)
+    async scheduledTick(): Promise<void> {
+        if (process.env.NODE_ENV === 'test') return;
+        await this.tick();
+    }
+
     async tick(): Promise<void> {
         if (!this.enabled || this.running) {
             return;

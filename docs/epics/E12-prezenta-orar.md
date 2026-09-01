@@ -433,15 +433,42 @@ pe care o citește emailul, fiindcă la ea nu se uită nimeni. Endpoint-ul nu ar
 lista se poate cere, dar nu se vede nicăieri în admin.
 
 **Livrate acum și notificările către părinte** — a doua linie din story, cea de după telefonul
-profesorului. Două, în `parent-notifications.job.ts`:
+profesorului. Două, în `parent-notifications.job.ts`, și **amândouă sunt despre recuperare, niciuna
+despre absență**:
 
-- **Absență neanunțată → familia află în aceeași zi.** La 19:00, ora școlii, după ultima oră. Un
-  singur mesaj per **părinte**, cu toate absențele copiilor lui din ziua aia — regula pe care a
-  stabilit-o E14 pentru exact motivul ăsta. **O absență pe care familia a anunțat-o nu produce
-  nimic:** a scrie înapoi unei familii ca să-i spui ce ți-a spus ea e genul de zgomot care învață
-  lumea să filtreze expeditorul, iar atunci mesajul nu e citit în ziua în care conta. E același
-  raționament pentru care mementoul zilnic tace în zilele bune.
-- **Recuperare care expiră → memento cu șapte zile înainte.** Doar creditele **neprogramate și
+- **Recuperare câștigată → familia află în seara aceleiași zile.** La 19:00, ora școlii.
+- **Recuperare care expiră → memento cu șapte zile înainte.**
+
+**A existat aici și un mesaj „copilul tău n-a fost azi la curs", și a fost scos.** Merită scris de
+ce, fiindcă e o decizie, nu o simplificare. Mesajul citea `Attendance.present = false`, iar catalogul
+e exact lucrul pe care un profesor îl uită, îl completează târziu sau îl greșește:
+
+- **uitat** — niciun rând, deci nimic nu pleca: tăcere fix în cazul pentru care exista mesajul, și
+  care e oricum acoperit mai bine de mementoul de la 10:00;
+- **completat târziu** — rularea de seară a zilei respective trecuse deja, iar nimic nu reia o zi
+  din urmă, deci familia nu afla niciodată;
+- **greșit tastat** — mesajul pleca, iar corectarea marcajului o jumătate de oră mai târziu **nu-l
+  retrăgea**. Un părinte citise deja că cel mic lipsise de la oră.
+
+Costurile nu sunt simetrice. O notificare care nu ajunge costă puțin: cazul urgent e telefonul
+profesorului de pe ecranul de prezență (S6), care se întâmplă cât ora e încă în desfășurare. O
+notificare care ajunge greșit costă o familie speriată.
+
+**Recuperarea câștigată nu poate alarma pe nimeni**, și de asta a luat locul: se câștigă doar acolo
+unde familia a anunțat în termen, deci ea știe deja că cel mic a lipsit, iar mesajul îi spune partea
+pe care n-o știe — că are o oră de recuperat și până când. Un catalog greșit tastat nici n-o poate
+produce, fiindcă copilul al cărui marcaj e greșit nu e un copil a cărui familie a anunțat. Iar dacă
+marcajul e corectat, `revokeFor` retrage creditul înainte de rularea de seară — fereastra pe care
+vechiul mesaj n-o avea.
+
+**Selecția se face după ziua în care creditul a fost creat**, nu după ziua orei pierdute, deci un
+catalog completat cu două zile întârziere ajunge totuși la familie în seara în care e completat.
+
+**Un rezumat săptămânal de absențe a fost cântărit și lăsat pentru [E17](E17-comunicare-notificari.md)
+S6.** Ar rezolva și greșelile de tastare (se corectează până vineri) și completările târzii, dar
+conținutul lui e slab: îi spune unui părinte care își aduce copilul la ușă exact ce știe deja.
+Digest-ul își merită locul când poate căra ceva — absențe, recuperări, factura care vine — și ăla e
+mecanismul din S6, nu jumătatea lui cea mai puțin interesantă construită separat. Doar creditele **neprogramate și
   neconsumate**: cine și-a ales deja ora n-are nevoie de un ghiont, iar cine a folosit-o n-are nevoie
   de un memento despre un drept pe care nu-l mai are. **Exact** la șapte zile, nu „în interval de" —
   un interval ar scrie în fiecare din cele șapte zile, și așa devine un memento util o pacoste.
