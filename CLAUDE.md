@@ -514,6 +514,13 @@ mesajelor către părinți. Amândouă sunt opționale: fără ele aplicația po
 `outbox` cu motivul scris în `lastError`. `MAIL_OUTBOX_ENABLED=false` oprește doar scheduler-ul;
 testele de integrare îl setează, ca o trecere de fundal să nu miște rândurile sub aserțiuni.
 
+**Restanța se derivă, iar `Invoice.status` e doar o memorie** (E16 S7). Termenul e 14 zile de la
+`dateIssued` — `arrears.rules.ts`, fără coloană `dueDate` — iar `ArrearsService.list` numără plățile
+**reușite**, nu se uită la coloana de stare: un ecran despre bani n-are voie să greșească o zi
+fiindcă n-a rulat un job. `markOverdue` ține coloana onestă pentru restul ecranelor. Consecința pe
+care se sprijină acceptanța: mementourile se opresc la încasare fiindcă factura plătită iese din
+interogare, nu fiindcă anulează cineva ceva.
+
 **Numai marketingul stă pe o bifă** (E17 S4). `Profile.marketingOptIn` e implicit `false` — un
 consimțământ pe care nu l-a dat nimeni nu e consimțământ — și gatează exclusiv `queueMarketing`.
 `queue` și `queueOrRecord` **nu primesc deloc preferința**, deci nu există argument prin care cineva
