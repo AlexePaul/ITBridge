@@ -228,8 +228,8 @@ model, nu prin verificare ulterioară.
 **Acceptanță:** o reducere de 200% e respinsă. Cumulul de reduceri nu produce sume negative.
 
 **Are acum un client concret, și e singurul de care se știe:** recomandarea din
-[E20](E20-achizitie-lead.md) S5 — **50% din totalul facturii**, dată de mână de patron familiei care
-a adus alta. Tipul procentual încetează astfel să fie o generalizare pusă la păstrare și devine
+[E20](E20-achizitie-lead.md) S5 — **50% din totalul facturii**, dată de mână de patron **de două ori
+pe recomandare**: familiei care a adus, la factura următoare, și celei nou-venite, la prima ei. Tipul procentual încetează astfel să fie o generalizare pusă la păstrare și devine
 lucrul care lipsește ca „50%" să fie o regulă a platformei, nu o socoteală a celui care emite.
 
 Până atunci reducerea se dă ca valoare absolută — ecranul de emitere arată totalul, iar jumătatea se
