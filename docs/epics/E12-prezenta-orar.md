@@ -418,8 +418,9 @@ situația, nu în locul lui.
 ale ședinței. Un copil marcat absent fără anunț afișează numărul părintelui pe același ecran, cu o
 singură apăsare, iar părintele află în aceeași zi.
 
-**Livrat altceva decât cere story-ul, la cererea explicită a patronului: un memento zilnic către
-școală.** `apps/api/src/modules/class-session/unmarked-attendance.job.ts`. La ora 10:00, ora
+**Livrat întâi altceva decât cere story-ul, la cererea explicită a patronului: un memento zilnic
+către școală** — mementoul de la minutul 15 a venit după, **în plus**, și e descris mai jos.
+`apps/api/src/modules/class-session/unmarked-attendance.job.ts`. La ora 10:00, ora
 României, se adună ședințele de ieri care sunt încă `programate` și n-au nicio prezență
 înregistrată, iar dacă există vreuna pleacă **un singur** email către adresa școlii, cu grupa, ora
 și sala fiecăreia. Adresa e `MAIL_OFFICE_ADDRESS`, cu `office@itbridgeschool.com` ca implicit — o
@@ -483,24 +484,53 @@ evidența din S5, în loc să fie sărită tăcut.
 
 Textele sunt șabloane E17/S2, deci școala le poate rescrie fără deploy.
 
-**Ăsta NU e mementoul de la minutul 15 din story și nu-l înlocuiește.** Sunt două întrebări
-diferite, care se aseamănă doar la nume:
+**Mementoul zilnic NU e cel de la minutul 15 și nu-l înlocuiește.** Sunt două întrebări diferite,
+care se aseamănă doar la nume:
 
-- **Cel din story e despre un copil.** Profesorul e în clasă, prezența nu e marcată, iar la un copil
-  de 8 ani „nu e marcat prezent" și „nu a ajuns" sunt aceeași propoziție până probează cineva
-  contrariul. La minutul 15 mementoul mai are ce să schimbe: un telefon către părinte.
-- **Cel livrat e despre catalog.** Ziua s-a terminat, ora a rămas fără nicio prezență, și cineva
+- **Cel de la minutul 15 e despre un copil.** Ora e în desfășurare, prezența nu e marcată, iar la un
+  copil de 8 ani „nu e marcat prezent" și „nu a ajuns" sunt aceeași propoziție până probează cineva
+  contrariul. Mai are ce să schimbe: un telefon.
+- **Cel zilnic e despre catalog.** Ziua s-a terminat, ora a rămas fără nicio prezență, și cineva
   trebuie ori să completeze, ori să anuleze ședința. Nu mai poate salva pe nimeni; ține evidența
   întreagă.
 
-Diferă și în implementare, nu doar în intenție: primul are nevoie de un declanșator per ședință și
-pleacă la profesor, al doilea e un cron pe zi și pleacă la birou. Când se construiește primul,
-`findUnmarkedSessions` e aceeași întrebare pusă pe alt interval — dar vine **în plus**, nu în loc.
+**Livrat și mementoul de la minutul 15**, `apps/api/src/modules/class-session/late-register.job.ts`.
+Un `@Interval` la 5 minute întreabă `findUnmarkedSessions` — **aceeași** metodă din spatele
+mementoului zilnic și al lui `GET /class-sessions/unmarked` — și filtrează ce e în fereastră. Pentru
+fiecare ședință găsită pleacă pe loc **un email separat** către birou, cu grupa, ora și sala.
 
-**Restul S7 e nelivrat**, fiecare bucată blocată de altceva: butonul de apel cere ecranul din S6,
-notificarea către părinte pentru absență neanunțată cere S3, mementourile de recuperare expirată cer
-S4. Iar mesajul zilnic însuși **se scrie azi în coadă și nu pleacă nicăieri în producție**: nu există
-producție — vezi [Dependențe](#dependențe), imediat mai jos.
+Trei decizii, toate în fereastră și în cheie:
+
+- **Fereastra se deschide la minutul 15 și se închide când se termină ora.** Capătul de sus e
+  decizia care ține mementoul viu: singurul motiv pentru care mesajul ăsta există e că un telefon
+  mai poate schimba răspunsul, iar după ce ultimul copil a plecat acasă nu mai poate — aia e
+  treaba raportului de la 10:00, care o face mai bine. Efectul lateral e cel care contează în
+  practică: un proces care a fost picat toată după-amiaza se trezește în liniște, nu cu douăsprezece
+  alerte despre ore terminate demult. Nimic nu se pierde — ce ratează fereastra apare mâine
+  dimineață în raport.
+- **O alertă per ședință, niciodată repetată**: `dedupeKey`-ul e `late-register:<id>`. Fără el
+  biroul ar primi același mesaj din 5 în 5 minute până se termină ora, fiindcă ședința rămâne în
+  fereastră. Nu se re-armează dacă prezența rămâne nemarcată: o a doua copie nu spune nimic nou, iar
+  ședința tot nemarcată la sfârșitul zilei e mesajul de a doua zi.
+- **Un email per ședință, nu o listă per trecere.** Două grupe nemarcate în același minut sunt două
+  telefoane către două persoane diferite, iar un singur email care le acoperă pe amândouă e unul
+  dintre ele uitat. Raportul zilnic e o listă fiindcă acolo chiar e o listă de hârtii.
+
+**Merge la birou, nu la profesor**, deși story-ul spune profesor: nu există entitate de profesor în
+cod, doar rolurile `ADMIN` și `PARENT` — vine cu [E09](E09-personal-roluri.md). Până atunci biroul e
+cel care poate suna, și e aceeași adresă `MAIL_OFFICE_ADDRESS` ca la raportul zilnic. Când E09 aduce
+profesorul pe ședință, destinatarul e o linie de schimbat.
+
+E un poll, nu un declanșator armat per ședință: un timer ar trebui re-armat după fiecare repornire,
+după fiecare `POST /class-sessions/generate` și după fiecare anulare, iar un timer care n-a mai fost
+re-armat arată exact ca o după-amiază liniștită. O interogare indexată la 5 minute nu se poate uita.
+
+**Restul S7 e nelivrat**, fiecare bucată blocată de altceva: notificarea către părinte pentru absență
+neanunțată a fost scoasă prin decizia de mai sus, iar mementourile de recuperare cer S4 — livrate.
+Ce rămâne e a doua linie către părinte pentru absență, care așteaptă un mecanism în care un catalog
+greșit nu sperie pe nimeni ([E17](E17-comunicare-notificari.md) S6). Iar amândouă mementourile
+**se scriu azi în coadă și nu pleacă nicăieri în producție**: nu există producție — vezi
+[Dependențe](#dependențe), imediat mai jos.
 
 ## Dependențe
 

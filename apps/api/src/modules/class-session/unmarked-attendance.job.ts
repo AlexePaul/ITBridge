@@ -5,6 +5,7 @@ import { OutboxService } from 'src/modules/mail/outbox.service';
 import { Weekday } from 'src/enum/weekday.enum';
 import { ClassSessionService } from './class-session.service';
 import { addDays, isoWeekday, parseIsoDate, toIsoDate } from './class-session.dates';
+import { describeSession } from './class-session.text';
 import { officeAddress } from 'src/modules/mail/office-address';
 
 /**
@@ -27,10 +28,12 @@ import { officeAddress } from 'src/modules/mail/office-address';
  * the deploy story lands.
  *
  * On the epic: E12/S7 argues for a reminder 10-15 minutes into the class, because at that point it
- * can still change something. That remains the right target and is not what this is. This is the
- * job the school asked for — one message, the morning after, about what was missed — and it needs
- * no per-session timers. When the 15-minute version is built, `findUnmarkedSessions` is the same
- * question asked with a different interval.
+ * can still change something. That is `late-register.job.ts`, built afterwards and **in addition**
+ * to this one: it asks `findUnmarkedSessions` the same question on a five-minute interval, bounded
+ * to classes that are still running, and it is about saving a phone call. This one is about the
+ * register being complete. A class that nobody alerted on — because the process was down that
+ * afternoon, or because the class was over before anyone could have rung — still turns up here the
+ * next morning, which is why the pair is not a duplication.
  */
 
 /** 10:00, school time. */
@@ -191,22 +194,6 @@ export function composeUnmarkedReminder(date: string, sessions: ClassSession[]):
     ].join('\n');
 
     return { subject: `Prezență nemarcată: ${count}, ${when}`, bodyText };
-}
-
-/** "Scratch Începători, 16:00-17:30, Sala 1 (Drumul Taberei)" - what someone needs to go and ask. */
-function describeSession(session: ClassSession): string {
-    const hours = `${formatTime(session.startTime)}-${formatTime(session.endTime)}`;
-    // `findUnmarkedSessions` joins the room and its location, so both are here. Guarded anyway:
-    // a reminder that throws while formatting is a reminder nobody gets.
-    const room = session.room?.name ?? 'sală necunoscută';
-    const location = session.room?.location?.name;
-    const where = location === undefined ? room : `${room} (${location})`;
-    return `${session.group?.name ?? 'grupă necunoscută'}, ${hours}, ${where}`;
-}
-
-/** A `time` column arrives as `16:00:00`; nobody needs the seconds. */
-function formatTime(value: string): string {
-    return value.slice(0, 5);
 }
 
 function formatRomanianDate(date: Date): string {
