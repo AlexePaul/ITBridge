@@ -1,9 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Repository } from 'typeorm';
-import { AbsenceNotice } from 'src/entities/absence-notice.entity';
-import { Attendance } from 'src/entities/attendance.entity';
+import { Between, IsNull, Repository } from 'typeorm';
 import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
@@ -13,12 +11,17 @@ import { addDays, toIsoDate } from 'src/modules/class-session/class-session.date
 import { SCHOOL_TIME_ZONE } from './absence-notice.rules';
 
 /**
- * The two things E12/S7 promises a parent — the second line, after the teacher's phone call.
+ * What E12/S7 writes to a parent — the second line, after the teacher's phone call.
  *
- * Both are **transactional**: a family being told their child was not at a class they paid for, and
- * being told a right they hold is about to lapse, are the school performing its side. Neither
- * consults `marketingOptIn` (E17/S4), and that is not an oversight — `OutboxService.queueOrRecord`
- * takes no preference at all, so there is no argument this job could pass that would suppress them.
+ * **Both messages are about a make-up, and neither is about an absence.** There *was* a same-day
+ * "your child was not at class" message here, and it was removed: see the note on
+ * `notifyCreditsEarned` for the three ways a register that is forgotten, late or mistyped made it
+ * unreliable when it was harmless and alarming when it was not.
+ *
+ * Both are **transactional**: a family being told about a right they hold, and about that right
+ * lapsing, is the school performing its side. Neither consults `marketingOptIn` (E17/S4), and that
+ * is not an oversight — `OutboxService.queueOrRecord` takes no preference at all, so there is no
+ * argument this job could pass that would suppress them.
  *
  * **The selection is a plain method in both cases.** The cron decides only *when*, exactly as
  * `unmarked-attendance.job.ts` and `OutboxDispatcher` do — so every case can be tested against any
@@ -30,7 +33,13 @@ import { SCHOOL_TIME_ZONE } from './absence-notice.rules';
  * so the failure mode is a wasted query. The single-instance pin belongs to the deploy story.
  */
 
-/** 19:00 school time — after the last class, and still the same day the family is told about. */
+/**
+ * 19:00 school time — after the last class of the day.
+ *
+ * Late enough that a register taken during the afternoon is in, and that a teacher who mistyped has
+ * had the rest of the day to notice. Nothing here is urgent: a make-up earned at four o'clock is
+ * worth exactly as much at seven.
+ */
 export const EVENING_AT_SEVEN = '0 19 * * *';
 
 /** 09:00 school time, so a reminder about a lapsing right arrives at the start of a usable day. */
@@ -45,7 +54,7 @@ export const MORNING_AT_NINE = '0 9 * * *';
  */
 export const EXPIRY_WARNING_DAYS = 7;
 
-export const ABSENCE_DEDUPE_PREFIX = 'absence-noticed:';
+export const EARNED_DEDUPE_PREFIX = 'make-up-earned:';
 export const EXPIRY_DEDUPE_PREFIX = 'make-up-expiring:';
 
 /** Romanian short dates, for a sentence a parent reads rather than a column. */
@@ -70,16 +79,14 @@ export class ParentNotificationsJob {
     private readonly office = officeAddress();
 
     constructor(
-        @InjectRepository(Attendance) private readonly attendanceRepository: Repository<Attendance>,
-        @InjectRepository(AbsenceNotice) private readonly noticeRepository: Repository<AbsenceNotice>,
         @InjectRepository(MakeUpCredit) private readonly creditRepository: Repository<MakeUpCredit>,
         private readonly outbox: OutboxService,
         private readonly mailTemplates: MailTemplateService,
     ) {}
 
     @Cron(EVENING_AT_SEVEN, { timeZone: SCHOOL_TIME_ZONE, disabled: process.env.NODE_ENV === 'test' })
-    async runAbsenceNotices(): Promise<void> {
-        await this.notifyAbsences(this.today());
+    async runEarnedNotices(): Promise<void> {
+        await this.notifyCreditsEarned(this.today());
     }
 
     @Cron(MORNING_AT_NINE, { timeZone: SCHOOL_TIME_ZONE, disabled: process.env.NODE_ENV === 'test' })
@@ -88,54 +95,62 @@ export class ParentNotificationsJob {
     }
 
     /**
-     * Tells a family their child was not at a class **nobody announced**.
+     * Tells a family they have earned a make-up.
      *
-     * An announced absence is not written about: the family already told the school, and a message
-     * back saying what they themselves said is the kind of noise that teaches people to filter the
-     * sender. That is the same reasoning that keeps the daily unmarked reminder silent on good days.
+     * **This replaced a same-day "your child was not at class" message, and the reason is worth
+     * keeping.** That message read `Attendance.present = false`, and a register is exactly the
+     * thing a teacher forgets, takes late, or mistypes:
      *
-     * One message per parent, listing all their children's absences that day — a family with two
-     * children gets one email, which is the rule E14 established for exactly this reason.
+     * - **forgotten** — no rows, so nothing was sent: silent in the case it was for, which the
+     *   10:00 unmarked-attendance reminder already covers better;
+     * - **taken late** — the evening run for that day had already passed, and nothing re-runs a
+     *   past day, so the family was never told at all;
+     * - **mistyped** — the message went out, and correcting the mark half an hour later did not
+     *   un-send it. A parent had already read that their child was missing from a class.
+     *
+     * The costs are not symmetric: a notification that does not arrive costs little, because the
+     * urgent case is the teacher's phone call from the register screen (S6) and it happens while
+     * the class is still on. A notification that arrives wrongly costs a frightened family.
+     *
+     * A credit, by contrast, **cannot alarm anybody**: it is earned only where a family announced in
+     * time, so they already know the child was away, and what this tells them is the part they do
+     * not know — that they have an hour to book, and by when. A mistyped register cannot produce
+     * one either, because the child whose mark was wrong is not a child whose family announced.
+     *
+     * Selected by the day the credit was **created**, not by the class it came from, so a register
+     * taken two days late still reaches the family on the evening it is taken.
      */
-    async notifyAbsences(day: Date): Promise<NotificationRunResult> {
+    async notifyCreditsEarned(day: Date): Promise<NotificationRunResult> {
         const date = toIsoDate(day);
+        const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+        const dayEnd = addDays(dayStart, 1);
 
-        const absences = await this.attendanceRepository.find({
-            where: { present: false, classSession: { date: day } },
-            relations: { child: { parent: true }, classSession: { group: true } },
+        const earned = await this.creditRepository.find({
+            where: { createdAt: Between(dayStart, dayEnd) },
+            relations: { child: { parent: true }, originSession: { group: true } },
         });
-
-        if (absences.length === 0) {
+        if (earned.length === 0) {
             return { date, notified: 0 };
         }
 
-        // Announced ones are dropped here rather than in the query: the notice lives in another
-        // table with no relation to `Attendance`, and one lookup for the day beats one per row.
-        const announced = await this.noticeRepository.find({
-            where: { classSession: { id: In(absences.map((absence) => absence.classSession.id)) } },
-            relations: { child: true, classSession: true },
-        });
-        const announcedKeys = new Set(announced.map((notice) => `${notice.child.id}:${notice.classSession.id}`));
-
+        // One message per parent, as everywhere else: a family with two children who both earned
+        // one gets a single note, not two.
         const byParent = new Map<number, { email: string | null; firstName: string; lines: string[] }>();
-        for (const absence of absences) {
-            if (announcedKeys.has(`${absence.child.id}:${absence.classSession.id}`)) continue;
-            const parent = absence.child.parent;
+        for (const credit of earned) {
+            const parent = credit.child.parent;
             if (!parent) continue;
 
             const entry = byParent.get(parent.id) ?? { email: parent.email ?? null, firstName: parent.firstName, lines: [] };
-            entry.lines.push(
-                `· ${absence.child.firstName} — ${absence.classSession.group?.name ?? 'grupa lui'}, ${absence.classSession.startTime.slice(0, 5)}`,
-            );
+            entry.lines.push(`· ${credit.child.firstName} — de folosit până pe ${romanianDate(credit.expiresOn)}`);
             byParent.set(parent.id, entry);
         }
 
         let notified = 0;
         for (const [parentId, entry] of byParent) {
-            const mail = await this.mailTemplates.render('absence-noticed', {
+            const mail = await this.mailTemplates.render('make-up-earned', {
                 firstName: entry.firstName,
-                absences: entry.lines.join('\n'),
-                officeEmail: this.office,
+                credits: entry.lines.join('\n'),
+                portalUrl: absencesUrl(),
             });
             const queued = await this.outbox.queueOrRecord(
                 { email: entry.email },
@@ -143,15 +158,13 @@ export class ParentNotificationsJob {
                     subject: mail.subject,
                     bodyText: mail.bodyText,
                     bodyHtml: mail.bodyHtml ?? undefined,
-                    // Per parent per day: a re-run at 19:05 does not write twice, and a family with
-                    // two absent children still gets one message.
-                    dedupeKey: `${ABSENCE_DEDUPE_PREFIX}${date}:${parentId}`,
+                    dedupeKey: `${EARNED_DEDUPE_PREFIX}${date}:${parentId}`,
                 },
             );
             if (queued) notified += 1;
         }
 
-        this.logger.log(`Absences on ${date}: wrote to ${notified} parent(s).`);
+        this.logger.log(`Make-up credits earned on ${date}: wrote to ${notified} parent(s).`);
         return { date, notified };
     }
 

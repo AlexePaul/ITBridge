@@ -64,84 +64,81 @@ describe('Parent notifications (e2e)', () => {
     const mailTo = (address: string) =>
         dataSource.query<{ subject: string; bodyText: string }[]>('SELECT "subject", "bodyText" FROM "outbox" WHERE "to" = $1 ORDER BY id DESC', [address]);
 
-    describe('an unannounced absence', () => {
-        it('reaches the family the same day', async () => {
-            await markAbsent().expect(200);
+    /** Announce a future class in time, then be marked absent at it — the only way to earn one. */
+    const earnCredit = async (daysAhead = 2) => {
+        const when = new Date(Date.now() + daysAhead * 86400000);
+        const session = await createClassSession(dataSource, groupId, { date: iso(when) });
+        await request(app.getHttpServer())
+            .post('/attendance/absences')
+            .set('Authorization', parent.auth)
+            .send({ childId, classSessionId: session, reason: 'Răcit' })
+            .expect(201);
+        await request(app.getHttpServer())
+            .put(`/attendance/session/${session}/child/${childId}`)
+            .set('Authorization', admin.auth)
+            .send({ present: false })
+            .expect(200);
+        return session;
+    };
 
-            const result = await job.notifyAbsences(TODAY);
+    describe('a make-up just earned', () => {
+        it('reaches the family the evening the register was taken', async () => {
+            await earnCredit();
+
+            const result = await job.notifyCreditsEarned(TODAY);
 
             expect(result.notified).toBe(1);
             const mail = await mailTo('parinte.notif@example.com');
-            expect(mail[0].subject).toContain('nu a fost azi la curs');
+            expect(mail[0].subject).toContain('recuperare');
             expect(mail[0].bodyText).toContain('Maria');
+            expect(mail[0].bodyText).toContain('/user/absente');
         });
 
-        it('does not write about one the family announced itself', async () => {
-            // Announce a *future* class, then mark absent — announcing is only possible before the
-            // register is taken, so the order matters and mirrors real life.
-            const future = await createClassSession(dataSource, groupId, { date: iso(new Date(Date.now() + 7 * 86400000)) });
-            await request(app.getHttpServer())
-                .post('/attendance/absences')
-                .set('Authorization', parent.auth)
-                .send({ childId, classSessionId: future, reason: 'Plecăm din oraș' })
-                .expect(201);
-            await request(app.getHttpServer())
-                .put(`/attendance/session/${future}/child/${childId}`)
-                .set('Authorization', admin.auth)
-                .send({ present: false })
-                .expect(200);
+        it('says nothing about an absence that earned nothing', async () => {
+            // No notice, so no credit — and, since E12/S7 was revised, no message either. The old
+            // same-day absence mail fired here, and this is the case where a mistyped register
+            // frightened a family for nothing.
+            await markAbsent().expect(200);
 
-            const result = await job.notifyAbsences(new Date(Date.now() + 7 * 86400000));
-
-            expect(result.notified).toBe(0);
+            expect((await job.notifyCreditsEarned(TODAY)).notified).toBe(0);
         });
 
-        it('says nothing about a child who was there', async () => {
+        it('a mark corrected back to present takes the credit away, so nothing is written', async () => {
+            const session = await earnCredit();
             await request(app.getHttpServer())
-                .put(`/attendance/session/${sessionId}/child/${childId}`)
+                .put(`/attendance/session/${session}/child/${childId}`)
                 .set('Authorization', admin.auth)
                 .send({ present: true })
                 .expect(200);
 
-            expect((await job.notifyAbsences(TODAY)).notified).toBe(0);
+            // The correction lands before the evening run, which is the window the old message did
+            // not have: it had already gone out.
+            expect((await job.notifyCreditsEarned(TODAY)).notified).toBe(0);
         });
 
         it('writes once, however many times the job runs that evening', async () => {
-            await markAbsent().expect(200);
+            await earnCredit();
 
-            await job.notifyAbsences(TODAY);
-            await job.notifyAbsences(TODAY);
+            await job.notifyCreditsEarned(TODAY);
+            await job.notifyCreditsEarned(TODAY);
 
-            // The dedupe key is per parent per day; the second insert is refused by the database.
             const mail = await mailTo('parinte.notif@example.com');
-            expect(mail.filter((row) => row.subject.includes('nu a fost azi')).length).toBe(1);
+            expect(mail.filter((row) => row.subject.includes('recuperare')).length).toBe(1);
         });
 
         it('goes out even to a family that refused marketing — it is not marketing', async () => {
             const profileId = await ownProfileId(app, parent);
             await request(app.getHttpServer()).put(`/profiles/${profileId}`).set('Authorization', parent.auth).send({ marketingOptIn: false }).expect(200);
 
-            await markAbsent().expect(200);
+            await earnCredit();
 
-            expect((await job.notifyAbsences(TODAY)).notified).toBe(1);
+            expect((await job.notifyCreditsEarned(TODAY)).notified).toBe(1);
         });
     });
 
     describe('a make-up about to lapse', () => {
         it('reminds the family seven days out, naming the child and the last day', async () => {
-            // Earn a credit: announce a future class in time, then be marked absent at it.
-            const future = new Date(Date.now() + 2 * 86400000);
-            const futureSession = await createClassSession(dataSource, groupId, { date: iso(future) });
-            await request(app.getHttpServer())
-                .post('/attendance/absences')
-                .set('Authorization', parent.auth)
-                .send({ childId, classSessionId: futureSession, reason: 'Răcit' })
-                .expect(201);
-            await request(app.getHttpServer())
-                .put(`/attendance/session/${futureSession}/child/${childId}`)
-                .set('Authorization', admin.auth)
-                .send({ present: false })
-                .expect(200);
+            await earnCredit();
 
             // The credit expires 30 days after the missed class; the reminder goes out 7 days
             // before that.
