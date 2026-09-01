@@ -25,5 +25,7 @@ import { StorageModule } from 'src/modules/storage/storage.module';
     imports: [TypeOrmModule.forFeature([Invoice, Payment, Profile, Discount, Enrollment]), JwtModule.register({}), StorageModule, MailModule],
     controllers: [InvoiceController],
     providers: [InvoiceService, PdfService, ArrearsService, ArrearsJob, AuthGuard, RolesGuard],
+    // The overview screen asks the arrears question rather than re-deriving it — one definition.
+    exports: [ArrearsService],
 })
 export class InvoiceModule {}

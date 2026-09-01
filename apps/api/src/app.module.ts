@@ -26,6 +26,7 @@ import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { AppThrottlerGuard } from './common/app-throttler.guard';
 import { RequestLoggerMiddleware } from './common/request-logger.middleware';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
     imports: [
@@ -57,6 +58,7 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
         MailModule,
         StorageModule,
         ProjectModule,
+        DashboardModule,
     ],
     providers: [
         {
