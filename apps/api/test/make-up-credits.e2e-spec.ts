@@ -76,13 +76,9 @@ describe('Make-up credits (e2e)', () => {
             .send({ childId, classSessionId: missedSessionId, reason: 'Răcit' });
 
     const mark = (sessionId: number, present: boolean) =>
-        request(app.getHttpServer())
-            .put(`/attendance/session/${sessionId}/child/${childId}`)
-            .set('Authorization', admin.auth)
-            .send({ present });
+        request(app.getHttpServer()).put(`/attendance/session/${sessionId}/child/${childId}`).set('Authorization', admin.auth).send({ present });
 
-    const credits = (user: TestUser = parent) =>
-        request(app.getHttpServer()).get('/attendance/make-ups').set('Authorization', user.auth);
+    const credits = (user: TestUser = parent) => request(app.getHttpServer()).get('/attendance/make-ups').set('Authorization', user.auth);
 
     describe('the whole loop', () => {
         it('announce, be absent, earn, book, turn up, spend', async () => {
@@ -94,10 +90,7 @@ describe('Make-up credits (e2e)', () => {
             expect(earned.body[0].status).toBe('available');
             const creditId = earned.body[0].id as number;
 
-            const options = await request(app.getHttpServer())
-                .get(`/attendance/make-ups/${creditId}/options`)
-                .set('Authorization', parent.auth)
-                .expect(200);
+            const options = await request(app.getHttpServer()).get(`/attendance/make-ups/${creditId}/options`).set('Authorization', parent.auth).expect(200);
             // The host group's class, and not the child's own.
             expect(options.body.map((o: { sessionId: number }) => o.sessionId)).toEqual([hostSessionId]);
 
@@ -158,10 +151,7 @@ describe('Make-up credits (e2e)', () => {
         });
 
         const book = (sessionId: number, user: TestUser = parent) =>
-            request(app.getHttpServer())
-                .put(`/attendance/make-ups/${creditId}/booking`)
-                .set('Authorization', user.auth)
-                .send({ classSessionId: sessionId });
+            request(app.getHttpServer()).put(`/attendance/make-ups/${creditId}/booking`).set('Authorization', user.auth).send({ classSessionId: sessionId });
 
         it("refuses the child's own group — that is their lesson, not a make-up", async () => {
             const ownLater = await createClassSession(dataSource, ownGroupId, { date: iso(7) });
@@ -188,10 +178,7 @@ describe('Make-up credits (e2e)', () => {
 
         it('cancelling the booking leaves the credit available again', async () => {
             await book(hostSessionId).expect(200);
-            await request(app.getHttpServer())
-                .delete(`/attendance/make-ups/${creditId}/booking`)
-                .set('Authorization', parent.auth)
-                .expect(200);
+            await request(app.getHttpServer()).delete(`/attendance/make-ups/${creditId}/booking`).set('Authorization', parent.auth).expect(200);
             expect((await credits().expect(200)).body[0].status).toBe('available');
         });
 
