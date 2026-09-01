@@ -183,7 +183,7 @@ nu rulează nicăieri".
 - [ ] S2 · Factura pe modul, cu linii
 - [ ] S3 · Planuri de plată
 - [x] S4 · Regula pentru mai mulți copii — 350 + 250 pe frate, într-un singur loc; ambele bug-uri reparate. Din E11/S4, suma numără doar copiii înscriși activ
-- [ ] S5 · Reduceri cu tip — primul client concret e recomandarea din E20 S5: 50% din totalul facturii
+- [ ] S5 · Reduceri cu tip — primul client concret e recomandarea din E20 S5: 50% din totalul facturii, de două ori pe recomandare
 - [ ] S6 · Previzualizare și emitere în masă
 - [ ] S7 · PDF-ul nu se mai generează local
 - [ ] S8 · Înscrierea la mijlocul unui modul — pro-rata pe ședințele rămase
@@ -255,7 +255,7 @@ nu rulează nicăieri".
 - [ ] S2 · Programare la lecție de probă
 - [ ] S3 · Urmărire
 - [ ] S4 · Măsurarea pâlniei
-- [ ] S5 · Recomandări — **redus prin decizie**: 50% la factura următoare, dată de mână de patron. Fără cod, fără link, fără atribuire automată. Cere doar tipul procentual din E15 S5
+- [ ] S5 · Recomandări — **redus prin decizie**: 50% de fiecare parte (cel care recomandă și cel nou-venit), date de mână de patron. Fără cod, fără link, fără atribuire automată. Cere doar tipul procentual din E15 S5
 
 > Formularul de contact rămâne pe email, prin decizie: nu scrie lead, nu atinge backend-ul.
 

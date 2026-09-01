@@ -175,8 +175,8 @@ conversie, fiindcă n-a intrat niciodată în pâlnie.
 
 ### S5 · Recomandări — **redus prin decizie la o reducere dată de mână**
 
-Un părinte existent recomandă altul. Familia care a recomandat primește **următoarea factură la
-jumătate**. Atât.
+Un părinte existent recomandă altul. **Amândouă familiile primesc jumătate de factură** — cea care a
+recomandat la următoarea, cea nou-venită la prima ei.
 
 Într-o școală pentru copii, e cel mai ieftin și mai eficient canal, pentru că părinții vorbesc
 oricum între ei. Ce s-a hotărât e că merită **onorat**, nu automatizat.
@@ -190,8 +190,8 @@ Ce a căzut: legătura generată din portal, urmărirea sursei pe lead, aplicare
 și măsurarea canalului în pâlnia din S4 — recomandările nu vor apărea acolo ca sursă, fiindcă nimic
 nu le înregistrează ca atare.
 
-**Acceptanță:** patronul poate pune, pe factura unei familii, o reducere de 50% din total, numită
-„Recomandare", iar factura iese exact la jumătate.
+**Acceptanță:** patronul poate pune, pe factura fiecăreia dintre cele două familii, o reducere de 50%
+din total, numită „Recomandare", iar facturile ies exact la jumătate.
 
 **Nelivrat, și blocat de un lucru mic:** `Discount.value` e o sumă absolută în lei, nu un procent —
 tipul procentual e [E15](E15-pricing-facturare.md) S5. Până atunci reducerea se poate da oricum, ca
@@ -199,14 +199,13 @@ valoare absolută: ecranul de emitere arată totalul familiei, iar jumătatea lu
 Funcționează și e onest să scriem că funcționează; ce lipsește e ca regula „50%" să fie a
 platformei, nu a celui care socotește.
 
-**Ce nu s-a hotărât încă:** dacă primește ceva și familia nou-venită. Story-ul cerea inițial
-„beneficiu pentru amândoi"; decizia numește un singur beneficiu, al celui care recomandă. Rămâne o
-întrebare deschisă, nu o omisiune.
+**Care factură, pentru fiecare:** pentru familia care a recomandat, prima emisă **după ce copilul
+recomandat chiar a început** — nu după probă. Proba e gratuită și poate să nu se transforme în
+înscriere, iar o reducere dată pe o probă care nu continuă e un cadou, nu o recomandare. Pentru
+familia nou-venită, prima ei factură, care e oricum de după acel moment.
 
-**Care e „următoarea factură":** prima emisă familiei care a recomandat **după ce copilul recomandat
-chiar a început** — nu după probă. Proba e gratuită și poate să nu se transforme în înscriere, iar o
-reducere dată pe o probă care nu continuă e un cadou, nu o recomandare. Asta e o presupunere scrisă
-aici ca să fie contrazisă dacă e greșită, nu o regulă venită de la patron.
+Momentul de declanșare e deci același pentru amândouă — începutul efectiv — și e o presupunere
+scrisă aici ca să fie contrazisă dacă e greșită, nu o regulă venită de la patron.
 
 ## Dependențe
 
@@ -263,10 +262,11 @@ locație.
 Se reia dacă volumul de mesaje ajunge să nu mai încapă într-un inbox, sau dacă cineva chiar
 întreabă care a rămas fără răspuns.
 
-**Recomandările se onorează, nu se automatizează: 50% la factura următoare, date de patron.**
+**Recomandările se onorează, nu se automatizează: 50% de fiecare parte, date de patron.**
 
-Un părinte care aduce altul primește următoarea factură la jumătate. Fără cod de recomandare, fără
-legătură de generat din portal, fără atribuire automată.
+Un părinte care aduce altul primește următoarea factură la jumătate, iar familia nou-venită primește
+prima ei factură la jumătate. Fără cod de recomandare, fără legătură de generat din portal, fără
+atribuire automată.
 
 Motivul e că **tot costul unui sistem de recomandări e mașinăria de atribuire**, nu beneficiul: coduri
 care trebuie generate, distribuite și verificate; legături care trebuie să supraviețuiască unui
@@ -288,6 +288,19 @@ din memorie; se reia în ziua în care nu se mai poate.
 Regula concretă e **50% din totalul facturii**, nu 50% din tariful unui copil: reducerea e a familiei,
 la fel ca prețul, care numără frații împreună. Iar plafonul din [E15](E15-pricing-facturare.md) S5 —
 o reducere nu duce totalul sub zero — se aplică și aici, deși la 50% nu are cum să muște.
+
+**De ce se oferă atât de mult, în cifrele patronului.** Două reduceri de 50% pe aceeași recomandare
+înseamnă că școala renunță, cumulat, la **echivalentul unei luni întregi** — una dintre cele două
+familii a stat, practic, o lună pe gratis. Dar luna aia se plătește o singură dată, iar ce urmează
+după ea e un abonament lunar care continuă. Costul e unic; venitul se repetă. La al doilea sau al
+treilea ciclu de facturare, recomandarea e deja pe plus, și rămâne acolo.
+
+Consecința pe care aritmetica asta o rezolvă din mers: **nu există plafon la numărul de recomandări.**
+Un părinte foarte sociabil care aduce cinci familii primește cinci facturi la jumătate — adică două
+luni și jumătate de reducere, contra cinci abonamente care încep. Costul crește exact odată cu lucrul
+care îl plătește, deci un plafon ar limita fix cazul cel mai bun. Se reia doar dacă apare un tipar
+care nu seamănă a recomandare — aceeași familie „recomandată" de mai multe ori, sau familii care
+dispar imediat după luna cu reducere.
 
 **Înscrierea nu e self-service. Programarea la probă rămâne publică.**
 
