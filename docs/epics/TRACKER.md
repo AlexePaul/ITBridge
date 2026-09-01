@@ -284,7 +284,6 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 | **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
 | **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an       |
 | **Tu**         | Două profiluri Google Business    | E19 S3, partea din afara site-ului                                                            |
-| **Tu**         | Ștergerea recordului `api.` din DNS | Nimic — dar e un record orfan către un IP EC2 străin. Vezi riscul din E01                    |
 | **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                 |
 | **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                        |
 
