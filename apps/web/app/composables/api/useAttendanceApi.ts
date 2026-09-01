@@ -1,6 +1,11 @@
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
-import type { Attendance, SessionRegister } from "~/types/attendance.types";
+import type {
+  AbsenceNotice,
+  AnnounceAbsenceDto,
+  Attendance,
+  SessionRegister,
+} from "~/types/attendance.types";
 
 export const useAttendanceApi = () => {
   const api = useApi();
@@ -74,11 +79,39 @@ export const useAttendanceApi = () => {
     });
   };
 
+  /**
+   * Announces that a child will miss a class — E12/S3. A second announcement for the same class
+   * amends the first rather than adding one, so the caller need not check.
+   */
+  const announceAbsence = async (dto: AnnounceAbsenceDto) =>
+    api<AbsenceNotice>("/attendance/absences", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: dto,
+    });
+
+  /** Announced absences for classes still to come. A parent gets their own; an admin the school. */
+  const fetchUpcomingAbsences = async () =>
+    api<AbsenceNotice[]>("/attendance/absences", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** The child is coming after all. */
+  const withdrawAbsence = async (id: number) =>
+    api<{ message: string }>(`/attendance/absences/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
   return {
     markSessionAttendance,
     updateAttendanceStatus,
     getAttendanceByChild,
     fetchSessionRegister,
     upsertMark,
+    announceAbsence,
+    fetchUpcomingAbsences,
+    withdrawAbsence,
   };
 };

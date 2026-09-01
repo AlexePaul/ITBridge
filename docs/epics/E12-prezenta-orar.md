@@ -223,10 +223,43 @@ stabiliți.
 **Acceptanță:** anunțarea până la ora X în ziua cursului marchează absența ca anunțată și creează
 dreptul de recuperare.
 
-**Nelivrat**, în afara tăieturii de MVP agreate cu patronul. Un părinte nu are azi cum să anunțe
-nimic, iar `Attendance.present` rămâne singurul lucru care se știe despre o absență: că s-a
-întâmplat. Story-ul e și poarta către S4 — „absență eligibilă" înseamnă „absență anunțată în
-termen", deci fără el recuperarea nu are de unde să înceapă.
+**Livrat.** `AbsenceNotice` leagă un copil de o **ședință**, nu de o dată și o oră — ca orice rând
+care vorbește despre o oră de curs, fiindcă orarul e singurul răspuns la „când". Părintele anunță
+din `/user/absente`; adminul poate anunța pentru oricine, fiindcă el e cel care ridică telefonul.
+
+**Termenul e „înainte să înceapă ora".** Story-ul lasă pragul școlii („sau după regula pe care o
+stabiliți"), iar ăsta e cel care se potrivește cu motivul pentru care story-ul vrea anunțuri:
+*profesorul vede dinainte cine lipsește*. Un anunț ajuns înainte ca profesorul să intre în sală
+și-a făcut toată treaba; unul de după, nu, la ce oră o fi venit. O fereastră mai strictă — două ore
+înainte, sau ora 10 în ziua cursului — e o linie schimbată în `absence-notice.rules.ts`; nu e
+implicit fiindcă ar pedepsi exact cazul copilului care face febră la trei pentru o oră de la patru,
+iar nicio școală nu vrea să pună familia aia într-o situație mai proastă decât una care tace.
+
+Cinci decizii care se încalcă ușor:
+
+- **`inTime` se îngheață la scriere, nu se recalculează la citire.** Eligibilitatea e un fapt despre
+  momentul în care părintele a anunțat; o coloană derivată și-ar schimba răspunsul pe măsură ce ora
+  se îndepărtează în trecut, iar în ziua în care s-ar schimba regula ar rescrie ce i s-a spus deja
+  unei familii.
+- **Anunțul nu marchează pe nimeni absent.** Catalogul rămâne al profesorului, iar un copil al cărui
+  părinte a anunțat poate să vină totuși — și vine. Rândul ăsta e ce vede profesorul *înainte*.
+- **Un al doilea anunț modifică, nu adaugă.** Un părinte care scrie din nou s-a răzgândit sau
+  reformulează, n-a produs a doua absență. `UQ_absence_notice_child_session` e ce face asta adevărat
+  și pentru două apăsări în aceeași secundă. `inTime` se rejudecă la modificare: modificarea e ea
+  însăși un act cu un moment.
+- **Un anunț târziu se acceptă, dar nu e „în termen".** Refuzul l-ar face pe părinte să nu mai spună
+  nimic, iar școala pierde motivul — care îi trebuie oricum. Ce pierde familia e eligibilitatea.
+- **Timpul se compară pe ceasul școlii.** Ședința ține o dată locală și un `HH:mm` local, iar `now` e
+  un instant; comparația trece prin `Intl` pe `Europe/Bucharest`. Prin UTC, un anunț de la 01:00
+  ora școlii ar fi judecat ca fiind „încă ziua de ieri" — greșeala de exact o zi din CLAUDE.md, în
+  altă haină.
+
+**Ajunge la profesor, nu doar în bază:** ecranul de pe telefon (S6) arată insigna „Anunțat" și
+motivul sub nume, iar butonul „Sună părintele" **dispare** pentru un copil anunțat — familia a
+răspuns deja la întrebarea pe care ar fi pus-o telefonul.
+
+Story-ul e și poarta către S4: „absență eligibilă" înseamnă acum ceva concret și stocat — `inTime` —,
+deci recuperarea are de unde să înceapă. Dreptul, programarea și consumarea rămân S4.
 
 ### S4 · Recuperări
 

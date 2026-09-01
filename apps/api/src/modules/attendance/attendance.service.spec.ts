@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
+import { AbsenceNoticeService } from './absence-notice.service';
 import { Attendance } from 'src/entities/attendance.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Child } from 'src/entities/child.entity';
@@ -33,7 +34,11 @@ describe('AttendanceService', () => {
         ...overrides,
     });
 
+    /** The school calendar of announced absences; empty unless a test says otherwise. */
+    const forSessionMock = jest.fn();
+
     beforeEach(async () => {
+        forSessionMock.mockResolvedValue(new Map());
         attendanceRepo = createMockRepository();
         attendanceRepo.findByIds = jest.fn();
         classSessionRepo = createMockRepository();
@@ -46,6 +51,7 @@ describe('AttendanceService', () => {
                 provideMockRepository(Attendance, attendanceRepo),
                 provideMockRepository(ClassSession, classSessionRepo),
                 provideMockRepository(Child, childRepo),
+                { provide: AbsenceNoticeService, useValue: { forSession: forSessionMock } },
             ],
         }).compile();
 
@@ -234,6 +240,17 @@ describe('AttendanceService', () => {
 
             const register = await service.sessionRegister(9);
             expect(register.entries[0].parentPhone).toBeNull();
+        });
+
+        it('carries what the family announced, so the teacher knows before the lesson', async () => {
+            forSessionMock.mockResolvedValue(new Map([[2, { reason: 'Răcit', inTime: true }]]));
+
+            const register = await service.sessionRegister(9);
+
+            expect(register.entries.find((entry) => entry.childId === 2)?.announcedAbsence).toEqual({ reason: 'Răcit', inTime: true });
+            // Silence is a different fact from an announcement, and reads as null rather than as
+            // an empty reason.
+            expect(register.entries.find((entry) => entry.childId === 1)?.announcedAbsence).toBeNull();
         });
 
         it('404s on a session that does not exist', async () => {

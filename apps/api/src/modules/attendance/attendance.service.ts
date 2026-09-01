@@ -7,6 +7,7 @@ import { Child } from 'src/entities/child.entity';
 import { AttendanceType } from 'src/enum/attendance-type.enum';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { markAttendanceDto } from './dto/markAttendance.dto';
+import { AbsenceNoticeService } from './absence-notice.service';
 
 @Injectable()
 export class AttendanceService {
@@ -14,6 +15,7 @@ export class AttendanceService {
         @InjectRepository(Attendance) private readonly attendanceRepository: Repository<Attendance>,
         @InjectRepository(ClassSession) private readonly classSessionRepository: Repository<ClassSession>,
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
+        private readonly absenceNoticeService: AbsenceNoticeService,
     ) {}
 
     /**
@@ -108,6 +110,10 @@ export class AttendanceService {
      * is a phone in a classroom on whatever signal reaches it. Carries the parent's phone per child
      * so an unannounced absence is one tap from a call (the S7 detail), and the existing mark per
      * child so reopening a half-marked register shows what is already down.
+     *
+     * Since E12/S3 it also carries whatever the family announced. That is the point of announcing:
+     * the teacher learns before the lesson rather than by counting empty chairs, and the row that
+     * already has a reason beside it does not need the phone call the S7 button offers.
      */
     async sessionRegister(classSessionId: number) {
         const classSession = await this.classSessionRepository.findOne({
@@ -123,9 +129,11 @@ export class AttendanceService {
             relations: { child: { parent: true } },
         });
         const markByChild = new Map(marks.map((mark) => [mark.child.id, mark]));
+        const noticeByChild = await this.absenceNoticeService.forSession(classSessionId);
 
         const entryOf = (child: Child, type: AttendanceType) => {
             const mark = markByChild.get(child.id);
+            const notice = noticeByChild.get(child.id);
             return {
                 childId: child.id,
                 firstName: child.firstName,
@@ -136,6 +144,8 @@ export class AttendanceService {
                 type,
                 present: mark ? mark.present : null,
                 attendanceId: mark ? mark.id : null,
+                // What the family said, and whether they said it before the class — E12/S3.
+                announcedAbsence: notice ? { reason: notice.reason, inTime: notice.inTime } : null,
             };
         };
 

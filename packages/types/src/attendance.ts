@@ -1,5 +1,5 @@
 import type { ClassSession, ClassSessionStatus } from './class-session';
-import type { ISODate, TimeOfDay } from './common';
+import type { ISODate, ISODateTime, TimeOfDay } from './common';
 import type { Group } from './group';
 
 /**
@@ -57,6 +57,11 @@ export interface SessionRegisterEntry {
     type: AttendanceType;
     present: boolean | null;
     attendanceId: number | null;
+    /**
+     * What the family announced ahead of the class, if they did — E12/S3. `null` means silence,
+     * which is a different fact from "announced and turned up anyway".
+     */
+    announcedAbsence: { reason: string; inTime: boolean } | null;
 }
 
 /**
@@ -76,4 +81,27 @@ export interface SessionRegister {
         groupName: string;
     };
     entries: SessionRegisterEntry[];
+}
+
+/**
+ * A parent saying, in advance, that their child will miss one class — E12/S3.
+ *
+ * Announcing does not mark anybody absent: the register stays the teacher's to take, and a child
+ * whose parent announced can turn up anyway. `inTime` is frozen when the notice is written —
+ * eligibility is a fact about the moment of announcing, not a question re-asked later.
+ */
+export interface AbsenceNotice {
+    id: number;
+    reason: string;
+    /** True when it arrived before the class started. Decides eligibility for a make-up (E12/S4). */
+    inTime: boolean;
+    createdAt: ISODateTime;
+    child: { id: number; firstName: string; lastName: string };
+    classSession: ClassSession;
+}
+
+export interface AnnounceAbsenceDto {
+    childId: number;
+    classSessionId: number;
+    reason: string;
 }

@@ -146,6 +146,13 @@ describe('authorization matrix', () => {
             // performs is a message to the office, not a change to the document. Deleting or
             // reassigning one stays with ADMIN, which is the point of this list existing.
             'ProjectController.reportProject',
+            // E12/S3. A parent announces that their own child will miss a class, and withdraws the
+            // announcement. Both are narrowed in `AbsenceNoticeService` on the child's own family —
+            // and to a 404, not a 403, so an id belonging to somebody else does not confirm that it
+            // belongs to anybody. Marking the register stays with ADMIN: saying you will be away is
+            // the family's to say, recording what happened is not.
+            'AttendanceController.announceAbsence',
+            'AttendanceController.withdrawAbsence',
         ]);
 
         const writes = HANDLERS.filter((h) => WRITE_METHODS.includes(h.httpMethod));
