@@ -57,6 +57,38 @@ neîncasate, probe programate, alerte. Filtrabil pe locație, comparabil cu peri
 
 **Acceptanță:** răspunde la "cum stăm?" în zece secunde, fără alt clic.
 
+**Livrat**, pe `/admin/dashboard` — care până acum era un placeholder ce scria, textual, că nu știe
+ce va fi pe el.
+
+**Regula care ține ecranul onest: fiecare număr e cerut de la cine deține deja întrebarea.**
+Cataloagele nemarcate vin din `ClassSessionService.findUnmarkedSessions`, aceeași metodă pe care o
+folosește mementoul zilnic; restanțele din `ArrearsService.list`, care le derivă din plățile
+reușite; ocuparea din `EnrollmentService.occupancyOf`, care numără proba ca loc ocupat (D7). Nimic
+nu se rederivă aici, și ăsta e motivul pentru care modulul există ca modul: un ecran care și-ar
+calcula singur „nemarcat" ar fi a doua definiție, iar a doua definiție e mereu cea care divergează —
+de obicei chiar cea de pe ecranul la care lumea se uită în treacăt, tocmai fiindcă la o privire nu
+verifică nimeni.
+
+Testele de integrare verifică **acordul**, nu aritmetica: citesc și tabloul, și ecranul pe care îl
+rezumă, și le compară. Suma restanțelor se potrivește la leu cu lista de restanțe; numărul de conturi
+în așteptare cu ecranul de aprobări; grupele aproape pline cu ce spune ocuparea.
+
+**Ce arată, și de ce fiecare:** orele de azi cu marcat/nemarcat, fiindcă e gestul zilnic;
+restanțele în lei și în **familii**, nu în facturi, fiindcă o familie cu două luni neplătite e un
+telefon, nu două; cataloagele nefăcute din ultima săptămână, **fără ziua în curs** — ce nu e marcat
+azi nu e restanță, e muncă în desfășurare; conturile în așteptare, fiindcă
+[E11](E11-inscrieri-capacitate.md) S2 numește exact riscul ca un admin care nu deschide ecranul
+vineri să transforme o înscriere în tăcere; proiectele netrimise; mesajele nelivrate din
+[E17](E17-comunicare-notificari.md) S5, care merită o cifră tocmai fiindcă o familie neanunțată nu
+știe că n-a fost anunțată și deci nu se plânge nimeni.
+
+**Fiecare dală duce la ecranul care rezolvă**, fiindcă un tablou care doar raportează e un tablou pe
+care lumea nu-l mai deschide.
+
+**Ce nu s-a făcut din story:** filtrarea pe locație și comparația cu perioada anterioară. Prima e
+utilă abia când numerele diferă mult între adrese, a doua cere serii istorice pe care nimic nu le
+scrie încă — și ar fi fost, amândouă, sofisticare pusă înaintea primei utilizări.
+
 ### S2 · Rapoarte financiare
 
 Venit facturat față de venit încasat, pe lună și pe modul, pe locație. Restanțe cu vechime. Venit

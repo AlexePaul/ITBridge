@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **146 de story-uri** în 22 de epicuri: 62 livrate, 15 parțiale, 8 blocate, 4 scoase din scop,
-57 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **146 de story-uri** în 22 de epicuri: 62 livrate, 16 parțiale, 8 blocate, 4 scoase din scop,
+56 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -263,9 +263,9 @@ nu rulează nicăieri".
 
 ## Business
 
-### E21 · Raportare și analytics — `propus`
+### E21 · Raportare și analytics — `în lucru`
 
-- [ ] S1 · Tablou de bord operațional
+- [~] S1 · Tablou de bord operațional — livrat pe `/admin/dashboard`, care era un placeholder. Fiecare număr e cerut de la serviciul care deține întrebarea, iar e2e-ul verifică acordul cu ecranele rezumate. Fără filtrare pe locație și fără comparație cu perioada anterioară
 - [ ] S2 · Rapoarte financiare
 - [ ] S3 · Retenție și abandon
 - [ ] S4 · Ocupare
