@@ -15,3 +15,4 @@ export * from './payment';
 export * from './discount';
 export * from './auth';
 export * from './mail';
+export * from './overview';
