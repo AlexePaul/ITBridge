@@ -432,6 +432,30 @@ singură, intenționat: două definiții ale lui „nemarcat" ar diverge, iar ce
 pe care o citește emailul, fiindcă la ea nu se uită nimeni. Endpoint-ul nu are încă ecran — deci
 lista se poate cere, dar nu se vede nicăieri în admin.
 
+**Livrate acum și notificările către părinte** — a doua linie din story, cea de după telefonul
+profesorului. Două, în `parent-notifications.job.ts`:
+
+- **Absență neanunțată → familia află în aceeași zi.** La 19:00, ora școlii, după ultima oră. Un
+  singur mesaj per **părinte**, cu toate absențele copiilor lui din ziua aia — regula pe care a
+  stabilit-o E14 pentru exact motivul ăsta. **O absență pe care familia a anunțat-o nu produce
+  nimic:** a scrie înapoi unei familii ca să-i spui ce ți-a spus ea e genul de zgomot care învață
+  lumea să filtreze expeditorul, iar atunci mesajul nu e citit în ziua în care conta. E același
+  raționament pentru care mementoul zilnic tace în zilele bune.
+- **Recuperare care expiră → memento cu șapte zile înainte.** Doar creditele **neprogramate și
+  neconsumate**: cine și-a ales deja ora n-are nevoie de un ghiont, iar cine a folosit-o n-are nevoie
+  de un memento despre un drept pe care nu-l mai are. **Exact** la șapte zile, nu „în interval de" —
+  un interval ar scrie în fiecare din cele șapte zile, și așa devine un memento util o pacoste.
+  Șapte fiindcă fereastra mai conține cel puțin o oră proprie a copilului de care să se agațe
+  programarea, și e destul de devreme cât „n-am găsit oră" să mai fie rezolvabil.
+
+**Amândouă sunt tranzacționale** și nu consultă preferința de marketing din
+[E17](E17-comunicare-notificari.md) S4 — nici n-ar avea cum: `queueOrRecord` nu primește deloc
+preferința. O familie care a refuzat noutățile află în continuare că cel mic n-a ajuns la oră. Și
+niciunul din job-uri nu se ramifică pe adresă: o familie fără email lasă un rând `undeliverable` în
+evidența din S5, în loc să fie sărită tăcut.
+
+Textele sunt șabloane E17/S2, deci școala le poate rescrie fără deploy.
+
 **Ăsta NU e mementoul de la minutul 15 din story și nu-l înlocuiește.** Sunt două întrebări
 diferite, care se aseamănă doar la nume:
 
