@@ -19,6 +19,13 @@ export interface ProfileSummary {
     emergencyContactName?: string | null;
     emergencyContactRelation?: string | null;
     emergencyContactPhone?: string | null;
+    /**
+     * Whether the family agreed to hear from the school beyond their own business — E17/S4.
+     *
+     * Gates marketing and nothing else. Invoices, receipts, a cancelled class and the child's own
+     * work are the school performing its contract, and are never on a checkbox.
+     */
+    marketingOptIn: boolean;
 }
 
 export interface Profile extends ProfileSummary {

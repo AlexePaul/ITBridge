@@ -47,6 +47,39 @@
         </div>
       </UCard>
 
+      <!-- E17/S4. The only preference there is, and the copy has to say what it does *not* touch:
+           a parent who reads "unsubscribe" next to a school's name reasonably fears losing the
+           invoice and their child's work. -->
+      <UCard class="border rounded-lg" variant="subtle">
+        <template #header>
+          <div class="flex items-center gap-3">
+            <UIcon name="i-lucide-bell" class="text-2xl text-primary" />
+            <h2 class="text-2xl font-semibold">Comunicări</h2>
+          </div>
+        </template>
+
+        <div class="flex items-start justify-between gap-6">
+          <div class="min-w-0">
+            <p class="font-medium">Noutăți de la școală</p>
+            <p class="text-muted text-sm mt-1">
+              Tabere, ateliere, evenimente. Poți opri oricând, iar dacă nu le pornești nu primești
+              nimic de genul ăsta.
+            </p>
+            <p class="text-muted text-sm mt-2">
+              <strong>Nu se opresc de aici</strong> facturile, confirmările de plată, anunțurile
+              despre orele copilului tău și proiectele lui. Alea sunt lucrurile pentru care ne-ai
+              dat datele, nu reclamă.
+            </p>
+          </div>
+          <USwitch
+            :model-value="profile.marketingOptIn"
+            :loading="savingPreference"
+            class="shrink-0 mt-1"
+            @update:model-value="setMarketing"
+          />
+        </div>
+      </UCard>
+
       <!-- Children Information Card -->
       <UCard class="border rounded-lg" variant="subtle">
         <template #header>
@@ -150,8 +183,11 @@ import { ref, onMounted, computed } from "vue";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { useProfileStore } from "~/stores/profileStore";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
+import { useNotifications } from "~/composables/useNotifications";
+import { apiErrorMessage } from "~/composables/useApiError";
 
 const profileApi = useProfileApi();
+const { success, error } = useNotifications();
 const profileStore = useProfileStore();
 
 const profile = computed(() => profileStore.profile);
@@ -172,6 +208,28 @@ const loadProfile = async () => {
 onMounted(async () => {
   await loadProfile();
 });
+
+/**
+ * The one preference a parent has — E17/S4.
+ *
+ * Saved on the flip rather than behind a Save button: it is a single boolean, and a switch that
+ * needs confirming reads as though something dangerous is being decided. Nothing transactional is
+ * affected, whatever it is set to.
+ */
+const savingPreference = ref(false);
+const setMarketing = async (value: boolean) => {
+  if (!profile.value) return;
+  savingPreference.value = true;
+  try {
+    await profileApi.updateProfile({ marketingOptIn: value }, profile.value.id);
+    success(value ? "Îți trimitem și noutățile." : "Nu-ți mai trimitem noutăți.");
+    await loadProfile();
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut salva preferința"));
+  } finally {
+    savingPreference.value = false;
+  }
+};
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString("ro-RO", {

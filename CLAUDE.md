@@ -514,6 +514,13 @@ mesajelor către părinți. Amândouă sunt opționale: fără ele aplicația po
 `outbox` cu motivul scris în `lastError`. `MAIL_OUTBOX_ENABLED=false` oprește doar scheduler-ul;
 testele de integrare îl setează, ca o trecere de fundal să nu miște rândurile sub aserțiuni.
 
+**Numai marketingul stă pe o bifă** (E17 S4). `Profile.marketingOptIn` e implicit `false` — un
+consimțământ pe care nu l-a dat nimeni nu e consimțământ — și gatează exclusiv `queueMarketing`.
+`queue` și `queueOrRecord` **nu primesc deloc preferința**, deci nu există argument prin care cineva
+ar putea opri o factură, o chitanță, o oră anulată sau proiectul copilului: alea sunt executarea
+contractului, nu reclamă. Un refuz **nu** lasă rând în evidență, spre deosebire de un mesaj fără
+destinatar — acolo cineva trebuia contactat și n-a fost, aici nimeni nu trebuia.
+
 **Un mesaj care n-are unde să plece lasă un rând, nu o linie de log** (E17 S5). `queueOrRecord` din
 `OutboxService` primește destinatarul oricare ar fi el și scrie `undeliverable` cu motiv tipizat
 (`no_address` / `unconfirmed_address`) când n-are adresă — starea e terminală și dispecerul n-o
