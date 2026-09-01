@@ -275,11 +275,49 @@ prezent în altă grupă" să însemne „și-a consumat recuperarea", nu doar o
 **Acceptanță:** un părinte vede "ai o recuperare disponibilă până pe 20 decembrie" și o programează
 singur, fără telefon.
 
-**Nelivrat.** Recuperarea a rămas exact ce era: `AttendanceType.MAKE_UP`, scris automat pentru orice
-copil marcat într-o grupă care nu e a lui — o constatare după fapt. Dreptul, programarea și
-consumarea cer S3 înainte și sunt în afara MVP-ului. Singurul lucru care s-a mișcat aici e de partea
-părintelui: o recuperare la care copilul a fost prezent are culoare proprie în calendar, iar una la
-care a fost programat și n-a venit e o absență ca oricare alta.
+**Livrat.** `MakeUpCredit` e dreptul, iar bucla e completă: anunți, ești marcat absent, câștigi
+dreptul, îl programezi din portal, vii, se consumă.
+
+**Ce înseamnă „absență eligibilă", concret:** un anunț **în termen** (S3) care se întâlnește cu un
+catalog care spune că nu a fost acolo. Niciuna dintre jumătăți nu ajunge singură — o familie care a
+anunțat și a venit totuși a fost prezentă, iar un copil absent fără o vorbă n-a anunțat nimic — și
+exact intersecția asta e definiția. Dreptul nu e un endpoint: se câștigă și se consumă ca **efect al
+marcării**, în `AttendanceService.settleMakeUp`.
+
+**Termenul e 30 de zile de la ora pierdută**, iar numărul e o alegere scrisă în `make-up.rules.ts`.
+Alternativa cântărită — „până la finalul lunii următoare" — dă unui copil care lipsește pe 2 aproape
+opt săptămâni și unuia care lipsește pe 30 abia patru, pentru un motiv pe care niciun părinte nu l-ar
+accepta dacă i-ar fi explicat. O fereastră fixă e aceeași promisiune pentru toți: destul de lungă cât
+să conțină patru ore din grupa proprie, destul de scurtă cât dreptrile să nu se adune într-o datorie
+pe care școala n-o mai poate onora.
+
+Patru decizii care se încalcă ușor:
+
+- **Nu există coloană de stare.** Trei stări se citesc din rând (`consumed_attendance_id` pus =
+  folosită, `booked_session_id` pus = programată, niciuna = disponibilă), iar a patra — expirată — e
+  calendarul care s-a mișcat, ceea ce nu scrie nimeni și n-are ce job s-o măture, fiindcă
+  scheduler-ul n-are unde să ruleze. O coloană de stare ar fi un al doilea loc care spune ce spun
+  deja coloanele, liber să le contrazică.
+- **`expiresOn` se îngheață la scriere**, ca `inTime` la S3: fereastra despre care i s-a spus unei
+  familii nu are voie să se mute când cineva editează regula.
+- **Legătura cu marcajul *este* starea de „folosită".** `AttendanceType.MAKE_UP` se scria deja singur
+  pentru orice copil marcat în afara grupei lui; acum „a fost prezent în altă grupă" **înseamnă**
+  „și-a consumat recuperarea", nu mai e o observație pe care n-o citește nimic. Un copil marcat
+  absent la ora pe care și-a programat-o **nu** consumă nimic — n-a venit, iar dreptul își trăiește
+  restul ferestrei.
+- **Locul liber se numără pe ședință, nu pe grupă.** Un copil în recuperare stă pe un scaun, la un
+  calculator, exact ca o probă (D7), deci numărătoarea e înscrieri în vigoare **plus** recuperări deja
+  programate pe acea ședință. O grupă plină cu copiii ei n-are loc pentru un vizitator, deși nimeni
+  nu e „înscris" în vizită.
+
+**„Același modul" din story nu se verifică, fiindcă modulele nu există** — E10 e scos din MVP. Banda
+de vârstă a grupei gazdă e ce are platforma ca să spună că două grupe predau ceva destul de apropiat,
+și e același semnal pe care îl folosește înscrierea.
+
+**Acceptanța, literal:** în `/user/absente` părintele citește „Disponibilă până pe 7 octombrie" și
+apasă *Programează*, care deschide lista orelor compatibile. Fără telefon. Ce s-a corectat pe drum e
+că lista e o fotografie: la apăsare serverul reverifică tot ce a filtrat ea, fiindcă un loc poate
+pleca între citire și buton.
 
 ### S5 · Anulări și mutări
 

@@ -9,6 +9,8 @@ import { markAttendanceDto } from './dto/markAttendance.dto';
 import { UpsertMarkDto } from './dto/upsertMark.dto';
 import { AnnounceAbsenceDto } from './dto/announceAbsence.dto';
 import { AbsenceNoticeService } from './absence-notice.service';
+import { MakeUpCreditService } from './make-up-credit.service';
+import { BookMakeUpDto } from './dto/bookMakeUp.dto';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('attendance')
@@ -16,6 +18,7 @@ export class AttendanceController {
     constructor(
         private readonly attendanceService: AttendanceService,
         private readonly absenceNoticeService: AbsenceNoticeService,
+        private readonly makeUpCreditService: MakeUpCreditService,
     ) {}
 
     /**
@@ -104,6 +107,46 @@ export class AttendanceController {
     @ApiResponse({ status: 200, description: 'Notice withdrawn' })
     async withdrawAbsence(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
         return this.absenceNoticeService.withdraw(id, req.user.role, req.user.sub);
+    }
+
+    /** A family's make-up credits, with the state derived on each — E12/S4. Admin sees the school. */
+    @Get('make-ups')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'Credits with a derived status: available, booked, consumed or expired' })
+    async listMakeUps(@Request() req: AuthenticatedRequest) {
+        return this.makeUpCreditService.listFor(req.user.role, req.user.sub);
+    }
+
+    /** The classes this credit could be spent on: right age band, free seat, inside the window. */
+    @Get('make-ups/:id/options')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'Compatible sessions, soonest first; empty once the credit is not available' })
+    async makeUpOptions(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
+        return this.makeUpCreditService.optionsFor(id, req.user.role, req.user.sub);
+    }
+
+    /** Books it. Everything the options list filtered on is re-checked — a seat can go meanwhile. */
+    @Put('make-ups/:id/booking')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'Booked' })
+    @ApiResponse({
+        status: 409,
+        description: 'MAKE_UP_EXPIRED, MAKE_UP_ALREADY_CONSUMED, MAKE_UP_SESSION_FULL, MAKE_UP_AGE_MISMATCH or MAKE_UP_SESSION_OUT_OF_WINDOW',
+    })
+    async bookMakeUp(@Param('id', ParseIntPipe) id: number, @Body() dto: BookMakeUpDto, @Request() req: AuthenticatedRequest) {
+        return this.makeUpCreditService.book(id, dto.classSessionId, req.user.role, req.user.sub);
+    }
+
+    /** Frees the booking, leaving the credit usable for whatever is left of its window. */
+    @Delete('make-ups/:id/booking')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'Booking cancelled; the credit is available again' })
+    async cancelMakeUpBooking(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
+        return this.makeUpCreditService.cancelBooking(id, req.user.role, req.user.sub);
     }
 
     @Get('child/:childId')

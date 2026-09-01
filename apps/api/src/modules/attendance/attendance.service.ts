@@ -8,6 +8,7 @@ import { AttendanceType } from 'src/enum/attendance-type.enum';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { markAttendanceDto } from './dto/markAttendance.dto';
 import { AbsenceNoticeService } from './absence-notice.service';
+import { MakeUpCreditService } from './make-up-credit.service';
 
 @Injectable()
 export class AttendanceService {
@@ -16,6 +17,7 @@ export class AttendanceService {
         @InjectRepository(ClassSession) private readonly classSessionRepository: Repository<ClassSession>,
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
         private readonly absenceNoticeService: AbsenceNoticeService,
+        private readonly makeUpCredits: MakeUpCreditService,
     ) {}
 
     /**
@@ -100,7 +102,14 @@ export class AttendanceService {
         // (E12) looks for yesterday's `scheduled` sessions *with no attendance rows*, so the two
         // signals are independent by design, and status transitions belong to whoever owns the
         // session, not to the register.
-        return this.attendanceRepository.save(attendanceRecords);
+        const saved = await this.attendanceRepository.save(attendanceRecords);
+
+        // E12/S4, after the register is written rather than inside it: a make-up credit is a
+        // consequence of what the marks say, and it must not be able to fail a register.
+        for (const record of saved) {
+            await this.settleMakeUp(record.child.id, classSessionId, record, record.present);
+        }
+        return saved;
     }
 
     /**
@@ -205,7 +214,9 @@ export class AttendanceService {
         });
         if (existing) {
             existing.present = present;
-            return this.attendanceRepository.save(existing);
+            const saved = await this.attendanceRepository.save(existing);
+            await this.settleMakeUp(childId, classSessionId, saved, present);
+            return saved;
         }
 
         const record = new Attendance();
@@ -215,7 +226,27 @@ export class AttendanceService {
         record.group = classSession.group;
         // Same rule as the bulk endpoint: in the group means regular, anyone else is a make-up.
         record.type = classSession.group.children.some((groupChild) => groupChild.id === childId) ? AttendanceType.REGULAR : AttendanceType.MAKE_UP;
-        return this.attendanceRepository.save(record);
+        const saved = await this.attendanceRepository.save(record);
+        await this.settleMakeUp(childId, classSessionId, saved, present);
+        return saved;
+    }
+
+    /**
+     * What a mark does to make-up credits — E12/S4, in one place so the two write paths agree.
+     *
+     * Three things, and each is a different question: an absence may **earn** a credit (announced in
+     * time and then genuinely not there); a correction back to present **revokes** the one the
+     * mistap earned; and turning up at a class you booked **spends** the credit that brought you.
+     * A child marked absent at their booked class spends nothing — they did not come, and the
+     * credit lives out the rest of its window.
+     */
+    private async settleMakeUp(childId: number, classSessionId: number, attendance: Attendance, present: boolean): Promise<void> {
+        if (present) {
+            await this.makeUpCredits.revokeFor(childId, classSessionId);
+            await this.makeUpCredits.consumeFor(childId, classSessionId, attendance, true);
+        } else {
+            await this.makeUpCredits.earnFor(childId, classSessionId, false);
+        }
     }
 
     async getAttendanceByChild(childId: number, userRole: string, userId: number) {

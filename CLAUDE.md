@@ -180,6 +180,15 @@ adaugă unul (`UQ_absence_notice_child_session`), și rejudecă `inTime`; iar te
 ar fi judecat ca fiind ziua dinainte. Regula însăși („înainte să înceapă ora") e o linie în
 `apps/api/src/modules/attendance/absence-notice.rules.ts`.
 
+**Recuperarea e un drept câștigat, nu un marcaj observat** (E12 S4). `MakeUpCredit` apare acolo unde
+un anunț **în termen** se întâlnește cu un catalog care spune că nu a fost acolo — niciuna dintre
+jumătăți nu ajunge singură. Nu e un endpoint: se câștigă, se retrage și se consumă ca efect al
+marcării, în `AttendanceService.settleMakeUp`. **Nu are coloană de stare**: trei stări se citesc din
+rând, iar „expirată" e calendarul care s-a mișcat — o coloană ar fi greșită exact cât timp n-a rulat
+nimic s-o corecteze. `expiresOn` se îngheață la scriere, ca `inTime`. Iar **locul liber se numără pe
+ședință**: un copil în recuperare ocupă un scaun ca o probă (D7), deci înscrieri în vigoare plus
+recuperări deja programate pe acea ședință — nu `occupancyOf`, care e despre grupă.
+
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin
 `POST /projects/ingest`, apare pe ecranul grupei în starea `nou`, iar un admin bifează și apasă. Abia
