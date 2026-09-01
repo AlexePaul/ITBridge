@@ -193,11 +193,19 @@ nu le înregistrează ca atare.
 **Acceptanță:** patronul poate pune, pe factura fiecăreia dintre cele două familii, o reducere de 50%
 din total, numită „Recomandare", iar facturile ies exact la jumătate.
 
-**Nelivrat, și blocat de un lucru mic:** `Discount.value` e o sumă absolută în lei, nu un procent —
-tipul procentual e [E15](E15-pricing-facturare.md) S5. Până atunci reducerea se poate da oricum, ca
-valoare absolută: ecranul de emitere arată totalul familiei, iar jumătatea lui se tastează de mână.
-Funcționează și e onest să scriem că funcționează; ce lipsește e ca regula „50%" să fie a
-platformei, nu a celui care socotește.
+**Livrat, atât cât înseamnă decizia.** Tipul procentual din [E15](E15-pricing-facturare.md) S5
+există, iar reducerile se acordă din `/admin/reduceri` — formularul se deschide direct pe
+„Recomandare, procent, 50", fiindcă ăsta e cazul pentru care ecranul a fost făcut, și avertizează că
+o recomandare înseamnă **două** reduceri, fiindcă a uita a doua jumătate e greșeala evidentă.
+
+Regula e acum a platformei, nu a celui care socotește: 50% urmăresc totalul real al lunii, deci o
+lună scurtă de trei ședințe (262,50) se înjumătățește la 131,25 — lucru pe care o sumă fixă de 175
+l-ar fi greșit cu 43,75 fără ca cineva să observe.
+
+**Ce nu s-a construit, tot prin decizie:** nimic nu leagă cele două reduceri între ele. Sunt două
+rânduri independente, cu același nume, pe două familii. Legătura ar fi exact mașinăria de atribuire
+tăiată mai jos, iar ecranul o înlocuiește cu singurul lucru care e nevoie de fapt: o propoziție care
+îți amintește să dai și a doua.
 
 **Care factură, pentru fiecare:** pentru familia care a recomandat, prima emisă **după ce copilul
 recomandat chiar a început** — nu după probă. Proba e gratuită și poate să nu se transforme în
