@@ -169,13 +169,47 @@ Ce diferă față de SEO clasic:
 **Acceptanță:** o întrebare de tipul "unde învață copiii programare în București" pusă unui asistent AI
 returnează școala. Măsurat periodic, manual — nu există încă unealtă serioasă pentru asta.
 
-### S8 · Măsurare — muncă viitoare, cere domeniul live
+### S8 · Măsurare — livrat parțial
 
 Search Console pe ambele proprietăți, analiză de trafic care respectă consimțământul din
 [E07](E07-securitate-gdpr.md), urmărirea pozițiilor pe cuvintele care contează, și verificarea
 manuală a răspunsurilor generative.
 
 **Acceptanță:** un raport lunar care arată ce s-a mișcat și de ce.
+
+**Search Console e configurat pe ambele proprietăți** — `.com` și vechiul `.ro`, cu schimbarea de
+adresă declarată, care e ce produce bannerul „unul dintre celelalte site-uri se mută în acest site".
+Deci story-ul **nu mai e blocat de domeniul live**, cum spunea nota de aici: domeniul e live și
+consola vede site-ul.
+
+Ce rămâne e jumătatea de analiză de trafic, iar aia **așteaptă consimțământul din E07 S2**, nu
+domeniul. Un script de analytics pus pe un site care servește părinți din UE, înaintea unui mecanism
+de consimțământ, e o decizie juridică luată din greșeală — deci se face în ordinea aia, nu invers.
+Urmărirea pozițiilor și verificarea răspunsurilor generative sunt activități manuale, lunare; nu au
+cod de scris.
+
+#### Starea măsurată, 1 septembrie 2026
+
+Prima citire din Search Console, consemnată fiindcă „un raport lunar care arată **ce s-a mișcat**"
+n-are de unde porni fără o linie de bază:
+
+- **Redirecționări, 3 URL-uri** — `http://itbridgeschool.com`, `http://www.` și `https://www.`
+  trimit toate spre canonicul `https://itbridgeschool.com`. E starea dorită, nu o problemă: Vercel
+  le rezolvă, iar absența lor din raport ar fi fost semnul rău.
+- **Descoperite și neaccesate, 5 URL-uri** — `/contact`, `/cursuri`, `/locatii` și cele două pagini
+  de locație. Google le știe din sitemap, dar nu le-a accesat **niciodată**. E starea obișnuită a
+  unui domeniu nou, cu buget de crawl mic; se rezolvă cu timpul și cu linkuri, iar între timp
+  „Inspectare URL → Solicită indexarea" le urcă în coadă. Merită grăbite tocmai fiindcă alea sunt
+  paginile care contează comercial — `/cursuri` și cele două locații sunt ce ar trebui să iasă la
+  căutările locale din S3.
+- **404, 2 URL-uri** — `/_nuxt/` (directorul de fișiere de build; 404 e răspunsul corect, se stinge
+  singur) și `api.itbridgeschool.com`, care e o problemă de infrastructură, nu de SEO, și e scrisă la
+  [E01](E01-infrastructura-medii.md).
+
+**Ce NU e de reparat în cod:** sitemap-ul listează toate cele șapte pagini, `robots.txt` are linia
+`Sitemap:` și nu blochează nimic public, iar canonicele se rezolvă. Configurația e corectă;
+neindexarea e o chestiune de timp și autoritate, iar o schimbare de cod făcută ca să pară că se face
+ceva ar strica exact partea care merge.
 
 ## Dependențe
 

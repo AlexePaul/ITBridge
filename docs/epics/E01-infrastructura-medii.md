@@ -183,6 +183,22 @@ devine obligatoriu, nu opțional, exact din motivul ăsta.
 **Rescrierea istoricului rupe clonele existente.** Repo-ul are un singur autor real, deci impactul
 e mic, dar trebuie anunțat înainte.
 
+**`api.itbridgeschool.com` arată spre o mașină care nu mai e a noastră.** Descoperit pe 1 septembrie
+2026, pornind de la un 404 raportat de Search Console. Faptele verificate: există un record **A**
+către `51.20.70.79`, care e un IP **EC2** (AWS, zona nordică); nu răspunde nimic acolo, nici pe 80
+nici pe 443; Google a primit totuși **404** de la el pe 1 iulie 2026, deci la un moment dat ceva a
+răspuns; iar backend-ul nu e deployat nicăieri, deci nimic al nostru n-ar avea ce să asculte acolo.
+
+Concluzia e un **record DNS orfan**, iar riscul lui e cel clasic de preluare de subdomeniu: IP-urile
+publice EC2 se reciclează, iar cine pornește o instanță și primește exact IP-ul ăla decide ce se
+servește pe un hostname care poartă numele școlii. Poate chiar obține un certificat valid pentru el,
+fiindcă validarea HTTP-01 cere doar să răspunzi pe acel nume — deci un site cu lacăt, pe domeniul
+școlii, către familiile care au încredere în el.
+
+**Se rezolvă ștergând recordul.** Nu ne trebuie până nu există backend, iar la S4 se creează din nou,
+către hostul real. E același tipar cu cheia Let's Encrypt de mai jos: infrastructură veche, moartă,
+care încă are un nume care arată spre ea.
+
 **Postgres în producție e o decizie separată de Postgres local.** Docker local e comod. În
 producție, un Postgres gestionat costă mai mult dar rezolvă backup-urile și actualizările; unul
 auto-găzduit pe același VPS e mai ieftin și îți lasă ție restaurarea.
