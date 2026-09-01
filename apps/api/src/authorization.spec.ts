@@ -153,6 +153,13 @@ describe('authorization matrix', () => {
             // the family's to say, recording what happened is not.
             'AttendanceController.announceAbsence',
             'AttendanceController.withdrawAbsence',
+            // E12/S4. A parent books their own child's make-up and cancels the booking — the
+            // acceptance criterion is that they do it "fără telefon". Narrowed in
+            // `MakeUpCreditService` on the credit's own family, again to a 404. Earning and
+            // spending a credit are not endpoints at all: both are consequences of the register,
+            // which stays ADMIN.
+            'AttendanceController.bookMakeUp',
+            'AttendanceController.cancelMakeUpBooking',
         ]);
 
         const writes = HANDLERS.filter((h) => WRITE_METHODS.includes(h.httpMethod));

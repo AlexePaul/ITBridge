@@ -143,7 +143,7 @@ const navigationItems = computed(() => {
   const userPages = [
     { label: "Profil", to: "/user/profile", icon: "i-lucide-user" },
     { label: "Situatia Scolara", to: "/user/dashboard", icon: "i-lucide-chart-bar" },
-    { label: "Anunță o absență", to: "/user/absente", icon: "i-lucide-calendar-off" },
+    { label: "Absențe și recuperări", to: "/user/absente", icon: "i-lucide-calendar-off" },
     { label: "Istoric Plati", to: "/user/payments", icon: "i-lucide-credit-card" },
     { label: "Proiectele copiilor", to: "/user/proiecte", icon: "i-lucide-sparkles" },
   ];

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { AbsenceNoticeService } from './absence-notice.service';
+import { MakeUpCreditService } from './make-up-credit.service';
 import { Attendance } from 'src/entities/attendance.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Child } from 'src/entities/child.entity';
@@ -36,9 +37,17 @@ describe('AttendanceService', () => {
 
     /** The school calendar of announced absences; empty unless a test says otherwise. */
     const forSessionMock = jest.fn();
+    const makeUpCredits = {
+        earnFor: jest.fn().mockResolvedValue(null),
+        revokeFor: jest.fn().mockResolvedValue(undefined),
+        consumeFor: jest.fn().mockResolvedValue(undefined),
+    };
 
     beforeEach(async () => {
         forSessionMock.mockResolvedValue(new Map());
+        makeUpCredits.earnFor.mockClear();
+        makeUpCredits.revokeFor.mockClear();
+        makeUpCredits.consumeFor.mockClear();
         attendanceRepo = createMockRepository();
         attendanceRepo.findByIds = jest.fn();
         classSessionRepo = createMockRepository();
@@ -52,6 +61,9 @@ describe('AttendanceService', () => {
                 provideMockRepository(ClassSession, classSessionRepo),
                 provideMockRepository(Child, childRepo),
                 { provide: AbsenceNoticeService, useValue: { forSession: forSessionMock } },
+                // E12/S4 hangs off marking; every test but its own runs with a double that does
+                // nothing, so a register test never becomes a credit test by accident.
+                { provide: MakeUpCreditService, useValue: makeUpCredits },
             ],
         }).compile();
 

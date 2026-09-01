@@ -112,6 +112,15 @@ const MESSAGES: Record<string, string> = {
   ATTENDANCE_ALREADY_MARKED:
     "Prezența la ora asta a fost deja marcată — anunțul nu mai schimbă nimic.",
 
+  // E12/S4. Booking a make-up. Each names a different reason the class will not do, and the
+  // shared "există deja o înregistrare" would fit none of them.
+  MAKE_UP_EXPIRED: "Recuperarea a expirat.",
+  MAKE_UP_ALREADY_CONSUMED: "Recuperarea a fost deja folosită.",
+  MAKE_UP_SESSION_FULL: "Nu mai e loc la ședința asta.",
+  MAKE_UP_AGE_MISMATCH: "Grupa nu e potrivită ca vârstă pentru copil.",
+  MAKE_UP_SESSION_OUT_OF_WINDOW: "Ședința e în afara perioadei de valabilitate a recuperării.",
+  MAKE_UP_SAME_GROUP: "Asta e chiar grupa copilului — e ora lui, nu o recuperare.",
+
   // E15/S5. A percentage past 100 would take the invoice below zero, where the floor in pricing.ts
   // silently clamps it — so the only visible symptom would be a month that cost nothing.
   DISCOUNT_PERCENT_OVER_100: "O reducere procentuală nu poate depăși 100%.",

@@ -1,7 +1,7 @@
 <template>
   <div class="w-full max-w-3xl mx-auto px-4 py-6 space-y-8">
     <div>
-      <h1 class="text-3xl font-bold">Anunță o absență</h1>
+      <h1 class="text-3xl font-bold">Absențe și recuperări</h1>
       <p class="text-muted mt-1">
         Dacă știi dinainte că cel mic nu ajunge la o oră, spune-ne de aici. Profesorul vede înainte
         de curs, iar noi nu mai sunăm să întrebăm.
@@ -39,6 +39,68 @@
           >
             Vine totuși
           </UButton>
+        </div>
+      </section>
+
+      <!-- E12/S4: the acceptance sentence, literally — "ai o recuperare disponibilă până pe X". -->
+      <section v-if="credits.length > 0" class="space-y-3">
+        <h2 class="text-sm font-semibold text-muted uppercase tracking-wide">Recuperări</h2>
+        <div
+          v-for="credit in credits"
+          :key="credit.id"
+          class="border border-muted rounded-lg p-4 space-y-3"
+          :class="credit.status === 'expired' && 'opacity-60'"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-medium">
+                {{ credit.child.firstName }} — recuperare pentru
+                <span class="tabular-nums">{{ formatDateKey(credit.originSession.date) }}</span>
+              </p>
+              <p v-if="credit.status === 'available'" class="text-muted text-sm mt-0.5">
+                Disponibilă până pe
+                <span class="tabular-nums">{{ formatDateKey(credit.expiresOn) }}</span>
+              </p>
+              <p v-else-if="credit.bookedSession" class="text-muted text-sm mt-0.5">
+                Programată
+                <span class="tabular-nums">{{ formatDateKey(credit.bookedSession.date) }}</span
+                >, ora {{ credit.bookedSession.startTime.slice(0, 5) }}
+                <span v-if="credit.bookedSession.group">
+                  · {{ credit.bookedSession.group.name }}</span
+                >
+              </p>
+              <p v-else-if="credit.status === 'expired'" class="text-muted text-sm mt-0.5">
+                A expirat pe
+                <span class="tabular-nums">{{ formatDateKey(credit.expiresOn) }}</span>
+              </p>
+            </div>
+            <UBadge :color="MAKE_UP_STATUS_COLORS[credit.status]" variant="subtle" size="sm">
+              {{ MAKE_UP_STATUS_LABELS[credit.status] }}
+            </UBadge>
+          </div>
+
+          <div class="flex gap-2">
+            <UButton
+              v-if="credit.status === 'available'"
+              color="primary"
+              variant="soft"
+              size="sm"
+              :loading="optionsForCredit === credit.id"
+              @click="openBooking(credit)"
+            >
+              Programează
+            </UButton>
+            <UButton
+              v-if="credit.status === 'booked'"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :loading="cancellingId === credit.id"
+              @click="cancelBooking(credit)"
+            >
+              Anulează programarea
+            </UButton>
+          </div>
         </div>
       </section>
 
@@ -84,6 +146,45 @@
         </div>
       </section>
     </template>
+
+    <UModal v-model:open="bookingOpen" title="Alege ora de recuperare">
+      <template #body>
+        <div v-if="options.length === 0" class="py-6 text-center space-y-2">
+          <UIcon name="i-lucide-calendar-x" class="text-3xl text-muted" />
+          <p class="font-medium">Nicio oră potrivită</p>
+          <p class="text-sm text-muted">
+            Nu e nicio grupă cu loc liber și vârstă potrivită înainte de expirare. Sună-ne și găsim
+            împreună.
+          </p>
+        </div>
+        <div v-else class="space-y-2">
+          <button
+            v-for="option in options"
+            :key="option.sessionId"
+            type="button"
+            class="w-full flex items-center justify-between gap-3 p-3 border border-muted rounded-lg hover:bg-muted transition-colors text-left"
+            :disabled="bookingId !== null"
+            @click="book(option)"
+          >
+            <div>
+              <p class="font-medium tabular-nums">
+                {{ formatDateKey(option.date) }}, {{ option.startTime.slice(0, 5) }}
+              </p>
+              <p class="text-muted text-sm">
+                {{ option.groupName
+                }}<span v-if="option.locationName"> · {{ option.locationName }}</span>
+              </p>
+            </div>
+            <UIcon
+              :name="
+                bookingId === option.sessionId ? 'i-lucide-loader-circle' : 'i-lucide-chevron-right'
+              "
+              :class="bookingId === option.sessionId ? 'animate-spin' : 'text-muted'"
+            />
+          </button>
+        </div>
+      </template>
+    </UModal>
 
     <UModal v-model:open="formOpen" title="Anunță absența">
       <template #body>
@@ -136,7 +237,8 @@ import { formatDateKey } from "~/composables/useAdminFormat";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 import { SessionStatus } from "~/types/class-session.types";
 import type { ClassSessionWithAttendance } from "~/types/class-session.types";
-import type { AbsenceNotice } from "~/types/attendance.types";
+import type { AbsenceNotice, MakeUpCredit, MakeUpOption } from "~/types/attendance.types";
+import { MAKE_UP_STATUS_COLORS, MAKE_UP_STATUS_LABELS } from "~/types/attendance.types";
 import type { Child } from "~/types/child.types";
 
 /**
@@ -148,7 +250,7 @@ import type { Child } from "~/types/child.types";
  */
 definePageMeta({
   layout: "dashboard" as any,
-  title: "Anunță o absență",
+  title: "Absențe și recuperări",
 });
 
 const attendanceApi = useAttendanceApi();
@@ -164,6 +266,14 @@ const upcoming = ref<{ child: Child; session: ClassSessionWithAttendance; announ
   []
 );
 
+const credits = ref<MakeUpCredit[]>([]);
+const options = ref<MakeUpOption[]>([]);
+const bookingOpen = ref(false);
+const optionsForCredit = ref<number | null>(null);
+const bookingId = ref<number | null>(null);
+const cancellingId = ref<number | null>(null);
+let creditBeingBooked: MakeUpCredit | null = null;
+
 const formOpen = ref(false);
 const saving = ref(false);
 const reason = ref("");
@@ -176,7 +286,11 @@ const load = async () => {
   loading.value = true;
   loadError.value = "";
   try {
-    const [children] = await Promise.all([childrenApi.fetchChildren(), refreshNotices()]);
+    const [children] = await Promise.all([
+      childrenApi.fetchChildren(),
+      refreshNotices(),
+      refreshCredits(),
+    ]);
     const mine = (children ?? (childrenStore.children as Child[])) as Child[];
 
     const rows: { child: Child; session: ClassSessionWithAttendance; announced: boolean }[] = [];
@@ -204,6 +318,57 @@ const load = async () => {
 
 const refreshNotices = async () => {
   notices.value = await attendanceApi.fetchUpcomingAbsences();
+};
+
+const refreshCredits = async () => {
+  credits.value = await attendanceApi.fetchMakeUpCredits();
+};
+
+/**
+ * Opening the picker fetches the options rather than the page pre-loading them: a family usually
+ * has no credits, and when they do they have one.
+ */
+const openBooking = async (credit: MakeUpCredit) => {
+  optionsForCredit.value = credit.id;
+  creditBeingBooked = credit;
+  try {
+    options.value = await attendanceApi.fetchMakeUpOptions(credit.id);
+    bookingOpen.value = true;
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut încărca orele disponibile"));
+  } finally {
+    optionsForCredit.value = null;
+  }
+};
+
+const book = async (option: MakeUpOption) => {
+  if (!creditBeingBooked) return;
+  bookingId.value = option.sessionId;
+  try {
+    await attendanceApi.bookMakeUp(creditBeingBooked.id, option.sessionId);
+    success("Recuperarea a fost programată.");
+    bookingOpen.value = false;
+    await refreshCredits();
+  } catch (err: unknown) {
+    // A seat can go between reading the list and pressing the button; the server re-checks, and
+    // this is where the family finds out.
+    error(apiErrorMessage(err, "Nu am putut programa recuperarea"));
+  } finally {
+    bookingId.value = null;
+  }
+};
+
+const cancelBooking = async (credit: MakeUpCredit) => {
+  cancellingId.value = credit.id;
+  try {
+    await attendanceApi.cancelMakeUpBooking(credit.id);
+    success("Programarea a fost anulată. Recuperarea rămâne disponibilă.");
+    await refreshCredits();
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut anula programarea"));
+  } finally {
+    cancellingId.value = null;
+  }
 };
 
 const isAnnounced = (childId: number, sessionId: number) =>

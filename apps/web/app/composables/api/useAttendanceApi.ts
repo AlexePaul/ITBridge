@@ -4,6 +4,8 @@ import type {
   AbsenceNotice,
   AnnounceAbsenceDto,
   Attendance,
+  MakeUpCredit,
+  MakeUpOption,
   SessionRegister,
 } from "~/types/attendance.types";
 
@@ -104,7 +106,39 @@ export const useAttendanceApi = () => {
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
+  /** A family's make-up credits, each with its state derived on the server — E12/S4. */
+  const fetchMakeUpCredits = async () =>
+    api<MakeUpCredit[]>("/attendance/make-ups", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** The classes a credit could be spent on: right age band, free seat, inside the window. */
+  const fetchMakeUpOptions = async (creditId: number) =>
+    api<MakeUpOption[]>(`/attendance/make-ups/${creditId}/options`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** Books it. The server re-checks everything the options list filtered on. */
+  const bookMakeUp = async (creditId: number, classSessionId: number) =>
+    api<MakeUpCredit>(`/attendance/make-ups/${creditId}/booking`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: { classSessionId },
+    });
+
+  const cancelMakeUpBooking = async (creditId: number) =>
+    api<MakeUpCredit>(`/attendance/make-ups/${creditId}/booking`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
   return {
+    fetchMakeUpCredits,
+    fetchMakeUpOptions,
+    bookMakeUp,
+    cancelMakeUpBooking,
     markSessionAttendance,
     updateAttendanceStatus,
     getAttendanceByChild,

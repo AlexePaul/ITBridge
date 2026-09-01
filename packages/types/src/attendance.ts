@@ -105,3 +105,49 @@ export interface AnnounceAbsenceDto {
     classSessionId: number;
     reason: string;
 }
+
+/**
+ * The life of a make-up credit — E12/S4. Mirrors `MakeUpStatus` in
+ * `apps/api/src/enum/make-up-status.enum.ts`.
+ *
+ * `expired` is derived on read, never stored: a credit expires because the calendar moved, not
+ * because anything ran.
+ */
+export type MakeUpStatus = 'available' | 'booked' | 'consumed' | 'expired';
+
+/**
+ * The right to sit in on another group's class, earned by missing your own.
+ *
+ * Earned where an announced-in-time absence meets a register saying the child was not there —
+ * neither half alone. `expiresOn` is frozen when the credit is written, so the window a family was
+ * told about does not move when the rule is edited.
+ */
+export interface MakeUpCredit {
+    id: number;
+    status: MakeUpStatus;
+    /** The last usable day, inclusive. */
+    expiresOn: ISODate;
+    createdAt: ISODateTime;
+    child: { id: number; firstName: string; lastName: string };
+    /** The class that was missed — what the credit is for. */
+    originSession: ClassSession;
+    /** The class booked to sit in on, once one is chosen. */
+    bookedSession: ClassSession | null;
+}
+
+/** One class a credit could be spent on, as the booking screen reads it. */
+export interface MakeUpOption {
+    sessionId: number;
+    date: ISODate;
+    startTime: TimeOfDay;
+    endTime: TimeOfDay;
+    groupId: number;
+    groupName: string;
+    locationName: string | null;
+    /** Seats free at that hour: the group's capacity less enrolments and visitors already booked. */
+    free: number;
+}
+
+export interface BookMakeUpDto {
+    classSessionId: number;
+}
