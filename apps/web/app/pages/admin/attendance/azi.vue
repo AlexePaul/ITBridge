@@ -92,6 +92,14 @@
                 {{ entry.firstName }} {{ entry.lastName }}
               </p>
               <div class="flex items-center gap-2 shrink-0">
+                <UBadge
+                  v-if="entry.announcedAbsence"
+                  :color="entry.announcedAbsence.inTime ? 'warning' : 'neutral'"
+                  variant="subtle"
+                  size="sm"
+                >
+                  Anunțat
+                </UBadge>
                 <UBadge v-if="entry.type === 'make-up'" color="info" variant="subtle" size="sm">
                   Recuperare
                 </UBadge>
@@ -112,6 +120,12 @@
                 />
               </div>
             </div>
+
+            <!-- What the family said, before the class. The teacher reads it and does not have
+                 to make the call the button below offers. -->
+            <p v-if="entry.announcedAbsence" class="text-sm text-muted">
+              {{ entry.announcedAbsence.reason }}
+            </p>
 
             <!-- The whole job: two targets a thumb cannot miss. -->
             <div class="grid grid-cols-2 gap-2">
@@ -135,9 +149,10 @@
               </UButton>
             </div>
 
-            <!-- An unannounced absence is one tap from a call — the S7 detail. -->
+            <!-- An **unannounced** absence is one tap from a call — the S7 detail. A family that
+                 announced has already answered the question the call would ask. -->
             <UButton
-              v-if="entry.present === false && entry.parentPhone"
+              v-if="entry.present === false && entry.parentPhone && !entry.announcedAbsence"
               :to="`tel:${entry.parentPhone}`"
               variant="soft"
               color="warning"

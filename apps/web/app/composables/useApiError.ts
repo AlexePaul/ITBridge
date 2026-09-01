@@ -106,6 +106,12 @@ const MESSAGES: Record<string, string> = {
   PROJECT_FILE_NOT_DIRECT_UPLOADABLE: "Doar fișierele video se încarcă direct în stocare.",
   PROJECT_CONTENT_HASH_MISMATCH: "Fișierul nu corespunde cu suma de control trimisă.",
 
+  // E12/S3. Announcing an absence — each of these is a different thing to do about it, and the
+  // shared "există deja o înregistrare" would be true of the last one and useless for all three.
+  CHILD_NOT_IN_SESSION_GROUP: "Copilul nu e în grupa care ține ședința asta.",
+  ATTENDANCE_ALREADY_MARKED:
+    "Prezența la ora asta a fost deja marcată — anunțul nu mai schimbă nimic.",
+
   // E15/S5. A percentage past 100 would take the invoice below zero, where the floor in pricing.ts
   // silently clamps it — so the only visible symptom would be a month that cost nothing.
   DISCOUNT_PERCENT_OVER_100: "O reducere procentuală nu poate depăși 100%.",

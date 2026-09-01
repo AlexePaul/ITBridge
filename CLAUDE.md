@@ -170,6 +170,16 @@ rând cu aceleași date la ambele capete. `location` gol înseamnă „toată ș
 - Suprapunerile sunt refuzate simetric, indiferent de locație (`PERIOD_OVERLAPS`). Regula mai îngustă
   ar face acceptarea să depindă de ordinea în care au fost tastate cele două intervale.
 
+**O absență anunțată nu marchează pe nimeni absent** (E12 S3). `AbsenceNotice` leagă copilul de o
+**ședință**, ca tot ce vorbește despre o oră de curs. Catalogul rămâne al profesorului: un copil al
+cărui părinte a anunțat poate veni totuși. Trei lucruri de ținut minte: `inTime` se **îngheață la
+scriere** — eligibilitatea e un fapt despre momentul anunțului, iar o valoare derivată la citire
+și-ar schimba răspunsul pe măsură ce ora intră în trecut; un al doilea anunț **modifică** rândul, nu
+adaugă unul (`UQ_absence_notice_child_session`), și rejudecă `inTime`; iar termenul se compară pe
+**ceasul școlii**, prin `Intl` pe `Europe/Bucharest` — prin UTC, un anunț de la 01:00 ora Bucureștiului
+ar fi judecat ca fiind ziua dinainte. Regula însăși („înainte să înceapă ora") e o linie în
+`apps/api/src/modules/attendance/absence-notice.rules.ts`.
+
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin
 `POST /projects/ingest`, apare pe ecranul grupei în starea `nou`, iar un admin bifează și apasă. Abia

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards, Request, Patch, Query, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards, Request, Patch, Query, ParseIntPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
@@ -7,11 +7,16 @@ import { RolesGuard } from 'src/guards/role.guard';
 import { AttendanceService } from './attendance.service';
 import { markAttendanceDto } from './dto/markAttendance.dto';
 import { UpsertMarkDto } from './dto/upsertMark.dto';
+import { AnnounceAbsenceDto } from './dto/announceAbsence.dto';
+import { AbsenceNoticeService } from './absence-notice.service';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('attendance')
 export class AttendanceController {
-    constructor(private readonly attendanceService: AttendanceService) {}
+    constructor(
+        private readonly attendanceService: AttendanceService,
+        private readonly absenceNoticeService: AbsenceNoticeService,
+    ) {}
 
     /**
      * The path is `session/:classSessionId`, not `:groupId`.
@@ -66,6 +71,39 @@ export class AttendanceController {
         @Body() dto: UpsertMarkDto,
     ) {
         return this.attendanceService.upsertMark(classSessionId, childId, dto.present);
+    }
+
+    /**
+     * A parent announcing that their child will miss a class — E12/S3. Not a guard's job to
+     * restrict: the service checks the child is theirs, because that is a fact about rows.
+     */
+    @Post('absences')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 201, description: 'Notice recorded, with whether it arrived in time' })
+    @ApiResponse({ status: 400, description: 'CHILD_NOT_IN_SESSION_GROUP' })
+    @ApiResponse({ status: 404, description: 'No such child of yours, or no such session' })
+    @ApiResponse({ status: 409, description: 'CLASS_SESSION_CANCELLED or ATTENDANCE_ALREADY_MARKED' })
+    async announceAbsence(@Body() dto: AnnounceAbsenceDto, @Request() req: AuthenticatedRequest) {
+        return this.absenceNoticeService.announce(dto, req.user.role, req.user.sub);
+    }
+
+    /** What has been announced for classes still to come. Admin sees the school, a parent their own. */
+    @Get('absences')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'Upcoming announced absences, soonest first' })
+    async upcomingAbsences(@Request() req: AuthenticatedRequest) {
+        return this.absenceNoticeService.upcoming(req.user.role, req.user.sub);
+    }
+
+    /** The child is coming after all. */
+    @Delete('absences/:id')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'Notice withdrawn' })
+    async withdrawAbsence(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
+        return this.absenceNoticeService.withdraw(id, req.user.role, req.user.sub);
     }
 
     @Get('child/:childId')
