@@ -218,10 +218,7 @@ export class InvoiceService {
         // The rule itself lives in `pricing.ts`, with the reasoning. It used to be inline here and,
         // separately, in the seed — where it charged 500 for two children instead of 600 and
         // nothing at all for three.
-        return amountAfterDiscounts(
-            billableChildren,
-            discounts.map((discount) => discount.value),
-        );
+        return amountAfterDiscounts(billableChildren, discounts);
     }
 
     /**
@@ -311,7 +308,7 @@ export class InvoiceService {
 
             const amount = sessionAmountAfterDiscounts(
                 family.children.map((child) => child.sessions),
-                discounts.map((discount) => discount.value),
+                discounts,
             );
 
             prepared.push({ parent, amount });

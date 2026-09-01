@@ -608,6 +608,15 @@ ca arbore, o valoare per copil, total jos, un buton. Serverul facturează numere
 și le recalculează — cine apasă s-a uitat la fiecare. Ruta veche există în continuare pentru
 `calculateAmount`, care numără înscrieri active și e folosită de previzualizare.
 
+**O reducere știe dacă e în lei sau în procente, iar procentul se aplică pe prețul de listă.**
+`Discount.type` (E15 S5) e `fixed` sau `percent` — un `50` stocat e cincizeci de lei sau jumătate de
+factură, iar numărul singur nu poate spune care. `discountTotal` din `pricing.ts` calculează fiecare
+procent din **prețul de listă**, niciodată dintr-un total curent, deci ordinea în care vin reducerile
+din bază nu poate schimba factura; două reduceri de 50% duc totalul la zero, nu la un sfert.
+Reducerea se rotunjește ea însăși la bani, ca linia tipărită și totalul să se adune pe hârtie.
+Plafonul de 100% e în `DiscountService`, nu în DTO: o actualizare poate schimba tipul într-o cerere
+și valoarea în alta, iar doar starea de după îmbinare spune ce ajunge stocat.
+
 **Zero e un răspuns, nu un câmp gol.** O lună fără plată se scrie ca factură `waived`, de 0 lei,
 fără PDF. Rândul există fiindcă n-are bani în el: fără el, o familie fără factură pe octombrie arată
 la fel cu una a cărei lună a uitat-o cineva. `GET /invoices/:id/pdf` răspunde 404 pe ele, explicit.

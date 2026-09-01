@@ -36,6 +36,7 @@ import { AttendanceType } from '../enum/attendance-type.enum';
 import { ClassSessionStatus } from '../enum/class-session-status.enum';
 import { PaymentMethod } from '../enum/payment-method.enum';
 import { PaymentStatus } from '../enum/payment-status.enum';
+import { DiscountType } from '../enum/discount-type.enum';
 import { DEFAULT_HORIZON_WEEKS } from '../modules/class-session/class-session.service';
 import { addDays, occurrencesOf, toIsoDate } from '../modules/class-session/class-session.dates';
 import { monthlyAmountFor } from '../modules/invoice/pricing';
@@ -599,17 +600,31 @@ export async function seed(dataSource: DataSource): Promise<void> {
     // --- Discounts --------------------------------------------------------------------------
     const discountRepo = dataSource.getRepository(Discount);
     await discountRepo.save([
+        // A whole referral, both halves of it — E20/S5. Seeded as a pair on purpose: giving only
+        // one is the mistake the screen warns about, and a fresh database should show the shape of
+        // the thing done right.
         discountRepo.create({
             parent: profiles[1],
             name: 'Recomandare',
-            description: 'Reducere pentru recomandarea unui prieten',
+            description: 'A recomandat familia care începe luna asta',
+            type: DiscountType.PERCENT,
             value: 50,
             monthIssued: monthsAgo(0),
         }),
         discountRepo.create({
+            parent: profiles[2],
+            name: 'Recomandare',
+            description: 'A venit prin recomandare — prima lună la jumătate',
+            type: DiscountType.PERCENT,
+            value: 50,
+            monthIssued: monthsAgo(0),
+        }),
+        // And one fixed amount, so both kinds are on screen: a goodwill adjustment is still lei.
+        discountRepo.create({
             parent: profiles[3],
-            name: 'Frate',
-            description: 'Reducere pentru al doilea copil',
+            name: 'Ajustare',
+            description: 'Reducere convenită la telefon',
+            type: DiscountType.FIXED,
             value: 100,
             monthIssued: monthsAgo(0),
         }),

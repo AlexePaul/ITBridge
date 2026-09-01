@@ -227,6 +227,37 @@ model, nu prin verificare ulterioară.
 
 **Acceptanță:** o reducere de 200% e respinsă. Cumulul de reduceri nu produce sume negative.
 
+**Livrat parțial: tipul, și numai el.** `Discount.type` e `fixed` sau `percent`, cu `fixed` ca
+implicit — ceea ce însemnau oricum toate rândurile scrise înainte de coloană. Ecranul de acordare e
+`/admin/reduceri`, iar formularul se deschide pe „Recomandare, procent, 50", fiindcă ăla e cazul
+pentru care există.
+
+**Ce s-a construit din story și ce nu.** Tipul are un client; **scopul, condițiile și perioada de
+valabilitate nu au niciunul**, deci nu s-au construit. `monthIssued` delimitează deja o reducere la o
+lună, iar un scop „permanent pe familie" sau o listă de condiții ar fi coloane pe care nimic nu le
+citește — aceeași judecată ca la câmpurile SmartBill din [E16](E16-plati-fiscal.md) S1. Se adaugă
+când apare cererea care le cere.
+
+**Procentele se aplică pe prețul de listă, niciodată pe un total curent.** Deci ordinea în care vin
+reducerile din bază nu poate schimba factura — aceeași proprietate pe care `amountForSessions` o
+cumpără sortând, și din același motiv: o sumă care depinde de ordinea rândurilor e o sumă pe care
+n-o poate verifica nimeni. Consecința, aleasă deliberat: două reduceri de 50% duc factura la zero,
+nu la un sfert. Aia e citirea pe care o așteaptă oricine de la „jumătate, și încă o jumătate", iar
+compunerea ar face pe tăcute fiecare reducere să valoreze mai puțin decât spune numele ei.
+
+**Reducerea se rotunjește ea însăși la bani, nu doar totalul.** 25% din 262,50 e 65,625, ce nicio
+factură nu poate ține; rotunjită la 65,63, totalul iese 196,87 — o aritmetică pe care un părinte o
+poate verifica pe hârtie. Rotunjind doar totalul, ar apărea o linie de 65,63 lângă un total de
+196,88, iar cele două nu se adună.
+
+**Plafonul de 100% e în serviciu, nu în DTO**, fiindcă o actualizare poate schimba tipul într-o
+cerere și valoarea în alta: doar starea de după îmbinare spune ce ajunge stocat. Un `fixed` de 200
+transformat mai târziu în `percent` e exact cazul pe care o verificare per-payload îl ratează.
+Merită gardă, fiindcă eșecul e invizibil: 200% ar trece factura sub zero, podeaua din `pricing.ts` ar
+readuce-o la zero, iar singurul simptom vizibil ar fi o lună care n-a costat nimic, fără explicație.
+Suma fixă n-are plafon — 5000 de lei de bunăvoință e o decizie, nu o greșeală de tastare — iar
+podeaua o face inofensivă.
+
 **Are acum un client concret, și e singurul de care se știe:** recomandarea din
 [E20](E20-achizitie-lead.md) S5 — **50% din totalul facturii**, dată de mână de patron **de două ori
 pe recomandare**: familiei care a adus, la factura următoare, și celei nou-venite, la prima ei. Tipul procentual încetează astfel să fie o generalizare pusă la păstrare și devine

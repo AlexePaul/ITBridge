@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsInt, IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsNumber, IsInt, IsNotEmpty, IsOptional, IsEnum, Matches, Min } from 'class-validator';
+import { DiscountType } from 'src/enum/discount-type.enum';
 
 export class CreateDiscountDto {
     @ApiProperty({ example: 1 })
@@ -7,9 +8,19 @@ export class CreateDiscountDto {
     @IsNotEmpty()
     parentId: number;
 
-    @ApiProperty({ example: 100 })
-    @IsNumber()
-    @IsNotEmpty()
+    @ApiPropertyOptional({ enum: DiscountType, description: 'Lei off, or per cent off. Defaults to lei.' })
+    @IsOptional()
+    @IsEnum(DiscountType)
+    type?: DiscountType;
+
+    /**
+     * Lei or per cent, according to `type`. The 0–100 cap on a percentage is enforced in the
+     * service, not here: an update can change the type and the value in separate requests, so only
+     * the service sees the combination that ends up stored.
+     */
+    @ApiProperty({ example: 50, description: 'Lei, or per cent when type is percent (0–100)' })
+    @IsNumber({ maxDecimalPlaces: 2 })
+    @Min(0)
     value: number;
 
     @ApiProperty({ example: '2026-01' })
@@ -18,12 +29,12 @@ export class CreateDiscountDto {
     @IsNotEmpty()
     monthIssued: string;
 
-    @ApiProperty({ example: 'Refferal' })
+    @ApiProperty({ example: 'Recomandare' })
     @IsString()
     @IsNotEmpty()
     name: string;
 
-    @ApiProperty({ example: '100 RON discount pentru recomandare', default: '100 RON discount pentru recomandare' })
+    @ApiPropertyOptional({ example: 'A recomandat familia Ionescu' })
     @IsOptional()
     @IsString()
     description?: string;

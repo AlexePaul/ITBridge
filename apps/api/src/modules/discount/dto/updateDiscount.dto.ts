@@ -1,10 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNumber, Matches } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsEnum, Matches, Min } from 'class-validator';
+import { DiscountType } from 'src/enum/discount-type.enum';
 
 export class UpdateDiscountDto {
-    @ApiPropertyOptional({ example: 100 })
+    @ApiPropertyOptional({ enum: DiscountType })
     @IsOptional()
-    @IsNumber()
+    @IsEnum(DiscountType)
+    type?: DiscountType;
+
+    @ApiPropertyOptional({ example: 50 })
+    @IsOptional()
+    @IsNumber({ maxDecimalPlaces: 2 })
+    @Min(0)
     value?: number;
 
     @ApiPropertyOptional({ example: '2026-01' })
