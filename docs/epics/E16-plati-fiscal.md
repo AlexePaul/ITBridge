@@ -308,6 +308,47 @@ Tonul contează: sunt părinți, nu debitori. Primul memento e o amintire, nu o 
 **Acceptanță:** nicio factură restantă nu trece neobservată. Memento-urile se opresc imediat la
 încasare.
 
+**Livrat.** Ecranul `/admin/restante`, un job zilnic la 9:00 și două șabloane E17/S2.
+
+**Termenul e 14 zile de la emitere, iar `Invoice` NU capătă o coloană `dueDate`.** Școala emite
+factura după ce numără ședințele lunii, deci ziua emiterii e ziua în care familia află cât are de
+plată, iar un termen măsurat de acolo e aceeași promisiune pentru toți. O coloană pe factură ar fi
+un câmp pe care nu-l variază nimeni, liber să se depărteze de practica pe care era menit s-o
+consemneze. Ziua în care termenul chiar diferă de la o familie la alta e ziua în care coloana își
+merită locul.
+
+**Lista e derivată, nu citită din `Invoice.status`.** Coloana e o memorie pe care o împrospătează
+job-ul, iar o memorie e greșită exact cât timp n-a împrospătat-o nimic — un ecran despre bani n-are
+voie să greșească o zi fiindcă n-a rulat un job. `markOverdue` ține coloana onestă pentru **restul**
+lucrurilor care o citesc (ecranele de facturi, portalul părintelui); interogarea de aici n-o crede.
+Consecința utilă: o factură acoperită de plăți dar rămasă `pending` dintr-un motiv oarecare **nu**
+apare pe lista de urmărire, fiindcă o familie care a plătit n-are ce căuta acolo.
+
+**Așa se opresc mementourile la încasare** — nu ca regulă pe care și-o amintește cineva, ci ca
+absență a unui rând: plata intră, factura devine `paid`, interogarea n-o mai vede, job-ul n-are cui
+scrie. Nimic nu se anulează, fiindcă nimic nu fusese programat.
+
+**Calendarul:** cu trei zile înainte de termen o amintire prietenoasă, apoi la fiecare șapte zile
+după el. Golurile sunt tot atât de mult designul cât sunt trimiterile — o familie căreia îi scrii
+zilnic încetează să citească, iar atunci mesajul care conta e cel pe care învățase să-l sară.
+**După 60 de zile platforma tace**: al unsprezecelea memento identic nu convinge pe nimeni, doar
+învață familia că expeditorul ăsta poate fi ignorat. Rândul rămâne pe ecran, unde cineva poate ridica
+telefonul — și tot de asta ecranul are numărul familiei pe rând, cu un buton de apel.
+
+**Se cere suma rămasă, nu totalul facturii.** O familie care a plătit jumătate și e întrebată din nou
+de tot citește mesajul ca „nu mi-ați înregistrat plata".
+
+**Tonul e al unei școli, nu al unui creditor**, cum cere story-ul: primul mesaj e o amintire, al
+doilea spune „se întâmplă, și de obicei e o scăpare" și oferă o discuție dacă e o perioadă grea.
+Textele sunt șabloane, deci se pot rescrie fără deploy — și e bine că se pot, fiindcă tonul e exact
+genul de lucru pe care patronul îl va vrea altfel decât l-am scris noi.
+
+**Gruparea pe locație din story nu s-a făcut, și e o decizie.** O factură aparține unui părinte, iar
+un părinte poate avea copii la ambele adrese — codebase-ul a decis deja că facturile ignoră
+selectorul de locație exact din motivul ăsta (vezi nota de la [E08](E08-multi-locatie.md)). Gruparea
+restanțelor pe locație ar trebui să aleagă arbitrar una din cele două ale unei familii, ceea ce e mai
+rău decât negruparea. Vechimea e axa care chiar schimbă ce face adminul, și e cea livrată.
+
 ### S8 · Reconciliere și verificare
 
 Import de extras bancar cu potrivire automată după sumă, dată și referință; ce nu se potrivește

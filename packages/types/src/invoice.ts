@@ -55,3 +55,37 @@ export interface IssueInvoicesResult {
     waived: Invoice[];
     skipped: { parentId: number; reason: 'ALREADY_INVOICED' }[];
 }
+
+/**
+ * How old a debt is, in the words an admin would use — E16/S7.
+ *
+ * Buckets rather than a raw number of days, because the action differs by band and a list of days
+ * does not say which: a week late is a reminder, two months late is a conversation.
+ */
+export type ArrearsBucket = 'due_soon' | 'overdue' | 'over_30' | 'over_60';
+
+/**
+ * One unpaid invoice, as the arrears screen reads it.
+ *
+ * Derived from succeeded payments rather than read off `Invoice.status`: the status column is a
+ * cache a daily job refreshes, and a screen about money must not be wrong for a day because a job
+ * did not run.
+ */
+export interface ArrearsRow {
+    invoiceId: number;
+    parentId: number;
+    parentName: string;
+    email: string | null;
+    /** Carried because chasing a payment is a phone call, not a second screen. */
+    phone: string | null;
+    monthIssued: BillingMonth;
+    dateIssued: ISODate;
+    /** The last day the family could pay without being late. */
+    dueOn: ISODate;
+    amount: number;
+    /** What has been received. A partial payment is the interesting middle case. */
+    paid: number;
+    outstanding: number;
+    daysOverdue: number;
+    bucket: ArrearsBucket;
+}

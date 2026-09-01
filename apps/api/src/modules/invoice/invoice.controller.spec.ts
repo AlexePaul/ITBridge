@@ -1,19 +1,28 @@
 import { InvoiceController } from './invoice.controller';
 import { InvoiceService } from './invoice.service';
 import { buildController, requestOf } from 'src/testing/controller.spec-helpers';
+import { ArrearsService } from './arrears.service';
 import { Role } from 'src/enum/role.enum';
 
 describe('InvoiceController', () => {
     const build = () =>
-        buildController(InvoiceController, InvoiceService, {
-            createInvoice: jest.fn().mockResolvedValue([]),
-            findInvoices: jest.fn().mockResolvedValue([]),
-            findOne: jest.fn().mockResolvedValue({ id: 1 }),
-            updateInvoice: jest.fn().mockResolvedValue({ id: 1 }),
-            deleteInvoice: jest.fn().mockResolvedValue(undefined),
-            getInvoicePdf: jest.fn().mockResolvedValue(undefined),
-            getPreview: jest.fn().mockResolvedValue([]),
-        });
+        buildController(
+            InvoiceController,
+            InvoiceService,
+            {
+                createInvoice: jest.fn().mockResolvedValue([]),
+                findInvoices: jest.fn().mockResolvedValue([]),
+                findOne: jest.fn().mockResolvedValue({ id: 1 }),
+                updateInvoice: jest.fn().mockResolvedValue({ id: 1 }),
+                deleteInvoice: jest.fn().mockResolvedValue(undefined),
+                getInvoicePdf: jest.fn().mockResolvedValue(undefined),
+                getPreview: jest.fn().mockResolvedValue([]),
+            },
+            [{ provide: ArrearsService, useValue: arrears }],
+        );
+
+    /** E16/S7's service — the controller only forwards to it. */
+    const arrears = { list: jest.fn().mockResolvedValue([]) };
 
     it('passes the role and user id from the token to findInvoices', async () => {
         const { controller, service } = await build();
@@ -43,5 +52,11 @@ describe('InvoiceController', () => {
     it('deleteInvoice returns no content', async () => {
         const { controller } = await build();
         await expect(controller.remove(1)).resolves.toBeUndefined();
+    });
+
+    it('the arrears list takes no input at all — it is the same question for every admin', async () => {
+        const { controller } = await build();
+        await controller.arrears();
+        expect(arrears.list).toHaveBeenCalledWith();
     });
 });

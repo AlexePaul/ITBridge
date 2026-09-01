@@ -10,11 +10,15 @@ import { Role } from 'src/enum/role.enum';
 import { FilterInvoiceDto } from './dto/filterInvoice.dto';
 import { GetPreviewDto } from './dto/getPreview.dto';
 import { IssueFromSessionsDto } from './dto/issueFromSessions.dto';
+import { ArrearsService } from './arrears.service';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('invoices')
 export class InvoiceController {
-    constructor(private readonly invoiceService: InvoiceService) {}
+    constructor(
+        private readonly invoiceService: InvoiceService,
+        private readonly arrearsService: ArrearsService,
+    ) {}
 
     @Post()
     @UseGuards(AuthGuard, RolesGuard)
@@ -49,6 +53,25 @@ export class InvoiceController {
     @ApiResponse({ status: 200, description: 'One row per family with children in a group' })
     async worksheet(@Query('monthIssued') monthIssued: string) {
         return this.invoiceService.getWorksheet(monthIssued);
+    }
+
+    /**
+     * Who has not paid, oldest debt first — E16/S7.
+     *
+     * Declared above the parameter routes, like every other named path here: `:id` carries a
+     * `ParseIntPipe` and would answer 400 for the word.
+     */
+    @Get('/arrears')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Restanțele, cu vechime',
+        description: 'Derivat din plățile reușite, nu din coloana de stare — un ecran despre bani nu are voie să greșească o zi fiindcă n-a rulat un job.',
+    })
+    @ApiResponse({ status: 200, description: 'Unpaid invoices with ageing, longest overdue first' })
+    async arrears() {
+        return this.arrearsService.list();
     }
 
     @Get('/:id')
