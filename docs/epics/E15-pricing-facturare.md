@@ -301,7 +301,31 @@ aceleași sume, aceleași scadențe. Divergența dintre ele e exact ce urmăreș
 **Acceptanță:** nicio factură nu mai e generată cu PDFKit. Factura din portal se potrivește la leu
 cu documentul SmartBill.
 
-### S8 · Înscrierea la mijlocul unui modul
+### S8 · Înscrierea la mijlocul unui modul — **rezolvat de model, nu de cod**
+
+**Story-ul e scris integral în termenii unei lumi care nu există**: modulul din E10, scos din MVP, și
+prețul de 700 pe modul, abandonat la S0. Ce descrie el — „plătește proporțional cu ședințele
+rămase" — e **exact ce face deja modelul pe ședință**: un copil intrat pe 15 are mai puține ședințe
+în luna aia, cine numără scrie numărul mai mic, iar suma iese proporțională fără nicio regulă în
+plus. Pro-rata nu e o caracteristică de construit; e ce se întâmplă când unitatea de preț e ședința.
+
+Merită spus și ce **nu** se transferă din story. Acolo, baza de calcul era calendarul modulului, iar
+absențele de după înscriere nu scădeau suma. Aici, cine completează ecranul scrie ședințele lunii
+pentru fiecare copil, deci **decizia rămâne a omului care numără**: dacă scrie ședințele grupei, o
+absență nu ieftinește luna și recuperarea din [E12](E12-prezenta-orar.md) S4 e instrumentul, exact ca
+în story; dacă scrie ședințele la care copilul chiar a fost, ieftinește. Ecranul nu impune niciuna,
+și e bine așa cât timp numără o singură persoană — dar dacă vreodată numără mai multe, asta e
+întrebarea care trebuie să primească un răspuns scris, fiindcă cele două practici dau facturi
+diferite pentru aceeași lună.
+
+**Ce s-a livrat efectiv aici e o îmbunătățire de folosire:** ecranul de emitere listează familiile
+**pe grupe**, nu alfabetic, cu un titlu acolo unde începe fiecare grupă. Motivul e fluxul real —
+cineva deschide orarul grupei de luni, vede că luna a avut patru ședințe, și scrie 4 pe coloană;
+ordinea alfabetică împrăștia copiii grupei prin toată pagina. O familie cu copii în două grupe se
+așază după grupa cu ziua cea mai devreme, iar celălalt copil își arată în continuare propria grupă
+pe rândul lui. Regula e pură, în `useInvoiceWorksheetOrder.ts`, ținută de teste.
+
+### S8 · Textul original al story-ului
 
 Un copil care intră după ce modulul a început plătește **proporțional cu ședințele rămase**, nu
 prețul întreg. La un modul de 8 ședințe, cine intră după a patra plătește jumătate: 350 de lei. La

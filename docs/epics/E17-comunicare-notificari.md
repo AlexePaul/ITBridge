@@ -311,6 +311,33 @@ Distincția e și legală, și de bun-simț.
 **Acceptanță:** dezabonarea de la marketing nu oprește facturile și nici documentele copilului.
 Legătura de dezabonare funcționează dintr-un click.
 
+**Livrat parțial: comutatorul și garanția, nu frecvențele.** `Profile.marketingOptIn` e singura
+preferință, iar părintele o schimbă din propriile setări (`/user/profile`) — decizia patronului a
+fost „din settings", nu dintr-un link magic în subsolul mesajului.
+
+**Implicit e `false`, și e o decizie, nu o ridicare din umeri.** Consimțământul pe care nu l-a dat
+nimeni nu e consimțământ, iar o coloană implicit `true` ar face ca prima trimitere de marketing să
+fie chiar momentul în care școala descoperă dacă avea voie. Nicio migrare nu-l pune pe `true` pentru
+familiile deja existente: școala întreabă, iar cine spune da o spune singur.
+
+**Ce apără garanția** e scris în `MessageKind`: tranzacționalul e implicit peste tot, deci un
+expeditor care nu spune nimic trimite mai departe. E direcția sigură în care să greșești —
+implicitul invers ar opri tăcut facturile în ziua în care cineva uită un argument. `queue` și
+`queueOrRecord` nu primesc deloc preferința, deci nu există argument pe care cineva l-ar putea da ca
+să oprească o factură; doar `queueMarketing` o consultă.
+
+**Un refuz nu lasă rând în evidență**, spre deosebire de un mesaj care n-a avut unde să plece (S5).
+Distincția e importantă și e ușor de ratat: acolo cineva **trebuia** contactat și n-a fost; aici
+nimeni nu trebuia. Un rând per buletin per familie dezabonată ar îneca exact eșecurile reale pe care
+S5 le scoate la vedere. Ce **rămâne** nelivrabil e marketingul către o familie care a acceptat dar
+n-are adresă — ăla e un eșec.
+
+**Ce nu s-a construit:** frecvențele („imediat / rezumat zilnic / rezumat săptămânal") sunt de fapt
+S6, iar rezumatele nu există; și nu există **niciun expeditor de marketing**. Mecanismul e construit
+înaintea primului tocmai fiindcă momentul în care s-ar retrofita în jurul lui e momentul în care ar
+fi greșit. Textul din setări spune explicit ce **nu** oprește comutatorul — un părinte care citește
+„dezabonare" lângă numele școlii se teme, pe bună dreptate, că pierde factura și munca copilului.
+
 ### S5 · Evidența livrărilor
 
 Fiecare mesaj lasă înregistrare: destinatar, șablon, dată, stare, motiv de eșec. Adminul poate
