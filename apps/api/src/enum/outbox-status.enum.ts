@@ -16,4 +16,13 @@ export enum OutboxStatus {
      * remain visible in the delivery record rather than disappearing into a log.
      */
     FAILED = 'failed',
+    /**
+     * Never attempted, because there was nowhere to send it — E17/S5.
+     *
+     * Terminal, and never retried: no backoff makes an address appear. The row exists precisely so
+     * that a family with no address is **not skipped in silence** — the story is explicit that the
+     * absence of a recipient must produce a record, or nobody learns that the invoice, the reminder
+     * and the document all went nowhere. `undeliverableReason` says which of the two cases it is.
+     */
+    UNDELIVERABLE = 'undeliverable',
 }

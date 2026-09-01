@@ -59,6 +59,9 @@ export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(
         // `getCount` rather than `count`: a service asking "how many rows match" through the
         // builder needs the same double as one asking for the rows themselves.
         getCount: jest.fn().mockResolvedValue(result.count ?? 0),
+        // Grouped aggregates come back raw. Defaults to empty, so a service that reduces over it
+        // gets the "nothing yet" shape rather than undefined.
+        getRawMany: jest.fn().mockResolvedValue([]),
     };
 
     // `addOrderBy` and `loadRelationCountAndMap` are here because the class-session queries chain
@@ -81,6 +84,9 @@ export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(
         // FOR UPDATE SKIP LOCKED, which is what keeps two schedulers off the same message.
         'setLock',
         'setOnLocked',
+        // Grouped aggregates: the delivery record counts messages by state in one query.
+        'groupBy',
+        'addGroupBy',
     ]) {
         qb[method] = jest.fn().mockReturnValue(qb);
     }

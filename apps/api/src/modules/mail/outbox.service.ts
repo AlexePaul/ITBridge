@@ -3,6 +3,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { OutboxAttachment, OutboxMessage } from 'src/entities/outbox-message.entity';
 import { OutboxStatus } from 'src/enum/outbox-status.enum';
+import { DeliveryFailureReason } from 'src/enum/delivery-failure-reason.enum';
 import { S3Service } from 'src/modules/storage/s3.service';
 import { MailAttachment, MailSendError, MailService, MAX_ATTACHMENT_BYTES } from './mail.service';
 
@@ -113,6 +114,74 @@ export class OutboxService {
      * message silently taking the invoice down with it. Nor is a `SELECT` first enough — two
      * schedulers waking at the same second would both see nothing and both insert.
      */
+    /**
+     * Queues the message, or records that it had nowhere to go — E17/S5.
+     *
+     * The whole point: a family with no address **is not skipped in silence.** Callers used to
+     * branch on `if (profile.email)` and log a warning down the other side, which put the fact in a
+     * log nobody reads and left the delivery record saying nothing happened. Here the absence of a
+     * recipient produces a row like any other, in `UNDELIVERABLE`, carrying which of the two cases
+     * it is — and the message body is kept, so an admin can see what the family did not get.
+     *
+     * `to` doubles as the reason detector when the caller passes a profile rather than an address:
+     * empty means `NO_ADDRESS`, and the caller says `unconfirmed` when there is an address nobody
+     * has clicked through.
+     */
+    async queueOrRecord(
+        recipient: { email: string | null | undefined; confirmed?: boolean },
+        message: Omit<QueuedMessage, 'to'>,
+        manager?: EntityManager,
+    ): Promise<OutboxMessage | null> {
+        if (!recipient.email) {
+            return this.recordUndeliverable(message, DeliveryFailureReason.NO_ADDRESS, manager);
+        }
+        if (recipient.confirmed === false) {
+            return this.recordUndeliverable(message, DeliveryFailureReason.UNCONFIRMED_ADDRESS, manager, recipient.email);
+        }
+        return this.queue({ ...message, to: recipient.email }, manager);
+    }
+
+    /**
+     * Writes the row that says "this went nowhere, and here is why".
+     *
+     * `nextAttemptAt` is left where it falls and the status is terminal, so the dispatcher's claim
+     * query — which asks for `pending` — never sees it. No backoff makes an address appear.
+     */
+    private async recordUndeliverable(
+        message: Omit<QueuedMessage, 'to'>,
+        reason: DeliveryFailureReason,
+        manager?: EntityManager,
+        address?: string,
+    ): Promise<OutboxMessage | null> {
+        const repository = manager ? manager.getRepository(OutboxMessage) : this.outboxRepository;
+
+        const result = await repository
+            .createQueryBuilder()
+            .insert()
+            .into(OutboxMessage)
+            .values({
+                // Empty rather than a placeholder: a fake address in this column would be
+                // indistinguishable from a real one that bounced.
+                to: address ?? '',
+                subject: message.subject,
+                bodyText: message.bodyText,
+                bodyHtml: message.bodyHtml ?? null,
+                dedupeKey: message.dedupeKey ?? null,
+                attachments: message.attachments?.length ? message.attachments : null,
+                status: OutboxStatus.UNDELIVERABLE,
+                undeliverableReason: reason,
+            })
+            .orIgnore()
+            .returning('*')
+            .execute();
+
+        const row = (result.raw as OutboxMessage[])[0] ?? null;
+        if (row) {
+            this.logger.warn(`Message "${message.subject}" is undeliverable: ${reason}.`);
+        }
+        return row;
+    }
+
     async queue(message: QueuedMessage, manager?: EntityManager): Promise<OutboxMessage | null> {
         const repository = manager ? manager.getRepository(OutboxMessage) : this.outboxRepository;
 

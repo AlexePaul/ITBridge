@@ -15,6 +15,7 @@ import { HealthController } from 'src/modules/health/health.controller';
 import { ProjectController } from 'src/modules/project/project.controller';
 import { AgentController } from 'src/modules/project/agent.controller';
 import { MailTemplateController } from 'src/modules/mail/mail-template.controller';
+import { DeliveryLogController } from 'src/modules/mail/delivery-log.controller';
 
 /**
  * Every HTTP surface the application exposes, in one place.
@@ -47,4 +48,5 @@ export const CONTROLLERS = [
     ProjectController,
     AgentController,
     MailTemplateController,
+    DeliveryLogController,
 ];
