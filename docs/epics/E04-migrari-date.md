@@ -156,8 +156,25 @@ facturii ca arhivă — SmartBill e cel care are obligația de păstrare și ins
 răspunde la „ce a plătit familia asta în martie" fără să fie un document fiscal.
 
 Consecința pentru retenție e că întrebarea grea a dispărut. Nu mai trebuie să știm câți ani se
-păstrează o factură, fiindcă nu noi o păstrăm. Rămâne politica pentru restul — prezențe vechi,
-proiecte ale copiilor, conturi inactive — care e o decizie a școlii, nu a contabilului.
+păstrează o factură, fiindcă nu noi o păstrăm.
+
+**Restul se rezolvă prin ștergere logică pe contul familiei, aplicată de un admin în momentul
+retragerii.** Un cont, copiii lui, prezențele, proiectele și tot ce atârnă de ele trec într-o stare
+„retras" în loc să dispară; nu există job care să șteargă ceva de la sine. Motivul e că retragerea
+e un fapt pe care școala îl **știe** — familia anunță, sau pur și simplu nu mai vine și cineva
+constată — iar un job care ar deduce singur „inactiv de N luni" ar șterge exact familia care a luat
+o pauză de o vacanță.
+
+**Ștergerea logică nu e ștergere, și e important să nu se creadă că e.** Ea dă școlii o stare
+reversibilă și un ecran curat; ce **nu** răspunde e „și când dispar efectiv datele", care e chiar
+întrebarea de retenție. Aia are nevoie de un termen scris undeva unde familia l-a văzut — de asta
+politica asta atârnă de termenii și condițiile din [E22](E22-termeni-si-date.md), și de asta E22 e
+ultimul epic: termenii descriu ce face platforma, deci se scriu după ce platforma nu-și mai schimbă
+forma.
+
+Împărțirea cu [E07](E07-securitate-gdpr.md) rămâne curată: aici stă **mecanismul** — starea
+„retras", ce o declanșează, ce se mai poate citi după ea; acolo, la S4, stau **drepturile** —
+exportul și ștergerea cerute de o familie, care taie prin orice stare logică și chiar șterg.
 
 Consecința pentru cod e mai concretă și e la [E16](E16-plati-fiscal.md): **azi generăm PDF-uri cu
 PDFKit și le urcăm în S3**, fiindcă până la SmartBill ele sunt singurul document care există. În

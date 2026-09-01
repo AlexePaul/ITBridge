@@ -7,8 +7,9 @@ generative). **Rămân:** S4 (pagini de modul, care așteaptă [E10](E10-curricu
 (performanță — partea de imagini, împreună cu S2 din [E18](E18-frontend-portal.md)), S6 (conținut,
 blocat de întrebarea „cine scrie”) și S8 (măsurare, care cere domeniul live).
 
-**Cel mai important lucru rămas nu e cod:** două profiluri Google Business verificate, câte unul
-per adresă. Vezi întrebările deschise, la final.
+**Cele două profiluri Google Business sunt create**, câte unul per adresă — lucrul care nu era cod
+și care, la căutările locale, cântărește mai mult decât orice a rămas de scris aici. De acum sunt o
+obligație de întreținere: NAP-ul din ele trebuie să rămână identic cu `apps/web/shared/school.ts`.
 
 ## Problemă
 
@@ -84,7 +85,7 @@ JSON-LD pe fiecare tip de pagină:
 
 **Acceptanță:** testul de rezultate îmbogățite Google trece fără erori pe fiecare tip de pagină.
 
-### S3 · Pagini locale — livrat pe site, rămâne partea din afara lui
+### S3 · Pagini locale — livrat
 
 O pagină per locație: adresă, hartă, program, sălile, grupele care se țin acolo, profesorii,
 fotografii reale, indicații de acces. Optimizată pentru căutarea cu intenție locală.
@@ -106,6 +107,14 @@ de locație din `structured-data.ts`.
 **Ce s-a decis să NU se construiască:** pagini pe cartiere — `/militari`, `/ghencea`, `/baneasa` —
 peste aceleași două săli. Două adrese, două pagini. Mai multe ar fi tiparul de „doorway pages" pe
 care Google îl numește explicit, și singura mișcare din tot epicul care ar putea aduce o penalizare.
+
+**Livrat, ambele jumătăți.** Paginile de locație sunt pe site, iar **cele două profiluri Google
+Business sunt create**, unul per adresă — partea care nu era cod și care, la căutările locale,
+cântărește mai mult decât orice a rămas de scris în repo.
+
+**De aici încolo profilurile sunt o obligație de întreținere, nu una de construit.** NAP-ul — nume,
+adresă, telefon — trebuie să rămână identic cu `apps/web/shared/school.ts`, fiindcă inconsecvența e
+cea mai frecventă cauză de poziționare locală slabă.
 
 ### S4 · Pagini de modul — muncă viitoare, așteaptă E10
 
@@ -239,12 +248,15 @@ profil Google. Core Web Vitals în verde. Un ritm de conținut care se ține.
 - ~~Care sunt orașele și cartierele exacte ale celor două locații?~~ Ambele în București:
   Strada Valea Oltului 73, Sector 6, în Drumul Taberei, și Șoseaua București–Târgoviște 19A,
   Sector 1, în Străulești. Fiecare are pagină proprie, cu coordonate verificate.
-- Există deja Google Business Profile pentru vreuna? **Cea mai importantă întrebare deschisă din
-  epic.** Pentru căutările locale, pachetul local de pe hartă stă deasupra rezultatelor organice,
-  iar asistenții AI compun răspunsul despre „unde învață copiii programare în București” mai mult
-  din profiluri și recenzii decât din site. Două profiluri verificate, cu nume, adresă și telefon
-  identice cu cele din `apps/web/shared/school.ts`, valorează mai mult decât orice schimbare de cod
-  rămasă în acest epic.
+- ~~Există deja Google Business Profile pentru vreuna?~~ **Răspuns: da, ambele sunt create.** Era
+  cea mai importantă întrebare deschisă din epic, fiindcă pentru căutările locale pachetul de pe
+  hartă stă deasupra rezultatelor organice, iar asistenții AI compun răspunsul despre „unde învață
+  copiii programare în București” mai mult din profiluri și recenzii decât din site.
+
+  Ce rămâne de aici încolo e întreținere, nu construcție: numele, adresa și telefonul din profiluri
+  trebuie să rămână identice cu cele din `apps/web/shared/school.ts`. Dacă se schimbă vreodată una
+  dintre ele, se schimbă în trei locuri — constanta, profilul, și orice listare terță — fiindcă NAP
+  inconsecvent e cea mai frecventă cauză de poziționare locală slabă.
 - Cine scrie conținutul? (S6 nu poate începe fără răspuns.)
 - Se țintește și publicul vorbitor de engleză? Ar însemna site bilingv, cu costul aferent.
   Observație din cercetare: limba întrebării schimbă sursele pe care le citează un asistent, deci
