@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createClassSession, createRoom, createTestApp, enrolInNewGroup, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { createClassSession, createTestApp, enrolInNewGroup, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
 
 /**
  * The overview — E21/S1, against a real database.
@@ -118,7 +118,10 @@ describe('Overview (e2e)', () => {
                     .set('Authorization', extra.auth)
                     .send({ firstName: `Copil${i}`, lastName: 'Test', birthDate: '2016-01-01', parentId: extraProfile })
                     .expect(201);
-                await request(app.getHttpServer()).post(`/children/${kid.body.id as number}/groups/${groupId}`).set('Authorization', admin.auth).expect(201);
+                await request(app.getHttpServer())
+                    .post(`/children/${kid.body.id as number}/groups/${groupId}`)
+                    .set('Authorization', admin.auth)
+                    .expect(201);
             }
 
             const full = await overview().expect(200);
