@@ -14,7 +14,7 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **142 de story-uri** în 21 de epicuri: 57 livrate, 14 parțiale, 8 blocate, 4 scoase din scop,
+Din **142 de story-uri** în 21 de epicuri: 57 livrate, 15 parțiale, 7 blocate, 4 scoase din scop,
 59 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
@@ -244,7 +244,7 @@ nu rulează nicăieri".
 - [~] S5 · Performanță — livrat odată cu E18 S2; rămâne confirmarea pe trafic real, care cere domeniul live
 - [!] S6 · Conținut — blocat de „cine scrie textele"
 - [x] S7 · Pregătire pentru motoare generative
-- [!] S8 · Măsurare — cere domeniul live și Search Console
+- [~] S8 · Măsurare — **Search Console e configurat pe ambele proprietăți**, cu linia de bază consemnată în epic. Analiza de trafic așteaptă consimțământul din E07 S2, nu domeniul
 
 > Lucrul cel mai valoros rămas aici nu e cod. Pentru căutările locale, cele două profiluri Google
 > Business contează mai mult decât orice a rămas de scris în repo.
@@ -284,6 +284,7 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 | **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
 | **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an       |
 | **Tu**         | Două profiluri Google Business    | E19 S3, partea din afara site-ului                                                            |
+| **Tu**         | Ștergerea recordului `api.` din DNS | Nimic — dar e un record orfan către un IP EC2 străin. Vezi riscul din E01                    |
 | **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                 |
 | **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                        |
 
