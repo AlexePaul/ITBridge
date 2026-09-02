@@ -229,7 +229,7 @@ din `/user/absente`; adminul poate anunța pentru oricine, fiindcă el e cel car
 
 **Termenul e „înainte să înceapă ora".** Story-ul lasă pragul școlii („sau după regula pe care o
 stabiliți"), iar ăsta e cel care se potrivește cu motivul pentru care story-ul vrea anunțuri:
-*profesorul vede dinainte cine lipsește*. Un anunț ajuns înainte ca profesorul să intre în sală
+_profesorul vede dinainte cine lipsește_. Un anunț ajuns înainte ca profesorul să intre în sală
 și-a făcut toată treaba; unul de după, nu, la ce oră o fi venit. O fereastră mai strictă — două ore
 înainte, sau ora 10 în ziua cursului — e o linie schimbată în `absence-notice.rules.ts`; nu e
 implicit fiindcă ar pedepsi exact cazul copilului care face febră la trei pentru o oră de la patru,
@@ -242,7 +242,7 @@ Cinci decizii care se încalcă ușor:
   se îndepărtează în trecut, iar în ziua în care s-ar schimba regula ar rescrie ce i s-a spus deja
   unei familii.
 - **Anunțul nu marchează pe nimeni absent.** Catalogul rămâne al profesorului, iar un copil al cărui
-  părinte a anunțat poate să vină totuși — și vine. Rândul ăsta e ce vede profesorul *înainte*.
+  părinte a anunțat poate să vină totuși — și vine. Rândul ăsta e ce vede profesorul _înainte_.
 - **Un al doilea anunț modifică, nu adaugă.** Un părinte care scrie din nou s-a răzgândit sau
   reformulează, n-a produs a doua absență. `UQ_absence_notice_child_session` e ce face asta adevărat
   și pentru două apăsări în aceeași secundă. `inTime` se rejudecă la modificare: modificarea e ea
@@ -300,7 +300,7 @@ Patru decizii care se încalcă ușor:
   deja coloanele, liber să le contrazică.
 - **`expiresOn` se îngheață la scriere**, ca `inTime` la S3: fereastra despre care i s-a spus unei
   familii nu are voie să se mute când cineva editează regula.
-- **Legătura cu marcajul *este* starea de „folosită".** `AttendanceType.MAKE_UP` se scria deja singur
+- **Legătura cu marcajul _este_ starea de „folosită".** `AttendanceType.MAKE_UP` se scria deja singur
   pentru orice copil marcat în afara grupei lui; acum „a fost prezent în altă grupă" **înseamnă**
   „și-a consumat recuperarea", nu mai e o observație pe care n-o citește nimic. Un copil marcat
   absent la ora pe care și-a programat-o **nu** consumă nimic — n-a venit, iar dreptul își trăiește
@@ -315,7 +315,7 @@ de vârstă a grupei gazdă e ce are platforma ca să spună că două grupe pre
 și e același semnal pe care îl folosește înscrierea.
 
 **Acceptanța, literal:** în `/user/absente` părintele citește „Disponibilă până pe 7 octombrie" și
-apasă *Programează*, care deschide lista orelor compatibile. Fără telefon. Ce s-a corectat pe drum e
+apasă _Programează_, care deschide lista orelor compatibile. Fără telefon. Ce s-a corectat pe drum e
 că lista e o fotografie: la apăsare serverul reverifică tot ce a filtrat ea, fiindcă un loc poate
 pleca între citire și buton.
 
@@ -332,15 +332,53 @@ anulată, și una care are prezențe înregistrate — aia s-a ținut, orice ar 
 anularea ei ar lăsa marcaje atârnate de o oră care oficial n-a existat, exact ce crede raportul de
 nemarcate.
 
-**Nu există ecran.** Anularea se face cu o cerere HTTP, deci de un dezvoltator, nu de un admin.
-Nu mai e însă singura cale prin care se scoate din orar o ședință căzută în vacanță: de la S2,
-ecranul `/admin/calendar` le anulează pe toate deodată, iar ruta asta rămâne pentru cazul punctual —
-profesorul bolnav, ziua cu zăpadă.
+**Ecranul există de acum: `/admin/orar`.** Ședințele următoarelor două săptămâni, filtrabile pe zile
+și pe grupă, cu trei butoane pe rând — mută, anulează, reactivează. Nu e un calendar în grilă,
+fiindcă întrebarea căreia îi răspunde e „care oră nu se ține", și se pune despre câteva zile odată.
+Nu e nici singura cale prin care se scoate din orar o ședință căzută în vacanță: de la S2, ecranul
+`/admin/calendar` le anulează pe toate deodată, iar asta rămâne pentru cazul punctual — profesorul
+bolnav, ziua cu zăpadă.
 
-**Nu pleacă nicio notificare și nu se creează niciun drept de recuperare.** Al doilea cere S4. Primul
-nu mai e blocat de canal — `MailService` și coada `outbox` sunt în `apps/api` de la jobul zilnic —,
-dar mesajul nu e scris, iar coada n-are unde să ruleze continuu până la
-[E01](E01-infrastructura-medii.md) S4. Acceptanța de cinci minute rămâne neatinsă.
+Trei reguli sunt în butoane, nu în explicații: o ședință anulată oferă doar „reactivează"; una cu
+catalog făcut nu oferă nimic, fiindcă s-a ținut și API-ul refuză oricum; iar fiecare dintre cele
+trei acțiuni scrie un email familiilor grupei, deci fiecare dialog o spune înainte de apăsare.
+
+**Notificarea pleacă acum, și e transactională.** Trei șabloane noi în E17/S2 —
+`class-cancelled`, `class-moved`, `class-reinstated` —, câte un mesaj **per părinte**, nu per copil,
+scris cu `EntityManager`-ul tranzacției care schimbă ședința: o oră anulată fără ca nimeni să afle e
+exact defecțiunea pentru care există coada, iar un anunț despre o anulare care s-a dat apoi înapoi e
+mai rău decât amândouă. Cheia de deduplicare poartă **a câta anunțare e pentru ședința aceea**, nu
+ziua: o oră anulată din greșeală, reactivată un minut mai târziu și apoi anulată de-adevăratelea
+trebuie anunțată de două ori — familia a auzit ultima dată că se ține —, în timp ce doi admini care
+apasă același buton în aceeași clipă nu. Numărul se citește în tranzacția care scrie, deci amândoi
+văd același și indexul unic îl refuză pe al doilea.
+
+**O recuperare programată pe ora anulată se eliberează în aceeași tranzacție**, iar familia ei e
+anunțată odată cu grupa, în cuvintele ei: programarea nu se mai ține, dreptul rămâne valabil până la
+termenul lui. Fără asta copilul din altă grupă ar fi apărut la o oră care nu se ține, iar ecranul de
+programare ar fi numărat un scaun ocupat. La mutare familia aceea află ora nouă, ca și grupa.
+Reactivarea **nu** retrage creditele acordate la anulare — o familie poate să fi programat deja pe
+ele — și nici nu reface programările eliberate.
+
+Reactivarea are și ea mesaj, și nu e un lux: familiile au fost anunțate că ora nu se ține, deci una
+pusă la loc fără să spună nimeni e o schimbare pe care o vede doar școala, iar rezultatul e o sală
+goală.
+
+Acceptanța de cinci minute rămâne a dispecerului, care pornește odată cu
+[E01](E01-infrastructura-medii.md) S4 — mesajele se scriu, dar coada nu rulează continuu nicăieri.
+
+**Recuperarea la anulare e o bifă, nu un automatism — și e o decizie de preț.** Story-ul cere ca
+toți copiii să primească drept de recuperare când ora se anulează. Între timp, E15/S0 a mutat prețul
+pe ședință ținută, numărată de mână la emitere: **o oră anulată nu se facturează oricum**. Un credit
+pe deasupra dă familiei a patra lecție la prețul a trei — lucru pe care școala îl vrea probabil
+pentru un profesor bolnav și probabil nu pentru o marți cu zăpadă. Deci întreabă, o dată, pe ecranul
+de anulare, iar propoziția din emailul părintelui se schimbă odată cu bifa.
+
+Creditul se scrie prin `MakeUpCreditService.grantForCancellation`, **ușă separată de `earnFor`**:
+aia întreabă dacă familia a anunțat în termen și copilul chiar a lipsit, ceea ce e întrebarea
+potrivită pentru o oră care s-a ținut. Aici ora nu s-a ținut, nimeni n-a lipsit de nicăieri și nu
+există niciun anunț de căutat — reutilizarea lui `earnFor` ar fi însemnat slăbirea definiției lui
+„câștigat" pentru toată lumea, adică exact ce ține strâns S4.
 
 **Mutarea există acum**: `PUT /class-sessions/:id/move` — altă zi, altă oră, altă sală, oricare din
 ele, cu motiv obligatoriu exact ca la anulare. E o editare a rândului, nu un rând nou — stare de
@@ -350,8 +388,9 @@ de unde a plecat ședința, fiindcă aia e întrebarea pe care o pune un părint
 veche), mutarea care nu schimbă nimic, o zi din calendarul școlar (**S2 nu are ușă laterală** —
 verificat pe locația sălii țintă, nu a celei vechi), o zi în care grupa are deja oră (indexul unic
 ar refuza oricum; verificarea întâi transformă eroarea de driver în propoziție) și o sală ocupată
-la ora aia de altă ședință vie — cele anulate nu blochează, sala lor e liberă în fapt. Tot fără
-ecran, ca și anularea; și tot fără notificare, care rămâne la E17.
+la ora aia de altă ședință vie — cele anulate nu blochează, sala lor e liberă în fapt. Are acum și
+ecran, și mesaj: părintele primește ambele jumătăți, de unde a plecat ora și unde a ajuns, fiindcă
+după mutare doar nota mai ține minte prima.
 
 ### S6 · Marcarea prezenței pe telefon
 
@@ -470,11 +509,11 @@ S6.** Ar rezolva și greșelile de tastare (se corectează până vineri) și co
 conținutul lui e slab: îi spune unui părinte care își aduce copilul la ușă exact ce știe deja.
 Digest-ul își merită locul când poate căra ceva — absențe, recuperări, factura care vine — și ăla e
 mecanismul din S6, nu jumătatea lui cea mai puțin interesantă construită separat. Doar creditele **neprogramate și
-  neconsumate**: cine și-a ales deja ora n-are nevoie de un ghiont, iar cine a folosit-o n-are nevoie
-  de un memento despre un drept pe care nu-l mai are. **Exact** la șapte zile, nu „în interval de" —
-  un interval ar scrie în fiecare din cele șapte zile, și așa devine un memento util o pacoste.
-  Șapte fiindcă fereastra mai conține cel puțin o oră proprie a copilului de care să se agațe
-  programarea, și e destul de devreme cât „n-am găsit oră" să mai fie rezolvabil.
+neconsumate**: cine și-a ales deja ora n-are nevoie de un ghiont, iar cine a folosit-o n-are nevoie
+de un memento despre un drept pe care nu-l mai are. **Exact** la șapte zile, nu „în interval de" —
+un interval ar scrie în fiecare din cele șapte zile, și așa devine un memento util o pacoste.
+Șapte fiindcă fereastra mai conține cel puțin o oră proprie a copilului de care să se agațe
+programarea, și e destul de devreme cât „n-am găsit oră" să mai fie rezolvabil.
 
 **Amândouă sunt tranzacționale** și nu consultă preferința de marketing din
 [E17](E17-comunicare-notificari.md) S4 — nici n-ar avea cum: `queueOrRecord` nu primește deloc

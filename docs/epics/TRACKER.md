@@ -3,7 +3,7 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 2 septembrie 2026, pe `develop`, cu E21 S1, E16 S5, E12 S7 și E21 S2/S4 mergeate.
+**Ultima actualizare:** 2 septembrie 2026, pe `develop`, cu E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5 mergeate.
 
 ## Legendă
 
@@ -14,7 +14,7 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **146 de story-uri** în 22 de epicuri: 64 livrate, 17 parțiale, 8 blocate, 4 scoase din scop,
+Din **146 de story-uri** în 22 de epicuri: 65 livrate, 16 parțiale, 8 blocate, 4 scoase din scop,
 53 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
@@ -146,7 +146,7 @@ nu rulează nicăieri".
 - [x] S2 · Calendar de vacanțe — livrat: `NonTeachingPeriod`, ecranul `/admin/calendar` cu previzualizarea a ce se anulează, iar generatorul sare peste zilele închise, pe locație
 - [x] S3 · Absențe anunțate — `AbsenceNotice` pe ședință, `/user/absente` pentru părinte, insigna și motivul în catalogul de pe telefon. Termenul: **înainte să înceapă ora**, iar `inTime` se îngheață la scriere
 - [x] S4 · Recuperări — `MakeUpCredit` câștigat din anunț-în-termen plus absență reală, 30 de zile valabilitate, programare din portal, consumat de marcaj. Compatibilitatea e banda de vârstă, fiindcă modulele din E10 nu există
-- [~] S5 · Anulări și mutări — anularea, reactivarea și acum **mutarea** (`PUT /class-sessions/:id/move`, cu calendarul școlar respectat și sala verificată de ciocniri); fără ecran, fără notificare
+- [x] S5 · Anulări și mutări — ecranul `/admin/orar` (mută, anulează, reactivează), plus mesajul către familiile grupei la fiecare dintre cele trei, scris în aceeași tranzacție. Recuperarea la anulare e o **bifă**, nu un automatism: ora anulată nu se facturează oricum, deci creditul e o decizie de preț, luată per anulare. Rămâne dispecerul, care pornește la E01 S4
 - [~] S6 · Marcarea prezenței pe telefon — livrat fără poze (`Child` n-are câmp, e o decizie E07/E14): `/admin/attendance/azi`, salvare la fiecare apăsare, coadă locală pe rețea picată, buton „Sună părintele" la absență
 - [~] S7 · Notificări — **mementoul de la minutul 15** (`@Interval` la 5 minute, fereastra se închide când se termină ora, o alertă per ședință) plus cel zilnic de la 10:00, amândouă către birou; și cele două către părinte, **amândouă despre recuperare**: câștigată (aceeași seară) și care expiră (7 zile înainte). Mesajul de absență a fost scos prin decizie — catalogul uitat/târziu/greșit îl făcea nesigur când era inofensiv și alarmant când nu. Rămâne a doua linie către părinte, care așteaptă E17 S6
 
