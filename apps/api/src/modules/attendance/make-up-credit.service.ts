@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, In, Repository } from 'typeorm';
+import { EntityManager, In, IsNull, Repository } from 'typeorm';
 import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { Attendance } from 'src/entities/attendance.entity';
@@ -142,6 +142,28 @@ export class MakeUpCreditService {
         await repository.save(fresh);
         this.logger.log(`Cancelled session ${classSessionId}: granted ${fresh.length} make-up credit(s), valid to ${toIsoDate(expiresOn)}.`);
         return fresh.length;
+    }
+
+    /**
+     * Lets go of every make-up booked into a class that was cancelled — called from the
+     * cancellation's own transaction, after the families have been told.
+     *
+     * A booking on a class that will not happen is a plan the family cannot keep and a chair the
+     * booking screen still counts as taken. The credit itself is untouched: the right was earned
+     * elsewhere, its window keeps running, and the family picks another hour. A credit already
+     * spent is left alone — it is a fact about a class the child sat in on.
+     */
+    async releaseBookingsOn(classSessionId: number, manager?: EntityManager): Promise<number> {
+        const repository = manager ? manager.getRepository(MakeUpCredit) : this.creditRepository;
+        const booked = await repository.find({ where: { bookedSession: { id: classSessionId }, consumedAttendance: IsNull() } });
+        if (booked.length === 0) return 0;
+
+        for (const credit of booked) {
+            credit.bookedSession = null;
+        }
+        await repository.save(booked);
+        this.logger.log(`Cancelled session ${classSessionId}: released ${booked.length} make-up booking(s).`);
+        return booked.length;
     }
 
     /**

@@ -45,7 +45,7 @@ describe('ClassSessionService', () => {
     /** The transaction cancel, move and reinstate write inside — it hands back `sessionRepo`. */
     let manager: MockEntityManager;
     let notifier: { notifyCancelled: jest.Mock; notifyMoved: jest.Mock; notifyReinstated: jest.Mock };
-    let makeUpCredits: { grantForCancellation: jest.Mock };
+    let makeUpCredits: { grantForCancellation: jest.Mock; releaseBookingsOn: jest.Mock };
 
     const room = { id: 1, name: 'Sala 1', location: { id: 1, name: 'Drumul Taberei' } };
     const group = {
@@ -74,7 +74,7 @@ describe('ClassSessionService', () => {
             notifyMoved: jest.fn().mockResolvedValue(0),
             notifyReinstated: jest.fn().mockResolvedValue(0),
         };
-        makeUpCredits = { grantForCancellation: jest.fn().mockResolvedValue(0) };
+        makeUpCredits = { grantForCancellation: jest.fn().mockResolvedValue(0), releaseBookingsOn: jest.fn().mockResolvedValue(0) };
         closedDates = jest.fn().mockResolvedValue(new Set<string>());
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -555,6 +555,19 @@ describe('ClassSessionService', () => {
             expect(notifier.notifyCancelled).toHaveBeenCalledWith(3, 'Profesor bolnav', false, manager);
         });
 
+        // A make-up booked into the class is a plan nobody can keep. Released after the note, so the
+        // notifier still sees whose plan it was.
+        it('releases the make-ups booked into it, after the families have been told', async () => {
+            const order: string[] = [];
+            notifier.notifyCancelled.mockImplementation(() => Promise.resolve(order.push('notify')));
+            makeUpCredits.releaseBookingsOn.mockImplementation(() => Promise.resolve(order.push('release')));
+
+            await service.cancelSession(3, { reason: 'Profesor bolnav' });
+
+            expect(makeUpCredits.releaseBookingsOn).toHaveBeenCalledWith(3, manager);
+            expect(order).toEqual(['notify', 'release']);
+        });
+
         // The pricing decision, asked rather than assumed: the hour is not charged for either way.
         it('grants nobody a make-up unless the cancellation says so', async () => {
             await service.cancelSession(3, { reason: 'Zăpadă' });
@@ -577,6 +590,7 @@ describe('ClassSessionService', () => {
 
             expect(notifier.notifyCancelled).not.toHaveBeenCalled();
             expect(makeUpCredits.grantForCancellation).not.toHaveBeenCalled();
+            expect(makeUpCredits.releaseBookingsOn).not.toHaveBeenCalled();
         });
     });
 

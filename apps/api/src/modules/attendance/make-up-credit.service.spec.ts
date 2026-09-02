@@ -141,6 +141,29 @@ describe('MakeUpCreditService', () => {
         });
     });
 
+    describe('releasing the bookings on a cancelled class', () => {
+        it('unbooks every unspent credit booked into it, and keeps the credits', async () => {
+            creditRepo.find!.mockResolvedValue([
+                { id: 4, bookedSession: { id: 9 }, consumedAttendance: null },
+                { id: 5, bookedSession: { id: 9 }, consumedAttendance: null },
+            ]);
+
+            expect(await service.releaseBookingsOn(9)).toBe(2);
+
+            expect(creditRepo.find).toHaveBeenCalledWith({ where: { bookedSession: { id: 9 }, consumedAttendance: expect.anything() } });
+            const saved = creditRepo.save!.mock.calls[0][0] as { id: number; bookedSession: unknown }[];
+            expect(saved.map((credit) => credit.bookedSession)).toEqual([null, null]);
+            expect(creditRepo.delete).not.toHaveBeenCalled();
+        });
+
+        it('writes nothing when nobody was booked', async () => {
+            creditRepo.find!.mockResolvedValue([]);
+
+            expect(await service.releaseBookingsOn(9)).toBe(0);
+            expect(creditRepo.save).not.toHaveBeenCalled();
+        });
+    });
+
     describe('revoking one a mistap earned', () => {
         it('withdraws an unspent, unbooked credit', async () => {
             creditRepo.findOne!.mockResolvedValue({ id: 4, consumedAttendance: null, bookedSession: null });

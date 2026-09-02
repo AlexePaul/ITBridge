@@ -174,9 +174,12 @@ rând cu aceleași date la ambele capete. `location` gol înseamnă „toată ș
 reactivarea trec prin `dataSource.transaction`: rândul, eventualele credite de recuperare și
 mesajele către familiile grupei stau sau cad împreună — o oră anulată fără ca nimeni să afle e exact
 defecțiunea pentru care există coada. `ClassSessionNotifier` scrie **un mesaj per părinte**, nu per
-copil, iar cheia de deduplicare poartă **ziua acțiunii**, nu doar ședința: o oră anulată, reactivată
-și anulată din nou trebuie anunțată de două ori. Reactivarea are mesaj din același motiv — familiile
-au fost anunțate că nu se ține.
+copil, iar cheia de deduplicare poartă **a câta anunțare e pentru ședința aceea**, nu ziua: o oră
+anulată, reactivată și anulată din nou — chiar în aceeași după-amiază — trebuie anunțată de două
+ori, în timp ce doi admini care apasă în aceeași clipă nu. Reactivarea are mesaj din același motiv —
+familiile au fost anunțate că nu se ține. O recuperare programată pe ora anulată se eliberează în
+aceeași tranzacție, după ce familia ei a fost anunțată; creditele acordate la anulare nu se retrag la
+reactivare.
 
 **Recuperarea la anulare e o bifă pe ecran, nu un automatism** (E12 S5). Prețul e pe ședință
 ținută, deci o oră anulată nu se facturează oricum; un credit pe deasupra dă a patra lecție la

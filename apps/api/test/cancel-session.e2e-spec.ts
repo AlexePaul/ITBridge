@@ -135,6 +135,62 @@ describe('Cancelling a class session (e2e)', () => {
         expect(rows[0].status).toBe('scheduled');
     });
 
+    /**
+     * Cancelled by mistake, reinstated, then really cancelled — all before dinner. The family last
+     * heard the class was on, so the second cancellation has to reach them; a key on the day alone
+     * would have been refused by the unique index.
+     */
+    it('announces a second cancellation on the same day', async () => {
+        await cancel().expect(200);
+        await request(app.getHttpServer()).put(`/class-sessions/${sessionId}/reinstate`).set('Authorization', admin.auth).expect(200);
+        await cancel({ reason: 'Chiar este bolnav' }).expect(200);
+
+        const messages = await queued();
+        expect(messages.map((message) => message.subject.includes('anulată'))).toEqual([true, false, true]);
+        expect(messages[2].bodyText).toContain('Chiar este bolnav');
+    });
+
+    /**
+     * A child from another group had booked a make-up into this class (E12/S4). Their family is
+     * not in the group, but they were coming — so they hear the class is off, in their own words,
+     * and the booking is released while the credit stays theirs.
+     */
+    it('releases a make-up booked into the class and tells that family too', async () => {
+        const visitor = await registerUser(app, 'parinte.vizita');
+        const visitorChild = await request(app.getHttpServer())
+            .post('/children')
+            .set('Authorization', visitor.auth)
+            .send({ firstName: 'Carmen', lastName: 'Ion', birthDate: '2016-06-06', parentId: await ownProfileId(app, visitor) })
+            .expect(201);
+        const other = await request(app.getHttpServer())
+            .post('/groups')
+            .set('Authorization', admin.auth)
+            .send(
+                groupBody((await dataSource.query<{ room_id: number }[]>('SELECT room_id FROM groups WHERE id = $1', [groupId]))[0].room_id, {
+                    name: 'Python',
+                    startTime: '18:00',
+                    endTime: '19:30',
+                }),
+            )
+            .expect(201);
+        const missed = await createClassSession(dataSource, other.body.id as number, { date: '2027-03-29' });
+        await dataSource.query('INSERT INTO make_up_credits (child_id, origin_session_id, "expiresOn", booked_session_id) VALUES ($1, $2, $3, $4)', [
+            visitorChild.body.id,
+            missed,
+            '2027-04-28',
+            sessionId,
+        ]);
+
+        await cancel().expect(200);
+
+        const messages = await queued();
+        expect(messages).toHaveLength(2);
+        const visitorMail = messages.find((message) => message.to === `${visitor.username}@example.com`)!;
+        expect(visitorMail.bodyText).toContain('programaseși');
+        const rows = await dataSource.query<{ booked_session_id: number | null }[]>('SELECT booked_session_id FROM make_up_credits');
+        expect(rows).toEqual([{ booked_session_id: null }]);
+    });
+
     it('reinstating tells the families the class is on again', async () => {
         await cancel().expect(200);
 

@@ -342,7 +342,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
             { name: 'date', description: 'Ziua orei anulate, în cuvinte' },
             { name: 'time', description: 'Ora la care ar fi început' },
             { name: 'reason', description: 'Motivul, așa cum l-a scris adminul' },
-            { name: 'makeUpNote', description: 'Ce urmează cu recuperarea; gol dacă nu se acordă niciuna' },
+            { name: 'makeUpNote', description: 'Ce urmează: dreptul de recuperare acordat, ora nefacturată, sau recuperarea programată aici și eliberată' },
             { name: 'portalUrl', description: 'Adresa portalului' },
         ],
         sampleData: {
@@ -354,7 +354,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
             makeUpNote: 'Copilul tău are dreptul la o oră de recuperare, pe care o poți programa din portal în următoarele 30 de zile.',
             portalUrl: 'https://itbridgeschool.com/user/absente',
         },
-        subject: 'Ora de {{date}} a fost anulată — {{groupName}}',
+        subject: 'Ora din {{date}} a fost anulată — {{groupName}}',
         bodyText: [
             'Bună, {{firstName}}!',
             '',
@@ -386,7 +386,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
         variables: [
             { name: 'firstName', description: 'Prenumele părintelui' },
             { name: 'groupName', description: 'Numele grupei' },
-            { name: 'fromWhen', description: 'Ziua și ora de dinainte' },
+            { name: 'fromWhen', description: 'Ziua, ora și sala de dinainte' },
             { name: 'toWhen', description: 'Ziua și ora nouă' },
             { name: 'room', description: 'Sala și locația unde se ține' },
             { name: 'reason', description: 'Motivul, așa cum l-a scris adminul' },
@@ -395,7 +395,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
         sampleData: {
             firstName: 'Ana',
             groupName: 'Scratch începători',
-            fromWhen: '12 martie, ora 16:00',
+            fromWhen: '12 martie, ora 16:00, Sala 1 — Sediul Titan',
             toWhen: '14 martie, ora 17:00',
             room: 'Sala 2 — Sediul Titan',
             reason: 'sala este ocupată de o evaluare',
@@ -448,7 +448,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
             time: '16:00',
             portalUrl: 'https://itbridgeschool.com/user/dashboard',
         },
-        subject: 'Ora de {{date}} se ține totuși — {{groupName}}',
+        subject: 'Ora din {{date}} se ține totuși — {{groupName}}',
         bodyText: [
             'Bună, {{firstName}}!',
             '',

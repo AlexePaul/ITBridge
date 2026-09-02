@@ -347,9 +347,18 @@ trei acțiuni scrie un email familiilor grupei, deci fiecare dialog o spune îna
 `class-cancelled`, `class-moved`, `class-reinstated` —, câte un mesaj **per părinte**, nu per copil,
 scris cu `EntityManager`-ul tranzacției care schimbă ședința: o oră anulată fără ca nimeni să afle e
 exact defecțiunea pentru care există coada, iar un anunț despre o anulare care s-a dat apoi înapoi e
-mai rău decât amândouă. Cheia de deduplicare poartă **ziua acțiunii**, nu doar ședința: o oră
-anulată, reactivată și anulată din nou săptămâna următoare trebuie anunțată de două ori, în timp ce
-doi admini care apasă același buton în aceeași zi nu.
+mai rău decât amândouă. Cheia de deduplicare poartă **a câta anunțare e pentru ședința aceea**, nu
+ziua: o oră anulată din greșeală, reactivată un minut mai târziu și apoi anulată de-adevăratelea
+trebuie anunțată de două ori — familia a auzit ultima dată că se ține —, în timp ce doi admini care
+apasă același buton în aceeași clipă nu. Numărul se citește în tranzacția care scrie, deci amândoi
+văd același și indexul unic îl refuză pe al doilea.
+
+**O recuperare programată pe ora anulată se eliberează în aceeași tranzacție**, iar familia ei e
+anunțată odată cu grupa, în cuvintele ei: programarea nu se mai ține, dreptul rămâne valabil până la
+termenul lui. Fără asta copilul din altă grupă ar fi apărut la o oră care nu se ține, iar ecranul de
+programare ar fi numărat un scaun ocupat. La mutare familia aceea află ora nouă, ca și grupa.
+Reactivarea **nu** retrage creditele acordate la anulare — o familie poate să fi programat deja pe
+ele — și nici nu reface programările eliberate.
 
 Reactivarea are și ea mesaj, și nu e un lux: familiile au fost anunțate că ora nu se ține, deci una
 pusă la loc fără să spună nimeni e o schimbare pe care o vede doar școala, iar rezultatul e o sală

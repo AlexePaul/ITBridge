@@ -53,7 +53,7 @@
             </UBadge>
           </div>
           <p class="text-sm text-muted tabular-nums mt-0.5">
-            {{ formatDateKey(toDateKey(session.date)) }} · {{ session.startTime.slice(0, 5) }}–{{
+            {{ formatDateKey(session.date) }} · {{ session.startTime.slice(0, 5) }}–{{
               session.endTime.slice(0, 5)
             }}
             ·
@@ -118,7 +118,7 @@
       <template #body>
         <div v-if="target" class="space-y-4">
           <p class="text-sm text-muted">
-            {{ target.group.name }} · {{ formatDateKey(toDateKey(target.date)) }},
+            {{ target.group.name }} · {{ formatDateKey(target.date) }},
             {{ target.startTime.slice(0, 5) }}
           </p>
 
@@ -151,7 +151,7 @@
       <template #body>
         <div v-if="target" class="space-y-4">
           <p class="text-sm text-muted">
-            Acum: {{ formatDateKey(toDateKey(target.date)) }}, {{ target.startTime.slice(0, 5) }}–{{
+            Acum: {{ formatDateKey(target.date) }}, {{ target.startTime.slice(0, 5) }}–{{
               target.endTime.slice(0, 5)
             }}, {{ target.room.name }}
           </p>
@@ -194,7 +194,7 @@
     >
       <template #body>
         <p v-if="target" class="text-sm">
-          {{ target.group.name }} · {{ formatDateKey(toDateKey(target.date)) }},
+          {{ target.group.name }} · {{ formatDateKey(target.date) }},
           {{ target.startTime.slice(0, 5) }}. Familiile grupei primesc un email că ora se ține
           totuși — au fost anunțate că nu se ține.
         </p>
@@ -210,7 +210,7 @@ import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { useRoomsApi } from "~/composables/api/useRoomsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { formatDateKey } from "~/composables/useAdminFormat";
-import { toDateKey, todayKey } from "~/composables/useAttendanceCalendar";
+import { todayKey } from "~/composables/useAttendanceCalendar";
 import type { ClassSessionStatus, ClassSessionWithAttendance } from "~/types/class-session.types";
 import { CLASS_SESSION_STATUS_LABELS, SessionStatus } from "~/types/class-session.types";
 import type { Group } from "~/types/group.types";
@@ -251,7 +251,7 @@ const DEFAULT_HORIZON_DAYS = 14;
 const addDays = (key: string, days: number) => {
   const [year, month, day] = key.split("-").map(Number);
   const shifted = new Date(year!, month! - 1, day! + days);
-  return toDateKey(shifted);
+  return todayKey(shifted);
 };
 
 const loading = ref(true);
@@ -321,7 +321,7 @@ const startMove = (session: ClassSessionWithAttendance) => {
   reason.value = "";
   // Prefilled with where the class is now, so an admin changes the one thing they mean to change
   // and the API's "the move changes nothing" refusal only fires when they really changed nothing.
-  moveDate.value = toDateKey(session.date);
+  moveDate.value = session.date;
   moveStart.value = session.startTime.slice(0, 5);
   moveEnd.value = session.endTime.slice(0, 5);
   moveRoomId.value = session.room.id;
@@ -366,9 +366,15 @@ const confirmMove = async () => {
     // sending all four would make every move look like a four-way change in the note.
     await sessionsApi.moveSession(session.id, {
       reason: reason.value.trim(),
-      date: moveDate.value === toDateKey(session.date) ? undefined : moveDate.value,
-      startTime: moveStart.value === session.startTime.slice(0, 5) ? undefined : moveStart.value,
-      endTime: moveEnd.value === session.endTime.slice(0, 5) ? undefined : moveEnd.value,
+      // A cleared input is an empty string, which the API would refuse as a malformed date; it
+      // means "leave it", the same as an unchanged one.
+      date: moveDate.value && moveDate.value !== session.date ? moveDate.value : undefined,
+      startTime:
+        moveStart.value && moveStart.value !== session.startTime.slice(0, 5)
+          ? moveStart.value
+          : undefined,
+      endTime:
+        moveEnd.value && moveEnd.value !== session.endTime.slice(0, 5) ? moveEnd.value : undefined,
       roomId: moveRoomId.value === session.room.id ? undefined : moveRoomId.value,
     });
     success("Ora a fost mutată", "Familiile grupei primesc un email cu noua zi.");

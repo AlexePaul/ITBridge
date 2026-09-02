@@ -121,6 +121,13 @@ const MESSAGES: Record<string, string> = {
   MAKE_UP_SESSION_OUT_OF_WINDOW: "Ședința e în afara perioadei de valabilitate a recuperării.",
   MAKE_UP_SAME_GROUP: "Asta e chiar grupa copilului — e ora lui, nu o recuperare.",
 
+  // E12/S5. The timetable screen can hit these when two admins act on the same class, or when the
+  // list is stale; each is a different thing to do next.
+  CLASS_SESSION_ALREADY_CANCELLED: "Ora e deja anulată.",
+  CLASS_SESSION_NOT_CANCELLED: "Ora nu e anulată, deci nu are ce reactiva.",
+  CLASS_SESSION_HAS_ATTENDANCE:
+    "Ora are deja prezențe înregistrate, deci s-a ținut — nu mai poate fi anulată sau mutată.",
+
   // E15/S5. A percentage past 100 would take the invoice below zero, where the floor in pricing.ts
   // silently clamps it — so the only visible symptom would be a month that cost nothing.
   DISCOUNT_PERCENT_OVER_100: "O reducere procentuală nu poate depăși 100%.",

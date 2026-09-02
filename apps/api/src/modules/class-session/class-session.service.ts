@@ -203,10 +203,9 @@ export class ClassSessionService {
     /**
      * Calls off one class, with the reason.
      *
-     * The reason goes into `notes`, appended rather than substituted, because there is no
-     * `cancellationReason` column and adding one is a migration this story does not own. When E12/S5
-     * arrives — notify the group, grant the make-up rights — it will want the reason as a field of
-     * its own, and that is the moment to split it out.
+     * The reason goes into `notes`, appended rather than substituted: there is no
+     * `cancellationReason` column, and E12/S5 decided against adding one — the reason is read by a
+     * person in the timetable and quoted once in the email, and both already have it here.
      */
     async cancelSession(id: number, dto: CancelClassSessionDto): Promise<ClassSession> {
         const session = await this.classSessionRepository.findOne({
@@ -238,16 +237,20 @@ export class ClassSessionService {
         session.notes = session.notes === null || session.notes.trim() === '' ? reason : `${session.notes}\n\n${reason}`;
         session.status = ClassSessionStatus.CANCELLED;
 
-        // The write, the credits and the note to the families are one unit of work — E12/S5. A
-        // class that is off with nobody told is the failure the outbox exists to prevent, and a
-        // family told about a cancellation that then rolled back is worse than either.
+        // The write, the credits, the note to the families and the release of any make-up booked
+        // into the class are one unit of work — E12/S5. A class that is off with nobody told is the
+        // failure the outbox exists to prevent, and a family told about a cancellation that then
+        // rolled back is worse than either.
         const grantMakeUp = dto.grantMakeUpCredits ?? false;
         return this.dataSource.transaction(async (manager) => {
             const saved = await manager.getRepository(ClassSession).save(session);
             if (grantMakeUp) {
                 await this.makeUpCredits.grantForCancellation(id, manager);
             }
+            // Notify before releasing: the notifier reads the bookings to find the visiting
+            // families, and a released booking is one it can no longer see.
             await this.notifier.notifyCancelled(id, dto.reason, grantMakeUp, manager);
+            await this.makeUpCredits.releaseBookingsOn(id, manager);
             return saved;
         });
     }
