@@ -17,6 +17,7 @@ import { AgentController } from 'src/modules/project/agent.controller';
 import { MailTemplateController } from 'src/modules/mail/mail-template.controller';
 import { DeliveryLogController } from 'src/modules/mail/delivery-log.controller';
 import { OverviewController } from 'src/modules/dashboard/overview.controller';
+import { ReportsController } from 'src/modules/dashboard/reports.controller';
 
 /**
  * Every HTTP surface the application exposes, in one place.
@@ -51,4 +52,5 @@ export const CONTROLLERS = [
     MailTemplateController,
     DeliveryLogController,
     OverviewController,
+    ReportsController,
 ];

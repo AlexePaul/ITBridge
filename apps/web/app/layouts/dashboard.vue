@@ -154,6 +154,7 @@ const navigationItems = computed(() => {
       to: "/admin/dashboard",
       icon: "i-lucide-layout-dashboard",
     },
+    { label: "Rapoarte", to: "/admin/rapoarte", icon: "i-lucide-chart-bar" },
     { label: "Conturi în așteptare", to: "/admin/approvals", icon: "i-lucide-user-check" },
     { label: "Profiluri Utilizatori", to: "/admin/profiles", icon: "i-lucide-users" },
     { label: "Copii", to: "/admin/children", icon: "i-lucide-baby" },

@@ -514,6 +514,15 @@ mesajelor către părinți. Amândouă sunt opționale: fără ele aplicația po
 `outbox` cu motivul scris în `lastError`. `MAIL_OUTBOX_ENABLED=false` oprește doar scheduler-ul;
 testele de integrare îl setează, ca o trecere de fundal să nu miște rândurile sub aserțiuni.
 
+**Rapoartele nu definesc nimic, doar adună** (E21). `apps/api/src/modules/dashboard/` cere fiecare
+număr de la serviciul care deține întrebarea — restanțele de la `ArrearsService`, locurile de la
+`EnrollmentService.occupancyOf` — și nu rederivă niciunul; a doua definiție e cea care divergează.
+Raportul financiar ține **două calendare**, amândouă pe ecran: „încasat pentru lună" (plățile pe
+facturile lunii, oricând au venit) și „încasat în lună" (plățile datate în lună, pentru orice
+factură). Diferă exact când o familie plătește târziu, deci nu alege unul în locul celuilalt. Doar
+plățile `succeeded` sunt bani, iar `waived` se numără, nu se adună. Pragul de ocupare (60%) și prețul
+unui loc gol stau în `reports.rules.ts` și sunt propuneri afișate ca atare, nu decizii.
+
 **Restanța se derivă, iar `Invoice.status` e doar o memorie** (E16 S7). Termenul e 14 zile de la
 `dateIssued` — `arrears.rules.ts`, fără coloană `dueDate` — iar `ArrearsService.list` numără plățile
 **reușite**, nu se uită la coloana de stare: un ecran despre bani n-are voie să greșească o zi
