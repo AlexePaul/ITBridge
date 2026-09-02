@@ -1,5 +1,12 @@
 <template>
   <AdminPage title="Cum stăm" :subtitle="todayLabel" width="xl">
+    <template #actions>
+      <!-- The overview is today; the reports are the months behind it and the seats around it. -->
+      <UButton to="/admin/rapoarte" color="neutral" variant="outline" icon="i-lucide-chart-bar">
+        Rapoarte
+      </UButton>
+    </template>
+
     <AdminLoading v-if="loading" />
     <AdminError v-else-if="loadError" :message="loadError" />
 

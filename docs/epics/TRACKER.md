@@ -3,7 +3,7 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 2 septembrie 2026, pe `develop`, cu E21 S1 și E16 S5 mergeate.
+**Ultima actualizare:** 2 septembrie 2026, pe `develop`, cu E21 S1, E16 S5, E12 S7 și E21 S2/S4 mergeate.
 
 ## Legendă
 
@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **146 de story-uri** în 22 de epicuri: 62 livrate, 17 parțiale, 8 blocate, 4 scoase din scop,
-55 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **146 de story-uri** în 22 de epicuri: 64 livrate, 17 parțiale, 8 blocate, 4 scoase din scop,
+53 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -266,9 +266,9 @@ nu rulează nicăieri".
 ### E21 · Raportare și analytics — `în lucru`
 
 - [~] S1 · Tablou de bord operațional — livrat pe `/admin/dashboard`, care era un placeholder. Fiecare număr e cerut de la serviciul care deține întrebarea, iar e2e-ul verifică acordul cu ecranele rezumate. Fără filtrare pe locație și fără comparație cu perioada anterioară
-- [ ] S2 · Rapoarte financiare
-- [ ] S3 · Retenție și abandon
-- [ ] S4 · Ocupare
+- [x] S2 · Rapoarte financiare — `/admin/rapoarte`, fila „Bani": facturat față de încasat pe lună, cu **două calendare** (pentru lună / în lună), numerar și transfer, restanțele pe benzi cerute de la `ArrearsService`. Fără modul (E10) și fără locație (factura e a familiei); potrivirea cu contabilul așteaptă date reale
+- [ ] S3 · Retenție și abandon — acceptanța cere modulul (E10) și profesorul pe grupă (E09), amândouă scoase din MVP
+- [x] S4 · Ocupare — fila „Locuri": grupe cele mai goale primele, săli cu orele moarte măsurate pe orarul școlii, totaluri pe adresă. Ocupatul vine din `occupancyOf`, probele incluse; pragul de 60% și venitul pierdut la preț de listă sunt propuneri, afișate ca atare
 - [ ] S5 · Pâlnia
 - [ ] S6 · Export pentru contabil
 - [ ] S7 · Semnale timpurii

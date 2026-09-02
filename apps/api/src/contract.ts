@@ -19,6 +19,8 @@ import type { Child } from './entities/child.entity';
 import type { Group } from './entities/group.entity';
 import type { Enrollment } from './entities/enrollment.entity';
 import type { InvoiceWorksheetRow } from './modules/invoice/invoice.service';
+import type { FinanceReport } from './modules/dashboard/finance-report.service';
+import type { OccupancyReport } from './modules/dashboard/occupancy-report.service';
 import type { WaitlistEntry } from './entities/waitlist-entry.entity';
 import type { NonTeachingPeriod } from './entities/non-teaching-period.entity';
 import type { Location } from './entities/location.entity';
@@ -178,3 +180,9 @@ type _DeliveryRecord = Check<
 // The rest of `OutboxMessage` has no entry here on purpose: nothing serves it. It is an internal queue, drained
 // by a scheduler, and E17/S3 is explicit that the operation which queues a message does not wait
 // for it. The delivery record an admin reads is E17/S5, and that is when it acquires a wire shape.
+
+// E21/S2 and S4. The reports are service-shaped rather than entity-shaped, so the check is on the
+// interfaces the services return: a field added to a month or a room on one side must appear on the
+// other, or the page that reads it types against a figure that never arrives.
+type _FinanceReport = Check<Wire.FinanceReport, FinanceReport>;
+type _OccupancyReport = Check<Wire.OccupancyReport, OccupancyReport>;

@@ -81,3 +81,13 @@ export function formatMonth(monthIssued: string): string {
   const name = MONTHS_LONG[Number(month) - 1];
   return name ? `${name} ${year}` : monthIssued;
 }
+
+/**
+ * `0.4` → `"40%"`, `0.655` → `"66%"`. A share, printed whole: nobody fills a room to a decimal.
+ *
+ * Non-numbers come back as the em dash, like `formatLei`.
+ */
+export function formatPercent(share: unknown): string {
+  if (typeof share !== "number" || !Number.isFinite(share)) return "—";
+  return `${Math.round(share * 100)}%`;
+}

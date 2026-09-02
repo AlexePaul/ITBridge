@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDateKey, formatLei, formatMonth } from "~/composables/useAdminFormat";
+import { formatDateKey, formatLei, formatMonth, formatPercent } from "~/composables/useAdminFormat";
 
 /**
  * The admin area's formatting vocabulary — E18/S5a.
@@ -63,5 +63,19 @@ describe("formatMonth", () => {
     expect(formatMonth("")).toBe("");
     expect(formatMonth("2026-13")).toBe("2026-13");
     expect(formatMonth("martie")).toBe("martie");
+  });
+});
+
+describe("formatPercent", () => {
+  it("prints a share as a whole percentage", () => {
+    expect(formatPercent(0.4)).toBe("40%");
+    expect(formatPercent(0.655)).toBe("66%");
+    expect(formatPercent(1)).toBe("100%");
+    expect(formatPercent(0)).toBe("0%");
+  });
+
+  it("dashes anything that is not a number", () => {
+    expect(formatPercent(null)).toBe("—");
+    expect(formatPercent(Number.NaN)).toBe("—");
   });
 });
