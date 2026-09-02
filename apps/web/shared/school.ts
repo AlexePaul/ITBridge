@@ -78,7 +78,13 @@ export const SCHOOL_LOCATIONS: SchoolLocation[] = [
     neighbourhood: "Drumul Taberei",
     street: "Strada Valea Oltului 73",
     district: "Sector 6",
-    postalCode: "061971",
+    // Valea Oltului is split across three codes by street number — 061971 for
+    // 1–55, 061972 for 57–75, 061973 for 77 upwards — so number 73 is 061972.
+    // It read 061971 here and 061973 on the Google Business Profile, which is
+    // the mismatch that matters: the postal code travels into the JSON-LD
+    // PostalAddress, into llms.txt and onto all three location screens, and a
+    // local listing is judged on whether those agree with the profile.
+    postalCode: "061972",
     city: "București",
     region: "București",
     country: "RO",
