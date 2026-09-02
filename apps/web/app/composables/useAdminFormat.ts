@@ -51,3 +51,33 @@ export function formatLei(value: unknown): string {
   const text = whole ? String(value) : value.toFixed(2).replace(".", ",");
   return `${text} lei`;
 }
+
+const MONTHS_LONG = [
+  "ianuarie",
+  "februarie",
+  "martie",
+  "aprilie",
+  "mai",
+  "iunie",
+  "iulie",
+  "august",
+  "septembrie",
+  "octombrie",
+  "noiembrie",
+  "decembrie",
+];
+
+/**
+ * `"2026-03"` → `"martie 2026"` — the billing month, as a person says it.
+ *
+ * Lives here for the same reason the other two do: three screens about money had grown three
+ * copies of the same array, and the third one was added by this file's author. Anything that is
+ * not a `YYYY-MM` prefix comes back unchanged.
+ */
+export function formatMonth(monthIssued: string): string {
+  const match = /^(\d{4})-(\d{2})/.exec(monthIssued);
+  if (!match) return monthIssued;
+  const [, year, month] = match;
+  const name = MONTHS_LONG[Number(month) - 1];
+  return name ? `${name} ${year}` : monthIssued;
+}
