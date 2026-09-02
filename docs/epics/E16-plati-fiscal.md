@@ -33,16 +33,16 @@ Platforma **nu emite facturi**. Calculează ce se datorează și cere SmartBill 
 
 Împărțirea responsabilităților, care ar trebui respectată strict:
 
-| | Platforma | SmartBill |
-|---|---|---|
-| Ce se datorează, cui, pentru ce modul | ✓ | |
-| Planuri de plată, tranșe, scadențe | ✓ | |
-| Afișare pentru părinte, istoric, portal | ✓ | |
-| Serie și număr de factură | | ✓ |
-| PDF-ul fiscal | | ✓ |
-| TVA și date de emitent | | ✓ |
-| Transmitere în SPV pentru e-Factura | | ✓ |
-| Evidența contabilă și exportul | | ✓ |
+|                                         | Platforma | SmartBill |
+| --------------------------------------- | --------- | --------- |
+| Ce se datorează, cui, pentru ce modul   | ✓         |           |
+| Planuri de plată, tranșe, scadențe      | ✓         |           |
+| Afișare pentru părinte, istoric, portal | ✓         |           |
+| Serie și număr de factură               |           | ✓         |
+| PDF-ul fiscal                           |           | ✓         |
+| TVA și date de emitent                  |           | ✓         |
+| Transmitere în SPV pentru e-Factura     |           | ✓         |
+| Evidența contabilă și exportul          |           | ✓         |
 
 Platforma păstrează propria entitate `Invoice` — are nevoie de ea pentru portal, tranșe și
 rapoarte — dar aceasta stochează **referința** către documentul SmartBill: serie, număr, id și
@@ -288,6 +288,30 @@ cu starea de sincronizare vizibilă și reîncercare, fiindcă adevărul e la ba
 **Acceptanță:** o încasare introdusă în platformă apare în SmartBill fără intervenție. O eroare de
 rețea la propagare nu pierde încasarea și nu o dublează la reîncercare. Factura plătită iese din
 lista de restanțe și oprește memento-urile din S7 în aceeași clipă.
+
+> **Livrat: jumătatea de ecran. Propagarea în SmartBill nu — o blochează S0.**
+>
+> Încasarea se începe acum de la rândul de restanță: butonul „Încasează" din `/admin/restante`
+> deschide formularul deja completat cu familia, factura și **restul de plată**, nu cu totalul
+> facturii. Diferența nu e cosmetică: ecranul dinainte precompleta totalul, deci o familie care
+> plătise 200 din 350 și aducea restul de 150 avea 350 tastat în locul ei, iar registrul ajungea cu
+> 550 încasați pe o factură de 350.
+>
+> `/admin/payments/new` nu mai e un formular gol cu un combo peste toate facturile din istorie: e
+> lista facturilor care mai au ceva de plată, cu căutare, și același formular se deschide din ea.
+> **Lista aia e lista de restanțe** — cele două mulțimi sunt aceeași, fiindcă „mai are ceva de
+> plată" înseamnă exact `pending` sau `overdue` cu rest pozitiv, adică ce răspunde deja
+> `GET /invoices/arrears`. Așa suma precompletată nu poate să contrazică ecranul de restanțe: e
+> calculată o singură dată, de serviciul care deține întrebarea.
+>
+> O sumă mai mare decât restul se poate tasta — o familie care plătește luna următoare în avans e
+> viață normală, iar `CreatePaymentDto` a decis dinainte să nu plafoneze —, dar ecranul o spune
+> înainte de salvare, ca să nu fie o greșeală de tastare care trece tăcut.
+>
+> Ultima parte a acceptanței — factura plătită iese din listă și oprește mementourile — se ține deja
+> singură din S7: lista se derivă din plățile reușite, iar `arrears.e2e-spec.ts` o verifică pe
+> ambele jumătăți, plata parțială și plata integrală. Ecranul reîncarcă lista după fiecare încasare,
+> deci rândul dispare acolo unde a fost apăsat butonul.
 
 ### S6 · Chitanțe și confirmări
 

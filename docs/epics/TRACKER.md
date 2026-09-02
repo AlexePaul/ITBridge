@@ -3,7 +3,7 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 31 august 2026, pe `develop`, cu E14 mergeat.
+**Ultima actualizare:** 2 septembrie 2026, pe `develop`, cu E21 S1 și E16 S5 mergeate.
 
 ## Legendă
 
@@ -14,8 +14,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **146 de story-uri** în 22 de epicuri: 62 livrate, 16 parțiale, 8 blocate, 4 scoase din scop,
-56 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **146 de story-uri** în 22 de epicuri: 62 livrate, 17 parțiale, 8 blocate, 4 scoase din scop,
+55 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -199,7 +199,7 @@ nu rulează nicăieri".
 - [ ] S2 · Emiterea prin SmartBill
 - [ ] S3 · Emiterea în masă, temperată — 3 apeluri pe secundă
 - ~~S4 · Plata cu cardul în portal~~ — amânată; se încasează prin transfer sau numerar
-- [ ] S5 · Încasările: numerar și transfer bancar
+- [~] S5 · Încasările: numerar și transfer bancar — **jumătatea de ecran**: încasarea se începe din rândul de restanță, precompletată cu restul de plată, iar `/admin/payments/new` e lista facturilor care mai au ceva de plată, nu un formular gol. Propagarea în SmartBill așteaptă S0
 - [ ] S6 · Chitanțe și confirmări
 - [x] S7 · Restanțe — ecranul `/admin/restante` cu vechime, job zilnic care marchează și scrie (3 zile înainte, apoi săptămânal, tăcere după 60), termen de 14 zile derivat din data emiterii. Fără grupare pe locație: o familie poate avea copii la ambele adrese
 - [ ] S8 · Reconciliere și verificare
@@ -279,20 +279,22 @@ nu rulează nicăieri".
 
 Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
-| Cine           | Ce                                | Ce ține în loc                                                                                |
-| -------------- | --------------------------------- | --------------------------------------------------------------------------------------------- |
+| Cine           | Ce                                | Ce ține în loc                                                                                           |
+| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
-| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an       |
-| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                 |
-| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                        |
+| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                  |
+| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                            |
+| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                   |
 
 ## Ce urmează
 
 **Cu instanța EC2:** E01 S4, deploy-ul. În ziua în care merge, portalul părintelui, prezența și
 facturile devin lucruri pe care le poate folosi cineva.
 
-**Fără ea:** jumătatea de componente din E18 S5 e făcută; ce rămâne nedependent de deploy e în
-E12 (S3, S6), E16 (S5, S7 pe modelul nou de plată) și E17 (S2, S5).
+**Fără ea:** jumătatea de componente din E18 S5 e făcută, iar bucla banilor e închisă cât se poate
+fără SmartBill — se emite (E15 S0), se vede cine n-a plătit (E16 S7) și se încasează de acolo
+(E16 S5). Ce rămâne nedependent de deploy e restul lui E16, care așteaptă verificarea abonamentului
+din S0, și E17 (S6, S7, S8).
 
 E11 e închis. Ce a rămas parțial din el — cerințele prealabile de modul la S6, disponibilitatea
 profesorilor la S7 — depinde de E10 și E09, nu de E11.

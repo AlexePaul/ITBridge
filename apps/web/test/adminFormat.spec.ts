@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDateKey, formatLei } from "~/composables/useAdminFormat";
+import { formatDateKey, formatLei, formatMonth } from "~/composables/useAdminFormat";
 
 /**
  * The admin area's formatting vocabulary — E18/S5a.
@@ -46,5 +46,22 @@ describe("formatLei", () => {
     expect(formatLei(undefined)).toBe("—");
     expect(formatLei("350")).toBe("—");
     expect(formatLei(NaN)).toBe("—");
+  });
+});
+
+describe("formatMonth", () => {
+  it("names the billing month in Romanian", () => {
+    expect(formatMonth("2026-03")).toBe("martie 2026");
+    expect(formatMonth("2026-12")).toBe("decembrie 2026");
+  });
+
+  it("accepts a full date and reads only the month from it", () => {
+    expect(formatMonth("2026-01-31")).toBe("ianuarie 2026");
+  });
+
+  it("returns anything it does not understand unchanged", () => {
+    expect(formatMonth("")).toBe("");
+    expect(formatMonth("2026-13")).toBe("2026-13");
+    expect(formatMonth("martie")).toBe("martie");
   });
 });

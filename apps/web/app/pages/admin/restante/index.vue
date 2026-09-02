@@ -42,7 +42,7 @@
               </UBadge>
             </div>
             <p class="text-muted text-sm mt-0.5 tabular-nums">
-              {{ monthLabel(row.monthIssued) }} · termen {{ formatDateKey(row.dueOn) }}
+              {{ formatMonth(row.monthIssued) }} · termen {{ formatDateKey(row.dueOn) }}
               <template v-if="row.daysOverdue > 0">
                 · {{ row.daysOverdue }} {{ row.daysOverdue === 1 ? "zi" : "zile" }} întârziere
               </template>
@@ -69,8 +69,8 @@
               color="neutral"
               variant="ghost"
               size="sm"
-              :to="`/admin/payments/new`"
               icon="i-lucide-wallet"
+              @click="startRecording(row)"
             >
               Încasează
             </UButton>
@@ -78,13 +78,15 @@
         </div>
       </div>
     </template>
+
+    <AdminPaymentModal v-model:open="recording" :row="recordingRow" @recorded="load" />
   </AdminPage>
 </template>
 
 <script setup lang="ts">
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
-import { formatDateKey, formatLei } from "~/composables/useAdminFormat";
+import { formatDateKey, formatLei, formatMonth } from "~/composables/useAdminFormat";
 import type { ArrearsBucket, ArrearsRow } from "~/types/arrears.types";
 import { ARREARS_BUCKET_COLORS, ARREARS_BUCKET_LABELS } from "~/types/arrears.types";
 
@@ -115,27 +117,15 @@ const totalOutstanding = computed(
   () => Math.round(rows.value.reduce((sum, row) => sum + row.outstanding, 0) * 100) / 100
 );
 
-const MONTHS = [
-  "ianuarie",
-  "februarie",
-  "martie",
-  "aprilie",
-  "mai",
-  "iunie",
-  "iulie",
-  "august",
-  "septembrie",
-  "octombrie",
-  "noiembrie",
-  "decembrie",
-];
+const recording = ref(false);
+const recordingRow = ref<ArrearsRow | null>(null);
 
-const monthLabel = (monthIssued: string) => {
-  const [year, month] = monthIssued.split("-");
-  return `${MONTHS[Number(month) - 1] ?? monthIssued} ${year}`;
+const startRecording = (row: ArrearsRow) => {
+  recordingRow.value = row;
+  recording.value = true;
 };
 
-onMounted(async () => {
+const load = async () => {
   try {
     rows.value = await invoiceApi.fetchArrears();
   } catch (err: unknown) {
@@ -143,5 +133,9 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+};
+
+// Reloaded rather than patched in place: the invoice may now be covered, in which case the right
+// thing to show is its absence, and that is the list's own answer to give.
+onMounted(load);
 </script>
