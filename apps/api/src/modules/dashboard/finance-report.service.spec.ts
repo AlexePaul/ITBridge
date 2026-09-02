@@ -132,8 +132,10 @@ describe('FinanceReportService', () => {
     });
 
     it('asks only for succeeded payments, and reports the other states as the basis', async () => {
+        // One invoice in range, so the per-invoice sum runs as well as the dated one.
+        invoiceRepo.createQueryBuilder!.mockImplementation(() => createMockQueryBuilder<Invoice>({ many: [invoice(1, '2026-03', 350, 10)] }));
         stubPayments(
-            [],
+            [{ invoiceId: 1, paid: '350' }],
             [],
             [
                 { status: PaymentStatus.SUCCEEDED, count: '4' },
@@ -145,12 +147,13 @@ describe('FinanceReportService', () => {
         const report = await service.build('2026-03', '2026-03', TODAY);
 
         expect(report.basis).toMatchObject({ succeededPayments: 4, initiatedPayments: 1, reversedPayments: 2, failedPayments: 0 });
-        // Every payment query that produced money narrowed on the succeeded state.
+        // Both payment queries that produced money narrowed on the succeeded state; the third,
+        // counting by status for the basis line, deliberately does not.
         const builders = paymentRepo.createQueryBuilder!.mock.results.map((result) => result.value as ReturnType<typeof createMockQueryBuilder>);
         const narrowed = builders.filter((qb) =>
             qb.andWhereCalls.some(([condition, params]) => condition.includes('payment.status') && params?.status === PaymentStatus.SUCCEEDED),
         );
-        expect(narrowed.length).toBeGreaterThanOrEqual(1);
+        expect(narrowed.length).toBe(2);
     });
 
     it('takes ageing from the arrears service instead of re-deriving it', async () => {

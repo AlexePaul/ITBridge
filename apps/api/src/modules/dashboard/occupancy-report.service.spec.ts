@@ -138,4 +138,21 @@ describe('OccupancyReportService', () => {
         // The address still appears in the roll-up, with nothing in it.
         expect(report.locations.find((row) => row.locationId === 2)).toMatchObject({ rooms: 1, groups: 0, capacity: 0 });
     });
+
+    /**
+     * A room can be deactivated while a group still runs in it — `isActive` blocks new groups, not
+     * existing ones. The room drops out of the room list, but its group's seats must still roll up
+     * to the address, or the per-address rows stop adding up to the totals.
+     */
+    it('keeps an address whose only active group sits in a deactivated room', async () => {
+        groupRepo.find!.mockResolvedValue([group(1, 'Scratch', room1, 1, '16:00:00', '17:30:00'), group(2, 'Python', room2, 2, '16:00:00', '17:30:00')]);
+        roomRepo.find!.mockResolvedValue([room1]); // room2 is inactive, so the repository does not return it
+        enrollments.occupancyOf.mockResolvedValue({ groupId: 0, capacity: 10, taken: 4, free: 6, waiting: 0 });
+
+        const report = await service.build();
+
+        expect(report.rooms.map((room) => room.roomId)).toEqual([11]);
+        expect(report.locations.find((row) => row.locationId === 2)).toMatchObject({ rooms: 0, groups: 1, capacity: 10, taken: 4 });
+        expect(report.locations.reduce((sum, row) => sum + row.taken, 0)).toBe(report.totals.taken);
+    });
 });

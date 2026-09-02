@@ -90,7 +90,7 @@
           Calculat la {{ formatDateKey(finance.generatedOn) }} din
           {{ finance.basis.billableInvoices }}
           {{ finance.basis.billableInvoices === 1 ? "factură" : "facturi" }} și
-          {{ finance.basis.succeededPayments }} plăți reușite;
+          {{ finance.basis.succeededPayments }} plăți reușite datate în interval;
           {{ finance.basis.waivedInvoices }} luni anulate la 0 lei nu intră în facturat.
           <template
             v-if="
@@ -377,6 +377,7 @@ const occupancy = ref<OccupancyReport | null>(null);
 const loadOccupancy = async () => {
   if (occupancy.value) return;
   occupancyLoading.value = true;
+  occupancyError.value = "";
   try {
     occupancy.value = await reportsApi.fetchOccupancyReport();
   } catch (err: unknown) {
@@ -387,7 +388,9 @@ const loadOccupancy = async () => {
 };
 
 const fillColor = (rate: number): AdminBadgeColor => {
-  const threshold = occupancy.value?.threshold ?? 0.6;
+  // The threshold is the report's, never a copy; 0.9 is only a colour band for the screen.
+  const threshold = occupancy.value?.threshold;
+  if (threshold === undefined) return "neutral";
   if (rate >= 0.9) return "success";
   if (rate >= threshold) return "neutral";
   return "warning";

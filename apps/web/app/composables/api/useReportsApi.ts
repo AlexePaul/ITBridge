@@ -9,7 +9,7 @@ export const useReportsApi = () => {
 
   /** Invoiced against collected, month by month, both ends of the range included. */
   const fetchFinanceReport = async (from: string, to: string) =>
-    api<FinanceReport>(`/reports/finance?from=${from}&to=${to}`, {
+    api<FinanceReport>(`/reports/finance?${new URLSearchParams({ from, to })}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });

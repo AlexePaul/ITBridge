@@ -23,7 +23,7 @@ export interface OccupancyGroup {
     /** Enrolments in force — active plus trials, per D7. From `EnrollmentService.occupancyOf`. */
     taken: number;
     free: number;
-    /** Families queueing for a seat. */
+    /** Children queueing for a seat. */
     waiting: number;
     /** `taken / capacity`, two decimals. */
     fillRate: number;
@@ -174,7 +174,14 @@ export class OccupancyReportService {
             })
             .sort((a, b) => a.locationName.localeCompare(b.locationName) || a.roomName.localeCompare(b.roomName));
 
-        const locationRows = [...new Map(roomRows.map((room) => [room.locationId, room.locationName])).entries()]
+        // An address is any address that has an active room *or* an active group: CLAUDE.md lets a
+        // group keep running in a room that was deactivated, and its seats must still roll up
+        // somewhere, or the per-address rows would stop adding up to the totals.
+        const locationNames = new Map<number, string>([
+            ...roomRows.map((room): [number, string] => [room.locationId, room.locationName]),
+            ...groupRows.map((row): [number, string] => [row.locationId, row.locationName]),
+        ]);
+        const locationRows = [...locationNames.entries()]
             .map(([locationId, name]) => {
                 const own = groupRows.filter((row) => row.locationId === locationId);
                 const capacity = own.reduce((sum, row) => sum + row.capacity, 0);
