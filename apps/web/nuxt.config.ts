@@ -1,4 +1,5 @@
 import { legacyRouteRules } from "./shared/legacy-redirects";
+import { PUBLIC_PAGES } from "./shared/seo";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -121,10 +122,31 @@ export default defineNuxtConfig({
         "content-security-policy": "frame-ancestors 'none'",
       },
     },
+    // The public pages are rendered once, at build, and served as files from
+    // the CDN edge instead of through a serverless function on every request.
+    // Nothing on them varies per request — the header's login state is filled
+    // in client-side, the contact form posts to a route that stays dynamic —
+    // so the HTML is byte-for-byte what SSR produced; what changes is that a
+    // crawler gets it in tens of milliseconds instead of waiting on a cold
+    // start. Google rations crawling by how fast a host answers, and a new
+    // domain is rationed hard: Search Console shows five of these pages as
+    // "discovered, currently not indexed", never fetched. This is the lever
+    // on that which the repo owns. Derived from PUBLIC_PAGES, so an eighth page
+    // is prerendered by being declared, not by being remembered here.
+    ...Object.fromEntries(PUBLIC_PAGES.map((page) => [page.path, { prerender: true }])),
     "/courses": { redirect: { to: "/cursuri", statusCode: 301 } },
     "/about": { redirect: { to: "/despre-noi", statusCode: 301 } },
     // The other set of stray links: paths from the WordPress site that used to
     // serve itbridgeschool.ro, which now redirects here and keeps the path.
     ...legacyRouteRules(),
+  },
+
+  nitro: {
+    prerender: {
+      // Only the declared pages, never what they link to. Left on, the crawler
+      // would follow the header into /auth/login and the footer into the
+      // portal — pages that are noindex and, without the API, error out.
+      crawlLinks: false,
+    },
   },
 });
