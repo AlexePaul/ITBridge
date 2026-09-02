@@ -1,4 +1,5 @@
 import {
+  SCHOOL_ALTERNATE_NAMES,
   SCHOOL_EMAIL,
   SCHOOL_LOCATIONS,
   SCHOOL_NAME,
@@ -13,6 +14,7 @@ import {
   PRICE_ONE_CHILD,
   PRICE_TWO_CHILDREN,
   SESSION_HOURS,
+  SUBJECTS_COVERED,
   type CourseLevel,
 } from "./courses";
 import { CONTENT_UPDATED_ISO } from "./seo";
@@ -54,14 +56,28 @@ export const organizationNode = (site: string): Node => ({
   "@type": ["EducationalOrganization", "LocalBusiness"],
   "@id": ids.organization(site),
   name: SCHOOL_NAME,
+  alternateName: SCHOOL_ALTERNATE_NAMES,
   url: `${trimSlash(site)}/`,
   logo: `${trimSlash(site)}/android-chrome-512x512.png`,
   image: `${trimSlash(site)}/images/og-default.jpg`,
   description:
     "Școală de informatică pentru copii din București, cu cursuri de la clasa 0 până la " +
     "pregătirea pentru Bacalaureat și olimpiade, în grupe mici, la două locații.",
+  // What the school is about, in the words the course pages already use. An
+  // assistant deciding whether this is a place for "Scratch pentru copii"
+  // reads this line before it reads six course descriptions.
+  knowsAbout: SUBJECTS_COVERED,
+  knowsLanguage: "ro",
   telephone: SCHOOL_PHONE_E164,
   email: SCHOOL_EMAIL,
+  contactPoint: {
+    "@type": "ContactPoint",
+    contactType: "customer service",
+    telephone: SCHOOL_PHONE_E164,
+    email: SCHOOL_EMAIL,
+    availableLanguage: "ro",
+    areaServed: "RO",
+  },
   priceRange: `${PRICE_ONE_CHILD}–${PRICE_TWO_CHILDREN} RON`,
   currenciesAccepted: "RON",
   address: postalAddress(SCHOOL_LOCATIONS[0]!),
@@ -108,6 +124,9 @@ export const websiteNode = (site: string): Node => ({
   "@id": ids.website(site),
   url: `${trimSlash(site)}/`,
   name: SCHOOL_NAME,
+  // This is the node the site name in a result comes from, and alternateName
+  // is where it takes the short form.
+  alternateName: SCHOOL_ALTERNATE_NAMES,
   inLanguage: "ro-RO",
   publisher: { "@id": ids.organization(site) },
 });
@@ -236,6 +255,20 @@ export const withFaq = (page: Node, questions: { question: string; answer: strin
     name: entry.question,
     acceptedAnswer: { "@type": "Answer", text: entry.answer },
   })),
+});
+
+/**
+ * The picture that stands for the page — on a location page, that room and not
+ * the other one. Without it a search engine chooses, and the first image in the
+ * document is not always the one that answers "what does this place look like".
+ */
+export const withImage = (page: Node, site: string, path: string, caption: string): Node => ({
+  ...page,
+  primaryImageOfPage: {
+    "@type": "ImageObject",
+    url: `${trimSlash(site)}${path}`,
+    caption,
+  },
 });
 
 export const personNode = (
