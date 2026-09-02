@@ -25,12 +25,47 @@
               {{ course.level }} · {{ course.minAge }}–{{ course.maxAge }} ani
             </p>
           </div>
-          <p class="body-text justified">{{ course.topics }}</p>
+          <div>
+            <p class="body-text justified">{{ course.topics }}</p>
+            <p v-if="courseSubjects(course).length" class="body-text">
+              Mai mult despre
+              <template v-for="(subject, index) in courseSubjects(course)" :key="subject.slug">
+                <template v-if="index > 0">{{
+                  index === courseSubjects(course).length - 1 ? " și " : ", "
+                }}</template>
+                <NuxtLink :to="`/cursuri/${subject.slug}`" class="link">{{
+                  subject.name
+                }}</NuxtLink> </template
+              >.
+            </p>
+          </div>
           <NuxtLink to="/contact" class="btn btn-secondary">Cere informații</NuxtLink>
         </div>
         <hr class="rule" />
       </div>
     </section>
+
+    <section class="section" aria-labelledby="unelte" data-reveal>
+      <h2 class="kicker" id="unelte">Uneltele, pe rând</h2>
+      <p class="body-text measure-wide">
+        Fiecare nivel lucrează cu una sau două unelte, și fiecare unealtă are pagina ei: ce face
+        copilul cu ea, la ce vârstă, și lucrări ale copiilor care au trecut pe acolo.
+      </p>
+      <div class="cols-3" data-reveal-children>
+        <div v-for="subject in SUBJECTS" :key="subject.slug" class="card card-lg">
+          <h3 class="sub-title">{{ subject.name }}</h3>
+          <p class="label-accent">{{ subjectAges(subject) }}</p>
+          <p class="body-text">{{ blurbs[subject.slug] }}</p>
+          <p class="body-text">
+            <NuxtLink :to="`/cursuri/${subject.slug}`" class="link">
+              Ce fac copiii cu {{ subject.name }} →
+            </NuxtLink>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="rule" />
 
     <section class="section" data-reveal>
       <h2 class="kicker">Cum funcționează</h2>
@@ -138,6 +173,7 @@ import { useSeo } from "~/composables/useSeo";
 import { useJsonLd } from "~/composables/useJsonLd";
 import { SCHOOL_LOCATIONS, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 import { COURSE_LEVELS, PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
+import { SUBJECTS, courseSubjects, subjectAges } from "#shared/subjects";
 import { CONTENT_UPDATED, pageSeo } from "#shared/seo";
 import { TESTIMONIALS } from "#shared/testimonials";
 import {
@@ -177,6 +213,17 @@ const benefits = [
   "C++, algoritmi și structuri de date: programa după care se dau olimpiada și Bacalaureatul",
   "Două locații: Drumul Taberei și Străulești",
 ];
+
+// Written out, not derived from the programme: a line per tool is what a
+// parent scans the grid for, and a sentence built from `teaches` would read
+// like the list it came from.
+const blurbs: Record<string, string> = {
+  canva: "Afișe, felicitări și colaje: prima lucrare grafică, la primul nivel.",
+  tinkercad: "O casă, o mașină, un breloc cu numele lui: primele obiecte în trei dimensiuni.",
+  office: "Un referat, o prezentare, un tabel cu o formulă: ce cere școala, învățat cu structură.",
+  scratch: "Primul joc scris de copil: personaje, scor, bucle și condiții, fără sintaxă.",
+  cpp: "De la prima instrucțiune la probleme de olimpiadă și de Bacalaureat.",
+};
 
 const faq = [
   {

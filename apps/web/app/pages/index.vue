@@ -55,9 +55,11 @@
         <h3 class="section-title">Ore în care se construiește ceva, la propriu</h3>
         <p class="body-text justified measure">
           Fiecare ședință de 1,5 ore se termină cu ceva lucrat de copil: un desen digital la
-          nivelurile mici, un joc în Scratch la mijloc, o pagină web sau un program în C++ la cele
-          mari. Grupele sunt mici tocmai ca profesorul să ajungă la fiecare copil în timpul orei, nu
-          doar la cei care ridică mâna.
+          nivelurile mici, un joc în
+          <NuxtLink to="/cursuri/scratch" class="link">Scratch</NuxtLink> la mijloc, o pagină web
+          sau un program în <NuxtLink to="/cursuri/cpp" class="link">C++</NuxtLink> la cele mari.
+          Grupele sunt mici tocmai ca profesorul să ajungă la fiecare copil în timpul orei, nu doar
+          la cei care ridică mâna.
         </p>
         <p class="body-text">
           <NuxtLink to="/despre-noi" class="link">Cunoaște echipa și locațiile →</NuxtLink>

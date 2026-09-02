@@ -2,7 +2,7 @@
   <footer>
     <hr class="rule" />
     <div class="page section">
-      <div class="footer-grid footer-grid-5" data-reveal-children>
+      <div class="footer-grid footer-grid-6" data-reveal-children>
         <div>
           <p class="footer-title">IT Bridge School</p>
           <p class="footer-note">
@@ -16,6 +16,19 @@
             <NuxtLink to="/cursuri" class="footer-link">Cursuri și înscrieri</NuxtLink>
             <NuxtLink to="/despre-noi" class="footer-link">Despre noi</NuxtLink>
             <NuxtLink to="/contact" class="footer-link">Contact</NuxtLink>
+          </div>
+        </div>
+        <div>
+          <p class="kicker">Ce învață</p>
+          <div class="footer-links">
+            <NuxtLink
+              v-for="subject in SUBJECTS"
+              :key="subject.slug"
+              :to="`/cursuri/${subject.slug}`"
+              class="footer-link"
+            >
+              {{ subject.name }}
+            </NuxtLink>
           </div>
         </div>
         <div>
@@ -80,6 +93,7 @@ import {
   SCHOOL_PHONE_HREF,
   SCHOOL_SOCIAL,
 } from "#shared/school";
+import { SUBJECTS } from "#shared/subjects";
 
 // Inject fill=currentColor and make the svg scale to the wrapper
 const svgWithCurrentColor = (svg: string) =>

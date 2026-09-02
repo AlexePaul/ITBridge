@@ -63,8 +63,9 @@
         <h3 class="section-title">Nivelul se stabilește înainte de prima ședință</h3>
         <p class="body-text">
           Nu alegi tu nivelul dintr-o listă. La prima discuție facem o evaluare scurtă, ca să vedem
-          de unde pornește copilul: unul de clasa a 6-a care a mai lucrat în Scratch nu intră în
-          aceeași grupă cu unul care deschide prima oară editorul.
+          de unde pornește copilul: unul de clasa a 6-a care a mai lucrat în
+          <NuxtLink to="/cursuri/scratch" class="link">Scratch</NuxtLink> nu intră în aceeași grupă
+          cu unul care deschide prima oară editorul.
         </p>
         <p class="body-text">
           Orarul se face înainte de începerea modulului, în funcție de câți copii sunt înscriși pe
