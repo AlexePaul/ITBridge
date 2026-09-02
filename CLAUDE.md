@@ -521,6 +521,15 @@ fiindcă n-a rulat un job. `markOverdue` ține coloana onestă pentru restul ecr
 care se sprijină acceptanța: mementourile se opresc la încasare fiindcă factura plătită iese din
 interogare, nu fiindcă anulează cineva ceva.
 
+**Încasarea se începe de la factură, iar suma precompletată e restul, nu totalul** (E16 S5).
+`/admin/restante` și `/admin/payments/new` deschid amândouă `AdminPaymentModal`, care se completează
+din rândul de restanță — familia, factura și `outstanding`. Precompletarea cu totalul facturii, cum
+era înainte, punea 350 în locul unei familii care mai avea 150 de plată. Și **lista facturilor care
+mai au ceva de plată e lista de restanțe**, nu o interogare nouă peste toate facturile: „mai are
+ceva de plată" înseamnă `pending` sau `overdue` cu rest pozitiv, adică fix ce răspunde
+`GET /invoices/arrears`. Dacă adaugi un al doilea loc de unde se încasează, cere-i tot un rând de
+acolo — o a doua scădere `amount - plăți` ar fi a doua definiție a aceluiași număr.
+
 **Numai marketingul stă pe o bifă** (E17 S4). `Profile.marketingOptIn` e implicit `false` — un
 consimțământ pe care nu l-a dat nimeni nu e consimțământ — și gatează exclusiv `queueMarketing`.
 `queue` și `queueOrRecord` **nu primesc deloc preferința**, deci nu există argument prin care cineva
