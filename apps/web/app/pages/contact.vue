@@ -10,6 +10,7 @@
         <NuxtLink to="/cursuri" class="link">cele șase</NuxtLink> și grupele cu locuri libere, la
         locația mai apropiată de tine.
       </p>
+      <p class="note">Actualizat: {{ CONTENT_UPDATED }}</p>
     </section>
 
     <hr class="rule" />
@@ -183,7 +184,7 @@ import { nextTick, reactive, ref } from "vue";
 import { useReveal } from "~/composables/useReveal";
 import { useSeo } from "~/composables/useSeo";
 import { useJsonLd } from "~/composables/useJsonLd";
-import { pageSeo } from "#shared/seo";
+import { CONTENT_UPDATED, pageSeo } from "#shared/seo";
 import { schoolGraph, breadcrumbNode, webPageNode } from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 import {

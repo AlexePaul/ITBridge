@@ -6,6 +6,7 @@ import {
   PRICE_ONE_CHILD,
   PRICE_TWO_CHILDREN,
   SESSION_HOURS,
+  SUBJECTS_COVERED,
 } from "#shared/courses";
 import { TEACHERS } from "#shared/teachers";
 import {
@@ -53,15 +54,13 @@ export default defineEventHandler((event) => {
       `(${course.minAge}–${course.maxAge} ani), ${course.level}: ${course.topics}`
   ).join("\n");
 
-  // Derived, not retyped: the header claims this file cannot drift from the
-  // pages, and a hand-written subject list is exactly how it would.
-  //
   // The label is "subjects covered", not "subjects taught", because `teaches`
   // is written for schema.org `Course.teaches`, which takes learning outcomes
   // as well as technologies — "Olimpiada de informatică" and "Strategie de
   // examen" are things a child leaves with, not things on a timetable. Under
-  // the wider label every entry is accurate, and the list still cannot drift.
-  const taught = [...new Set(COURSE_LEVELS.flatMap((course) => course.teaches))].join(", ");
+  // the wider label every entry is accurate. The list itself is the one the
+  // organization node also claims, so the two cannot disagree.
+  const taught = SUBJECTS_COVERED.join(", ");
 
   // One nested bullet per teacher. Both bios on a single line ran to four
   // sentences of unbroken prose.

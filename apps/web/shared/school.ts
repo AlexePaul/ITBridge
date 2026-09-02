@@ -38,6 +38,14 @@ export interface SchoolLocation {
 }
 
 export const SCHOOL_NAME = "IT Bridge School";
+/**
+ * The other names the school goes by. Search Console shows parents typing
+ * "it bridge" and "bridge school", and the social handles are `bridgeschool.*`.
+ * An entity that declares its own nicknames is matched on them; one that does
+ * not is matched on the dictionary words inside them — which is how a Romanian
+ * school ended up ranking for "trade school" in English.
+ */
+export const SCHOOL_ALTERNATE_NAMES = ["IT Bridge", "Bridge School"];
 export const SCHOOL_PHONE = "+40 732 273 347";
 export const SCHOOL_PHONE_E164 = "+40732273347";
 export const SCHOOL_PHONE_HREF = `tel:${SCHOOL_PHONE_E164}`;

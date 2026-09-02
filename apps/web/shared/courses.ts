@@ -115,6 +115,14 @@ export const COURSE_LEVELS: CourseLevel[] = [
   },
 ];
 
+/**
+ * Every technology and subject across the six levels, each once, in the order
+ * the levels introduce them. Derived, not retyped: llms.txt prints it and the
+ * organization node claims it as `knowsAbout`, and a second hand-written list
+ * is the one that would drift.
+ */
+export const SUBJECTS_COVERED = [...new Set(COURSE_LEVELS.flatMap((course) => course.teaches))];
+
 /** What a module costs and how long it runs — stated once, quoted everywhere. */
 export const PRICE_ONE_CHILD = 350;
 export const PRICE_TWO_CHILDREN = 600;
