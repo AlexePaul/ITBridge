@@ -1,6 +1,6 @@
 # E21 · Raportare și analytics
 
-**Status:** propus · **Pistă:** Business · **Depinde de:** E12, E15, E16 · **Blochează:** —
+**Status:** în lucru — **S1, S2 și S4 livrate**, fiecare cu ce n-a intrat scris în dreptul lui · **Pistă:** Business · **Depinde de:** E12, E15, E16 · **Blochează:** —
 
 ## Problemă
 
@@ -99,6 +99,36 @@ bine și încasa prost.
 
 **Acceptanță:** raportul se potrivește cu evidența contabilului, la leu.
 
+**Livrat**, pe `/admin/rapoarte`, fila „Bani", din `GET /reports/finance?from=YYYY-MM&to=YYYY-MM` —
+implicit ultimele douăsprezece luni, cu luna în curs.
+
+**Două calendare, amândouă afișate, niciunul ascuns în celălalt.** „Încasat pentru lună" e suma
+plăților reușite pe facturile lunii, oricând au venit — diferența față de facturat e ce mai
+datorează luna. „Încasat în lună" e suma plăților reușite datate în lună, pentru orice factură —
+cifra pe care o are banca și contabilul. Cele două diferă exact când o familie plătește târziu, adică
+exact când un raport despre bani merită citit; un raport care ar alege una și ar numi-o „încasat" ar
+fi corect în lunile liniștite și greșit în celelalte. Numerarul și transferul se împart pe al doilea
+calendar, fiindcă acela e al extrasului.
+
+**Doar plățile `succeeded` sunt bani.** O plată anunțată, una eșuată și una stornată rămân rânduri,
+fiindcă încercarea face parte din poveste, și apar în `basis` fiindcă cine citește merită să știe că
+există — dar niciuna nu scade nimic, nici aici, nici în `PaymentService.recomputeInvoiceStatus`, care
+e definiția la care raportul se supune. Lunile `waived` se numără, nu se adună: n-au bani în ele, iar
+o familie cu luna anulată la zero nu diluează media pe familie.
+
+**Restanțele nu se rederivă.** Vechimea vine de la `ArrearsService.list`, aceeași metodă din spatele
+ecranului `/admin/restante`, împărțită pe cele patru benzi — regula din S1, „fiecare număr e cerut de
+la cine deține deja întrebarea", ținută și aici. Testele de integrare verifică acordul, la leu, cu
+lista de plăți, cu lista de restanțe și cu lista de facturi.
+
+**Ce n-a intrat, și de ce.** *Pe modul*: modulele sunt E10, scos din MVP, iar factura n-are linii. *Pe
+locație*: o factură e a familiei, iar o familie poate avea copii la ambele adrese — același motiv
+pentru care restanțele nu se grupează pe locație. Niciuna dintre axe nu se poate deriva din rândurile
+care există, iar una inventată ar fi exact raportul de care avertizează Riscurile: construit pe date
+care nu sunt acolo. *Potrivirea cu contabilul*, adică acceptanța, nu se poate bifa înainte de E01 S4:
+nu există date reale de potrivit. Raportul spune pe ce s-a calculat — câte facturi, câte plăți, câte
+neincluse — tocmai ca prima potrivire să aibă de unde porni.
+
 ### S3 · Retenție și abandon
 
 Câți copii continuă la modulul următor, pe grupă, pe profesor, pe locație, pe modul. Motivele de
@@ -115,6 +145,29 @@ Locuri ocupate față de capacitate, pe grupă, sală și locație. Grupele sub 
 estimat. Orele moarte în care sălile stau goale.
 
 **Acceptanță:** răspunde la "putem deschide o grupă nouă, sau întâi le umplem pe cele existente?".
+
+**Livrat**, pe `/admin/rapoarte`, fila „Locuri", din `GET /reports/occupancy`: fiecare grupă activă,
+cea mai goală prima, cu locuri ocupate din capacitate, coada de așteptare, gradul de umplere și venitul
+pierdut estimat; sălile, fiecare cu orele ei moarte; și totalul pe adresă.
+
+**„Ocupat" e cerut de la `EnrollmentService.occupancyOf`**, o dată pentru fiecare grupă, exact ca pe
+tabloul de bord. Acolo e definit ce înseamnă un loc luat — un copil la probă stă pe un scaun (D7) —
+iar o numărare scrisă aici ar fi a doua definiție, liberă să uite probele și să-i spună patronului că
+o sală plină mai are loc. Zece numărări mici la o încărcare de pagină e prețul unui singur răspuns.
+
+**Orele moarte se măsoară pe orarul școlii, nu pe ceas.** Nu există o grilă fixă de ore, deci singura
+definiție onestă a unei ore în care o sală *putea* ține curs e o oră în care altă sală a ținut. O sală
+goală marți la 16:00 cât timp cealaltă adresă predă la ora aia e o oră moartă; o duminică dimineață în
+care nu predă nimeni nu e. Regula e `deadSlotsOf` din `apps/api/src/modules/dashboard/reports.rules.ts`.
+
+**Două numere sunt propuneri, și raportul le arată ca atare.** Pragul sub care o grupă e „sub prag"
+e 60% (`OCCUPANCY_THRESHOLD`) — story-ul cere „pragul de rentabilitate", dar nimeni n-a spus care e —
+iar venitul pierdut e locurile libere înmulțite cu prețul de listă al primului copil pe o lună de
+patru ședințe, 350 de lei (`LOST_REVENUE_PER_SEAT_MONTHLY`, din `pricing.ts`, nu o copie). E o
+estimare de sus: frații și reducerile o fac mai mică, iar un loc gol fiindcă banda de vârstă nu se
+potrivește n-a fost niciodată venit. Ambele apar pe ecran, lângă cifrele pe care le produc, ca să nu
+fie luate drept prognoză. Grupele și sălile inactive nu apar: nu pot primi un copil nou, deci nu sunt
+un răspuns la „unde îl punem".
 
 ### S5 · Pâlnia
 
@@ -165,7 +218,13 @@ financiare se potrivesc cu contabilitatea. Semnalele timpurii au prins măcar un
 
 ## Întrebări deschise
 
-- Care sunt cele cinci cifre pe care le-ai vrea în fiecare luni dimineață? Restul e secundar.
-- În ce format vrea contabilul exportul?
-- Se compară locațiile între ele în mod deschis? Poate motiva, dar poate și crea tensiune între
-  echipe.
+- Care sunt cele cinci cifre pe care le-ai vrea în fiecare luni dimineață? Restul e secundar. S1, S2
+  și S4 au fost construite pe cifrele pe care le numește textul epicului; răspunsul poate schimba ce
+  stă în față, nu ce există.
+- În ce format vrea contabilul exportul? **Blochează S6**, și numai S6.
+- ~~Se compară locațiile între ele în mod deschis?~~ **Fără obiect azi**: singurele roluri sunt
+  `ADMIN` și `PARENT` (E09 e scos din MVP), deci orice cifră pe locație o văd doar proprietarii, nu o
+  echipă. Raportul de ocupare le pune una lângă alta. Se repune în discuție la primul profesor care nu
+  e proprietar, odată cu E09.
+- Care e pragul de rentabilitate al unei grupe, în locuri sau în procente? S4 folosește 60% și spune
+  pe ecran că e o propunere.
