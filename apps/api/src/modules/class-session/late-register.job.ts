@@ -59,12 +59,17 @@ export const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 export const GRACE_MINUTES = 15;
 
 /**
- * One alert per session, ever — enforced by the database.
+ * One alert per scheduled class, ever — enforced by the database.
  *
  * The session stays in the window for the rest of the hour, so without this the office would get
- * the same alert every five minutes until the class ended. Keying on the session id rather than on
+ * the same alert every five minutes until the class ended. Keying on the session rather than on
  * the moment also makes a restart free: whatever the process did before it died, the insert is
  * refused rather than delivered a second time.
+ *
+ * The key is the session id **plus its scheduled start**, because `moveSession` keeps the row: a
+ * class alerted on at 16:15, then moved to Saturday because the teacher was out, is a new occasion
+ * on Saturday and earns one fresh alert there. Keyed on the id alone, the Saturday alert would hit
+ * the row written on Tuesday and be silently refused.
  *
  * It is deliberately *not* re-armed when the register stays empty. A second copy of "nobody has
  * marked this class" tells the office nothing it was not told at minute fifteen, and the class not
@@ -92,6 +97,9 @@ export class LateRegisterJob {
      */
     private readonly recipient = officeAddress();
 
+    /** One pass at a time, as in `OutboxDispatcher`: a database that stalls must not let ticks pile up. */
+    private running = false;
+
     constructor(
         private readonly classSessionService: ClassSessionService,
         private readonly outbox: OutboxService,
@@ -102,13 +110,14 @@ export class LateRegisterJob {
      *
      * The `NODE_ENV=test` guard is inside the method rather than on the decorator because
      * `@Interval` takes no options object — the same reason `OutboxDispatcher` writes it this way.
-     * It has to be here at all because jest sets that variable and both suites build the real
-     * `AppModule`: a timer left running would query the database in the middle of somebody else's
+     * It has to be here at all because jest sets that variable and the integration suites build the
+     * real `AppModule`: a timer left running would query the database in the middle of somebody else's
      * assertions and go on doing it while the module was being torn down.
      */
     @Interval('late-register-alert', CHECK_INTERVAL_MS)
     async scheduledTick(): Promise<void> {
-        if (process.env.NODE_ENV === 'test') return;
+        if (process.env.NODE_ENV === 'test' || this.running) return;
+        this.running = true;
         try {
             await this.checkAt(new Date());
         } catch (error: unknown) {
@@ -116,6 +125,8 @@ export class LateRegisterJob {
             // it the outbox dispatcher and every other job. A database that was unreachable at a
             // quarter past four must cost one alert; the next tick asks again five minutes later.
             this.logger.error(`The late-register check failed: ${error instanceof Error ? error.message : String(error)}`);
+        } finally {
+            this.running = false;
         }
     }
 
@@ -129,7 +140,7 @@ export class LateRegisterJob {
      * silence instead of firing a dozen alerts about classes that ended hours ago, which is the
      * behaviour that decides whether anyone still reads the second one.
      *
-     * A class shorter than `GRACE_MINUTES` is therefore never alerted on. There is no such class in
+     * A class no longer than `GRACE_MINUTES` is therefore never alerted on. There is no such class in
      * the timetable, and if one appeared the alert would arrive after it had finished anyway.
      */
     async checkAt(now: Date): Promise<LateRegisterResult> {
@@ -161,7 +172,7 @@ export class LateRegisterJob {
                 to: this.recipient,
                 subject,
                 bodyText,
-                dedupeKey: `${DEDUPE_PREFIX}${session.id}`,
+                dedupeKey: `${DEDUPE_PREFIX}${session.id}:${sessionStartStamp(session)}`,
             });
             if (message !== null) {
                 alerted += 1;

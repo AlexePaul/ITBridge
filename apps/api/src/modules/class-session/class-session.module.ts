@@ -18,7 +18,7 @@ import { LateRegisterJob } from './late-register.job';
     imports: [EntitiesModule, JwtModule.register({}), MailModule],
     controllers: [ClassSessionController],
     providers: [ClassSessionService, NonTeachingPeriodService, UnmarkedAttendanceJob, LateRegisterJob, AuthGuard, RolesGuard],
-    // Exported because both unmarked-attendance jobs ask this service the question rather than
+    // Exported because both attendance reminders ask this service the question rather than
     // writing their own query. One definition of "unmarked", and it is this one.
     // `NonTeachingPeriodService` is exported alongside it because the calendar is the timetable's,
     // not a thing of its own: whoever generates sessions has to know which days are closed.

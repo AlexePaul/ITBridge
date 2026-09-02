@@ -3,7 +3,7 @@ import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { OutboxService, QueuedMessage } from 'src/modules/mail/outbox.service';
 import { DEFAULT_OFFICE_ADDRESS } from 'src/modules/mail/office-address';
 import { ClassSessionService } from './class-session.service';
-import { composeLateRegisterAlert, GRACE_MINUTES, LateRegisterJob } from './late-register.job';
+import { composeLateRegisterAlert, GRACE_MINUTES, isInProgressAndLate, LateRegisterJob, sessionEndStamp } from './late-register.job';
 
 /**
  * The fifteen-minute alert, tested without waiting until a quarter past four.
@@ -151,6 +151,30 @@ describe('LateRegisterJob', () => {
         expect(classSessionService.findUnmarkedSessions).toHaveBeenCalledWith({ dateFrom: '2026-08-28', dateTo: '2026-08-28' });
     });
 
+    // Just after midnight the cutoff is still yesterday, so the pair of dates is the only time the
+    // range is wider than one day. No class runs then; the query is asked anyway rather than trusted.
+    it('spans two calendar days when the cutoff falls before midnight', async () => {
+        await createJob().checkAt(new Date('2026-08-27T21:05:00Z')); // 00:05 school time on the 28th
+
+        expect(classSessionService.findUnmarkedSessions).toHaveBeenCalledWith({ dateFrom: '2026-08-27', dateTo: '2026-08-28' });
+    });
+
+    /** The predicate, at the minute, without a job around it — both stamps are school-clock text. */
+    describe('isInProgressAndLate', () => {
+        const s = session();
+
+        it('ends the session in the same shape it starts it', () => {
+            expect(sessionEndStamp(s)).toBe('2026-08-28T17:30');
+        });
+
+        it('is inclusive at the fifteenth minute and exclusive at the end', () => {
+            expect(isInProgressAndLate(s, '2026-08-28T16:15', '2026-08-28T16:00')).toBe(true);
+            expect(isInProgressAndLate(s, '2026-08-28T16:14', '2026-08-28T15:59')).toBe(false);
+            expect(isInProgressAndLate(s, '2026-08-28T17:29', '2026-08-28T17:14')).toBe(true);
+            expect(isInProgressAndLate(s, '2026-08-28T17:30', '2026-08-28T17:15')).toBe(false);
+        });
+    });
+
     /**
      * One alert per class, not one list per pass. Two groups unmarked at the same minute are two
      * phone calls to two different people, and a single email covering both is one of them being
@@ -173,12 +197,23 @@ describe('LateRegisterJob', () => {
      * the office would get the same alert every five minutes until the class ended. It is keyed on
      * the session rather than on the minute, which also makes a restart free.
      */
-    it('keys the alert on the session, so the next tick cannot send it again', async () => {
+    it('keys the alert on the session and its start, so the next tick cannot send it again', async () => {
         classSessionService.findUnmarkedSessions.mockResolvedValue([session({ id: 42 })]);
 
         await createJob().checkAt(AT_16_25);
 
-        expect(queuedMessage().dedupeKey).toBe('late-register:42');
+        expect(queuedMessage().dedupeKey).toBe('late-register:42:2026-08-28T16:00');
+    });
+
+    // `moveSession` keeps the row and its id. A class moved to another day after it was alerted on
+    // would otherwise hit the key written for the slot it was moved away from, and stay silent.
+    it('gives a moved session a fresh key, so the rescheduled class is alerted on too', async () => {
+        const moved = { ...session({ id: 42, startTime: '10:00:00', endTime: '11:30:00' }), date: new Date(2026, 7, 29) };
+        classSessionService.findUnmarkedSessions.mockResolvedValue([moved]);
+
+        await createJob().checkAt(new Date('2026-08-29T07:20:00Z')); // 10:20 school time
+
+        expect(queuedMessage().dedupeKey).toBe('late-register:42:2026-08-29T10:00');
     });
 
     it('counts a class the outbox refused as still late, but not as alerted', async () => {
@@ -210,7 +245,7 @@ describe('LateRegisterJob', () => {
     });
 
     describe('the scheduled tick', () => {
-        // The guard the whole test suite depends on: jest sets NODE_ENV, both suites build the real
+        // The guard the integration suites depend on: jest sets NODE_ENV, those suites build the real
         // AppModule, and a timer querying the database mid-assertion is the failure that shows up
         // once and never reproduces.
         it('does nothing at all under NODE_ENV=test', async () => {

@@ -3,10 +3,10 @@ import { Cron } from '@nestjs/schedule';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { Weekday } from 'src/enum/weekday.enum';
+import { officeAddress } from 'src/modules/mail/office-address';
 import { ClassSessionService } from './class-session.service';
 import { addDays, isoWeekday, parseIsoDate, toIsoDate } from './class-session.dates';
 import { describeSession } from './class-session.text';
-import { officeAddress } from 'src/modules/mail/office-address';
 
 /**
  * The daily reminder about registers nobody took, from E12/S7.

@@ -508,10 +508,12 @@ Trei decizii, toate în fereastră și în cheie:
   practică: un proces care a fost picat toată după-amiaza se trezește în liniște, nu cu douăsprezece
   alerte despre ore terminate demult. Nimic nu se pierde — ce ratează fereastra apare mâine
   dimineață în raport.
-- **O alertă per ședință, niciodată repetată**: `dedupeKey`-ul e `late-register:<id>`. Fără el
-  biroul ar primi același mesaj din 5 în 5 minute până se termină ora, fiindcă ședința rămâne în
-  fereastră. Nu se re-armează dacă prezența rămâne nemarcată: o a doua copie nu spune nimic nou, iar
-  ședința tot nemarcată la sfârșitul zilei e mesajul de a doua zi.
+- **O alertă per ședință, niciodată repetată**: `dedupeKey`-ul e `late-register:<id>:<YYYY-MM-DDTHH:mm>`,
+  ședința și ora ei de început. Fără cheie biroul ar primi același mesaj din 5 în 5 minute până se
+  termină ora, fiindcă ședința rămâne în fereastră. Nu se re-armează dacă prezența rămâne nemarcată: o
+  a doua copie nu spune nimic nou, iar ședința tot nemarcată la sfârșitul zilei e mesajul de a doua zi.
+  Ora de început e în cheie fiindcă mutarea (S5) păstrează rândul: o ședință alertată la 16:15 și mutată
+  apoi pe sâmbătă e sâmbătă o nouă ocazie, și primește o alertă proprie.
 - **Un email per ședință, nu o listă per trecere.** Două grupe nemarcate în același minut sunt două
   telefoane către două persoane diferite, iar un singur email care le acoperă pe amândouă e unul
   dintre ele uitat. Raportul zilnic e o listă fiindcă acolo chiar e o listă de hârtii.
@@ -525,10 +527,10 @@ E un poll, nu un declanșator armat per ședință: un timer ar trebui re-armat 
 după fiecare `POST /class-sessions/generate` și după fiecare anulare, iar un timer care n-a mai fost
 re-armat arată exact ca o după-amiază liniștită. O interogare indexată la 5 minute nu se poate uita.
 
-**Restul S7 e nelivrat**, fiecare bucată blocată de altceva: notificarea către părinte pentru absență
-neanunțată a fost scoasă prin decizia de mai sus, iar mementourile de recuperare cer S4 — livrate.
-Ce rămâne e a doua linie către părinte pentru absență, care așteaptă un mecanism în care un catalog
-greșit nu sperie pe nimeni ([E17](E17-comunicare-notificari.md) S6). Iar amândouă mementourile
+**Din S7 rămâne nelivrată o singură bucată**: a doua linie către părinte pentru absență, care așteaptă
+un mecanism în care un catalog greșit nu sperie pe nimeni ([E17](E17-comunicare-notificari.md) S6).
+Notificarea de absență din prima versiune a fost scoasă prin decizia de mai sus, iar mementourile de
+recuperare sunt livrate în S4. Iar amândouă mementourile
 **se scriu azi în coadă și nu pleacă nicăieri în producție**: nu există producție — vezi
 [Dependențe](#dependențe), imediat mai jos.
 
