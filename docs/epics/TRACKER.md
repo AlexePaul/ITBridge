@@ -148,7 +148,7 @@ nu rulează nicăieri".
 - [x] S4 · Recuperări — `MakeUpCredit` câștigat din anunț-în-termen plus absență reală, 30 de zile valabilitate, programare din portal, consumat de marcaj. Compatibilitatea e banda de vârstă, fiindcă modulele din E10 nu există
 - [~] S5 · Anulări și mutări — anularea, reactivarea și acum **mutarea** (`PUT /class-sessions/:id/move`, cu calendarul școlar respectat și sala verificată de ciocniri); fără ecran, fără notificare
 - [~] S6 · Marcarea prezenței pe telefon — livrat fără poze (`Child` n-are câmp, e o decizie E07/E14): `/admin/attendance/azi`, salvare la fiecare apăsare, coadă locală pe rețea picată, buton „Sună părintele" la absență
-- [~] S7 · Notificări — mementoul zilnic către școală, plus cele două către părinte, **amândouă despre recuperare**: câștigată (aceeași seară) și care expiră (7 zile înainte). Mesajul de absență a fost scos prin decizie — catalogul uitat/târziu/greșit îl făcea nesigur când era inofensiv și alarmant când nu. Rămâne mementoul de la minutul 15
+- [~] S7 · Notificări — **mementoul de la minutul 15** (`@Interval` la 5 minute, fereastra se închide când se termină ora, o alertă per ședință) plus cel zilnic de la 10:00, amândouă către birou; și cele două către părinte, **amândouă despre recuperare**: câștigată (aceeași seară) și care expiră (7 zile înainte). Mesajul de absență a fost scos prin decizie — catalogul uitat/târziu/greșit îl făcea nesigur când era inofensiv și alarmant când nu. Rămâne a doua linie către părinte, care așteaptă E17 S6
 
 ### E13 · Progres, evaluare și feedback — `propus`
 
@@ -212,7 +212,7 @@ nu rulează nicăieri".
 
 - [~] S1 · Furnizorul și livrabilitatea — parțial: `MailService` există în `apps/api`; SPF/DKIM/DMARC și partea de operare, nu
 - [x] S2 · Șabloane — implicitele în cod, editările în `mail_templates`; ecranul `/admin/emailuri` cu previzualizare pe draft; mesajele de cont din E11 S2 mutate pe `render()`, cu variantă HTML
-- [~] S3 · Coadă și reîncercare — parțial: outbox-ul e întreg, dar **nu rulează nicăieri** până la deploy. Îl folosesc acum patru apelanți: mementoul zilnic din E12 și cele trei mesaje de cont din E11 S2
+- [~] S3 · Coadă și reîncercare — parțial: outbox-ul e întreg, dar **nu rulează nicăieri** până la deploy. Prin el trece deja tot ce trimite backend-ul: mementourile de prezență și de recuperare din E12, restanțele din E16, mesajele de cont și locul eliberat din E11, proiectele din E14
 - [~] S4 · Preferințe și dezabonare — comutatorul (`Profile.marketingOptIn`, implicit **false**) din setările părintelui, plus garanția că tranzacționalul nu-l consultă. Frecvențele sunt S6, iar expeditor de marketing încă nu există
 - [x] S5 · Evidența livrărilor — `GET /deliveries` + ecranul `/admin/livrari`; starea `undeliverable` cu motiv tipizat, deci un părinte fără adresă nu mai e sărit tăcut. Doar de citit, fără reîncercare manuală
 - [ ] S6 · Rezumate în loc de rafale
