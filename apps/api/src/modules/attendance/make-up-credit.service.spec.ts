@@ -89,6 +89,58 @@ describe('MakeUpCreditService', () => {
         });
     });
 
+    describe('granting them because the school called the class off', () => {
+        const withChildren = { ...MISSED, group: { id: 3, children: [{ id: 5 }, { id: 6 }, { id: 7 }] } };
+
+        beforeEach(() => {
+            sessionRepo.findOne!.mockResolvedValue(withChildren);
+            creditRepo.find!.mockResolvedValue([]);
+        });
+
+        it('gives every child in the group one, dated from the class that did not happen', async () => {
+            const granted = await service.grantForCancellation(9);
+
+            expect(granted).toBe(3);
+            const written = creditRepo.save!.mock.calls[0][0] as { child: { id: number }; expiresOn: Date }[];
+            expect(written.map((credit) => credit.child.id)).toEqual([5, 6, 7]);
+            expect(written[0].expiresOn).toEqual(new Date(2026, 9, 7));
+        });
+
+        // No notice is looked for, and that is the difference from `earnFor`: nobody was absent
+        // from anything, because there was nothing to be absent from.
+        it('asks for no absence notice at all', async () => {
+            await service.grantForCancellation(9);
+
+            expect(noticeRepo.findOne).not.toHaveBeenCalled();
+        });
+
+        it('skips a child who already holds one for that class, so cancelling twice mints nothing', async () => {
+            creditRepo.find!.mockResolvedValue([{ child: { id: 6 } }]);
+
+            const granted = await service.grantForCancellation(9);
+
+            expect(granted).toBe(2);
+            const written = creditRepo.save!.mock.calls[0][0] as { child: { id: number } }[];
+            expect(written.map((credit) => credit.child.id)).toEqual([5, 7]);
+        });
+
+        it('writes nothing when everybody already holds one', async () => {
+            creditRepo.find!.mockResolvedValue([{ child: { id: 5 } }, { child: { id: 6 } }, { child: { id: 7 } }]);
+
+            expect(await service.grantForCancellation(9)).toBe(0);
+            expect(creditRepo.save).not.toHaveBeenCalled();
+        });
+
+        it('writes nothing for an empty group, and nothing for a session that is not there', async () => {
+            sessionRepo.findOne!.mockResolvedValue({ ...MISSED, group: { id: 3, children: [] } });
+            expect(await service.grantForCancellation(9)).toBe(0);
+
+            sessionRepo.findOne!.mockResolvedValue(null);
+            expect(await service.grantForCancellation(99)).toBe(0);
+            expect(creditRepo.save).not.toHaveBeenCalled();
+        });
+    });
+
     describe('revoking one a mistap earned', () => {
         it('withdraws an unspent, unbooked credit', async () => {
             creditRepo.findOne!.mockResolvedValue({ id: 4, consumedAttendance: null, bookedSession: null });

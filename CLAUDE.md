@@ -170,6 +170,21 @@ rând cu aceleași date la ambele capete. `location` gol înseamnă „toată ș
 - Suprapunerile sunt refuzate simetric, indiferent de locație (`PERIOD_OVERLAPS`). Regula mai îngustă
   ar face acceptarea să depindă de ordinea în care au fost tastate cele două intervale.
 
+**O oră schimbată e trei scrieri într-o singură tranzacție** (E12 S5). Anularea, mutarea și
+reactivarea trec prin `dataSource.transaction`: rândul, eventualele credite de recuperare și
+mesajele către familiile grupei stau sau cad împreună — o oră anulată fără ca nimeni să afle e exact
+defecțiunea pentru care există coada. `ClassSessionNotifier` scrie **un mesaj per părinte**, nu per
+copil, iar cheia de deduplicare poartă **ziua acțiunii**, nu doar ședința: o oră anulată, reactivată
+și anulată din nou trebuie anunțată de două ori. Reactivarea are mesaj din același motiv — familiile
+au fost anunțate că nu se ține.
+
+**Recuperarea la anulare e o bifă pe ecran, nu un automatism** (E12 S5). Prețul e pe ședință
+ținută, deci o oră anulată nu se facturează oricum; un credit pe deasupra dă a patra lecție la
+prețul a trei, ceea ce e o decizie de preț și e a celui care anulează. Se scrie prin
+`MakeUpCreditService.grantForCancellation`, ușă separată de `earnFor`: aia cere anunț în termen plus
+absență reală, iar aici n-a lipsit nimeni de nicăieri. Nu o uni cu `earnFor` — ar slăbi definiția
+lui „câștigat" pentru toată lumea.
+
 **O absență anunțată nu marchează pe nimeni absent** (E12 S3). `AbsenceNotice` leagă copilul de o
 **ședință**, ca tot ce vorbește despre o oră de curs. Catalogul rămâne al profesorului: un copil al
 cărui părinte a anunțat poate veni totuși. Trei lucruri de ținut minte: `inTime` se **îngheață la

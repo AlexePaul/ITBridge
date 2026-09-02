@@ -8,6 +8,7 @@ import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { officeAddress } from 'src/modules/mail/office-address';
 import { absencesUrl } from 'src/modules/auth/portal-urls';
 import { addDays, toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { romanianDate } from 'src/modules/mail/romanian-date';
 import { SCHOOL_TIME_ZONE } from './absence-notice.rules';
 
 /**
@@ -56,15 +57,6 @@ export const EXPIRY_WARNING_DAYS = 7;
 
 export const EARNED_DEDUPE_PREFIX = 'make-up-earned:';
 export const EXPIRY_DEDUPE_PREFIX = 'make-up-expiring:';
-
-/** Romanian short dates, for a sentence a parent reads rather than a column. */
-const MONTHS = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'];
-
-export function romanianDate(date: Date | string): string {
-    const iso = toIsoDate(date);
-    const [, month, day] = iso.split('-');
-    return `${Number(day)} ${MONTHS[Number(month) - 1] ?? ''}`;
-}
 
 export interface NotificationRunResult {
     /** The day the run is about, `YYYY-MM-DD`. */

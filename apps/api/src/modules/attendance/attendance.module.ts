@@ -14,5 +14,8 @@ import { ParentNotificationsJob } from './parent-notifications.job';
     imports: [EntitiesModule, JwtModule.register({}), MailModule],
     controllers: [AttendanceController],
     providers: [AttendanceService, AbsenceNoticeService, MakeUpCreditService, ParentNotificationsJob, AuthGuard, RolesGuard],
+    // Exported for the timetable: a cancelled class can hand every child in the group a make-up,
+    // and that write belongs to the service that owns the ledger, not to whoever cancelled.
+    exports: [MakeUpCreditService],
 })
 export class AttendanceModule {}

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ParentNotificationsJob, EARNED_DEDUPE_PREFIX, EXPIRY_DEDUPE_PREFIX, EXPIRY_WARNING_DAYS, romanianDate } from './parent-notifications.job';
+import { ParentNotificationsJob, EARNED_DEDUPE_PREFIX, EXPIRY_DEDUPE_PREFIX, EXPIRY_WARNING_DAYS } from './parent-notifications.job';
+import { romanianDate } from 'src/modules/mail/romanian-date';
 import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';

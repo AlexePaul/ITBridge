@@ -163,6 +163,7 @@ const navigationItems = computed(() => {
     { label: "Locații și săli", to: "/admin/locations", icon: "i-lucide-map-pin" },
     { label: "Prezență", to: "/admin/attendance", icon: "i-lucide-check-square" },
     { label: "Prezența de azi", to: "/admin/attendance/azi", icon: "i-lucide-smartphone" },
+    { label: "Orarul", to: "/admin/orar", icon: "i-lucide-calendar-clock" },
     { label: "Calendar școlar", to: "/admin/calendar", icon: "i-lucide-calendar-x" },
     { label: "Proiecte", to: "/admin/proiecte", icon: "i-lucide-sparkles" },
     { label: "Facturi", to: "/admin/invoices", icon: "i-lucide-notebook-pen" },
