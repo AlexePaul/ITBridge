@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, IsNull, Repository } from 'typeorm';
 import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { Attendance } from 'src/entities/attendance.entity';
@@ -86,6 +86,84 @@ export class MakeUpCreditService {
         );
         this.logger.log(`Child ${childId} earned a make-up credit for session ${classSessionId}, valid to ${toIsoDate(credit.expiresOn)}.`);
         return credit;
+    }
+
+    /**
+     * Gives every child in a group the hour back, because the school called the class off — E12/S5.
+     *
+     * **A separate door from `earnFor`, on purpose.** That one asks whether a family announced in
+     * time and then was genuinely absent, which is the right question when a child misses a class
+     * that happened. Here the class did not happen, nobody was absent from anything, and there is
+     * no notice to look for — so reusing `earnFor` would mean loosening the definition of "earned"
+     * for everybody, which is the definition E12/S4 exists to keep tight.
+     *
+     * **It is not automatic, and that is a pricing decision.** The invoice counts sessions held —
+     * an admin types the number per child on the issuing screen — so a cancelled class is already
+     * not charged for. A credit on top gives the family a fourth lesson for three lessons' money,
+     * which is a thing the school may well want to do for an ill teacher and may well not want to
+     * do for a snowed-out Tuesday. So the caller says, per cancellation.
+     *
+     * Idempotent through the same unique index that keeps `earnFor` honest: cancelling a class
+     * twice cannot mint two credits for one child.
+     */
+    async grantForCancellation(classSessionId: number, manager?: EntityManager): Promise<number> {
+        const repository = manager ? manager.getRepository(MakeUpCredit) : this.creditRepository;
+        const sessions = manager ? manager.getRepository(ClassSession) : this.classSessionRepository;
+
+        const session = await sessions.findOne({
+            where: { id: classSessionId },
+            relations: { group: { children: true } },
+        });
+        if (!session) return 0;
+
+        const children = session.group.children ?? [];
+        if (children.length === 0) return 0;
+
+        const expiresOn = makeUpExpiryFor(session.date);
+        const existing = await repository.find({
+            where: { originSession: { id: classSessionId }, child: { id: In(children.map((child) => child.id)) } },
+            relations: { child: true },
+        });
+        const alreadyHeld = new Set(existing.map((credit) => credit.child.id));
+
+        const fresh = children
+            .filter((child) => !alreadyHeld.has(child.id))
+            .map((child) =>
+                repository.create({
+                    child: { id: child.id } as Child,
+                    originSession: { id: classSessionId } as ClassSession,
+                    expiresOn,
+                    bookedSession: null,
+                    consumedAttendance: null,
+                }),
+            );
+        if (fresh.length === 0) return 0;
+
+        await repository.save(fresh);
+        this.logger.log(`Cancelled session ${classSessionId}: granted ${fresh.length} make-up credit(s), valid to ${toIsoDate(expiresOn)}.`);
+        return fresh.length;
+    }
+
+    /**
+     * Lets go of every make-up booked into a class that was cancelled — called from the
+     * cancellation's own transaction, after the families have been told.
+     *
+     * A booking on a class that will not happen is a plan the family cannot keep and a chair the
+     * booking screen still counts as taken. The credit itself is untouched: the right was earned
+     * elsewhere, its window keeps running, and the family picks another hour. A credit already
+     * spent is left alone — it is a fact about a class the child sat in on.
+     */
+    async releaseBookingsOn(classSessionId: number, manager?: EntityManager): Promise<number> {
+        const repository = manager ? manager.getRepository(MakeUpCredit) : this.creditRepository;
+        const booked = await repository.find({ where: { bookedSession: { id: classSessionId }, consumedAttendance: IsNull() } });
+        if (booked.length === 0) return 0;
+
+        for (const credit of booked) {
+            credit.bookedSession = null;
+        }
+        await repository.save(booked);
+        this.logger.log(`Cancelled session ${classSessionId}: released ${booked.length} make-up booking(s).`);
+        return booked.length;
     }
 
     /**

@@ -3,6 +3,8 @@ import { ObjectLiteral } from 'typeorm';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { ClassSessionService } from './class-session.service';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
+import { ClassSessionNotifier } from './class-session-notifier';
+import { MakeUpCreditService } from 'src/modules/attendance/make-up-credit.service';
 import { toIsoDate } from './class-session.dates';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
@@ -11,11 +13,14 @@ import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { Weekday } from 'src/enum/weekday.enum';
 import { Role } from 'src/enum/role.enum';
 import {
+    createMockEntityManager,
     createMockQueryBuilder,
     createMockRepository,
     isScopedToUser,
+    MockEntityManager,
     MockQueryBuilder,
     MockRepository,
+    provideMockDataSource,
     provideMockRepository,
 } from 'src/testing/repository.mock';
 
@@ -37,6 +42,10 @@ describe('ClassSessionService', () => {
     let roomRepo: MockRepository;
     /** The school calendar. Every test but one runs with nothing closed. */
     let closedDates: jest.Mock;
+    /** The transaction cancel, move and reinstate write inside — it hands back `sessionRepo`. */
+    let manager: MockEntityManager;
+    let notifier: { notifyCancelled: jest.Mock; notifyMoved: jest.Mock; notifyReinstated: jest.Mock };
+    let makeUpCredits: { grantForCancellation: jest.Mock; releaseBookingsOn: jest.Mock };
 
     const room = { id: 1, name: 'Sala 1', location: { id: 1, name: 'Drumul Taberei' } };
     const group = {
@@ -59,6 +68,13 @@ describe('ClassSessionService', () => {
         sessionRepo = createMockRepository();
         groupRepo = createMockRepository();
         roomRepo = createMockRepository();
+        manager = createMockEntityManager(new Map([[ClassSession, sessionRepo]]));
+        notifier = {
+            notifyCancelled: jest.fn().mockResolvedValue(0),
+            notifyMoved: jest.fn().mockResolvedValue(0),
+            notifyReinstated: jest.fn().mockResolvedValue(0),
+        };
+        makeUpCredits = { grantForCancellation: jest.fn().mockResolvedValue(0), releaseBookingsOn: jest.fn().mockResolvedValue(0) };
         closedDates = jest.fn().mockResolvedValue(new Set<string>());
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -67,6 +83,11 @@ describe('ClassSessionService', () => {
                 provideMockRepository(Group, groupRepo),
                 provideMockRepository(Room, roomRepo),
                 { provide: NonTeachingPeriodService, useValue: { datesIn: closedDates } },
+                // The three effects of a cancellation, mute. What each one does is its own suite's
+                // business; here the question is that the timetable calls them, and with what.
+                { provide: ClassSessionNotifier, useValue: notifier },
+                { provide: MakeUpCreditService, useValue: makeUpCredits },
+                provideMockDataSource(manager),
             ],
         }).compile();
         service = module.get(ClassSessionService);
@@ -463,6 +484,28 @@ describe('ClassSessionService', () => {
 
             await expect(service.moveSession(3, { startTime: '17:00', endTime: '16:00', reason: 'X' })).rejects.toThrow(BadRequestException);
         });
+
+        // Both halves, because the row only remembers the second one afterwards.
+        it('tells the families where the class was and where it went', async () => {
+            clearRunway();
+
+            await service.moveSession(3, { date: '2026-09-08', reason: 'Sala ocupată' });
+
+            expect(notifier.notifyMoved).toHaveBeenCalledWith(
+                3,
+                expect.objectContaining({ date: '2026-09-07', startTime: '16:00:00' }),
+                'Sala ocupată',
+                manager,
+            );
+        });
+
+        it('says nothing when the move is refused', async () => {
+            sessionRepo.findOne!.mockResolvedValue({ ...monday, status: ClassSessionStatus.CANCELLED });
+
+            await expect(service.moveSession(3, { date: '2026-09-08', reason: 'X' })).rejects.toThrow(ConflictException);
+
+            expect(notifier.notifyMoved).not.toHaveBeenCalled();
+        });
     });
 
     describe('cancellation', () => {
@@ -505,6 +548,50 @@ describe('ClassSessionService', () => {
             await expect(service.cancelSession(3, { reason: 'Profesor bolnav' })).rejects.toThrow(ConflictException);
             expect(sessionRepo.save).not.toHaveBeenCalled();
         });
+
+        it('writes to the families, in the same transaction as the cancellation', async () => {
+            await service.cancelSession(3, { reason: 'Profesor bolnav' });
+
+            expect(notifier.notifyCancelled).toHaveBeenCalledWith(3, 'Profesor bolnav', false, manager);
+        });
+
+        // A make-up booked into the class is a plan nobody can keep. Released after the note, so the
+        // notifier still sees whose plan it was.
+        it('releases the make-ups booked into it, after the families have been told', async () => {
+            const order: string[] = [];
+            notifier.notifyCancelled.mockImplementation(() => Promise.resolve(order.push('notify')));
+            makeUpCredits.releaseBookingsOn.mockImplementation(() => Promise.resolve(order.push('release')));
+
+            await service.cancelSession(3, { reason: 'Profesor bolnav' });
+
+            expect(makeUpCredits.releaseBookingsOn).toHaveBeenCalledWith(3, manager);
+            expect(order).toEqual(['notify', 'release']);
+        });
+
+        // The pricing decision, asked rather than assumed: the hour is not charged for either way.
+        it('grants nobody a make-up unless the cancellation says so', async () => {
+            await service.cancelSession(3, { reason: 'Zăpadă' });
+
+            expect(makeUpCredits.grantForCancellation).not.toHaveBeenCalled();
+        });
+
+        it('gives the whole group the hour back when asked to', async () => {
+            await service.cancelSession(3, { reason: 'Profesor bolnav', grantMakeUpCredits: true });
+
+            expect(makeUpCredits.grantForCancellation).toHaveBeenCalledWith(3, manager);
+            // And the parent's message says so — the sentence differs, so the flag has to travel.
+            expect(notifier.notifyCancelled).toHaveBeenCalledWith(3, 'Profesor bolnav', true, manager);
+        });
+
+        it('says nothing to anybody when the cancellation is refused', async () => {
+            sessionRepo.findOne!.mockResolvedValue({ ...scheduled, status: ClassSessionStatus.CANCELLED });
+
+            await expect(service.cancelSession(3, { reason: 'Alt motiv' })).rejects.toThrow(ConflictException);
+
+            expect(notifier.notifyCancelled).not.toHaveBeenCalled();
+            expect(makeUpCredits.grantForCancellation).not.toHaveBeenCalled();
+            expect(makeUpCredits.releaseBookingsOn).not.toHaveBeenCalled();
+        });
     });
 
     /**
@@ -545,6 +632,13 @@ describe('ClassSessionService', () => {
             sessionRepo.findOne!.mockResolvedValue({ ...cancelled, status: ClassSessionStatus.SCHEDULED });
             await expect(service.reinstateSession(3)).rejects.toThrow(ConflictException);
             expect(sessionRepo.save).not.toHaveBeenCalled();
+        });
+
+        // The families were told it was off. Told nothing now, they stay home.
+        it('tells the families the class is on again', async () => {
+            await service.reinstateSession(3);
+
+            expect(notifier.notifyReinstated).toHaveBeenCalledWith(3, manager);
         });
     });
 });

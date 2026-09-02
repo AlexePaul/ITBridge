@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Between, DataSource, Repository } from 'typeorm';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
@@ -13,6 +13,8 @@ import { GenerateClassSessionsDto } from './dto/generateClassSessions.dto';
 import { UnmarkedClassSessionsDto } from './dto/unmarkedClassSessions.dto';
 import { addDays, occurrencesOf, parseIsoDate, startOfToday, toIsoDate } from './class-session.dates';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
+import { ClassSessionNotifier } from './class-session-notifier';
+import { MakeUpCreditService } from 'src/modules/attendance/make-up-credit.service';
 
 /** The rolling horizon from E12/S1: eight weeks of timetable, always. */
 export const DEFAULT_HORIZON_WEEKS = 8;
@@ -51,6 +53,9 @@ export class ClassSessionService {
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
         @InjectRepository(Room) private readonly roomRepository: Repository<Room>,
         private readonly nonTeachingPeriodService: NonTeachingPeriodService,
+        private readonly notifier: ClassSessionNotifier,
+        private readonly makeUpCredits: MakeUpCreditService,
+        private readonly dataSource: DataSource,
     ) {}
 
     /**
@@ -198,10 +203,9 @@ export class ClassSessionService {
     /**
      * Calls off one class, with the reason.
      *
-     * The reason goes into `notes`, appended rather than substituted, because there is no
-     * `cancellationReason` column and adding one is a migration this story does not own. When E12/S5
-     * arrives — notify the group, grant the make-up rights — it will want the reason as a field of
-     * its own, and that is the moment to split it out.
+     * The reason goes into `notes`, appended rather than substituted: there is no
+     * `cancellationReason` column, and E12/S5 decided against adding one — the reason is read by a
+     * person in the timetable and quoted once in the email, and both already have it here.
      */
     async cancelSession(id: number, dto: CancelClassSessionDto): Promise<ClassSession> {
         const session = await this.classSessionRepository.findOne({
@@ -232,7 +236,23 @@ export class ClassSessionService {
         const reason = `Anulată: ${dto.reason}`;
         session.notes = session.notes === null || session.notes.trim() === '' ? reason : `${session.notes}\n\n${reason}`;
         session.status = ClassSessionStatus.CANCELLED;
-        return this.classSessionRepository.save(session);
+
+        // The write, the credits, the note to the families and the release of any make-up booked
+        // into the class are one unit of work — E12/S5. A class that is off with nobody told is the
+        // failure the outbox exists to prevent, and a family told about a cancellation that then
+        // rolled back is worse than either.
+        const grantMakeUp = dto.grantMakeUpCredits ?? false;
+        return this.dataSource.transaction(async (manager) => {
+            const saved = await manager.getRepository(ClassSession).save(session);
+            if (grantMakeUp) {
+                await this.makeUpCredits.grantForCancellation(id, manager);
+            }
+            // Notify before releasing: the notifier reads the bookings to find the visiting
+            // families, and a released booking is one it can no longer see.
+            await this.notifier.notifyCancelled(id, dto.reason, grantMakeUp, manager);
+            await this.makeUpCredits.releaseBookingsOn(id, manager);
+            return saved;
+        });
     }
 
     /**
@@ -352,6 +372,15 @@ export class ClassSessionService {
             });
         }
 
+        // Where it was, captured before the row is overwritten: the message tells a parent both
+        // halves, and afterwards only the note remembers the first one.
+        const from = {
+            date: toIsoDate(session.date),
+            startTime: session.startTime,
+            roomName: session.room.name,
+            locationName: session.room.location?.name ?? '',
+        };
+
         // The note keeps where the class used to be, because that is the question a parent asks.
         const note = `Mutată (de pe ${toIsoDate(session.date)} ${session.startTime.slice(0, 5)}): ${dto.reason}`;
         session.notes = session.notes === null || session.notes.trim() === '' ? note : `${session.notes}\n\n${note}`;
@@ -359,7 +388,12 @@ export class ClassSessionService {
         session.startTime = `${targetStart}:00`;
         session.endTime = `${targetEnd}:00`;
         session.room = targetRoom;
-        return this.classSessionRepository.save(session);
+
+        return this.dataSource.transaction(async (manager) => {
+            const saved = await manager.getRepository(ClassSession).save(session);
+            await this.notifier.notifyMoved(id, from, dto.reason, manager);
+            return saved;
+        });
     }
 
     async reinstateSession(id: number): Promise<ClassSession> {
@@ -380,7 +414,15 @@ export class ClassSessionService {
         const note = 'Reactivată.';
         session.notes = session.notes === null || session.notes.trim() === '' ? note : `${session.notes}\n\n${note}`;
         session.status = ClassSessionStatus.SCHEDULED;
-        return this.classSessionRepository.save(session);
+
+        // The families were told the class was off, so they have to be told it is on. Without this
+        // half, reinstating is a change only the school can see, and an empty classroom is the
+        // result.
+        return this.dataSource.transaction(async (manager) => {
+            const saved = await manager.getRepository(ClassSession).save(session);
+            await this.notifier.notifyReinstated(id, manager);
+            return saved;
+        });
     }
 
     private async findGroupsToGenerateFor(groupId?: number): Promise<Group[]> {

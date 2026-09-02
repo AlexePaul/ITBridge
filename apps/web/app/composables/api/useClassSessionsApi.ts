@@ -160,6 +160,57 @@ export const useClassSessionsApi = () => {
       body: payload,
     });
 
+  /**
+   * Calls one class off — E12/S5.
+   *
+   * `grantMakeUpCredits` is asked on the screen rather than assumed here, and the reason is a
+   * pricing one: the invoice counts sessions held, so a cancelled class already costs the family
+   * nothing, and a make-up on top is a gift the school may or may not mean to give. The parents'
+   * email says which of the two happened, so the flag has to be decided before the request.
+   *
+   * Refused for a class that already has a register against it — that one happened, whatever the
+   * status column says.
+   */
+  const cancelSession = async (
+    id: EntityId,
+    payload: { reason: string; grantMakeUpCredits?: boolean }
+  ) =>
+    api<ClassSessionWithAttendance>(`/class-sessions/${id}/cancel`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: payload,
+    });
+
+  /**
+   * Moves one class: another day, another hour, another room, any combination.
+   *
+   * Every field but the reason is optional, and omitting all of them is refused rather than
+   * treated as a no-op. The API checks, in order: the school calendar of the *target* room's
+   * location, whether the group already has a class that day, and whether the room is taken.
+   */
+  const moveSession = async (
+    id: EntityId,
+    payload: {
+      reason: string;
+      date?: string;
+      startTime?: string;
+      endTime?: string;
+      roomId?: number;
+    }
+  ) =>
+    api<ClassSessionWithAttendance>(`/class-sessions/${id}/move`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: payload,
+    });
+
+  /** Puts a cancelled class back on — and tells the families, who were told it was off. */
+  const reinstateSession = async (id: EntityId) =>
+    api<ClassSessionWithAttendance>(`/class-sessions/${id}/reinstate`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
   /** Removes a period. The sessions it cancelled stay cancelled — the API is explicit about that. */
   const deleteNonTeachingPeriod = async (id: EntityId) =>
     api<{ message: string }>(`/class-sessions/non-teaching/${id}`, {
@@ -171,6 +222,9 @@ export const useClassSessionsApi = () => {
     fetchSessions,
     fetchGroupSessions,
     generateSessions,
+    cancelSession,
+    moveSession,
+    reinstateSession,
     fetchNonTeachingPeriods,
     fetchNonTeachingImpact,
     createNonTeachingPeriod,
