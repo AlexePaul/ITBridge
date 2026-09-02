@@ -153,7 +153,7 @@ pierdut estimat; sălile, fiecare cu orele ei moarte; și totalul pe adresă.
 **„Ocupat" e cerut de la `EnrollmentService.occupancyOf`**, o dată pentru fiecare grupă, exact ca pe
 tabloul de bord. Acolo e definit ce înseamnă un loc luat — un copil la probă stă pe un scaun (D7) —
 iar o numărare scrisă aici ar fi a doua definiție, liberă să uite probele și să-i spună patronului că
-o sală plină mai are loc. Zece numărări mici la o încărcare de pagină e prețul unui singur răspuns.
+o sală plină mai are loc. Câteva interogări mici pe fiecare grupă, la o încărcare de pagină, e prețul unui singur răspuns.
 
 **Orele moarte se măsoară pe orarul școlii, nu pe ceas.** Nu există o grilă fixă de ore, deci singura
 definiție onestă a unei ore în care o sală *putea* ține curs e o oră în care altă sală a ținut. O sală
