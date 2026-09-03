@@ -134,6 +134,60 @@ export class OutboxMessage {
     attachments: OutboxAttachment[] | null;
 
     /**
+     * The paragraph this message contributes to a combined one, when it is willing to be combined —
+     * E17/S6. Null means it goes out on its own, at once.
+     *
+     * **Null is the safe default, and it is why this is one column rather than a boolean plus a
+     * text.** A sender that says nothing keeps sending immediately, exactly as a sender that says
+     * nothing about `MessageKind` keeps sending at all; the direction to fail in is "a burst",
+     * never "a called-off class held until Monday". And because being combinable *is* having a
+     * fragment, the two cannot contradict each other: there is no digestible message with nothing
+     * to put in the digest.
+     *
+     * The fragment is not the body. It carries no greeting and no signature, because the combined
+     * message supplies one of each for all of them.
+     */
+    @Column({ type: 'text', nullable: true })
+    digestSummary: string | null;
+
+    /**
+     * The last school day on which this is still worth sending, for a message that has one.
+     *
+     * The safety valve on the cadence: E12's make-up warning is written seven days before the right
+     * lapses, so a weekly digest holding it for a week would deliver a warning about something
+     * already gone. A sender that knows its message expires says so, and that beats the family's
+     * preference — the preference is about packaging, and a package that arrives after the event is
+     * not packaging any more.
+     *
+     * A `date`, not an instant: every deadline that reaches here is a calendar day (an expiry, a due
+     * date), and the comparison is text against the school's own day.
+     */
+    @Column({ type: 'date', nullable: true })
+    digestNotAfter: string | null;
+
+    /**
+     * Set when the digest pass decided this one goes out **as itself** — because it was alone in the
+     * window, or because its deadline came up.
+     *
+     * The dispatcher's claim asks for it: a row with a fragment and no release is invisible to the
+     * queue, which is what "held" means. There is no `held` status for the same reason there is no
+     * `sending` one — the state is a fact about two columns, and a third place to say it is a third
+     * place for it to be wrong.
+     */
+    @Column({ type: 'timestamptz', nullable: true })
+    digestReleasedAt: Date | null;
+
+    /**
+     * The combined message that went in this one's place — E17/S6.
+     *
+     * Self-referencing, because a digest is an ordinary message: it is queued, claimed, sent and
+     * recorded like any other, and the only thing that makes it a digest is that rows point at it.
+     */
+    @ManyToOne(() => OutboxMessage, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'digest_id' })
+    digest: OutboxMessage | null;
+
+    /**
      * The broadcast this message belongs to, when it belongs to one — E17/S7.
      *
      * Null on everything else, which is almost everything: a message about a child, an invoice or a

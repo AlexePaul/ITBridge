@@ -63,9 +63,11 @@ export interface PreviewMailTemplateDto {
  * `apps/api/src/enum/outbox-status.enum.ts`.
  *
  * `undeliverable` is the one E17/S5 added: never attempted, because there was nowhere to send it.
- * Terminal — no backoff makes an address appear.
+ * Terminal — no backoff makes an address appear. `digested` is S6's: folded into a combined message
+ * which went instead, so the family did read it — just not in an envelope of its own. Also terminal,
+ * and deliberately not `sent`, because this row never reached the provider.
  */
-export type DeliveryStatus = 'pending' | 'sent' | 'failed' | 'undeliverable';
+export type DeliveryStatus = 'pending' | 'sent' | 'failed' | 'undeliverable' | 'digested';
 
 /**
  * Why a message had nowhere to go. Two values, not one: they look identical in a list and are

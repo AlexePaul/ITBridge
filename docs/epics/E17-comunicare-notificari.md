@@ -332,8 +332,8 @@ nimeni nu trebuia. Un rând per buletin per familie dezabonată ar îneca exact 
 S5 le scoate la vedere. Ce **rămâne** nelivrabil e marketingul către o familie care a acceptat dar
 n-are adresă — ăla e un eșec.
 
-**Ce nu s-a construit:** frecvențele („imediat / rezumat zilnic / rezumat săptămânal") sunt de fapt
-S6, iar rezumatele nu există. Mecanismul a fost construit înaintea primului expeditor tocmai fiindcă
+**Frecvențele („imediat / rezumat zilnic / rezumat săptămânal") au fost construite la S6**, unde
+le trimisese story-ul ăsta. Mecanismul a fost construit înaintea primului expeditor tocmai fiindcă
 momentul în care s-ar retrofita în jurul lui e momentul în care ar fi greșit — iar **primul a apărut
 la S7**: un anunț își declară felul, iar cel promoțional trece prin `queueMarketing`. Fără el, ecranul
 de anunțuri ar fi fost gaura din garanția de aici, nu prima ei confirmare. Textul din setări spune explicit ce **nu** oprește comutatorul — un părinte care citește
@@ -423,6 +423,56 @@ frecvență.
 
 **Acceptanță:** un părinte cu doi copii nu primește mai mult de un email pe zi, cu excepția celor
 tranzacționale urgente.
+
+**Livrat.** Preferința e `Profile.messageFrequency` — `immediate` / `daily` / `weekly` — schimbată
+de părinte din `/user/profile`, lângă comutatorul de marketing și vizibil de alt fel decât el.
+Motorul e `DigestService`, o trecere la 5 minute care ține, eliberează sau împachetează.
+
+**Ce face preferința asta sigură e că nu poate opri nimic.** O familie pe `weekly` primește exact ce
+primește una pe `immediate`, în mai puține plicuri. De aia implicitul e `daily` și nu `immediate`:
+acceptanța e scrisă despre un părinte, nu despre un părinte care s-a dus să caute o setare, iar un
+implicit „trimite tot pe loc" ar fi făcut-o adevărată doar pentru cine umblă prin ecranul de setări.
+E și diferența față de S4 — acolo o bifă chiar decide dacă un mesaj pleacă, deci implicit e `false`.
+
+**Urgentul nu e o listă de excepții, e absența unui câmp.** Un mesaj se lasă împachetat doar dacă
+expeditorul lui trimite `digest: { summary }` la coadă; fără el pleacă singur și imediat. Deci ora
+anulată, linkul de confirmare, contul aprobat și locul eliberat de pe listă nu trec niciodată pe
+lângă motorul ăsta — nu fiindcă cineva le-a trecut într-o listă de exceptate, ci fiindcă n-au cerut
+nimic. O listă e exact lucrul la care se uită cineva să adauge și uită.
+
+**Rezumatul e un fragment, nu un corp.** Coloana e `outbox.digestSummary`: un paragraf scris de
+expeditor, fără salut și fără semnătură, fiindcă plicul combinat pune câte unul singur pentru toate.
+Nu e derivat din corp — un rezumat derivat dintr-un corp e un rezumat care se strică prima dată când
+cineva editează formularea de deasupra. Și **a fi împachetabil înseamnă a avea fragment**: o singură
+coloană nullable în loc de un boolean plus un text, deci nu există mesaj împachetabil fără nimic de
+pus în pachet.
+
+**Cinci expeditori s-au mutat pe el**, și sunt exact cei care produc rafale: proiectele din E14/S4,
+recuperarea câștigată și cea care expiră din E12/S7, mementourile de scadență și de restanță din
+E16/S7. Restul au rămas neatinse.
+
+**Termenul bate cadența.** `digestNotAfter` e ultima zi în care mesajul mai are rost, scrisă de
+expeditorul care știe că are una. Fără el, `weekly` n-ar fi o preferință, ar fi un bug: avertismentul
+că o recuperare expiră pleacă cu șapte zile înainte, deci un rezumat săptămânal l-ar livra la o
+săptămână după ce dreptul s-a stins — ceea ce nu e un avertisment altfel împachetat, e niciunul.
+
+**Momentul se calculează per mesaj, nu dintr-un „ultimul rezumat trimis".** `releaseStampFor` dă ora
+la care are voie să plece, pornind de la când a fost scris: înainte de 18:00 înseamnă diseară, după
+înseamnă mâine. Ancorat în schimb la o oră comună, un mesaj scris la 19:00 ar fi găsit pragul de azi
+deja trecut și ar fi plecat pe loc — al doilea email într-o zi care își avusese deja emailul, adică
+fix plafonul din acceptanță, spart. Totul e aritmetică pe text în ceasul școlii, ca peste tot.
+
+**Un mesaj împachetat nu se șterge și nu se marchează `sent`.** Trece în `digested` — stare
+terminală, vizibilă în evidența din S5 — și arată cu `digest_id` către rândul care a plecat în locul
+lui. `sent` ar fi o minciună: rândul ăla n-a ajuns niciodată la furnizor, iar „a primit părintele
+anunțul?" s-ar fi răspuns cu un mesaj pe care nu l-a expediat nimeni. Legătura e recursivă fiindcă un
+rezumat **e** un mesaj obișnuit: se pune în coadă, se revendică și se trimite ca oricare altul.
+
+**Ce nu s-a construit:** rezumatul nu poartă atașamente. Miniatura din E14 e a mesajului unui copil,
+iar patru poze ale patru copii într-un plic sunt alt email decât cel compus — linkurile din fiecare
+fragment duc oricum la lucrare. Și, ca tot restul lui E17, **nimic nu pleacă efectiv până la
+[E01](E01-infrastructura-medii.md) S4**: motorul ține mesajele și le împachetează, dar dispecerul
+care le-ar preda n-are unde rula.
 
 ### S7 · Anunțuri
 
@@ -593,6 +643,8 @@ arată.
 | Felul unui anunț                        | **Ales de om**, operațional sau promoțional. Doar al doilea consultă `marketingOptIn`             |
 | „Același anunț"                         | Audiență + subiect + corp + **ziua școlii**. A doua apăsare identică e refuzată de un index unic  |
 | Un copil numit într-un anunț            | **Avertisment cu confirmare**, nu blocaj: Maria e și sală, și stradă                              |
+| Frecvența implicită                     | **`daily`**, fiindcă acceptanța e despre un părinte, nu despre unul care caută o setare           |
+| Ce e „urgent"                           | **Ce nu cere să fie împachetat.** Absența unui câmp, nu o listă de excepții de întreținut         |
 
 **Fără canal secundar în MVP.** Emailul e singurul canal. Propunerea echipei — o pagină de admin cu
 câte un link `wa.me` per copil, cu mesajul precompletat, trimis de pe telefonul omului — a fost

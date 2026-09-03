@@ -102,6 +102,16 @@ export class ArrearsJob {
                     // Per invoice per day: a re-run writes nothing new, and two invoices of the
                     // same family are two separate matters.
                     dedupeKey: `${DEDUPE_PREFIX}${row.invoiceId}:${toIsoDate(day)}`,
+                    // Combinable (E17/S6), up to the due date. A family with two invoices behind
+                    // is exactly the family this story is for: two chasing emails on one morning
+                    // read as a dunning run rather than as a school keeping its books.
+                    digest: {
+                        summary:
+                            kind === 'notice'
+                                ? `Factura pe ${romanianMonth(row.monthIssued)}, ${formatLeiRo(row.outstanding)}, are termen până pe ${romanianDay(row.dueOn)}.`
+                                : `Factura pe ${romanianMonth(row.monthIssued)} avea termen pe ${romanianDay(row.dueOn)} și încă figurează neachitată: ${formatLeiRo(row.outstanding)}.`,
+                        notAfter: toIsoDate(row.dueOn),
+                    },
                 },
             );
             if (queued) notified += 1;

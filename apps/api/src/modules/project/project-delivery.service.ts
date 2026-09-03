@@ -181,6 +181,12 @@ export class ProjectDeliveryService {
                     // admins on two screens. `status` already stops the ordinary second press; this
                     // stops the simultaneous one.
                     dedupeKey: deliveryDedupeKey(parent.id, projects),
+                    // Combinable — E17/S6, and the case E17/S8 names outright: a parent with
+                    // children in two groups, both sent on the same afternoon, gets one message
+                    // rather than two. The split here is already per parent within a single press;
+                    // this is what makes it hold across two presses, which no amount of grouping
+                    // inside one of them could.
+                    digest: mail.digestSummary ? { summary: mail.digestSummary } : null,
                 },
                 manager,
             );

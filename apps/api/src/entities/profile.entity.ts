@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, OneToMany } from 'typeorm';
+import { MessageFrequency } from '../enum/message-frequency.enum';
 import { User } from './user.entity';
 import { Child } from './child.entity';
 import { Invoice } from './invoice.entity';
@@ -76,4 +77,16 @@ export class Profile {
      */
     @Column({ type: 'boolean', default: false })
     marketingOptIn: boolean;
+
+    /**
+     * How often the family wants their post — E17/S6.
+     *
+     * **Packaging, never delivery.** Unlike `marketingOptIn` above, this cannot suppress anything:
+     * a family on `WEEKLY` receives everything a family on `IMMEDIATE` does, in fewer envelopes, and
+     * urgent messages ignore it completely. That is what makes `DAILY` a safe default — and the
+     * default is deliberate, because S6's acceptance is stated about a parent, not about a parent
+     * who went and found a setting.
+     */
+    @Column({ type: 'enum', enum: MessageFrequency, default: MessageFrequency.DAILY })
+    messageFrequency: MessageFrequency;
 }

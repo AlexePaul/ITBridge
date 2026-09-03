@@ -70,6 +70,7 @@ export class DeliveryLogService {
             [OutboxStatus.SENT]: 0,
             [OutboxStatus.FAILED]: 0,
             [OutboxStatus.UNDELIVERABLE]: 0,
+            [OutboxStatus.DIGESTED]: 0,
         };
         for (const row of rows) summary[row.status] = row.count;
         return summary;

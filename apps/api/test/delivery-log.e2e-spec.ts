@@ -63,8 +63,11 @@ describe('Delivery log (e2e)', () => {
         it('counts every state, including the ones at zero', async () => {
             const res = await request(app.getHttpServer()).get('/deliveries/summary').set('Authorization', admin.auth).expect(200);
 
-            // A missing "undeliverable: 0" reads as "not measured" rather than "none".
-            expect(res.body).toEqual({ pending: expect.any(Number), sent: 0, failed: 0, undeliverable: 0 });
+            // A missing "undeliverable: 0" reads as "not measured" rather than "none". `toEqual`
+            // rather than `toMatchObject` on purpose: a state added to the queue and not to the
+            // screen is exactly the drift worth failing on, which is how `digested` (E17/S6) got
+            // here.
+            expect(res.body).toEqual({ pending: expect.any(Number), sent: 0, failed: 0, undeliverable: 0, digested: 0 });
         });
     });
 

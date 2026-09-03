@@ -1,5 +1,8 @@
 import type { Child } from './child';
 
+/** Mirrors `MessageFrequency` in `apps/api/src/enum/message-frequency.enum.ts`. */
+export type MessageFrequency = 'immediate' | 'daily' | 'weekly';
+
 /**
  * Contact fields are nullable in `profile.entity.ts`. An admin can create a profile with nothing but
  * a first and last name, and `GET /users/without-profile` serves the later account linking.
@@ -26,6 +29,15 @@ export interface ProfileSummary {
      * work are the school performing its contract, and are never on a checkbox.
      */
     marketingOptIn: boolean;
+    /**
+     * How often the family wants their post — E17/S6. Mirrors `MessageFrequency` in
+     * `apps/api/src/enum/message-frequency.enum.ts`.
+     *
+     * The opposite of the switch above in the way that matters: this **cannot suppress anything**.
+     * A family on `weekly` receives everything a family on `immediate` does, in fewer envelopes,
+     * and anything urgent ignores it entirely — which is what makes `daily` a safe default.
+     */
+    messageFrequency: MessageFrequency;
 }
 
 export interface Profile extends ProfileSummary {

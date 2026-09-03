@@ -14,16 +14,20 @@ export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
   sent: "Trimis",
   failed: "Eșuat",
   undeliverable: "Nelivrabil",
+  digested: "În rezumat",
 };
 
 export const DELIVERY_STATUS_COLORS: Record<
   DeliveryStatus,
-  "info" | "success" | "error" | "warning"
+  "info" | "success" | "error" | "warning" | "neutral"
 > = {
   pending: "info",
   sent: "success",
   failed: "error",
   undeliverable: "warning",
+  // Neutral, not success: this row never went to the provider. What the family read is the combined
+  // message that replaced it, and that one has its own row with its own state.
+  digested: "neutral",
 };
 
 /**

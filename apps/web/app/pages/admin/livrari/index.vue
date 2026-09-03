@@ -5,7 +5,7 @@
     width="xl"
   >
     <!-- The header numbers: every state present, even at zero. -->
-    <div v-if="summary" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div v-if="summary" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       <button
         v-for="state in states"
         :key="state"
@@ -131,7 +131,11 @@ const records = ref<DeliveryRecord[]>([]);
 const summary = ref<DeliverySummary | null>(null);
 const expanded = ref<number | null>(null);
 
-const states: DeliveryStatus[] = ["sent", "pending", "failed", "undeliverable"];
+/**
+ * Every state, in the order an admin scans them. `digested` last: it is the least alarming — the
+ * family did read what that row said, inside the combined message that replaced it (E17/S6).
+ */
+const states: DeliveryStatus[] = ["sent", "pending", "failed", "undeliverable", "digested"];
 
 const filter = reactive<{ status?: DeliveryStatus; to: string; from: string; until: string }>({
   status: undefined,
