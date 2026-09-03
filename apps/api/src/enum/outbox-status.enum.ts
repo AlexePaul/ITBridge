@@ -25,14 +25,4 @@ export enum OutboxStatus {
      * and the document all went nowhere. `undeliverableReason` says which of the two cases it is.
      */
     UNDELIVERABLE = 'undeliverable',
-    /**
-     * Folded into a combined message, which went out instead — E17/S6.
-     *
-     * Terminal, and deliberately not `sent`: this row was never handed to the provider, and a
-     * delivery record that said otherwise would answer „a primit părintele anunțul?" with a message
-     * nobody posted. `digest` points at the row that did go, so the record can show both halves.
-     * Marking these rows rather than deleting them is the same rule as everywhere in S5 — nothing
-     * that was going to reach a family disappears without a trace.
-     */
-    DIGESTED = 'digested',
 }

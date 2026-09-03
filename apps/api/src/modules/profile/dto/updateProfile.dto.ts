@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsEnum, IsOptional, IsPhoneNumber, IsString, Length } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsPhoneNumber, IsString, Length } from 'class-validator';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
-import { MessageFrequency } from 'src/enum/message-frequency.enum';
 
 export class UpdateProfileDto {
     @ApiProperty({ example: 'user@example.com', required: false })
@@ -48,17 +47,4 @@ export class UpdateProfileDto {
     @IsOptional()
     @IsBoolean()
     marketingOptIn?: boolean;
-
-    /**
-     * How often the family wants their post — E17/S6.
-     *
-     * The opposite of the switch above in one crucial way: this **cannot stop anything**. A family
-     * on `weekly` receives everything a family on `immediate` does, in fewer envelopes, and anything
-     * urgent ignores it entirely. That is why it is safe for the default to be `daily` rather than
-     * `immediate`.
-     */
-    @ApiProperty({ enum: MessageFrequency, required: false, description: 'Packaging only. Never gates or delays anything urgent.' })
-    @IsOptional()
-    @IsEnum(MessageFrequency)
-    messageFrequency?: MessageFrequency;
 }

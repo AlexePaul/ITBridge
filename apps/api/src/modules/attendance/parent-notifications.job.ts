@@ -151,12 +151,6 @@ export class ParentNotificationsJob {
                     bodyText: mail.bodyText,
                     bodyHtml: mail.bodyHtml ?? undefined,
                     dedupeKey: `${EARNED_DEDUPE_PREFIX}${date}:${parentId}`,
-                    // Combinable (E17/S6), with no deadline: the credit is good for thirty days, so
-                    // an evening either way changes nothing. This is exactly the message the story
-                    // is about — news a family is glad to have, and would rather have once.
-                    digest: {
-                        summary: [`Ora pierdută se recuperează:`, entry.lines.join('\n'), `O programezi din contul tău: ${absencesUrl()}`].join('\n'),
-                    },
                 },
             );
             if (queued) notified += 1;
@@ -206,16 +200,6 @@ export class ParentNotificationsJob {
                     bodyHtml: mail.bodyHtml ?? undefined,
                     // Per credit: the reminder goes out once, whatever else runs.
                     dedupeKey: `${EXPIRY_DEDUPE_PREFIX}${credit.id}`,
-                    // Combinable, but **only up to the day the right lapses**. Without that day on
-                    // the row, a family on a weekly digest would be told about an expiry a week
-                    // after it happened — which is not a differently-packaged warning, it is none.
-                    digest: {
-                        summary: [
-                            `${credit.child.firstName} are o oră de recuperare nefolosită, iar ultima zi în care poate fi programată este ${romanianDate(credit.expiresOn)}.`,
-                            `O programezi din contul tău: ${absencesUrl()}`,
-                        ].join('\n'),
-                        notAfter: toIsoDate(credit.expiresOn),
-                    },
                 },
             );
             if (queued) notified += 1;

@@ -15,14 +15,6 @@ export interface ComposedMail {
     subject: string;
     bodyText: string;
     bodyHtml?: string;
-    /**
-     * The paragraph this message contributes when it arrives combined with others — E17/S6.
-     *
-     * Written here, next to the message it stands for, rather than assembled by the queue: the
-     * queue has the body but not the sense of it, and a summary derived from a body is a summary
-     * that goes stale the first time somebody edits the wording above.
-     */
-    digestSummary?: string;
 }
 
 /** One document in the message: whose it is, what it is called, and where it opens. */
@@ -71,15 +63,7 @@ export function composeProjectDelivery(parentFirstName: string, projects: Delive
         SIGNATURE,
     ].join('\n');
 
-    return {
-        subject: subjectFor(children, projects.length),
-        bodyText,
-        bodyHtml: renderHtml(parentFirstName, intro, projects, galleryUrl),
-        // The links, not the pictures: a combined message carries no attachments, so a `cid:`
-        // reference in here would render as a broken image. Nothing is hidden — every document is
-        // still named and still one click away.
-        digestSummary: [intro, '', ...projects.map((project) => `· ${project.childFirstName} — ${project.title}: ${project.url}`)].join('\n'),
-    };
+    return { subject: subjectFor(children, projects.length), bodyText, bodyHtml: renderHtml(parentFirstName, intro, projects, galleryUrl) };
 }
 
 function subjectFor(children: string[], count: number): string {

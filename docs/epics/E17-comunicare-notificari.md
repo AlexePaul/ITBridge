@@ -332,8 +332,8 @@ nimeni nu trebuia. Un rând per buletin per familie dezabonată ar îneca exact 
 S5 le scoate la vedere. Ce **rămâne** nelivrabil e marketingul către o familie care a acceptat dar
 n-are adresă — ăla e un eșec.
 
-**Frecvențele („imediat / rezumat zilnic / rezumat săptămânal") au fost construite la S6**, unde
-le trimisese story-ul ăsta. Mecanismul a fost construit înaintea primului expeditor tocmai fiindcă
+**Ce nu s-a construit:** frecvențele („imediat / rezumat zilnic / rezumat săptămânal") sunt de fapt
+S6, iar rezumatele nu există. Mecanismul a fost construit înaintea primului expeditor tocmai fiindcă
 momentul în care s-ar retrofita în jurul lui e momentul în care ar fi greșit — iar **primul a apărut
 la S7**: un anunț își declară felul, iar cel promoțional trece prin `queueMarketing`. Fără el, ecranul
 de anunțuri ar fi fost gaura din garanția de aici, nu prima ei confirmare. Textul din setări spune explicit ce **nu** oprește comutatorul — un părinte care citește
@@ -424,55 +424,44 @@ frecvență.
 **Acceptanță:** un părinte cu doi copii nu primește mai mult de un email pe zi, cu excepția celor
 tranzacționale urgente.
 
-**Livrat.** Preferința e `Profile.messageFrequency` — `immediate` / `daily` / `weekly` — schimbată
-de părinte din `/user/profile`, lângă comutatorul de marketing și vizibil de alt fel decât el.
-Motorul e `DigestService`, o trecere la 5 minute care ține, eliberează sau împachetează.
+**Construit, apoi scos prin decizie.** Motorul a existat: preferință de frecvență pe `Profile`,
+o trecere la 5 minute care ținea mesajele, le elibera sau le împacheta, o stare terminală
+`digested` și o legătură recursivă către plicul care plecase în locul lor. Trecea testele. A fost
+**revenit**, iar motivul e mai important decât codul.
 
-**Ce face preferința asta sigură e că nu poate opri nimic.** O familie pe `weekly` primește exact ce
-primește una pe `immediate`, în mai puține plicuri. De aia implicitul e `daily` și nu `immediate`:
-acceptanța e scrisă despre un părinte, nu despre un părinte care s-a dus să caute o setare, iar un
-implicit „trimite tot pe loc" ar fi făcut-o adevărată doar pentru cine umblă prin ecranul de setări.
-E și diferența față de S4 — acolo o bifă chiar decide dacă un mesaj pleacă, deci implicit e `false`.
+**Cine plătește și cine încasează nu sunt aceiași.** Câștigul e al părintelui: trei emailuri într-o
+seară în loc de unul. Costul e al cozii, și e permanent — invariantul „ce e în coadă e ce pleacă"
+devine condiționat, dispecerul capătă o a doua condiție de revendicare, apare un al doilea
+scheduler care trebuie și el fixat pe o instanță, iar fiecare mesaj capătă o stare intermediară în
+care **nu a plecat și nu a eșuat**. Aia e clasa de defecte care se vede greu: un mesaj care nu
+ajunge nu seamănă cu o eroare, seamănă cu liniște.
 
-**Urgentul nu e o listă de excepții, e absența unui câmp.** Un mesaj se lasă împachetat doar dacă
-expeditorul lui trimite `digest: { summary }` la coadă; fără el pleacă singur și imediat. Deci ora
-anulată, linkul de confirmare, contul aprobat și locul eliberat de pe listă nu trec niciodată pe
-lângă motorul ăsta — nu fiindcă cineva le-a trecut într-o listă de exceptate, ci fiindcă n-au cerut
-nimic. O listă e exact lucrul la care se uită cineva să adauge și uită.
+**Iar câștigul e mai mic decât pare.** Verdictul patronului, care e cel care vorbește cu părinții:
+un părinte nu se supără că primește trei emailuri într-o zi. Rafala pe care S6 o descrie —
+zece mesaje pe săptămână — presupune o școală mai mare și un părinte mai puțin răbdător decât cei
+de acum. Gruparea care chiar contează exista deja și rămâne: **un mesaj per părinte, nu per copil**,
+în anularea de oră (S5 din [E12](E12-prezenta-orar.md)), în recuperările câștigate
+([E12](E12-prezenta-orar.md) S7), în livrarea de proiecte ([E14](E14-proiecte-elevi.md) S4) și în
+anunțuri (S7). Aia scoate duplicatele adevărate — același text, de două ori, fiindcă familia are doi
+copii — și nu costă nimic, fiindcă se face înăuntrul unei singure trimiteri.
 
-**Rezumatul e un fragment, nu un corp.** Coloana e `outbox.digestSummary`: un paragraf scris de
-expeditor, fără salut și fără semnătură, fiindcă plicul combinat pune câte unul singur pentru toate.
-Nu e derivat din corp — un rezumat derivat dintr-un corp e un rezumat care se strică prima dată când
-cineva editează formularea de deasupra. Și **a fi împachetabil înseamnă a avea fragment**: o singură
-coloană nullable în loc de un boolean plus un text, deci nu există mesaj împachetabil fără nimic de
-pus în pachet.
+Ce nu se mai face e adunarea **între feluri de mesaje** și **peste zi**: proiectul de marți și
+factura de marți rămân două emailuri.
 
-**Cinci expeditori s-au mutat pe el**, și sunt exact cei care produc rafale: proiectele din E14/S4,
-recuperarea câștigată și cea care expiră din E12/S7, mementourile de scadență și de restanță din
-E16/S7. Restul au rămas neatinse.
+**Ce ar trebui adus înapoi, dacă se reia** (ca să nu fie regândit de la zero):
 
-**Termenul bate cadența.** `digestNotAfter` e ultima zi în care mesajul mai are rost, scrisă de
-expeditorul care știe că are una. Fără el, `weekly` n-ar fi o preferință, ar fi un bug: avertismentul
-că o recuperare expiră pleacă cu șapte zile înainte, deci un rezumat săptămânal l-ar livra la o
-săptămână după ce dreptul s-a stins — ceea ce nu e un avertisment altfel împachetat, e niciunul.
+- Preferința de frecvență pe familie e partea ieftină și n-are nevoie de motor: `immediate` e
+  comportamentul de azi.
+- Momentul de eliberare se calculează **per mesaj**, din clipa în care a fost scris, nu dintr-un
+  „ultimul rezumat trimis" — ancorat la o oră comună, un mesaj scris după prag pleacă imediat și
+  plafonul de un email pe zi se sparge tăcut.
+- Un mesaj împachetabil trebuie să poată spune **ultima zi în care mai are rost**. Fără asta,
+  cadența săptămânală livrează avertismentul de expirare după expirare.
+- „Urgent" se scrie ca absența unui câmp, nu ca o listă de excepții: o listă e lucrul la care cineva
+  uită să adauge.
 
-**Momentul se calculează per mesaj, nu dintr-un „ultimul rezumat trimis".** `releaseStampFor` dă ora
-la care are voie să plece, pornind de la când a fost scris: înainte de 18:00 înseamnă diseară, după
-înseamnă mâine. Ancorat în schimb la o oră comună, un mesaj scris la 19:00 ar fi găsit pragul de azi
-deja trecut și ar fi plecat pe loc — al doilea email într-o zi care își avusese deja emailul, adică
-fix plafonul din acceptanță, spart. Totul e aritmetică pe text în ceasul școlii, ca peste tot.
-
-**Un mesaj împachetat nu se șterge și nu se marchează `sent`.** Trece în `digested` — stare
-terminală, vizibilă în evidența din S5 — și arată cu `digest_id` către rândul care a plecat în locul
-lui. `sent` ar fi o minciună: rândul ăla n-a ajuns niciodată la furnizor, iar „a primit părintele
-anunțul?" s-ar fi răspuns cu un mesaj pe care nu l-a expediat nimeni. Legătura e recursivă fiindcă un
-rezumat **e** un mesaj obișnuit: se pune în coadă, se revendică și se trimite ca oricare altul.
-
-**Ce nu s-a construit:** rezumatul nu poartă atașamente. Miniatura din E14 e a mesajului unui copil,
-iar patru poze ale patru copii într-un plic sunt alt email decât cel compus — linkurile din fiecare
-fragment duc oricum la lucrare. Și, ca tot restul lui E17, **nimic nu pleacă efectiv până la
-[E01](E01-infrastructura-medii.md) S4**: motorul ține mesajele și le împachetează, dar dispecerul
-care le-ar preda n-are unde rula.
+**Pragul la care se redeschide:** când o familie primește de obicei mai mult de un mesaj pe zi, adică
+atunci când școala trimite destule feluri de mesaje ca să se ciocnească. Azi nu se ciocnesc.
 
 ### S7 · Anunțuri
 
@@ -629,22 +618,21 @@ arată.
 
 ## Decizii luate
 
-| Decizie                                 | Valoare                                                                                           |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Furnizor de email                       | **Resend**, deja în uz și cu domeniul de expediere verificat                                      |
-| Chei de expediere                       | **Două** chei și două adrese: una pentru formularul public, alta pentru mailul către părinți      |
-| Locul de trimitere către părinți        | `apps/api`, printr-un `MailService`. Ruta Nitro rămâne doar a formularului public                 |
-| Substrat pentru coadă și joburi         | **Postgres**, în procesul API. Fără Redis, fără BullMQ                                            |
-| Ceasul din backend                      | `@nestjs/schedule` **fixat la `^6.0.1`**: v12 exportă ESM și moare în ts-jest, v6 e CommonJS      |
-| Destinatarul unui mesaj despre un copil | **Părintele lui, exclusiv.** Un copil are un `Profile`, cu o adresă                               |
-| Adresa de email a părintelui            | **Obligatorie și confirmată la înregistrare.** Profilul creat de admin rămâne fără                |
-| Trimiterea documentelor către părinți   | **Adminul apasă butonul**, pe grupă, după ce se uită la ce pleacă. Nimic nu pleacă automat, seara |
-| Starea unui document                    | **nou / trimis / eroare**, vizibilă în lista grupei, nu doar în evidența de mesaje                |
-| Felul unui anunț                        | **Ales de om**, operațional sau promoțional. Doar al doilea consultă `marketingOptIn`             |
-| „Același anunț"                         | Audiență + subiect + corp + **ziua școlii**. A doua apăsare identică e refuzată de un index unic  |
-| Un copil numit într-un anunț            | **Avertisment cu confirmare**, nu blocaj: Maria e și sală, și stradă                              |
-| Frecvența implicită                     | **`daily`**, fiindcă acceptanța e despre un părinte, nu despre unul care caută o setare           |
-| Ce e „urgent"                           | **Ce nu cere să fie împachetat.** Absența unui câmp, nu o listă de excepții de întreținut         |
+| Decizie                                 | Valoare                                                                                                                           |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Furnizor de email                       | **Resend**, deja în uz și cu domeniul de expediere verificat                                                                      |
+| Chei de expediere                       | **Două** chei și două adrese: una pentru formularul public, alta pentru mailul către părinți                                      |
+| Locul de trimitere către părinți        | `apps/api`, printr-un `MailService`. Ruta Nitro rămâne doar a formularului public                                                 |
+| Substrat pentru coadă și joburi         | **Postgres**, în procesul API. Fără Redis, fără BullMQ                                                                            |
+| Ceasul din backend                      | `@nestjs/schedule` **fixat la `^6.0.1`**: v12 exportă ESM și moare în ts-jest, v6 e CommonJS                                      |
+| Destinatarul unui mesaj despre un copil | **Părintele lui, exclusiv.** Un copil are un `Profile`, cu o adresă                                                               |
+| Adresa de email a părintelui            | **Obligatorie și confirmată la înregistrare.** Profilul creat de admin rămâne fără                                                |
+| Trimiterea documentelor către părinți   | **Adminul apasă butonul**, pe grupă, după ce se uită la ce pleacă. Nimic nu pleacă automat, seara                                 |
+| Starea unui document                    | **nou / trimis / eroare**, vizibilă în lista grupei, nu doar în evidența de mesaje                                                |
+| Felul unui anunț                        | **Ales de om**, operațional sau promoțional. Doar al doilea consultă `marketingOptIn`                                             |
+| „Același anunț"                         | Audiență + subiect + corp + **ziua școlii**. A doua apăsare identică e refuzată de un index unic                                  |
+| Un copil numit într-un anunț            | **Avertisment cu confirmare**, nu blocaj: Maria e și sală, și stradă                                                              |
+| Rezumate zilnice (S6)                   | **Construite și scoase.** Un părinte nu se supără de trei emailuri; coada nu are voie să capete o stare „nici plecat, nici eșuat" |
 
 **Fără canal secundar în MVP.** Emailul e singurul canal. Propunerea echipei — o pagină de admin cu
 câte un link `wa.me` per copil, cu mesajul precompletat, trimis de pe telefonul omului — a fost

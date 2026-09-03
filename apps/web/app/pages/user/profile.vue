@@ -78,32 +78,6 @@
             @update:model-value="setMarketing"
           />
         </div>
-
-        <!--
-          E17/S6. Deliberately below the switch and visibly different in kind: that one decides
-          whether something arrives, this one only how many emails it arrives in.
-        -->
-        <div class="flex items-start justify-between gap-6 border-t border-muted pt-6 mt-6">
-          <div class="min-w-0">
-            <p class="font-medium">Cât de des îți scriem</p>
-            <p class="text-muted text-sm mt-1">
-              Dacă într-o zi se adună mai multe lucruri — proiectul copilului, o oră de recuperare,
-              o factură — ți le trimitem într-un singur email în loc de trei.
-            </p>
-            <p class="text-muted text-sm mt-2">
-              <strong>Nu întârzie nimic urgent.</strong> O oră anulată sau mutată îți ajunge
-              imediat, oricare ar fi setarea de aici. Și nu oprește nimic: primești aceleași
-              lucruri, doar în mai puține emailuri.
-            </p>
-          </div>
-          <USelect
-            :model-value="profile.messageFrequency"
-            :items="frequencyItems"
-            :loading="savingFrequency"
-            class="shrink-0 mt-1 w-48"
-            @update:model-value="setFrequency"
-          />
-        </div>
       </UCard>
 
       <!-- Children Information Card -->
@@ -211,7 +185,6 @@ import { useProfileStore } from "~/stores/profileStore";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
-import type { MessageFrequency } from "@itbridge/types";
 
 const profileApi = useProfileApi();
 const { success, error } = useNotifications();
@@ -256,40 +229,6 @@ const setMarketing = async (value: boolean) => {
   } finally {
     savingPreference.value = false;
   }
-};
-
-/**
- * How often the family wants their post — E17/S6.
- *
- * Saved on change, like the switch above, and for the same reason: there is nothing to confirm.
- * The wording of each option says what it costs, because "săptămânal" sounds like it might mean
- * missing something and does not.
- */
-const savingFrequency = ref(false);
-const frequencyItems: { value: MessageFrequency; label: string }[] = [
-  { value: "immediate", label: "Fiecare lucru separat" },
-  { value: "daily", label: "Un email pe zi" },
-  { value: "weekly", label: "Un email pe săptămână" },
-];
-
-const setFrequency = async (value: MessageFrequency) => {
-  if (!profile.value) return;
-  savingFrequency.value = true;
-  try {
-    await profileApi.updateProfile({ messageFrequency: value }, profile.value.id);
-    success(FREQUENCY_CONFIRMATIONS[value]);
-    await loadProfile();
-  } catch (err: unknown) {
-    error(apiErrorMessage(err, "Nu am putut salva preferința"));
-  } finally {
-    savingFrequency.value = false;
-  }
-};
-
-const FREQUENCY_CONFIRMATIONS: Record<MessageFrequency, string> = {
-  immediate: "Îți trimitem fiecare lucru pe măsură ce apare.",
-  daily: "Le strângem și îți trimitem un email pe zi.",
-  weekly: "Le strângem și îți trimitem un email pe săptămână, lunea.",
 };
 
 function formatDate(dateString: string): string {

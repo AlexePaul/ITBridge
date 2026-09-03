@@ -57,32 +57,11 @@ export function backoffFrom(now: Date, attempts: number): Date {
     return new Date(now.getTime() + delay);
 }
 
-/**
- * A sender's willingness to have its message combined with others — E17/S6.
- *
- * Passing this at all is the opt-in; there is no separate flag, so a message cannot be digestible
- * with nothing to contribute. Omit it and the message goes out on its own, at once, which is the
- * direction to fail in: a burst is a nuisance, a called-off class held until Monday is a family
- * standing outside a locked door.
- */
-export interface MessageDigest {
-    /** The paragraph this message contributes. No greeting, no signature — the digest supplies both. */
-    summary: string;
-    /**
-     * The last school day (`YYYY-MM-DD`) on which this is still worth sending, if it has one.
-     * Beats the family's cadence: a warning that arrives after the thing it warned about is not a
-     * differently-packaged warning, it is nothing.
-     */
-    notAfter?: string | null;
-}
-
 export interface QueuedMessage {
     to: string;
     subject: string;
     bodyText: string;
     bodyHtml?: string | null;
-    /** Present when the sender is content for this to arrive combined with others. See `MessageDigest`. */
-    digest?: MessageDigest | null;
     /**
      * Optional idempotency key. When two runs of the same job would produce the same message, give
      * them the same key and the database refuses the second — see `OutboxMessage.dedupeKey`.
@@ -217,10 +196,6 @@ export class OutboxService {
                 attachments: message.attachments?.length ? message.attachments : null,
                 status: OutboxStatus.UNDELIVERABLE,
                 undeliverableReason: reason,
-                // Kept even though nothing will ever digest a terminal row: the record is meant to
-                // show what the family did not get, and the fragment is part of what was written.
-                digestSummary: message.digest?.summary ?? null,
-                digestNotAfter: message.digest?.notAfter ?? null,
             })
             .orIgnore()
             .returning('*')
@@ -247,8 +222,6 @@ export class OutboxService {
                 bodyHtml: message.bodyHtml ?? null,
                 dedupeKey: message.dedupeKey ?? null,
                 attachments: message.attachments?.length ? message.attachments : null,
-                digestSummary: message.digest?.summary ?? null,
-                digestNotAfter: message.digest?.notAfter ?? null,
             })
             .orIgnore()
             .returning('*')
@@ -324,11 +297,6 @@ export class OutboxService {
                 // replaces every condition before it.
                 .andWhere('outbox.status = :status', { status: OutboxStatus.PENDING })
                 .andWhere('outbox.nextAttemptAt <= :now', { now })
-                // Held for a digest until `DigestService` says otherwise — E17/S6. A row with a
-                // fragment and no release simply is not in the queue yet; that is what "held"
-                // means, and it is why there is no `held` status to keep in step with these two
-                // columns.
-                .andWhere('(outbox.digestSummary IS NULL OR outbox.digestReleasedAt IS NOT NULL)')
                 .orderBy('outbox.nextAttemptAt', 'ASC')
                 .limit(batchSize)
                 .getMany();

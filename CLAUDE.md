@@ -572,29 +572,6 @@ revendică niciodată, fiindcă niciun backoff nu face să apară o adresă. Nu 
 nimeni, iar „părintele n-a fost anunțat" arăta ca o coadă blocată. Adresa rămâne goală pe rândul
 nelivrabil — una inventată n-ar putea fi deosebită de una reală care a respins mesajul.
 
-**Un mesaj se lasă împachetat doar dacă cere, iar cine nu cere pleacă imediat** (E17 S6). Coada ține
-un mesaj înapoi **numai** dacă expeditorul i-a dat `digest: { summary }` — deci ora anulată, linkul
-de confirmare, contul aprobat și locul eliberat de pe listă nu ating niciodată motorul de rezumate.
-„Urgent" e absența unui câmp, nu o listă de excepții pe care cineva o întreține și uită s-o
-completeze. Patru lucruri de ținut minte:
-
-- **Preferința nu poate opri nimic**, spre deosebire de `marketingOptIn`. `Profile.messageFrequency`
-  (`immediate` / `daily` / `weekly`) schimbă în câte plicuri ajunge ceva, nu dacă ajunge — de aia
-  implicitul e `daily`, nu `immediate`.
-- **A fi împachetabil înseamnă a avea fragment**: `outbox.digestSummary` e o singură coloană
-  nullable, nu un boolean plus un text, deci nu poate exista mesaj împachetabil fără nimic de pus în
-  pachet. Fragmentul se scrie de expeditor, fără salut și fără semnătură.
-- **Termenul bate cadența.** `digestNotAfter` (o zi, comparată pe ceasul școlii) e ultima zi în care
-  mesajul mai are rost. Fără el, `weekly` ar livra avertismentul de expirare la o săptămână după
-  expirare.
-- **Un mesaj împachetat trece în `digested`, nu în `sent`**, și arată cu `digest_id` către rândul
-  care a plecat în locul lui — rândul ăla n-a ajuns la furnizor, iar evidența din S5 n-are voie să
-  spună altceva. Legătura e recursivă: un rezumat e un mesaj obișnuit.
-
-Momentul se calculează **per mesaj** (`releaseStampFor`), din clipa în care a fost scris, nu dintr-un
-„ultimul rezumat trimis": ancorat la o oră comună, un mesaj scris la 19:00 ar găsi pragul zilei deja
-trecut și ar pleca pe loc, adică al doilea email într-o zi care își avusese deja emailul.
-
 **Anunțul e singurul mesaj care pleacă la mai multe familii, deci singurul cu reguli proprii**
 (E17 S7). `apps/api/src/modules/announcement/` trimite către o grupă, o locație sau toată școala, iar
 audiența se citește din `Child.group` — familiile cu un copil într-o grupă din perimetru, probele
@@ -663,8 +640,7 @@ tick. Fixarea se face în fișierul de ecosistem din E01 S4, care nu există în
 
 **Orizontul de opt săptămâni nu se rulează singur.** Ședințele se scriu doar la cerere, prin
 `POST /class-sessions/generate` (admin); nu există niciun job care să le scrie. Ce e programat în
-backend — dispecerul de outbox, trecerea de rezumate din E17 S6 și verificarea de la minutul 15
-(`@Interval`), mementoul de la 10:00,
+backend — dispecerul de outbox și verificarea de la minutul 15 (`@Interval`), mementoul de la 10:00,
 cele două notificări către părinte din E12 S4 și mementourile de restanță din E16 S7 (`@Cron`), plus
 purjarea sesiunilor, care stă în continuare pe
 un `setInterval` propriu în `apps/api/src/modules/auth/session.service.ts` — **nu generează orar**,

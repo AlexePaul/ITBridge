@@ -24,7 +24,6 @@ import type { OccupancyReport } from './modules/dashboard/occupancy-report.servi
 import type { AnnouncementDetail, AnnouncementPreview, AnnouncementResult, AnnouncementSummary } from './modules/announcement/announcement.service';
 import type { AnnouncementAudience } from './enum/announcement-audience.enum';
 import type { MessageKind } from './enum/message-kind.enum';
-import type { MessageFrequency } from './enum/message-frequency.enum';
 import type { WaitlistEntry } from './entities/waitlist-entry.entity';
 import type { NonTeachingPeriod } from './entities/non-teaching-period.entity';
 import type { Location } from './entities/location.entity';
@@ -198,10 +197,6 @@ type _AnnouncementAudience = Check<Wire.AnnouncementAudience, `${AnnouncementAud
 type _AnnouncementAudienceBack = Check<`${AnnouncementAudience}`, Wire.AnnouncementAudience>;
 type _AnnouncementKind = Check<Wire.AnnouncementKind, `${MessageKind}`>;
 type _AnnouncementKindBack = Check<`${MessageKind}`, Wire.AnnouncementKind>;
-
-// E17/S6. The family's cadence goes on the wire as a literal union, like every other enum here.
-type _MessageFrequency = Check<Wire.MessageFrequency, `${MessageFrequency}`>;
-type _MessageFrequencyBack = Check<`${MessageFrequency}`, Wire.MessageFrequency>;
 type _AnnouncementPreview = Check<Wire.AnnouncementPreview, AnnouncementPreview>;
 type _AnnouncementResult = Check<Wire.AnnouncementResult, AnnouncementResult>;
 type _AnnouncementSummary = Check<Wire.AnnouncementSummary, Serialized<AnnouncementSummary>>;

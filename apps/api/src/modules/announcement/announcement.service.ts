@@ -348,10 +348,6 @@ export class AnnouncementService {
                 [OutboxStatus.SENT]: counts?.get(OutboxStatus.SENT) ?? 0,
                 [OutboxStatus.FAILED]: counts?.get(OutboxStatus.FAILED) ?? 0,
                 [OutboxStatus.UNDELIVERABLE]: counts?.get(OutboxStatus.UNDELIVERABLE) ?? 0,
-                // Always zero in practice: an announcement is never queued as combinable (E17/S6),
-                // because the person who pressed send chose the moment. Present because the record
-                // covers every state — a missing one reads as "not measured".
-                [OutboxStatus.DIGESTED]: counts?.get(OutboxStatus.DIGESTED) ?? 0,
             },
         };
     }
