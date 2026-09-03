@@ -128,7 +128,10 @@ export class OutboxService {
      * rather than retrofitted around it — which is the moment it would be got wrong.
      */
     async queueMarketing(
-        recipient: { email: string | null | undefined; marketingOptIn: boolean },
+        // `confirmed` is passed straight through to `queueOrRecord` below, and belongs in the type
+        // for the same reason it belongs there: an unconfirmed address is one nobody has proved is
+        // theirs, and marketing is not the message to start writing to it with.
+        recipient: { email: string | null | undefined; marketingOptIn: boolean; confirmed?: boolean },
         message: Omit<QueuedMessage, 'to'>,
         manager?: EntityManager,
     ) {

@@ -52,6 +52,15 @@ const MESSAGES: Record<string, string> = {
   ROOM_HAS_GROUPS: "Sala găzduiește grupe. Mută întâi grupele în altă sală.",
   ROOM_INACTIVE: "Sala sau locația este inactivă, deci nu poate primi grupe noi.",
 
+  // E17/S7. All three are conflicts an admin can hit from the announcement screen, and the generic
+  // "există deja o înregistrare cu aceste date" is wrong about every one of them. The names-a-child
+  // one arrives with the names in its own message, so it is not listed here — the generic sentence
+  // would be a downgrade, the same reason `GROUP_FULL` is absent.
+  ANNOUNCEMENT_ALREADY_SENT:
+    "Același anunț a plecat deja astăzi către aceeași audiență. Schimbă textul dacă vrei totuși să îl retrimiți.",
+  ANNOUNCEMENT_NO_RECIPIENTS:
+    "Nu există nicio familie în audiența aleasă, deci anunțul nu are cui să plece.",
+
   // E12. Only reachable by opening an inactive group's attendance page directly - the listing
   // filters them out - but without an entry here the admin gets the English sentence from the API.
   GROUP_INACTIVE: "Grupa este inactivă. Reactiveaz-o înainte să îi generezi orarul.",

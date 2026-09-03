@@ -26,6 +26,7 @@ import { ProjectFile } from './project-file.entity';
 import { ProjectLink } from './project-link.entity';
 import { UnassignedFile } from './unassigned-file.entity';
 import { AgentStatus } from './agent-status.entity';
+import { Announcement } from './announcement.entity';
 
 @Module({
     imports: [
@@ -56,6 +57,7 @@ import { AgentStatus } from './agent-status.entity';
             ProjectLink,
             UnassignedFile,
             AgentStatus,
+            Announcement,
         ]),
     ],
     exports: [TypeOrmModule],

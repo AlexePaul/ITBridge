@@ -21,6 +21,9 @@ import type { Enrollment } from './entities/enrollment.entity';
 import type { InvoiceWorksheetRow } from './modules/invoice/invoice.service';
 import type { FinanceReport } from './modules/dashboard/finance-report.service';
 import type { OccupancyReport } from './modules/dashboard/occupancy-report.service';
+import type { AnnouncementDetail, AnnouncementPreview, AnnouncementResult, AnnouncementSummary } from './modules/announcement/announcement.service';
+import type { AnnouncementAudience } from './enum/announcement-audience.enum';
+import type { MessageKind } from './enum/message-kind.enum';
 import type { WaitlistEntry } from './entities/waitlist-entry.entity';
 import type { NonTeachingPeriod } from './entities/non-teaching-period.entity';
 import type { Location } from './entities/location.entity';
@@ -186,3 +189,20 @@ type _DeliveryRecord = Check<
 // other, or the page that reads it types against a figure that never arrives.
 type _FinanceReport = Check<Wire.FinanceReport, FinanceReport>;
 type _OccupancyReport = Check<Wire.OccupancyReport, OccupancyReport>;
+
+// E17/S7. The announcement surface is service-shaped, like the reports: what leaves the controller
+// is a summary assembled from an entity, a relation and a count over the queue, so checking the
+// entity would check the wrong thing. `Serialized` turns `createdAt` into the string it becomes.
+type _AnnouncementAudience = Check<Wire.AnnouncementAudience, `${AnnouncementAudience}`>;
+type _AnnouncementAudienceBack = Check<`${AnnouncementAudience}`, Wire.AnnouncementAudience>;
+type _AnnouncementKind = Check<Wire.AnnouncementKind, `${MessageKind}`>;
+type _AnnouncementKindBack = Check<`${MessageKind}`, Wire.AnnouncementKind>;
+type _AnnouncementPreview = Check<Wire.AnnouncementPreview, AnnouncementPreview>;
+type _AnnouncementResult = Check<Wire.AnnouncementResult, AnnouncementResult>;
+type _AnnouncementSummary = Check<Wire.AnnouncementSummary, Serialized<AnnouncementSummary>>;
+// The detail's messages are the loose half: the screen wants a handful of columns off each outbox
+// row, not the queue's own bookkeeping.
+type _AnnouncementDetail = Check<
+    Pick<Wire.AnnouncementDetail, 'id' | 'subject' | 'recipientCount' | 'declinedCount' | 'deliveries'>,
+    Pick<Serialized<AnnouncementDetail>, 'id' | 'subject' | 'recipientCount' | 'declinedCount' | 'deliveries'>
+>;

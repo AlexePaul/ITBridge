@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { OutboxStatus } from '../enum/outbox-status.enum';
 import { DeliveryFailureReason } from '../enum/delivery-failure-reason.enum';
+import { Announcement } from './announcement.entity';
 
 /**
  * One file to hang off a message, named by where it lives in the bucket.
@@ -131,6 +132,22 @@ export class OutboxMessage {
      */
     @Column({ type: 'jsonb', nullable: true })
     attachments: OutboxAttachment[] | null;
+
+    /**
+     * The broadcast this message belongs to, when it belongs to one — E17/S7.
+     *
+     * Null on everything else, which is almost everything: a message about a child, an invoice or a
+     * cancelled class has exactly one recipient and no batch to be part of. The column is what turns
+     * a broadcast's delivery report into a live count over the queue instead of a number frozen when
+     * send was pressed.
+     *
+     * Nothing in the queue reads it. `OutboxService` neither knows nor asks — the announcement
+     * service links its own rows after queueing them, inside the same transaction — so the shared
+     * queue keeps working the same way for every other sender.
+     */
+    @ManyToOne(() => Announcement, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'announcement_id' })
+    announcement: Announcement | null;
 
     @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;

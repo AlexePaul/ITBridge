@@ -9,6 +9,7 @@
  * Romanian bodies, per the standing exception: parents read these. Identifiers stay English.
  */
 
+import { htmlFrame, linkBlock, paragraph, SIGNATURE } from './mail-frame';
 import { TemplateFields } from './template-render';
 
 export interface TemplateDefinition extends TemplateFields {
@@ -22,27 +23,6 @@ export interface TemplateDefinition extends TemplateFields {
     /** What the preview renders with. Realistic, obviously fake. */
     sampleData: Record<string, string>;
 }
-
-const SIGNATURE = ['Cu drag,', 'Echipa IT Bridge School'].join('\n');
-
-/**
- * The one HTML frame every template shares: a centered column that survives phone mail clients.
- * Inline styles only — mail clients strip <style> blocks with enthusiasm.
- */
-function htmlFrame(contentHtml: string): string {
-    return [
-        '<div style="margin:0;padding:24px 12px;background-color:#f3f2f2;font-family:Georgia,serif;color:#201f1d;">',
-        '  <div style="max-width:560px;margin:0 auto;background-color:#ffffff;border:1px solid #e0dedb;border-radius:8px;padding:32px;">',
-        contentHtml,
-        '    <p style="margin:24px 0 0;font-size:15px;line-height:1.6;">Cu drag,<br />Echipa IT Bridge School</p>',
-        '  </div>',
-        '</div>',
-    ].join('\n');
-}
-
-const paragraph = (text: string) => `    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${text}</p>`;
-const linkBlock = (variable: string) =>
-    `    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;"><a href="{{${variable}}}" style="color:#7a4a2b;">{{${variable}}}</a></p>`;
 
 export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
     {

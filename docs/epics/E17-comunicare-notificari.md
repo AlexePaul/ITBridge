@@ -333,9 +333,10 @@ S5 le scoate la vedere. Ce **rămâne** nelivrabil e marketingul către o famili
 n-are adresă — ăla e un eșec.
 
 **Ce nu s-a construit:** frecvențele („imediat / rezumat zilnic / rezumat săptămânal") sunt de fapt
-S6, iar rezumatele nu există; și nu există **niciun expeditor de marketing**. Mecanismul e construit
-înaintea primului tocmai fiindcă momentul în care s-ar retrofita în jurul lui e momentul în care ar
-fi greșit. Textul din setări spune explicit ce **nu** oprește comutatorul — un părinte care citește
+S6, iar rezumatele nu există. Mecanismul a fost construit înaintea primului expeditor tocmai fiindcă
+momentul în care s-ar retrofita în jurul lui e momentul în care ar fi greșit — iar **primul a apărut
+la S7**: un anunț își declară felul, iar cel promoțional trece prin `queueMarketing`. Fără el, ecranul
+de anunțuri ar fi fost gaura din garanția de aici, nu prima ei confirmare. Textul din setări spune explicit ce **nu** oprește comutatorul — un părinte care citește
 „dezabonare" lângă numele școlii se teme, pe bună dreptate, că pierde factura și munca copilului.
 
 ### S5 · Evidența livrărilor
@@ -431,6 +432,76 @@ Un admin trimite un mesaj către o grupă, o locație sau toți părinții, cu p
 **Acceptanță:** un anunț către o locație ajunge la toți părinții activi de acolo, cu raport de
 livrare.
 
+**Livrat.** `/admin/anunturi`: un formular în stânga, previzualizarea în dreapta, istoricul dedesubt.
+Trei endpointuri de admin — `POST /announcements/preview`, `/announcements/test` și
+`/announcements` — plus `GET /announcements` și `/announcements/:id`.
+
+**Audiența e o consecință a orarului, nu o listă.** O familie e în ea dacă are un copil **într-o
+grupă** din perimetrul ales, probele incluse (D7 — copilul de la probă stă în aceeași sală în
+sâmbăta aia). Se citește din `Child.group`, coloana derivată al cărei unic scriitor e
+`EnrollmentService` — aceeași pe care o citesc și anunțurile de anulare din E12/S5, deci cele două
+răspund la fel. O familie al cărei copil nu e în nicio grupă nu e în nicio audiență, iar asta e
+înțelesul lui „părinții activi" din acceptanță: „sâmbătă e zi liberă" nu privește o familie căreia
+nu i s-a dat încă o oră. Deduplicarea e **per părinte**, ca peste tot: o familie cu trei copii în
+aceeași grupă e un om care citește o cutie poștală.
+
+**Regula de confidențialitate a devenit un test, nu o rugăminte.** Epicul o spune absolut — „un anunț
+care numește un copil e o scurgere, nu un anunț" — și numește previzualizarea drept locul unde se
+prinde. Deci se caută prenumele **fiecărui copil din școală** în subiect și în corp, fără diacritice
+și fără majuscule, pe cuvinte întregi. E un **avertisment**, cu aceeași formă ca verificarea de
+vârstă din E11/S6: prima cerere primește 409 `ANNOUNCEMENT_NAMES_A_CHILD` cu numele găsite, a doua
+trece cu `acknowledgeWarnings`. Un refuz ferm ar fi greșit, și e important de spus de ce: Maria e
+sală și stradă la fel de des cât e copil, iar o verificare care se declanșează mereu devine o bifă
+pe care omul învață s-o apese. Ce cumpără avertismentul e că nimeni nu trimite „îl felicităm pe
+Andrei" la două sute de familii fără să fi fost întrebat o dată. Prenumele sub trei litere nu se
+caută deloc, din același motiv.
+
+**Anunțul își declară felul, și ăsta e singurul loc din platformă unde marketingul are un
+expeditor.** `kind` e `transactional` (implicit) sau `marketing`; primul e școala care își execută
+contractul — zi liberă, sală schimbată — și ajunge la toți, al doilea trece prin `queueMarketing` și
+respectă `Profile.marketingOptIn`. Fără distincția asta, „către toți părinții" ar fi fost exact
+gaura din garanția pe care S4 a construit-o: un ecran prin care orice mesaj ajunge la orice familie,
+în timp ce comutatorul păzește un expeditor care nu există. Nu se poate deduce din text care e care,
+deci o alege cel care scrie. Refuzurile se **numără pe rândul anunțului** (`declinedCount`), fiindcă
+sunt singurul număr care nu se poate recalcula din coadă — un refuz nu lasă rând (S4), deci citit de
+acolo ar fi zero, ceea ce e altă propoziție decât „patru familii nu primesc buletinul".
+
+**A doua apăsare e refuzată de bază, nu de un `if`.** Un anunț n-are identitate naturală, așa cum are
+o ședință anulată, deci `Announcement.dedupeKey` e o definiție deliberată a lui „același anunț":
+audiență, subiect, corp și **ziua de la școală**, la un loc și hash-uite. Riscul din epic e că un
+email trimis din greșeală nu se retrage; corolarul practic e cel scris la S8 și valabil aici cuvânt
+cu cuvânt — un click nervos pe o conexiune lentă dublează toată grupa. O corectură trimisă cinci
+minute mai târziu are alt text, deci altă cheie, și trece: aia e alt mesaj, iar familiile au nevoie
+de el. Ziua e cea a școlii fiindcă o graniță care cade la trei dimineața e o graniță pe care nimeni
+n-o poate explica; `schoolLocalStamp` a ieșit din `absence-notice.rules.ts` în
+`src/common/school-clock.ts` cu ocazia asta, ca al treilea apelant să nu importe din attendance ca
+să afle ce zi e.
+
+**Ce se scrie e o decizie, nu doar niște mesaje.** Tabelul `announcements` ține audiența, formularea,
+cine a apăsat și cât de mare era audiența; mesajele rămân rânduri obișnuite de `outbox`, cu un
+`announcement_id` nullable care arată înapoi. Legătura aia e cea care face „raportul de livrare" din
+acceptanță un **număr viu** — se numără peste coadă cum e ea acum, nu unul înghețat la trimitere.
+`OutboxService` **nu s-a modificat și nu știe nimic despre anunțuri**: serviciul își leagă singur
+rândurile după ce le pune în coadă, în aceeași tranzacție, deci coada partajată se poartă identic
+pentru toți ceilalți expeditori. Tot ce ține de o trimitere — rândul de anunț, cele N mesaje și
+legătura — e o singură tranzacție: despicate, o cădere la mijloc lasă o evidență care spune că
+patruzeci de familii au fost scrise și o coadă cu nouă mesaje în ea, ceea ce e mai rău decât oricare
+dintre cele două eșecuri, fiindcă evidența e exact lucrul pe care s-ar duce cineva să-l verifice.
+
+**Trimiterea de test cerută la Riscuri există**, `POST /announcements/test`: pleacă la adresa
+adminului care a cerut-o, sau la biroul din `MAIL_OFFICE_ADDRESS` dacă n-are profil, iar răspunsul
+spune la care — un test a cărui destinație e o presupunere e un test pe care nu se duce nimeni să-l
+citească. Subiectul primește prefixul `[TEST]`, ca o copie ajunsă în cutia comună a biroului să nu
+poată fi citită drept anunțul adevărat. N-are cheie de deduplicare: testele se repetă după fiecare
+schimbare de formulare, aia e treaba lor.
+
+**Ce nu s-a construit, și de ce.** O audiență „o singură familie" — aia nu e o audiență, e o
+scrisoare, iar mesajele despre un copil pleacă prin expeditorul care numește părintele lui. O
+programare a anunțului pentru mai târziu: coada nu are noțiunea de „nu înainte de", și un anunț
+programat ar fi primul lucru din platformă care pleacă fără ca cineva să se uite la el în clipa aia.
+Și, ca peste tot în E17, **nimic nu pleacă efectiv până la [E01](E01-infrastructura-medii.md) S4** —
+dispecerul n-are unde rula, deci „s-a pus la trimitere" e tot ce poate spune butonul azi.
+
 ### S8 · Trimitere declanșată de admin
 
 Documentele copiilor nu pleacă singure. Adminul deschide grupa, vede documentele noi urcate de
@@ -519,6 +590,9 @@ arată.
 | Adresa de email a părintelui            | **Obligatorie și confirmată la înregistrare.** Profilul creat de admin rămâne fără                |
 | Trimiterea documentelor către părinți   | **Adminul apasă butonul**, pe grupă, după ce se uită la ce pleacă. Nimic nu pleacă automat, seara |
 | Starea unui document                    | **nou / trimis / eroare**, vizibilă în lista grupei, nu doar în evidența de mesaje                |
+| Felul unui anunț                        | **Ales de om**, operațional sau promoțional. Doar al doilea consultă `marketingOptIn`             |
+| „Același anunț"                         | Audiență + subiect + corp + **ziua școlii**. A doua apăsare identică e refuzată de un index unic  |
+| Un copil numit într-un anunț            | **Avertisment cu confirmare**, nu blocaj: Maria e și sală, și stradă                              |
 
 **Fără canal secundar în MVP.** Emailul e singurul canal. Propunerea echipei — o pagină de admin cu
 câte un link `wa.me` per copil, cu mesajul precompletat, trimis de pe telefonul omului — a fost

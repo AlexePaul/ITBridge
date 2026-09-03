@@ -172,6 +172,7 @@ const navigationItems = computed(() => {
     { label: "Restanțe", to: "/admin/restante", icon: "i-lucide-alert-circle" },
     { label: "Reduceri", to: "/admin/reduceri", icon: "i-lucide-percent" },
     { label: "Șabloane de email", to: "/admin/emailuri", icon: "i-lucide-mail" },
+    { label: "Anunțuri", to: "/admin/anunturi", icon: "i-lucide-megaphone" },
     { label: "Livrări", to: "/admin/livrari", icon: "i-lucide-send" },
   ];
 

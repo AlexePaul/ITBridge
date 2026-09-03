@@ -87,10 +87,10 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — șaptesprezece module în `apps/api/src/modules/`, treisprezece după același tipar
+**Backend** — optsprezece module în `apps/api/src/modules/`, paisprezece după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
-`room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`. Patru ies din
-tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
+`room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, `announcement`.
+Patru ies din tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
 și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
 decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
 (agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
@@ -572,6 +572,27 @@ revendică niciodată, fiindcă niciun backoff nu face să apară o adresă. Nu 
 nimeni, iar „părintele n-a fost anunțat" arăta ca o coadă blocată. Adresa rămâne goală pe rândul
 nelivrabil — una inventată n-ar putea fi deosebită de una reală care a respins mesajul.
 
+**Anunțul e singurul mesaj care pleacă la mai multe familii, deci singurul cu reguli proprii**
+(E17 S7). `apps/api/src/modules/announcement/` trimite către o grupă, o locație sau toată școala, iar
+audiența se citește din `Child.group` — familiile cu un copil într-o grupă din perimetru, probele
+incluse, deduplicate **per părinte**. Patru lucruri care se ratează ușor:
+
+- **Un anunț n-are voie să numească un copil.** Verificarea caută prenumele fiecărui copil din
+  școală în subiect și corp, fără diacritice și pe cuvinte întregi, iar rezultatul e **avertisment cu
+  confirmare** (`ANNOUNCEMENT_NAMES_A_CHILD` plus `acknowledgeWarnings`), aceeași formă ca vârsta de
+  la E11 S6. Blocajul ar fi greșit: Maria e și sală, și stradă, iar o verificare care se declanșează
+  mereu devine o bifă apăsată reflex.
+- **`kind` decide dacă se consultă `marketingOptIn`.** `transactional` (implicit) ajunge la toți,
+  `marketing` trece prin `queueMarketing`. Fără el, ecranul ăsta ar fi fost portița prin care orice
+  mesaj ajunge la orice familie, indiferent de comutatorul din E17 S4.
+- **A doua apăsare identică e refuzată de un index unic**, nu de un `if`: `Announcement.dedupeKey` e
+  audiență + subiect + corp + **ziua școlii** (`schoolDay` din `apps/api/src/common/school-clock.ts`),
+  hash-uite. O corectură cu alt text trece — e alt mesaj.
+- **`OutboxService` nu știe nimic despre anunțuri.** Serviciul își leagă singur rândurile prin
+  `outbox.announcement_id`, după ce le pune în coadă și în aceeași tranzacție, deci coada partajată
+  se poartă identic pentru ceilalți expeditori. `declinedCount` se stochează pe anunț fiindcă un
+  refuz de marketing nu lasă rând — numărat din coadă ar fi mereu zero.
+
 **Job-urile cu cron sunt oprite sub `NODE_ENV=test`, prin `disabled` pe decorator.** Jest setează
 variabila singur, iar ambele suite construiesc `AppModule`-ul real: o rulare care prinde exact
 secunda de declanșare ar scrie un rând în `outbox` în mijlocul aserțiunilor altcuiva, o dată pe an
@@ -604,9 +625,11 @@ aceeași întrebare, `ClassSessionService.findUnmarkedSessions` — „nemarcat"
 două lucruri în funcție de care email îl citești.
 
 **Orele se compară ca text, în ceasul școlii, niciodată ca instante.** `schoolLocalStamp(now)` și
-`sessionStartStamp(session)` din `apps/api/src/modules/attendance/absence-notice.rules.ts` dau
-amândouă `YYYY-MM-DDTHH:mm` pe `Europe/Bucharest`, iar comparația e pe string-uri (`<` pentru un
-anunț „înainte de oră", `<=` la deschiderea ferestrei de 15 minute). Ședința ține
+`schoolDay(now)` stau în `apps/api/src/common/school-clock.ts` — au ieșit din
+`absence-notice.rules.ts` când al treilea apelant a fost în afara prezenței, iar fișierul ăla le
+reexportă, deci importurile vechi merg mai departe. Împreună cu `sessionStartStamp(session)`, rămas
+lângă regula lui, dau `YYYY-MM-DDTHH:mm` pe `Europe/Bucharest`, iar comparația e pe string-uri
+(`<` pentru un anunț „înainte de oră", `<=` la deschiderea ferestrei de 15 minute). Ședința ține
 o dată locală și un `HH:mm:ss` local, deci orice comparație cu un instant UTC e capcana de o zi de
 mai jos, cu altă față. Când ai nevoie de „acum minus 15 minute", **mută instantul și apoi
 formatează** — nu scădea din text.
