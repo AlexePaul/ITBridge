@@ -470,6 +470,19 @@ h6 {
   text-underline-offset: 4px;
 }
 
+/* A phone number is one token, not a sentence: broken across two lines it reads as
+   "+40 732" and "273 347", two half-numbers nobody can dial. The rule is on the
+   href, not on a class, because the number is rendered in four different shapes —
+   footer link, prose link, ghost button, primary button — and a class-scoped fix
+   covers whichever three were on screen when it was written.
+   It survives `nowrap` safely because it is short: under half the column even on a
+   320px screen, so it cannot push a page into a horizontal scroll. The hours share
+   `.tnum` with it and are deliberately NOT covered — they are long enough to
+   overflow if forbidden to wrap, and breaking after "Luni–vineri:" reads fine. */
+a[href^="tel:"] {
+  white-space: nowrap;
+}
+
 .marker {
   color: var(--color-accent);
   flex-shrink: 0;
@@ -1348,17 +1361,6 @@ textarea.input {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   text-decoration: none;
   transition: color var(--dur-fast) var(--ease-out);
-}
-
-/* A phone number is one token, not a sentence: broken across two lines it reads as
-   "+40 732" and "273 347", two half-numbers nobody can dial. It survives `nowrap`
-   safely because it is short — under half the column even on a 320px screen — so
-   this cannot push the footer into a horizontal scroll.
-   The hours below share `.tnum` deliberately and are NOT covered: they are long
-   enough to overflow if forbidden to wrap, and breaking after "Luni–vineri:" reads
-   fine. Only the range itself must stay whole, which it does. */
-.footer-link[href^="tel:"] {
-  white-space: nowrap;
 }
 
 .footer-link:hover {
