@@ -1,6 +1,6 @@
 # E17 · Comunicare și notificări
 
-**Status:** în lucru · **Pistă:** Comunicare · **Depinde de:** E05, E06 · **Blochează:** E11, E12, E14, E16, E20
+**Status:** livrat cât se poate fără deploy · **Pistă:** Comunicare · **Depinde de:** E05, E06 · **Blochează:** E11, E12, E14, E16, E20
 
 **A început din altă parte.** Nimeni nu a pornit E17 ca epic. A pornit
 [E12](E12-prezenta-orar.md), iar jobul zilnic cerut de patron — un email către școală cu ședințele
@@ -563,9 +563,14 @@ Ce înseamnă mecanic:
   trimitere, nu că au ajuns.
 - **A doua apăsare nu retrimite.** Un document `trimis` e sărit, iar adminul vede de ce. Fără asta,
   un click nervos pe o conexiune lentă dublează tot grupul.
-- Regula din S6 se aplică și ea: desfacerea e **per părinte, nu per copil.** Un părinte cu copii în
-  două grupe, trimise amândouă în aceeași zi, primește un mesaj cu amândouă, nu două mesaje. Faptul
-  că declanșatorul e un om nu e o portiță prin care iese o rafală.
+- Desfacerea e **per părinte, nu per copil**, înăuntrul unei apăsări: un părinte cu doi copii în
+  aceeași grupă primește un mesaj cu amândoi. **Peste două apăsări nu se mai adună** — clauza
+  originală cerea ca două grupe trimise în aceeași zi să ajungă la un părinte comun într-un singur
+  mesaj, ceea ce presupunea motorul de rezumate din S6, iar acela a fost construit și scos prin
+  decizie (vezi S6). Deci două grupe trimise una după alta sunt două emailuri, și e în regulă: acolo
+  sunt lucrări diferite ale unor copii diferiți, iar patronul a spus explicit că un părinte nu se
+  supără de asta. Faptul că declanșatorul e un om nu e o portiță prin care iese o rafală **în
+  aceeași apăsare**.
 - **Dezabonarea nu se aplică aici**: documentul propriului copil e tranzacțional (S4), deci
   butonul nu are ce bifă să calce. Ce oprește totuși un mesaj e lipsa destinatarului — părinte fără
   adresă, sau cu adresă neconfirmată. Ăla apare ca nelivrat, cu motivul lui, în evidența din S5:
@@ -574,6 +579,38 @@ Ce înseamnă mecanic:
 **Acceptanță:** adminul bifează opt documente dintr-o grupă și apasă o dată; opt părinți primesc
 fiecare documentul copilului lui, și nimeni altceva. A doua apăsare nu trimite nimic. Un părinte
 fără adresă sau cu adresă neconfirmată apare în raportul trimiterii cu motivul lui.
+
+**Livrat.** Mecanica a venit odată cu [E14](E14-proiecte-elevi.md) S4 — selecția pe grupă,
+desfacerea per părinte, `status = sent` care sare un document la a doua apăsare, raportul care
+numește părintele fără adresă și motivul lui, plus `ProjectStatus` cu **nou / trimis / eroare**, adică
+proiecția stării din outbox înapoi pe document, cerută de S5.
+
+**Ce a rămas de făcut, și e reversul deciziei din story, nu un detaliu de interfață.** Un job de
+seară pleacă și într-o zi aglomerată; un buton nu. Riscul nu se închide cu disciplină, ci cu
+vizibilitate — iar vizibilitatea care exista era **numărul, fără vârstă**: cinci documente urcate în
+după-amiaza asta și un document de marți rămas vineri arătau identic. Deci:
+
+- **`ProjectService.pendingSummary`** răspunde la „cât așteaptă și de cât timp", pentru toată școala
+  și pe grupă, într-o singură interogare grupată. Serviciul deține întrebarea; `OverviewService`
+  număra rândurile singur, adică exact ce E21 spune că un raport nu are voie să facă — a doua
+  definiție a lui „în așteptare" e cea care divergează de ecranul grupei.
+- **Vârsta se numără în zile calendaristice, nu în ore scurse.** Un document urcat ieri la 18:00 și
+  citit azi la 09:00 are **o zi**, nu zero: cel care citește „de 3 zile" numără dimineți în care nu
+  s-a uitat, nu blocuri de 72 de ore.
+- **Cifra se vede din meniu**, cu insignă pe „Proiecte" în bara laterală, deci de pe orice ecran de
+  admin — nu doar dacă cineva se gândește să deschidă `/admin/proiecte`. Devine portocalie când cel
+  mai vechi document a trecut de `staleAfterDays`.
+- **Pragul pleacă pe sârmă**, ca pragul de ocupare din E21: două zile, ca **propunere** afișată ca
+  atare. Ecranul spune ce linie desenează, iar linia se mută dintr-un singur loc — o zi s-ar
+  declanșa pe un fișier de vineri citit luni, ceea ce nu e o scăpare, e un weekend.
+- Ecranul grupelor **nu mai numără în browser**: aduna în client toate proiectele `new` ca să afle
+  câte sunt, adică descărca toată restanța ca s-o măsoare, nu putea produce o vârstă, și era a doua
+  definiție a numărului pe care îl arată și meniul și tabloul de bord.
+
+**Ce nu s-a construit:** o alertă care pleacă singură când restanța îmbătrânește. Aia ar fi un al
+treilea memento către birou, deci aparține lui S7 din [E06](E06-observabilitate-operare.md) — canalul
+de alertare — nu ecranului. Iar un document rămas `nou` peste prag e o problemă operațională
+**vizibilă**, care era tot ce cerea story-ul.
 
 ## Dependențe
 
@@ -597,7 +634,8 @@ către admin înainte de orice difuzare în masă.
 seară pleca și într-o zi aglomerată, butonul nu. Riscul nu se închide cu disciplină, ci cu
 vizibilitate — lista grupei arată câte documente sunt `nou` și de câte zile, iar cifra se vede din
 meniul zonei de admin, nu doar dacă intri pe grupă. Un document rămas `nou` de trei zile e o
-problemă operațională, nu o stare.
+problemă operațională, nu o stare. **Construit la S8**, inclusiv vârsta, care e jumătatea care
+transformă un număr în semnal.
 
 **Adresele părinților sunt date personale.** Faptul că adresa devine obligatorie la înregistrare nu
 scutește de temei și scop — o cere mai apăsat, fiindcă un câmp obligatoriu nu mai lasă părintelui
@@ -633,6 +671,7 @@ arată.
 | „Același anunț"                         | Audiență + subiect + corp + **ziua școlii**. A doua apăsare identică e refuzată de un index unic                                  |
 | Un copil numit într-un anunț            | **Avertisment cu confirmare**, nu blocaj: Maria e și sală, și stradă                                                              |
 | Rezumate zilnice (S6)                   | **Construite și scoase.** Un părinte nu se supără de trei emailuri; coada nu are voie să capete o stare „nici plecat, nici eșuat" |
+| Restanța de documente                   | **Numărul plus vârsta**, vizibile din meniu. Un buton pe care nu apasă nimeni se închide cu vizibilitate, nu cu disciplină        |
 
 **Fără canal secundar în MVP.** Emailul e singurul canal. Propunerea echipei — o pagină de admin cu
 câte un link `wa.me` per copil, cu mesajul precompletat, trimis de pe telefonul omului — a fost

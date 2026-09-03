@@ -22,6 +22,7 @@ import type { InvoiceWorksheetRow } from './modules/invoice/invoice.service';
 import type { FinanceReport } from './modules/dashboard/finance-report.service';
 import type { OccupancyReport } from './modules/dashboard/occupancy-report.service';
 import type { AnnouncementDetail, AnnouncementPreview, AnnouncementResult, AnnouncementSummary } from './modules/announcement/announcement.service';
+import type { PendingSummary } from './modules/project/project.service';
 import type { AnnouncementAudience } from './enum/announcement-audience.enum';
 import type { MessageKind } from './enum/message-kind.enum';
 import type { WaitlistEntry } from './entities/waitlist-entry.entity';
@@ -189,6 +190,10 @@ type _DeliveryRecord = Check<
 // other, or the page that reads it types against a figure that never arrives.
 type _FinanceReport = Check<Wire.FinanceReport, FinanceReport>;
 type _OccupancyReport = Check<Wire.OccupancyReport, OccupancyReport>;
+
+// E17/S8. Service-shaped, like the reports: what leaves the controller is an aggregate, so the
+// check is on the interface the service returns rather than on the entity behind it.
+type _PendingProjectsSummary = Check<Wire.PendingProjectsSummary, PendingSummary>;
 
 // E17/S7. The announcement surface is service-shaped, like the reports: what leaves the controller
 // is a summary assembled from an entity, a relation and a count over the queue, so checking the

@@ -121,6 +121,36 @@ export const UNASSIGNED_FILE_REASON_LABELS: Record<UnassignedFileReason, string>
  * It exists as a row because the alternative is silence: a file nobody can place is information,
  * not a line to skip — the same discipline E17/S5 applies to a parent with no address.
  */
+/**
+ * What is waiting for somebody to press send, and for how long — E17/S8.
+ *
+ * The count alone is not a signal, which is why the age travels with it: five documents uploaded
+ * this afternoon are a normal afternoon, one uploaded on Tuesday and still here on Friday is the
+ * failure the story names — what depends on a button does not go out if nobody presses it.
+ */
+export interface PendingProjectsSummary {
+    /** Every document in `new`, including any whose child is in no group and so is on no group screen. */
+    total: number;
+    /** Whole days the oldest of them has waited. Null when nothing is waiting. */
+    oldestDays: number | null;
+    /**
+     * The line between "a queue" and "a lapse", in days.
+     *
+     * On the wire rather than hard-coded in the screen, so the interface says which line it is
+     * drawing — the same treatment E21 gives its occupancy threshold. A proposal, not a rule
+     * somebody signed.
+     */
+    staleAfterDays: number;
+    /** Oldest-first: the group at the top is the one to open. */
+    byGroup: PendingProjectsGroup[];
+}
+
+export interface PendingProjectsGroup {
+    groupId: number;
+    count: number;
+    oldestDays: number;
+}
+
 export interface UnassignedFile {
     id: number;
     group: Group | null;

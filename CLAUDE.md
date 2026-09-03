@@ -593,6 +593,20 @@ incluse, deduplicate **per părinte**. Patru lucruri care se ratează ușor:
   se poartă identic pentru ceilalți expeditori. `declinedCount` se stochează pe anunț fiindcă un
   refuz de marketing nu lasă rând — numărat din coadă ar fi mereu zero.
 
+**Restanța de documente se măsoară cu vârstă, nu doar cu număr** (E17 S8). `pendingSummary` din
+`apps/api/src/modules/project/project.service.ts` e proprietarul întrebării „cât așteaptă și de cât
+timp" — `OverviewService` o cere, nu o recalculează, iar ecranul grupelor nu mai numără în browser.
+Trei lucruri:
+
+- **Vârsta e în zile calendaristice**, prin `daysWaiting` din `project/pending.rules.ts`: un
+  document urcat ieri la 18:00 și citit azi la 09:00 are **o zi**, nu zero. Cine citește „de 3 zile"
+  numără dimineți în care nu s-a uitat, nu blocuri de 72 de ore.
+- **`staleAfterDays` pleacă pe sârmă**, ca pragul de ocupare din E21: e o propunere, iar ecranul
+  spune ce linie desenează în loc s-o hardcodeze.
+- **Cifra stă în meniu**, prin `pendingProjectsStore` încărcat din layout-ul `dashboard`, fiindcă
+  riscul pe care îl acoperă e că nimeni nu apasă butonul — iar un număr la care trebuie să navighezi
+  nu acoperă asta. `null` la `oldestDays` înseamnă „nimic nu așteaptă"; zero înseamnă „a venit azi".
+
 **Job-urile cu cron sunt oprite sub `NODE_ENV=test`, prin `disabled` pe decorator.** Jest setează
 variabila singur, iar ambele suite construiesc `AppModule`-ul real: o rulare care prinde exact
 secunda de declanșare ar scrie un rând în `outbox` în mijlocul aserțiunilor altcuiva, o dată pe an

@@ -49,6 +49,15 @@ export interface Overview {
     groupsNearlyFull: OverviewGroup[];
     /** Uploaded, reviewed by nobody, sent to nobody. */
     projectsAwaitingSend: number;
+    /**
+     * Whole days the oldest of them has waited; null when none are — E17/S8.
+     *
+     * Beside the count rather than instead of it: the number says how much work there is, the age
+     * says whether anybody is doing it. Five uploaded this afternoon is a normal afternoon; one from
+     * Tuesday still here on Friday is the risk E17/S8 names, and a count alone cannot tell them
+     * apart.
+     */
+    projectsAwaitingSendOldestDays: number | null;
     /** Families who registered and are waiting to be let in. */
     pendingApprovals: number;
     /** Messages that had nowhere to go — a family not reached, who does not know it. */

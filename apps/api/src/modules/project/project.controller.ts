@@ -198,6 +198,24 @@ export class ProjectController {
      * proves somebody saved a file, not that a child sat in a chair — but the reverse direction is
      * useful: a nudge on the group screen while the class is still in the room.
      */
+    /**
+     * What is waiting for somebody to press send, and for how long — E17/S8.
+     *
+     * Declared with the other literal routes, before `:id/…`: Nest matches in declaration order and
+     * `:id` carries a `ParseIntPipe`, which answers 400 to the word "pending".
+     */
+    @Get('pending')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiOperation({
+        summary: 'Câte documente așteaptă să fie trimise, și de câte zile',
+        description: 'Numărul singur nu spune nimic: cinci urcate azi sunt o zi normală, unul de marți rămas vineri e o scăpare.',
+    })
+    async pending() {
+        return this.projectService.pendingSummary();
+    }
+
     @Get('group/:groupId/missing')
     @ApiBearerAuth()
     @UseGuards(AuthGuard, RolesGuard)
