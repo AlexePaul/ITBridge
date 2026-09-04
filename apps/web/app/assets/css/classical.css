@@ -111,6 +111,13 @@
   --ui-bg-muted: var(--color-surface);
   --ui-border: var(--color-divider);
   --ui-text: var(--color-text);
+  /* …and the accent from this one, which used to be left at the ramp's own 500.
+     That is `--color-accent` by another name — tuned to 3:1 for chrome, not for
+     text — so every outline and ghost button behind the login read at 2.61:1,
+     the same figure S6 fixed on the public side and the same cause: a text-
+     weight accent that never went one step down. The ink is theme-aware, so
+     both themes are covered by pointing at it rather than at a ramp step. */
+  --ui-primary: var(--color-accent-ink);
 }
 
 /* The system ships light-only; this is the same palette read against a deep
@@ -125,6 +132,7 @@
   --color-control-border: color-mix(in srgb, var(--color-text) 36%, transparent);
   --color-accent-ink: var(--color-accent-300);
   --color-accent-ink-hover: var(--color-accent-200);
+  --ui-primary: var(--color-accent-ink);
 
   --shadow-sm: 0 1px 2px color-mix(in srgb, #000 40%, transparent);
   --shadow-md: 0 3px 10px color-mix(in srgb, #000 45%, transparent);

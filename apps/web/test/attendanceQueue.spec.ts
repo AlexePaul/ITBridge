@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   readPendingMarks,
+  retryDelayMs,
   upsertPending,
   writePendingMarks,
   type PendingMark,
@@ -85,5 +86,26 @@ describe("the storage round trip", () => {
     });
     expect(readPendingMarks()).toEqual([]);
     expect(() => writePendingMarks([mark(1, true)])).not.toThrow();
+  });
+});
+
+describe("retryDelayMs", () => {
+  it("starts at five seconds, so the first retry is inside the same breath as the tap", () => {
+    expect(retryDelayMs(0)).toBe(5000);
+  });
+
+  it("doubles while the network keeps refusing", () => {
+    expect(retryDelayMs(1)).toBe(10000);
+    expect(retryDelayMs(2)).toBe(20000);
+    expect(retryDelayMs(3)).toBe(40000);
+  });
+
+  it("caps at a minute — a lesson is ninety of them, and an uncapped curve stops trying inside it", () => {
+    expect(retryDelayMs(4)).toBe(60000);
+    expect(retryDelayMs(40)).toBe(60000);
+  });
+
+  it("treats a negative count as the first attempt rather than returning a fraction of a second", () => {
+    expect(retryDelayMs(-3)).toBe(5000);
   });
 });

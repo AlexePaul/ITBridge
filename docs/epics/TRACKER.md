@@ -3,8 +3,8 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 4 septembrie 2026, pe `develop`, cu E20 S1–S4 în plus față de E17 S8,
-jumătatea din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
+**Ultima actualizare:** 4 septembrie 2026, pe `develop`, cu E18 S7 și E20 S1–S4 în plus față de
+E17 S8, jumătatea din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 
 ## Legendă
 
@@ -234,7 +234,7 @@ nu rulează nicăieri".
 - [!] S4 · Portalul părintelui — **cerut explicit de școală: rescriere, nu retuș.** Blocat de deploy: paginile de după autentificare nu se pot nici testa, nici arăta
 - [~] S5 · Uniformizarea zonei de admin — **jumătatea de componente livrată**: `AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`, pe un catalog al celor 7 dialecte de tabel și 5 de formular; `/admin/calendar` migrat ca dovadă. Migrarea celor 32 de ecrane (S5b) rămâne blocată de deploy
 - [~] S6 · Accesibilitate — **verificarea automată rulează în CI**: axe-core într-un Chromium adevărat, pe fiecare pagină din sitemap, în ambele teme, pe WCAG 2.0 și 2.1 A+AA. Rămâne zona autentificată, care se verifică odată cu S4 și S5
-- [ ] S7 · Interfața profesorului — fără rol separat, e o vedere din zona de admin, nu o zonă a ei
+- [x] S7 · Interfața profesorului — fără rol separat, e o vedere din zona de admin, nu o zonă a ei. Măsurat la 390px: **meniul era acoperit de filtrul de locație** (10px din 44 apăsabili), accentul lui Nuxt UI rămăsese la 2,61:1 de partea autentificată, iconițele veneau de la Iconify la rulare, iar coada aștepta un `online` care nu vine pe conexiunea din sală
 
 ### E19 · SEO, GEO și conținut — `în lucru`
 

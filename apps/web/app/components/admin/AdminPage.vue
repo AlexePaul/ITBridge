@@ -7,7 +7,8 @@
       </div>
       <div class="flex items-center gap-3">
         <slot name="actions" />
-        <UButton v-if="backTo" :to="backTo" variant="outline">Înapoi</UButton>
+        <!-- 44px, because these screens are opened on a phone too (E18/S7). -->
+        <UButton v-if="backTo" :to="backTo" variant="outline" class="min-h-11">Înapoi</UButton>
       </div>
     </div>
     <slot />

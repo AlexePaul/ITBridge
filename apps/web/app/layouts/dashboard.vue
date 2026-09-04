@@ -8,16 +8,25 @@
     </UDashboardSidebar>
     <UDashboardPanel>
       <template #header>
-        <UDashboardNavbar :title="pageTitle" class="border-b">
+        <!-- On a phone this button is the only route to every other screen, so it gets a thumb's
+             worth of surface (44px) rather than the 32px default. -->
+        <UDashboardNavbar :title="pageTitle" class="border-b" :ui="{ toggle: 'size-11' }">
+          <!-- E18/S7. `min-w-0` is the whole fix, and it is not cosmetic: without it this group
+               keeps its content's intrinsic width, and on a 390px phone it grew back over the
+               menu button in the leading slot — leaving a 10px strip of it tappable, so a tap on
+               the hamburger opened the location filter instead. The menu is the only way to
+               anywhere on a phone. The username goes with it under `sm`: on a phone it is the
+               least useful thing in the bar and the most expensive. -->
           <template #right>
-            <div class="flex items-center gap-3">
-              <LocationSwitcher v-if="isAdmin" />
-              <span v-if="user">{{ user.username }}</span>
+            <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+              <LocationSwitcher v-if="isAdmin" class="min-w-0 shrink" />
+              <span v-if="user" class="hidden truncate sm:inline">{{ user.username }}</span>
               <UButton
-                label="Logout"
+                label="Ieșire"
                 size="md"
                 color="primary"
                 variant="outline"
+                class="min-h-11 shrink-0"
                 @click="handleLogout"
               />
             </div>
