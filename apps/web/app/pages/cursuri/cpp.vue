@@ -22,19 +22,21 @@
       <h2 class="kicker">Ce probleme rezolvă</h2>
       <div class="cols-2">
         <div>
-          <h3 class="block-title">Clasa 7–8: instrucțiuni și primii algoritmi</h3>
+          <h3 class="block-title">Clasa 7–8: de la instrucțiuni repetitive la primele olimpiade</h3>
           <p class="body-text">
-            Cifrele unui număr, divizorii lui, numerele prime până la n, cel mai mare divizor comun,
-            un șir citit de la tastatură și prelucrat pe loc. Probleme scurte, cu enunț de olimpiadă
-            de gimnaziu, rezolvate până la capăt în ședință: citit, gândit, scris, testat.
+            Primele programe fac lucruri mici și verificabile: prelucrează cifrele unui număr, decid
+            dacă e prim, parcurg un șir citit de la tastatură. De acolo, pas cu pas, până la
+            probleme cu enunț de olimpiadă de gimnaziu, rezolvate până la capăt în ședință: citit,
+            gândit, scris, testat.
           </p>
         </div>
         <div>
-          <h3 class="block-title">Clasa 9–12: vectori, matrice și structuri de date</h3>
+          <h3 class="block-title">Clasa 9–12: de la vectori la grafuri</h3>
           <p class="body-text">
-            Sortări, căutare binară, șiruri de caractere, subprograme, recursivitate, tablouri
-            bidimensionale, apoi stive, cozi și liste, cu complexitatea fiecărui algoritm.
-            Problemele sunt de tipul celor de la Bacalaureat și de la concursuri.
+            Programa de liceu, și ce cer concursurile pe deasupra: tablouri și șiruri de caractere,
+            recursivitate, sortări și căutări, structuri de date, algoritmi pe grafuri,
+            complexitate. Problemele sunt de tipul celor de la Bacalaureat și de la concursuri, și
+            fiecare se termină cu un program care merge.
           </p>
         </div>
       </div>
@@ -148,7 +150,10 @@ const faq = [
       "olimpiada de informatică: un elev care le știe nu mai are de tradus nimic la examen.",
   },
   {
-    question: "Copilul n-a programat niciodată. Poate începe direct cu C++?",
+    // U+2060 between the plus signs: a line may legally break there, and in a
+    // heading it did — "C+" on one line, "+?" on the next. withFaq strips it
+    // before the graph, so the indexed question stays plain "C++".
+    question: "Copilul n-a programat niciodată. Poate începe direct cu C\u2060+\u2060+?",
     answer:
       "Da. Nivelul de clasa 7–8 pornește de la prima instrucțiune. Scratch înainte ajută, dar " +
       "nu e o condiție.",

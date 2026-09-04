@@ -115,8 +115,8 @@ const faq = [
   {
     question: "Se pot imprima 3D?",
     answer:
-      "Modelele se exportă din Tinkercad în formatul imprimantelor 3D. La curs, lucrarea e " +
-      "modelul de pe ecran; un model exportat se poate imprima oriunde există o imprimantă.",
+      "Da, dar nu la noi: la curs lucrăm pe ecran. Modelul se exportă din Tinkercad în " +
+      "formatul imprimantelor 3D, deci se poate imprima oriunde există una.",
   },
   {
     question: "Ce legătură are cu programarea?",
