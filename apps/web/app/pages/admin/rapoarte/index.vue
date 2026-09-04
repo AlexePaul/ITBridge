@@ -437,9 +437,16 @@ const loadFunnel = async () => {
   }
 };
 
-watch(tab, (value) => {
-  if (value === "palnie" && !funnel.value) void loadFunnel();
-});
+// `immediate`, like the occupancy tab above: without it a deep link to `?tab=palnie` — or a refresh
+// while standing on it — renders the panel with nothing in it and nothing loading, because the
+// watcher only ever fires on a *change* of tab.
+watch(
+  tab,
+  (value) => {
+    if (value === "palnie" && !funnel.value) void loadFunnel();
+  },
+  { immediate: true }
+);
 
 // ---- Bani -----------------------------------------------------------------------------------
 
