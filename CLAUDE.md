@@ -88,9 +88,10 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — optsprezece module în `apps/api/src/modules/`, paisprezece după același tipar
+**Backend** — nouăsprezece module în `apps/api/src/modules/`, cincisprezece după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
-`room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, `announcement`.
+`room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, `announcement`,
+`lead`.
 Patru ies din tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
 și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
 decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
@@ -290,9 +291,13 @@ composable-urile din `apps/web/app/composables/api/`.
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
-**Partea publică nu atinge backend-ul.** Cele șapte pagini publice, formularul de contact,
-`robots.txt`, `sitemap.xml`, `llms.txt` și datele structurate funcționează fără `API_BASE` — de
-aceea site-ul stă în producție pe Vercel deși backend-ul nu e deployat. Faptele despre școală stau
+**Partea publică nu atinge backend-ul, cu o singură excepție declarată.** Cele șapte pagini publice
+vechi, formularul de contact, `robots.txt`, `sitemap.xml`, `llms.txt` și datele structurate
+funcționează fără `API_BASE` — de aceea site-ul stă în producție pe Vercel deși backend-ul nu e
+deployat. Excepția e `/proba`, formularul de programare la lecția de probă (E20/S2): el chiar are
+nevoie de API, fiindcă scrie un rând. E scris să pice moale — orele se cer doar din client, iar fără
+răspuns formularul tot se trimite și cititorul primește numărul de telefon — dar **nu se aduce pe
+`main`** până nu rulează un backend. Faptele despre școală stau
 în `apps/web/shared/`, nu în pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts`
 (nivelurile și prețurile), `teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini),
 `structured-data.ts` (constructorii de JSON-LD). Aceleași constante alimentează pagina, graful
@@ -468,10 +473,11 @@ rulare și ar emite un `DROP DEFAULT` urmat de un `SET DEFAULT` identic. O gard�
 PR nu mai e citită. Consecința: un proiect creat printr-un query builder n-ar primi identificator —
 nimic nu face asta, iar `ON CONFLICT DO NOTHING` e necesar pe `project_files`, nu pe `projects`.
 
-**Ordinea rutelor contează în `ProjectController`, și nicăieri altundeva în repo.**
-`link/:publicId`, `child/:childId/archive`, `group/:groupId/missing` și `send` sunt declarate
-înaintea lui `:id/…`, fiindcă Nest potrivește în ordinea declarării și `:id` are `ParseIntPipe`, care
-răspunde 400 la un UUID.
+**Ordinea rutelor contează în două controllere.** În `ProjectController`, `link/:publicId`,
+`child/:childId/archive`, `group/:groupId/missing` și `send` sunt declarate înaintea lui `:id/…`,
+fiindcă Nest potrivește în ordinea declarării și `:id` are `ParseIntPipe`, care răspunde 400 la un
+UUID. În `LeadController` (E20/S3) e aceeași capcană cu alt chip: `follow-up` și `undecided` stau
+înaintea lui `:id`, altfel `ParseIntPipe` răspunde 400 la un cuvânt.
 
 **Singurul lucru servit `inline` de pe domeniul școlii e miniatura.** Fișierele urcate se servesc
 prin URL semnat cu `Content-Disposition: attachment`, fiindcă vin de pe o partajare pe care poate
@@ -593,6 +599,45 @@ incluse, deduplicate **per părinte**. Patru lucruri care se ratează ușor:
   `outbox.announcement_id`, după ce le pune în coadă și în aceeași tranzacție, deci coada partajată
   se poartă identic pentru ceilalți expeditori. `declinedCount` se stochează pe anunț fiindcă un
   refuz de marketing nu lasă rând — numărat din coadă ar fi mereu zero.
+
+**Pâlnia începe în afara contului, și se termină la un om** (E20). `apps/api/src/modules/lead/` ține
+tot ce e între „cineva a întrebat" și „s-a înscris". Două lucruri o fac diferită de restul codului:
+
+- **`GET /trial/slots` și `POST /trial/bookings` sunt singurele rute publice în afară de
+  autentificare și health**, și sunt trecute pe nume în lista albă din `authorization.spec.ts`. Sunt
+  publice prin decizie: o programare la probă e un lead, nu o obligație, iar dacă ar cere cont,
+  bariera pe care epicul o coboară ar fi exact bariera pusă la loc.
+- **Nu se creează niciun cont, dar locul e real.** Programarea scrie `Profile` (coajă, fără cont și
+  **fără email și telefon** — coloanele alea sunt unice, iar un formular public n-are voie să scrie
+  în rândul altei familii), `Child` și o înscriere `TRIAL`, toate într-o tranzacție, iar înscrierea
+  trece prin `EnrollmentService.enrol` ca oricare alta. De aici două schimbări în E11: `enrol`
+  acceptă acum un `EntityManager`, ca să intre în tranzacția apelantului, și **blochează rândul
+  grupei** (`FOR UPDATE`) cât ține verificarea de capacitate — numărarea urmată de inserare o pot
+  face două tranzacții deodată, iar doi părinți pe formular la 20:00 nu e un caz rar ca doi admini.
+
+Patru reguli pe care le încalci ușor:
+
+- **Patru din cele șase stări nu se scriu de la niciun ecran.** `trial_scheduled` vine din
+  programare, `trial_held` din catalog (`LeadProgressService`, chemat din `AttendanceService` lângă
+  `settleMakeUp`), iar `enrolled` / `lost` din `resolveTrial` în E11. `UpdateLeadDto` **nu are câmp
+  `status`**, iar cele două stări pe care le declară un om au endpoint-uri proprii. Un câmp de stare
+  pe un PATCH ar lăsa un ecran să scrie `înscris` pe o familie pe care n-a înscris-o nimeni — și aia
+  e cifra pe care se sprijină tot raportul de pâlnie.
+- **Formularul nu se termină niciodată într-o eroare.** Fără loc liber, cu ultimul loc luat între
+  timp, sau fără nicio oră potrivită — toate trei scriu un lead marcat `noSeats` și răspund „te
+  contactăm noi". Cel mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca
+  școala să știe că a trecut pe acolo. Numărul ăla e și singura măsură a cererii pe care școala nu o
+  poate servi: cine nu găsește oră nu intră în nicio rată de conversie.
+- **`lastActivityAt` e o coloană proprie, nu `updatedAt`.** Job-ul de memento nu scrie în ea, deci un
+  lead nu poate deveni „proaspăt" fiindcă a fost amintit.
+- **Un catalog nemarcat nu e o absență.** Recontactarea după neprezentare cere ca ședința să fi fost
+  marcată de cineva; altfel i-am spune unei familii că a lipsit de la o oră la care poate a fost.
+
+**Pagina `/proba` e singura pagină publică ce atinge backend-ul**, ceea ce contrazice regula de mai
+sus doar în aparență: orele se încarcă exclusiv în client, iar când nu se pot încărca, formularul tot
+se trimite și cititorul primește numărul de telefon. Consecința pentru cele două branch-uri: **nu se
+aduce pe `main`** până nu rulează un backend (E01 S4) — acolo ar fi o pagină de conversie care nu
+poate afișa nicio oră.
 
 **Restanța de documente se măsoară cu vârstă, nu doar cu număr** (E17 S8). `pendingSummary` din
 `apps/api/src/modules/project/project.service.ts` e proprietarul întrebării „cât așteaptă și de cât

@@ -42,6 +42,16 @@ const MESSAGES: Record<string, string> = {
   INVALID_VALUE: "Un câmp are o valoare de tipul greșit.",
   SERVICE_UNAVAILABLE: "Serviciul este momentan indisponibil. Încearcă din nou.",
 
+  // E20 — acquisition. The first three can reach a parent on the public booking page, so they are
+  // written for one: no jargon, and each says what to do next.
+  CONTACT_REQUIRED: "Lasă un email sau un telefon, ca să te putem contacta.",
+  TRIAL_SESSION_UNAVAILABLE: "Ora aleasă nu mai este disponibilă. Alege alta din listă.",
+  TRIAL_AGE_MISMATCH: "Grupa aleasă este pentru altă vârstă. Alege una dintre cele propuse.",
+  LEAD_NOT_NEW: "Cererea a trecut deja de acest pas; stările următoare vin din ce s-a întâmplat.",
+  LEAD_ALREADY_ENROLLED:
+    "Familia este deja înscrisă. Dacă a renunțat, se închide înscrierea, nu cererea.",
+  ASSIGNMENT_AMBIGUOUS: "Alege: fie îi dai un responsabil, fie i-l iei.",
+
   // E08. "Există deja o înregistrare cu aceste date" is true of all of these and useful for none:
   // an admin who has just double-booked a room needs to know that is what happened.
   GROUP_SLOT_TAKEN: "Sala este deja ocupată în acest interval de altă grupă.",

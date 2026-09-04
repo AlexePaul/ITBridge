@@ -9,6 +9,7 @@ import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { markAttendanceDto } from './dto/markAttendance.dto';
 import { AbsenceNoticeService } from './absence-notice.service';
 import { MakeUpCreditService } from './make-up-credit.service';
+import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
 
 @Injectable()
 export class AttendanceService {
@@ -18,6 +19,7 @@ export class AttendanceService {
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
         private readonly absenceNoticeService: AbsenceNoticeService,
         private readonly makeUpCredits: MakeUpCreditService,
+        private readonly leadProgress: LeadProgressService,
     ) {}
 
     /**
@@ -108,6 +110,7 @@ export class AttendanceService {
         // consequence of what the marks say, and it must not be able to fail a register.
         for (const record of saved) {
             await this.settleMakeUp(record.child.id, classSessionId, record, record.present);
+            await this.settleLead(record.child.id, classSessionId, record.present);
         }
         return saved;
     }
@@ -216,6 +219,7 @@ export class AttendanceService {
             existing.present = present;
             const saved = await this.attendanceRepository.save(existing);
             await this.settleMakeUp(childId, classSessionId, saved, present);
+            await this.settleLead(childId, classSessionId, present);
             return saved;
         }
 
@@ -228,6 +232,7 @@ export class AttendanceService {
         record.type = classSession.group.children.some((groupChild) => groupChild.id === childId) ? AttendanceType.REGULAR : AttendanceType.MAKE_UP;
         const saved = await this.attendanceRepository.save(record);
         await this.settleMakeUp(childId, classSessionId, saved, present);
+        await this.settleLead(childId, classSessionId, present);
         return saved;
     }
 
@@ -240,6 +245,23 @@ export class AttendanceService {
      * A child marked absent at their booked class spends nothing — they did not come, and the
      * credit lives out the rest of its window.
      */
+    /**
+     * What a mark does to a lead — E20/S3.
+     *
+     * Sits beside `settleMakeUp` and is called from the same two places for the same reason: the
+     * register is the fact, and everything that follows from it has to follow from *both* write
+     * paths or the two would disagree. A child marked present at the class their trial was booked
+     * into moves their lead to „probă ținută"; a correction back to absent moves it back, exactly as
+     * a mistapped make-up credit is revoked.
+     */
+    private async settleLead(childId: number, classSessionId: number, present: boolean): Promise<void> {
+        if (present) {
+            await this.leadProgress.markTrialHeld(childId, classSessionId);
+            return;
+        }
+        await this.leadProgress.revertTrialHeld(childId, classSessionId);
+    }
+
     private async settleMakeUp(childId: number, classSessionId: number, attendance: Attendance, present: boolean): Promise<void> {
         if (present) {
             await this.makeUpCredits.revokeFor(childId, classSessionId);

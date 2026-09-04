@@ -48,8 +48,8 @@ const SERVER_ENTRY = ".output/server/index.mjs";
  *
  * CI installs Chromium through Playwright's own installer and needs nothing here. Some environments
  * — this project's cloud sandboxes among them — ship a Chromium at a fixed path whose build number
- * does not match the pinned Playwright, and downloading a second copy of a browser to check seven
- * static pages is a poor trade. Unset, Playwright resolves its own, which is the ordinary path.
+ * does not match the pinned Playwright, and downloading a second copy of a browser to check a
+ * handful of static pages is a poor trade. Unset, Playwright resolves its own, which is the ordinary path.
  */
 const EXECUTABLE = process.env.A11Y_CHROMIUM_PATH;
 

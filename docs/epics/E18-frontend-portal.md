@@ -272,7 +272,7 @@ mod în care verificarea ar fi putut fi verde degeaba:
   rezultatul e același de două ori.
 
 **Verificarea a fost verificată.** Cu `--color-accent-ink` întors la accentul brut — exact culoarea
-pe care story-ul a schimbat-o — verificarea cade pe toate cele șapte pagini publice, în tema
+pe care story-ul a schimbat-o — verificarea cade pe fiecare pagină publică, în tema
 deschisă, cu 2,61:1 și numele elementului. Cu el la loc, trece.
 
 **Ce rămâne:** zona autentificată, neverificată deloc. Acceptanța cere și portalul, iar portalul se

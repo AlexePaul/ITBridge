@@ -630,11 +630,15 @@ textarea.input {
   color: var(--color-accent-ink);
 }
 
-/* What the field is for, under the label rather than in a tooltip. */
+/* What the field is for, under the label rather than in a tooltip.
+   68%, not 60%: at 60% this reads 4.23:1 on the light ground, and 12px is normal text under WCAG,
+   which wants 4.5. It went unnoticed for as long as the class was only used behind authentication —
+   the CI check from S6 reads the public pages, and the first public form to use a hint (the trial
+   booking of E20/S2) is what turned it red. 68% is 5.37:1 light, 7.44:1 dark. */
 .field-hint {
   font-size: 12px;
   margin: 5px 0 0;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  color: color-mix(in srgb, var(--color-text) 68%, transparent);
 }
 
 /* Two fields on one line above 520px, stacked below it — the registration form has three such

@@ -3,8 +3,8 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 4 septembrie 2026, pe `develop`, cu E17 S8 și jumătatea din CI a lui E18 S6
-în plus față de E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
+**Ultima actualizare:** 4 septembrie 2026, pe `develop`, cu E20 S1–S4 în plus față de E17 S8,
+jumătatea din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 
 ## Legendă
 
@@ -15,8 +15,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **146 de story-uri** în 22 de epicuri: 67 livrate, 16 parțiale, 8 blocate, 5 scoase din scop,
-50 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **146 de story-uri** în 22 de epicuri: 70 livrate, 17 parțiale, 8 blocate, 5 scoase din scop,
+46 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -250,12 +250,12 @@ nu rulează nicăieri".
 > Lucrul cel mai valoros rămas aici nu e cod. Pentru căutările locale, cele două profiluri Google
 > Business contează mai mult decât orice a rămas de scris în repo.
 
-### E20 · Achiziție, lecții de probă și lead management — `propus`
+### E20 · Achiziție, lecții de probă și lead management — `în lucru`
 
-- [ ] S1 · Modelul de lead
-- [ ] S2 · Programare la lecție de probă
-- [ ] S3 · Urmărire
-- [ ] S4 · Măsurarea pâlniei
+- [x] S1 · Modelul de lead — `Lead` cu sursă, canal declarat, responsabil și dată de urmărire. **Patru din cele șase stări nu se scriu de la niciun ecran**: vin din programare, din catalog și din rezolvarea probei în E11, iar `UpdateLeadDto` n-are câmp `status`
+- [~] S2 · Programare la lecție de probă — `/proba` plus `GET /trial/slots` și `POST /trial/bookings`, **singurele rute publice în afară de autentificare**. Fără cont, dar cu loc real: scrie profil-coajă, copil și înscriere `TRIAL` prin `EnrollmentService`, într-o tranzacție. Grupa plină nu se oferă, iar locul luat între timp nu dă eroare, ci un lead. **Rămâne** doar aducerea paginii pe `main`, care cere backend deployat (E01 S4)
+- [x] S3 · Urmărire — `/admin/leads` în ordinea a cât costă pierderea unei familii, plus mesajul zilnic de la 09:00, mementoul cu o zi înainte de probă și recontactarea după neprezentare. „Probă ținută" o pune catalogul, nu o bifă; nicio cerere nu iese fără motiv scris
+- [x] S4 · Măsurarea pâlniei — fila „Pâlnia" din `/admin/rapoarte`. Cohortă după data cererii, trecere nu ocupare, mediana până la decizie lângă conversia probă→înscriere, și cererile fără loc numărate separat, fiindcă nu intră în nicio rată
 - [x] S5 · Recomandări — **redus prin decizie și livrat astfel**: 50% de fiecare parte, date de mână din `/admin/reduceri`. Fără cod, fără link, fără atribuire automată — deci nici măsurare a canalului
 
 > Formularul de contact rămâne pe email, prin decizie: nu scrie lead, nu atinge backend-ul.
@@ -280,12 +280,12 @@ nu rulează nicăieri".
 
 Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
-| Cine           | Ce                                | Ce ține în loc                                                                                           |
-| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
-| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                  |
-| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                            |
-| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                   |
+| Cine           | Ce                                | Ce ține în loc                                                                                                                                |
+| -------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17, iar acum și pagina publică din E20 S2. Opt story-uri din cinci epicuri |
+| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                       |
+| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                 |
+| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                        |
 
 ## Ce urmează
 

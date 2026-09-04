@@ -10,6 +10,7 @@ import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
 import { Role } from 'src/enum/role.enum';
 import { OutboxService } from 'src/modules/mail/outbox.service';
+import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
 import {
     createMockEntityManager,
     createMockRepository,
@@ -26,6 +27,8 @@ describe('EnrollmentService', () => {
     let childRepo: MockRepository;
     let groupRepo: MockRepository;
     let outbox: Record<string, jest.Mock>;
+    /** E20/S1: resolving a trial tells its lead. Asserted for real in the lead suites and the e2e. */
+    let leadProgress: Record<string, jest.Mock>;
     let manager: MockEntityManager;
 
     /** A family whose account passes both E11/S2 gates. */
@@ -54,6 +57,7 @@ describe('EnrollmentService', () => {
         childRepo = createMockRepository();
         groupRepo = createMockRepository();
         outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }) };
+        leadProgress = { settleForEnrollment: jest.fn().mockResolvedValue(undefined), markTrialHeld: jest.fn(), revertTrialHeld: jest.fn() };
 
         childRepo.findOne!.mockResolvedValue(child);
         groupRepo.findOne!.mockResolvedValue(group());
@@ -80,6 +84,9 @@ describe('EnrollmentService', () => {
                 provideMockRepository(Child, childRepo),
                 provideMockRepository(Group, groupRepo),
                 { provide: OutboxService, useValue: outbox },
+                // E20/S1: resolving a trial tells its lead what happened. Mocked here because this
+                // suite is about seats; the real behaviour is asserted in the lead suites and e2e.
+                { provide: LeadProgressService, useValue: leadProgress },
                 provideMockDataSource(manager),
             ],
         }).compile();

@@ -9,6 +9,7 @@ import { Child } from 'src/entities/child.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { AttendanceType } from 'src/enum/attendance-type.enum';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
+import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
 
 describe('AttendanceService', () => {
     let service: AttendanceService;
@@ -37,6 +38,13 @@ describe('AttendanceService', () => {
 
     /** The school calendar of announced absences; empty unless a test says otherwise. */
     const forSessionMock = jest.fn();
+    /** E20/S3: the register is what moves a trial lead. Asserted for real in the lead suites. */
+    const leadProgress = {
+        markTrialHeld: jest.fn().mockResolvedValue(undefined),
+        revertTrialHeld: jest.fn().mockResolvedValue(undefined),
+        settleForEnrollment: jest.fn().mockResolvedValue(undefined),
+    };
+
     const makeUpCredits = {
         earnFor: jest.fn().mockResolvedValue(null),
         revokeFor: jest.fn().mockResolvedValue(undefined),
@@ -48,6 +56,8 @@ describe('AttendanceService', () => {
         makeUpCredits.earnFor.mockClear();
         makeUpCredits.revokeFor.mockClear();
         makeUpCredits.consumeFor.mockClear();
+        leadProgress.markTrialHeld.mockClear();
+        leadProgress.revertTrialHeld.mockClear();
         attendanceRepo = createMockRepository();
         attendanceRepo.findByIds = jest.fn();
         classSessionRepo = createMockRepository();
@@ -64,6 +74,8 @@ describe('AttendanceService', () => {
                 // E12/S4 hangs off marking; every test but its own runs with a double that does
                 // nothing, so a register test never becomes a credit test by accident.
                 { provide: MakeUpCreditService, useValue: makeUpCredits },
+                // E20/S3 hangs off the same mark, for the same reason and with the same double.
+                { provide: LeadProgressService, useValue: leadProgress },
             ],
         }).compile();
 

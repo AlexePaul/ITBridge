@@ -1,7 +1,7 @@
 <template>
   <AdminPage
     title="Rapoarte"
-    subtitle="Banii, lună de lună, și locurile din fiecare grupă. Nimic de aici nu e o definiție nouă: restanțele vin de la ecranul de restanțe, locurile de la înscrieri."
+    subtitle="Banii lună de lună, locurile din fiecare grupă, și drumul de la o cerere la o înscriere. Nimic de aici nu e o definiție nouă: restanțele vin de la ecranul de restanțe, locurile de la înscrieri, pâlnia de la cereri."
     width="xl"
   >
     <UTabs v-model="tab" :items="tabs" :content="false" color="neutral" class="w-full sm:w-auto" />
@@ -110,7 +110,7 @@
     </section>
 
     <!-- ============================== LOCURI ============================== -->
-    <section v-else class="space-y-6">
+    <section v-else-if="tab === 'locuri'" class="space-y-6">
       <AdminLoading v-if="occupancyLoading" />
       <AdminError v-else-if="occupancyError" :message="occupancyError" />
 
@@ -237,6 +237,111 @@
         </p>
       </template>
     </section>
+
+    <!-- ============================== PÂLNIA ============================== -->
+    <section v-else-if="tab === 'palnie'" class="space-y-6">
+      <form class="flex flex-wrap items-end gap-3" @submit.prevent="loadFunnel">
+        <UFormField label="De la">
+          <UInput v-model="funnelFrom" type="date" />
+        </UFormField>
+        <UFormField label="Până la">
+          <UInput v-model="funnelTo" type="date" />
+        </UFormField>
+        <UButton type="submit" :loading="funnelLoading">Arată</UButton>
+      </form>
+
+      <AdminLoading v-if="funnelLoading" />
+      <AdminError v-else-if="funnelError" :message="funnelError" @retry="loadFunnel" />
+
+      <template v-else-if="funnel">
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <UCard v-for="stage in funnelStages" :key="stage.label" class="border">
+            <p class="text-sm text-muted">{{ stage.label }}</p>
+            <p class="text-2xl font-semibold tabular-nums">{{ stage.value }}</p>
+            <p v-if="stage.rate !== undefined" class="text-xs text-muted tabular-nums">
+              {{ stage.rate }}% din pasul dinainte
+            </p>
+          </UCard>
+        </div>
+
+        <UCard class="border">
+          <template #header>
+            <h2 class="text-xl font-semibold">Proba ținută → înscriere</h2>
+            <p class="text-sm text-muted">
+              Cifra care contează cel mai mult, și singura care măsoară două lucruri deodată: dacă
+              familiei i-a plăcut ora, și dacă a apucat cineva să o înscrie. De aceea mediana de
+              alături merge cu ea — dacă rata scade în timp ce mediana crește, de vină e lista de
+              urmărire, nu ora de curs.
+            </p>
+          </template>
+          <div class="flex flex-wrap gap-8">
+            <div>
+              <p class="text-sm text-muted">Conversie</p>
+              <p class="text-3xl font-semibold tabular-nums">
+                {{ funnel.rates.attendanceToEnrolment }}%
+              </p>
+            </div>
+            <div>
+              <p class="text-sm text-muted">Mediana până la decizie</p>
+              <p class="text-3xl font-semibold tabular-nums">
+                {{
+                  funnel.medianDaysToDecision === null ? "—" : `${funnel.medianDaysToDecision} z.`
+                }}
+              </p>
+            </div>
+            <div>
+              <p class="text-sm text-muted">Cereri fără loc liber</p>
+              <p class="text-3xl font-semibold tabular-nums">{{ funnel.stages.noSeats }}</p>
+            </div>
+          </div>
+        </UCard>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <UCard class="border">
+            <template #header>
+              <h3 class="font-semibold">De unde spun că au auzit de noi</h3>
+              <p class="text-sm text-muted">
+                Declarat de familie, nu dedus: E20/S5 a decis să nu existe coduri de recomandare,
+                deci „recomandare" e cuvântul unui părinte, nu o atribuire.
+              </p>
+            </template>
+            <p v-if="funnel.byChannel.length === 0" class="text-sm text-muted">Nimic încă.</p>
+            <ul v-else class="space-y-1 text-sm">
+              <li v-for="row in funnel.byChannel" :key="row.key" class="flex justify-between gap-4">
+                <span>{{ channelLabel(row.key) }}</span>
+                <span class="tabular-nums text-muted">
+                  {{ row.requests }} cereri · {{ row.enrolled }} înscrieri
+                </span>
+              </li>
+            </ul>
+          </UCard>
+
+          <UCard class="border">
+            <template #header>
+              <h3 class="font-semibold">Cine a plecat fără oră</h3>
+              <p class="text-sm text-muted">
+                Pe locație și pe vârstă. E singura măsură a cererii pe care școala nu a putut-o
+                servi — un părinte care nu găsește nicio oră liberă nu apare în nicio rată de
+                conversie, fiindcă n-a intrat niciodată în pâlnie.
+              </p>
+            </template>
+            <p v-if="funnel.unmetByBand.length === 0" class="text-sm text-muted">
+              Nimeni. Toate cererile au găsit un loc.
+            </p>
+            <ul v-else class="space-y-1 text-sm">
+              <li
+                v-for="row in funnel.unmetByBand"
+                :key="`${row.locationId}-${row.ageBand}`"
+                class="flex justify-between gap-4"
+              >
+                <span>{{ row.locationName }} · {{ row.ageBand }}</span>
+                <span class="tabular-nums text-muted">{{ row.count }}</span>
+              </li>
+            </ul>
+          </UCard>
+        </div>
+      </template>
+    </section>
   </AdminPage>
 </template>
 
@@ -244,6 +349,9 @@
 import type { TabsItem } from "@nuxt/ui";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useReportsApi } from "~/composables/api/useReportsApi";
+import { useLeadsApi } from "~/composables/api/useLeadsApi";
+import { LEAD_CHANNEL_LABELS } from "~/types/lead.types";
+import type { LeadChannel, LeadFunnel } from "~/types/lead.types";
 import { formatDateKey, formatLei, formatMonth, formatPercent } from "~/composables/useAdminFormat";
 import { defaultReportRange, isValidRange } from "~/composables/useReportRange";
 import { todayKey } from "~/composables/useAttendanceCalendar";
@@ -280,9 +388,58 @@ const router = useRouter();
 const tabs: TabsItem[] = [
   { label: "Bani", icon: "i-lucide-wallet", value: "bani" },
   { label: "Locuri", icon: "i-lucide-armchair", value: "locuri" },
+  { label: "Pâlnia", icon: "i-lucide-filter", value: "palnie" },
 ];
-const tab = ref<string>(route.query.tab === "locuri" ? "locuri" : "bani");
+const TABS = new Set(tabs.map((entry) => entry.value as string));
+const tab = ref<string>(TABS.has(String(route.query.tab)) ? String(route.query.tab) : "bani");
 watch(tab, (value) => router.replace({ query: { ...route.query, tab: value } }));
+
+// ---- Pâlnia (E20/S4) ------------------------------------------------------------------------
+
+const { fetchFunnel } = useLeadsApi();
+const funnelFrom = ref("");
+const funnelTo = ref("");
+const funnelLoading = ref(false);
+const funnelError = ref("");
+const funnel = ref<LeadFunnel | null>(null);
+
+const funnelStages = computed(() => {
+  if (!funnel.value) return [];
+  const { stages, rates } = funnel.value;
+  return [
+    { label: "Cereri", value: stages.requests },
+    { label: "Probe programate", value: stages.trialsScheduled, rate: rates.requestToTrial },
+    { label: "Probe ținute", value: stages.trialsHeld, rate: rates.trialToAttendance },
+    { label: "Înscrieri", value: stages.enrolled, rate: rates.attendanceToEnrolment },
+    { label: "Pierdute", value: stages.lost },
+  ];
+});
+
+const channelLabel = (key: string) =>
+  key === "unspecified" ? "N-au spus" : (LEAD_CHANNEL_LABELS[key as LeadChannel] ?? key);
+
+const loadFunnel = async () => {
+  funnelLoading.value = true;
+  funnelError.value = "";
+  try {
+    funnel.value = await fetchFunnel({
+      from: funnelFrom.value || undefined,
+      to: funnelTo.value || undefined,
+    });
+    // The server decides the default window, so the fields show what was actually asked rather than
+    // staying empty next to numbers that came from somewhere.
+    funnelFrom.value ||= funnel.value.range.from;
+    funnelTo.value ||= funnel.value.range.to;
+  } catch (caught) {
+    funnelError.value = apiErrorMessage(caught);
+  } finally {
+    funnelLoading.value = false;
+  }
+};
+
+watch(tab, (value) => {
+  if (value === "palnie" && !funnel.value) void loadFunnel();
+});
 
 // ---- Bani -----------------------------------------------------------------------------------
 

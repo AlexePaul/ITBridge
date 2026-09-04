@@ -1,5 +1,6 @@
 import { escapeHtml } from 'src/modules/mail/template-render';
 import { htmlFrame, paragraph, SIGNATURE } from 'src/modules/mail/mail-frame';
+import { foldDiacritics } from 'src/common/fold-diacritics';
 
 /**
  * What an announcement looks like when it reaches a parent — E17/S7.
@@ -50,15 +51,10 @@ export function composeAnnouncement(firstName: string, subject: string, body: st
  * Diacritics off, case off. „Ștefan" and „stefan" are the same name to anybody reading the email,
  * and the check below is about what a reader would recognise, not about byte equality.
  *
- * The combining marks Romanian uses — breve, circumflex, comma below — all decompose into
- * U+0300–U+036F, so one range covers ă, â, î, ș and ț.
+ * The fold itself moved to `src/common/fold-diacritics.ts` when E20/S2 needed the same answer about
+ * the same thing — whether two spellings are one child.
  */
-function fold(value: string): string {
-    return value
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase();
-}
+const fold = foldDiacritics;
 
 /**
  * Names shorter than this are not looked for at all.

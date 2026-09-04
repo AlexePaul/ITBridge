@@ -24,6 +24,11 @@ import type { OccupancyReport } from './modules/dashboard/occupancy-report.servi
 import type { AnnouncementDetail, AnnouncementPreview, AnnouncementResult, AnnouncementSummary } from './modules/announcement/announcement.service';
 import type { PendingSummary } from './modules/project/project.service';
 import type { AnnouncementAudience } from './enum/announcement-audience.enum';
+import type { LeadChannel, LeadSource } from './enum/lead-source.enum';
+import type { LeadStatus } from './enum/lead-status.enum';
+import type { LeadFunnel } from './modules/lead/lead-funnel.service';
+import type { LeadFollowUp, LeadSummary } from './modules/lead/lead.service';
+import type { TrialSlot } from './modules/lead/trial-booking.service';
 import type { MessageKind } from './enum/message-kind.enum';
 import type { WaitlistEntry } from './entities/waitlist-entry.entity';
 import type { NonTeachingPeriod } from './entities/non-teaching-period.entity';
@@ -211,3 +216,27 @@ type _AnnouncementDetail = Check<
     Pick<Wire.AnnouncementDetail, 'id' | 'subject' | 'recipientCount' | 'declinedCount' | 'deliveries'>,
     Pick<Serialized<AnnouncementDetail>, 'id' | 'subject' | 'recipientCount' | 'declinedCount' | 'deliveries'>
 >;
+
+// E20/S1 to S4. Three enums and two service-shaped payloads.
+//
+// The enums are compared through `` `${Enum}` `` in both directions, like every other pair here: a
+// TypeScript enum is nominal, so no sense of `extends` holds between it and a union of the very
+// literals it produces. The template literal reduces it to exactly the strings that go on the wire.
+type _LeadStatus = Check<Wire.LeadStatus, `${LeadStatus}`>;
+type _LeadStatusBack = Check<`${LeadStatus}`, Wire.LeadStatus>;
+type _LeadSource = Check<Wire.LeadSource, `${LeadSource}`>;
+type _LeadSourceBack = Check<`${LeadSource}`, Wire.LeadSource>;
+type _LeadChannel = Check<Wire.LeadChannel, `${LeadChannel}`>;
+type _LeadChannelBack = Check<`${LeadChannel}`, Wire.LeadChannel>;
+
+// The funnel and the slot list are assembled by their services rather than being entities, so the
+// service's own return type is the honest thing to check.
+type _LeadFunnel = Check<Wire.LeadFunnel, LeadFunnel>;
+type _LeadFunnelBack = Check<LeadFunnel, Wire.LeadFunnel>;
+type _TrialSlot = Check<Wire.TrialSlot, TrialSlot>;
+type _TrialSlotBack = Check<TrialSlot, Wire.TrialSlot>;
+
+// `Serialized` again: the four `Date` columns on a lead leave the controller as strings, and the
+// contract describes the wire.
+type _LeadSummary = Check<Wire.LeadSummary, Serialized<LeadSummary>>;
+type _LeadFollowUp = Check<Wire.LeadFollowUp, Serialized<LeadFollowUp>>;
