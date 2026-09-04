@@ -184,6 +184,21 @@ const SUBJECT_PAGES: PageSeo[] = [
       "C++ la 13–19 ani: ce probleme rezolvă elevii la fiecare nivel, de ce C++ și nu Python, BAC.",
     priority: 0.8,
   },
+  {
+    path: "/cursuri/bac-informatica",
+    // "Meditații" is the word a parent types for this, and it appeared nowhere
+    // on the site; the two neighbourhoods are in the H1, not here — the title
+    // has room for the city, and one page serves both searches.
+    title: "Meditații BAC informatică în București | IT Bridge School",
+    description:
+      "Meditații pentru Bacalaureatul la informatică, în grupe mici, la Drumul Taberei și " +
+      `Străulești: variante de examen, C++, timp și strategie, corecturi la fiecare ședință. ` +
+      `${PRICE_ONE_CHILD} lei pe lună.`,
+    summary:
+      "Meditații pentru BAC la informatică: cum arată o ședință, cine predă, la ce nivel, la " +
+      "ambele locații.",
+    priority: 0.8,
+  },
 ];
 
 export const PUBLIC_PAGES: PageSeo[] = [

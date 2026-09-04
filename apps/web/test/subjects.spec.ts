@@ -52,6 +52,12 @@ describe("SUBJECTS", () => {
     expect(subjectAges(findSubject("canva")!)).toBe("6–9 ani");
   });
 
+  it("derives the Bacalaureat page from the two levels whose programme names the exam", () => {
+    const bac = findSubject("bac-informatica")!;
+    expect(subjectLevels(bac).map((level) => level.num)).toEqual(["05", "06"]);
+    expect(subjectAges(bac)).toBe("15–19 ani");
+  });
+
   it("names the levels as a sentence would", () => {
     expect(subjectLevelsLine(findSubject("scratch")!)).toBe("clasa 3–4 și clasa 5–6");
     expect(subjectLevelsLine(findSubject("canva")!)).toBe("clasa 0–2");

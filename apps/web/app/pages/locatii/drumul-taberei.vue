@@ -209,6 +209,14 @@ const faq = [
       "Nu. Primele două niveluri, clasa 0–2 și clasa 3–4, pornesc de la zero, iar la prima " +
       "discuție facem o evaluare scurtă tocmai ca să nimerim grupa potrivită.",
   },
+  {
+    question: "Faceți meditații pentru Bacalaureatul la informatică în Drumul Taberei?",
+    answer:
+      `Da, în grupe mici, la sala de pe ${location.street}: probleme tip din variantele de ` +
+      "examen, scrise în C++, corecturi la fiecare ședință, cu un profesor care a luat el " +
+      "însuși Bacalaureatul cu 10 la informatică. Nivelul e pentru clasa 9–12 și pentru " +
+      "ultimul an.",
+  },
 ];
 
 const seo = pageSeo("/locatii/drumul-taberei");

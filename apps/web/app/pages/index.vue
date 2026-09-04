@@ -15,8 +15,9 @@
         IT Bridge School este o școală de informatică pentru copii, cu două locații în București:
         <NuxtLink to="/locatii/drumul-taberei" class="link">Drumul Taberei</NuxtLink> și
         <NuxtLink to="/locatii/straulesti" class="link">Străulești</NuxtLink>. De la primii pași pe
-        calculator până la C++, olimpiade și pregătirea pentru Bacalaureat, în grupe mici, cu
-        proiecte practice la fiecare ședință.
+        calculator până la C++, olimpiade și
+        <NuxtLink to="/cursuri/bac-informatica" class="link">pregătirea pentru Bacalaureat</NuxtLink
+        >, în grupe mici, cu proiecte practice la fiecare ședință.
       </p>
       <div class="actions">
         <NuxtLink to="/cursuri" class="btn btn-primary">Vezi cursurile</NuxtLink>

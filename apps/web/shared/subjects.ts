@@ -23,7 +23,7 @@ export interface SubjectProject {
 
 export interface Subject {
   slug: string;
-  /** How the tool is called in running text and in a link: "Scratch". */
+  /** How the subject is called in running text and in a link: "Scratch", "Bacalaureat". */
   name: string;
   /**
    * The `teaches` entries in COURSE_LEVELS this subject stands for. The levels
@@ -47,6 +47,15 @@ export const SUBJECTS: Subject[] = [
   },
   { slug: "scratch", name: "Scratch", teaches: ["Scratch"], projects: [] },
   { slug: "cpp", name: "C++", teaches: ["C++", "C"], projects: [] },
+  // Not a tool, but the same relation: two levels name the exam in `teaches`,
+  // and a parent searching "meditații bac informatică" needs one page that
+  // says where, who and how — not a fragment on /cursuri.
+  {
+    slug: "bac-informatica",
+    name: "Bacalaureat",
+    teaches: ["Bacalaureat informatică"],
+    projects: [],
+  },
 ];
 
 export const findSubject = (slug: string) => SUBJECTS.find((subject) => subject.slug === slug);

@@ -80,8 +80,10 @@
           <p class="body-text">
             Algoritmi, Scratch și primele pagini web la clasele 5–6, apoi
             <NuxtLink to="/cursuri/cpp" class="link">C++</NuxtLink>, HTML, CSS și JavaScript la 7–8,
-            iar la liceu structuri de date, probleme de concurs, SQL și pregătire pentru
-            Bacalaureat.
+            iar la liceu structuri de date, probleme de concurs, SQL și
+            <NuxtLink to="/cursuri/bac-informatica" class="link"
+              >meditații pentru Bacalaureat</NuxtLink
+            >.
           </p>
         </div>
       </div>
@@ -215,6 +217,14 @@ const faq = [
     answer:
       "Da: aceleași șase niveluri, aceeași programă și același preț. Diferă doar sala și orarul " +
       "grupelor, care depinde de câți copii sunt înscriși pe fiecare nivel la fiecare locație.",
+  },
+  {
+    question: "Faceți meditații pentru Bacalaureatul la informatică în Străulești?",
+    answer:
+      `Da, în grupe mici, la sala de pe ${location.street}: probleme tip din variantele de ` +
+      "examen, scrise în C++, corecturi la fiecare ședință, cu un profesor care a luat el " +
+      "însuși Bacalaureatul cu 10 la informatică. Nivelul e pentru clasa 9–12 și pentru " +
+      "ultimul an.",
   },
 ];
 

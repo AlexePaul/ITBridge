@@ -291,7 +291,7 @@ State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier
 
 **Partea publică nu atinge backend-ul.** Paginile publice — toate declarate în `PUBLIC_PAGES` din
 `seo.ts`: acasă, cursuri, câte o pagină pentru fiecare unealtă (Canva, Tinkercad, Office, Scratch,
-C++), despre noi, contact și locațiile —, formularul de contact, `robots.txt`, `sitemap.xml`,
+C++) și una pentru Bacalaureat, despre noi, contact și locațiile —, formularul de contact, `robots.txt`, `sitemap.xml`,
 `llms.txt` și datele structurate funcționează fără `API_BASE`; de aceea site-ul stă în producție pe
 Vercel deși backend-ul nu e deployat. Sunt prerandate la build, din aceeași listă: o pagină nouă
 intră în `PUBLIC_PAGES` și primește sitemap, `llms.txt` și fișier static fără altă declarație, iar

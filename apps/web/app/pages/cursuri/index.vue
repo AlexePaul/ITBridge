@@ -46,19 +46,20 @@
     </section>
 
     <section class="section" aria-labelledby="unelte" data-reveal>
-      <h2 class="kicker" id="unelte">Uneltele, pe rând</h2>
+      <h2 class="kicker" id="unelte">Uneltele și examenul, pe rând</h2>
       <p class="body-text measure-wide">
-        Fiecare nivel lucrează cu una sau două unelte, și fiecare unealtă are pagina ei: ce face
-        copilul cu ea, la ce vârstă, și lucrări ale copiilor care au trecut pe acolo.
+        Fiecare nivel lucrează cu una sau două unelte, iar ultimele două pregătesc un examen.
+        Fiecare are pagina ei: ce face copilul acolo, la ce vârstă și, unde există, lucrări ale
+        copiilor care au trecut pe acolo.
       </p>
       <div class="cols-3" data-reveal-children>
         <div v-for="subject in SUBJECTS" :key="subject.slug" class="card card-lg">
           <h3 class="sub-title">{{ subject.name }}</h3>
           <p class="label-accent">{{ subjectAges(subject) }}</p>
-          <p class="body-text">{{ blurbs[subject.slug] }}</p>
+          <p class="body-text">{{ cards[subject.slug]?.blurb }}</p>
           <p class="body-text">
             <NuxtLink :to="`/cursuri/${subject.slug}`" class="link">
-              Ce fac copiii cu {{ subject.name }} →
+              {{ cards[subject.slug]?.cta }}
             </NuxtLink>
           </p>
         </div>
@@ -214,15 +215,35 @@ const benefits = [
   "Două locații: Drumul Taberei și Străulești",
 ];
 
-// Written out, not derived from the programme: a line per tool is what a
+// Written out, not derived from the programme: a line per card is what a
 // parent scans the grid for, and a sentence built from `teaches` would read
-// like the list it came from.
-const blurbs: Record<string, string> = {
-  canva: "Afișe, felicitări și colaje: prima lucrare grafică, la primul nivel.",
-  tinkercad: "O casă, o mașină, un breloc cu numele lui: primele obiecte în trei dimensiuni.",
-  office: "Un referat, o prezentare, un tabel cu o formulă: ce cere școala, învățat cu structură.",
-  scratch: "Primul joc scris de copil: personaje, scor, bucle și condiții, fără sintaxă.",
-  cpp: "De la prima instrucțiune la probleme de olimpiadă și de Bacalaureat.",
+// like the list it came from. The call to action is per card too — "ce fac
+// copiii cu Bacalaureat" is not a sentence.
+const cards: Record<string, { blurb: string; cta: string }> = {
+  canva: {
+    blurb: "Afișe, felicitări și colaje: prima lucrare grafică, la primul nivel.",
+    cta: "Ce fac copiii cu Canva →",
+  },
+  tinkercad: {
+    blurb: "O casă, o mașină, un breloc cu numele lui: primele obiecte în trei dimensiuni.",
+    cta: "Ce fac copiii cu Tinkercad →",
+  },
+  office: {
+    blurb: "Un referat, o prezentare, un tabel cu o formulă: ce cere școala, învățat cu structură.",
+    cta: "Ce fac copiii cu Office →",
+  },
+  scratch: {
+    blurb: "Primul joc scris de copil: personaje, scor, bucle și condiții, fără sintaxă.",
+    cta: "Ce fac copiii cu Scratch →",
+  },
+  cpp: {
+    blurb: "De la prima instrucțiune la probleme de olimpiadă și de Bacalaureat.",
+    cta: "Ce fac copiii cu C++ →",
+  },
+  "bac-informatica": {
+    blurb: "Variante de examen rezolvate cap-coadă în C++, timp și strategie, corecturi pe loc.",
+    cta: "Meditații pentru BAC informatică →",
+  },
 };
 
 const faq = [

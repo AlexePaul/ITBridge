@@ -83,7 +83,7 @@
     <section class="section" data-reveal>
       <p class="body-text measure-wide">
         Pentru ultimul an de liceu există un nivel separat,
-        <NuxtLink to="/cursuri#pregatire-bacalaureat" class="link">Pregătire Bacalaureat</NuxtLink>:
+        <NuxtLink to="/cursuri/bac-informatica" class="link">Pregătire Bacalaureat</NuxtLink>:
         probleme tip din variantele de examen, timp și strategie, corecturi la fiecare ședință.
       </p>
     </section>
