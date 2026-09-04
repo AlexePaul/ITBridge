@@ -936,6 +936,14 @@ textarea.input {
   transform: scale(1.015);
 }
 
+/* A child's work is a screenshot or an exported slide, not a photograph: the
+   archival grade that warms the room pictures would tint a Scratch stage or a
+   Canva poster brown. The mat stays; the grade comes off, and stays off. */
+.plate-work,
+.plate-work:hover {
+  filter: none;
+}
+
 /* Where the browser can run an animation off the scroll position, the
    photograph drifts inside its mat as the mat crosses the viewport — parallax
    proper, on the compositor, with no scroll handler behind it. The drift owns
@@ -1769,6 +1777,26 @@ textarea.input {
 
 @media (max-width: 640px) {
   .footer-grid-5 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The same footer with a column for the subjects, between the pages and the
+   contact. The brand column gives up a little so the address column keeps
+   its width — that is the one with a street name in it. */
+.footer-grid-6 {
+  grid-template-columns: 1.5fr 0.9fr 0.9fr 1.2fr 1.5fr 0.8fr;
+  gap: var(--rhythm-3);
+}
+
+@media (max-width: 1100px) {
+  .footer-grid-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .footer-grid-6 {
     grid-template-columns: minmax(0, 1fr);
   }
 }

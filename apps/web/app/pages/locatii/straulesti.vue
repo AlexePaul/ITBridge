@@ -67,16 +67,23 @@
         <div>
           <h3 class="block-title">Cei mici, de la clasa 0 la a 4-a</h3>
           <p class="body-text">
-            Cunoașterea calculatorului, tastatură și mouse, desen digital 2D și 3D, apoi Word,
-            PowerPoint și Excel, siguranță online și primele programe în Scratch.
+            Cunoașterea calculatorului, tastatură și mouse, desen digital 2D în
+            <NuxtLink to="/cursuri/canva" class="link">Canva</NuxtLink> și 3D în
+            <NuxtLink to="/cursuri/tinkercad" class="link">Tinkercad</NuxtLink>, apoi
+            <NuxtLink to="/cursuri/office" class="link">Word, PowerPoint și Excel</NuxtLink>,
+            siguranță online și primele programe în
+            <NuxtLink to="/cursuri/scratch" class="link">Scratch</NuxtLink>.
           </p>
         </div>
         <div>
           <h3 class="block-title">Gimnaziu și liceu</h3>
           <p class="body-text">
-            Algoritmi, Scratch și primele pagini web la clasele 5–6, apoi C++, HTML, CSS și
-            JavaScript la 7–8, iar la liceu structuri de date, probleme de concurs, SQL și pregătire
-            pentru Bacalaureat.
+            Algoritmi, Scratch și primele pagini web la clasele 5–6, apoi
+            <NuxtLink to="/cursuri/cpp" class="link">C++</NuxtLink>, HTML, CSS și JavaScript la 7–8,
+            iar la liceu structuri de date, probleme de concurs, SQL și
+            <NuxtLink to="/cursuri/bac-informatica" class="link"
+              >meditații pentru Bacalaureat</NuxtLink
+            >.
           </p>
         </div>
       </div>
@@ -210,6 +217,14 @@ const faq = [
     answer:
       "Da: aceleași șase niveluri, aceeași programă și același preț. Diferă doar sala și orarul " +
       "grupelor, care depinde de câți copii sunt înscriși pe fiecare nivel la fiecare locație.",
+  },
+  {
+    question: "Faceți meditații pentru Bacalaureatul la informatică în Străulești?",
+    answer:
+      `Da, în grupe mici, la sala de pe ${location.street}: probleme tip din variantele de ` +
+      "examen, scrise în C++, corecturi la fiecare ședință, cu un profesor care a luat el " +
+      "însuși Bacalaureatul cu 10 la informatică. Nivelul e pentru clasa 9–12 și pentru " +
+      "ultimul an.",
   },
 ];
 

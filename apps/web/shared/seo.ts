@@ -131,7 +131,82 @@ const LOCATION_PAGES: PageSeo[] = [
   },
 ];
 
-export const PUBLIC_PAGES: PageSeo[] = [...STATIC_PAGES, LOCATIONS_INDEX, ...LOCATION_PAGES];
+// One per subject, written out like the locations: the title is the phrase a
+// parent types, and a template would give five pages one sentence with the
+// tool's name swapped. The paths have to match SUBJECTS in subjects.ts —
+// a test holds the two lists together.
+const SUBJECT_PAGES: PageSeo[] = [
+  {
+    path: "/cursuri/canva",
+    title: "Canva pentru copii, 6–9 ani | IT Bridge School",
+    description:
+      "Afișe, felicitări și colaje făcute de copii de 6–9 ani, la primul nivel de curs. Text, " +
+      "imagine și culoare pe o pagină, cu un rezultat pe care îl arată acasă.",
+    summary: "Ce fac copiii de 6–9 ani în Canva, la ce nivel se predă și lucrări ale copiilor.",
+    priority: 0.8,
+  },
+  {
+    path: "/cursuri/tinkercad",
+    title: "Tinkercad pentru copii, 6–9 ani | IT Bridge School",
+    description:
+      "Primele obiecte 3D la 6–9 ani: o casă, o mașină, un breloc cu numele lor, din forme unite " +
+      "și scobite în Tinkercad. Grupe mici, la Drumul Taberei și Străulești.",
+    summary: "Modelare 3D în Tinkercad la 6–9 ani: ce construiesc copiii și ce învață pe drum.",
+    priority: 0.8,
+  },
+  {
+    path: "/cursuri/office",
+    title: "Word, PowerPoint și Excel pentru copii | IT Bridge School",
+    description:
+      "Office pentru copii de 9–11 ani: un referat cu titluri și imagini în Word, o prezentare " +
+      "în PowerPoint, un tabel cu o formulă în Excel. Ce cere școala, învățat cu structură.",
+    summary:
+      "Word, PowerPoint și Excel la 9–11 ani: ce lucrări fac copiii și de ce înainte de programare.",
+    priority: 0.8,
+  },
+  {
+    path: "/cursuri/scratch",
+    title: "Cursuri Scratch pentru copii, 9–13 ani | IT Bridge School",
+    description:
+      "Primul joc scris de copil, la 9–13 ani: personaje, scor, bucle și condiții în Scratch. " +
+      "Aceleași idei pe care le va scrie în C++ peste doi ani, fără sintaxă.",
+    summary:
+      "Scratch la 9–13 ani: primul joc, ce noțiuni de programare rămân și la ce nivel se predă.",
+    priority: 0.8,
+  },
+  {
+    path: "/cursuri/cpp",
+    title: "Cursuri C++, 13–19 ani: olimpiadă și BAC | IT Bridge School",
+    description:
+      "C++ de la prima instrucțiune la Bacalaureat, 13–19 ani: algoritmi, vectori, structuri de " +
+      "date, probleme de olimpiadă. Programa după care se dau examenele.",
+    summary:
+      "C++ la 13–19 ani: ce probleme rezolvă elevii la fiecare nivel, de ce C++ și nu Python, BAC.",
+    priority: 0.8,
+  },
+  {
+    path: "/cursuri/bac-informatica",
+    // "Meditații" is the word a parent types for this, and it appeared nowhere
+    // on the site; the two neighbourhoods are in the H1, not here — the title
+    // has room for the city, and one page serves both searches.
+    title: "Meditații BAC informatică în București | IT Bridge School",
+    description:
+      "Meditații pentru Bacalaureatul la informatică, în grupe mici, la Drumul Taberei și " +
+      `Străulești: variante de examen, C++, timp și strategie, corecturi la fiecare ședință. ` +
+      `${PRICE_ONE_CHILD} lei pe lună.`,
+    summary:
+      "Meditații pentru BAC la informatică: cum arată o ședință, cine predă, la ce nivel, la " +
+      "ambele locații.",
+    priority: 0.8,
+  },
+];
+
+export const PUBLIC_PAGES: PageSeo[] = [
+  ...STATIC_PAGES,
+  LOCATIONS_INDEX,
+  ...LOCATION_PAGES,
+  ...SUBJECT_PAGES,
+];
 
 export const pageSeo = (path: string): PageSeo => {
   const page = PUBLIC_PAGES.find((entry) => entry.path === path);

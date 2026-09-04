@@ -15,8 +15,9 @@
         IT Bridge School este o școală de informatică pentru copii, cu două locații în București:
         <NuxtLink to="/locatii/drumul-taberei" class="link">Drumul Taberei</NuxtLink> și
         <NuxtLink to="/locatii/straulesti" class="link">Străulești</NuxtLink>. De la primii pași pe
-        calculator până la C++, olimpiade și pregătirea pentru Bacalaureat, în grupe mici, cu
-        proiecte practice la fiecare ședință.
+        calculator până la C++, olimpiade și
+        <NuxtLink to="/cursuri/bac-informatica" class="link">pregătirea pentru Bacalaureat</NuxtLink
+        >, în grupe mici, cu proiecte practice la fiecare ședință.
       </p>
       <div class="actions">
         <NuxtLink to="/cursuri" class="btn btn-primary">Vezi cursurile</NuxtLink>
@@ -55,9 +56,11 @@
         <h3 class="section-title">Ore în care se construiește ceva, la propriu</h3>
         <p class="body-text justified measure">
           Fiecare ședință de 1,5 ore se termină cu ceva lucrat de copil: un desen digital la
-          nivelurile mici, un joc în Scratch la mijloc, o pagină web sau un program în C++ la cele
-          mari. Grupele sunt mici tocmai ca profesorul să ajungă la fiecare copil în timpul orei, nu
-          doar la cei care ridică mâna.
+          nivelurile mici, un joc în
+          <NuxtLink to="/cursuri/scratch" class="link">Scratch</NuxtLink> la mijloc, o pagină web
+          sau un program în <NuxtLink to="/cursuri/cpp" class="link">C++</NuxtLink> la cele mari.
+          Grupele sunt mici tocmai ca profesorul să ajungă la fiecare copil în timpul orei, nu doar
+          la cei care ridică mâna.
         </p>
         <p class="body-text">
           <NuxtLink to="/despre-noi" class="link">Cunoaște echipa și locațiile →</NuxtLink>

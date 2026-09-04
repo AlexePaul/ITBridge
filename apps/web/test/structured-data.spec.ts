@@ -98,6 +98,15 @@ describe("page decorators", () => {
     expect(decorated.primaryImageOfPage).toBeDefined();
   });
 
+  it("withFaq strips the word joiner a heading needs, so the graph carries plain C++", () => {
+    const decorated = withFaq(page, [
+      { question: "Direct cu C\u2060+\u2060+?", answer: "Da, C\u2060+\u2060+ de la început." },
+    ]);
+    const [entry] = decorated.mainEntity as { name: string; acceptedAnswer: { text: string } }[];
+    expect(entry!.name).toBe("Direct cu C++?");
+    expect(entry!.acceptedAnswer.text).toBe("Da, C++ de la început.");
+  });
+
   it("courseListNode gives every course a distinct URL on this site", () => {
     const list = courseListNode(site);
     const urls = (list.itemListElement as { url: string }[]).map((entry) => entry.url);
