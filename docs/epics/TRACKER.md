@@ -295,7 +295,8 @@ facturile devin lucruri pe care le poate folosi cineva.
 **Fără ea:** jumătatea de componente din E18 S5 e făcută, iar bucla banilor e închisă cât se poate
 fără SmartBill — se emite (E15 S0), se vede cine n-a plătit (E16 S7) și se încasează de acolo
 (E16 S5). Ce rămâne nedependent de deploy e restul lui E16, care așteaptă verificarea abonamentului
-din S0, și E17 — S7 e livrat, rămân S6 și S8.
+din S0. **E17 nu mai are story-uri deschise:** S7 și S8 sunt livrate, iar S6 a fost construit și
+scos prin decizie.
 
 E11 e închis. Ce a rămas parțial din el — cerințele prealabile de modul la S6, disponibilitatea
 profesorilor la S7 — depinde de E10 și E09, nu de E11.
