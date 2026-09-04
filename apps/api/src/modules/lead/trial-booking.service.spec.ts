@@ -31,7 +31,7 @@ describe('TrialBookingService', () => {
     let groupRepo: MockRepository<Group>;
     let sessionRepo: MockRepository<ClassSession>;
     let manager: MockEntityManager;
-    let enrollments: { enrol: jest.Mock; occupancyOf: jest.Mock };
+    let enrollments: { enrol: jest.Mock; occupancyOf: jest.Mock; freeSeatsAtSessions: jest.Mock; freeSeatsAt: jest.Mock };
     let outbox: { queueOrRecord: jest.Mock };
 
     const now = new Date('2026-03-10T09:00:00Z');
@@ -78,7 +78,14 @@ describe('TrialBookingService', () => {
         sessionRepo = createMockRepository<ClassSession>();
         manager = createMockEntityManager();
         manager.save = jest.fn((_entity: unknown, data?: unknown) => Promise.resolve({ id: 7, ...(data ?? {}) }));
-        enrollments = { enrol: jest.fn().mockResolvedValue({ id: 11 }), occupancyOf: jest.fn().mockResolvedValue({ free: 3 }) };
+        enrollments = {
+            enrol: jest.fn().mockResolvedValue({ id: 11 }),
+            occupancyOf: jest.fn().mockResolvedValue({ free: 3 }),
+            // Seats are counted per class since the booking form has to offer dates, not groups.
+            // The default says every offered hour has room; a test that is about a full hour says so.
+            freeSeatsAtSessions: jest.fn().mockImplementation((sessions: { id: number }[]) => Promise.resolve(new Map(sessions.map((entry) => [entry.id, 3])))),
+            freeSeatsAt: jest.fn().mockResolvedValue(3),
+        };
         outbox = { queueOrRecord: jest.fn().mockResolvedValue({ id: 1 }) };
         leadRepo.findOne?.mockResolvedValue(null);
         leadRepo.save?.mockImplementation((data: object) => Promise.resolve({ id: 9, ...data }));
@@ -99,12 +106,31 @@ describe('TrialBookingService', () => {
     });
 
     describe('what is offered', () => {
-        it('leaves out a group with no free seat, however well the age fits', async () => {
+        it('leaves out an hour with no free seat, however well the age fits', async () => {
             groupRepo.find?.mockResolvedValue([group()]);
             sessionRepo.find?.mockResolvedValue([session()]);
-            enrollments.occupancyOf.mockResolvedValue({ free: 0 });
+            enrollments.freeSeatsAtSessions.mockResolvedValue(new Map([[42, 0]]));
 
             expect(await service.slots({ birthDate: '2017-05-05' }, now)).toEqual([]);
+        });
+
+        it('offers the free dates of a group and hides the taken ones', async () => {
+            // The point of counting per class: a make-up booked onto next Tuesday fills that hour
+            // while the one after it still has a chair. A parent chooses a date, so the date is what
+            // has to be filtered.
+            groupRepo.find?.mockResolvedValue([group()]);
+            sessionRepo.find?.mockResolvedValue([session(), session({ id: 43, date: '2026-03-24' })]);
+            enrollments.freeSeatsAtSessions.mockResolvedValue(
+                new Map([
+                    [42, 0],
+                    [43, 2],
+                ]),
+            );
+
+            const slots = await service.slots({ birthDate: '2017-05-05' }, now);
+
+            expect(slots).toHaveLength(1);
+            expect(slots[0].sessions.map((entry) => entry.date)).toEqual(['2026-03-24']);
         });
 
         it('leaves out a group with room but no classes in the horizon', async () => {
@@ -131,7 +157,8 @@ describe('TrialBookingService', () => {
 
             await service.slots({ birthDate: '2017-05-05' }, now);
 
-            expect(enrollments.occupancyOf).toHaveBeenCalledWith(5);
+            // One batched call for every hour about to be offered, not a query per hour.
+            expect(enrollments.freeSeatsAtSessions).toHaveBeenCalledWith([expect.objectContaining({ id: 42 })]);
         });
     });
 
@@ -180,7 +207,7 @@ describe('TrialBookingService', () => {
         });
 
         it('keeps the family as a lead when the last seat went while they were typing', async () => {
-            enrollments.enrol.mockRejectedValue(new ConflictException({ message: 'Grupa este plină', error: 'GROUP_FULL' }));
+            enrollments.freeSeatsAt.mockResolvedValue(0);
 
             const result = await service.book(booking, now);
 

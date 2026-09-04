@@ -207,7 +207,10 @@ marcării, în `AttendanceService.settleMakeUp`. **Nu are coloană de stare**: t
 rând, iar „expirată" e calendarul care s-a mișcat — o coloană ar fi greșită exact cât timp n-a rulat
 nimic s-o corecteze. `expiresOn` se îngheață la scriere, ca `inTime`. Iar **locul liber se numără pe
 ședință**: un copil în recuperare ocupă un scaun ca o probă (D7), deci înscrieri în vigoare plus
-recuperări deja programate pe acea ședință — nu `occupancyOf`, care e despre grupă.
+recuperări deja programate pe acea ședință — nu `occupancyOf`, care e despre grupă. Numărătoarea stă
+în `EnrollmentService.freeSeatsAt` / `freeSeatsAtSessions`, lângă `occupancyOf`: D7 are un singur
+proprietar, iar cei trei care întreabă — recuperările, programarea la probă și rezervarea ei — obțin
+același răspuns.
 
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin
@@ -623,6 +626,11 @@ Patru reguli pe care le încalci ușor:
   `status`**, iar cele două stări pe care le declară un om au endpoint-uri proprii. Un câmp de stare
   pe un PATCH ar lăsa un ecran să scrie `înscris` pe o familie pe care n-a înscris-o nimeni — și aia
   e cifra pe care se sprijină tot raportul de pâlnie.
+- **Orele se filtrează pe dată, nu pe grupă.** Ce alege părintele e o zi, iar o grupă cu un loc
+  liber n-are niciunul în ziua în care cineva și-a programat deja o recuperare — și are din nou
+  săptămâna următoare. Lista cere `freeSeatsAtSessions` pentru toate orele pe care e pe cale să le
+  ofere, într-o singură interogare, iar la trimitere se reverifică ora aleasă, în tranzacție: între
+  fotografie și buton se poate strecura o recuperare.
 - **Formularul nu se termină niciodată într-o eroare.** Fără loc liber, cu ultimul loc luat între
   timp, sau fără nicio oră potrivită — toate trei scriu un lead marcat `noSeats` și răspund „te
   contactăm noi". Cel mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca

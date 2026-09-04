@@ -97,15 +97,21 @@ export class TrialBookingService {
             order: { date: 'ASC' },
         });
 
+        // Seats are counted **per class**, not per group. A group with one place left has none at all
+        // on a Monday somebody has already booked a make-up onto, and one again the Monday after —
+        // so the filter belongs on the date, which is what the parent is actually choosing. One
+        // batched query for the lot: a query per hour is how a public page becomes slow.
+        const freeSeats = await this.enrollments.freeSeatsAtSessions(sessions.map((session) => ({ id: session.id, group: session.group })));
+
         const offered: TrialSlot[] = [];
         for (const group of activeGroups) {
-            const occupancy = await this.enrollments.occupancyOf(group.id);
-            if (occupancy.free <= 0) continue;
-
             const upcoming = sessions
                 .filter((session) => session.group.id === group.id)
+                .filter((session) => (freeSeats.get(session.id) ?? 0) > 0)
                 .map((session) => ({ id: session.id, date: toIsoDate(new Date(session.date)) }))
                 .filter((session) => session.date >= from && session.date <= until);
+            // Every hour taken means the group is not offered at all, rather than offered with an
+            // empty list of dates.
             if (upcoming.length === 0) continue;
 
             offered.push({
@@ -196,6 +202,15 @@ export class TrialBookingService {
 
         try {
             return await this.dataSource.transaction(async (manager) => {
+                // Re-checked here, inside the transaction, and on the **class** rather than the
+                // group: the list the parent saw is a photograph, and between it and this line a
+                // make-up may have been booked onto exactly this hour. `enrol` below still checks
+                // the group, which is the other half of D7.
+                const seats = await this.enrollments.freeSeatsAt({ id: session.id, group: session.group }, manager);
+                if (seats <= 0) {
+                    throw new ConflictException({ message: 'Ora aleasă tocmai s-a ocupat', error: 'GROUP_FULL' });
+                }
+
                 const profile = await manager.save(Profile, {
                     ...splitParentName(dto.parentName),
                     // Deliberately no email and no phone — see the class comment. They are unique

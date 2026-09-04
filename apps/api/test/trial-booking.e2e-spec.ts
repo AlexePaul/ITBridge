@@ -187,6 +187,41 @@ describe('Trial booking, public (e2e)', () => {
             expect(leads.body[0]).toMatchObject({ noSeats: true, parentName: 'Ioana Popescu' });
         });
 
+        it('hides the date somebody has booked a make-up onto, and keeps the next one', async () => {
+            // The sharpest version of D7, and the reason seats are counted per class rather than per
+            // group: a child sitting in on a make-up occupies a chair for that hour without being
+            // enrolled in anything. A group with one place left has none at all on that date.
+            const { groupId } = await schoolWithAClass({ capacity: 1 });
+            const nextWeek = (() => {
+                const date = new Date();
+                date.setDate(date.getDate() + 14);
+                return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
+            })();
+            const secondSession = await createClassSession(dataSource, groupId, { date: nextWeek });
+
+            const before = await request(app.getHttpServer()).get('/trial/slots').query({ birthDate: '2016-04-04' }).expect(200);
+            expect(before.body[0].sessions).toHaveLength(2);
+
+            // A visitor takes the single chair at the first class only.
+            const parent = await registerUser(app, 'parinte.recuperare');
+            const profileId = await ownProfileId(app, parent);
+            const visitor = await request(app.getHttpServer())
+                .post('/children')
+                .set('Authorization', admin.auth)
+                .send({ firstName: 'Ana', lastName: 'Ionescu', birthDate: '2016-01-01', parentId: profileId })
+                .expect(201);
+            const firstSession = before.body[0].sessions[0].id as number;
+            await dataSource.query(
+                `INSERT INTO "make_up_credits" ("child_id", "origin_session_id", "booked_session_id", "expiresOn")
+                 VALUES ($1, $2, $3, CURRENT_DATE + 30)`,
+                [visitor.body.id as number, secondSession, firstSession],
+            );
+
+            const after = await request(app.getHttpServer()).get('/trial/slots').query({ birthDate: '2016-04-04' }).expect(200);
+
+            expect(after.body[0].sessions.map((entry: { id: number }) => entry.id)).toEqual([secondSession]);
+        });
+
         it('keeps the family that found no hour at all, marked as such', async () => {
             const res = await request(app.getHttpServer()).post('/trial/bookings').send(bookingBody()).expect(201);
 

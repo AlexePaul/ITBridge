@@ -176,9 +176,18 @@ Ce nu se vede la citirea codului:
   urmată de inserare o pot face două tranzacții deodată și amândouă găsesc loc: verificarea n-a fost
   niciodată garanția, ci doar motivul pentru care refuzul are cuvinte în el. Doi admini care apasă în
   aceeași secundă era rar; doi părinți pe formular la 20:00 nu e.
+- **Se filtrează datele, nu grupele.** Locurile se numără **pe ședință**, prin
+  `EnrollmentService.freeSeatsAtSessions`, fiindcă asta alege părintele: o grupă cu un singur loc
+  liber n-are niciunul în ziua în care cineva și-a programat o recuperare (D7 din nou — un copil
+  care vine în recuperare stă pe un scaun fără să fie înscris în nimic), și are din nou peste o
+  săptămână. O grupă căreia i s-au ocupat toate orele nu apare deloc, în loc să apară cu o listă
+  goală de date.
 - **Vârsta e filtru tare aici, deși în E11 e avertisment.** Un admin care trece peste banda de vârstă
   face o judecată despre un copil anume, pe care l-a cunoscut. Un formular public n-are cine să facă
   judecata aia, deci oferă doar ce se potrivește.
+- **Verificarea de la trimitere e pe ora aleasă**, nu doar pe grupă, și e în tranzacție: între
+  fotografia pe care a văzut-o părintele și butonul pe care l-a apăsat se poate strecura o
+  recuperare programată exact pe acea oră. `enrol` verifică grupa, care e cealaltă jumătate a lui D7.
 - **A doua apăsare nu creează al doilea copil.** `Lead.bookingKey` — copilul, ora și familia, hash-uite
   — are index unic, iar a doua trimitere primește primul răspuns. Pe formularul de contact o dublură
   însemna un al doilea email; aici ar fi însemnat un al doilea copil și un al doilea loc dintr-o sală

@@ -5,6 +5,7 @@ import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Child } from 'src/entities/child.entity';
 import { Group } from 'src/entities/group.entity';
+import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
 import { EnrollmentStatus, IN_FORCE_STATUSES, isInForce } from 'src/enum/enrollment-status.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { isAccountActive } from 'src/entities/user.entity';
@@ -53,6 +54,12 @@ export interface CompatibilityWarning {
     message: string;
 }
 
+/** The least a class has to say about itself for its seats to be counted. */
+export interface SeatedSession {
+    id: number;
+    group: { id: number; capacity: number };
+}
+
 export interface GroupOccupancy {
     groupId: number;
     capacity: number;
@@ -71,6 +78,7 @@ export class EnrollmentService {
         @InjectRepository(WaitlistEntry) private readonly waitlistRepository: Repository<WaitlistEntry>,
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
+        @InjectRepository(MakeUpCredit) private readonly makeUpCreditRepository: Repository<MakeUpCredit>,
         private readonly outbox: OutboxService,
         private readonly leadProgress: LeadProgressService,
         @InjectDataSource() private readonly dataSource: DataSource,
@@ -135,6 +143,62 @@ export class EnrollmentService {
         });
 
         return { groupId, capacity: group.capacity, taken, free: Math.max(0, group.capacity - taken), waiting };
+    }
+
+    /**
+     * Seats free at **one class**, which is not the same question as seats free in the group.
+     *
+     * A group's headroom is enrolments in force against capacity. A single class can be tighter than
+     * that: a child sitting in on a make-up occupies a chair at a computer for that hour without
+     * being enrolled in anything (E12/S4, and D7 again). So a group with one place left may have
+     * none at all next Monday and one the Monday after.
+     *
+     * It lives here, beside `occupancyOf`, because both answer "is there room" and D7 must have one
+     * owner: `MakeUpCreditService` asked it first and now delegates, and E20/S2's public booking form
+     * asks it too — three callers, one definition. Batched over a list of sessions because the
+     * booking form asks about every hour it is about to offer, and a query per session is how a
+     * public page becomes slow.
+     */
+    async freeSeatsAtSessions(sessions: SeatedSession[], manager?: EntityManager): Promise<Map<number, number>> {
+        const free = new Map<number, number>();
+        if (sessions.length === 0) return free;
+
+        const enrollmentRepository = manager ? manager.getRepository(Enrollment) : this.enrollmentRepository;
+        const creditRepository = manager ? manager.getRepository(MakeUpCredit) : this.makeUpCreditRepository;
+
+        const groupIds = [...new Set(sessions.map((session) => session.group.id))];
+        const sessionIds = sessions.map((session) => session.id);
+
+        const enrolledRows = await enrollmentRepository
+            .createQueryBuilder('enrollment')
+            .select('enrollment.group_id', 'groupId')
+            .addSelect('COUNT(*)::int', 'count')
+            .where('enrollment.group_id IN (:...groupIds)', { groupIds })
+            .andWhere('enrollment.status IN (:...inForce)', { inForce: [...IN_FORCE_STATUSES] })
+            .groupBy('enrollment.group_id')
+            .getRawMany<{ groupId: number; count: number }>();
+
+        const visitingRows = await creditRepository
+            .createQueryBuilder('credit')
+            .select('credit.booked_session_id', 'sessionId')
+            .addSelect('COUNT(*)::int', 'count')
+            .where('credit.booked_session_id IN (:...sessionIds)', { sessionIds })
+            .groupBy('credit.booked_session_id')
+            .getRawMany<{ sessionId: number; count: number }>();
+
+        const enrolled = new Map(enrolledRows.map((row) => [Number(row.groupId), row.count]));
+        const visiting = new Map(visitingRows.map((row) => [Number(row.sessionId), row.count]));
+
+        for (const session of sessions) {
+            const taken = (enrolled.get(session.group.id) ?? 0) + (visiting.get(session.id) ?? 0);
+            free.set(session.id, Math.max(0, session.group.capacity - taken));
+        }
+        return free;
+    }
+
+    /** The same question about a single class. */
+    async freeSeatsAt(session: SeatedSession, manager?: EntityManager): Promise<number> {
+        return (await this.freeSeatsAtSessions([session], manager)).get(session.id) ?? 0;
     }
 
     private async countInForce(groupId: number, manager?: EntityManager): Promise<number> {
