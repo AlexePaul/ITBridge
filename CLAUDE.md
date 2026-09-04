@@ -294,6 +294,36 @@ composable-urile din `apps/web/app/composables/api/`.
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
+**Nuxt UI citește din `classical.css` și fundalul, și accentul.** Blocul de la finalul lui `:root`
+(și geamănul lui din `.dark`) pune în variabilele lui Nuxt UI `--ui-bg`, `--ui-text`, `--ui-border`
+**și `--ui-primary`**. Ultima a lipsit până la E18 S7, iar consecința e capcana pe care o repetă
+oricine adaugă un jeton pe jumătate: `--ui-primary` rămâne la 500-ul rampei, adică `--color-accent`
+— o culoare tunată pentru 3:1, deci pentru chenare și text mare, nu pentru text. Toată zona
+autentificată citea așa la **2,61:1**, exact cifra pe care E18 S6 o scosese din paginile publice.
+Textul de accent merge pe `--color-accent-ink`; dacă adaugi o variabilă nouă de Nuxt UI, pune-o
+tot acolo, nu într-o componentă.
+
+**Șirurile lui Nuxt UI sunt în română, prin `<UApp :locale="ro">` din `app.vue`.** Tot ce randează
+o componentă pentru sine — eticheta care deschide meniul, „No data" sub un tabel gol, butoanele de
+închidere — vine din locale-ul pachetului, iar implicitul e engleza. Regula „numai codul e în
+engleză" acoperă și etichetele pe care nu le-a scris nimeni din echipă.
+
+**Iconițele sunt împachetate local, nu cerute de la Iconify.** `@iconify-json/lucide` e instalat, deci
+`@nuxt/icon` scanează sursele și pune în bundle doar iconițele folosite (43, 10,4KB la E18 S7),
+servite de pe domeniul propriu. Fără pachet, fiecare iconiță e o cerere către `api.iconify.design`
+la rulare — pe conexiunea din sală asta înseamnă butoane goale, iar butonul de meniu **e** o
+iconiță și nimic altceva. Dacă folosești un prefix dintr-o altă colecție, instaleaz-o și pe aia,
+altfel exact acele iconițe se întorc pe rețea, tăcut.
+
+**Zona autentificată se verifică pe telefon, la 390px, nu doar pe desktop** (E18 S7). Două lucruri
+se strică acolo și nicăieri altundeva. Grupul din dreapta al navbar-ului are nevoie de `min-w-0`:
+fără el își păstrează lățimea intrinsecă și crește **peste** butonul de meniu din stânga — din 44px
+rămăseseră 10 apăsabili, iar o atingere în centrul hamburgerului deschidea filtrul de locație. Și
+ținta minimă e 44px pe drumul profesorului; `size="sm"` pe un buton pe care cineva îl apasă stând
+în picioare e prea mic, deci se scrie `class="min-h-11"`. Zona n-are poartă automată de
+accesibilitate — S6 o amână deliberat până se rescrie portalul în S4/S5 — deci verificarea e
+manuală, iar cifrele de referință sunt în E18 S7.
+
 **Partea publică nu atinge backend-ul, cu o singură excepție declarată.** Cele șapte pagini publice
 vechi, formularul de contact, `robots.txt`, `sitemap.xml`, `llms.txt` și datele structurate
 funcționează fără `API_BASE` — de aceea site-ul stă în producție pe Vercel deși backend-ul nu e

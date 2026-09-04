@@ -2,10 +2,11 @@
 
 **Status:** în lucru · **Pistă:** Public · **Depinde de:** E03 · **Blochează:** E19, E20
 
-**Livrate:** S1 (fundația de design), S2 (pipeline de imagini) și S3 (paginile publice), plus
-jumătatea din CI a lui S6 — verificarea automată de accesibilitate, pe paginile publice, în ambele
-teme. **Rămân:** S4, S5, S7 și restul lui S6, toate despre zona de după autentificare. S4 și S5 nu se
-pot demonstra până nu rulează un backend — vezi [E01](E01-infrastructura-medii.md), S4.
+**Livrate:** S1 (fundația de design), S2 (pipeline de imagini), S3 (paginile publice) și S7
+(interfața profesorului), plus jumătatea din CI a lui S6 — verificarea automată de accesibilitate,
+pe paginile publice, în ambele teme. **Rămân:** S4, S5 și restul lui S6, toate despre zona de după
+autentificare. S4 și S5 nu se pot demonstra până nu rulează un backend — vezi
+[E01](E01-infrastructura-medii.md), S4.
 
 > ## Cerut de școală: rescrierea întregii zone de după login
 >
@@ -280,7 +281,7 @@ rescrie în S4 și S5 — se verifică atunci, nu înainte, fiindcă altfel s-ar
 școala le-a cerut refăcute. Jumătatea de tastatură a acceptanței rămâne manuală: axe verifică ce e
 în DOM, nu ce se întâmplă când cineva apasă Tab de douăzeci de ori.
 
-### S7 · Interfața profesorului — muncă viitoare
+### S7 · Interfața profesorului — livrat
 
 Ecranul de marcare a prezenței din [E12](E12-prezenta-orar.md) S6 e folosit în picioare, într-o
 sală, de pe telefon. Ținte de atingere mari, contrast bun, funcțional pe conexiune slabă.
@@ -295,6 +296,63 @@ de trimitere din [E17](E17-comunicare-notificari.md) S8. Alea sunt **ecrane de a
 se proiectează cu restul zonei de admin, nu după regulile de telefon de mai sus.
 
 **Acceptanță:** un profesor marchează prezența unei grupe de pe telefon, fără să mărească pagina.
+— **Îndeplinită**, măsurată la 390×844 (iPhone 12), în ambele teme: nicio pagină din drumul
+profesorului nu depășește lățimea ecranului, deci nu există pinch și nu există derulare laterală.
+
+Ecranul în sine exista din E12 S6, cu butoanele lui mari și coada lui locală, iar story-ul ăsta
+părea să fie despre retușuri. Măsurat pe un telefon adevărat, patru dintre cele cinci lucruri
+găsite erau **în afara ecranului** — în cadru, în jetoane, în pipeline —, ceea ce e și explicația
+pentru care nu le văzuse nimeni: se uita toată lumea la pagină.
+
+- **Meniul era acoperit de filtrul de locație.** `LocationSwitcher` cerea 224px într-o bară de
+  390px, iar grupul din dreapta al navbar-ului își păstra lățimea intrinsecă și creștea peste
+  butonul de meniu din stânga. Din cele 44px ale lui rămâneau **10px** apăsabili; o atingere în
+  centrul hamburgerului deschidea lista de locații. Pe telefon meniul e singurul drum către orice
+  altceva, deci ecranul de prezență se putea deschide doar tastând adresa. Corectura e `min-w-0`
+  pe grupul din dreapta plus un filtru care se strânge sub `sm` — un nume de locație tăiat costă un
+  admin o privire, un hamburger acoperit costă un profesor tot meniul.
+- **Accentul nu fusese niciodată tradus pentru Nuxt UI.** `classical.css` punea în variabilele lui
+  Nuxt UI fundalul, textul și marginea, dar nu și accentul, deci `--ui-primary` rămăsese la 500-ul
+  rampei — adică exact culoarea de 3:1 pe care S6 a scos-o din text pe partea publică. Fiecare buton
+  outline sau ghost de după login citea la **2,61:1**, aceeași cifră și aceeași cauză, de partea
+  cealaltă a autentificării. O linie per temă, `--ui-primary: var(--color-accent-ink)`, duce drumul
+  profesorului la **axe curat pe WCAG 2.0 și 2.1 A+AA, în ambele teme** — și, fiind un jeton,
+  ridică odată cu el toate cele 32 de ecrane de admin.
+- **Iconițele veneau de la Iconify, la rulare.** Nicio colecție nu era instalată local, deci
+  `@nuxt/icon` le cerea de pe `api.iconify.design` de fiecare dată — pe conexiunea din sală, exact
+  cea pentru care există story-ul. Butonul de meniu **e** o iconiță și nimic altceva: fără ea, un
+  buton gol. Cu `@iconify-json/lucide` instalat, bundle-ul are cele **43 de iconițe folosite,
+  10,4KB**, servite de pe domeniul propriu; nu mai e nici o cerere către un terț la fiecare
+  încărcare, ceea ce e și un lucru mai puțin de explicat în [E07](E07-securitate-gdpr.md).
+- **Nuxt UI vorbea englezește.** Tot ce randează componenta pentru sine — eticheta hamburgerului,
+  „No data" sub un tabel gol — vine din locale-ul lui, iar implicitul e engleza. `UApp :locale="ro"`
+  le trece pe toate deodată: butonul care deschide meniul se prezenta unui profesor drept
+  „Open sidebar". Convenția zice de mult că numai codul e în engleză; o etichetă pe care n-a
+  scris-o nimeni e tot o etichetă pe care o citește cineva.
+- **Coada promitea ceva ce nu făcea.** Bannerul spune „se retrimit singure", dar coada se golea
+  doar la deschiderea ecranului și pe evenimentul `online` — care nu se declanșează pe conexiunea
+  reală dintr-o sală, unde cererile mor dar `navigator.onLine` rămâne `true`. Acum are un backoff
+  propriu, 5s dublat până la un minut; plafonul contează mai mult decât curba, fiindcă ora ține
+  nouăzeci de minute și o curbă neplafonată ar renunța pe la mijlocul ei. Verificat cu rețeaua
+  omorâtă fără ca browserul s-o admită: trei încercări în șaptesprezece secunde, iar la revenirea
+  conexiunii coada s-a golit singură, fără reîncărcare și fără nicio atingere.
+
+Restul sunt lucruri de pe ecran: ținte de cel puțin **44px** peste tot pe drumul profesorului
+(„Înapoi", „Altă grupă", „Retrimite", „Sună părintele" și hamburgerul erau între 28 și 32px), și
+`/admin/attendance` refăcut — trei cartonașe stivuite pe telefon în loc de trei coloane de `w-1/3`
+înghesuite la 130px fiecare, cu „Prezența de azi" **prima**, fiindcă hub-ul nu o oferea deloc: se
+ajungea la ea numai din meniul lateral, adică din exact lucrul pe care telefonul îl ascunde.
+
+**Nu s-a construit o poartă automată pentru zona autentificată**, deși măsurătorile de mai sus
+sunt exact ce ar rula într-una. S6 spune de ce, iar motivul ține în continuare: acceptanța ei
+acoperă portalul, portalul se rescrie în S4 și S5, iar o poartă scrisă acum ar cimenta ecranele pe
+care școala le-a cerut refăcute. Verificarea rămâne manuală până atunci, cu cifrele de aici ca
+linie de bază.
+
+**Ce nu s-a atins, deliberat:** cele 24 de intrări din meniul lateral. Pe telefon sunt o listă
+lungă într-un panou care se deschide peste ecran, și e o problemă reală — dar e problema navigației
+zonei de admin, adică S5b, iar cartonașul din hub îi dă profesorului al doilea drum de care avea
+nevoie azi.
 
 ## Dependențe
 

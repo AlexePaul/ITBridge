@@ -33,6 +33,26 @@ export function upsertPending(queue: PendingMark[], mark: PendingMark): PendingM
   return [...rest, mark];
 }
 
+/**
+ * How long to wait before the next automatic retry, given how many have already failed.
+ *
+ * The queue used to drain on two events only: the screen opening, and the browser firing `online`.
+ * Neither fires on the connection a classroom actually has — one bar of signal, where requests
+ * time out but `navigator.onLine` never goes false. The banner's promise that marks "se retrimit
+ * singure" was then true only for a connection that had properly dropped, and a teacher who put
+ * the phone in a pocket had no reason to believe otherwise.
+ *
+ * Doubling from 5s, capped at a minute: the cap matters more than the curve, because the queue
+ * survives for as long as the tab does and a lesson is ninety minutes — an uncapped backoff would
+ * quietly stop trying somewhere in the middle of the class it was meant to cover.
+ */
+export function retryDelayMs(failedAttempts: number): number {
+  const base = 5000;
+  const cap = 60000;
+  const step = Math.max(0, failedAttempts);
+  return Math.min(cap, base * 2 ** step);
+}
+
 export function readPendingMarks(): PendingMark[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);

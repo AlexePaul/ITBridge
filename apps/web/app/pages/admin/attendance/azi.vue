@@ -1,11 +1,11 @@
 <template>
   <div class="w-full max-w-lg mx-auto px-4 py-6 space-y-6">
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-bold">Prezența de azi</h1>
-        <p class="text-muted mt-1 text-sm">{{ todayLabel }}</p>
-      </div>
-      <UButton to="/admin/attendance" variant="outline" size="sm">Înapoi</UButton>
+    <!-- No page heading of its own: the navbar above already renders "Prezența de azi" as the
+         page's `h1`, and repeating it cost the top of a phone screen to say the same thing twice.
+         What is left is the one fact the bar does not carry — which day is being marked. -->
+    <div class="flex items-center justify-between gap-4">
+      <p class="text-muted text-sm tabular-nums">{{ todayLabel }}</p>
+      <UButton to="/admin/attendance" variant="outline" class="min-h-11 shrink-0">Înapoi</UButton>
     </div>
 
     <!-- The offline banner: how many marks wait, and a hand-crank for the impatient. -->
@@ -18,7 +18,7 @@
             rețeaua. Se retrimit singure.
           </span>
         </div>
-        <UButton size="sm" variant="soft" :loading="flushing" @click="flushQueue">
+        <UButton variant="soft" class="min-h-11 shrink-0" :loading="flushing" @click="flushQueue">
           Retrimite
         </UButton>
       </div>
@@ -74,7 +74,7 @@
           <UButton
             v-if="todaySessions.length > 1"
             variant="ghost"
-            size="sm"
+            class="min-h-11 shrink-0"
             @click="selectedSessionId = null"
           >
             Altă grupă
@@ -156,8 +156,7 @@
               :to="`tel:${entry.parentPhone}`"
               variant="soft"
               color="warning"
-              size="sm"
-              class="w-full justify-center"
+              class="min-h-11 w-full justify-center"
               icon="i-lucide-phone"
             >
               Sună părintele
@@ -181,6 +180,7 @@ import { useNotifications } from "~/composables/useNotifications";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 import {
   readPendingMarks,
+  retryDelayMs,
   upsertPending,
   writePendingMarks,
   type PendingMark,
@@ -223,6 +223,9 @@ const rowState = reactive<Record<number, "saving" | "saved" | "queued" | undefin
 
 const pending = ref<PendingMark[]>([]);
 const flushing = ref(false);
+/** The automatic retry: a handle to cancel, and how many rounds have come back empty-handed. */
+const retryTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+const failedFlushes = ref(0);
 
 const today = todayKey();
 const todayLabel = computed(() => {
@@ -258,9 +261,29 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("online", onBackOnline);
+  cancelRetry();
 });
 
-const onBackOnline = () => void flushQueue();
+const onBackOnline = () => {
+  // A connection that properly came back deserves an immediate try, not the tail of a backoff.
+  failedFlushes.value = 0;
+  void flushQueue();
+};
+
+const cancelRetry = () => {
+  if (retryTimer.value) clearTimeout(retryTimer.value);
+  retryTimer.value = null;
+};
+
+/** Keeps exactly one retry in flight, so a manual tap cannot stack a second timer on the first. */
+const scheduleRetry = () => {
+  cancelRetry();
+  if (pending.value.length === 0) return;
+  retryTimer.value = setTimeout(() => {
+    retryTimer.value = null;
+    void flushQueue();
+  }, retryDelayMs(failedFlushes.value));
+};
 
 const openSession = async (sessionId: number) => {
   selectedSessionId.value = sessionId;
@@ -307,6 +330,7 @@ const mark = async (entry: SessionRegisterEntry, present: boolean) => {
     });
     writePendingMarks(pending.value);
     rowState[entry.childId] = "queued";
+    scheduleRetry();
   }
 };
 
@@ -341,5 +365,15 @@ const flushQueue = async () => {
   pending.value = remaining;
   writePendingMarks(remaining);
   flushing.value = false;
+
+  // Whatever is still here could not be delivered, so the next attempt is this screen's to make:
+  // the `online` event will not fire on a connection that never admitted to being down.
+  if (remaining.length > 0) {
+    failedFlushes.value += 1;
+    scheduleRetry();
+  } else {
+    failedFlushes.value = 0;
+    cancelRetry();
+  }
 };
 </script>

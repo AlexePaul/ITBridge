@@ -6,8 +6,8 @@
     label-key="label"
     icon="i-lucide-map-pin"
     size="md"
-    class="min-w-56"
-    :ui="{ base: 'w-full' }"
+    class="w-36 sm:w-auto sm:min-w-56"
+    :ui="{ base: 'w-full min-h-11' }"
   />
 </template>
 
@@ -16,6 +16,10 @@ import { ALL_LOCATIONS, useLocationStore, type LocationSelection } from "~/store
 
 /**
  * The location filter that sits in the admin navbar.
+ *
+ * It shrinks on a phone rather than keeping its 224px (E18/S7): at that width the navbar had no
+ * room left, and what it took was the menu button underneath it. A truncated location name costs
+ * an admin a glance; a covered hamburger costs a teacher the whole menu.
  *
  * It writes to one store, and every admin list reads the selection from the same place, so a list
  * cannot end up honouring a different location than the header says. "Toate locațiile" is a real
