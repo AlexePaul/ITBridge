@@ -124,11 +124,15 @@ export class OutboxService {
      * have been. The caller counts what it skipped; the delivery record stays a record of things
      * that went wrong.
      *
-     * There is no marketing sender yet. This exists so the guarantee is enforced from the first one
-     * rather than retrofitted around it — which is the moment it would be got wrong.
+     * Built before any marketing sender existed, so the guarantee would be enforced from the first
+     * one rather than retrofitted around it — which is the moment it would have been got wrong. The
+     * first one is E17/S7's promotional announcement.
      */
     async queueMarketing(
-        recipient: { email: string | null | undefined; marketingOptIn: boolean },
+        // `confirmed` is passed straight through to `queueOrRecord` below, and belongs in the type
+        // for the same reason it belongs there: an unconfirmed address is one nobody has proved is
+        // theirs, and marketing is not the message to start writing to it with.
+        recipient: { email: string | null | undefined; marketingOptIn: boolean; confirmed?: boolean },
         message: Omit<QueuedMessage, 'to'>,
         manager?: EntityManager,
     ) {

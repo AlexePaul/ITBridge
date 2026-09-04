@@ -1,7 +1,12 @@
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import type { Child } from "~/types/child.types";
-import type { Project, ProjectStatus, SendProjectsResult } from "~/types/project.types";
+import type {
+  PendingProjectsSummary,
+  Project,
+  ProjectStatus,
+  SendProjectsResult,
+} from "~/types/project.types";
 
 /** Query for `GET /projects`. Every field optional; the server decides what a caller may see. */
 export interface ProjectFilters {
@@ -34,6 +39,16 @@ export const useProjectsApi = () => {
    * string "undefined", and implicit conversion is off there, so it is a 400 rather than the
    * "no filter" the caller meant.
    */
+  /**
+   * How much is waiting to be sent, and for how long — E17/S8.
+   *
+   * Asked of the server rather than counted here from a list of every `new` project, which is what
+   * the projects screen used to do: counting in the browser is a second definition of the number,
+   * it cannot produce an age, and it downloads the whole backlog to find out how big the backlog is.
+   */
+  const fetchPendingProjects = async () =>
+    api<PendingProjectsSummary>("/projects/pending", { method: "GET", headers: authHeader() });
+
   const fetchProjects = async (filters: ProjectFilters = {}) => {
     const query = Object.fromEntries(
       Object.entries(filters).filter(([, value]) => value !== undefined && value !== "")
@@ -135,6 +150,7 @@ export const useProjectsApi = () => {
   }) => api<Project>("/projects", { method: "POST", headers: authHeader(), body: payload });
 
   return {
+    fetchPendingProjects,
     fetchProjects,
     fetchByPublicId,
     fileDownloadUrl,

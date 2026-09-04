@@ -124,3 +124,19 @@ export function distinctSlots(slots: TimetableSlot[]): TimetableSlot[] {
 export function deadSlotsOf(roomSlots: TimetableSlot[], schoolSlots: TimetableSlot[]): TimetableSlot[] {
     return distinctSlots(schoolSlots).filter((slot) => !roomSlots.some((used) => slotsOverlap(used, slot)));
 }
+
+/**
+ * How far back the funnel looks when nobody says — E20/S4.
+ *
+ * Three months rather than the finance report's twelve, because the two answer different questions.
+ * Money is a year-long shape with a September peak; acquisition is what is happening now, and a
+ * twelve-month conversion rate hides the month the school stopped ringing people back.
+ */
+export const DEFAULT_FUNNEL_MONTHS = 3;
+
+export function defaultFunnelRange(today: Date): { from: string; to: string } {
+    const to = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const from = new Date(today.getFullYear(), today.getMonth() - DEFAULT_FUNNEL_MONTHS, 1);
+    const iso = (date: Date) => `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
+    return { from: iso(from), to: iso(to) };
+}

@@ -7,6 +7,9 @@ import { RolesGuard } from 'src/guards/role.guard';
 import { FinanceReportQueryDto } from './dto/financeReportQuery.dto';
 import { FinanceReportService } from './finance-report.service';
 import { OccupancyReportService } from './occupancy-report.service';
+import { LeadFunnelService } from 'src/modules/lead/lead-funnel.service';
+import { FunnelReportQueryDto } from './dto/funnelReportQuery.dto';
+import { defaultFunnelRange } from './reports.rules';
 import { DEFAULT_FINANCE_MONTHS, addMonths, defaultFinanceRange } from './reports.rules';
 
 /**
@@ -19,6 +22,7 @@ export class ReportsController {
     constructor(
         private readonly finance: FinanceReportService,
         private readonly occupancy: OccupancyReportService,
+        private readonly funnel: LeadFunnelService,
     ) {}
 
     @Get('finance')
@@ -53,5 +57,28 @@ export class ReportsController {
     @ApiResponse({ status: 200, description: 'Every active group least full first, every active room with its dead hours, the roll-up by address' })
     async occupancyReport() {
         return this.occupancy.build();
+    }
+
+    /**
+     * E20/S4, exposed here because it is a report, computed there because leads are owned there.
+     *
+     * Two numbers carry the story and both are in the payload: trial held → enrolment, which is the
+     * one the epic calls the most important, and the median days from the trial to somebody
+     * deciding. They are read together deliberately — a falling conversion means either the class
+     * disappointed or nobody rang back, and only the second number tells you which.
+     */
+    @Get('funnel')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Cerere, probă programată, probă ținută, înscriere — pe sursă și pe locație',
+        description:
+            'Cohorta e după data cererii, nu după data evenimentului: o familie care a întrebat în august și s-a înscris în septembrie e numărată în august, pe amândouă liniile. Include cererile pentru care nu a existat niciun loc liber, singura măsură a cererii pe care școala nu a putut-o servi.',
+    })
+    @ApiResponse({ status: 200, description: 'Stages, conversion rates, the median days to a decision, and what was turned away' })
+    async funnelReport(@Query() query: FunnelReportQueryDto) {
+        const fallback = defaultFunnelRange(new Date());
+        return this.funnel.funnel({ from: query.from ?? fallback.from, to: query.to ?? fallback.to });
     }
 }

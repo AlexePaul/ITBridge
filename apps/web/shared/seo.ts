@@ -86,6 +86,19 @@ const STATIC_PAGES: PageSeo[] = [
     summary: "Telefon, email, program de lucru, adresele și hărțile celor două locații.",
     priority: 0.7,
   },
+  {
+    path: "/proba",
+    title: "Lecție de probă gratuită | IT Bridge School",
+    description:
+      "Programează online o lecție de probă gratuită, fără cont și fără telefon. Alegi ziua și ora " +
+      "dintre grupele cu locuri libere, la Drumul Taberei sau Străulești.",
+    summary:
+      "Formularul prin care un părinte își programează singur o lecție de probă gratuită, alegând " +
+      "ora dintre grupele care au loc liber.",
+    // Second only to the home page: it is the conversion path the whole site leads to, and the one
+    // page a search result should land on when somebody types „lecție de probă programare copii".
+    priority: 0.9,
+  },
 ];
 
 const LOCATIONS_INDEX: PageSeo = {

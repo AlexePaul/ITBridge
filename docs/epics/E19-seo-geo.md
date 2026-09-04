@@ -143,7 +143,7 @@ foaia de stil.
 CLS era deja rezolvat înainte: fiecare imagine are `width` și `height`, iar caruselul are
 `aspect-ratio` pe container, deci nimic nu sare.
 
-**Ce rămâne de făcut, și nu se poate acum:** măsurarea *pe date reale*, adică pe trafic. Cere
+**Ce rămâne de făcut, și nu se poate acum:** măsurarea _pe date reale_, adică pe trafic. Cere
 domeniul live și câteva zile de date în Search Console. Cifrele de mai sus sunt de laborator, ceea ce
 acceptanța spune explicit că nu e suficient — deci story-ul e livrat ca lucrare, dar confirmarea vine
 de la Google.
@@ -215,7 +215,7 @@ n-are de unde porni fără o linie de bază:
   singur) și `api.itbridgeschool.com`, care e o problemă de infrastructură, nu de SEO, și e scrisă la
   [E01](E01-infrastructura-medii.md).
 
-**Ce NU e de reparat în cod:** sitemap-ul listează toate cele șapte pagini, `robots.txt` are linia
+**Ce NU e de reparat în cod:** sitemap-ul listează toate paginile publice, `robots.txt` are linia
 `Sitemap:` și nu blochează nimic public, iar canonicele se rezolvă. Configurația e corectă;
 neindexarea e o chestiune de timp și autoritate, iar o schimbare de cod făcută ca să pară că se face
 ceva ar strica exact partea care merge.
@@ -257,6 +257,7 @@ profil Google. Core Web Vitals în verde. Un ritm de conținut care se ține.
   trebuie să rămână identice cu cele din `apps/web/shared/school.ts`. Dacă se schimbă vreodată una
   dintre ele, se schimbă în trei locuri — constanta, profilul, și orice listare terță — fiindcă NAP
   inconsecvent e cea mai frecventă cauză de poziționare locală slabă.
+
 - Cine scrie conținutul? (S6 nu poate începe fără răspuns.)
 - Se țintește și publicul vorbitor de engleză? Ar însemna site bilingv, cu costul aferent.
   Observație din cercetare: limba întrebării schimbă sursele pe care le citează un asistent, deci

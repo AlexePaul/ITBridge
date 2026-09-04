@@ -18,7 +18,7 @@ env:
 
 jobs:
   verify:
-    name: Lint, typecheck, test, build
+    name: Lint, typecheck, test, build, accessibility
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -56,6 +56,20 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          API_BASE: http://localhost:3000
+
+      # Chromium alone: the check drives one browser, and the other two would be three times the
+      # download for the same answer. `--with-deps` adds the shared libraries the runner image does
+      # not ship, which is the difference between a browser that starts and one that hangs.
+      - name: Install Chromium
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      # Contrast, focus order, labels and roles on the public pages, in both colour schemes — the
+      # half of E18/S6 that keeps the other half true. `API_BASE` matches the build above so turbo
+      # restores that build rather than running a second one under a different hash.
+      - name: Accessibility
+        run: pnpm test:a11y
         env:
           API_BASE: http://localhost:3000
 

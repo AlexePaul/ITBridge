@@ -5,10 +5,12 @@ import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Child } from 'src/entities/child.entity';
 import { Group } from 'src/entities/group.entity';
+import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
 import { EnrollmentStatus, IN_FORCE_STATUSES, isInForce } from 'src/enum/enrollment-status.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { isAccountActive } from 'src/entities/user.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
+import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
 import { composeWaitlistOffer } from './waitlist-mail';
 import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 
@@ -52,6 +54,12 @@ export interface CompatibilityWarning {
     message: string;
 }
 
+/** The least a class has to say about itself for its seats to be counted. */
+export interface SeatedSession {
+    id: number;
+    group: { id: number; capacity: number };
+}
+
 export interface GroupOccupancy {
     groupId: number;
     capacity: number;
@@ -70,7 +78,9 @@ export class EnrollmentService {
         @InjectRepository(WaitlistEntry) private readonly waitlistRepository: Repository<WaitlistEntry>,
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
+        @InjectRepository(MakeUpCredit) private readonly makeUpCreditRepository: Repository<MakeUpCredit>,
         private readonly outbox: OutboxService,
+        private readonly leadProgress: LeadProgressService,
         @InjectDataSource() private readonly dataSource: DataSource,
     ) {}
 
@@ -135,6 +145,62 @@ export class EnrollmentService {
         return { groupId, capacity: group.capacity, taken, free: Math.max(0, group.capacity - taken), waiting };
     }
 
+    /**
+     * Seats free at **one class**, which is not the same question as seats free in the group.
+     *
+     * A group's headroom is enrolments in force against capacity. A single class can be tighter than
+     * that: a child sitting in on a make-up occupies a chair at a computer for that hour without
+     * being enrolled in anything (E12/S4, and D7 again). So a group with one place left may have
+     * none at all next Monday and one the Monday after.
+     *
+     * It lives here, beside `occupancyOf`, because both answer "is there room" and D7 must have one
+     * owner: `MakeUpCreditService` asked it first and now delegates, and E20/S2's public booking form
+     * asks it too — three callers, one definition. Batched over a list of sessions because the
+     * booking form asks about every hour it is about to offer, and a query per session is how a
+     * public page becomes slow.
+     */
+    async freeSeatsAtSessions(sessions: SeatedSession[], manager?: EntityManager): Promise<Map<number, number>> {
+        const free = new Map<number, number>();
+        if (sessions.length === 0) return free;
+
+        const enrollmentRepository = manager ? manager.getRepository(Enrollment) : this.enrollmentRepository;
+        const creditRepository = manager ? manager.getRepository(MakeUpCredit) : this.makeUpCreditRepository;
+
+        const groupIds = [...new Set(sessions.map((session) => session.group.id))];
+        const sessionIds = sessions.map((session) => session.id);
+
+        const enrolledRows = await enrollmentRepository
+            .createQueryBuilder('enrollment')
+            .select('enrollment.group_id', 'groupId')
+            .addSelect('COUNT(*)::int', 'count')
+            .where('enrollment.group_id IN (:...groupIds)', { groupIds })
+            .andWhere('enrollment.status IN (:...inForce)', { inForce: [...IN_FORCE_STATUSES] })
+            .groupBy('enrollment.group_id')
+            .getRawMany<{ groupId: number; count: number }>();
+
+        const visitingRows = await creditRepository
+            .createQueryBuilder('credit')
+            .select('credit.booked_session_id', 'sessionId')
+            .addSelect('COUNT(*)::int', 'count')
+            .where('credit.booked_session_id IN (:...sessionIds)', { sessionIds })
+            .groupBy('credit.booked_session_id')
+            .getRawMany<{ sessionId: number; count: number }>();
+
+        const enrolled = new Map(enrolledRows.map((row) => [Number(row.groupId), row.count]));
+        const visiting = new Map(visitingRows.map((row) => [Number(row.sessionId), row.count]));
+
+        for (const session of sessions) {
+            const taken = (enrolled.get(session.group.id) ?? 0) + (visiting.get(session.id) ?? 0);
+            free.set(session.id, Math.max(0, session.group.capacity - taken));
+        }
+        return free;
+    }
+
+    /** The same question about a single class. */
+    async freeSeatsAt(session: SeatedSession, manager?: EntityManager): Promise<number> {
+        return (await this.freeSeatsAtSessions([session], manager)).get(session.id) ?? 0;
+    }
+
     private async countInForce(groupId: number, manager?: EntityManager): Promise<number> {
         const repository = manager ? manager.getRepository(Enrollment) : this.enrollmentRepository;
         return repository.count({ where: { group: { id: groupId }, status: In([...IN_FORCE_STATUSES]) } });
@@ -165,7 +231,14 @@ export class EnrollmentService {
             allowOverCapacity?: boolean;
             acknowledgeWarnings?: boolean;
         },
-        actingUserId: number,
+        // `null` when nothing signed in did this — the public trial form of E20/S2. It is used only
+        // to name somebody in the over-capacity warning, and a booking from the form can never take
+        // that branch, so the honest value is "nobody" rather than a placeholder id.
+        actingUserId: number | null,
+        // Passed when the caller is already in a transaction and the enrolment has to stand or fall
+        // with the rest of it — booking a trial writes a profile, a child, this, and a message, and
+        // a seat taken by a booking that then failed is a seat nobody can find their way back to.
+        manager?: EntityManager,
     ): Promise<Enrollment> {
         const status = input.status ?? EnrollmentStatus.ACTIVE;
         if (!isInForce(status)) {
@@ -175,55 +248,88 @@ export class EnrollmentService {
             });
         }
 
-        return this.dataSource.transaction(async (manager) => {
-            const child = await manager.getRepository(Child).findOne({
-                where: { id: input.childId },
-                relations: { parent: { user: true } },
-            });
-            if (!child) {
-                throw new NotFoundException('Child not found');
-            }
+        return manager
+            ? this.enrolWithin(manager, input, status, actingUserId)
+            : this.dataSource.transaction((tx) => this.enrolWithin(tx, input, status, actingUserId));
+    }
 
-            const group = await manager.getRepository(Group).findOne({ where: { id: input.groupId } });
-            if (!group) {
-                throw new NotFoundException('Group not found');
-            }
-
-            this.assertParentAccountActive(child);
-            await this.assertNotAlreadyEnrolled(input.childId, manager);
-            if (!group.isActive) {
-                throw new ConflictException({
-                    message: 'Grupa este inactivă și nu poate primi înscrieri noi',
-                    error: 'GROUP_INACTIVE',
-                });
-            }
-            await this.assertRoomForOneMore(group, manager, input.allowOverCapacity === true, actingUserId);
-            this.assertCompatible(child, group, input.acknowledgeWarnings === true);
-
-            const enrollment = await manager.save(Enrollment, {
-                child: { id: input.childId } as Child,
-                group: { id: input.groupId } as Group,
-                status,
-                startDate: input.startDate ?? today(),
-                endDate: null,
-                exitReason: null,
-                contractSignedAt: input.contractSignedAt ?? null,
-            });
-
-            await this.syncDerivedGroup(input.childId, manager);
-
-            // Being enrolled settles any request this child had for this group. Left open, the
-            // family would keep a place in a queue for a seat they are already sitting in.
-            await manager
-                .getRepository(WaitlistEntry)
-                .update(
-                    { child: { id: input.childId }, group: { id: input.groupId }, status: In([WaitlistStatus.WAITING, WaitlistStatus.OFFERED]) },
-                    { status: WaitlistStatus.ACCEPTED },
-                );
-
-            this.logger.log(`Child ${input.childId} enrolled in group ${input.groupId} as ${status}.`);
-            return enrollment;
+    private async enrolWithin(
+        manager: EntityManager,
+        input: {
+            childId: number;
+            groupId: number;
+            startDate?: string;
+            contractSignedAt?: string | null;
+            allowOverCapacity?: boolean;
+            acknowledgeWarnings?: boolean;
+        },
+        status: EnrollmentStatus,
+        actingUserId: number | null,
+    ): Promise<Enrollment> {
+        const child = await manager.getRepository(Child).findOne({
+            where: { id: input.childId },
+            relations: { parent: { user: true } },
         });
+        if (!child) {
+            throw new NotFoundException('Child not found');
+        }
+
+        const group = await this.lockGroup(manager, input.groupId);
+
+        this.assertParentAccountActive(child);
+        await this.assertNotAlreadyEnrolled(input.childId, manager);
+        if (!group.isActive) {
+            throw new ConflictException({
+                message: 'Grupa este inactivă și nu poate primi înscrieri noi',
+                error: 'GROUP_INACTIVE',
+            });
+        }
+        await this.assertRoomForOneMore(group, manager, input.allowOverCapacity === true, actingUserId);
+        this.assertCompatible(child, group, input.acknowledgeWarnings === true);
+
+        const enrollment = await manager.save(Enrollment, {
+            child: { id: input.childId } as Child,
+            group: { id: input.groupId } as Group,
+            status,
+            startDate: input.startDate ?? today(),
+            endDate: null,
+            exitReason: null,
+            contractSignedAt: input.contractSignedAt ?? null,
+        });
+
+        await this.syncDerivedGroup(input.childId, manager);
+
+        // Being enrolled settles any request this child had for this group. Left open, the
+        // family would keep a place in a queue for a seat they are already sitting in.
+        await manager
+            .getRepository(WaitlistEntry)
+            .update(
+                { child: { id: input.childId }, group: { id: input.groupId }, status: In([WaitlistStatus.WAITING, WaitlistStatus.OFFERED]) },
+                { status: WaitlistStatus.ACCEPTED },
+            );
+
+        this.logger.log(`Child ${input.childId} enrolled in group ${input.groupId} as ${status}.`);
+        return enrollment;
+    }
+
+    /**
+     * Loads a group and holds its row until the transaction ends.
+     *
+     * Capacity is checked by counting and then inserting, which two transactions can do at the same
+     * time and both find room — the check is not the guarantee, it is only the reason the refusal
+     * has words in it. Locking the group serialises everybody who wants a seat in it, which is what
+     * D7 actually claims. It matters more since E20/S2: an admin clicking twice is rare, two parents
+     * on the public form at 20:00 is not.
+     *
+     * Only the group being joined is locked, never the one being left, so two transfers in opposite
+     * directions cannot wait on each other.
+     */
+    private async lockGroup(manager: EntityManager, groupId: number): Promise<Group> {
+        const group = await manager.getRepository(Group).findOne({ where: { id: groupId }, lock: { mode: 'pessimistic_write' } });
+        if (!group) {
+            throw new NotFoundException('Group not found');
+        }
+        return group;
     }
 
     /**
@@ -304,10 +410,7 @@ export class EnrollmentService {
             if (!child) {
                 throw new NotFoundException('Child not found');
             }
-            const target = await manager.getRepository(Group).findOne({ where: { id: input.toGroupId } });
-            if (!target) {
-                throw new NotFoundException('Group not found');
-            }
+            const target = await this.lockGroup(manager, input.toGroupId);
 
             this.assertParentAccountActive(child);
             if (!target.isActive) {
@@ -370,6 +473,9 @@ export class EnrollmentService {
                     { status: EnrollmentStatus.ACTIVE, contractSignedAt: input.contractSignedAt ?? trial.contractSignedAt },
                 );
                 this.logger.log(`Trial ${enrollmentId} became an active enrolment.`);
+                // In the same transaction: the lead records the decision E11 just made, and one of
+                // the two happening without the other is exactly what S4's numbers cannot survive.
+                await this.leadProgress.settleForEnrollment(enrollmentId, { enrolled: true }, new Date(), manager);
             } else {
                 await manager.update(
                     Enrollment,
@@ -379,6 +485,7 @@ export class EnrollmentService {
                 await this.syncDerivedGroup(trial.child.id, manager);
                 // Only here is the seat genuinely leaving the group, so only here is the queue asked.
                 await this.offerFreedSeat(trial.group.id, manager);
+                await this.leadProgress.settleForEnrollment(enrollmentId, { enrolled: false, reason: input.reason ?? null }, new Date(), manager);
                 this.logger.log(`Trial ${enrollmentId} closed; seat in group ${trial.group.id} released.`);
             }
 
@@ -643,7 +750,7 @@ export class EnrollmentService {
     }
 
     /** D7, counting trials. The message offers the list, because that is the next thing to do. */
-    private async assertRoomForOneMore(group: Group, manager: EntityManager, allowOverCapacity: boolean, actingUserId: number): Promise<void> {
+    private async assertRoomForOneMore(group: Group, manager: EntityManager, allowOverCapacity: boolean, actingUserId: number | null): Promise<void> {
         const taken = await this.countInForce(group.id, manager);
         if (taken < group.capacity) {
             return;
@@ -651,7 +758,7 @@ export class EnrollmentService {
 
         if (allowOverCapacity) {
             this.logger.warn(
-                `User ${actingUserId} enrolled over capacity in group ${group.id}: ${taken + 1} children in ${group.capacity} seats. No audit record was written — see E06.`,
+                `${actingUserId === null ? 'The public trial form' : `User ${actingUserId}`} enrolled over capacity in group ${group.id}: ${taken + 1} children in ${group.capacity} seats. No audit record was written — see E06.`,
             );
             return;
         }

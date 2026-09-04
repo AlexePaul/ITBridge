@@ -8,12 +8,12 @@ import { Child } from 'src/entities/child.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
-import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { MakeUpStatus } from 'src/enum/make-up-status.enum';
 import { Role } from 'src/enum/role.enum';
 import { ageOf } from 'src/modules/enrollment/enrollment.service';
 import { toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { hasExpired, makeUpExpiryFor } from './make-up.rules';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 
 /** One class a credit could be used on, as the booking screen reads it. */
 export interface MakeUpOption {
@@ -36,6 +36,9 @@ export class MakeUpCreditService {
         @InjectRepository(AbsenceNotice) private readonly noticeRepository: Repository<AbsenceNotice>,
         @InjectRepository(ClassSession) private readonly classSessionRepository: Repository<ClassSession>,
         @InjectRepository(Enrollment) private readonly enrollmentRepository: Repository<Enrollment>,
+        // D7's owner. Seats — in a group, and at one class — are counted in one place; see
+        // `EnrollmentService.freeSeatsAtSessions`.
+        private readonly enrollments: EnrollmentService,
     ) {}
 
     /**
@@ -240,13 +243,13 @@ export class MakeUpCreditService {
      * the count is enrolments in force plus make-ups already booked onto this very session. A group
      * that is full of its own children has no room for a visitor even though nobody is "enrolled"
      * in the visit.
+     *
+     * The counting itself moved to `EnrollmentService.freeSeatsAt` when E20/S2 needed the same answer
+     * for the public booking form — D7 gets one owner, next to `occupancyOf`, rather than a copy per
+     * caller. This stays as the name the rest of this service already used.
      */
     private async freeSeatsAt(session: ClassSession): Promise<number> {
-        const enrolled = await this.enrollmentRepository.count({
-            where: { group: { id: session.group.id }, status: In([EnrollmentStatus.TRIAL, EnrollmentStatus.ACTIVE]) },
-        });
-        const visiting = await this.creditRepository.count({ where: { bookedSession: { id: session.id } } });
-        return Math.max(0, session.group.capacity - enrolled - visiting);
+        return this.enrollments.freeSeatsAt(session);
     }
 
     /** Books the credit onto a class the parent chose. Re-checks everything `optionsFor` filtered on. */

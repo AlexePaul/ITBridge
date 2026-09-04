@@ -2,12 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Group } from 'src/entities/group.entity';
-import { Project } from 'src/entities/project.entity';
 import { User } from 'src/entities/user.entity';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
 import { OutboxStatus } from 'src/enum/outbox-status.enum';
-import { ProjectStatus } from 'src/enum/project-status.enum';
+import { ProjectService } from 'src/modules/project/project.service';
 import { Role } from 'src/enum/role.enum';
 import { ClassSessionService } from 'src/modules/class-session/class-session.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
@@ -55,6 +54,13 @@ export interface Overview {
     groupsNearlyFull: OverviewGroup[];
     /** Uploaded, reviewed by nobody, sent to nobody. */
     projectsAwaitingSend: number;
+    /**
+     * Whole days the oldest of them has waited; null when none are. E17/S8.
+     *
+     * Beside the count rather than instead of it, because the two say different things: the number
+     * is how much work there is, the age is whether anybody is doing it.
+     */
+    projectsAwaitingSendOldestDays: number | null;
     /** Families who registered and are waiting to be let in. */
     pendingApprovals: number;
     /** Messages that had nowhere to go — a family who was not reached and does not know it. */
@@ -78,18 +84,18 @@ export interface Overview {
 export class OverviewService {
     constructor(
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
-        @InjectRepository(Project) private readonly projectRepository: Repository<Project>,
         @InjectRepository(User) private readonly userRepository: Repository<User>,
         @InjectRepository(OutboxMessage) private readonly outboxRepository: Repository<OutboxMessage>,
         private readonly classSessions: ClassSessionService,
         private readonly enrollments: EnrollmentService,
         private readonly arrears: ArrearsService,
+        private readonly projects: ProjectService,
     ) {}
 
     async build(today: Date = new Date()): Promise<Overview> {
         const date = toIsoDate(today);
 
-        const [sessions, unmarked, arrearsRows, groupsNearlyFull, projectsAwaitingSend, pendingApprovals, undeliverableMessages] = await Promise.all([
+        const [sessions, unmarked, arrearsRows, groupsNearlyFull, pendingProjects, pendingApprovals, undeliverableMessages] = await Promise.all([
             // The admin view of the day: `findSessions` narrows for a parent and not for an admin,
             // and this endpoint is admin-only, so it sees the whole school.
             this.classSessions.findSessions({ dateFrom: date, dateTo: date }, Role.ADMIN, 0),
@@ -98,7 +104,10 @@ export class OverviewService {
             this.classSessions.findUnmarkedSessions({ dateFrom: toIsoDate(addDays(today, -7)), dateTo: toIsoDate(addDays(today, -1)) }),
             this.arrears.list(today),
             this.nearlyFullGroups(),
-            this.projectRepository.count({ where: { status: ProjectStatus.NEW } }),
+            // Asked of the service that owns the question, not counted here. A report deriving
+            // its own definition of "waiting" is the second definition that eventually diverges
+            // from the group screen's — and this one now carries an age, which a `count` cannot.
+            this.projects.pendingSummary(today),
             this.userRepository.count({ where: { role: Role.PARENT, approvalStatus: ApprovalStatus.PENDING } }),
             this.outboxRepository.count({ where: { status: OutboxStatus.UNDELIVERABLE } }),
         ]);
@@ -126,7 +135,8 @@ export class OverviewService {
                 over60: arrearsRows.filter((row) => row.bucket === 'over_60').length,
             },
             groupsNearlyFull,
-            projectsAwaitingSend,
+            projectsAwaitingSend: pendingProjects.total,
+            projectsAwaitingSendOldestDays: pendingProjects.oldestDays,
             pendingApprovals,
             undeliverableMessages,
         };

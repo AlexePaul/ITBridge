@@ -10,6 +10,7 @@ import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { MakeUpStatus } from 'src/enum/make-up-status.enum';
 import { Role } from 'src/enum/role.enum';
 import { createMockQueryBuilder, createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 
 describe('MakeUpCreditService', () => {
     let service: MakeUpCreditService;
@@ -17,6 +18,11 @@ describe('MakeUpCreditService', () => {
     let noticeRepo: MockRepository;
     let sessionRepo: MockRepository;
     let enrollmentRepo: MockRepository;
+    /**
+     * D7's owner since E20/S2: seats at a class are counted in `EnrollmentService`, so this suite
+     * states the answer rather than the rows behind it. The counting itself is tested there.
+     */
+    let enrollments: { freeSeatsAt: jest.Mock; freeSeatsAtSessions: jest.Mock };
 
     /** "Today" for every test, so nothing depends on the day the suite runs. */
     const NOW = new Date(2026, 8, 10);
@@ -27,6 +33,7 @@ describe('MakeUpCreditService', () => {
         noticeRepo = createMockRepository();
         sessionRepo = createMockRepository();
         enrollmentRepo = createMockRepository();
+        enrollments = { freeSeatsAt: jest.fn().mockResolvedValue(10), freeSeatsAtSessions: jest.fn().mockResolvedValue(new Map()) };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -35,6 +42,7 @@ describe('MakeUpCreditService', () => {
                 provideMockRepository(AbsenceNotice, noticeRepo),
                 provideMockRepository(ClassSession, sessionRepo),
                 provideMockRepository(Enrollment, enrollmentRepo),
+                { provide: EnrollmentService, useValue: enrollments },
             ],
         }).compile();
         service = module.get(MakeUpCreditService);
@@ -270,14 +278,15 @@ describe('MakeUpCreditService', () => {
         });
 
         it('refuses a full class — a visitor needs a real chair, like a trial does', async () => {
-            enrollmentRepo.count!.mockResolvedValue(10);
+            enrollments.freeSeatsAt.mockResolvedValue(0);
             const error = await service.book(4, 12, Role.PARENT, 42, NOW).catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('MAKE_UP_SESSION_FULL');
         });
 
-        it('counts visitors already booked against the same class', async () => {
-            enrollmentRepo.count!.mockResolvedValue(9);
-            creditRepo.count!.mockResolvedValue(1);
+        it('asks about the class, not the group — a visitor already booked fills the last chair', async () => {
+            // Nine enrolled and one make-up already booked onto this very hour is a full class even
+            // though the group still has headroom; the arithmetic is asserted in the enrolment suite.
+            enrollments.freeSeatsAt.mockResolvedValue(0);
             const error = await service.book(4, 12, Role.PARENT, 42, NOW).catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('MAKE_UP_SESSION_FULL');
         });

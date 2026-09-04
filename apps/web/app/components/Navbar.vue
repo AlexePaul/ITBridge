@@ -28,8 +28,14 @@
 
       <div class="nav-actions">
         <template v-if="!userStore.user">
-          <NuxtLink to="/contact" class="btn btn-primary" @click="isOpen = false">
-            Înscrie-ți copilul
+          <!--
+            E20/S2. The main call to action now leads to the booking form rather than to the contact
+            page: the whole point of the epic is that a parent can pick an hour at 20:00 without
+            ringing anybody, and „Înscrie-ți copilul" also promised something the school does not do
+            from a form — enrolment is an admin's job, a trial is not.
+          -->
+          <NuxtLink to="/proba" class="btn btn-primary" @click="isOpen = false">
+            Programează o probă
           </NuxtLink>
           <NuxtLink to="/auth/login" class="btn btn-ghost" @click="isOpen = false">Cont</NuxtLink>
         </template>
@@ -95,6 +101,7 @@ const navigationItems = [
   { label: "Cursuri", to: "/cursuri" },
   { label: "Locații", to: "/locatii" },
   { label: "Despre noi", to: "/despre-noi" },
+  { label: "Lecție de probă", to: "/proba" },
   { label: "Contact", to: "/contact" },
 ];
 

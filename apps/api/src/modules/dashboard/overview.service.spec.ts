@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { OverviewService } from './overview.service';
 import { Group } from 'src/entities/group.entity';
-import { Project } from 'src/entities/project.entity';
 import { User } from 'src/entities/user.entity';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { ClassSessionService } from 'src/modules/class-session/class-session.service';
+import { ProjectService } from 'src/modules/project/project.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { ArrearsService } from 'src/modules/invoice/arrears.service';
 import { Role } from 'src/enum/role.enum';
@@ -20,7 +20,7 @@ import { createMockRepository, MockRepository, provideMockRepository } from 'src
 describe('OverviewService', () => {
     let service: OverviewService;
     let groupRepo: MockRepository;
-    let projectRepo: MockRepository;
+    let projects: { pendingSummary: jest.Mock };
     let userRepo: MockRepository;
     let outboxRepo: MockRepository;
     let classSessions: { findSessions: jest.Mock; findUnmarkedSessions: jest.Mock };
@@ -40,7 +40,7 @@ describe('OverviewService', () => {
 
     beforeEach(async () => {
         groupRepo = createMockRepository();
-        projectRepo = createMockRepository();
+        projects = { pendingSummary: jest.fn() };
         userRepo = createMockRepository();
         outboxRepo = createMockRepository();
         classSessions = { findSessions: jest.fn().mockResolvedValue([]), findUnmarkedSessions: jest.fn().mockResolvedValue([]) };
@@ -48,7 +48,7 @@ describe('OverviewService', () => {
         arrears = { list: jest.fn().mockResolvedValue([]) };
 
         groupRepo.find!.mockResolvedValue([]);
-        projectRepo.count!.mockResolvedValue(0);
+        projects.pendingSummary.mockResolvedValue({ total: 0, oldestDays: null, staleAfterDays: 2, byGroup: [] });
         userRepo.count!.mockResolvedValue(0);
         outboxRepo.count!.mockResolvedValue(0);
 
@@ -56,12 +56,12 @@ describe('OverviewService', () => {
             providers: [
                 OverviewService,
                 provideMockRepository(Group, groupRepo),
-                provideMockRepository(Project, projectRepo),
                 provideMockRepository(User, userRepo),
                 provideMockRepository(OutboxMessage, outboxRepo),
                 { provide: ClassSessionService, useValue: classSessions },
                 { provide: EnrollmentService, useValue: enrollments },
                 { provide: ArrearsService, useValue: arrears },
+                { provide: ProjectService, useValue: projects },
             ],
         }).compile();
         service = module.get(OverviewService);
@@ -175,9 +175,25 @@ describe('OverviewService', () => {
             expect(overview.pendingApprovals).toBe(2);
         });
 
-        it('counts documents uploaded and sent to nobody', async () => {
-            projectRepo.count!.mockResolvedValue(5);
-            await expect(service.build(DAY)).resolves.toMatchObject({ projectsAwaitingSend: 5 });
+        /**
+         * Asked of `ProjectService`, not counted here — E17/S8 moved the definition to the service
+         * that owns it, and E21's rule is that a report sums what it is handed.
+         */
+        it('counts documents uploaded and sent to nobody, and how long the oldest has waited', async () => {
+            projects.pendingSummary.mockResolvedValue({ total: 5, oldestDays: 4, staleAfterDays: 2, byGroup: [] });
+
+            await expect(service.build(DAY)).resolves.toMatchObject({
+                projectsAwaitingSend: 5,
+                // The half a count cannot say: five from this afternoon and five from Tuesday are
+                // the same number and completely different situations.
+                projectsAwaitingSendOldestDays: 4,
+            });
+        });
+
+        it('reports a null age when nothing is waiting, rather than zero days', async () => {
+            projects.pendingSummary.mockResolvedValue({ total: 0, oldestDays: null, staleAfterDays: 2, byGroup: [] });
+
+            await expect(service.build(DAY)).resolves.toMatchObject({ projectsAwaitingSend: 0, projectsAwaitingSendOldestDays: null });
         });
 
         it('counts messages that had nowhere to go', async () => {

@@ -42,6 +42,16 @@ const MESSAGES: Record<string, string> = {
   INVALID_VALUE: "Un câmp are o valoare de tipul greșit.",
   SERVICE_UNAVAILABLE: "Serviciul este momentan indisponibil. Încearcă din nou.",
 
+  // E20 — acquisition. The first three can reach a parent on the public booking page, so they are
+  // written for one: no jargon, and each says what to do next.
+  CONTACT_REQUIRED: "Lasă un email sau un telefon, ca să te putem contacta.",
+  TRIAL_SESSION_UNAVAILABLE: "Ora aleasă nu mai este disponibilă. Alege alta din listă.",
+  TRIAL_AGE_MISMATCH: "Grupa aleasă este pentru altă vârstă. Alege una dintre cele propuse.",
+  LEAD_NOT_NEW: "Cererea a trecut deja de acest pas; stările următoare vin din ce s-a întâmplat.",
+  LEAD_ALREADY_ENROLLED:
+    "Familia este deja înscrisă. Dacă a renunțat, se închide înscrierea, nu cererea.",
+  ASSIGNMENT_AMBIGUOUS: "Alege: fie îi dai un responsabil, fie i-l iei.",
+
   // E08. "Există deja o înregistrare cu aceste date" is true of all of these and useful for none:
   // an admin who has just double-booked a room needs to know that is what happened.
   GROUP_SLOT_TAKEN: "Sala este deja ocupată în acest interval de altă grupă.",
@@ -51,6 +61,15 @@ const MESSAGES: Record<string, string> = {
   ROOM_NAME_TAKEN: "Există deja o sală cu acest nume la această locație.",
   ROOM_HAS_GROUPS: "Sala găzduiește grupe. Mută întâi grupele în altă sală.",
   ROOM_INACTIVE: "Sala sau locația este inactivă, deci nu poate primi grupe noi.",
+
+  // E17/S7. All three are conflicts an admin can hit from the announcement screen, and the generic
+  // "există deja o înregistrare cu aceste date" is wrong about every one of them. The names-a-child
+  // one arrives with the names in its own message, so it is not listed here — the generic sentence
+  // would be a downgrade, the same reason `GROUP_FULL` is absent.
+  ANNOUNCEMENT_ALREADY_SENT:
+    "Același anunț a plecat deja astăzi către aceeași audiență. Schimbă textul dacă vrei totuși să îl retrimiți.",
+  ANNOUNCEMENT_NO_RECIPIENTS:
+    "Nu există nicio familie în audiența aleasă, deci anunțul nu are cui să plece.",
 
   // E12. Only reachable by opening an inactive group's attendance page directly - the listing
   // filters them out - but without an entry here the admin gets the English sentence from the API.

@@ -23,6 +23,7 @@ import { S3Service } from 'src/modules/storage/s3.service';
 import { parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { hashContent, ingestionKey, projectFileKey, projectThumbnailKey } from './project.keys';
 import { inspectFile, isVideoName, MAX_VIDEO_BYTES, sizeLimitFor } from './file-types';
+import { daysWaiting, STALE_PENDING_DAYS } from './pending.rules';
 import { ThumbnailService } from './thumbnail.service';
 import { CreateProjectDto } from './dto/createProject.dto';
 import { FilterProjectDto } from './dto/filterProject.dto';
@@ -39,6 +40,18 @@ export interface UploadedFile {
 
 /** The relations a project needs to be answerable: whose it is, and what is in it. */
 const PROJECT_RELATIONS = ['child', 'child.parent', 'child.parent.user', 'child.group', 'versions', 'versions.files', 'links'];
+
+/** What is waiting to be sent, for the whole school and per group — E17/S8. */
+export interface PendingSummary {
+    /** Every document in `new`, including any whose child is in no group. */
+    total: number;
+    /** Whole days the oldest of them has waited. Null when nothing is waiting. */
+    oldestDays: number | null;
+    /** The line the screen draws between "a queue" and "a lapse" — a proposal, shown as one. */
+    staleAfterDays: number;
+    /** Oldest-first: the group that has been waiting longest is the one to open. */
+    byGroup: { groupId: number; count: number; oldestDays: number }[];
+}
 
 @Injectable()
 export class ProjectService {
@@ -476,6 +489,58 @@ export class ProjectService {
                 this.logger.warn(`Deleted project ${id} but could not remove ${key}: ${error instanceof Error ? error.message : String(error)}`);
             }
         }
+    }
+
+    /**
+     * How much is waiting for somebody to press send, and how long it has been waiting — E17/S8.
+     *
+     * The count on its own is not a signal. Five documents uploaded this afternoon are a normal
+     * afternoon; one document uploaded on Tuesday and still here on Friday is the failure E17's risk
+     * section names — *ce depinde de un buton nu pleacă dacă nu apasă nimeni*. A screen showing only
+     * a number cannot tell those two apart, so the age travels with it everywhere the number goes.
+     *
+     * **This service owns the question.** `OverviewService` used to count these rows itself, which
+     * is the thing E21 says a report must not do: a second place that decides what "waiting" means
+     * is a second place for it to drift. One grouped query answers for the whole school and for each
+     * group at once, so the nav badge, the group cards and the dashboard tile cannot disagree.
+     */
+    async pendingSummary(now: Date = new Date()): Promise<PendingSummary> {
+        const rows = await this.projectRepository
+            .createQueryBuilder('project')
+            .innerJoin('project.child', 'child')
+            .leftJoin('child.group', 'group')
+            .select('group.id', 'groupId')
+            .addSelect('COUNT(*)::int', 'count')
+            // The earliest upload in the group; `daysWaiting` turns it into the number on the screen.
+            .addSelect('MIN(project.createdAt)', 'oldest')
+            .andWhere('project.status = :status', { status: ProjectStatus.NEW })
+            .groupBy('group.id')
+            .getRawMany<{ groupId: number | null; count: number; oldest: Date | string }>();
+
+        const byGroup = rows
+            // A document whose child sits in no group has nowhere to be listed, so it cannot be
+            // pressed from a group screen. It still counts in the total — that is the point of a
+            // total — and `reassign` is the way out of the state.
+            .filter((row): row is { groupId: number; count: number; oldest: Date | string } => row.groupId !== null)
+            .map((row) => ({
+                groupId: row.groupId,
+                count: row.count,
+                oldestDays: daysWaiting(new Date(row.oldest), now),
+            }))
+            .sort((a, b) => b.oldestDays - a.oldestDays || b.count - a.count);
+
+        const total = rows.reduce((sum, row) => sum + row.count, 0);
+        const oldest = rows.reduce<Date | null>((earliest, row) => {
+            const at = new Date(row.oldest);
+            return earliest === null || at < earliest ? at : earliest;
+        }, null);
+
+        return {
+            total,
+            oldestDays: oldest === null ? null : daysWaiting(oldest, now),
+            staleAfterDays: STALE_PENDING_DAYS,
+            byGroup,
+        };
     }
 
     /** Everything the group screen needs about children who have nothing yet — a read, never a write. */

@@ -20,7 +20,8 @@
       </p>
       <div class="actions">
         <NuxtLink to="/cursuri" class="btn btn-primary">Vezi cursurile</NuxtLink>
-        <NuxtLink to="/contact" class="btn btn-ghost">Programează o discuție</NuxtLink>
+        <!-- E20/S2: an hour a parent can pick now, rather than a conversation to arrange first. -->
+        <NuxtLink to="/proba" class="btn btn-ghost">Programează o probă gratuită</NuxtLink>
       </div>
     </section>
 

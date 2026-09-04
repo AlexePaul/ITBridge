@@ -27,6 +27,8 @@ import { RequestIdMiddleware } from './common/request-id.middleware';
 import { AppThrottlerGuard } from './common/app-throttler.guard';
 import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { AnnouncementModule } from './modules/announcement/announcement.module';
+import { LeadModule } from './modules/lead/lead.module';
 
 @Module({
     imports: [
@@ -59,6 +61,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
         StorageModule,
         ProjectModule,
         DashboardModule,
+        AnnouncementModule,
+        LeadModule,
     ],
     providers: [
         {

@@ -84,9 +84,23 @@
               {{ group.room?.location?.name }} · {{ group.room?.name }}
             </p>
           </div>
-          <UBadge v-if="pendingByGroup[group.id]" color="primary" variant="subtle" size="lg">
-            {{ pendingByGroup[group.id] }} noi
-          </UBadge>
+          <!--
+            The count and the age together, because neither says enough alone: five uploaded this
+            afternoon is a normal afternoon, one from Tuesday still here on Friday is the thing
+            E17/S8 is worried about. The colour changes at the line the API publishes.
+          -->
+          <div v-if="waiting(group.id)" class="shrink-0 text-right">
+            <UBadge
+              :color="groupIsStale(group.id) ? 'warning' : 'primary'"
+              variant="subtle"
+              size="lg"
+            >
+              {{ waiting(group.id)!.count }} noi
+            </UBadge>
+            <p class="text-xs mt-1" :class="groupIsStale(group.id) ? 'text-warning' : 'text-muted'">
+              {{ ageLabel(waiting(group.id)!.oldestDays) }}
+            </p>
+          </div>
           <UBadge v-else color="neutral" variant="subtle">—</UBadge>
         </div>
       </UCard>
@@ -103,6 +117,7 @@ import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { useGroupsStore } from "~/stores/groupsStore";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useNotifications } from "~/composables/useNotifications";
+import { usePendingProjectsStore } from "~/stores/pendingProjectsStore";
 import { UNASSIGNED_FILE_REASON_LABELS } from "~/types/project.types";
 import type { AgentStatus, UnassignedFile } from "~/types/project.types";
 
@@ -121,7 +136,7 @@ definePageMeta({
 });
 
 const router = useRouter();
-const { fetchProjects } = useProjectsApi();
+const { fetchPendingProjects } = useProjectsApi();
 const { fetchStatuses, fetchUnassigned, resolveUnassigned } = useAgentApi();
 const { fetchGroups } = useGroupsApi();
 const groupsStore = useGroupsStore();
@@ -131,7 +146,28 @@ const loading = ref(true);
 const loadError = ref<string | null>(null);
 const agents = ref<AgentStatus[]>([]);
 const unassigned = ref<UnassignedFile[]>([]);
-const pendingByGroup = ref<Record<number, number>>({});
+/**
+ * Shared with the menu badge in the dashboard layout — E17/S8.
+ *
+ * One store, so the number beside "Proiecte" in the sidebar and the numbers on these cards cannot
+ * disagree; and refreshed here after a send, because this screen is where the backlog shrinks.
+ */
+const pendingProjects = usePendingProjectsStore();
+
+const waiting = (groupId: number) => pendingProjects.forGroup(groupId);
+
+const groupIsStale = (groupId: number) => {
+  const entry = pendingProjects.forGroup(groupId);
+  const after = pendingProjects.summary?.staleAfterDays;
+  return entry !== null && after !== undefined && entry.oldestDays >= after;
+};
+
+/** „de azi" / „de ieri" / „de 3 zile" — the sentence an admin is actually counting in. */
+const ageLabel = (days: number) => {
+  if (days === 0) return "de azi";
+  if (days === 1) return "de ieri";
+  return `de ${days} zile`;
+};
 const resolving = ref<number | null>(null);
 
 const groups = computed(() => groupsStore.groups.filter((group) => group.isActive));
@@ -179,18 +215,15 @@ async function load() {
     const [statuses, strays, pending] = await Promise.all([
       fetchStatuses(),
       fetchUnassigned(),
-      fetchProjects({ status: "new" }),
+      // Asked of the server rather than tallied here from every `new` project — E17/S8. Counting in
+      // the browser was a second definition of the figure the menu badge and the dashboard also
+      // show, it could not produce an age, and it downloaded the whole backlog to measure it.
+      fetchPendingProjects(),
     ]);
 
     agents.value = statuses;
     unassigned.value = strays;
-
-    const counts: Record<number, number> = {};
-    for (const project of pending) {
-      const groupId = project.child.group?.id;
-      if (groupId) counts[groupId] = (counts[groupId] ?? 0) + 1;
-    }
-    pendingByGroup.value = counts;
+    pendingProjects.set(pending);
   } catch (err) {
     loadError.value = apiErrorMessage(err);
   } finally {

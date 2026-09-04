@@ -2,9 +2,10 @@
 
 **Status:** în lucru · **Pistă:** Public · **Depinde de:** E03 · **Blochează:** E19, E20
 
-**Livrate:** S1 (fundația de design) și S3 (paginile publice). S2 e livrat parțial — greutatea
-imaginilor e rezolvată, pipeline-ul nu. **Rămân:** S4, S5, S6, S7, toate după autentificare sau în
-CI. S4 și S5 nu se pot demonstra până nu rulează un backend — vezi [E01](E01-infrastructura-medii.md), S4.
+**Livrate:** S1 (fundația de design), S2 (pipeline de imagini) și S3 (paginile publice), plus
+jumătatea din CI a lui S6 — verificarea automată de accesibilitate, pe paginile publice, în ambele
+teme. **Rămân:** S4, S5, S7 și restul lui S6, toate despre zona de după autentificare. S4 și S5 nu se
+pot demonstra până nu rulează un backend — vezi [E01](E01-infrastructura-medii.md), S4.
 
 > ## Cerut de școală: rescrierea întregii zone de după login
 >
@@ -58,10 +59,12 @@ plecat:
   nu au fost atinse de rescriere și nu sunt cablate la un backend care rulează.**
 - **Zona de admin e inconsecventă.** 25 de pagini construite în momente diferite, cu tipare
   diferite de tabel, filtrare, formular și mesaj de eroare. Nerezolvat.
-- **Accesibilitate neverificată.** Rezolvat parțial: pe paginile publice contrastul e conform AA
+- **Accesibilitate neverificată.** Rezolvat pe paginile publice: contrastul e conform AA
   (butoanele și legăturile folosesc `--color-accent-ink`, marginile de control un token separat la
   3:1), există legătură „Sari la conținut”, erorile de formular sunt legate prin `aria-describedby`
-  și carusel are rol și etichete. **Verificarea automată din CI nu există** — S6.
+  și carusel are rol și etichete — iar din S6 **verificarea automată rulează în CI**, cu axe-core
+  într-un Chromium adevărat, pe fiecare pagină din sitemap și în ambele teme. Rămâne zona
+  autentificată, neverificată deloc: se face odată cu S4 și S5.
 - **Fără stări de încărcare și eroare coerente.** `NotificationContainer` există; nu e clar că e
   folosit consecvent. Nerezolvat în zona autentificată.
 - ~~**Fără mod întunecat**, deși @nuxt/ui îl suportă din start.~~ Paleta întunecată e definită în
@@ -121,12 +124,12 @@ curent și vecinii lui.
 
 Măsurat pe cele nouă fotografii, la 620px — lățimea pe care o cere efectiv layout-ul:
 
-| | Total |
-| --- | --- |
+|                         | Total       |
+| ----------------------- | ----------- |
 | Originale, servite brut | **1056 KB** |
-| JPEG redimensionat | 373 KB |
-| AVIF | 347 KB |
-| **WebP** | **239 KB** |
+| JPEG redimensionat      | 373 KB      |
+| AVIF                    | 347 KB      |
+| **WebP**                | **239 KB**  |
 
 **AVIF a fost măsurat și respins**, ceea ce e invers față de ce ai presupune. La calitatea asta e
 abia mai bun decât un JPEG redimensionat, iar pe o poză e chiar mai mare — encoder-ul AVIF din sharp,
@@ -168,7 +171,7 @@ date încă spun asta explicit, nu rămân goale.
 
 **Neînceput, blocat, și cerut explicit de școală.** Cele trei pagini vechi (`dashboard`, `profile`,
 `payments`) există neatinse, pe layout-ul `dashboard`, nerescrise pe sistemul din S1 — iar contrastul
-cu paginile publice, care *au* fost rescrise, e primul lucru pe care îl vede un părinte după ce se
+cu paginile publice, care _au_ fost rescrise, e primul lucru pe care îl vede un părinte după ce se
 autentifică. Blocajul nu e de design, ci de
 infrastructură: **backend-ul nu e deployat**, deci nimic din ce e după login nu vorbește cu un API
 care rulează. Un portal care nu poate fi nici testat pe date reale, nici arătat cuiva, se rescrie
@@ -225,7 +228,7 @@ celor două formulare, măturarea de limbă (dropdown-uri în engleză, „No da
 azi — se extrage după ce migrarea arată care supraviețuiește) și grila de carduri (cinci ecrane,
 patru semantici; înainte de orice partajare, `GroupCard` trebuie mutat pe `occupancyOf` — D7).
 
-### S6 · Accesibilitate — livrat parțial
+### S6 · Accesibilitate — livrat parțial (verificarea automată, livrată)
 
 Contrast conform WCAG AA, navigare completă din tastatură, focus vizibil, etichete și roluri ARIA,
 text alternativ pe imagini semnificative. Verificare automată în CI.
@@ -242,9 +245,40 @@ sunt legate de câmpul lor prin `aria-describedby`, caruselul are rol, etichetă
 accesibile din tastatură, iar animațiile respectă `prefers-reduced-motion` — inclusiv la nivelul
 la care o pagină fără JavaScript își arată tot conținutul.
 
-**Ce rămâne:** verificarea automată din CI, care e jumătatea care ține rezultatul în timp. Fără ea,
-nimic nu împiedică următoarea componentă să reintroducă un contrast de 3:1. Și zona autentificată,
-neverificată deloc — se face odată cu S4 și S5.
+**Verificarea automată, livrată.** `pnpm test:a11y` construiește `apps/web`, servește `.output` pe
+un port local și trece axe-core peste fiecare pagină pe care o publică sitemap-ul, în temă deschisă
+și în temă închisă, pe WCAG 2.0 și 2.1 nivel A și AA. Rulează în CI, în același job cu lint,
+typecheck și build. Scriptul e `apps/web/scripts/check-a11y.mjs`; deciziile din el sunt fiecare un
+mod în care verificarea ar fi putut fi verde degeaba:
+
+- **Un browser adevărat, nu jsdom.** Varianta ieftină ar trece axe peste HTML-ul prerandat, fără
+  motor de layout — și ar trece, fără să facă nimic din singurul lucru pentru care există: fără
+  cascadă și fără layout, contrastul nu se poate calcula, deci axe îl sare. O bifă verde care nu
+  poate vedea regresia pentru care a fost scrisă e mai rea decât nicio bifă, fiindcă cineva se
+  bazează pe ea.
+- **Ambele teme.** Token-urile pe care story-ul le-a ridicat sunt declarate de două ori, iar cele
+  întunecate stau la 3,09:1 — destul de aproape de linie cât o editare să le treacă dincolo.
+- **Paginile vin din sitemap**, nu dintr-o listă în script: `PUBLIC_PAGES` din `shared/seo.ts` îl
+  alimentează deja, deci o pagină adăugată acolo e verificată fără să-și mai amintească nimeni s-o
+  adauge a doua oară.
+- **`best-practice` e lăsat deliberat pe dinafară.** Regulile alea sunt sfaturi, nu standardul, iar
+  amestecate în verificare o fac să pice pentru lucruri cu care n-a fost nimeni de acord — așa ajunge
+  o verificare să nu mai fie citită, ci sărită.
+- **Rulează cu `prefers-reduced-motion: reduce`**, altfel măsoară un fade. Blocurile intră prin
+  `classical-rise`, iar axe citește culoarea din clipa în care se uită: prinsă la jumătate, aceeași
+  clasă `.lede` raportează 1,47:1 pe două pagini și 1,18:1 pe a treia, ceea ce nu e o problemă de
+  contrast, e una de cronometru. Cu preferința pornită, `useReveal` iese devreme, nimic nu se ascunde
+  și pagina măsurată e cea pe care o primește un cititor cu setarea aia — singura formă în care
+  rezultatul e același de două ori.
+
+**Verificarea a fost verificată.** Cu `--color-accent-ink` întors la accentul brut — exact culoarea
+pe care story-ul a schimbat-o — verificarea cade pe fiecare pagină publică, în tema
+deschisă, cu 2,61:1 și numele elementului. Cu el la loc, trece.
+
+**Ce rămâne:** zona autentificată, neverificată deloc. Acceptanța cere și portalul, iar portalul se
+rescrie în S4 și S5 — se verifică atunci, nu înainte, fiindcă altfel s-ar cimenta ecranele pe care
+școala le-a cerut refăcute. Jumătatea de tastatură a acceptanței rămâne manuală: axe verifică ce e
+în DOM, nu ce se întâmplă când cineva apasă Tab de douăzeci de ori.
 
 ### S7 · Interfața profesorului — muncă viitoare
 

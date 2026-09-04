@@ -25,6 +25,13 @@ const PUBLIC_ALLOWLIST = new Set([
     // A liveness/readiness checker has no credentials, and neither endpoint reveals anything.
     'HealthController.health',
     'HealthController.ready',
+    // E20/S2. Booking a trial is public by decision, not by omission: it is a lead, not an
+    // enrolment, and requiring an account first would put the school's own sign-up barrier in front
+    // of the thing that exists to lower it. Neither endpoint creates a `User` or reveals a family:
+    // the read offers group names and hours the website already publishes, and the write only adds.
+    // Both are throttled well below the global bucket.
+    'TrialController.slots',
+    'TrialController.book',
 ]);
 
 interface Handler {
@@ -160,6 +167,12 @@ describe('authorization matrix', () => {
             // which stays ADMIN.
             'AttendanceController.bookMakeUp',
             'AttendanceController.cancelMakeUpBooking',
+            // E20/S2, and the only write in this list that is not merely parent-reachable but fully
+            // public. It writes a lead, and with it a shell profile, a child and a trial enrolment —
+            // which is as far as it goes: it cannot create an account, cannot enrol anybody for
+            // real, and cannot exceed a group's capacity, because it takes the same seat through the
+            // same `EnrollmentService` every admin screen does.
+            'TrialController.book',
         ]);
 
         const writes = HANDLERS.filter((h) => WRITE_METHODS.includes(h.httpMethod));

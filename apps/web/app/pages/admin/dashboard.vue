@@ -123,6 +123,19 @@ const overview = ref<Overview | null>(null);
 
 const todayLabel = computed(() => (overview.value ? formatDateKey(overview.value.date) : ""));
 
+/**
+ * What the count means, given how long the oldest one has waited — E17/S8.
+ *
+ * The wording carries the judgement, because the tile has one line for it: "de verificat și trimis"
+ * is a task, "cel mai vechi de 4 zile" is a reproach, and the difference is the whole point of
+ * having the age at all.
+ */
+function projectsWaitingNote(oldestDays: number | null): string {
+  if (oldestDays === null || oldestDays === 0) return "de verificat și trimis";
+  if (oldestDays === 1) return "cel mai vechi de ieri";
+  return `cel mai vechi de ${oldestDays} zile`;
+}
+
 const tiles = computed(() => {
   const data = overview.value;
   if (!data) return [];
@@ -153,10 +166,16 @@ const tiles = computed(() => {
       to: "/admin/approvals",
     },
     {
+      // The age, not just the count — E17/S8. Five uploaded this afternoon is a normal afternoon;
+      // one from Tuesday still here on Friday is a document nobody has looked at, and the two are
+      // indistinguishable from a number on its own.
       label: "Proiecte netrimise",
       value: data.projectsAwaitingSend,
       display: String(data.projectsAwaitingSend),
-      note: data.projectsAwaitingSend > 0 ? "de verificat și trimis" : undefined,
+      note:
+        data.projectsAwaitingSend > 0
+          ? projectsWaitingNote(data.projectsAwaitingSendOldestDays)
+          : undefined,
       to: "/admin/proiecte",
     },
     {

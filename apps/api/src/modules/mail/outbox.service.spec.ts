@@ -34,6 +34,8 @@ function makeMessage(overrides: Partial<OutboxMessage> = {}): OutboxMessage {
         lastError: null,
         dedupeKey: null,
         attachments: null,
+        // Null on everything but a broadcast (E17/S7), which is everything this suite is about.
+        announcement: null,
         createdAt: new Date('2026-03-02T09:00:00.000Z'),
         sentAt: null,
         ...overrides,
