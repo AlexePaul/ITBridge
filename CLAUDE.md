@@ -289,11 +289,16 @@ composable-urile din `apps/web/app/composables/api/`.
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
-**Partea publică nu atinge backend-ul.** Cele șapte pagini publice, formularul de contact,
-`robots.txt`, `sitemap.xml`, `llms.txt` și datele structurate funcționează fără `API_BASE` — de
-aceea site-ul stă în producție pe Vercel deși backend-ul nu e deployat. Faptele despre școală stau
-în `apps/web/shared/`, nu în pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts`
-(nivelurile și prețurile), `teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini),
+**Partea publică nu atinge backend-ul.** Paginile publice — toate declarate în `PUBLIC_PAGES` din
+`seo.ts`: acasă, cursuri, câte o pagină pentru fiecare unealtă (Canva, Tinkercad, Office, Scratch,
+C++), despre noi, contact și locațiile —, formularul de contact, `robots.txt`, `sitemap.xml`,
+`llms.txt` și datele structurate funcționează fără `API_BASE`; de aceea site-ul stă în producție pe
+Vercel deși backend-ul nu e deployat. Sunt prerandate la build, din aceeași listă: o pagină nouă
+intră în `PUBLIC_PAGES` și primește sitemap, `llms.txt` și fișier static fără altă declarație, iar
+`pageSeo` aruncă pentru un drum care nu e acolo. Faptele despre școală stau în `apps/web/shared/`,
+nu în pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts` (nivelurile și prețurile),
+`subjects.ts` (uneltele și lucrările copiilor; nivelurile la care se predă o unealtă se **derivă**
+din `teaches`, nu se listează), `teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini),
 `structured-data.ts` (constructorii de JSON-LD). Aceleași constante alimentează pagina, graful
 JSON-LD, sitemap-ul și `llms.txt` — **dacă schimbi un preț sau o adresă, schimbi acolo, într-un
 singur loc.** Un număr scris de mână într-o pagină e un bug, nu o scurtătură: NAP inconsecvent e

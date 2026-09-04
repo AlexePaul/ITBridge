@@ -32,11 +32,11 @@
         <div>
           <h3 class="block-title">Ce învață pe drum</h3>
           <p class="body-text">
-            Să vadă un obiect ca pe o sumă de forme, să lucreze cu trei axe în loc de două, să
-            măsoare în milimetri. E aceeași descompunere pe care o va face, peste ani, cu o problemă
-            de <NuxtLink to="/cursuri/cpp" class="link">programare</NuxtLink>: în bucăți pe care le
-            știe rezolva. Tot la acest nivel face și lucrări în
-            <NuxtLink to="/cursuri/canva" class="link">Canva</NuxtLink>, în două dimensiuni.
+            Să vadă un obiect ca pe o sumă de forme simple, să se orienteze pe trei axe în loc de
+            două, să măsoare în milimetri. Peste câțiva ani va face exact același lucru cu o
+            problemă de <NuxtLink to="/cursuri/cpp" class="link">programare</NuxtLink>: o va desface
+            în bucăți pe care știe să le rezolve. În paralel, tot la acest nivel, lucrează și în
+            două dimensiuni, în <NuxtLink to="/cursuri/canva" class="link">Canva</NuxtLink>.
           </p>
         </div>
       </div>

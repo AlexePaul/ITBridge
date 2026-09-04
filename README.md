@@ -117,9 +117,10 @@ Variabilele de mediu, toate în `turbo.json` la `globalEnv`:
 **Backend.** Nu e deployat nicăieri în acest moment. Ținta e AWS EC2 cu PM2, Postgres pe aceeași
 instanță și Caddy pentru TLS; se face în [E01](docs/epics/E01-infrastructura-medii.md), S4.
 
-Consecința pentru site: **partea publică funcționează întreagă și fără backend.** Cele șapte pagini
-publice, formularul de contact (care merge prin Resend, dintr-o rută Nitro de pe Vercel), `robots.txt`,
-`sitemap.xml`, `llms.txt` și datele structurate nu ating `API_BASE`. Ce depinde de backend e tot ce
+Consecința pentru site: **partea publică funcționează întreagă și fără backend.** Paginile publice
+(toate cele din `PUBLIC_PAGES`, în `apps/web/shared/seo.ts`), formularul de contact (care merge prin
+Resend, dintr-o rută Nitro de pe Vercel), `robots.txt`, `sitemap.xml`, `llms.txt` și datele
+structurate nu ating `API_BASE`. Ce depinde de backend e tot ce
 vine după autentificare — portalul părintelui și zona de admin — și acelea rămân neconectate până
 la S4 din E01. Vezi „Stare cunoscută” mai jos.
 
