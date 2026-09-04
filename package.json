@@ -18,6 +18,7 @@
     "format": "prettier --write .",
     "prepare": "husky",
     "test:e2e": "dotenv -e .env -- turbo run test:e2e",
+    "test:a11y": "dotenv -e .env -- turbo run test:a11y",
     "seed": "dotenv -e .env -- pnpm --filter api seed"
   },
   "devDependencies": {
@@ -32,7 +33,7 @@
     "apps/api/**/*.ts": "prettier --write",
     "apps/agent/**/*.ts": "prettier --write",
     "packages/**/*.ts": "prettier --write",
-    "apps/web/**/*.{ts,vue,css}": "prettier --write",
+    "apps/web/**/*.{ts,mjs,vue,css}": "prettier --write",
     "*.{json,md,yaml,yml}": "prettier --write"
   }
 }

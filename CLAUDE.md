@@ -59,6 +59,7 @@ pnpm typecheck      # toate workspace-urile
 pnpm lint           # verifică, nu modifică; corectare: pnpm --filter api lint:fix
 pnpm test           # jest pe api, vitest pe web
 pnpm test:e2e       # integrare prin HTTP; cere Postgres pornit
+pnpm test:a11y      # axe-core pe paginile publice, într-un Chromium adevărat; construiește întâi
 
 pnpm --filter api <script>   # o comandă într-un singur workspace
 ```
@@ -799,6 +800,29 @@ Trei niveluri, cu roluri diferite:
 
 Frontend-ul are vitest în `apps/web/test/`. Rulează sursa direct, fără să pornească Nuxt;
 auto-importurile (`ref`, `useCookie`, `$fetch`) sunt puse la loc în `test/setup.ts`.
+
+**Accesibilitatea paginilor publice se verifică în CI, cu un browser adevărat.** `pnpm test:a11y`
+construiește `apps/web`, servește `.output` pe un port local și trece axe-core peste fiecare pagină
+pe care o publică `sitemap.xml`, în temă deschisă și în temă închisă, pe WCAG 2.0 și 2.1 nivel A și
+AA — `apps/web/scripts/check-a11y.mjs`, rulat în CI în același job cu lint, typecheck și build.
+Patru lucruri de știut înainte să-l atingi:
+
+- **jsdom n-ar folosi la nimic.** Fără cascadă și fără layout, contrastul nu se poate calcula, deci
+  axe îl sare — și exact ăla e motivul pentru care verificarea există.
+- **Rulează cu `prefers-reduced-motion: reduce`, și nu din politețe.** Blocurile intră prin
+  `classical-rise`, iar axe citește culoarea din clipa în care se uită: prinsă la jumătate, aceeași
+  clasă `.lede` raportează 1,47:1 pe două pagini și 1,18:1 pe a treia. Cu preferința pornită,
+  `useReveal` iese devreme, nimic nu se ascunde și rezultatul e același de două ori.
+- **Serverul de probă se pornește fără shell.** Cu `shell: true`, `kill` lua shell-ul și lăsa Nitro
+  pe port; rularea următoare își pierdea serverul cu `EADDRINUSE` și verifica vesel build-ul vechi
+  rămas acolo, raportând verde pe fiecare pagină. Scriptul se uită acum dacă procesul lui moare și
+  cade cu mesaj.
+- **Într-un container, Chromium are nevoie de două portițe**, amândouă oprite implicit fiindcă CI
+  n-are nevoie de niciuna: `A11Y_CHROMIUM_PATH` pentru un browser deja instalat pe mașină, și
+  `A11Y_NO_SANDBOX=1` fiindcă sandbox-ul propriu al lui Chromium nu pornește ca root — și nu pică,
+  ci **atârnă**, ceea ce costă o jumătate de oră prima dată.
+
+Zona autentificată nu e verificată deloc: se rescrie în E18 S4 și S5 și se verifică atunci.
 
 `apps/agent` folosește `node --test`, fără jest și fără nicio unealtă proprie — n-are motiv să
 capete una. `pnpm --filter agent test` compilează întâi și rulează din `dist`: un `.ts` cu `import`

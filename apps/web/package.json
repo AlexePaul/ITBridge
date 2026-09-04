@@ -9,9 +9,10 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
-    "lint": "prettier --check app shared server",
+    "lint": "prettier --check app shared server scripts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:a11y": "node scripts/check-a11y.mjs"
   },
   "dependencies": {
     "@internationalized/date": "^3.12.3",
@@ -27,6 +28,8 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.8",
+    "axe-core": "^4.13.0",
+    "playwright": "^1.62.1",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7",
     "vue-tsc": "^3.1.3"

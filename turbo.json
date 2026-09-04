@@ -21,6 +21,11 @@
     // because turbo's strict mode hides anything undeclared without a message, and the failure that
     // would produce is an agent that starts, heartbeats cheerfully and uploads nothing.
     "ITBRIDGE_*",
+    // The accessibility gate's own switches (E18/S6): the port it serves the built site on, and
+    // the two escape hatches for a machine whose Chromium is not the one Playwright installed.
+    // `PLAYWRIGHT_*` is Playwright's own, `A11Y_*` is the script's.
+    "A11Y_*",
+    "PLAYWRIGHT_*",
     "VERCEL_ENV",
     "CORS_ORIGINS",
     "DB_*",
@@ -59,6 +64,13 @@
     },
     "test:e2e": {
       "dependsOn": ["^build"],
+      "cache": false
+    },
+    // A real browser against the built site, so it depends on the build of its own workspace —
+    // `^build` would only bring what is underneath it, and the thing under test is the output.
+    // Uncached: there is no artifact to restore, and a run that is skipped proves nothing.
+    "test:a11y": {
+      "dependsOn": ["build"],
       "cache": false
     },
     "dev": {
