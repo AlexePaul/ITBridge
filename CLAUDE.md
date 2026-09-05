@@ -52,6 +52,7 @@ pnpm install
 docker compose up -d              # Postgres + MinIO; aplicația rulează pe Node
 pnpm --filter api migration:run   # schema; synchronize e oprit
 pnpm seed                         # date de dezvoltare; admin / parola123
+SEED_TODAY=2026-03-16 pnpm seed   # aceleași date, dar ancorate la o zi fixă
 pnpm dev                          # api + web, hot reload
 
 pnpm build          # turbo, în ordinea dependențelor
@@ -67,6 +68,14 @@ pnpm --filter api <script>   # o comandă într-un singur workspace
 Aplicația **nu** rulează în Docker, nici local nici în producție. Backend-ul își citește `.env`
 prin `apps/api/src/load-env.ts`, importat înaintea oricărui modul care atinge `process.env` la
 încărcare — dacă adaugi un import nou în `main.ts`, lasă-l pe ăsta primul.
+
+**Seed-ul e ancorat la ziua de azi, nu la o constantă.** Tot ce scrie atârnă de `SEED_TODAY` din
+`apps/api/src/seed/seed.ts`: cele opt săptămâni de prezență din urmă, orizontul de orar din față,
+lunile care au facturi. Era o dată fixă, iar la șase luni după ce a fost scrisă o bază proaspăt
+populată se deschidea pe „Nicio oră azi", cu cea mai nouă factură veche de jumătate de an. Acum
+implicitul e ziua curentă, iar `SEED_TODAY=2026-03-16` o fixează la loc dacă vrei două rulări
+identice. Grupele acoperă luni–sâmbătă tocmai ca „azi" să aibă o oră în șase zile din șapte.
+`pnpm seed` nu trece prin turbo, deci variabila **nu** se declară în `globalEnv`.
 
 **O variabilă de mediu nouă trebuie declarată în `turbo.json`, la `globalEnv`.** Turbo rulează în
 mod `strict`: un task vede doar ce e declarat acolo, iar restul lipsesc fără niciun mesaj. E cea

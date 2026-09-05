@@ -44,7 +44,7 @@ Există un mod repetabil de a obține o bază locală cu date realiste, în sub 
 ## În afara scopului
 
 - Schimbările de model cerute de multi-locație, curriculum sau facturare. Acest epic livrează
-  *mecanismul*; celelalte îl folosesc.
+  _mecanismul_; celelalte îl folosesc.
 
 ## Story-uri
 
@@ -57,8 +57,8 @@ verificată pe o bază goală și comparată cu un dump real.
 `synchronize`, verificat cu `typeorm schema:log`, care nu trebuie să raporteze nicio diferență.
 
 **Livrat, cu acceptanța verificată literal:** pe o bază goală, `migration:run` urmat de
-`schema:log` răspunde *„Your schema is up to date - there are no queries to be executed by schema
-synchronization."*
+`schema:log` răspunde _„Your schema is up to date - there are no queries to be executed by schema
+synchronization."_
 
 Configurația a fost scoasă din `app.module.ts` într-un `src/data-source.ts` citit și de aplicație,
 și de CLI-ul TypeORM. Dacă cele două ar avea surse diferite, o migrare generată local ar înceta să
@@ -104,9 +104,34 @@ Suficient cât ecranele de admin să arate ca în realitate, nu goale.
 
 **Acceptanță:** `pnpm seed` pe o bază curată, iar dashboard-ul de admin arată date plauzibile.
 
-**Livrat.** Un admin, șase grupe acoperind patru zile din săptămână pe două intervale, unsprezece
-părinți, paisprezece copii, 112 prezențe pe două luni în urmă, treizeci de facturi în toate cele
-trei stări, cu plăți pe cele achitate, plus reduceri.
+**Livrat.** Un admin, nouă grupe acoperind luni–sâmbătă, unsprezece părinți, paisprezece copii,
+prezențe pe două luni în urmă, treizeci de facturi în toate cele trei stări, cu plăți pe cele
+achitate, plus reduceri.
+
+**Ancorat la ziua de azi, nu la o constantă.** `SEED_TODAY` era `2026-03-16`, ceea ce făcea seed-ul
+reproductibil și școala moartă: tot ce scrie atârnă de ziua aia — cele opt săptămâni de prezență din
+urmă, orizontul de orar din față, lunile care au facturi. La șase luni după, o bază proaspăt
+populată se deschidea pe „Nicio oră azi", cea mai nouă factură era veche de jumătate de an, iar
+mementourile de restanță n-aveau ce aminti. Implicitul e acum ziua curentă;
+`SEED_TODAY=2026-03-16 pnpm seed` o fixează la loc pentru cine vrea două rulări identice, iar o
+valoare care nu e o dată e refuzată la pornire în loc să fie ignorată.
+
+Din același motiv grupele s-au întins pe **șase zile**, nu patru: cu program doar luni–joi, cine
+popula baza vineri, sâmbătă sau duminică vedea tabloul de bord gol, iar ecranul de catalog, raportul
+de ședințe nemarcate și mementoul de la 10:00 n-aveau pe ce lucra. Duminica rămâne liberă — o școală
+care predă șapte zile din șapte ar fi varianta neverosimilă.
+
+**Șase tabele care rămâneau goale sunt acum populate**, fiindcă șase ecrane se deschideau pe nimic
+și „nu s-a întâmplat nimic aici niciodată" se citește ca o defecțiune, nu ca o bază nouă: lead-uri
+**câte unul pe fiecare dintre cele șase stări** (patru dintre ele nu se scriu de la niciun ecran,
+deci un seed care punea doar `new` ascundea exact ce numără raportul de pâlnie), plus unul marcat
+`noSeats`; două anunțuri, unul tranzacțional și unul de marketing cu refuzuri numărate pe anunț;
+outbox în **toate cele patru stări**, inclusiv rândul `undeliverable` fără adresă — ecranul de
+livrări există ca să arate că un părinte n-a fost sărit tăcut, iar un seed doar cu succese l-ar fi
+arătat făcând treaba, niciodată treaba pentru care există; două anunțuri de absență, unul în termen
+și unul după începerea orei; trei credite de recuperare — unul liber, unul programat pe o oră
+viitoare, unul expirat, fiindcă „expirat" nu e o coloană, e calendarul care s-a mișcat; și două
+șabloane de email editate, ca editorul să aibă cu ce compara.
 
 Câteva alegeri deliberate, ca ecranele să arate ca realitatea și nu ca un caz fericit:
 
@@ -152,7 +177,7 @@ păstrare), proiecte ale copiilor, conturi inactive. Implementată ca job progra
 
 **Decizia școlii: documentul fiscal stă în SmartBill, nu la noi.** Platforma nu păstrează PDF-ul
 facturii ca arhivă — SmartBill e cel care are obligația de păstrare și instrumentele pentru ea. Ce
-ține platforma e *evidența*: rândul din `invoices`, cu suma, luna, starea și plata, care e ce
+ține platforma e _evidența_: rândul din `invoices`, cu suma, luna, starea și plata, care e ce
 răspunde la „ce a plătit familia asta în martie" fără să fie un document fiscal.
 
 Consecința pentru retenție e că întrebarea grea a dispărut. Nu mai trebuie să știm câți ani se
@@ -278,13 +303,13 @@ Prima factură emisă cap-coadă din istoria proiectului, de altfel.
 
 ## Ce rămâne
 
-| Story | Stare | Blocat de |
-|---|---|---|
-| S1 · Migrarea de bază | ✅ livrat | — |
-| S2 · Migrările în deploy | ✅ cât se poate | — |
-| S3 · Seed | ✅ livrat | — |
-| S4 · Backup și restaurare | amânat | instanța EC2 și bucket-ul S3 |
-| S5 · Retenție | amânat deliberat | se reia la final, vezi mai jos |
+| Story                     | Stare            | Blocat de                      |
+| ------------------------- | ---------------- | ------------------------------ |
+| S1 · Migrarea de bază     | ✅ livrat        | —                              |
+| S2 · Migrările în deploy  | ✅ cât se poate  | —                              |
+| S3 · Seed                 | ✅ livrat        | —                              |
+| S4 · Backup și restaurare | amânat           | instanța EC2 și bucket-ul S3   |
+| S5 · Retenție             | amânat deliberat | se reia la final, vezi mai jos |
 
 **S2 se închide aici.** Nu a existat niciodată vreun deploy, deci nu există un pipeline în care să
 se cableze migrările. Ce ține de repo e livrat: comenzile, `migrationsRun: false` ca ele să fie
