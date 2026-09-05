@@ -76,6 +76,7 @@
               <template v-for="group in groupsByDay(day.id)" :key="group.id">
                 <GroupCard
                   :group="group"
+                  :occupancy="occupancyByGroup.get(group.id)"
                   @edit="handleEditGroup"
                   @manage-children="handleManageChildren"
                 />
@@ -100,6 +101,7 @@ import { WEEKDAYS_IN_ORDER, WEEKDAY_LABELS } from "~/types/group.types";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
+import { useReportsApi } from "~/composables/api/useReportsApi";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { generatedScheduleMessage } from "~/composables/useClassSessionSchedule";
 import { useNotifications } from "~/composables/useNotifications";
@@ -122,8 +124,21 @@ const groupsApi = useGroupsApi();
 const childrenStore = useChildrenStore();
 const groupsStore = useGroupsStore();
 const childrenApi = useChildrenApi();
+const reportsApi = useReportsApi();
 
 const groups: Ref<Group[]> = ref([]);
+/**
+ * Seats per group, keyed by id — E18/S5, and the reason this fetch exists.
+ *
+ * The cards used to derive the figure in the browser, from the children store. `occupancyOf` owns
+ * it (D7: active plus trials), `GET /reports/occupancy` carries it, and asking gains the waiting
+ * list, which no client-side count can see. See `GroupCard` for why the old number agreed anyway.
+ * If the call fails the cards fall back to naming the capacity and saying nothing about how full
+ * they are — the honest shape of "I could not ask".
+ */
+const occupancyByGroup = ref(
+  new Map<number, { taken: number; free: number; capacity: number; waiting: number }>()
+);
 const locationStore = useLocationStore();
 const classSessionsApi = useClassSessionsApi();
 const { success, error } = useNotifications();
@@ -132,6 +147,17 @@ const isGeneratingSchedule = ref(false);
 onMounted(async () => {
   groups.value = await groupsApi.fetchGroups();
   await childrenApi.fetchChildren();
+  try {
+    const report = await reportsApi.fetchOccupancyReport();
+    occupancyByGroup.value = new Map(
+      report.groups.map((group) => [
+        group.groupId,
+        { taken: group.taken, free: group.free, capacity: group.capacity, waiting: group.waiting },
+      ])
+    );
+  } catch {
+    // Cards then show the capacity without a fill. See the note on `occupancyByGroup`.
+  }
 });
 
 // The header says which location is being shown; this list has to agree with it, or the count and

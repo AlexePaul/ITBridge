@@ -228,7 +228,38 @@ a fiecărui tipar, nu o invenție:
 **Ecranul-dovadă e `/admin/calendar`** (E12 S2), migrat integral: shell, triadă, rânduri, USelect
 în locul select-ului nativ, iar ștergerea a trecut de pe `confirm()` pe modal.
 
-**Rămân pentru S5b** — migrarea celor 44 de ecrane, planificată de catalog: salvarea de la v2 a
+### S5b, prima felie — livrat
+
+Migrarea a început de la întrebarea „unde e greu de ajuns la informație", nu de sus în jos pe listă.
+Măsurat pe ecranele deschise cel mai des:
+
+- **Meniul era o listă plată de douăzeci și cinci de intrări**, în ordinea în care le-au adăugat
+  epicurile: „Restanțe" stătea între „Plăți" și „Reduceri" fiindcă E16 a venit după E15. Acum sunt
+  șase grupe cu titlu — Zi de zi, Familii, Grupe și săli, Bani, Comunicare —, iar în interiorul unei
+  grupe ordinea e a zilei de lucru, nu alfabetul: catalogul de azi înaintea orarului din care vine,
+  emiterea înaintea urmăririi. Cele două legături publice au coborât la final: erau primele, adică
+  singurele două pe care un admin nu le folosește niciodată erau primele două citite de fiecare dată.
+- **`/admin/facturi` cheltuia un ecran întreg de desktop pe trei cartonașe care scriau „Facturi:
+  10".** Numărul de facturi e singurul lucru dintr-o lună de facturare cu care nu poți face nimic.
+  Acum sunt trei cifre sus — emis, încasat, rest — și un tabel pe luni cu familii, facturi, cât s-a
+  emis, cât a intrat și cât a rămas. **Numerele se cer raportului financiar**, nu se recalculează
+  aici: un al doilea `amount − plăți` într-un fișier Vue ar fi a doua definiție a restanței.
+- **Lista de copii avea trei coloane din șase inutile.** `createdAt` se afișa brut, direct din
+  driver — `2026-09-04T16:40:25.566Z` —, `#12` ocupa o coloană ca să arate o cheie de bază de date,
+  iar o singură coloană înghesuia patru fapte: „Scratch Începători • Luni • 16:00 - 17:30 • Drumul
+  Taberei · Sala 1". Acum: nume, **vârstă** în locul datei de naștere (ecranul se citește ca să
+  repartizezi un copil, iar repartizarea e pe bandă de vârstă), părinte, grupă, când și unde.
+- **Cardul de grupă își calcula singur locurile ocupate**, filtrând magazinul de copii din browser.
+  Cifra nu era greșită azi — `Child.group` se scrie și pentru probe —, dar era **a doua definiție a
+  unui număr pe care îl deține `occupancyOf`**, se sprijinea tăcut pe cât apucase browserul să
+  încarce, și nu putea ști nimic despre lista de așteptare. Cere acum `GET /reports/occupancy`, deci
+  cardul spune și „2 pe listă".
+
+`ageOn` / `formatAge` intră în vocabularul comun, cu aceeași disciplină ca `formatDateKey`: vârsta
+se calculează din componentele celor două string-uri, niciodată printr-un `new Date()`, fiindcă o zi
+în plus sau în minus mută o aniversare peste an și un copil în altă bandă de vârstă.
+
+**Rămân pentru S5b** — migrarea celorlalte ecrane, planificată de catalog: salvarea de la v2 a
 celor două formulare, măturarea de limbă (dropdown-uri în engleză, „No data"), `AdminDateField`
 (izolarea hack-ului fragil de popover din children/edit), bara de filtre (trei forme incompatibile
 azi — se extrage după ce migrarea arată care supraviețuiește) și grila de carduri (cinci ecrane,
