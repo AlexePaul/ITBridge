@@ -174,6 +174,23 @@ date încă spun asta explicit, nu rămân goale.
 
 **Acceptanță:** un părinte cu doi copii comută între ei fără să se piardă.
 
+**Intrarea în cont face parte din story, în trei ecrane, nu în două.** Decizia e a
+[E11](E11-inscrieri-capacitate.md) S2 și e scrisă acolo; aici e ce înseamnă pentru desen:
+
+1. **Creare cont** — nume, email, parolă. Un ecran de conversie: scurt și vizibil terminabil.
+2. **Completează profilul** — telefon, adresă și contactul de urgență, obligatorii. Ecranul ăsta se
+   deschide în două situații care arată diferit și trebuie să citească bine în amândouă: imediat
+   după creare, unde e „pasul 2 din 2" și progresul se arată cinstit; și mai târziu, pentru o
+   familie pe care adminul a introdus-o de la telefon și al cărei cont a fost legat după, unde nu e
+   niciun pas 2 din nimic, ci „ne lipsesc câteva date". Nu inventa un wizard în al doilea caz.
+3. **Cont în așteptare** — cele două porți din E11 S2 sunt independente și oricare poate fi deschisă
+   prima, deci ecranul nu e o ușă încuiată, ci o stare **înăuntrul** portalului: un părinte
+   neconfirmat se poate autentifica. Spune care poartă mai e închisă, oferă retrimiterea linkului și
+   e explicit că singurul lucru blocat efectiv e repartizarea unui copil într-o grupă.
+
+Cele trei nu sunt un flux liniar: un părinte poate avea profilul complet și emailul neconfirmat, sau
+invers. Desenul trebuie să suporte oricare combinație fără să pară stricat.
+
 **Neînceput, blocat, și cerut explicit de școală.** Cele trei pagini vechi (`dashboard`, `profile`,
 `payments`) există neatinse, pe layout-ul `dashboard`, nerescrise pe sistemul din S1 — iar contrastul
 cu paginile publice, care _au_ fost rescrise, e primul lucru pe care îl vede un părinte după ce se

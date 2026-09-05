@@ -105,7 +105,6 @@ grupă plină pune cererea pe listă în loc să o piardă.
 > coloana derivată ar contrazice tabelul din prima dimineață. Istoric mai vechi nu se reconstruiește
 > — D9.
 
-
 `Enrollment`: copil, grupă, modul, dată de început, dată de sfârșit, stare (`probă`, `activă`,
 `încheiată`, `abandonată`, `transferată`), motiv la ieșire. Înlocuiește legătura directă
 `Child.group` (`apps/api/src/entities/child.entity.ts`, `ManyToOne` nullable către `Group`), care
@@ -147,6 +146,42 @@ interogarea de mai sus se verifică pe ele. Un `POST` de înscriere cu token de 
 > ca flux propriu, cu ședință și fără factură), S5 (transferuri), S6 (verificări de compatibilitate)
 > și S7 (formarea grupelor).
 
+> **Revizuire decisă după livrare: înregistrarea se împarte în doi pași.** Nu e o întoarcere la
+> starea de dinainte de story, și distincția e tot ce contează aici.
+>
+> Ce a reparat S2 a fost un al doilea ecran **opțional**: `CreateProfileDto` cerea doar numele, iar
+> emailul, telefonul și adresa erau `@IsOptional()`, deci o familie putea trăi la nesfârșit fără
+> date de contact. Soluția aleasă atunci — mută tot în `register` — a rezolvat asta, dar a produs un
+> formular de **zece câmpuri obligatorii** ca prim ecran, exact la momentul în care
+> [E20](E20-achizitie-lead.md) cheltuiește un epic întreg coborând bariere. Un părinte care abandonează
+> la câmpul opt nu e o familie cu date incomplete, e o familie pe care școala n-a văzut-o niciodată.
+>
+> Se împarte astfel: **`register` cere doar ce e nevoie ca să existe un cont** — nume, email,
+> parolă —, iar restul se cere imediat după, pe `/user/profile-setup`, **la fel de obligatoriu ca
+> azi**. Cele două lucruri care fac diferența față de starea de dinainte de S2:
+>
+> - **Al doilea pas nu se poate sări.** Middleware-ul îl impune, iar câmpurile de acolo rămân
+>   obligatorii — inclusiv contactul de urgență, pe care ecranul de setup nu-l cere azi deloc. Aia e
+>   și o inconsecvență vie: cele două uși către un `Profile` cer azi zece câmpuri și cinci.
+> - **Condiția din middleware se schimbă din „n-are profil" în „profilul e incomplet".** Azi
+>   `useProfileInitialization` ridică steagul doar când nu există niciun rând de `Profile`; cu
+>   `register` scriind o coajă, aia n-ar mai fi niciodată adevărată și pasul doi n-ar porni nimănui.
+>
+> „Complet" se **derivă**, nu se stochează — aceeași regulă ca „activ" de mai sus, și din același
+> motiv: o a treia coloană de stare ar fi liberă să contrazică rândul pe care îl descrie. Iar
+> repartizarea unui copil cere de acum două lucruri, nu unul: contul activ (`PARENT_ACCOUNT_NOT_ACTIVE`)
+> **și** profilul complet (`PARENT_PROFILE_INCOMPLETE`), fiindcă o școală nu ia un copil în sală fără
+> un contact de urgență. Sunt două refuzuri diferite fiindcă se repară în două locuri diferite: unul
+> așteaptă un admin, celălalt așteaptă părintele.
+>
+> Unicitatea se mută odată cu câmpurile: `assertContactDetailsAreFree` verifică azi emailul **și**
+> telefonul la înregistrare; telefonul se verifică de acum la pasul doi, unde e tastat. E aceeași
+> formă ca profilul-coajă scris de programarea la probă în [E20](E20-achizitie-lead.md) S2, care nu
+> scrie nici email, nici telefon tocmai fiindcă acele coloane sunt unice.
+>
+> **Ce rămâne neatins:** cele două porți, `isAccountActive`, migrarea `AccountGates` și drumul
+> adminului care introduce o familie de la telefon. Completarea profilului nu e o a treia poartă —
+> e aceeași cerință de date pe care S2 a impus-o, cerută în două ecrane în loc de unul.
 
 Până la acest story `register` cerea `username` și `password`, atât — `RegisterDto` avea exact cele
 două câmpuri, cu `@Length(1, 30)` și `@MinLength(6)`. Datele de contact se cereau abia după
@@ -237,7 +272,6 @@ odată cu el; sunt în [În afara scopului](#în-afara-scopului), explicit, ca s
 > eliberează unul sau când un admin scoate cererea de pe listă. Un job de măturat e o sarcină
 > programată și își are locul lângă celelalte în ziua în care rulează ceva (E01/S4).
 
-
 Capacitatea grupei există deja și e plafonată de sală — [E08](E08-multi-locatie.md) S3. Ce lipsește e
 **aplicarea ei la înscriere**: depășirea se blochează, cu excepție explicită pentru admin, care lasă
 urmă în audit log. O grupă plină acceptă înscrieri pe listă de așteptare, cu ordine și dată.
@@ -286,7 +320,6 @@ nu e o limită separată.
 > el. Dacă școala vrea totuși să factureze o familie al cărei copil e între grupe o lună, aia e o
 > decizie de preț și e a [E15](E15-pricing-facturare.md), nu o numărare tăcută de rânduri.
 
-
 O înscriere în starea `probă`, cu o singură ședință, care nu se facturează. La final, se transformă
 în înscriere activă sau se închide, cu motiv înregistrat.
 
@@ -323,7 +356,6 @@ generează factură. Numărul de locuri afișat pentru acea grupă scade cu unu 
 > ziua în care [E15](E15-pricing-facturare.md) aduce prețul pe modul, aici e locul unde apare
 > calculul.
 
-
 Mutarea unui copil în altă grupă, eventual în altă locație, închide înscrierea veche cu motivul
 `transfer` și o deschide pe cea nouă, păstrând legătura. Efectul asupra facturii curente e calculat
 și afișat înainte de confirmare.
@@ -356,7 +388,6 @@ schimbarea.
 > e la S3 și e tare. Story-ul nu mai e „parțial fiindcă e neterminat", ci „parțial fiindcă a doua
 > jumătate aparține unui epic scos din MVP".
 
-
 La înscriere se verifică vârsta față de intervalul grupei (`minAge` / `maxAge`, azi `int` pe
 `Group`) și cerințele prealabile ale modulului din [E10](E10-curriculum-module.md). Avertismente, nu
 blocaje — adminul poate trece peste, motivat.
@@ -382,7 +413,6 @@ sală de zece nu e.
 > **Ce lipsește: disponibilitatea profesorilor.** E [E09](E09-personal-roluri.md), și nu există rol
 > `TEACHER`, deci nu există disponibilitate de citit. Sălile libere se văd pe `/admin/locations` și
 > nu se dublează aici.
-
 
 Un ecran care arată cererile neasignate — de pe lista de așteptare și din
 [E20](E20-achizitie-lead.md) — grupate pe vârstă, nivel și locație, ca să se vadă când s-au adunat
@@ -547,10 +577,10 @@ factura B2C are nevoie de el — are răspuns și se închide acolo.
   și nu atât cât să lase următoarea familie să aștepte după cineva care s-a răzgândit. Rămâne
   deschisă până o confirmă școala; e `WAITLIST_RESPONSE_HOURS` în
   `apps/api/src/modules/enrollment/enrollment.service.ts`.
-**Închisă la implementarea S2: un cont neconfirmat sau neaprobat *se poate* autentifica.** Portalul
-îi arată o notificare cu ce mai lipsește, iar dacă adresa nu e confirmată, butonul de retrimitere a
-linkului. Un login care refuză fără să explice ar lăsa o familie care așteaptă să nu poată distinge
-„încă nu v-am aprobat" de „site-ul e stricat" — și, mai practic, retrimiterea linkului n-ar mai avea
-de unde să fie cerută. Contul nu poate face nimic: singura operațiune pe care o deblochează
-aprobarea, repartizarea într-o grupă, e oricum a adminului, iar restul portalului e gol prin
-construcție, fiindcă familia n-are încă nici grupă, nici factură.
+  **Închisă la implementarea S2: un cont neconfirmat sau neaprobat _se poate_ autentifica.** Portalul
+  îi arată o notificare cu ce mai lipsește, iar dacă adresa nu e confirmată, butonul de retrimitere a
+  linkului. Un login care refuză fără să explice ar lăsa o familie care așteaptă să nu poată distinge
+  „încă nu v-am aprobat" de „site-ul e stricat" — și, mai practic, retrimiterea linkului n-ar mai avea
+  de unde să fie cerută. Contul nu poate face nimic: singura operațiune pe care o deblochează
+  aprobarea, repartizarea într-o grupă, e oricum a adminului, iar restul portalului e gol prin
+  construcție, fiindcă familia n-are încă nici grupă, nici factură.
