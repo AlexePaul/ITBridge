@@ -187,22 +187,19 @@ S7). Ce **nu** e făcut, și e explicit muncă viitoare:
   backend-ul nu e deployat. Paginile există și compilează; datele nu vin de nicăieri.
 - **Paginile de după autentificare.** Portalul părintelui are cele trei pagini vechi
   (`dashboard`, `profile`, `payments`) și nu a fost rescris pe noul sistem de design — E18 S4.
-  Zona de admin, 25 de ecrane, la fel — E18 S5.
+  Zona de admin, 44 de ecrane, la fel — E18 S5.
 - **Verificarea automată de accesibilitate în CI** — E18 S6. Contrastul și navigarea din tastatură
   au fost verificate manual pe paginile publice; nimic nu le ține așa.
 
 Ordinea firească e [E01](docs/epics/E01-infrastructura-medii.md) S4 (instanța și deploy-ul) înainte
 de E18 S4, fiindcă un portal fără API nu se poate nici testa, nici demonstra.
 
-Un singur bug rămâne documentat ca test `it.failing` — trece cât timp bug-ul există, devine roșu
-când e reparat. Reparația ține de [E15](docs/epics/E15-pricing-facturare.md):
-
-- **Calculul de preț nu respectă regula convenită și nu are ramură pentru trei sau mai mulți
-  copii.** Regula, și sursa de adevăr pentru orice discuție despre prețuri, e **350 de lei pe lună
-  pentru primul copil și 250 pentru fiecare frate** — deci 600 pentru doi, cât scrie și pe site.
-  Codul îi trece pe amândoi la 250 și scoate 500, iar de la trei copii în sus suma iese 0 și
-  reducerile o duc pe negativ. Backend-ul nu rulează momentan; până rulează, documentația e cea
-  corectă, nu codul.
+Niciun `it.failing` nu mai e viu în repo: bug-urile de preț pe care le documentau sunt reparate și
+testele au devenit teste de regresie. Regula, și sursa de adevăr pentru orice discuție despre
+prețuri: **350 de lei pentru primul copil și 250 pentru fiecare frate** — deci 600 la doi copii,
+cât scrie și pe site. Unitatea reală e **ședința**, 87,50 și 62,50, deci o lună de patru ședințe
+dă exact cifrele pe care le știe toată lumea, iar una cu vacanță costă mai puțin. Într-un singur
+loc: `apps/api/src/modules/invoice/pricing.ts`.
 
 Bug-ul de 409 la al doilea profil fără date de contact a fost reparat în
 [E04](docs/epics/E04-migrari-date.md), iar testul lui e acum unul obișnuit, de regresie.

@@ -88,15 +88,17 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — nouăsprezece module în `apps/api/src/modules/`, cincisprezece după același tipar
+**Backend** — douăzeci de module în `apps/api/src/modules/`, cincisprezece după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
 `room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, `announcement`,
 `lead`.
-Patru ies din tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
+Cinci ies din tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
 și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
 decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
 (agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
-ce ia părintele acasă, ce cere agentul. Entitățile stau centralizat în `apps/api/src/entities/` și
+ce ia părintele acasă, ce cere agentul. `dashboard` are și el două controllere și patru servicii, dar
+din motivul opus: nu deține nimic, ci adună — vezi regula lui E21 mai jos. Entitățile stau centralizat
+în `apps/api/src/entities/` și
 sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
 reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
 
@@ -274,7 +276,7 @@ if (role !== Role.ADMIN) {
 }
 ```
 
-Vezi `apps/api/src/modules/invoice/invoice.service.ts:92`. Același tipar în `payment`, `child`, `profile` — respectă-l.
+Vezi `apps/api/src/modules/invoice/invoice.service.ts:118`. Același tipar în `payment`, `child`, `profile` — respectă-l.
 
 **Numai `andWhere`, niciodată `where`, după ce ai început să compui.** `qb.where()` _înlocuiește_
 toată clauza, deci un `where` pus după restrângerea pe utilizator o șterge fără niciun semn. Exact
@@ -435,8 +437,15 @@ rulează `check:schema`, care construiește o bază de unică folosință din mi
 entitățile au divergat.
 
 Când schimbi o entitate: `pnpm --filter api migration:generate src/migrations/<Nume>`, apoi citește
-SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD` — dacă asta
-ar pierde date, rescrie migrarea de mână.
+SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD`.
+
+**Nu te chinui însă să păstrezi date: nu există niciunele.** Baza nu rulează nicăieri în afara
+mașinilor de dezvoltare și a testelor, n-a avut niciodată un utilizator real, iar seed-ul se reface
+dintr-o comandă. Deci o migrare generată se ia ca atare, se rescriu liber migrările nepornite încă
+și nu se scrie cod de backfill pentru rânduri care nu există. Ce **rămâne** obligatoriu e ca migrările
+să existe și să corespundă entităților, fiindcă de asta depinde `check:schema` din CI — și fiindcă
+regula se schimbă în ziua în care există prima familie reală (E01 S4). Până atunci, singurul cost al
+unei migrări greșite e un `docker compose down -v`.
 
 **Migrările nu rulează la boot.** `migrationsRun` e `false` intenționat: în deploy se rulează
 explicit, între build și `pm2 reload`, ca o migrare eșuată să oprească deploy-ul în loc să lase
@@ -855,8 +864,8 @@ deployat nicăieri** în acest moment, deci site-ul funcționează efectiv ca pr
 deploy se scrie în [E01](docs/epics/E01-infrastructura-medii.md), S4. Până atunci repo-ul nu
 conține niciun workflow de deploy — dacă nu găsești unul, nu s-a pierdut, nu există încă.
 
-`docker-compose.yml` conține exclusiv Postgres. Aplicația rulează direct pe Node, local și în
-producție. Nu adăuga servicii de aplicație acolo.
+`docker-compose.yml` conține Postgres și MinIO — infrastructura, și numai ea. Aplicația rulează
+direct pe Node, local și în producție. Nu adăuga servicii de aplicație acolo.
 
 **Cheie Let's Encrypt compromisă, în istoric.** Un `privkey.pem` real, valid până în ianuarie
 2027, a fost comitat la `58e2634` și a rămas în repo până la curățenia din E01. Fișierele au fost
@@ -911,12 +920,13 @@ Zona autentificată nu e verificată deloc: se rescrie în E18 S4 și S5 și se 
 capete una. `pnpm --filter agent test` compilează întâi și rulează din `dist`: un `.ts` cu `import`
 e interpretat de Node ca modul ES, iar acolo importurile fără extensie nu se rezolvă.
 
-**Bug-urile cunoscute sunt scrise ca `it.failing`**, nu ca teste care cimentează comportamentul
+**Bug-urile cunoscute se scriu ca `it.failing`**, nu ca teste care cimentează comportamentul
 greșit. Un astfel de test trece cât timp bug-ul există și devine roșu în clipa în care e reparat —
-moment în care se șterge `.failing`. Convenția și-a făcut deja treaba de două ori: testele de preț
-la doi și la trei copii au devenit teste de regresie când bug-ul a fost reparat, iar unul care
-cimenta comportamentul greșit — „charges 250 per child for two children" — a fost șters. Vezi
-crearea de profiluri fără date de contact pentru un exemplu încă viu.
+moment în care se șterge `.failing`. Convenția și-a făcut treaba de trei ori și **în momentul ăsta
+nu mai e niciun `it.failing` viu în repo**: prețul la doi copii, prețul la trei sau mai mulți și
+crearea de profiluri fără date de contact au devenit toate teste de regresie, iar unul care cimenta
+comportamentul greșit — „charges 250 per child for two children" — a fost șters. Dacă vrei un
+exemplu, citește-le în `pricing.spec.ts` ca teste normale; convenția rămâne pentru bug-ul următor.
 
 ## Planul de lucru
 

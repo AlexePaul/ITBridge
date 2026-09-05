@@ -11,9 +11,10 @@ autentificare. S4 și S5 nu se pot demonstra până nu rulează un backend — v
 > ## Cerut de școală: rescrierea întregii zone de după login
 >
 > **Tot ce e după autentificare arată prost și trebuie refăcut, nu peticit.** Nu e o observație
-> despre o pagină anume — e despre toate: cele **4 pagini de portal** și cele **32 de ecrane de
-> admin**, inclusiv cele adăugate recent (`/admin/approvals`, `/admin/formare`,
-> `/admin/invoices/emitere`).
+> despre o pagină anume — e despre toate: cele **6 pagini de portal** și cele **44 de ecrane de
+> admin** (fișiere `.vue` sub `app/pages/`, numărate așa ca cifra să se poată verifica), inclusiv
+> cele adăugate recent (`/admin/approvals`, `/admin/formare`, `/admin/invoices/emitere`,
+> `/admin/anunturi`, `/admin/leads`).
 >
 > Motivul e vizibil cu ochiul liber: **paginile publice au fost rescrise pe sistemul din S1, cele
 > autentificate nu.** Publicul folosește `classical.css` — paletă proprie, scară tipografică,
@@ -21,10 +22,12 @@ autentificare. S4 și S5 nu se pot demonstra până nu rulează un backend — v
 > doar mapează `primary` și `neutral` peste ele. Rezultatul e că un părinte trece de la un site care
 > arată ca o școală serioasă la un panou care arată ca un instrument intern — exact în momentul în
 > care tocmai a plătit.
->
-> Cele 28 de ecrane au fost construite în momente diferite, cu tipare diferite de tabel, filtrare,
+
+Ecranele au fost construite în momente diferite, cu tipare diferite de tabel, filtrare,
+
 > formular, stare goală și mesaj de eroare. De aceea e **rescriere, nu retuș**: cât timp nu există un
-> tipar comun, fiecare ecran nou adaugă un al 29-lea dialect. Asta e S5, iar S4 e echivalentul pentru
+> tipar comun, fiecare ecran nou mai adaugă un dialect — și numărul chiar a crescut de la 28 la 44
+> în timpul epicului, ceea ce e argumentul, nu o notă de subsol. Asta e S5, iar S4 e echivalentul pentru
 > portalul părintelui — ambele își păstrează conținutul, dar niciunul nu mai e „muncă viitoare
 > opțională".
 >
@@ -54,11 +57,12 @@ plecat:
   repo.~~ Fișierele acelea au fost șterse și înlocuite cu fotografii reale, niciuna peste 200KB,
   toate cu `width` și `height` explicite. **`@nuxt/image` tot nu e instalat** și nu se servesc
   formate moderne — vezi S2, care rămâne parțial.
-- **Portalul părintelui e sărac.** Trei pagini: `dashboard`, `profile`, `payments`. Un părinte nu
+- **Portalul părintelui e sărac.** Șase pagini: `dashboard`, `profile`, `profile-setup`,
+  `payments`, `absente` și `proiecte` — ultimele două aduse de E12 și E14, nu de o rescriere. Un părinte nu
   poate vedea orarul copilului, prezența, proiectele sau progresul — pentru că majoritatea nici nu
   există încă, dar nici structura nu le anticipează. Nerezolvat: **paginile de după autentificare
   nu au fost atinse de rescriere și nu sunt cablate la un backend care rulează.**
-- **Zona de admin e inconsecventă.** 25 de pagini construite în momente diferite, cu tipare
+- **Zona de admin e inconsecventă.** 44 de ecrane construite în momente diferite, cu tipare
   diferite de tabel, filtrare, formular și mesaj de eroare. Nerezolvat.
 - **Accesibilitate neverificată.** Rezolvat pe paginile publice: contrastul e conform AA
   (butoanele și legăturile folosesc `--color-accent-ink`, marginile de control un token separat la
@@ -188,8 +192,9 @@ Un tipar unic de tabel — sortare, filtrare, paginare, acțiuni în masă, star
 formular, cu validare și erori. Toate paginile aliniate. Selectorul de locație din
 [E08](E08-multi-locatie.md) integrat în antet.
 
-**Nu mai sunt 25 de pagini, ci 32**, iar numărul crește cu fiecare epic livrat: E11 a adăugat
-`/admin/approvals` și `/admin/formare`, E15 a adăugat `/admin/invoices/emitere`. Fiecare a fost
+**Nu mai sunt 25 de ecrane, ci 44**, iar numărul crește cu fiecare epic livrat: E11 a adăugat
+`/admin/approvals` și `/admin/formare`, E15 a adăugat `/admin/invoices/emitere`, E17 a adăugat
+`/admin/anunturi` și `/admin/livrari`, E20 a adăugat `/admin/leads`. Fiecare a fost
 construit cu tiparele pe care le-a găsit, adică fiecare a mai adăugat un dialect. **Costul crește cu
 întârzierea**, ceea ce e argumentul pentru care jumătatea de componente merită făcută înainte de
 deploy, nu după.
@@ -197,7 +202,7 @@ deploy, nu după.
 **Acceptanță:** o pagină nouă de admin se construiește din componente existente, fără CSS nou.
 
 **Livrat parțial: jumătatea de componente** — cea care nu cere un API care rulează. Înaintea
-oricărui cod s-a făcut un catalog al dialectelor pe toate cele 28 de ecrane: **7 feluri de tabel**
+oricărui cod s-a făcut un catalog al dialectelor pe cele 28 de ecrane de atunci: **7 feluri de tabel**
 (UTable cu trei sub-dialecte de `h()`, un `<table>` nativ, rânduri din div-uri, grile de carduri),
 **5 feluri de formular** — inclusiv două ecrane rămase pe `UFormGroup` din @nuxt/ui v2, care în v4
 nu randează nimic —, **opt apariții** ale aceluiași `<select>` nativ cu șirul lui de clase
@@ -223,7 +228,7 @@ a fiecărui tipar, nu o invenție:
 **Ecranul-dovadă e `/admin/calendar`** (E12 S2), migrat integral: shell, triadă, rânduri, USelect
 în locul select-ului nativ, iar ștergerea a trecut de pe `confirm()` pe modal.
 
-**Rămân pentru S5b** — migrarea celor 32 de ecrane, planificată de catalog: salvarea de la v2 a
+**Rămân pentru S5b** — migrarea celor 44 de ecrane, planificată de catalog: salvarea de la v2 a
 celor două formulare, măturarea de limbă (dropdown-uri în engleză, „No data"), `AdminDateField`
 (izolarea hack-ului fragil de popover din children/edit), bara de filtre (trei forme incompatibile
 azi — se extrage după ce migrarea arată care supraviețuiește) și grila de carduri (cinci ecrane,
@@ -317,7 +322,7 @@ pentru care nu le văzuse nimeni: se uita toată lumea la pagină.
   outline sau ghost de după login citea la **2,61:1**, aceeași cifră și aceeași cauză, de partea
   cealaltă a autentificării. O linie per temă, `--ui-primary: var(--color-accent-ink)`, duce drumul
   profesorului la **axe curat pe WCAG 2.0 și 2.1 A+AA, în ambele teme** — și, fiind un jeton,
-  ridică odată cu el toate cele 32 de ecrane de admin.
+  ridică odată cu el toate cele 44 de ecrane de admin.
 - **Iconițele veneau de la Iconify, la rulare.** Nicio colecție nu era instalată local, deci
   `@nuxt/icon` le cerea de pe `api.iconify.design` de fiecare dată — pe conexiunea din sală, exact
   cea pentru care există story-ul. Butonul de meniu **e** o iconiță și nimic altceva: fără ea, un
@@ -349,7 +354,7 @@ acoperă portalul, portalul se rescrie în S4 și S5, iar o poartă scrisă acum
 care școala le-a cerut refăcute. Verificarea rămâne manuală până atunci, cu cifrele de aici ca
 linie de bază.
 
-**Ce nu s-a atins, deliberat:** cele 24 de intrări din meniul lateral. Pe telefon sunt o listă
+**Ce nu s-a atins, deliberat:** cele 25 de intrări din meniul lateral. Pe telefon sunt o listă
 lungă într-un panou care se deschide peste ecran, și e o problemă reală — dar e problema navigației
 zonei de admin, adică S5b, iar cartonașul din hub îi dă profesorului al doilea drum de care avea
 nevoie azi.
