@@ -41,3 +41,15 @@ export interface UpdateDiscountDto {
     monthIssued?: BillingMonth;
     description?: string;
 }
+
+/**
+ * The one-press referral reward — E20/S5: half off next month, for one family.
+ *
+ * One field, because everything else is fixed by the decision: 50%, „Recomandare", and the month
+ * after the current one on the school's clock. The server picks the month; a client that computed
+ * it would be the second place that knows what „next month" means, and the two would disagree for
+ * about two hours every first of the month.
+ */
+export interface GrantReferralDiscountDto {
+    parentId: number;
+}

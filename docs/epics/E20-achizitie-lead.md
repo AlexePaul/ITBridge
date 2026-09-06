@@ -326,6 +326,25 @@ Regula e acum a platformei, nu a celui care socotește: 50% urmăresc totalul re
 lună scurtă de trei ședințe (262,50) se înjumătățește la 131,25 — lucru pe care o sumă fixă de 175
 l-ar fi greșit cu 43,75 fără ca cineva să observe.
 
+**Un buton, nu cinci câmpuri** (septembrie 2026). `POST /discounts/referral` primește doar familia
+și scrie restul: 50%, „Recomandare", luna următoare. Butonul stă în **profilul familiei**, fiindcă
+acolo e deja limpede despre cine e vorba — din `/admin/reduceri` aceeași acțiune ar cere întâi un
+selector, adică exact câmpul pe care formularul îl cere oricum. Formularul rămâne pentru orice
+altceva, și e tot locul din care se șterge o reducere dată din greșeală.
+
+Două lucruri de știut despre el:
+
+- **Luna o alege serverul**, din `nextBillingMonthAt` (`discount.rules.ts`), pe ceasul școlii. Un
+  client care ar calcula-o ar fi al doilea loc care știe ce înseamnă „luna viitoare", iar cele două
+  ar fi în dezacord vreo două ore în fiecare întâi de lună — și rezultatul ar fi o reducere pusă pe
+  luna tocmai facturată. În decembrie, „luna viitoare" trece anul; regula lucrează pe componentele
+  string-ului, niciodată prin `Date`.
+- **A doua apăsare e refuzată** cu `DISCOUNT_ALREADY_GRANTED`, și nu doar a doua apăsare a
+  butonului: verificarea caută **orice** reducere procentuală pe acea lună. Procentele se adună pe
+  prețul de listă (`discountTotal`), deci 50% peste 50% e o lună gratuită, iar o lună gratuită
+  apărută dintr-un dublu-clic arată exact ca una hotărâtă de cineva. Dacă chiar se vrea a doua
+  reducere, se dă din formular, unde e o decizie și nu un clic.
+
 **Ce nu s-a construit, tot prin decizie:** nimic nu leagă cele două reduceri între ele. Sunt două
 rânduri independente, cu același nume, pe două familii. Legătura ar fi exact mașinăria de atribuire
 tăiată mai jos, iar ecranul o înlocuiește cu singurul lucru care e nevoie de fapt: o propoziție care

@@ -158,6 +158,41 @@
           </div>
         </div>
       </UCard>
+      <!--
+        The referral reward, in one press — E20/S5.
+
+        Here rather than on /admin/reduceri because here the family is already named: from the
+        discounts screen the same action needs a picker first, which is the field the form already
+        asks for. The month is the server's to work out.
+      -->
+      <UCard class="border rounded-lg" variant="subtle">
+        <template #header>
+          <div class="flex items-center gap-3">
+            <UIcon name="i-lucide-percent" class="text-2xl text-primary" />
+            <h2 class="text-2xl font-semibold">Recomandare</h2>
+          </div>
+        </template>
+
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <p class="text-muted max-w-xl">
+            Scade <strong>50%</strong> din factura de luna viitoare, pentru o familie adusă de
+            aceasta. Apare în lista de reduceri și se scade automat la emitere. O poți șterge de
+            acolo dacă te-ai răzgândit.
+          </p>
+          <UButton
+            color="primary"
+            variant="solid"
+            class="min-h-11"
+            icon="i-lucide-badge-percent"
+            :loading="grantingReferral"
+            :disabled="grantingReferral"
+            @click="grantReferral"
+          >
+            −50% luna viitoare
+          </UButton>
+        </div>
+      </UCard>
+
       <UButton
         class="mt-4 mx-auto block justify-center text-center"
         variant="outline"
@@ -170,13 +205,40 @@
   </div>
 </template>
 <script setup lang="ts">
+import { useDiscountsApi } from "~/composables/api/useDiscountsApi";
 import { useProfileApi } from "~/composables/api/useProfileApi";
+import { apiErrorMessage } from "~/composables/useApiError";
+import { useNotifications } from "~/composables/useNotifications";
+import { formatMonth } from "~/composables/useAdminFormat";
 import type { Profile } from "~/types/profile.types";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 
 const route = useRoute();
 const profileApi = useProfileApi();
+const discountsApi = useDiscountsApi();
+const { success, error } = useNotifications();
 const profile: Ref<Profile | null> = ref(null);
+const grantingReferral = ref(false);
+
+/**
+ * One press, no fields — E20/S5.
+ *
+ * The month comes back from the server rather than being computed here, so the confirmation names
+ * the month that was actually written. A refusal is the interesting case: the family already has a
+ * percentage on that month, and two of them make it free. `apiErrorMessage` has the sentence.
+ */
+const grantReferral = async () => {
+  if (!profile.value || grantingReferral.value) return;
+  grantingReferral.value = true;
+  try {
+    const discount = await discountsApi.grantReferralDiscount(profile.value.id);
+    success(`Reducere de 50% adăugată pe ${formatMonth(discount.monthIssued)}.`);
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut adăuga reducerea."));
+  } finally {
+    grantingReferral.value = false;
+  }
+};
 
 onMounted(async () => {
   profile.value = (await profileApi.fetchProfile(route.params.profileId as string))[0] || null;

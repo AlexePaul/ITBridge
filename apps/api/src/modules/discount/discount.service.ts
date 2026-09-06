@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Discount } from 'src/entities/discount.entity';
@@ -7,10 +7,14 @@ import { CreateDiscountDto } from './dto/createDiscount.dto';
 import { UpdateDiscountDto } from './dto/updateDiscount.dto';
 import { applyDefined } from 'src/common/apply-defined';
 import { DiscountType } from 'src/enum/discount-type.enum';
+import { REFERRAL_DISCOUNT_NAME, REFERRAL_PERCENT, nextBillingMonthAt } from './discount.rules';
 
 @Injectable()
 export class DiscountService {
-    constructor(@InjectRepository(Discount) private discountRepository: Repository<Discount>) {}
+    constructor(
+        @InjectRepository(Discount) private discountRepository: Repository<Discount>,
+        @InjectRepository(Profile) private profileRepository: Repository<Profile>,
+    ) {}
 
     async createDiscount(createDiscountDto: CreateDiscountDto): Promise<Discount> {
         this.assertWithinBounds(createDiscountDto.type ?? DiscountType.FIXED, createDiscountDto.value);
@@ -36,6 +40,55 @@ export class DiscountService {
             .orderBy('discount.monthIssued', 'DESC')
             .addOrderBy('discount.id', 'DESC')
             .getMany();
+    }
+
+    /**
+     * Half off next month for one family, in one press — E20/S5.
+     *
+     * Everything about the referral reward is fixed by the decision: the amount (50%), the reason
+     * ("Recomandare") and the month (the next one). The only thing an admin was choosing in the
+     * five-field form was which family, and getting the month wrong in December was the easiest
+     * mistake on the screen. So the form stays for everything else and this exists for the one
+     * case that has no choices in it.
+     *
+     * **A second press is refused, not applied.** Percentages are taken off the list price and
+     * added up (`discountTotal` in `pricing.ts`), so two of these make the month free — and a free
+     * month produced by a double-click looks exactly like a free month somebody decided on. The
+     * check is for any percentage already sitting on that month, not just one of ours: a hand-typed
+     * 50% plus this one costs the school just as much as two of these. A deliberate second reward
+     * is still possible, through the form, where it takes deciding rather than clicking.
+     *
+     * No database constraint behind it, unlike the seat rules in E11: two admins pressing in the
+     * same second would leave a duplicate row that is visible on `/admin/reduceri` and deletable in
+     * two clicks, which is not the class of damage an index is for.
+     */
+    async grantReferralNextMonth(parentId: number, now: Date = new Date()): Promise<Discount> {
+        const parent = await this.profileRepository.findOne({ where: { id: parentId } });
+        if (!parent) {
+            throw new NotFoundException('Profile not found');
+        }
+
+        const monthIssued = nextBillingMonthAt(now);
+
+        const existing = await this.discountRepository.findOne({
+            where: { parent: { id: parentId }, monthIssued, type: DiscountType.PERCENT },
+        });
+        if (existing) {
+            throw new ConflictException({
+                message: `Familia are deja o reducere procentuală pe ${monthIssued}. Două se adună și fac luna gratuită.`,
+                error: 'DISCOUNT_ALREADY_GRANTED',
+            });
+        }
+
+        const discount = this.discountRepository.create({
+            name: REFERRAL_DISCOUNT_NAME,
+            type: DiscountType.PERCENT,
+            value: REFERRAL_PERCENT,
+            monthIssued,
+            parent: { id: parentId } as Profile,
+        });
+
+        return await this.discountRepository.save(discount);
     }
 
     async updateDiscount(id: number, updateDiscountDto: UpdateDiscountDto): Promise<Discount> {

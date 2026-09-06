@@ -52,6 +52,11 @@ const MESSAGES: Record<string, string> = {
     "Familia este deja înscrisă. Dacă a renunțat, se închide înscrierea, nu cererea.",
   ASSIGNMENT_AMBIGUOUS: "Alege: fie îi dai un responsabil, fie i-l iei.",
 
+  // E20/S5 — the one-press referral reward. The refusal has to say what would have happened,
+  // because "already has one" sounds harmless and a free month is not.
+  DISCOUNT_ALREADY_GRANTED:
+    "Familia are deja o reducere procentuală pe luna viitoare. Încă una s-ar aduna cu ea și ar face luna gratuită — dacă asta vrei, dă-o din formular.",
+
   // E08. "Există deja o înregistrare cu aceste date" is true of all of these and useful for none:
   // an admin who has just double-booked a room needs to know that is what happened.
   GROUP_SLOT_TAKEN: "Sala este deja ocupată în acest interval de altă grupă.",

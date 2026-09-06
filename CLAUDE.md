@@ -868,6 +868,17 @@ Reducerea se rotunjește ea însăși la bani, ca linia tipărită și totalul s
 Plafonul de 100% e în `DiscountService`, nu în DTO: o actualizare poate schimba tipul într-o cerere
 și valoarea în alta, iar doar starea de după îmbinare spune ce ajunge stocat.
 
+**Recomandarea e un buton, iar luna o alege serverul** (E20 S5). `POST /discounts/referral` primește
+doar `parentId` și scrie 50%, `Recomandare` și **luna următoare**, calculată cu `nextBillingMonthAt`
+din `apps/api/src/modules/discount/discount.rules.ts`, pe ceasul școlii și din componentele
+string-ului — prin `Date`, un întâi de lună la 01:00 ar cădea pe luna tocmai facturată, iar 31
+decembrie ar sări o lună. Butonul stă în profilul familiei, fiindcă acolo familia e deja aleasă;
+`/admin/reduceri` rămâne pentru orice altă reducere și pentru ștergere. **A doua reducere
+procentuală pe aceeași lună e refuzată** (`DISCOUNT_ALREADY_GRANTED`): procentele se adună pe prețul
+de listă, deci 50% peste 50% e o lună gratuită, iar una apărută dintr-un dublu-clic nu se deosebește
+de una hotărâtă. Refuzul e în serviciu, fără index unic în spate — spre deosebire de locurile din
+E11, un rând duplicat aici se vede pe ecran și se șterge din două clicuri.
+
 **Zero e un răspuns, nu un câmp gol.** O lună fără plată se scrie ca factură `waived`, de 0 lei,
 fără PDF. Rândul există fiindcă n-are bani în el: fără el, o familie fără factură pe octombrie arată
 la fel cu una a cărei lună a uitat-o cineva. `GET /invoices/:id/pdf` răspunde 404 pe ele, explicit.
