@@ -81,8 +81,10 @@ const siteLinks = [
   { label: "Contact", to: "/contact" },
 ];
 
+// Prezența sits next to Absențe: one is what happened, the other what is coming and what it earned.
 const tabs = [
   { label: "Acasă", to: "/user/dashboard" },
+  { label: "Prezența", to: "/user/prezenta" },
   { label: "Absențe și recuperări", to: "/user/absente" },
   { label: "Proiecte", to: "/user/proiecte" },
   { label: "Plăți", to: "/user/payments" },

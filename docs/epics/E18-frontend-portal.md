@@ -191,12 +191,27 @@ date încă spun asta explicit, nu rămân goale.
 Cele trei nu sunt un flux liniar: un părinte poate avea profilul complet și emailul neconfirmat, sau
 invers. Desenul trebuie să suporte oricare combinație fără să pară stricat.
 
-**Livrat.** Cinci ecrane de portal plus cele trei de intrare în cont, toate pe jetoanele din S1, cu
+**Livrat.** Șase ecrane de portal plus cele trei de intrare în cont, toate pe jetoanele din S1, cu
 un shell propriu — `layouts/portal.vue`: navbar cu rândul de taburi sub el, nu bara laterală
-colapsabilă a zonei de admin. Un părinte are cinci pagini și le deschide pe telefon; un admin are
+colapsabilă a zonei de admin. Un părinte are șase pagini și le deschide pe telefon; un admin are
 zeci și stă în aplicație toată ziua, iar o bară laterală ia o treime dintr-un ecran de
-390px ca să aleagă între cinci lucruri. Layout-ul `dashboard` rămâne al zonei de admin, care se
+390px ca să aleagă între ele. Layout-ul `dashboard` rămâne al zonei de admin, care se
 uniformizează în S5.
+
+**Prezența e ecran propriu, nu un bloc pe Acasă.** Calendarul lunar exista dinainte, pe
+`/user/dashboard`, și a fost mutat la `/user/prezenta` când Acasă a preluat ruta. Nu s-a întors pe
+Acasă fiindcă acolo ar fi contrazis singurul lucru pe care ecranul acela îl are de făcut: o grilă de
+42 de zile cu o legendă de cinci intrări, o dată pentru fiecare copil, împinge sub linia de plutire
+exact ce cere atenție. Coloana de prezență recentă de pe Acasă arată ultimele patru ore și trimite
+mai departe — o privire, plus o ușă pentru cine vrea luna.
+
+Culorile lui s-au dus odată cu mutarea. Ecranul vechi picta cinci culori semantice din Nuxt UI, care
+nu există în sistemul ăsta — o singură accentuare, aurul — și pe care oricum nu le poate citi cineva
+care nu separă verdele de roșu. Fiecare zi poartă acum un **semn**: `✓` prezent, `A` absent, `R`
+recuperare, `?` nemarcat, `○` oră programată. Primele trei sunt aceleași pe care le folosește deja
+rândul de prezență recentă de pe Acasă, ca cele două ecrane să nu învețe două vocabulare pentru
+același fapt. Ce înseamnă o zi rămâne decis de `calendarDayState` — funcția pură, testată, care nu
+mai ghicește din `Group.weekday`; ecranul doar desenează ce întoarce ea.
 
 Story-ul a fost multă vreme blocat, și motivul merită păstrat fiindcă e încă pe jumătate valabil:
 **backend-ul nu e deployat**, deci nimic din ce e după login nu vorbește cu un API care rulează.
