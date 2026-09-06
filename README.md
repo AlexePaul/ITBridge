@@ -168,6 +168,11 @@ condiții, amândouă refuzuri, nu avertismente:
   ăsta; pe un host la care ajunge oricine știe numele, aia e un cont de admin publicat. Nu există
   implicit, iar seed-ul **nu o afișează înapoi** — ar ajunge în logul care a capturat rularea.
 
+Și o a treia, care te apără de tine: `pnpm seed:stage` **refuză o bază locală**. `dotenv -e
+.env.stage` nu dă eroare când fișierul lipsește — încarcă nimic —, iar aplicația cade atunci pe
+`localhost`, deci comanda ți-ar șterge baza de dezvoltare în timp ce te uiți la staging să se umple.
+Dacă vezi refuzul ăsta, `.env.stage` lipsește sau e pe jumătate completat.
+
 Restul e la fel: șterge tot înainte, deci nu e aditiv și nu se poate anula — ce a tastat cineva în
 staging dispare. Fără S3 configurat, facturile rămân fără PDF și atât; seed-ul spune ce a sărit.
 
