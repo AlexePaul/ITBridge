@@ -70,39 +70,41 @@ describe('Absence notices (e2e)', () => {
             .send({ childId: anaChildId, classSessionId: sessionId, reason: 'Răcit', ...body });
 
     describe('who may speak for whom', () => {
-        it('a parent announces for their own child', async () => {
-            const res = await announce(ana, {}).expect(201);
+        it('an admin announces for anyone — they took the phone call', async () => {
+            const res = await announce(admin, {}).expect(201);
             expect(res.body.inTime).toBe(true);
-        });
-
-        it("refuses another family's child as a 404, not a 403", async () => {
-            // A parent has no business learning that this id belongs to somebody.
-            await announce(ana, { childId: bogdanChildId }).expect(404);
-        });
-
-        it('an admin may announce for anyone — they took the phone call', async () => {
             await announce(admin, { childId: bogdanChildId }).expect(201);
         });
 
-        it('a parent withdraws their own notice and not another family’s', async () => {
-            const mine = await announce(ana, {}).expect(201);
-            const theirs = await announce(bogdan, { childId: bogdanChildId }).expect(201);
+        /**
+         * The portal button is gone and so is the route behind it — E12/S3.
+         *
+         * A family announces by ringing, messaging or emailing, and somebody at the office writes
+         * it down with the reason. Had only the button gone, the rule would have been true of the
+         * screen and false of the API, which is the same as not being true.
+         */
+        it('a parent cannot announce at all, not even for their own child', async () => {
+            await announce(ana, {}).expect(403);
+        });
 
-            await request(app.getHttpServer())
-                .delete(`/attendance/absences/${theirs.body.id as number}`)
-                .set('Authorization', ana.auth)
-                .expect(404);
+        it('a parent cannot withdraw either — that is the same act, on the same phone line', async () => {
+            const mine = await announce(admin, {}).expect(201);
+
             await request(app.getHttpServer())
                 .delete(`/attendance/absences/${mine.body.id as number}`)
                 .set('Authorization', ana.auth)
+                .expect(403);
+            await request(app.getHttpServer())
+                .delete(`/attendance/absences/${mine.body.id as number}`)
+                .set('Authorization', admin.auth)
                 .expect(200);
         });
     });
 
     describe('one notice per child per class', () => {
         it('announcing twice amends rather than adding a second absence', async () => {
-            const first = await announce(ana, { reason: 'Răcit' }).expect(201);
-            const second = await announce(ana, { reason: 'Plecăm din oraș' }).expect(201);
+            const first = await announce(admin, { reason: 'Răcit' }).expect(201);
+            const second = await announce(admin, { reason: 'Plecăm din oraș' }).expect(201);
 
             expect(second.body.id).toBe(first.body.id);
             const rows = await dataSource.query<unknown[]>('SELECT 1 FROM "absence_notices"');
@@ -120,13 +122,13 @@ describe('Absence notices (e2e)', () => {
                 .expect(201);
             const otherSession = await createClassSession(dataSource, otherGroup.body.id as number, { date: '2027-06-08' });
 
-            const res = await announce(ana, { classSessionId: otherSession }).expect(400);
+            const res = await announce(admin, { classSessionId: otherSession }).expect(400);
             expect(res.body.code).toBe('CHILD_NOT_IN_SESSION_GROUP');
         });
 
         it('a cancelled class — nobody can be absent from one that is not happening', async () => {
             const cancelled = await createClassSession(dataSource, groupId, { date: '2027-06-14', status: 'cancelled' });
-            const res = await announce(ana, { classSessionId: cancelled }).expect(409);
+            const res = await announce(admin, { classSessionId: cancelled }).expect(409);
             expect(res.body.code).toBe('CLASS_SESSION_CANCELLED');
         });
 
@@ -137,18 +139,18 @@ describe('Absence notices (e2e)', () => {
                 .send({ present: false })
                 .expect(200);
 
-            const res = await announce(ana, {}).expect(409);
+            const res = await announce(admin, {}).expect(409);
             expect(res.body.code).toBe('ATTENDANCE_ALREADY_MARKED');
         });
 
         it('a reason too short to say anything', async () => {
-            await announce(ana, { reason: 'x' }).expect(400);
+            await announce(admin, { reason: 'x' }).expect(400);
         });
     });
 
     describe('what the teacher sees', () => {
         it('the announcement reaches the register, with the reason and whether it was in time', async () => {
-            await announce(ana, { reason: 'Răcit, îl ținem acasă' }).expect(201);
+            await announce(admin, { reason: 'Răcit, îl ținem acasă' }).expect(201);
 
             const register = await request(app.getHttpServer()).get(`/attendance/session/${sessionId}/register`).set('Authorization', admin.auth).expect(200);
 
@@ -162,8 +164,8 @@ describe('Absence notices (e2e)', () => {
 
     describe('the upcoming list', () => {
         it('a parent sees their own and not the other family’s', async () => {
-            await announce(ana, {}).expect(201);
-            await announce(bogdan, { childId: bogdanChildId }).expect(201);
+            await announce(admin, {}).expect(201);
+            await announce(admin, { childId: bogdanChildId }).expect(201);
 
             const mine = await request(app.getHttpServer()).get('/attendance/absences').set('Authorization', ana.auth).expect(200);
             expect(mine.body).toHaveLength(1);

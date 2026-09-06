@@ -74,9 +74,10 @@ describe('Temporary group moves (e2e)', () => {
         missedSessionId = await createClassSession(dataSource, ownGroupId, { date: iso(0) });
         hostSessionId = await createClassSession(dataSource, hostGroupId, { date: iso(3) });
 
+        // The office records it, not the family — E12/S3. Parents ring, message or email.
         const announced = await request(app.getHttpServer())
             .post('/attendance/absences')
-            .set('Authorization', parent.auth)
+            .set('Authorization', admin.auth)
             .send({ childId, classSessionId: missedSessionId, reason: 'Răcit' })
             .expect(201);
         noticeId = announced.body.id as number;
@@ -223,7 +224,7 @@ describe('Temporary group moves (e2e)', () => {
             await request(app.getHttpServer()).post(`/children/${otherChild.body.id}/groups/${ownGroupId}`).set('Authorization', admin.auth).expect(201);
             const otherNotice = await request(app.getHttpServer())
                 .post('/attendance/absences')
-                .set('Authorization', other.auth)
+                .set('Authorization', admin.auth)
                 .send({ childId: otherChild.body.id, classSessionId: missedSessionId, reason: 'Plecăm din oraș' })
                 .expect(201);
 

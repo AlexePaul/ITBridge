@@ -49,6 +49,11 @@ export class AbsenceNoticeService {
         // The row-level rule of the whole codebase, in its narrowest form: a parent may speak for
         // their own children and for nobody else's. `?.` because a profile an admin typed in from a
         // phone call has no account behind it.
+        //
+        // **Unreachable today**, because the controller is `ADMIN`-only since the school made
+        // recording an absence the office's job. It stays because it is the truth about the rows
+        // rather than about the route: the day somebody reopens this to families — and the portal
+        // button did exist once — the check has to already be here, not be remembered.
         if (role !== Role.ADMIN && child.parent.user?.id !== userId) {
             throw new NotFoundException('Child not found');
         }
@@ -104,7 +109,12 @@ export class AbsenceNoticeService {
         return saved;
     }
 
-    /** Withdraws a notice — the child is coming after all. Admin, or the family it belongs to. */
+    /**
+     * Withdraws a notice — the child is coming after all.
+     *
+     * The ownership branch below is unreachable for the same reason as in `announce`, and stays for
+     * the same reason.
+     */
     async withdraw(id: number, role: Role, userId: number): Promise<{ message: string }> {
         const notice = await this.noticeRepository.findOne({
             where: { id },
