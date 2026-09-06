@@ -27,17 +27,13 @@ import { ApprovalStatus } from 'src/enum/approval-status.enum';
  * E11/S2 turned a two-field DTO into a ten-field one, and a test that spelled all ten out every
  * time would bury the single field it cares about among nine that never vary.
  */
+/** Exactly what `RegisterDto` accepts since the split — see the note on that class. */
 const REGISTRATION = {
     username: 'ana',
     password: 'parola-secreta',
     firstName: 'Ana',
     lastName: 'Popescu',
     email: 'ana@example.com',
-    phone: '0712345678',
-    address: 'Str. Exemplu 12, București',
-    emergencyContactName: 'Maria Popescu',
-    emergencyContactRelation: 'bunica',
-    emergencyContactPhone: '0723456789',
 };
 
 describe('AuthService', () => {
@@ -161,21 +157,22 @@ describe('AuthService', () => {
             });
         });
 
-        it('writes the contact details and the emergency contact onto a profile', async () => {
+        it('writes a shell profile — the name and the address the link goes to, and nothing else', async () => {
             registrationSucceeds();
 
             await service.register(REGISTRATION);
 
-            expect(saved(Profile)[0]).toMatchObject({
-                firstName: 'Ana',
-                lastName: 'Popescu',
-                email: 'ana@example.com',
-                phone: '0712345678',
-                address: 'Str. Exemplu 12, București',
-                emergencyContactName: 'Maria Popescu',
-                emergencyContactRelation: 'bunica',
-                emergencyContactPhone: '0723456789',
-            });
+            // Step two collects the rest, and it is not optional: `isProfileComplete` gates a
+            // child's placement on it. Asserted as the exact object rather than a subset, because
+            // the point of this test is what is *absent* — a field creeping back in here is the
+            // ten-field first screen returning one line at a time.
+            const profile = saved(Profile)[0];
+            expect(profile).toMatchObject({ firstName: 'Ana', lastName: 'Popescu', email: 'ana@example.com' });
+            expect(profile).not.toHaveProperty('phone');
+            expect(profile).not.toHaveProperty('address');
+            expect(profile).not.toHaveProperty('emergencyContactName');
+            expect(profile).not.toHaveProperty('emergencyContactRelation');
+            expect(profile).not.toHaveProperty('emergencyContactPhone');
         });
 
         it('writes the user, the profile, the token and both emails through one transaction manager', async () => {
@@ -224,16 +221,17 @@ describe('AuthService', () => {
             expect(manager.save).not.toHaveBeenCalled();
         });
 
-        it('rejects a phone number that already belongs to another family', async () => {
-            userRepo.findOne!.mockResolvedValue(null);
-            // Free on email, taken on phone: the two checks are separate so the parent is told
-            // which of the two fields to change.
-            profileRepo.findOne!.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 4, phone: '0712345678' });
+        it('checks the profile table once, for the email — the phone is no longer its business', async () => {
+            registrationSucceeds();
 
-            await expect(service.register(REGISTRATION)).rejects.toMatchObject({
-                response: { error: 'PHONE_TAKEN' },
-            });
-            expect(manager.save).not.toHaveBeenCalled();
+            await service.register(REGISTRATION);
+
+            // Two lookups under the old flow: the email through the query builder, then the phone
+            // through `findOne`. Registration does not collect a phone any more, so the second one
+            // has no input; it moved to `ProfileService.updateProfile`, where the number is typed,
+            // and runs against the same unique column. Counting the calls is the only way to say
+            // this here — the harness backs `getOne` with `findOne`, so both reads look alike.
+            expect(profileRepo.findOne).toHaveBeenCalledTimes(1);
         });
 
         it('rejects an email address that already belongs to another family', async () => {

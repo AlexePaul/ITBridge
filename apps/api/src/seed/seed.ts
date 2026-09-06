@@ -309,6 +309,31 @@ export async function seed(dataSource: DataSource): Promise<void> {
         );
     }
 
+    // One family stopped between the two steps of registration — E11/S2, revised. `register` wrote
+    // the shell, they never finished, so `isProfileComplete` says no and a child of theirs cannot be
+    // placed in a group (`PARENT_PROFILE_INCOMPLETE`). Seeded because the state is invisible
+    // otherwise: every other profile here is complete, and a developer would only meet this one by
+    // registering by hand. Deliberately childless — they never got as far as bringing one.
+    const halfRegistered = await dataSource.getRepository(User).save(
+        dataSource.getRepository(User).create({
+            username: 'diana.moldovan',
+            passwordHash,
+            role: Role.PARENT,
+            emailConfirmedAt: daysAgo(2),
+            approvalStatus: ApprovalStatus.APPROVED,
+            approvalDecidedAt: daysAgo(1),
+        }),
+    );
+    await dataSource.getRepository(Profile).save(
+        dataSource.getRepository(Profile).create({
+            user: halfRegistered,
+            firstName: 'Diana',
+            lastName: 'Moldovan',
+            email: 'diana.moldovan@example.com',
+            // No phone, no address, no emergency contact: exactly what `register` leaves behind.
+        }),
+    );
+
     // A couple of accounts with no profile at all, so the linking screen has something to show.
     // Active, deliberately: they are a fixture for `GET /users/without-profile`, not registrations
     // waiting on a decision, and leaving them pending would put two rows in the approvals queue

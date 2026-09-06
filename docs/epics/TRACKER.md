@@ -134,7 +134,7 @@ nu rulează nicăieri".
 ### E11 · Înscrieri, grupe și capacitate — `livrat`
 
 - [x] S1 · Entitatea de înscriere — perioadă, istoric și starea; „o singură înscriere în vigoare" e index parțial, nu doar verificare în serviciu. `Child.group` rămâne, derivată
-- [x] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — **revizuit după livrare**: înregistrarea se împarte în doi pași (cont, apoi profil), amândoi obligatorii, fiindcă zece câmpuri ca prim ecran sunt o barieră exact unde E20 coboară una. Nu e o întoarcere la starea de dinainte: pasul doi nu se poate sări, iar „complet" se derivă, nu se stochează — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
+- [x] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — **revizuit și relivrat**: înregistrarea e în doi pași (cont, apoi profil), amândoi obligatorii, fiindcă zece câmpuri ca prim ecran sunt o barieră exact unde E20 coboară una. Nu e o întoarcere la starea de dinainte: pasul doi nu se poate sări, iar „complet" se derivă, nu se stochează — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
 - [x] S3 · Capacitate și listă de așteptare — aplicată, probele numărate ca locuri; lista oferă automat locul eliberat. **Fără măturarea ofertelor expirate**, și fără jurnalul de audit al excepției (E06)
 - [x] S4 · Lecție de probă — ocupă un loc, apare distinct în catalog, se confirmă sau se închide. **Facturarea numără acum doar înscrierile active**, deci nici proba, nici un copil fără grupă
 - [x] S5 · Transferuri — o singură tranzacție, starea și contractul trec mai departe. Efectul pe factură nu se afișează fiindcă prețul e per ședință și pe familie, nu pe grupă

@@ -1,13 +1,24 @@
-import { IsEmail, IsNotEmpty, IsPhoneNumber, IsString, Length, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, Length, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
- * Everything the school needs before a family can exist — E11/S2, and the list is closed by D8.
+ * What an account needs to exist — and only that.
  *
- * Until this epic the DTO held `username` and `password` and nothing else, so a parent account
- * could exist with no address to send an invoice to and no number to call. The invoice still went
- * out; it simply went nowhere, **silently**, which nobody found out about until somebody asked why
- * a family had not paid.
+ * This is the first of two required steps, not a lighter version of one. E11/S2 moved the whole of
+ * D8 in here for a good reason: before it the DTO held `username` and `password` and nothing else,
+ * the contact details were asked afterwards on a screen where they were **optional**, and a family
+ * could exist for months with no address to send an invoice to and no number to call. The invoice
+ * still went out; it went nowhere, silently.
+ *
+ * What that fix produced was a first screen with ten mandatory fields, at exactly the point
+ * E20 spends an epic lowering barriers — and a parent who abandons at field eight is not a family
+ * with incomplete data, it is a family the school never saw. So the fields moved back out, and the
+ * thing that makes this different from the state E11/S2 repaired is that **step two cannot be
+ * skipped**: the fields there are required, `isProfileComplete` derives the answer, and a child
+ * cannot be placed in a group until it comes back true (`PARENT_PROFILE_INCOMPLETE`).
+ *
+ * What stays here is what an account is: who you are, where the confirmation link goes, and how you
+ * sign in. Phone, address and the emergency contact live in `UpdateProfileDto`.
  *
  * There is no `@EmptyToUndefined()` anywhere in this file, unlike its counterparts in
  * `CreateProfileDto`. That decorator exists because an untyped HTML input posts `''` and an
@@ -51,38 +62,9 @@ export class RegisterDto {
     @Length(1, 255)
     email: string;
 
-    @ApiProperty({ example: '0712345678', description: 'Acceptă 07xxxxxxxx sau +407xxxxxxxx' })
-    @IsString()
-    @IsNotEmpty()
-    @IsPhoneNumber('RO')
-    phone: string;
-
     /**
      * One free-text line, as `Profile.address` already is. Whether the invoice needs street, city
      * and county as separate columns is E16's question — it is a change of shape to this same
      * field, not another field.
      */
-    @ApiProperty({ example: 'Str. Exemplu 12, București' })
-    @IsString()
-    @IsNotEmpty()
-    @Length(1, 255)
-    address: string;
-
-    @ApiProperty({ example: 'Maria Popescu', description: 'Persoana de contact în caz de urgență' })
-    @IsString()
-    @IsNotEmpty()
-    @Length(1, 200)
-    emergencyContactName: string;
-
-    @ApiProperty({ example: 'bunica' })
-    @IsString()
-    @IsNotEmpty()
-    @Length(1, 100)
-    emergencyContactRelation: string;
-
-    @ApiProperty({ example: '0723456789' })
-    @IsString()
-    @IsNotEmpty()
-    @IsPhoneNumber('RO')
-    emergencyContactPhone: string;
 }

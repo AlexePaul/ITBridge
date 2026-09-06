@@ -44,6 +44,29 @@ export class UpdateProfileDto {
      * child's own work never rest on it.
      */
     @ApiProperty({ example: true, required: false, description: 'Marketing only. Never gates transactional mail.' })
+    // The three fields step two of registration exists to collect. They were missing from this DTO
+    // entirely, which is why `/user/profile-setup` never asked for them: with `forbidNonWhitelisted`
+    // on, a form that sent them would have had the whole request rejected. So the two doors into a
+    // `Profile` demanded ten fields and five, and a family who arrived through the second one ended
+    // up without the emergency contact the first one treats as mandatory.
+    @EmptyToUndefined()
+    @IsOptional()
+    @IsString()
+    @Length(1, 200)
+    emergencyContactName?: string;
+
+    @EmptyToUndefined()
+    @IsOptional()
+    @IsString()
+    @Length(1, 100)
+    emergencyContactRelation?: string;
+
+    @EmptyToUndefined()
+    @IsOptional()
+    @IsString()
+    @IsPhoneNumber('RO')
+    emergencyContactPhone?: string;
+
     @IsOptional()
     @IsBoolean()
     marketingOptIn?: boolean;

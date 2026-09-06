@@ -146,7 +146,7 @@ interogarea de mai sus se verifică pe ele. Un `POST` de înscriere cu token de 
 > ca flux propriu, cu ședință și fără factură), S5 (transferuri), S6 (verificări de compatibilitate)
 > și S7 (formarea grupelor).
 
-> **Revizuire decisă după livrare: înregistrarea se împarte în doi pași.** Nu e o întoarcere la
+> **Revizuire livrată: înregistrarea se împarte în doi pași.** Nu e o întoarcere la
 > starea de dinainte de story, și distincția e tot ce contează aici.
 >
 > Ce a reparat S2 a fost un al doilea ecran **opțional**: `CreateProfileDto` cerea doar numele, iar

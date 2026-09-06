@@ -77,3 +77,34 @@ export class Profile {
     @Column({ type: 'boolean', default: false })
     marketingOptIn: boolean;
 }
+
+/**
+ * Whether the family has told the school everything it needs before a child sits in a room.
+ *
+ * A function rather than a column, for the same reason `isAccountActive` is one: a stored flag is a
+ * third fact free to disagree with the fields it summarises, and it would be wrong for exactly as
+ * long as nobody ran something to correct it.
+ *
+ * The list is the one E11/S2 settled and D8 closed — contact details plus an emergency contact —
+ * minus the parts an account already carries. `firstName` and `lastName` are not checked: every
+ * door into a `Profile` requires them, so a row without them cannot exist.
+ *
+ * **A profile with no account attached is never incomplete.** Those are the school's own rows: the
+ * family an admin typed in from a phone call, and the shell the public trial form writes with no
+ * email and no phone at all (E20/S2). Neither has anybody to ask, and holding a trial booking to a
+ * standard only a registered parent can meet would put the barrier back exactly where E20 removed
+ * it.
+ */
+export function isProfileComplete(
+    profile: Pick<Profile, 'email' | 'phone' | 'address' | 'emergencyContactName' | 'emergencyContactRelation' | 'emergencyContactPhone'>,
+): boolean {
+    const filled = (value: string | null | undefined): boolean => typeof value === 'string' && value.trim().length > 0;
+    return (
+        filled(profile.email) &&
+        filled(profile.phone) &&
+        filled(profile.address) &&
+        filled(profile.emergencyContactName) &&
+        filled(profile.emergencyContactRelation) &&
+        filled(profile.emergencyContactPhone)
+    );
+}
