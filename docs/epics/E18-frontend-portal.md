@@ -2,9 +2,10 @@
 
 **Status:** în lucru · **Pistă:** Public · **Depinde de:** E03 · **Blochează:** E19, E20
 
-**Livrate:** S1 (fundația de design) și S3 (paginile publice). S2 e livrat parțial — greutatea
-imaginilor e rezolvată, pipeline-ul nu. **Rămân:** S4, S5, S6, S7, toate după autentificare sau în
-CI. S4 și S5 nu se pot demonstra până nu rulează un backend — vezi [E01](E01-infrastructura-medii.md), S4.
+**Livrate:** S1 (fundația de design), S3 (paginile publice) și S4 (portalul părintelui). S2 e livrat
+parțial — greutatea imaginilor e rezolvată, pipeline-ul nu. **Rămân:** S5, S6, S7, plus verificarea
+lui S4 pe date reale, toate după autentificare sau în CI. Nimic din zona de după autentificare nu se
+poate demonstra până nu rulează un backend — vezi [E01](E01-infrastructura-medii.md), S4.
 
 > ## Cerut de școală: rescrierea întregii zone de după login
 >
@@ -121,12 +122,12 @@ curent și vecinii lui.
 
 Măsurat pe cele nouă fotografii, la 620px — lățimea pe care o cere efectiv layout-ul:
 
-| | Total |
-| --- | --- |
+|                         | Total       |
+| ----------------------- | ----------- |
 | Originale, servite brut | **1056 KB** |
-| JPEG redimensionat | 373 KB |
-| AVIF | 347 KB |
-| **WebP** | **239 KB** |
+| JPEG redimensionat      | 373 KB      |
+| AVIF                    | 347 KB      |
+| **WebP**                | **239 KB**  |
 
 **AVIF a fost măsurat și respins**, ceea ce e invers față de ce ai presupune. La calitatea asta e
 abia mai bun decât un JPEG redimensionat, iar pe o poză e chiar mai mare — encoder-ul AVIF din sharp,
@@ -156,27 +157,58 @@ Apelul la acțiune duce la formularul de contact și la telefon, nu la lecția d
 **Acceptanță:** un părinte care nu știe nimic despre școală înțelege în 30 de secunde ce se predă,
 cui, unde și cât costă. — **Îndeplinită.**
 
-### S4 · Portalul părintelui — muncă viitoare, blocat
+### S4 · Portalul părintelui — livrat, rămâne verificarea pe date reale
 
 De la trei pagini la un portal complet: privire de ansamblu pe copil, orar, prezență și recuperări,
-proiecte, progres, facturi și plăți, profil și preferințe de comunicare.
+proiecte, facturi și plăți, profil și preferințe de comunicare.
 
 Construit ca structură acum, populat pe măsură ce epic-urile de domeniu livrează. Secțiunile fără
 date încă spun asta explicit, nu rămân goale.
 
 **Acceptanță:** un părinte cu doi copii comută între ei fără să se piardă.
 
-**Neînceput, blocat, și cerut explicit de școală.** Cele trei pagini vechi (`dashboard`, `profile`,
-`payments`) există neatinse, pe layout-ul `dashboard`, nerescrise pe sistemul din S1 — iar contrastul
-cu paginile publice, care *au* fost rescrise, e primul lucru pe care îl vede un părinte după ce se
-autentifică. Blocajul nu e de design, ci de
-infrastructură: **backend-ul nu e deployat**, deci nimic din ce e după login nu vorbește cu un API
-care rulează. Un portal care nu poate fi nici testat pe date reale, nici arătat cuiva, se rescrie
-degeaba. Ordinea corectă e [E01](E01-infrastructura-medii.md) S4 înainte de S4 de aici.
+**Livrat** — pe `release/stage`, ca tot ce e după autentificare. Cinci ecrane de portal plus cele
+trei de intrare în cont, toate pe jetoanele din S1, cu un shell propriu: `layouts/portal.vue`,
+navbar cu rândul de taburi sub el, nu bara laterală colapsabilă a zonei de admin. Un părinte are
+cinci pagini și le deschide pe telefon; un admin are treizeci și două și stă în aplicație toată ziua,
+iar o bară laterală ia o treime dintr-un ecran de 390px ca să aleagă între cinci lucruri. Layout-ul
+`dashboard` rămâne al zonei de admin, care se uniformizează în S5.
 
-Până atunci, paginile autentificate poartă `noindex, nofollow` din layout-ul `dashboard`, iar
-`/admin/` și `/user/` sunt excluse din `robots.txt` — deci starea lor neterminată nu ajunge în
-index și nu strică ce s-a câștigat în [E19](E19-seo-geo.md).
+**Cum se rezolvă acceptanța.** Comutarea are două feluri de a se pierde și fiecare are alt răspuns:
+
+- _Alegi un copil, urmezi un link și ajungi la celălalt._ Alegerea stă în URL (`?copil=`) și
+  într-un cookie — URL-ul are prioritate, deci o pagină reîncărcată sau trimisă mai departe e despre
+  același copil, iar cookie-ul o duce între Absențe și Proiecte, unde linkurile nu poartă query
+  string. Aceeași mecanică și același motiv ca filtrul de locație din `locationStore`.
+- _Citești prezența unui copil crezând că e a celuilalt._ La asta comutatorul nu ajută, oricât ar fi
+  de vizibil: răspunsul e **redundanța** — fiecare bloc de date își repetă copilul în etichetă
+  („MATEI · ORE VIITOARE"), deci numele nu e niciodată mai departe de cifre decât sunt cifrele între
+  ele. Iar **Acasă nu comută deloc**: toți copiii, unul sub altul, fiindcă un răspuns la „e totul în
+  regulă?" care e adevărat doar pentru copilul de pe tabul selectat nu e un răspuns.
+
+Ecranele family-level — Plăți și Profil — n-au comutator, fiindcă nimic de pe ele nu e al unui
+singur copil.
+
+**Ce rămâne, și de ce nu e cod.** Portalul compilează, se randează și e cablat la composable-urile
+existente, dar **backend-ul tot nu e deployat**, deci nimic din el n-a fost văzut pe date reale.
+Verificarea pe familii adevărate și pe un telefon adevărat — inclusiv jumătatea de accesibilitate a
+lui S6 pentru zona autentificată — cere [E01](E01-infrastructura-medii.md) S4.
+
+Până atunci, paginile autentificate poartă `noindex, nofollow` din layout, iar `/admin/` și `/user/`
+sunt excluse din `robots.txt` — deci starea lor neverificată nu ajunge în index și nu strică ce s-a
+câștigat în [E19](E19-seo-geo.md).
+
+**Două lucruri pe care designul le cerea și codul nu le putea da**, rezolvate spunând adevărul în loc
+să inventăm cifre:
+
+- _Factura desfăcută pe copil_ („Matei — 4 ședințe × 87,50"). `Invoice` duce pe sârmă o lună, un
+  total și o stare; foaia de lucru per copil e a adminului și n-are sume deloc. Regula e explicată în
+  text, iar cifrele vin din `shared/courses.ts`, derivate din aceleași două numere lunare pe care le
+  împarte la patru și `pricing.ts` — deci portalul nu poate cita un tarif după care nu se
+  facturează.
+- _Scadența pe cardul de plată._ Termenul de 14 zile e în `arrears.rules.ts` și nu iese pe sârmă
+  către părinte. O a doua copie aici ar fi copia care rămâne în urmă, deci ecranul arată starea pe
+  care API-ul o publică — neplătită sau restantă — și nimic altceva.
 
 ### S5 · Uniformizarea zonei de admin — muncă viitoare, **cerută explicit**
 
