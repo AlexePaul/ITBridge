@@ -42,8 +42,7 @@ proiectul, nu ramura. Deci pe `release/prod` vei citi despre module care nu exis
 sub tine — `enrollment`, `project`, `storage` — și e în regulă: sunt pe `release/stage`. Ce **nu** e
 în regulă e ca cele două copii ale documentației să divergă; dacă atingi una, adu-o și pe cealaltă.
 
-**Amândouă numele sunt noi: `main` → `release/prod` și `develop` → `release/stage`, septembrie
-2026.** Sunt redenumiri, nu branch-uri noi — același istoric, aceleași SHA-uri — deci un mesaj de
+**Amândouă numele sunt noi: `main` → `release/prod` și `develop` → `release/stage`, septembrie 2026.** Sunt redenumiri, nu branch-uri noi — același istoric, aceleași SHA-uri — deci un mesaj de
 commit, un titlu de PR sau un paragraf mai vechi care spune `main` sau `develop` vorbește despre
 ele. Pe origin nu mai există niciunul dintre numele vechi. Într-o clonă mai veche:
 
@@ -925,8 +924,11 @@ e toată regula: fără ea, suma ar depinde de ordinea rândurilor dintr-o inter
 ședințe nu consumă tariful întreg.
 
 **Emiterea se face din `/admin/invoices/emitere`, și numai de acolo**: un ecran cu familiile ca
-arbore, o valoare per copil, total jos, un buton. Serverul facturează numerele de pe ecran, nu și le
-recalculează — cine apasă s-a uitat la fiecare.
+arbore, o valoare per copil, total jos, un buton. **Valoarea e citită, nu tastată** (E15/S9):
+serverul numără ședințele lunii din cataloage — `billable-sessions.rules.ts` e regula,
+`BillableSessionsService` singura interogare — iar ecranul le arată, cu desfacerea lor și cu
+ședințele fără catalog deasupra. `POST /invoices/issue` primește luna și data, nimic altceva; cine
+apasă s-a uitat la ce s-a întâmplat, nu la ce a tastat cineva.
 
 Al doilea drum a fost **șters** (E18/S5b): `/admin/invoices/new` și `/admin/invoices/preview/:month`
 emiteau aceeași lună prin `POST /invoices/preview` plus `POST /invoices`, adică pe numere calculate
