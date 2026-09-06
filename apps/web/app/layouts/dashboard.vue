@@ -103,63 +103,96 @@ if (isAdmin) {
   });
 }
 
+/**
+ * The menu, in groups — E18/S5.
+ *
+ * It was twenty-five flat entries in the order the epics happened to deliver them, so finding
+ * anything meant reading the whole list: "Restanțe" sat between "Plăți" and "Reduceri" only because
+ * E16 came after E15. Grouped, the same twenty-five are six short lists a reader scans by heading,
+ * and the heading is usually enough — somebody looking for money stops at "Bani" without reading
+ * the other nineteen labels.
+ *
+ * The order inside a group is the order of the working day, not the alphabet: today's register
+ * before the timetable it came from, issuing before chasing. `UNavigationMenu` renders an array of
+ * arrays as separated groups and `type: "label"` as the heading.
+ *
+ * The two public links move to the bottom. They were first, which meant the two entries an admin
+ * never needs were the two they read first, every time.
+ */
 const navigationItems = computed(() => {
-  const baseItems = [
+  const siteGroup = [
+    { type: "label" as const, label: "Site" },
     { label: "Acasă", to: "/", icon: "i-lucide-home" },
     { label: "Contact", to: "/contact", icon: "i-lucide-mail" },
   ];
 
-  const adminPages = [
-    {
-      label: "Tablou de Bord Administrator",
-      to: "/admin/dashboard",
-      icon: "i-lucide-layout-dashboard",
-    },
-    { label: "Rapoarte", to: "/admin/rapoarte", icon: "i-lucide-chart-bar" },
-    { label: "Conturi în așteptare", to: "/admin/approvals", icon: "i-lucide-user-check" },
-    { label: "Profiluri Utilizatori", to: "/admin/profiles", icon: "i-lucide-users" },
-    // E20/S3. First in the admin list, above the children who are already here: a family who came
-    // to a trial and was never rung back is the most expensive thing the school can lose, and the
-    // whole point of the screen is that somebody sees it without navigating to it.
-    { label: "Cereri și probe", to: "/admin/leads", icon: "i-lucide-inbox" },
-    { label: "Copii", to: "/admin/children", icon: "i-lucide-baby" },
-    { label: "Grupe", to: "/admin/groups", icon: "i-lucide-users-round" },
-    { label: "Formarea grupelor", to: "/admin/formare", icon: "i-lucide-user-plus" },
-    { label: "Locații și săli", to: "/admin/locations", icon: "i-lucide-map-pin" },
-    { label: "Prezență", to: "/admin/attendance", icon: "i-lucide-check-square" },
-    { label: "Prezența de azi", to: "/admin/attendance/azi", icon: "i-lucide-smartphone" },
-    { label: "Orarul", to: "/admin/orar", icon: "i-lucide-calendar-clock" },
-    { label: "Calendar școlar", to: "/admin/calendar", icon: "i-lucide-calendar-x" },
-    {
-      label: "Proiecte",
-      to: "/admin/proiecte",
-      icon: "i-lucide-sparkles",
-      // Only when there is something to say. A badge reading "0" is furniture; one that appears
-      // only when documents are waiting is a signal, and it turns red once the oldest of them has
-      // waited past the line the API publishes.
-      ...(pendingProjects.total > 0
-        ? {
-            badge: {
-              label: String(pendingProjects.total),
-              color: pendingProjects.stale ? ("warning" as const) : ("neutral" as const),
-              variant: "subtle" as const,
-            },
-          }
-        : {}),
-    },
-    { label: "Facturi", to: "/admin/invoices", icon: "i-lucide-notebook-pen" },
-    { label: "Emitere facturi", to: "/admin/invoices/emitere", icon: "i-lucide-file-plus" },
-    { label: "Plăți", to: "/admin/payments", icon: "i-lucide-wallet" },
-    { label: "Restanțe", to: "/admin/restante", icon: "i-lucide-alert-circle" },
-    { label: "Reduceri", to: "/admin/reduceri", icon: "i-lucide-percent" },
-    { label: "Șabloane de email", to: "/admin/emailuri", icon: "i-lucide-mail" },
-    { label: "Anunțuri", to: "/admin/anunturi", icon: "i-lucide-megaphone" },
-    { label: "Livrări", to: "/admin/livrari", icon: "i-lucide-send" },
-  ];
+  // Only an admin reaches this layout now; a parent is on `layouts/portal.vue` (S4). The branch is
+  // kept rather than assumed away, so a page that lands here without the role still gets a usable
+  // menu instead of the whole admin area.
+  if (!isAdmin) {
+    return [siteGroup];
+  }
 
-  // Only an admin reaches this layout now; a parent is on `layouts/portal.vue`. The branch is kept
-  // rather than assumed away, so a page that lands here without the role still gets a usable menu
-  // instead of the whole admin area.
-  return isAdmin ? [...baseItems, ...adminPages] : baseItems;
+  return [
+    [
+      { label: "Tablou de bord", to: "/admin/dashboard", icon: "i-lucide-layout-dashboard" },
+      { label: "Rapoarte", to: "/admin/rapoarte", icon: "i-lucide-chart-bar" },
+    ],
+    [
+      { type: "label" as const, label: "Zi de zi" },
+      { label: "Prezența de azi", to: "/admin/attendance/azi", icon: "i-lucide-smartphone" },
+      { label: "Orarul", to: "/admin/orar", icon: "i-lucide-calendar-clock" },
+      { label: "Prezență", to: "/admin/attendance", icon: "i-lucide-check-square" },
+      { label: "Calendar școlar", to: "/admin/calendar", icon: "i-lucide-calendar-x" },
+    ],
+    [
+      { type: "label" as const, label: "Familii" },
+      // E20/S3, first in its group: a family who came to a trial and was never rung back is the
+      // most expensive thing the school can lose, and the point of the screen is that somebody
+      // sees it without navigating to it.
+      { label: "Cereri și probe", to: "/admin/leads", icon: "i-lucide-inbox" },
+      { label: "Conturi în așteptare", to: "/admin/approvals", icon: "i-lucide-user-check" },
+      { label: "Profiluri", to: "/admin/profiles", icon: "i-lucide-users" },
+      { label: "Copii", to: "/admin/children", icon: "i-lucide-baby" },
+    ],
+    [
+      { type: "label" as const, label: "Grupe și săli" },
+      { label: "Grupe", to: "/admin/groups", icon: "i-lucide-users-round" },
+      { label: "Formarea grupelor", to: "/admin/formare", icon: "i-lucide-user-plus" },
+      { label: "Locații și săli", to: "/admin/locations", icon: "i-lucide-map-pin" },
+    ],
+    [
+      { type: "label" as const, label: "Bani" },
+      { label: "Emitere facturi", to: "/admin/invoices/emitere", icon: "i-lucide-file-plus" },
+      { label: "Facturi", to: "/admin/invoices", icon: "i-lucide-notebook-pen" },
+      { label: "Plăți", to: "/admin/payments", icon: "i-lucide-wallet" },
+      { label: "Restanțe", to: "/admin/restante", icon: "i-lucide-alert-circle" },
+      { label: "Reduceri", to: "/admin/reduceri", icon: "i-lucide-percent" },
+    ],
+    [
+      { type: "label" as const, label: "Comunicare" },
+      {
+        label: "Proiecte",
+        to: "/admin/proiecte",
+        icon: "i-lucide-sparkles",
+        // Only when there is something to say. A badge reading "0" is furniture; one that appears
+        // only when documents are waiting is a signal, and it turns warning-coloured once the
+        // oldest of them has waited past the line the API publishes.
+        ...(pendingProjects.total > 0
+          ? {
+              badge: {
+                label: String(pendingProjects.total),
+                color: pendingProjects.stale ? ("warning" as const) : ("neutral" as const),
+                variant: "subtle" as const,
+              },
+            }
+          : {}),
+      },
+      { label: "Anunțuri", to: "/admin/anunturi", icon: "i-lucide-megaphone" },
+      { label: "Livrări", to: "/admin/livrari", icon: "i-lucide-send" },
+      { label: "Șabloane de email", to: "/admin/emailuri", icon: "i-lucide-mail" },
+    ],
+    siteGroup,
+  ];
 });
 </script>

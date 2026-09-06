@@ -358,7 +358,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
         variables: [
             { name: 'parentName', description: 'Numele complet al părintelui' },
             { name: 'email', description: 'Adresa cu care s-a înregistrat' },
-            { name: 'phone', description: 'Telefonul din profil' },
+            { name: 'phone', description: 'Telefonul din profil, sau „încă necompletat" dacă familia nu a terminat pasul doi' },
             { name: 'approvalsUrl', description: 'Linkul către ecranul de aprobări' },
         ],
         sampleData: {

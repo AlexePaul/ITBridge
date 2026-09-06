@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatDateKey, formatLei, formatMonth, formatPercent } from "~/composables/useAdminFormat";
+import {
+  formatDateKey,
+  formatLei,
+  formatMonth,
+  formatPercent,
+  ageOn,
+  formatAge,
+} from "~/composables/useAdminFormat";
 
 /**
  * The admin area's formatting vocabulary — E18/S5a.
@@ -77,5 +84,48 @@ describe("formatPercent", () => {
   it("dashes anything that is not a number", () => {
     expect(formatPercent(null)).toBe("—");
     expect(formatPercent(Number.NaN)).toBe("—");
+  });
+});
+
+describe("ageOn", () => {
+  it("counts whole years", () => {
+    expect(ageOn("2018-03-16", "2026-09-05")).toBe(8);
+  });
+
+  it("has not counted the birthday that has not happened yet this year", () => {
+    expect(ageOn("2018-10-01", "2026-09-05")).toBe(7);
+  });
+
+  it("counts the birthday on the day itself", () => {
+    expect(ageOn("2018-09-05", "2026-09-05")).toBe(8);
+    expect(ageOn("2018-09-06", "2026-09-05")).toBe(7);
+  });
+
+  it("does not go through Date, so the answer cannot slip a day east of Greenwich", () => {
+    // The trap: `new Date("2018-01-01")` is UTC midnight, which is 02:00 in Bucharest — and read
+    // back through local components it is still 1 January, but the same trick on 31 December
+    // returns the 30th. Comparing the strings' own integers has no such edge.
+    expect(ageOn("2018-01-01", "2026-01-01")).toBe(8);
+    expect(ageOn("2018-12-31", "2026-12-31")).toBe(8);
+  });
+
+  it("answers null for anything that is not a date, rather than NaN", () => {
+    expect(ageOn("", "2026-09-05")).toBeNull();
+    expect(ageOn("cândva", "2026-09-05")).toBeNull();
+  });
+
+  it("answers null for a birth date in the future instead of a negative age", () => {
+    expect(ageOn("2030-01-01", "2026-09-05")).toBeNull();
+  });
+});
+
+describe("formatAge", () => {
+  it("agrees with the singular", () => {
+    expect(formatAge("2025-01-01", "2026-09-05")).toBe("1 an");
+    expect(formatAge("2018-03-16", "2026-09-05")).toBe("8 ani");
+  });
+
+  it("prints the dash when there is no usable date", () => {
+    expect(formatAge("", "2026-09-05")).toBe("—");
   });
 });

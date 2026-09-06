@@ -90,15 +90,26 @@ export interface TestUser {
  */
 let phoneCounter = 0;
 
-/** Everything E11/S2 requires of a registration, derived from the username so it stays unique. */
+/**
+ * What `POST /auth/register` accepts, derived from the username so it stays unique.
+ *
+ * Step one only. Sending the fields that moved to step two would now be a 400, not a harmless
+ * extra: `forbidNonWhitelisted` rejects a field no DTO declares.
+ */
 export function registrationBody(username: string, password = 'parola123'): Record<string, unknown> {
-    phoneCounter += 1;
     return {
         username,
         password,
         firstName: username,
         lastName: 'Test',
         email: `${username}@example.com`,
+    };
+}
+
+/** Step two, derived the same way. The phone numbers stay unique across a suite. */
+export function profileCompletionBody(): Record<string, unknown> {
+    phoneCounter += 1;
+    return {
         phone: `07${String(10_000_000 + phoneCounter).slice(-8)}`,
         address: 'Str. Exemplu 1, București',
         emergencyContactName: 'Contact Urgență',
@@ -110,21 +121,30 @@ export function registrationBody(username: string, password = 'parola123'): Reco
 /**
  * Registers a parent through the API and returns their tokens.
  *
- * **Both E11/S2 gates are opened by default**, straight in the database. Almost every suite wants a
- * usable family and is testing something else entirely; leaving the gates shut would make dozens of
- * unrelated tests fail on a rule they are not about. Pass `{ active: false }` to get the account as
- * a real registration leaves it — which is what the account-gates suite does.
+ * **Both E11/S2 gates are opened by default**, straight in the database, and **step two of
+ * registration is completed** through the API. Almost every suite wants a usable family and is
+ * testing something else entirely; leaving either shut would make dozens of unrelated tests fail on
+ * a rule they are not about. Pass `{ active: false }` to get the account as a real registration
+ * leaves it — which is what the account-gates suite does — or `{ completeProfile: false }` to stop
+ * at the shell `register` writes.
  */
 export async function registerUser(
     app: INestApplication<App>,
     username: string,
     password = 'parola123',
-    options: { active?: boolean } = {},
+    options: { active?: boolean; completeProfile?: boolean } = {},
 ): Promise<TestUser> {
     const res = await request(app.getHttpServer()).post('/auth/register').send(registrationBody(username, password)).expect(201);
 
     const me = await request(app.getHttpServer()).get('/auth/me').set('Authorization', `Bearer ${res.body.accessToken}`).expect(200);
     const userId = me.body.id as number;
+
+    if (options.completeProfile !== false) {
+        const auth = `Bearer ${res.body.accessToken}`;
+        const mine = await request(app.getHttpServer()).get('/profiles').set('Authorization', auth).expect(200);
+        const profileId = (mine.body as { id: number }[])[0].id;
+        await request(app.getHttpServer()).put(`/profiles/${profileId}`).set('Authorization', auth).send(profileCompletionBody()).expect(200);
+    }
 
     if (options.active !== false) {
         if (!lastDataSource) throw new Error('registerUser needs createTestApp to have run first');

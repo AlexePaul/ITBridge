@@ -39,11 +39,11 @@ E03 a adus plasa de siguranță: 345 de teste, de la unitare pe logica de factur
 integrare prin HTTP pe Postgres, plus o matrice de autorizare care se generează singură din
 metadatele controllerelor. CI rulează pe fiecare PR.
 
-Testele au scos la iveală trei bug-uri, documentate ca `it.failing` în loc să fie cimentate. Două
-sunt reparate în E04, cu testele întoarse în teste de regresie: restrângerea dublată din
-`findPayments` și crearea unui al doilea profil fără date de contact, care întorcea 409 și bloca
-fluxul de admin. Al treilea — calculul de preț la trei copii — rămâne, fiindcă prețul corect se
-stabilește în [E15](E15-pricing-facturare.md).
+Testele au scos la iveală trei bug-uri, documentate ca `it.failing` în loc să fie cimentate, și
+**toate trei sunt reparate acum**, cu testele întoarse în teste de regresie: restrângerea dublată
+din `findPayments`, crearea unui al doilea profil fără date de contact — care întorcea 409 și bloca
+fluxul de admin —, și calculul de preț, rezolvat în [E15](E15-pricing-facturare.md) S0 și S4 odată
+cu trecerea la prețul pe ședință.
 
 E05 a adus robustețea: validarea chiar rulează și a scos la iveală trei DTO-uri greșite, erorile au
 o formă unică fără SQL în ele, aplicația refuză să pornească prost configurată, refresh tokenurile
@@ -126,30 +126,30 @@ Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane”.
 
 ## Tabel
 
-| #                                     | Epic                                              | Pistă      | Depinde de              | Schemă |
-| ------------------------------------- | ------------------------------------------------- | ---------- | ----------------------- | ------ |
-| [E01](E01-infrastructura-medii.md)    | Curățenie infrastructură și medii de rulare       | Fundație   | —                       | —      |
-| [E02](E02-monorepo-tooling.md)        | Monorepo: pnpm, Turborepo și fluxul de dezvoltare | Fundație   | E01                     | —      |
-| [E03](E03-testare-ci.md)              | Testare și CI                                     | Fundație   | E02                     | —      |
-| [E04](E04-migrari-date.md)            | Migrări și integritatea datelor                   | Fundație   | E02                     | **da** |
-| [E05](E05-robustete-backend.md)       | Robustețe backend                                 | Fundație   | E03, E04                | —      |
-| [E06](E06-observabilitate-operare.md) | Observabilitate și operare                        | Fundație   | E01, E05                | —      |
-| [E07](E07-securitate-gdpr.md)         | Securitate, GDPR și consimțământ                  | Fundație   | E04, E05                | **da** |
-| [E08](E08-multi-locatie.md)           | Multi-locație și săli                             | Domeniu    | E04                     | **da** |
-| [E09](E09-personal-roluri.md)         | Personal și alocare                               | Domeniu    | E08                     | **da** |
-| [E10](E10-curriculum-module.md)       | Curriculum și catalog de module                   | Domeniu    | E04                     | **da** |
-| [E11](E11-inscrieri-capacitate.md)    | Înscrieri, grupe și capacitate                    | Operațiuni | E08, E09, E10           | **da** |
-| [E12](E12-prezenta-orar.md)           | Prezență, recuperări și orar                      | Operațiuni | E11                     | **da** |
-| [E13](E13-progres-evaluare.md)        | Progres, evaluare și feedback                     | Operațiuni | E10, E12                | **da** |
-| [E14](E14-proiecte-elevi.md)          | Proiectele elevilor                               | Operațiuni | E07, E08, E10, E12, E17 | **da** |
-| [E15](E15-pricing-facturare.md)       | Pricing și facturare v2                           | Bani       | E10, E11                | **da** |
-| [E16](E16-plati-fiscal.md)            | Încasări și facturare prin SmartBill              | Bani       | E15                     | **da** |
-| [E17](E17-comunicare-notificari.md)   | Comunicare și notificări                          | Comunicare | E05, E06                | **da** |
-| [E18](E18-frontend-portal.md)         | Frontend: design system și portal părinte         | Public     | E03                     | —      |
-| [E19](E19-seo-geo.md)                 | SEO, GEO și conținut                              | Public     | E08, E18                | —      |
-| [E20](E20-achizitie-lead.md)          | Achiziție, lecții de probă și lead management     | Public     | E17, E18                | **da** |
-| [E21](E21-raportare-analytics.md)     | Raportare și analytics                            | Business   | E12, E15, E16           | —      |
-| [E22](E22-termeni-si-date.md)         | Termeni, confidențialitate și ciclul de viață al datelor | Fundație | toate            | **da** |
+| #                                     | Epic                                                     | Pistă      | Depinde de              | Schemă |
+| ------------------------------------- | -------------------------------------------------------- | ---------- | ----------------------- | ------ |
+| [E01](E01-infrastructura-medii.md)    | Curățenie infrastructură și medii de rulare              | Fundație   | —                       | —      |
+| [E02](E02-monorepo-tooling.md)        | Monorepo: pnpm, Turborepo și fluxul de dezvoltare        | Fundație   | E01                     | —      |
+| [E03](E03-testare-ci.md)              | Testare și CI                                            | Fundație   | E02                     | —      |
+| [E04](E04-migrari-date.md)            | Migrări și integritatea datelor                          | Fundație   | E02                     | **da** |
+| [E05](E05-robustete-backend.md)       | Robustețe backend                                        | Fundație   | E03, E04                | —      |
+| [E06](E06-observabilitate-operare.md) | Observabilitate și operare                               | Fundație   | E01, E05                | —      |
+| [E07](E07-securitate-gdpr.md)         | Securitate, GDPR și consimțământ                         | Fundație   | E04, E05                | **da** |
+| [E08](E08-multi-locatie.md)           | Multi-locație și săli                                    | Domeniu    | E04                     | **da** |
+| [E09](E09-personal-roluri.md)         | Personal și alocare                                      | Domeniu    | E08                     | **da** |
+| [E10](E10-curriculum-module.md)       | Curriculum și catalog de module                          | Domeniu    | E04                     | **da** |
+| [E11](E11-inscrieri-capacitate.md)    | Înscrieri, grupe și capacitate                           | Operațiuni | E08, E09, E10           | **da** |
+| [E12](E12-prezenta-orar.md)           | Prezență, recuperări și orar                             | Operațiuni | E11                     | **da** |
+| [E13](E13-progres-evaluare.md)        | Progres, evaluare și feedback                            | Operațiuni | E10, E12                | **da** |
+| [E14](E14-proiecte-elevi.md)          | Proiectele elevilor                                      | Operațiuni | E07, E08, E10, E12, E17 | **da** |
+| [E15](E15-pricing-facturare.md)       | Pricing și facturare v2                                  | Bani       | E10, E11                | **da** |
+| [E16](E16-plati-fiscal.md)            | Încasări și facturare prin SmartBill                     | Bani       | E15                     | **da** |
+| [E17](E17-comunicare-notificari.md)   | Comunicare și notificări                                 | Comunicare | E05, E06                | **da** |
+| [E18](E18-frontend-portal.md)         | Frontend: design system și portal părinte                | Public     | E03                     | —      |
+| [E19](E19-seo-geo.md)                 | SEO, GEO și conținut                                     | Public     | E08, E18                | —      |
+| [E20](E20-achizitie-lead.md)          | Achiziție, lecții de probă și lead management            | Public     | E17, E18                | **da** |
+| [E21](E21-raportare-analytics.md)     | Raportare și analytics                                   | Business   | E12, E15, E16           | —      |
+| [E22](E22-termeni-si-date.md)         | Termeni, confidențialitate și ciclul de viață al datelor | Fundație   | toate                   | **da** |
 
 ## Harta dependențelor
 
@@ -267,7 +267,7 @@ nu-l ține în val 4.
 Ordinea asta s-a rupt deja, și nu în rău: E12 S1 a intrat înaintea lui E11, iar odată cu el bucăți
 din E17 S1 și S3 — vezi [Stare curentă](#stare-curentă). Ședința ca entitate nu avea nevoie de
 înscrieri ca să fie corectă, iar jobul zilnic a tras canalul după el. Ce rămâne din valul 3 e
-neatins: E09, E11, restul lui E12, E18 S4–S5, E19, și S2 din E17.
+neatins: E09, E11, restul lui E12, E18 S5, E19, și S2 din E17.
 
 Varianta cealaltă e legitimă: E11 și E12 se pot livra fără partea de notificare. Atunci însă se
 scrie de la început că acele criterii de acceptanță rămân deschise până în val 4, ca revenirea la
@@ -352,8 +352,8 @@ publică și oprite amândouă în același punct:
 - Lucrul cel mai valoros rămas în E19 **nu e cod**: două profiluri Google Business verificate, unul
   per adresă. Pentru căutările locale contează mai mult decât orice a rămas în repo.
 
-Deci ordinea firească e [E01](E01-infrastructura-medii.md) S4 înaintea lui E18 S4 — un portal fără
-API nu se poate termina.
+Deci ordinea firească e [E01](E01-infrastructura-medii.md) S4 înaintea verificării lui E18 S4 —
+portalul e scris, dar un portal fără API nu se poate termina.
 
 [E10](E10-curriculum-module.md) rămâne `propus` și **iese din MVP**, respins de patron. Nu e anulat
 ca E22 de mai jos și fișierul rămâne unde e — decizia e despre moment, nu despre scop —, dar nu mai

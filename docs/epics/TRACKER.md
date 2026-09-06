@@ -3,8 +3,9 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 4 septembrie 2026, pe `release/stage`, cu E18 S7 și E20 S1–S4 în plus față de
-E17 S8, jumătatea din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
+**Ultima actualizare:** 6 septembrie 2026, pe `release/stage`, cu E18 S4 în plus față de E18 S7 și
+E20 S1–S4, care veneau peste E17 S8, jumătatea din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7,
+E21 S2/S4 și E12 S5.
 
 ## Legendă
 
@@ -56,7 +57,7 @@ nu rulează nicăieri".
 
 - [x] S1 · Migrarea de bază
 - [~] S2 · Migrările în deploy — comenzile și garda de CI există; cablarea în deploy nu, fiindcă nu există deploy
-- [x] S3 · Seed pentru dezvoltare
+- [x] S3 · Seed pentru dezvoltare — **ancorat la ziua de azi**, nu la o constantă din martie: grupele acoperă luni–sâmbătă, deci „azi" are oră în șase zile din șapte. Lead-uri pe toate cele șase stări, outbox pe toate cele patru, anunțuri, absențe anunțate, credite de recuperare și șabloane — șase tabele care se deschideau goale
 - [!] S4 · Backup și restaurare — așteaptă instanța
 - [!] S5 · Retenție — **decis**: ștergere logică pe contul familiei, aplicată de admin la retragere; facturile n-au nevoie de politică, stau în SmartBill. Blocat de termenii din E22, fiindcă „când dispar efectiv datele" cere un termen scris undeva unde familia l-a văzut
 
@@ -134,7 +135,7 @@ nu rulează nicăieri".
 ### E11 · Înscrieri, grupe și capacitate — `livrat`
 
 - [x] S1 · Entitatea de înscriere — perioadă, istoric și starea; „o singură înscriere în vigoare" e index parțial, nu doar verificare în serviciu. `Child.group` rămâne, derivată
-- [x] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
+- [x] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — **revizuit și relivrat**: înregistrarea e în doi pași (cont, apoi profil), amândoi obligatorii, fiindcă zece câmpuri ca prim ecran sunt o barieră exact unde E20 coboară una. Nu e o întoarcere la starea de dinainte: pasul doi nu se poate sări, iar „complet" se derivă, nu se stochează — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
 - [x] S3 · Capacitate și listă de așteptare — aplicată, probele numărate ca locuri; lista oferă automat locul eliberat. **Fără măturarea ofertelor expirate**, și fără jurnalul de audit al excepției (E06)
 - [x] S4 · Lecție de probă — ocupă un loc, apare distinct în catalog, se confirmă sau se închide. **Facturarea numără acum doar înscrierile active**, deci nici proba, nici un copil fără grupă
 - [x] S5 · Transferuri — o singură tranzacție, starea și contractul trec mai departe. Efectul pe factură nu se afișează fiindcă prețul e per ședință și pe familie, nu pe grupă
@@ -189,9 +190,11 @@ nu rulează nicăieri".
 - [ ] S7 · PDF-ul nu se mai generează local
 - [x] S8 · Înscrierea la mijlocul unui modul — **rezolvat de modelul pe ședință**, nu de cod: cine intră pe 15 are mai puține ședințe în lună. Livrat aici: ecranul de emitere sortează familiile pe grupe, cum se și numără
 
-> **Bug-uri în modelul folosit azi**, în `apps/api/src/modules/invoice/invoice.service.ts`:
-> la doi copii calculează 500 în loc de 600; la trei sau mai mulți nu există ramură, deci factura
-> iese 0 lei, iar reducerile o duc pe negativ. Două teste `it.failing` le documentează.
+> **Cele două bug-uri de preț sunt reparate**, iar testele care le documentau sunt acum teste de
+> regresie. Regula, și sursa de adevăr pentru orice discuție despre prețuri: **350 de lei pentru
+> primul copil și 250 pentru fiecare frate** — deci 600 la doi copii, 850 la trei —, iar unitatea
+> reală e ședința, 87,50 și 62,50, așa că o lună scurtă costă mai puțin. Totul într-un singur loc,
+> `apps/api/src/modules/invoice/pricing.ts`, verificat de `pricing.spec.ts`.
 
 ### E16 · Încasări și facturare prin SmartBill — `în lucru`
 
@@ -232,7 +235,7 @@ nu rulează nicăieri".
 - [x] S2 · Pipeline de imagini — `@nuxt/image`, WebP cu rezervă JPEG, `srcset` pe lățimile reale: **1056KB → 239KB**. AVIF măsurat și respins
 - [x] S3 · Paginile publice
 - [~] S4 · Portalul părintelui — **rescris pe sistemul din S1**: shell propriu (`layouts/portal.vue` — navbar plus rând de taburi, nu bara laterală de admin), Acasă / Absențe / Proiecte / Plăți / Profil, cele trei ecrane de intrare în cont, și comutatorul de copil, care se păstrează între pagini și în URL. Rămâne verificarea pe date reale și pe telefon, care cere deploy-ul din E01 S4
-- [~] S5 · Uniformizarea zonei de admin — **jumătatea de componente livrată**: `AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`, pe un catalog al celor 7 dialecte de tabel și 5 de formular; `/admin/calendar` migrat ca dovadă. Migrarea celor 32 de ecrane (S5b) rămâne blocată de deploy
+- [~] S5 · Uniformizarea zonei de admin — **jumătatea de componente livrată**: `AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`, pe un catalog al celor 7 dialecte de tabel și 5 de formular; `/admin/calendar` migrat ca dovadă. **Prima felie din S5b livrată**: meniul grupat pe șase secțiuni, `/admin/facturi` cu bani în loc de „Facturi: 10", lista de copii fără marca de timp brută și cu vârstă, iar cardul de grupă mutat pe `occupancyOf`. Restul ecranelor rămâne
 - [~] S6 · Accesibilitate — **verificarea automată rulează în CI**: axe-core într-un Chromium adevărat, pe fiecare pagină din sitemap, în ambele teme, pe WCAG 2.0 și 2.1 A+AA. Rămâne zona autentificată, care se verifică odată cu S4 și S5
 - [x] S7 · Interfața profesorului — fără rol separat, e o vedere din zona de admin, nu o zonă a ei. Măsurat la 390px: **meniul era acoperit de filtrul de locație** (10px din 44 apăsabili), accentul lui Nuxt UI rămăsese la 2,61:1 de partea autentificată, iconițele veneau de la Iconify la rulare, iar coada aștepta un `online` care nu vine pe conexiunea din sală
 
@@ -280,12 +283,12 @@ nu rulează nicăieri".
 
 Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
-| Cine           | Ce                                | Ce ține în loc                                                                                                                                |
-| -------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17, iar acum și pagina publică din E20 S2. Opt story-uri din cinci epicuri |
-| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                       |
-| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                 |
-| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                        |
+| Cine           | Ce                                | Ce ține în loc                                                                                                                                                             |
+| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tu**         | Instanța EC2                      | E01 S4, **verificarea lui E18 S4 și migrarea din S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17, iar acum și pagina publică din E20 S2. Opt story-uri din cinci epicuri |
+| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                    |
+| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                              |
+| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                     |
 
 ## Ce urmează
 
