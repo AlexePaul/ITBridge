@@ -122,6 +122,22 @@ describe('Temporary group moves (e2e)', () => {
             expect(mail.filter((row) => row.subject.includes('Ana')).length).toBe(1);
         });
 
+        it('the family reads the move from their own absences list — group, day, hour and room', async () => {
+            // This is the payload `/user/absente` and the Acasă to-do render from. Without the
+            // replacement joined in, both would read every notice as "not placed yet".
+            await place(hostSessionId).expect(200);
+
+            const mine = await request(app.getHttpServer()).get('/attendance/absences').set('Authorization', parent.auth).expect(200);
+            expect(mine.body).toHaveLength(1);
+            expect(mine.body[0].replacementSession).toMatchObject({
+                id: hostSessionId,
+                date: iso(3),
+                startTime: '18:00:00',
+                group: { name: 'Python' },
+            });
+            expect(mine.body[0].replacementSession.room.location.name).toBe('Mutări');
+        });
+
         it('writes again when the child is moved somewhere else — that is a new thing to know', async () => {
             const second = await createClassSession(dataSource, hostGroupId, { date: iso(5) });
 
@@ -211,6 +227,9 @@ describe('Temporary group moves (e2e)', () => {
                 .expect(201);
             const tightSession = await createClassSession(dataSource, small.body.id as number, { date: iso(4) });
 
+            await place(tightSession).expect(200);
+            // Recording the same move again is a no-op, not a refusal: the child already holds the
+            // one chair, and must not be counted against themselves.
             await place(tightSession).expect(200);
 
             // A second family, announcing the same week, is not offered the hour that is now taken.

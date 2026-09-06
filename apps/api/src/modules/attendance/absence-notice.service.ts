@@ -156,6 +156,14 @@ export class AbsenceNoticeService {
             .leftJoinAndSelect('notice.child', 'child')
             .leftJoinAndSelect('notice.classSession', 'session')
             .leftJoinAndSelect('session.group', 'group')
+            // The move, with everything the family needs to act on it — E12/S4. The group is the
+            // name they look for, the room and its location are where they drive to. Without this
+            // join the portal would read every notice as "not yet placed", which is the one wrong
+            // answer this list exists to avoid.
+            .leftJoinAndSelect('notice.replacementSession', 'replacement')
+            .leftJoinAndSelect('replacement.group', 'replacementGroup')
+            .leftJoinAndSelect('replacement.room', 'replacementRoom')
+            .leftJoinAndSelect('replacementRoom.location', 'replacementLocation')
             .andWhere('session.date >= :from', { from: from })
             .orderBy('session.date', 'ASC')
             .addOrderBy('session.startTime', 'ASC');
