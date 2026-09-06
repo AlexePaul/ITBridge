@@ -10,13 +10,32 @@ import { CreatePaymentDto } from './dto/createPayment.dto';
 import { UpdatePaymentDto } from './dto/updatePayment.dto';
 import { FilterPaymentDto } from './dto/filterPayment.dto';
 import { Role } from 'src/enum/role.enum';
+import { OutboxService } from 'src/modules/mail/outbox.service';
+import { MailTemplateService } from 'src/modules/mail/mail-template.service';
+import { officeAddress } from 'src/modules/mail/office-address';
+import { formatLeiRo, romanianDay, romanianMonth } from 'src/modules/invoice/money-words';
+import { toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { owesReceipt, receiptDedupeKey, receiptTemplate } from './payment-receipt.rules';
+
+/** What the invoice looks like once a payment has been counted — the single computation of it. */
+export interface InvoiceBalance {
+    /** Everything received against the invoice, succeeded rows only. */
+    paid: number;
+    /** What is left. Floored at zero: an overpayment is not a debt in the other direction. */
+    outstanding: number;
+    status: InvoiceStatus;
+}
 
 @Injectable()
 export class PaymentService {
+    private readonly office = officeAddress();
+
     constructor(
         @InjectRepository(Payment) private readonly paymentRepo: Repository<Payment>,
         @InjectRepository(Invoice) private readonly invoiceRepo: Repository<Invoice>,
         @InjectDataSource() private readonly dataSource: DataSource,
+        private readonly outbox: OutboxService,
+        private readonly mailTemplates: MailTemplateService,
     ) {}
 
     /**
@@ -41,20 +60,24 @@ export class PaymentService {
         }
 
         return this.dataSource.transaction(async (manager) => {
+            const status = dto.status ?? PaymentStatus.SUCCEEDED;
             const payment = await manager.save(
                 Payment,
                 manager.create(Payment, {
                     invoice,
                     amount: dto.amount,
                     method: dto.method ?? PaymentMethod.CASH,
-                    status: dto.status ?? PaymentStatus.SUCCEEDED,
+                    status,
                     date: new Date(dto.date),
                     externalReference: dto.externalReference ?? null,
                     notes: dto.notes ?? null,
                     recordedBy: recordedByUserId ? ({ id: recordedByUserId } as User) : null,
                 }),
             );
-            await this.recomputeInvoiceStatus(invoice.id, manager);
+            const balance = await this.recomputeInvoiceStatus(invoice.id, manager);
+            if (owesReceipt(status)) {
+                await this.sendReceipt(invoice, payment, balance, manager);
+            }
             return payment;
         });
     }
@@ -68,10 +91,18 @@ export class PaymentService {
      * never touched: it means "nothing to pay", and no payment row should exist against it anyway.
      *
      * Runs inside the caller's transaction so a payment and the state it implies commit together.
+     *
+     * **Returns the balance it computed** — E16/S6. The receipt needs to tell a family what is left,
+     * and the sum of succeeded payments is already made here; asking a second time, or subtracting
+     * `amount - payments` again in the composer, would be a second definition of "outstanding" free
+     * to disagree with the one that just set the invoice's status. Same rule the arrears screen
+     * follows, applied one layer down.
      */
-    async recomputeInvoiceStatus(invoiceId: number, manager: EntityManager): Promise<void> {
+    async recomputeInvoiceStatus(invoiceId: number, manager: EntityManager): Promise<InvoiceBalance> {
         const invoice = await manager.findOne(Invoice, { where: { id: invoiceId } });
-        if (!invoice || invoice.status === InvoiceStatus.WAIVED) return;
+        // Nothing to derive, and nothing owed: a waived month is 0 lei by definition.
+        if (!invoice) return { paid: 0, outstanding: 0, status: InvoiceStatus.PENDING };
+        if (invoice.status === InvoiceStatus.WAIVED) return { paid: 0, outstanding: 0, status: InvoiceStatus.WAIVED };
 
         const row: { paid: string | null } | undefined = await manager
             .createQueryBuilder(Payment, 'payment')
@@ -87,6 +118,51 @@ export class PaymentService {
         if (next !== invoice.status) {
             await manager.update(Invoice, invoiceId, { status: next });
         }
+
+        return { paid, outstanding: Math.max(0, invoice.amount - paid), status: next };
+    }
+
+    /**
+     * Tells the family the money arrived — E16/S6.
+     *
+     * The half of S6 that does not wait on SmartBill. The document itself is S2's job and blocked on
+     * S0; the confirmation is not, and its absence was the gap: recording a payment changed the
+     * invoice, took the family off the arrears list and stopped the reminders, and said **nothing**
+     * to the person who had just paid. A family who transfers money and hears back only silence has
+     * no way to tell "received" from "lost", and the next thing they hear is the next month's bill.
+     *
+     * Queued inside the caller's transaction, with the manager passed through: the receipt and the
+     * payment that justifies it commit together, or neither does. A receipt for a payment that
+     * rolled back is worse than no receipt.
+     *
+     * `queueOrRecord`, not `queue`: a family with no address leaves an `undeliverable` row rather
+     * than being skipped in silence (E17/S5). Not `queueMarketing` either — this is the execution of
+     * a contract, and no preference switch may withhold it.
+     */
+    private async sendReceipt(invoice: Invoice, payment: Payment, balance: InvoiceBalance, manager: EntityManager): Promise<void> {
+        const parent = invoice.parent;
+        const firstName = parent?.firstName ?? '';
+
+        const mail = await this.mailTemplates.render(receiptTemplate(balance.status), {
+            firstName,
+            month: romanianMonth(invoice.monthIssued),
+            // What arrived now, not the running total: the family recognises the figure they sent.
+            amount: formatLeiRo(payment.amount),
+            paidOn: romanianDay(toIsoDate(payment.date)),
+            outstanding: formatLeiRo(balance.outstanding),
+            officeEmail: this.office,
+        });
+
+        await this.outbox.queueOrRecord(
+            { email: parent?.email },
+            {
+                subject: mail.subject,
+                bodyText: mail.bodyText,
+                bodyHtml: mail.bodyHtml ?? undefined,
+                dedupeKey: receiptDedupeKey(payment.id),
+            },
+            manager,
+        );
     }
 
     async findPayments(filter: FilterPaymentDto, role: Role, userId: number) {
@@ -132,8 +208,14 @@ export class PaymentService {
     }
 
     async updatePayment(id: number, dto: UpdatePaymentDto) {
-        const payment = await this.paymentRepo.findOne({ where: { id }, relations: { invoice: true } });
+        // `invoice.parent` because a payment that becomes succeeded here earns a receipt, and the
+        // receipt is addressed to the family — E16/S6.
+        const payment = await this.paymentRepo.findOne({ where: { id }, relations: { invoice: { parent: true } } });
         if (!payment) throw new NotFoundException('Payment not found');
+
+        // Read before the edit overwrites it: the receipt hinges on the *transition* into succeeded,
+        // and after the assignments below there is nothing left to compare against.
+        const previousStatus = payment.status;
 
         if (dto.amount !== undefined) payment.amount = dto.amount;
         if (dto.method !== undefined) payment.method = dto.method;
@@ -145,7 +227,13 @@ export class PaymentService {
         // Amount and status both feed the derivation, so any edit rederives.
         return this.dataSource.transaction(async (manager) => {
             const saved = await manager.save(Payment, payment);
-            await this.recomputeInvoiceStatus(payment.invoice.id, manager);
+            const balance = await this.recomputeInvoiceStatus(payment.invoice.id, manager);
+            // A transfer recorded as `initiated` while the statement was provisional becomes real here,
+            // and this is the moment the family can honestly be told. An edit to a payment that was
+            // already succeeded sends nothing: nothing became true.
+            if (owesReceipt(saved.status, previousStatus)) {
+                await this.sendReceipt(payment.invoice, saved, balance, manager);
+            }
             return saved;
         });
     }

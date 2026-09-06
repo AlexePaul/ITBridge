@@ -204,7 +204,7 @@ nu rulează nicăieri".
 - [ ] S3 · Emiterea în masă, temperată — 3 apeluri pe secundă
 - ~~S4 · Plata cu cardul în portal~~ — amânată; se încasează prin transfer sau numerar
 - [~] S5 · Încasările: numerar și transfer bancar — **jumătatea de ecran**: încasarea se începe din rândul de restanță, precompletată cu restul de plată, iar `/admin/payments/new` e lista facturilor care mai au ceva de plată, nu un formular gol. Propagarea în SmartBill așteaptă S0
-- [ ] S6 · Chitanțe și confirmări
+- [~] S6 · Chitanțe și confirmări — **confirmarea livrată**, documentul fiscal nu (îl blochează S0). Înregistrarea unei încasări nu mai e tăcută: chitanța se pune în coadă în aceeași tranzacție, cu două șabloane după cum factura e acoperită sau nu, iar restul de plată vine din recalculare, nu dintr-o a doua scădere. Se datorează când o plată **devine** `succeeded` — deci și la confirmarea unui transfer intrat ca `initiated` —, o singură dată pe plată
 - [x] S7 · Restanțe — ecranul `/admin/restante` cu vechime, job zilnic care marchează și scrie (3 zile înainte, apoi săptămânal, tăcere după 60), termen de 14 zile derivat din data emiterii. Fără grupare pe locație: o familie poate avea copii la ambele adrese
 - [ ] S8 · Reconciliere și verificare
 
