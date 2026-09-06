@@ -3,7 +3,7 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 2 septembrie 2026, pe `release/stage`, cu E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5 mergeate.
+**Ultima actualizare:** 6 septembrie 2026, pe `release/stage`, cu E18 S4 în plus față de E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 
 ## Legendă
 
@@ -230,7 +230,7 @@ nu rulează nicăieri".
 - [x] S1 · Fundația de design
 - [x] S2 · Pipeline de imagini — `@nuxt/image`, WebP cu rezervă JPEG, `srcset` pe lățimile reale: **1056KB → 239KB**. AVIF măsurat și respins
 - [x] S3 · Paginile publice
-- [!] S4 · Portalul părintelui — **cerut explicit de școală: rescriere, nu retuș.** Blocat de deploy: paginile de după autentificare nu se pot nici testa, nici arăta
+- [~] S4 · Portalul părintelui — **rescris pe sistemul din S1**, pe `release/stage`: shell propriu (`layouts/portal.vue` — navbar plus rând de taburi, nu bara laterală de admin), Acasă / Absențe / Proiecte / Plăți / Profil, cele trei ecrane de intrare în cont, și comutatorul de copil, care se păstrează între pagini și în URL. Rămâne verificarea pe date reale și pe telefon, care cere deploy-ul din E01 S4
 - [~] S5 · Uniformizarea zonei de admin — **jumătatea de componente livrată**: `AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`, pe un catalog al celor 7 dialecte de tabel și 5 de formular; `/admin/calendar` migrat ca dovadă. Migrarea celor 32 de ecrane (S5b) rămâne blocată de deploy
 - [~] S6 · Accesibilitate — verificarea în CI lipsește
 - [ ] S7 · Interfața profesorului — fără rol separat, e o vedere din zona de admin, nu o zonă a ei
@@ -279,12 +279,12 @@ nu rulează nicăieri".
 
 Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
-| Cine           | Ce                                | Ce ține în loc                                                                                           |
-| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
-| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                  |
-| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                            |
-| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                   |
+| Cine           | Ce                                | Ce ține în loc                                                                                                                        |
+| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tu**         | Instanța EC2                      | E01 S4, **verificarea lui E18 S4 și migrarea din S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17. Șapte story-uri din patru epicuri |
+| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                               |
+| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                         |
+| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                |
 
 ## Ce urmează
 

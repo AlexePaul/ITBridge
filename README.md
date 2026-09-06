@@ -183,14 +183,15 @@ S7). Ce **nu** e făcut, și e explicit muncă viitoare:
 
 - **Cablarea la backend.** Nimic din ce e după login nu vorbește cu un API care rulează, fiindcă
   backend-ul nu e deployat. Paginile există și compilează; datele nu vin de nicăieri.
-- **Paginile de după autentificare.** Portalul părintelui are cele trei pagini vechi
-  (`dashboard`, `profile`, `payments`) și nu a fost rescris pe noul sistem de design — E18 S4.
-  Zona de admin, 25 de ecrane, la fel — E18 S5.
+- **Zona de admin.** Cele 32 de ecrane nu au fost rescrise pe noul sistem de design — E18 S5.
 - **Verificarea automată de accesibilitate în CI** — E18 S6. Contrastul și navigarea din tastatură
   au fost verificate manual pe paginile publice; nimic nu le ține așa.
 
-Ordinea firească e [E01](docs/epics/E01-infrastructura-medii.md) S4 (instanța și deploy-ul) înainte
-de E18 S4, fiindcă un portal fără API nu se poate nici testa, nici demonstra.
+**Portalul părintelui a fost rescris** pe sistemul de design (E18 S4): cinci ecrane plus cele trei de
+intrare în cont, pe un layout propriu, cu comutatorul de copil care se păstrează între pagini. Dar
+n-a fost văzut niciodată pe date reale, din același motiv ca mai sus — deci ordinea firească rămâne
+[E01](docs/epics/E01-infrastructura-medii.md) S4 (instanța și deploy-ul) înainte de orice altceva din
+zona autentificată.
 
 Un singur bug rămâne documentat ca test `it.failing` — trece cât timp bug-ul există, devine roșu
 când e reparat. Reparația ține de [E15](docs/epics/E15-pricing-facturare.md):
