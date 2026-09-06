@@ -3,8 +3,9 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 4 septembrie 2026, pe `release/stage`, cu E18 S7 și E20 S1–S4 în plus față de
-E17 S8, jumătatea din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
+**Ultima actualizare:** 6 septembrie 2026, pe `release/stage`, cu E18 S4 în plus față de E18 S7 și
+E20 S1–S4, care veneau peste E17 S8, jumătatea din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7,
+E21 S2/S4 și E12 S5.
 
 ## Legendă
 
@@ -280,12 +281,12 @@ nu rulează nicăieri".
 
 Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
-| Cine           | Ce                                | Ce ține în loc                                                                                                                                |
-| -------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tu**         | Instanța EC2                      | E01 S4, **E18 S4 și S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17, iar acum și pagina publică din E20 S2. Opt story-uri din cinci epicuri |
-| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                       |
-| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                 |
-| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                        |
+| Cine           | Ce                                | Ce ține în loc                                                                                                                                                             |
+| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tu**         | Instanța EC2                      | E01 S4, **verificarea lui E18 S4 și migrarea din S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17, iar acum și pagina publică din E20 S2. Opt story-uri din cinci epicuri |
+| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                    |
+| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                              |
+| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                     |
 
 ## Ce urmează
 
