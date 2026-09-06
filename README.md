@@ -185,8 +185,9 @@ S7). Ce **nu** e făcut, și e explicit muncă viitoare:
 
 - **Cablarea la backend.** Nimic din ce e după login nu vorbește cu un API care rulează, fiindcă
   backend-ul nu e deployat. Paginile există și compilează; datele nu vin de nicăieri.
-- **Zona de admin.** Cele 32 de ecrane n-au fost rescrise pe noul sistem de design; jumătatea de
-  componente a lui E18 S5 e făcută, migrarea ecranelor nu.
+- **Zona de admin.** Ecranele n-au fost rescrise pe noul sistem de design; jumătatea de componente
+  a lui E18 S5 e făcută, iar din migrarea propriu-zisă (S5b) e făcută prima felie — meniul grupat și
+  trei ecrane. Restul rămâne.
 - **Verificarea de accesibilitate a zonei autentificate** — E18 S6. CI-ul rulează axe-core pe
   paginile publice, în ambele teme; ce e după login a fost verificat doar manual.
 
@@ -196,15 +197,12 @@ n-a fost văzut niciodată pe date reale, din același motiv ca mai sus — deci
 [E01](docs/epics/E01-infrastructura-medii.md) S4 (instanța și deploy-ul) înainte de orice altceva din
 zona autentificată.
 
-Un singur bug rămâne documentat ca test `it.failing` — trece cât timp bug-ul există, devine roșu
-când e reparat. Reparația ține de [E15](docs/epics/E15-pricing-facturare.md):
-
-- **Calculul de preț nu respectă regula convenită și nu are ramură pentru trei sau mai mulți
-  copii.** Regula, și sursa de adevăr pentru orice discuție despre prețuri, e **350 de lei pe lună
-  pentru primul copil și 250 pentru fiecare frate** — deci 600 pentru doi, cât scrie și pe site.
-  Codul îi trece pe amândoi la 250 și scoate 500, iar de la trei copii în sus suma iese 0 și
-  reducerile o duc pe negativ. Backend-ul nu rulează momentan; până rulează, documentația e cea
-  corectă, nu codul.
+Niciun `it.failing` nu mai e viu în repo: bug-urile de preț pe care le documentau sunt reparate și
+testele au devenit teste de regresie. Regula, și sursa de adevăr pentru orice discuție despre
+prețuri: **350 de lei pentru primul copil și 250 pentru fiecare frate** — deci 600 la doi copii,
+cât scrie și pe site. Unitatea reală e **ședința**, 87,50 și 62,50, deci o lună de patru ședințe
+dă exact cifrele pe care le știe toată lumea, iar una cu vacanță costă mai puțin. Într-un singur
+loc: `apps/api/src/modules/invoice/pricing.ts`.
 
 Bug-ul de 409 la al doilea profil fără date de contact a fost reparat în
 [E04](docs/epics/E04-migrari-date.md), iar testul lui e acum unul obișnuit, de regresie.

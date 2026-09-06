@@ -41,7 +41,18 @@ describe('EnrollmentService', () => {
         // Nine years old at the seed date, comfortably inside the 7-12 band below, so the age check
         // stays out of the way of every test that is not about it.
         birthDate: `${new Date().getFullYear() - 9}-01-01`,
-        parent: { id: 10, email: 'ana@example.com', user: activeParent },
+        // Complete, so the E11/S2 profile gate stays out of the way of every test that is not
+        // about it — the same reason `activeParent` passes both account gates above.
+        parent: {
+            id: 10,
+            email: 'ana@example.com',
+            phone: '+40712345678',
+            address: 'Strada Exemplu 1',
+            emergencyContactName: 'Bunica Ioana',
+            emergencyContactRelation: 'bunică',
+            emergencyContactPhone: '+40712345679',
+            user: activeParent,
+        },
     };
     const group = (overrides: Record<string, unknown> = {}) => ({
         id: 2,
@@ -172,6 +183,35 @@ describe('EnrollmentService', () => {
             await service.enrol({ childId: 1, groupId: 2 }, 42);
 
             expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.anything());
+        });
+
+        it('refuses when the family has an account but has not finished step two of registration', async () => {
+            // Registration is two required steps since E11/S2; a child cannot sit in a room while
+            // the school has no phone number and no emergency contact for them.
+            childRepo.findOne!.mockResolvedValue({ ...child, parent: { ...child.parent, emergencyContactPhone: null } });
+
+            await expect(service.enrol({ childId: 1, groupId: 2 }, 1)).rejects.toMatchObject({
+                response: { error: 'PARENT_PROFILE_INCOMPLETE' },
+            });
+        });
+
+        it('says the profile is incomplete rather than that the account is inactive — they are repaired by different people', async () => {
+            childRepo.findOne!.mockResolvedValue({ ...child, parent: { ...child.parent, phone: null } });
+
+            await expect(service.enrol({ childId: 1, groupId: 2 }, 1)).rejects.toMatchObject({
+                response: { error: 'PARENT_PROFILE_INCOMPLETE' },
+            });
+        });
+
+        it('exempts a profile with no account, so the public trial form can still book a seat', async () => {
+            // E20/S2 writes a shell profile with no user, no email and no phone, then enrols
+            // through this same method. Holding it to the rule would refuse every booking.
+            childRepo.findOne!.mockResolvedValue({
+                ...child,
+                parent: { id: 11, email: null, phone: null, user: null },
+            });
+
+            await expect(service.enrol({ childId: 1, groupId: 2 }, null)).resolves.toBeDefined();
         });
 
         it('refuses an inactive group', async () => {

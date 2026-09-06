@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger, NotFoundExc
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 import { User, isAccountActive } from 'src/entities/user.entity';
-import { Profile } from 'src/entities/profile.entity';
+import { Profile, isProfileComplete } from 'src/entities/profile.entity';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
@@ -78,12 +78,14 @@ export class AuthService {
             });
         }
 
-        // `Profile.email` and `Profile.phone` are both unique columns, so the database would refuse
-        // these anyway — as a 500 out of the driver. Checked here so the parent is told which of
-        // the two fields to change. The race between check and insert is real and is caught by the
-        // unique index; it just produces a worse message on the one request in a million that hits
-        // it, which is the correct trade.
-        await this.assertContactDetailsAreFree(registerDto.email, registerDto.phone);
+        // `Profile.email` is a unique column, so the database would refuse a duplicate anyway — as a
+        // 500 out of the driver. Checked here so the parent is told which field to change. The race
+        // between check and insert is real and is caught by the unique index; it just produces a
+        // worse message on the one request in a million that hits it, which is the correct trade.
+        //
+        // The phone is checked at the same point it is now typed — `ProfileService.updateProfile`,
+        // step two — for the same reason and against the same unique column.
+        await this.assertEmailIsFree(registerDto.email);
 
         const saltRounds = 10;
         const passwordHash = await bcrypt.hash(registerDto.password, saltRounds);
@@ -102,16 +104,13 @@ export class AuthService {
                 rejectionReason: null,
             });
 
+            // A shell: who they are and where the confirmation goes. The rest is step two, and it
+            // is not optional — `isProfileComplete` is what a child's placement is gated on.
             await manager.save(Profile, {
                 user: created,
                 firstName: registerDto.firstName,
                 lastName: registerDto.lastName,
                 email: registerDto.email,
-                phone: registerDto.phone,
-                address: registerDto.address,
-                emergencyContactName: registerDto.emergencyContactName,
-                emergencyContactRelation: registerDto.emergencyContactRelation,
-                emergencyContactPhone: registerDto.emergencyContactPhone,
             });
 
             const { token } = await this.emailConfirmationService.issueFor(created, registerDto.email, now, manager);
@@ -132,7 +131,11 @@ export class AuthService {
             const notice = await this.mailTemplates.render('approval-needed', {
                 parentName,
                 email: registerDto.email,
-                phone: registerDto.phone,
+                // There is no phone yet: it is asked for in step two, which the parent reaches
+                // seconds after this mail is queued but has not necessarily finished. Saying so is
+                // better than an empty line the reader would read as "they left it blank" — and the
+                // approvals screen shows whatever the profile holds by the time anybody opens it.
+                phone: 'încă necompletat',
                 approvalsUrl: approvalsUrl(),
             });
             await this.outbox.queue({ to: this.office, subject: notice.subject, bodyText: notice.bodyText }, manager);
@@ -153,21 +156,13 @@ export class AuthService {
     }
 
     /** Refuses an address or a number that already belongs to another family, naming which. */
-    private async assertContactDetailsAreFree(email: string, phone: string): Promise<void> {
+    private async assertEmailIsFree(email: string): Promise<void> {
         const byEmail = await this.profileRepository.createQueryBuilder('profile').where('lower(profile.email) = lower(:email)', { email }).getOne();
 
         if (byEmail) {
             throw new ConflictException({
                 message: 'Există deja un cont cu această adresă de email',
                 error: 'EMAIL_TAKEN',
-            });
-        }
-
-        const byPhone = await this.profileRepository.findOne({ where: { phone } });
-        if (byPhone) {
-            throw new ConflictException({
-                message: 'Există deja un cont cu acest număr de telefon',
-                error: 'PHONE_TAKEN',
             });
         }
     }
@@ -323,6 +318,16 @@ export class AuthService {
         if (!user) {
             return null;
         }
+
+        // Step two of registration is a third thing that can be pending, and it belongs on this
+        // payload for the reason the gates do: every page has to know, and the one that has to know
+        // first is the middleware that decides whether to send the parent to finish it. Derived
+        // here and sent as a boolean so the client never owns a second copy of the rule.
+        const profile = await this.profileRepository.findOne({
+            where: { user: { id: userId } },
+            select: ['id', 'email', 'phone', 'address', 'emergencyContactName', 'emergencyContactRelation', 'emergencyContactPhone'],
+        });
+
         return {
             id: user.id,
             username: user.username,
@@ -331,6 +336,9 @@ export class AuthService {
             emailConfirmed: user.emailConfirmedAt !== null,
             approvalStatus: user.approvalStatus,
             active: isAccountActive(user),
+            // An admin has no profile and needs none; `false` here would send them to a form that
+            // is not theirs to fill in.
+            profileComplete: user.role === Role.ADMIN || (profile !== null && isProfileComplete(profile)),
         };
     }
 

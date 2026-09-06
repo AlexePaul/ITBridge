@@ -40,6 +40,18 @@ import { DiscountType } from '../enum/discount-type.enum';
 import { DEFAULT_HORIZON_WEEKS } from '../modules/class-session/class-session.service';
 import { addDays, occurrencesOf, toIsoDate } from '../modules/class-session/class-session.dates';
 import { monthlyAmountFor } from '../modules/invoice/pricing';
+import { Lead } from '../entities/lead.entity';
+import { LeadStatus } from '../enum/lead-status.enum';
+import { LeadSource, LeadChannel } from '../enum/lead-source.enum';
+import { Announcement } from '../entities/announcement.entity';
+import { AnnouncementAudience } from '../enum/announcement-audience.enum';
+import { MessageKind } from '../enum/message-kind.enum';
+import { OutboxMessage } from '../entities/outbox-message.entity';
+import { OutboxStatus } from '../enum/outbox-status.enum';
+import { DeliveryFailureReason } from '../enum/delivery-failure-reason.enum';
+import { AbsenceNotice } from '../entities/absence-notice.entity';
+import { MakeUpCredit } from '../entities/make-up-credit.entity';
+import { MailTemplate } from '../entities/mail-template.entity';
 
 /**
  * Fills a local database with data that looks like the real thing, so the admin screens are not
@@ -51,8 +63,30 @@ import { monthlyAmountFor } from '../modules/invoice/pricing';
 
 const PASSWORD = 'parola123';
 
-/** Deterministic output: the same command twice gives the same database. */
-const SEED_TODAY = new Date('2026-03-16T09:00:00.000Z');
+/**
+ * The day the seeded school is "at" — **today**, unless told otherwise.
+ *
+ * It used to be a fixed `2026-03-16`, which made the seed deterministic and the school dead. Every
+ * date in here hangs off this one: the eight weeks of attendance behind it, the timetable horizon
+ * ahead of it, which months have invoices. Six months after that constant was written, a freshly
+ * seeded database opened on "Nicio oră azi", the newest invoice was half a year old, and the
+ * arrears reminders had nothing left to remind anybody about — a developer's first impression of
+ * the app was of one nobody uses.
+ *
+ * `SEED_TODAY=2026-03-16` pins it again for anyone who wants two runs to produce the same rows.
+ * The value is UTC 09:00 on the *local* calendar day, because the components are read back with
+ * `getUTC*` below and a plain local midnight would shift the day west of Greenwich.
+ */
+const SEED_TODAY = ((): Date => {
+    const pinned = process.env.SEED_TODAY;
+    if (pinned) {
+        const parsed = new Date(`${pinned}T09:00:00.000Z`);
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+        throw new Error(`SEED_TODAY is not a YYYY-MM-DD date: ${pinned}`);
+    }
+    const now = new Date();
+    return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0));
+})();
 
 /** How much timetable is written behind the seed date. Attendance exists for all of it but the last week. */
 const HISTORY_WEEKS = 8;
@@ -118,6 +152,13 @@ const GROUP_SLOTS: { name: string; weekday: Weekday; startTime: string; endTime:
     { name: 'Web Începători', weekday: Weekday.WEDNESDAY, startTime: '16:00:00', endTime: '17:30:00', minAge: 8, maxAge: 12, room: 'drumul-taberei/Sala 1' },
     { name: 'C++ Olimpiadă', weekday: Weekday.WEDNESDAY, startTime: '18:00:00', endTime: '19:30:00', minAge: 13, maxAge: 16, room: 'drumul-taberei/Sala 2' },
     { name: 'Python Avansați', weekday: Weekday.THURSDAY, startTime: '17:00:00', endTime: '18:30:00', minAge: 9, maxAge: 13, room: 'straulesti/Sala 1' },
+    // Friday and Saturday exist so that "today" has a class on six days out of seven. The seed used
+    // to stop at Thursday, so a developer who seeded on a Friday, a Saturday or a Sunday opened the
+    // admin dashboard on "Nicio oră azi" — the register screen, the unmarked-attendance report and
+    // the 10:00 reminder all had nothing to show, and the app read as one nobody uses. Sunday stays
+    // empty, because a school that teaches seven days a week would be the unrealistic version.
+    { name: 'Web Avansați', weekday: Weekday.FRIDAY, startTime: '17:00:00', endTime: '18:30:00', minAge: 10, maxAge: 14, room: 'drumul-taberei/Sala 1' },
+    { name: 'Robotică', weekday: Weekday.SATURDAY, startTime: '10:00:00', endTime: '11:30:00', minAge: 8, maxAge: 12, room: 'straulesti/Sala 1' },
 ];
 
 function assertLocalDatabase(dataSource: DataSource): void {
@@ -268,6 +309,31 @@ export async function seed(dataSource: DataSource): Promise<void> {
         );
     }
 
+    // One family stopped between the two steps of registration — E11/S2, revised. `register` wrote
+    // the shell, they never finished, so `isProfileComplete` says no and a child of theirs cannot be
+    // placed in a group (`PARENT_PROFILE_INCOMPLETE`). Seeded because the state is invisible
+    // otherwise: every other profile here is complete, and a developer would only meet this one by
+    // registering by hand. Deliberately childless — they never got as far as bringing one.
+    const halfRegistered = await dataSource.getRepository(User).save(
+        dataSource.getRepository(User).create({
+            username: 'diana.moldovan',
+            passwordHash,
+            role: Role.PARENT,
+            emailConfirmedAt: daysAgo(2),
+            approvalStatus: ApprovalStatus.APPROVED,
+            approvalDecidedAt: daysAgo(1),
+        }),
+    );
+    await dataSource.getRepository(Profile).save(
+        dataSource.getRepository(Profile).create({
+            user: halfRegistered,
+            firstName: 'Diana',
+            lastName: 'Moldovan',
+            email: 'diana.moldovan@example.com',
+            // No phone, no address, no emergency contact: exactly what `register` leaves behind.
+        }),
+    );
+
     // A couple of accounts with no profile at all, so the linking screen has something to show.
     // Active, deliberately: they are a fixture for `GET /users/without-profile`, not registrations
     // waiting on a decision, and leaving them pending would put two rows in the approvals queue
@@ -296,7 +362,7 @@ export async function seed(dataSource: DataSource): Promise<void> {
 
     for (let i = 0; i < profiles.length; i++) {
         // Most parents have one child, every fourth has two — enough to exercise the sibling
-        // pricing branches, including the three-children case that currently returns 0.
+        // pricing branches, the three-or-more case included.
         const count = i % 4 === 3 ? 2 : 1;
         for (let c = 0; c < count; c++) {
             const index = children.length;
@@ -322,7 +388,8 @@ export async function seed(dataSource: DataSource): Promise<void> {
         }
     }
 
-    // One family with three children: the pricing bug from E03 has to be reproducible by hand.
+    // One family with three children, so the sibling rule is checkable by hand on a real invoice:
+    // 350 for the first and 250 for each of the other two, which is 850 in a four-session month.
     const bigFamily = profiles[0];
     for (const name of ['Ștefan', 'Irina']) {
         const birthDate = new Date(SEED_TODAY);
@@ -629,6 +696,304 @@ export async function seed(dataSource: DataSource): Promise<void> {
             monthIssued: monthsAgo(0),
         }),
     ]);
+
+    // --- Communication, and the funnel in front of it ------------------------------------------
+    // Six tables the seed never touched, so six screens opened empty on a fresh database and read
+    // as "nothing has ever happened here" rather than "no data yet". Each row below exists to put
+    // one state on screen, including the states nobody wants: a message with nowhere to go, a
+    // credit that ran out, a family that said no.
+    await seedCommunication(dataSource, { admin, profiles, children, groups, locations, sessions });
+}
+
+interface CommunicationContext {
+    admin: User;
+    profiles: Profile[];
+    children: Child[];
+    groups: Group[];
+    locations: Location[];
+    sessions: ClassSession[];
+}
+
+async function seedCommunication(dataSource: DataSource, ctx: CommunicationContext): Promise<void> {
+    const { admin, profiles, children, groups, locations, sessions } = ctx;
+    const today = toIsoDate(new Date(SEED_TODAY.getUTCFullYear(), SEED_TODAY.getUTCMonth(), SEED_TODAY.getUTCDate()));
+    const past = sessions.filter((session) => toIsoDate(session.date) < today).sort((a, b) => toIsoDate(b.date).localeCompare(toIsoDate(a.date)));
+    const upcoming = sessions.filter((session) => toIsoDate(session.date) > today).sort((a, b) => toIsoDate(a.date).localeCompare(toIsoDate(b.date)));
+
+    // --- Mail templates: two edited, so the editor has a draft to diff against the default -------
+    await dataSource.getRepository(MailTemplate).save([
+        {
+            key: 'invoice-issued',
+            subject: 'Factura pentru {{luna}} — IT Bridge School',
+            bodyText: 'Bună, {{parinte}},\n\nFactura pentru {{luna}} este atașată. Suma: {{suma}} lei.\n\nMulțumim,\nIT Bridge School',
+            bodyHtml: null,
+            version: 2,
+        },
+        {
+            key: 'class-cancelled',
+            subject: 'Ora de {{grupa}} din {{data}} nu se ține',
+            bodyText:
+                'Bună, {{parinte}},\n\nOra de {{grupa}} programată pe {{data}} a fost anulată. Vă anunțăm de îndată ce se reprogramează.\n\nIT Bridge School',
+            bodyHtml: null,
+            version: 3,
+        },
+    ]);
+
+    // --- Leads: one per status, because four of the six are never written by a screen ------------
+    // E20/S1 — `trial_scheduled` comes from the booking form, `trial_held` from the register, and
+    // `enrolled`/`lost` from resolving the trial. A seed that only wrote `new` would leave the
+    // funnel report showing a single column and hide exactly the states it exists to count.
+    const leadRepo = dataSource.getRepository(Lead);
+    const birthDate = (yearsAgo: number): Date => {
+        const d = new Date(SEED_TODAY);
+        d.setUTCFullYear(d.getUTCFullYear() - yearsAgo);
+        return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    };
+    await leadRepo.save([
+        leadRepo.create({
+            status: LeadStatus.NEW,
+            source: LeadSource.PHONE,
+            channel: LeadChannel.GOOGLE,
+            parentName: 'Andreea Vasile',
+            parentEmail: 'andreea.vasile@example.com',
+            parentPhone: '+40721000101',
+            childFirstName: 'Rareș',
+            childLastName: 'Vasile',
+            childBirthDate: birthDate(9),
+            experience: 'A făcut Scratch la școală, vrea ceva mai serios.',
+            location: locations[0],
+            lastActivityAt: daysAgo(1),
+            nextActionAt: new Date(),
+        }),
+        leadRepo.create({
+            status: LeadStatus.CONTACTED,
+            source: LeadSource.REFERRAL,
+            channel: LeadChannel.FRIEND,
+            parentName: 'Mihai Coman',
+            parentPhone: '+40721000102',
+            childFirstName: 'Ilinca',
+            childLastName: 'Coman',
+            childBirthDate: birthDate(11),
+            notes: 'Sunat marți. Revine după ce vorbește cu soțul.',
+            assignedTo: admin,
+            location: locations[1],
+            lastActivityAt: daysAgo(3),
+            nextActionAt: new Date(),
+        }),
+        leadRepo.create({
+            status: LeadStatus.TRIAL_SCHEDULED,
+            source: LeadSource.TRIAL_FORM,
+            channel: LeadChannel.INSTAGRAM,
+            parentName: 'Elena Toma',
+            parentEmail: 'elena.toma@example.com',
+            childFirstName: 'Sofia',
+            childLastName: 'Toma',
+            childBirthDate: birthDate(8),
+            group: groups[0],
+            trialSession: upcoming[0] ?? null,
+            location: locations[0],
+            lastActivityAt: daysAgo(2),
+            bookingKey: 'seed-trial-elena-toma',
+        }),
+        leadRepo.create({
+            status: LeadStatus.TRIAL_HELD,
+            source: LeadSource.TRIAL_FORM,
+            channel: LeadChannel.PASSING_BY,
+            parentName: 'Radu Neagu',
+            parentEmail: 'radu.neagu@example.com',
+            parentPhone: '+40721000104',
+            childFirstName: 'Tudor',
+            childLastName: 'Neagu',
+            childBirthDate: birthDate(10),
+            group: groups[2],
+            trialSession: past[0] ?? null,
+            trialHeldAt: daysAgo(4),
+            location: locations[0],
+            lastActivityAt: daysAgo(4),
+            // The one the follow-up screen is built for: the trial happened and nobody has rung.
+            nextActionAt: daysAgo(1),
+        }),
+        leadRepo.create({
+            status: LeadStatus.ENROLLED,
+            source: LeadSource.WALK_IN,
+            parentName: profiles[1] ? `${profiles[1].firstName ?? ''} ${profiles[1].lastName ?? ''}`.trim() : 'Familie înscrisă',
+            childFirstName: children[1]?.firstName ?? 'Maria',
+            childLastName: children[1]?.lastName ?? 'Popescu',
+            childBirthDate: birthDate(9),
+            profile: profiles[1] ?? null,
+            child: children[1] ?? null,
+            group: groups[0],
+            decidedAt: daysAgo(20),
+            lastActivityAt: daysAgo(20),
+        }),
+        leadRepo.create({
+            status: LeadStatus.LOST,
+            source: LeadSource.OTHER,
+            channel: LeadChannel.FLYER,
+            parentName: 'Carmen Dobre',
+            parentPhone: '+40721000106',
+            childFirstName: 'Alex',
+            childLastName: 'Dobre',
+            childBirthDate: birthDate(13),
+            lostReason: 'A ales o școală mai aproape de casă',
+            decidedAt: daysAgo(12),
+            lastActivityAt: daysAgo(12),
+        }),
+        // Demand the school could not serve. Counted apart from every conversion rate, because
+        // somebody who never found an hour never entered one — E20/S2.
+        leadRepo.create({
+            status: LeadStatus.NEW,
+            source: LeadSource.TRIAL_FORM,
+            channel: LeadChannel.GOOGLE,
+            parentName: 'Ioana Sandu',
+            parentEmail: 'ioana.sandu@example.com',
+            childFirstName: 'Matei',
+            childLastName: 'Sandu',
+            childBirthDate: birthDate(7),
+            noSeats: true,
+            notes: 'Nicio oră liberă la nivelul cerut.',
+            lastActivityAt: daysAgo(5),
+        }),
+    ]);
+
+    // --- Announcements, with the outbox rows they produced ---------------------------------------
+    const announcementRepo = dataSource.getRepository(Announcement);
+    const announcements = await announcementRepo.save([
+        announcementRepo.create({
+            audience: AnnouncementAudience.ALL,
+            kind: MessageKind.TRANSACTIONAL,
+            subject: 'Program special în săptămâna vacanței',
+            bodyText: 'Dragi părinți,\n\nÎn săptămâna vacanței de primăvară cursurile nu se țin. Reluăm după, la orele obișnuite.\n\nIT Bridge School',
+            sentBy: admin,
+            recipientCount: profiles.length,
+            declinedCount: 0,
+            dedupeKey: 'seed-announcement-vacanta',
+        }),
+        announcementRepo.create({
+            audience: AnnouncementAudience.GROUP,
+            group: groups[0],
+            kind: MessageKind.MARKETING,
+            subject: 'Atelier de robotică, sâmbătă',
+            bodyText: 'Dragi părinți,\n\nSâmbătă ținem un atelier deschis de robotică. Locurile sunt limitate.\n\nIT Bridge School',
+            sentBy: admin,
+            // A marketing refusal leaves no outbox row, so it is counted on the announcement — a
+            // number derived from the queue would always be zero (E17/S7).
+            recipientCount: 3,
+            declinedCount: 2,
+            dedupeKey: 'seed-announcement-robotica',
+        }),
+    ]);
+
+    // --- The outbox, in all four states -----------------------------------------------------------
+    // `/admin/livrari` is the screen that proves a parent was not silently skipped, so a seed that
+    // only wrote successes would show it doing its job and never doing the job it exists for.
+    const outboxRepo = dataSource.getRepository(OutboxMessage);
+    const withEmail = profiles.filter((profile) => profile.email);
+    await outboxRepo.save([
+        outboxRepo.create({
+            to: withEmail[0]?.email ?? 'parinte@example.com',
+            subject: 'Factura pentru luna aceasta',
+            bodyText: 'Factura este atașată.',
+            status: OutboxStatus.SENT,
+            attempts: 1,
+            sentAt: daysAgo(2),
+            dedupeKey: 'seed-outbox-invoice-1',
+        }),
+        outboxRepo.create({
+            to: withEmail[1]?.email ?? 'parinte2@example.com',
+            subject: 'Ora de sâmbătă a fost anulată',
+            bodyText: 'Ora nu se ține. Vă anunțăm când se reprogramează.',
+            status: OutboxStatus.SENT,
+            attempts: 2,
+            sentAt: daysAgo(1),
+            announcement: announcements[0],
+            dedupeKey: 'seed-outbox-announcement-1',
+        }),
+        outboxRepo.create({
+            to: withEmail[2]?.email ?? 'parinte3@example.com',
+            subject: 'Proiectul copilului',
+            bodyText: 'Găsiți atașat proiectul de săptămâna aceasta.',
+            status: OutboxStatus.PENDING,
+            attempts: 0,
+            dedupeKey: 'seed-outbox-project-1',
+        }),
+        outboxRepo.create({
+            to: withEmail[3]?.email ?? 'parinte4@example.com',
+            subject: 'Memento: factura restantă',
+            bodyText: 'Factura pentru luna trecută este încă neachitată.',
+            status: OutboxStatus.FAILED,
+            attempts: 3,
+            lastError: 'Provider responded 421: try again later',
+            nextAttemptAt: daysAgo(-1),
+            dedupeKey: 'seed-outbox-arrears-1',
+        }),
+        // The row the state exists for: nobody to send to. The address stays empty — inventing one
+        // would be indistinguishable from a real address that bounced (E17/S5).
+        outboxRepo.create({
+            to: '',
+            subject: 'Proiectul copilului',
+            bodyText: 'Găsiți atașat proiectul de săptămâna aceasta.',
+            status: OutboxStatus.UNDELIVERABLE,
+            undeliverableReason: DeliveryFailureReason.NO_ADDRESS,
+            attempts: 0,
+            dedupeKey: 'seed-outbox-undeliverable-1',
+        }),
+    ]);
+
+    // --- Announced absences, and the make-up credits some of them earned ---------------------------
+    // Two halves that only mean something together (E12/S4): an announcement in time plus a register
+    // saying the child was not there. One of each seeded, so both the earned and the unearned case
+    // are visible, and one credit already spent, one still bookable, one expired.
+    const noticeRepo = dataSource.getRepository(AbsenceNotice);
+    const creditRepo = dataSource.getRepository(MakeUpCredit);
+    const childWithGroup = children.filter((child) => child.group);
+
+    if (past.length >= 3 && childWithGroup.length >= 2) {
+        const [firstChild, secondChild] = childWithGroup;
+        const sessionsOfFirst = past.filter((session) => session.group?.id === firstChild.group?.id);
+        const sessionsOfSecond = past.filter((session) => session.group?.id === secondChild.group?.id);
+
+        if (sessionsOfFirst.length >= 2 && sessionsOfSecond.length >= 1) {
+            await noticeRepo.save([
+                noticeRepo.create({
+                    child: firstChild,
+                    classSession: sessionsOfFirst[0],
+                    reason: 'Este răcit, îl ținem acasă.',
+                    inTime: true,
+                    announcedBy: firstChild.parent?.user ?? null,
+                }),
+                noticeRepo.create({
+                    child: secondChild,
+                    classSession: sessionsOfSecond[0],
+                    // Announced after the class had started: eligibility is frozen at write time,
+                    // so this one earns nothing and the screen has to show why.
+                    reason: 'Am uitat să anunț, ne pare rău.',
+                    inTime: false,
+                    announcedBy: secondChild.parent?.user ?? null,
+                }),
+            ]);
+
+            const expiry = (fromDays: number): Date => {
+                const d = new Date(SEED_TODAY);
+                d.setUTCDate(d.getUTCDate() + fromDays);
+                return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+            };
+            const bookable = upcoming.find((session) => session.group?.id === firstChild.group?.id);
+            await creditRepo.save(
+                [
+                    // Earned and still open: 30 days from the class that was missed.
+                    creditRepo.create({ child: firstChild, originSession: sessionsOfFirst[0], expiresOn: expiry(23) }),
+                    // Earned and already booked onto a class — this one occupies a seat there (D7).
+                    bookable
+                        ? creditRepo.create({ child: firstChild, originSession: sessionsOfFirst[1], expiresOn: expiry(16), bookedSession: bookable })
+                        : null,
+                    // Expired, which is not a stored state but a calendar that moved past it. A seed
+                    // without one hides the third of the three readings the screen has to render.
+                    creditRepo.create({ child: secondChild, originSession: sessionsOfSecond[0], expiresOn: expiry(-4) }),
+                ].filter((credit): credit is MakeUpCredit => credit !== null),
+            );
+        }
+    }
 }
 
 /**

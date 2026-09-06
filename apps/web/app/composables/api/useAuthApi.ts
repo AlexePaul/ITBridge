@@ -3,18 +3,18 @@ import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
 import type { ConfirmEmailResponse, LoginResponse } from "~/types/auth.types";
 
-/** Everything `POST /auth/register` requires since E11/S2. Mirrors `RegisterDto`. */
+/**
+ * What `POST /auth/register` requires. Mirrors `RegisterDto`.
+ *
+ * The contact details and the emergency contact are not here: E11/S2 split registration into two
+ * required steps, and the second one posts to `PUT /profiles/:id`.
+ */
 export interface RegistrationPayload {
   username: string;
   password: string;
   firstName: string;
   lastName: string;
   email: string;
-  phone: string;
-  address: string;
-  emergencyContactName: string;
-  emergencyContactRelation: string;
-  emergencyContactPhone: string;
 }
 
 export const useAuthApi = () => {

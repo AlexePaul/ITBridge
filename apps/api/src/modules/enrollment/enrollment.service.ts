@@ -9,6 +9,7 @@ import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
 import { EnrollmentStatus, IN_FORCE_STATUSES, isInForce } from 'src/enum/enrollment-status.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { isAccountActive } from 'src/entities/user.entity';
+import { isProfileComplete } from 'src/entities/profile.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
 import { composeWaitlistOffer } from './waitlist-mail';
@@ -277,6 +278,11 @@ export class EnrollmentService {
         const group = await this.lockGroup(manager, input.groupId);
 
         this.assertParentAccountActive(child);
+        // Only here, not on `transfer`. The rule protects the moment a child first sits in a room
+        // with nobody reachable; a child being moved between groups is already in one, so refusing
+        // the move protects nothing and strands a family the school has had for a year. And it
+        // cannot be dodged by getting enrolled once: this is the door they came through.
+        this.assertParentProfileComplete(child);
         await this.assertNotAlreadyEnrolled(input.childId, manager);
         if (!group.isActive) {
             throw new ConflictException({
@@ -734,6 +740,29 @@ export class EnrollmentService {
             throw new ConflictException({
                 message: 'Contul părintelui nu este activ. Trebuie confirmat prin email și aprobat înainte de înscriere.',
                 error: 'PARENT_ACCOUNT_NOT_ACTIVE',
+            });
+        }
+    }
+
+    /**
+     * The second half of the same gate, once registration became two steps.
+     *
+     * A separate refusal from the one above rather than a wider version of it, because the two are
+     * repaired in different places: an inactive account waits on an admin, an incomplete profile
+     * waits on the parent. Telling a parent "your account is not active" when what is missing is
+     * their own phone number sends them to wait for somebody who has nothing to do.
+     *
+     * Scoped to profiles with an account, exactly like the rule above, and that scoping is load
+     * bearing: the public trial form writes a shell profile with no account, no email and no phone
+     * (E20/S2), and enrols through this same method. Holding it to a standard only a registered
+     * parent can meet would refuse every booking on the one screen built to accept them.
+     */
+    private assertParentProfileComplete(child: Child): void {
+        const parent = child.parent;
+        if (parent?.user && !isProfileComplete(parent)) {
+            throw new ConflictException({
+                message: 'Profilul familiei este incomplet. Completează telefonul, adresa și contactul de urgență înainte de înscriere.',
+                error: 'PARENT_PROFILE_INCOMPLETE',
             });
         }
     }

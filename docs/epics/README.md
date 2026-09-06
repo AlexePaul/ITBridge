@@ -39,11 +39,11 @@ E03 a adus plasa de siguranță: 345 de teste, de la unitare pe logica de factur
 integrare prin HTTP pe Postgres, plus o matrice de autorizare care se generează singură din
 metadatele controllerelor. CI rulează pe fiecare PR.
 
-Testele au scos la iveală trei bug-uri, documentate ca `it.failing` în loc să fie cimentate. Două
-sunt reparate în E04, cu testele întoarse în teste de regresie: restrângerea dublată din
-`findPayments` și crearea unui al doilea profil fără date de contact, care întorcea 409 și bloca
-fluxul de admin. Al treilea — calculul de preț la trei copii — rămâne, fiindcă prețul corect se
-stabilește în [E15](E15-pricing-facturare.md).
+Testele au scos la iveală trei bug-uri, documentate ca `it.failing` în loc să fie cimentate, și
+**toate trei sunt reparate acum**, cu testele întoarse în teste de regresie: restrângerea dublată
+din `findPayments`, crearea unui al doilea profil fără date de contact — care întorcea 409 și bloca
+fluxul de admin —, și calculul de preț, rezolvat în [E15](E15-pricing-facturare.md) S0 și S4 odată
+cu trecerea la prețul pe ședință.
 
 E05 a adus robustețea: validarea chiar rulează și a scos la iveală trei DTO-uri greșite, erorile au
 o formă unică fără SQL în ele, aplicația refuză să pornească prost configurată, refresh tokenurile

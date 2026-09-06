@@ -91,3 +91,41 @@ export function formatPercent(share: unknown): string {
   if (typeof share !== "number" || !Number.isFinite(share)) return "—";
   return `${Math.round(share * 100)}%`;
 }
+
+/**
+ * `"2018-03-16"` → `8`, on a day in September 2026 — the child's age in whole years.
+ *
+ * Integers off the two date strings, never `new Date()`: an ISO date parses as UTC midnight and
+ * comes back a day early east of Greenwich, which is where the school is. One day either side is
+ * enough to move a birthday across a year boundary and put a child in the wrong age band, and the
+ * age band is what the group screens sort on.
+ *
+ * `on` defaults to today, taken from the local clock's own components for the same reason.
+ * Anything that is not a `YYYY-MM-DD` prefix comes back as `null`, which the cell prints as a dash.
+ */
+export function ageOn(birthDate: string, on?: string): number | null {
+  const born = /^(\d{4})-(\d{2})-(\d{2})/.exec(birthDate);
+  if (!born) return null;
+
+  let today = on;
+  if (!today) {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+  const asOf = /^(\d{4})-(\d{2})-(\d{2})/.exec(today);
+  if (!asOf) return null;
+
+  const [, by, bm, bd] = born.map(Number) as unknown as number[];
+  const [, ty, tm, td] = asOf.map(Number) as unknown as number[];
+  let age = ty! - by!;
+  if (tm! < bm! || (tm === bm && td! < bd!)) age -= 1;
+  return age < 0 ? null : age;
+}
+
+/** `8` → `"8 ani"`, `1` → `"1 an"`. The dash when there is no usable date. */
+export function formatAge(birthDate: string, on?: string): string {
+  const age = ageOn(birthDate, on);
+  if (age === null) return "—";
+  return age === 1 ? "1 an" : `${age} ani`;
+}

@@ -1,103 +1,101 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Copii</h1>
-        <p class="text-muted mt-1">{{ subtitle }}</p>
-      </div>
-      <div class="flex items-center gap-3">
-        <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
-          {{ filteredChildren.length }} total
-        </UBadge>
-      </div>
-    </div>
+  <AdminPage title="Copii" :subtitle="subtitle" width="xl">
+    <template #actions>
+      <UBadge color="primary" variant="subtle" size="lg" class="min-h-11 items-center px-4">
+        {{ filteredChildren.length }}
+        {{ filteredChildren.length === 1 ? "copil" : "copii" }}
+      </UBadge>
+    </template>
 
-    <!-- Filters Card -->
-    <UCard class="border">
-      <p class="text-muted text-sm">
-        <UIcon name="i-lucide-chevron-down" class="inline-block ml-1" />
-        Folosește caseta de căutare pentru a filtra copiii după nume, nume părintelui, telefon
-        părinte, email sau ID grup.
-      </p>
-      <div class="grid grid-cols-1 gap-4">
-        <UInput
-          v-model="filters.search"
-          placeholder="Caută după copil, părinte sau grup..."
-          icon="i-lucide-search"
-          color="primary"
-        >
-          <template #trailing>
-            <UButton
-              v-if="filters.search"
-              color="neutral"
-              variant="link"
-              icon="i-lucide-x"
-              :padded="false"
-              @click="filters.search = ''"
-            />
-          </template>
-        </UInput>
-      </div>
-
-      <div class="flex justify-between items-center mt-4 pt-4 border-t">
-        <div class="text-sm text-muted">
-          Afișez {{ filteredChildren.length }} din {{ childrenInSelection.length }} copii
-        </div>
+    <UInput
+      v-model="search"
+      placeholder="Caută după copil, părinte, telefon, email sau #grupă"
+      icon="i-lucide-search"
+      size="lg"
+      class="w-full max-w-xl"
+      :ui="{ base: 'w-full' }"
+    >
+      <template #trailing>
         <UButton
+          v-if="search"
           color="neutral"
-          variant="ghost"
-          icon="i-lucide-refresh-cw"
-          @click="clearFilters"
-          :disabled="!hasActiveFilters"
-        >
-          Șterge Filtre
-        </UButton>
-      </div>
-    </UCard>
+          variant="link"
+          icon="i-lucide-x"
+          aria-label="Șterge căutarea"
+          @click="search = ''"
+        />
+      </template>
+    </UInput>
 
-    <!-- Table Card -->
-    <UCard class="border">
-      <UTable ref="table" :data="filteredChildren" :columns="columns" class="w-full" />
-    </UCard>
-  </div>
+    <AdminLoading v-if="loading" />
+    <AdminError v-else-if="loadError" :message="loadError" />
+    <AdminTable
+      v-else
+      :rows="filteredChildren"
+      :columns="columns"
+      :actions="rowActions"
+      empty-icon="i-lucide-baby"
+      :empty-text="search ? 'Niciun copil nu se potrivește.' : 'Niciun copil încă.'"
+      :empty-description="
+        search ? 'Încearcă alt nume, telefon sau email.' : 'Copiii apar aici după înregistrare.'
+      "
+      @row-click="(child) => navigateTo(`/admin/children/${child.id}/edit`)"
+    />
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
-import type { TableColumn } from "@nuxt/ui";
+import type { DropdownMenuItem } from "@nuxt/ui";
 import type { Child } from "~/types/child.types";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
+import { apiErrorMessage } from "~/composables/useApiError";
+import { formatAge } from "~/composables/useAdminFormat";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { useLocationStore } from "~/stores/locationStore";
+import type { AdminTableColumn } from "~/types/admin-ui.types";
 
-const childrenApi = useChildrenApi();
-const locationStore = useLocationStore();
-const UBadge = resolveComponent("UBadge");
-const UIcon = resolveComponent("UIcon");
-const UDropdownMenu = resolveComponent("UDropdownMenu");
-const UButton = resolveComponent("UButton");
-
+/**
+ * Every child in the school — E18/S5.
+ *
+ * Migrated off the third hand-rolled `h()` table onto `AdminTable`, and the columns changed while
+ * it moved, because consistency alone would have made the same six columns merely tidier:
+ *
+ *  - **the `createdAt` cell printed a raw `2026-09-04T16:40:25.566Z`.** Not formatted — the driver's
+ *    string, straight through. When a child's row was written is not a fact anybody works from;
+ *    it was column three of six.
+ *  - **`#12` in a badge** took a whole column to show a database key. Search still accepts `#` for
+ *    anybody who has one.
+ *  - **one column held four facts**: "Scratch Începători • Luni • 16:00 - 17:30 • Drumul Taberei ·
+ *    Sala 1", which is unreadable in a row and unscannable down a column. Split into group, when
+ *    and where.
+ *  - **age replaces the birth date.** An admin reads this list to place a child, and placement is
+ *    by age band (E11/S6); nobody subtracts years from a date in their head fifteen times.
+ *
+ * The location still travels with the row rather than only in the header: in "toate locațiile" the
+ * table really does mix the two addresses, and "Sala 1" alone would not say which building.
+ */
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
   title: "Copii",
 });
 
-// Data
-const children: Ref<Child[]> = ref([]);
+const childrenApi = useChildrenApi();
+const locationStore = useLocationStore();
 
-// TODO: Fetch children list from API on mount
+const children = ref<Child[]>([]);
+const loading = ref(true);
+const loadError = ref("");
+const search = ref("");
+
 onMounted(async () => {
-  children.value = await childrenApi.fetchChildren();
-});
-
-// Filters
-const filters = ref({
-  search: "",
-});
-
-const hasActiveFilters = computed(() => {
-  return !!filters.value.search;
+  try {
+    children.value = await childrenApi.fetchChildren();
+  } catch (err: unknown) {
+    loadError.value = apiErrorMessage(err, "Nu am putut încărca lista de copii");
+  } finally {
+    loading.value = false;
+  }
 });
 
 /**
@@ -118,158 +116,105 @@ const subtitle = computed(() =>
 );
 
 const filteredChildren = computed(() => {
-  const f = filters.value;
-  let result = [...childrenInSelection.value];
+  const term = search.value.trim().toLowerCase();
+  if (!term) return childrenInSelection.value;
 
-  // Global search across name, parent and group
-  if (f.search) {
-    const s = f.search.toLowerCase();
-    result = result.filter((c) => {
-      if (s[0] === "#") {
-        // If search starts with #, match only by ID
-        return (
-          `${c.group?.id ?? ""}`.toLowerCase().includes(s.slice(1)) || `${c.id}` === s.slice(1)
-        );
-      }
-      const nameMatch = `${c.firstName} ${c.lastName}`.toLowerCase().includes(s);
-      const parentMatch =
-        `${c.parent?.firstName ?? ""} ${c.parent?.lastName ?? ""}`.toLowerCase().includes(s) ||
-        (c.parent?.email ?? "").toLowerCase().includes(s) ||
-        (c.parent?.phone ?? "").includes(s);
-      const groupMatch = `${c.group?.id ?? ""}`.toLowerCase().includes(s);
-      return nameMatch || parentMatch || groupMatch;
-    });
+  // A leading `#` searches the group id and nothing else — the one case where a key is what
+  // somebody has in front of them, usually copied from another screen.
+  if (term.startsWith("#")) {
+    const id = term.slice(1);
+    return childrenInSelection.value.filter(
+      (child) => `${child.group?.id ?? ""}` === id || `${child.id}` === id
+    );
   }
 
-  return result;
+  return childrenInSelection.value.filter((child) => {
+    const parent = child.parent;
+    return (
+      `${child.firstName} ${child.lastName}`.toLowerCase().includes(term) ||
+      `${parent?.firstName ?? ""} ${parent?.lastName ?? ""}`.toLowerCase().includes(term) ||
+      (parent?.email ?? "").toLowerCase().includes(term) ||
+      (parent?.phone ?? "").includes(term) ||
+      (child.group?.name ?? "").toLowerCase().includes(term)
+    );
+  });
 });
 
-const clearFilters = () => {
-  filters.value = { search: "" };
-};
-
-// Table columns
-const columns: TableColumn<Child>[] = [
+const columns: AdminTableColumn<Child>[] = [
   {
-    accessorKey: "id",
-    header: "#",
-    cell: ({ row }) =>
-      h(
-        UBadge,
-        { class: "capitalize", variant: "subtle", color: "primary" },
-        () => `#${row.getValue("id")}`
-      ),
+    key: "name",
+    label: "Nume",
+    icon: "i-lucide-baby",
+    accessor: (child) => `${child.firstName ?? ""} ${child.lastName ?? ""}`.trim(),
   },
   {
-    id: "name",
-    header: () =>
-      h("div", { class: "flex items-center gap-2" }, [
-        h(UIcon, { name: "i-lucide-baby", class: "text-secondary" }),
-        h("span", "Nume"),
-      ]),
-    cell: ({ row }) => {
-      const firstName = row.original.firstName || "";
-      const lastName = row.original.lastName || "";
-      return `${firstName} ${lastName}`.trim() || h("span", { class: "text-muted" }, "N/A");
-    },
+    key: "age",
+    label: "Vârstă",
+    icon: "i-lucide-cake",
+    accessor: (child) => (child.birthDate ? formatAge(child.birthDate) : null),
   },
   {
-    accessorKey: "birthDate",
-    header: () =>
-      h("div", { class: "flex items-center gap-2" }, [
-        h(UIcon, { name: "i-lucide-calendar", class: "text-secondary" }),
-        h("span", "Data Nașterii"),
-      ]),
-  },
-  {
-    accessorKey: "createdAt",
-    header: () =>
-      h("div", { class: "flex items-center gap-2" }, [
-        h(UIcon, { name: "i-lucide-clock", class: "text-secondary" }),
-        h("span", "Creat"),
-      ]),
-  },
-  {
-    id: "parent",
-    header: () =>
-      h("div", { class: "flex items-center gap-2" }, [
-        h(UIcon, { name: "i-lucide-user", class: "text-secondary" }),
-        h("span", "Părinte"),
-      ]),
-    cell: ({ row }) => {
-      const p = row.original.parent;
-      if (!p) return h("span", { class: "text-muted" }, "N/A");
+    key: "parent",
+    label: "Părinte",
+    icon: "i-lucide-user",
+    accessor: (child) => {
+      const parent = child.parent;
+      if (!parent) return null;
       return (
-        `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim() ||
-        p.email ||
-        p.phone ||
-        h("span", { class: "text-muted" }, "N/A")
+        `${parent.firstName ?? ""} ${parent.lastName ?? ""}`.trim() || parent.email || parent.phone
       );
     },
   },
   {
-    id: "group",
-    header: () =>
-      h("div", { class: "flex items-center gap-2" }, [
-        h(UIcon, { name: "i-lucide-users", class: "text-secondary" }),
-        h("span", "Grup"),
-      ]),
-    cell: ({ row }) => {
-      const g = row.original.group;
-      if (!g) return h("span", { class: "text-muted" }, "N/A");
-      // The location belongs here, not only in the header: in "toate locațiile" mode this table
-      // does mix the two addresses, and a row reading "Sala 1" would not say which one.
-      const where = g.room ? ` • ${g.room.location.name} · ${g.room.name}` : "";
-      return `${g.name} • ${getWeekdayName(g.weekday)} • ${formatTime(g.startTime)} - ${formatTime(g.endTime)}${where}`;
+    key: "group",
+    label: "Grupă",
+    icon: "i-lucide-users",
+    type: "badge",
+    accessor: (child) => child.group?.name ?? null,
+    badgeColor: (child) => (child.group ? "primary" : "neutral"),
+  },
+  {
+    key: "when",
+    label: "Când",
+    icon: "i-lucide-clock",
+    accessor: (child) => {
+      const group = child.group;
+      if (!group) return null;
+      return `${getWeekdayName(group.weekday)} ${formatTime(group.startTime)}–${formatTime(group.endTime)}`;
     },
   },
   {
-    id: "actions",
-    enableHiding: false,
-    meta: { class: { td: "text-right" } },
-    cell: ({ row }) => {
-      const items = [
-        { type: "label", label: "Acțiuni" },
-        {
-          type: "link",
-          label: "Vizualizează Părinte",
-          icon: "i-lucide-user",
-          to: `/admin/profiles/${row.original.parent?.id}`,
-        },
-        {
-          type: "link",
-          label: "Editare Copil",
-          icon: "i-lucide-baby",
-          to: `/admin/children/${row.original.id}/edit`,
-        },
-        {
-          type: "link",
-          label: "Șterge Copil",
-          icon: "i-lucide-trash",
-          to: `/admin/children/${row.original.id}/confirmation`,
-        },
-        { type: "separator" },
-        {
-          type: "link",
-          label: "Vizualizează Grup",
-          icon: "i-lucide-users",
-          to: row.original.group ? `/admin/groups` : null,
-          disabled: !row.original.group,
-        },
-      ];
+    key: "where",
+    label: "Unde",
+    icon: "i-lucide-map-pin",
+    accessor: (child) => {
+      const room = child.group?.room;
+      return room ? `${room.location.name} · ${room.name}` : null;
+    },
+  },
+];
 
-      return h(
-        UDropdownMenu,
-        { content: { align: "end" }, items, "aria-label": "Actions dropdown" },
-        () =>
-          h(UButton, {
-            icon: "i-lucide-ellipsis-vertical",
-            color: "neutral",
-            variant: "ghost",
-            "aria-label": "Actions dropdown",
-          })
-      );
-    },
+const rowActions = (child: Child): DropdownMenuItem[] => [
+  { label: "Acțiuni", type: "label" },
+  { label: "Editează copilul", icon: "i-lucide-pencil", to: `/admin/children/${child.id}/edit` },
+  {
+    label: "Vezi părintele",
+    icon: "i-lucide-user",
+    to: child.parent ? `/admin/profiles/${child.parent.id}` : undefined,
+    disabled: !child.parent,
+  },
+  {
+    label: "Vezi grupa",
+    icon: "i-lucide-users",
+    to: child.group ? `/admin/groups/${child.group.id}/children` : undefined,
+    disabled: !child.group,
+  },
+  { type: "separator" },
+  {
+    label: "Șterge copilul",
+    icon: "i-lucide-trash",
+    color: "error",
+    to: `/admin/children/${child.id}/confirmation`,
   },
 ];
 </script>
