@@ -135,27 +135,4 @@ describe('Parent notifications (e2e)', () => {
             expect((await job.notifyCreditsEarned(TODAY)).notified).toBe(1);
         });
     });
-
-    describe('a make-up about to lapse', () => {
-        it('reminds the family seven days out, naming the child and the last day', async () => {
-            await earnCredit();
-
-            // The credit expires 30 days after the missed class; the reminder goes out 7 days
-            // before that.
-            const rows = await dataSource.query<{ expiresOn: string }[]>('SELECT "expiresOn"::text FROM "make_up_credits"');
-            const expires = new Date(`${rows[0].expiresOn}T00:00:00`);
-            const runOn = new Date(expires.getFullYear(), expires.getMonth(), expires.getDate() - 7);
-
-            const result = await job.remindExpiring(runOn);
-
-            expect(result.notified).toBe(1);
-            const mail = await mailTo('parinte.notif@example.com');
-            expect(mail[0].subject).toContain('Maria');
-            expect(mail[0].bodyText).toContain('/user/absente');
-        });
-
-        it('says nothing on any other day', async () => {
-            expect((await job.remindExpiring(TODAY)).notified).toBe(0);
-        });
-    });
 });

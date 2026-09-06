@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, IsNull, Repository } from 'typeorm';
+import { Between, Repository } from 'typeorm';
 import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
@@ -14,20 +14,21 @@ import { SCHOOL_TIME_ZONE } from './absence-notice.rules';
 /**
  * What E12/S7 writes to a parent — the second line, after the teacher's phone call.
  *
- * **Both messages are about a make-up, and neither is about an absence.** There *was* a same-day
+ * **One message, and it is about a make-up rather than about an absence.** There *was* a same-day
  * "your child was not at class" message here, and it was removed: see the note on
  * `notifyCreditsEarned` for the three ways a register that is forgotten, late or mistyped made it
- * unreliable when it was harmless and alarming when it was not.
+ * unreliable when it was harmless and alarming when it was not. There was also a second message,
+ * warning that a credit was about to lapse; it went with the thirty-day window — see the note where
+ * it used to be.
  *
- * Both are **transactional**: a family being told about a right they hold, and about that right
- * lapsing, is the school performing its side. Neither consults `marketingOptIn` (E17/S4), and that
- * is not an oversight — `OutboxService.queueOrRecord` takes no preference at all, so there is no
- * argument this job could pass that would suppress them.
+ * It is **transactional**: a family being told about a right they hold is the school performing its
+ * side. It does not consult `marketingOptIn` (E17/S4), and that is not an oversight —
+ * `OutboxService.queueOrRecord` takes no preference at all, so there is no argument this job could
+ * pass that would suppress it.
  *
- * **The selection is a plain method in both cases.** The cron decides only *when*, exactly as
+ * **The selection is a plain method.** The cron decides only *when*, exactly as
  * `unmarked-attendance.job.ts` and `OutboxDispatcher` do — so every case can be tested against any
- * date without a clock, which matters more here than usual, because both questions are about "today"
- * and "soon".
+ * date without a clock, which matters more here than usual, because the question is about "today".
  *
  * **Must run in exactly one instance**, like every other job here. Two workers would compose the
  * same message twice; the `dedupeKey` makes the second a refused insert rather than a second email,
@@ -43,20 +44,7 @@ import { SCHOOL_TIME_ZONE } from './absence-notice.rules';
  */
 export const EVENING_AT_SEVEN = '0 19 * * *';
 
-/** 09:00 school time, so a reminder about a lapsing right arrives at the start of a usable day. */
-export const MORNING_AT_NINE = '0 9 * * *';
-
-/**
- * How long before a credit lapses the family is told.
- *
- * Seven days, so the reminder contains at least one of the child's own weekly classes to book
- * around, and is far enough out that "we could not find a slot" is still solvable. A day or two
- * would be a notice of death rather than a reminder.
- */
-export const EXPIRY_WARNING_DAYS = 7;
-
 export const EARNED_DEDUPE_PREFIX = 'make-up-earned:';
-export const EXPIRY_DEDUPE_PREFIX = 'make-up-expiring:';
 
 export interface NotificationRunResult {
     /** The day the run is about, `YYYY-MM-DD`. */
@@ -81,11 +69,6 @@ export class ParentNotificationsJob {
         await this.notifyCreditsEarned(this.today());
     }
 
-    @Cron(MORNING_AT_NINE, { timeZone: SCHOOL_TIME_ZONE, disabled: process.env.NODE_ENV === 'test' })
-    async runExpiryReminders(): Promise<void> {
-        await this.remindExpiring(this.today());
-    }
-
     /**
      * Tells a family they have earned a make-up.
      *
@@ -106,7 +89,7 @@ export class ParentNotificationsJob {
      *
      * A credit, by contrast, **cannot alarm anybody**: it is earned only where a family announced in
      * time, so they already know the child was away, and what this tells them is the part they do
-     * not know — that they have an hour to book, and by when. A mistyped register cannot produce
+     * not know — that the hour is owed, and until when. A mistyped register cannot produce
      * one either, because the child whose mark was wrong is not a child whose family announced.
      *
      * Selected by the day the credit was **created**, not by the class it came from, so a register
@@ -160,54 +143,18 @@ export class ParentNotificationsJob {
         return { date, notified };
     }
 
-    /**
-     * Reminds a family that an unused make-up is about to lapse.
+    /*
+     * `remindExpiring` used to live here, and it is gone rather than shortened — E12/S4.
      *
-     * Only credits that are **neither booked nor spent**: a family who has already chosen an hour
-     * needs no nudge, and one who used it needs no reminder about a right they no longer hold.
-     * Exactly `EXPIRY_WARNING_DAYS` out, not "within" — a range would write on every one of the
-     * seven days, which is how a helpful reminder becomes a nuisance.
+     * It warned a family seven days before a thirty-day credit lapsed, so they could go and book an
+     * hour. Both halves of that are now false: the window is the week the class was missed in, which
+     * cannot be announced a week ahead, and the family does not book anything — the office moves the
+     * child. A reminder addressed to somebody who has nothing to press is worse than none.
+     *
+     * What replaces it is an office-facing question, not a family-facing one: which of this week's
+     * announced absences has nobody placed yet? That has no screen and no recipient list, so it is
+     * not smuggled in here — see the open questions in E12.
      */
-    async remindExpiring(day: Date): Promise<NotificationRunResult> {
-        const target = addDays(day, EXPIRY_WARNING_DAYS);
-        const date = toIsoDate(day);
-
-        const expiring = await this.creditRepository.find({
-            where: {
-                expiresOn: target,
-                bookedSession: IsNull(),
-                consumedAttendance: IsNull(),
-            },
-            relations: { child: { parent: true } },
-        });
-
-        let notified = 0;
-        for (const credit of expiring) {
-            const parent = credit.child.parent;
-            if (!parent) continue;
-
-            const mail = await this.mailTemplates.render('make-up-expiring', {
-                firstName: parent.firstName,
-                childName: credit.child.firstName,
-                expiresOn: romanianDate(credit.expiresOn),
-                portalUrl: absencesUrl(),
-            });
-            const queued = await this.outbox.queueOrRecord(
-                { email: parent.email ?? null },
-                {
-                    subject: mail.subject,
-                    bodyText: mail.bodyText,
-                    bodyHtml: mail.bodyHtml ?? undefined,
-                    // Per credit: the reminder goes out once, whatever else runs.
-                    dedupeKey: `${EXPIRY_DEDUPE_PREFIX}${credit.id}`,
-                },
-            );
-            if (queued) notified += 1;
-        }
-
-        this.logger.log(`Make-up credits lapsing on ${toIsoDate(target)}: wrote to ${notified} parent(s).`);
-        return { date, notified };
-    }
 
     /**
      * Today, on the school's clock rather than the host's.

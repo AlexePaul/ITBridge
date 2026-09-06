@@ -64,8 +64,9 @@ describe('MakeUpCreditService', () => {
             const credit = await service.earnFor(5, 9, false);
 
             expect(credit).not.toBeNull();
-            // Thirty days from the class that was missed, frozen at this moment.
-            expect(credit!.expiresOn).toEqual(new Date(2026, 9, 7));
+            // The Sunday closing the week of the class that was missed, frozen at this moment.
+            // 7 September 2026 is a Monday, so the window shuts on the 13th.
+            expect(credit!.expiresOn).toEqual(new Date(2026, 8, 13));
         });
 
         it('a child who was present earns nothing, however early they announced', async () => {
@@ -111,7 +112,7 @@ describe('MakeUpCreditService', () => {
             expect(granted).toBe(3);
             const written = creditRepo.save!.mock.calls[0][0] as { child: { id: number }; expiresOn: Date }[];
             expect(written.map((credit) => credit.child.id)).toEqual([5, 6, 7]);
-            expect(written[0].expiresOn).toEqual(new Date(2026, 9, 7));
+            expect(written[0].expiresOn).toEqual(new Date(2026, 8, 13));
         });
 
         // No notice is looked for, and that is the difference from `earnFor`: nobody was absent
