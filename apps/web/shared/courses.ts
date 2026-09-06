@@ -121,3 +121,23 @@ export const PRICE_TWO_CHILDREN = 600;
 export const SESSION_HOURS = 1.5;
 export const MODULE_WEEKS_MIN = 6;
 export const MODULE_WEEKS_MAX = 8;
+
+/**
+ * How many sessions the monthly figures above describe.
+ *
+ * The unit the school actually charges in is the **session**, not the month — a month with a holiday
+ * genuinely costs less. The monthly numbers are what a normal four-session month comes to, and they
+ * are what the public site quotes, so they stay the ones written down.
+ */
+export const SESSIONS_PER_FULL_MONTH = 4;
+
+/**
+ * The per-session rates, derived rather than written down a second time.
+ *
+ * `apps/api/src/modules/invoice/pricing.ts` is the authority — it is what actually bills a family —
+ * and it derives the same two numbers from the same two monthly figures. Deriving them here too
+ * means the portal cannot quote a rate the invoice does not use: there is one pair of numbers in
+ * this file, and both sides divide it by four.
+ */
+export const FIRST_CHILD_PER_SESSION = PRICE_ONE_CHILD / SESSIONS_PER_FULL_MONTH;
+export const SIBLING_PER_SESSION = (PRICE_TWO_CHILDREN - PRICE_ONE_CHILD) / SESSIONS_PER_FULL_MONTH;

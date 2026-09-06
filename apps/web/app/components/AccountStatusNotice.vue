@@ -1,37 +1,69 @@
 <template>
-  <UCard
-    v-if="notice"
-    class="w-9/12 mx-auto border rounded-none mt-12 z-15 min-h-24"
-    :class="notice.tone === 'warning' ? 'border-warning' : 'border-info'"
-    variant="subtle"
-  >
-    <div
-      class="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-4 py-2"
-    >
-      <div class="flex items-center gap-2 sm:flex-1">
-        <UIcon
-          :name="notice.icon"
-          class="shrink-0 text-xl md:text-2xl lg:text-3xl self-center"
-          :class="notice.tone === 'warning' ? 'text-warning' : 'text-info'"
-        />
-        <div>
-          <p class="font-bold text-lg">{{ notice.title }}</p>
-          <p class="text-sm">{{ notice.body }}</p>
-        </div>
+  <section v-if="gates" class="portal-notice" aria-labelledby="gates-heading">
+    <h2 id="gates-heading" class="portal-label">Contul tău</h2>
+
+    <div class="portal-grid portal-grid-wide gates-grid">
+      <!-- Gate one: the parent confirms their address. -->
+      <div class="portal-card" :class="{ 'portal-card-accent': !gates.emailDone }">
+        <span v-if="gates.emailDone" class="portal-label portal-done">
+          <UIcon name="i-lucide-check" class="gate-tick" />
+          Confirmat
+        </span>
+        <span v-else class="portal-label">De confirmat — la tine</span>
+
+        <p class="portal-card-title">Adresa ta de email</p>
+
+        <p v-if="gates.emailDone" class="body-text">Adresa ta de email este confirmată.</p>
+        <p v-else class="body-text">
+          Ți-am trimis un link de confirmare. Deschide-l ca să confirmi adresa — verifică și dosarul
+          de spam.
+        </p>
+
+        <button
+          v-if="!gates.emailDone"
+          type="button"
+          class="btn btn-primary gate-action"
+          :disabled="resending"
+          @click="onResend"
+        >
+          {{ resending ? "Se trimite…" : "Retrimite linkul" }}
+        </button>
       </div>
 
-      <UButton
-        v-if="notice.canResend"
-        color="warning"
-        variant="outline"
-        :loading="resending"
-        class="whitespace-nowrap self-start sm:self-center"
-        @click="onResend"
-      >
-        Trimite din nou linkul
-      </UButton>
+      <!-- Gate two: an admin recognises the family. Nothing for the parent to do. -->
+      <div class="portal-card">
+        <span v-if="gates.schoolDone" class="portal-label portal-done">
+          <UIcon name="i-lucide-check" class="gate-tick" />
+          Confirmat
+        </span>
+        <span v-else-if="gates.rejected" class="portal-label">Nu am putut confirma</span>
+        <span v-else class="portal-label muted-label">În lucru — la școală</span>
+
+        <p class="portal-card-title">Recunoașterea familiei</p>
+
+        <p v-if="gates.schoolDone" class="body-text">Școala a legat contul de familia ta.</p>
+        <p v-else-if="gates.rejected" class="body-text">
+          Dacă ți se pare o greșeală, scrie-ne sau sună la
+          <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a> și ne uităm încă o
+          dată.
+        </p>
+        <p v-else class="body-text">
+          Un coleg confirmă că ești în evidența școlii. Nu trebuie să faci nimic.
+        </p>
+      </div>
     </div>
-  </UCard>
+
+    <!--
+      What is actually blocked, said plainly. E11/S2 is explicit that an unconfirmed parent can sign
+      in and that the only thing the two gates hold up is placing a child in a group — so a page that
+      merely said "your account is pending" would describe a locked door that is not locked, and a
+      parent would stop looking for the invoice that is right there.
+    -->
+    <p class="portal-empty">
+      Până se închid amândouă, un singur lucru nu e disponibil:
+      <strong>înscrierea unui copil într-o grupă</strong>. Restul contului funcționează normal.
+    </p>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -40,16 +72,19 @@ import { useUserStore } from "~/stores/userStore";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
+import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 
 /**
- * What a parent sees while their account is still behind one of the two gates from E11/S2.
+ * The two gates a new parent's account sits behind — E11/S2, drawn as screen 6c of the E18/S4
+ * design.
  *
- * Without it, a family that registered on a Friday signs in to an empty dashboard: no children, no
- * invoices, no explanation — which reads as a broken site rather than as "we have not got to you
- * yet". The epic calls that out as the cost of having two gates, and this is the other half of the
- * answer, the first being the email to the office.
+ * **Two cards, not one status line.** The gates are two independent columns on `User` and either can
+ * close first; a single sentence would have to pick one of four states to describe and would be
+ * wrong about the other three. Side by side, any combination reads correctly without this component
+ * having to know which combination it is in.
  *
- * Nothing is shown for an active account, and nothing for an admin.
+ * Nothing is shown for an active account, and nothing for an admin — nobody confirms or approves
+ * them.
  */
 const userStore = useUserStore();
 const { resendConfirmation } = useAuthApi();
@@ -57,46 +92,16 @@ const { success, error: notifyError } = useNotifications();
 
 const resending = ref(false);
 
-interface Notice {
-  tone: "warning" | "info";
-  icon: string;
-  title: string;
-  body: string;
-  canResend: boolean;
-}
-
-const notice = computed<Notice | null>(() => {
+const gates = computed(() => {
   const user = userStore.user;
   if (!user || user.role === "ADMIN" || user.active) return null;
 
   // Compared against the literal rather than an imported enum member: `ApprovalStatus` in the
-  // contract is a union of string literals and has no runtime half — see the note on it.
-  if (user.approvalStatus === "REJECTED") {
-    return {
-      tone: "warning",
-      icon: "i-lucide-alert-circle",
-      title: "Contul nu a fost activat.",
-      body: "Dacă ți se pare o greșeală, scrie-ne și ne uităm încă o dată.",
-      canResend: false,
-    };
-  }
-
-  if (!user.emailConfirmed) {
-    return {
-      tone: "warning",
-      icon: "i-lucide-mail",
-      title: "Confirmă-ți adresa de email.",
-      body: "Ți-am trimis un link la înregistrare. Dacă nu îl găsești, verifică și în spam sau cere unul nou.",
-      canResend: true,
-    };
-  }
-
+  // contract is a union of string literals and has no runtime half — see the note on it in CLAUDE.md.
   return {
-    tone: "info",
-    icon: "i-lucide-clock",
-    title: "Contul tău așteaptă aprobarea noastră.",
-    body: "Adresa e confirmată. Te anunțăm pe email imediat ce contul e activ — de obicei în aceeași zi lucrătoare.",
-    canResend: false,
+    emailDone: Boolean(user.emailConfirmed),
+    schoolDone: user.approvalStatus === "APPROVED",
+    rejected: user.approvalStatus === "REJECTED",
   };
 });
 
@@ -112,3 +117,27 @@ const onResend = async () => {
   }
 };
 </script>
+
+<style scoped>
+.gates-grid {
+  margin-top: var(--space-4);
+}
+
+.gate-tick {
+  width: 14px;
+  height: 14px;
+  color: var(--color-accent);
+}
+
+.gate-action {
+  align-self: flex-start;
+  min-height: 44px;
+  margin-top: var(--space-1);
+}
+
+/* The school's side is not addressed to the reader, so its label does not take the accent the
+   reader's own to-do does. */
+.muted-label {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+</style>
