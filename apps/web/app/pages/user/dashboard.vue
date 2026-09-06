@@ -82,6 +82,15 @@
               <!-- The glyph carries the meaning; the legend spells it out, so nothing here
                    depends on telling two colours apart. -->
               <p class="note">✓ prezent · A absent · R recuperare</p>
+              <!-- Four marks is a glance. The month, for the parent who wants one, is a page. -->
+              <p class="note">
+                <NuxtLink
+                  :to="{ path: '/user/prezenta', query: { copil: String(row.child.id) } }"
+                  class="link"
+                >
+                  Vezi luna întreagă →
+                </NuxtLink>
+              </p>
             </template>
             <p v-else class="portal-empty">
               Încă nu există prezențe de arătat pentru {{ row.child.firstName }}.
@@ -131,10 +140,11 @@ import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 /**
  * Acasă — the landing screen of the parent portal. E18/S4, screen 1.
  *
- * It replaces the month calendar that used to live here. The calendar answered "which days did my
- * child attend?", which is a question a parent asks a few times a year; this screen answers "is
- * everything fine?", which is the one they open the portal to ask. Three columns per child — the
- * next class, the last few marks, and anything waiting on them — and every column says in words
+ * It took over the route from the month calendar, which now has its own page at `/user/prezenta`.
+ * The calendar answers "which days did my child attend?", a question a parent asks a few times a
+ * year; this screen answers "is everything fine?", the one they open the portal to ask, and the
+ * recent-attendance column links across for anybody who wants the month. Three columns per child —
+ * the next class, the last few marks, and anything waiting on them — and every column says in words
  * when it has nothing, because an empty column and a column that failed to load look identical.
  *
  * **No number here is invented.** In particular there is no due date on the invoice card: the
