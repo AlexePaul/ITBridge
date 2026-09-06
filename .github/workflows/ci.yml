@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [release/prod]
 
 # A new push on the same PR cancels the previous run - there is no point verifying a commit that
 # another one has already replaced.

@@ -78,8 +78,8 @@ certificatul expiră oricum în ianuarie 2027 și nu e servit de nimeni.
 scos din `package.json`, iar `package-lock.json` regenerat — 203 linii de tranzitive dispărute.
 
 **`.github/workflows/aws.yml` a fost șters, nu rescris.** Decizia din secțiunea de mai jos spune
-„se rescrie", dar rescrierea *este* S4, care nu s-a făcut încă fiindcă nu există instanță EC2.
-Până atunci workflow-ul ar fi rulat la fiecare push pe `main`, către un host inexistent, cu
+„se rescrie", dar rescrierea _este_ S4, care nu s-a făcut încă fiindcă nu există instanță EC2.
+Până atunci workflow-ul ar fi rulat la fiecare push pe ramura publică, către un host inexistent, cu
 `pm2 delete` înaintea lui `pm2 start`. Un workflow rupt care se declanșează automat e mai rău
 decât niciunul. Destinația rămâne EC2; S4 scrie workflow-ul de la zero, în forma cu `pm2 reload`
 și health check.
@@ -103,8 +103,7 @@ Deploy-ul: `git pull`, `pnpm install --frozen-lockfile`, `pnpm build`, migrări,
 `pm2 reload` — **reload, nu delete plus start**, ca să existe repornire fără downtime și ca un
 build eșuat să lase versiunea veche în funcțiune.
 
-**Acceptanță:** un deploy cu build stricat nu întrerupe serviciul. `GET /health` public răspunde
-200. Repornirea VPS-ului readuce aplicația singură, prin `pm2 startup` plus `pm2 save`.
+**Acceptanță:** un deploy cu build stricat nu întrerupe serviciul. `GET /health` public răspunde 200. Repornirea VPS-ului readuce aplicația singură, prin `pm2 startup` plus `pm2 save`.
 
 **Stare: neînceput.** Amânat deliberat până există instanța EC2 — un `ecosystem.config.js` și un
 workflow scrise împotriva unui host imaginar sunt ficțiune, nu infrastructură. Odată cu S4 intră
@@ -144,27 +143,27 @@ al bundle-ului, iar build-ul servit răspunde 200 cu `apiBase` pointat spre back
 `backup-02-01-2026`, `backup-ui-02-01-2026`, `development`, `feature/configure-github-actions-CD`,
 `feature/configure-github-actions-CD-1`, `flyio-new-files` — evaluate, apoi merge-uite sau șterse.
 
-**Acceptanță:** `git branch -r` listează `main` plus branch-urile de lucru active.
+**Acceptanță:** `git branch -r` listează ramura publică plus branch-urile de lucru active.
 
-**Livrat.** Toate zece erau **complet merge-uite în `main`** — zero commit-uri în plus față de ea —
-deci ștergerea nu a pierdut nimic: fiecare commit rămâne accesibil din istoricul lui `main`. Nu a
+**Livrat.** Toate zece erau **complet merge-uite în ramura publică** — zero commit-uri în plus față
+de ea — deci ștergerea nu a pierdut nimic: fiecare commit rămâne accesibil din istoricul ei. Nu a
 fost nevoie să se merge-uiască nimic; evaluarea a fost întreaga decizie.
 
 SHA-urile de la momentul ștergerii, ca referința să existe dacă cineva caută vreodată un branch
 după nume:
 
-| Branch | HEAD | Ultimul commit |
-|---|---|---|
-| `backup-02-01-2026` | `c5027b7` | 2026-01-02 |
-| `backup-ui-02-01-2026` | `de4976c` | 2026-01-02 |
-| `development` | `b81cbc9` | 2026-01-12 |
-| `flyio-new-files` | `e86f4e8` | 2026-01-12 |
-| `feature/docker-image-creation` | `7703747` | 2026-01-17 |
-| `feature/configure-github-actions-CD` | `84f00d0` | 2026-01-21 |
-| `feature/configure-github-actions-CD-1` | `aed01eb` | 2026-03-05 |
-| `docs/onboarding-and-epics` | `bb395e9` | 2026-08-26 |
-| `feat/e01-infrastructure-cleanup` | — | merge-uit prin #9 |
-| `feat/e02-pnpm-workspaces-turborepo` | — | merge-uit prin #10 |
+| Branch                                  | HEAD      | Ultimul commit     |
+| --------------------------------------- | --------- | ------------------ |
+| `backup-02-01-2026`                     | `c5027b7` | 2026-01-02         |
+| `backup-ui-02-01-2026`                  | `de4976c` | 2026-01-02         |
+| `development`                           | `b81cbc9` | 2026-01-12         |
+| `flyio-new-files`                       | `e86f4e8` | 2026-01-12         |
+| `feature/docker-image-creation`         | `7703747` | 2026-01-17         |
+| `feature/configure-github-actions-CD`   | `84f00d0` | 2026-01-21         |
+| `feature/configure-github-actions-CD-1` | `aed01eb` | 2026-03-05         |
+| `docs/onboarding-and-epics`             | `bb395e9` | 2026-08-26         |
+| `feat/e01-infrastructure-cleanup`       | —         | merge-uit prin #9  |
+| `feat/e02-pnpm-workspaces-turborepo`    | —         | merge-uit prin #10 |
 
 Ultimele două nu erau în lista epicului: sunt branch-urile PR-urilor deja merge-uite, șterse din
 aceeași mișcare.
@@ -215,7 +214,7 @@ auto-găzduit pe același VPS e mai ieftin și îți lasă ție restaurarea.
 ## Definition of done
 
 Un dezvoltator nou clonează repo-ul, pornește Postgres cu o comandă, aplicația cu alta, și are
-mediul complet. Un push pe `main` ajunge în producție pe ambele componente, fără downtime. Nu
+mediul complet. Un push pe `release/prod` ajunge în producție pe ambele componente, fără downtime. Nu
 există în repo niciun fișier de infrastructură nefolosit.
 
 ## Decizii luate
@@ -226,9 +225,9 @@ Asta schimbă S2 și S4 față de forma inițială a epicului:
 
 - **`.github/workflows/aws.yml` nu se șterge, se rescrie.** Destinația rămâne aceeași; problema
   nu a fost niciodată EC2, ci lipsa de rollback. Forma nouă: `git pull`, `pnpm install
-  --frozen-lockfile`, `pnpm build`, migrări, `pm2 reload`, health check. Dacă build-ul sau
+--frozen-lockfile`, `pnpm build`, migrări, `pm2 reload`, health check. Dacă build-ul sau
   migrarea eșuează, nu se ajunge la reload și versiunea veche rămâne în funcțiune.
-  *Amendament, la curățenia din S2:* fișierul vechi a fost totuși șters, fiindcă rescrierea e
+  _Amendament, la curățenia din S2:_ fișierul vechi a fost totuși șters, fiindcă rescrierea e
   parte din S4 și până atunci s-ar fi declanșat la fiecare push. Se scrie de la zero în S4.
 - **Postgres pe instanță** înseamnă că backup-ul, restaurarea și actualizările sunt ale voastre.
   [E04](E04-migrari-date.md), S4 — proba de restaurare — devine obligatorie, nu opțională.

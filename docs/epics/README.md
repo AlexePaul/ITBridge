@@ -301,7 +301,7 @@ Fiecare epic are `Status` în antet: `propus` → `acceptat` → `în lucru` →
 în `în lucru` fără ca întrebările deschise din fișier să aibă răspuns.
 
 [E02](E02-monorepo-tooling.md) și [E03](E03-testare-ci.md) sunt `livrate` — la E03, cu o singură
-rezervă: branch protection pe `main` se activează din Settings, nu din repo.
+rezervă: branch protection pe `release/prod` se activează din Settings, nu din repo.
 
 [E05](E05-robustete-backend.md) e `livrat`.
 
