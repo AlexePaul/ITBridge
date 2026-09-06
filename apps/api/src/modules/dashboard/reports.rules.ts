@@ -36,7 +36,16 @@ export const LOST_REVENUE_PER_SEAT_MONTHLY = FIRST_CHILD_MONTHLY;
 /** How many months the finance report covers when the caller does not say. */
 export const DEFAULT_FINANCE_MONTHS = 12;
 
-/** `2026-03-14` (or any `Date`) → `2026-03`. */
+/**
+ * `2026-03-14` (or any `Date`) → `2026-03`. The **calendar** month, plainly.
+ *
+ * This answers "when did the money move", and every caller here is a payment or a report window.
+ * It is deliberately **not** the rule that decides which invoice a class belongs to: a week is
+ * billed to the month its Monday falls in (`teachingMonthOf`, E15/S9), so a lesson on 3 September
+ * can be August work. Money is not taught in a week — it arrives on a day — so the two questions
+ * have two answers and two functions. Merging them would move revenue between months in a report
+ * nobody would think to re-check.
+ */
 export function billingMonthOf(value: Date | string): string {
     if (typeof value === 'string') return value.slice(0, 7);
     return `${value.getFullYear()}-${`${value.getMonth() + 1}`.padStart(2, '0')}`;
