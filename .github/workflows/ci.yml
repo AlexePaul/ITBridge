@@ -2,8 +2,10 @@ name: CI
 
 on:
   pull_request:
-  push:
-    branches: [release/prod]
+  # Called by deploy.yml on a push to a release branch, so the checks and the deploy form one run
+  # and the deploy cannot start on a red commit. Deliberately no `push:` trigger of its own - it
+  # would duplicate every run that deploy.yml already covers.
+  workflow_call:
 
 # A new push on the same PR cancels the previous run - there is no point verifying a commit that
 # another one has already replaced.
