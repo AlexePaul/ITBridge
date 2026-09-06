@@ -259,12 +259,36 @@ repartizarea unui copil într-o grupă (`PARENT_ACCOUNT_NOT_ACTIVE`). **Un cont 
 autentifica** — portalul îi arată ce mai lipsește și butonul de retrimitere a linkului; un login care
 refuză fără să explice ar lăsa familia să nu distingă „încă nu" de „stricat".
 
-**`register` scrie și `Profile`-ul, în aceeași tranzacție.** Nu mai există fereastra în care un cont
-există fără date de contact, deci `/user/profile-setup` nu mai are ce cere unui părinte nou. Celălalt
-drum către un `Profile` — adminul care introduce o familie de la telefon, prin `POST /profiles` —
-rămâne exact cum era, cu toate câmpurile opționale. Sunt două uși cu reguli diferite, fiindcă au
-surse de adevăr diferite. Un test ține fluxul adminului viu, ca să nu fie strâns din greșeală odată
-cu `register`.
+**Înregistrarea are doi pași, iar al doilea nu se poate sări.** `register` cere cinci câmpuri —
+utilizator, parolă, prenume, nume, email — și scrie în aceeași tranzacție contul, un `Profile`
+**coajă** (atât cât să știm cine e și unde pleacă linkul de confirmare), tokenul de confirmare și
+mesajele din outbox. Restul — telefon, adresă și contactul de urgență, toate trei — se cer imediat
+după, pe `/user/profile-setup`, prin `PUT /profiles/:id`, unde sunt **obligatorii**. E11/S2 avusese
+dreptate să strângă cei doi pași într-unul: ecranul al doilea de atunci era _opțional_, deci o
+familie putea rămâne pentru totdeauna fără nicio cale de contact. Dar rezultatul a fost un prim
+ecran cu zece câmpuri obligatorii, fix în epicul în care E20 coboară bariera de intrare — iar cine
+abandonează la câmpul opt nu e o familie cu date incomplete, e o familie pe care școala n-a
+văzut-o. Distincția față de starea dinainte de S2 e tot ce contează: pasul doi e acum de netrecut.
+
+„Complet" nu se stochează, se derivă — `isProfileComplete` din
+`apps/api/src/entities/profile.entity.ts` — din același motiv pentru care nu există o coloană
+„activ": o a treia valoare ar fi liberă să contrazică cele șase câmpuri pe care le rezumă. Pleacă pe
+sârmă ca `CurrentUser.profileComplete`, iar frontend-ul **nu o recalculează**: middleware-ul care
+redirecționează și endpoint-ul care refuză repartizarea trebuie să spună același lucru despre
+aceeași familie.
+
+Poarta e tot repartizarea într-o grupă, dar cu cod propriu: `PARENT_PROFILE_INCOMPLETE`, separat de
+`PARENT_ACCOUNT_NOT_ACTIVE`, fiindcă unul așteaptă un admin și celălalt așteaptă părintele — iar
+trimiterea la ușa greșită înseamnă o familie care așteaptă pe cineva ce n-are ce face. Se verifică
+în `EnrollmentService.enrol`, numai pentru profilurile **care au cont**: programarea publică la
+probă din E20 scrie tot un `Profile` coajă, fără user, fără email și fără telefon, iar o poartă
+oarbă la asta ar închide exact ușa pe care epicul o deschide. Nu se verifică la `transfer`: o
+familie deja înscrisă nu se blochează retroactiv.
+
+Celălalt drum către un `Profile` — adminul care introduce o familie de la telefon, prin
+`POST /profiles` — rămâne exact cum era, cu toate câmpurile opționale. Sunt două uși cu reguli
+diferite, fiindcă au surse de adevăr diferite. Un test ține fluxul adminului viu, ca să nu fie
+strâns din greșeală odată cu `register`.
 
 Protecția se compune per-handler, nu global:
 
