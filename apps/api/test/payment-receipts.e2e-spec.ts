@@ -113,11 +113,7 @@ describe('Payment receipts (e2e)', () => {
         const created = await pay({ amount: 350, status: 'initiated' }).expect(201);
         expect(await receipts()).toHaveLength(0);
 
-        await request(app.getHttpServer())
-            .patch(`/payments/${created.body.id}`)
-            .set('Authorization', admin.auth)
-            .send({ status: 'succeeded' })
-            .expect(200);
+        await request(app.getHttpServer()).patch(`/payments/${created.body.id}`).set('Authorization', admin.auth).send({ status: 'succeeded' }).expect(200);
 
         const rows = await receipts();
         expect(rows).toHaveLength(1);
@@ -138,23 +134,33 @@ describe('Payment receipts (e2e)', () => {
     });
 
     it('records a family with no address rather than skipping them', async () => {
-        // The school's own row: a family entered from a phone call, no account, no email.
+        // The school's own row: a family entered from a phone call — a profile with no account and
+        // no email. It needs an enrolled child, because the amount counts active enrolments and a
+        // zero invoice is written as `waived`, which refuses payments by design (E15).
         const shell = await request(app.getHttpServer())
             .post('/profiles')
             .set('Authorization', admin.auth)
             .send({ firstName: 'Fără', lastName: 'Adresă' })
             .expect(201);
+        const shellId = shell.body.id as number;
+
+        const child = await request(app.getHttpServer())
+            .post('/children')
+            .set('Authorization', admin.auth)
+            .send({ firstName: 'Radu', lastName: 'Adresă', birthDate: '2016-01-01', parentId: shellId })
+            .expect(201);
+        await enrolInNewGroup(app, admin, [child.body.id as number]);
 
         const invoices = await request(app.getHttpServer())
             .post('/invoices')
             .set('Authorization', admin.auth)
-            .send({ parentIds: [shell.body.id as number], dateIssued: '2026-03-01', monthIssued: '2026-03', amount: 350 })
+            .send({ parentIds: [shellId], dateIssued: '2026-03-01', monthIssued: '2026-03' })
             .expect(201);
 
         await request(app.getHttpServer())
             .post('/payments')
             .set('Authorization', admin.auth)
-            .send({ invoiceId: invoices.body[0].id as number, amount: 350, date: '2026-03-05' })
+            .send({ invoiceId: invoices.body[0].id as number, amount: invoices.body[0].amount as number, date: '2026-03-05' })
             .expect(201);
 
         const rows = await receipts();

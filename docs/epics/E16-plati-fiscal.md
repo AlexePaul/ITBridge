@@ -321,6 +321,48 @@ SmartBill, dar prin E17 rămâne evidența livrării într-un singur loc.
 
 **Acceptanță:** părintele primește confirmarea în aceeași zi, fără intervenție.
 
+> **Livrat: confirmarea. Documentul nu — îl blochează S0, ca și pe S5.**
+>
+> Story-ul are două jumătăți și doar una atârna de SmartBill. Cealaltă era o tăcere: până acum,
+> înregistrarea unei încasări schimba factura, scotea familia de pe lista de restanțe și oprea
+> mementourile — și **nu-i spunea nimic celui care tocmai plătise**. `PaymentModule` nici măcar nu
+> importa coada. O familie care dă un transfer bancar și nu aude nimic înapoi n-are cum să
+> deosebească „a ajuns" de „s-a pierdut", iar următorul lucru pe care îl primește e factura lunii
+> următoare.
+>
+> **Chitanța se datorează în clipa în care o plată _devine_ `succeeded`, nu când se scrie un rând
+> în `payments`.** Distincția e toată regula: un admin care trece un transfer ca `initiated` cât
+> timp extrasul e provizoriu n-a primit încă nimic, iar „am primit plata" în acel moment e o
+> promisiune despre banii altcuiva. Deci `createPayment` trimite dacă plata intră direct
+> `succeeded`, iar `updatePayment` trimite dacă tocmai a devenit — o editare pe o plată deja
+> reușită nu retrimite nimic, fiindcă nu a devenit adevărat nimic.
+>
+> **Cât a rămas de plată vine din recalculare, nu dintr-o a doua scădere.**
+> `recomputeInvoiceStatus` returnează acum `{ paid, outstanding, status }`: suma plăților reușite se
+> face acolo oricum, iar un `amount - plăți` scris încă o dată în compozitor ar fi a doua definiție
+> a lui „rest", liberă să se depărteze de cea care tocmai a stabilit starea facturii. Aceeași regulă
+> pe care o respectă S5 și S7, aplicată cu un nivel mai jos.
+>
+> **Două șabloane, nu unul cu `if`:** `payment-received` când factura e acoperită și
+> `payment-received-partial` când mai rămâne ceva, ca `payment-due-soon` și `payment-overdue`. Al
+> doilea spune cifra rămasă, ca familia să n-o afle din următorul memento.
+>
+> **Cheia de deduplicare e `receipt:<id-ul plății>`**, fără ziua din ea — spre deosebire de
+> mementourile din S7, care se repetă prin design și pe care ziua le separă. O plată se confirmă o
+> singură dată. Costul, spus pe față: dacă suma unei plăți e corectată în sus după ce chitanța a
+> plecat, familia rămâne cu o cifră care nu mai e bună — aia e un telefon, nu un al doilea email.
+> La fel, ștergerea unei plăți nu trimite nicio dezmințire.
+>
+> Mesajul se pune în coadă **în tranzacția care înregistrează banii**, cu managerul dat mai departe:
+> chitanța și plata care o justifică se scriu împreună sau deloc. Și trece prin `queueOrRecord`, nu
+> prin `queue`, deci o familie fără adresă lasă un rând `undeliverable` cu motiv, nu o tăcere
+> (E17/S5) — iar `queueMarketing` n-are ce căuta aici: o chitanță e executarea contractului, nu
+> reclamă, deci niciun comutator nu o poate opri.
+>
+> Ce rămâne din story e exact partea blocată: documentul fiscal emis de SmartBill și linkul către
+> PDF-ul lui. Când vine S2, chitanța capătă un link; propoziția pe care o citește familia nu se
+> schimbă.
+
 ### S7 · Restanțe
 
 Un job marchează facturile depășite ca restante și trimite memento-uri după un calendar

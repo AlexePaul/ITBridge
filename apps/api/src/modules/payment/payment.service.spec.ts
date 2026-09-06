@@ -69,7 +69,9 @@ describe('PaymentService', () => {
         outbox = { queueOrRecord: jest.fn(() => Promise.resolve({ id: 1 })) };
         // Echoes the key back as the subject so a test can assert *which* of the two receipts went,
         // without asserting the Romanian wording — that belongs to the template's own spec.
-        templates = { render: jest.fn((key: string, data: Record<string, string>) => Promise.resolve({ subject: key, bodyText: JSON.stringify(data), bodyHtml: null })) };
+        templates = {
+            render: jest.fn((key: string, data: Record<string, string>) => Promise.resolve({ subject: key, bodyText: JSON.stringify(data), bodyHtml: null })),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -303,7 +305,8 @@ describe('PaymentService', () => {
      */
     describe('the receipt', () => {
         /** The values handed to the template, which the mock echoes back as JSON. */
-        const rendered = () => JSON.parse(templates.render.mock.calls[0][1] ? JSON.stringify(templates.render.mock.calls[0][1]) : '{}') as Record<string, string>;
+        const rendered = () =>
+            JSON.parse(templates.render.mock.calls[0][1] ? JSON.stringify(templates.render.mock.calls[0][1]) : '{}') as Record<string, string>;
 
         it('tells the family the invoice is settled when the payment covered it', async () => {
             paidSum = '350';
@@ -349,7 +352,13 @@ describe('PaymentService', () => {
         });
 
         it('confirms an initiated payment at the moment it is marked succeeded', async () => {
-            paymentRepo.findOne!.mockResolvedValue({ id: 11, amount: 350, status: PaymentStatus.INITIATED, date: new Date('2026-03-10'), invoice: invoiceInDb });
+            paymentRepo.findOne!.mockResolvedValue({
+                id: 11,
+                amount: 350,
+                status: PaymentStatus.INITIATED,
+                date: new Date('2026-03-10'),
+                invoice: invoiceInDb,
+            });
             paidSum = '350';
 
             await service.updatePayment(11, { status: PaymentStatus.SUCCEEDED });
@@ -358,7 +367,13 @@ describe('PaymentService', () => {
         });
 
         it('does not confirm again when an already-succeeded payment is edited', async () => {
-            paymentRepo.findOne!.mockResolvedValue({ id: 11, amount: 350, status: PaymentStatus.SUCCEEDED, date: new Date('2026-03-10'), invoice: invoiceInDb });
+            paymentRepo.findOne!.mockResolvedValue({
+                id: 11,
+                amount: 350,
+                status: PaymentStatus.SUCCEEDED,
+                date: new Date('2026-03-10'),
+                invoice: invoiceInDb,
+            });
             paidSum = '350';
 
             await service.updatePayment(11, { externalReference: 'OP 4242' });

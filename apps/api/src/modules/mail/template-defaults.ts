@@ -304,7 +304,9 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
         bodyHtml: htmlFrame(
             [
                 paragraph('Bună, {{firstName}}!'),
-                paragraph('Am înregistrat <strong>{{amount}}</strong> pe {{paidOn}}. Factura pe {{month}} e achitată integral — nu mai ai nimic de plată pe ea.'),
+                paragraph(
+                    'Am înregistrat <strong>{{amount}}</strong> pe {{paidOn}}. Factura pe {{month}} e achitată integral — nu mai ai nimic de plată pe ea.',
+                ),
                 paragraph('Dacă cifrele nu se potrivesc cu ce ai plătit tu, scrie-ne la {{officeEmail}} și verificăm.'),
             ].join('\n'),
         ),
@@ -344,7 +346,9 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
         bodyHtml: htmlFrame(
             [
                 paragraph('Bună, {{firstName}}!'),
-                paragraph('Am înregistrat <strong>{{amount}}</strong> pe {{paidOn}}, mulțumim. Pe factura din {{month}} mai rămân <strong>{{outstanding}}</strong>.'),
+                paragraph(
+                    'Am înregistrat <strong>{{amount}}</strong> pe {{paidOn}}, mulțumim. Pe factura din {{month}} mai rămân <strong>{{outstanding}}</strong>.',
+                ),
                 paragraph(
                     'Nu e nimic de făcut acum dacă așa ați stabilit. Dacă ai plătit mai mult și noi am înregistrat mai puțin, scrie-ne la {{officeEmail}} și verificăm.',
                 ),
