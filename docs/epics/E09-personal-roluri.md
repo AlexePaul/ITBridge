@@ -13,6 +13,12 @@
 > ([E11](E11-inscrieri-capacitate.md) S7). Amândouă sunt scrise ca livrate parțial, cu jumătatea care
 > lipsește numită — nu ca goluri tăcute.
 >
+> **A patra e mai mică și merită numită oricum:** [E12](E12-prezenta-orar.md) S9 caută ferestre
+> libere în orar ca să mute o oră care nu se poate ține, iar „liber" înseamnă acolo doar **sala**.
+> Fără personal în model, nimic nu poate spune că omul care predă e ocupat atunci. Cât timp fiecare
+> sală are profesorul ei, cele două întrebări au același răspuns; în ziua în care nu-l mai au,
+> ecranul va oferi cu convingere o fereastră imposibilă.
+>
 > **A treia nu mai e blocată: [E18](E18-frontend-portal.md) S7 e livrat.** Story-ul cerea un ecran
 > folosit din sală, de pe telefon, iar ecranul acela nu avea nevoie de un rol ca să existe — e o
 > vedere din zona de admin, deschisă de cine ține ora, care aici e tot un admin. Ce ar aduce rolul

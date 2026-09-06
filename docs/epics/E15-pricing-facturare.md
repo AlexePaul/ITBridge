@@ -501,8 +501,11 @@ acoperă o lună.
 Motivul e că școala predă în săptămâni și facturează ce a predat. Tăiată la 1 ale lunii, o
 săptămână ar pune două ședințe ale unei grupe pe o factură și trei pe următoarea, dintr-un motiv
 care n-are nicio legătură cu copilul, cu grupa sau cu orarul. Săptămâna e deja unitatea în restul
-platformei — termenul de anunțare din [E12](E12-prezenta-orar.md) S3 și fereastra de recuperare din
-S4 sunt scrise amândouă în ea — iar asta e aceeași unitate ajungând la bani.
+platformei — termenul de anunțare din [E12](E12-prezenta-orar.md) S3, fereastra de mutare a unui
+copil din S4 și fereastra de reprogramare a unei ore din S9 sunt scrise toate în ea — iar asta e
+aceeași unitate ajungând la bani. Ultima are regula asta drept motiv: o oră de sărbătoare mutată în
+propria săptămână rămâne în aceeași lună facturată, orice ar spune calendarul; mutată peste
+săptămână, ar schimba luna în care se plătește.
 
 Ce iese din regulă, și e proprietatea pe care se sprijină: **lunile consecutive nu se suprapun și nu
 lasă goluri**, fiindcă fiecare săptămână e revendicată de exact o luni. Primele zile ale unei luni
@@ -536,15 +539,16 @@ copil prezent", cele două ar arăta identic în bază — și atunci un catalog
 proastă, tăcut, exact pe ecranul unde se decid banii. O oră care chiar nu s-a ținut se anulează, iar
 ședința anulată nu are catalog și nu se facturează; asta e ușa, și e explicită.
 
-**O recuperare nu se facturează niciodată.** Un copil marcat în altă grupă poartă
-`AttendanceType.MAKE_UP` ([E12](E12-prezenta-orar.md) S4) și consumă un drept câștigat pentru o oră
-deja plătită în grupa lui. La numărătoarea de vacanță intră doar marcajele `regular`, altfel o
-recuperare programată într-o zi de vacanță ar fi taxată a doua oară.
+**O recuperare nu se facturează niciodată.** Un copil pe care biroul l-a mutat pentru o săptămână
+la altă grupă poartă `AttendanceType.MAKE_UP` ([E12](E12-prezenta-orar.md) S4) și stă acolo în locul
+unei ore deja plătite în grupa lui. La numărătoarea de vacanță intră doar marcajele `regular`, altfel
+un copil mutat într-o zi de vacanță ar fi taxat a doua oară.
 
 **O ședință anulată nu are catalog, deci nu se facturează** — și nici nu poate căpăta unul: API-ul
-refuză să anuleze o ședință care are prezențe ([E12](E12-prezenta-orar.md) S5). Asta ține în
-picioare decizia de acolo, că recuperarea la anulare e o bifă și nu un automatism: ora anulată nu
-se facturează oricum, deci creditul pe deasupra e o decizie de preț, nu o reparație.
+refuză să anuleze o ședință care are prezențe ([E12](E12-prezenta-orar.md) S5). Asta e regula care a
+făcut de prisos bifa „dă-le dreptul la o recuperare" de pe ecranul de anulare: familia nu plătește
+ora oricum, deci nu era nimic de reparat cu un credit. Ce mai poate face școala — dacă săptămâna are
+o oră potrivită — e să mute copilul acolo, iar aia e o plasare, nu o decizie de preț.
 
 **Catalogul devine purtător de bani, și e schimbarea cea mai mare din story.** O oră nemarcată nu
 mai e o gaură în evidență, e o oră neîncasată — 87,50 lei de fiecare copil din grupă. Cele două
