@@ -4,35 +4,20 @@ export type {
   AbsenceNotice,
   AnnounceAbsenceDto,
   Attendance,
-  BookMakeUpDto,
-  MakeUpCredit,
-  MakeUpOption,
-  MakeUpStatus,
+  PlaceReplacementDto,
+  ReplacementOption,
   SessionRegister,
   SessionRegisterEntry,
 } from "@itbridge/types";
 
-import type { MakeUpStatus } from "@itbridge/types";
-
-/**
- * Romanian labels for the make-up states — E12/S4. Next to the screens, per the standing rule:
- * the contract package is CommonJS and ships no runtime values.
+/*
+ * `MAKE_UP_STATUS_LABELS` and `MAKE_UP_STATUS_COLORS` used to live here — E12/S4.
+ *
+ * They rendered the four states of a make-up credit: available, booked, consumed, expired. There
+ * is no credit and therefore no state to name. An announced absence either carries the class the
+ * office moved the child into or it does not, and the two read as one sentence each rather than as
+ * a badge — so the words belong in the screen that says them, not in a lookup table.
  */
-export const MAKE_UP_STATUS_LABELS: Record<MakeUpStatus, string> = {
-  available: "Disponibilă",
-  booked: "Programată",
-  consumed: "Folosită",
-  expired: "Expirată",
-};
 
-export const MAKE_UP_STATUS_COLORS: Record<
-  MakeUpStatus,
-  "success" | "info" | "neutral" | "warning"
-> = {
-  available: "success",
-  booked: "info",
-  consumed: "neutral",
-  expired: "warning",
-};
 // A value, not just a type: AttendanceType is an enum and the labels are a lookup table.
 export { AttendanceType, ATTENDANCE_TYPE_LABELS } from "@itbridge/types";

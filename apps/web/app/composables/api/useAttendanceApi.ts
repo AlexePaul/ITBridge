@@ -4,8 +4,7 @@ import type {
   AbsenceNotice,
   AnnounceAbsenceDto,
   Attendance,
-  MakeUpCredit,
-  MakeUpOption,
+  ReplacementOption,
   SessionRegister,
 } from "~/types/attendance.types";
 
@@ -106,39 +105,41 @@ export const useAttendanceApi = () => {
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
-  /** A family's make-up credits, each with its state derived on the server — E12/S4. */
-  const fetchMakeUpCredits = async () =>
-    api<MakeUpCredit[]>("/attendance/make-ups", {
+  /**
+   * This week's announced absences nobody has placed yet — the office's list, E12/S4. Admin only.
+   */
+  const fetchUnplacedAbsences = async () =>
+    api<AbsenceNotice[]>("/attendance/replacements/unplaced", {
       method: "GET",
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
-  /** The classes a credit could be spent on: right age band, free seat, inside the window. */
-  const fetchMakeUpOptions = async (creditId: number) =>
-    api<MakeUpOption[]>(`/attendance/make-ups/${creditId}/options`, {
+  /** The classes this child could be moved into: same week, other group, right age, a free seat. */
+  const fetchReplacementOptions = async (noticeId: number) =>
+    api<ReplacementOption[]>(`/attendance/absences/${noticeId}/replacement-options`, {
       method: "GET",
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
-  /** Books it. The server re-checks everything the options list filtered on. */
-  const bookMakeUp = async (creditId: number, classSessionId: number) =>
-    api<MakeUpCredit>(`/attendance/make-ups/${creditId}/booking`, {
+  /** Records the move and writes to the family. The server re-checks what the options filtered on. */
+  const placeReplacement = async (noticeId: number, classSessionId: number) =>
+    api<AbsenceNotice>(`/attendance/absences/${noticeId}/replacement`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
       body: { classSessionId },
     });
 
-  const cancelMakeUpBooking = async (creditId: number) =>
-    api<MakeUpCredit>(`/attendance/make-ups/${creditId}/booking`, {
+  const clearReplacement = async (noticeId: number) =>
+    api<AbsenceNotice>(`/attendance/absences/${noticeId}/replacement`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
   return {
-    fetchMakeUpCredits,
-    fetchMakeUpOptions,
-    bookMakeUp,
-    cancelMakeUpBooking,
+    fetchUnplacedAbsences,
+    fetchReplacementOptions,
+    placeReplacement,
+    clearReplacement,
     markSessionAttendance,
     updateAttendanceStatus,
     getAttendanceByChild,

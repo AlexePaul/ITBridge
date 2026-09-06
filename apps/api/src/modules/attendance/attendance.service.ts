@@ -8,7 +8,6 @@ import { AttendanceType } from 'src/enum/attendance-type.enum';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { markAttendanceDto } from './dto/markAttendance.dto';
 import { AbsenceNoticeService } from './absence-notice.service';
-import { MakeUpCreditService } from './make-up-credit.service';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
 
 @Injectable()
@@ -18,7 +17,6 @@ export class AttendanceService {
         @InjectRepository(ClassSession) private readonly classSessionRepository: Repository<ClassSession>,
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
         private readonly absenceNoticeService: AbsenceNoticeService,
-        private readonly makeUpCredits: MakeUpCreditService,
         private readonly leadProgress: LeadProgressService,
     ) {}
 
@@ -106,10 +104,9 @@ export class AttendanceService {
         // session, not to the register.
         const saved = await this.attendanceRepository.save(attendanceRecords);
 
-        // E12/S4, after the register is written rather than inside it: a make-up credit is a
-        // consequence of what the marks say, and it must not be able to fail a register.
+        // E20/S3, after the register is written rather than inside it: a lead moving to „probă
+        // ținută" is a consequence of what the marks say, and it must not be able to fail a register.
         for (const record of saved) {
-            await this.settleMakeUp(record.child.id, classSessionId, record, record.present);
             await this.settleLead(record.child.id, classSessionId, record.present);
         }
         return saved;
@@ -218,7 +215,6 @@ export class AttendanceService {
         if (existing) {
             existing.present = present;
             const saved = await this.attendanceRepository.save(existing);
-            await this.settleMakeUp(childId, classSessionId, saved, present);
             await this.settleLead(childId, classSessionId, present);
             return saved;
         }
@@ -231,28 +227,21 @@ export class AttendanceService {
         // Same rule as the bulk endpoint: in the group means regular, anyone else is a make-up.
         record.type = classSession.group.children.some((groupChild) => groupChild.id === childId) ? AttendanceType.REGULAR : AttendanceType.MAKE_UP;
         const saved = await this.attendanceRepository.save(record);
-        await this.settleMakeUp(childId, classSessionId, saved, present);
         await this.settleLead(childId, classSessionId, present);
         return saved;
     }
 
     /**
-     * What a mark does to make-up credits — E12/S4, in one place so the two write paths agree.
-     *
-     * Three things, and each is a different question: an absence may **earn** a credit (announced in
-     * time and then genuinely not there); a correction back to present **revokes** the one the
-     * mistap earned; and turning up at a class you booked **spends** the credit that brought you.
-     * A child marked absent at their booked class spends nothing — they did not come, and the
-     * credit lives out the rest of its window.
-     */
-    /**
      * What a mark does to a lead — E20/S3.
      *
-     * Sits beside `settleMakeUp` and is called from the same two places for the same reason: the
-     * register is the fact, and everything that follows from it has to follow from *both* write
-     * paths or the two would disagree. A child marked present at the class their trial was booked
-     * into moves their lead to „probă ținută"; a correction back to absent moves it back, exactly as
-     * a mistapped make-up credit is revoked.
+     * Called from both write paths for the same reason: the register is the fact, and everything
+     * that follows from it has to follow from *both* or the two would disagree. A child marked
+     * present at the class their trial was booked into moves their lead to „probă ținută"; a
+     * correction back to absent moves it back.
+     *
+     * It is the only thing left that a mark settles. `settleMakeUp` stood beside it and is gone with
+     * the credits — a make-up is now a placement the office records before the class, not a
+     * consequence the register works out afterwards.
      */
     private async settleLead(childId: number, classSessionId: number, present: boolean): Promise<void> {
         if (present) {
@@ -260,15 +249,6 @@ export class AttendanceService {
             return;
         }
         await this.leadProgress.revertTrialHeld(childId, classSessionId);
-    }
-
-    private async settleMakeUp(childId: number, classSessionId: number, attendance: Attendance, present: boolean): Promise<void> {
-        if (present) {
-            await this.makeUpCredits.revokeFor(childId, classSessionId);
-            await this.makeUpCredits.consumeFor(childId, classSessionId, attendance, true);
-        } else {
-            await this.makeUpCredits.earnFor(childId, classSessionId, false);
-        }
     }
 
     async getAttendanceByChild(childId: number, userRole: string, userId: number) {

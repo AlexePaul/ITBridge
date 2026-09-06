@@ -38,15 +38,15 @@ informația nu lasă urmă: nimeni nu poate spune dacă un părinte a fost anun�
 
 Șapte epic-uri depind de existența acestui canal:
 
-| Epic                               | Ce trimite                                          | Cine declanșează              |
-| ---------------------------------- | --------------------------------------------------- | ----------------------------- |
-| [E11](E11-inscrieri-capacitate.md) | loc eliberat de pe lista de așteptare               | eveniment, automat            |
-| [E12](E12-prezenta-orar.md)        | absență, anulare de ședință, recuperare care expiră | eveniment, automat            |
-| [E13](E13-progres-evaluare.md)     | raport de final de modul, certificat                | închiderea modulului, automat |
-| [E14](E14-proiecte-elevi.md)       | documentele copilului                               | **adminul, pe grupă**         |
-| [E15](E15-pricing-facturare.md)    | factură emisă                                       | emiterea, automat             |
-| [E16](E16-plati-fiscal.md)         | confirmare de plată, memento de restanță            | eveniment, plus job programat |
-| [E20](E20-achizitie-lead.md)       | confirmare de programare la lecția de probă         | eveniment, automat            |
+| Epic                               | Ce trimite                                         | Cine declanșează              |
+| ---------------------------------- | -------------------------------------------------- | ----------------------------- |
+| [E11](E11-inscrieri-capacitate.md) | loc eliberat de pe lista de așteptare              | eveniment, automat            |
+| [E12](E12-prezenta-orar.md)        | anulare de ședință, mutare temporară la altă grupă | eveniment, automat            |
+| [E13](E13-progres-evaluare.md)     | raport de final de modul, certificat               | închiderea modulului, automat |
+| [E14](E14-proiecte-elevi.md)       | documentele copilului                              | **adminul, pe grupă**         |
+| [E15](E15-pricing-facturare.md)    | factură emisă                                      | emiterea, automat             |
+| [E16](E16-plati-fiscal.md)         | confirmare de plată, memento de restanță           | eveniment, plus job programat |
+| [E20](E20-achizitie-lead.md)       | confirmare de programare la lecția de probă        | eveniment, automat            |
 
 A treia coloană e o decizie, nu o observație. Tot ce scrie „automat" pleacă fiindcă s-a întâmplat
 ceva în bază: o factură emisă, o ședință anulată, un loc eliberat. Rândul lui

@@ -187,10 +187,10 @@ describe('Trial booking, public (e2e)', () => {
             expect(leads.body[0]).toMatchObject({ noSeats: true, parentName: 'Ioana Popescu' });
         });
 
-        it('hides the date somebody has booked a make-up onto, and keeps the next one', async () => {
+        it('hides the date a visiting child was moved onto, and keeps the next one', async () => {
             // The sharpest version of D7, and the reason seats are counted per class rather than per
-            // group: a child sitting in on a make-up occupies a chair for that hour without being
-            // enrolled in anything. A group with one place left has none at all on that date.
+            // group: a child the office moved here for the week occupies a chair for that hour
+            // without being enrolled in anything. A group with one place left has none on that date.
             const { groupId } = await schoolWithAClass({ capacity: 1 });
             const nextWeek = (() => {
                 const date = new Date();
@@ -212,8 +212,8 @@ describe('Trial booking, public (e2e)', () => {
                 .expect(201);
             const firstSession = before.body[0].sessions[0].id as number;
             await dataSource.query(
-                `INSERT INTO "make_up_credits" ("child_id", "origin_session_id", "booked_session_id", "expiresOn")
-                 VALUES ($1, $2, $3, CURRENT_DATE + 30)`,
+                `INSERT INTO "absence_notices" ("child_id", "class_session_id", "reason", "inTime", "replacement_session_id")
+                 VALUES ($1, $2, 'Răcit', true, $3)`,
                 [visitor.body.id as number, secondSession, firstSession],
             );
 

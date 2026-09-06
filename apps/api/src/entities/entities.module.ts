@@ -15,7 +15,6 @@ import { Room } from './room.entity';
 import { OutboxMessage } from './outbox-message.entity';
 import { MailTemplate } from './mail-template.entity';
 import { AbsenceNotice } from './absence-notice.entity';
-import { MakeUpCredit } from './make-up-credit.entity';
 import { EmailConfirmation } from './email-confirmation.entity';
 import { Enrollment } from './enrollment.entity';
 import { WaitlistEntry } from './waitlist-entry.entity';
@@ -47,7 +46,6 @@ import { Lead } from './lead.entity';
             OutboxMessage,
             MailTemplate,
             AbsenceNotice,
-            MakeUpCredit,
             EmailConfirmation,
             Enrollment,
             WaitlistEntry,

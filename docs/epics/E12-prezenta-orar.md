@@ -297,63 +297,69 @@ prezent în altă grupă" să însemne „și-a consumat recuperarea", nu doar o
 **Acceptanță:** un părinte vede "ai o recuperare disponibilă până pe 20 decembrie" și o programează
 singur, fără telefon.
 
-**Livrat.** `MakeUpCredit` e dreptul, iar bucla e completă: anunți, ești marcat absent, câștigi
-dreptul, îl programezi din portal, vii, se consumă.
+**Livrat, dar nu așa cum cere story-ul — și diferența e tot story-ul.** Nu există drept de
+recuperare. Nu există jeton, termen de valabilitate, ecran de programare și nici stare de consumat.
+Ce există e o coloană: `absence_notices.replacement_session_id`, ora la care **biroul a mutat
+copilul** pentru săptămâna aia.
 
-**Ce înseamnă „absență eligibilă", concret:** un anunț **în termen** (S3) care se întâlnește cu un
-catalog care spune că nu a fost acolo. Niciuna dintre jumătăți nu ajunge singură — o familie care a
-anunțat și a venit totuși a fost prezentă, iar un copil absent fără o vorbă n-a anunțat nimic — și
-exact intersecția asta e definiția. Dreptul nu e un endpoint: se câștigă și se consumă ca **efect al
-marcării**, în `AttendanceService.settleMakeUp`.
+Recuperarea a fost întâi un credit de 30 de zile, apoi un credit de o săptămână, și abia pe urmă s-a
+văzut că nu e un credit deloc. Un jeton descrie o școală în care familia alege ora; a noastră citește
+luni absențele anunțate și **mută copiii între grupe cu mâna**, fiindcă „ce grupă are un scaun liber
+și un profesor care mai poate lua un copil de nouă ani" nu e o interogare. Familia nu alege nimic,
+deci n-are ce ține în mână. I se spune unde să-l aducă.
 
-**Fereastra e săptămâna în care s-a pierdut ora, nu o zi mai mult** (`make-up.rules.ts`). O oră de
-miercuri se recuperează joia sau sâmbăta aceleiași săptămâni, ori nu se recuperează deloc.
+**Fereastra e săptămâna în care s-a pierdut ora, nu o zi mai mult** (`replacement.rules.ts`). O oră
+de miercuri se recuperează joia sau sâmbăta aceleiași săptămâni, ori nu se recuperează deloc. Și asta
+nu mai e o alegere de lungime, ci consecința mutării: un copil nu poate sta cu altă grupă într-o
+săptămână care a trecut, iar școala nu ține o grupă în minus și alta în plus mai mult decât săptămâna
+care a provocat-o.
 
-Asta a înlocuit un credit de 30 de zile, iar diferența nu e un număr mai mic — e alt lucru. Treizeci
-de zile făceau din recuperare un jeton pe care familia îl purta și îl cheltuia când îi convenea, de
-unde și ecranul pe care părintele își alegea singur ora. Școala nu lucrează așa: citește absențele
-săptămânii luni și mută copiii între grupe **pentru săptămâna aia**, deci ce i se datorează unei
-familii e un loc în altă grupă _acum_, nu un drept ținut în sertar.
+Ce s-a șters odată cu creditul, ca listă, fiindcă fiecare punct era cod pe care cineva l-ar putea
+reintroduce din reflex:
 
-Două consecințe care țin greutate:
+- tabela `make_up_credits`, cu tot cu `expiresOn`, `booked_session_id` și `consumed_attendance_id`;
+- `MakeUpCreditService` — câștigare, programare, anulare, consum, expirare;
+- cele patru endpoint-uri prin care părintele își vedea și își programa orele;
+- `AttendanceService.settleMakeUp`: catalogul nu mai produce nicio recuperare, fiindcă mutarea se
+  aranjează **înaintea** orei, nu se deduce după ea;
+- bifa „dă-le copiilor dreptul la o recuperare" de la anularea unei ore (S5);
+- mesajul de seară „ai o oră de recuperare" (S7), înlocuit cu unul trimis în momentul mutării.
 
-- **Nu mai e nicio expirare de anunțat.** O fereastră care se deschide și se închide într-o
-  săptămână nu poate fi anunțată cu o săptămână înainte, iar mesajul care contează e cel care spune
-  unde a fost mutat copilul. Mementoul de expirare din S7 a fost **șters**, nu scurtat — vezi acolo.
+Cinci decizii care se încalcă ușor:
+
+- **`null` înseamnă două lucruri, și calendarul le desparte.** Cât săptămâna e încă în față, „nu s-a
+  ocupat nimeni încă"; după ce a trecut, „nu s-a întâmplat". N-are cine scrie o stare, fiindcă nu e
+  nimic de scris: o coloană de stare ar fi un al doilea loc care spune ce spune deja data.
 - **Termenul din S3 e ce face fereastra asta accesibilă.** Prânzul de luni există exact ca toată
   săptămâna să fie încă înainte când biroul începe să plaseze copii. Cele două reguli se citesc
   împreună sau niciuna n-are sens.
-
-Data rămâne înghețată pe rând la scriere, ca înainte. Aia n-a fost niciodată despre lungimea
-ferestrei, ci despre o familie căreia i s-a spus o dată care nu se mai mișcă sub ea.
-
-Patru decizii care se încalcă ușor:
-
-- **Nu există coloană de stare.** Trei stări se citesc din rând (`consumed_attendance_id` pus =
-  folosită, `booked_session_id` pus = programată, niciuna = disponibilă), iar a patra — expirată — e
-  calendarul care s-a mișcat, ceea ce nu scrie nimeni și n-are ce job s-o măture, fiindcă
-  scheduler-ul n-are unde să ruleze. O coloană de stare ar fi un al doilea loc care spune ce spun
-  deja coloanele, liber să le contrazică.
-- **`expiresOn` se îngheață la scriere**, ca `inTime` la S3: fereastra despre care i s-a spus unei
-  familii nu are voie să se mute când cineva editează regula.
-- **Legătura cu marcajul _este_ starea de „folosită".** `AttendanceType.MAKE_UP` se scria deja singur
-  pentru orice copil marcat în afara grupei lui; acum „a fost prezent în altă grupă" **înseamnă**
-  „și-a consumat recuperarea", nu mai e o observație pe care n-o citește nimic. Un copil marcat
-  absent la ora pe care și-a programat-o **nu** consumă nimic — n-a venit, iar dreptul își trăiește
-  restul ferestrei.
-- **Locul liber se numără pe ședință, nu pe grupă.** Un copil în recuperare stă pe un scaun, la un
-  calculator, exact ca o probă (D7), deci numărătoarea e înscrieri în vigoare **plus** recuperări deja
-  programate pe acea ședință. O grupă plină cu copiii ei n-are loc pentru un vizitator, deși nimeni
-  nu e „înscris" în vizită.
+- **Ce oprește o mutare e ora oferită, nu termenul familiei.** `canBackfill` — ședința de înlocuire
+  n-a început încă. `inTime` rămâne pe rând ca **fapt despre anunț**, nu ca poartă: părintele a sunat
+  luni dimineață, iar dacă cineva de la birou a trecut asta în sistem abia marți, familia nu are de ce
+  să piardă săptămâna pentru o întârziere care n-a fost a ei.
+- **Marcajul nu mai consumă nimic, dar rămâne adevărat.** `AttendanceType.MAKE_UP` se scrie în
+  continuare singur pentru orice copil marcat în afara grupei lui. Nu mai e „și-a folosit dreptul",
+  e ce a fost dintotdeauna: o observație corectă despre unde a stat copilul în ora aia.
+- **Locul liber se numără pe ședință, nu pe grupă.** Un copil mutat temporar stă pe un scaun, la un
+  calculator, exact ca o probă (D7), deci numărătoarea e înscrieri în vigoare **plus** copii deja
+  mutați pe acea ședință. O grupă plină cu copiii ei n-are loc pentru un vizitator, deși nimeni nu e
+  „înscris" în vizită.
 
 **„Același modul" din story nu se verifică, fiindcă modulele nu există** — E10 e scos din MVP. Banda
 de vârstă a grupei gazdă e ce are platforma ca să spună că două grupe predau ceva destul de apropiat,
 și e același semnal pe care îl folosește înscrierea.
 
-**Acceptanța, literal:** în `/user/absente` părintele citește „Disponibilă până pe 7 octombrie" și
-apasă _Programează_, care deschide lista orelor compatibile. Fără telefon. Ce s-a corectat pe drum e
-că lista e o fotografie: la apăsare serverul reverifică tot ce a filtrat ea, fiindcă un loc poate
-pleca între citire și buton.
+**Acceptanța, literal, nu se mai livrează — și e o decizie, nu o scăpare.** „Fără telefon" era
+jumătatea greșită a propoziției: telefonul e exact canalul pe care școala vrea absența, fiindcă
+odată cu ea vine motivul și o conversație despre ce se poate face în săptămâna aia. Ce s-a păstrat
+din intenție e cealaltă jumătate — familia nu trebuie să alerge după nimeni ca să afle unde s-a
+ajuns. În `/user/absente` scrie, fără să întrebe nimeni: „Ana merge la grupa Python, joi 10
+septembrie, ora 18:00".
+
+**Ce a rămas în afara acestui story:** ecranele de birou. Endpoint-urile există și sunt ADMIN
+(`GET /attendance/replacements/unplaced`, `GET /attendance/absences/:id/replacement-options`,
+`PUT`/`DELETE /attendance/absences/:id/replacement`), dar interfața pe care le apasă cineva luni
+dimineața e a lui S6 și a epicei de frontend.
 
 ### S5 · Anulări și mutări
 
@@ -389,12 +395,12 @@ trebuie anunțată de două ori — familia a auzit ultima dată că se ține �
 apasă același buton în aceeași clipă nu. Numărul se citește în tranzacția care scrie, deci amândoi
 văd același și indexul unic îl refuză pe al doilea.
 
-**O recuperare programată pe ora anulată se eliberează în aceeași tranzacție**, iar familia ei e
-anunțată odată cu grupa, în cuvintele ei: programarea nu se mai ține, dreptul rămâne valabil până la
-termenul lui. Fără asta copilul din altă grupă ar fi apărut la o oră care nu se ține, iar ecranul de
-programare ar fi numărat un scaun ocupat. La mutare familia aceea află ora nouă, ca și grupa.
-Reactivarea **nu** retrage creditele acordate la anulare — o familie poate să fi programat deja pe
-ele — și nici nu reface programările eliberate.
+**Un copil mutat temporar pe ora anulată se eliberează în aceeași tranzacție**, iar familia lui e
+anunțată odată cu grupa, în cuvintele ei: ora la care îl trimisesem nu se mai ține, căutăm alta în
+aceeași săptămână. Fără asta copilul din altă grupă ar fi apărut la o oră care nu se ține, iar
+numărătoarea de locuri ar fi ținut un scaun ocupat degeaba. La mutarea unei ore familia aceea află
+ora nouă, ca și grupa. Reactivarea **nu** reface plasările eliberate — între timp biroul poate să fi
+mutat copilul în altă parte, iar a-l trimite înapoi fără să întrebe e cum ar afla familia ultima.
 
 Reactivarea are și ea mesaj, și nu e un lux: familiile au fost anunțate că ora nu se ține, deci una
 pusă la loc fără să spună nimeni e o schimbare pe care o vede doar școala, iar rezultatul e o sală
@@ -403,18 +409,17 @@ goală.
 Acceptanța de cinci minute rămâne a dispecerului, care pornește odată cu
 [E01](E01-infrastructura-medii.md) S4 — mesajele se scriu, dar coada nu rulează continuu nicăieri.
 
-**Recuperarea la anulare e o bifă, nu un automatism — și e o decizie de preț.** Story-ul cere ca
-toți copiii să primească drept de recuperare când ora se anulează. Între timp, E15/S0 a mutat prețul
-pe ședință ținută, numărată de mână la emitere: **o oră anulată nu se facturează oricum**. Un credit
-pe deasupra dă familiei a patra lecție la prețul a trei — lucru pe care școala îl vrea probabil
-pentru un profesor bolnav și probabil nu pentru o marți cu zăpadă. Deci întreabă, o dată, pe ecranul
-de anulare, iar propoziția din emailul părintelui se schimbă odată cu bifa.
+**Recuperarea la anulare nu mai e nici bifă, nici automatism — nu mai e nimic.** Story-ul cerea ca
+toți copiii să primească drept de recuperare când ora se anulează, iar o vreme asta a fost o bifă pe
+ecranul de anulare, ca decizie de preț. Amândouă au dispărut cu creditul din S4, și pe bună dreptate:
+întrebarea la care răspundeau primeau acum răspuns din alte două reguli, fără să aleagă nimeni.
+**O oră fără catalog nu se facturează nimănui** (E15/S9), deci familia nu plătește o lecție pe care
+n-a primit-o; iar dacă săptămâna mai are o oră potrivită, biroul mută copilul acolo — o plasare pe
+care o face cineva după aceea, nu o casetă bifată în timp ce anulează.
 
-Creditul se scrie prin `MakeUpCreditService.grantForCancellation`, **ușă separată de `earnFor`**:
-aia întreabă dacă familia a anunțat în termen și copilul chiar a lipsit, ceea ce e întrebarea
-potrivită pentru o oră care s-a ținut. Aici ora nu s-a ținut, nimeni n-a lipsit de nicăieri și nu
-există niciun anunț de căutat — reutilizarea lui `earnFor` ar fi însemnat slăbirea definiției lui
-„câștigat" pentru toată lumea, adică exact ce ține strâns S4.
+Câmpul `grantMakeUpCredits` e **scos din DTO, nu ignorat**: validarea rulează cu
+`forbidNonWhitelisted`, deci un client care încă îl trimite primește 400 în loc să creadă că a cerut
+ceva.
 
 **Mutarea există acum**: `PUT /class-sessions/:id/move` — altă zi, altă oră, altă sală, oricare din
 ele, cu motiv obligatoriu exact ca la anulare. E o editare a rândului, nu un rând nou — stare de
@@ -508,19 +513,23 @@ singură, intenționat: două definiții ale lui „nemarcat" ar diverge, iar ce
 pe care o citește emailul, fiindcă la ea nu se uită nimeni. Endpoint-ul nu are încă ecran — deci
 lista se poate cere, dar nu se vede nicăieri în admin.
 
-**Livrate acum și notificările către părinte** — a doua linie din story, cea de după telefonul
-profesorului. Două, în `parent-notifications.job.ts`, și **amândouă sunt despre recuperare, niciuna
-despre absență**:
+**Livrată acum și notificarea către părinte** — a doua linie din story, cea de după telefonul
+profesorului. **Una singură, și e despre mutare, nu despre absență.** Nu are job și nu are oră:
+pleacă în clipa în care biroul mută copilul, din `ReplacementService.place`, fiindcă propoziția utilă
+e „adu-o joi la grupa Python" și e utilă din minutul în care cineva a decis-o — luni, pentru o oră de
+joi.
 
-- **Recuperare câștigată → familia află în seara aceleiași zile.** La 19:00, ora școlii.
-- ~~**Recuperare care expiră → memento cu șapte zile înainte.**~~ **Șters odată cu fereastra de o
-  săptămână din S4.** Avertiza o familie cu șapte zile înainte ca un credit de treizeci de zile să
-  expire, ca să apuce să-și programeze o oră. Ambele jumătăți au devenit false: fereastra e acum
-  săptămâna orei pierdute, care nu se poate anunța cu o săptămână înainte, iar familia nu-și mai
-  programează nimic — biroul mută copilul. Un memento adresat cuiva care n-are ce apăsa e mai rău
-  decât niciunul. Ce l-ar înlocui e o întrebare **către birou**, nu către familie: care dintre
-  absențele anunțate săptămâna asta n-au fost încă plasate? Aia n-are ecran și n-are destinatar,
-  deci nu s-a strecurat aici — vezi [Întrebări deschise](#întrebări-deschise).
+Două mesaje care au stat aici și nu mai stau:
+
+- ~~**Recuperare câștigată → familia află în seara aceleiași zile.**~~ Un job de seară la 19:00, care
+  citea creditele scrise în ziua aia. Nu se mai câștigă nimic, deci n-are ce anunța; ce știe familia
+  acum e unde merge copilul, iar aia se știe înainte de oră, nu după.
+- ~~**Recuperare care expiră → memento cu șapte zile înainte.**~~ Șters mai devreme, odată cu
+  fereastra de o săptămână. Avertiza o familie ca să apuce să-și programeze o oră, iar familia nu-și
+  programează nimic. Ce l-ar înlocui e o întrebare **către birou**, nu către familie: care dintre
+  absențele anunțate săptămâna asta n-au fost încă plasate? Aia are acum un endpoint
+  (`GET /attendance/replacements/unplaced`) și n-are încă ecran — vezi
+  [Întrebări deschise](#întrebări-deschise).
 
 **A existat aici și un mesaj „copilul tău n-a fost azi la curs", și a fost scos.** Merită scris de
 ce, fiindcă e o decizie, nu o simplificare. Mesajul citea `Attendance.present = false`, iar catalogul
@@ -537,34 +546,24 @@ Costurile nu sunt simetrice. O notificare care nu ajunge costă puțin: cazul ur
 profesorului de pe ecranul de prezență (S6), care se întâmplă cât ora e încă în desfășurare. O
 notificare care ajunge greșit costă o familie speriată.
 
-**Recuperarea câștigată nu poate alarma pe nimeni**, și de asta a luat locul: se câștigă doar acolo
-unde familia a anunțat în termen, deci ea știe deja că cel mic a lipsit, iar mesajul îi spune partea
-pe care n-o știe — că are o oră de recuperat și până când. Un catalog greșit tastat nici n-o poate
-produce, fiindcă copilul al cărui marcaj e greșit nu e un copil a cărui familie a anunțat. Iar dacă
-marcajul e corectat, `revokeFor` retrage creditul înainte de rularea de seară — fereastra pe care
-vechiul mesaj n-o avea.
-
-**Selecția se face după ziua în care creditul a fost creat**, nu după ziua orei pierdute, deci un
-catalog completat cu două zile întârziere ajunge totuși la familie în seara în care e completat.
+**Mesajul despre mutare nu poate alarma pe nimeni**, și de asta a luat locul: pleacă doar acolo unde
+familia a anunțat deja absența, deci ea știe că cel mic lipsește, iar mesajul îi spune partea pe care
+n-o știe — unde să-l aducă în schimb. Un catalog greșit tastat nici n-o poate produce, fiindcă nu
+catalogul o produce: o produce un om de la birou care mută un copil.
 
 **Un rezumat săptămânal de absențe a fost cântărit și lăsat pentru [E17](E17-comunicare-notificari.md)
 S6.** Ar rezolva și greșelile de tastare (se corectează până vineri) și completările târzii, dar
 conținutul lui e slab: îi spune unui părinte care își aduce copilul la ușă exact ce știe deja.
-Digest-ul își merită locul când poate căra ceva — absențe, recuperări, factura care vine — și ăla e
-mecanismul din S6, nu jumătatea lui cea mai puțin interesantă construită separat. Doar creditele **neprogramate și
-neconsumate**: cine și-a ales deja ora n-are nevoie de un ghiont, iar cine a folosit-o n-are nevoie
-de un memento despre un drept pe care nu-l mai are. **Exact** la șapte zile, nu „în interval de" —
-un interval ar scrie în fiecare din cele șapte zile, și așa devine un memento util o pacoste.
-Șapte fiindcă fereastra mai conține cel puțin o oră proprie a copilului de care să se agațe
-programarea, și e destul de devreme cât „n-am găsit oră" să mai fie rezolvabil.
+Digest-ul își merită locul când poate căra ceva — absențe, mutări, factura care vine — și ăla e
+mecanismul din S6, nu jumătatea lui cea mai puțin interesantă construită separat.
 
-**Amândouă sunt tranzacționale** și nu consultă preferința de marketing din
+**Mesajul e tranzacțional** și nu consultă preferința de marketing din
 [E17](E17-comunicare-notificari.md) S4 — nici n-ar avea cum: `queueOrRecord` nu primește deloc
-preferința. O familie care a refuzat noutățile află în continuare că cel mic n-a ajuns la oră. Și
-niciunul din job-uri nu se ramifică pe adresă: o familie fără email lasă un rând `undeliverable` în
-evidența din S5, în loc să fie sărită tăcut.
+preferința. O familie care a refuzat noutățile află în continuare unde a fost mutat cel mic. Și nu se
+ramifică pe adresă: o familie fără email lasă un rând `undeliverable` în evidența din S5, în loc să
+fie sărită tăcut.
 
-Textele sunt șabloane E17/S2, deci școala le poate rescrie fără deploy.
+Textul e un șablon E17/S2, deci școala îl poate rescrie fără deploy.
 
 **Mementoul zilnic NU e cel de la minutul 15 și nu-l înlocuiește.** Sunt două întrebări diferite,
 care se aseamănă doar la nume:
@@ -655,8 +654,8 @@ un rând.
 
 **Ce nu face bifa:** nu anulează ședința, nu scutește pe nimeni de catalog și nu schimbă cine ocupă
 un loc — un copil venit în vacanță stă pe scaunul lui ca în orice altă zi, la fel ca o probă sau o
-recuperare (D7). Nu atinge nici drepturile de recuperare: o absență într-o zi bifată nu produce
-nimic de recuperat, fiindcă familia aia nici nu plătește ora.
+recuperare (D7). Nu atinge nici mutările: o absență într-o zi bifată nu produce nimic de recuperat,
+fiindcă familia aia nici nu plătește ora.
 
 **Acceptanță:** o ședință bifată apare marcată în catalogul de pe telefon și în `/admin/orar`, bifa
 se pune și se scoate dintr-o apăsare, iar `GET /attendance/session/:id/register` o întoarce — de
@@ -668,8 +667,8 @@ acolo o citește numărătoarea din [E15](E15-pricing-facturare.md) S9.
 
 **S1 și mementoul zilnic s-au livrat fără el.** Ședințele se generează din orarul grupei, iar cine e
 în grupă se citește azi din `Child.group`, o singură referință — atât cere un orar. Dependența rămâne
-reală pentru S3 și S4: „a avut dreptul la o recuperare" e o afirmație despre o înscriere, cu început
-și sfârșit, nu despre apartenența de moment la o grupă.
+reală pentru S3 și S4: „a fost mutat la altă grupă în săptămâna aia" e o afirmație despre o
+înscriere, cu început și sfârșit, nu despre apartenența de moment la o grupă.
 
 **[E10](E10-curriculum-module.md) nu mai e o dependență, fiindcă nu mai e.** S1 îl cerea pentru modul
 și lecție; a fost tăiat de patron ca ne-MVP, iar S1 s-a livrat fără ele, cu prețul scris acolo:
@@ -678,9 +677,9 @@ orizont rulant în loc de generare pe durata modulului.
 **[E17](E17-comunicare-notificari.md) e necesar pentru S5 și S7.** Amândouă au acceptanțe care se
 măsoară într-un mesaj ajuns la cineva: anularea unei ședințe notifică toată grupa în sub cinci
 minute, iar părintele află de o absență neanunțată în aceeași zi. Fără canal, S5 poate livra cel
-mult anularea și drepturile de recuperare, iar din S7 rămân doar butonul de apel și mementoul din
-interfață — partea care ajunge la părinte fără ca el să deschidă portalul lipsește. Aceeași
-dependență ține și mesajul de recuperare câștigată.
+mult anularea în sine, iar din S7 rămân doar butonul de apel și mementoul din interfață — partea care
+ajunge la părinte fără ca el să deschidă portalul lipsește. Aceeași dependență ține și mesajul care
+spune unde a fost mutat copilul.
 
 **Ce s-a schimbat: canalul există, dar n-are unde să ruleze.** Mementoul zilnic a cerut din E17 exact
 cât îi trebuia, deci S1 și S3 de acolo sunt livrate parțial, în `apps/api/src/modules/mail/`:
@@ -697,7 +696,10 @@ locul unde să ruleze; și lipsesc în continuare șabloanele din E17 S2.
 ## Riscuri
 
 **Regulile de recuperare sunt o decizie de business, nu tehnică.** Prea generoase și se umplu
-grupele cu recuperări; prea stricte și părinții se simt înșelați după ce au plătit un modul întreg.
+grupele cu vizitatori; prea stricte și părinții se simt înșelați după ce au plătit o lună întreagă.
+Școala le-a fixat: anunț până luni la 12:00, mutare în aceeași săptămână, atât. Riscul care rămâne e
+al doilea — o familie care anunță marți nu primește nimic, și cineva de la birou va trebui să spună
+asta la telefon.
 
 ## Definition of done
 
@@ -713,9 +715,13 @@ De la [E15](E15-pricing-facturare.md) S9, „prezența completă" nu mai e nici 
 evidență: o ședință fără catalog e o ședință neîncasată, deci lista de nemarcate se citește cu alți
 ochi.
 
-Restul e neatins și rămâne așa până se decid alte lucruri: recuperările urmăribile cer S3 și S4,
-adică o regulă de business pe care patronul n-a dat-o încă; anulările care notifică cer un loc unde
-să ruleze coada, adică [E01](E01-infrastructura-medii.md) S4.
+Al doilea e atins altfel decât cerea propoziția. Nu există „drept de recuperare urmăribil", fiindcă
+nu există drept: e urmăribilă **mutarea** — care copil a fost trimis la ce grupă, în ce săptămână, și
+care absență anunțată n-a fost încă plasată. Regula de business care lipsea aici a venit între timp
+de la școală, și e cea din S3 și S4.
+
+Al treilea rămâne neatins: anulările care notifică cer un loc unde să ruleze coada, adică
+[E01](E01-infrastructura-medii.md) S4. Mesajele se scriu; nu pleacă.
 
 ## Decizii luate
 
@@ -795,6 +801,14 @@ business. Motivul: un `.env` nu poate varia pe locație sau pe modul și cere re
 schimbare. Cu stratul intermediar, mutarea regulilor într-un tabel editabil de admin devine
 înlocuirea sursei, nu rescrierea logicii.
 
+**Decizia asta a căzut de două ori, și a doua oară de tot.** Întâi odată cu E10: fără module, nu mai
+există „per modul" de numărat și nici „valabilitate în module". Apoi odată cu S4: nu mai există nici
+lucrul pe care îl numărau. Nu se ține un plafon de recuperări pentru că nu se acordă recuperări —
+biroul mută un copil la altă grupă pentru o săptămână, iar ce limitează mutările nu e o cifră din
+configurație, ci câte scaune are grupa gazdă în ora aia. Cele trei variabile de mai sus nu există
+nicăieri în cod și nu trebuie reintroduse: singurele două numere ale regulii — luni, 12:00 — sunt
+constante în `absence-notice.rules.ts`, unde o schimbare se vede în diff.
+
 **S2 devine mai important decât părea.** Calendarul de vacanțe nu mai e doar pentru a sări ședințe:
 după [E10](E10-curriculum-module.md), vacanțele _delimitează modulele_, deci calendarul determină
 ce se facturează și când. Cele două epicuri se implementează împreună.
@@ -826,12 +840,15 @@ Un profesor care vede prețul lângă numele copilului marchează altfel.
 
 Niciuna nu ține pe loc ce s-a livrat; fiecare spune ce blochează.
 
-- Recuperarea se poate face în cealaltă locație? **Blochează S4**, și e o decizie de business.
-- **Cine îi spune biroului ce absențe din săptămâna asta n-au fost încă plasate?** Mementoul care
-  avertiza familia despre o expirare a fost șters odată cu fereastra de treizeci de zile (S7), și
-  întrebarea care rămâne e a biroului, nu a familiei. N-are ecran, n-are destinatar și n-are oră.
-  **Nu blochează regula**, care e livrată; blochează faptul că cineva poate uita să mute un copil
-  și nimic nu-l întreabă.
+- Mutarea se poate face în cealaltă locație? **Nu blochează S4**, care e livrat: azi lista de ore
+  oferite nu se uită deloc la adresă, deci le arată pe amândouă. Rămâne deschisă fiindcă e o decizie
+  de business — un părinte care conduce douăzeci de minute în plus într-o săptămână oarecare poate să
+  prefere să piardă ora — și fiindcă azi biroul e cel care o ia, de la caz la caz, uitându-se la
+  numele locației din listă.
+- **Cine îi spune biroului ce absențe din săptămâna asta n-au fost încă plasate?** Întrebarea are
+  acum răspuns — `GET /attendance/replacements/unplaced` — dar n-are cine s-o pună: endpoint-ul nu e
+  legat de niciun ecran și nimic nu-l citește la o oră fixă. **Nu blochează regula**, care e livrată;
+  blochează faptul că cineva poate uita să mute un copil și nimic nu-l întreabă.
 - Cine reînnoiește orizontul de opt săptămâni, și când? Azi e o cerere HTTP pe care o face un
   dezvoltator. Variantele sunt un buton în admin sau un cron lângă cel de la ora 10:00 — al doilea e
   aproape gratuit acum, dar are aceeași problemă ca restul: cere un proces care rulează continuu.

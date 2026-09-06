@@ -1,7 +1,7 @@
 import { AttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
 import { AbsenceNoticeService } from './absence-notice.service';
-import { MakeUpCreditService } from './make-up-credit.service';
+import { ReplacementService } from './replacement.service';
 import { buildController, requestOf } from 'src/testing/controller.spec-helpers';
 import { Role } from 'src/enum/role.enum';
 
@@ -17,7 +17,7 @@ describe('AttendanceController', () => {
             },
             [
                 { provide: AbsenceNoticeService, useValue: absenceNotices },
-                { provide: MakeUpCreditService, useValue: makeUpCredits },
+                { provide: ReplacementService, useValue: replacements },
             ],
         );
 
@@ -30,11 +30,11 @@ describe('AttendanceController', () => {
     };
 
     /** E12/S4's service — the controller only forwards to it. */
-    const makeUpCredits = {
-        listFor: jest.fn().mockResolvedValue([]),
+    const replacements = {
+        unplaced: jest.fn().mockResolvedValue([]),
         optionsFor: jest.fn().mockResolvedValue([]),
-        book: jest.fn().mockResolvedValue({ id: 1 }),
-        cancelBooking: jest.fn().mockResolvedValue({ id: 1 }),
+        place: jest.fn().mockResolvedValue({ id: 1 }),
+        clear: jest.fn().mockResolvedValue({ id: 1 }),
     };
 
     it('getAttendanceByChild receives the role and user id from the token', async () => {
@@ -60,9 +60,18 @@ describe('AttendanceController', () => {
         expect(absenceNotices.announce.mock.calls[0].slice(-2)).toEqual([Role.PARENT, 42]);
     });
 
-    it('bookMakeUp forwards the session from the body and the caller from the token', async () => {
+    it('placeReplacement forwards the notice from the path and the session from the body', async () => {
+        // No role and no user id, unlike every parent-facing call above: placing a child is the
+        // office's, the guard has already said so, and there is nobody else the service could ask
+        // about. What used to be here forwarded a caller because a parent booked their own hour.
         const { controller } = await build();
-        await controller.bookMakeUp(4, { classSessionId: 12 }, requestOf(Role.PARENT, 42));
-        expect(makeUpCredits.book).toHaveBeenCalledWith(4, 12, Role.PARENT, 42);
+        await controller.placeReplacement(4, { classSessionId: 12 });
+        expect(replacements.place).toHaveBeenCalledWith(4, 12);
+    });
+
+    it('clearReplacement forwards only the notice', async () => {
+        const { controller } = await build();
+        await controller.clearReplacement(4);
+        expect(replacements.clear).toHaveBeenCalledWith(4);
     });
 });

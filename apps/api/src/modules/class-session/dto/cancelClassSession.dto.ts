@@ -1,5 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsOptional, IsString, Length } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, Length } from 'class-validator';
 
 export class CancelClassSessionDto {
     /**
@@ -12,20 +12,17 @@ export class CancelClassSessionDto {
     @Length(3, 500)
     reason: string;
 
-    /**
-     * Whether every child in the group gets the hour back — E12/S5.
+    /*
+     * `grantMakeUpCredits` used to be here, and it is gone rather than defaulted — E12/S4.
      *
-     * Asked rather than assumed, because it is a pricing decision and the two common cases differ.
-     * The invoice counts sessions held, so a cancelled class already costs the family nothing; a
-     * make-up on top gives them a fourth lesson for three lessons' money. Worth it for a teacher
-     * who fell ill, arguably not for a snowed-out Tuesday — and only the person cancelling knows
-     * which one this is.
+     * It asked whether every child in the group should be handed a credit for the hour that did not
+     * happen. There are no credits to hand out. What replaced the question is two rules that answer
+     * it without anybody choosing: a class with no register is billed to nobody (E15/S9), so the
+     * family is not paying for a lesson they did not get; and if the week still has a class that
+     * fits, the office moves the child into it, which is a placement somebody makes rather than a
+     * checkbox somebody ticks while cancelling.
      *
-     * Defaults to false: the sentence in the parent's email changes with it, and the message that
-     * promises nothing is the one that cannot promise wrongly.
+     * The DTO validates with `forbidNonWhitelisted`, so a client still sending the old field gets a
+     * 400 rather than being quietly ignored — which is the point of removing it here.
      */
-    @ApiPropertyOptional({ description: 'Grant every child in the group a make-up credit for the cancelled hour', default: false })
-    @IsOptional()
-    @IsBoolean()
-    grantMakeUpCredits?: boolean;
 }
