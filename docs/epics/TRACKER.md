@@ -3,7 +3,7 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 2 septembrie 2026, pe `develop`, cu E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5 mergeate.
+**Ultima actualizare:** 2 septembrie 2026, pe `release/stage`, cu E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5 mergeate.
 
 ## Legendă
 

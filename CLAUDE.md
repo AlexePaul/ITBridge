@@ -25,29 +25,34 @@ profesorii acolo (E14 S2). Se construiește cu `pnpm --filter agent build`; inst
 
 ## Cele două branch-uri
 
-**`release/prod` e site-ul public. `develop` e restul.**
+**`release/prod` e site-ul public. `release/stage` e restul.**
 
 Vercel servește `release/prod`, iar paginile publice nu ating backend-ul — de asta site-ul stă în
 producție deși API-ul nu e deployat nicăieri. Tot ce e după autentificare — portalul, zona de admin,
-întreg `apps/api` de după E08 — trăiește pe `develop` și rămâne acolo până există instanța de care
-are nevoie ([E01](docs/epics/E01-infrastructura-medii.md), S4).
+întreg `apps/api` de după E08 — trăiește pe `release/stage` și rămâne acolo până există instanța de
+care are nevoie ([E01](docs/epics/E01-infrastructura-medii.md), S4).
 
 În `release/prod` intră doar ce afectează site-ul public și poate fi verificat fără backend:
 conținut, SEO, performanță, corecturi de interfață publică. Se aduc prin cherry-pick, nu prin merge
-din `develop` — un merge ar trage în producție jumătate de platformă care n-are unde să ruleze.
+din `release/stage` — un merge ar trage în producție jumătate de platformă care n-are unde să
+ruleze.
 
 **Documentația din `docs/` și fișierul ăsta sunt identice pe ambele branch-uri**, fiindcă descriu
 proiectul, nu ramura. Deci pe `release/prod` vei citi despre module care nu există în arborele de
-sub tine — `enrollment`, `project`, `storage` — și e în regulă: sunt pe `develop`. Ce **nu** e în
-regulă e ca cele două copii ale documentației să divergă; dacă atingi una, adu-o și pe cealaltă.
+sub tine — `enrollment`, `project`, `storage` — și e în regulă: sunt pe `release/stage`. Ce **nu** e
+în regulă e ca cele două copii ale documentației să divergă; dacă atingi una, adu-o și pe cealaltă.
 
-**Branch-ul public s-a numit `main` până la redenumirea din septembrie 2026.** E o redenumire, nu un
-branch nou: același istoric, aceleași SHA-uri. Într-o clonă mai veche:
+**Amândouă numele sunt noi: `main` → `release/prod` și `develop` → `release/stage`, septembrie
+2026.** Sunt redenumiri, nu branch-uri noi — același istoric, aceleași SHA-uri — deci un mesaj de
+commit, un titlu de PR sau un paragraf mai vechi care spune `main` sau `develop` vorbește despre
+ele. Pe origin nu mai există niciunul dintre numele vechi. Într-o clonă mai veche:
 
 ```bash
 git branch -m main release/prod
+git branch -m develop release/stage
 git fetch origin
 git branch -u origin/release/prod release/prod
+git branch -u origin/release/stage release/stage
 git remote set-head origin -a
 ```
 
