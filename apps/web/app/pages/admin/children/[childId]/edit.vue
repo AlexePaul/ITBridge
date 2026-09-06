@@ -19,39 +19,14 @@
 
       <UFormField name="birthDate">
         <template #label>Data Nașterii</template>
-        <UInputDate ref="inputDate" v-model="state.birthDate">
-          <template #trailing>
-            <UPopover :reference="inputDate?.inputsRef?.[3]?.$el">
-              <UButton
-                color="neutral"
-                variant="link"
-                size="sm"
-                icon="i-lucide-calendar"
-                aria-label="Select a date"
-                class="px-0"
-              />
-
-              <template #content>
-                <UCalendar v-model="state.birthDate" class="p-2" />
-              </template>
-            </UPopover>
-          </template>
-        </UInputDate>
+        <AdminDateField v-model="state.birthDate" :max="today" />
       </UFormField>
 
-      <div class="flex gap-3 pt-2">
-        <UButton type="submit" size="lg" class="flex-1 justify-center" variant="solid"
-          >Salvează Modificări</UButton
-        >
-        <UButton
-          type="button"
-          variant="subtle"
-          size="lg"
-          class="flex-1 justify-center"
-          @click="handleCancel"
-          >Anulează</UButton
-        >
-      </div>
+      <AdminFormActions
+        submit-label="Salvează modificări"
+        cancel-to="/admin/children"
+        :loading="saving"
+      />
     </UForm>
   </UCard>
 
@@ -135,7 +110,6 @@ import * as z from "zod";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import type { Child } from "~/types/child.types";
 import { useChildrenStore } from "~/stores/childrenStore";
-import { parseDate } from "@internationalized/date";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { normalizeName } from "~/composables/useUtils";
@@ -145,9 +119,10 @@ import { ENROLLMENT_STATUS_LABELS } from "~/types/enrollment.types";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { useGroupsStore } from "~/stores/groupsStore";
 import { apiErrorMessage } from "~/composables/useApiError";
+import { DATE_KEY_PATTERN } from "~/composables/useDateField";
+import { todayKey } from "~/composables/useAttendanceCalendar";
 
 const route = useRoute();
-const inputDate = ref();
 const childrenStore = useChildrenStore();
 const childrenApi = useChildrenApi();
 const enrollmentsApi = useEnrollmentsApi();
@@ -160,6 +135,9 @@ const { error: notifyError } = useNotifications();
 
 const history = ref<Enrollment[]>([]);
 const historyLoading = ref(true);
+const saving = ref(false);
+/** Nobody enrols a child who is not born yet; the calendar stops at today. */
+const today = todayKey();
 const transferTargetId = ref<number | undefined>();
 const transferring = ref(false);
 
@@ -190,7 +168,7 @@ definePageMeta({
 const schema = z.object({
   firstName: z.string().min(1, "Prenumele este obligatoriu"),
   lastName: z.string().min(1, "Numele este obligatoriu"),
-  birthDate: z.any().optional(),
+  birthDate: z.string().regex(DATE_KEY_PATTERN, "Data nașterii nu este validă").optional(),
 });
 
 type Schema = z.output<typeof schema>;
@@ -199,7 +177,7 @@ const state = reactive<{
   id: number;
   firstName: string;
   lastName: string;
-  birthDate?: any;
+  birthDate?: string;
   createdAt: string;
 }>({
   id: 0,
@@ -217,7 +195,7 @@ onMounted(async () => {
     state.id = child.id;
     state.firstName = child.firstName;
     state.lastName = child.lastName;
-    state.birthDate = parseDate(child.birthDate);
+    state.birthDate = child.birthDate;
     state.createdAt = child.createdAt;
   }
 
@@ -260,24 +238,21 @@ async function handleTransfer() {
 
 async function handleSubmit(event: FormSubmitEvent<Schema>) {
   const childId = Number(route.params.childId);
-  // Prepare payload without createdAt (cannot be edited)
-  const birthDate = event.data.birthDate;
-  const formattedDate =
-    birthDate instanceof Date ? birthDate.toISOString().split("T")[0] : birthDate?.toString?.();
-
-  const payload = {
-    firstName: normalizeName(event.data.firstName),
-    lastName: normalizeName(event.data.lastName),
-    birthDate: formattedDate,
-  };
-
-  await childrenApi.updateChild(childId, payload);
-  success("Copilul a fost actualizat cu succes");
-
-  await navigateTo("/admin/children");
-}
-
-function handleCancel() {
-  navigateTo("/admin/children");
+  saving.value = true;
+  try {
+    // `createdAt` stays out of the payload: it cannot be edited. The birth date is already the
+    // `YYYY-MM-DD` the API takes — `AdminDateField` keeps it that way.
+    await childrenApi.updateChild(childId, {
+      firstName: normalizeName(event.data.firstName),
+      lastName: normalizeName(event.data.lastName),
+      birthDate: event.data.birthDate,
+    });
+    success("Copilul a fost actualizat cu succes");
+    await navigateTo("/admin/children");
+  } catch (err) {
+    notifyError("Copilul nu s-a putut salva", apiErrorMessage(err));
+  } finally {
+    saving.value = false;
+  }
 }
 </script>

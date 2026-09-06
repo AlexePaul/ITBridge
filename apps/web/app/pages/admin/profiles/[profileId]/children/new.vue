@@ -19,39 +19,10 @@
 
       <UFormField name="birthDate">
         <template #label>Data Nașterii<span class="text-error">*</span></template>
-        <UInputDate ref="inputDate" v-model="state.birthDate">
-          <template #trailing>
-            <UPopover :reference="inputDate?.inputsRef?.[3]?.$el">
-              <UButton
-                color="neutral"
-                variant="link"
-                size="sm"
-                icon="i-lucide-calendar"
-                aria-label="Select a date"
-                class="px-0"
-              />
-
-              <template #content>
-                <UCalendar v-model="state.birthDate" class="p-2" />
-              </template>
-            </UPopover>
-          </template>
-        </UInputDate>
+        <AdminDateField v-model="state.birthDate" :max="today" />
       </UFormField>
 
-      <div class="flex gap-3 pt-2">
-        <UButton type="submit" size="lg" class="flex-1 justify-center" variant="solid"
-          >Adaugă Copil</UButton
-        >
-        <UButton
-          type="button"
-          variant="subtle"
-          size="lg"
-          class="flex-1 justify-center"
-          @click="handleCancel"
-          >Anulează</UButton
-        >
-      </div>
+      <AdminFormActions submit-label="Adaugă copil" :cancel-to="profileUrl" :loading="saving" />
     </UForm>
   </UCard>
 </template>
@@ -59,16 +30,15 @@
 <script setup lang="ts">
 import * as z from "zod";
 import type { FormSubmitEvent } from "@nuxt/ui";
-import { useProfileApi } from "~/composables/api/useProfileApi";
-import type { Profile } from "~/types/profile.types";
 import { useNotifications } from "~/composables/useNotifications";
-import { getLocalTimeZone, today } from "@internationalized/date";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { normalizeName } from "~/composables/useUtils";
+import { apiErrorMessage } from "~/composables/useApiError";
+import { DATE_KEY_PATTERN } from "~/composables/useDateField";
+import { todayKey } from "~/composables/useAttendanceCalendar";
 
 const route = useRoute();
 const { success, error } = useNotifications();
-const inputDate = ref();
 const childrenApi = useChildrenApi();
 
 definePageMeta({
@@ -77,10 +47,17 @@ definePageMeta({
   title: "Adaugă Copil",
 });
 
+const profileUrl = `/admin/profiles/${route.params.profileId}`;
+/** Nobody enrols a child who is not born yet; the calendar stops at today. */
+const today = todayKey();
+const saving = ref(false);
+
 const schema = z.object({
   firstName: z.string().min(1, "Prenumele este obligatoriu"),
   lastName: z.string().min(1, "Numele este obligatoriu"),
-  birthDate: z.any(),
+  birthDate: z
+    .string({ error: "Data nașterii este obligatorie" })
+    .regex(DATE_KEY_PATTERN, "Data nașterii este obligatorie"),
 });
 
 type Schema = z.output<typeof schema>;
@@ -91,35 +68,23 @@ const state = reactive<Partial<Schema>>({
   birthDate: undefined,
 });
 
-const displayFormatter = (value: any) => {
-  if (!value) return "";
-  const date = value instanceof Date ? value : new Date(value);
-  return isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat("en-GB").format(date); // dd/mm/yyyy
-};
-
 async function handleSubmit(event: FormSubmitEvent<Schema>) {
+  saving.value = true;
   try {
-    const birthDate = event.data.birthDate;
-    const formattedDate =
-      birthDate instanceof Date ? birthDate.toISOString().split("T")[0] : birthDate?.toString?.();
-
-    const childData = {
+    const payload = {
       firstName: normalizeName(event.data.firstName),
       lastName: normalizeName(event.data.lastName),
-      birthDate: formattedDate,
-      parentId: parseInt(route.params.profileId as string),
+      // Already the `YYYY-MM-DD` the API takes — `AdminDateField` keeps it that way.
+      birthDate: event.data.birthDate,
+      parentId: Number(route.params.profileId),
     };
-
-    await childrenApi.createChild(childData);
-
+    await childrenApi.createChild(payload);
     success("Copilul a fost adăugat cu succes!");
-    await navigateTo(`/admin/profiles/${route.params.profileId}`);
-  } catch (err: any) {
-    error(err.message || "Eroare la adăugarea copilului");
+    await navigateTo(profileUrl);
+  } catch (err) {
+    error("Copilul nu s-a putut adăuga", apiErrorMessage(err));
+  } finally {
+    saving.value = false;
   }
-}
-
-function handleCancel() {
-  navigateTo(`/admin/profiles/${route.params.profileId}`);
 }
 </script>

@@ -326,10 +326,10 @@ se calculează din componentele celor două string-uri, niciodată printr-un `ne
 în plus sau în minus mută o aniversare peste an și un copil în altă bandă de vârstă.
 
 **Rămân pentru S5b** — migrarea celorlalte ecrane, planificată de catalog: salvarea de la v2 a
-celor două formulare, măturarea de limbă (dropdown-uri în engleză, „No data"), `AdminDateField`
-(izolarea hack-ului fragil de popover din children/edit), bara de filtre (trei forme incompatibile
-azi — se extrage după ce migrarea arată care supraviețuiește) și grila de carduri (cinci ecrane,
-patru semantici; înainte de orice partajare, `GroupCard` trebuie mutat pe `occupancyOf` — D7).
+celor două formulare, măturarea de limbă (dropdown-uri în engleză, „No data"), bara de filtre
+(trei forme incompatibile azi — se extrage după ce migrarea arată care supraviețuiește) și grila
+de carduri (cinci ecrane, patru semantici; înainte de orice partajare, `GroupCard` trebuie mutat
+pe `occupancyOf` — D7).
 
 **A doua trecere, tot în S5b.** Ce a adus, în afară de ecranele migrate:
 
@@ -355,6 +355,19 @@ Ecrane migrate în trecerea asta: `attendance/group/index`, `attendance/children
 `locations/new`, `locations/[locationId]/edit`, `profiles/index`, `profiles/new`,
 `profiles/[profileId]/edit`, cele două ecrane de confirmare a ștergerii, `approvals/index` și
 `payments/index`. **25 din 42 de ecrane sunt acum pe componente.**
+
+**`AdminDateField` a intrat, a treia trecere.** Cele două formulare de copil lipiseră exemplul din
+documentația Nuxt UI: un `UInputDate` cu un `UPopover` ancorat la `inputsRef?.[3]?.$el` — al
+patrulea segment intern al câmpului, care în `ro` e un separator și în orice altă ordine a
+segmentelor e altceva, citit printr-un ref pe care componenta doar se întâmplă să-l expună.
+Componenta ancorează calendarul la propriul înveliș, deci nu citește nimic din interiorul lui
+`UInputDate`. Modelul ei e string-ul `YYYY-MM-DD` de pe sârmă, prin `dateKeyToCalendar` /
+`calendarToDateKey` din `useDateField.ts` — pure, ținute de vitest, fără niciun `Date` —, deci
+formularele nu mai trec valoarea aleasă prin `toISOString()`, capcana UTC din CLAUDE.md, iar data
+de naștere se cere acum în schemă, nu abia la server. Calendarul se închide la alegere, nu
+deselectează ziua deja aleasă și nu oferă zile din viitor; butonul își spune numele în română.
+Cele două formulare au primit odată cu ea `AdminFormActions`, deci `loading` pe salvare; shell-ul
+și istoricul înscrierilor din `children/edit` rămân de migrat, așa că numărătoarea nu se mișcă.
 
 ### S6 · Accesibilitate — livrat parțial (verificarea automată, livrată)
 
