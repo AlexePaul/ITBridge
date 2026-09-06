@@ -26,6 +26,22 @@ describe('Parent notifications (e2e)', () => {
     const TODAY = new Date();
     const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+    /**
+     * A class in the week that has not started yet — the Tuesday of next week.
+     *
+     * The deadline of E12/S3 is Monday noon of the class's own week, so "a couple of days ahead"
+     * is only in time on some days of the week: run on a Wednesday, a class two days out is a
+     * Friday whose Monday is already gone, no credit is earned and the whole suite fails for a
+     * reason that has nothing to do with what it tests. Next week's Monday is always still ahead.
+     */
+    const nextWeekTuesday = () => {
+        const monday = new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate());
+        // `getDay()` is 0 on Sunday; the Monday that opens the *next* week is 8 days on from it.
+        const toNextMonday = monday.getDay() === 0 ? 1 : 8 - monday.getDay();
+        monday.setDate(monday.getDate() + toNextMonday);
+        return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 1);
+    };
+
     beforeAll(async () => {
         const created = await createTestApp();
         app = created.app;
@@ -65,9 +81,8 @@ describe('Parent notifications (e2e)', () => {
         dataSource.query<{ subject: string; bodyText: string }[]>('SELECT "subject", "bodyText" FROM "outbox" WHERE "to" = $1 ORDER BY id DESC', [address]);
 
     /** Announce a future class in time, then be marked absent at it — the only way to earn one. */
-    const earnCredit = async (daysAhead = 2) => {
-        const when = new Date(Date.now() + daysAhead * 86400000);
-        const session = await createClassSession(dataSource, groupId, { date: iso(when) });
+    const earnCredit = async () => {
+        const session = await createClassSession(dataSource, groupId, { date: iso(nextWeekTuesday()) });
         await request(app.getHttpServer())
             .post('/attendance/absences')
             .set('Authorization', parent.auth)

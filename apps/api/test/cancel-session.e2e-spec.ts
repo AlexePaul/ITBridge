@@ -105,8 +105,9 @@ describe('Cancelling a class session (e2e)', () => {
 
         const rows = await credits();
         expect(rows.map((row) => row.child_id).sort((a, b) => a - b)).toEqual([...childIds].sort((a, b) => a - b));
-        // Thirty days from the class that did not happen.
-        expect(rows[0].expires_on).toBe('2027-05-05');
+        // The end of the week the class did not happen in — the Sunday after this Monday. E12/S4:
+        // a make-up is a place in another group that same week, so it cannot outlive the week.
+        expect(rows[0].expires_on).toBe('2027-04-11');
 
         const [message] = await queued();
         expect(message.bodyText).toContain('recuperare');

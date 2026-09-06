@@ -23,10 +23,21 @@ describe('Make-up credits (e2e)', () => {
     let missedSessionId: number;
     let hostSessionId: number;
 
-    /** Tomorrow and next week, in local components — the same discipline the API uses. */
-    const iso = (offsetDays: number) => {
+    /**
+     * A day of **next** week, counted from its Monday, in local components — the same discipline
+     * the API uses.
+     *
+     * Everything here is anchored to a week that has not begun rather than to "today plus n",
+     * because both rules of E12 are about weeks and not about days. The notice is due by Monday
+     * noon *of the class's own week*, so a class two days out is in time on a Sunday and hopeless
+     * on a Wednesday; and the credit is spent inside that same week, so a host class five days out
+     * is compatible on a Monday and out of the window on a Thursday. Anchored to next Monday, both
+     * hold on every day CI might run.
+     */
+    const iso = (daysAfterNextMonday: number) => {
         const d = new Date();
-        d.setDate(d.getDate() + offsetDays);
+        // `getDay()` is 0 on Sunday, whose week opened six days ago: its next Monday is tomorrow.
+        d.setDate(d.getDate() + (d.getDay() === 0 ? 1 : 8 - d.getDay()) + daysAfterNextMonday);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     };
 
@@ -64,15 +75,16 @@ describe('Make-up credits (e2e)', () => {
             .expect(201);
         hostGroupId = host.body.id as number;
 
-        // **Tomorrow, not today.** A credit is earned only from a notice that arrived before the
-        // class started, so a missed class dated today makes this whole suite depend on the hour
-        // CI happens to run at: before 16:00 Bucharest it passes, after it does not, and the
-        // failure looks like a bug in the credit machinery rather than in the fixture. A class in
-        // the future is always announceable in time. Marking a future class absent is allowed —
-        // the register refuses only cancelled sessions — and what is under test here is the
-        // credit, not when registers are taken.
-        missedSessionId = await createClassSession(dataSource, ownGroupId, { date: iso(1) });
-        hostSessionId = await createClassSession(dataSource, hostGroupId, { date: iso(5) });
+        // **Next week, not this one.** A credit is earned only from a notice that arrived before
+        // the deadline, and the deadline is the Monday noon of the class's own week — so a missed
+        // class in the current week makes this whole suite depend on the day CI happens to run:
+        // Sunday passes, Wednesday does not, and the failure looks like a bug in the credit
+        // machinery rather than in the fixture. A week that has not opened is always announceable
+        // in time, and the host class sits inside it, which is what the window now asks. Marking a
+        // future class absent is allowed — the register refuses only cancelled sessions — and what
+        // is under test here is the credit, not when registers are taken.
+        missedSessionId = await createClassSession(dataSource, ownGroupId, { date: iso(0) });
+        hostSessionId = await createClassSession(dataSource, hostGroupId, { date: iso(3) });
     });
 
     const announce = () =>
@@ -160,19 +172,21 @@ describe('Make-up credits (e2e)', () => {
             request(app.getHttpServer()).put(`/attendance/make-ups/${creditId}/booking`).set('Authorization', user.auth).send({ classSessionId: sessionId });
 
         it("refuses the child's own group — that is their lesson, not a make-up", async () => {
-            const ownLater = await createClassSession(dataSource, ownGroupId, { date: iso(7) });
+            const ownLater = await createClassSession(dataSource, ownGroupId, { date: iso(4) });
             const res = await book(ownLater).expect(400);
             expect(res.body.code).toBe('MAKE_UP_SAME_GROUP');
         });
 
-        it('refuses a class beyond the thirty-day window', async () => {
-            const far = await createClassSession(dataSource, hostGroupId, { date: iso(45) });
+        it('refuses a class in the following week — the window closes with the week', async () => {
+            // The Monday after the missed class: one day past the Sunday that ends the window, and
+            // the case the thirty-day credit used to allow.
+            const far = await createClassSession(dataSource, hostGroupId, { date: iso(7) });
             const res = await book(far).expect(409);
             expect(res.body.code).toBe('MAKE_UP_SESSION_OUT_OF_WINDOW');
         });
 
         it('refuses a cancelled class', async () => {
-            const off = await createClassSession(dataSource, hostGroupId, { date: iso(6), status: 'cancelled' });
+            const off = await createClassSession(dataSource, hostGroupId, { date: iso(4), status: 'cancelled' });
             const res = await book(off).expect(409);
             expect(res.body.code).toBe('CLASS_SESSION_CANCELLED');
         });
