@@ -42,7 +42,8 @@ proiectul, nu ramura. Deci pe `release/prod` vei citi despre module care nu exis
 sub tine — `enrollment`, `project`, `storage` — și e în regulă: sunt pe `release/stage`. Ce **nu** e
 în regulă e ca cele două copii ale documentației să divergă; dacă atingi una, adu-o și pe cealaltă.
 
-**Amândouă numele sunt noi: `main` → `release/prod` și `develop` → `release/stage`, septembrie 2026.** Sunt redenumiri, nu branch-uri noi — același istoric, aceleași SHA-uri — deci un mesaj de
+**Amândouă numele sunt noi: `main` → `release/prod` și `develop` → `release/stage`, septembrie
+2026.** Sunt redenumiri, nu branch-uri noi — același istoric, aceleași SHA-uri — deci un mesaj de
 commit, un titlu de PR sau un paragraf mai vechi care spune `main` sau `develop` vorbește despre
 ele. Pe origin nu mai există niciunul dintre numele vechi. Într-o clonă mai veche:
 
