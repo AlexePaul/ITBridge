@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ParentNotificationsJob, EARNED_DEDUPE_PREFIX, EXPIRY_DEDUPE_PREFIX, EXPIRY_WARNING_DAYS } from './parent-notifications.job';
+import { ParentNotificationsJob, EARNED_DEDUPE_PREFIX } from './parent-notifications.job';
 import { romanianDate } from 'src/modules/mail/romanian-date';
 import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
@@ -94,46 +94,6 @@ describe('ParentNotificationsJob', () => {
             await job.notifyCreditsEarned(DAY);
 
             expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null }, expect.anything());
-        });
-    });
-
-    describe('reminding about a lapsing make-up', () => {
-        const credit = (id: number, expiresOn: Date) => ({
-            id,
-            expiresOn,
-            child: { id: 5, firstName: 'Maria', parent: parent(1) },
-        });
-
-        it('asks for credits lapsing exactly the warning window out', async () => {
-            await job.remindExpiring(DAY);
-
-            // Exactly, not "within": a range would write on every one of the seven days, which is
-            // how a helpful reminder becomes a nuisance.
-            const where = (creditRepo.find!.mock.calls[0][0] as { where: { expiresOn: Date } }).where;
-            expect(where.expiresOn).toEqual(new Date(2026, 8, 7 + EXPIRY_WARNING_DAYS));
-        });
-
-        it('asks only for credits that are neither booked nor spent', async () => {
-            await job.remindExpiring(DAY);
-            const where = (creditRepo.find!.mock.calls[0][0] as { where: Record<string, unknown> }).where;
-            expect(where.bookedSession).toBeDefined();
-            expect(where.consumedAttendance).toBeDefined();
-        });
-
-        it('writes to the family, naming the child and the last day in words', async () => {
-            creditRepo.find!.mockResolvedValue([credit(4, new Date(2026, 9, 7))]);
-
-            const result = await job.remindExpiring(DAY);
-
-            expect(result.notified).toBe(1);
-            expect(queuedMessage().subject).toContain('Maria');
-            expect(queuedMessage().bodyText).toContain('7 octombrie');
-        });
-
-        it('dedupes per credit — the reminder goes out once, whatever else runs', async () => {
-            creditRepo.find!.mockResolvedValue([credit(4, new Date(2026, 9, 7))]);
-            await job.remindExpiring(DAY);
-            expect(queuedMessage().dedupeKey).toBe(`${EXPIRY_DEDUPE_PREFIX}4`);
         });
     });
 

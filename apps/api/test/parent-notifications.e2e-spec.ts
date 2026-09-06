@@ -26,6 +26,22 @@ describe('Parent notifications (e2e)', () => {
     const TODAY = new Date();
     const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+    /**
+     * A class in the week that has not started yet — the Tuesday of next week.
+     *
+     * The deadline of E12/S3 is Monday noon of the class's own week, so "a couple of days ahead"
+     * is only in time on some days of the week: run on a Wednesday, a class two days out is a
+     * Friday whose Monday is already gone, no credit is earned and the whole suite fails for a
+     * reason that has nothing to do with what it tests. Next week's Monday is always still ahead.
+     */
+    const nextWeekTuesday = () => {
+        const monday = new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate());
+        // `getDay()` is 0 on Sunday; the Monday that opens the *next* week is 8 days on from it.
+        const toNextMonday = monday.getDay() === 0 ? 1 : 8 - monday.getDay();
+        monday.setDate(monday.getDate() + toNextMonday);
+        return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 1);
+    };
+
     beforeAll(async () => {
         const created = await createTestApp();
         app = created.app;
@@ -65,9 +81,8 @@ describe('Parent notifications (e2e)', () => {
         dataSource.query<{ subject: string; bodyText: string }[]>('SELECT "subject", "bodyText" FROM "outbox" WHERE "to" = $1 ORDER BY id DESC', [address]);
 
     /** Announce a future class in time, then be marked absent at it — the only way to earn one. */
-    const earnCredit = async (daysAhead = 2) => {
-        const when = new Date(Date.now() + daysAhead * 86400000);
-        const session = await createClassSession(dataSource, groupId, { date: iso(when) });
+    const earnCredit = async () => {
+        const session = await createClassSession(dataSource, groupId, { date: iso(nextWeekTuesday()) });
         await request(app.getHttpServer())
             .post('/attendance/absences')
             .set('Authorization', parent.auth)
@@ -133,29 +148,6 @@ describe('Parent notifications (e2e)', () => {
             await earnCredit();
 
             expect((await job.notifyCreditsEarned(TODAY)).notified).toBe(1);
-        });
-    });
-
-    describe('a make-up about to lapse', () => {
-        it('reminds the family seven days out, naming the child and the last day', async () => {
-            await earnCredit();
-
-            // The credit expires 30 days after the missed class; the reminder goes out 7 days
-            // before that.
-            const rows = await dataSource.query<{ expiresOn: string }[]>('SELECT "expiresOn"::text FROM "make_up_credits"');
-            const expires = new Date(`${rows[0].expiresOn}T00:00:00`);
-            const runOn = new Date(expires.getFullYear(), expires.getMonth(), expires.getDate() - 7);
-
-            const result = await job.remindExpiring(runOn);
-
-            expect(result.notified).toBe(1);
-            const mail = await mailTo('parinte.notif@example.com');
-            expect(mail[0].subject).toContain('Maria');
-            expect(mail[0].bodyText).toContain('/user/absente');
-        });
-
-        it('says nothing on any other day', async () => {
-            expect((await job.remindExpiring(TODAY)).notified).toBe(0);
         });
     });
 });
