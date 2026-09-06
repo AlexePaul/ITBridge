@@ -113,7 +113,7 @@ describe('Payment receipts (e2e)', () => {
         const created = await pay({ amount: 350, status: 'initiated' }).expect(201);
         expect(await receipts()).toHaveLength(0);
 
-        await request(app.getHttpServer()).patch(`/payments/${created.body.id}`).set('Authorization', admin.auth).send({ status: 'succeeded' }).expect(200);
+        await request(app.getHttpServer()).put(`/payments/${created.body.id}`).set('Authorization', admin.auth).send({ status: 'succeeded' }).expect(200);
 
         const rows = await receipts();
         expect(rows).toHaveLength(1);
@@ -124,7 +124,7 @@ describe('Payment receipts (e2e)', () => {
         const created = await pay({ amount: 350 }).expect(201);
 
         await request(app.getHttpServer())
-            .patch(`/payments/${created.body.id}`)
+            .put(`/payments/${created.body.id}`)
             .set('Authorization', admin.auth)
             .send({ externalReference: 'OP 4242' })
             .expect(200);
