@@ -1,11 +1,16 @@
 name: Deploy
 
-# A push to a release branch deploys it. CI runs first as a called workflow rather than a separate
-# one, so the checks and the deploy are a single run in the Actions tab and the deploy job simply
-# never starts when something is red.
+# A push to a deployable release branch deploys it. CI runs first as a called workflow rather than
+# a separate one, so the checks and the deploy are a single run in the Actions tab and the deploy
+# job simply never starts when something is red.
+#
+# `release/prod` is deliberately absent. That branch carries the pre-E08 API - ten modules against
+# nineteen on `release/stage`, missing `enrollment`, `class-session`, `storage` and `mail` among
+# others - so deploying it would not be a premature release of this platform, it would be a
+# different and much older application. Add it here once the platform actually lives there.
 on:
   push:
-    branches: [release/prod, release/stage]
+    branches: [release/stage]
 
 # One deploy per environment at a time, and never cancel one that is already running: a deploy
 # interrupted between `migration:run` and `pm2 reload` leaves the schema ahead of the code that
@@ -34,8 +39,8 @@ jobs:
         id: target
         run: |
           case "${{ github.ref_name }}" in
-            release/prod)  echo "env=prod"  >> "$GITHUB_OUTPUT" ;;
             release/stage) echo "env=stage" >> "$GITHUB_OUTPUT" ;;
+            release/prod)  echo "::error::release/prod carries the pre-E08 API and is not deployable yet"; exit 1 ;;
             *) echo "::error::${{ github.ref_name }} is not a deployable branch"; exit 1 ;;
           esac
 
@@ -54,15 +59,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          # `sudo -iu deploy` is load-bearing: SSM runs commands as root, and a root-owned
-          # node_modules or a second PM2 daemon under root would break every later deploy while
-          # this one appears to succeed.
+          # Two commands, in this order and as these users. `fetch-env.sh` regenerates
+          # /etc/itbridge/$TARGET.env from Parameter Store and must run as root, because
+          # /etc/itbridge is 750 and `deploy` cannot write there. `deploy.sh` then runs *as*
+          # `deploy`: SSM runs commands as root, and a root-owned node_modules or a second PM2
+          # daemon under root would break every later deploy while this one appears to succeed.
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name AWS-RunShellScript \
             --comment "deploy $TARGET ${GITHUB_SHA::7}" \
             --timeout-seconds 1800 \
-            --parameters commands="sudo -iu deploy /srv/itbridge/deploy.sh $TARGET" \
+            --parameters "commands=/srv/itbridge/fetch-env.sh $TARGET && sudo -iu deploy /srv/itbridge/deploy.sh $TARGET" \
             --query Command.CommandId --output text)
 
           echo "SSM command: $COMMAND_ID"
