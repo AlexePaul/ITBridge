@@ -4,9 +4,9 @@
 
 **Livrate:** S1, S2, S3 și S4 — modelul de lead, programarea publică la probă, urmărirea și pâlnia.
 S5 era deja livrat, redus prin decizie la o reducere dată de mână. **Rămâne** un singur lucru, și nu
-e cod: pagina `/proba` cere backend-ul, deci nu poate fi adusă pe `main` până nu rulează unul
-([E01](E01-infrastructura-medii.md), S4). Până atunci fluxul e complet, testat, și nu-l vede niciun
-părinte.
+e cod: pagina `/proba` cere backend-ul, deci nu poate fi adusă pe `release/prod` până nu rulează
+unul ([E01](E01-infrastructura-medii.md), S4). Până atunci fluxul e complet, testat, și nu-l vede
+niciun părinte.
 
 ## Problemă
 
@@ -204,9 +204,9 @@ de eroare, e o familie care pleacă fără ca școala să știe că a trecut pe 
 
 **Pagina asta e singura pagină publică ce atinge backend-ul**, și e scrisă să pice moale: orele se
 încarcă doar în client, iar dacă nu se pot încărca, formularul tot se trimite și cititorul primește
-numărul de telefon. Consecința pentru [cele două branch-uri](../../CLAUDE.md): `/proba` **nu se aduce
-pe `main`** până nu rulează un backend, fiindcă acolo ar fi o pagină de conversie care nu poate afișa
-nicio oră.
+numărul de telefon. Consecința pentru [cele două branch-uri](../../CLAUDE.md): `/proba` **nu se
+aduce pe `release/prod`** până nu rulează un backend, fiindcă acolo ar fi o pagină de conversie care
+nu poate afișa nicio oră.
 
 ### S3 · Urmărire
 
