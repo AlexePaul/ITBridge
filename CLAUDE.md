@@ -25,21 +25,37 @@ profesorii acolo (E14 S2). Se construiește cu `pnpm --filter agent build`; inst
 
 ## Cele două branch-uri
 
-**`main` e site-ul public. `develop` e restul.**
+**`release/prod` e site-ul public. `develop` e restul.**
 
-Vercel servește `main`, iar paginile publice nu ating backend-ul — de asta site-ul stă în producție
-deși API-ul nu e deployat nicăieri. Tot ce e după autentificare — portalul, zona de admin, întreg
-`apps/api` de după E08 — trăiește pe `develop` și rămâne acolo până există instanța de care are
-nevoie ([E01](docs/epics/E01-infrastructura-medii.md), S4).
+Vercel servește `release/prod`, iar paginile publice nu ating backend-ul — de asta site-ul stă în
+producție deși API-ul nu e deployat nicăieri. Tot ce e după autentificare — portalul, zona de admin,
+întreg `apps/api` de după E08 — trăiește pe `develop` și rămâne acolo până există instanța de care
+are nevoie ([E01](docs/epics/E01-infrastructura-medii.md), S4).
 
-În `main` intră doar ce afectează site-ul public și poate fi verificat fără backend: conținut, SEO,
-performanță, corecturi de interfață publică. Se aduc prin cherry-pick, nu prin merge din `develop` —
-un merge ar trage în producție jumătate de platformă care n-are unde să ruleze.
+În `release/prod` intră doar ce afectează site-ul public și poate fi verificat fără backend:
+conținut, SEO, performanță, corecturi de interfață publică. Se aduc prin cherry-pick, nu prin merge
+din `develop` — un merge ar trage în producție jumătate de platformă care n-are unde să ruleze.
 
 **Documentația din `docs/` și fișierul ăsta sunt identice pe ambele branch-uri**, fiindcă descriu
-proiectul, nu ramura. Deci pe `main` vei citi despre module care nu există în arborele de sub tine —
-`enrollment`, `project`, `storage` — și e în regulă: sunt pe `develop`. Ce **nu** e în regulă e ca
-cele două copii ale documentației să divergă; dacă atingi una, adu-o și pe cealaltă.
+proiectul, nu ramura. Deci pe `release/prod` vei citi despre module care nu există în arborele de
+sub tine — `enrollment`, `project`, `storage` — și e în regulă: sunt pe `develop`. Ce **nu** e în
+regulă e ca cele două copii ale documentației să divergă; dacă atingi una, adu-o și pe cealaltă.
+
+**Branch-ul public s-a numit `main` până la redenumirea din septembrie 2026.** E o redenumire, nu un
+branch nou: același istoric, aceleași SHA-uri. Într-o clonă mai veche:
+
+```bash
+git branch -m main release/prod
+git fetch origin
+git branch -u origin/release/prod release/prod
+git remote set-head origin -a
+```
+
+**Vercel nu află de redenumire dintr-un webhook.** El construiește la push, iar o redenumire nu
+produce niciun commit — deci tot istoricul de deployment-uri rămâne legat de numele vechi și
+`release/prod` are zero, iar dashboard-ul refuză să-i dea Production Branch sau un domeniu, cu
+„No deployments found". Nu e un buton de apăsat: se deblochează la primul commit care ajunge pe
+branch. Production Branch din Settings → Git se pune de mână, o singură dată.
 
 ## Comenzi
 

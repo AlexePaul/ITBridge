@@ -49,7 +49,7 @@ nu rulează nicăieri".
 - [x] S5 · Frontend: typecheck și vitest
 - [x] S6 · Workflow CI
 
-> O rezervă: branch protection pe `main` se activează din Settings, nu din repo.
+> O rezervă: branch protection pe `release/prod` se activează din Settings, nu din repo.
 
 ### E04 · Migrări și integritatea datelor — `în lucru`
 
