@@ -138,7 +138,8 @@ describe('Registration steps (e2e)', () => {
             // Named apart from the account gate on purpose: an inactive account waits on an admin,
             // an incomplete profile waits on the parent, and telling them the wrong one sends them
             // to wait for somebody who has nothing to do.
-            expect(res.body.error).toBe('PARENT_PROFILE_INCOMPLETE');
+            // `code`, not `error`: `AllExceptionsFilter` puts the service's own code there.
+            expect(res.body.code).toBe('PARENT_PROFILE_INCOMPLETE');
         });
 
         it('places the child once step two is done', async () => {
