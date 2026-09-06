@@ -9,10 +9,15 @@
 > administrează.
 >
 > Ce rămâne blocat de asta, și e în regulă să rămână: profesorul principal pe grupă
-> ([E08](E08-multi-locatie.md) S3), disponibilitatea profesorilor din ecranul de formare a grupelor
-> ([E11](E11-inscrieri-capacitate.md) S7), și interfața de profesor optimizată pentru telefon
-> ([E18](E18-frontend-portal.md) S7). Toate trei sunt scrise ca livrate parțial, cu jumătatea care
+> ([E08](E08-multi-locatie.md) S3) și disponibilitatea profesorilor din ecranul de formare a grupelor
+> ([E11](E11-inscrieri-capacitate.md) S7). Amândouă sunt scrise ca livrate parțial, cu jumătatea care
 > lipsește numită — nu ca goluri tăcute.
+>
+> **A treia nu mai e blocată: [E18](E18-frontend-portal.md) S7 e livrat.** Story-ul cerea un ecran
+> folosit din sală, de pe telefon, iar ecranul acela nu avea nevoie de un rol ca să existe — e o
+> vedere din zona de admin, deschisă de cine ține ora, care aici e tot un admin. Ce ar aduce rolul
+> e restrângerea: azi cine marchează prezența vede și facturile. Aia e o permisiune, adică exact
+> lucrul amânat mai sus, nu o bucată lipsă din S7.
 >
 > Se reia dacă școala angajează pe cineva care predă fără să administreze. Până atunci, un rol în
 > plus e o permisiune de întreținut fără nimeni care s-o folosească.
@@ -140,7 +145,7 @@ un `RolesGuard` care tratează cazuri inexistente e cod netestat care arată ca 
 
 Tiparul de filtrare pe date din service, care astăzi filtrează după utilizator pentru părinți, s-ar
 extinde cu filtrare după locație pentru coordonatori și profesori. Aplicat consecvent, ca în
-`apps/api/src/modules/invoice/invoice.service.ts:92`.
+`apps/api/src/modules/invoice/invoice.service.ts:118`.
 
 Cade odată cu S2, fiindcă nu are cine să fie restrâns: singurele două roluri sunt `ADMIN`, care vede
 ambele locații prin definiție, și `PARENT`, care e deja restrâns la propriile date. Selectorul de

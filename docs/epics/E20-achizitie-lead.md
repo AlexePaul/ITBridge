@@ -1,6 +1,12 @@
 # E20 · Achiziție, lecții de probă și lead management
 
-**Status:** propus · **Pistă:** Public · **Depinde de:** E17, E18 · **Blochează:** —
+**Status:** în lucru · **Pistă:** Public · **Depinde de:** E17, E18 · **Blochează:** —
+
+**Livrate:** S1, S2, S3 și S4 — modelul de lead, programarea publică la probă, urmărirea și pâlnia.
+S5 era deja livrat, redus prin decizie la o reducere dată de mână. **Rămâne** un singur lucru, și nu
+e cod: pagina `/proba` cere backend-ul, deci nu poate fi adusă pe `release/prod` până nu rulează
+unul ([E01](E01-infrastructura-medii.md), S4). Până atunci fluxul e complet, testat, și nu-l vede
+niciun părinte.
 
 ## Problemă
 
@@ -77,6 +83,32 @@ La înscriere — operațiune de admin, nu a părintelui — lead-ul se transfor
 
 **Acceptanță:** fiecare cerere din orice canal creează un lead. Niciunul nu rămâne fără responsabil.
 
+**Livrat.** `Lead` în `apps/api/src/entities/lead.entity.ts`, cu `LeadStatus`, `LeadSource` și
+`LeadChannel` ca enum-uri proprii. Trei lucruri de știut:
+
+- **Lead-ul își ține propria copie a datelor de contact, și asta e o decizie.** O programare de pe
+  site chiar creează un `Profile` și un `Child` — un loc nu poate fi ținut de un rând fără copil în
+  el, iar proba trebuie să apară în catalogul grupei — dar profilul acela e o coajă: fără cont, și
+  **fără email și fără telefon**. Coloanele alea două sunt unice pe `profiles`, deci un formular
+  public care ar scrie în ele ori s-ar ciocni de o familie reală, ori, mai rău, ar lega un copil de
+  ea. Datele familiei stau pe lead până când un admin le pune pe profil, deliberat, la înscriere.
+- **Sursa și canalul sunt două întrebări diferite.** `source` e cum a ajuns cererea la școală și se
+  știe întotdeauna (formularul scrie `trial_form`); `channel` e de unde spune familia că a auzit de
+  noi, e opțional și e **declarat**, nu dedus. O familie care a găsit școala pe Google și apoi a sunat
+  are amândouă, iar o singură coloană ar păstra-o pe ultima scrisă.
+- **Responsabilul poate lipsi, și acceptanța e îndeplinită făcând asta zgomotos, nu pretinzând.** Nu
+  există model de personal (E09 e scos din MVP) și toți cei care se autentifică sunt admini, deci o
+  atribuire automată către primul din tabel ar pune un nume pe un rând cu care n-a fost nimeni de
+  acord. Cererile fără responsabil sunt primele pe ecranul de urmărire și sunt numărate în mesajul
+  zilnic; preluarea e un click. Singura excepție e lead-ul scris de un admin la telefon: acela e al
+  lui, fiindcă e singurul moment în care nu se ghicește nimic.
+
+**Patru din cele șase stări nu se scriu de la niciun ecran.** `trial_scheduled` vine din programare,
+`trial_held` din catalog, `enrolled` și `lost` din rezolvarea probei în [E11](E11-inscrieri-capacitate.md).
+`UpdateLeadDto` **nu are câmp `status`**, iar cele două stări pe care le declară un om — „contactat"
+și „pierdut" — au endpoint-uri proprii. Un câmp de stare pe un PATCH ar fi lăsat un ecran să scrie
+`înscris` pe o familie pe care n-a înscris-o nimeni, iar aia e cifra pe care se sprijină tot S4.
+
 ### S2 · Programare la lecție de probă
 
 Un flux public, fără cont: alege locația, vezi grupele compatibile cu vârsta copilului și cu locuri
@@ -126,6 +158,56 @@ apare deloc printre orele oferite, iar o trimitere pentru un loc luat între tim
 oferta de a fi contactat. Un mesaj prins de honeypot nu creează lead, iar expeditorul primește
 același răspuns ca la o trimitere reușită.
 
+**Livrat.** Pagina e `/proba`, endpoint-urile sunt `GET /trial/slots` și `POST /trial/bookings`, iar
+serviciul e `apps/api/src/modules/lead/trial-booking.service.ts`. Sunt **singurele două rute publice
+din aplicație** în afară de autentificare și health, și sunt în lista albă din
+`authorization.spec.ts` pe nume, cu motivul scris acolo.
+
+Ce nu se vede la citirea codului:
+
+- **Nu se creează niciun cont, dar locul e real.** Programarea scrie `Profile` + `Child` +
+  o înscriere `TRIAL`, toate într-o singură tranzacție, iar înscrierea trece prin
+  `EnrollmentService.enrol` — aceeași funcție prin care trece un admin. Deci capacitatea, regula „o
+  singură înscriere în vigoare" și `Child.group` sunt aplicate o singură dată, într-un singur loc, iar
+  proba apare în catalog fiindcă e o înscriere, nu fiindcă a copiat-o cineva acolo.
+- **`enrol` acceptă acum un `EntityManager`.** Fără el, tranzacția lui ar fi fost una nouă, iar un loc
+  ocupat de o programare care apoi eșuează e un loc pe care nimeni nu-l mai găsește.
+- **Grupa se blochează pe rând (`SELECT … FOR UPDATE`) cât ține verificarea de capacitate.** Numărarea
+  urmată de inserare o pot face două tranzacții deodată și amândouă găsesc loc: verificarea n-a fost
+  niciodată garanția, ci doar motivul pentru care refuzul are cuvinte în el. Doi admini care apasă în
+  aceeași secundă era rar; doi părinți pe formular la 20:00 nu e.
+- **Se filtrează datele, nu grupele.** Locurile se numără **pe ședință**, prin
+  `EnrollmentService.freeSeatsAtSessions`, fiindcă asta alege părintele: o grupă cu un singur loc
+  liber n-are niciunul în ziua în care cineva și-a programat o recuperare (D7 din nou — un copil
+  care vine în recuperare stă pe un scaun fără să fie înscris în nimic), și are din nou peste o
+  săptămână. O grupă căreia i s-au ocupat toate orele nu apare deloc, în loc să apară cu o listă
+  goală de date.
+- **Vârsta e filtru tare aici, deși în E11 e avertisment.** Un admin care trece peste banda de vârstă
+  face o judecată despre un copil anume, pe care l-a cunoscut. Un formular public n-are cine să facă
+  judecata aia, deci oferă doar ce se potrivește.
+- **Verificarea de la trimitere e pe ora aleasă**, nu doar pe grupă, și e în tranzacție: între
+  fotografia pe care a văzut-o părintele și butonul pe care l-a apăsat se poate strecura o
+  recuperare programată exact pe acea oră. `enrol` verifică grupa, care e cealaltă jumătate a lui D7.
+- **A doua apăsare nu creează al doilea copil.** `Lead.bookingKey` — copilul, ora și familia, hash-uite
+  — are index unic, iar a doua trimitere primește primul răspuns. Pe formularul de contact o dublură
+  însemna un al doilea email; aici ar fi însemnat un al doilea copil și un al doilea loc dintr-o sală
+  de zece.
+- **Honeypot-ul e în pagină, nu în API.** Validarea backend-ului e `forbidNonWhitelisted`, deci un
+  câmp în plus ar fi 400, nu o capcană. În schimb API-ul are limitare de rată adevărată (5 trimiteri
+  pe minut pe IP, în proces, nu în memoria unei instanțe serverless ca la contact).
+
+**Cele trei sfârșituri, dintre care unul singur arată a refuz.** Ora e liberă și proba se programează;
+părintele n-a găsit nicio oră și cererea rămâne ca lead marcat „fără loc"; sau locul a plecat între
+încărcarea paginii și apăsarea butonului — iar ăsta se termină **la fel ca al doilea**, nu cu o
+eroare. Ecranul e o fotografie, nu o rezervare, iar cel mai prost rezultat al unei curse nu e o pagină
+de eroare, e o familie care pleacă fără ca școala să știe că a trecut pe acolo.
+
+**Pagina asta e singura pagină publică ce atinge backend-ul**, și e scrisă să pice moale: orele se
+încarcă doar în client, iar dacă nu se pot încărca, formularul tot se trimite și cititorul primește
+numărul de telefon. Consecința pentru [cele două branch-uri](../../CLAUDE.md): `/proba` **nu se
+aduce pe `release/prod`** până nu rulează un backend, fiindcă acolo ar fi o pagină de conversie care
+nu poate afișa nicio oră.
+
 ### S3 · Urmărire
 
 Fiecare lead are următorul pas cu termen. Lead-urile fără activitate ies în evidență. Cel care nu s-a
@@ -151,6 +233,24 @@ menită să o suplinească.
 anunțat. Lista „probe ținute, fără decizie" e goală doar când fiecare probă din ea s-a terminat cu
 o înscriere sau cu un motiv de pierdere scris.
 
+**Livrat.** Ecranul e `/admin/leads` și e construit în ordinea a cât costă pierderea unei familii, nu
+în ordinea în care au venit rândurile: probele ținute primele, apoi cererile fără loc, apoi ce a
+amuțit, apoi ce e scadent azi. Mesajul zilnic către birou (`lead-reminders.job.ts`, 09:00 pe ceasul
+școlii) e făcut din exact aceleași patru liste — o zi liniștită nu trimite nimic, ca la mementoul de
+prezență, fiindcă un mesaj care vine și în zilele bune e un mesaj pe care oamenii îl filtrează.
+
+- **Starea „probă ținută" o pune catalogul.** `LeadProgressService.markTrialHeld` e chemat din
+  `AttendanceService`, lângă `settleMakeUp` și din amândouă căile de scriere. O bifă separată ar fi
+  depins de exact atenția de admin pe care ecranul e menit s-o suplinească. Corectarea unui marcaj
+  greșit dă înapoi, la fel ca revocarea unui credit de recuperare.
+- **`lastActivityAt` e o coloană proprie, nu `updatedAt`.** Job-ul nu scrie nimic în ea, deci un lead
+  nu poate deveni „proaspăt" fiindcă a fost amintit.
+- **Un catalog nemarcat nu e o absență.** Recontactarea după neprezentare cere ca cineva să fi marcat
+  ședința: a-i spune unei familii că a lipsit de la o oră la care poate a fost e mai rău decât să nu
+  spui nimic, iar catalogul nemarcat e vânat separat, în E12/S7.
+- **Nu există ieșire tăcută.** `POST /leads/:id/lost` cere un motiv (`@Length(3, 255)`), iar o familie
+  deja înscrisă nu se poate închide de aici: aia e o înscriere de încheiat în E11, nu o cerere.
+
 ### S4 · Măsurarea pâlniei
 
 Vizitator, cerere, probă programată, probă ținută, înscriere — cu rate de conversie între etape, pe
@@ -172,6 +272,30 @@ conversie, fiindcă n-a intrat niciodată în pâlnie.
 
 **Acceptanță:** raportul răspunde la "ce canal aduce cele mai multe înscrieri, și la ce cost", și la
 "câți oameni am refuzat luna asta fiindcă erau grupele pline".
+
+**Livrat**, ca a treia filă din `/admin/rapoarte` — „Pâlnia" — servită de `GET /reports/funnel`.
+Numărătoarea stă în `apps/api/src/modules/lead/lead-funnel.service.ts`, adică în modulul care deține
+lead-urile, nu în `dashboard/`: regula lui E21 e că un raport cere cifra de la serviciul care deține
+întrebarea, iar un al doilea `SELECT FROM leads` ar fi a doua definiție a fiecărui număr de pe ecran.
+
+Trei lucruri de citit cu grijă:
+
+- **Cohorta e după data cererii, nu după data evenimentului.** O familie care a întrebat în august și
+  s-a înscris în septembrie e numărată în august, pe amândouă liniile. Altfel o lună bună ar produce
+  rate peste 100%, iar întrebarea la care răspunde raportul s-ar schimba din „ce s-a întâmplat cu
+  oamenii care au venit la noi" în „cât de ocupat a fost biroul".
+- **Pâlnia numără trecerea, nu ocuparea.** O familie înscrisă a trecut și prin „probă ținută", iar o
+  linie care ar scoate-o de acolo în clipa înscrierii ar scădea exact atunci când școala se descurcă
+  mai bine. `lost` e în mod deliberat în afara ordinii: plecarea nu spune nimic despre cât de departe
+  ai ajuns, deci un lead pierdut e judecat după urmele lăsate.
+- **Mediana până la decizie merge lipită de conversia probă→înscriere**, fiindcă aia măsoară două
+  lucruri deodată: dacă familiei i-a plăcut ora, și dacă a apucat cineva s-o înscrie. Dacă rata scade
+  în timp ce mediana crește, de vină e lista din S3, nu ora de curs — și fără a doua cifră nu se
+  poate spune care.
+- **Cererile fără loc sunt în afara oricărei rate**, și asta e tot rostul lor: un părinte care nu
+  găsește nicio oră liberă nu intră niciodată în pâlnie, deci nu apare în nicio conversie. Sunt
+  numărate separat, pe locație și pe bandă de vârstă, cu aceeași funcție `bandFor` cu care E11/S7
+  grupează cererea neacoperită.
 
 ### S5 · Recomandări — **redus prin decizie la o reducere dată de mână**
 
@@ -372,7 +496,11 @@ Pentru acest epic, consecința e că S2 și S3 se schimbă la fel de mult ca S1:
 
 ## Întrebări deschise
 
-- Cine răspunde lead-urilor, și în cât timp?
+- **Cine răspunde lead-urilor, și în cât timp?** Rămâne deschisă, și e singura care poate opri
+  pornirea sistemului: riscul scris mai sus spune că un lead colectat și necontactat e mai rău decât
+  unul necolectat. Platforma a făcut ce putea face fără răspuns — cererile fără responsabil sunt
+  primele pe ecran și sunt numărate în mesajul de dimineață — dar un nume și un termen sunt o decizie
+  a școlii, nu o valoare implicită.
 - ~~Câte probe simultane suportă o grupă fără să deranjeze cursul?~~ Nu e o limită separată: proba
   ocupă un loc din cele 10 ale sălii, deci limita e capacitatea grupei. Vezi
   [Decizii luate](#decizii-luate).

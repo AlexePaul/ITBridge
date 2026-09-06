@@ -101,9 +101,9 @@ builder-ul, fără să execute SQL.
 
 **Bug-uri găsite și documentate, nu cimentate**, conform secțiunii „Riscuri":
 
-- **Calculul de preț la trei sau mai mulți copii** întoarce 0, iar cu reduceri devine negativ.
-  Două teste `it.failing` descriu comportamentul dorit; un al treilea consemnează comportamentul
-  actual, ca schimbarea să fie vizibilă când vine E15.
+- **Calculul de preț la trei sau mai mulți copii** întorcea 0, iar cu reduceri devenea negativ.
+  Două teste `it.failing` descriau comportamentul dorit; E15 a reparat regula, iar testele sunt
+  acum teste de regresie — exact tranziția pentru care există convenția.
 - **`findPayments` adaugă restrângerea pe utilizator de două ori**, deci același
   `leftJoin('parent.user', 'user')` apare dublu. TypeORM refuză un alias duplicat la execuție.
 
@@ -225,12 +225,12 @@ Prima formă a acestui epic trecea familia eslint `no-unsafe-*` de la `error` la
 lint` să nu fie roșu din prima zi. Compromisul a picat: s-a dovedit că datoria era concentrată, nu
 răspândită, deci se putea plăti direct.
 
-| Sursă | Avertismente | Cauză |
-|---|---|---|
-| `pdf.service.ts` | 129 | `pdfkit` fără tipuri, plus `invoice: any` și metode private netipate |
-| controllere | ~59 | `@Request() req` netipat, deci `req.user.role` era acces pe `any` |
-| `discount.service.ts` | 22 | repository-ul injectat n-avea deloc tip |
-| restul | ~59 | cast-uri `as any` izolate, plus teste |
+| Sursă                 | Avertismente | Cauză                                                                |
+| --------------------- | ------------ | -------------------------------------------------------------------- |
+| `pdf.service.ts`      | 129          | `pdfkit` fără tipuri, plus `invoice: any` și metode private netipate |
+| controllere           | ~59          | `@Request() req` netipat, deci `req.user.role` era acces pe `any`    |
+| `discount.service.ts` | 22           | repository-ul injectat n-avea deloc tip                              |
+| restul                | ~59          | cast-uri `as any` izolate, plus teste                                |
 
 Reparațiile: `@types/pdfkit`, un tip `AuthenticatedRequest` cu payload-ul JWT, tipuri pe
 repository-uri și DTO-uri, și eliminarea cast-urilor `as any` din servicii.

@@ -1,6 +1,6 @@
 # E17 · Comunicare și notificări
 
-**Status:** în lucru · **Pistă:** Comunicare · **Depinde de:** E05, E06 · **Blochează:** E11, E12, E14, E16, E20
+**Status:** livrat cât se poate fără deploy · **Pistă:** Comunicare · **Depinde de:** E05, E06 · **Blochează:** E11, E12, E14, E16, E20
 
 **A început din altă parte.** Nimeni nu a pornit E17 ca epic. A pornit
 [E12](E12-prezenta-orar.md), iar jobul zilnic cerut de patron — un email către școală cu ședințele
@@ -333,9 +333,10 @@ S5 le scoate la vedere. Ce **rămâne** nelivrabil e marketingul către o famili
 n-are adresă — ăla e un eșec.
 
 **Ce nu s-a construit:** frecvențele („imediat / rezumat zilnic / rezumat săptămânal") sunt de fapt
-S6, iar rezumatele nu există; și nu există **niciun expeditor de marketing**. Mecanismul e construit
-înaintea primului tocmai fiindcă momentul în care s-ar retrofita în jurul lui e momentul în care ar
-fi greșit. Textul din setări spune explicit ce **nu** oprește comutatorul — un părinte care citește
+S6, iar rezumatele nu există. Mecanismul a fost construit înaintea primului expeditor tocmai fiindcă
+momentul în care s-ar retrofita în jurul lui e momentul în care ar fi greșit — iar **primul a apărut
+la S7**: un anunț își declară felul, iar cel promoțional trece prin `queueMarketing`. Fără el, ecranul
+de anunțuri ar fi fost gaura din garanția de aici, nu prima ei confirmare. Textul din setări spune explicit ce **nu** oprește comutatorul — un părinte care citește
 „dezabonare" lângă numele școlii se teme, pe bună dreptate, că pierde factura și munca copilului.
 
 ### S5 · Evidența livrărilor
@@ -423,6 +424,45 @@ frecvență.
 **Acceptanță:** un părinte cu doi copii nu primește mai mult de un email pe zi, cu excepția celor
 tranzacționale urgente.
 
+**Construit, apoi scos prin decizie.** Motorul a existat: preferință de frecvență pe `Profile`,
+o trecere la 5 minute care ținea mesajele, le elibera sau le împacheta, o stare terminală
+`digested` și o legătură recursivă către plicul care plecase în locul lor. Trecea testele. A fost
+**revenit**, iar motivul e mai important decât codul.
+
+**Cine plătește și cine încasează nu sunt aceiași.** Câștigul e al părintelui: trei emailuri într-o
+seară în loc de unul. Costul e al cozii, și e permanent — invariantul „ce e în coadă e ce pleacă"
+devine condiționat, dispecerul capătă o a doua condiție de revendicare, apare un al doilea
+scheduler care trebuie și el fixat pe o instanță, iar fiecare mesaj capătă o stare intermediară în
+care **nu a plecat și nu a eșuat**. Aia e clasa de defecte care se vede greu: un mesaj care nu
+ajunge nu seamănă cu o eroare, seamănă cu liniște.
+
+**Iar câștigul e mai mic decât pare.** Verdictul patronului, care e cel care vorbește cu părinții:
+un părinte nu se supără că primește trei emailuri într-o zi. Rafala pe care S6 o descrie —
+zece mesaje pe săptămână — presupune o școală mai mare și un părinte mai puțin răbdător decât cei
+de acum. Gruparea care chiar contează exista deja și rămâne: **un mesaj per părinte, nu per copil**,
+în anularea de oră (S5 din [E12](E12-prezenta-orar.md)), în recuperările câștigate
+([E12](E12-prezenta-orar.md) S7), în livrarea de proiecte ([E14](E14-proiecte-elevi.md) S4) și în
+anunțuri (S7). Aia scoate duplicatele adevărate — același text, de două ori, fiindcă familia are doi
+copii — și nu costă nimic, fiindcă se face înăuntrul unei singure trimiteri.
+
+Ce nu se mai face e adunarea **între feluri de mesaje** și **peste zi**: proiectul de marți și
+factura de marți rămân două emailuri.
+
+**Ce ar trebui adus înapoi, dacă se reia** (ca să nu fie regândit de la zero):
+
+- Preferința de frecvență pe familie e partea ieftină și n-are nevoie de motor: `immediate` e
+  comportamentul de azi.
+- Momentul de eliberare se calculează **per mesaj**, din clipa în care a fost scris, nu dintr-un
+  „ultimul rezumat trimis" — ancorat la o oră comună, un mesaj scris după prag pleacă imediat și
+  plafonul de un email pe zi se sparge tăcut.
+- Un mesaj împachetabil trebuie să poată spune **ultima zi în care mai are rost**. Fără asta,
+  cadența săptămânală livrează avertismentul de expirare după expirare.
+- „Urgent" se scrie ca absența unui câmp, nu ca o listă de excepții: o listă e lucrul la care cineva
+  uită să adauge.
+
+**Pragul la care se redeschide:** când o familie primește de obicei mai mult de un mesaj pe zi, adică
+atunci când școala trimite destule feluri de mesaje ca să se ciocnească. Azi nu se ciocnesc.
+
 ### S7 · Anunțuri
 
 Un admin trimite un mesaj către o grupă, o locație sau toți părinții, cu previzualizare, confirmare
@@ -430,6 +470,76 @@ Un admin trimite un mesaj către o grupă, o locație sau toți părinții, cu p
 
 **Acceptanță:** un anunț către o locație ajunge la toți părinții activi de acolo, cu raport de
 livrare.
+
+**Livrat.** `/admin/anunturi`: un formular în stânga, previzualizarea în dreapta, istoricul dedesubt.
+Trei endpointuri de admin — `POST /announcements/preview`, `/announcements/test` și
+`/announcements` — plus `GET /announcements` și `/announcements/:id`.
+
+**Audiența e o consecință a orarului, nu o listă.** O familie e în ea dacă are un copil **într-o
+grupă** din perimetrul ales, probele incluse (D7 — copilul de la probă stă în aceeași sală în
+sâmbăta aia). Se citește din `Child.group`, coloana derivată al cărei unic scriitor e
+`EnrollmentService` — aceeași pe care o citesc și anunțurile de anulare din E12/S5, deci cele două
+răspund la fel. O familie al cărei copil nu e în nicio grupă nu e în nicio audiență, iar asta e
+înțelesul lui „părinții activi" din acceptanță: „sâmbătă e zi liberă" nu privește o familie căreia
+nu i s-a dat încă o oră. Deduplicarea e **per părinte**, ca peste tot: o familie cu trei copii în
+aceeași grupă e un om care citește o cutie poștală.
+
+**Regula de confidențialitate a devenit un test, nu o rugăminte.** Epicul o spune absolut — „un anunț
+care numește un copil e o scurgere, nu un anunț" — și numește previzualizarea drept locul unde se
+prinde. Deci se caută prenumele **fiecărui copil din școală** în subiect și în corp, fără diacritice
+și fără majuscule, pe cuvinte întregi. E un **avertisment**, cu aceeași formă ca verificarea de
+vârstă din E11/S6: prima cerere primește 409 `ANNOUNCEMENT_NAMES_A_CHILD` cu numele găsite, a doua
+trece cu `acknowledgeWarnings`. Un refuz ferm ar fi greșit, și e important de spus de ce: Maria e
+sală și stradă la fel de des cât e copil, iar o verificare care se declanșează mereu devine o bifă
+pe care omul învață s-o apese. Ce cumpără avertismentul e că nimeni nu trimite „îl felicităm pe
+Andrei" la două sute de familii fără să fi fost întrebat o dată. Prenumele sub trei litere nu se
+caută deloc, din același motiv.
+
+**Anunțul își declară felul, și ăsta e singurul loc din platformă unde marketingul are un
+expeditor.** `kind` e `transactional` (implicit) sau `marketing`; primul e școala care își execută
+contractul — zi liberă, sală schimbată — și ajunge la toți, al doilea trece prin `queueMarketing` și
+respectă `Profile.marketingOptIn`. Fără distincția asta, „către toți părinții" ar fi fost exact
+gaura din garanția pe care S4 a construit-o: un ecran prin care orice mesaj ajunge la orice familie,
+în timp ce comutatorul păzește un expeditor care nu există. Nu se poate deduce din text care e care,
+deci o alege cel care scrie. Refuzurile se **numără pe rândul anunțului** (`declinedCount`), fiindcă
+sunt singurul număr care nu se poate recalcula din coadă — un refuz nu lasă rând (S4), deci citit de
+acolo ar fi zero, ceea ce e altă propoziție decât „patru familii nu primesc buletinul".
+
+**A doua apăsare e refuzată de bază, nu de un `if`.** Un anunț n-are identitate naturală, așa cum are
+o ședință anulată, deci `Announcement.dedupeKey` e o definiție deliberată a lui „același anunț":
+audiență, subiect, corp și **ziua de la școală**, la un loc și hash-uite. Riscul din epic e că un
+email trimis din greșeală nu se retrage; corolarul practic e cel scris la S8 și valabil aici cuvânt
+cu cuvânt — un click nervos pe o conexiune lentă dublează toată grupa. O corectură trimisă cinci
+minute mai târziu are alt text, deci altă cheie, și trece: aia e alt mesaj, iar familiile au nevoie
+de el. Ziua e cea a școlii fiindcă o graniță care cade la trei dimineața e o graniță pe care nimeni
+n-o poate explica; `schoolLocalStamp` a ieșit din `absence-notice.rules.ts` în
+`src/common/school-clock.ts` cu ocazia asta, ca al treilea apelant să nu importe din attendance ca
+să afle ce zi e.
+
+**Ce se scrie e o decizie, nu doar niște mesaje.** Tabelul `announcements` ține audiența, formularea,
+cine a apăsat și cât de mare era audiența; mesajele rămân rânduri obișnuite de `outbox`, cu un
+`announcement_id` nullable care arată înapoi. Legătura aia e cea care face „raportul de livrare" din
+acceptanță un **număr viu** — se numără peste coadă cum e ea acum, nu unul înghețat la trimitere.
+`OutboxService` **nu s-a modificat și nu știe nimic despre anunțuri**: serviciul își leagă singur
+rândurile după ce le pune în coadă, în aceeași tranzacție, deci coada partajată se poartă identic
+pentru toți ceilalți expeditori. Tot ce ține de o trimitere — rândul de anunț, cele N mesaje și
+legătura — e o singură tranzacție: despicate, o cădere la mijloc lasă o evidență care spune că
+patruzeci de familii au fost scrise și o coadă cu nouă mesaje în ea, ceea ce e mai rău decât oricare
+dintre cele două eșecuri, fiindcă evidența e exact lucrul pe care s-ar duce cineva să-l verifice.
+
+**Trimiterea de test cerută la Riscuri există**, `POST /announcements/test`: pleacă la adresa
+adminului care a cerut-o, sau la biroul din `MAIL_OFFICE_ADDRESS` dacă n-are profil, iar răspunsul
+spune la care — un test a cărui destinație e o presupunere e un test pe care nu se duce nimeni să-l
+citească. Subiectul primește prefixul `[TEST]`, ca o copie ajunsă în cutia comună a biroului să nu
+poată fi citită drept anunțul adevărat. N-are cheie de deduplicare: testele se repetă după fiecare
+schimbare de formulare, aia e treaba lor.
+
+**Ce nu s-a construit, și de ce.** O audiență „o singură familie" — aia nu e o audiență, e o
+scrisoare, iar mesajele despre un copil pleacă prin expeditorul care numește părintele lui. O
+programare a anunțului pentru mai târziu: coada nu are noțiunea de „nu înainte de", și un anunț
+programat ar fi primul lucru din platformă care pleacă fără ca cineva să se uite la el în clipa aia.
+Și, ca peste tot în E17, **nimic nu pleacă efectiv până la [E01](E01-infrastructura-medii.md) S4** —
+dispecerul n-are unde rula, deci „s-a pus la trimitere" e tot ce poate spune butonul azi.
 
 ### S8 · Trimitere declanșată de admin
 
@@ -453,9 +563,14 @@ Ce înseamnă mecanic:
   trimitere, nu că au ajuns.
 - **A doua apăsare nu retrimite.** Un document `trimis` e sărit, iar adminul vede de ce. Fără asta,
   un click nervos pe o conexiune lentă dublează tot grupul.
-- Regula din S6 se aplică și ea: desfacerea e **per părinte, nu per copil.** Un părinte cu copii în
-  două grupe, trimise amândouă în aceeași zi, primește un mesaj cu amândouă, nu două mesaje. Faptul
-  că declanșatorul e un om nu e o portiță prin care iese o rafală.
+- Desfacerea e **per părinte, nu per copil**, înăuntrul unei apăsări: un părinte cu doi copii în
+  aceeași grupă primește un mesaj cu amândoi. **Peste două apăsări nu se mai adună** — clauza
+  originală cerea ca două grupe trimise în aceeași zi să ajungă la un părinte comun într-un singur
+  mesaj, ceea ce presupunea motorul de rezumate din S6, iar acela a fost construit și scos prin
+  decizie (vezi S6). Deci două grupe trimise una după alta sunt două emailuri, și e în regulă: acolo
+  sunt lucrări diferite ale unor copii diferiți, iar patronul a spus explicit că un părinte nu se
+  supără de asta. Faptul că declanșatorul e un om nu e o portiță prin care iese o rafală **în
+  aceeași apăsare**.
 - **Dezabonarea nu se aplică aici**: documentul propriului copil e tranzacțional (S4), deci
   butonul nu are ce bifă să calce. Ce oprește totuși un mesaj e lipsa destinatarului — părinte fără
   adresă, sau cu adresă neconfirmată. Ăla apare ca nelivrat, cu motivul lui, în evidența din S5:
@@ -464,6 +579,38 @@ Ce înseamnă mecanic:
 **Acceptanță:** adminul bifează opt documente dintr-o grupă și apasă o dată; opt părinți primesc
 fiecare documentul copilului lui, și nimeni altceva. A doua apăsare nu trimite nimic. Un părinte
 fără adresă sau cu adresă neconfirmată apare în raportul trimiterii cu motivul lui.
+
+**Livrat.** Mecanica a venit odată cu [E14](E14-proiecte-elevi.md) S4 — selecția pe grupă,
+desfacerea per părinte, `status = sent` care sare un document la a doua apăsare, raportul care
+numește părintele fără adresă și motivul lui, plus `ProjectStatus` cu **nou / trimis / eroare**, adică
+proiecția stării din outbox înapoi pe document, cerută de S5.
+
+**Ce a rămas de făcut, și e reversul deciziei din story, nu un detaliu de interfață.** Un job de
+seară pleacă și într-o zi aglomerată; un buton nu. Riscul nu se închide cu disciplină, ci cu
+vizibilitate — iar vizibilitatea care exista era **numărul, fără vârstă**: cinci documente urcate în
+după-amiaza asta și un document de marți rămas vineri arătau identic. Deci:
+
+- **`ProjectService.pendingSummary`** răspunde la „cât așteaptă și de cât timp", pentru toată școala
+  și pe grupă, într-o singură interogare grupată. Serviciul deține întrebarea; `OverviewService`
+  număra rândurile singur, adică exact ce E21 spune că un raport nu are voie să facă — a doua
+  definiție a lui „în așteptare" e cea care divergează de ecranul grupei.
+- **Vârsta se numără în zile calendaristice, nu în ore scurse.** Un document urcat ieri la 18:00 și
+  citit azi la 09:00 are **o zi**, nu zero: cel care citește „de 3 zile" numără dimineți în care nu
+  s-a uitat, nu blocuri de 72 de ore.
+- **Cifra se vede din meniu**, cu insignă pe „Proiecte" în bara laterală, deci de pe orice ecran de
+  admin — nu doar dacă cineva se gândește să deschidă `/admin/proiecte`. Devine portocalie când cel
+  mai vechi document a trecut de `staleAfterDays`.
+- **Pragul pleacă pe sârmă**, ca pragul de ocupare din E21: două zile, ca **propunere** afișată ca
+  atare. Ecranul spune ce linie desenează, iar linia se mută dintr-un singur loc — o zi s-ar
+  declanșa pe un fișier de vineri citit luni, ceea ce nu e o scăpare, e un weekend.
+- Ecranul grupelor **nu mai numără în browser**: aduna în client toate proiectele `new` ca să afle
+  câte sunt, adică descărca toată restanța ca s-o măsoare, nu putea produce o vârstă, și era a doua
+  definiție a numărului pe care îl arată și meniul și tabloul de bord.
+
+**Ce nu s-a construit:** o alertă care pleacă singură când restanța îmbătrânește. Aia ar fi un al
+treilea memento către birou, deci aparține lui S7 din [E06](E06-observabilitate-operare.md) — canalul
+de alertare — nu ecranului. Iar un document rămas `nou` peste prag e o problemă operațională
+**vizibilă**, care era tot ce cerea story-ul.
 
 ## Dependențe
 
@@ -487,7 +634,8 @@ către admin înainte de orice difuzare în masă.
 seară pleca și într-o zi aglomerată, butonul nu. Riscul nu se închide cu disciplină, ci cu
 vizibilitate — lista grupei arată câte documente sunt `nou` și de câte zile, iar cifra se vede din
 meniul zonei de admin, nu doar dacă intri pe grupă. Un document rămas `nou` de trei zile e o
-problemă operațională, nu o stare.
+problemă operațională, nu o stare. **Construit la S8**, inclusiv vârsta, care e jumătatea care
+transformă un număr în semnal.
 
 **Adresele părinților sunt date personale.** Faptul că adresa devine obligatorie la înregistrare nu
 scutește de temei și scop — o cere mai apăsat, fiindcă un câmp obligatoriu nu mai lasă părintelui
@@ -508,17 +656,22 @@ arată.
 
 ## Decizii luate
 
-| Decizie                                 | Valoare                                                                                           |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Furnizor de email                       | **Resend**, deja în uz și cu domeniul de expediere verificat                                      |
-| Chei de expediere                       | **Două** chei și două adrese: una pentru formularul public, alta pentru mailul către părinți      |
-| Locul de trimitere către părinți        | `apps/api`, printr-un `MailService`. Ruta Nitro rămâne doar a formularului public                 |
-| Substrat pentru coadă și joburi         | **Postgres**, în procesul API. Fără Redis, fără BullMQ                                            |
-| Ceasul din backend                      | `@nestjs/schedule` **fixat la `^6.0.1`**: v12 exportă ESM și moare în ts-jest, v6 e CommonJS      |
-| Destinatarul unui mesaj despre un copil | **Părintele lui, exclusiv.** Un copil are un `Profile`, cu o adresă                               |
-| Adresa de email a părintelui            | **Obligatorie și confirmată la înregistrare.** Profilul creat de admin rămâne fără                |
-| Trimiterea documentelor către părinți   | **Adminul apasă butonul**, pe grupă, după ce se uită la ce pleacă. Nimic nu pleacă automat, seara |
-| Starea unui document                    | **nou / trimis / eroare**, vizibilă în lista grupei, nu doar în evidența de mesaje                |
+| Decizie                                 | Valoare                                                                                                                           |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Furnizor de email                       | **Resend**, deja în uz și cu domeniul de expediere verificat                                                                      |
+| Chei de expediere                       | **Două** chei și două adrese: una pentru formularul public, alta pentru mailul către părinți                                      |
+| Locul de trimitere către părinți        | `apps/api`, printr-un `MailService`. Ruta Nitro rămâne doar a formularului public                                                 |
+| Substrat pentru coadă și joburi         | **Postgres**, în procesul API. Fără Redis, fără BullMQ                                                                            |
+| Ceasul din backend                      | `@nestjs/schedule` **fixat la `^6.0.1`**: v12 exportă ESM și moare în ts-jest, v6 e CommonJS                                      |
+| Destinatarul unui mesaj despre un copil | **Părintele lui, exclusiv.** Un copil are un `Profile`, cu o adresă                                                               |
+| Adresa de email a părintelui            | **Obligatorie și confirmată la înregistrare.** Profilul creat de admin rămâne fără                                                |
+| Trimiterea documentelor către părinți   | **Adminul apasă butonul**, pe grupă, după ce se uită la ce pleacă. Nimic nu pleacă automat, seara                                 |
+| Starea unui document                    | **nou / trimis / eroare**, vizibilă în lista grupei, nu doar în evidența de mesaje                                                |
+| Felul unui anunț                        | **Ales de om**, operațional sau promoțional. Doar al doilea consultă `marketingOptIn`                                             |
+| „Același anunț"                         | Audiență + subiect + corp + **ziua școlii**. A doua apăsare identică e refuzată de un index unic                                  |
+| Un copil numit într-un anunț            | **Avertisment cu confirmare**, nu blocaj: Maria e și sală, și stradă                                                              |
+| Rezumate zilnice (S6)                   | **Construite și scoase.** Un părinte nu se supără de trei emailuri; coada nu are voie să capete o stare „nici plecat, nici eșuat" |
+| Restanța de documente                   | **Numărul plus vârsta**, vizibile din meniu. Un buton pe care nu apasă nimeni se închide cu vizibilitate, nu cu disciplină        |
 
 **Fără canal secundar în MVP.** Emailul e singurul canal. Propunerea echipei — o pagină de admin cu
 câte un link `wa.me` per copil, cu mesajul precompletat, trimis de pe telefonul omului — a fost

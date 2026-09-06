@@ -141,7 +141,7 @@ Selector de locație în antetul zonei de admin, persistent între pagini. Toate
 grupe, prezență, facturi, rapoarte — respectă selecția. Un mod "toate locațiile" pentru privirea de
 ansamblu.
 
-**Acceptanță:** cele 25 de pagini de admin respectă selectorul. Nicio listă nu amestecă locațiile
+**Acceptanță:** ecranele de admin respectă selectorul. Nicio listă nu amestecă locațiile
 fără să o spună.
 
 **Livrat, cu o restrângere explicită a scopului.** Selectorul e în antetul zonei de admin

@@ -2,17 +2,19 @@
 
 **Status:** în lucru · **Pistă:** Public · **Depinde de:** E03 · **Blochează:** E19, E20
 
-**Livrate:** S1 (fundația de design), S3 (paginile publice) și S4 (portalul părintelui). S2 e livrat
-parțial — greutatea imaginilor e rezolvată, pipeline-ul nu. **Rămân:** S5, S6, S7, plus verificarea
-lui S4 pe date reale, toate după autentificare sau în CI. Nimic din zona de după autentificare nu se
-poate demonstra până nu rulează un backend — vezi [E01](E01-infrastructura-medii.md), S4.
+**Livrate:** S1 (fundația de design), S2 (pipeline de imagini), S3 (paginile publice), S4 (portalul
+părintelui) și S7 (interfața profesorului), plus jumătatea din CI a lui S6 — verificarea automată de
+accesibilitate, pe paginile publice, în ambele teme. **Rămân:** S5 și restul lui S6, plus verificarea
+lui S4 pe date reale. Nimic din zona de după autentificare nu se poate demonstra până nu rulează un
+backend — vezi [E01](E01-infrastructura-medii.md), S4.
 
 > ## Cerut de școală: rescrierea întregii zone de după login
 >
 > **Tot ce e după autentificare arată prost și trebuie refăcut, nu peticit.** Nu e o observație
-> despre o pagină anume — e despre toate: cele **4 pagini de portal** și cele **32 de ecrane de
-> admin**, inclusiv cele adăugate recent (`/admin/approvals`, `/admin/formare`,
-> `/admin/invoices/emitere`).
+> despre o pagină anume — e despre toate: cele **6 pagini de portal** și cele **44 de ecrane de
+> admin** (fișiere `.vue` sub `app/pages/`, numărate așa ca cifra să se poată verifica), inclusiv
+> cele adăugate recent (`/admin/approvals`, `/admin/formare`, `/admin/invoices/emitere`,
+> `/admin/anunturi`, `/admin/leads`).
 >
 > Motivul e vizibil cu ochiul liber: **paginile publice au fost rescrise pe sistemul din S1, cele
 > autentificate nu.** Publicul folosește `classical.css` — paletă proprie, scară tipografică,
@@ -20,10 +22,12 @@ poate demonstra până nu rulează un backend — vezi [E01](E01-infrastructura-
 > doar mapează `primary` și `neutral` peste ele. Rezultatul e că un părinte trece de la un site care
 > arată ca o școală serioasă la un panou care arată ca un instrument intern — exact în momentul în
 > care tocmai a plătit.
->
-> Cele 28 de ecrane au fost construite în momente diferite, cu tipare diferite de tabel, filtrare,
+
+Ecranele au fost construite în momente diferite, cu tipare diferite de tabel, filtrare,
+
 > formular, stare goală și mesaj de eroare. De aceea e **rescriere, nu retuș**: cât timp nu există un
-> tipar comun, fiecare ecran nou adaugă un al 29-lea dialect. Asta e S5, iar S4 e echivalentul pentru
+> tipar comun, fiecare ecran nou mai adaugă un dialect — și numărul chiar a crescut de la 28 la 44
+> în timpul epicului, ceea ce e argumentul, nu o notă de subsol. Asta e S5, iar S4 e echivalentul pentru
 > portalul părintelui — ambele își păstrează conținutul, dar niciunul nu mai e „muncă viitoare
 > opțională".
 >
@@ -53,16 +57,19 @@ plecat:
   repo.~~ Fișierele acelea au fost șterse și înlocuite cu fotografii reale, niciuna peste 200KB,
   toate cu `width` și `height` explicite. **`@nuxt/image` tot nu e instalat** și nu se servesc
   formate moderne — vezi S2, care rămâne parțial.
-- **Portalul părintelui e sărac.** Trei pagini: `dashboard`, `profile`, `payments`. Un părinte nu
+- **Portalul părintelui e sărac.** Șase pagini: `dashboard`, `profile`, `profile-setup`,
+  `payments`, `absente` și `proiecte` — ultimele două aduse de E12 și E14, nu de o rescriere. Un părinte nu
   poate vedea orarul copilului, prezența, proiectele sau progresul — pentru că majoritatea nici nu
   există încă, dar nici structura nu le anticipează. Nerezolvat: **paginile de după autentificare
   nu au fost atinse de rescriere și nu sunt cablate la un backend care rulează.**
-- **Zona de admin e inconsecventă.** 25 de pagini construite în momente diferite, cu tipare
+- **Zona de admin e inconsecventă.** 44 de ecrane construite în momente diferite, cu tipare
   diferite de tabel, filtrare, formular și mesaj de eroare. Nerezolvat.
-- **Accesibilitate neverificată.** Rezolvat parțial: pe paginile publice contrastul e conform AA
+- **Accesibilitate neverificată.** Rezolvat pe paginile publice: contrastul e conform AA
   (butoanele și legăturile folosesc `--color-accent-ink`, marginile de control un token separat la
   3:1), există legătură „Sari la conținut”, erorile de formular sunt legate prin `aria-describedby`
-  și carusel are rol și etichete. **Verificarea automată din CI nu există** — S6.
+  și carusel are rol și etichete — iar din S6 **verificarea automată rulează în CI**, cu axe-core
+  într-un Chromium adevărat, pe fiecare pagină din sitemap și în ambele teme. Rămâne zona
+  autentificată, neverificată deloc: se face odată cu S4 și S5.
 - **Fără stări de încărcare și eroare coerente.** `NotificationContainer` există; nu e clar că e
   folosit consecvent. Nerezolvat în zona autentificată.
 - ~~**Fără mod întunecat**, deși @nuxt/ui îl suportă din start.~~ Paleta întunecată e definită în
@@ -167,19 +174,56 @@ date încă spun asta explicit, nu rămân goale.
 
 **Acceptanță:** un părinte cu doi copii comută între ei fără să se piardă.
 
-**Livrat** — pe `release/stage`, ca tot ce e după autentificare. Cinci ecrane de portal plus cele
-trei de intrare în cont, toate pe jetoanele din S1, cu un shell propriu: `layouts/portal.vue`,
-navbar cu rândul de taburi sub el, nu bara laterală colapsabilă a zonei de admin. Un părinte are
-cinci pagini și le deschide pe telefon; un admin are treizeci și două și stă în aplicație toată ziua,
-iar o bară laterală ia o treime dintr-un ecran de 390px ca să aleagă între cinci lucruri. Layout-ul
-`dashboard` rămâne al zonei de admin, care se uniformizează în S5.
+**Intrarea în cont face parte din story, în trei ecrane, nu în două.** Decizia e a
+[E11](E11-inscrieri-capacitate.md) S2 și e scrisă acolo; aici e ce înseamnă pentru desen:
+
+1. **Creare cont** — nume, email, parolă. Un ecran de conversie: scurt și vizibil terminabil.
+2. **Completează profilul** — telefon, adresă și contactul de urgență, obligatorii. Ecranul ăsta se
+   deschide în două situații care arată diferit și trebuie să citească bine în amândouă: imediat
+   după creare, unde e „pasul 2 din 2" și progresul se arată cinstit; și mai târziu, pentru o
+   familie pe care adminul a introdus-o de la telefon și al cărei cont a fost legat după, unde nu e
+   niciun pas 2 din nimic, ci „ne lipsesc câteva date". Nu inventa un wizard în al doilea caz.
+3. **Cont în așteptare** — cele două porți din E11 S2 sunt independente și oricare poate fi deschisă
+   prima, deci ecranul nu e o ușă încuiată, ci o stare **înăuntrul** portalului: un părinte
+   neconfirmat se poate autentifica. Spune care poartă mai e închisă, oferă retrimiterea linkului și
+   e explicit că singurul lucru blocat efectiv e repartizarea unui copil într-o grupă.
+
+Cele trei nu sunt un flux liniar: un părinte poate avea profilul complet și emailul neconfirmat, sau
+invers. Desenul trebuie să suporte oricare combinație fără să pară stricat.
+
+**Livrat.** Șase ecrane de portal plus cele trei de intrare în cont, toate pe jetoanele din S1, cu
+un shell propriu — `layouts/portal.vue`: navbar cu rândul de taburi sub el, nu bara laterală
+colapsabilă a zonei de admin. Un părinte are șase pagini și le deschide pe telefon; un admin are
+zeci și stă în aplicație toată ziua, iar o bară laterală ia o treime dintr-un ecran de
+390px ca să aleagă între ele. Layout-ul `dashboard` rămâne al zonei de admin, care se
+uniformizează în S5.
+
+**Prezența e ecran propriu, nu un bloc pe Acasă.** Calendarul lunar exista dinainte, pe
+`/user/dashboard`, și a fost mutat la `/user/prezenta` când Acasă a preluat ruta. Nu s-a întors pe
+Acasă fiindcă acolo ar fi contrazis singurul lucru pe care ecranul acela îl are de făcut: o grilă de
+42 de zile cu o legendă de cinci intrări, o dată pentru fiecare copil, împinge sub linia de plutire
+exact ce cere atenție. Coloana de prezență recentă de pe Acasă arată ultimele patru ore și trimite
+mai departe — o privire, plus o ușă pentru cine vrea luna.
+
+Culorile lui s-au dus odată cu mutarea. Ecranul vechi picta cinci culori semantice din Nuxt UI, care
+nu există în sistemul ăsta — o singură accentuare, aurul — și pe care oricum nu le poate citi cineva
+care nu separă verdele de roșu. Fiecare zi poartă acum un **semn**: `✓` prezent, `A` absent, `R`
+recuperare, `?` nemarcat, `○` oră programată. Primele trei sunt aceleași pe care le folosește deja
+rândul de prezență recentă de pe Acasă, ca cele două ecrane să nu învețe două vocabulare pentru
+același fapt. Ce înseamnă o zi rămâne decis de `calendarDayState` — funcția pură, testată, care nu
+mai ghicește din `Group.weekday`; ecranul doar desenează ce întoarce ea.
+
+Story-ul a fost multă vreme blocat, și motivul merită păstrat fiindcă e încă pe jumătate valabil:
+**backend-ul nu e deployat**, deci nimic din ce e după login nu vorbește cu un API care rulează.
+Ce s-a putut face fără el e desenul și structura; ce rămâne — verificarea pe date reale și pe
+telefon — cere tot [E01](E01-infrastructura-medii.md) S4.
 
 **Cum se rezolvă acceptanța.** Comutarea are două feluri de a se pierde și fiecare are alt răspuns:
 
-- _Alegi un copil, urmezi un link și ajungi la celălalt._ Alegerea stă în URL (`?copil=`) și
-  într-un cookie — URL-ul are prioritate, deci o pagină reîncărcată sau trimisă mai departe e despre
-  același copil, iar cookie-ul o duce între Absențe și Proiecte, unde linkurile nu poartă query
-  string. Aceeași mecanică și același motiv ca filtrul de locație din `locationStore`.
+- _Alegi un copil, urmezi un link și ajungi la celălalt._ Alegerea stă în URL (`?copil=`) și într-un
+  cookie — URL-ul are prioritate, deci o pagină reîncărcată sau trimisă mai departe e despre același
+  copil, iar cookie-ul o duce între Absențe și Proiecte, unde linkurile nu poartă query string.
+  Aceeași mecanică și același motiv ca filtrul de locație din `locationStore`.
 - _Citești prezența unui copil crezând că e a celuilalt._ La asta comutatorul nu ajută, oricât ar fi
   de vizibil: răspunsul e **redundanța** — fiecare bloc de date își repetă copilul în etichetă
   („MATEI · ORE VIITOARE"), deci numele nu e niciodată mai departe de cifre decât sunt cifrele între
@@ -192,11 +236,9 @@ singur copil.
 **Ce rămâne, și de ce nu e cod.** Portalul compilează, se randează și e cablat la composable-urile
 existente, dar **backend-ul tot nu e deployat**, deci nimic din el n-a fost văzut pe date reale.
 Verificarea pe familii adevărate și pe un telefon adevărat — inclusiv jumătatea de accesibilitate a
-lui S6 pentru zona autentificată — cere [E01](E01-infrastructura-medii.md) S4.
-
-Până atunci, paginile autentificate poartă `noindex, nofollow` din layout, iar `/admin/` și `/user/`
-sunt excluse din `robots.txt` — deci starea lor neverificată nu ajunge în index și nu strică ce s-a
-câștigat în [E19](E19-seo-geo.md).
+lui S6 pentru zona autentificată — cere [E01](E01-infrastructura-medii.md) S4. Până atunci
+paginile autentificate poartă `noindex, nofollow` din layout, iar `/admin/` și `/user/` sunt excluse
+din `robots.txt`, deci nimic din ele nu ajunge în index.
 
 **Două lucruri pe care designul le cerea și codul nu le putea da**, rezolvate spunând adevărul în loc
 să inventăm cifre:
@@ -216,8 +258,9 @@ Un tipar unic de tabel — sortare, filtrare, paginare, acțiuni în masă, star
 formular, cu validare și erori. Toate paginile aliniate. Selectorul de locație din
 [E08](E08-multi-locatie.md) integrat în antet.
 
-**Nu mai sunt 25 de pagini, ci 32**, iar numărul crește cu fiecare epic livrat: E11 a adăugat
-`/admin/approvals` și `/admin/formare`, E15 a adăugat `/admin/invoices/emitere`. Fiecare a fost
+**Nu mai sunt 25 de ecrane, ci 44**, iar numărul crește cu fiecare epic livrat: E11 a adăugat
+`/admin/approvals` și `/admin/formare`, E15 a adăugat `/admin/invoices/emitere`, E17 a adăugat
+`/admin/anunturi` și `/admin/livrari`, E20 a adăugat `/admin/leads`. Fiecare a fost
 construit cu tiparele pe care le-a găsit, adică fiecare a mai adăugat un dialect. **Costul crește cu
 întârzierea**, ceea ce e argumentul pentru care jumătatea de componente merită făcută înainte de
 deploy, nu după.
@@ -225,7 +268,7 @@ deploy, nu după.
 **Acceptanță:** o pagină nouă de admin se construiește din componente existente, fără CSS nou.
 
 **Livrat parțial: jumătatea de componente** — cea care nu cere un API care rulează. Înaintea
-oricărui cod s-a făcut un catalog al dialectelor pe toate cele 28 de ecrane: **7 feluri de tabel**
+oricărui cod s-a făcut un catalog al dialectelor pe cele 28 de ecrane de atunci: **7 feluri de tabel**
 (UTable cu trei sub-dialecte de `h()`, un `<table>` nativ, rânduri din div-uri, grile de carduri),
 **5 feluri de formular** — inclusiv două ecrane rămase pe `UFormGroup` din @nuxt/ui v2, care în v4
 nu randează nimic —, **opt apariții** ale aceluiași `<select>` nativ cu șirul lui de clase
@@ -251,13 +294,44 @@ a fiecărui tipar, nu o invenție:
 **Ecranul-dovadă e `/admin/calendar`** (E12 S2), migrat integral: shell, triadă, rânduri, USelect
 în locul select-ului nativ, iar ștergerea a trecut de pe `confirm()` pe modal.
 
-**Rămân pentru S5b** — migrarea celor 32 de ecrane, planificată de catalog: salvarea de la v2 a
+### S5b, prima felie — livrat
+
+Migrarea a început de la întrebarea „unde e greu de ajuns la informație", nu de sus în jos pe listă.
+Măsurat pe ecranele deschise cel mai des:
+
+- **Meniul era o listă plată de douăzeci și cinci de intrări**, în ordinea în care le-au adăugat
+  epicurile: „Restanțe" stătea între „Plăți" și „Reduceri" fiindcă E16 a venit după E15. Acum sunt
+  șase grupe cu titlu — Zi de zi, Familii, Grupe și săli, Bani, Comunicare —, iar în interiorul unei
+  grupe ordinea e a zilei de lucru, nu alfabetul: catalogul de azi înaintea orarului din care vine,
+  emiterea înaintea urmăririi. Cele două legături publice au coborât la final: erau primele, adică
+  singurele două pe care un admin nu le folosește niciodată erau primele două citite de fiecare dată.
+- **`/admin/facturi` cheltuia un ecran întreg de desktop pe trei cartonașe care scriau „Facturi:
+  10".** Numărul de facturi e singurul lucru dintr-o lună de facturare cu care nu poți face nimic.
+  Acum sunt trei cifre sus — emis, încasat, rest — și un tabel pe luni cu familii, facturi, cât s-a
+  emis, cât a intrat și cât a rămas. **Numerele se cer raportului financiar**, nu se recalculează
+  aici: un al doilea `amount − plăți` într-un fișier Vue ar fi a doua definiție a restanței.
+- **Lista de copii avea trei coloane din șase inutile.** `createdAt` se afișa brut, direct din
+  driver — `2026-09-04T16:40:25.566Z` —, `#12` ocupa o coloană ca să arate o cheie de bază de date,
+  iar o singură coloană înghesuia patru fapte: „Scratch Începători • Luni • 16:00 - 17:30 • Drumul
+  Taberei · Sala 1". Acum: nume, **vârstă** în locul datei de naștere (ecranul se citește ca să
+  repartizezi un copil, iar repartizarea e pe bandă de vârstă), părinte, grupă, când și unde.
+- **Cardul de grupă își calcula singur locurile ocupate**, filtrând magazinul de copii din browser.
+  Cifra nu era greșită azi — `Child.group` se scrie și pentru probe —, dar era **a doua definiție a
+  unui număr pe care îl deține `occupancyOf`**, se sprijinea tăcut pe cât apucase browserul să
+  încarce, și nu putea ști nimic despre lista de așteptare. Cere acum `GET /reports/occupancy`, deci
+  cardul spune și „2 pe listă".
+
+`ageOn` / `formatAge` intră în vocabularul comun, cu aceeași disciplină ca `formatDateKey`: vârsta
+se calculează din componentele celor două string-uri, niciodată printr-un `new Date()`, fiindcă o zi
+în plus sau în minus mută o aniversare peste an și un copil în altă bandă de vârstă.
+
+**Rămân pentru S5b** — migrarea celorlalte ecrane, planificată de catalog: salvarea de la v2 a
 celor două formulare, măturarea de limbă (dropdown-uri în engleză, „No data"), `AdminDateField`
 (izolarea hack-ului fragil de popover din children/edit), bara de filtre (trei forme incompatibile
 azi — se extrage după ce migrarea arată care supraviețuiește) și grila de carduri (cinci ecrane,
 patru semantici; înainte de orice partajare, `GroupCard` trebuie mutat pe `occupancyOf` — D7).
 
-### S6 · Accesibilitate — livrat parțial
+### S6 · Accesibilitate — livrat parțial (verificarea automată, livrată)
 
 Contrast conform WCAG AA, navigare completă din tastatură, focus vizibil, etichete și roluri ARIA,
 text alternativ pe imagini semnificative. Verificare automată în CI.
@@ -274,11 +348,42 @@ sunt legate de câmpul lor prin `aria-describedby`, caruselul are rol, etichetă
 accesibile din tastatură, iar animațiile respectă `prefers-reduced-motion` — inclusiv la nivelul
 la care o pagină fără JavaScript își arată tot conținutul.
 
-**Ce rămâne:** verificarea automată din CI, care e jumătatea care ține rezultatul în timp. Fără ea,
-nimic nu împiedică următoarea componentă să reintroducă un contrast de 3:1. Și zona autentificată,
-neverificată deloc — se face odată cu S4 și S5.
+**Verificarea automată, livrată.** `pnpm test:a11y` construiește `apps/web`, servește `.output` pe
+un port local și trece axe-core peste fiecare pagină pe care o publică sitemap-ul, în temă deschisă
+și în temă închisă, pe WCAG 2.0 și 2.1 nivel A și AA. Rulează în CI, în același job cu lint,
+typecheck și build. Scriptul e `apps/web/scripts/check-a11y.mjs`; deciziile din el sunt fiecare un
+mod în care verificarea ar fi putut fi verde degeaba:
 
-### S7 · Interfața profesorului — muncă viitoare
+- **Un browser adevărat, nu jsdom.** Varianta ieftină ar trece axe peste HTML-ul prerandat, fără
+  motor de layout — și ar trece, fără să facă nimic din singurul lucru pentru care există: fără
+  cascadă și fără layout, contrastul nu se poate calcula, deci axe îl sare. O bifă verde care nu
+  poate vedea regresia pentru care a fost scrisă e mai rea decât nicio bifă, fiindcă cineva se
+  bazează pe ea.
+- **Ambele teme.** Token-urile pe care story-ul le-a ridicat sunt declarate de două ori, iar cele
+  întunecate stau la 3,09:1 — destul de aproape de linie cât o editare să le treacă dincolo.
+- **Paginile vin din sitemap**, nu dintr-o listă în script: `PUBLIC_PAGES` din `shared/seo.ts` îl
+  alimentează deja, deci o pagină adăugată acolo e verificată fără să-și mai amintească nimeni s-o
+  adauge a doua oară.
+- **`best-practice` e lăsat deliberat pe dinafară.** Regulile alea sunt sfaturi, nu standardul, iar
+  amestecate în verificare o fac să pice pentru lucruri cu care n-a fost nimeni de acord — așa ajunge
+  o verificare să nu mai fie citită, ci sărită.
+- **Rulează cu `prefers-reduced-motion: reduce`**, altfel măsoară un fade. Blocurile intră prin
+  `classical-rise`, iar axe citește culoarea din clipa în care se uită: prinsă la jumătate, aceeași
+  clasă `.lede` raportează 1,47:1 pe două pagini și 1,18:1 pe a treia, ceea ce nu e o problemă de
+  contrast, e una de cronometru. Cu preferința pornită, `useReveal` iese devreme, nimic nu se ascunde
+  și pagina măsurată e cea pe care o primește un cititor cu setarea aia — singura formă în care
+  rezultatul e același de două ori.
+
+**Verificarea a fost verificată.** Cu `--color-accent-ink` întors la accentul brut — exact culoarea
+pe care story-ul a schimbat-o — verificarea cade pe fiecare pagină publică, în tema
+deschisă, cu 2,61:1 și numele elementului. Cu el la loc, trece.
+
+**Ce rămâne:** zona autentificată, neverificată deloc. Acceptanța cere și portalul, iar portalul se
+rescrie în S4 și S5 — se verifică atunci, nu înainte, fiindcă altfel s-ar cimenta ecranele pe care
+școala le-a cerut refăcute. Jumătatea de tastatură a acceptanței rămâne manuală: axe verifică ce e
+în DOM, nu ce se întâmplă când cineva apasă Tab de douăzeci de ori.
+
+### S7 · Interfața profesorului — livrat
 
 Ecranul de marcare a prezenței din [E12](E12-prezenta-orar.md) S6 e folosit în picioare, într-o
 sală, de pe telefon. Ținte de atingere mari, contrast bun, funcțional pe conexiune slabă.
@@ -293,6 +398,63 @@ de trimitere din [E17](E17-comunicare-notificari.md) S8. Alea sunt **ecrane de a
 se proiectează cu restul zonei de admin, nu după regulile de telefon de mai sus.
 
 **Acceptanță:** un profesor marchează prezența unei grupe de pe telefon, fără să mărească pagina.
+— **Îndeplinită**, măsurată la 390×844 (iPhone 12), în ambele teme: nicio pagină din drumul
+profesorului nu depășește lățimea ecranului, deci nu există pinch și nu există derulare laterală.
+
+Ecranul în sine exista din E12 S6, cu butoanele lui mari și coada lui locală, iar story-ul ăsta
+părea să fie despre retușuri. Măsurat pe un telefon adevărat, patru dintre cele cinci lucruri
+găsite erau **în afara ecranului** — în cadru, în jetoane, în pipeline —, ceea ce e și explicația
+pentru care nu le văzuse nimeni: se uita toată lumea la pagină.
+
+- **Meniul era acoperit de filtrul de locație.** `LocationSwitcher` cerea 224px într-o bară de
+  390px, iar grupul din dreapta al navbar-ului își păstra lățimea intrinsecă și creștea peste
+  butonul de meniu din stânga. Din cele 44px ale lui rămâneau **10px** apăsabili; o atingere în
+  centrul hamburgerului deschidea lista de locații. Pe telefon meniul e singurul drum către orice
+  altceva, deci ecranul de prezență se putea deschide doar tastând adresa. Corectura e `min-w-0`
+  pe grupul din dreapta plus un filtru care se strânge sub `sm` — un nume de locație tăiat costă un
+  admin o privire, un hamburger acoperit costă un profesor tot meniul.
+- **Accentul nu fusese niciodată tradus pentru Nuxt UI.** `classical.css` punea în variabilele lui
+  Nuxt UI fundalul, textul și marginea, dar nu și accentul, deci `--ui-primary` rămăsese la 500-ul
+  rampei — adică exact culoarea de 3:1 pe care S6 a scos-o din text pe partea publică. Fiecare buton
+  outline sau ghost de după login citea la **2,61:1**, aceeași cifră și aceeași cauză, de partea
+  cealaltă a autentificării. O linie per temă, `--ui-primary: var(--color-accent-ink)`, duce drumul
+  profesorului la **axe curat pe WCAG 2.0 și 2.1 A+AA, în ambele teme** — și, fiind un jeton,
+  ridică odată cu el toate cele 44 de ecrane de admin.
+- **Iconițele veneau de la Iconify, la rulare.** Nicio colecție nu era instalată local, deci
+  `@nuxt/icon` le cerea de pe `api.iconify.design` de fiecare dată — pe conexiunea din sală, exact
+  cea pentru care există story-ul. Butonul de meniu **e** o iconiță și nimic altceva: fără ea, un
+  buton gol. Cu `@iconify-json/lucide` instalat, bundle-ul are cele **43 de iconițe folosite,
+  10,4KB**, servite de pe domeniul propriu; nu mai e nici o cerere către un terț la fiecare
+  încărcare, ceea ce e și un lucru mai puțin de explicat în [E07](E07-securitate-gdpr.md).
+- **Nuxt UI vorbea englezește.** Tot ce randează componenta pentru sine — eticheta hamburgerului,
+  „No data" sub un tabel gol — vine din locale-ul lui, iar implicitul e engleza. `UApp :locale="ro"`
+  le trece pe toate deodată: butonul care deschide meniul se prezenta unui profesor drept
+  „Open sidebar". Convenția zice de mult că numai codul e în engleză; o etichetă pe care n-a
+  scris-o nimeni e tot o etichetă pe care o citește cineva.
+- **Coada promitea ceva ce nu făcea.** Bannerul spune „se retrimit singure", dar coada se golea
+  doar la deschiderea ecranului și pe evenimentul `online` — care nu se declanșează pe conexiunea
+  reală dintr-o sală, unde cererile mor dar `navigator.onLine` rămâne `true`. Acum are un backoff
+  propriu, 5s dublat până la un minut; plafonul contează mai mult decât curba, fiindcă ora ține
+  nouăzeci de minute și o curbă neplafonată ar renunța pe la mijlocul ei. Verificat cu rețeaua
+  omorâtă fără ca browserul s-o admită: trei încercări în șaptesprezece secunde, iar la revenirea
+  conexiunii coada s-a golit singură, fără reîncărcare și fără nicio atingere.
+
+Restul sunt lucruri de pe ecran: ținte de cel puțin **44px** peste tot pe drumul profesorului
+(„Înapoi", „Altă grupă", „Retrimite", „Sună părintele" și hamburgerul erau între 28 și 32px), și
+`/admin/attendance` refăcut — trei cartonașe stivuite pe telefon în loc de trei coloane de `w-1/3`
+înghesuite la 130px fiecare, cu „Prezența de azi" **prima**, fiindcă hub-ul nu o oferea deloc: se
+ajungea la ea numai din meniul lateral, adică din exact lucrul pe care telefonul îl ascunde.
+
+**Nu s-a construit o poartă automată pentru zona autentificată**, deși măsurătorile de mai sus
+sunt exact ce ar rula într-una. S6 spune de ce, iar motivul ține în continuare: acceptanța ei
+acoperă portalul, portalul se rescrie în S4 și S5, iar o poartă scrisă acum ar cimenta ecranele pe
+care școala le-a cerut refăcute. Verificarea rămâne manuală până atunci, cu cifrele de aici ca
+linie de bază.
+
+**Ce nu s-a atins, deliberat:** cele 25 de intrări din meniul lateral. Pe telefon sunt o listă
+lungă într-un panou care se deschide peste ecran, și e o problemă reală — dar e problema navigației
+zonei de admin, adică S5b, iar cartonașul din hub îi dă profesorului al doilea drum de care avea
+nevoie azi.
 
 ## Dependențe
 

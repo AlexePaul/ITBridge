@@ -73,6 +73,7 @@ pnpm install
 docker compose up -d              # Postgres + MinIO; aplicația rulează pe Node
 pnpm --filter api migration:run   # schema; synchronize e oprit
 pnpm seed                         # date de dezvoltare; admin / parola123
+SEED_TODAY=2026-03-16 pnpm seed   # aceleași date, dar ancorate la o zi fixă
 pnpm dev                          # api + web, hot reload
 
 pnpm build          # turbo, în ordinea dependențelor
@@ -80,6 +81,7 @@ pnpm typecheck      # toate workspace-urile
 pnpm lint           # verifică, nu modifică; corectare: pnpm --filter api lint:fix
 pnpm test           # jest pe api, vitest pe web
 pnpm test:e2e       # integrare prin HTTP; cere Postgres pornit
+pnpm test:a11y      # axe-core pe paginile publice, într-un Chromium adevărat; construiește întâi
 
 pnpm --filter api <script>   # o comandă într-un singur workspace
 ```
@@ -87,6 +89,30 @@ pnpm --filter api <script>   # o comandă într-un singur workspace
 Aplicația **nu** rulează în Docker, nici local nici în producție. Backend-ul își citește `.env`
 prin `apps/api/src/load-env.ts`, importat înaintea oricărui modul care atinge `process.env` la
 încărcare — dacă adaugi un import nou în `main.ts`, lasă-l pe ăsta primul.
+
+**Seed-ul e ancorat la ziua de azi, nu la o constantă.** Tot ce scrie atârnă de `SEED_TODAY` din
+`apps/api/src/seed/seed.ts`: cele opt săptămâni de prezență din urmă, orizontul de orar din față,
+lunile care au facturi. Era o dată fixă, iar la șase luni după ce a fost scrisă o bază proaspăt
+populată se deschidea pe „Nicio oră azi", cu cea mai nouă factură veche de jumătate de an. Acum
+implicitul e ziua curentă, iar `SEED_TODAY=2026-03-16` o fixează la loc dacă vrei două rulări
+identice. Grupele acoperă luni–sâmbătă tocmai ca „azi" să aibă o oră în șase zile din șapte.
+`pnpm seed` nu trece prin turbo, deci variabila **nu** se declară în `globalEnv`.
+
+**Seed-ul are două ținte, iar `seed-target.ts` e tot ce le desparte.** `pnpm seed` merge pe baza
+locală; `pnpm seed:stage` citește `.env.stage` și merge pe staging. Pe orice host care nu e
+localhost, `checkSeedTarget` cere două lucruri și le **refuză**, nu le avertizează:
+`SEED_ALLOW_NON_LOCAL` trebuie să fie **numele bazei**, nu `1` — un „da" rămas într-un fișier de
+mediu autorizează orice scrie `DB_NAME` data viitoare —, iar `SEED_PASSWORD` trebuie setată, fiindcă
+`parola123` e în repo și pe un host public ar fi un cont de admin publicat. Parola de pe staging nu
+se tipărește la final: ar ajunge în logul rulării. Regula e pură și are spec propriu; dacă adaugi o
+a treia țintă, treci prin ea, nu pe lângă.
+
+**`seed:stage` trimite `SEED_TARGET=stage`, iar o bază locală de acolo e refuz.** `dotenv -e
+.env.stage` **nu dă eroare când fișierul lipsește** — încarcă nimic —, iar `data-source.ts` cade
+atunci pe `localhost`, deci comanda ar fi golit tăcut baza de dezvoltare a celui care aștepta să se
+umple staging-ul: exact greșeala de țintă pe care restul fișierului o oprește, intrată pe ușa din
+față. Dacă adaugi o comandă de seed pentru încă un mediu, dă-i și ei un `SEED_TARGET` — un flag de
+mediu care se pierde tăcut e mai rău decât unul care lipsește.
 
 **O variabilă de mediu nouă trebuie declarată în `turbo.json`, la `globalEnv`.** Turbo rulează în
 mod `strict`: un task vede doar ce e declarat acolo, iar restul lipsesc fără niciun mesaj. E cea
@@ -108,14 +134,17 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — șaptesprezece module în `apps/api/src/modules/`, treisprezece după același tipar
+**Backend** — douăzeci de module în `apps/api/src/modules/`, cincisprezece după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
-`room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`. Patru ies din
-tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
+`room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, `announcement`,
+`lead`.
+Cinci ies din tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
 și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
 decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
 (agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
-ce ia părintele acasă, ce cere agentul. Entitățile stau centralizat în `apps/api/src/entities/` și
+ce ia părintele acasă, ce cere agentul. `dashboard` are și el două controllere și patru servicii, dar
+din motivul opus: nu deține nimic, ci adună — vezi regula lui E21 mai jos. Entitățile stau centralizat
+în `apps/api/src/entities/` și
 sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
 reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
 
@@ -226,7 +255,10 @@ marcării, în `AttendanceService.settleMakeUp`. **Nu are coloană de stare**: t
 rând, iar „expirată" e calendarul care s-a mișcat — o coloană ar fi greșită exact cât timp n-a rulat
 nimic s-o corecteze. `expiresOn` se îngheață la scriere, ca `inTime`. Iar **locul liber se numără pe
 ședință**: un copil în recuperare ocupă un scaun ca o probă (D7), deci înscrieri în vigoare plus
-recuperări deja programate pe acea ședință — nu `occupancyOf`, care e despre grupă.
+recuperări deja programate pe acea ședință — nu `occupancyOf`, care e despre grupă. Numărătoarea stă
+în `EnrollmentService.freeSeatsAt` / `freeSeatsAtSessions`, lângă `occupancyOf`: D7 are un singur
+proprietar, iar cei trei care întreabă — recuperările, programarea la probă și rezervarea ei — obțin
+același răspuns.
 
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin
@@ -264,12 +296,36 @@ repartizarea unui copil într-o grupă (`PARENT_ACCOUNT_NOT_ACTIVE`). **Un cont 
 autentifica** — portalul îi arată ce mai lipsește și butonul de retrimitere a linkului; un login care
 refuză fără să explice ar lăsa familia să nu distingă „încă nu" de „stricat".
 
-**`register` scrie și `Profile`-ul, în aceeași tranzacție.** Nu mai există fereastra în care un cont
-există fără date de contact, deci `/user/profile-setup` nu mai are ce cere unui părinte nou. Celălalt
-drum către un `Profile` — adminul care introduce o familie de la telefon, prin `POST /profiles` —
-rămâne exact cum era, cu toate câmpurile opționale. Sunt două uși cu reguli diferite, fiindcă au
-surse de adevăr diferite. Un test ține fluxul adminului viu, ca să nu fie strâns din greșeală odată
-cu `register`.
+**Înregistrarea are doi pași, iar al doilea nu se poate sări.** `register` cere cinci câmpuri —
+utilizator, parolă, prenume, nume, email — și scrie în aceeași tranzacție contul, un `Profile`
+**coajă** (atât cât să știm cine e și unde pleacă linkul de confirmare), tokenul de confirmare și
+mesajele din outbox. Restul — telefon, adresă și contactul de urgență, toate trei — se cer imediat
+după, pe `/user/profile-setup`, prin `PUT /profiles/:id`, unde sunt **obligatorii**. E11/S2 avusese
+dreptate să strângă cei doi pași într-unul: ecranul al doilea de atunci era _opțional_, deci o
+familie putea rămâne pentru totdeauna fără nicio cale de contact. Dar rezultatul a fost un prim
+ecran cu zece câmpuri obligatorii, fix în epicul în care E20 coboară bariera de intrare — iar cine
+abandonează la câmpul opt nu e o familie cu date incomplete, e o familie pe care școala n-a
+văzut-o. Distincția față de starea dinainte de S2 e tot ce contează: pasul doi e acum de netrecut.
+
+„Complet" nu se stochează, se derivă — `isProfileComplete` din
+`apps/api/src/entities/profile.entity.ts` — din același motiv pentru care nu există o coloană
+„activ": o a treia valoare ar fi liberă să contrazică cele șase câmpuri pe care le rezumă. Pleacă pe
+sârmă ca `CurrentUser.profileComplete`, iar frontend-ul **nu o recalculează**: middleware-ul care
+redirecționează și endpoint-ul care refuză repartizarea trebuie să spună același lucru despre
+aceeași familie.
+
+Poarta e tot repartizarea într-o grupă, dar cu cod propriu: `PARENT_PROFILE_INCOMPLETE`, separat de
+`PARENT_ACCOUNT_NOT_ACTIVE`, fiindcă unul așteaptă un admin și celălalt așteaptă părintele — iar
+trimiterea la ușa greșită înseamnă o familie care așteaptă pe cineva ce n-are ce face. Se verifică
+în `EnrollmentService.enrol`, numai pentru profilurile **care au cont**: programarea publică la
+probă din E20 scrie tot un `Profile` coajă, fără user, fără email și fără telefon, iar o poartă
+oarbă la asta ar închide exact ușa pe care epicul o deschide. Nu se verifică la `transfer`: o
+familie deja înscrisă nu se blochează retroactiv.
+
+Celălalt drum către un `Profile` — adminul care introduce o familie de la telefon, prin
+`POST /profiles` — rămâne exact cum era, cu toate câmpurile opționale. Sunt două uși cu reguli
+diferite, fiindcă au surse de adevăr diferite. Un test ține fluxul adminului viu, ca să nu fie
+strâns din greșeală odată cu `register`.
 
 Protecția se compune per-handler, nu global:
 
@@ -290,7 +346,7 @@ if (role !== Role.ADMIN) {
 }
 ```
 
-Vezi `apps/api/src/modules/invoice/invoice.service.ts:92`. Același tipar în `payment`, `child`, `profile` — respectă-l.
+Vezi `apps/api/src/modules/invoice/invoice.service.ts:118`. Același tipar în `payment`, `child`, `profile` — respectă-l.
 
 **Numai `andWhere`, niciodată `where`, după ce ai început să compui.** `qb.where()` _înlocuiește_
 toată clauza, deci un `where` pus după restrângerea pe utilizator o șterge fără niciun semn. Exact
@@ -310,15 +366,49 @@ composable-urile din `apps/web/app/composables/api/`.
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
-**Partea publică nu atinge backend-ul.** Cele șapte pagini publice, formularul de contact,
-`robots.txt`, `sitemap.xml`, `llms.txt` și datele structurate funcționează fără `API_BASE` — de
-aceea site-ul stă în producție pe Vercel deși backend-ul nu e deployat. Faptele despre școală stau
-în `apps/web/shared/`, nu în pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts`
-(nivelurile și prețurile), `teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini),
-`structured-data.ts` (constructorii de JSON-LD). Aceleași constante alimentează pagina, graful
-JSON-LD, sitemap-ul și `llms.txt` — **dacă schimbi un preț sau o adresă, schimbi acolo, într-un
-singur loc.** Un număr scris de mână într-o pagină e un bug, nu o scurtătură: NAP inconsecvent e
-cea mai frecventă cauză de poziționare locală slabă.
+**Nuxt UI citește din `classical.css` și fundalul, și accentul.** Blocul de la finalul lui `:root`
+(și geamănul lui din `.dark`) pune în variabilele lui Nuxt UI `--ui-bg`, `--ui-text`, `--ui-border`
+**și `--ui-primary`**. Ultima a lipsit până la E18 S7, iar consecința e capcana pe care o repetă
+oricine adaugă un jeton pe jumătate: `--ui-primary` rămâne la 500-ul rampei, adică `--color-accent`
+— o culoare tunată pentru 3:1, deci pentru chenare și text mare, nu pentru text. Toată zona
+autentificată citea așa la **2,61:1**, exact cifra pe care E18 S6 o scosese din paginile publice.
+Textul de accent merge pe `--color-accent-ink`; dacă adaugi o variabilă nouă de Nuxt UI, pune-o
+tot acolo, nu într-o componentă.
+
+**Șirurile lui Nuxt UI sunt în română, prin `<UApp :locale="ro">` din `app.vue`.** Tot ce randează
+o componentă pentru sine — eticheta care deschide meniul, „No data" sub un tabel gol, butoanele de
+închidere — vine din locale-ul pachetului, iar implicitul e engleza. Regula „numai codul e în
+engleză" acoperă și etichetele pe care nu le-a scris nimeni din echipă.
+
+**Iconițele sunt împachetate local, nu cerute de la Iconify.** `@iconify-json/lucide` e instalat, deci
+`@nuxt/icon` scanează sursele și pune în bundle doar iconițele folosite (43, 10,4KB la E18 S7),
+servite de pe domeniul propriu. Fără pachet, fiecare iconiță e o cerere către `api.iconify.design`
+la rulare — pe conexiunea din sală asta înseamnă butoane goale, iar butonul de meniu **e** o
+iconiță și nimic altceva. Dacă folosești un prefix dintr-o altă colecție, instaleaz-o și pe aia,
+altfel exact acele iconițe se întorc pe rețea, tăcut.
+
+**Zona autentificată se verifică pe telefon, la 390px, nu doar pe desktop** (E18 S7). Două lucruri
+se strică acolo și nicăieri altundeva. Grupul din dreapta al navbar-ului are nevoie de `min-w-0`:
+fără el își păstrează lățimea intrinsecă și crește **peste** butonul de meniu din stânga — din 44px
+rămăseseră 10 apăsabili, iar o atingere în centrul hamburgerului deschidea filtrul de locație. Și
+ținta minimă e 44px pe drumul profesorului; `size="sm"` pe un buton pe care cineva îl apasă stând
+în picioare e prea mic, deci se scrie `class="min-h-11"`. Zona n-are poartă automată de
+accesibilitate — S6 o amână deliberat până se rescrie portalul în S4/S5 — deci verificarea e
+manuală, iar cifrele de referință sunt în E18 S7.
+
+**Partea publică nu atinge backend-ul, cu o singură excepție declarată.** Cele șapte pagini publice
+vechi, formularul de contact, `robots.txt`, `sitemap.xml`, `llms.txt` și datele structurate
+funcționează fără `API_BASE` — de aceea site-ul stă în producție pe Vercel deși backend-ul nu e
+deployat. Excepția e `/proba`, formularul de programare la lecția de probă (E20/S2): el chiar are
+nevoie de API, fiindcă scrie un rând. E scris să pice moale — orele se cer doar din client, iar fără
+răspuns formularul tot se trimite și cititorul primește numărul de telefon — dar **nu se aduce pe
+`release/prod`** până nu rulează un backend. Faptele despre școală stau în `apps/web/shared/`, nu în
+pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts` (nivelurile și prețurile),
+`teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini), `structured-data.ts` (constructorii
+de JSON-LD). Aceleași constante alimentează pagina, graful JSON-LD, sitemap-ul și `llms.txt` —
+**dacă schimbi un preț sau o adresă, schimbi acolo, într-un singur loc.** Un număr scris de mână
+într-o pagină e un bug, nu o scurtătură: NAP inconsecvent e cea mai frecventă cauză de poziționare
+locală slabă.
 
 Fiecare pagină publică apelează `useSeo` o dată (titlu, descriere, canonical, OG, Twitter) și
 `useJsonLd` o dată, cu un singur `@graph`. Nodurile se leagă între ele prin `@id`, deci **orice nod
@@ -417,8 +507,15 @@ rulează `check:schema`, care construiește o bază de unică folosință din mi
 entitățile au divergat.
 
 Când schimbi o entitate: `pnpm --filter api migration:generate src/migrations/<Nume>`, apoi citește
-SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD` — dacă asta
-ar pierde date, rescrie migrarea de mână.
+SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD`.
+
+**Nu te chinui însă să păstrezi date: nu există niciunele.** Baza nu rulează nicăieri în afara
+mașinilor de dezvoltare și a testelor, n-a avut niciodată un utilizator real, iar seed-ul se reface
+dintr-o comandă. Deci o migrare generată se ia ca atare, se rescriu liber migrările nepornite încă
+și nu se scrie cod de backfill pentru rânduri care nu există. Ce **rămâne** obligatoriu e ca migrările
+să existe și să corespundă entităților, fiindcă de asta depinde `check:schema` din CI — și fiindcă
+regula se schimbă în ziua în care există prima familie reală (E01 S4). Până atunci, singurul cost al
+unei migrări greșite e un `docker compose down -v`.
 
 **Migrările nu rulează la boot.** `migrationsRun` e `false` intenționat: în deploy se rulează
 explicit, între build și `pm2 reload`, ca o migrare eșuată să oprească deploy-ul în loc să lase
@@ -488,10 +585,11 @@ rulare și ar emite un `DROP DEFAULT` urmat de un `SET DEFAULT` identic. O gard�
 PR nu mai e citită. Consecința: un proiect creat printr-un query builder n-ar primi identificator —
 nimic nu face asta, iar `ON CONFLICT DO NOTHING` e necesar pe `project_files`, nu pe `projects`.
 
-**Ordinea rutelor contează în `ProjectController`, și nicăieri altundeva în repo.**
-`link/:publicId`, `child/:childId/archive`, `group/:groupId/missing` și `send` sunt declarate
-înaintea lui `:id/…`, fiindcă Nest potrivește în ordinea declarării și `:id` are `ParseIntPipe`, care
-răspunde 400 la un UUID.
+**Ordinea rutelor contează în două controllere.** În `ProjectController`, `link/:publicId`,
+`child/:childId/archive`, `group/:groupId/missing` și `send` sunt declarate înaintea lui `:id/…`,
+fiindcă Nest potrivește în ordinea declarării și `:id` are `ParseIntPipe`, care răspunde 400 la un
+UUID. În `LeadController` (E20/S3) e aceeași capcană cu alt chip: `follow-up` și `undecided` stau
+înaintea lui `:id`, altfel `ParseIntPipe` răspunde 400 la un cuvânt.
 
 **Singurul lucru servit `inline` de pe domeniul școlii e miniatura.** Fișierele urcate se servesc
 prin URL semnat cu `Content-Disposition: attachment`, fiindcă vin de pe o partajare pe care poate
@@ -578,6 +676,24 @@ ceva de plată" înseamnă `pending` sau `overdue` cu rest pozitiv, adică fix c
 `GET /invoices/arrears`. Dacă adaugi un al doilea loc de unde se încasează, cere-i tot un rând de
 acolo — o a doua scădere `amount - plăți` ar fi a doua definiție a aceluiași număr.
 
+**Chitanța se datorează când o plată _devine_ `succeeded`, nu când se scrie un rând** (E16 S6).
+Regula e în `apps/api/src/modules/payment/payment-receipt.rules.ts`, iar distincția e tot ce
+contează: un transfer trecut ca `initiated` cât timp extrasul e provizoriu n-a ajuns încă, iar „am
+primit plata" atunci e o promisiune despre banii altcuiva. Deci `createPayment` trimite dacă plata
+intră direct reușită, `updatePayment` trimite dacă tocmai a devenit, iar o editare pe o plată deja
+reușită nu retrimite — n-a devenit adevărat nimic. `PaymentStatus` are patru stări și **niciuna nu
+se numește `PENDING`**: sunt `INITIATED`, `SUCCEEDED`, `FAILED` și `REVERSED`; un test scris cu
+`PaymentStatus.PENDING` compară cu `undefined` și trece degeaba.
+
+Restul de plată din chitanță vine din `recomputeInvoiceStatus`, care returnează
+`{ paid, outstanding, status }` — suma plăților reușite se face acolo oricum, iar un
+`amount - plăți` scris a doua oară în compozitor ar fi exact a doua definiție de mai sus. Cheia de
+deduplicare e `receipt:<id-ul plății>`, **fără ziua în ea**, spre deosebire de mementourile de
+restanță: alea se repetă prin design, o plată se confirmă o dată. Mesajul se pune în coadă în
+tranzacția care înregistrează banii — dă-i `EntityManager`-ul —, iar dacă adaugi un al doilea loc de
+unde se încasează, cheamă și de acolo aceeași ușă: o încasare tăcută arată pentru familie exact ca
+una pierdută.
+
 **Numai marketingul stă pe o bifă** (E17 S4). `Profile.marketingOptIn` e implicit `false` — un
 consimțământ pe care nu l-a dat nimeni nu e consimțământ — și gatează exclusiv `queueMarketing`.
 `queue` și `queueOrRecord` **nu primesc deloc preferința**, deci nu există argument prin care cineva
@@ -592,6 +708,85 @@ revendică niciodată, fiindcă niciun backoff nu face să apară o adresă. Nu 
 `if (profile.email)` înainte de coadă: exact aia punea faptul într-un log pe care nu-l citește
 nimeni, iar „părintele n-a fost anunțat" arăta ca o coadă blocată. Adresa rămâne goală pe rândul
 nelivrabil — una inventată n-ar putea fi deosebită de una reală care a respins mesajul.
+
+**Anunțul e singurul mesaj care pleacă la mai multe familii, deci singurul cu reguli proprii**
+(E17 S7). `apps/api/src/modules/announcement/` trimite către o grupă, o locație sau toată școala, iar
+audiența se citește din `Child.group` — familiile cu un copil într-o grupă din perimetru, probele
+incluse, deduplicate **per părinte**. Patru lucruri care se ratează ușor:
+
+- **Un anunț n-are voie să numească un copil.** Verificarea caută prenumele fiecărui copil din
+  școală în subiect și corp, fără diacritice și pe cuvinte întregi, iar rezultatul e **avertisment cu
+  confirmare** (`ANNOUNCEMENT_NAMES_A_CHILD` plus `acknowledgeWarnings`), aceeași formă ca vârsta de
+  la E11 S6. Blocajul ar fi greșit: Maria e și sală, și stradă, iar o verificare care se declanșează
+  mereu devine o bifă apăsată reflex.
+- **`kind` decide dacă se consultă `marketingOptIn`.** `transactional` (implicit) ajunge la toți,
+  `marketing` trece prin `queueMarketing`. Fără el, ecranul ăsta ar fi fost portița prin care orice
+  mesaj ajunge la orice familie, indiferent de comutatorul din E17 S4.
+- **A doua apăsare identică e refuzată de un index unic**, nu de un `if`: `Announcement.dedupeKey` e
+  audiență + subiect + corp + **ziua școlii** (`schoolDay` din `apps/api/src/common/school-clock.ts`),
+  hash-uite. O corectură cu alt text trece — e alt mesaj.
+- **`OutboxService` nu știe nimic despre anunțuri.** Serviciul își leagă singur rândurile prin
+  `outbox.announcement_id`, după ce le pune în coadă și în aceeași tranzacție, deci coada partajată
+  se poartă identic pentru ceilalți expeditori. `declinedCount` se stochează pe anunț fiindcă un
+  refuz de marketing nu lasă rând — numărat din coadă ar fi mereu zero.
+
+**Pâlnia începe în afara contului, și se termină la un om** (E20). `apps/api/src/modules/lead/` ține
+tot ce e între „cineva a întrebat" și „s-a înscris". Două lucruri o fac diferită de restul codului:
+
+- **`GET /trial/slots` și `POST /trial/bookings` sunt singurele rute publice în afară de
+  autentificare și health**, și sunt trecute pe nume în lista albă din `authorization.spec.ts`. Sunt
+  publice prin decizie: o programare la probă e un lead, nu o obligație, iar dacă ar cere cont,
+  bariera pe care epicul o coboară ar fi exact bariera pusă la loc.
+- **Nu se creează niciun cont, dar locul e real.** Programarea scrie `Profile` (coajă, fără cont și
+  **fără email și telefon** — coloanele alea sunt unice, iar un formular public n-are voie să scrie
+  în rândul altei familii), `Child` și o înscriere `TRIAL`, toate într-o tranzacție, iar înscrierea
+  trece prin `EnrollmentService.enrol` ca oricare alta. De aici două schimbări în E11: `enrol`
+  acceptă acum un `EntityManager`, ca să intre în tranzacția apelantului, și **blochează rândul
+  grupei** (`FOR UPDATE`) cât ține verificarea de capacitate — numărarea urmată de inserare o pot
+  face două tranzacții deodată, iar doi părinți pe formular la 20:00 nu e un caz rar ca doi admini.
+
+Patru reguli pe care le încalci ușor:
+
+- **Patru din cele șase stări nu se scriu de la niciun ecran.** `trial_scheduled` vine din
+  programare, `trial_held` din catalog (`LeadProgressService`, chemat din `AttendanceService` lângă
+  `settleMakeUp`), iar `enrolled` / `lost` din `resolveTrial` în E11. `UpdateLeadDto` **nu are câmp
+  `status`**, iar cele două stări pe care le declară un om au endpoint-uri proprii. Un câmp de stare
+  pe un PATCH ar lăsa un ecran să scrie `înscris` pe o familie pe care n-a înscris-o nimeni — și aia
+  e cifra pe care se sprijină tot raportul de pâlnie.
+- **Orele se filtrează pe dată, nu pe grupă.** Ce alege părintele e o zi, iar o grupă cu un loc
+  liber n-are niciunul în ziua în care cineva și-a programat deja o recuperare — și are din nou
+  săptămâna următoare. Lista cere `freeSeatsAtSessions` pentru toate orele pe care e pe cale să le
+  ofere, într-o singură interogare, iar la trimitere se reverifică ora aleasă, în tranzacție: între
+  fotografie și buton se poate strecura o recuperare.
+- **Formularul nu se termină niciodată într-o eroare.** Fără loc liber, cu ultimul loc luat între
+  timp, sau fără nicio oră potrivită — toate trei scriu un lead marcat `noSeats` și răspund „te
+  contactăm noi". Cel mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca
+  școala să știe că a trecut pe acolo. Numărul ăla e și singura măsură a cererii pe care școala nu o
+  poate servi: cine nu găsește oră nu intră în nicio rată de conversie.
+- **`lastActivityAt` e o coloană proprie, nu `updatedAt`.** Job-ul de memento nu scrie în ea, deci un
+  lead nu poate deveni „proaspăt" fiindcă a fost amintit.
+- **Un catalog nemarcat nu e o absență.** Recontactarea după neprezentare cere ca ședința să fi fost
+  marcată de cineva; altfel i-am spune unei familii că a lipsit de la o oră la care poate a fost.
+
+**Pagina `/proba` e singura pagină publică ce atinge backend-ul**, ceea ce contrazice regula de mai
+sus doar în aparență: orele se încarcă exclusiv în client, iar când nu se pot încărca, formularul tot
+se trimite și cititorul primește numărul de telefon. Consecința pentru cele două branch-uri: **nu
+se aduce pe `release/prod`** până nu rulează un backend (E01 S4) — acolo ar fi o pagină de
+conversie care nu poate afișa nicio oră.
+
+**Restanța de documente se măsoară cu vârstă, nu doar cu număr** (E17 S8). `pendingSummary` din
+`apps/api/src/modules/project/project.service.ts` e proprietarul întrebării „cât așteaptă și de cât
+timp" — `OverviewService` o cere, nu o recalculează, iar ecranul grupelor nu mai numără în browser.
+Trei lucruri:
+
+- **Vârsta e în zile calendaristice**, prin `daysWaiting` din `project/pending.rules.ts`: un
+  document urcat ieri la 18:00 și citit azi la 09:00 are **o zi**, nu zero. Cine citește „de 3 zile"
+  numără dimineți în care nu s-a uitat, nu blocuri de 72 de ore.
+- **`staleAfterDays` pleacă pe sârmă**, ca pragul de ocupare din E21: e o propunere, iar ecranul
+  spune ce linie desenează în loc s-o hardcodeze.
+- **Cifra stă în meniu**, prin `pendingProjectsStore` încărcat din layout-ul `dashboard`, fiindcă
+  riscul pe care îl acoperă e că nimeni nu apasă butonul — iar un număr la care trebuie să navighezi
+  nu acoperă asta. `null` la `oldestDays` înseamnă „nimic nu așteaptă"; zero înseamnă „a venit azi".
 
 **Job-urile cu cron sunt oprite sub `NODE_ENV=test`, prin `disabled` pe decorator.** Jest setează
 variabila singur, iar ambele suite construiesc `AppModule`-ul real: o rulare care prinde exact
@@ -625,9 +820,11 @@ aceeași întrebare, `ClassSessionService.findUnmarkedSessions` — „nemarcat"
 două lucruri în funcție de care email îl citești.
 
 **Orele se compară ca text, în ceasul școlii, niciodată ca instante.** `schoolLocalStamp(now)` și
-`sessionStartStamp(session)` din `apps/api/src/modules/attendance/absence-notice.rules.ts` dau
-amândouă `YYYY-MM-DDTHH:mm` pe `Europe/Bucharest`, iar comparația e pe string-uri (`<` pentru un
-anunț „înainte de oră", `<=` la deschiderea ferestrei de 15 minute). Ședința ține
+`schoolDay(now)` stau în `apps/api/src/common/school-clock.ts` — au ieșit din
+`absence-notice.rules.ts` când al treilea apelant a fost în afara prezenței, iar fișierul ăla le
+reexportă, deci importurile vechi merg mai departe. Împreună cu `sessionStartStamp(session)`, rămas
+lângă regula lui, dau `YYYY-MM-DDTHH:mm` pe `Europe/Bucharest`, iar comparația e pe string-uri
+(`<` pentru un anunț „înainte de oră", `<=` la deschiderea ferestrei de 15 minute). Ședința ține
 o dată locală și un `HH:mm:ss` local, deci orice comparație cu un instant UTC e capcana de o zi de
 mai jos, cu altă față. Când ai nevoie de „acum minus 15 minute", **mută instantul și apoi
 formatează** — nu scădea din text.
@@ -639,7 +836,8 @@ tick. Fixarea se face în fișierul de ecosistem din E01 S4, care nu există în
 **Orizontul de opt săptămâni nu se rulează singur.** Ședințele se scriu doar la cerere, prin
 `POST /class-sessions/generate` (admin); nu există niciun job care să le scrie. Ce e programat în
 backend — dispecerul de outbox și verificarea de la minutul 15 (`@Interval`), mementoul de la 10:00,
-cele două notificări către părinte din E12 S4 și mementourile de restanță din E16 S7 (`@Cron`), plus
+cele două notificări către părinte din E12 S4, mementourile de restanță din E16 S7 și măturarea
+ofertelor de pe lista de așteptare din E11 S3 (`@Cron`), plus
 purjarea sesiunilor, care stă în continuare pe
 un `setInterval` propriu în `apps/api/src/modules/auth/session.service.ts` — **nu generează orar**,
 niciunul. Iar prezența se marchează pe
@@ -755,8 +953,8 @@ deployat nicăieri** în acest moment, deci site-ul funcționează efectiv ca pr
 deploy se scrie în [E01](docs/epics/E01-infrastructura-medii.md), S4. Până atunci repo-ul nu
 conține niciun workflow de deploy — dacă nu găsești unul, nu s-a pierdut, nu există încă.
 
-`docker-compose.yml` conține exclusiv Postgres. Aplicația rulează direct pe Node, local și în
-producție. Nu adăuga servicii de aplicație acolo.
+`docker-compose.yml` conține Postgres și MinIO — infrastructura, și numai ea. Aplicația rulează
+direct pe Node, local și în producție. Nu adăuga servicii de aplicație acolo.
 
 **Cheie Let's Encrypt compromisă, în istoric.** Un `privkey.pem` real, valid până în ianuarie
 2027, a fost comitat la `58e2634` și a rămas în repo până la curățenia din E01. Fișierele au fost
@@ -784,16 +982,40 @@ Trei niveluri, cu roluri diferite:
 Frontend-ul are vitest în `apps/web/test/`. Rulează sursa direct, fără să pornească Nuxt;
 auto-importurile (`ref`, `useCookie`, `$fetch`) sunt puse la loc în `test/setup.ts`.
 
+**Accesibilitatea paginilor publice se verifică în CI, cu un browser adevărat.** `pnpm test:a11y`
+construiește `apps/web`, servește `.output` pe un port local și trece axe-core peste fiecare pagină
+pe care o publică `sitemap.xml`, în temă deschisă și în temă închisă, pe WCAG 2.0 și 2.1 nivel A și
+AA — `apps/web/scripts/check-a11y.mjs`, rulat în CI în același job cu lint, typecheck și build.
+Patru lucruri de știut înainte să-l atingi:
+
+- **jsdom n-ar folosi la nimic.** Fără cascadă și fără layout, contrastul nu se poate calcula, deci
+  axe îl sare — și exact ăla e motivul pentru care verificarea există.
+- **Rulează cu `prefers-reduced-motion: reduce`, și nu din politețe.** Blocurile intră prin
+  `classical-rise`, iar axe citește culoarea din clipa în care se uită: prinsă la jumătate, aceeași
+  clasă `.lede` raportează 1,47:1 pe două pagini și 1,18:1 pe a treia. Cu preferința pornită,
+  `useReveal` iese devreme, nimic nu se ascunde și rezultatul e același de două ori.
+- **Serverul de probă se pornește fără shell.** Cu `shell: true`, `kill` lua shell-ul și lăsa Nitro
+  pe port; rularea următoare își pierdea serverul cu `EADDRINUSE` și verifica vesel build-ul vechi
+  rămas acolo, raportând verde pe fiecare pagină. Scriptul se uită acum dacă procesul lui moare și
+  cade cu mesaj.
+- **Într-un container, Chromium are nevoie de două portițe**, amândouă oprite implicit fiindcă CI
+  n-are nevoie de niciuna: `A11Y_CHROMIUM_PATH` pentru un browser deja instalat pe mașină, și
+  `A11Y_NO_SANDBOX=1` fiindcă sandbox-ul propriu al lui Chromium nu pornește ca root — și nu pică,
+  ci **atârnă**, ceea ce costă o jumătate de oră prima dată.
+
+Zona autentificată nu e verificată deloc: se rescrie în E18 S4 și S5 și se verifică atunci.
+
 `apps/agent` folosește `node --test`, fără jest și fără nicio unealtă proprie — n-are motiv să
 capete una. `pnpm --filter agent test` compilează întâi și rulează din `dist`: un `.ts` cu `import`
 e interpretat de Node ca modul ES, iar acolo importurile fără extensie nu se rezolvă.
 
-**Bug-urile cunoscute sunt scrise ca `it.failing`**, nu ca teste care cimentează comportamentul
+**Bug-urile cunoscute se scriu ca `it.failing`**, nu ca teste care cimentează comportamentul
 greșit. Un astfel de test trece cât timp bug-ul există și devine roșu în clipa în care e reparat —
-moment în care se șterge `.failing`. Convenția și-a făcut deja treaba de două ori: testele de preț
-la doi și la trei copii au devenit teste de regresie când bug-ul a fost reparat, iar unul care
-cimenta comportamentul greșit — „charges 250 per child for two children" — a fost șters. Vezi
-crearea de profiluri fără date de contact pentru un exemplu încă viu.
+moment în care se șterge `.failing`. Convenția și-a făcut treaba de trei ori și **în momentul ăsta
+nu mai e niciun `it.failing` viu în repo**: prețul la doi copii, prețul la trei sau mai mulți și
+crearea de profiluri fără date de contact au devenit toate teste de regresie, iar unul care cimenta
+comportamentul greșit — „charges 250 per child for two children" — a fost șters. Dacă vrei un
+exemplu, citește-le în `pricing.spec.ts` ca teste normale; convenția rămâne pentru bug-ul următor.
 
 ## Planul de lucru
 
