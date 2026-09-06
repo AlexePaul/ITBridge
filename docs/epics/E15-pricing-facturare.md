@@ -591,6 +591,29 @@ vacanță produce două pentru toți și patru pentru copiii marcați prezenți 
 catalog e făcut integral pe absențe se numără ca ținută, la fel ca oricare alta. Nicio cerere nu mai
 poate trimite de la client numărul de ședințe.
 
+**Livrat, punct cu punct.** Regula pură e `billable-sessions.rules.ts` — ședințe, marcaje și
+înscrieri la intrare, un număr per copil la ieșire, cu fiecare caz din acceptanță ca test —, iar
+interogarea care o hrănește e una singură, `BillableSessionsService.countForMonth`, pe luna de
+predare din `teachingMonthRange`. Fișa (`GET /invoices/worksheet`) și emiterea (`POST
+/invoices/issue`) o cheamă amândouă, deci nu există un al doilea număr cu care ecranul și factura
+să nu fie de acord. `POST /invoices/issue` primește doar luna și data de emitere; `families` a fost
+scos din DTO, nu ignorat, deci un client care încă îl trimite primește 400.
+
+Două precizări pe care textul de mai sus le lasă ambigue, decise la livrare:
+
+- **„Doar înscrierile `ACTIVE`" înseamnă „nu proba".** Un copil retras pe 15 e `WITHDRAWN`, nu
+  `ACTIVE`, și datorează totuși ședințele ținute înainte de 15 — „cât timp înscrierea lui era în
+  vigoare" e regula pe perioadă, iar regula pe stare există ca să țină proba afară, nu ca să ierte o
+  familie că a plecat. Codul numără orice înscriere care nu e `TRIAL`, între `startDate` și
+  `endDate`.
+- **Un catalog făcut doar de un copil mutat temporar nu face ședința ținută.** Semnalul e marcajul
+  `regular`; un vizitator (`make-up`) nu-l dă, ca să nu poată nici factura grupa-gazdă pentru o oră
+  pe care n-a marcat-o nimeni dintre ai ei, nici să fie facturat el a doua oară.
+
+Ce **nu** s-a livrat de aici: rapoartele din [E21](E21-raportare-analytics.md) nu numără încă
+ședințe, deci a treia gură a interogării stă goală, dar e aceeași metodă când vor. Și propoziția din
+`CLAUDE.md` a fost rescrisă odată cu story-ul, cum cerea el.
+
 ## Dependențe
 
 [E10](E10-curriculum-module.md) pentru ce e un modul, [E11](E11-inscrieri-capacitate.md) pentru cine

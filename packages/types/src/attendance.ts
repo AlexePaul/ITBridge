@@ -79,6 +79,8 @@ export interface SessionRegister {
         status: ClassSessionStatus;
         groupId: number;
         groupName: string;
+        /** The vacation tick, editable from this screen — E12/S8. */
+        isVacation: boolean;
     };
     entries: SessionRegisterEntry[];
 }

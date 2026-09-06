@@ -51,6 +51,9 @@
             <UBadge v-if="session.hasAttendance" color="neutral" variant="subtle" size="sm">
               Catalog făcut
             </UBadge>
+            <UBadge v-if="session.isVacation" color="warning" variant="subtle" size="sm">
+              Vacanță
+            </UBadge>
           </div>
           <p class="text-sm text-muted tabular-nums mt-0.5">
             {{ formatDateKey(session.date) }} · {{ session.startTime.slice(0, 5) }}–{{
@@ -79,10 +82,31 @@
           </template>
           <template v-else-if="session.hasAttendance">
             <!-- A class with a register against it happened. The API refuses both actions, so the
-                 screen says why instead of offering a button that returns 409. -->
+                 screen says why instead of offering a button that returns 409. What can still
+                 change is the vacation tick (E12/S8), until the month is invoiced. -->
             <span class="text-sm text-muted">S-a ținut</span>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :icon="session.isVacation ? 'i-lucide-sun-dim' : 'i-lucide-sun'"
+              :loading="vacationSavingId === session.id"
+              @click="toggleVacation(session)"
+            >
+              {{ session.isVacation ? "Scoate vacanța" : "Vacanță" }}
+            </UButton>
           </template>
           <template v-else>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :icon="session.isVacation ? 'i-lucide-sun-dim' : 'i-lucide-sun'"
+              :loading="vacationSavingId === session.id"
+              @click="toggleVacation(session)"
+            >
+              {{ session.isVacation ? "Scoate vacanța" : "Vacanță" }}
+            </UButton>
             <UButton
               color="neutral"
               variant="ghost"
@@ -307,6 +331,24 @@ const moveEnd = ref("");
 const moveRoomId = ref<number | undefined>(undefined);
 
 const reinstating = ref(false);
+
+const vacationSavingId = ref<number | null>(null);
+
+/**
+ * The vacation tick — E12/S8. No dialog: it is one fact, reversible until the month is invoiced,
+ * and the server refuses it after that with a sentence the screen shows as it is.
+ */
+const toggleVacation = async (session: ClassSessionWithAttendance) => {
+  vacationSavingId.value = session.id;
+  try {
+    const updated = await sessionsApi.setVacation(session.id, !session.isVacation);
+    session.isVacation = updated.isVacation;
+  } catch (err: unknown) {
+    error("Nu am putut schimba bifa de vacanță", apiErrorMessage(err));
+  } finally {
+    vacationSavingId.value = null;
+  }
+};
 
 const startCancel = (session: ClassSessionWithAttendance) => {
   target.value = session;

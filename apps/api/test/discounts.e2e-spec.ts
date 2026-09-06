@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, enrolInNewGroup, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { createTestApp, enrolInNewGroup, holdSessions, ownProfileId, promoteToAdmin, registerUser, teachingMondays, TestUser, truncateAll } from './helpers';
 
 /**
  * The percentage discount, against a real database — E15/S5, and the referral of E20/S5 that gave
@@ -19,6 +19,8 @@ describe('Discounts (e2e)', () => {
     let admin: TestUser;
     let parent: TestUser;
     let profileId: number;
+    let childId: number;
+    let groupId: number;
 
     beforeAll(async () => {
         ({ app, dataSource } = await createTestApp());
@@ -39,7 +41,8 @@ describe('Discounts (e2e)', () => {
             .set('Authorization', parent.auth)
             .send({ firstName: 'Ana', lastName: 'Pop', birthDate: '2016-01-01', parentId: profileId })
             .expect(201);
-        await enrolInNewGroup(app, admin, [child.body.id as number]);
+        childId = child.body.id as number;
+        groupId = await enrolInNewGroup(app, admin, [childId], {}, { startDate: '2026-01-01' });
     });
 
     const grant = (body: Record<string, unknown>) =>
@@ -48,22 +51,25 @@ describe('Discounts (e2e)', () => {
             .set('Authorization', admin.auth)
             .send({ parentId: profileId, name: 'Recomandare', monthIssued: '2026-03', ...body });
 
-    /** Issues one month from the screen's own shape: sessions per child, not a flat amount. */
-    const issue = (sessions: number) =>
-        request(app.getHttpServer())
+    /**
+     * Issues March with that many sessions held — E15/S9: the count comes from the registers, so
+     * the fixture holds the sessions rather than typing the number. Always 201: a month that comes
+     * to nothing is a waived row, not a refusal.
+     */
+    const issue = async (sessions: number) => {
+        await holdSessions(app, dataSource, admin, groupId, [childId], teachingMondays('2026-03').slice(0, sessions));
+        return request(app.getHttpServer())
             .post('/invoices/issue')
             .set('Authorization', admin.auth)
-            .send({
-                monthIssued: '2026-03',
-                dateIssued: '2026-03-01',
-                families: [{ parentId: profileId, children: [{ childId: 0, sessions }] }],
-            });
+            .send({ monthIssued: '2026-03', dateIssued: '2026-03-01' })
+            .expect(201);
+    };
 
     describe('the referral, end to end', () => {
         it('50% halves the month the issuing screen produces: 350 becomes 175', async () => {
             await grant({ type: 'percent', value: 50 }).expect(201);
 
-            const res = await issue(4).expect(201);
+            const res = await issue(4);
 
             expect(Number(res.body.issued[0].amount)).toBe(175);
         });
@@ -73,7 +79,7 @@ describe('Discounts (e2e)', () => {
 
             // Three sessions is 262.50; half is 131.25. A 175-lei fixed discount would have been
             // wrong here by 43.75, and nobody would have noticed.
-            const res = await issue(3).expect(201);
+            const res = await issue(3);
 
             expect(Number(res.body.issued[0].amount)).toBe(131.25);
         });
@@ -81,7 +87,7 @@ describe('Discounts (e2e)', () => {
         it('still defaults to lei when no type is sent, so old callers are unchanged', async () => {
             await grant({ value: 50 }).expect(201);
 
-            const res = await issue(4).expect(201);
+            const res = await issue(4);
 
             expect(Number(res.body.issued[0].amount)).toBe(300);
         });
@@ -95,7 +101,7 @@ describe('Discounts (e2e)', () => {
 
         it('accepts exactly 100% — a month given away is a decision, not a typo', async () => {
             await grant({ type: 'percent', value: 100 }).expect(201);
-            const res = await issue(4).expect(201);
+            const res = await issue(4);
             // Zero, and recorded as a waived row rather than skipped.
             expect(res.body.waived).toHaveLength(1);
         });
@@ -115,7 +121,7 @@ describe('Discounts (e2e)', () => {
 
         it('a fixed amount has no ceiling, and the floor keeps it harmless', async () => {
             await grant({ type: 'fixed', value: 5000 }).expect(201);
-            const res = await issue(4).expect(201);
+            const res = await issue(4);
             expect(res.body.waived).toHaveLength(1);
         });
     });

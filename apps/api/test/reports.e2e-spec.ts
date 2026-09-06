@@ -2,7 +2,19 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createRoom, createTestApp, enrolChild, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import {
+    createRoom,
+    createTestApp,
+    enrolChild,
+    groupBody,
+    holdSessions,
+    ownProfileId,
+    promoteToAdmin,
+    registerUser,
+    teachingMondays,
+    TestUser,
+    truncateAll,
+} from './helpers';
 
 /**
  * The reports — E21/S2 and S4, against a real database.
@@ -60,7 +72,7 @@ describe('Reports (e2e)', () => {
         const group = await http().post('/groups').set('Authorization', admin.auth).send(groupBody(roomId)).expect(201);
         groupId = group.body.id as number;
         for (const childId of [childA, childB1, childB2]) {
-            await enrolChild(app, admin, childId, groupId);
+            await enrolChild(app, admin, childId, groupId, { startDate: '2026-01-01' });
         }
     });
 
@@ -78,25 +90,11 @@ describe('Reports (e2e)', () => {
     });
 
     describe('finance', () => {
-        const issueMarch = () =>
-            http()
-                .post('/invoices/issue')
-                .set('Authorization', admin.auth)
-                .send({
-                    monthIssued: '2026-03',
-                    dateIssued: '2026-03-01',
-                    families: [
-                        { parentId: profileA, children: [{ childId: childA, sessions: 4 }] },
-                        {
-                            parentId: profileB,
-                            children: [
-                                { childId: childB1, sessions: 4 },
-                                { childId: childB2, sessions: 4 },
-                            ],
-                        },
-                    ],
-                })
-                .expect(201);
+        /** Four Mondays held with everybody present: 350 for family A, 600 for family B. */
+        const issueMarch = async () => {
+            await holdSessions(app, dataSource, admin, groupId, [childA, childB1, childB2], teachingMondays('2026-03').slice(0, 4));
+            return http().post('/invoices/issue').set('Authorization', admin.auth).send({ monthIssued: '2026-03', dateIssued: '2026-03-01' }).expect(201);
+        };
 
         const pay = (invoiceId: number, amount: number, date: string, method: 'cash' | 'bank_transfer', status?: string) =>
             http()
@@ -188,25 +186,14 @@ describe('Reports (e2e)', () => {
         });
 
         it('agrees with the invoices list on what was billed, and keeps waived months out of the money', async () => {
-            await http()
-                .post('/invoices/issue')
-                .set('Authorization', admin.auth)
-                .send({
-                    monthIssued: '2026-05',
-                    dateIssued: '2026-05-01',
-                    families: [
-                        { parentId: profileA, children: [{ childId: childA, sessions: 3 }] },
-                        // Nothing held for family B in May: a waived row, no money.
-                        {
-                            parentId: profileB,
-                            children: [
-                                { childId: childB1, sessions: 0 },
-                                { childId: childB2, sessions: 0 },
-                            ],
-                        },
-                    ],
-                })
-                .expect(201);
+            // Three May Mondays in the spring break, with only Ana turning up: a vacation session
+            // bills only the children marked present (E15/S9), so family A owes three and family B
+            // — same group, nobody came — owes nothing and gets a waived row.
+            const mays = await holdSessions(app, dataSource, admin, groupId, [childA], teachingMondays('2026-05').slice(0, 3));
+            for (const session of mays) {
+                await http().put(`/class-sessions/${session}/vacation`).set('Authorization', admin.auth).send({ isVacation: true }).expect(200);
+            }
+            await http().post('/invoices/issue').set('Authorization', admin.auth).send({ monthIssued: '2026-05', dateIssued: '2026-05-01' }).expect(201);
 
             const invoices = await http().get('/invoices').set('Authorization', admin.auth).expect(200);
             const report = await http().get('/reports/finance?from=2026-05&to=2026-05').set('Authorization', admin.auth).expect(200);

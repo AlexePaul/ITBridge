@@ -1,4 +1,4 @@
-import type { BillingMonth, ISODate } from './common';
+import type { BillingMonth, ISODate, TimeOfDay } from './common';
 import type { ProfileSummary } from './profile';
 
 /**
@@ -33,14 +33,55 @@ export interface InvoiceWorksheetRow {
     email: string | null;
     /** True when this family already has an invoice for the month. The screen skips them. */
     alreadyInvoiced: boolean;
+    /** What the family will be billed, after this month's discounts — the same number the server writes. */
+    amount: number;
     children: {
         childId: number;
         childName: string;
         groupId: number | null;
         groupName: string | null;
-        /** ISO weekday of the group, so whoever counts knows which day to count. */
+        /** ISO weekday of the group. */
         weekday: number | null;
+        /** Counted from the registers — E15/S9. Never typed. */
+        sessions: number;
+        /** Every held session of the child's group in the month, and whether it counted for them. */
+        lines: InvoiceWorksheetLine[];
     }[];
+}
+
+/** One held session, as the issuing screen unfolds it under a child. */
+export interface InvoiceWorksheetLine {
+    sessionId: number;
+    date: ISODate;
+    isVacation: boolean;
+    /** The child's own mark; `null` when the register has no row for them. */
+    present: boolean | null;
+    /** False only for a vacation session the child was not marked present at. */
+    counted: boolean;
+}
+
+/** A session of the month with no register — the money not being asked for. */
+export interface InvoiceWorksheetUnmarked {
+    sessionId: number;
+    groupId: number;
+    groupName: string;
+    date: ISODate;
+    startTime: TimeOfDay;
+}
+
+/**
+ * The whole issuing screen in one payload — E15/S9.
+ *
+ * The month is the *teaching* month: the weeks whose Monday falls in it, so `from` may be in the
+ * previous calendar month and `to` in the next. `unmarked` comes first on the screen because it is
+ * the one thing the person about to press the button must see.
+ */
+export interface InvoiceWorksheet {
+    month: string;
+    from: ISODate;
+    to: ISODate;
+    unmarked: InvoiceWorksheetUnmarked[];
+    families: InvoiceWorksheetRow[];
 }
 
 /**

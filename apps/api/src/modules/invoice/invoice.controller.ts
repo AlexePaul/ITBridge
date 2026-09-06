@@ -9,7 +9,7 @@ import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
 import { FilterInvoiceDto } from './dto/filterInvoice.dto';
 import { GetPreviewDto } from './dto/getPreview.dto';
-import { IssueFromSessionsDto } from './dto/issueFromSessions.dto';
+import { IssueMonthDto } from './dto/issueMonth.dto';
 import { ArrearsService } from './arrears.service';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
@@ -46,11 +46,12 @@ export class InvoiceController {
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
-        summary: 'Fișa de emitere a lunii: fiecare familie, fiecare copil, fiecare grupă',
+        summary: 'Fișa de emitere a lunii: fiecare familie, fiecare copil, numărul de ședințe citit din cataloage',
         description:
-            'Fără sume — sumele se calculează pe ecran, pe măsură ce se completează orele. `alreadyInvoiced` marchează familiile care au deja factură pe luna asta, ca ecranul să poată fi rulat de mai multe ori.',
+            'Luna de predare — săptămânile a căror luni cade în ea. Numărul per copil e numărat din cataloage (E15/S9), nu tastat, și vine cu desfacerea lui; deasupra stau ședințele lunii fără catalog. ' +
+            '`alreadyInvoiced` marchează familiile care au deja factură pe luna asta, ca ecranul să poată fi rulat de mai multe ori.',
     })
-    @ApiResponse({ status: 200, description: 'One row per family with children in a group' })
+    @ApiResponse({ status: 200, description: 'The month, its range, the unmarked sessions and one row per family enrolled in it' })
     async worksheet(@Query('monthIssued') monthIssued: string) {
         return this.invoiceService.getWorksheet(monthIssued);
     }
@@ -104,13 +105,14 @@ export class InvoiceController {
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
     @ApiOperation({
-        summary: 'Emite facturile lunii din orele completate',
+        summary: 'Emite facturile lunii din cataloage',
         description:
-            'Sumele sunt cele de pe ecran, nu recalculate din orar: cine apasă butonul s-a uitat la fiecare număr. Familiile deja facturate și cele cu total zero sunt sărite și raportate.',
+            'Primește luna și data de emitere, nimic altceva: sumele se numără din cataloagele lunii (E15/S9), cu aceeași interogare care a umplut fișa. Familiile deja facturate sunt sărite și raportate; cele cu total zero primesc un rând fără PDF.',
     })
     @ApiResponse({ status: 201, description: 'Invoices issued, plus the families skipped and why' })
-    async issueFromSessions(@Body() issueFromSessionsDto: IssueFromSessionsDto) {
-        return this.invoiceService.issueFromSessions(issueFromSessionsDto);
+    @ApiResponse({ status: 400, description: 'A request that still sends session counts' })
+    async issueFromSessions(@Body() dto: IssueMonthDto) {
+        return this.invoiceService.issueFromSessions(dto);
     }
 
     @Post('/preview')

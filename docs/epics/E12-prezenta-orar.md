@@ -69,7 +69,7 @@ marchează prezența în câteva secunde. Părintele știe ce se întâmplă fă
 - Efectul financiar al absențelor — vezi [E15](E15-pricing-facturare.md). Epicul ăsta produce
   **faptele** pe care se calculează factura — s-a ținut ora, cine a fost prezent —, dar niciun leu nu
   se calculează aici, și niciun ecran de prezență nu arată sume. Al treilea fapt, „a fost sau nu în
-  vacanță", vine cu S8, care nu e livrat.
+  vacanță", e bifa din S8.
 
 ## Story-uri
 
@@ -695,9 +695,13 @@ cât costă să nu ruleze, și de asta țin de [E01](E01-infrastructura-medii.md
 
 ### S8 · Bifa de vacanță pe catalog
 
-**Nelivrat.** Nimic din story-ul ăsta nu există în cod: `isVacation` nu apare nicăieri, nici pe
-entitate, nici într-o migrare, nici pe vreun ecran. Tot ce urmează e proiectul lui, la timpul
-prezent fiindcă așa se citește mai ușor — dar nimic din el nu se poate apăsa azi.
+**Livrat.** `ClassSession.isVacation`, implicit `false`, cu `PUT /class-sessions/:id/vacation`
+(`ADMIN`) ca s-o pui și s-o scoți. Bifa e pe ecranul de catalog de pe telefon (S6), lângă numele
+grupei, și pe fiecare rând din `/admin/orar` (S5). Nu trimite nimic familiilor — e un fapt despre
+bani, nu o schimbare de orar — și refuză două lucruri: o ședință anulată (o oră care nu se ține nu
+poate fi „ținută în vacanță") și o ședință dintr-o lună **deja facturată**, fiindcă atunci bifa ar
+schimba retroactiv ce a plătit cineva, iar corectura aia e o discuție despre o factură, nu un
+rând. Numărătoarea care o citește e în [E15](E15-pricing-facturare.md) S9, livrat odată cu ea.
 
 O coloană nouă pe ședință — `ClassSession.isVacation`, implicit `false` — pusă de cine face
 catalogul, din ecranul de pe telefon (S6) și din `/admin/orar` (S5). Înseamnă un singur lucru:
@@ -721,21 +725,23 @@ acelor săptămâni se generează normal și primesc bifa. Ce ar forța altă so
 o vacanță în care o locație e închisă iar alta ține cursuri, pe aceleași date. Atunci
 `NonTeachingPeriod` capătă un tip; nu bifa un al doilea înțeles.
 
-**Bifa se va putea întoarce cât timp luna nu e facturată**, ca orice altceva de pe catalog, iar
-ecranul de emitere o va arăta lângă zilele lunii, deci una uitată sau pusă din greșeală se vede
-înainte să plece ceva. După emitere e istorie, iar corectura devine o discuție despre o factură, nu despre
+**Bifa se poate întoarce cât timp luna nu e facturată**, ca orice altceva de pe catalog — după
+emitere API-ul o refuză (`MONTH_ALREADY_INVOICED`). Ecranul de emitere o arată lângă zilele lunii,
+în desfacerea fiecărui copil, deci una uitată sau pusă din greșeală se vede înainte să plece ceva. După emitere e istorie, iar corectura devine o discuție despre o factură, nu despre
 un rând.
 
 **Ce nu face bifa:** nu anulează ședința, nu scutește pe nimeni de catalog și nu schimbă cine ocupă
 un loc — un copil venit în vacanță stă pe scaunul lui ca în orice altă zi, la fel ca o probă sau un
 copil mutat ([E11](E11-inscrieri-capacitate.md), D7).
 
-**Ce ar trebui să facă, și nu face azi:** o absență la o oră bifată vacanță n-ar trebui să ducă la
-nicio mutare, fiindcă familia aia nici nu plătește ora — n-ai ce recupera dintr-o oră necumpărată.
-Regula asta e a story-ului ăstuia și **nu e implementată**: `ReplacementService.place` se uită la
-săptămână, la grupă, la vârstă și la locuri, niciodată la `isVacation`. Se scrie aici fiindcă e
-singurul loc din epic unde o proprietate a orei **pierdute** ar limita mutarea, iar cine construiește
-S8 trebuie s-o adauge odată cu bifa.
+**Ce nu face nici acum, și e o decizie lăsată deschisă:** o absență la o oră bifată vacanță n-ar
+trebui, în principiu, să ducă la nicio mutare, fiindcă familia aia nici nu plătește ora — n-ai ce
+recupera dintr-o oră necumpărată. `ReplacementService.place` se uită la săptămână, la grupă, la
+vârstă și la locuri, niciodată la `isVacation`, iar bifa s-a livrat fără regula asta **dinadins**:
+bifa se pune de obicei la ora în sine sau după, iar mutarea se aranjează luni, înainte — deci în
+momentul mutării bifa nu există încă, și o regulă care depinde de ea ar fi fost verificată pe o
+valoare care nu e acolo. Cine vrea totuși regula o pune la `place`, cu o singură linie; azi biroul
+o ține din cap, ca pe termenul din S3.
 
 **Acceptanță:** o ședință bifată apare marcată în catalogul de pe telefon și în `/admin/orar`, bifa
 se pune și se scoate dintr-o apăsare, iar `GET /attendance/session/:id/register` o întoarce — de
@@ -1020,9 +1026,8 @@ argumentul revine intact în ziua în care revine E10.
 [E15](E15-pricing-facturare.md) S9 numără ședințele lunii din cataloage: una fără nicio prezență
 înregistrată nu se facturează nimănui, una ținută se facturează întregii grupe — chiar și una al
 cărei catalog e făcut integral pe absențe, fiindcă semnalul e catalogul, nu numărul de prezenți —,
-iar una bifată vacanță doar copiilor marcați prezenți la ea — ultima abia după ce se livrează S8,
-care ține bifa. Pentru epicul ăsta consecința e că două decizii luate din alte motive devin deodată
-importante pentru bani, și nu se mai pot slăbi:
+iar una bifată vacanță (S8) doar copiilor marcați prezenți la ea. Pentru epicul ăsta consecința e
+că două decizii luate din alte motive devin deodată importante pentru bani, și nu se mai pot slăbi:
 
 - **Marcarea prezenței nu trece ședința în `ținută`.** „Are prezențe" și „e ținută" rămân două
   semnale independente, iar cel după care se numără e primul. Dacă vreodată marcarea ar începe să

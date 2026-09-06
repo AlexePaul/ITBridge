@@ -179,6 +179,9 @@ export class AttendanceService {
                 status: classSession.status,
                 groupId: classSession.group.id,
                 groupName: classSession.group.name,
+                // E12/S8: editable from the same screen, because the teacher in the room is the
+                // one who knows whether this hour was a holiday one.
+                isVacation: classSession.isVacation,
             },
             entries,
         };

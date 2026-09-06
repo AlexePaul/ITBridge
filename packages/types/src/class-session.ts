@@ -38,6 +38,11 @@ export interface ClassSession {
     room: Room;
     status: ClassSessionStatus;
     notes: string | null;
+    /**
+     * Held in a school holiday, for whoever wanted to come — E12/S8. Put there by whoever takes
+     * the register. What it means for money is E15/S9: billed only to the children marked present.
+     */
+    isVacation: boolean;
 }
 
 /**

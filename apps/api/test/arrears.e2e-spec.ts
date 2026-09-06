@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { ArrearsJob } from 'src/modules/invoice/arrears.job';
-import { createTestApp, enrolInNewGroup, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { createTestApp, enrolInNewGroup, holdSessions, ownProfileId, promoteToAdmin, registerUser, teachingMondays, TestUser, truncateAll } from './helpers';
 
 /**
  * Arrears end to end — E16/S7.
@@ -45,17 +45,16 @@ describe('Arrears (e2e)', () => {
             .set('Authorization', parent.auth)
             .send({ firstName: 'Maria', lastName: 'Pop', birthDate: '2016-01-01', parentId: profileId })
             .expect(201);
-        await enrolInNewGroup(app, admin, [child.body.id as number]);
+        // Enrolled before March and present at four of its Mondays: a 350-lei month, counted from
+        // the registers (E15/S9) rather than typed.
+        const groupId = await enrolInNewGroup(app, admin, [child.body.id as number], {}, { startDate: '2026-01-01' });
+        await holdSessions(app, dataSource, admin, groupId, [child.body.id as number], teachingMondays('2026-03').slice(0, 4));
 
         // Issued on 1 March, so the term ran out on the 15th.
         const issued = await request(app.getHttpServer())
             .post('/invoices/issue')
             .set('Authorization', admin.auth)
-            .send({
-                monthIssued: '2026-03',
-                dateIssued: '2026-03-01',
-                families: [{ parentId: profileId, children: [{ childId: child.body.id as number, sessions: 4 }] }],
-            })
+            .send({ monthIssued: '2026-03', dateIssued: '2026-03-01' })
             .expect(201);
         invoiceId = issued.body.issued[0].id as number;
     });

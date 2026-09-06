@@ -6,6 +6,8 @@ import { App } from 'supertest/types';
 import { AppModule } from 'src/app.module';
 import { S3Service } from 'src/modules/storage/s3.service';
 import { PdfService } from 'src/modules/invoice/pdf.service';
+import { teachingMonthRange } from 'src/modules/invoice/billing-period.rules';
+import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { Role } from 'src/enum/role.enum';
 
 /**
@@ -262,8 +264,67 @@ export async function createClassSession(
  * trial is free and a child in no group is not attending. Suites that issue invoices therefore have
  * to place their children first; before, a child existing was enough.
  */
-export async function enrolChild(app: INestApplication<App>, admin: TestUser, childId: number, groupId: number): Promise<void> {
-    await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId, groupId }).expect(201);
+export async function enrolChild(
+    app: INestApplication<App>,
+    admin: TestUser,
+    childId: number,
+    groupId: number,
+    enrolment: Record<string, unknown> = {},
+): Promise<void> {
+    await request(app.getHttpServer())
+        .post('/enrollments')
+        .set('Authorization', admin.auth)
+        .send({ childId, groupId, ...enrolment })
+        .expect(201);
+}
+
+/**
+ * The Mondays of a teaching month — E15/S9's unit of billing, in the shape a fixture wants.
+ *
+ * Since S9 an invoice is counted from the registers, so a suite that needs "a family owing 350"
+ * can no longer type a 4: it needs four held sessions inside the month, with the child enrolled
+ * for them. `teachingMonthRange` decides which weeks the month owns (a week belongs to the month
+ * its Monday falls in), and this hands back those Mondays so the suite can hold as many as it
+ * means to.
+ */
+export function teachingMondays(month: string): string[] {
+    const { from, to } = teachingMonthRange(month);
+    const mondays: string[] = [];
+    for (let cursor = parseIsoDate(from); toIsoDate(cursor) <= to; cursor = addDays(cursor, 7)) {
+        mondays.push(toIsoDate(cursor));
+    }
+    return mondays;
+}
+
+/**
+ * Holds one session of `groupId` on each of `dates`, with every one of `childIds` marked present —
+ * the shortest path to a month that bills something.
+ *
+ * Marked through the register endpoint rather than written to the table, so the rows carry what
+ * the real screen writes (`REGULAR`, `present`), and a suite about money never has to know the
+ * attendance schema.
+ */
+export async function holdSessions(
+    app: INestApplication<App>,
+    dataSource: DataSource,
+    admin: TestUser,
+    groupId: number,
+    childIds: number[],
+    dates: string[],
+): Promise<number[]> {
+    const sessions: number[] = [];
+    for (const date of dates) {
+        const sessionId = await createClassSession(dataSource, groupId, { date });
+        for (const childId of childIds) {
+            await request(app.getHttpServer())
+                .put(`/attendance/session/${sessionId}/child/${childId}`)
+                .set('Authorization', admin.auth)
+                .send({ present: true })
+                .expect(200);
+        }
+        sessions.push(sessionId);
+    }
+    return sessions;
 }
 
 /**
@@ -275,12 +336,13 @@ export async function enrolInNewGroup(
     admin: TestUser,
     childIds: number[],
     overrides: Record<string, unknown> = {},
+    enrolment: Record<string, unknown> = {},
 ): Promise<number> {
     const roomId = await createRoom(app, admin, { slug: `billing-${Math.abs(childIds[0] ?? 0)}`, name: 'Facturare' });
     const group = await request(app.getHttpServer()).post('/groups').set('Authorization', admin.auth).send(groupBody(roomId, overrides)).expect(201);
     const groupId = group.body.id as number;
     for (const childId of childIds) {
-        await enrolChild(app, admin, childId, groupId);
+        await enrolChild(app, admin, childId, groupId, enrolment);
     }
     return groupId;
 }
