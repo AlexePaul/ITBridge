@@ -33,67 +33,13 @@
           </template>
         </UDashboardNavbar>
       </template>
+      <!--
+        Admin only, since E18/S4. The parent portal has its own shell — `layouts/portal.vue` — so the
+        two account-gate and unpaid-invoice notices that used to sit here have gone with it: they were
+        `!isAdmin` blocks in a layout no parent reaches any more. They live on Acasă now, where a
+        parent can act on them.
+      -->
       <template #body>
-        <!-- E11/S2: why the portal below is empty, when it is. -->
-        <AccountStatusNotice />
-
-        <!-- Overdue Invoice Alert -->
-        <UCard
-          v-if="overdueInvoices && !isAdmin"
-          class="w-9/12 mx-auto border border-error rounded-none mt-12 z-15 min-h-24"
-          variant="subtle"
-        >
-          <div
-            class="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-4 py-2"
-          >
-            <div class="flex items-center gap-2 sm:flex-1">
-              <UIcon
-                name="i-lucide-alert-circle"
-                class="text-error shrink-0 text-xl md:text-2xl lg:text-3xl self-center"
-              />
-              <p class="font-bold text-lg">
-                Au fost detectate facturi restante, daca aceasta este o greseala, nu ezitati sa ne
-                contactati.
-              </p>
-            </div>
-            <NuxtLink
-              to="/user/payments"
-              class="underline text-sm text-error font-semibold whitespace-nowrap self-start sm:self-center sm:ml-4"
-            >
-              Acceseaza istoricul plăților
-            </NuxtLink>
-          </div>
-        </UCard>
-
-        <!-- Pending Invoice Alert -->
-        <UCard
-          v-else-if="pendingInvoices && !isAdmin"
-          class="w-9/12 md:1/3 mx-auto border border-warning rounded-none mt-12 z-15 min-h-24"
-          variant="subtle"
-        >
-          <div
-            class="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-4 py-2"
-          >
-            <div class="flex items-center gap-2 sm:flex-1">
-              <UIcon
-                name="i-lucide-alert-circle"
-                class="text-warning shrink-0 text-xl md:text-2xl lg:text-3xl self-center"
-              />
-              <p class="font-bold text-lg">
-                Aveti facturi care necesita plata. Va rugam sa accesati istoricul plăților pentru
-                detalii.
-                <br />Daca aceasta este o greseala, nu ezitati sa ne contactati.
-              </p>
-            </div>
-            <NuxtLink
-              to="/user/payments"
-              class="underline text-sm text-warning font-semibold whitespace-nowrap self-start sm:self-center sm:ml-4"
-            >
-              Acceseaza istoricul plăților
-            </NuxtLink>
-          </div>
-        </UCard>
-
         <slot />
       </template>
     </UDashboardPanel>
@@ -106,7 +52,6 @@ import { useLocationsApi } from "~/composables/api/useLocationsApi";
 import { useRoomsApi } from "~/composables/api/useRoomsApi";
 import { useProjectsApi } from "~/composables/api/useProjectsApi";
 import { usePendingProjectsStore } from "~/stores/pendingProjectsStore";
-import { overdueInvoices, pendingInvoices } from "~/composables/api/useInvoiceApi";
 import { computed } from "vue";
 import { useRoute, useSeoMeta } from "#imports";
 
@@ -164,14 +109,6 @@ const navigationItems = computed(() => {
     { label: "Contact", to: "/contact", icon: "i-lucide-mail" },
   ];
 
-  const userPages = [
-    { label: "Profil", to: "/user/profile", icon: "i-lucide-user" },
-    { label: "Situatia Scolara", to: "/user/dashboard", icon: "i-lucide-chart-bar" },
-    { label: "Absențe și recuperări", to: "/user/absente", icon: "i-lucide-calendar-off" },
-    { label: "Istoric Plati", to: "/user/payments", icon: "i-lucide-credit-card" },
-    { label: "Proiectele copiilor", to: "/user/proiecte", icon: "i-lucide-sparkles" },
-  ];
-
   const adminPages = [
     {
       label: "Tablou de Bord Administrator",
@@ -220,10 +157,9 @@ const navigationItems = computed(() => {
     { label: "Livrări", to: "/admin/livrari", icon: "i-lucide-send" },
   ];
 
-  if (isAdmin) {
-    return [...baseItems, ...adminPages];
-  }
-
-  return [...baseItems, ...userPages];
+  // Only an admin reaches this layout now; a parent is on `layouts/portal.vue`. The branch is kept
+  // rather than assumed away, so a page that lands here without the role still gets a usable menu
+  // instead of the whole admin area.
+  return isAdmin ? [...baseItems, ...adminPages] : baseItems;
 });
 </script>

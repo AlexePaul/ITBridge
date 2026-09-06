@@ -1,185 +1,213 @@
 <template>
-  <div class="w-full max-w-3xl mx-auto px-4 py-6 space-y-8">
-    <div>
-      <h1 class="text-3xl font-bold">Absențe și recuperări</h1>
-      <p class="text-muted mt-1">
-        Dacă știi dinainte că cel mic nu ajunge la o oră, spune-ne de aici. Profesorul vede înainte
-        de curs, iar noi nu mai sunăm să întrebăm.
+  <div class="portal-page">
+    <div class="portal-head">
+      <span class="kicker">Portalul familiei</span>
+      <h1 class="portal-title">Absențe și recuperări</h1>
+      <!--
+        The deadline, in one sentence rather than a paragraph. The rule itself is frozen on the
+        server when a notice is written (`inTime`), so this is a description of it, not a second copy.
+      -->
+      <p class="lede measure-wide">
+        O absență anunțată <strong>înainte de începerea orei</strong> devine un credit de
+        recuperare. Anunțată după — nu se mai poate recupera.
       </p>
     </div>
 
-    <div v-if="loading" class="py-12 text-center text-muted">Se încarcă…</div>
-    <UCard v-else-if="loadError" variant="subtle" class="border border-error">
-      <p class="font-medium">{{ loadError }}</p>
-    </UCard>
+    <div v-if="children.length > 1" class="switcher-slot">
+      <ChildSwitcher :children="children" />
+    </div>
+
+    <p v-if="loading" class="portal-empty">Se încarcă…</p>
+
+    <div v-else-if="loadError" class="portal-card portal-card-accent portal-notice" role="alert">
+      <p class="body-text">{{ loadError }}</p>
+    </div>
 
     <template v-else>
-      <!-- What has already been announced. First, because it is what a returning parent checks. -->
-      <section v-if="notices.length > 0" class="space-y-3">
-        <h2 class="text-sm font-semibold text-muted uppercase tracking-wide">Anunțate deja</h2>
-        <div
-          v-for="notice in notices"
-          :key="notice.id"
-          class="flex items-start justify-between gap-4 border border-muted rounded-lg p-4"
-        >
-          <div class="min-w-0">
-            <p class="font-medium">
-              {{ notice.child.firstName }} —
-              <span class="tabular-nums">{{ formatDateKey(notice.classSession.date) }}</span
-              >, {{ notice.classSession.startTime.slice(0, 5) }}
-            </p>
-            <p class="text-muted text-sm mt-0.5">{{ notice.reason }}</p>
-          </div>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            :loading="withdrawingId === notice.id"
-            @click="withdraw(notice)"
+      <!-- Upcoming classes, each with the way to announce an absence in advance. -->
+      <section class="portal-section">
+        <h2 class="portal-label">{{ scopeLabel }} · ore viitoare</h2>
+
+        <p v-if="visibleUpcoming.length === 0" class="portal-empty">
+          Nu e nicio oră în orar deocamdată. Apar aici imediat ce le programăm.
+        </p>
+
+        <div v-else class="rows">
+          <div
+            v-for="entry in visibleUpcoming"
+            :key="`${entry.child.id}-${entry.session.id}`"
+            class="portal-row"
           >
-            Vine totuși
-          </UButton>
+            <div class="portal-row-main">
+              <p class="portal-when">
+                {{ entry.child.firstName }} · {{ formatDateKey(entry.session.date) }} ·
+                {{ formatTime(entry.session.startTime) }}–{{ formatTime(entry.session.endTime) }}
+              </p>
+              <p class="portal-where">{{ placeOf(entry.session) }}</p>
+            </div>
+
+            <span v-if="entry.announced" class="portal-label portal-done">
+              <UIcon name="i-lucide-check" class="tick" />
+              Anunțat
+            </span>
+            <button
+              v-else
+              type="button"
+              class="btn btn-primary row-action"
+              @click="openAnnounce(entry)"
+            >
+              Anunță absența
+            </button>
+          </div>
         </div>
       </section>
 
-      <!-- E12/S4: the acceptance sentence, literally — "ai o recuperare disponibilă până pe X". -->
-      <section v-if="credits.length > 0" class="space-y-3">
-        <h2 class="text-sm font-semibold text-muted uppercase tracking-wide">Recuperări</h2>
-        <div
-          v-for="credit in credits"
-          :key="credit.id"
-          class="border border-muted rounded-lg p-4 space-y-3"
-          :class="credit.status === 'expired' && 'opacity-60'"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <p class="font-medium">
-                {{ credit.child.firstName }} — recuperare pentru
-                <span class="tabular-nums">{{ formatDateKey(credit.originSession.date) }}</span>
-              </p>
-              <p v-if="credit.status === 'available'" class="text-muted text-sm mt-0.5">
-                Disponibilă până pe
-                <span class="tabular-nums">{{ formatDateKey(credit.expiresOn) }}</span>
-              </p>
-              <p v-else-if="credit.bookedSession" class="text-muted text-sm mt-0.5">
-                Programată
-                <span class="tabular-nums">{{ formatDateKey(credit.bookedSession.date) }}</span
-                >, ora {{ credit.bookedSession.startTime.slice(0, 5) }}
-                <span v-if="credit.bookedSession.group">
-                  · {{ credit.bookedSession.group.name }}</span
-                >
-              </p>
-              <p v-else-if="credit.status === 'expired'" class="text-muted text-sm mt-0.5">
-                A expirat pe
-                <span class="tabular-nums">{{ formatDateKey(credit.expiresOn) }}</span>
-              </p>
-            </div>
-            <UBadge :color="MAKE_UP_STATUS_COLORS[credit.status]" variant="subtle" size="sm">
-              {{ MAKE_UP_STATUS_LABELS[credit.status] }}
-            </UBadge>
-          </div>
+      <!--
+        Make-up credits, in three visually distinct states. The difference is drawn in the frame
+        rather than in a coloured word: open is an accent outline, booked is a plain outline with a
+        tick, expired is a dashed outline that was never filled in. All three survive greyscale.
+      -->
+      <section class="portal-section">
+        <h2 class="portal-label">{{ scopeLabel }} · credite de recuperare</h2>
 
-          <div class="flex gap-2">
-            <UButton
+        <p v-if="visibleCredits.length === 0" class="portal-empty">
+          Niciun credit de recuperare — nu s-a anunțat nicio absență în termen.
+        </p>
+
+        <div v-else class="portal-grid portal-grid-wide credits">
+          <div
+            v-for="credit in visibleCredits"
+            :key="credit.id"
+            class="portal-card"
+            :class="{
+              'portal-card-accent': credit.status === 'available',
+              'portal-card-spent': credit.status === 'expired' || credit.status === 'consumed',
+            }"
+          >
+            <span v-if="credit.status === 'available'" class="portal-label">Deschis</span>
+            <span v-else-if="credit.status === 'booked'" class="portal-label portal-done">
+              <UIcon name="i-lucide-check" class="tick" />
+              Programat
+            </span>
+            <span v-else-if="credit.status === 'consumed'" class="portal-label">Folosit</span>
+            <span v-else class="portal-label">Expirat</span>
+
+            <p v-if="credit.status === 'booked' && credit.bookedSession" class="portal-card-title">
+              {{ formatDateKey(credit.bookedSession.date) }} ·
+              {{ formatTime(credit.bookedSession.startTime) }}
+            </p>
+            <p v-else-if="credit.status === 'available'" class="portal-card-title">
+              O oră de recuperat
+            </p>
+            <p v-else class="portal-card-title">O oră nefolosită</p>
+
+            <p class="body-text">
+              {{ credit.child.firstName }} — din absența de pe
+              {{ formatDateKey(credit.originSession.date) }}.
+              <template v-if="credit.status === 'available'">
+                <strong>Expiră pe {{ formatDateKey(credit.expiresOn) }}.</strong>
+              </template>
+              <template v-else-if="credit.status === 'booked' && credit.bookedSession">
+                La {{ credit.bookedSession.group?.name ?? "grupa aleasă" }}.
+              </template>
+              <template v-else-if="credit.status === 'expired'">
+                A expirat pe {{ formatDateKey(credit.expiresOn) }}.
+              </template>
+            </p>
+
+            <button
               v-if="credit.status === 'available'"
-              color="primary"
-              variant="soft"
-              size="sm"
-              :loading="optionsForCredit === credit.id"
+              type="button"
+              class="btn btn-primary card-action"
+              :disabled="optionsForCredit === credit.id"
               @click="openBooking(credit)"
             >
-              Programează
-            </UButton>
-            <UButton
-              v-if="credit.status === 'booked'"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :loading="cancellingId === credit.id"
+              {{ optionsForCredit === credit.id ? "Se încarcă…" : "Alege o oră" }}
+            </button>
+            <button
+              v-else-if="credit.status === 'booked'"
+              type="button"
+              class="btn btn-ghost card-action"
+              :disabled="cancellingId === credit.id"
               @click="cancelBooking(credit)"
             >
               Anulează programarea
-            </UButton>
+            </button>
           </div>
         </div>
       </section>
 
-      <section class="space-y-3">
-        <h2 class="text-sm font-semibold text-muted uppercase tracking-wide">Orele care urmează</h2>
+      <!-- What has already been announced, and what each announcement earned. -->
+      <section class="portal-section">
+        <h2 class="portal-label">{{ scopeLabel }} · absențe anunțate</h2>
 
-        <div
-          v-if="upcoming.length === 0"
-          class="text-center py-12 border border-dashed border-muted rounded-lg space-y-2"
-        >
-          <UIcon name="i-lucide-calendar-check" class="text-4xl text-muted" />
-          <p class="font-medium">Nicio oră programată</p>
-          <p class="text-sm text-muted">
-            Când apare orarul, orele se vor vedea aici și le poți anunța.
-          </p>
-        </div>
+        <p v-if="visibleNotices.length === 0" class="portal-empty">
+          Nicio absență anunțată deocamdată.
+        </p>
 
-        <div
-          v-for="entry in upcoming"
-          :key="`${entry.child.id}-${entry.session.id}`"
-          class="flex items-center justify-between gap-4 border border-muted rounded-lg p-4"
-          :class="entry.announced && 'opacity-60'"
-        >
-          <div class="min-w-0">
-            <p class="font-medium">{{ entry.child.firstName }} {{ entry.child.lastName }}</p>
-            <p class="text-muted text-sm tabular-nums">
-              {{ formatDateKey(entry.session.date) }} · {{ entry.session.startTime.slice(0, 5) }}–{{
-                entry.session.endTime.slice(0, 5)
+        <div v-else class="rows">
+          <div v-for="notice in visibleNotices" :key="notice.id" class="portal-row">
+            <div class="portal-row-main">
+              <p class="portal-when">
+                {{ notice.child.firstName }} · {{ formatDateKey(notice.classSession.date) }}
+              </p>
+              <p class="portal-where">{{ notice.reason }}</p>
+            </div>
+
+            <!--
+              `inTime` is frozen when the notice is written, so this says what the announcement
+              actually earned rather than re-judging a deadline that has since passed.
+            -->
+            <p class="outcome" :class="{ 'outcome-quiet': !notice.inTime }">
+              {{
+                notice.inTime
+                  ? "Anunțată în termen"
+                  : "Anunțată după începerea orei — fără recuperare"
               }}
-              <span v-if="entry.session.group"> · {{ entry.session.group.name }}</span>
             </p>
+
+            <button
+              type="button"
+              class="btn btn-ghost row-action"
+              :disabled="withdrawingId === notice.id"
+              @click="withdraw(notice)"
+            >
+              Vine totuși
+            </button>
           </div>
-          <UButton
-            v-if="!entry.announced"
-            color="primary"
-            variant="soft"
-            size="sm"
-            @click="openAnnounce(entry)"
-          >
-            Anunță
-          </UButton>
-          <UBadge v-else color="warning" variant="subtle">Anunțat</UBadge>
         </div>
       </section>
     </template>
 
     <UModal v-model:open="bookingOpen" title="Alege ora de recuperare">
       <template #body>
-        <div v-if="options.length === 0" class="py-6 text-center space-y-2">
-          <UIcon name="i-lucide-calendar-x" class="text-3xl text-muted" />
-          <p class="font-medium">Nicio oră potrivită</p>
-          <p class="text-sm text-muted">
-            Nu e nicio grupă cu loc liber și vârstă potrivită înainte de expirare. Sună-ne și găsim
-            împreună.
-          </p>
-        </div>
-        <div v-else class="space-y-2">
+        <p v-if="options.length === 0" class="portal-empty">
+          Nu e nicio grupă cu loc liber și vârstă potrivită înainte de expirare. Sună-ne la
+          <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a> și găsim împreună.
+        </p>
+        <div v-else class="rows">
           <button
             v-for="option in options"
             :key="option.sessionId"
             type="button"
-            class="w-full flex items-center justify-between gap-3 p-3 border border-muted rounded-lg hover:bg-muted transition-colors text-left"
+            class="portal-row option-row"
             :disabled="bookingId !== null"
             @click="book(option)"
           >
-            <div>
-              <p class="font-medium tabular-nums">
-                {{ formatDateKey(option.date) }}, {{ option.startTime.slice(0, 5) }}
-              </p>
-              <p class="text-muted text-sm">
+            <span class="portal-row-main">
+              <span class="portal-when">
+                {{ formatDateKey(option.date) }}, {{ formatTime(option.startTime) }}
+              </span>
+              <span class="portal-where">
                 {{ option.groupName
-                }}<span v-if="option.locationName"> · {{ option.locationName }}</span>
-              </p>
-            </div>
+                }}<template v-if="option.locationName"> · {{ option.locationName }}</template>
+              </span>
+            </span>
             <UIcon
               :name="
                 bookingId === option.sessionId ? 'i-lucide-loader-circle' : 'i-lucide-chevron-right'
               "
-              :class="bookingId === option.sessionId ? 'animate-spin' : 'text-muted'"
+              :class="bookingId === option.sessionId ? 'animate-spin' : ''"
             />
           </button>
         </div>
@@ -188,38 +216,44 @@
 
     <UModal v-model:open="formOpen" title="Anunță absența">
       <template #body>
-        <form id="absence-form" class="space-y-4" @submit.prevent="submit">
-          <p v-if="selected" class="text-sm text-muted">
-            {{ selected.child.firstName }}, {{ formatDateKey(selected.session.date) }}, ora
-            {{ selected.session.startTime.slice(0, 5) }}.
+        <form id="absence-form" class="form" @submit.prevent="submit">
+          <p v-if="selectedEntry" class="body-text">
+            {{ selectedEntry.child.firstName }}, {{ formatDateKey(selectedEntry.session.date) }},
+            ora {{ formatTime(selectedEntry.session.startTime) }}.
           </p>
-          <UFormField
-            label="Motivul"
-            required
-            help="O propoziție e de ajuns. O citește profesorul, nu ajunge nicăieri altundeva."
-          >
-            <UTextarea
+          <div class="field">
+            <label for="absence-reason">Motivul</label>
+            <textarea
+              id="absence-reason"
               v-model="reason"
-              :rows="3"
+              class="input"
+              rows="3"
               placeholder="Răcit, îl ținem acasă"
-              class="w-full"
-            />
-          </UFormField>
+            ></textarea>
+            <p class="field-hint">
+              O propoziție e de ajuns. O citește profesorul, nu ajunge nicăieri altundeva.
+            </p>
+          </div>
         </form>
       </template>
       <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <UButton color="neutral" variant="ghost" :disabled="saving" @click="formOpen = false">
+        <div class="modal-actions">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            :disabled="saving"
+            @click="formOpen = false"
+          >
             Renunță
-          </UButton>
-          <UButton
+          </button>
+          <button
             type="submit"
             form="absence-form"
-            :loading="saving"
+            class="btn btn-primary"
             :disabled="reason.trim().length < 3 || saving"
           >
-            Trimite
-          </UButton>
+            {{ saving ? "Se trimite…" : "Trimite" }}
+          </button>
         </div>
       </template>
     </UModal>
@@ -227,29 +261,37 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
+import { useChildSelection } from "~/composables/useChildSelection";
 import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useNotifications } from "~/composables/useNotifications";
 import { formatDateKey } from "~/composables/useAdminFormat";
+import { formatTime } from "~/composables/useUtils";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 import { SessionStatus } from "~/types/class-session.types";
-import type { ClassSessionWithAttendance } from "~/types/class-session.types";
+import type { ClassSession, ClassSessionWithAttendance } from "~/types/class-session.types";
 import type { AbsenceNotice, MakeUpCredit, MakeUpOption } from "~/types/attendance.types";
-import { MAKE_UP_STATUS_COLORS, MAKE_UP_STATUS_LABELS } from "~/types/attendance.types";
 import type { Child } from "~/types/child.types";
+import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 
 /**
- * A parent announcing an absence — E12/S3.
+ * Absențe și recuperări — E12/S3 and S4, on the E18/S4 design.
  *
- * The classes still to come, one row each, with a button. Announcing does not mark anybody absent:
- * the register stays the teacher's to take, and a child whose parent announced can turn up anyway.
- * What it buys is that nobody has to phone to ask.
+ * Three things at once, in the order a returning parent wants them: the classes still to come and
+ * the way to announce one, the credits an announcement earned, and the record of what has already
+ * been announced.
+ *
+ * The behaviour underneath is unchanged — announcing marks nobody absent, the register stays the
+ * teacher's, and the server re-checks a seat between reading the list and pressing the button. What
+ * changed is that the three credit states are now told apart by the shape of their frame rather than
+ * by a coloured word, and that every heading names the child it is about.
  */
 definePageMeta({
-  layout: "dashboard" as any,
+  layout: "portal" as any,
   title: "Absențe și recuperări",
 });
 
@@ -258,6 +300,7 @@ const childrenApi = useChildrenApi();
 const classSessionsApi = useClassSessionsApi();
 const childrenStore = useChildrenStore();
 const { success, error } = useNotifications();
+const { includes, isShowingAll, selected, reconcile } = useChildSelection();
 
 const loading = ref(true);
 const loadError = ref("");
@@ -277,21 +320,40 @@ let creditBeingBooked: MakeUpCredit | null = null;
 const formOpen = ref(false);
 const saving = ref(false);
 const reason = ref("");
-const selected = ref<{ child: Child; session: ClassSessionWithAttendance } | null>(null);
+/** The row the announce dialog is about — not to be confused with the selected *child*. */
+const selectedEntry = ref<{ child: Child; session: ClassSessionWithAttendance } | null>(null);
 const withdrawingId = ref<number | null>(null);
 
 const today = todayKey();
+
+const children = computed(() => childrenStore.children);
+
+/**
+ * Whose data the section headings are about.
+ *
+ * Every block repeats it, which is the redundancy the design leans on: a parent who never notices
+ * the switcher still reads the child's name against the figures rather than beside them.
+ */
+const scopeLabel = computed(() => {
+  if (isShowingAll.value) return "Toți copiii";
+  return children.value.find((child) => child.id === selected.value)?.firstName ?? "Copilul ales";
+});
+
+const visibleUpcoming = computed(() => upcoming.value.filter((row) => includes(row.child.id)));
+const visibleCredits = computed(() => credits.value.filter((row) => includes(row.child.id)));
+const visibleNotices = computed(() => notices.value.filter((row) => includes(row.child.id)));
 
 const load = async () => {
   loading.value = true;
   loadError.value = "";
   try {
-    const [children] = await Promise.all([
+    const [fetched] = await Promise.all([
       childrenApi.fetchChildren(),
       refreshNotices(),
       refreshCredits(),
     ]);
-    const mine = (children ?? (childrenStore.children as Child[])) as Child[];
+    const mine = (fetched ?? (childrenStore.children as Child[])) as Child[];
+    reconcile(mine);
 
     const rows: { child: Child; session: ClassSessionWithAttendance; announced: boolean }[] = [];
     for (const child of mine) {
@@ -322,6 +384,15 @@ const refreshNotices = async () => {
 
 const refreshCredits = async () => {
   credits.value = await attendanceApi.fetchMakeUpCredits();
+};
+
+/** Where a class is: the room, then the street it is on. */
+const placeOf = (session: ClassSession): string => {
+  const room = session.room;
+  if (!room) return "";
+  const location = room.location;
+  if (!location) return room.name;
+  return `${room.name} · ${location.street} — ${location.name}`;
 };
 
 /**
@@ -379,24 +450,24 @@ const isAnnounced = (childId: number, sessionId: number) =>
 onMounted(load);
 
 const openAnnounce = (entry: { child: Child; session: ClassSessionWithAttendance }) => {
-  selected.value = entry;
+  selectedEntry.value = entry;
   reason.value = "";
   formOpen.value = true;
 };
 
 const submit = async () => {
-  if (!selected.value || reason.value.trim().length < 3) return;
+  if (!selectedEntry.value || reason.value.trim().length < 3) return;
   saving.value = true;
   try {
     await attendanceApi.announceAbsence({
-      childId: selected.value.child.id,
-      classSessionId: selected.value.session.id,
+      childId: selectedEntry.value.child.id,
+      classSessionId: selectedEntry.value.session.id,
       reason: reason.value.trim(),
     });
     success("Am notat. Profesorul vede înainte de oră.");
     formOpen.value = false;
     await refreshNotices();
-    markAnnounced(selected.value.child.id, selected.value.session.id, true);
+    markAnnounced(selectedEntry.value.child.id, selectedEntry.value.session.id, true);
   } catch (err: unknown) {
     error(apiErrorMessage(err, "Nu am putut înregistra anunțul"));
   } finally {
@@ -426,3 +497,79 @@ const markAnnounced = (childId: number, sessionId: number, announced: boolean) =
   if (row) row.announced = announced;
 };
 </script>
+
+<style scoped>
+.switcher-slot {
+  margin-top: var(--rhythm-2);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-2);
+}
+
+.credits {
+  margin-top: var(--space-4);
+}
+
+.row-action,
+.card-action {
+  min-height: 44px;
+}
+
+.card-action {
+  align-self: flex-start;
+  margin-top: var(--space-1);
+}
+
+.tick {
+  width: 14px;
+  height: 14px;
+  color: var(--color-accent);
+}
+
+.outcome {
+  font-size: 14.5px;
+  line-height: 24px;
+  margin: 0;
+  color: var(--color-accent-ink);
+}
+
+.outcome-quiet {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The booking options are rows that are also buttons. */
+.option-row {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border-top: 0;
+  border-inline: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.option-row:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+}
+
+.option-row:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.option-row .portal-row-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  width: 100%;
+}
+</style>

@@ -2,11 +2,11 @@
 
 **Status:** în lucru · **Pistă:** Public · **Depinde de:** E03 · **Blochează:** E19, E20
 
-**Livrate:** S1 (fundația de design), S2 (pipeline de imagini), S3 (paginile publice) și S7
-(interfața profesorului), plus jumătatea din CI a lui S6 — verificarea automată de accesibilitate,
-pe paginile publice, în ambele teme. **Rămân:** S4, S5 și restul lui S6, toate despre zona de după
-autentificare. S4 și S5 nu se pot demonstra până nu rulează un backend — vezi
-[E01](E01-infrastructura-medii.md), S4.
+**Livrate:** S1 (fundația de design), S2 (pipeline de imagini), S3 (paginile publice), S4 (portalul
+părintelui) și S7 (interfața profesorului), plus jumătatea din CI a lui S6 — verificarea automată de
+accesibilitate, pe paginile publice, în ambele teme. **Rămân:** S5 și restul lui S6, plus verificarea
+lui S4 pe date reale. Nimic din zona de după autentificare nu se poate demonstra până nu rulează un
+backend — vezi [E01](E01-infrastructura-medii.md), S4.
 
 > ## Cerut de școală: rescrierea întregii zone de după login
 >
@@ -160,27 +160,56 @@ Apelul la acțiune duce la formularul de contact și la telefon, nu la lecția d
 **Acceptanță:** un părinte care nu știe nimic despre școală înțelege în 30 de secunde ce se predă,
 cui, unde și cât costă. — **Îndeplinită.**
 
-### S4 · Portalul părintelui — muncă viitoare, blocat
+### S4 · Portalul părintelui — livrat, rămâne verificarea pe date reale
 
 De la trei pagini la un portal complet: privire de ansamblu pe copil, orar, prezență și recuperări,
-proiecte, progres, facturi și plăți, profil și preferințe de comunicare.
+proiecte, facturi și plăți, profil și preferințe de comunicare.
 
 Construit ca structură acum, populat pe măsură ce epic-urile de domeniu livrează. Secțiunile fără
 date încă spun asta explicit, nu rămân goale.
 
 **Acceptanță:** un părinte cu doi copii comută între ei fără să se piardă.
 
-**Neînceput, blocat, și cerut explicit de școală.** Cele trei pagini vechi (`dashboard`, `profile`,
-`payments`) există neatinse, pe layout-ul `dashboard`, nerescrise pe sistemul din S1 — iar contrastul
-cu paginile publice, care _au_ fost rescrise, e primul lucru pe care îl vede un părinte după ce se
-autentifică. Blocajul nu e de design, ci de
-infrastructură: **backend-ul nu e deployat**, deci nimic din ce e după login nu vorbește cu un API
-care rulează. Un portal care nu poate fi nici testat pe date reale, nici arătat cuiva, se rescrie
-degeaba. Ordinea corectă e [E01](E01-infrastructura-medii.md) S4 înainte de S4 de aici.
+**Livrat.** Cinci ecrane de portal plus cele trei de intrare în cont, toate pe jetoanele din S1, cu
+un shell propriu — `layouts/portal.vue`: navbar cu rândul de taburi sub el, nu bara laterală
+colapsabilă a zonei de admin. Un părinte are cinci pagini și le deschide pe telefon; un admin are
+treizeci și două și stă în aplicație toată ziua, iar o bară laterală ia o treime dintr-un ecran de
+390px ca să aleagă între cinci lucruri. Layout-ul `dashboard` rămâne al zonei de admin, care se
+uniformizează în S5.
 
-Până atunci, paginile autentificate poartă `noindex, nofollow` din layout-ul `dashboard`, iar
-`/admin/` și `/user/` sunt excluse din `robots.txt` — deci starea lor neterminată nu ajunge în
-index și nu strică ce s-a câștigat în [E19](E19-seo-geo.md).
+**Cum se rezolvă acceptanța.** Comutarea are două feluri de a se pierde și fiecare are alt răspuns:
+
+- _Alegi un copil, urmezi un link și ajungi la celălalt._ Alegerea stă în URL (`?copil=`) și într-un
+  cookie — URL-ul are prioritate, deci o pagină reîncărcată sau trimisă mai departe e despre același
+  copil, iar cookie-ul o duce între Absențe și Proiecte, unde linkurile nu poartă query string.
+  Aceeași mecanică și același motiv ca filtrul de locație din `locationStore`.
+- _Citești prezența unui copil crezând că e a celuilalt._ La asta comutatorul nu ajută, oricât ar fi
+  de vizibil: răspunsul e **redundanța** — fiecare bloc de date își repetă copilul în etichetă
+  („MATEI · ORE VIITOARE"), deci numele nu e niciodată mai departe de cifre decât sunt cifrele între
+  ele. Iar **Acasă nu comută deloc**: toți copiii, unul sub altul, fiindcă un răspuns la „e totul în
+  regulă?" care e adevărat doar pentru copilul de pe tabul selectat nu e un răspuns.
+
+Ecranele family-level — Plăți și Profil — n-au comutator, fiindcă nimic de pe ele nu e al unui
+singur copil.
+
+**Ce rămâne, și de ce nu e cod.** Portalul compilează, se randează și e cablat la composable-urile
+existente, dar **backend-ul tot nu e deployat**, deci nimic din el n-a fost văzut pe date reale.
+Verificarea pe familii adevărate și pe un telefon adevărat — inclusiv jumătatea de accesibilitate a
+lui S6 pentru zona autentificată — cere [E01](E01-infrastructura-medii.md) S4. Până atunci
+paginile autentificate poartă `noindex, nofollow` din layout, iar `/admin/` și `/user/` sunt excluse
+din `robots.txt`, deci nimic din ele nu ajunge în index.
+
+**Două lucruri pe care designul le cerea și codul nu le putea da**, rezolvate spunând adevărul în loc
+să inventăm cifre:
+
+- _Factura desfăcută pe copil_ („Matei — 4 ședințe × 87,50"). `Invoice` duce pe sârmă o lună, un
+  total și o stare; foaia de lucru per copil e a adminului și n-are sume deloc. Regula e explicată în
+  text, iar cifrele vin din `shared/courses.ts`, derivate din aceleași două numere lunare pe care le
+  împarte la patru și `pricing.ts` — deci portalul nu poate cita un tarif după care nu se
+  facturează.
+- _Scadența pe cardul de plată._ Termenul de 14 zile e în `arrears.rules.ts` și nu iese pe sârmă
+  către părinte. O a doua copie aici ar fi copia care rămâne în urmă, deci ecranul arată starea pe
+  care API-ul o publică — neplătită sau restantă — și nimic altceva.
 
 ### S5 · Uniformizarea zonei de admin — muncă viitoare, **cerută explicit**
 

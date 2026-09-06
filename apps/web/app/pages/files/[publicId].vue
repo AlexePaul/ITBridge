@@ -1,60 +1,57 @@
 <template>
-  <div class="w-full max-w-2xl mx-auto px-4 py-6 space-y-6">
-    <UCard v-if="loadError" class="border border-error" variant="subtle">
-      <p class="font-medium">{{ loadError }}</p>
-      <p class="text-sm text-muted mt-2">
+  <div class="portal-page file-page">
+    <div v-if="loadError" class="portal-card portal-card-accent portal-notice" role="alert">
+      <p class="body-text">{{ loadError }}</p>
+      <p class="note">
         Dacă ai primit linkul pe email și tot nu se deschide, scrie-ne și ne uităm noi.
       </p>
-    </UCard>
+    </div>
 
-    <div v-else-if="loading" class="py-12 text-center text-muted">Se încarcă…</div>
+    <p v-else-if="loading" class="portal-empty">Se încarcă…</p>
 
     <template v-else-if="project">
-      <div>
-        <UButton
-          to="/user/proiecte"
-          variant="link"
-          color="neutral"
-          icon="i-lucide-arrow-left"
-          class="px-0"
-        >
-          Toate proiectele
-        </UButton>
-        <h1 class="text-3xl font-bold">{{ project.title }}</h1>
-        <p class="text-muted mt-1">{{ project.child.firstName }} · {{ project.capturedOn }}</p>
+      <div class="portal-head">
+        <NuxtLink to="/user/proiecte" class="link back">← Toate proiectele</NuxtLink>
+        <span class="portal-label back-meta">
+          {{ project.child.firstName }} · {{ formatDateKey(project.capturedOn) }}
+        </span>
+        <h1 class="portal-title">{{ project.title }}</h1>
       </div>
 
-      <ProjectThumbnail
-        :project-id="project.id"
-        :has-thumbnail="project.hasThumbnail"
-        :alt="project.title"
-        :size="320"
-      />
+      <div class="plate-slot">
+        <ProjectThumbnail
+          :project-id="project.id"
+          :has-thumbnail="project.hasThumbnail"
+          :hint="files[0]?.originalName ?? project.title"
+          :alt="`Miniatura lucrării „${project.title}”`"
+        />
+      </div>
 
-      <p v-if="project.description">{{ project.description }}</p>
+      <p v-if="project.description" class="body-text description">{{ project.description }}</p>
 
-      <div class="flex flex-wrap gap-2">
-        <UButton
+      <div class="file-chips">
+        <button
           v-for="file in files"
           :key="file.id"
-          icon="i-lucide-download"
-          variant="outline"
-          :loading="downloading === file.id"
+          type="button"
+          class="chip"
+          :disabled="downloading === file.id"
           @click="download(file.id)"
         >
+          <UIcon name="i-lucide-download" class="chip-icon" />
           {{ file.originalName }}
-        </UButton>
-        <UButton
+        </button>
+        <a
           v-for="link in project.links"
           :key="`link-${link.id}`"
-          icon="i-lucide-external-link"
-          variant="outline"
-          :to="link.url"
+          :href="link.url"
+          class="chip"
           target="_blank"
           rel="noopener noreferrer"
         >
+          <UIcon name="i-lucide-external-link" class="chip-icon" />
           {{ link.label }}
-        </UButton>
+        </a>
       </div>
 
       <!--
@@ -62,34 +59,40 @@
         into the folder next to the right one is a disclosure of another family's data, and the
         person most likely to notice is the one who opened it.
       -->
-      <UCard variant="subtle" class="border">
-        <p class="text-sm text-muted">
-          Nu pare lucrarea copilului tău?
-          <UButton variant="link" class="px-1" @click="reportOpen = true">Spune-ne</UButton>
-          și verificăm.
-        </p>
-      </UCard>
+      <p class="portal-empty report">
+        Nu pare lucrarea copilului tău?
+        <button type="button" class="link link-button" @click="reportOpen = true">Spune-ne</button>
+        și verificăm.
+      </p>
     </template>
 
     <UModal v-model:open="reportOpen" title="Semnalează o problemă">
       <template #body>
-        <div class="space-y-3">
-          <p class="text-sm">
+        <div class="form">
+          <p class="body-text">
             Trimitem mesajul la școală. Nu ștergem nimic automat — ne uităm întâi.
           </p>
-          <UFormField label="Ce nu e în regulă?" hint="Opțional">
-            <UTextarea
+          <div class="field">
+            <label for="report-note">Ce nu e în regulă?</label>
+            <textarea
+              id="report-note"
               v-model="note"
-              class="w-full"
+              class="input"
+              rows="3"
               placeholder="Pare lucrarea altui copil din grupă…"
-            />
-          </UFormField>
+            ></textarea>
+            <p class="field-hint">Opțional.</p>
+          </div>
         </div>
       </template>
       <template #footer>
-        <div class="flex justify-end gap-2 w-full">
-          <UButton color="neutral" variant="ghost" @click="reportOpen = false">Renunță</UButton>
-          <UButton :loading="reporting" @click="submitReport">Trimite</UButton>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" @click="reportOpen = false">
+            Renunță
+          </button>
+          <button type="button" class="btn btn-primary" :disabled="reporting" @click="submitReport">
+            {{ reporting ? "Se trimite…" : "Trimite" }}
+          </button>
         </div>
       </template>
     </UModal>
@@ -102,10 +105,11 @@ import { useRoute } from "vue-router";
 import { useProjectsApi } from "~/composables/api/useProjectsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
+import { formatDateKey } from "~/composables/useAdminFormat";
 import type { Project } from "~/types/project.types";
 
 /**
- * What the link in a parent's email opens. E14/S5.
+ * What the link in a parent's email opens. E14/S5, on the E18/S4 portal.
  *
  * **It requires a login, and that is the decision.** A link that works without an account works for
  * whoever it gets forwarded to, and what opens is a named child's work. The extra step is paid once —
@@ -115,7 +119,7 @@ import type { Project } from "~/types/project.types";
  * boundary, which is the ownership check in the backend; it is what stops the boundary from being
  * probed one integer at a time.
  */
-definePageMeta({ layout: "dashboard" as any, title: "Lucrarea copilului" });
+definePageMeta({ layout: "portal" as any, title: "Lucrarea copilului" });
 
 const route = useRoute();
 const publicId = String(route.params.publicId);
@@ -173,3 +177,63 @@ async function submitReport() {
   }
 }
 </script>
+
+<style scoped>
+.file-page {
+  max-width: 720px;
+}
+
+.back {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+  text-decoration: none;
+}
+
+.back-meta {
+  margin-top: var(--space-2);
+}
+
+.plate-slot {
+  max-width: 420px;
+  margin-top: var(--rhythm-2);
+}
+
+.description {
+  margin-top: var(--rhythm-1);
+  max-width: 58ch;
+}
+
+.file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--rhythm-1);
+}
+
+.chip-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--color-accent-ink);
+}
+
+.report {
+  margin-top: var(--rhythm-2);
+}
+
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  width: 100%;
+}
+</style>
