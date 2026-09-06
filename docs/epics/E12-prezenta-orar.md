@@ -1,6 +1,6 @@
 # E12 · Prezență, recuperări și orar
 
-**Status:** în lucru · **Pistă:** Operațiuni · **Depinde de:** E11 · **Blochează:** E13, E14, E21
+**Status:** în lucru · **Pistă:** Operațiuni · **Depinde de:** E11 · **Blochează:** E13, E14, E15, E21
 
 ## Problemă
 
@@ -50,11 +50,15 @@ Profesorul marchează prezența în câteva secunde. Părintele știe ce se înt
 - Recuperări: drept, programare, consumare.
 - Interfață de marcare optimizată pentru telefon.
 - Notificări legate de prezență.
+- Bifa de vacanță pe ședință, ca faptul din care se calculează factura.
 
 ## În afara scopului
 
 - Evaluarea a ce s-a învățat la ședință — vezi [E13](E13-progres-evaluare.md).
-- Efectul financiar al absențelor — vezi [E15](E15-pricing-facturare.md).
+- Efectul financiar al absențelor — vezi [E15](E15-pricing-facturare.md). Din S8 epicul ăsta
+  produce **faptele** pe care se calculează factura — s-a ținut ora, a fost sau nu în vacanță, cine
+  a fost prezent —, dar niciun leu nu se calculează aici, și niciun ecran de prezență nu arată
+  sume.
 
 ## Story-uri
 
@@ -573,6 +577,50 @@ recuperare sunt livrate în S4. Iar amândouă mementourile
 **se scriu azi în coadă și nu pleacă nicăieri în producție**: nu există producție — vezi
 [Dependențe](#dependențe), imediat mai jos.
 
+**Din [E15](E15-pricing-facturare.md) S9, amândouă mementourile apără bani, nu doar evidența.** O
+ședință rămasă fără catalog nu se facturează nimănui, fiindcă nimic nu spune că s-a ținut — deci
+alerta de la minutul 15 și raportul de la 10:00 sunt singurele două lucruri care mai pot aduce
+catalogul înapoi cât timp cineva își mai aduce aminte ora. Nu se schimbă nimic în ele; se schimbă
+cât costă să nu ruleze, și de asta țin de [E01](E01-infrastructura-medii.md) S4 ca oricare altul.
+
+### S8 · Bifa de vacanță pe catalog
+
+O coloană nouă pe ședință — `ClassSession.isVacation`, implicit `false` — pusă de cine face
+catalogul, din ecranul de pe telefon (S6) și din `/admin/orar` (S5). Înseamnă un singur lucru:
+**ora asta s-a ținut într-o vacanță**. Ce urmează din ea e o regulă de bani și stă în
+[E15](E15-pricing-facturare.md) S9 — o ședință bifată se facturează doar copiilor marcați prezenți
+la ea, în loc să se factureze întregii grupe. Aici se ține doar faptul.
+
+**De ce pe ședință și nu la emitere.** Cine știe e profesorul din sală, în ziua aia. Peste trei
+săptămâni, în fața ecranului de emitere, nu-și mai amintește nimeni care luni din decembrie a fost
+vacanță și care a fost doar o zi cu patru copii. Un fapt se consemnează unde se află, nu unde se
+folosește — același motiv pentru care `inTime` se îngheață la scriere în S3.
+
+**Nu e `NonTeachingPeriod`, și cele două nu se unesc.** Calendarul din S2 înseamnă „școala e
+închisă": ziua nu produce ședințe, iar cele deja generate se anulează. Bifa înseamnă aproape
+opusul — școala e deschisă, ora se ține pentru cine vrea să vină, iar catalogul ei există. Un
+singur mecanism cu ambele înțelesuri ar fi un cuvânt ambiguu exact în locul unde se decid banii.
+
+Practic: **săptămânile de vacanță în care școala chiar predă nu se trec în `/admin/calendar`**.
+Calendarul rămâne ce spune deja epicul mai sus, „o listă de zile în care nu se ține curs", ședințele
+acelor săptămâni se generează normal și primesc bifa. Ce ar forța altă soluție, dacă apare vreodată:
+o vacanță în care o locație e închisă iar alta ține cursuri, pe aceleași date. Atunci
+`NonTeachingPeriod` capătă un tip; nu bifa un al doilea înțeles.
+
+**Bifa se poate întoarce cât timp luna nu e facturată**, ca orice altceva de pe catalog. Ecranul de
+emitere o arată oricum, lângă zilele lunii, deci una uitată sau pusă din greșeală se vede înainte
+să plece ceva. După emitere e istorie, iar corectura devine o discuție despre o factură, nu despre
+un rând.
+
+**Ce nu face bifa:** nu anulează ședința, nu scutește pe nimeni de catalog și nu schimbă cine ocupă
+un loc — un copil venit în vacanță stă pe scaunul lui ca în orice altă zi, la fel ca o probă sau o
+recuperare (D7). Nu atinge nici drepturile de recuperare: o absență într-o zi bifată nu produce
+nimic de recuperat, fiindcă familia aia nici nu plătește ora.
+
+**Acceptanță:** o ședință bifată apare marcată în catalogul de pe telefon și în `/admin/orar`, bifa
+se pune și se scoate dintr-o apăsare, iar `GET /attendance/session/:id/register` o întoarce — de
+acolo o citește numărătoarea din [E15](E15-pricing-facturare.md) S9.
+
 ## Dependențe
 
 [E11](E11-inscrieri-capacitate.md) pentru cine e înscris când.
@@ -619,6 +667,10 @@ Anulările notifică automat.
 atârnă de ea, iar o oră rămasă fără catalog e detectabilă și se raportează o dată pe zi — deci
 „prezența completă" nu mai e o speranță, e o listă. Ce lipsește ca să fie și _garantată_ e ecranul
 din S6, care face marcarea destul de ieftină încât să se întâmple în timpul orei.
+
+De la [E15](E15-pricing-facturare.md) S9, „prezența completă" nu mai e nici măcar o chestiune de
+evidență: o ședință fără catalog e o ședință neîncasată, deci lista de nemarcate se citește cu alți
+ochi.
 
 Restul e neatins și rămâne așa până se decid alte lucruri: recuperările urmăribile cer S3 și S4,
 adică o regulă de business pe care patronul n-a dat-o încă; anulările care notifică cer un loc unde
@@ -710,6 +762,24 @@ ce se facturează și când. Cele două epicuri se implementează împreună.
 calendarul de vacanțe nu mai atinge facturarea și redevine ce părea la început: o listă de zile în
 care nu se ține curs, folositoare ca să nu se genereze ședințe degeaba. Se păstrează scrisă fiindcă
 argumentul revine intact în ziua în care revine E10.
+
+**Catalogul e semnalul că ora s-a ținut, iar din septembrie 2026 e și baza facturii.**
+[E15](E15-pricing-facturare.md) S9 numără ședințele lunii din cataloage: una fără nicio prezență
+înregistrată nu se facturează nimănui, una ținută se facturează întregii grupe — chiar și una al
+cărei catalog e făcut integral pe absențe, fiindcă semnalul e catalogul, nu numărul de prezenți —,
+iar una bifată vacanță (S8) doar copiilor marcați prezenți la ea. Pentru epicul ăsta consecința e că două decizii
+luate din alte motive devin deodată importante pentru bani, și nu se mai pot slăbi:
+
+- **Marcarea prezenței nu trece ședința în `ținută`.** „Are prezențe" și „e ținută" rămân două
+  semnale independente, iar cel după care se numără e primul. Dacă vreodată marcarea ar începe să
+  scrie și starea, „nemarcat" ar dispărea ca stare, iar cu el și singura definiție a orei
+  neîncasate.
+- **Ștergerea unui interval de vacanță nu reactivează ședințele anulate** (S2), iar regenerarea nu
+  învie ce s-a anulat (S1). Amândouă erau despre onestitatea istoricului; acum sunt și despre a nu
+  factura de două ori o lună închisă.
+
+Ce **nu** se schimbă: prezența rămâne a profesorului, iar niciun ecran de catalog nu arată sume.
+Un profesor care vede prețul lângă numele copilului marchează altfel.
 
 ## Întrebări deschise
 

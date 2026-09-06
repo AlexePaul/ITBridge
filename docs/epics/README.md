@@ -142,7 +142,7 @@ Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane”.
 | [E12](E12-prezenta-orar.md)           | Prezență, recuperări și orar                             | Operațiuni | E11                     | **da** |
 | [E13](E13-progres-evaluare.md)        | Progres, evaluare și feedback                            | Operațiuni | E10, E12                | **da** |
 | [E14](E14-proiecte-elevi.md)          | Proiectele elevilor                                      | Operațiuni | E07, E08, E10, E12, E17 | **da** |
-| [E15](E15-pricing-facturare.md)       | Pricing și facturare v2                                  | Bani       | E10, E11                | **da** |
+| [E15](E15-pricing-facturare.md)       | Pricing și facturare v2                                  | Bani       | E10, E11, E12           | **da** |
 | [E16](E16-plati-fiscal.md)            | Încasări și facturare prin SmartBill                     | Bani       | E15                     | **da** |
 | [E17](E17-comunicare-notificari.md)   | Comunicare și notificări                                 | Comunicare | E05, E06                | **da** |
 | [E18](E18-frontend-portal.md)         | Frontend: design system și portal părinte                | Public     | E03                     | —      |
@@ -180,6 +180,7 @@ graph TD
   E17 --> E14
   E10 --> E15[E15 Pricing v2]
   E11 --> E15
+  E12 --> E15
   E15 --> E16[E16 Încasări & SmartBill]
   E05 --> E17[E17 Comunicare]
   E06 --> E17
@@ -208,6 +209,13 @@ comunicare, dar câteva criterii de acceptanță din ele — locul eliberat care
 așteptare, anularea unei ședințe, confirmarea de plată și mementoul de restanță — nu se pot bifa
 până nu există E17. Le desenăm ca să nu fie descoperite ca surpriză la sfârșitul lui E11 — de
 aceea [Ordinea recomandată](#ordinea-recomandată) urcă E17 S1–S3 în val 3, lângă E11 și E12.
+
+Muchia **E12 → E15** e nouă, și spre deosebire de cele de mai sus nu are nimic slab în ea: de la
+[E15](E15-pricing-facturare.md) S9, factura se numără din cataloagele lunii, deci prezența nu mai e
+o evidență paralelă, e baza de calcul. Consecința se citește în ambele direcții. Pentru E15: nu se
+poate emite o lună înainte ca ultima ei ședință să aibă catalog, deci emiterea se mută pe primele
+zile ale lunii următoare. Pentru E12: mementourile de catalog nemarcat din S7 apără de acum venit,
+nu doar ordinea în hârtii.
 
 Ce pleacă din **E09** nu mai sunt permisiuni, ci entitatea `Staff` și alocarea profesorului pe
 grupă — decizia că nu există rol de profesor a schimbat conținutul muchiilor, nu doar grosimea lor.
@@ -468,6 +476,16 @@ câtă vreme profesorul e admin și vede tot. Ce rămâne: entitatea `Staff`, al
 grupă și disponibilitatea lui — utile independent de roluri, cerute de
 [E08](E08-multi-locatie.md) S3 și de [E11](E11-inscrieri-capacitate.md). Condiția în care se
 reia discuția e scrisă în [E09](E09-personal-roluri.md): **primul profesor care nu e proprietar.**
+
+**Ce se facturează se citește din catalog, nu se tastează.** Decizia e din septembrie 2026 și nu
+atinge prețul — unitatea rămâne luna, tariful rămâne pe ședință. Se schimbă numai sursa numărului de
+ședințe: o oră fără nicio prezență înregistrată n-a avut loc și n-o plătește nimeni; o oră cu
+catalog se facturează întregii grupe, prezent sau absent — semnalul e catalogul, nu numărul de
+copii care au venit —; iar o oră bifată „vacanță"
+se facturează doar copiilor care au venit la ea. Ecranul de emitere rămâne, ca verificare înainte de
+plecare, dar nu mai are ce introduce. Regula, cu exemplele lucrate, e în
+[E15](E15-pricing-facturare.md) S9; bifa e o coloană pe ședință și se pune de la catalog, în
+[E12](E12-prezenta-orar.md) S8.
 
 **Recuperarea nu e datorie contractuală.** Cu preț fix pe modul, părintele cumpără participarea la
 un modul, nu un număr garantat de ședințe. Recuperarea rămâne instrument de retenție, nu obligație —
