@@ -554,10 +554,11 @@ n-o știe — unde să-l aducă în schimb. Un catalog greșit tastat nici n-o p
 catalogul o produce: o produce un om de la birou care mută un copil.
 
 **Un rezumat săptămânal de absențe a fost cântărit și lăsat pentru [E17](E17-comunicare-notificari.md)
-S6.** Ar rezolva și greșelile de tastare (se corectează până vineri) și completările târzii, dar
-conținutul lui e slab: îi spune unui părinte care își aduce copilul la ușă exact ce știe deja.
-Digest-ul își merită locul când poate căra ceva — absențe, mutări, factura care vine — și ăla e
-mecanismul din S6, nu jumătatea lui cea mai puțin interesantă construită separat.
+S6 — care între timp a fost construit și scos prin decizie, deci nu vine.** Ar fi rezolvat și
+greșelile de tastare (se corectează până vineri) și completările târzii, dar conținutul lui e slab:
+îi spune unui părinte care își aduce copilul la ușă exact ce știe deja. Digest-ul își merită locul
+când poate căra ceva — absențe, mutări, factura care vine — și ăla e mecanismul din E17 S6, nu
+jumătatea lui cea mai puțin interesantă construită separat.
 
 **Mesajul e tranzacțional** și nu consultă preferința de marketing din
 [E17](E17-comunicare-notificari.md) S4 — nici n-ar avea cum: `queueOrRecord` nu primește deloc
@@ -613,9 +614,10 @@ re-armat arată exact ca o după-amiază liniștită. O interogare indexată la 
 **Bucata rămasă din S7 nu mai are pe ce aștepta, deci S7 se închide așa cum e**: a doua linie către
 părinte pentru absență aștepta mecanismul de rezumate din [E17](E17-comunicare-notificari.md) S6, iar
 acela a fost construit și **scos prin decizie** — deci nu vine. Notificarea de absență din prima
-versiune fusese oricum scoasă prin decizia de mai sus, iar mementourile de recuperare sunt livrate în
-S4. Dacă rezumatele revin cândva, revine și ea, cu ele; până atunci nu e o datorie deschisă, e o
-linie pe care școala a ales să n-o trimită. Iar amândouă mementourile
+versiune fusese oricum scoasă prin decizia de mai sus, iar cele două mementouri de recuperare au
+plecat cu creditele — ce trimite S4 azi e un singur mesaj, cel care spune unde a fost mutat copilul.
+Dacă rezumatele revin cândva, revine și ea, cu ele; până atunci nu e o datorie deschisă, e o linie
+pe care școala a ales să n-o trimită. Iar amândouă mementourile
 **se scriu azi în coadă și nu pleacă nicăieri în producție**: nu există producție — vezi
 [Dependențe](#dependențe), imediat mai jos.
 
