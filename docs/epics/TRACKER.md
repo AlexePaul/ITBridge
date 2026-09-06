@@ -3,7 +3,9 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 6 septembrie 2026, pe `release/stage`, cu E18 S4 în plus față de E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
+**Ultima actualizare:** 6 septembrie 2026 — adăugate E12 S8 și E15 S9, facturarea numărată din
+catalog. Ultimele merge-uri, pe `release/stage`: E18 S4, în plus față de E21 S1, E16 S5, E12 S7,
+E21 S2/S4 și E12 S5.
 
 ## Legendă
 
@@ -14,8 +16,8 @@ adunate într-un loc.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **146 de story-uri** în 22 de epicuri: 65 livrate, 16 parțiale, 8 blocate, 4 scoase din scop,
-53 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **148 de story-uri** în 22 de epicuri: 65 livrate, 16 parțiale, 8 blocate, 4 scoase din scop,
+55 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri".
 
 ---
@@ -149,6 +151,7 @@ nu rulează nicăieri".
 - [x] S5 · Anulări și mutări — ecranul `/admin/orar` (mută, anulează, reactivează), plus mesajul către familiile grupei la fiecare dintre cele trei, scris în aceeași tranzacție. Recuperarea la anulare e o **bifă**, nu un automatism: ora anulată nu se facturează oricum, deci creditul e o decizie de preț, luată per anulare. Rămâne dispecerul, care pornește la E01 S4
 - [~] S6 · Marcarea prezenței pe telefon — livrat fără poze (`Child` n-are câmp, e o decizie E07/E14): `/admin/attendance/azi`, salvare la fiecare apăsare, coadă locală pe rețea picată, buton „Sună părintele" la absență
 - [~] S7 · Notificări — **mementoul de la minutul 15** (`@Interval` la 5 minute, fereastra se închide când se termină ora, o alertă per ședință) plus cel zilnic de la 10:00, amândouă către birou; și cele două către părinte, **amândouă despre recuperare**: câștigată (aceeași seară) și care expiră (7 zile înainte). Mesajul de absență a fost scos prin decizie — catalogul uitat/târziu/greșit îl făcea nesigur când era inofensiv și alarmant când nu. Rămâne a doua linie către părinte, care așteaptă E17 S6
+- [ ] S8 · Bifa de vacanță pe catalog — `ClassSession.isVacation`, pusă de cine face catalogul. Faptul stă aici, regula de bani la E15 S9. **Nu se unește cu `NonTeachingPeriod`**: calendarul înseamnă „școala e închisă", bifa înseamnă „deschisă, dar în vacanță"
 
 ### E13 · Progres, evaluare și feedback — `propus`
 
@@ -187,6 +190,7 @@ nu rulează nicăieri".
 - [ ] S6 · Previzualizare și emitere în masă
 - [ ] S7 · PDF-ul nu se mai generează local
 - [x] S8 · Înscrierea la mijlocul unui modul — **rezolvat de modelul pe ședință**, nu de cod: cine intră pe 15 are mai puține ședințe în lună. Livrat aici: ecranul de emitere sortează familiile pe grupe, cum se și numără
+- [ ] S9 · Ședințele facturabile se numără din catalog — fără nicio valoare tastată: ședință fără catalog = neținută, deci nefacturată; ședință ținută = facturată întregii grupe; ședință de vacanță = facturată doar celor prezenți. Ecranul de emitere devine verificare, nu introducere. **Cere E12 S8**
 
 > **Bug-uri în modelul folosit azi**, în `apps/api/src/modules/invoice/invoice.service.ts`:
 > la doi copii calculează 500 în loc de 600; la trei sau mai mulți nu există ramură, deci factura
