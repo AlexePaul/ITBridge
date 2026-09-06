@@ -1,4 +1,4 @@
-import { nextBillingMonth, nextBillingMonthAt, REFERRAL_PERCENT } from './discount.rules';
+import { monthAfter, nextBillingMonth, nextBillingMonthAt, nextUncoveredMonth, REFERRAL_PERCENT } from './discount.rules';
 
 /**
  * What "next month" means, and why it is computed from text — E20/S5.
@@ -44,5 +44,47 @@ describe('nextBillingMonthAt', () => {
 describe('REFERRAL_PERCENT', () => {
     it('is half, which is both sides of E20/S5s rule', () => {
         expect(REFERRAL_PERCENT).toBe(50);
+    });
+});
+
+describe('monthAfter', () => {
+    it('steps one month', () => {
+        expect(monthAfter('2026-04')).toBe('2026-05');
+        expect(monthAfter('2026-01')).toBe('2026-02');
+    });
+
+    it('rolls the year over from December', () => {
+        expect(monthAfter('2026-12')).toBe('2027-01');
+    });
+
+    it('refuses a day key or a month that does not exist', () => {
+        expect(() => monthAfter('2026-04-01')).toThrow();
+        expect(() => monthAfter('2026-13')).toThrow();
+        expect(() => monthAfter('2026-00')).toThrow();
+    });
+});
+
+/**
+ * Where the next press lands — E20/S5.
+ *
+ * A second press means a second month, so the walk starts at the first month the reward does not
+ * already cover. It fills a gap before extending the run: a month somebody removed by hand is the
+ * cheapest one to give back.
+ */
+describe('nextUncoveredMonth', () => {
+    it('lands on the start when nothing is covered', () => {
+        expect(nextUncoveredMonth('2026-04', [])).toBe('2026-04');
+    });
+
+    it('walks past a run that is already covered', () => {
+        expect(nextUncoveredMonth('2026-04', ['2026-04', '2026-05'])).toBe('2026-06');
+    });
+
+    it('fills a gap in the middle before extending the run', () => {
+        expect(nextUncoveredMonth('2026-04', ['2026-04', '2026-06'])).toBe('2026-05');
+    });
+
+    it('walks across the end of the year', () => {
+        expect(nextUncoveredMonth('2026-12', ['2026-12'])).toBe('2027-01');
     });
 });

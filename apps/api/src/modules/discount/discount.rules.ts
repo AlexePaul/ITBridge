@@ -23,26 +23,41 @@ export const REFERRAL_PERCENT = 50;
 export const REFERRAL_DISCOUNT_NAME = 'Recomandare';
 
 /**
- * `'2026-03-09'` → `'2026-04'`, `'2026-12-31'` → `'2027-01'`.
+ * `'2026-04'` → `'2026-05'`, `'2026-12'` → `'2027-01'`.
  *
  * From the string's own components, never through `Date`: `new Date('2026-12-31')` is midnight
- * **UTC**, so a server west of Greenwich would read the 30th and a naive `setMonth(+1)` on the 31st
+ * **UTC**, so a server west of Greenwich reads the 30th, and a naive `setMonth(+1)` on the 31st
  * lands in the month after next. Both are the off-by-one that CLAUDE.md warns about twice, and
  * neither is visible at review.
+ *
+ * This is the step the reward is built from: pressing the button again is this function applied
+ * once more, which is why it is a rule of its own and not a line inside the service.
+ */
+export function monthAfter(monthKey: string): string {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey)) {
+        throw new Error(`monthAfter expects a YYYY-MM month, got "${monthKey}"`);
+    }
+
+    const year = Number(monthKey.slice(0, 4));
+    const month = Number(monthKey.slice(5, 7));
+    const rollsOver = month === 12;
+
+    return `${rollsOver ? year + 1 : year}-${String(rollsOver ? 1 : month + 1).padStart(2, '0')}`;
+}
+
+/**
+ * `'2026-03-09'` → `'2026-04'`.
+ *
+ * A full day key, not a `YYYY-MM`. The arithmetic would be right either way, which is exactly why
+ * the shape is checked: a caller holding `monthIssued` and expecting "the month after that" is
+ * confused about which value they are holding, and the answer would be right by accident.
  */
 export function nextBillingMonth(dayKey: string): string {
-    // A full day key, not a `YYYY-MM`. The arithmetic would be right either way, which is exactly
-    // why the shape is checked: a caller holding `monthIssued` and expecting "the month after that"
-    // is confused about which value they have, and the answer would be right by accident.
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
         throw new Error(`nextBillingMonth expects a YYYY-MM-DD day, got "${dayKey}"`);
     }
 
-    const year = Number(dayKey.slice(0, 4));
-    const month = Number(dayKey.slice(5, 7));
-    const rollsOver = month === 12;
-
-    return `${rollsOver ? year + 1 : year}-${String(rollsOver ? 1 : month + 1).padStart(2, '0')}`;
+    return monthAfter(dayKey.slice(0, 7));
 }
 
 /**
@@ -54,4 +69,35 @@ export function nextBillingMonth(dayKey: string): string {
  */
 export function nextBillingMonthAt(now: Date): string {
     return nextBillingMonth(schoolDay(now));
+}
+
+/**
+ * Where the next press lands: the first month from `from` onwards that the reward does not already
+ * cover — E20/S5.
+ *
+ * Pressing again means **another month**, not more off the same one. Percentages add up against
+ * the list price, so a second 50% on one month is a free month; a second 50% on the *next* month is
+ * a second reward, which is what a second referral deserves. The run is walked rather than counted
+ * so that a gap in the middle — a month somebody removed by hand — gets filled before the run is
+ * extended.
+ */
+export function nextUncoveredMonth(from: string, covered: readonly string[]): string {
+    let month = from;
+    while (covered.includes(month)) {
+        month = monthAfter(month);
+    }
+    return month;
+}
+
+/**
+ * What the reward looks like from outside: a family, and the months it covers.
+ *
+ * Returned by all three of the referral endpoints — read, `+` and `−` — so a screen never has to
+ * work out the new state from the old one plus what it just pressed. The month list is the answer
+ * to "what happens next", and the server is the only place that knows it.
+ */
+export interface ReferralReward {
+    parentId: number;
+    /** `YYYY-MM`, ascending, from next month onwards. Empty when the family has no reward. */
+    months: string[];
 }

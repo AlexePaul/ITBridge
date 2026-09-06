@@ -43,13 +43,26 @@ export interface UpdateDiscountDto {
 }
 
 /**
- * The one-press referral reward — E20/S5: half off next month, for one family.
+ * The one-press referral reward — E20/S5: half off, one month per press.
  *
- * One field, because everything else is fixed by the decision: 50%, „Recomandare", and the month
- * after the current one on the school's clock. The server picks the month; a client that computed
- * it would be the second place that knows what „next month" means, and the two would disagree for
+ * One field, because everything else is fixed by the decision: 50%, „Recomandare", and the next
+ * month the reward does not already cover. The server picks the month; a client that computed it
+ * would be the second place that knows what „next month" means, and the two would disagree for
  * about two hours every first of the month.
  */
 export interface GrantReferralDiscountDto {
     parentId: number;
+}
+
+/**
+ * The state of a family's referral reward — what `+` and `−` both answer with.
+ *
+ * `months` is every month the reward covers from next month onwards, ascending. A screen renders
+ * the whole control from it: the count, the names, and whether `−` has anything left to take. It
+ * comes back from the write endpoints too, so nothing has to guess the new state from the old one
+ * plus the press.
+ */
+export interface ReferralReward {
+    parentId: number;
+    months: BillingMonth[];
 }

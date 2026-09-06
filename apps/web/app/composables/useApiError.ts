@@ -55,7 +55,8 @@ const MESSAGES: Record<string, string> = {
   // E20/S5 — the one-press referral reward. The refusal has to say what would have happened,
   // because "already has one" sounds harmless and a free month is not.
   DISCOUNT_ALREADY_GRANTED:
-    "Familia are deja o reducere procentuală pe luna viitoare. Încă una s-ar aduna cu ea și ar face luna gratuită — dacă asta vrei, dă-o din formular.",
+    "Pe luna aceea stă deja o reducere procentuală dată din formular. Încă una s-ar aduna cu ea și ar face luna gratuită — dacă asta vrei, dă-o tot din formular.",
+  REFERRAL_NOTHING_TO_REVOKE: "Familia nu are nicio lună de recomandare de scos.",
 
   // E08. "Există deja o înregistrare cu aceste date" is true of all of these and useful for none:
   // an admin who has just double-booked a room needs to know that is what happened.

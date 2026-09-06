@@ -326,24 +326,36 @@ Regula e acum a platformei, nu a celui care socotește: 50% urmăresc totalul re
 lună scurtă de trei ședințe (262,50) se înjumătățește la 131,25 — lucru pe care o sumă fixă de 175
 l-ar fi greșit cu 43,75 fără ca cineva să observe.
 
-**Un buton, nu cinci câmpuri** (septembrie 2026). `POST /discounts/referral` primește doar familia
-și scrie restul: 50%, „Recomandare", luna următoare. Butonul stă în **profilul familiei**, fiindcă
-acolo e deja limpede despre cine e vorba — din `/admin/reduceri` aceeași acțiune ar cere întâi un
-selector, adică exact câmpul pe care formularul îl cere oricum. Formularul rămâne pentru orice
-altceva, și e tot locul din care se șterge o reducere dată din greșeală.
+**Un buton cu două capete, nu cinci câmpuri** (septembrie 2026). Recompensa se dă dintr-un `−  n
+luni  +` în **profilul familiei**: fiecare apăsare pe `+` e încă o lună la jumătate de preț, fiecare
+apăsare pe `−` o ia pe ultima înapoi. Stă acolo fiindcă acolo familia e deja aleasă — din
+`/admin/reduceri` același control ar cere întâi un selector, adică exact câmpul pe care formularul
+îl cere oricum. Formularul rămâne pentru orice altă reducere, și e tot locul din care se șterge una
+dată din greșeală.
 
-Două lucruri de știut despre el:
+Trei endpoint-uri, toate răspunzând cu **starea întreagă** a recompensei — lunile acoperite, în
+ordine — nu cu rândul atins: `GET /discounts/referral/:parentId`, `POST /discounts/referral`,
+`DELETE /discounts/referral/:parentId`. Ecranul se desenează din răspuns; dacă și-ar aduna singur
+apăsarea la ce avea, ar ajunge în dezacord cu serverul în clipa în care cineva șterge o lună din
+alt tab.
 
-- **Luna o alege serverul**, din `nextBillingMonthAt` (`discount.rules.ts`), pe ceasul școlii. Un
-  client care ar calcula-o ar fi al doilea loc care știe ce înseamnă „luna viitoare", iar cele două
-  ar fi în dezacord vreo două ore în fiecare întâi de lună — și rezultatul ar fi o reducere pusă pe
-  luna tocmai facturată. În decembrie, „luna viitoare" trece anul; regula lucrează pe componentele
-  string-ului, niciodată prin `Date`.
-- **A doua apăsare e refuzată** cu `DISCOUNT_ALREADY_GRANTED`, și nu doar a doua apăsare a
-  butonului: verificarea caută **orice** reducere procentuală pe acea lună. Procentele se adună pe
-  prețul de listă (`discountTotal`), deci 50% peste 50% e o lună gratuită, iar o lună gratuită
-  apărută dintr-un dublu-clic arată exact ca una hotărâtă de cineva. Dacă chiar se vrea a doua
-  reducere, se dă din formular, unde e o decizie și nu un clic.
+Trei lucruri de știut:
+
+- **A doua apăsare dă a doua lună, niciodată o reducere mai mare pe aceeași lună.** Aici e toată
+  regula: procentele se adună pe prețul de listă (`discountTotal`), deci 50% peste 50% e o lună
+  gratuită — iar o lună gratuită apărută dintr-un dublu-clic arată exact ca una hotărâtă de cineva.
+  A doua recomandare merită a doua lună, nu o factură de zero. Apăsarea caută prima lună neacoperită
+  (`nextUncoveredMonth`), deci umple întâi o gaură lăsată de un `−` înainte să lungească șirul.
+- **Luna o alege serverul**, din `nextBillingMonthAt` și `monthAfter` (`discount.rules.ts`), pe
+  ceasul școlii și din componentele string-ului. Un client care ar calcula-o ar fi al doilea loc
+  care știe ce înseamnă „luna viitoare", iar cele două ar fi în dezacord vreo două ore în fiecare
+  întâi de lună — cu rezultatul pus pe luna tocmai facturată. În decembrie, „luna viitoare" trece
+  anul, iar prin `Date` ar sări o lună.
+- **Controlul nu se întinde în trecut, în niciun sens.** `+` începe de la luna viitoare și `−` ia
+  doar dintre lunile de acolo încolo: o lună deja facturată nu e o recompensă, e o corectură, iar
+  corectura se face din formular, unde cineva trebuie s-o vrea. Iar `−` scoate numai rândurile
+  acestei recompense — un procent tastat de mână nu e al butonului să-l retragă, și
+  `DISCOUNT_ALREADY_GRANTED` refuză oricum să se adune peste el.
 
 **Ce nu s-a construit, tot prin decizie:** nimic nu leagă cele două reduceri între ele. Sunt două
 rânduri independente, cu același nume, pe două familii. Legătura ar fi exact mașinăria de atribuire

@@ -868,16 +868,27 @@ Reducerea se rotunjește ea însăși la bani, ca linia tipărită și totalul s
 Plafonul de 100% e în `DiscountService`, nu în DTO: o actualizare poate schimba tipul într-o cerere
 și valoarea în alta, iar doar starea de după îmbinare spune ce ajunge stocat.
 
-**Recomandarea e un buton, iar luna o alege serverul** (E20 S5). `POST /discounts/referral` primește
-doar `parentId` și scrie 50%, `Recomandare` și **luna următoare**, calculată cu `nextBillingMonthAt`
-din `apps/api/src/modules/discount/discount.rules.ts`, pe ceasul școlii și din componentele
-string-ului — prin `Date`, un întâi de lună la 01:00 ar cădea pe luna tocmai facturată, iar 31
-decembrie ar sări o lună. Butonul stă în profilul familiei, fiindcă acolo familia e deja aleasă;
-`/admin/reduceri` rămâne pentru orice altă reducere și pentru ștergere. **A doua reducere
-procentuală pe aceeași lună e refuzată** (`DISCOUNT_ALREADY_GRANTED`): procentele se adună pe prețul
-de listă, deci 50% peste 50% e o lună gratuită, iar una apărută dintr-un dublu-clic nu se deosebește
-de una hotărâtă. Refuzul e în serviciu, fără index unic în spate — spre deosebire de locurile din
-E11, un rând duplicat aici se vede pe ecran și se șterge din două clicuri.
+**Recomandarea se dă la apăsare, iar o apăsare în plus e o lună în plus** (E20 S5). Controlul din
+profilul familiei e un `−  n luni  +`: `POST /discounts/referral` adaugă o lună la 50%,
+`DELETE /discounts/referral/:parentId` o ia pe ultima înapoi, iar `GET` pe aceeași cale întoarce
+starea. Toate trei răspund cu **lunile acoperite**, nu cu rândul atins — un ecran care și-ar aduna
+singur apăsarea ar diverge de server în clipa în care altcineva șterge o lună din `/admin/reduceri`.
+
+Trei reguli care par detalii și nu sunt:
+
+- **A doua apăsare dă a doua lună, nu o reducere mai mare pe aceeași lună.** Procentele se adună pe
+  prețul de listă (`discountTotal`), deci 50% peste 50% e o lună gratuită, iar una apărută dintr-un
+  dublu-clic nu se deosebește de una hotărâtă. `nextUncoveredMonth` caută prima lună neacoperită,
+  deci umple întâi golul lăsat de un `−`.
+- **Luna o alege serverul**, prin `nextBillingMonthAt` și `monthAfter` din
+  `apps/api/src/modules/discount/discount.rules.ts`, pe ceasul școlii și din componentele
+  string-ului — prin `Date`, un întâi de lună la 01:00 ar cădea pe luna tocmai facturată, iar 31
+  decembrie ar sări o lună.
+- **Nimic nu se întinde în trecut**: `+` pleacă de la luna viitoare, `−` ia doar de acolo încolo, și
+  scoate numai rândurile recompensei. Un procent tastat din formular nu e al butonului să-l
+  retragă, iar peste el `DISCOUNT_ALREADY_GRANTED` refuză să se adune. Refuzul e în serviciu, fără
+  index unic în spate — spre deosebire de locurile din E11, un rând duplicat aici se vede pe ecran
+  și se șterge din două clicuri.
 
 **Zero e un răspuns, nu un câmp gol.** O lună fără plată se scrie ca factură `waived`, de 0 lei,
 fără PDF. Rândul există fiindcă n-are bani în el: fără el, o familie fără factură pe octombrie arată

@@ -23,21 +23,44 @@ export class DiscountController {
     }
 
     /**
-     * Half off next month for one family — E20/S5, in one press.
+     * The referral reward, as three presses on one control — E20/S5.
      *
-     * Declared before nothing in particular: there is no `:id` on POST here, so unlike
-     * `ProjectController` this path cannot be swallowed by a parameter route. It is separate from
-     * `POST /discounts` because the two have different shapes of decision behind them — that one
-     * takes five fields and this one takes none.
+     * `+` adds a month, `−` takes the last one back, and the read renders both. All three answer
+     * with the whole reward rather than with the row they touched, so the screen never has to work
+     * out the new state from the old one plus what was pressed.
+     *
+     * **`referral/:parentId` is declared before `:id`**, the trap CLAUDE.md names in two other
+     * controllers: `ParseIntPipe` on `:id` answers 400 to a word. Two segments would not match a
+     * one-segment route anyway, but the order is the thing that keeps being true when somebody adds
+     * a route later.
      */
+    @Get('/referral/:parentId')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: 'The months the referral reward covers' })
+    async readReferral(@Param('parentId', ParseIntPipe) parentId: number) {
+        return this.discountService.referralReward(parentId);
+    }
+
     @Post('/referral')
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
-    @ApiResponse({ status: 201, description: 'Referral discount granted for next month' })
-    @ApiResponse({ status: 409, description: 'The family already has a percentage on that month' })
+    @ApiResponse({ status: 201, description: 'One more month at half price' })
+    @ApiResponse({ status: 409, description: 'A percentage from somewhere else already sits on that month' })
     async grantReferral(@Body() dto: GrantReferralDiscountDto) {
-        return this.discountService.grantReferralNextMonth(dto.parentId);
+        return this.discountService.grantReferralMonth(dto.parentId);
+    }
+
+    @Delete('/referral/:parentId')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: 'The last month taken back off the reward' })
+    @ApiResponse({ status: 409, description: 'The family has no referral month left to take back' })
+    async revokeReferral(@Param('parentId', ParseIntPipe) parentId: number) {
+        return this.discountService.revokeReferralMonth(parentId);
     }
 
     @Get()
