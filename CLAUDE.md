@@ -847,10 +847,17 @@ dintotdeauna cu calculatorul; codul factura 350 fix și supra-factura fiecare lu
 e toată regula: fără ea, suma ar depinde de ordinea rândurilor dintr-o interogare. Un copil cu zero
 ședințe nu consumă tariful întreg.
 
-**Emiterea se face din `/admin/invoices/emitere`**, nu prin `POST /invoices`: un ecran cu familiile
-ca arbore, o valoare per copil, total jos, un buton. Serverul facturează numerele de pe ecran, nu
-și le recalculează — cine apasă s-a uitat la fiecare. Ruta veche există în continuare pentru
-`calculateAmount`, care numără înscrieri active și e folosită de previzualizare.
+**Emiterea se face din `/admin/invoices/emitere`, și numai de acolo**: un ecran cu familiile ca
+arbore, o valoare per copil, total jos, un buton. Serverul facturează numerele de pe ecran, nu și le
+recalculează — cine apasă s-a uitat la fiecare.
+
+Al doilea drum a fost **șters** (E18/S5b): `/admin/invoices/new` și `/admin/invoices/preview/:month`
+emiteau aceeași lună prin `POST /invoices/preview` plus `POST /invoices`, adică pe numere calculate
+de server, nu văzute de om. Ecranul lui arăta „Număr Copii" numărând toți copiii familiei, deși
+factura numără de la E11/S4 doar înscrierile `ACTIVE` — două răspunsuri la aceeași întrebare, iar
+cel de pe ecran era greșit. `POST /invoices` și `POST /invoices/preview` **există în continuare pe
+server** și sunt testate; nimic din interfață nu le mai cheamă. Dacă adaugi un al doilea loc de unde
+se emite, e aproape sigur o greșeală: locul e unul.
 
 **O reducere știe dacă e în lei sau în procente, iar procentul se aplică pe prețul de listă.**
 `Discount.type` (E15 S5) e `fixed` sau `percent` — un `50` stocat e cincizeci de lei sau jumătate de

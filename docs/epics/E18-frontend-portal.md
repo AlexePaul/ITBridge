@@ -11,8 +11,8 @@ backend — vezi [E01](E01-infrastructura-medii.md), S4.
 > ## Cerut de școală: rescrierea întregii zone de după login
 >
 > **Tot ce e după autentificare arată prost și trebuie refăcut, nu peticit.** Nu e o observație
-> despre o pagină anume — e despre toate: cele **4 pagini de portal** și cele **32 de ecrane de
-> admin**, inclusiv cele adăugate recent (`/admin/approvals`, `/admin/formare`,
+> despre o pagină anume — e despre toate: cele **4 pagini de portal** și **tot ce e sub `/admin`**,
+> inclusiv ecranele adăugate recent (`/admin/approvals`, `/admin/formare`,
 > `/admin/invoices/emitere`).
 >
 > Motivul e vizibil cu ochiul liber: **paginile publice au fost rescrise pe sistemul din S1, cele
@@ -217,11 +217,15 @@ Un tipar unic de tabel — sortare, filtrare, paginare, acțiuni în masă, star
 formular, cu validare și erori. Toate paginile aliniate. Selectorul de locație din
 [E08](E08-multi-locatie.md) integrat în antet.
 
-**Nu mai sunt 25 de pagini, ci 32**, iar numărul crește cu fiecare epic livrat: E11 a adăugat
-`/admin/approvals` și `/admin/formare`, E15 a adăugat `/admin/invoices/emitere`. Fiecare a fost
-construit cu tiparele pe care le-a găsit, adică fiecare a mai adăugat un dialect. **Costul crește cu
+**Erau 25 de pagini când s-a scris story-ul, și numărul crește cu fiecare epic livrat**: E11 a
+adăugat `/admin/approvals` și `/admin/formare`, E15 a adăugat `/admin/invoices/emitere`, E17 a
+adăugat `/admin/anunturi` și `/admin/livrari`, E20 `/admin/leads`. Fiecare a fost construit cu
+tiparele pe care le-a găsit, adică fiecare a mai adăugat un dialect. **Costul crește cu
 întârzierea**, ceea ce e argumentul pentru care jumătatea de componente merită făcută înainte de
 deploy, nu după.
+
+Cifra curentă — câte ecrane există și câte sunt migrate — se ține **într-un singur loc**, în nota de
+livrare de mai jos. Scrisă și în alte trei paragrafe, a divergit de fiecare dată.
 
 **Acceptanță:** o pagină nouă de admin se construiește din componente existente, fără CSS nou.
 
@@ -252,8 +256,8 @@ a fiecărui tipar, nu o invenție:
 **Ecranul-dovadă e `/admin/calendar`** (E12 S2), migrat integral: shell, triadă, rânduri, USelect
 în locul select-ului nativ, iar ștergerea a trecut de pe `confirm()` pe modal.
 
-**S5b, prima trecere: 15 ecrane migrate, 27 din 44 sunt acum pe componente** (erau 12). S-au luat
-întâi cele care ascundeau un defect, nu cele mai ușoare:
+**S5b, prima trecere: 26 din 42 de ecrane sunt pe componente** (erau 12 din 44 — paisprezece
+migrate, două șterse). S-au luat întâi cele care ascundeau un defect, nu cele mai ușoare:
 
 - **`GroupCard` numără acum locurile de la server, și ăsta e un bug reparat, nu o mutare de cod.**
   Cardul tipărea lungimea listei de copii înscriși — care **nu conține probele** —, deci o grupă
@@ -263,17 +267,21 @@ a fiecărui tipar, nu o invenție:
   numărul nu a venit, cardul scrie **o liniuță**, nu vechea valoare și nici zero: un număr greșit
   se citește exact ca unul corect. `formatSeats` e ținut de vitest. Cele două ecrane cu carduri nu
   mai încarcă toți copiii școlii ca să numere greșit.
-- **`/admin/invoices/new` era rupt de la migrarea la @nuxt/ui v4.** `UFormGroup` nu există în v4, deci
-  cele două etichete — „An" și „Lună" — nu se randau deloc, iar perechea v2 `value-attribute` /
-  `option-attribute` era ignorată tăcut. Acum e `UFormField` plus `USelect`, cu diacritice și fără
-  `console.log`-ul rămas în producție.
+- **`/admin/invoices/new` era rupt de la migrarea la @nuxt/ui v4, și s-a dovedit că nu merita
+  reparat.** `UFormGroup` nu există în v4, deci cele două etichete — „An" și „Lună" — nu se randau
+  deloc, iar perechea v2 `value-attribute` / `option-attribute` era ignorată tăcut. Reparat întâi,
+  **șters apoi, cu tot cu `/admin/invoices/preview/:month`**: cele două erau al doilea drum de
+  emitere a unei luni, pe numere calculate de server în loc de numere văzute de un om — exact ce
+  înlocuiește `/admin/invoices/emitere` de la E15/S0. Previzualizarea lor arăta pe deasupra „Număr
+  Copii" numărând toți copiii familiei, deși factura numără doar înscrierile `ACTIVE`. Un ecran care
+  răspunde a doua oară, altfel, la o întrebare despre bani nu se uniformizează; se scoate.
 - **Cele patru `<select>` native au plecat** din `locations/index`, `groups/new` și
   `groups/[groupId]/edit`. Aveau `border-gray-300` scris de mână, deci rămâneau gri-deschis în tema
   întunecată, lângă câmpuri care se schimbau.
 - **Zece `console.log` care scriau date de familii în consola browserului** — „Profile details",
   „Fetched users raw", „Mapping user" — au fost șterse din patru ecrane.
 
-**Rămân pentru S5b** — cele 17 ecrane care nu s-au migrat încă, între ele cele patru mari
+**Rămân pentru S5b** — cele 16 ecrane care nu s-au migrat încă, între ele cele patru mari
 (`attendance/azi`, `attendance/group/[groupId]`, `groups/[groupId]/children`,
 `proiecte/grupa/[groupId]`), plus lucrurile care se extrag abia după ce migrarea arată forma
 majoritară: `AdminDateField` (izolarea hack-ului fragil de popover din children/edit), bara de
@@ -368,7 +376,7 @@ pentru care nu le văzuse nimeni: se uita toată lumea la pagină.
   outline sau ghost de după login citea la **2,61:1**, aceeași cifră și aceeași cauză, de partea
   cealaltă a autentificării. O linie per temă, `--ui-primary: var(--color-accent-ink)`, duce drumul
   profesorului la **axe curat pe WCAG 2.0 și 2.1 A+AA, în ambele teme** — și, fiind un jeton,
-  ridică odată cu el toate cele 32 de ecrane de admin.
+  ridică odată cu el toate ecranele de admin.
 - **Iconițele veneau de la Iconify, la rulare.** Nicio colecție nu era instalată local, deci
   `@nuxt/icon` le cerea de pe `api.iconify.design` de fiecare dată — pe conexiunea din sală, exact
   cea pentru care există story-ul. Butonul de meniu **e** o iconiță și nimic altceva: fără ea, un

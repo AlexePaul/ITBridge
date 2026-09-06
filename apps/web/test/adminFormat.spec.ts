@@ -3,6 +3,7 @@ import {
   formatDateKey,
   formatLei,
   formatMonth,
+  formatMonthName,
   formatPercent,
   formatSeats,
 } from "~/composables/useAdminFormat";
@@ -108,5 +109,29 @@ describe("formatSeats", () => {
     expect(formatSeats(undefined, 10)).toBe("— din 10 locuri ocupate");
     expect(formatSeats(null, 10)).toBe("— din 10 locuri ocupate");
     expect(formatSeats(Number.NaN, 10)).toBe("— din 10 locuri ocupate");
+  });
+});
+
+/**
+ * The month alone — E18/S5b.
+ *
+ * Added when the invoice list and the month page turned out to carry a month-name table each, one
+ * of them capitalised and keyed by number. Both read this now, and `formatMonth` is built on it, so
+ * there is one table.
+ */
+describe("formatMonthName", () => {
+  it("names the month without the year", () => {
+    expect(formatMonthName("2026-03")).toBe("martie");
+    expect(formatMonthName("2026-12")).toBe("decembrie");
+  });
+
+  it("agrees with formatMonth, which is built on it", () => {
+    expect(formatMonth("2026-03")).toBe(`${formatMonthName("2026-03")} 2026`);
+  });
+
+  it("returns anything it does not understand unchanged", () => {
+    expect(formatMonthName("2026-13")).toBe("2026-13");
+    expect(formatMonthName("martie")).toBe("martie");
+    expect(formatMonthName("")).toBe("");
   });
 });

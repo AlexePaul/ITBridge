@@ -29,6 +29,14 @@
 > există tocmai fiindcă n-are bani în el: o familie fără nicio factură pe octombrie arată la fel cu
 > o familie a cărei lună a uitat-o cineva, și doar a doua trebuie căutată.
 >
+> **Al doilea drum de emitere a fost șters** (septembrie 2026, în E18/S5b): `/admin/invoices/new` și
+> `/admin/invoices/preview/:month` emiteau aceeași lună prin `POST /invoices/preview` plus
+> `POST /invoices` — pe numere calculate de server, nu văzute de un om, adică exact ce ecranul de mai
+> sus a fost construit să înlocuiască. Previzualizarea lui arăta pe deasupra o coloană „Număr Copii"
+> numărând toți copiii familiei, deși factura numără doar înscrierile `ACTIVE` de la E11/S4: două
+> răspunsuri la aceeași întrebare, iar cel de pe ecran era cel greșit. Cele două rute de server au
+> rămas, testate; nimic din interfață nu le mai cheamă.
+>
 > **Nelivrat din story-urile de mai jos:** catalogul de prețuri (S1), factura cu linii (S2),
 > planurile de plată (S3), tipurile de reducere (S5), PDF-ul din SmartBill (S7). Facturarea pe modul
 > nu mai e obiectiv.

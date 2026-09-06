@@ -56,6 +56,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatMonth } from "~/composables/useAdminFormat";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import type { Invoice } from "~/types/invoice.types";
 
@@ -113,12 +114,6 @@ const getStatusColor = (
     overdue: "error",
   };
   return colorMap[status];
-};
-
-const formatMonth = (monthStr: string) => {
-  const [year, month] = monthStr.split("-") as [string, string];
-  const date = new Date(parseInt(year), parseInt(month) - 1);
-  return date.toLocaleDateString("ro-RO", { year: "numeric", month: "long" });
 };
 
 const visualisePDF = (invoiceId: number) => {

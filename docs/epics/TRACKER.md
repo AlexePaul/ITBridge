@@ -255,7 +255,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S2 · Pipeline de imagini — `@nuxt/image`, WebP cu rezervă JPEG, `srcset` pe lățimile reale: **1056KB → 239KB**. AVIF măsurat și respins
 - [x] S3 · Paginile publice
 - [~] S4 · Portalul părintelui — **rescris pe sistemul din S1**: shell propriu (`layouts/portal.vue` — navbar plus rând de taburi, nu bara laterală de admin), Acasă / Absențe / Proiecte / Plăți / Profil, cele trei ecrane de intrare în cont, și comutatorul de copil, care se păstrează între pagini și în URL. Rămâne verificarea pe date reale și pe telefon, care cere deploy-ul din E01 S4
-- [~] S5 · Uniformizarea zonei de admin — **componentele livrate** (`AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`), iar **S5b a început: 27 din 44 de ecrane sunt pe ele** (erau 12). Prima trecere a luat ecranele care ascundeau un defect: `GroupCard` numără locurile de la server, nu din lista de copii, care n-are probe în ea (D7); `/admin/invoices/new`, rămas pe `UFormGroup` din @nuxt/ui v2, își randează iar etichetele; patru `<select>` native și zece `console.log` cu date de familii au dispărut. Rămân 17 ecrane, plus `AdminDateField`, bara de filtre și grila de carduri
+- [~] S5 · Uniformizarea zonei de admin — **componentele livrate** (`AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`), iar **S5b a început: 26 din 42 de ecrane sunt pe ele** (erau 12 din 44). Prima trecere a luat ecranele care ascundeau un defect: `GroupCard` numără locurile de la server, nu din lista de copii, care n-are probe în ea (D7); patru `<select>` native și zece `console.log` cu date de familii au dispărut; iar al doilea drum de emitere (`invoices/new`, rămas și pe `UFormGroup` din @nuxt/ui v2, plus `invoices/preview/:month`) a fost **șters**, fiindcă emitea o lună pe numere pe care nu se uitase nimeni. Rămân 16 ecrane, plus `AdminDateField`, bara de filtre și grila de carduri
 - [~] S6 · Accesibilitate — **verificarea automată rulează în CI**: axe-core într-un Chromium adevărat, pe fiecare pagină din sitemap, în ambele teme, pe WCAG 2.0 și 2.1 A+AA. Rămâne zona autentificată, care se verifică odată cu S4 și S5
 - [x] S7 · Interfața profesorului — fără rol separat, e o vedere din zona de admin, nu o zonă a ei. Măsurat la 390px: **meniul era acoperit de filtrul de locație** (10px din 44 apăsabili), accentul lui Nuxt UI rămăsese la 2,61:1 de partea autentificată, iconițele veneau de la Iconify la rulare, iar coada aștepta un `online` care nu vine pe conexiunea din sală
 
@@ -334,7 +334,7 @@ trei rânduri:**
 3. **Termenii, E22 S2** — condiția de ieșire, și singura care nu se poate cumpăra cu timp de
    programare: fără ei nu se deschide accesul familiilor.
 
-Restul deschis e polish cu proprietar clar: migrarea celor 32 de ecrane din E18 S5b, verificarea de
+Restul deschis e polish cu proprietar clar: migrarea ecranelor rămase din E18 S5b, verificarea de
 accesibilitate a zonei autentificate din E18 S6, SPF/DKIM/DMARC din E17 S1, conținutul de la E19 S6.
 Niciunul nu blochează pe altcineva.
 

@@ -11,9 +11,9 @@
         size="lg"
         class="min-h-11 flex items-center"
         icon="i-lucide-file-plus"
-        to="/admin/invoices/new"
+        to="/admin/invoices/emitere"
       >
-        Generează facturi noi
+        Emite facturi
       </UButton>
     </template>
 
@@ -48,6 +48,7 @@
   </AdminPage>
 </template>
 <script setup lang="ts">
+import { formatMonthName } from "~/composables/useAdminFormat";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import type { Invoice } from "~/types/invoice.types";
 
@@ -73,25 +74,6 @@ const getMonthBorderClass = (month: string): string => {
   } else {
     return "border border-transparent hover:border-primary";
   }
-};
-
-const formatMonthName = (monthStr: string): string => {
-  const monthNames: Record<number, string> = {
-    1: "Ianuarie",
-    2: "Februarie",
-    3: "Martie",
-    4: "Aprilie",
-    5: "Mai",
-    6: "Iunie",
-    7: "Iulie",
-    8: "August",
-    9: "Septembrie",
-    10: "Octombrie",
-    11: "Noiembrie",
-    12: "Decembrie",
-  };
-  const [, month] = monthStr.split("-");
-  return monthNames[Number(month)] || monthStr;
 };
 
 onMounted(async () => {

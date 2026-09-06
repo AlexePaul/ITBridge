@@ -68,6 +68,20 @@ const MONTHS_LONG = [
 ];
 
 /**
+ * `"2026-03"` → `"martie"`. The month alone, for a card that already sits under its year.
+ *
+ * Shares `MONTHS_LONG` with `formatMonth` below rather than carrying a second table: the invoice
+ * list and the month page had each grown their own, one of them capitalised and keyed by number,
+ * and a fourth copy was about to be written. Anything that is not a `YYYY-MM` prefix comes back
+ * unchanged.
+ */
+export function formatMonthName(monthIssued: string): string {
+  const match = /^(\d{4})-(\d{2})/.exec(monthIssued);
+  if (!match) return monthIssued;
+  return MONTHS_LONG[Number(match[2]) - 1] ?? monthIssued;
+}
+
+/**
  * `"2026-03"` → `"martie 2026"` — the billing month, as a person says it.
  *
  * Lives here for the same reason the other two do: three screens about money had grown three
@@ -77,9 +91,8 @@ const MONTHS_LONG = [
 export function formatMonth(monthIssued: string): string {
   const match = /^(\d{4})-(\d{2})/.exec(monthIssued);
   if (!match) return monthIssued;
-  const [, year, month] = match;
-  const name = MONTHS_LONG[Number(month) - 1];
-  return name ? `${name} ${year}` : monthIssued;
+  const name = formatMonthName(monthIssued);
+  return name === monthIssued ? monthIssued : `${name} ${match[1]}`;
 }
 
 /**
