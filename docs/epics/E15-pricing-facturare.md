@@ -49,7 +49,8 @@ Modelul de facturare actual e lunar, cu prețuri hardcodate, și are un bug care
 ```ts
 let totalAmount = 0;
 if (profile.children.length === 1) totalAmount = 350;
-else if (profile.children.length === 2) totalAmount = 250 * profile.children.length;
+else if (profile.children.length === 2)
+  totalAmount = 250 * profile.children.length;
 ```
 
 **Nu există ramură pentru trei sau mai mulți copii.** `totalAmount` rămâne `0`, iar reducerile
@@ -273,7 +274,7 @@ pe recomandare**: familiei care a adus, la factura următoare, și celei nou-ven
 lucrul care lipsește ca „50%" să fie o regulă a platformei, nu o socoteală a celui care emite.
 
 Până atunci reducerea se dă ca valoare absolută — ecranul de emitere arată totalul, iar jumătatea se
-tastează. Merge; ce se pierde e că nimic nu mai știe *de ce* suma aia, deci nici nu o poate reface
+tastează. Merge; ce se pierde e că nimic nu mai știe _de ce_ suma aia, deci nici nu o poate reface
 luna următoare sau verifica dacă e corectă.
 
 Două note pentru când se construiește tipul: procentul se aplică pe **totalul familiei**, nu pe
@@ -431,6 +432,29 @@ Toți cinci sunt facturați **două** ședințe, inclusiv cei trei care au lipsi
 Andrei și Maria sunt facturați **patru**: cele două ale grupei, plus cele două la care au venit. Un
 copil care ar fi prins o singură oră din vacanță ar avea trei — bifa se numără **pe ședință**, nu
 pe vacanță.
+
+**Luna facturată începe luni, nu pe 1.** O săptămână aparține lunii în care cade **lunea ei**,
+întreagă: săptămâna care se deschide luni, 31 august, e o săptămână de august, iar vinerea ei — 4
+septembrie — se facturează tot la august. Regula e în `billing-period.rules.ts`, cu inversa ei:
+`teachingMonthOf` spune cărei luni îi aparține o ședință, `teachingMonthRange` dă zilele pe care le
+acoperă o lună.
+
+Motivul e că școala predă în săptămâni și facturează ce a predat. Tăiată la 1 ale lunii, o
+săptămână ar pune două ședințe ale unei grupe pe o factură și trei pe următoarea, dintr-un motiv
+care n-are nicio legătură cu copilul, cu grupa sau cu orarul. Săptămâna e deja unitatea în restul
+platformei — termenul de anunțare din [E12](E12-prezenta-orar.md) S3 și fereastra de recuperare din
+S4 sunt scrise amândouă în ea — iar asta e aceeași unitate ajungând la bani.
+
+Ce iese din regulă, și e proprietatea pe care se sprijină: **lunile consecutive nu se suprapun și nu
+lasă goluri**, fiindcă fiecare săptămână e revendicată de exact o luni. Primele zile ale unei luni
+pot aparține celei dinainte — 1 august e o zi de iulie când august începe la mijloc de săptămână —
+și ăsta e chiar mecanismul, nu un caz-limită.
+
+**Nu e `billingMonthOf` din modulul de rapoarte, și cele două nu se unesc.** Aceea răspunde la altă
+întrebare: în ce lună calendaristică a _intrat un ban_. Banii nu se predau într-o săptămână, ci se
+mișcă într-o zi, deci un transfer pe 3 septembrie e încasare de septembrie, indiferent în ce
+săptămână stătea ora pe care o plătește. O singură funcție cu ambele înțelesuri ar muta venit
+între luni într-un raport pe care nimeni nu s-ar gândi să-l reverifice.
 
 **Perioada de înscriere delimitează numărătoarea, nu `Child.group`.** Un copil intrat pe 20 nu
 plătește ședințele de dinainte, iar unul transferat la mijlocul lunii plătește în fiecare grupă ce
