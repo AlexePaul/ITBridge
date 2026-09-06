@@ -928,7 +928,12 @@ arbore, o valoare per copil, total jos, un buton. **Valoarea e citită, nu tasta
 serverul numără ședințele lunii din cataloage — `billable-sessions.rules.ts` e regula,
 `BillableSessionsService` singura interogare — iar ecranul le arată, cu desfacerea lor și cu
 ședințele fără catalog deasupra. `POST /invoices/issue` primește luna și data, nimic altceva; cine
-apasă s-a uitat la ce s-a întâmplat, nu la ce a tastat cineva.
+apasă s-a uitat la ce s-a întâmplat, nu la ce a tastat cineva. Singurul număr care mai intră de mână
+e **corectura pe copil** (`SessionCountOverride`, `PUT|DELETE /invoices/overrides`): o decizie
+consemnată — cât, de ce, cine, când —, un rând per copil și lună, aplicată în fișă ca factura să
+poarte același număr pe care l-a arătat ecranul, și înghețată odată ce familia are factura lunii.
+Factura poartă o singură linie de produs, deci corectura nu contrazice niciodată catalogul; ce
+apără rândul e evidența școlii.
 
 Al doilea drum a fost **șters** (E18/S5b): `/admin/invoices/new` și `/admin/invoices/preview/:month`
 emiteau aceeași lună prin `POST /invoices/preview` plus `POST /invoices`, adică pe numere calculate

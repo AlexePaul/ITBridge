@@ -121,7 +121,8 @@ ce se compune. Planurile de plată în tranșe sunt de primă clasă.~~
 - Regenerarea PDF-ului.
 - Previzualizare înainte de emitere.
 - Trecerea prețului de pe site-ul public de pe lună pe modul, odată cu catalogul.
-- Numărarea ședințelor facturabile din cataloagele lunii, fără nicio valoare tastată.
+- Numărarea ședințelor facturabile din cataloagele lunii, cu o singură valoare care mai intră de
+  mână: corectura pe copil, consemnată.
 
 ## În afara scopului
 
@@ -556,19 +557,47 @@ mementouri din [E12](E12-prezenta-orar.md) S7, cel de la minutul 15 și raportul
 încetează să fie igienă și devin lucrul care apără venitul; iar `GET /class-sessions/unmarked`
 capătă în sfârșit un motiv să aibă și ecran.
 
-**Nu există câmp de suprascriere, și asta e intenția.** Dacă numărul e greșit, catalogul e greșit,
-iar catalogul se completează: `PUT /attendance/session/:id/child/:childId` e un upsert idempotent,
-deci o oră uitată se marchează și în ianuarie. O suprascriere ar repara factura și ar lăsa
-istoricul spunând altceva — peste trei luni, întrebat de ce a plătit familia aia patru ședințe,
-răspunsul ar fi „așa a tastat cineva". Ce nu se mai poate reconstitui cinstit se anulează, iar
-ședința anulată e tot un răspuns.
+**Există o corectură pe copil, și e o decizie consemnată, nu un câmp de tastat.** Story-ul a fost
+livrat întâi fără nicio suprascriere, cu argumentul că un număr tastat ar repara factura și ar lăsa
+istoricul spunând altceva — peste trei luni, întrebat de ce a plătit familia aia trei ședințe din
+patru, răspunsul ar fi fost „așa a tastat cineva". Școala a răsturnat argumentul cu un fapt pe care
+îl scăpa din vedere: **factura poartă o singură linie de produs** — „Taxă lunară pentru cursuri", o
+sumă — niciodată zilele, deci documentul nu poate contrazice catalogul, orice număr ar intra în el.
+Ce apăra argumentul era evidența școlii, și exact asta e corectura: un rând `SessionCountOverride`
+per copil și lună, cu **cât** se facturează în locul numărului numărat, **de ce** (opțional), **cine**
+și **când**. Răspunsul la întrebarea de peste trei luni e pe rând, nu în capul cuiva.
+
+Cum se poartă:
+
+- **Ecranul arată amândouă numerele** — „3, corectat din 4" — iar factura ia numărul decis.
+  Corectura se aplică în fișă (`GET /invoices/worksheet`), nu la emitere, deci fișa și factura rămân
+  același număr calculat o singură dată.
+- **Se pune înainte, nu odată cu emiterea.** `PUT /invoices/overrides` scrie decizia, `DELETE
+/invoices/overrides/:luna/:copil` o scoate, moment în care catalogul vorbește din nou. `POST
+/invoices/issue` rămâne fără numere — un client care i-ar trimite primește 400, ca și până acum.
+- **Un rând per copil și lună.** A doua decizie o înlocuiește pe prima; „facturează trei" e ce a
+  vrut omul să spună, orice ar zice catalogul săptămâna următoare.
+- **Zero e o decizie** — „luna asta nu" — și duce la un rând `WAIVED`, ca orice lună care vine la
+  zero.
+- **Îngheață odată cu factura**, ca bifa de vacanță din [E12](E12-prezenta-orar.md) S8: după ce
+  familia are factură pe lună, corectura nici nu se pune, nici nu se scoate — `409
+MONTH_ALREADY_INVOICED`. Ar schimba ce s-a facturat deja.
+
+Ce rămâne adevărat din argumentul inițial: dacă numărul e greșit fiindcă **lipsește un catalog**,
+catalogul e lucrul de reparat — `PUT /attendance/session/:id/child/:childId` e un upsert idempotent,
+deci o oră uitată se marchează și în ianuarie —, iar o oră care nu s-a ținut se anulează, și ședința
+anulată e tot un răspuns. Corectura e pentru cazul în care catalogul e corect și numărul de plătit
+totuși nu e ăla: o înțelegere cu familia, o lună iertată, un copil venit doar la trei din motive pe
+care școala le-a acceptat. Semnul că se folosește prea des e că ar trebui să fie o regulă.
 
 **Verificarea rămâne, și e tot rostul ecranului.** `/admin/invoices/emitere` își păstrează forma —
 arbore familie → copii, total jos, un buton — dar valoarea e citită, nu tastată, și se poate
-desface: ce zile, care dintre ele sunt de vacanță, cine a fost prezent la acelea. Deasupra listei
-stă lucrul pe care omul trebuie să-l vadă înainte să apese: **ședințele lunii fără catalog**, cu
-grupa și ziua fiecăreia, fiindcă ăia sunt banii care nu se cer. „Fără facturare manuală" nu
-înseamnă „fără ochi"; înseamnă că ochii se uită la ce s-a întâmplat, nu la ce a tastat cineva.
+desface: ce zile, care dintre ele sunt de vacanță, cine a fost prezent la acelea. Lângă numărul
+citit stă câmpul corecturii, umplut cu ce se va factura; ce se tastează acolo se salvează pe loc,
+pe copil, și fișa se reîncarcă cu totalul serverului. Deasupra listei stă lucrul pe care omul
+trebuie să-l vadă înainte să apese: **ședințele lunii fără catalog**, cu grupa și ziua fiecăreia,
+fiindcă ăia sunt banii care nu se cer. „Fără facturare manuală" nu înseamnă „fără ochi"; înseamnă că
+ochii se uită la ce s-a întâmplat, iar dacă decid altceva, decizia rămâne scrisă.
 
 **Consecință de operare:** luna se poate factura abia după ce ultima ei ședință are catalog, deci
 emiterea se mută pe primele zile ale lunii următoare. Termenul de 14 zile din
@@ -588,8 +617,10 @@ arată — inversul exact, deci se rescrie acolo, pe ambele branch-uri.
 fiecare copil înscris activ, indiferent de prezența lui. Aceeași grupă cu două ședințe bifate
 vacanță produce două pentru toți și patru pentru copiii marcați prezenți la amândouă. Un copil
 înscris pe 20 primește doar ședințele de după. Un copil la probă primește zero. O ședință al cărei
-catalog e făcut integral pe absențe se numără ca ținută, la fel ca oricare alta. Nicio cerere nu mai
-poate trimite de la client numărul de ședințe.
+catalog e făcut integral pe absențe se numără ca ținută, la fel ca oricare alta. Nicio cerere de
+emitere nu mai poate trimite de la client numărul de ședințe. O corectură pusă pe un copil schimbă
+suma facturii lui, rămâne consemnată cu cine, când și de ce, se vede pe fișă lângă numărul citit, și
+nu se mai poate pune sau scoate după ce familia are factura lunii.
 
 **Livrat, punct cu punct.** Regula pură e `billable-sessions.rules.ts` — ședințe, marcaje și
 înscrieri la intrare, un număr per copil la ieșire, cu fiecare caz din acceptanță ca test —, iar
@@ -609,6 +640,12 @@ Două precizări pe care textul de mai sus le lasă ambigue, decise la livrare:
 - **Un catalog făcut doar de un copil mutat temporar nu face ședința ținută.** Semnalul e marcajul
   `regular`; un vizitator (`make-up`) nu-l dă, ca să nu poată nici factura grupa-gazdă pentru o oră
   pe care n-a marcat-o nimeni dintre ai ei, nici să fie facturat el a doua oară.
+
+**Corectura pe copil a venit a doua zi**, după ce școala a văzut fișa și a cerut să poată îndrepta
+un număr înainte să plece factura. Tabela `session_count_overrides` (unică pe copil și lună),
+`PUT`/`DELETE /invoices/overrides`, câmpul de pe fișă și înghețul la facturare sunt livrate și
+testate cap-coadă: fișa arată amândouă numerele, factura poartă numărul decis, zero devine `WAIVED`,
+ștergerea readuce numărul din catalog, iar după emitere ambele rute răspund 409.
 
 Ce **nu** s-a livrat de aici: rapoartele din [E21](E21-raportare-analytics.md) nu numără încă
 ședințe, deci a treia gură a interogării stă goală, dar e aceeași metodă când vor. Și propoziția din
@@ -674,11 +711,12 @@ factură nu vine dintr-un câmp completat de mână: fiecare număr de ședințe
 | Toți absenți         | **Se facturează.** Semnalul e catalogul, nu numărul de copii prezenți                 |
 | Ședința de vacanță   | Bifă pe ședință (E12 S8); se facturează **doar** copiilor marcați prezenți la ea      |
 | Numărul de ședințe   | **Calculat, nu tastat.** Ecranul de emitere verifică și arată din ce e făcut          |
+| Corectura            | **Pe copil și lună, consemnată** — cât, de ce, cine, când; îngheață cu factura — S9   |
 
-**Ultimele patru rânduri sunt din septembrie 2026 și înlocuiesc numărătoarea manuală din S0**, nu
+**Ultimele cinci rânduri sunt din septembrie 2026 și înlocuiesc numărătoarea manuală din S0**, nu
 prețul: unitatea rămâne luna, tariful rămâne pe ședință, iar `pricing.ts` nu se atinge. Se schimbă
-doar sursa numărului — catalogul în locul tastaturii. Regula completă, cu exemplele lucrate pe
-septembrie și pe decembrie, e la S9.
+doar sursa numărului — catalogul în locul tastaturii, cu o corectură care se scrie, nu se tastează
+în gol. Regula completă, cu exemplele lucrate pe septembrie și pe decembrie, e la S9.
 
 **Prețul fix pe durată variabilă e o decizie conștientă**, nu o scăpare. Ședința costă efectiv
 117 lei într-un modul de 6 săptămâni și 87 într-unul de 8. Peste un an școlar se echilibrează —
