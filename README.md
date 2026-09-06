@@ -147,8 +147,29 @@ o redenumire de coloană îi apare ca `DROP` plus `ADD`. Dacă asta ar pierde da
 `pnpm seed` reconstruiește o bază locală plauzibilă: un admin, șase grupe pe tot programul
 săptămânal, unsprezece părinți (unii fără cont, ca fluxul de legare ulterioară să fie vizibil),
 paisprezece copii (inclusiv o familie cu trei, ca bug-ul de preț să fie reproductibil de mână),
-prezențe pe două luni în urmă și facturi în toate stările. Șterge tot înainte, deci e idempotent,
-și refuză să ruleze pe altceva decât localhost fără `SEED_ALLOW_NON_LOCAL=1`.
+prezențe pe două luni în urmă și facturi în toate stările. Șterge tot înainte, deci e idempotent.
+
+### Seed pe staging
+
+Aceeași comandă poate popula și baza de staging, ca ecranele să aibă ce arăta la testare:
+
+```bash
+cp .env.stage.example .env.stage   # completează-l; e gitignorat
+pnpm seed:stage
+```
+
+Nu e aceeași treabă ca seed-ul local, și seed-ul refuză să se poarte ca și cum ar fi. Două
+condiții, amândouă refuzuri, nu avertismente:
+
+- **`SEED_ALLOW_NON_LOCAL` numește baza de date**, nu spune „da". Un `=1` ar rămâne în fișierul de
+  mediu al staging-ului pentru totdeauna, iar de acolo încolo autorizează orice scrie `DB_NAME` luna
+  viitoare — inclusiv o bază de producție nimerită dintr-o greșeală de tastare.
+- **`SEED_PASSWORD` e obligatorie.** Local, parola e `parola123`, scrisă în repo și în README-ul
+  ăsta; pe un host la care ajunge oricine știe numele, aia e un cont de admin publicat. Nu există
+  implicit, iar seed-ul **nu o afișează înapoi** — ar ajunge în logul care a capturat rularea.
+
+Restul e la fel: șterge tot înainte, deci nu e aditiv și nu se poate anula — ce a tastat cineva în
+staging dispare. Fără S3 configurat, facturile rămân fără PDF și atât; seed-ul spune ce a sărit.
 
 ## Testare
 

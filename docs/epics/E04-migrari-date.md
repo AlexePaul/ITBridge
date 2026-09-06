@@ -141,9 +141,28 @@ Câteva alegeri deliberate, ca ecranele să arate ca realitatea și nu ca un caz
 - **O familie are trei copii**, ca bug-ul de preț documentat în [E03](E03-testare-ci.md) să fie
   reproductibil de mână, nu doar într-un test.
 
-Data de referință e fixă, nu `new Date()`, deci două rulări dau aceeași bază. Seed-ul golește tot
-înainte — e idempotent — și **refuză să pornească pe altceva decât localhost** fără
-`SEED_ALLOW_NON_LOCAL=1`, fiindcă altfel e o comandă care șterge o bază de producție.
+Seed-ul golește tot înainte, deci e idempotent. (Propoziția care stătea aici spunea că data de
+referință e fixă și că două rulări dau aceeași bază — rămăsese din varianta dinainte de ancorarea la
+ziua curentă, două paragrafe mai sus, și se contrazicea cu ea.)
+
+**Aceeași comandă populează și staging-ul: `pnpm seed:stage`, care citește `.env.stage`.** Nu e
+aceeași treabă, iar `checkSeedTarget` din `apps/api/src/seed/seed-target.ts` e tot ce le desparte.
+Pe orice host care nu e localhost, două condiții, amândouă refuzuri:
+
+- **`SEED_ALLOW_NON_LOCAL` numește baza de date**, nu spune „da". Era `=1`, ceea ce ajungea cât timp
+  singura țintă non-locală era ipotetică. Pe un runner de staging variabila trăiește permanent
+  într-un fișier de mediu, iar de acolo încolo un „da" autorizează orice scrie `DB_NAME` — inclusiv
+  o bază de producție nimerită dintr-o greșeală de tastare. Numele bazei nu poate autoriza decât
+  baza pe care a numit-o cineva, oricât ar sta acolo.
+- **`SEED_PASSWORD` e obligatorie.** `parola123` e în repo și în README, iar staging-ul e la
+  îndemâna oricui știe hostname-ul: a semăna cu ea acolo înseamnă un cont de admin publicat. Nu are
+  implicit — unul generat s-ar pierde până când ar vrea cineva să se autentifice —, deci seed-ul
+  refuză și spune ce variabilă lipsește. Și **nu o tipărește la final**, spre deosebire de cea
+  locală: ar ajunge în logul care a capturat rularea.
+
+Regula e o funcție pură, cu spec propriu (13 cazuri), fiindcă fiecare dintre ele e un moment în care
+comanda face ceva ireversibil unei baze de date. Fără S3 configurat pe staging, facturile rămân fără
+PDF și seed-ul consemnează ce a sărit — restul intră normal.
 
 Verificat capăt-la-capăt: bază goală → migrări → seed → aplicația pornită din `dist` → login ca
 admin → `GET /children` întoarce 14, `GET /invoices` întoarce 30 cu

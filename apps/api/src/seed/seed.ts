@@ -1,6 +1,7 @@
 import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
 import AppDataSource from '../data-source';
+import { checkSeedTarget, isLocalHost, LOCAL_PASSWORD } from './seed-target';
 import { User } from '../entities/user.entity';
 import { Profile } from '../entities/profile.entity';
 import { Child } from '../entities/child.entity';
@@ -54,14 +55,13 @@ import { MakeUpCredit } from '../entities/make-up-credit.entity';
 import { MailTemplate } from '../entities/mail-template.entity';
 
 /**
- * Fills a local database with data that looks like the real thing, so the admin screens are not
- * empty while developing. See E04/S3.
+ * Fills a database with data that looks like the real thing, so the screens are not empty — E04/S3.
  *
- * Not for production: it wipes every table first, and the passwords are deliberately trivial.
- * `SEED_ALLOW_NON_LOCAL=1` is required to point it at anything other than localhost.
+ * **Never production.** It wipes every table first. Two targets are supported and they are not the
+ * same job: a developer's own Postgres, where the password is a constant in this file and nobody
+ * else can reach it; and a staging database, where neither of those holds. What separates them is
+ * `checkSeedTarget` in `seed-target.ts` — read that before pointing this anywhere new.
  */
-
-const PASSWORD = 'parola123';
 
 /**
  * The day the seeded school is "at" — **today**, unless told otherwise.
@@ -161,15 +161,17 @@ const GROUP_SLOTS: { name: string; weekday: Weekday; startTime: string; endTime:
     { name: 'Robotică', weekday: Weekday.SATURDAY, startTime: '10:00:00', endTime: '11:30:00', minAge: 8, maxAge: 12, room: 'straulesti/Sala 1' },
 ];
 
-function assertLocalDatabase(dataSource: DataSource): void {
-    const host = (dataSource.options as { host?: string }).host ?? '';
-    const local = ['localhost', '127.0.0.1', '::1', 'postgres'].includes(host);
-    if (!local && process.env.SEED_ALLOW_NON_LOCAL !== '1') {
-        throw new Error(
-            `Refusing to seed a non-local database (host: ${host || 'unset'}). ` +
-                'This command deletes every row. Set SEED_ALLOW_NON_LOCAL=1 if you really mean it.',
-        );
-    }
+/**
+ * Whether this database may be wiped, and which password the seeded accounts get.
+ *
+ * The rule itself is in `seed-target.ts`, away from the thousand lines of fixture below, because it
+ * is the one part of this file that has to be right about a database nobody is looking at.
+ */
+function resolveSeedTarget(dataSource: DataSource): string {
+    const options = dataSource.options as { host?: string; database?: string };
+    const verdict = checkSeedTarget({ host: options.host ?? '', database: options.database ?? '' });
+    if (!verdict.ok) throw new Error(verdict.reason);
+    return verdict.password;
 }
 
 /** Wipes everything, so `pnpm seed` twice in a row gives the same result rather than duplicates. */
@@ -212,10 +214,12 @@ function monthsAgo(n: number): string {
 }
 
 export async function seed(dataSource: DataSource): Promise<void> {
-    assertLocalDatabase(dataSource);
+    // Before the truncate, not after: the check is the thing standing between this command and a
+    // database somebody cares about.
+    const password = resolveSeedTarget(dataSource);
     await truncateAll(dataSource);
 
-    const passwordHash = await bcrypt.hash(PASSWORD, 10);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     // --- Admin ------------------------------------------------------------------------------
     // Both gates open, though `isAccountActive` exempts admins anyway. Written out so the row says
@@ -1136,7 +1140,11 @@ async function main(): Promise<void> {
         console.log(
             projects.skipped ? `projects: ${projects.projects} created, files skipped (${projects.skipped})` : `projects: ${projects.projects} created`,
         );
-        console.log(`\nSign in as "admin" with the password "${PASSWORD}".`);
+        // Printed only for a local database. On staging the value came from `SEED_PASSWORD`, and
+        // echoing it would copy it into whatever captured this run's output — a CI log, a terminal
+        // recording, somebody's scrollback. The person who set the variable already knows it.
+        const local = isLocalHost((AppDataSource.options as { host?: string }).host ?? '');
+        console.log(local ? `\nSign in as "admin" with the password "${LOCAL_PASSWORD}".` : `\nSign in as "admin" with the password from SEED_PASSWORD.`);
     } finally {
         await AppDataSource.destroy();
     }
