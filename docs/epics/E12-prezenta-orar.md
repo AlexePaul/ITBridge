@@ -218,6 +218,14 @@ propunerii: un lucru de care trebuie să-ți amintești în fiecare decembrie e 
 > să ți-l amintești în fiecare decembrie e un lucru pe care într-un decembrie îl vei uita — și
 > atunci raportul de prezență nemarcată din S7 va cere socoteală pentru ore care n-au existat.
 
+**Ce nu face calendarul: nu recuperează ora.** O zi închisă e o zi în care ședința fie nu se
+generează, fie trece în `CANCELLED`. Dacă rămâne așa, ora e pierdută și
+[E15](E15-pricing-facturare.md) S9 face restul — fără catalog, fără factură. Dacă săptămâna are o
+fereastră în care grupa **poate** să se țină în altă zi, ora se mută și se ține, iar atunci se și
+plătește: aia e S9 de mai jos, o decizie a omului care se uită la orar, nu o consecință a
+calendarului. Tot acolo e scris de ce faptul că ziua e trecută aici — și nu, să zicem, uitată —
+schimbă ce anume trebuie construit.
+
 ### S3 · Absențe anunțate
 
 Un părinte anunță din portal, cu motiv și termen minim. Profesorul vede dinainte cine lipsește.
@@ -422,6 +430,10 @@ care o face cineva după aceea, nu o casetă bifată în timp ce anulează.
 Câmpul `grantMakeUpCredits` e **scos din DTO, nu ignorat**: validarea rulează cu
 `forbidNonWhitelisted`, deci un client care încă îl trimite primește 400 în loc să creadă că a cerut
 ceva.
+
+Mutarea de aici e și temelia lui **S9**, care cere aceeași operație pornită din celălalt capăt: nu
+„am hotărât să mut ora", ci „ora asta nu se poate ține, unde încape". Ce lipsește acolo e scris
+acolo.
 
 **Mutarea există acum**: `PUT /class-sessions/:id/move` — altă zi, altă oră, altă sală, oricare din
 ele, cu motiv obligatoriu exact ca la anulare. E o editare a rândului, nu un rând nou — stare de
@@ -664,6 +676,102 @@ fiindcă familia aia nici nu plătește ora.
 **Acceptanță:** o ședință bifată apare marcată în catalogul de pe telefon și în `/admin/orar`, bifa
 se pune și se scoate dintr-o apăsare, iar `GET /attendance/session/:id/register` o întoarce — de
 acolo o citește numărătoarea din [E15](E15-pricing-facturare.md) S9.
+
+### S9 · Recuperarea unei ore care nu se poate ține
+
+Când o oră **nu se poate ține deloc** — luni e sărbătoare legală, s-a închis clădirea, a nins —
+profesorul mută **toată grupa** în alt interval din aceeași săptămână, într-un loc gol din orar. Nu
+e mutarea unui copil (S4, aia e pentru absența unei familii); e ora întreagă care se ține altă zi.
+
+Exemplul de la care a plecat story-ul, ca să nu se piardă: grupa de **luni, ora 17:00**, iar luni e
+zi liberă națională. Dacă marți la 17:00 e o fereastră — nimeni altcineva nu ține curs atunci —
+profesorul mută ora acolo. Dacă nu e, ora nu se ține, iar restul îl face regula de facturare din
+[E15](E15-pricing-facturare.md) S9: ședința fără catalog nu se pune la nimeni pe factură.
+
+**Acceptanță:** dintr-un ecran de orar, profesorul ia o ședință care nu se poate ține și o așază în
+alt interval liber din aceeași săptămână; intervalele ocupate nu se pot alege, familiile grupei află
+noua zi și noua oră, iar catalogul rămâne al aceleiași ședințe.
+
+**Nelivrat ca ecran. Ca mecanism, depinde de unde pornești — și de asta merită scris explicit,
+fiindcă „ora nu e acolo ca s-o muți" e adevărat doar pe jumătate.**
+
+Ce există, din S5: `PUT /class-sessions/:id/move` — altă zi, altă oră, altă sală, oricare din ele,
+cu motiv obligatoriu. E o editare a rândului, deci catalogul rămâne atașat, nota păstrează de unde a
+plecat ședința, iar familiile primesc mesajul cu ambele jumătăți. Refuză deja **exact** coliziunea
+din cerință: o sală ocupată la o oră care se suprapune (`ROOM_BUSY_AT_THAT_TIME`), o zi în care grupa
+are deja o ședință (`GROUP_ALREADY_HAS_SESSION_THAT_DAY`) și o zi închisă din calendarul școlar
+(`MOVED_ONTO_NON_TEACHING_DAY`).
+
+**Platforma nu știe singură că luni e sărbătoare.** Nu are de unde: o zi liberă e liberă doar
+fiindcă a scris-o cineva în `/admin/calendar` (S2). Deci sunt două stări de pornire, iar ele nu au
+aceeași lipsă:
+
+- **Ziua nu e trecută în calendar.** Ședința e acolo, `scheduled`, exact ca oricare alta —
+  platforma nu are niciun motiv s-o creadă specială. Mutarea de azi face toată povestea: alegi marți
+  la 17:00, ea refuză dacă sala e ocupată atunci, editează rândul și scrie familiilor. **Nu
+  lipsește nimic în afară de listă**, adică de ferestre.
+- **Ziua e trecută în calendar.** Atunci ședința ori n-a fost generată deloc (generatorul sare
+  peste zilele închise), ori a trecut în `CANCELLED` (perioada s-a adăugat peste un orar deja
+  scris). Mutarea refuză o ședință anulată — „reactiveaz-o întâi", ca să nu ascundă anularea —, deci
+  drumul de azi ar fi reactivează → mută: **două mesaje către familie**, dintre care primul, „ora se
+  ține la loc" pe o zi de sărbătoare, e neadevărat timp de un minut. Iar dacă ședința nici n-a fost
+  generată, nu există ce reactiva.
+
+**Nu se rezolvă renunțând la calendar.** Tentația e să nu mai treci sărbătorile, ca ședințele să
+rămână acolo și să fie mutabile cu ce există azi. Ar fi o proastă afacere: calendarul e ce oprește
+generatorul să scrie ore în vacanța de iarnă și ce ține raportul de nemarcate din S7 să nu ceară
+socoteală pentru ore care n-au existat niciodată. Ce trebuie construit e celălalt capăt.
+
+Ce lipsește, deci:
+
+- **Un singur act de reprogramare, care pornește dintr-o ședință care nu se poate ține.** Să
+  funcționeze din amândouă stările de mai sus: pe o ședință anulată, o mută fără s-o „reactiveze"
+  întâi; acolo unde n-a fost generată niciuna, o scrie direct pe ziua-țintă. Un singur mesaj către
+  familie, cel care spune unde s-a mutat.
+- **Nu e nimic care să arate ferestrele.** Cerința spune „dacă e o fereastră acolo", iar azi
+  fereastra o ghicește omul: alege un interval, iar API-ul îl refuză dacă e ocupat. Sunt două
+  lucruri diferite — a **refuza** o coliziune și a **arăta** ce e liber — iar al doilea e ce face
+  ecranul folosibil într-o luni dimineață. Forma cerută: pentru o ședință dată, ce intervale din
+  aceeași săptămână sunt libere, cu sala în care ar încăpea. Asta lipsește în **amândouă** stările,
+  și e singurul lucru care lipsește în prima.
+- **„Liber" înseamnă azi doar sala.** Coliziunea verificată e sala, la ora aia, cu o ședință
+  netăiată. Ce nu se verifică e **profesorul**, fiindcă platforma nu are profesori: nu există nici
+  entitate de personal, nici câmp de profesor pe grupă — [E09](E09-personal-roluri.md) e scos din
+  MVP, iar asta e una dintre consecințele lui. Într-o școală cu două săli merge cât timp fiecare
+  sală are omul ei; în ziua în care același profesor ține două grupe în săli diferite, ecranul va
+  oferi cu convingere o fereastră în care omul e ocupat. **Se scrie aici ca să nu fie o surpriză**,
+  nu ca să blocheze story-ul.
+- **Cine are voie.** Cerința spune „profesorul", iar azi `PUT /class-sessions/:id/move` e `ADMIN`,
+  ca tot orarul — și asta nu e o scăpare: rolul `TEACHER` nu există prin decizia școlii
+  ([E09](E09-personal-roluri.md)), fiindcă cei care predau sunt și cei care administrează. Deci
+  „profesorul" din cerință e adminul, iar story-ul se poate livra întreg fără să aștepte nimic.
+
+Trei reguli care nu se negociază, fiindcă fiecare ține de ceva scris în altă parte:
+
+- **Fereastra e săptămâna, ca peste tot în epicul ăsta.** O oră de luni se recuperează în aceeași
+  săptămână sau nu se recuperează — aceeași unitate ca termenul din S3 și ca mutarea unui copil din
+  S4. Motivul e însă altul aici, și e de bani: luna facturată e a lunii în care cade **lunea
+  săptămânii** ([E15](E15-pricing-facturare.md) S9), deci o oră mutată în interiorul propriei
+  săptămâni rămâne în aceeași lună, orice ar spune calendarul. Mutată peste săptămână, ar sări luna.
+- **Săptămâna rămâne cu exact un rând pentru grupă.** Unde ședința există, rândul se editează, cum
+  face deja `moveSession`; unde n-a fost generată, se scrie unul singur pe ziua-țintă. Ce nu are voie
+  să iasă e o ședință anulată **plus** una nouă pentru aceeași oră: raportul de nemarcate ar vedea o
+  oră pierdută, iar numărătoarea lunii ar vedea două, dintre care una neîncasată.
+- **Familia află, o dată.** Mesajul `class-moved` există (S5) și spune de unde și unde. Ce nu
+  trebuie să se întâmple e ca reprogramarea să scrie și „se ține la loc", și „s-a mutat".
+
+**Ce se întâmplă cu banii — și nu e o regulă nouă, e [E15](E15-pricing-facturare.md) S9 aplicat.**
+Semnalul rămâne catalogul, nu calendarul și nu statusul:
+
+- **Ora mutată se ține**, deci cineva îi face catalogul, deci se numără în luna săptămânii ei și o
+  plătește toată grupa, ca orice altă oră. O lună cu o sărbătoare mutată costă cât o lună întreagă.
+- **Ora nemutată nu se ține**, deci nu are catalog — fie fiindcă n-a fost nimeni s-o marcheze, fie
+  fiindcă ședința e anulată explicit — și atunci **nu se pune la nimeni pe factură**. Luna aia are cu
+  o ședință mai puțin, și atât.
+
+Diferența dintre cele două o face decizia unui om care se uită la orar, nu o regulă automată. De
+aceea nu se caută singură altă zi, nu se lungește alta și nu se dă nimic înapoi: **compensarea
+automată nu e în story.**
 
 ## Dependențe
 

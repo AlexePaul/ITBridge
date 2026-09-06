@@ -501,8 +501,11 @@ acoperă o lună.
 Motivul e că școala predă în săptămâni și facturează ce a predat. Tăiată la 1 ale lunii, o
 săptămână ar pune două ședințe ale unei grupe pe o factură și trei pe următoarea, dintr-un motiv
 care n-are nicio legătură cu copilul, cu grupa sau cu orarul. Săptămâna e deja unitatea în restul
-platformei — termenul de anunțare din [E12](E12-prezenta-orar.md) S3 și fereastra de recuperare din
-S4 sunt scrise amândouă în ea — iar asta e aceeași unitate ajungând la bani.
+platformei — termenul de anunțare din [E12](E12-prezenta-orar.md) S3, fereastra de mutare a unui
+copil din S4 și fereastra de reprogramare a unei ore din S9 sunt scrise toate în ea — iar asta e
+aceeași unitate ajungând la bani. Ultima are regula asta drept motiv: o oră de sărbătoare mutată în
+propria săptămână rămâne în aceeași lună facturată, orice ar spune calendarul; mutată peste
+săptămână, ar schimba luna în care se plătește.
 
 Ce iese din regulă, și e proprietatea pe care se sprijină: **lunile consecutive nu se suprapun și nu
 lasă goluri**, fiindcă fiecare săptămână e revendicată de exact o luni. Primele zile ale unei luni
