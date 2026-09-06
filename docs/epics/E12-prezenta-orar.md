@@ -228,8 +228,10 @@ stabiliți.
 dreptul de recuperare.
 
 **Livrat.** `AbsenceNotice` leagă un copil de o **ședință**, nu de o dată și o oră — ca orice rând
-care vorbește despre o oră de curs, fiindcă orarul e singurul răspuns la „când". Părintele anunță
-din `/user/absente`; adminul poate anunța pentru oricine, fiindcă el e cel care ridică telefonul.
+care vorbește despre o oră de curs, fiindcă orarul e singurul răspuns la „când". **Anunțul îl scrie
+adminul**, fiindcă el e cel care ridică telefonul: părinții sună, dau mesaj pe WhatsApp sau scriu pe
+email, iar butonul din portal a fost scos. `/user/absente` rămâne locul unde familia **citește** ce
+s-a notat și unde a fost mutat copilul.
 
 **Termenul e luni, ora 12:00, pentru toată săptămâna.** Story-ul lăsa pragul școlii („sau după
 regula pe care o stabiliți"); școala l-a stabilit, iar el nu e per oră, ci **per săptămână**.
