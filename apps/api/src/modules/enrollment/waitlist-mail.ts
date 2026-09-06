@@ -26,6 +26,32 @@ export function composeWaitlistOffer(childName: string, groupName: string, respo
     return { subject: `S-a eliberat un loc în grupa ${groupName}`, bodyText };
 }
 
+/**
+ * The lapsed-offer mail — E11/S3.
+ *
+ * Sent because the last thing the school said to this family was "there is a seat, tell us by
+ * Thursday", and that has stopped being true. Silence here would leave them believing they still
+ * have it — the same reasoning that gives a reinstated class its own message in E12/S5.
+ *
+ * It does not scold and it does not close the door: the entry leaves the queue, but a family that
+ * was first in line an hour ago is exactly the one worth inviting to ask again.
+ */
+export function composeWaitlistOfferExpired(childName: string, groupName: string): { subject: string; bodyText: string } {
+    const bodyText = [
+        'Bună!',
+        '',
+        `Locul din grupa ${groupName} pe care ți l-am oferit pentru ${childName} a expirat — nu am primit`,
+        'un răspuns până la termenul din mesajul anterior, așa că l-am oferit familiei următoare de pe listă.',
+        '',
+        'Dacă îl vrei în continuare, spune-ne și te punem la loc pe listă. Se mai eliberează locuri.',
+        '',
+        'Cu drag,',
+        'Echipa IT Bridge School',
+    ].join('\n');
+
+    return { subject: `Locul din grupa ${groupName} a expirat`, bodyText };
+}
+
 /** "12.09.2026, ora 14:00" — the deadline as somebody would say it out loud. */
 function formatRomanianDateTime(date: Date): string {
     const parts = new Intl.DateTimeFormat('ro-RO', {

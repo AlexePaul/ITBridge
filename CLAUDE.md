@@ -828,7 +828,8 @@ tick. Fixarea se face în fișierul de ecosistem din E01 S4, care nu există în
 **Orizontul de opt săptămâni nu se rulează singur.** Ședințele se scriu doar la cerere, prin
 `POST /class-sessions/generate` (admin); nu există niciun job care să le scrie. Ce e programat în
 backend — dispecerul de outbox și verificarea de la minutul 15 (`@Interval`), mementoul de la 10:00,
-cele două notificări către părinte din E12 S4 și mementourile de restanță din E16 S7 (`@Cron`), plus
+cele două notificări către părinte din E12 S4, mementourile de restanță din E16 S7 și măturarea
+ofertelor de pe lista de așteptare din E11 S3 (`@Cron`), plus
 purjarea sesiunilor, care stă în continuare pe
 un `setInterval` propriu în `apps/api/src/modules/auth/session.service.ts` — **nu generează orar**,
 niciunul. Iar prezența se marchează pe
