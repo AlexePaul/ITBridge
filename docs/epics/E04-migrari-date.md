@@ -184,6 +184,17 @@ mai veche de șase luni, se repetă.
 restaurare, cu durata măsurată** — un document scris fără ea ar fi exact genul de siguranță
 imaginară pe care epicul o respinge. Se face când există ce restaura, pe ce restaura.
 
+**Forma e însă decisă (septembrie 2026): `pg_dump` zilnic, urcat în același bucket S3** în care stau
+facturile și proiectele. Nu snapshot-uri de volum, nu un serviciu gestionat, nu replicare — o
+comandă și o linie de cron pe instanța din [E01](E01-infrastructura-medii.md) S4, cu cele 30 de zile
+de retenție lăsate pe o regulă de lifecycle a bucket-ului, ca ștergerea să nu depindă de scriptul
+care scrie. Baza e mică și intră înapoi într-un singur `pg_restore`; orice altceva ar fi apărare
+pentru un risc pe care școala nu-l are.
+
+Ce nu schimbă decizia e acceptanța: un backup din care n-a restaurat nimeni niciodată nu e un
+backup, e un fișier în S3. Proba rămâne, cu durata măsurată, și rămâne motivul pentru care story-ul
+nu se închide înainte să existe instanța.
+
 ### S5 · Retenție
 
 Politică scrisă pentru ce se șterge și când: prezențe vechi, facturi (obligație legală de
@@ -322,13 +333,13 @@ Prima factură emisă cap-coadă din istoria proiectului, de altfel.
 
 ## Ce rămâne
 
-| Story                     | Stare            | Blocat de                      |
-| ------------------------- | ---------------- | ------------------------------ |
-| S1 · Migrarea de bază     | ✅ livrat        | —                              |
-| S2 · Migrările în deploy  | ✅ cât se poate  | —                              |
-| S3 · Seed                 | ✅ livrat        | —                              |
-| S4 · Backup și restaurare | amânat           | instanța EC2 și bucket-ul S3   |
-| S5 · Retenție             | amânat deliberat | se reia la final, vezi mai jos |
+| Story                     | Stare                | Blocat de                      |
+| ------------------------- | -------------------- | ------------------------------ |
+| S1 · Migrarea de bază     | ✅ livrat            | —                              |
+| S2 · Migrările în deploy  | ✅ cât se poate      | —                              |
+| S3 · Seed                 | ✅ livrat            | —                              |
+| S4 · Backup și restaurare | amânat, formă decisă | instanța EC2 și bucket-ul S3   |
+| S5 · Retenție             | amânat deliberat     | se reia la final, vezi mai jos |
 
 **S2 se închide aici.** Nu a existat niciodată vreun deploy, deci nu există un pipeline în care să
 se cableze migrările. Ce ține de repo e livrat: comenzile, `migrationsRun: false` ca ele să fie

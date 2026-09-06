@@ -11,7 +11,7 @@ backend — vezi [E01](E01-infrastructura-medii.md), S4.
 > ## Cerut de școală: rescrierea întregii zone de după login
 >
 > **Tot ce e după autentificare arată prost și trebuie refăcut, nu peticit.** Nu e o observație
-> despre o pagină anume — e despre toate: cele **6 pagini de portal** și cele **44 de ecrane de
+> despre o pagină anume — e despre toate: cele **6 pagini de portal** și cele **42 de ecrane de
 > admin** (fișiere `.vue` sub `app/pages/`, numărate așa ca cifra să se poată verifica), inclusiv
 > cele adăugate recent (`/admin/approvals`, `/admin/formare`, `/admin/invoices/emitere`,
 > `/admin/anunturi`, `/admin/leads`).
@@ -258,7 +258,7 @@ Un tipar unic de tabel — sortare, filtrare, paginare, acțiuni în masă, star
 formular, cu validare și erori. Toate paginile aliniate. Selectorul de locație din
 [E08](E08-multi-locatie.md) integrat în antet.
 
-**Nu mai sunt 25 de ecrane, ci 44**, iar numărul crește cu fiecare epic livrat: E11 a adăugat
+**Nu mai sunt 25 de ecrane, ci 42**, iar numărul crește cu fiecare epic livrat: E11 a adăugat
 `/admin/approvals` și `/admin/formare`, E15 a adăugat `/admin/invoices/emitere`, E17 a adăugat
 `/admin/anunturi` și `/admin/livrari`, E20 a adăugat `/admin/leads`. Fiecare a fost
 construit cu tiparele pe care le-a găsit, adică fiecare a mai adăugat un dialect. **Costul crește cu
@@ -330,6 +330,31 @@ celor două formulare, măturarea de limbă (dropdown-uri în engleză, „No da
 (izolarea hack-ului fragil de popover din children/edit), bara de filtre (trei forme incompatibile
 azi — se extrage după ce migrarea arată care supraviețuiește) și grila de carduri (cinci ecrane,
 patru semantici; înainte de orice partajare, `GroupCard` trebuie mutat pe `occupancyOf` — D7).
+
+**A doua trecere, tot în S5b.** Ce a adus, în afară de ecranele migrate:
+
+- **Al doilea drum de emitere a fost șters.** `/admin/invoices/new` și
+  `/admin/invoices/preview/:month` emiteau o lună prin `POST /invoices/preview` plus
+  `POST /invoices`, pe numere calculate de server în loc de numere văzute de un om — exact ce
+  înlocuiește `/admin/invoices/emitere`. Previzualizarea lor arăta pe deasupra „Număr Copii"
+  numărând toți copiii familiei, deși factura numără doar înscrierile `ACTIVE`, iar butonul de
+  confirmare nu aștepta cererea: o emitere picată naviga mai departe în tăcere. Un ecran care
+  răspunde a doua oară, altfel, la o întrebare despre bani nu se uniformizează; se scoate. Cele două
+  rute de server rămân, testate, fără nimic în interfață care să le cheme.
+- **`/admin/invoices/new` era și rupt**, ceea ce a dus la citirea fluxului: rămăsese pe `UFormGroup`
+  din @nuxt/ui v2, care în v4 nu există, deci cele două etichete nu se randau deloc.
+- **Cele patru `<select>` native au plecat** din `locations/index`, `groups/new` și
+  `groups/[groupId]/edit`. Aveau `border-gray-300` scris de mână, deci rămâneau gri-deschis în tema
+  întunecată, lângă câmpuri care se schimbau.
+- **Zece `console.log` care scriau date de familii în consola browserului** — „Profile details",
+  „Fetched users raw", „Mapping user" — au fost șterse din patru ecrane.
+- **Două copii ale tabelului cu numele lunilor** au intrat în `formatMonthName`, lângă `formatMonth`,
+  care e construit pe el.
+
+Ecrane migrate în trecerea asta: `attendance/group/index`, `attendance/children/index`,
+`locations/new`, `locations/[locationId]/edit`, `profiles/index`, `profiles/new`,
+`profiles/[profileId]/edit`, cele două ecrane de confirmare a ștergerii, `approvals/index` și
+`payments/index`. **25 din 42 de ecrane sunt acum pe componente.**
 
 ### S6 · Accesibilitate — livrat parțial (verificarea automată, livrată)
 
@@ -419,7 +444,7 @@ pentru care nu le văzuse nimeni: se uita toată lumea la pagină.
   outline sau ghost de după login citea la **2,61:1**, aceeași cifră și aceeași cauză, de partea
   cealaltă a autentificării. O linie per temă, `--ui-primary: var(--color-accent-ink)`, duce drumul
   profesorului la **axe curat pe WCAG 2.0 și 2.1 A+AA, în ambele teme** — și, fiind un jeton,
-  ridică odată cu el toate cele 44 de ecrane de admin.
+  ridică odată cu el toate ecranele de admin.
 - **Iconițele veneau de la Iconify, la rulare.** Nicio colecție nu era instalată local, deci
   `@nuxt/icon` le cerea de pe `api.iconify.design` de fiecare dată — pe conexiunea din sală, exact
   cea pentru care există story-ul. Butonul de meniu **e** o iconiță și nimic altceva: fără ea, un

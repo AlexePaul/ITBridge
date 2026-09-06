@@ -1,6 +1,23 @@
 # E06 · Observabilitate și operare
 
-**Status:** propus · **Pistă:** Fundație · **Depinde de:** E01, E05 · **Blochează:** E17
+**Status:** scos din MVP · **Pistă:** Fundație · **Depinde de:** E01, E05 · **Blochează:** alertarea
+din [E14](E14-proiecte-elevi.md) S2, și nimic altceva — [E17](E17-comunicare-notificari.md) nu mai
+are story-uri deschise
+
+> **Scos din MVP prin decizie (septembrie 2026).** Observabilitatea din prima zi de producție e PM2,
+> atât: `pm2 logs` și `pm2 monit` pe instanța din [E01](E01-infrastructura-medii.md) S4, citite de
+> omul care a făcut deploy-ul. Fără Sentry, fără agregare, fără verificare externă de uptime — la o
+> școală cu două adrese și un singur om tehnic, un al doilea sistem de urmărit e el însuși o
+> cheltuială de operare.
+>
+> Din problema de mai jos rămâne o singură bucată adevărată, și e singura care se strică singură:
+> **logurile PM2 cresc până umplu partiția.** Rotația se pune odată cu procesul, în E01 S4, ca linie
+> de configurare — nu ca story aici.
+>
+> Ce se pierde, spus acum ca să nu fie descoperit mai târziu: o excepție în producție se află de la
+> părintele care sună, iar pulsul agentului din [E14](E14-proiecte-elevi.md) S2 se vede pe ecran fără
+> să alerteze pe nimeni. Epicul se reia când prima cădere e găsită de altcineva înaintea voastră —
+> ăla e semnalul, nu o dată din calendar.
 
 ## Problemă
 

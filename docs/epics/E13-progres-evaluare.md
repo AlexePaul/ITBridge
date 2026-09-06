@@ -1,6 +1,19 @@
 # E13 · Progres, evaluare și feedback
 
-**Status:** propus · **Pistă:** Operațiuni · **Depinde de:** E10, E12 · **Blochează:** —
+**Status:** scos din MVP · **Pistă:** Operațiuni · **Depinde de:** E10, E12 · **Blochează:** —
+
+> **Scos din MVP prin decizie (septembrie 2026).** Nu e o respingere a epicului — argumentul de mai
+> jos rămâne în picioare — ci a momentului. Două motive, în ordine:
+>
+> - **Nu are pe ce sta.** Evaluarea din S1 e pe competențele din [E10](E10-curriculum-module.md),
+>   raportul din S3 e „de final de modul", iar modulul nu există: E10 e el însuși scos din MVP. Ce ar
+>   rămâne de construit acum e un formular de observații fără nimic de care să le lege.
+> - **Locul lui e luat, pentru moment.** Semnalul dintre înscriere și factură — dovada că se predă
+>   serios — îl dă azi [E14](E14-proiecte-elevi.md): părintele primește ce a construit copilul, nu o
+>   interpretare a ce a construit. E mai puțin decât un raport de progres, dar pleacă deja.
+>
+> Ce se pierde e scris în „Problemă" și se pierde efectiv: la finalul unui modul, familia decide pe
+> amintiri vagi și pe proiecte, nu pe un raport. Se reia odată cu E10, fiindcă atunci are pe ce sta.
 
 ## Problemă
 

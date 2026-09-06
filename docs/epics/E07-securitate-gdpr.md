@@ -3,6 +3,23 @@
 **Status:** propus · **Pistă:** Fundație · **Depinde de:** E04, E05 · **Blochează:** E14, E19; E09 doar
 odată cu reluarea lui S2
 
+> **Granița cu [E22](E22-termeni-si-date.md), fiindcă se confundă ușor: aici e mecanica, acolo e ce
+> citește și acceptă familia.** Cele două epicuri descriau aceleași patru lucruri cu cuvinte
+> diferite, iar un inventar ținut în două locuri e exact defectul pe care restul repo-ului îl evită.
+> Împărțirea, din septembrie 2026:
+>
+> | Subiect | Cine îl ține |
+> | --- | --- |
+> | Inventarul câmpurilor | **E07 S1**, o singură dată. E22 îl citește, nu îl reface |
+> | Textele juridice | **E22 S2** — termenii contului, nota de confidențialitate, cookie-urile |
+> | Bannerul care chiar blochează scripturile | **E07 S5** — cod, nu proză |
+> | Consimțământul de publicare | **E07 S2**, pe `(Profile, Child, scop)` |
+> | Ce versiune a acceptat cine, și când | **E22 S4** |
+> | Termenul de păstrare | scris în **E22 S3**, executat de **E07 S4** și [E04](E04-migrari-date.md) S5 |
+>
+> Regula din care iese tabelul: dacă rezultatul e un document pe care îl citește un părinte, e al
+> E22; dacă rezultatul e un rând, un endpoint sau un script, e al epicului ăstuia.
+
 ## Problemă
 
 Platforma procesează date despre **minori**. În Uniunea Europeană asta e categoria cu cel mai
@@ -61,7 +78,13 @@ Un tabel cu fiecare câmp de date personale: unde e stocat, de ce, pe ce temei l
 păstrează, cine îl poate vedea. Include datele copiilor — nume, dată de naștere, prezență, proiecte,
 fotografiile lucrărilor.
 
-**Acceptanță:** tabelul e complet și fiecare câmp are temei legal identificat.
+**Inventarul stă aici, o singură dată.** [E22](E22-termeni-si-date.md) S2 scrie nota de
+confidențialitate **din** el, nu alături de el: două tabele întreținute separat diverg, iar cel care
+ajunge sub ochii unei familii ar fi tocmai cel rămas în urmă. Derivarea din entități e cerința care
+ține linia — aceeași disciplină ca `contract.ts`.
+
+**Acceptanță:** tabelul e complet, fiecare câmp are temei legal identificat, iar o coloană nouă cu
+date personale nu poate ajunge în producție fără să apară în el.
 
 ### S2 · Consimțământ parental
 
@@ -127,18 +150,30 @@ Un părinte poate cere, prin portal, exportul datelor sale și ale copiilor, în
 ștergerea contului. Ștergerea respectă obligațiile contabile: facturile se păstrează, dar se
 anonimizează în rest.
 
+**Termenul pe care îl aplică ștergerea e scris în [E22](E22-termeni-si-date.md) S3**, nu aici: „după
+cât timp" e o promisiune făcută familiei, deci trăiește în documentul pe care aceasta l-a citit. Aici
+e drumul pe care îl parcurge o cerere, iar în [E04](E04-migrari-date.md) S5 e jobul care îl parcurge
+periodic. Trei locuri, trei treburi diferite, un singur număr — al E22.
+
 **Acceptanță:** ambele fluxuri funcționează capăt-la-capăt, cu termen sub 30 de zile.
 
-### S5 · Documente legale
+### S5 · Bannerul de cookie-uri și blocarea scripturilor
 
-Politică de confidențialitate, termeni și condiții, politică de cookie-uri, banner de consimțământ
-care chiar blochează scripturile neesențiale până la accept. Versionate, cu istoric al acceptărilor.
+Bannerul care chiar **blochează scripturile neesențiale până la accept** — nu unul care anunță că
+site-ul folosește cookie-uri după ce le-a pus deja. E singura bucată din vechiul „documente legale"
+care e cod, și de asta a rămas aici.
 
-Sunt documentele care privesc **vizitatorul** site-ului. Contractul dintre școală și familie e alt
-lucru și se semnează pe hârtie — vezi S8. Dreptul de retragere în 14 zile nu intră în ele; motivul e
-la [Decizii luate](#decizii-luate).
+**Textele au plecat la [E22](E22-termeni-si-date.md) S2** — politica de confidențialitate, termenii
+și politica de cookie-uri —, iar istoricul acceptărilor la E22 S4. Ele se scriu la final, cu
+platforma în față; bannerul se poate construi înainte, fiindcă mecanismul nu depinde de ce scrie în
+text.
 
-**Acceptanță:** un vizitator nou nu are niciun cookie neesențial înainte de a accepta.
+Contractul dintre școală și familie e alt lucru și se semnează pe hârtie — vezi S8. Dreptul de
+retragere în 14 zile nu intră în niciunul; motivul e la [Decizii luate](#decizii-luate).
+
+**Acceptanță:** un vizitator nou nu are niciun cookie neesențial înainte de a accepta, iar nicio
+cerere către un domeniu terț neesențial nu pleacă din pagină — verificat în tab-ul de rețea, nu în
+configurație.
 
 ### S6 · Managementul secretelor
 
