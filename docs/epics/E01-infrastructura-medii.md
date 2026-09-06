@@ -79,7 +79,7 @@ scos din `package.json`, iar `package-lock.json` regenerat — 203 linii de tran
 
 **`.github/workflows/aws.yml` a fost șters, nu rescris.** Decizia din secțiunea de mai jos spune
 „se rescrie", dar rescrierea _este_ S4, care nu s-a făcut încă fiindcă nu există instanță EC2.
-Până atunci workflow-ul ar fi rulat la fiecare push pe ramura publică, către un host inexistent, cu
+Până atunci workflow-ul ar fi rulat la fiecare push pe `main`, către un host inexistent, cu
 `pm2 delete` înaintea lui `pm2 start`. Un workflow rupt care se declanșează automat e mai rău
 decât niciunul. Destinația rămâne EC2; S4 scrie workflow-ul de la zero, în forma cu `pm2 reload`
 și health check.
@@ -143,10 +143,10 @@ al bundle-ului, iar build-ul servit răspunde 200 cu `apiBase` pointat spre back
 `backup-02-01-2026`, `backup-ui-02-01-2026`, `development`, `feature/configure-github-actions-CD`,
 `feature/configure-github-actions-CD-1`, `flyio-new-files` — evaluate, apoi merge-uite sau șterse.
 
-**Acceptanță:** `git branch -r` listează ramura publică plus branch-urile de lucru active.
+**Acceptanță:** `git branch -r` listează `main` plus branch-urile de lucru active.
 
-**Livrat.** Toate zece erau **complet merge-uite în ramura publică** — zero commit-uri în plus față
-de ea — deci ștergerea nu a pierdut nimic: fiecare commit rămâne accesibil din istoricul ei. Nu a
+**Livrat.** Toate zece erau **complet merge-uite în `main`** — zero commit-uri în plus față de ea —
+deci ștergerea nu a pierdut nimic: fiecare commit rămâne accesibil din istoricul lui `main`. Nu a
 fost nevoie să se merge-uiască nimic; evaluarea a fost întreaga decizie.
 
 SHA-urile de la momentul ștergerii, ca referința să existe dacă cineva caută vreodată un branch
@@ -214,7 +214,7 @@ auto-găzduit pe același VPS e mai ieftin și îți lasă ție restaurarea.
 ## Definition of done
 
 Un dezvoltator nou clonează repo-ul, pornește Postgres cu o comandă, aplicația cu alta, și are
-mediul complet. Un push pe `release/prod` ajunge în producție pe ambele componente, fără downtime. Nu
+mediul complet. Un push pe `main` ajunge în producție pe ambele componente, fără downtime. Nu
 există în repo niciun fișier de infrastructură nefolosit.
 
 ## Decizii luate
