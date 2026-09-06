@@ -15,6 +15,7 @@ import { Room } from './room.entity';
 import { OutboxMessage } from './outbox-message.entity';
 import { MailTemplate } from './mail-template.entity';
 import { AbsenceNotice } from './absence-notice.entity';
+import { SessionCountOverride } from './session-count-override.entity';
 import { EmailConfirmation } from './email-confirmation.entity';
 import { Enrollment } from './enrollment.entity';
 import { WaitlistEntry } from './waitlist-entry.entity';
@@ -46,6 +47,7 @@ import { Lead } from './lead.entity';
             OutboxMessage,
             MailTemplate,
             AbsenceNotice,
+            SessionCountOverride,
             EmailConfirmation,
             Enrollment,
             WaitlistEntry,

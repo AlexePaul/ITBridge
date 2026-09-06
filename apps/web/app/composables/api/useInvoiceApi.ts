@@ -1,5 +1,10 @@
 import type { ArrearsRow } from "~/types/arrears.types";
-import type { Invoice, InvoiceWorksheet, IssueInvoicesResult } from "~/types/invoice.types";
+import type {
+  Invoice,
+  InvoiceWorksheet,
+  IssueInvoicesResult,
+  SessionCountOverrideDto,
+} from "~/types/invoice.types";
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import { date } from "zod";
@@ -58,6 +63,24 @@ export const useInvoiceApi = () => {
       body: payload,
     });
 
+  /**
+   * "Bill this many instead" for one child and month — the override on the issuing screen. A
+   * recorded decision, not a number on the issue call; the worksheet reflects it on reload.
+   */
+  const setSessionCountOverride = async (payload: SessionCountOverrideDto) =>
+    api<unknown>("/invoices/overrides", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: payload,
+    });
+
+  /** Drops the decision: the registers speak again. */
+  const clearSessionCountOverride = async (monthIssued: string, childId: number) =>
+    api<unknown>(`/invoices/overrides/${monthIssued}/${childId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
   /** Who has not paid, oldest debt first — E16/S7. Admin only. */
   const fetchArrears = async () =>
     api<ArrearsRow[]>("/invoices/arrears", {
@@ -69,6 +92,8 @@ export const useInvoiceApi = () => {
     fetchArrears,
     fetchWorksheet,
     issueInvoices,
+    setSessionCountOverride,
+    clearSessionCountOverride,
     getInvoices,
     fetchInvoices,
   };

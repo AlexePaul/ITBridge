@@ -42,11 +42,29 @@ export interface InvoiceWorksheetRow {
         groupName: string | null;
         /** ISO weekday of the group. */
         weekday: number | null;
-        /** Counted from the registers — E15/S9. Never typed. */
+        /** What reaches the price: the count from the registers, or the override's number when one is on file. */
         sessions: number;
+        /** What the registers say, always — E15/S9. Differs from `sessions` only under an override. */
+        counted: number;
+        /** The decision on file for this child and month, if any. */
+        override: { sessions: number; reason: string | null } | null;
         /** Every held session of the child's group in the month, and whether it counted for them. */
         lines: InvoiceWorksheetLine[];
     }[];
+}
+
+/**
+ * "Bill this many instead" — `PUT /invoices/overrides`, E15/S9.
+ *
+ * The one number that still enters by hand, and it is a recorded decision rather than a field on
+ * the issuing call. One per child and month; a second one replaces the first; zero means "not this
+ * month". Refused once the family's month is issued.
+ */
+export interface SessionCountOverrideDto {
+    monthIssued: BillingMonth;
+    childId: number;
+    sessions: number;
+    reason?: string;
 }
 
 /** One held session, as the issuing screen unfolds it under a child. */

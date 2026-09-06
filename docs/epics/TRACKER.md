@@ -4,7 +4,8 @@ Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare
 adunate într-un loc.
 
 **Ultima actualizare:** 6 septembrie 2026, pe `release/stage`. Două lucruri în aceeași zi. **S-au
-adăugat** E12 S8 și E15 S9, facturarea numărată din catalog. **S-a tăiat scopul:** E06 și E13 ies
+adăugat** E12 S8 și E15 S9, facturarea numărată din catalog — plus, la cererea școlii, corectura
+pe copil de pe fișa de emitere, consemnată și înghețată cu factura. **S-a tăiat scopul:** E06 și E13 ies
 din MVP, la fel E14 S6, E21 S3 și E21 S6; E15 S1, S2 și S3 se scot, fiind scrise pe modelul pe
 modul, ca S8; E21 S5 se dovedește livrat de E20 S4; E22 S1 se mută la E07 S1. Ultimele merge-uri de
 cod: E18 S4 și a doua felie din S5b, peste E18 S7 și E20 S1–S4, care veneau peste E17 S8, jumătatea
@@ -214,7 +215,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [ ] S6 · Previzualizare și emitere în masă
 - [ ] S7 · PDF-ul nu se mai generează local
 - [x] S8 · Înscrierea la mijlocul unui modul — **rezolvat de modelul pe ședință**, nu de cod: cine intră pe 15 are mai puține ședințe în lună. Livrat aici: ecranul de emitere sortează familiile pe grupe, cum se și numără
-- [x] S9 · Ședințele facturabile se numără din catalog — `billable-sessions.rules.ts` (regula pură) + `BillableSessionsService` (singura interogare, pe luna de predare din `teachingMonthRange`): ședință fără catalog = neținută, nefacturată; ținută = facturată întregii grupe, pe perioada înscrierii; de vacanță = doar celor marcați prezenți; proba și marcajele `make-up` niciodată. `POST /invoices/issue` nu mai primește numere de la client; `/admin/invoices/emitere` arată numărul citit, desfacerea lui și ședințele lunii fără catalog deasupra
+- [x] S9 · Ședințele facturabile se numără din catalog — `billable-sessions.rules.ts` (regula pură) + `BillableSessionsService` (singura interogare, pe luna de predare din `teachingMonthRange`): ședință fără catalog = neținută, nefacturată; ținută = facturată întregii grupe, pe perioada înscrierii; de vacanță = doar celor marcați prezenți; proba și marcajele `make-up` niciodată. `POST /invoices/issue` nu mai primește numere de la client; `/admin/invoices/emitere` arată numărul citit, desfacerea lui și ședințele lunii fără catalog deasupra. **Corectura pe copil** (`SessionCountOverride`, `PUT|DELETE /invoices/overrides`): o decizie consemnată — cât, de ce, cine, când —, un rând per copil și lună, arătată pe fișă lângă numărul citit, zero = `WAIVED`, refuzată cu 409 după ce familia are factura lunii
 
 > **Cele două bug-uri de preț sunt reparate**, iar testele care le documentau sunt acum teste de
 > regresie. Regula, și sursa de adevăr pentru orice discuție despre prețuri: **350 de lei pentru

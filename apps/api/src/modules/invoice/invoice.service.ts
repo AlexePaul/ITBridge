@@ -1,8 +1,12 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
+import { Child } from 'src/entities/child.entity';
+import { SessionCountOverride } from 'src/entities/session-count-override.entity';
+import { SessionCountOverrideDto } from './dto/sessionCountOverride.dto';
+import { User } from 'src/entities/user.entity';
 import { CreateInvoiceDto } from './dto/createInvoice.dto';
 import { UpdateInvoiceDto } from './dto/updateInvoice.dto';
 import { FilterInvoiceDto } from './dto/filterInvoice.dto';
@@ -34,8 +38,12 @@ export interface InvoiceWorksheetRow {
         groupId: number | null;
         groupName: string | null;
         weekday: number | null;
-        /** The number that reaches the price — counted from the registers, never typed. */
+        /** The number that reaches the price: the count, unless somebody decided otherwise below. */
         sessions: number;
+        /** What the registers say, always — shown next to `sessions` when the two differ. */
+        counted: number;
+        /** The decision on file for this child and month, if any. `sessions` is its number when set. */
+        override: { sessions: number; reason: string | null } | null;
         /** Every held session of the child's group in the month, and whether it counted for them. */
         lines: BillableLine[];
     }[];
@@ -65,6 +73,8 @@ export class InvoiceService {
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
         @InjectRepository(Discount) private readonly discountRepository: Repository<Discount>,
         @InjectRepository(Enrollment) private readonly enrollmentRepository: Repository<Enrollment>,
+        @InjectRepository(Child) private readonly childRepository: Repository<Child>,
+        @InjectRepository(SessionCountOverride) private readonly overrideRepository: Repository<SessionCountOverride>,
         private readonly pdfService: PdfService,
         private readonly s3Service: S3Service,
         private readonly billable: BillableSessionsService,
@@ -247,12 +257,20 @@ export class InvoiceService {
      *
      * `alreadyInvoiced` is what makes the screen re-runnable: an admin issues on the first, a family
      * enrols on the fifth, and the second run must invoice only them.
+     *
+     * The count is what reaches the price — unless there is a `SessionCountOverride` for the child
+     * and month, in which case its number does, and the row carries both so the screen can say
+     * "3, corectat din 4". The override is applied *here* rather than in the issuing path, so that
+     * the worksheet and the invoice keep being the same number computed once.
      */
     async getWorksheet(monthIssued: string): Promise<InvoiceWorksheet> {
         const month = await this.billable.countForMonth(monthIssued);
 
         const invoiced = await this.invoiceRepository.find({ where: { monthIssued }, relations: { parent: true } });
         const invoicedParentIds = new Set(invoiced.map((invoice) => invoice.parent?.id));
+
+        const overrides = await this.overrideRepository.find({ where: { monthIssued }, relations: { child: true } });
+        const overrideByChild = new Map(overrides.map((row) => [row.child.id, row]));
 
         const parentIds = [...new Set(month.children.map((child) => child.parentId))];
         const parents = parentIds.length === 0 ? [] : await this.profileRepository.find({ where: { id: In(parentIds) } });
@@ -268,13 +286,16 @@ export class InvoiceService {
                 .sort((a, b) => a.firstName.localeCompare(b.firstName))
                 .map((child) => {
                     const count = month.counts.get(child.childId) ?? { sessions: 0, lines: [] };
+                    const override = overrideByChild.get(child.childId);
                     return {
                         childId: child.childId,
                         childName: `${child.firstName} ${child.lastName}`,
                         groupId: child.groupId,
                         groupName: child.groupName,
                         weekday: child.weekday,
-                        sessions: count.sessions,
+                        sessions: override ? override.sessions : count.sessions,
+                        counted: count.sessions,
+                        override: override ? { sessions: override.sessions, reason: override.reason } : null,
                         lines: count.lines,
                     };
                 });
@@ -366,6 +387,51 @@ export class InvoiceService {
             `Month ${dto.monthIssued}: issued ${issued.length} invoice(s), waived ${waived.length}, skipped ${skipped.length} already invoiced; ${worksheet.unmarked.length} session(s) had no register.`,
         );
         return { issued, waived, skipped };
+    }
+
+    /**
+     * Records "bill this many for this child this month" — E15/S9, the override the school asked for.
+     *
+     * One row per child and month, replaced on a second decision rather than stacked: "bill three"
+     * is what the person meant, and a history of three-then-two would only ever be read as the last
+     * one. Who and when are on the row; the reason is optional because the school asked for it to
+     * be, and because a required field that everybody fills with "ok" records nothing.
+     *
+     * Refused once the family's month is issued, for the same reason the vacation tick is
+     * (E12/S8): it would change what was already billed, and the invoice would no longer be the
+     * number the screen showed.
+     */
+    async setSessionCountOverride(dto: SessionCountOverrideDto, userId: number): Promise<SessionCountOverride> {
+        const child = await this.childRepository.findOne({ where: { id: dto.childId }, relations: { parent: true } });
+        if (!child) throw new NotFoundException('Child not found');
+        await this.assertMonthOpenFor(child, dto.monthIssued);
+
+        const existing = await this.overrideRepository.findOne({ where: { monthIssued: dto.monthIssued, child: { id: child.id } } });
+        const row = existing ?? this.overrideRepository.create({ child, monthIssued: dto.monthIssued });
+        row.sessions = dto.sessions;
+        row.reason = dto.reason ?? null;
+        row.createdBy = { id: userId } as User;
+        return this.overrideRepository.save(row);
+    }
+
+    /** Removes the decision; the registers speak again. Same freeze as setting it. */
+    async clearSessionCountOverride(monthIssued: string, childId: number): Promise<void> {
+        const child = await this.childRepository.findOne({ where: { id: childId }, relations: { parent: true } });
+        if (!child) throw new NotFoundException('Child not found');
+        await this.assertMonthOpenFor(child, monthIssued);
+
+        await this.overrideRepository.delete({ monthIssued, child: { id: child.id } });
+    }
+
+    private async assertMonthOpenFor(child: Child, monthIssued: string): Promise<void> {
+        if (!child.parent) return;
+        const invoice = await this.invoiceRepository.findOne({ where: { monthIssued, parent: { id: child.parent.id } } });
+        if (invoice) {
+            throw new ConflictException({
+                message: `Luna ${monthIssued} e deja facturată pentru familia asta — numărul nu se mai poate schimba.`,
+                error: 'MONTH_ALREADY_INVOICED',
+            });
+        }
     }
 
     async getPreview(dto: GetPreviewDto) {

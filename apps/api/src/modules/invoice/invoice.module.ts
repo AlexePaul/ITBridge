@@ -18,6 +18,8 @@ import { StorageModule } from 'src/modules/storage/storage.module';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Attendance } from 'src/entities/attendance.entity';
 import { BillableSessionsService } from './billable-sessions.service';
+import { Child } from 'src/entities/child.entity';
+import { SessionCountOverride } from 'src/entities/session-count-override.entity';
 
 @Module({
     // `Enrollment` because the amount counts children *actively enrolled*, not children on file:
@@ -28,8 +30,11 @@ import { BillableSessionsService } from './billable-sessions.service';
     //
     // `ClassSession` and `Attendance` because since E15/S9 the amount is counted from the month's
     // registers, not typed: `BillableSessionsService` is the one query that reads them.
+    //
+    // `SessionCountOverride` (and `Child`, to resolve one) because the count can be overruled per
+    // child and month, as a recorded decision — the one number that still enters by hand.
     imports: [
-        TypeOrmModule.forFeature([Invoice, Payment, Profile, Discount, Enrollment, ClassSession, Attendance]),
+        TypeOrmModule.forFeature([Invoice, Payment, Profile, Discount, Enrollment, ClassSession, Attendance, Child, SessionCountOverride]),
         JwtModule.register({}),
         StorageModule,
         MailModule,

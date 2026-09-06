@@ -10,6 +10,7 @@ import { Role } from 'src/enum/role.enum';
 import { FilterInvoiceDto } from './dto/filterInvoice.dto';
 import { GetPreviewDto } from './dto/getPreview.dto';
 import { IssueMonthDto } from './dto/issueMonth.dto';
+import { SessionCountOverrideDto } from './dto/sessionCountOverride.dto';
 import { ArrearsService } from './arrears.service';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
@@ -73,6 +74,39 @@ export class InvoiceController {
     @ApiResponse({ status: 200, description: 'Unpaid invoices with ageing, longest overdue first' })
     async arrears() {
         return this.arrearsService.list();
+    }
+
+    /**
+     * The one number that still enters by hand — E15/S9's override, per child and month. Both
+     * routes sit above `/:id` for the usual reason.
+     */
+    @Put('/overrides')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Facturează alt număr de ședințe decât cel numărat, pentru un copil, pe o lună',
+        description:
+            'O decizie consemnată — cine, când, cât și de ce — nu un câmp pe cererea de emitere: `POST /invoices/issue` rămâne fără numere. ' +
+            'Un rând per copil și lună; a doua decizie o înlocuiește pe prima; zero înseamnă „luna asta nu". Refuzat odată ce familia are factură pe lună.',
+    })
+    @ApiResponse({ status: 200, description: 'The decision on file' })
+    @ApiResponse({ status: 404, description: 'No such child' })
+    @ApiResponse({ status: 409, description: 'MONTH_ALREADY_INVOICED' })
+    async setOverride(@Body() dto: SessionCountOverrideDto, @Request() req: AuthenticatedRequest) {
+        return this.invoiceService.setSessionCountOverride(dto, req.user.sub);
+    }
+
+    @Delete('/overrides/:monthIssued/:childId')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Renunță la decizie: numărul revine la cel din cataloage' })
+    @ApiResponse({ status: 200, description: 'Cleared' })
+    @ApiResponse({ status: 409, description: 'MONTH_ALREADY_INVOICED' })
+    async clearOverride(@Param('monthIssued') monthIssued: string, @Param('childId', ParseIntPipe) childId: number) {
+        await this.invoiceService.clearSessionCountOverride(monthIssued, childId);
+        return { cleared: true };
     }
 
     @Get('/:id')
