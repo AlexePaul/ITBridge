@@ -25,21 +25,42 @@ profesorii acolo (E14 S2). Se construiește cu `pnpm --filter agent build`; inst
 
 ## Cele două branch-uri
 
-**`main` e site-ul public. `develop` e restul.**
+**`release/prod` e site-ul public. `release/stage` e restul.**
 
-Vercel servește `main`, iar paginile publice nu ating backend-ul — de asta site-ul stă în producție
-deși API-ul nu e deployat nicăieri. Tot ce e după autentificare — portalul, zona de admin, întreg
-`apps/api` de după E08 — trăiește pe `develop` și rămâne acolo până există instanța de care are
-nevoie ([E01](docs/epics/E01-infrastructura-medii.md), S4).
+Vercel servește `release/prod`, iar paginile publice nu ating backend-ul — de asta site-ul stă în
+producție deși API-ul nu e deployat nicăieri. Tot ce e după autentificare — portalul, zona de admin,
+întreg `apps/api` de după E08 — trăiește pe `release/stage` și rămâne acolo până există instanța de
+care are nevoie ([E01](docs/epics/E01-infrastructura-medii.md), S4).
 
-În `main` intră doar ce afectează site-ul public și poate fi verificat fără backend: conținut, SEO,
-performanță, corecturi de interfață publică. Se aduc prin cherry-pick, nu prin merge din `develop` —
-un merge ar trage în producție jumătate de platformă care n-are unde să ruleze.
+În `release/prod` intră doar ce afectează site-ul public și poate fi verificat fără backend:
+conținut, SEO, performanță, corecturi de interfață publică. Se aduc prin cherry-pick, nu prin merge
+din `release/stage` — un merge ar trage în producție jumătate de platformă care n-are unde să
+ruleze.
 
 **Documentația din `docs/` și fișierul ăsta sunt identice pe ambele branch-uri**, fiindcă descriu
-proiectul, nu ramura. Deci pe `main` vei citi despre module care nu există în arborele de sub tine —
-`enrollment`, `project`, `storage` — și e în regulă: sunt pe `develop`. Ce **nu** e în regulă e ca
-cele două copii ale documentației să divergă; dacă atingi una, adu-o și pe cealaltă.
+proiectul, nu ramura. Deci pe `release/prod` vei citi despre module care nu există în arborele de
+sub tine — `enrollment`, `project`, `storage` — și e în regulă: sunt pe `release/stage`. Ce **nu** e
+în regulă e ca cele două copii ale documentației să divergă; dacă atingi una, adu-o și pe cealaltă.
+
+**Amândouă numele sunt noi: `main` → `release/prod` și `develop` → `release/stage`, septembrie
+2026.** Sunt redenumiri, nu branch-uri noi — același istoric, aceleași SHA-uri — deci un mesaj de
+commit, un titlu de PR sau un paragraf mai vechi care spune `main` sau `develop` vorbește despre
+ele. Pe origin nu mai există niciunul dintre numele vechi. Într-o clonă mai veche:
+
+```bash
+git branch -m main release/prod
+git branch -m develop release/stage
+git fetch origin
+git branch -u origin/release/prod release/prod
+git branch -u origin/release/stage release/stage
+git remote set-head origin -a
+```
+
+**Vercel nu află de redenumire dintr-un webhook.** El construiește la push, iar o redenumire nu
+produce niciun commit — deci tot istoricul de deployment-uri rămâne legat de numele vechi și
+`release/prod` are zero, iar dashboard-ul refuză să-i dea Production Branch sau un domeniu, cu
+„No deployments found". Nu e un buton de apăsat: se deblochează la primul commit care ajunge pe
+branch. Production Branch din Settings → Git se pune de mână, o singură dată.
 
 ## Comenzi
 
@@ -330,13 +351,13 @@ funcționează fără `API_BASE` — de aceea site-ul stă în producție pe Ver
 deployat. Excepția e `/proba`, formularul de programare la lecția de probă (E20/S2): el chiar are
 nevoie de API, fiindcă scrie un rând. E scris să pice moale — orele se cer doar din client, iar fără
 răspuns formularul tot se trimite și cititorul primește numărul de telefon — dar **nu se aduce pe
-`main`** până nu rulează un backend. Faptele despre școală stau
-în `apps/web/shared/`, nu în pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts`
-(nivelurile și prețurile), `teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini),
-`structured-data.ts` (constructorii de JSON-LD). Aceleași constante alimentează pagina, graful
-JSON-LD, sitemap-ul și `llms.txt` — **dacă schimbi un preț sau o adresă, schimbi acolo, într-un
-singur loc.** Un număr scris de mână într-o pagină e un bug, nu o scurtătură: NAP inconsecvent e
-cea mai frecventă cauză de poziționare locală slabă.
+`release/prod`** până nu rulează un backend. Faptele despre școală stau în `apps/web/shared/`, nu în
+pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts` (nivelurile și prețurile),
+`teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini), `structured-data.ts` (constructorii
+de JSON-LD). Aceleași constante alimentează pagina, graful JSON-LD, sitemap-ul și `llms.txt` —
+**dacă schimbi un preț sau o adresă, schimbi acolo, într-un singur loc.** Un număr scris de mână
+într-o pagină e un bug, nu o scurtătură: NAP inconsecvent e cea mai frecventă cauză de poziționare
+locală slabă.
 
 Fiecare pagină publică apelează `useSeo` o dată (titlu, descriere, canonical, OG, Twitter) și
 `useJsonLd` o dată, cu un singur `@graph`. Nodurile se leagă între ele prin `@id`, deci **orice nod
@@ -673,9 +694,9 @@ Patru reguli pe care le încalci ușor:
 
 **Pagina `/proba` e singura pagină publică ce atinge backend-ul**, ceea ce contrazice regula de mai
 sus doar în aparență: orele se încarcă exclusiv în client, iar când nu se pot încărca, formularul tot
-se trimite și cititorul primește numărul de telefon. Consecința pentru cele două branch-uri: **nu se
-aduce pe `main`** până nu rulează un backend (E01 S4) — acolo ar fi o pagină de conversie care nu
-poate afișa nicio oră.
+se trimite și cititorul primește numărul de telefon. Consecința pentru cele două branch-uri: **nu
+se aduce pe `release/prod`** până nu rulează un backend (E01 S4) — acolo ar fi o pagină de
+conversie care nu poate afișa nicio oră.
 
 **Restanța de documente se măsoară cu vârstă, nu doar cu număr** (E17 S8). `pendingSummary` din
 `apps/api/src/modules/project/project.service.ts` e proprietarul întrebării „cât așteaptă și de cât
