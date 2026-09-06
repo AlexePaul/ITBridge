@@ -42,8 +42,7 @@ proiectul, nu ramura. Deci pe `release/prod` vei citi despre module care nu exis
 sub tine — `enrollment`, `project`, `storage` — și e în regulă: sunt pe `release/stage`. Ce **nu** e
 în regulă e ca cele două copii ale documentației să divergă; dacă atingi una, adu-o și pe cealaltă.
 
-**Amândouă numele sunt noi: `main` → `release/prod` și `develop` → `release/stage`, septembrie
-2026.** Sunt redenumiri, nu branch-uri noi — același istoric, aceleași SHA-uri — deci un mesaj de
+**Amândouă numele sunt noi: `main` → `release/prod` și `develop` → `release/stage`, septembrie 2026.** Sunt redenumiri, nu branch-uri noi — același istoric, aceleași SHA-uri — deci un mesaj de
 commit, un titlu de PR sau un paragraf mai vechi care spune `main` sau `develop` vorbește despre
 ele. Pe origin nu mai există niciunul dintre numele vechi. Într-o clonă mai veche:
 
@@ -97,6 +96,15 @@ populată se deschidea pe „Nicio oră azi", cu cea mai nouă factură veche de
 implicitul e ziua curentă, iar `SEED_TODAY=2026-03-16` o fixează la loc dacă vrei două rulări
 identice. Grupele acoperă luni–sâmbătă tocmai ca „azi" să aibă o oră în șase zile din șapte.
 `pnpm seed` nu trece prin turbo, deci variabila **nu** se declară în `globalEnv`.
+
+**Seed-ul are două ținte, iar `seed-target.ts` e tot ce le desparte.** `pnpm seed` merge pe baza
+locală; `pnpm seed:stage` citește `.env.stage` și merge pe staging. Pe orice host care nu e
+localhost, `checkSeedTarget` cere două lucruri și le **refuză**, nu le avertizează:
+`SEED_ALLOW_NON_LOCAL` trebuie să fie **numele bazei**, nu `1` — un „da" rămas într-un fișier de
+mediu autorizează orice scrie `DB_NAME` data viitoare —, iar `SEED_PASSWORD` trebuie setată, fiindcă
+`parola123` e în repo și pe un host public ar fi un cont de admin publicat. Parola de pe staging nu
+se tipărește la final: ar ajunge în logul rulării. Regula e pură și are spec propriu; dacă adaugi o
+a treia țintă, treci prin ea, nu pe lângă.
 
 **O variabilă de mediu nouă trebuie declarată în `turbo.json`, la `globalEnv`.** Turbo rulează în
 mod `strict`: un task vede doar ce e declarat acolo, iar restul lipsesc fără niciun mesaj. E cea

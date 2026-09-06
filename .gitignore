@@ -13,6 +13,7 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.stage.example
 
 # Certificate și chei private. Nu se comit niciodată; TLS e gestionat de gazdă.
 certs/
