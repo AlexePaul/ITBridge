@@ -495,7 +495,9 @@ atinge prețul — unitatea rămâne luna, tariful rămâne pe ședință. Se sc
 catalog se facturează întregii grupe, prezent sau absent — semnalul e catalogul, nu numărul de
 copii care au venit —; iar o oră bifată „vacanță"
 se facturează doar copiilor care au venit la ea. Ecranul de emitere rămâne, ca verificare înainte de
-plecare, dar nu mai are ce introduce. Regula, cu exemplele lucrate, e în
+plecare, și are un singur lucru de introdus: o corectură pe copil, pentru luna în care numărul de
+plătit nu e cel numărat — consemnată cu cine, când și de ce, și înghețată odată cu factura. Regula,
+cu exemplele lucrate, e în
 [E15](E15-pricing-facturare.md) S9; bifa e o coloană pe ședință și se pune de la catalog, în
 [E12](E12-prezenta-orar.md) S8.
 
