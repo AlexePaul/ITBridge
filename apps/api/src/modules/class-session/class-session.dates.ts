@@ -59,6 +59,23 @@ export function isoWeekday(date: Date): Weekday {
 }
 
 /**
+ * The Monday that opens the ISO week `date` falls in — E12/S3.
+ *
+ * The school's week is the unit its absence rule is written in: a notice is due by Monday noon for
+ * everything that week, and a make-up is spent inside the same week or not at all. Both need the
+ * same two boundaries, so they are computed once, here, with the rest of this app's calendar
+ * arithmetic and by the same rules — local components only, never a round trip through UTC.
+ */
+export function startOfIsoWeek(date: Date): Date {
+    return addDays(date, -(isoWeekday(date) - Weekday.MONDAY));
+}
+
+/** The Sunday that closes that week, inclusive. */
+export function endOfIsoWeek(date: Date): Date {
+    return addDays(startOfIsoWeek(date), 6);
+}
+
+/**
  * Every occurrence of `weekday` in `[from, until)` — `from` included when it is that weekday.
  *
  * The window is half-open so that a horizon of N weeks is exactly `N * 7` days and contains exactly

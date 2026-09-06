@@ -42,6 +42,15 @@ export interface CurrentUser extends User {
     emailConfirmed: boolean;
     approvalStatus: ApprovalStatus;
     active: boolean;
+    /**
+     * Whether step two of registration is done — phone, address and an emergency contact.
+     *
+     * Derived on the server by `isProfileComplete`, for the same reason `active` is: the portal must
+     * not own a second copy of a rule the API enforces, or the screen that redirects and the
+     * endpoint that refuses would disagree about the same family. Always `true` for an admin, who
+     * has no profile and needs none.
+     */
+    profileComplete: boolean;
 }
 
 /** One row of the admin approvals queue, `GET /users/pending`. */

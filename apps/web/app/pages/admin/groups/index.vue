@@ -1,20 +1,25 @@
 <template>
-  <AdminPage title="Grupe" :subtitle="subtitle" width="xl">
-    <template #actions>
+  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold">Grupe</h1>
+        <p class="text-muted mt-1">{{ subtitle }}</p>
+      </div>
       <UButton
         color="secondary"
         variant="subtle"
+        class="mr-3 ml-auto flex items-center h-11"
         size="lg"
-        class="min-h-11 flex items-center"
-        icon="i-lucide-plus"
-        to="/admin/groups/new"
+        @click="handleAddGroup"
       >
-        Adaugă grupă nouă
+        <UIcon name="i-lucide-plus" class="mr-2" />
+        Adaugă Grup nou
       </UButton>
-      <UBadge color="primary" variant="subtle" size="lg" class="min-h-11 flex items-center px-4">
+      <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
         {{ visibleGroups.length }} total
       </UBadge>
-    </template>
+    </div>
 
     <!--
       Schedule generation, on the page where groups are born.
@@ -71,7 +76,7 @@
               <template v-for="group in groupsByDay(day.id)" :key="group.id">
                 <GroupCard
                   :group="group"
-                  :occupancy="occupancyOf(group.id)"
+                  :occupancy="occupancyByGroup.get(group.id)"
                   @edit="handleEditGroup"
                   @manage-children="handleManageChildren"
                 />
@@ -89,16 +94,20 @@
         </div>
       </template>
     </div>
-  </AdminPage>
+  </div>
 </template>
 <script setup lang="ts">
 import { WEEKDAYS_IN_ORDER, WEEKDAY_LABELS } from "~/types/group.types";
+import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
+import { useReportsApi } from "~/composables/api/useReportsApi";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { generatedScheduleMessage } from "~/composables/useClassSessionSchedule";
-import { useGroupOccupancy } from "~/composables/useGroupOccupancy";
 import { useNotifications } from "~/composables/useNotifications";
+import { formatTime } from "~/composables/useUtils";
+import { useChildrenStore } from "~/stores/childrenStore";
+import { useGroupsStore } from "~/stores/groupsStore";
 import { useLocationStore } from "~/stores/locationStore";
 import type { Group } from "~/types/group.types";
 
@@ -112,20 +121,43 @@ definePageMeta({
 // group — which the API and both group forms accept — rendered in no section at all.
 const days = WEEKDAYS_IN_ORDER.map((id) => ({ id, label: WEEKDAY_LABELS[id] }));
 const groupsApi = useGroupsApi();
+const childrenStore = useChildrenStore();
+const groupsStore = useGroupsStore();
+const childrenApi = useChildrenApi();
+const reportsApi = useReportsApi();
 
 const groups: Ref<Group[]> = ref([]);
+/**
+ * Seats per group, keyed by id — E18/S5, and the reason this fetch exists.
+ *
+ * The cards used to derive the figure in the browser, from the children store. `occupancyOf` owns
+ * it (D7: active plus trials), `GET /reports/occupancy` carries it, and asking gains the waiting
+ * list, which no client-side count can see. See `GroupCard` for why the old number agreed anyway.
+ * If the call fails the cards fall back to naming the capacity and saying nothing about how full
+ * they are — the honest shape of "I could not ask".
+ */
+const occupancyByGroup = ref(
+  new Map<number, { taken: number; free: number; capacity: number; waiting: number }>()
+);
 const locationStore = useLocationStore();
 const classSessionsApi = useClassSessionsApi();
 const { success, error } = useNotifications();
 const isGeneratingSchedule = ref(false);
 
-// Seats come from the server, per D7 — the children this page could count do not include trials.
-// The page used to load every child in the school for that wrong count; now it loads none.
-const { occupancyOf, loadFor } = useGroupOccupancy();
-
 onMounted(async () => {
   groups.value = await groupsApi.fetchGroups();
-  await loadFor(groups.value.map((group) => group.id));
+  await childrenApi.fetchChildren();
+  try {
+    const report = await reportsApi.fetchOccupancyReport();
+    occupancyByGroup.value = new Map(
+      report.groups.map((group) => [
+        group.groupId,
+        { taken: group.taken, free: group.free, capacity: group.capacity, waiting: group.waiting },
+      ])
+    );
+  } catch {
+    // Cards then show the capacity without a fill. See the note on `occupancyByGroup`.
+  }
 });
 
 // The header says which location is being shown; this list has to agree with it, or the count and
@@ -164,6 +196,10 @@ const handleGenerateSchedule = async () => {
   } finally {
     isGeneratingSchedule.value = false;
   }
+};
+
+const handleAddGroup = () => {
+  navigateTo("/admin/groups/new");
 };
 
 const handleEditGroup = (groupId: number) => {

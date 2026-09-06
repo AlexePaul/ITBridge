@@ -73,6 +73,7 @@ pnpm install
 docker compose up -d              # Postgres + MinIO; aplicația rulează pe Node
 pnpm --filter api migration:run   # schema; synchronize e oprit
 pnpm seed                         # date de dezvoltare; admin / parola123
+SEED_TODAY=2026-03-16 pnpm seed   # aceleași date, dar ancorate la o zi fixă
 pnpm dev                          # api + web, hot reload
 
 pnpm build          # turbo, în ordinea dependențelor
@@ -88,6 +89,30 @@ pnpm --filter api <script>   # o comandă într-un singur workspace
 Aplicația **nu** rulează în Docker, nici local nici în producție. Backend-ul își citește `.env`
 prin `apps/api/src/load-env.ts`, importat înaintea oricărui modul care atinge `process.env` la
 încărcare — dacă adaugi un import nou în `main.ts`, lasă-l pe ăsta primul.
+
+**Seed-ul e ancorat la ziua de azi, nu la o constantă.** Tot ce scrie atârnă de `SEED_TODAY` din
+`apps/api/src/seed/seed.ts`: cele opt săptămâni de prezență din urmă, orizontul de orar din față,
+lunile care au facturi. Era o dată fixă, iar la șase luni după ce a fost scrisă o bază proaspăt
+populată se deschidea pe „Nicio oră azi", cu cea mai nouă factură veche de jumătate de an. Acum
+implicitul e ziua curentă, iar `SEED_TODAY=2026-03-16` o fixează la loc dacă vrei două rulări
+identice. Grupele acoperă luni–sâmbătă tocmai ca „azi" să aibă o oră în șase zile din șapte.
+`pnpm seed` nu trece prin turbo, deci variabila **nu** se declară în `globalEnv`.
+
+**Seed-ul are două ținte, iar `seed-target.ts` e tot ce le desparte.** `pnpm seed` merge pe baza
+locală; `pnpm seed:stage` citește `.env.stage` și merge pe staging. Pe orice host care nu e
+localhost, `checkSeedTarget` cere două lucruri și le **refuză**, nu le avertizează:
+`SEED_ALLOW_NON_LOCAL` trebuie să fie **numele bazei**, nu `1` — un „da" rămas într-un fișier de
+mediu autorizează orice scrie `DB_NAME` data viitoare —, iar `SEED_PASSWORD` trebuie setată, fiindcă
+`parola123` e în repo și pe un host public ar fi un cont de admin publicat. Parola de pe staging nu
+se tipărește la final: ar ajunge în logul rulării. Regula e pură și are spec propriu; dacă adaugi o
+a treia țintă, treci prin ea, nu pe lângă.
+
+**`seed:stage` trimite `SEED_TARGET=stage`, iar o bază locală de acolo e refuz.** `dotenv -e
+.env.stage` **nu dă eroare când fișierul lipsește** — încarcă nimic —, iar `data-source.ts` cade
+atunci pe `localhost`, deci comanda ar fi golit tăcut baza de dezvoltare a celui care aștepta să se
+umple staging-ul: exact greșeala de țintă pe care restul fișierului o oprește, intrată pe ușa din
+față. Dacă adaugi o comandă de seed pentru încă un mediu, dă-i și ei un `SEED_TARGET` — un flag de
+mediu care se pierde tăcut e mai rău decât unul care lipsește.
 
 **O variabilă de mediu nouă trebuie declarată în `turbo.json`, la `globalEnv`.** Turbo rulează în
 mod `strict`: un task vede doar ce e declarat acolo, iar restul lipsesc fără niciun mesaj. E cea
@@ -109,15 +134,17 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — nouăsprezece module în `apps/api/src/modules/`, cincisprezece după același tipar
+**Backend** — douăzeci de module în `apps/api/src/modules/`, cincisprezece după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
 `room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, `announcement`,
 `lead`.
-Patru ies din tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
+Cinci ies din tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
 și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
 decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
 (agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
-ce ia părintele acasă, ce cere agentul. Entitățile stau centralizat în `apps/api/src/entities/` și
+ce ia părintele acasă, ce cere agentul. `dashboard` are și el două controllere și patru servicii, dar
+din motivul opus: nu deține nimic, ci adună — vezi regula lui E21 mai jos. Entitățile stau centralizat
+în `apps/api/src/entities/` și
 sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
 reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
 
@@ -269,12 +296,36 @@ repartizarea unui copil într-o grupă (`PARENT_ACCOUNT_NOT_ACTIVE`). **Un cont 
 autentifica** — portalul îi arată ce mai lipsește și butonul de retrimitere a linkului; un login care
 refuză fără să explice ar lăsa familia să nu distingă „încă nu" de „stricat".
 
-**`register` scrie și `Profile`-ul, în aceeași tranzacție.** Nu mai există fereastra în care un cont
-există fără date de contact, deci `/user/profile-setup` nu mai are ce cere unui părinte nou. Celălalt
-drum către un `Profile` — adminul care introduce o familie de la telefon, prin `POST /profiles` —
-rămâne exact cum era, cu toate câmpurile opționale. Sunt două uși cu reguli diferite, fiindcă au
-surse de adevăr diferite. Un test ține fluxul adminului viu, ca să nu fie strâns din greșeală odată
-cu `register`.
+**Înregistrarea are doi pași, iar al doilea nu se poate sări.** `register` cere cinci câmpuri —
+utilizator, parolă, prenume, nume, email — și scrie în aceeași tranzacție contul, un `Profile`
+**coajă** (atât cât să știm cine e și unde pleacă linkul de confirmare), tokenul de confirmare și
+mesajele din outbox. Restul — telefon, adresă și contactul de urgență, toate trei — se cer imediat
+după, pe `/user/profile-setup`, prin `PUT /profiles/:id`, unde sunt **obligatorii**. E11/S2 avusese
+dreptate să strângă cei doi pași într-unul: ecranul al doilea de atunci era _opțional_, deci o
+familie putea rămâne pentru totdeauna fără nicio cale de contact. Dar rezultatul a fost un prim
+ecran cu zece câmpuri obligatorii, fix în epicul în care E20 coboară bariera de intrare — iar cine
+abandonează la câmpul opt nu e o familie cu date incomplete, e o familie pe care școala n-a
+văzut-o. Distincția față de starea dinainte de S2 e tot ce contează: pasul doi e acum de netrecut.
+
+„Complet" nu se stochează, se derivă — `isProfileComplete` din
+`apps/api/src/entities/profile.entity.ts` — din același motiv pentru care nu există o coloană
+„activ": o a treia valoare ar fi liberă să contrazică cele șase câmpuri pe care le rezumă. Pleacă pe
+sârmă ca `CurrentUser.profileComplete`, iar frontend-ul **nu o recalculează**: middleware-ul care
+redirecționează și endpoint-ul care refuză repartizarea trebuie să spună același lucru despre
+aceeași familie.
+
+Poarta e tot repartizarea într-o grupă, dar cu cod propriu: `PARENT_PROFILE_INCOMPLETE`, separat de
+`PARENT_ACCOUNT_NOT_ACTIVE`, fiindcă unul așteaptă un admin și celălalt așteaptă părintele — iar
+trimiterea la ușa greșită înseamnă o familie care așteaptă pe cineva ce n-are ce face. Se verifică
+în `EnrollmentService.enrol`, numai pentru profilurile **care au cont**: programarea publică la
+probă din E20 scrie tot un `Profile` coajă, fără user, fără email și fără telefon, iar o poartă
+oarbă la asta ar închide exact ușa pe care epicul o deschide. Nu se verifică la `transfer`: o
+familie deja înscrisă nu se blochează retroactiv.
+
+Celălalt drum către un `Profile` — adminul care introduce o familie de la telefon, prin
+`POST /profiles` — rămâne exact cum era, cu toate câmpurile opționale. Sunt două uși cu reguli
+diferite, fiindcă au surse de adevăr diferite. Un test ține fluxul adminului viu, ca să nu fie
+strâns din greșeală odată cu `register`.
 
 Protecția se compune per-handler, nu global:
 
@@ -295,7 +346,7 @@ if (role !== Role.ADMIN) {
 }
 ```
 
-Vezi `apps/api/src/modules/invoice/invoice.service.ts:92`. Același tipar în `payment`, `child`, `profile` — respectă-l.
+Vezi `apps/api/src/modules/invoice/invoice.service.ts:118`. Același tipar în `payment`, `child`, `profile` — respectă-l.
 
 **Numai `andWhere`, niciodată `where`, după ce ai început să compui.** `qb.where()` _înlocuiește_
 toată clauza, deci un `where` pus după restrângerea pe utilizator o șterge fără niciun semn. Exact
@@ -456,8 +507,15 @@ rulează `check:schema`, care construiește o bază de unică folosință din mi
 entitățile au divergat.
 
 Când schimbi o entitate: `pnpm --filter api migration:generate src/migrations/<Nume>`, apoi citește
-SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD` — dacă asta
-ar pierde date, rescrie migrarea de mână.
+SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD`.
+
+**Nu te chinui însă să păstrezi date: nu există niciunele.** Baza nu rulează nicăieri în afara
+mașinilor de dezvoltare și a testelor, n-a avut niciodată un utilizator real, iar seed-ul se reface
+dintr-o comandă. Deci o migrare generată se ia ca atare, se rescriu liber migrările nepornite încă
+și nu se scrie cod de backfill pentru rânduri care nu există. Ce **rămâne** obligatoriu e ca migrările
+să existe și să corespundă entităților, fiindcă de asta depinde `check:schema` din CI — și fiindcă
+regula se schimbă în ziua în care există prima familie reală (E01 S4). Până atunci, singurul cost al
+unei migrări greșite e un `docker compose down -v`.
 
 **Migrările nu rulează la boot.** `migrationsRun` e `false` intenționat: în deploy se rulează
 explicit, între build și `pm2 reload`, ca o migrare eșuată să oprească deploy-ul în loc să lase
@@ -618,6 +676,24 @@ ceva de plată" înseamnă `pending` sau `overdue` cu rest pozitiv, adică fix c
 `GET /invoices/arrears`. Dacă adaugi un al doilea loc de unde se încasează, cere-i tot un rând de
 acolo — o a doua scădere `amount - plăți` ar fi a doua definiție a aceluiași număr.
 
+**Chitanța se datorează când o plată _devine_ `succeeded`, nu când se scrie un rând** (E16 S6).
+Regula e în `apps/api/src/modules/payment/payment-receipt.rules.ts`, iar distincția e tot ce
+contează: un transfer trecut ca `initiated` cât timp extrasul e provizoriu n-a ajuns încă, iar „am
+primit plata" atunci e o promisiune despre banii altcuiva. Deci `createPayment` trimite dacă plata
+intră direct reușită, `updatePayment` trimite dacă tocmai a devenit, iar o editare pe o plată deja
+reușită nu retrimite — n-a devenit adevărat nimic. `PaymentStatus` are patru stări și **niciuna nu
+se numește `PENDING`**: sunt `INITIATED`, `SUCCEEDED`, `FAILED` și `REVERSED`; un test scris cu
+`PaymentStatus.PENDING` compară cu `undefined` și trece degeaba.
+
+Restul de plată din chitanță vine din `recomputeInvoiceStatus`, care returnează
+`{ paid, outstanding, status }` — suma plăților reușite se face acolo oricum, iar un
+`amount - plăți` scris a doua oară în compozitor ar fi exact a doua definiție de mai sus. Cheia de
+deduplicare e `receipt:<id-ul plății>`, **fără ziua în ea**, spre deosebire de mementourile de
+restanță: alea se repetă prin design, o plată se confirmă o dată. Mesajul se pune în coadă în
+tranzacția care înregistrează banii — dă-i `EntityManager`-ul —, iar dacă adaugi un al doilea loc de
+unde se încasează, cheamă și de acolo aceeași ușă: o încasare tăcută arată pentru familie exact ca
+una pierdută.
+
 **Numai marketingul stă pe o bifă** (E17 S4). `Profile.marketingOptIn` e implicit `false` — un
 consimțământ pe care nu l-a dat nimeni nu e consimțământ — și gatează exclusiv `queueMarketing`.
 `queue` și `queueOrRecord` **nu primesc deloc preferința**, deci nu există argument prin care cineva
@@ -760,7 +836,8 @@ tick. Fixarea se face în fișierul de ecosistem din E01 S4, care nu există în
 **Orizontul de opt săptămâni nu se rulează singur.** Ședințele se scriu doar la cerere, prin
 `POST /class-sessions/generate` (admin); nu există niciun job care să le scrie. Ce e programat în
 backend — dispecerul de outbox și verificarea de la minutul 15 (`@Interval`), mementoul de la 10:00,
-cele două notificări către părinte din E12 S4 și mementourile de restanță din E16 S7 (`@Cron`), plus
+cele două notificări către părinte din E12 S4, mementourile de restanță din E16 S7 și măturarea
+ofertelor de pe lista de așteptare din E11 S3 (`@Cron`), plus
 purjarea sesiunilor, care stă în continuare pe
 un `setInterval` propriu în `apps/api/src/modules/auth/session.service.ts` — **nu generează orar**,
 niciunul. Iar prezența se marchează pe
@@ -914,8 +991,8 @@ deployat nicăieri** în acest moment, deci site-ul funcționează efectiv ca pr
 deploy se scrie în [E01](docs/epics/E01-infrastructura-medii.md), S4. Până atunci repo-ul nu
 conține niciun workflow de deploy — dacă nu găsești unul, nu s-a pierdut, nu există încă.
 
-`docker-compose.yml` conține exclusiv Postgres. Aplicația rulează direct pe Node, local și în
-producție. Nu adăuga servicii de aplicație acolo.
+`docker-compose.yml` conține Postgres și MinIO — infrastructura, și numai ea. Aplicația rulează
+direct pe Node, local și în producție. Nu adăuga servicii de aplicație acolo.
 
 **Cheie Let's Encrypt compromisă, în istoric.** Un `privkey.pem` real, valid până în ianuarie
 2027, a fost comitat la `58e2634` și a rămas în repo până la curățenia din E01. Fișierele au fost
@@ -970,12 +1047,13 @@ Zona autentificată nu e verificată deloc: se rescrie în E18 S4 și S5 și se 
 capete una. `pnpm --filter agent test` compilează întâi și rulează din `dist`: un `.ts` cu `import`
 e interpretat de Node ca modul ES, iar acolo importurile fără extensie nu se rezolvă.
 
-**Bug-urile cunoscute sunt scrise ca `it.failing`**, nu ca teste care cimentează comportamentul
+**Bug-urile cunoscute se scriu ca `it.failing`**, nu ca teste care cimentează comportamentul
 greșit. Un astfel de test trece cât timp bug-ul există și devine roșu în clipa în care e reparat —
-moment în care se șterge `.failing`. Convenția și-a făcut deja treaba de două ori: testele de preț
-la doi și la trei copii au devenit teste de regresie când bug-ul a fost reparat, iar unul care
-cimenta comportamentul greșit — „charges 250 per child for two children" — a fost șters. Vezi
-crearea de profiluri fără date de contact pentru un exemplu încă viu.
+moment în care se șterge `.failing`. Convenția și-a făcut treaba de trei ori și **în momentul ăsta
+nu mai e niciun `it.failing` viu în repo**: prețul la doi copii, prețul la trei sau mai mulți și
+crearea de profiluri fără date de contact au devenit toate teste de regresie, iar unul care cimenta
+comportamentul greșit — „charges 250 per child for two children" — a fost șters. Dacă vrei un
+exemplu, citește-le în `pricing.spec.ts` ca teste normale; convenția rămâne pentru bug-ul următor.
 
 ## Planul de lucru
 

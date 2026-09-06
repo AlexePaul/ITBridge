@@ -3,9 +3,9 @@ import {
   formatDateKey,
   formatLei,
   formatMonth,
-  formatMonthName,
   formatPercent,
-  formatSeats,
+  ageOn,
+  formatAge,
 } from "~/composables/useAdminFormat";
 
 /**
@@ -87,51 +87,45 @@ describe("formatPercent", () => {
   });
 });
 
-/**
- * Seats — E18/S5b, and D7.
- *
- * The group card used to print the length of the enrolled-children list, which has no trials in
- * it, so a full group advertised a free seat on the screen where somebody picks a group for a
- * child. The count now comes from the server; what is held here is that the formatter refuses to
- * invent one when it has not arrived, because a wrong number reads exactly like a right one.
- */
-describe("formatSeats", () => {
-  it("prints the counted seats against the capacity", () => {
-    expect(formatSeats(7, 10)).toBe("7 din 10 locuri ocupate");
-    expect(formatSeats(0, 10)).toBe("0 din 10 locuri ocupate");
+describe("ageOn", () => {
+  it("counts whole years", () => {
+    expect(ageOn("2018-03-16", "2026-09-05")).toBe(8);
   });
 
-  it("says a full group is full", () => {
-    expect(formatSeats(10, 10)).toBe("10 din 10 locuri ocupate");
+  it("has not counted the birthday that has not happened yet this year", () => {
+    expect(ageOn("2018-10-01", "2026-09-05")).toBe(7);
   });
 
-  it("dashes the count it has not been given, rather than guessing zero", () => {
-    expect(formatSeats(undefined, 10)).toBe("— din 10 locuri ocupate");
-    expect(formatSeats(null, 10)).toBe("— din 10 locuri ocupate");
-    expect(formatSeats(Number.NaN, 10)).toBe("— din 10 locuri ocupate");
+  it("counts the birthday on the day itself", () => {
+    expect(ageOn("2018-09-05", "2026-09-05")).toBe(8);
+    expect(ageOn("2018-09-06", "2026-09-05")).toBe(7);
+  });
+
+  it("does not go through Date, so the answer cannot slip a day east of Greenwich", () => {
+    // The trap: `new Date("2018-01-01")` is UTC midnight, which is 02:00 in Bucharest — and read
+    // back through local components it is still 1 January, but the same trick on 31 December
+    // returns the 30th. Comparing the strings' own integers has no such edge.
+    expect(ageOn("2018-01-01", "2026-01-01")).toBe(8);
+    expect(ageOn("2018-12-31", "2026-12-31")).toBe(8);
+  });
+
+  it("answers null for anything that is not a date, rather than NaN", () => {
+    expect(ageOn("", "2026-09-05")).toBeNull();
+    expect(ageOn("cândva", "2026-09-05")).toBeNull();
+  });
+
+  it("answers null for a birth date in the future instead of a negative age", () => {
+    expect(ageOn("2030-01-01", "2026-09-05")).toBeNull();
   });
 });
 
-/**
- * The month alone — E18/S5b.
- *
- * Added when the invoice list and the month page turned out to carry a month-name table each, one
- * of them capitalised and keyed by number. Both read this now, and `formatMonth` is built on it, so
- * there is one table.
- */
-describe("formatMonthName", () => {
-  it("names the month without the year", () => {
-    expect(formatMonthName("2026-03")).toBe("martie");
-    expect(formatMonthName("2026-12")).toBe("decembrie");
+describe("formatAge", () => {
+  it("agrees with the singular", () => {
+    expect(formatAge("2025-01-01", "2026-09-05")).toBe("1 an");
+    expect(formatAge("2018-03-16", "2026-09-05")).toBe("8 ani");
   });
 
-  it("agrees with formatMonth, which is built on it", () => {
-    expect(formatMonth("2026-03")).toBe(`${formatMonthName("2026-03")} 2026`);
-  });
-
-  it("returns anything it does not understand unchanged", () => {
-    expect(formatMonthName("2026-13")).toBe("2026-13");
-    expect(formatMonthName("martie")).toBe("martie");
-    expect(formatMonthName("")).toBe("");
+  it("prints the dash when there is no usable date", () => {
+    expect(formatAge("", "2026-09-05")).toBe("—");
   });
 });

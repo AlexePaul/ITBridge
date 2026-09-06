@@ -223,7 +223,7 @@ alternativa e o interogare în baza de date la fiecare cerere autentificată. Sc
 
 **Rotația e atomică sub concurență, cu blocare pe rând.** Prima formă claim-uia tokenul cu un UPDATE
 condiționat și insera succesorul în afara oricărei tranzacții — deci un replay concurent putea
-detecta refolosirea și mătura familia *înainte* ca succesorul să fi fost inserat, iar tokenul rămânea
+detecta refolosirea și mătura familia _înainte_ ca succesorul să fi fost inserat, iar tokenul rămânea
 viu. Reprodus cu cinci refresh-uri simultane: patru 401-uri, și succesorul funcționa în continuare.
 Acum tranzacția ia `SELECT … FOR UPDATE` pe rândul tokenului, iar măturarea familiei se face după
 commit, în afara tranzacției — altfel 401-ul de după ar da rollback tocmai revocării.
@@ -238,11 +238,11 @@ Fiecare endpoint e trecut prin listă: are `AuthGuard`? are `RolesGuard` unde tr
 filtrarea pe date din service pentru non-admini? Rezultatul e un tabel în acest fișier, actualizat
 la fiecare endpoint nou.
 
-Tiparul de referință e cel din `apps/api/src/modules/invoice/invoice.service.ts:92`:
+Tiparul de referință e cel din `apps/api/src/modules/invoice/invoice.service.ts:118`:
 
 ```ts
 if (role !== Role.ADMIN) {
-    qb.leftJoin('parent.user', 'user').andWhere('user.id = :userId', { userId });
+  qb.leftJoin("parent.user", "user").andWhere("user.id = :userId", { userId });
 }
 ```
 
@@ -264,57 +264,57 @@ scoată tăcut toate endpoint-urile din matrice.
 Coloana „restrâns pe date" e singura scrisă de mână: reflecția vede guard-ele, nu ce face
 service-ul. E lista din script, iar testele unitare cu `isScopedToUser` o verifică.
 
-| Method | Route | Handler | AuthGuard | Role | Row-scoped |
-|---|---|---|---|---|---|
-| PATCH | `/attendance/:attendanceId` | `AttendanceController.updateAttendance` | yes | ADMIN | — |
-| POST | `/attendance/:groupId` | `AttendanceController.createAttendance` | yes | ADMIN | — |
-| GET | `/attendance/child/:childId` | `AttendanceController.getAttendanceByChild` | yes | any | yes |
-| POST | `/auth/login` | `AuthController.login` | **public** | any | — |
-| POST | `/auth/logout` | `AuthController.logout` | **public** | any | — |
-| POST | `/auth/logout-all` | `AuthController.logoutEverywhere` | yes | any | yes |
-| GET | `/auth/me` | `AuthController.getProfile` | yes | any | — |
-| POST | `/auth/refresh` | `AuthController.refresh` | **public** | any | — |
-| POST | `/auth/register` | `AuthController.register` | **public** | any | — |
-| GET | `/auth/sessions` | `AuthController.sessions` | yes | any | yes |
-| GET | `/children` | `ChildController.findChildren` | yes | any | yes |
-| POST | `/children` | `ChildController.createChild` | yes | any | yes |
-| DELETE | `/children/:childId` | `ChildController.deleteChild` | yes | any | yes |
-| PUT | `/children/:childId` | `ChildController.updateChild` | yes | any | yes |
-| DELETE | `/children/:childId/groups/:groupId` | `ChildController.removeChildFromGroup` | yes | ADMIN | — |
-| POST | `/children/:childId/groups/:groupId` | `ChildController.assignChildToGroup` | yes | ADMIN | — |
-| GET | `/discounts` | `DiscountController.findDiscounts` | yes | ADMIN | — |
-| POST | `/discounts` | `DiscountController.createDiscount` | yes | ADMIN | — |
-| DELETE | `/discounts/:id` | `DiscountController.deleteDiscount` | yes | ADMIN | — |
-| PUT | `/discounts/:id` | `DiscountController.updateDiscount` | yes | ADMIN | — |
-| GET | `/groups` | `GroupController.getGroups` | yes | any | — |
-| POST | `/groups` | `GroupController.createGroup` | yes | ADMIN | — |
-| DELETE | `/groups/:id` | `GroupController.deleteGroup` | yes | ADMIN | — |
-| GET | `/groups/:id` | `GroupController.getGroupById` | yes | ADMIN | — |
-| PUT | `/groups/:id` | `GroupController.updateGroup` | yes | ADMIN | — |
-| GET | `/health` | `HealthController.health` | **public** | any | — |
-| GET | `/invoices` | `InvoiceController.findInvoices` | yes | any | yes |
-| POST | `/invoices` | `InvoiceController.createInvoice` | yes | ADMIN | — |
-| DELETE | `/invoices/:id` | `InvoiceController.remove` | yes | ADMIN | — |
-| GET | `/invoices/:id` | `InvoiceController.findOne` | yes | any | yes |
-| PUT | `/invoices/:id` | `InvoiceController.update` | yes | ADMIN | — |
-| GET | `/invoices/:id/pdf` | `InvoiceController.getInvoicePdf` | yes | any | yes |
-| POST | `/invoices/preview` | `InvoiceController.previewInvoicePdf` | yes | ADMIN | — |
-| GET | `/payments` | `PaymentController.findPayments` | yes | any | yes |
-| POST | `/payments` | `PaymentController.createPayment` | yes | ADMIN | — |
-| DELETE | `/payments/:id` | `PaymentController.deletePayment` | yes | ADMIN | — |
-| GET | `/payments/:id` | `PaymentController.findOne` | yes | any | yes |
-| PUT | `/payments/:id` | `PaymentController.updatePayment` | yes | ADMIN | — |
-| GET | `/profiles` | `ProfileController.findProfiles` | yes | any | yes |
-| POST | `/profiles` | `ProfileController.createProfile` | yes | any | yes |
-| DELETE | `/profiles/:profileId` | `ProfileController.deleteProfile` | yes | any | yes |
-| PUT | `/profiles/:profileId` | `ProfileController.updateProfile` | yes | any | yes |
-| GET | `/ready` | `HealthController.ready` | **public** | any | — |
-| GET | `/users` | `UserController.getAllUsers` | yes | ADMIN | — |
-| DELETE | `/users/:id` | `UserController.deleteUser` | yes | ADMIN | — |
-| GET | `/users/:id` | `UserController.getUserById` | yes | ADMIN | — |
-| PUT | `/users/:id` | `UserController.updateUser` | yes | ADMIN | — |
-| GET | `/users/without-profile` | `UserController.getUsersWithoutProfile` | yes | ADMIN | — |
-48 endpoints.
+| Method        | Route                                | Handler                                     | AuthGuard  | Role  | Row-scoped |
+| ------------- | ------------------------------------ | ------------------------------------------- | ---------- | ----- | ---------- |
+| PATCH         | `/attendance/:attendanceId`          | `AttendanceController.updateAttendance`     | yes        | ADMIN | —          |
+| POST          | `/attendance/:groupId`               | `AttendanceController.createAttendance`     | yes        | ADMIN | —          |
+| GET           | `/attendance/child/:childId`         | `AttendanceController.getAttendanceByChild` | yes        | any   | yes        |
+| POST          | `/auth/login`                        | `AuthController.login`                      | **public** | any   | —          |
+| POST          | `/auth/logout`                       | `AuthController.logout`                     | **public** | any   | —          |
+| POST          | `/auth/logout-all`                   | `AuthController.logoutEverywhere`           | yes        | any   | yes        |
+| GET           | `/auth/me`                           | `AuthController.getProfile`                 | yes        | any   | —          |
+| POST          | `/auth/refresh`                      | `AuthController.refresh`                    | **public** | any   | —          |
+| POST          | `/auth/register`                     | `AuthController.register`                   | **public** | any   | —          |
+| GET           | `/auth/sessions`                     | `AuthController.sessions`                   | yes        | any   | yes        |
+| GET           | `/children`                          | `ChildController.findChildren`              | yes        | any   | yes        |
+| POST          | `/children`                          | `ChildController.createChild`               | yes        | any   | yes        |
+| DELETE        | `/children/:childId`                 | `ChildController.deleteChild`               | yes        | any   | yes        |
+| PUT           | `/children/:childId`                 | `ChildController.updateChild`               | yes        | any   | yes        |
+| DELETE        | `/children/:childId/groups/:groupId` | `ChildController.removeChildFromGroup`      | yes        | ADMIN | —          |
+| POST          | `/children/:childId/groups/:groupId` | `ChildController.assignChildToGroup`        | yes        | ADMIN | —          |
+| GET           | `/discounts`                         | `DiscountController.findDiscounts`          | yes        | ADMIN | —          |
+| POST          | `/discounts`                         | `DiscountController.createDiscount`         | yes        | ADMIN | —          |
+| DELETE        | `/discounts/:id`                     | `DiscountController.deleteDiscount`         | yes        | ADMIN | —          |
+| PUT           | `/discounts/:id`                     | `DiscountController.updateDiscount`         | yes        | ADMIN | —          |
+| GET           | `/groups`                            | `GroupController.getGroups`                 | yes        | any   | —          |
+| POST          | `/groups`                            | `GroupController.createGroup`               | yes        | ADMIN | —          |
+| DELETE        | `/groups/:id`                        | `GroupController.deleteGroup`               | yes        | ADMIN | —          |
+| GET           | `/groups/:id`                        | `GroupController.getGroupById`              | yes        | ADMIN | —          |
+| PUT           | `/groups/:id`                        | `GroupController.updateGroup`               | yes        | ADMIN | —          |
+| GET           | `/health`                            | `HealthController.health`                   | **public** | any   | —          |
+| GET           | `/invoices`                          | `InvoiceController.findInvoices`            | yes        | any   | yes        |
+| POST          | `/invoices`                          | `InvoiceController.createInvoice`           | yes        | ADMIN | —          |
+| DELETE        | `/invoices/:id`                      | `InvoiceController.remove`                  | yes        | ADMIN | —          |
+| GET           | `/invoices/:id`                      | `InvoiceController.findOne`                 | yes        | any   | yes        |
+| PUT           | `/invoices/:id`                      | `InvoiceController.update`                  | yes        | ADMIN | —          |
+| GET           | `/invoices/:id/pdf`                  | `InvoiceController.getInvoicePdf`           | yes        | any   | yes        |
+| POST          | `/invoices/preview`                  | `InvoiceController.previewInvoicePdf`       | yes        | ADMIN | —          |
+| GET           | `/payments`                          | `PaymentController.findPayments`            | yes        | any   | yes        |
+| POST          | `/payments`                          | `PaymentController.createPayment`           | yes        | ADMIN | —          |
+| DELETE        | `/payments/:id`                      | `PaymentController.deletePayment`           | yes        | ADMIN | —          |
+| GET           | `/payments/:id`                      | `PaymentController.findOne`                 | yes        | any   | yes        |
+| PUT           | `/payments/:id`                      | `PaymentController.updatePayment`           | yes        | ADMIN | —          |
+| GET           | `/profiles`                          | `ProfileController.findProfiles`            | yes        | any   | yes        |
+| POST          | `/profiles`                          | `ProfileController.createProfile`           | yes        | any   | yes        |
+| DELETE        | `/profiles/:profileId`               | `ProfileController.deleteProfile`           | yes        | any   | yes        |
+| PUT           | `/profiles/:profileId`               | `ProfileController.updateProfile`           | yes        | any   | yes        |
+| GET           | `/ready`                             | `HealthController.ready`                    | **public** | any   | —          |
+| GET           | `/users`                             | `UserController.getAllUsers`                | yes        | ADMIN | —          |
+| DELETE        | `/users/:id`                         | `UserController.deleteUser`                 | yes        | ADMIN | —          |
+| GET           | `/users/:id`                         | `UserController.getUserById`                | yes        | ADMIN | —          |
+| PUT           | `/users/:id`                         | `UserController.updateUser`                 | yes        | ADMIN | —          |
+| GET           | `/users/without-profile`             | `UserController.getUsersWithoutProfile`     | yes        | ADMIN | —          |
+| 48 endpoints. |
 
 De regenerat după fiecare endpoint nou.
 
@@ -351,7 +351,7 @@ aplicația chiar pornită pe date de seed, a găsit lucruri pe care nicio suită
 scrise aici fiindcă tiparul se repetă, nu bug-urile.
 
 **O breșă de autorizare, într-un singur caracter.** `PaymentService.findOne` compunea restrângerea
-pe utilizator cu `andWhere` și apoi adăuga filtrul pe id cu `where` — care *înlocuiește* toată
+pe utilizator cu `andWhere` și apoi adăuga filtrul pe id cu `where` — care _înlocuiește_ toată
 clauza. Orice părinte autentificat putea citi plata oricărei alte familii, cu factura și profilul
 complet atașate: nume, e-mail, telefon, adresă. Testul unitar `isScopedToUser` verifica doar că s-a
 adăugat un `andWhere`, nu că a supraviețuit. Reprodus cu doi părinți reali.
@@ -364,8 +364,8 @@ schimbare din `apps/api`, și niciuna vizibilă din testele de integrare.
 cinci cereri simultane. Testele secvențiale sunt un eșantion, nu o dovadă, pe orice cod care are
 stare partajată.
 
-**Ce nu se vede fără să rulezi.** `/ready` întorcea corect 503 cu baza *oprită* și atârna la
-nesfârșit cu baza *blocată*. Diferența nu se citește din cod; se vede punând containerul pe pauză.
+**Ce nu se vede fără să rulezi.** `/ready` întorcea corect 503 cu baza _oprită_ și atârna la
+nesfârșit cu baza _blocată_. Diferența nu se citește din cod; se vede punând containerul pe pauză.
 
 **Cifre care sunau a garanție.** „Toate cele 48 de rânduri au deja teste" — două nu aveau.
 Un `coverageThreshold` configurat pe trei fișiere, pe care CI nu-l rula. `session.service.ts`, care

@@ -68,20 +68,6 @@ const MONTHS_LONG = [
 ];
 
 /**
- * `"2026-03"` → `"martie"`. The month alone, for a card that already sits under its year.
- *
- * Shares `MONTHS_LONG` with `formatMonth` below rather than carrying a second table: the invoice
- * list and the month page had each grown their own, one of them capitalised and keyed by number,
- * and a fourth copy was about to be written. Anything that is not a `YYYY-MM` prefix comes back
- * unchanged.
- */
-export function formatMonthName(monthIssued: string): string {
-  const match = /^(\d{4})-(\d{2})/.exec(monthIssued);
-  if (!match) return monthIssued;
-  return MONTHS_LONG[Number(match[2]) - 1] ?? monthIssued;
-}
-
-/**
  * `"2026-03"` → `"martie 2026"` — the billing month, as a person says it.
  *
  * Lives here for the same reason the other two do: three screens about money had grown three
@@ -91,8 +77,9 @@ export function formatMonthName(monthIssued: string): string {
 export function formatMonth(monthIssued: string): string {
   const match = /^(\d{4})-(\d{2})/.exec(monthIssued);
   if (!match) return monthIssued;
-  const name = formatMonthName(monthIssued);
-  return name === monthIssued ? monthIssued : `${name} ${match[1]}`;
+  const [, year, month] = match;
+  const name = MONTHS_LONG[Number(month) - 1];
+  return name ? `${name} ${year}` : monthIssued;
 }
 
 /**
@@ -106,19 +93,39 @@ export function formatPercent(share: unknown): string {
 }
 
 /**
- * `(7, 10)` → `"7 din 10 locuri ocupate"`, `(undefined, 10)` → `"— din 10 locuri ocupate"`.
+ * `"2018-03-16"` → `8`, on a day in September 2026 — the child's age in whole years.
  *
- * Takes the number already counted by the server, and refuses to invent one. The count that
- * belongs here is `EnrollmentService.occupancyOf` — enrolments **in force**, active plus booked
- * trials, because a trial child sits on a chair, at a computer, in the same room (D7). The card
- * used to print the length of the enrolled-children list instead, which excludes trials: a full
- * group advertised a free seat, on the screen where somebody decides whether to put a child in it.
+ * Integers off the two date strings, never `new Date()`: an ISO date parses as UTC midnight and
+ * comes back a day early east of Greenwich, which is where the school is. One day either side is
+ * enough to move a birthday across a year boundary and put a child in the wrong age band, and the
+ * age band is what the group screens sort on.
  *
- * The em dash is there for the moment before the count arrives. It is deliberately not a zero and
- * deliberately not the old list length: a number that is wrong reads exactly like a number that is
- * right, while a dash asks the reader to wait.
+ * `on` defaults to today, taken from the local clock's own components for the same reason.
+ * Anything that is not a `YYYY-MM-DD` prefix comes back as `null`, which the cell prints as a dash.
  */
-export function formatSeats(taken: number | null | undefined, capacity: number): string {
-  const counted = typeof taken === "number" && Number.isFinite(taken) ? String(taken) : "—";
-  return `${counted} din ${capacity} locuri ocupate`;
+export function ageOn(birthDate: string, on?: string): number | null {
+  const born = /^(\d{4})-(\d{2})-(\d{2})/.exec(birthDate);
+  if (!born) return null;
+
+  let today = on;
+  if (!today) {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+  const asOf = /^(\d{4})-(\d{2})-(\d{2})/.exec(today);
+  if (!asOf) return null;
+
+  const [, by, bm, bd] = born.map(Number) as unknown as number[];
+  const [, ty, tm, td] = asOf.map(Number) as unknown as number[];
+  let age = ty! - by!;
+  if (tm! < bm! || (tm === bm && td! < bd!)) age -= 1;
+  return age < 0 ? null : age;
+}
+
+/** `8` → `"8 ani"`, `1` → `"1 an"`. The dash when there is no usable date. */
+export function formatAge(birthDate: string, on?: string): string {
+  const age = ageOn(birthDate, on);
+  if (age === null) return "—";
+  return age === 1 ? "1 an" : `${age} ani`;
 }

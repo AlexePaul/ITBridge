@@ -95,84 +95,14 @@
               <p v-if="errors.email" class="field-error">{{ errors.email }}</p>
             </div>
 
-            <div class="field">
-              <label for="auth-phone">Telefon</label>
-              <input
-                id="auth-phone"
-                v-model="form.phone"
-                class="input"
-                type="tel"
-                autocomplete="tel"
-                placeholder="07xxxxxxxx"
-              />
-              <p v-if="errors.phone" class="field-error">{{ errors.phone }}</p>
-            </div>
-
-            <div class="field">
-              <label for="auth-address">Adresă</label>
-              <input
-                id="auth-address"
-                v-model="form.address"
-                class="input"
-                type="text"
-                autocomplete="street-address"
-                placeholder="Strada, numărul, orașul"
-              />
-              <p class="field-hint">Apare pe factură.</p>
-              <p v-if="errors.address" class="field-error">{{ errors.address }}</p>
-            </div>
-
-            <fieldset class="fieldset">
-              <legend>Contact în caz de urgență</legend>
-              <p class="field-hint">
-                Pe cine sunăm dacă se întâmplă ceva la curs și pe tine nu te putem găsi.
-              </p>
-              <div class="field">
-                <label for="auth-emergency-name">Nume</label>
-                <input
-                  id="auth-emergency-name"
-                  v-model="form.emergencyContactName"
-                  class="input"
-                  type="text"
-                  placeholder="Numele persoanei"
-                />
-                <p v-if="errors.emergencyContactName" class="field-error">
-                  {{ errors.emergencyContactName }}
-                </p>
-              </div>
-              <div class="field-row">
-                <div class="field">
-                  <label for="auth-emergency-relation">Relația cu copilul</label>
-                  <input
-                    id="auth-emergency-relation"
-                    v-model="form.emergencyContactRelation"
-                    class="input"
-                    type="text"
-                    placeholder="bunica, unchi…"
-                  />
-                  <p v-if="errors.emergencyContactRelation" class="field-error">
-                    {{ errors.emergencyContactRelation }}
-                  </p>
-                </div>
-                <div class="field">
-                  <label for="auth-emergency-phone">Telefon</label>
-                  <input
-                    id="auth-emergency-phone"
-                    v-model="form.emergencyContactPhone"
-                    class="input"
-                    type="tel"
-                    placeholder="07xxxxxxxx"
-                  />
-                  <p v-if="errors.emergencyContactPhone" class="field-error">
-                    {{ errors.emergencyContactPhone }}
-                  </p>
-                </div>
-              </div>
-            </fieldset>
-
+            <!-- Phone, address and the emergency contact moved to `/user/profile-setup`, which the
+                 parent reaches immediately after this form and cannot skip (E11/S2, revised). Ten
+                 mandatory fields as a first screen is a barrier at exactly the point E20 spends an
+                 epic lowering one; the data is still required, just not all at once. -->
             <p class="colophon">
-              Contul se activează în doi pași: confirmi adresa de email, apoi îl aprobăm noi.
-              Înscrierea copilului într-o grupă o facem tot noi, după ce vorbim.
+              După ce creezi contul îți mai cerem câteva date — telefon, adresă și un contact de
+              urgență. Contul se activează în doi pași: confirmi adresa de email, apoi îl aprobăm
+              noi. Înscrierea copilului într-o grupă o facem tot noi, după ce vorbim.
             </p>
           </template>
 
@@ -201,7 +131,6 @@
 import { computed, reactive } from "vue";
 import * as z from "zod";
 import { useReveal } from "~/composables/useReveal";
-import { isRomanianPhone, normalizePhone } from "~/composables/useUtils";
 
 const props = defineProps<{
   mode: "login" | "register";
@@ -215,16 +144,16 @@ export interface LoginSubmitPayload {
   remember: boolean;
 }
 
-/** Everything E11/S2 asks of a registration, on top of the credentials. Mirrors `RegisterDto`. */
+/**
+ * What an account needs to exist, on top of the credentials. Mirrors `RegisterDto`.
+ *
+ * Phone, address and the emergency contact are not here: they are step two, on
+ * `/user/profile-setup`, and just as required there (E11/S2, revised).
+ */
 export interface RegisterSubmitPayload extends LoginSubmitPayload {
   firstName: string;
   lastName: string;
   email: string;
-  phone: string;
-  address: string;
-  emergencyContactName: string;
-  emergencyContactRelation: string;
-  emergencyContactPhone: string;
 }
 
 /**
@@ -285,23 +214,6 @@ const registration = credentials.extend({
     .trim()
     .min(1, "Adresa de email este obligatorie")
     .email("Adresa de email nu pare validă"),
-  phone: z
-    .string()
-    .trim()
-    .min(1, "Telefonul este obligatoriu")
-    .refine(isRomanianPhone, "Scrie un număr de telefon românesc, de forma 07xxxxxxxx"),
-  address: z.string().trim().min(1, "Adresa este obligatorie").max(255),
-  emergencyContactName: z
-    .string()
-    .trim()
-    .min(1, "Numele persoanei de contact este obligatoriu")
-    .max(200),
-  emergencyContactRelation: z.string().trim().min(1, "Spune-ne ce relație are cu copilul").max(100),
-  emergencyContactPhone: z
-    .string()
-    .trim()
-    .min(1, "Telefonul persoanei de contact este obligatoriu")
-    .refine(isRomanianPhone, "Scrie un număr de telefon românesc, de forma 07xxxxxxxx"),
 });
 
 type FieldName = keyof z.infer<typeof registration>;
@@ -313,11 +225,6 @@ const form = reactive({
   firstName: "",
   lastName: "",
   email: "",
-  phone: "",
-  address: "",
-  emergencyContactName: "",
-  emergencyContactRelation: "",
-  emergencyContactPhone: "",
 });
 
 const errors = reactive<Partial<Record<FieldName, string>>>({});
@@ -344,13 +251,6 @@ const onSubmit = () => {
   }
 
   const data = result.data as z.infer<typeof registration>;
-  emit("register", {
-    ...data,
-    remember: form.remember,
-    // Normalised to `+40…` before it leaves, so the server compares one shape when it checks
-    // whether the number already belongs to another family.
-    phone: normalizePhone(data.phone),
-    emergencyContactPhone: normalizePhone(data.emergencyContactPhone),
-  });
+  emit("register", { ...data, remember: form.remember });
 };
 </script>

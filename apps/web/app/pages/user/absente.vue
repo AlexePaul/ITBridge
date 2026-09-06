@@ -6,10 +6,13 @@
       <!--
         The deadline, in one sentence rather than a paragraph. The rule itself is frozen on the
         server when a notice is written (`inTime`), so this is a description of it, not a second copy.
+        It said "before the class starts" until E12/S3 moved the cutoff to Monday noon; the sentence
+        a parent reads is the one thing that must never lag the rule behind it.
       -->
       <p class="lede measure-wide">
-        O absență anunțată <strong>înainte de începerea orei</strong> devine un credit de
-        recuperare. Anunțată după — nu se mai poate recupera.
+        Anunță-ne până <strong>luni la 12:00</strong> — la telefon, pe WhatsApp sau pe email — și
+        mutăm copilul la altă grupă în aceeași săptămână. Anunțată mai târziu, ora nu se mai
+        recuperează în săptămâna aceea.
       </p>
     </div>
 

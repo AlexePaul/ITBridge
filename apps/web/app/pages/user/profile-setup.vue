@@ -164,6 +164,8 @@ import { computed, reactive, ref, watchEffect } from "vue";
 import * as z from "zod";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { useProfileStore } from "~/stores/profileStore";
+import { useUserStore } from "~/stores/userStore";
+import { useProfileInitialization } from "~/composables/useProfileInitialization";
 import { useNotifications } from "~/composables/useNotifications";
 import { isRomanianPhone, normalizePhone } from "~/composables/useUtils";
 import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
@@ -181,11 +183,18 @@ import type { Profile } from "~/types/profile.types";
  *   nobody is mid-flow. There is no step 2 of anything to show, so the page says "ne lipsesc câteva
  *   detalii" and shows no progress. It is also reachable from Profil, as plain editing.
  *
- * Which one it is is read off the data — profile or no profile — not off a query parameter, so the
- * page cannot be linked into the wrong story.
+ * Which one it is is read off the data — not off a query parameter, so the page cannot be linked
+ * into the wrong story. **What it reads changed with E11/S2**: the test was "is there a profile row
+ * at all", and `register` now writes a shell one in the same transaction as the account, so that
+ * test is false for every parent who has just signed up — exactly the reader "Pasul 2 din 2" is
+ * addressed to. The honest signal is instead whether the row holds anything beyond what `register`
+ * itself put there: a shell has a name and an email and nothing else, while the family the school
+ * entered from a phone call arrives with at least one of the fields below already filled.
  *
- * The request differs accordingly: `POST /profiles` creates, `PUT /profiles/:id` merges. The second
- * matters for the phone-entered family, whose row must not be replaced by whatever this form holds.
+ * The request differs accordingly: `POST /profiles` creates, `PUT /profiles/:id` merges. After the
+ * split the second is the normal path and the first is a fallback for an account created outside
+ * `register`; the merge still matters for the phone-entered family, whose row must not be replaced
+ * by whatever this form holds.
  */
 definePageMeta({
   layout: "portal" as any,
@@ -194,12 +203,18 @@ definePageMeta({
 
 const profileApi = useProfileApi();
 const profileStore = useProfileStore();
+const userStore = useUserStore();
+const { initializeProfile } = useProfileInitialization();
 const { success, error } = useNotifications();
 
 const saving = ref(false);
 
 const profile = computed(() => profileStore.profile);
-const isFirstTime = computed(() => !profile.value);
+const isFirstTime = computed(() => {
+  const p = profile.value;
+  if (!p) return true;
+  return !p.phone && !p.address && !p.emergencyContactName && !p.emergencyContactPhone;
+});
 
 /** Whether anything the school actually needs is still missing. Decides the wording, nothing else. */
 const hasGaps = computed(() => {
@@ -302,6 +317,13 @@ const onSubmit = async () => {
     } else {
       await profileApi.createProfile(payload);
     }
+    // Re-read the gate before leaving — E11/S2. `ProfileSetup` is derived from the server's
+    // `profileComplete`, and the middleware sends anybody it is still true for straight back here;
+    // saving and navigating without refreshing it lands the parent on this page again, with the
+    // form full and nothing left to do. The user has to be refetched too: the flag is computed
+    // from `/auth/me`, not from the profile row this request just wrote.
+    await userStore.fetchUser();
+    await initializeProfile();
     success("Am salvat datele.");
     await navigateTo("/user/profile");
   } catch (err) {

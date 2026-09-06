@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, LessThan, Repository } from 'typeorm';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Child } from 'src/entities/child.entity';
@@ -9,9 +9,10 @@ import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
 import { EnrollmentStatus, IN_FORCE_STATUSES, isInForce } from 'src/enum/enrollment-status.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { isAccountActive } from 'src/entities/user.entity';
+import { isProfileComplete } from 'src/entities/profile.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
-import { composeWaitlistOffer } from './waitlist-mail';
+import { composeWaitlistOffer, composeWaitlistOfferExpired } from './waitlist-mail';
 import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 
 /**
@@ -277,6 +278,11 @@ export class EnrollmentService {
         const group = await this.lockGroup(manager, input.groupId);
 
         this.assertParentAccountActive(child);
+        // Only here, not on `transfer`. The rule protects the moment a child first sits in a room
+        // with nobody reachable; a child being moved between groups is already in one, so refusing
+        // the move protects nothing and strands a family the school has had for a year. And it
+        // cannot be dodged by getting enrolled once: this is the door they came through.
+        this.assertParentProfileComplete(child);
         await this.assertNotAlreadyEnrolled(input.childId, manager);
         if (!group.isActive) {
             throw new ConflictException({
@@ -666,6 +672,57 @@ export class EnrollmentService {
         );
     }
 
+    /**
+     * Hands on every seat whose offer ran out of time — E11/S3, the piece that was missing.
+     *
+     * **An unanswered offer used to hold its seat forever.** `offerFreedSeat` only ever looks at
+     * `WAITING` entries, so an `OFFERED` one past its `respondBy` sat at the head of the queue
+     * holding a chair nobody was in: the next family was never told, and the group showed as full
+     * to every screen that counts occupancy. Nothing noticed until an admin happened to release
+     * another seat in the same group, which is not a mechanism — it is a coincidence.
+     *
+     * A plain method, with the cron in `waitlist-expiry.job.ts` deciding only the hour, exactly as
+     * every other scheduled thing here is written: `@Cron` does not fire under `NODE_ENV=test`, so
+     * selection logic that lived inside one could not be tested at all.
+     *
+     * One transaction per entry rather than one for the sweep. Two seats in two groups are two
+     * unrelated matters, and a failure on the second must not roll back a family already told about
+     * the first — the offer mail for the next family is written in the same transaction as the
+     * expiry that produced it, and those two do belong together.
+     *
+     * `now` is a parameter so a test can place the clock; the cron passes the real one.
+     */
+    async expireLapsedOffers(now: Date = new Date()): Promise<{ expired: number }> {
+        const lapsed = await this.waitlistRepository.find({
+            where: { status: WaitlistStatus.OFFERED, respondBy: LessThan(now) },
+            relations: { child: { parent: true }, group: true },
+            // Oldest deadline first: if two lapsed in the same hour, the family kept waiting longest
+            // is the one whose seat moves on first.
+            order: { respondBy: 'ASC', id: 'ASC' },
+        });
+
+        let expired = 0;
+        for (const entry of lapsed) {
+            await this.dataSource.transaction(async (manager) => {
+                await manager.update(WaitlistEntry, { id: entry.id }, { status: WaitlistStatus.EXPIRED });
+
+                const mail = composeWaitlistOfferExpired(entry.child.firstName, entry.group.name);
+                // `queueOrRecord`, so a family with no address leaves a row saying so rather than
+                // being skipped in silence — E17/S5. They are the ones who most need the phone call.
+                await this.outbox.queueOrRecord({ email: entry.child.parent?.email }, { subject: mail.subject, bodyText: mail.bodyText }, manager);
+
+                // The seat is free again only now, and this is the same door a decline goes through.
+                await this.offerFreedSeat(entry.group.id, manager);
+            });
+            expired += 1;
+        }
+
+        if (expired > 0) {
+            this.logger.log(`Expired ${expired} waitlist offer(s) and handed the seats on.`);
+        }
+        return { expired };
+    }
+
     /** Takes an entry off the list, whatever state it was in. */
     async removeFromWaitlist(entryId: number, status: WaitlistStatus = WaitlistStatus.CANCELLED): Promise<{ message: string }> {
         const entry = await this.waitlistRepository.findOne({ where: { id: entryId }, relations: { group: true } });
@@ -734,6 +791,29 @@ export class EnrollmentService {
             throw new ConflictException({
                 message: 'Contul părintelui nu este activ. Trebuie confirmat prin email și aprobat înainte de înscriere.',
                 error: 'PARENT_ACCOUNT_NOT_ACTIVE',
+            });
+        }
+    }
+
+    /**
+     * The second half of the same gate, once registration became two steps.
+     *
+     * A separate refusal from the one above rather than a wider version of it, because the two are
+     * repaired in different places: an inactive account waits on an admin, an incomplete profile
+     * waits on the parent. Telling a parent "your account is not active" when what is missing is
+     * their own phone number sends them to wait for somebody who has nothing to do.
+     *
+     * Scoped to profiles with an account, exactly like the rule above, and that scoping is load
+     * bearing: the public trial form writes a shell profile with no account, no email and no phone
+     * (E20/S2), and enrols through this same method. Holding it to a standard only a registered
+     * parent can meet would refuse every booking on the one screen built to accept them.
+     */
+    private assertParentProfileComplete(child: Child): void {
+        const parent = child.parent;
+        if (parent?.user && !isProfileComplete(parent)) {
+            throw new ConflictException({
+                message: 'Profilul familiei este incomplet. Completează telefonul, adresa și contactul de urgență înainte de înscriere.',
+                error: 'PARENT_PROFILE_INCOMPLETE',
             });
         }
     }

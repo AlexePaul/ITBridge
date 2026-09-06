@@ -13,7 +13,7 @@
             <div class="cursor-pointer" @click="groupId = group.id">
               <GroupCard
                 :group="group"
-                :occupancy="occupancyOf(group.id)"
+                :occupancy="occupancyByGroup.get(group.id)"
                 :show-edit="false"
                 :show-manage-children="false"
                 :show-weekday="true"
@@ -45,7 +45,7 @@
 
 <script setup lang="ts">
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
-import { useGroupOccupancy } from "~/composables/useGroupOccupancy";
+import { useReportsApi } from "~/composables/api/useReportsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { useLocationStore } from "~/stores/locationStore";
 import type { Group } from "~/types/group.types";
@@ -62,9 +62,18 @@ const groups: Ref<Group[]> = ref([]);
 const groupsApi = useGroupsApi();
 const locationStore = useLocationStore();
 
-// Seats per D7, from the server. This page used to load every child in the school so the cards
-// could count them, which left trials out of the number the admin reads before picking a group.
-const { occupancyOf, loadFor } = useGroupOccupancy();
+/**
+ * Seats per group, keyed by id — the same source `/admin/groups` uses.
+ *
+ * `occupancyOf` owns the number (D7: active plus trials) and `GET /reports/occupancy` carries it
+ * for every group in one call. This page used to load every child in the school so the cards could
+ * count them, which left trials out of the figure somebody reads before picking a group. If the
+ * call fails the cards name the capacity and say nothing about how full they are.
+ */
+const reportsApi = useReportsApi();
+const occupancyByGroup = ref(
+  new Map<number, { taken: number; free: number; capacity: number; waiting: number }>()
+);
 
 // Sorted and filtered here rather than in the template: `.sort()` on the array a `v-for` is
 // iterating mutates the ref in place on every render.
@@ -98,6 +107,16 @@ const handleSubmit = () => {
 
 onMounted(async () => {
   groups.value = await groupsApi.fetchGroups();
-  await loadFor(selectableGroups.value.map((group) => group.id));
+  try {
+    const report = await reportsApi.fetchOccupancyReport();
+    occupancyByGroup.value = new Map(
+      report.groups.map((group) => [
+        group.groupId,
+        { taken: group.taken, free: group.free, capacity: group.capacity, waiting: group.waiting },
+      ])
+    );
+  } catch {
+    // Cards then show the capacity without a fill. See the note on `occupancyByGroup`.
+  }
 });
 </script>

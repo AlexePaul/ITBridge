@@ -145,7 +145,7 @@ un `RolesGuard` care tratează cazuri inexistente e cod netestat care arată ca 
 
 Tiparul de filtrare pe date din service, care astăzi filtrează după utilizator pentru părinți, s-ar
 extinde cu filtrare după locație pentru coordonatori și profesori. Aplicat consecvent, ca în
-`apps/api/src/modules/invoice/invoice.service.ts:92`.
+`apps/api/src/modules/invoice/invoice.service.ts:118`.
 
 Cade odată cu S2, fiindcă nu are cine să fie restrâns: singurele două roluri sunt `ADMIN`, care vede
 ambele locații prin definiție, și `PARENT`, care e deja restrâns la propriile date. Selectorul de

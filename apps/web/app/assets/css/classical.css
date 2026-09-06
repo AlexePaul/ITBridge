@@ -2383,3 +2383,106 @@ textarea.input {
 .portal-notice {
   margin-top: var(--rhythm-2);
 }
+
+/* — the attendance calendar —
+
+   A month grid, on a system with one accent and no semantic palette. The old
+   screen painted five Nuxt UI colours — green, red, yellow, blue, neutral —
+   which is both off-system and a thing a reader who does not separate those
+   hues cannot use. Each day carries a **glyph** instead, the same three the
+   portal already uses in its recent-attendance row plus two more, so the month
+   reads in greyscale and the legend spells every one of them out. */
+.cal {
+  margin-top: var(--rhythm-1);
+}
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.cal-month {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 28px;
+  margin: 0 auto 0 0;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--color-divider);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.cal-dow {
+  padding: var(--space-2) 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  background: var(--color-bg);
+}
+
+.cal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  /* Not a tap target — nothing here is pressable — but a month of 22px rows is
+     unreadable, and this keeps a cell square-ish at 390px. */
+  min-height: 44px;
+  padding: var(--space-1) 0;
+  font-size: 13px;
+  font-feature-settings: "tnum" 1;
+  background: var(--color-bg);
+}
+
+/* The days either side of the month, kept so the grid does not jump: present,
+   numbered, and plainly not part of this month. */
+.cal-day-outside {
+  color: color-mix(in srgb, var(--color-text) 35%, transparent);
+}
+
+.cal-day-today {
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.cal-mark {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 13px;
+  line-height: 1;
+  color: var(--color-accent-ink);
+}
+
+/* States the reader is not being asked to act on sit back a step. */
+.cal-mark-quiet {
+  font-weight: 400;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-3) 0 0;
+  font-size: 13px;
+  line-height: 22px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.cal-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}

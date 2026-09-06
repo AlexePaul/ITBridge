@@ -16,24 +16,46 @@ import {
     provideMockDataSource,
     provideMockRepository,
 } from 'src/testing/repository.mock';
+import { OutboxService } from 'src/modules/mail/outbox.service';
+import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 
 describe('PaymentService', () => {
     let service: PaymentService;
     let paymentRepo: MockRepository;
     let invoiceRepo: MockRepository;
     let manager: MockEntityManager;
+    /** E16/S6. What the family was told, if anything — the receipt is queued, never sent here. */
+    let outbox: { queueOrRecord: jest.Mock };
+    let templates: { render: jest.Mock };
 
     /** What the SUM(...) inside the recomputation answers, as the driver returns it: a string. */
     let paidSum: string | null;
     /** The invoice the recomputation reads back inside the transaction. */
-    let invoiceInDb: { id: number; amount: number; status: InvoiceStatus };
+    /**
+     * `monthIssued` and `parent` are here because the columns are non-null and the relation is
+     * loaded — the receipt in E16/S6 reads both, and a fixture thinner than the schema would only
+     * be testing a shape the database cannot produce.
+     */
+    let invoiceInDb: {
+        id: number;
+        amount: number;
+        status: InvoiceStatus;
+        monthIssued: string;
+        parent: { id: number; firstName: string; email: string | null };
+    };
 
     beforeEach(async () => {
         paymentRepo = createMockRepository();
         invoiceRepo = createMockRepository();
         manager = createMockEntityManager();
         paidSum = null;
-        invoiceInDb = { id: 5, amount: 350, status: InvoiceStatus.PENDING };
+        invoiceInDb = {
+            id: 5,
+            amount: 350,
+            status: InvoiceStatus.PENDING,
+            monthIssued: '2026-03',
+            parent: { id: 3, firstName: 'Ana', email: 'ana@example.com' },
+        };
 
         manager.findOne = jest.fn(() => Promise.resolve(invoiceInDb)) as never;
         manager.createQueryBuilder = jest.fn(() => {
@@ -44,12 +66,21 @@ describe('PaymentService', () => {
         }) as never;
         manager.save.mockImplementation((_entity: unknown, data: Record<string, unknown>) => Promise.resolve({ id: 11, ...data }));
 
+        outbox = { queueOrRecord: jest.fn(() => Promise.resolve({ id: 1 })) };
+        // Echoes the key back as the subject so a test can assert *which* of the two receipts went,
+        // without asserting the Romanian wording — that belongs to the template's own spec.
+        templates = {
+            render: jest.fn((key: string, data: Record<string, string>) => Promise.resolve({ subject: key, bodyText: JSON.stringify(data), bodyHtml: null })),
+        };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 PaymentService,
                 provideMockRepository(Payment, paymentRepo),
                 provideMockRepository(Invoice, invoiceRepo),
                 provideMockDataSource(manager),
+                { provide: OutboxService, useValue: outbox },
+                { provide: MailTemplateService, useValue: templates },
             ],
         }).compile();
 
@@ -261,6 +292,104 @@ describe('PaymentService', () => {
         it('rejects a payment that does not exist', async () => {
             paymentRepo.findOne!.mockResolvedValue(null);
             await expect(service.deletePayment(99)).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    /**
+     * The receipt — E16/S6.
+     *
+     * The rule about *when* is pinned in `payment-receipt.rules.spec.ts`. What is checked here is
+     * the wiring the rule cannot see: that the message is queued rather than sent, that it rides
+     * the caller's transaction, and that the figures in it come from the recomputation rather than
+     * from a second subtraction.
+     */
+    describe('the receipt', () => {
+        /** The values handed to the template, which the mock echoes back as JSON. */
+        const rendered = () =>
+            JSON.parse(templates.render.mock.calls[0][1] ? JSON.stringify(templates.render.mock.calls[0][1]) : '{}') as Record<string, string>;
+
+        it('tells the family the invoice is settled when the payment covered it', async () => {
+            paidSum = '350';
+
+            await create();
+
+            expect(templates.render).toHaveBeenCalledWith('payment-received', expect.objectContaining({ firstName: 'Ana', month: 'martie' }));
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith(
+                { email: 'ana@example.com' },
+                expect.objectContaining({ dedupeKey: 'receipt:11' }),
+                // The caller's manager, so the receipt and the payment commit together.
+                manager,
+            );
+        });
+
+        it('names what is left when the payment did not cover the invoice', async () => {
+            paidSum = '200';
+
+            await create({ amount: 200 });
+
+            expect(templates.render).toHaveBeenCalledWith('payment-received-partial', expect.any(Object));
+            // 350 − 200, computed once by the recomputation rather than subtracted again here.
+            expect(rendered().outstanding).toBe('150 lei');
+            // And the sum that arrived now, not the running total: the figure the family sent.
+            expect(rendered().amount).toBe('200 lei');
+        });
+
+        it('says nothing for a payment that has not succeeded', async () => {
+            await create({ status: PaymentStatus.INITIATED });
+
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
+        });
+
+        it('leaves a record rather than skipping a family with no address', async () => {
+            // E17/S5: `queueOrRecord` writes an undeliverable row. The branch that must NOT exist is
+            // an `if (email)` here, which would put the fact in a log nobody reads.
+            invoiceInDb.parent.email = null;
+            paidSum = '350';
+
+            await create();
+
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null }, expect.any(Object), manager);
+        });
+
+        it('confirms an initiated payment at the moment it is marked succeeded', async () => {
+            paymentRepo.findOne!.mockResolvedValue({
+                id: 11,
+                amount: 350,
+                status: PaymentStatus.INITIATED,
+                date: new Date('2026-03-10'),
+                invoice: invoiceInDb,
+            });
+            paidSum = '350';
+
+            await service.updatePayment(11, { status: PaymentStatus.SUCCEEDED });
+
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ dedupeKey: 'receipt:11' }), manager);
+        });
+
+        it('does not confirm again when an already-succeeded payment is edited', async () => {
+            paymentRepo.findOne!.mockResolvedValue({
+                id: 11,
+                amount: 350,
+                status: PaymentStatus.SUCCEEDED,
+                date: new Date('2026-03-10'),
+                invoice: invoiceInDb,
+            });
+            paidSum = '350';
+
+            await service.updatePayment(11, { externalReference: 'OP 4242' });
+
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
+        });
+
+        it('says nothing when a payment is deleted', async () => {
+            // A row removed by mistake is a correction, and an automated "actually we did not get
+            // your money" is worse than the phone call it would replace.
+            paymentRepo.findOne!.mockResolvedValue({ id: 11, invoice: invoiceInDb });
+            paidSum = null;
+
+            await service.deletePayment(11);
+
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
         });
     });
 });

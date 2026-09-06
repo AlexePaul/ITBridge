@@ -96,6 +96,8 @@ const MESSAGES: Record<string, string> = {
   EMAIL_ALREADY_CONFIRMED: "Adresa ta de email este deja confirmată.",
   NO_EMAIL_ON_FILE: "Contul nu are o adresă de email pe care să trimitem confirmarea.",
 
+  PARENT_PROFILE_INCOMPLETE:
+    "Profilul familiei este incomplet. Completează telefonul, adresa și contactul de urgență din pagina de profil.",
   PARENT_ACCOUNT_NOT_ACTIVE:
     "Contul părintelui nu este activ. Trebuie confirmat prin email și aprobat înainte de înscriere.",
   ACCOUNT_ALREADY_APPROVED: "Contul este deja aprobat.",
