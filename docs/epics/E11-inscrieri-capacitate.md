@@ -268,9 +268,29 @@ odată cu el; sunt în [În afara scopului](#în-afara-scopului), explicit, ca s
 > [Întrebări deschise](#întrebări-deschise). E constantă în cod, nu setare, ca să fie o modificare
 > despre care se discută.
 >
-> **Ce nu s-a construit:** nimic nu mătură automat ofertele expirate. Locul se re-oferă când se mai
-> eliberează unul sau când un admin scoate cererea de pe listă. Un job de măturat e o sarcină
-> programată și își are locul lângă celelalte în ziua în care rulează ceva (E01/S4).
+> **Ofertele expirate se mătură acum**, prin `EnrollmentService.expireLapsedOffers`, chemat din
+> oră în oră de `waitlist-expiry.job.ts`. Lipsa lui nu era o rafinare amânată, era un defect care nu
+> se vedea de pe niciun ecran: `offerFreedSeat` se uită **numai** la cererile `WAITING`, deci o
+> ofertă la care nu răspundea nimeni rămânea `OFFERED` la capul cozii și ținea scaunul la nesfârșit
+> — grupa apărea plină, iar familia următoare nu era întrebată niciodată. Se repara doar din
+> întâmplare: când se mai elibera un loc în aceeași grupă, sau când un admin scotea cererea de mână.
+>
+> Trei alegeri în măturare:
+>
+> - **Familia căreia i-a expirat oferta primește un mesaj.** Ultimul lucru pe care i l-a spus școala
+>   a fost „ai un loc, confirmă până joi", iar asta a încetat să fie adevărat — aceeași socoteală
+>   pentru care o oră reactivată are mesaj propriu la E12/S5. Nu ceartă pe nimeni și nu închide ușa:
+>   cine era primul pe listă acum o oră e exact cine merită invitat să ceară din nou.
+> - **O tranzacție per cerere**, nu una pe toată măturarea. Două locuri în două grupe sunt două
+>   treburi fără legătură, iar o eroare la a doua n-are voie să anuleze ce i s-a spus deja primei
+>   familii. Ce chiar merge împreună — expirarea și oferta către următorul — stă în aceeași
+>   tranzacție.
+> - **Din oră în oră, nu din minut în minut.** Fereastra e de 48 de ore; o ofertă care expiră la
+>   14:03 și e măturată la 15:00 costă familia următoare cincizeci și șapte de minute dintr-un
+>   termen de două zile.
+>
+> Ca toate job-urile de aici, nu se declanșează până nu rulează ceva (E01/S4) — dar e scris și
+> testat, ceea ce e tot ce-l deosebește de un defect încă deschis.
 
 Capacitatea grupei există deja și e plafonată de sală — [E08](E08-multi-locatie.md) S3. Ce lipsește e
 **aplicarea ei la înscriere**: depășirea se blochează, cu excepție explicită pentru admin, care lasă

@@ -7,6 +7,7 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { RolesGuard } from 'src/guards/role.guard';
 import { EnrollmentController } from './enrollment.controller';
 import { EnrollmentService } from './enrollment.service';
+import { WaitlistExpiryJob } from './waitlist-expiry.job';
 
 /**
  * `MailModule` because a freed seat has to reach the family waiting for it — S3's acceptance is a
@@ -19,7 +20,10 @@ import { EnrollmentService } from './enrollment.service';
 @Module({
     imports: [EntitiesModule, MailModule, LeadProgressModule, JwtModule.register({})],
     controllers: [EnrollmentController],
-    providers: [EnrollmentService, AuthGuard, RolesGuard],
+    // `WaitlistExpiryJob` sweeps offers whose deadline passed, so a seat nobody answered for stops
+    // being held by nobody — E11/S3. It will not fire until something runs a scheduler (E01/S4),
+    // like every other job here.
+    providers: [EnrollmentService, WaitlistExpiryJob, AuthGuard, RolesGuard],
     exports: [EnrollmentService],
 })
 export class EnrollmentModule {}

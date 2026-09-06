@@ -10,6 +10,7 @@ import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
 import { Role } from 'src/enum/role.enum';
+import { LessThan } from 'typeorm';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
 import {
@@ -70,7 +71,9 @@ describe('EnrollmentService', () => {
         childRepo = createMockRepository();
         groupRepo = createMockRepository();
         makeUpCreditRepo = createMockRepository();
-        outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }) };
+        // `queueOrRecord` for the lapsed-offer mail in E11/S3: a family with no address has to leave
+        // a row saying so, not be skipped.
+        outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }), queueOrRecord: jest.fn().mockResolvedValue({ id: 1 }) };
         leadProgress = { settleForEnrollment: jest.fn().mockResolvedValue(undefined), markTrialHeld: jest.fn(), revertTrialHeld: jest.fn() };
 
         childRepo.findOne!.mockResolvedValue(child);
@@ -419,6 +422,96 @@ describe('EnrollmentService', () => {
             waitlistRepo.findOne!.mockResolvedValue(null);
 
             await expect(service.removeFromWaitlist(99)).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    /**
+     * The sweep — E11/S3, the piece the story was missing.
+     *
+     * The defect it closes is not visible from any screen: an offer nobody answered stayed
+     * `OFFERED` forever, and `offerFreedSeat` only ever looks at `WAITING`, so the seat was held by
+     * a family who had already lost it and the next one was never asked.
+     */
+    describe('expireLapsedOffers', () => {
+        const lapsed = {
+            id: 4,
+            status: WaitlistStatus.OFFERED,
+            respondBy: new Date('2026-03-01T10:00:00Z'),
+            child: { firstName: 'Vlad', parent: { email: 'parinte@example.com' } },
+            group: { id: 2, name: 'Scratch Începători' },
+        };
+
+        it('asks only for offers whose deadline has already passed', async () => {
+            waitlistRepo.find!.mockResolvedValue([]);
+            const now = new Date('2026-03-02T09:00:00Z');
+
+            await service.expireLapsedOffers(now);
+
+            expect(waitlistRepo.find).toHaveBeenCalledWith(
+                expect.objectContaining({ where: expect.objectContaining({ status: WaitlistStatus.OFFERED, respondBy: LessThan(now) }) }),
+            );
+        });
+
+        it('expires the entry, tells the family, and hands the seat to the next one', async () => {
+            waitlistRepo.find!.mockResolvedValue([lapsed]);
+            // A seat is free once the lapsed entry stops holding it, and somebody is next in line.
+            enrollmentRepo.count!.mockResolvedValue(9);
+            waitlistRepo.findOne!.mockResolvedValue({
+                id: 5,
+                child: { firstName: 'Ana', parent: { email: 'urmatorul@example.com' } },
+                group: { id: 2, name: 'Scratch Începători' },
+            });
+
+            const result = await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
+
+            expect(result).toEqual({ expired: 1 });
+            expect(manager.update).toHaveBeenCalledWith(WaitlistEntry, { id: 4 }, { status: WaitlistStatus.EXPIRED });
+            // The family whose offer lapsed: the last thing the school told them was that they had
+            // a seat until Thursday, and that has stopped being true.
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'parinte@example.com' }, expect.any(Object), manager);
+            // And the next family, through the same door a decline goes through.
+            expect(outbox.queue).toHaveBeenCalledWith(expect.objectContaining({ to: 'urmatorul@example.com' }), manager);
+        });
+
+        it('leaves a record rather than skipping a family with no address', async () => {
+            waitlistRepo.find!.mockResolvedValue([{ ...lapsed, child: { firstName: 'Vlad', parent: { email: null } } }]);
+            enrollmentRepo.count!.mockResolvedValue(10);
+            waitlistRepo.findOne!.mockResolvedValue(null);
+
+            await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
+
+            // They are the family who most needs the phone call, so the row has to exist.
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null }, expect.any(Object), manager);
+        });
+
+        it('still expires the entry when nobody is waiting behind it', async () => {
+            waitlistRepo.find!.mockResolvedValue([lapsed]);
+            enrollmentRepo.count!.mockResolvedValue(9);
+            waitlistRepo.findOne!.mockResolvedValue(null);
+
+            const result = await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
+
+            // The seat going back to the group is the point; an empty queue does not make the stale
+            // offer worth keeping.
+            expect(result).toEqual({ expired: 1 });
+            expect(manager.update).toHaveBeenCalledWith(WaitlistEntry, { id: 4 }, { status: WaitlistStatus.EXPIRED });
+        });
+
+        it('does nothing, and says so, when no offer has lapsed', async () => {
+            waitlistRepo.find!.mockResolvedValue([]);
+
+            expect(await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'))).toEqual({ expired: 0 });
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
+            expect(outbox.queue).not.toHaveBeenCalled();
+        });
+
+        it('takes the oldest deadline first', async () => {
+            waitlistRepo.find!.mockResolvedValue([]);
+
+            await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
+
+            // Two lapsing in the same hour: the family kept waiting longest moves on first.
+            expect(waitlistRepo.find).toHaveBeenCalledWith(expect.objectContaining({ order: { respondBy: 'ASC', id: 'ASC' } }));
         });
     });
 

@@ -50,9 +50,11 @@ export class WaitlistEntry {
     /**
      * The deadline in the offer mail. After it, the entry is expired and the seat moves on.
      *
-     * Nothing sweeps these automatically yet — the seat is re-offered when an admin next looks, or
-     * when the next release runs the queue. A sweeper is a scheduled job and belongs with the rest
-     * of them once anything actually runs (E01/S4).
+     * `EnrollmentService.expireLapsedOffers` sweeps these, hourly, from `waitlist-expiry.job.ts`.
+     * Before it existed the seat was held by a family who had already lost it: `offerFreedSeat`
+     * only ever looks at `WAITING`, so an unanswered offer stayed at the head of the queue and the
+     * next family was asked only if an admin happened to release another seat in the same group.
+     * Like every job here, it does not fire until something runs a scheduler (E01/S4).
      */
     @Column({ type: 'timestamptz', nullable: true })
     respondBy: Date | null;
