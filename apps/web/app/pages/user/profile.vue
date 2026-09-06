@@ -1,241 +1,267 @@
 <template>
-  <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-    <h1 class="text-4xl font-bold text-center mt-12 mb-8">Profil</h1>
+  <div class="portal-page">
+    <div class="portal-head">
+      <span class="kicker">Portalul familiei</span>
+      <h1 class="portal-title">Profil</h1>
+    </div>
 
-    <!-- Profile Content -->
-    <div v-if="profile" class="space-y-6">
-      <!-- Personal Information Card -->
-      <UCard class="border rounded-lg" variant="subtle">
-        <template #header>
-          <div class="flex items-center gap-3">
-            <UIcon name="i-lucide-user" class="text-2xl text-primary" />
-            <h2 class="text-2xl font-semibold">Informații Personale</h2>
-          </div>
-        </template>
+    <p v-if="!profile" class="portal-empty">
+      Nu am putut încărca datele profilului.
+      <button type="button" class="link link-button" @click="loadProfile">Încearcă din nou</button>
+    </p>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="space-y-4">
-            <div>
-              <label class="text-sm font-medium text-muted">Nume Complet</label>
-              <p class="text-lg mt-1">{{ profile.firstName }} {{ profile.lastName }}</p>
+    <template v-else>
+      <div class="portal-section portal-grid portal-grid-wide">
+        <div>
+          <h2 class="portal-label">Datele tale</h2>
+          <dl class="portal-dl details">
+            <div class="portal-dl-row">
+              <dt>Nume</dt>
+              <dd>{{ profile.firstName }} {{ profile.lastName }}</dd>
             </div>
-            <div>
-              <label class="text-sm font-medium text-muted">Email</label>
-              <div class="flex items-center gap-2 mt-1">
-                <UIcon name="i-lucide-mail" class="text-primary" />
-                <p class="text-lg">{{ profile.email }}</p>
-              </div>
+            <div class="portal-dl-row">
+              <dt>Email</dt>
+              <dd>
+                {{ profile.email || "—" }}
+                <template v-if="profile.email && emailConfirmed"> — confirmat</template>
+              </dd>
             </div>
-          </div>
+            <div class="portal-dl-row">
+              <dt>Telefon</dt>
+              <dd>{{ profile.phone || "—" }}</dd>
+            </div>
+            <div class="portal-dl-row">
+              <dt>Adresă</dt>
+              <dd>{{ profile.address || "—" }}</dd>
+            </div>
+            <div class="portal-dl-row">
+              <dt>Contact de urgență</dt>
+              <dd>{{ emergencyContact }}</dd>
+            </div>
+          </dl>
 
-          <div class="space-y-4">
-            <div>
-              <label class="text-sm font-medium text-muted">Telefon</label>
-              <div class="flex items-center gap-2 mt-1">
-                <UIcon name="i-lucide-phone" class="text-primary" />
-                <p class="text-lg">{{ profile.phone }}</p>
-              </div>
-            </div>
-            <div>
-              <label class="text-sm font-medium text-muted">Adresă</label>
-              <div class="flex items-center gap-2 mt-1">
-                <UIcon name="i-lucide-map-pin" class="text-primary" />
-                <p class="text-lg">{{ profile.address }}</p>
-              </div>
-            </div>
-          </div>
+          <NuxtLink to="/user/profile-setup" class="btn btn-primary details-action">
+            Modifică datele
+          </NuxtLink>
         </div>
-      </UCard>
 
-      <!-- E17/S4. The only preference there is, and the copy has to say what it does *not* touch:
-           a parent who reads "unsubscribe" next to a school's name reasonably fears losing the
-           invoice and their child's work. -->
-      <UCard class="border rounded-lg" variant="subtle">
-        <template #header>
-          <div class="flex items-center gap-3">
-            <UIcon name="i-lucide-bell" class="text-2xl text-primary" />
-            <h2 class="text-2xl font-semibold">Comunicări</h2>
-          </div>
-        </template>
+        <div>
+          <h2 class="portal-label">Copiii înregistrați</h2>
 
-        <div class="flex items-start justify-between gap-6">
-          <div class="min-w-0">
-            <p class="font-medium">Noutăți de la școală</p>
-            <p class="text-muted text-sm mt-1">
-              Tabere, ateliere, evenimente. Poți opri oricând, iar dacă nu le pornești nu primești
-              nimic de genul ăsta.
-            </p>
-            <p class="text-muted text-sm mt-2">
-              <strong>Nu se opresc de aici</strong> facturile, confirmările de plată, anunțurile
-              despre orele copilului tău și proiectele lui. Alea sunt lucrurile pentru care ne-ai
-              dat datele, nu reclamă.
-            </p>
+          <p v-if="!profile.children || profile.children.length === 0" class="portal-empty">
+            Încă nu e niciun copil înregistrat pe contul tău.
+          </p>
+
+          <div v-else class="children">
+            <div v-for="child in profile.children" :key="child.id" class="child-row">
+              <p class="portal-when">{{ child.firstName }} {{ child.lastName }}</p>
+              <p class="portal-where">născut(ă) pe {{ formatDateKey(child.birthDate) }}</p>
+              <p v-if="child.group" class="portal-where">
+                {{ child.group.name }} · {{ getWeekdayName(child.group.weekday).toLowerCase() }}
+                {{ formatTime(child.group.startTime) }}–{{ formatTime(child.group.endTime) }}
+                <template v-if="child.group.room?.location">
+                  · {{ child.group.room.location.name }}
+                </template>
+              </p>
+              <p v-else class="portal-where">Încă nu e repartizat(ă) într-o grupă.</p>
+            </div>
           </div>
-          <USwitch
-            :model-value="profile.marketingOptIn"
-            :loading="savingPreference"
-            class="shrink-0 mt-1"
-            @update:model-value="setMarketing"
+
+          <p class="note">
+            Pentru schimbarea grupei sau orice altă modificare, scrie-ne sau sună la
+            <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
+            >.
+          </p>
+        </div>
+      </div>
+
+      <!--
+        The one preference a parent has, and the one sentence that stops it from being frightening.
+        E17/S4 is explicit that `marketingOptIn` gates marketing and nothing else — `queue` and
+        `queueOrRecord` are never given the preference at all — so nobody can lose an invoice, a
+        cancelled class or their child's work by unticking this. Saying so is the point of the
+        paragraph: without it, the safe move for a parent is to leave ticked a box they did not want.
+      -->
+      <section class="portal-section marketing">
+        <h2 class="portal-label">Email promoțional</h2>
+
+        <div class="opt-in">
+          <input
+            id="marketing-opt-in"
+            type="checkbox"
+            :checked="profile.marketingOptIn"
+            :disabled="saving"
+            @change="onToggle"
           />
-        </div>
-      </UCard>
-
-      <!-- Children Information Card -->
-      <UCard class="border rounded-lg" variant="subtle">
-        <template #header>
-          <div class="flex items-center gap-3">
-            <UIcon name="i-lucide-users" class="text-2xl text-primary" />
-            <h2 class="text-2xl font-semibold">Copii Înregistrați</h2>
-          </div>
-        </template>
-
-        <div v-if="profile.children && profile.children.length > 0" class="space-y-4">
-          <div
-            v-for="child in profile.children"
-            :key="child.id"
-            class="border rounded-lg p-4 hover:border-primary transition-colors"
-          >
-            <div class="flex items-start justify-between">
-              <div class="space-y-3 flex-1">
-                <div class="flex items-center gap-2">
-                  <UIcon name="i-lucide-baby" class="text-primary text-xl" />
-                  <h3 class="text-xl font-semibold">{{ child.firstName }} {{ child.lastName }}</h3>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div class="flex items-center gap-2">
-                    <UIcon name="i-lucide-calendar" class="text-muted" />
-                    <span class="text-muted">Data nașterii:</span>
-                    <span class="font-medium">{{
-                      new Date(child.birthDate).toLocaleDateString("ro-RO", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })
-                    }}</span>
-                  </div>
-
-                  <div v-if="child.group" class="flex items-center gap-2">
-                    <UIcon name="i-lucide-clock" class="text-muted" />
-                    <span class="text-muted">Program:</span>
-                    <span class="font-medium"
-                      >{{ getWeekdayName(child.group.weekday) }},
-                      {{ formatTime(child.group.startTime) }} -
-                      {{ formatTime(child.group.endTime) }}</span
-                    >
-                  </div>
-                  <div v-else class="flex items-center gap-2">
-                    <UIcon name="i-lucide-alert-circle" class="text-warning" />
-                    <span class="text-warning font-medium">Niciun grup atribuit</span>
-                  </div>
-                </div>
-
-                <div class="flex items-center gap-2 text-xs text-muted">
-                  <UIcon name="i-lucide-info" class="text-xs" />
-                  <span>Înregistrat la: {{ formatDate(child.createdAt) }}</span>
-                </div>
-              </div>
-            </div>
+          <div>
+            <label for="marketing-opt-in" class="opt-in-label">
+              Vreau să primesc noutăți și oferte prin email.
+            </label>
+            <p class="body-text opt-in-note">
+              Setarea acoperă <strong>doar mesajele promoționale</strong>. Facturile, confirmările
+              de absență, orele anulate și noutățile despre proiectele copiilor ajung la tine oricum
+              — nu depind de această bifă.
+            </p>
           </div>
         </div>
-
-        <div v-else class="text-center py-8">
-          <UIcon name="i-lucide-user-x" class="text-4xl text-muted mx-auto mb-3" />
-          <p class="text-muted">Nu aveți copii înregistrați în sistem.</p>
-        </div>
-      </UCard>
-
-      <!-- Account Information Card -->
-      <UCard class="border rounded-lg" variant="subtle">
-        <template #header>
-          <div class="flex items-center gap-3">
-            <UIcon name="i-lucide-settings" class="text-2xl text-primary" />
-            <h2 class="text-2xl font-semibold">Informații Cont</h2>
-          </div>
-        </template>
-
-        <div class="space-y-3">
-          <div class="flex items-center justify-between py-2 border-b">
-            <span class="text-muted">ID Profil</span>
-            <span class="font-mono text-sm">{{ profile.id }}</span>
-          </div>
-          <div class="flex items-center justify-between py-2">
-            <span class="text-muted">Număr de copii</span>
-            <UBadge color="primary" variant="subtle">
-              {{ profile.children?.length || 0 }}
-            </UBadge>
-          </div>
-        </div>
-      </UCard>
-    </div>
-
-    <!-- No Profile State -->
-    <div v-else class="text-center py-12">
-      <UIcon name="i-lucide-alert-triangle" class="text-4xl text-error mx-auto mb-3" />
-      <p class="text-error text-lg">Nu s-au putut încărca informațiile profilului.</p>
-      <UButton @click="loadProfile" class="mt-4" color="primary">Reîncarcă</UButton>
-    </div>
+      </section>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { useProfileStore } from "~/stores/profileStore";
-import { formatTime, getWeekdayName } from "~/composables/useUtils";
+import { useUserStore } from "~/stores/userStore";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
+import { formatDateKey } from "~/composables/useAdminFormat";
+import { formatTime, getWeekdayName } from "~/composables/useUtils";
+import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 
-const profileApi = useProfileApi();
-const { success, error } = useNotifications();
-const profileStore = useProfileStore();
-
-const profile = computed(() => profileStore.profile);
-
+/**
+ * Profil — E18/S4, screen 5.
+ *
+ * Family-level, like Plăți: contact details, the registered children, and the single marketing
+ * opt-in. No child switcher, because nothing here belongs to one child.
+ *
+ * The profile-id and child-count rows the old screen carried are gone. A profile id is an internal
+ * number a parent can do nothing with, and "number of children" counts a list printed directly
+ * above it.
+ */
 definePageMeta({
   title: "Profil",
-  layout: "dashboard" as any,
+  layout: "portal" as any,
+});
+
+const profileApi = useProfileApi();
+const profileStore = useProfileStore();
+const userStore = useUserStore();
+const { success, error: notifyError } = useNotifications();
+
+const saving = ref(false);
+
+const profile = computed(() => profileStore.profile);
+const emailConfirmed = computed(() => Boolean(userStore.user?.emailConfirmed));
+
+/**
+ * Assembled here rather than split into three rows, because it is one fact: who to call. Partial
+ * records are normal — a profile an admin typed in from a phone call has none of it — and three rows
+ * each reading "—" say less than one line admitting it is not filled in.
+ */
+const emergencyContact = computed(() => {
+  const p = profile.value;
+  if (!p?.emergencyContactName) return "Nu e completat";
+  const relation = p.emergencyContactRelation ? ` (${p.emergencyContactRelation})` : "";
+  const phone = p.emergencyContactPhone ? ` — ${p.emergencyContactPhone}` : "";
+  return `${p.emergencyContactName}${relation}${phone}`;
 });
 
 const loadProfile = async () => {
   try {
     await profileApi.fetchProfile();
   } catch (err) {
-    console.error("Error loading profile:", err);
+    notifyError("Nu am putut încărca profilul", apiErrorMessage(err));
   }
 };
 
 onMounted(async () => {
-  await loadProfile();
+  // The layout fetches it once, for the header. Only ask again if that did not land.
+  if (!profileStore.profile) await loadProfile();
 });
 
 /**
- * The one preference a parent has — E17/S4.
+ * Saved on the tick, not behind a "save" button.
  *
- * Saved on the flip rather than behind a Save button: it is a single boolean, and a switch that
- * needs confirming reads as though something dangerous is being decided. Nothing transactional is
- * affected, whatever it is set to.
+ * A consent checkbox that needs a second press to take effect is one a parent can leave believing
+ * they have withdrawn consent when they have not. The input is bound to the stored value rather than
+ * to local state, so a failed request leaves it showing what the server actually holds.
  */
-const savingPreference = ref(false);
-const setMarketing = async (value: boolean) => {
-  if (!profile.value) return;
-  savingPreference.value = true;
+const onToggle = async (event: Event) => {
+  const current = profile.value;
+  if (!current) return;
+  const next = (event.target as HTMLInputElement).checked;
+
+  saving.value = true;
   try {
-    await profileApi.updateProfile({ marketingOptIn: value }, profile.value.id);
-    success(value ? "Îți trimitem și noutățile." : "Nu-ți mai trimitem noutăți.");
-    await loadProfile();
-  } catch (err: unknown) {
-    error(apiErrorMessage(err, "Nu am putut salva preferința"));
+    await profileApi.updateProfile({ marketingOptIn: next }, current.id);
+    success(
+      next ? "Îți trimitem noutățile." : "Nu-ți mai trimitem mesaje promoționale.",
+      "Facturile și mesajele despre orele copiilor nu se schimbă."
+    );
+  } catch (err) {
+    notifyError("Nu am putut salva preferința", apiErrorMessage(err));
   } finally {
-    savingPreference.value = false;
+    saving.value = false;
   }
 };
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("ro-RO", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
 </script>
+
+<style scoped>
+.details {
+  margin-top: var(--space-2);
+}
+
+.details-action {
+  min-height: 44px;
+  margin-top: var(--space-4);
+}
+
+.children {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-2);
+}
+
+.child-row {
+  padding-block: var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.child-row .portal-where {
+  margin-top: 4px;
+}
+
+.marketing {
+  max-width: 640px;
+}
+
+.opt-in {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+/* 22px rather than the browser default, so the box is a real target beside a two-line label, and
+   the accent is the tick rather than a repainted control. */
+.opt-in input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 3px;
+  accent-color: var(--color-accent);
+}
+
+.opt-in-label {
+  display: block;
+  font-size: 15.5px;
+  line-height: 26px;
+  cursor: pointer;
+}
+
+.opt-in-note {
+  margin-top: var(--space-2);
+}
+
+/* The retry inside a sentence is a button, and reads as the link it looks like. */
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+</style>

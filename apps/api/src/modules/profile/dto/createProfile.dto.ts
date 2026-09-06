@@ -39,6 +39,35 @@ export class CreateProfileDto {
     @Length(1, 255)
     address?: string;
 
+    /*
+     * Who to call when a child is hurt and the parent does not answer — E11/S2.
+     *
+     * Optional here and required in `RegisterDto`, which is the same split the contact fields above
+     * already make: a parent signing themselves up gives everything, an admin typing a family in
+     * from a phone call gives a name and fills the rest in later. The shapes match `RegisterDto`'s,
+     * so the two doors cannot disagree about what a valid contact looks like.
+     */
+    @ApiProperty({ example: 'Ana Popescu', required: false })
+    @EmptyToUndefined()
+    @IsOptional()
+    @IsString()
+    @Length(1, 200)
+    emergencyContactName?: string;
+
+    @ApiProperty({ example: 'bunica', required: false })
+    @EmptyToUndefined()
+    @IsOptional()
+    @IsString()
+    @Length(1, 100)
+    emergencyContactRelation?: string;
+
+    @ApiProperty({ example: '0723456789', required: false })
+    @EmptyToUndefined()
+    @IsOptional()
+    @IsString()
+    @IsPhoneNumber('RO')
+    emergencyContactPhone?: string;
+
     // `@IsInt` was missing entirely: the only field in any DTO with no type decorator at all, so
     // `userId: "abc"` sailed past the pipe and failed in Postgres as a 22P02 instead.
     @ApiProperty({ example: 1, required: false, description: 'User ID' })

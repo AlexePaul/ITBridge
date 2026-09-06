@@ -1,162 +1,157 @@
 <template>
-  <div class="w-full max-w-4xl mx-auto px-4 py-6 space-y-6">
-    <div>
-      <h1 class="text-3xl font-bold">Ce au construit copiii tăi</h1>
-      <p class="text-muted mt-1">
-        Toate lucrările, în ordine cronologică. Le poți descărca — sunt ale copilului.
+  <div class="portal-page">
+    <div class="portal-head">
+      <span class="kicker">Portalul familiei</span>
+      <h1 class="portal-title">Proiectele copiilor</h1>
+      <p class="lede measure-wide">
+        Tot ce au construit, în ordine. Fișierele se descarcă — sunt ale copilului.
       </p>
     </div>
 
-    <UCard v-if="loadError" class="border border-error" variant="subtle">
-      <p class="font-medium">{{ loadError }}</p>
-    </UCard>
+    <div v-if="children.length > 1" class="switcher-slot">
+      <ChildSwitcher :children="children" />
+    </div>
 
-    <div v-else-if="loading" class="py-12 text-center text-muted">Se încarcă…</div>
+    <p v-if="loading" class="portal-empty">Se încarcă…</p>
 
-    <UCard v-else-if="projects.length === 0" variant="subtle" class="border">
-      <div class="py-8 text-center space-y-2">
-        <UIcon name="i-lucide-sparkles" class="text-3xl text-muted" />
-        <p class="font-medium">Încă nu e nimic aici.</p>
-        <p class="text-sm text-muted">
-          Îți trimitem un email de fiecare dată când o lucrare e gata de arătat.
-        </p>
-      </div>
-    </UCard>
+    <div v-else-if="loadError" class="portal-card portal-card-accent portal-notice" role="alert">
+      <p class="body-text">{{ loadError }}</p>
+    </div>
 
     <template v-else>
-      <div v-if="children.length > 1" class="flex gap-2 flex-wrap">
-        <UButton
-          :variant="childFilter === null ? 'solid' : 'outline'"
-          size="sm"
-          @click="childFilter = null"
-        >
-          Toți
-        </UButton>
-        <UButton
-          v-for="child in children"
+      <div v-if="downloadable.length > 0" class="archives">
+        <button
+          v-for="child in downloadable"
           :key="child.id"
-          :variant="childFilter === child.id ? 'solid' : 'outline'"
-          size="sm"
-          @click="childFilter = child.id"
-        >
-          {{ child.firstName }}
-        </UButton>
-      </div>
-
-      <div class="flex flex-wrap gap-2">
-        <UButton
-          v-for="child in downloadableChildren"
-          :key="child.id"
-          icon="i-lucide-download"
-          variant="outline"
-          size="sm"
-          :loading="downloading === child.id"
+          type="button"
+          class="btn btn-secondary archive-action"
+          :disabled="downloading === child.id"
           @click="downloadArchive(child)"
         >
-          Descarcă tot ({{ child.firstName }})
-        </UButton>
+          <UIcon name="i-lucide-download" class="chip-icon" />
+          {{ downloading === child.id ? "Se pregătește…" : `Descarcă tot (${child.firstName})` }}
+        </button>
       </div>
 
-      <UCard v-for="project in visible" :key="project.id" class="border">
-        <div class="flex gap-4">
-          <ProjectThumbnail
-            :project-id="project.id"
-            :has-thumbnail="project.hasThumbnail"
-            :alt="project.title"
-            :size="112"
-          />
-          <div class="flex-1 min-w-0 space-y-2">
-            <div>
-              <p class="font-semibold">{{ project.title }}</p>
-              <p class="text-sm text-muted">
-                {{ project.child.firstName }} · {{ project.capturedOn }}
-              </p>
-            </div>
-            <p v-if="project.description" class="text-sm">{{ project.description }}</p>
+      <section class="portal-section">
+        <h2 class="portal-label">{{ scopeLabel }} · lucrări</h2>
 
-            <div class="flex flex-wrap gap-2">
-              <UButton
+        <p v-if="visible.length === 0" class="portal-empty">
+          Încă nu e nicio lucrare aici. Îți trimitem un email de fiecare dată când una e gata de
+          arătat.
+        </p>
+
+        <div v-else class="gallery">
+          <article v-for="project in visible" :key="project.id" class="project">
+            <ProjectThumbnail
+              :project-id="project.id"
+              :has-thumbnail="project.hasThumbnail"
+              :hint="hintFor(project)"
+              :alt="`Miniatura lucrării „${project.title}”`"
+              :framed="project.hasThumbnail"
+            />
+
+            <span class="portal-label project-meta">
+              {{ project.child.firstName }} · {{ formatDateKey(project.capturedOn) }}
+            </span>
+            <h3 class="project-title">{{ project.title }}</h3>
+            <p v-if="project.description" class="body-text project-desc">
+              {{ project.description }}
+            </p>
+
+            <div class="project-files">
+              <button
                 v-for="file in filesOf(project)"
                 :key="file.id"
-                size="xs"
-                variant="outline"
-                icon="i-lucide-download"
-                :loading="downloadingFile === file.id"
+                type="button"
+                class="chip"
+                :disabled="downloadingFile === file.id"
                 @click="downloadFile(project.id, file.id)"
               >
+                <UIcon name="i-lucide-download" class="chip-icon" />
                 {{ file.originalName }}
-              </UButton>
-              <UButton
+              </button>
+              <a
                 v-for="link in project.links"
                 :key="`link-${link.id}`"
-                size="xs"
-                variant="outline"
-                icon="i-lucide-external-link"
-                :to="link.url"
+                :href="link.url"
+                class="chip"
                 target="_blank"
                 rel="noopener noreferrer"
               >
+                <UIcon name="i-lucide-external-link" class="chip-icon" />
                 {{ link.label }}
-              </UButton>
+              </a>
             </div>
-          </div>
+          </article>
         </div>
-      </UCard>
+      </section>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useChildrenApi } from "~/composables/api/useChildrenApi";
+import { useChildSelection } from "~/composables/useChildSelection";
 import { useProjectsApi } from "~/composables/api/useProjectsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
+import { formatDateKey } from "~/composables/useAdminFormat";
+import { useChildrenStore } from "~/stores/childrenStore";
 import { useTokenStore } from "~/stores/tokenStore";
+import type { Child } from "~/types/child.types";
 import type { Project, ProjectFile } from "~/types/project.types";
 
 /**
- * The parent's gallery. E14/S5.
+ * The parent's gallery — E14/S5, on the E18/S4 design.
  *
  * **Only what has been sent appears here**, and that is enforced by the API rather than by this
  * page: a document still in review has not been looked at by anyone, and the portal must not be the
  * back door around the screen where somebody looks at it first.
  *
- * Downloads go through the backend, never straight to storage. The button asks for a signed URL,
- * the backend checks the child is this parent's, and the browser follows the URL it gets back. A
- * storage URL never appears in a page, an email or a log.
+ * Downloads go through the backend, never straight to storage. The button asks for a signed URL, the
+ * backend checks the child is this parent's, and the browser follows the URL it gets back. A storage
+ * URL never appears in a page, an email or a log.
+ *
+ * The child list comes from `/children` rather than from the projects themselves. Reading it off the
+ * projects meant a child with no work yet had no tab — so the one parent who most needed to be told
+ * "nothing here yet, and we will email you" was the one who could not select their child to be told.
  */
-definePageMeta({ layout: "dashboard" as any, title: "Proiectele copiilor" });
+definePageMeta({ layout: "portal" as any, title: "Proiectele copiilor" });
 
 const { fetchProjects, fileDownloadUrl } = useProjectsApi();
+const childrenApi = useChildrenApi();
+const childrenStore = useChildrenStore();
 const notifications = useNotifications();
 const tokenStore = useTokenStore();
 const config = useRuntimeConfig();
+const { includes, isShowingAll, selected, reconcile } = useChildSelection();
 
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 const projects = ref<Project[]>([]);
-const childFilter = ref<number | null>(null);
 const downloading = ref<number | null>(null);
 const downloadingFile = ref<number | null>(null);
 
-const children = computed(() => {
-  const seen = new Map<number, { id: number; firstName: string }>();
-  for (const project of projects.value) {
-    seen.set(project.child.id, { id: project.child.id, firstName: project.child.firstName });
-  }
-  return [...seen.values()];
+const children = computed(() => childrenStore.children);
+
+const scopeLabel = computed(() => {
+  if (isShowingAll.value) return "Toți copiii";
+  return children.value.find((child) => child.id === selected.value)?.firstName ?? "Copilul ales";
 });
 
-const downloadableChildren = computed(() =>
-  childFilter.value === null
-    ? children.value
-    : children.value.filter((child) => child.id === childFilter.value)
+const visible = computed(() =>
+  projects.value
+    .filter((project) => includes(project.child.id))
+    .sort((a, b) => b.capturedOn.localeCompare(a.capturedOn))
 );
 
-const visible = computed(() =>
-  childFilter.value === null
-    ? projects.value
-    : projects.value.filter((project) => project.child.id === childFilter.value)
+/** Only children who actually have something to put in an archive. */
+const downloadable = computed(() =>
+  children.value.filter(
+    (child) => includes(child.id) && projects.value.some((p) => p.child.id === child.id)
+  )
 );
 
 /**
@@ -170,11 +165,18 @@ function filesOf(project: Project): ProjectFile[] {
   return project.versions.flatMap((version) => version.files);
 }
 
+/** What the placeholder reads to pick its mark: the first file's name, else the title. */
+function hintFor(project: Project): string {
+  return filesOf(project)[0]?.originalName ?? project.title;
+}
+
 async function load() {
   loading.value = true;
   loadError.value = null;
   try {
-    projects.value = await fetchProjects();
+    const [fetched, mine] = await Promise.all([fetchProjects(), childrenApi.fetchChildren()]);
+    projects.value = fetched;
+    reconcile(mine);
   } catch (err) {
     loadError.value = apiErrorMessage(err);
   } finally {
@@ -203,7 +205,7 @@ async function downloadFile(projectId: number, fileId: number) {
  * Fetched with the bearer token and handed to the browser as a blob, for the same reason the
  * thumbnails are: a plain link carries no `Authorization` header, and this endpoint needs one.
  */
-async function downloadArchive(child: { id: number; firstName: string }) {
+async function downloadArchive(child: Child) {
   downloading.value = child.id;
   try {
     const response = await fetch(
@@ -228,3 +230,55 @@ async function downloadArchive(child: { id: number; firstName: string }) {
 
 onMounted(load);
 </script>
+
+<style scoped>
+.switcher-slot {
+  margin-top: var(--rhythm-2);
+}
+
+.archives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--rhythm-2);
+}
+
+.archive-action {
+  min-height: 44px;
+}
+
+/* A gallery, not a list of rows: this is the page that has to justify the fee emotionally, and a
+   table of filenames does not. */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--rhythm-3) var(--rhythm-2);
+  margin-top: var(--rhythm-2);
+}
+
+.project {
+  display: flex;
+  flex-direction: column;
+}
+
+.project-meta {
+  margin-top: var(--space-4);
+}
+
+.project-desc {
+  margin-top: var(--space-2);
+}
+
+.project-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.chip-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--color-accent-ink);
+}
+</style>

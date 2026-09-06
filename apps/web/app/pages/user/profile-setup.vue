@@ -1,105 +1,350 @@
 <template>
-  <h1 class="text-4xl font-bold text-center mt-12 mb-6">Completează Profilul</h1>
-  <UCard variant="subtle" class="max-w-[90%] md:max-w-2xl mt-4 mx-auto p-6 border rounded-lg">
-    <UForm :schema="schema" :state="state" class="space-y-4 w-full" @submit="handleSubmit">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-        <UFormField name="lastName">
-          <template #label>Nume<span class="text-error">*</span></template>
-          <UInput v-model="state.lastName" />
-        </UFormField>
+  <div class="page">
+    <section class="section-lead">
+      <div class="setup-panel">
+        <!--
+          Two entries, one page, and neither pretends to be the other.
 
-        <UFormField name="firstName">
-          <template #label>Prenume<span class="text-error">*</span></template>
-          <UInput v-model="state.firstName" />
-        </UFormField>
+          Right after signing up there is genuinely a second step, and the progress shown is real:
+          `ProfileSetup` is set because the account has no profile row at all. For a family the
+          school entered from a phone call, there is no step 2 of anything — the account already
+          exists and some of the details are already in it — so the page says what is actually true
+          and shows no progress bar. Faking a wizard in the second case would count a step nobody
+          took.
+        -->
+        <template v-if="isFirstTime">
+          <span class="kicker">Pasul 2 din 2</span>
+          <div class="steps" role="presentation">
+            <span class="step step-done"></span>
+            <span class="step"></span>
+          </div>
+          <h1 class="auth-title">Completează profilul</h1>
+          <p class="body-text">
+            Datele de contact și o persoană de urgență — școala are nevoie de ele înainte de prima
+            oră a copilului.
+          </p>
+        </template>
+        <template v-else>
+          <h1 class="auth-title">{{ hasGaps ? "Ne lipsesc câteva detalii" : "Datele tale" }}</h1>
+          <p class="body-text">
+            {{
+              hasGaps
+                ? "O parte din date există deja. Mai avem nevoie doar de cele de mai jos."
+                : "Schimbă ce nu mai e la zi. Pentru grupa unui copil, sună-ne — aia o facem noi."
+            }}
+          </p>
+        </template>
+
+        <form class="form setup-form" @submit.prevent="onSubmit">
+          <div class="field-row">
+            <div class="field">
+              <label for="setup-last-name">Nume</label>
+              <input
+                id="setup-last-name"
+                v-model="form.lastName"
+                class="input"
+                type="text"
+                autocomplete="family-name"
+              />
+              <p v-if="errors.lastName" class="field-error">{{ errors.lastName }}</p>
+            </div>
+            <div class="field">
+              <label for="setup-first-name">Prenume</label>
+              <input
+                id="setup-first-name"
+                v-model="form.firstName"
+                class="input"
+                type="text"
+                autocomplete="given-name"
+              />
+              <p v-if="errors.firstName" class="field-error">{{ errors.firstName }}</p>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="setup-email">Email</label>
+              <input
+                id="setup-email"
+                v-model="form.email"
+                class="input"
+                type="email"
+                autocomplete="email"
+              />
+              <p v-if="errors.email" class="field-error">{{ errors.email }}</p>
+            </div>
+            <div class="field">
+              <label for="setup-phone">Telefon</label>
+              <input
+                id="setup-phone"
+                v-model="form.phone"
+                class="input"
+                type="tel"
+                autocomplete="tel"
+                placeholder="07xxxxxxxx"
+              />
+              <p v-if="errors.phone" class="field-error">{{ errors.phone }}</p>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="setup-address">Adresă</label>
+            <input
+              id="setup-address"
+              v-model="form.address"
+              class="input"
+              type="text"
+              autocomplete="street-address"
+              placeholder="Strada, numărul, orașul"
+            />
+            <p class="field-hint">Apare pe factură.</p>
+            <p v-if="errors.address" class="field-error">{{ errors.address }}</p>
+          </div>
+
+          <fieldset class="fieldset">
+            <legend>Persoană de contact în caz de urgență</legend>
+            <p class="field-hint">Pe cine sunăm dacă nu răspunzi tu în timpul orei.</p>
+
+            <div class="field">
+              <label for="setup-emergency-name">Nume</label>
+              <input
+                id="setup-emergency-name"
+                v-model="form.emergencyContactName"
+                class="input"
+                type="text"
+              />
+              <p v-if="errors.emergencyContactName" class="field-error">
+                {{ errors.emergencyContactName }}
+              </p>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="setup-emergency-relation">Relația cu copilul</label>
+                <input
+                  id="setup-emergency-relation"
+                  v-model="form.emergencyContactRelation"
+                  class="input"
+                  type="text"
+                  placeholder="bunica, unchi…"
+                />
+                <p v-if="errors.emergencyContactRelation" class="field-error">
+                  {{ errors.emergencyContactRelation }}
+                </p>
+              </div>
+              <div class="field">
+                <label for="setup-emergency-phone">Telefon</label>
+                <input
+                  id="setup-emergency-phone"
+                  v-model="form.emergencyContactPhone"
+                  class="input"
+                  type="tel"
+                  placeholder="07xxxxxxxx"
+                />
+                <p v-if="errors.emergencyContactPhone" class="field-error">
+                  {{ errors.emergencyContactPhone }}
+                </p>
+              </div>
+            </div>
+          </fieldset>
+
+          <p class="field-hint">Toate câmpurile sunt obligatorii.</p>
+
+          <button type="submit" class="btn btn-primary btn-block" :disabled="saving">
+            {{ saving ? "Se salvează…" : "Salvează" }}
+          </button>
+        </form>
       </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-        <UFormField name="email">
-          <template #label>Email<span class="text-error">*</span></template>
-          <UInput v-model="state.email" type="email" />
-        </UFormField>
-
-        <UFormField name="phone">
-          <template #label>Număr de telefon<span class="text-error">*</span></template>
-          <UInput v-model="state.phone" type="tel" />
-        </UFormField>
-      </div>
-
-      <UFormField label="Adresă" name="address" class="w-full">
-        <UInput v-model="state.address" :rows="3" />
-      </UFormField>
-      <UButton type="submit" class="mx-auto block"> Submit </UButton>
-    </UForm>
-  </UCard>
+    </section>
+  </div>
 </template>
 
 <script setup lang="ts">
+import { computed, reactive, ref, watchEffect } from "vue";
 import * as z from "zod";
-import type { FormSubmitEvent } from "@nuxt/ui";
 import { useProfileApi } from "~/composables/api/useProfileApi";
-import type { Profile } from "~/types/profile.types";
 import { useProfileStore } from "~/stores/profileStore";
 import { useNotifications } from "~/composables/useNotifications";
 import { isRomanianPhone, normalizePhone } from "~/composables/useUtils";
 import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
+import type { Profile } from "~/types/profile.types";
+
+/**
+ * Completează profilul — E18/S4, screen 6b.
+ *
+ * **One page, two entries, and the difference between them is not cosmetic.**
+ *
+ * - *Right after signing up*: there is no profile row, `ProfileSetup` is set, and the middleware has
+ *   brought the parent here. "Pasul 2 din 2" is then a true statement about a real second step, and
+ *   the progress shown is honest.
+ * - *A family the school entered from a phone call*: the profile already exists, half filled in, and
+ *   nobody is mid-flow. There is no step 2 of anything to show, so the page says "ne lipsesc câteva
+ *   detalii" and shows no progress. It is also reachable from Profil, as plain editing.
+ *
+ * Which one it is is read off the data — profile or no profile — not off a query parameter, so the
+ * page cannot be linked into the wrong story.
+ *
+ * The request differs accordingly: `POST /profiles` creates, `PUT /profiles/:id` merges. The second
+ * matters for the phone-entered family, whose row must not be replaced by whatever this form holds.
+ */
+definePageMeta({
+  layout: "portal" as any,
+  title: "Completează profilul",
+});
 
 const profileApi = useProfileApi();
-const { error } = useNotifications();
+const profileStore = useProfileStore();
+const { success, error } = useNotifications();
 
-definePageMeta({
-  layout: "dashboard" as any,
-  title: "Completează Profilul",
+const saving = ref(false);
+
+const profile = computed(() => profileStore.profile);
+const isFirstTime = computed(() => !profile.value);
+
+/** Whether anything the school actually needs is still missing. Decides the wording, nothing else. */
+const hasGaps = computed(() => {
+  const p = profile.value;
+  if (!p) return true;
+  return !p.phone || !p.address || !p.emergencyContactName || !p.emergencyContactPhone;
 });
 
-const schema = z.object({
-  email: z.string().email("Adresa de email nu este validă"),
-  // Was `exactly 10 characters`, which accepted only `0712345678` — while the API demanded
-  // international format, so no value satisfied both and this form could never be submitted.
-  // Both spellings are valid now, on either side.
-  phone: z
-    .string()
-    .min(1, "Numărul de telefon este obligatoriu")
-    .refine(isRomanianPhone, "Număr de telefon invalid (ex. 0712345678)"),
-  firstName: z.string().min(1, "Prenumele este obligatoriu"),
-  lastName: z.string().min(1, "Numele este obligatoriu"),
-  address: z.string().optional(),
-});
-
-type Schema = z.output<typeof schema>;
-
-const state = reactive<Partial<Schema>>({
-  email: "",
-  phone: "",
+const form = reactive({
   firstName: "",
   lastName: "",
+  email: "",
+  phone: "",
   address: "",
+  emergencyContactName: "",
+  emergencyContactRelation: "",
+  emergencyContactPhone: "",
 });
 
-async function handleSubmit(event: FormSubmitEvent<Schema>) {
-  const address = event.data.address?.trim();
-  const profile: Partial<Profile> = {
-    email: event.data.email,
-    phone: normalizePhone(event.data.phone),
-    firstName: event.data.firstName,
-    lastName: event.data.lastName,
-    // Omit rather than send `""`. An untouched input submits an empty string, which is not an
-    // address; sending it made the request fail validation on a field the parent left blank.
-    ...(address ? { address } : {}),
+/**
+ * Prefilled from whatever is already known.
+ *
+ * `watchEffect` rather than a one-shot read: the profile may still be in flight when this page
+ * mounts, and a form that stayed empty would invite a parent to retype details the school already
+ * has — and then reject them as duplicates of their own.
+ */
+watchEffect(() => {
+  const p = profile.value;
+  if (!p) return;
+  form.firstName ||= p.firstName ?? "";
+  form.lastName ||= p.lastName ?? "";
+  form.email ||= p.email ?? "";
+  form.phone ||= p.phone ?? "";
+  form.address ||= p.address ?? "";
+  form.emergencyContactName ||= p.emergencyContactName ?? "";
+  form.emergencyContactRelation ||= p.emergencyContactRelation ?? "";
+  form.emergencyContactPhone ||= p.emergencyContactPhone ?? "";
+});
+
+/**
+ * Checked here as well as on the server, so the message appears under the field rather than in a
+ * banner. The server stays the authority; this only decides whether the request is worth making.
+ */
+const schema = z.object({
+  firstName: z.string().trim().min(1, "Prenumele este obligatoriu").max(100),
+  lastName: z.string().trim().min(1, "Numele este obligatoriu").max(100),
+  email: z
+    .string()
+    .trim()
+    .min(1, "Adresa de email este obligatorie")
+    .email("Adresa de email nu pare validă"),
+  phone: z
+    .string()
+    .trim()
+    .min(1, "Telefonul este obligatoriu")
+    .refine(isRomanianPhone, "Scrie un număr de telefon românesc, de forma 07xxxxxxxx"),
+  address: z.string().trim().min(1, "Adresa este obligatorie").max(255),
+  emergencyContactName: z
+    .string()
+    .trim()
+    .min(1, "Numele persoanei de contact este obligatoriu")
+    .max(200),
+  emergencyContactRelation: z.string().trim().min(1, "Spune-ne ce relație are cu copilul").max(100),
+  emergencyContactPhone: z
+    .string()
+    .trim()
+    .min(1, "Telefonul persoanei de contact este obligatoriu")
+    .refine(isRomanianPhone, "Scrie un număr de telefon românesc, de forma 07xxxxxxxx"),
+});
+
+type FieldName = keyof z.infer<typeof schema>;
+
+const errors = reactive<Partial<Record<FieldName, string>>>({});
+
+const onSubmit = async () => {
+  for (const key of Object.keys(errors) as FieldName[]) errors[key] = undefined;
+
+  const result = schema.safeParse(form);
+  if (!result.success) {
+    for (const issue of result.error.issues) {
+      const field = issue.path[0] as FieldName;
+      errors[field] ??= issue.message;
+    }
+    return;
+  }
+
+  const data = result.data;
+  const payload: Partial<Profile> = {
+    ...data,
+    // Normalised to `+40…` before it leaves, so the duplicate check compares one spelling.
+    phone: normalizePhone(data.phone),
+    emergencyContactPhone: normalizePhone(data.emergencyContactPhone),
   };
 
-  // `createProfile` throws now. It used to return the status code, so a rejected request looked
-  // like a success here: we navigated away, the setup flag stayed set, and the middleware sent the
-  // parent straight back to this form with nothing shown.
+  saving.value = true;
   try {
-    await profileApi.createProfile(profile);
+    const current = profile.value;
+    if (current) {
+      await profileApi.updateProfile(payload, current.id);
+    } else {
+      await profileApi.createProfile(payload);
+    }
+    success("Am salvat datele.");
     await navigateTo("/user/profile");
   } catch (err) {
     if (apiErrorCode(err) === "ALREADY_EXISTS" || apiErrorCode(err) === "CONFLICT") {
-      error("Email-ul sau numărul de telefon există deja în sistem.");
+      error("Emailul sau numărul de telefon există deja în sistem.");
       return;
     }
     error(apiErrorMessage(err, "Nu am putut salva profilul. Încearcă din nou."));
+  } finally {
+    saving.value = false;
   }
-}
+};
 </script>
+
+<style scoped>
+.setup-panel {
+  width: min(520px, 100%);
+  margin: 0 auto;
+}
+
+/* Two segments, the first filled: the progress a real second step has. Presentational — the
+   "Pasul 2 din 2" above it is what a screen reader announces. */
+.steps {
+  display: flex;
+  gap: 6px;
+  max-width: 220px;
+  margin: var(--space-3) 0 var(--rhythm-2);
+}
+
+.step {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  opacity: 0.45;
+}
+
+.step-done {
+  opacity: 1;
+}
+
+.setup-form {
+  max-width: none;
+  margin-top: var(--rhythm-2);
+}
+</style>

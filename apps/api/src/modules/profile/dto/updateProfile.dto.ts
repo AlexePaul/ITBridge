@@ -47,4 +47,40 @@ export class UpdateProfileDto {
     @IsOptional()
     @IsBoolean()
     marketingOptIn?: boolean;
+
+    /*
+     * Who to call when a child is hurt and the parent does not answer — E11/S2.
+     *
+     * `RegisterDto` demands all three of a parent who signs themselves up, and the columns have
+     * existed since. They were missing here, which left the school's own families — the ones an
+     * admin types in from a phone call, with nothing but a name — permanently unable to supply
+     * them: `whitelist` plus `forbidNonWhitelisted` means a field no DTO declares does not get
+     * ignored, it rejects the whole request. So the portal screen that asks for the missing details
+     * (E18/S4, screen 6b) had no endpoint to send them to.
+     *
+     * Optional rather than required, unlike at registration: this DTO is a partial update, and a
+     * parent editing their address must not have to retype an emergency contact to do it. The
+     * shapes are otherwise the same as `RegisterDto`'s, so the two doors cannot disagree about what
+     * a valid contact looks like.
+     */
+    @ApiProperty({ example: 'Ana Popescu', required: false })
+    @EmptyToUndefined()
+    @IsOptional()
+    @IsString()
+    @Length(1, 200)
+    emergencyContactName?: string;
+
+    @ApiProperty({ example: 'bunica', required: false })
+    @EmptyToUndefined()
+    @IsOptional()
+    @IsString()
+    @Length(1, 100)
+    emergencyContactRelation?: string;
+
+    @ApiProperty({ example: '0723456789', required: false })
+    @EmptyToUndefined()
+    @IsOptional()
+    @IsString()
+    @IsPhoneNumber('RO')
+    emergencyContactPhone?: string;
 }
