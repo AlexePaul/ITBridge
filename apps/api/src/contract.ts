@@ -23,6 +23,7 @@ import type { FinanceReport } from './modules/dashboard/finance-report.service';
 import type { OccupancyReport } from './modules/dashboard/occupancy-report.service';
 import type { AnnouncementDetail, AnnouncementPreview, AnnouncementResult, AnnouncementSummary } from './modules/announcement/announcement.service';
 import type { PendingSummary } from './modules/project/project.service';
+import type { ReferralReward } from './modules/discount/discount.rules';
 import type { AnnouncementAudience } from './enum/announcement-audience.enum';
 import type { LeadChannel, LeadSource } from './enum/lead-source.enum';
 import type { LeadStatus } from './enum/lead-status.enum';
@@ -173,6 +174,10 @@ type _Discount = Check<Pick<Wire.Discount, 'id' | 'name' | 'value' | 'monthIssue
 // `extends` holds between it and the strings it puts on the wire.
 type _DiscountType = Check<Wire.DiscountType, `${DiscountType}`>;
 type _DiscountTypeBack = Check<`${DiscountType}`, Wire.DiscountType>;
+// E20/S5's one-press reward answers with its whole state, so the month list is checked both ways:
+// a screen renders `−` from it, and would render the button wrong if the shape drifted.
+type _ReferralReward = Check<Wire.ReferralReward, Serialized<ReferralReward>>;
+type _ReferralRewardBack = Check<Serialized<ReferralReward>, Wire.ReferralReward>;
 
 // E17/S5 gave the outbox a read surface, so the two statuses it puts on the wire are checked here.
 // The row itself is compared loosely — `DeliveryRecord` is the queue's shape minus the fields the

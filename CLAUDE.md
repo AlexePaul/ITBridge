@@ -924,10 +924,17 @@ dintotdeauna cu calculatorul; codul factura 350 fix și supra-factura fiecare lu
 e toată regula: fără ea, suma ar depinde de ordinea rândurilor dintr-o interogare. Un copil cu zero
 ședințe nu consumă tariful întreg.
 
-**Emiterea se face din `/admin/invoices/emitere`**, nu prin `POST /invoices`: un ecran cu familiile
-ca arbore, o valoare per copil, total jos, un buton. Serverul facturează numerele de pe ecran, nu
-și le recalculează — cine apasă s-a uitat la fiecare. Ruta veche există în continuare pentru
-`calculateAmount`, care numără înscrieri active și e folosită de previzualizare.
+**Emiterea se face din `/admin/invoices/emitere`, și numai de acolo**: un ecran cu familiile ca
+arbore, o valoare per copil, total jos, un buton. Serverul facturează numerele de pe ecran, nu și le
+recalculează — cine apasă s-a uitat la fiecare.
+
+Al doilea drum a fost **șters** (E18/S5b): `/admin/invoices/new` și `/admin/invoices/preview/:month`
+emiteau aceeași lună prin `POST /invoices/preview` plus `POST /invoices`, adică pe numere calculate
+de server, nu văzute de om. Ecranul lui arăta „Număr Copii" numărând toți copiii familiei, deși
+factura numără de la E11/S4 doar înscrierile `ACTIVE` — două răspunsuri la aceeași întrebare, iar
+cel de pe ecran era greșit. `POST /invoices` și `POST /invoices/preview` **există în continuare pe
+server** și sunt testate; nimic din interfață nu le mai cheamă. Dacă adaugi un al doilea loc de unde
+se emite, e aproape sigur o greșeală: locul e unul.
 
 **O reducere știe dacă e în lei sau în procente, iar procentul se aplică pe prețul de listă.**
 `Discount.type` (E15 S5) e `fixed` sau `percent` — un `50` stocat e cincizeci de lei sau jumătate de
@@ -937,6 +944,37 @@ din bază nu poate schimba factura; două reduceri de 50% duc totalul la zero, n
 Reducerea se rotunjește ea însăși la bani, ca linia tipărită și totalul să se adune pe hârtie.
 Plafonul de 100% e în `DiscountService`, nu în DTO: o actualizare poate schimba tipul într-o cerere
 și valoarea în alta, iar doar starea de după îmbinare spune ce ajunge stocat.
+
+**Recomandarea se dă la apăsare, iar o apăsare în plus e o lună în plus** (E20 S5). Controlul din
+profilul familiei e un `−  n luni  +`: `POST /discounts/referral` adaugă o lună la 50%,
+`DELETE /discounts/referral/:parentId` o ia pe ultima înapoi, iar `GET` pe aceeași cale întoarce
+starea. Toate trei răspund cu **lunile acoperite**, nu cu rândul atins — un ecran care și-ar aduna
+singur apăsarea ar diverge de server în clipa în care altcineva șterge o lună din `/admin/reduceri`.
+
+Trei reguli care par detalii și nu sunt:
+
+- **A doua apăsare dă a doua lună, nu o reducere mai mare pe aceeași lună.** Procentele se adună pe
+  prețul de listă (`discountTotal`), deci 50% peste 50% e o lună gratuită, iar una apărută dintr-un
+  dublu-clic nu se deosebește de una hotărâtă. `nextUncoveredMonth` caută prima lună neacoperită,
+  deci umple întâi golul lăsat de un `−`.
+- **Luna o alege serverul**, prin `nextBillingMonthAt` și `monthAfter` din
+  `apps/api/src/modules/discount/discount.rules.ts`, pe ceasul școlii și din componentele
+  string-ului — prin `Date`, un întâi de lună la 01:00 ar cădea pe luna tocmai facturată, iar 31
+  decembrie ar sări o lună.
+- **Nimic nu se întinde în trecut**: `+` pleacă de la luna viitoare, `−` ia doar de acolo încolo, și
+  scoate numai rândurile recompensei. Un procent tastat din formular nu e al butonului să-l
+  retragă, iar peste el `DISCOUNT_ALREADY_GRANTED` refuză să se adune. Refuzul e în serviciu, fără
+  index unic în spate — spre deosebire de locurile din E11, un rând duplicat aici se vede pe ecran
+  și se șterge din două clicuri.
+
+**Ultimul pas al oricărei facturi e tabelul `discounts`, și nu depinde de cum s-a calculat suma.**
+Indiferent ce dă totalul — ședințe numărate pe un ecran, prezențe, orice vine după —, rândurile
+familiei pe **luna care se emite** (`monthIssued`) se scad la final, prin `discountTotal` din
+`apps/api/src/modules/invoice/pricing.ts`. Calea de azi o face în `issueFromSessions`; **o cale nouă
+de emitere trebuie s-o facă și ea.** Fără pasul ăsta, familia căreia școala i-a promis jumătate
+primește factura întreagă, iar promisiunea rămâne în tabel, nevăzută de nimeni: nu apare ca eroare
+nicăieri, fiindcă suma calculată e perfect validă. Cazul obișnuit e −50% din E20/S5, dat dintr-un
+buton, deci nu mai e rar.
 
 **Zero e un răspuns, nu un câmp gol.** O lună fără plată se scrie ca factură `waived`, de 0 lei,
 fără PDF. Rândul există fiindcă n-are bani în el: fără el, o familie fără factură pe octombrie arată

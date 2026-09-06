@@ -216,11 +216,12 @@ Mecanismul, scris aici o dată ca să nu-l inventeze fiecare epic pe al lui:
 
 Substratul e Postgres, nu Redis — vezi [Decizii luate](#decizii-luate).
 
-Coada nu e doar pentru emailuri. Patru story-uri din alte epic-uri presupun deja un job programat,
-fără să spună al cui e: [E15](E15-pricing-facturare.md) S3 (a doua tranșă, la mijlocul modulului —
-decizie luată, nu propunere), [E16](E16-plati-fiscal.md) S3 (emiterea temperată sub limita SmartBill
+Coada nu e doar pentru emailuri. Trei story-uri din alte epic-uri presupun deja un job programat,
+fără să spună al cui e: [E16](E16-plati-fiscal.md) S3 (emiterea temperată sub limita SmartBill
 de 3 apeluri pe secundă), [E16](E16-plati-fiscal.md) S7 (memento-urile de restanță) și
-[E04](E04-migrari-date.md) S5 (retenția). Toate folosesc mecanismul de aici. Altfel ies patru cozi,
+[E04](E04-migrari-date.md) S5 (retenția). Era și un al patrulea —
+[E15](E15-pricing-facturare.md) S3, a doua tranșă la mijlocul modulului — dar story-ul a fost scos:
+factura lunară e deja plata în tranșe. Toate folosesc mecanismul de aici. Altfel ies patru cozi,
 fiecare cu propria reîncercare și propria idee despre ce înseamnă un eșec permanent.
 
 **Coada rămâne necesară și acolo unde declanșatorul e un om.** Trimiterea pe grupă din S8 e un

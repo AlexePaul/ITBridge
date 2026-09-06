@@ -1,23 +1,5 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Evidență Grup</h1>
-        <p class="text-muted mt-1">{{ subtitle }}</p>
-      </div>
-      <UButton
-        color="secondary"
-        variant="subtle"
-        class="mr-3 ml-auto flex items-center h-11"
-        size="lg"
-        @click="handleBack"
-      >
-        <UIcon name="i-lucide-arrow-left" class="mr-2" />
-        Înapoi
-      </UButton>
-    </div>
-
+  <AdminPage title="Evidență grupă" :subtitle="subtitle" width="xl" back-to="/admin/attendance">
     <!-- Form Card -->
     <UCard class="hover:shadow-lg transition-shadow">
       <template #header>
@@ -31,39 +13,39 @@
             <div class="cursor-pointer" @click="groupId = group.id">
               <GroupCard
                 :group="group"
-                :showEdit="false"
-                :showManageChildren="false"
-                :showWeekday="true"
-                :isSelected="groupId === group.id"
+                :occupancy="occupancyByGroup.get(group.id)"
+                :show-edit="false"
+                :show-manage-children="false"
+                :show-weekday="true"
+                :is-selected="groupId === group.id"
               />
             </div>
           </template>
         </div>
         <!-- Submit Button -->
         <div class="flex gap-3 pt-6 border-t border-muted justify-center">
-          <UBadge class="mr-auto w-40 text-md" variant="outline" color="primary"
-            >Selected Group: {{ groupId }}</UBadge
-          >
+          <UBadge class="mr-auto text-md" variant="outline" color="primary">
+            {{ selectedGroupLabel }}
+          </UBadge>
           <UButton
             type="submit"
             variant="outline"
             :color="!groupId ? 'neutral' : 'primary'"
             size="md"
-            :class="['w-40', !groupId ? 'opacity-50 cursor-not-allowed' : '']"
+            :class="['w-40 min-h-11', !groupId ? 'opacity-50 cursor-not-allowed' : '']"
             :disabled="!groupId"
-            @click="handleSubmit"
           >
             Continuă
           </UButton>
         </div>
       </form>
     </UCard>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
-import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
+import { useReportsApi } from "~/composables/api/useReportsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { useLocationStore } from "~/stores/locationStore";
 import type { Group } from "~/types/group.types";
@@ -77,9 +59,21 @@ definePageMeta({
 const { error } = useNotifications();
 const groupId = ref<number | null>(null);
 const groups: Ref<Group[]> = ref([]);
-const childrenApi = useChildrenApi();
 const groupsApi = useGroupsApi();
 const locationStore = useLocationStore();
+
+/**
+ * Seats per group, keyed by id — the same source `/admin/groups` uses.
+ *
+ * `occupancyOf` owns the number (D7: active plus trials) and `GET /reports/occupancy` carries it
+ * for every group in one call. This page used to load every child in the school so the cards could
+ * count them, which left trials out of the figure somebody reads before picking a group. If the
+ * call fails the cards name the capacity and say nothing about how full they are.
+ */
+const reportsApi = useReportsApi();
+const occupancyByGroup = ref(
+  new Map<number, { taken: number; free: number; capacity: number; waiting: number }>()
+);
 
 // Sorted and filtered here rather than in the template: `.sort()` on the array a `v-for` is
 // iterating mutates the ref in place on every render.
@@ -96,9 +90,11 @@ const subtitle = computed(() =>
     : `Gestionează prezența grupelor din ${locationStore.selectedLocation?.name ?? ""}`
 );
 
-const handleBack = () => {
-  navigateTo("/admin/attendance");
-};
+/** Names the group rather than printing its id: the id means nothing to whoever is looking. */
+const selectedGroupLabel = computed(() => {
+  const selected = groups.value.find((group) => group.id === groupId.value);
+  return selected ? `Grupă selectată: ${selected.name}` : "Nicio grupă selectată";
+});
 
 const handleSubmit = () => {
   if (!groupId.value) {
@@ -110,7 +106,17 @@ const handleSubmit = () => {
 };
 
 onMounted(async () => {
-  await childrenApi.fetchChildren();
   groups.value = await groupsApi.fetchGroups();
+  try {
+    const report = await reportsApi.fetchOccupancyReport();
+    occupancyByGroup.value = new Map(
+      report.groups.map((group) => [
+        group.groupId,
+        { taken: group.taken, free: group.free, capacity: group.capacity, waiting: group.waiting },
+      ])
+    );
+  } catch {
+    // Cards then show the capacity without a fill. See the note on `occupancyByGroup`.
+  }
 });
 </script>

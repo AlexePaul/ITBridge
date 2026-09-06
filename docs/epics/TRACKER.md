@@ -3,10 +3,12 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 6 septembrie 2026 — adăugate E12 S8 și E15 S9, facturarea numărată din
-catalog. Ultimele merge-uri, pe `release/stage`: E18 S4, în plus față de E18 S7 și E20 S1–S4, care
-veneau peste E17 S8, jumătatea din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7,
-E21 S2/S4 și E12 S5.
+**Ultima actualizare:** 6 septembrie 2026, pe `release/stage`. Două lucruri în aceeași zi. **S-au
+adăugat** E12 S8 și E15 S9, facturarea numărată din catalog. **S-a tăiat scopul:** E06 și E13 ies
+din MVP, la fel E14 S6, E21 S3 și E21 S6; E15 S1, S2 și S3 se scot, fiind scrise pe modelul pe
+modul, ca S8; E21 S5 se dovedește livrat de E20 S4; E22 S1 se mută la E07 S1. Ultimele merge-uri de
+cod: E18 S4 și a doua felie din S5b, peste E18 S7 și E20 S1–S4, care veneau peste E17 S8, jumătatea
+din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 
 ## Legendă
 
@@ -17,9 +19,14 @@ E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **148 de story-uri** în 22 de epicuri: 70 livrate, 17 parțiale, 8 blocate, 5 scoase din scop,
-48 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
-nu rulează nicăieri".
+Din **148 de story-uri** în 22 de epicuri: 72 livrate, 19 parțiale, 6 blocate, 12 scoase din
+scop, 39 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+dar nu rulează nicăieri". (Cifrele sunt numărate din rândurile de mai jos. Cele dinainte erau ținute
+de mână și o luaseră razna cu câte unul în patru categorii din cinci.)
+
+Cele 39 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
+mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 ---
 
@@ -59,7 +66,7 @@ nu rulează nicăieri".
 - [x] S1 · Migrarea de bază
 - [~] S2 · Migrările în deploy — comenzile și garda de CI există; cablarea în deploy nu, fiindcă nu există deploy
 - [x] S3 · Seed pentru dezvoltare **și pentru staging** — **ancorat la ziua de azi**, nu la o constantă din martie: grupele acoperă luni–sâmbătă, deci „azi" are oră în șase zile din șapte. Lead-uri pe toate cele șase stări, outbox pe toate cele patru, anunțuri, absențe anunțate, credite de recuperare și șabloane — șase tabele care se deschideau goale. `pnpm seed:stage` populează staging-ul din `.env.stage`, dar numai dacă `SEED_ALLOW_NON_LOCAL` **numește baza** (nu `1`, care ar autoriza orice ar scrie `DB_NAME` luna viitoare) și `SEED_PASSWORD` e setată — `parola123` e în repo, iar staging-ul e la îndemâna oricui știe hostname-ul
-- [!] S4 · Backup și restaurare — așteaptă instanța
+- [!] S4 · Backup și restaurare — așteaptă instanța. **Forma e decisă:** `pg_dump` zilnic în același bucket S3, retenție de 30 de zile pe o regulă de lifecycle, o linie de cron pe instanță. Proba de restaurare, cu durata măsurată, rămâne condiția de închidere
 - [!] S5 · Retenție — **decis**: ștergere logică pe contul familiei, aplicată de admin la retragere; facturile n-au nevoie de politică, stau în SmartBill. Blocat de termenii din E22, fiindcă „când dispar efectiv datele" cere un termen scris undeva unde familia l-a văzut
 
 ### E05 · Robustețe backend — `livrat`
@@ -74,7 +81,7 @@ nu rulează nicăieri".
 - [x] S8 · Audit de autorizare
 - [x] S9 · CORS din configurație
 
-### E06 · Observabilitate și operare — `propus`
+### E06 · Observabilitate și operare — `scos din MVP`
 
 - [ ] S1 · Raportare de erori
 - [ ] S2 · Loguri agregate
@@ -83,16 +90,27 @@ nu rulează nicăieri".
 - [ ] S5 · Runbook
 - [ ] S6 · Bugete de performanță
 
+> Scos din MVP prin decizie: observabilitatea de zi cu zi e **PM2** — `pm2 logs` și `pm2 monit` pe
+> instanța din E01 S4, citite de omul care a făcut deploy-ul. Singura bucată care se strică singură e
+> discul umplut de loguri, iar rotația se pune odată cu procesul, în E01 S4, ca linie de configurare.
+> Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
+> află de la părintele care sună.
+
 ### E07 · Securitate, GDPR și consimțământ — `propus`
 
-- [ ] S1 · Inventar și clasificare
+- [ ] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface
 - [ ] S2 · Consimțământ parental — granularitate `(părinte, copil, scop)`, decisă
 - [ ] S3 · Audit log
-- [ ] S4 · Export și ștergere
-- [ ] S5 · Documente legale
+- [ ] S4 · Export și ștergere — termenul pe care îl aplică e scris în E22 S3
+- [ ] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2
 - [ ] S6 · Managementul secretelor
 - [ ] S7 · Contracte de prelucrare
 - [ ] S8 · Evidența contractului de înscriere — contractul se semnează fizic; platforma reține doar că există
+
+> **Granița cu E22 a fost tăiată pe tip, în septembrie 2026:** aici stă mecanica — inventarul,
+> consimțământul, audit log-ul, exportul și ștergerea, bannerul, secretele, contractele de prelucrare
+> —, acolo stă ce citește și acceptă familia: textele, termenul de păstrare, evidența acceptărilor.
+> Tabelul complet e în capul epicului E07.
 
 ---
 
@@ -151,16 +169,20 @@ nu rulează nicăieri".
 - [x] S4 · Recuperări — `MakeUpCredit` câștigat din anunț-în-termen plus absență reală, 30 de zile valabilitate, programare din portal, consumat de marcaj. Compatibilitatea e banda de vârstă, fiindcă modulele din E10 nu există
 - [x] S5 · Anulări și mutări — ecranul `/admin/orar` (mută, anulează, reactivează), plus mesajul către familiile grupei la fiecare dintre cele trei, scris în aceeași tranzacție. Recuperarea la anulare e o **bifă**, nu un automatism: ora anulată nu se facturează oricum, deci creditul e o decizie de preț, luată per anulare. Rămâne dispecerul, care pornește la E01 S4
 - [~] S6 · Marcarea prezenței pe telefon — livrat fără poze (`Child` n-are câmp, e o decizie E07/E14): `/admin/attendance/azi`, salvare la fiecare apăsare, coadă locală pe rețea picată, buton „Sună părintele" la absență
-- [~] S7 · Notificări — **mementoul de la minutul 15** (`@Interval` la 5 minute, fereastra se închide când se termină ora, o alertă per ședință) plus cel zilnic de la 10:00, amândouă către birou; și cele două către părinte, **amândouă despre recuperare**: câștigată (aceeași seară) și care expiră (7 zile înainte). Mesajul de absență a fost scos prin decizie — catalogul uitat/târziu/greșit îl făcea nesigur când era inofensiv și alarmant când nu. Rămâne a doua linie către părinte, care așteaptă E17 S6
+- [~] S7 · Notificări — **mementoul de la minutul 15** (`@Interval` la 5 minute, fereastra se închide când se termină ora, o alertă per ședință) plus cel zilnic de la 10:00, amândouă către birou; și cele două către părinte, **amândouă despre recuperare**: câștigată (aceeași seară) și care expiră (7 zile înainte). Mesajul de absență a fost scos prin decizie — catalogul uitat/târziu/greșit îl făcea nesigur când era inofensiv și alarmant când nu. A doua linie către părinte nu mai e o datorie deschisă: aștepta rezumatele din E17 S6, iar acelea au fost construite și scoase prin decizie
 - [ ] S8 · Bifa de vacanță pe catalog — `ClassSession.isVacation`, pusă de cine face catalogul. Faptul stă aici, regula de bani la E15 S9. **Nu se unește cu `NonTeachingPeriod`**: calendarul înseamnă „școala e închisă", bifa înseamnă „deschisă, dar în vacanță"
 
-### E13 · Progres, evaluare și feedback — `propus`
+### E13 · Progres, evaluare și feedback — `scos din MVP`
 
 - [ ] S1 · Evaluare pe competențe
 - [ ] S2 · Observații
 - [ ] S3 · Raport de final de modul
 - [ ] S4 · Certificat
 - [ ] S5 · Progresul în portal
+
+> Scos din MVP prin decizie, din două motive: n-are pe ce sta — competențele și „finalul de modul"
+> vin din E10, care e el însuși scos —, iar semnalul dintre înscriere și factură îl dă azi E14,
+> proiectul copilului. Se reia odată cu E10.
 
 ### E14 · Proiectele elevilor — `în lucru`
 
@@ -170,7 +192,7 @@ nu rulează nicăieri".
 - [!] S3b · Miniaturi pentru video și `.sb3` — cere ffmpeg pe host, deci deploy
 - [x] S4 · Trimiterea către părinte — părinții fără adresă apar în raportul trimiterii, nu în evidența din E17 S5, care nu există
 - [x] S5 · Galeria din portal — scrisă și testată; nu se poate arăta nimănui până la E01 S4
-- [!] S6 · Vitrina publică — cere backend deployat **și** consimțământul din E07 S2
+- ~~S6 · Vitrina publică~~ — **scos din MVP:** două-trei lucrări puse de mână în paginile publice, ca orice alt conținut, fără backend și fără `isPublic`. Vitrina automată cerea oricum consimțământul din E07 S2; regula „se publică lucrarea, nu copilul" rămâne, iar acordul se cere înainte, chiar dacă la telefon
 - [x] S7 · Corectarea unei atribuiri greșite — urma stă pe `Project`, nu în audit log-ul din E07 S3
 
 > Complet specificat, gata de construit. Fluxul e: agent local pe calculatorul cu share-ul de rețea,
@@ -180,12 +202,12 @@ nu rulează nicăieri".
 
 ## Bani
 
-### E15 · Pricing și facturare v2 — `în lucru`
+### E15 · Pricing și facturare v2 — `în lucru; S1–S3 scoase`
 
-- [x] S0 · Prețul pe ședință și ecranul de emitere — 87,50/62,50 per ședință, arbore familie→copii, zero se consemnează ca `waived`. **Facturarea pe modul a fost analizată și abandonată**, vezi caseta din epic
-- [ ] S1 · Catalogul de prețuri
-- [ ] S2 · Factura pe modul, cu linii
-- [ ] S3 · Planuri de plată
+- [x] S0 · Prețul pe ședință și ecranul de emitere — 87,50/62,50 per ședință, arbore familie→copii, zero se consemnează ca `waived`. Oricum s-ar calcula suma, **reducerile lunii se scad la final** — vezi E20 S5 pentru −50% și pentru ce trebuie verificat. **Facturarea pe modul a fost analizată și abandonată**, vezi caseta din epic
+- ~~S1 · Catalogul de prețuri~~ — **scos:** cheia lui e modulul din E10, iar textul interzice explicit coloana de preț pe ședință, care e azi tot modelul. Dacă tarifele trebuie vreodată scoase din cod, e un story nou, pe ședință
+- ~~S2 · Factura pe modul, cu linii~~ — **scos:** `Billing` există doar fiindcă S3 rupea o notă de plată în două facturi. Liniile de factură rămân o idee bună și n-au legătură cu modulele — story nou, când se face
+- ~~S3 · Planuri de plată~~ — **scos:** factura lunară e deja plata în tranșe; nu mai există suma de 700 pe modul care să se rupă în două
 - [x] S4 · Regula pentru mai mulți copii — 350 + 250 pe frate, într-un singur loc; ambele bug-uri reparate. Din E11/S4, suma numără doar copiii înscriși activ
 - [~] S5 · Reduceri cu tip — **tipul livrat** (`fixed`/`percent`, plafon 100%, ecranul `/admin/reduceri`); scopul, condițiile și valabilitatea nu s-au construit, fiindcă n-au niciun client
 - [ ] S6 · Previzualizare și emitere în masă
@@ -238,7 +260,7 @@ nu rulează nicăieri".
 - [x] S2 · Pipeline de imagini — `@nuxt/image`, WebP cu rezervă JPEG, `srcset` pe lățimile reale: **1056KB → 239KB**. AVIF măsurat și respins
 - [x] S3 · Paginile publice
 - [~] S4 · Portalul părintelui — **rescris pe sistemul din S1**: shell propriu (`layouts/portal.vue` — navbar plus rând de taburi, nu bara laterală de admin), Acasă / Prezența / Absențe / Proiecte / Plăți / Profil, cele trei ecrane de intrare în cont, și comutatorul de copil, care se păstrează între pagini și în URL. Rămâne verificarea pe date reale și pe telefon, care cere deploy-ul din E01 S4
-- [~] S5 · Uniformizarea zonei de admin — **jumătatea de componente livrată**: `AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`, pe un catalog al celor 7 dialecte de tabel și 5 de formular; `/admin/calendar` migrat ca dovadă. **Prima felie din S5b livrată**: meniul grupat pe șase secțiuni, `/admin/facturi` cu bani în loc de „Facturi: 10", lista de copii fără marca de timp brută și cu vârstă, iar cardul de grupă mutat pe `occupancyOf`. Restul ecranelor rămâne
+- [~] S5 · Uniformizarea zonei de admin — **componentele livrate** (`AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`), pe un catalog al celor 7 dialecte de tabel și 5 de formular. **S5b, două felii:** meniul grupat pe șase secțiuni, `/admin/facturi` cu bani în loc de „Facturi: 10", lista de copii cu vârstă în loc de marca de timp brută, cardul de grupă mutat pe `occupancyOf` (D7); apoi încă paisprezece ecrane pe componente, patru `<select>` native și zece `console.log` cu date de familii scoase, și al doilea drum de emitere (`invoices/new` + `invoices/preview/:month`) **șters**, fiindcă emitea o lună pe numere pe care nu se uitase nimeni. **25 din 42 de ecrane sunt migrate**; rămân `AdminDateField`, bara de filtre și grila de carduri
 - [~] S6 · Accesibilitate — **verificarea automată rulează în CI**: axe-core într-un Chromium adevărat, pe fiecare pagină din sitemap, în ambele teme, pe WCAG 2.0 și 2.1 A+AA. Rămâne zona autentificată, care se verifică odată cu S4 și S5
 - [x] S7 · Interfața profesorului — fără rol separat, e o vedere din zona de admin, nu o zonă a ei. Măsurat la 390px: **meniul era acoperit de filtrul de locație** (10px din 44 apăsabili), accentul lui Nuxt UI rămăsese la 2,61:1 de partea autentificată, iconițele veneau de la Iconify la rulare, iar coada aștepta un `online` care nu vine pe conexiunea din sală
 
@@ -262,7 +284,7 @@ nu rulează nicăieri".
 - [~] S2 · Programare la lecție de probă — `/proba` plus `GET /trial/slots` și `POST /trial/bookings`, **singurele rute publice în afară de autentificare**. Fără cont, dar cu loc real: scrie profil-coajă, copil și înscriere `TRIAL` prin `EnrollmentService`, într-o tranzacție. Grupa plină nu se oferă, iar locul luat între timp nu dă eroare, ci un lead. **Rămâne** doar aducerea paginii pe `release/prod`, care cere backend deployat (E01 S4)
 - [x] S3 · Urmărire — `/admin/leads` în ordinea a cât costă pierderea unei familii, plus mesajul zilnic de la 09:00, mementoul cu o zi înainte de probă și recontactarea după neprezentare. „Probă ținută" o pune catalogul, nu o bifă; nicio cerere nu iese fără motiv scris
 - [x] S4 · Măsurarea pâlniei — fila „Pâlnia" din `/admin/rapoarte`. Cohortă după data cererii, trecere nu ocupare, mediana până la decizie lângă conversia probă→înscriere, și cererile fără loc numărate separat, fiindcă nu intră în nicio rată
-- [x] S5 · Recomandări — **redus prin decizie și livrat astfel**: 50% de fiecare parte, date de mână din `/admin/reduceri`. Fără cod, fără link, fără atribuire automată — deci nici măsurare a canalului
+- [x] S5 · Recomandări — **redus prin decizie și livrat astfel**: 50% de fiecare parte, fără cod, fără link, fără atribuire automată — deci nici măsurare a canalului. Acordarea e **un `−  n luni  +` în profilul familiei**: fiecare apăsare pe `+` e încă o lună la 50%, `−` o ia pe ultima înapoi, iar luna o alege serverul pe ceasul școlii. A doua apăsare dă **a doua lună**, nu o reducere mai mare pe aceeași — două procente pe o lună o fac gratuită. `/admin/reduceri` rămâne pentru orice altă reducere și pentru ștergere
 
 > Formularul de contact rămâne pe email, prin decizie: nu scrie lead, nu atinge backend-ul.
 
@@ -270,14 +292,14 @@ nu rulează nicăieri".
 
 ## Business
 
-### E21 · Raportare și analytics — `în lucru`
+### E21 · Raportare și analytics — `livrat cât cere MVP-ul`
 
 - [~] S1 · Tablou de bord operațional — livrat pe `/admin/dashboard`, care era un placeholder. Fiecare număr e cerut de la serviciul care deține întrebarea, iar e2e-ul verifică acordul cu ecranele rezumate. Fără filtrare pe locație și fără comparație cu perioada anterioară
 - [x] S2 · Rapoarte financiare — `/admin/rapoarte`, fila „Bani": facturat față de încasat pe lună, cu **două calendare** (pentru lună / în lună), numerar și transfer, restanțele pe benzi cerute de la `ArrearsService`. Fără modul (E10) și fără locație (factura e a familiei); potrivirea cu contabilul așteaptă date reale
-- [ ] S3 · Retenție și abandon — acceptanța cere modulul (E10) și profesorul pe grupă (E09), amândouă scoase din MVP
+- ~~S3 · Retenție și abandon~~ — **scos din scop:** acceptanța cere modulul (E10) și profesorul pe grupă (E09), amândouă scoase, deci cele două axe pe care se citește rata nu există. E retenția **copiilor**, nu a datelor — aia e E04 S5 și E22 S3
 - [x] S4 · Ocupare — fila „Locuri": grupe cele mai goale primele, săli cu orele moarte măsurate pe orarul școlii, totaluri pe adresă. Ocupatul vine din `occupancyOf`, probele incluse; pragul de 60% și venitul pierdut la preț de listă sunt propuneri, afișate ca atare
-- [ ] S5 · Pâlnia
-- [ ] S6 · Export pentru contabil
+- [x] S5 · Pâlnia — **livrat în celălalt epic**, ca E20 S4: fila „Pâlnia" din `/admin/rapoarte`, servită de `GET /reports/funnel`. Rămân două jumătăți de acceptanță fără intrare, nu fără cod: costul de achiziție cere o cheltuială de marketing pe care n-o înregistrează nimeni, iar „familii care rămân" cere S3
+- ~~S6 · Export pentru contabil~~ — **scos din scop:** contabilul își ia datele din SmartBill, unde facturile există oficial. Un export din baza noastră ar fi a doua versiune a acelorași cifre. Se repune dacă E16 S0 iese prost și emiterea rămâne la noi
 - [ ] S7 · Semnale timpurii
 
 ---
@@ -288,7 +310,7 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
 | Cine           | Ce                                | Ce ține în loc                                                                                                                                                             |
 | -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tu**         | Instanța EC2                      | E01 S4, **verificarea lui E18 S4 și migrarea din S5**, E04 S4, E14 S3b și S6, scheduler-ul din E17, iar acum și pagina publică din E20 S2. Opt story-uri din cinci epicuri |
+| **Tu**         | Instanța EC2                      | E01 S4, **verificarea lui E18 S4 și migrarea din S5**, E04 S4, E14 S3b, scheduler-ul din E17 și pagina publică din E20 S2. Șapte story-uri din cinci epicuri — E14 S6 a ieșit din listă odată cu MVP-ul |
 | **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                    |
 | **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                              |
 | **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                     |
@@ -307,11 +329,25 @@ scos prin decizie.
 E11 e închis. Ce a rămas parțial din el — cerințele prealabile de modul la S6, disponibilitatea
 profesorilor la S7 — depinde de E10 și E09, nu de E11.
 
+**După tăietura de scop din 6 septembrie, tot ce mai stă între azi și un MVP folosibil încape în
+trei rânduri:**
+
+1. **Instanța EC2 și deploy-ul** — E01 S4, cu cele șapte story-uri care atârnă de el, din tabelul de
+   mai sus. Niciunul nu e muncă de gândit; e muncă de pornit.
+2. **SmartBill** — E16, începând cu verificarea abonamentului din S0. Până la ea nu se scrie cod, iar
+   după ea se închid S2, S3, S6 și S8, plus S7 din E15, fiindcă PDF-ul nu se mai generează local.
+3. **Termenii, E22 S2** — condiția de ieșire, și singura care nu se poate cumpăra cu timp de
+   programare: fără ei nu se deschide accesul familiilor.
+
+Restul deschis e polish cu proprietar clar: migrarea ecranelor rămase din E18 S5b, verificarea de
+accesibilitate a zonei autentificate din E18 S6, SPF/DKIM/DMARC din E17 S1, conținutul de la E19 S6.
+Niciunul nu blochează pe altcineva.
+
 ### E22 · Termeni, confidențialitate și ciclul de viață al datelor — `propus`
 
-- [ ] S1 · Inventarul a ce se stochează, derivat din entități
-- [ ] S2 · Termenii contului și nota de confidențialitate — **condiția de ieșire a platformei**: fără ei nu se deschide accesul familiilor
-- [ ] S3 · Termenul de păstrare, și ștergerea care chiar șterge — perechea ștergerii logice din E04 S5
+- ~~S1 · Inventarul a ce se stochează~~ — **mutat la E07 S1.** Era același tabel scris de două ori; cel care ajunge sub ochii unei familii ar fi fost tocmai cel rămas în urmă
+- [ ] S2 · Termenii contului și nota de confidențialitate — **condiția de ieșire a platformei**: fără ei nu se deschide accesul familiilor. Absoarbe și textele de vizitator — confidențialitate, cookie-uri — din fostul E07 S5
+- [ ] S3 · Termenul de păstrare, și ștergerea care chiar șterge — perechea ștergerii logice din E04 S5; numărul se scrie aici, îl execută E07 S4
 - [ ] S4 · Evidența acceptărilor, versionată
 
 > Ultimul prin decizie: termenii descriu ce face platforma, deci se scriu după ce platforma nu-și

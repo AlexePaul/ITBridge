@@ -1,29 +1,13 @@
 <template>
-  <div class="w-full max-w-4xl mx-auto px-4 py-6 space-y-8">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Adaugă locație</h1>
-        <p class="text-muted mt-1">
-          O locație nouă se adaugă de aici, fără schimbări în cod. Sălile se adaugă după, din lista
-          de locații.
-        </p>
-      </div>
-      <UButton
-        color="secondary"
-        variant="subtle"
-        class="ml-auto flex items-center h-11"
-        size="lg"
-        to="/admin/locations"
-      >
-        <UIcon name="i-lucide-arrow-left" class="mr-2" />
-        Înapoi
-      </UButton>
-    </div>
-
+  <AdminPage
+    title="Adaugă locație"
+    subtitle="O locație nouă se adaugă de aici, fără schimbări în cod. Sălile se adaugă după, din lista de locații."
+    back-to="/admin/locations"
+  >
     <UCard class="hover:shadow-lg transition-shadow">
       <LocationForm submit-label="Creează" @submit="handleSubmit" />
     </UCard>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">

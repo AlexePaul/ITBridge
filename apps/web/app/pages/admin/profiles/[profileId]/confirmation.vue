@@ -1,23 +1,28 @@
-<template class="mt-12">
-  <div class="flex justify-center">
-    <UIcon name="i-lucide-alert-triangle" class="text-error text-5xl" />
-  </div>
-  <h1 class="text-2xl font-bold text-error text-center">
-    ATENTIE! ACEASTA ESTE O ACȚIUNE IREVERSIBILĂ!
-  </h1>
-  <div class="mt-6 flex items-center justify-center gap-3 flex-wrap mx-auto">
-    <UButton color="error" size="lg" variant="solid" @click="handleConfirmation">
-      Șterge Profilul Definitiv
-    </UButton>
-    <UButton
-      color="neutral"
-      size="lg"
-      variant="outline"
-      @click="$router.push(`/admin/profiles/${$route.params.profileId}`)"
-    >
-      Anulează și Revino la Profil
-    </UButton>
-  </div>
+<template>
+  <AdminPage title="Ștergere profil" width="md">
+    <div class="text-center space-y-4">
+      <UIcon name="i-lucide-alert-triangle" class="text-error text-5xl" />
+      <h2 class="text-2xl font-bold text-error">ATENȚIE! Aceasta este o acțiune ireversibilă.</h2>
+      <p class="text-muted">
+        Profilul dispare împreună cu datele de contact ale familiei. Copiii, facturile și plățile
+        legate de el nu se șterg odată cu profilul.
+      </p>
+    </div>
+    <div class="flex items-center justify-center gap-3 flex-wrap">
+      <UButton color="error" size="lg" variant="solid" class="min-h-11" @click="handleConfirmation">
+        Șterge profilul definitiv
+      </UButton>
+      <UButton
+        color="neutral"
+        size="lg"
+        variant="outline"
+        class="min-h-11"
+        :to="`/admin/profiles/${$route.params.profileId}`"
+      >
+        Anulează și revino la profil
+      </UButton>
+    </div>
+  </AdminPage>
 </template>
 <script setup lang="ts">
 definePageMeta({

@@ -18,7 +18,7 @@
       v-else-if="discounts.length === 0"
       icon="i-lucide-percent"
       title="Nicio reducere"
-      description="Recomandările se dau de aici: 50% familiei care a adus, și 50% celei nou-venite."
+      description="Recomandările se dau cu un buton, din profilul familiei: 50% familiei care a adus, și 50% celei nou-venite. Aici se adaugă orice altă reducere, și tot aici se șterg."
     />
 
     <AdminTable

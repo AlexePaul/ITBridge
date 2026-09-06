@@ -1,22 +1,17 @@
 <template>
-  <div class="w-full max-w-5xl mx-auto px-4 py-6 space-y-6">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Conturi în așteptare</h1>
-        <p class="text-muted mt-1">
-          Un cont de părinte devine activ doar după ce adresa e confirmată și tu îl aprobi.
-        </p>
-      </div>
-      <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
+  <AdminPage
+    title="Conturi în așteptare"
+    subtitle="Un cont de părinte devine activ doar după ce adresa e confirmată și tu îl aprobi."
+  >
+    <template #actions>
+      <UBadge color="primary" variant="subtle" size="lg" class="min-h-11 flex items-center px-4">
         {{ accounts.length }} în așteptare
       </UBadge>
-    </div>
+    </template>
 
-    <UCard v-if="loadError" class="border border-error" variant="subtle">
-      <p class="font-medium">{{ loadError }}</p>
-    </UCard>
+    <AdminError v-if="loadError" :message="loadError" />
 
-    <div v-else-if="loading" class="py-12 text-center text-muted">Se încarcă…</div>
+    <AdminLoading v-else-if="loading" />
 
     <UCard v-else-if="accounts.length === 0" class="border" variant="subtle">
       <div class="py-8 text-center space-y-2">
@@ -98,7 +93,7 @@
         </div>
       </template>
     </UModal>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">

@@ -37,43 +37,6 @@ export const useInvoiceApi = () => {
     return invoices.value;
   };
 
-  const previewInvoices = async (parentIds: number[], monthIssued: string) => {
-    try {
-      const response = await api<Array<{ parentId: number; amount: number }>>(`/invoices/preview`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${tokenStore.accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ parentIds, monthIssued }),
-      });
-      return response || [];
-    } catch (error) {
-      console.error("Error previewing invoices:", error);
-      return [];
-    }
-  };
-
-  const generateInvoices = async (parentIds: number[], monthIssued: string) => {
-    try {
-      await api<void>(`/invoices`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${tokenStore.accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          parentIds: parentIds,
-          monthIssued: monthIssued,
-          dateIssued: new Date().toISOString().split("T")[0],
-        }),
-      });
-    } catch (error) {
-      console.error("Error generating invoices:", error);
-      throw error;
-    }
-  };
-
   /**
    * The month's issuing worksheet: every family, every child, every group — and no amounts.
    *
@@ -110,7 +73,5 @@ export const useInvoiceApi = () => {
     issueInvoices,
     getInvoices,
     fetchInvoices,
-    previewInvoices,
-    generateInvoices,
   };
 };

@@ -1,4 +1,11 @@
-export type { Discount, DiscountType, CreateDiscountDto, UpdateDiscountDto } from "@itbridge/types";
+export type {
+  Discount,
+  DiscountType,
+  CreateDiscountDto,
+  UpdateDiscountDto,
+  GrantReferralDiscountDto,
+  ReferralReward,
+} from "@itbridge/types";
 
 import type { DiscountType } from "@itbridge/types";
 

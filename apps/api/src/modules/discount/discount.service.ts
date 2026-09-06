@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Discount } from 'src/entities/discount.entity';
@@ -7,10 +7,14 @@ import { CreateDiscountDto } from './dto/createDiscount.dto';
 import { UpdateDiscountDto } from './dto/updateDiscount.dto';
 import { applyDefined } from 'src/common/apply-defined';
 import { DiscountType } from 'src/enum/discount-type.enum';
+import { REFERRAL_DISCOUNT_NAME, REFERRAL_PERCENT, nextBillingMonthAt, nextUncoveredMonth, type ReferralReward } from './discount.rules';
 
 @Injectable()
 export class DiscountService {
-    constructor(@InjectRepository(Discount) private discountRepository: Repository<Discount>) {}
+    constructor(
+        @InjectRepository(Discount) private discountRepository: Repository<Discount>,
+        @InjectRepository(Profile) private profileRepository: Repository<Profile>,
+    ) {}
 
     async createDiscount(createDiscountDto: CreateDiscountDto): Promise<Discount> {
         this.assertWithinBounds(createDiscountDto.type ?? DiscountType.FIXED, createDiscountDto.value);
@@ -36,6 +40,129 @@ export class DiscountService {
             .orderBy('discount.monthIssued', 'DESC')
             .addOrderBy('discount.id', 'DESC')
             .getMany();
+    }
+
+    /**
+     * The months the referral reward currently covers for one family — E20/S5.
+     *
+     * Only months from the next one onwards. The reward is a promise about invoices not yet
+     * issued, and a button that could take half off a month already billed would be a correction,
+     * not a reward — corrections are the form's job, where somebody has to mean it.
+     */
+    async referralReward(parentId: number, now: Date = new Date()): Promise<ReferralReward> {
+        await this.assertParentExists(parentId);
+        return { parentId, months: await this.coveredMonths(parentId, nextBillingMonthAt(now)) };
+    }
+
+    /**
+     * One more month at half price — E20/S5, the `+` press.
+     *
+     * The first press lands on next month; each one after it lands on the month after the last one
+     * covered, so pressing three times is three months at 50% and not 150% off one. That is the
+     * distinction the whole design turns on: **a second referral earns a second month, never a
+     * deeper cut**, because percentages add up against the list price and two of them on one month
+     * make it free — and a free month produced by a double-click reads exactly like a free month
+     * somebody decided on.
+     *
+     * A percentage on the landing month that is **not** this reward still refuses: a hand-typed
+     * 50% plus this one costs the school the same as two of ours. That case is deliberate by
+     * definition, so it belongs in the form, where it takes deciding rather than clicking.
+     *
+     * No database constraint behind the check, unlike the seat rules in E11: two admins pressing in
+     * the same second leave a duplicate row that is visible on `/admin/reduceri` and deletable in
+     * two clicks, which is not the class of damage an index is for.
+     */
+    async grantReferralMonth(parentId: number, now: Date = new Date()): Promise<ReferralReward> {
+        await this.assertParentExists(parentId);
+
+        const from = nextBillingMonthAt(now);
+        const covered = await this.coveredMonths(parentId, from);
+        const monthIssued = nextUncoveredMonth(from, covered);
+
+        const clash = await this.discountRepository.findOne({
+            where: { parent: { id: parentId }, monthIssued, type: DiscountType.PERCENT },
+        });
+        if (clash) {
+            throw new ConflictException({
+                message: `Familia are deja o reducere procentuală pe ${monthIssued}, dată de altcineva decât butonul. Două se adună și fac luna gratuită.`,
+                error: 'DISCOUNT_ALREADY_GRANTED',
+            });
+        }
+
+        await this.discountRepository.save(
+            this.discountRepository.create({
+                name: REFERRAL_DISCOUNT_NAME,
+                type: DiscountType.PERCENT,
+                value: REFERRAL_PERCENT,
+                monthIssued,
+                parent: { id: parentId } as Profile,
+            }),
+        );
+
+        return { parentId, months: [...covered, monthIssued].sort() };
+    }
+
+    /**
+     * One month fewer — E20/S5, the `−` press.
+     *
+     * Takes the **last** month off the run, so the two buttons undo each other: three presses up
+     * and one down leave two months, and the one that goes is always the one furthest from being
+     * invoiced. Months already past the window are never touched, for the same reason `+` cannot
+     * reach them.
+     *
+     * Removes only this reward's own rows. A percentage somebody typed by hand is not ours to
+     * withdraw from a button that says "recomandare", and deleting it here would make the `−` press
+     * mean something different depending on what the family happened to have.
+     */
+    async revokeReferralMonth(parentId: number, now: Date = new Date()): Promise<ReferralReward> {
+        await this.assertParentExists(parentId);
+
+        const from = nextBillingMonthAt(now);
+        const covered = await this.coveredMonths(parentId, from);
+        const last = covered[covered.length - 1];
+        if (!last) {
+            throw new ConflictException({
+                message: 'Familia nu are nicio lună de recomandare de scos.',
+                error: 'REFERRAL_NOTHING_TO_REVOKE',
+            });
+        }
+
+        const row = await this.discountRepository.findOne({
+            where: {
+                parent: { id: parentId },
+                monthIssued: last,
+                name: REFERRAL_DISCOUNT_NAME,
+                type: DiscountType.PERCENT,
+            },
+        });
+        if (row) {
+            await this.discountRepository.delete(row.id);
+        }
+
+        return { parentId, months: covered.slice(0, -1) };
+    }
+
+    /** The reward's own months, from `from` onwards, in order. Sorted as text: `YYYY-MM` allows it. */
+    private async coveredMonths(parentId: number, from: string): Promise<string[]> {
+        const rows = await this.discountRepository.find({
+            where: {
+                parent: { id: parentId },
+                name: REFERRAL_DISCOUNT_NAME,
+                type: DiscountType.PERCENT,
+            },
+        });
+
+        return rows
+            .map((row) => row.monthIssued)
+            .filter((month) => month >= from)
+            .sort();
+    }
+
+    private async assertParentExists(parentId: number): Promise<void> {
+        const parent = await this.profileRepository.findOne({ where: { id: parentId } });
+        if (!parent) {
+            throw new NotFoundException('Profile not found');
+        }
     }
 
     async updateDiscount(id: number, updateDiscountDto: UpdateDiscountDto): Promise<Discount> {
