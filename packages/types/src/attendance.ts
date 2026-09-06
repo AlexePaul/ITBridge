@@ -88,16 +88,26 @@ export interface SessionRegister {
  *
  * Announcing does not mark anybody absent: the register stays the teacher's to take, and a child
  * whose parent announced can turn up anyway. `inTime` is frozen when the notice is written —
- * eligibility is a fact about the moment of announcing, not a question re-asked later.
+ * whether the family met the deadline is a fact about the moment of announcing, not a question
+ * re-asked later.
  */
 export interface AbsenceNotice {
     id: number;
     reason: string;
-    /** True when it arrived before the class started. Decides eligibility for a make-up (E12/S4). */
+    /** True when it arrived before Monday noon of the class's own week (E12/S3). */
     inTime: boolean;
     createdAt: ISODateTime;
     child: { id: number; firstName: string; lastName: string };
     classSession: ClassSession;
+    /**
+     * The class the office moved the child into instead, for that week — E12/S4.
+     *
+     * **This is the whole of the make-up.** There is no credit and no expiry: an announced absence
+     * is either placed into another group's class in the same week, by an admin, or it is not made
+     * up at all. `null` reads as "not yet" while that week is still ahead and as "it did not happen"
+     * once it has passed, and the calendar is what tells them apart.
+     */
+    replacementSession: ClassSession | null;
 }
 
 export interface AnnounceAbsenceDto {
@@ -106,37 +116,8 @@ export interface AnnounceAbsenceDto {
     reason: string;
 }
 
-/**
- * The life of a make-up credit — E12/S4. Mirrors `MakeUpStatus` in
- * `apps/api/src/enum/make-up-status.enum.ts`.
- *
- * `expired` is derived on read, never stored: a credit expires because the calendar moved, not
- * because anything ran.
- */
-export type MakeUpStatus = 'available' | 'booked' | 'consumed' | 'expired';
-
-/**
- * The right to sit in on another group's class, earned by missing your own.
- *
- * Earned where an announced-in-time absence meets a register saying the child was not there —
- * neither half alone. `expiresOn` is frozen when the credit is written, so the window a family was
- * told about does not move when the rule is edited.
- */
-export interface MakeUpCredit {
-    id: number;
-    status: MakeUpStatus;
-    /** The last usable day, inclusive. */
-    expiresOn: ISODate;
-    createdAt: ISODateTime;
-    child: { id: number; firstName: string; lastName: string };
-    /** The class that was missed — what the credit is for. */
-    originSession: ClassSession;
-    /** The class booked to sit in on, once one is chosen. */
-    bookedSession: ClassSession | null;
-}
-
-/** One class a credit could be spent on, as the booking screen reads it. */
-export interface MakeUpOption {
+/** One class a child could be moved into, as the office's screen reads it — E12/S4. */
+export interface ReplacementOption {
     sessionId: number;
     date: ISODate;
     startTime: TimeOfDay;
@@ -144,10 +125,10 @@ export interface MakeUpOption {
     groupId: number;
     groupName: string;
     locationName: string | null;
-    /** Seats free at that hour: the group's capacity less enrolments and visitors already booked. */
+    /** Seats free at that hour: the group's capacity less enrolments and visitors already moved in. */
     free: number;
 }
 
-export interface BookMakeUpDto {
+export interface PlaceReplacementDto {
     classSessionId: number;
 }

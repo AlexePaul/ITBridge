@@ -24,6 +24,22 @@ export function getWeekdayName(weekday: Weekday | number): string {
 }
 
 /**
+ * The weekday of a `YYYY-MM-DD` key, in words.
+ *
+ * Built from the three numbers rather than by parsing the string: `new Date("2026-09-10")` is *UTC*
+ * midnight, which in a browser west of Greenwich is the 9th — the off-by-one-day trap the backend's
+ * `class-session.dates.ts` exists for, and it is exactly as available here. The `Weekday` enum
+ * counts Monday as 1 and Sunday as 7, where `getDay()` calls Sunday 0.
+ */
+export function weekdayNameOf(dateKey: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateKey);
+  if (!match) return "";
+  const [, year, month, day] = match;
+  const weekday = new Date(Number(year), Number(month) - 1, Number(day)).getDay();
+  return getWeekdayName(weekday === 0 ? 7 : weekday);
+}
+
+/**
  * Romanian mobile numbers, as people actually type them, turned into the canonical `+40…` form.
  *
  * The API accepts both `0712345678` and `+40712345678` (`@IsPhoneNumber('RO')`), but what gets

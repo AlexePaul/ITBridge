@@ -9,8 +9,8 @@ import { markAttendanceDto } from './dto/markAttendance.dto';
 import { UpsertMarkDto } from './dto/upsertMark.dto';
 import { AnnounceAbsenceDto } from './dto/announceAbsence.dto';
 import { AbsenceNoticeService } from './absence-notice.service';
-import { MakeUpCreditService } from './make-up-credit.service';
-import { BookMakeUpDto } from './dto/bookMakeUp.dto';
+import { ReplacementService } from './replacement.service';
+import { PlaceReplacementDto } from './dto/placeReplacement.dto';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('attendance')
@@ -18,7 +18,7 @@ export class AttendanceController {
     constructor(
         private readonly attendanceService: AttendanceService,
         private readonly absenceNoticeService: AbsenceNoticeService,
-        private readonly makeUpCreditService: MakeUpCreditService,
+        private readonly replacementService: ReplacementService,
     ) {}
 
     /**
@@ -109,44 +109,59 @@ export class AttendanceController {
         return this.absenceNoticeService.withdraw(id, req.user.role, req.user.sub);
     }
 
-    /** A family's make-up credits, with the state derived on each — E12/S4. Admin sees the school. */
-    @Get('make-ups')
+    /**
+     * This week's announced absences nobody has placed yet — the office's Monday list, E12/S4.
+     *
+     * Admin only, and not because the data is secret: it is a worklist, and a parent has nothing to
+     * do with it. The question it answers used to be asked of families by an expiry reminder, which
+     * was addressed to somebody who could not act on it.
+     */
+    @Get('replacements/unplaced')
     @ApiBearerAuth()
-    @UseGuards(AuthGuard)
-    @ApiResponse({ status: 200, description: 'Credits with a derived status: available, booked, consumed or expired' })
-    async listMakeUps(@Request() req: AuthenticatedRequest) {
-        return this.makeUpCreditService.listFor(req.user.role, req.user.sub);
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiResponse({ status: 200, description: 'Announced absences in the current week with no replacement class yet' })
+    async unplacedReplacements() {
+        return this.replacementService.unplaced();
     }
 
-    /** The classes this credit could be spent on: right age band, free seat, inside the window. */
-    @Get('make-ups/:id/options')
+    /** The classes this child could be moved into: same week, other group, right age, a free seat. */
+    @Get('absences/:id/replacement-options')
     @ApiBearerAuth()
-    @UseGuards(AuthGuard)
-    @ApiResponse({ status: 200, description: 'Compatible sessions, soonest first; empty once the credit is not available' })
-    async makeUpOptions(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
-        return this.makeUpCreditService.optionsFor(id, req.user.role, req.user.sub);
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiResponse({ status: 200, description: 'Compatible sessions, soonest first' })
+    @ApiResponse({ status: 404, description: 'No such absence notice' })
+    async replacementOptions(@Param('id', ParseIntPipe) id: number) {
+        return this.replacementService.optionsFor(id);
     }
 
-    /** Books it. Everything the options list filtered on is re-checked — a seat can go meanwhile. */
-    @Put('make-ups/:id/booking')
+    /**
+     * Records the move and writes to the family — E12/S4. Everything the options list filtered on is
+     * re-checked, because a seat can go between reading it and pressing the button.
+     */
+    @Put('absences/:id/replacement')
     @ApiBearerAuth()
-    @UseGuards(AuthGuard)
-    @ApiResponse({ status: 200, description: 'Booked' })
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiResponse({ status: 200, description: 'Moved; the family has been written to' })
+    @ApiResponse({ status: 400, description: 'REPLACEMENT_SAME_GROUP' })
     @ApiResponse({
         status: 409,
-        description: 'MAKE_UP_EXPIRED, MAKE_UP_ALREADY_CONSUMED, MAKE_UP_SESSION_FULL, MAKE_UP_AGE_MISMATCH or MAKE_UP_SESSION_OUT_OF_WINDOW',
+        description: 'CLASS_SESSION_CANCELLED, REPLACEMENT_OUT_OF_WEEK, REPLACEMENT_SESSION_STARTED, REPLACEMENT_AGE_MISMATCH or REPLACEMENT_SESSION_FULL',
     })
-    async bookMakeUp(@Param('id', ParseIntPipe) id: number, @Body() dto: BookMakeUpDto, @Request() req: AuthenticatedRequest) {
-        return this.makeUpCreditService.book(id, dto.classSessionId, req.user.role, req.user.sub);
+    async placeReplacement(@Param('id', ParseIntPipe) id: number, @Body() dto: PlaceReplacementDto) {
+        return this.replacementService.place(id, dto.classSessionId);
     }
 
-    /** Frees the booking, leaving the credit usable for whatever is left of its window. */
-    @Delete('make-ups/:id/booking')
+    /** Undoes the move. Silent by design — see the service. */
+    @Delete('absences/:id/replacement')
     @ApiBearerAuth()
-    @UseGuards(AuthGuard)
-    @ApiResponse({ status: 200, description: 'Booking cancelled; the credit is available again' })
-    async cancelMakeUpBooking(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
-        return this.makeUpCreditService.cancelBooking(id, req.user.role, req.user.sub);
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiResponse({ status: 200, description: 'The move is cleared; the absence stands' })
+    async clearReplacement(@Param('id', ParseIntPipe) id: number) {
+        return this.replacementService.clear(id);
     }
 
     @Get('child/:childId')

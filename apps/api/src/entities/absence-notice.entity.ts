@@ -11,13 +11,17 @@ import { User } from './user.entity';
  *
  * Announcing does not mark anybody absent. The register is still the teacher's to take — a child
  * whose parent announced can turn up anyway, and children do. This row is what the teacher sees
- * *before* the class, and what decides whether the absence earns a make-up.
+ * *before* the class, and it is also where the make-up lives: `replacementSession` is the class the
+ * office moved the child into for that week, and there is nothing else to it.
  */
 @Entity('absence_notices')
 // One notice per child per class. A parent who announces twice has changed their mind, not created
 // a second absence; the service updates the row rather than adding one, and the index is what makes
 // that true for two taps in the same second.
 @Index('UQ_absence_notice_child_session', ['child', 'classSession'], { unique: true })
+// Not unique: one class can host several visiting children. Indexed because every seat count for a
+// class asks "who was moved in here", and without it that is a scan of every notice ever taken.
+@Index('IDX_absence_notice_replacement_session', ['replacementSession'])
 export class AbsenceNotice {
     @PrimaryGeneratedColumn('increment')
     id: number;
@@ -46,6 +50,24 @@ export class AbsenceNotice {
      */
     @Column({ type: 'boolean' })
     inTime: boolean;
+
+    /**
+     * The class the child was moved into instead, for that one week — E12/S4.
+     *
+     * **This column is the whole of the make-up.** There is no credit, no token and no expiry: an
+     * announced absence is either placed into another group's class in the same week, by an admin,
+     * or it is not made up at all. `null` therefore means two different things at two different
+     * moments — "the office has not got to it yet" while the week is still ahead, and "it did not
+     * happen" once the week has passed — and the calendar is what tells them apart, which is why
+     * there is no status column here to disagree with it.
+     *
+     * `SET NULL` rather than `CASCADE`: if the replacement class is deleted the absence is still a
+     * fact, and the notice has to survive to say so. The same reasoning applies when that class is
+     * *cancelled*, which the timetable handles by clearing this column and writing to the family.
+     */
+    @ManyToOne(() => ClassSession, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'replacement_session_id' })
+    replacementSession: ClassSession | null;
 
     /** Who announced it. A parent for their own child; an admin who took the phone call. */
     @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

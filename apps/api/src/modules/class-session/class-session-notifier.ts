@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EntityManager, IsNull, Like } from 'typeorm';
+import { EntityManager, Like } from 'typeorm';
 import { ClassSession } from 'src/entities/class-session.entity';
-import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
+import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
@@ -20,12 +20,12 @@ export const CANCELLED_DEDUPE_PREFIX = 'class-cancelled:';
 export const MOVED_DEDUPE_PREFIX = 'class-moved:';
 export const REINSTATED_DEDUPE_PREFIX = 'class-reinstated:';
 
-/** One inbox, and whether it hears about the class as the group's or as a make-up visitor's. */
+/** One inbox, and whether it hears about the class as the group's or as a visitor's. */
 interface Recipient {
     parentId: number;
     email: string | null;
     firstName: string;
-    /** True for a family whose child was booked into this class for a make-up, not enrolled in it. */
+    /** True for a family whose child the office moved into this class for the week, not enrolled in it. */
     visiting: boolean;
 }
 
@@ -70,20 +70,22 @@ export class ClassSessionNotifier {
      * The class is off.
      *
      * `makeUpNote` is a sentence rather than a flag because it is the only part of this message a
-     * family acts on, and what it says depends on who is reading and on a decision the admin made
-     * one dialog earlier — whether the hour is being given back. The group hears either that a
-     * make-up was granted or that the hour is simply not charged for; a visiting family hears that
-     * the make-up they booked here is released and still theirs to book elsewhere.
+     * family acts on, and what it says depends on who is reading. **The group** hears that the hour
+     * is not charged for, which since E15/S9 is not a concession but the arithmetic: a session with
+     * no register never happened and nobody is billed for it. **A visiting family** — a child the
+     * office had moved here for the week — hears that the hour they were sent to is off, and that
+     * the school will look for another one, because finding it was never theirs to do.
+     *
+     * The flag that used to be here is gone with the credit it granted. Cancelling a class no longer
+     * hands anybody a token to spend later: the hour is not billed, and if the week still has a
+     * class that fits, the office moves the child into it and that message says where.
      */
-    async notifyCancelled(sessionId: number, reason: string, makeUpGranted: boolean, manager: EntityManager): Promise<number> {
+    async notifyCancelled(sessionId: number, reason: string, manager: EntityManager): Promise<number> {
         const session = await this.loadWithFamilies(sessionId, manager);
         if (!session) return 0;
 
-        const groupNote = makeUpGranted
-            ? 'Copilul tău are dreptul la o oră de recuperare, pe care o poți programa din portal în următoarele 30 de zile.'
-            : 'Ora nu se facturează — plata e pe ședință ținută, deci luna aceasta va fi cu o ședință mai mică.';
-        const visitorNote =
-            'Recuperarea pe care o programaseși la ora asta nu se mai ține. Dreptul rămâne valabil până la termenul lui, iar altă oră se alege din portal.';
+        const groupNote = 'Ora nu se facturează — plata e pe ședință ținută, deci luna aceasta va fi cu o ședință mai mică.';
+        const visitorNote = 'Ora la care îl mutasem pe copilul tău pentru săptămâna asta nu se mai ține. Căutăm alta în aceeași săptămână și te anunțăm.';
 
         const recipients = await this.recipientsOf(session, manager, { includeVisitors: true });
         return this.writeTo(recipients, session, manager, CANCELLED_DEDUPE_PREFIX, (recipient) =>
@@ -94,8 +96,8 @@ export class ClassSessionNotifier {
                 time: session.startTime.slice(0, 5),
                 reason,
                 makeUpNote: recipient.visiting ? visitorNote : groupNote,
-                // The make-up page when there is a make-up to act on; otherwise just the portal.
-                portalUrl: recipient.visiting || makeUpGranted ? absencesUrl() : loginUrl(),
+                // The absences page for a family whose move just evaporated; otherwise just the portal.
+                portalUrl: recipient.visiting ? absencesUrl() : loginUrl(),
             }),
         );
     }
@@ -124,8 +126,8 @@ export class ClassSessionNotifier {
 
     /**
      * The cancelled class is back on, and the families who were told it was off have to hear so.
-     * Only the group: a make-up booked here was released when the class was cancelled, and that
-     * family has been told to choose another hour.
+     * Only the group: a child moved here for the week was released when the class was cancelled, and
+     * that family has been told the office is looking for another hour.
      */
     async notifyReinstated(sessionId: number, manager: EntityManager): Promise<number> {
         const session = await this.loadWithFamilies(sessionId, manager);
@@ -156,8 +158,8 @@ export class ClassSessionNotifier {
 
     /**
      * Every inbox the class concerns, once each. The group's parents first; then, when asked, the
-     * parents of children booked into this class for a make-up. A parent in both lists — a sibling
-     * visiting their brother's group — is the group's, and reads the group's sentence.
+     * parents of children the office moved into this class for the week. A parent in both lists — a
+     * sibling visiting their brother's group — is the group's, and reads the group's sentence.
      */
     private async recipientsOf(session: ClassSession, manager: EntityManager, options: { includeVisitors: boolean }): Promise<Recipient[]> {
         const recipients = new Map<number, Recipient>();
@@ -168,14 +170,14 @@ export class ClassSessionNotifier {
         }
 
         if (options.includeVisitors) {
-            // Read before the caller releases the bookings: the whole point is to reach the family
-            // whose booking is about to disappear.
-            const booked = await manager.getRepository(MakeUpCredit).find({
-                where: { bookedSession: { id: session.id }, consumedAttendance: IsNull() },
+            // Read before the caller clears the moves: the whole point is to reach the family whose
+            // replacement class is about to disappear.
+            const placed = await manager.getRepository(AbsenceNotice).find({
+                where: { replacementSession: { id: session.id } },
                 relations: { child: { parent: true } },
             });
-            for (const credit of booked) {
-                const parent = credit.child?.parent;
+            for (const notice of placed) {
+                const parent = notice.child?.parent;
                 if (!parent || recipients.has(parent.id)) continue;
                 recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: true });
             }

@@ -77,8 +77,8 @@ describe('Cancelling a class session (e2e)', () => {
             `SELECT "to", "subject", "bodyText" FROM "outbox" WHERE "dedupeKey" LIKE 'class-%' ORDER BY id ASC`,
         );
 
-    const credits = () =>
-        dataSource.query<{ child_id: number; expires_on: string }[]>('SELECT "child_id", "expiresOn"::text AS expires_on FROM "make_up_credits"');
+    const placements = () =>
+        dataSource.query<{ child_id: number; replacement_session_id: number | null }[]>('SELECT "child_id", "replacement_session_id" FROM "absence_notices"');
 
     it('writes one message to the family, not one per child', async () => {
         await cancel().expect(200);
@@ -90,27 +90,24 @@ describe('Cancelling a class session (e2e)', () => {
         expect(messages[0].bodyText).toContain('Profesorul este bolnav');
     });
 
-    // The default. The hour is not charged for either way, so silence about a make-up is the
-    // message that cannot promise something the school did not decide to give.
-    it('grants no make-up credits unless asked', async () => {
+    /**
+     * Cancelling promises the group nothing, because there is nothing left to promise — E12/S4.
+     *
+     * The flag that used to be here handed every child a credit for the hour. What the family is
+     * told instead is the arithmetic of E15/S9: a class with no register never happened, so nobody
+     * is billed for it. If the week still has an hour that fits, the office moves the child into it,
+     * and that is a placement somebody makes rather than a checkbox somebody ticks while cancelling.
+     */
+    it('tells the group the hour is simply not charged for', async () => {
         await cancel().expect(200);
 
-        expect(await credits()).toHaveLength(0);
         const [message] = await queued();
-        expect(message.bodyText).not.toContain('recuperare');
+        expect(message.bodyText).toContain('nu se facturează');
     });
 
-    it('gives every child in the group the hour back when asked, dated from the class', async () => {
-        await cancel({ grantMakeUpCredits: true }).expect(200);
-
-        const rows = await credits();
-        expect(rows.map((row) => row.child_id).sort((a, b) => a - b)).toEqual([...childIds].sort((a, b) => a - b));
-        // The end of the week the class did not happen in — the Sunday after this Monday. E12/S4:
-        // a make-up is a place in another group that same week, so it cannot outlive the week.
-        expect(rows[0].expires_on).toBe('2027-04-11');
-
-        const [message] = await queued();
-        expect(message.bodyText).toContain('recuperare');
+    it('refuses the flag that used to grant credits, rather than ignoring it', async () => {
+        // `forbidNonWhitelisted`: a client still sending the old field learns it is gone.
+        await cancel({ grantMakeUpCredits: true }).expect(400);
     });
 
     it('refuses a second cancellation, and writes nothing the second time', async () => {
@@ -152,11 +149,11 @@ describe('Cancelling a class session (e2e)', () => {
     });
 
     /**
-     * A child from another group had booked a make-up into this class (E12/S4). Their family is
-     * not in the group, but they were coming — so they hear the class is off, in their own words,
-     * and the booking is released while the credit stays theirs.
+     * A child from another group had been moved into this class for the week (E12/S4). Their
+     * family is not in the group, but they were coming — so they hear the class is off, in their
+     * own words, and the placement is cleared while the absence stays a fact.
      */
-    it('releases a make-up booked into the class and tells that family too', async () => {
+    it('releases a child moved into the class and tells that family too', async () => {
         const visitor = await registerUser(app, 'parinte.vizita');
         const visitorChild = await request(app.getHttpServer())
             .post('/children')
@@ -174,22 +171,23 @@ describe('Cancelling a class session (e2e)', () => {
                 }),
             )
             .expect(201);
-        const missed = await createClassSession(dataSource, other.body.id as number, { date: '2027-03-29' });
-        await dataSource.query('INSERT INTO make_up_credits (child_id, origin_session_id, "expiresOn", booked_session_id) VALUES ($1, $2, $3, $4)', [
-            visitorChild.body.id,
-            missed,
-            '2027-04-28',
-            sessionId,
-        ]);
+        // The class they miss is in the same week as the one they were moved into: MONDAY is
+        // 5 April 2027, so this Wednesday belongs to the same week.
+        const missed = await createClassSession(dataSource, other.body.id as number, { date: '2027-04-07' });
+        await dataSource.query(
+            'INSERT INTO absence_notices (child_id, class_session_id, reason, "inTime", replacement_session_id) VALUES ($1, $2, $3, $4, $5)',
+            [visitorChild.body.id, missed, 'Răcit', true, sessionId],
+        );
 
         await cancel().expect(200);
 
         const messages = await queued();
         expect(messages).toHaveLength(2);
         const visitorMail = messages.find((message) => message.to === `${visitor.username}@example.com`)!;
-        expect(visitorMail.bodyText).toContain('programaseși');
-        const rows = await dataSource.query<{ booked_session_id: number | null }[]>('SELECT booked_session_id FROM make_up_credits');
-        expect(rows).toEqual([{ booked_session_id: null }]);
+        expect(visitorMail.bodyText).toContain('mutasem');
+        // The move is let go of; the absence itself is untouched, and the child goes back on the
+        // office's list of those still to place.
+        expect(await placements()).toEqual([{ child_id: visitorChild.body.id, replacement_session_id: null }]);
     });
 
     it('reinstating tells the families the class is on again', async () => {

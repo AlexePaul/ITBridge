@@ -40,6 +40,7 @@ import { PaymentStatus } from '../enum/payment-status.enum';
 import { DiscountType } from '../enum/discount-type.enum';
 import { DEFAULT_HORIZON_WEEKS } from '../modules/class-session/class-session.service';
 import { addDays, occurrencesOf, toIsoDate } from '../modules/class-session/class-session.dates';
+import { replacementWeekFor } from '../modules/attendance/replacement.rules';
 import { monthlyAmountFor } from '../modules/invoice/pricing';
 import { Lead } from '../entities/lead.entity';
 import { LeadStatus } from '../enum/lead-status.enum';
@@ -51,7 +52,6 @@ import { OutboxMessage } from '../entities/outbox-message.entity';
 import { OutboxStatus } from '../enum/outbox-status.enum';
 import { DeliveryFailureReason } from '../enum/delivery-failure-reason.enum';
 import { AbsenceNotice } from '../entities/absence-notice.entity';
-import { MakeUpCredit } from '../entities/make-up-credit.entity';
 import { MailTemplate } from '../entities/mail-template.entity';
 
 /**
@@ -944,12 +944,11 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
         }),
     ]);
 
-    // --- Announced absences, and the make-up credits some of them earned ---------------------------
-    // Two halves that only mean something together (E12/S4): an announcement in time plus a register
-    // saying the child was not there. One of each seeded, so both the earned and the unearned case
-    // are visible, and one credit already spent, one still bookable, one expired.
+    // --- Announced absences, and where the office moved those children ----------------------------
+    // Three readings the screens have to render (E12/S3 and S4): announced in time and placed into
+    // another group for that week; announced in time and not yet placed, which is the office's own
+    // worklist; and announced too late, which is frozen on the row and earns no move at all.
     const noticeRepo = dataSource.getRepository(AbsenceNotice);
-    const creditRepo = dataSource.getRepository(MakeUpCredit);
     const childWithGroup = children.filter((child) => child.group);
 
     if (past.length >= 3 && childWithGroup.length >= 2) {
@@ -958,44 +957,44 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
         const sessionsOfSecond = past.filter((session) => session.group?.id === secondChild.group?.id);
 
         if (sessionsOfFirst.length >= 2 && sessionsOfSecond.length >= 1) {
+            // A class in another group during the same week as the missed one — what a placement
+            // actually points at. `undefined` when the seeded timetable has none, and then the row
+            // is simply the unplaced case, which is a real state rather than a broken fixture.
+            const missed = sessionsOfFirst[0];
+            const week = replacementWeekFor(missed.date);
+            const host = past
+                .concat(upcoming)
+                .find((session) => session.group?.id !== firstChild.group?.id && toIsoDate(session.date) >= week.from && toIsoDate(session.date) <= week.to);
+
             await noticeRepo.save([
                 noticeRepo.create({
                     child: firstChild,
-                    classSession: sessionsOfFirst[0],
+                    classSession: missed,
                     reason: 'Este răcit, îl ținem acasă.',
                     inTime: true,
+                    replacementSession: host ?? null,
+                    announcedBy: firstChild.parent?.user ?? null,
+                }),
+                noticeRepo.create({
+                    child: firstChild,
+                    classSession: sessionsOfFirst[1],
+                    // In time, and nobody has placed it yet: the row the office's Monday list is for.
+                    reason: 'Are o programare la medic.',
+                    inTime: true,
+                    replacementSession: null,
                     announcedBy: firstChild.parent?.user ?? null,
                 }),
                 noticeRepo.create({
                     child: secondChild,
                     classSession: sessionsOfSecond[0],
-                    // Announced after the class had started: eligibility is frozen at write time,
-                    // so this one earns nothing and the screen has to show why.
+                    // Announced after Monday noon of its own week: eligibility is frozen at write
+                    // time, so this one is not moved anywhere and the screen has to show why.
                     reason: 'Am uitat să anunț, ne pare rău.',
                     inTime: false,
+                    replacementSession: null,
                     announcedBy: secondChild.parent?.user ?? null,
                 }),
             ]);
-
-            const expiry = (fromDays: number): Date => {
-                const d = new Date(SEED_TODAY);
-                d.setUTCDate(d.getUTCDate() + fromDays);
-                return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-            };
-            const bookable = upcoming.find((session) => session.group?.id === firstChild.group?.id);
-            await creditRepo.save(
-                [
-                    // Earned and still open: 30 days from the class that was missed.
-                    creditRepo.create({ child: firstChild, originSession: sessionsOfFirst[0], expiresOn: expiry(23) }),
-                    // Earned and already booked onto a class — this one occupies a seat there (D7).
-                    bookable
-                        ? creditRepo.create({ child: firstChild, originSession: sessionsOfFirst[1], expiresOn: expiry(16), bookedSession: bookable })
-                        : null,
-                    // Expired, which is not a stored state but a calendar that moved past it. A seed
-                    // without one hides the third of the three readings the screen has to render.
-                    creditRepo.create({ child: secondChild, originSession: sessionsOfSecond[0], expiresOn: expiry(-4) }),
-                ].filter((credit): credit is MakeUpCredit => credit !== null),
-            );
         }
     }
 }

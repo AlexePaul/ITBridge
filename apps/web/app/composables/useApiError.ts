@@ -139,14 +139,13 @@ const MESSAGES: Record<string, string> = {
   ATTENDANCE_ALREADY_MARKED:
     "Prezența la ora asta a fost deja marcată — anunțul nu mai schimbă nimic.",
 
-  // E12/S4. Booking a make-up. Each names a different reason the class will not do, and the
-  // shared "există deja o înregistrare" would fit none of them.
-  MAKE_UP_EXPIRED: "Recuperarea a expirat.",
-  MAKE_UP_ALREADY_CONSUMED: "Recuperarea a fost deja folosită.",
-  MAKE_UP_SESSION_FULL: "Nu mai e loc la ședința asta.",
-  MAKE_UP_AGE_MISMATCH: "Grupa nu e potrivită ca vârstă pentru copil.",
-  MAKE_UP_SESSION_OUT_OF_WINDOW: "Ședința e în afara perioadei de valabilitate a recuperării.",
-  MAKE_UP_SAME_GROUP: "Asta e chiar grupa copilului — e ora lui, nu o recuperare.",
+  // E12/S4. Moving a child to another group for the week. Each names a different reason that
+  // class will not do, and the shared "există deja o înregistrare" would fit none of them.
+  REPLACEMENT_OUT_OF_WEEK: "Mutarea se face în aceeași săptămână cu ora pierdută.",
+  REPLACEMENT_SESSION_STARTED: "Ora a început deja — mutarea nu mai poate fi consemnată la ea.",
+  REPLACEMENT_SESSION_FULL: "Nu mai e loc la ședința asta.",
+  REPLACEMENT_AGE_MISMATCH: "Grupa nu e potrivită ca vârstă pentru copil.",
+  REPLACEMENT_SAME_GROUP: "Asta e chiar grupa copilului — e ora lui, nu o mutare.",
 
   // E12/S5. The timetable screen can hit these when two admins act on the same class, or when the
   // list is stale; each is a different thing to do next.

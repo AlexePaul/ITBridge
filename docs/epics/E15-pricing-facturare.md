@@ -536,15 +536,16 @@ copil prezent", cele două ar arăta identic în bază — și atunci un catalog
 proastă, tăcut, exact pe ecranul unde se decid banii. O oră care chiar nu s-a ținut se anulează, iar
 ședința anulată nu are catalog și nu se facturează; asta e ușa, și e explicită.
 
-**O recuperare nu se facturează niciodată.** Un copil marcat în altă grupă poartă
-`AttendanceType.MAKE_UP` ([E12](E12-prezenta-orar.md) S4) și consumă un drept câștigat pentru o oră
-deja plătită în grupa lui. La numărătoarea de vacanță intră doar marcajele `regular`, altfel o
-recuperare programată într-o zi de vacanță ar fi taxată a doua oară.
+**O recuperare nu se facturează niciodată.** Un copil pe care biroul l-a mutat pentru o săptămână
+la altă grupă poartă `AttendanceType.MAKE_UP` ([E12](E12-prezenta-orar.md) S4) și stă acolo în locul
+unei ore deja plătite în grupa lui. La numărătoarea de vacanță intră doar marcajele `regular`, altfel
+un copil mutat într-o zi de vacanță ar fi taxat a doua oară.
 
 **O ședință anulată nu are catalog, deci nu se facturează** — și nici nu poate căpăta unul: API-ul
-refuză să anuleze o ședință care are prezențe ([E12](E12-prezenta-orar.md) S5). Asta ține în
-picioare decizia de acolo, că recuperarea la anulare e o bifă și nu un automatism: ora anulată nu
-se facturează oricum, deci creditul pe deasupra e o decizie de preț, nu o reparație.
+refuză să anuleze o ședință care are prezențe ([E12](E12-prezenta-orar.md) S5). Asta e regula care a
+făcut de prisos bifa „dă-le dreptul la o recuperare" de pe ecranul de anulare: familia nu plătește
+ora oricum, deci nu era nimic de reparat cu un credit. Ce mai poate face școala — dacă săptămâna are
+o oră potrivită — e să mute copilul acolo, iar aia e o plasare, nu o decizie de preț.
 
 **Catalogul devine purtător de bani, și e schimbarea cea mai mare din story.** O oră nemarcată nu
 mai e o gaură în evidență, e o oră neîncasată — 87,50 lei de fiecare copil din grupă. Cele două

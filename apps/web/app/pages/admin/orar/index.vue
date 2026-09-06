@@ -131,10 +131,10 @@
             <UInput v-model="reason" placeholder="Profesorul este bolnav" class="w-full" />
           </UFormField>
 
-          <UCheckbox v-model="grantMakeUp" label="Dă-le copiilor dreptul la o recuperare" />
           <p class="text-sm text-muted">
-            Ora anulată nu se facturează oricum — plata e pe ședință ținută. Bifează dacă vrei ca
-            școala să dea ora înapoi pe deasupra, ca la un profesor bolnav.
+            Ora anulată nu se facturează — plata e pe ședință ținută, iar la asta nu s-a marcat
+            nicio prezență. Dacă săptămâna mai are o oră potrivită, mută copiii la altă grupă din
+            lista de absențe; aici nu se decide nimic despre recuperare.
           </p>
         </div>
       </template>
@@ -299,7 +299,6 @@ const reason = ref("");
 const saving = ref(false);
 
 const cancelling = ref(false);
-const grantMakeUp = ref(false);
 
 const moving = ref(false);
 const moveDate = ref("");
@@ -312,7 +311,6 @@ const reinstating = ref(false);
 const startCancel = (session: ClassSessionWithAttendance) => {
   target.value = session;
   reason.value = "";
-  grantMakeUp.value = false;
   cancelling.value = true;
 };
 
@@ -340,10 +338,7 @@ const confirmCancel = async () => {
   }
   saving.value = true;
   try {
-    await sessionsApi.cancelSession(target.value.id, {
-      reason: reason.value.trim(),
-      grantMakeUpCredits: grantMakeUp.value,
-    });
+    await sessionsApi.cancelSession(target.value.id, { reason: reason.value.trim() });
     success("Ora a fost anulată", "Familiile grupei primesc un email.");
     cancelling.value = false;
     await load();

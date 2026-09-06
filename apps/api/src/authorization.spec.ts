@@ -160,13 +160,11 @@ describe('authorization matrix', () => {
             // the family's to say, recording what happened is not.
             'AttendanceController.announceAbsence',
             'AttendanceController.withdrawAbsence',
-            // E12/S4. A parent books their own child's make-up and cancels the booking — the
-            // acceptance criterion is that they do it "fără telefon". Narrowed in
-            // `MakeUpCreditService` on the credit's own family, again to a 404. Earning and
-            // spending a credit are not endpoints at all: both are consequences of the register,
-            // which stays ADMIN.
-            'AttendanceController.bookMakeUp',
-            'AttendanceController.cancelMakeUpBooking',
+            // E12/S4 used to add two more here — a parent booking their own child's make-up and
+            // cancelling it, on the acceptance criterion that they do it „fără telefon". Both are
+            // gone with the credit. Moving a child into another group for the week is the office's
+            // decision and its endpoints are ADMIN, which is why this list got shorter rather than
+            // longer as the story grew.
             // E20/S2, and the only write in this list that is not merely parent-reachable but fully
             // public. It writes a lead, and with it a shell profile, a child and a trial enrolment —
             // which is as far as it goes: it cannot create an account, cannot enrol anybody for

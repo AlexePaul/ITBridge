@@ -5,7 +5,7 @@ import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Child } from 'src/entities/child.entity';
 import { Group } from 'src/entities/group.entity';
-import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
+import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
@@ -28,7 +28,7 @@ describe('EnrollmentService', () => {
     let waitlistRepo: MockRepository;
     let childRepo: MockRepository;
     let groupRepo: MockRepository;
-    let makeUpCreditRepo: MockRepository;
+    let absenceNoticeRepo: MockRepository;
     let outbox: Record<string, jest.Mock>;
     /** E20/S1: resolving a trial tells its lead. Asserted for real in the lead suites and the e2e. */
     let leadProgress: Record<string, jest.Mock>;
@@ -70,7 +70,7 @@ describe('EnrollmentService', () => {
         waitlistRepo = createMockRepository();
         childRepo = createMockRepository();
         groupRepo = createMockRepository();
-        makeUpCreditRepo = createMockRepository();
+        absenceNoticeRepo = createMockRepository();
         // `queueOrRecord` for the lapsed-offer mail in E11/S3: a family with no address has to leave
         // a row saying so, not be skipped.
         outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }), queueOrRecord: jest.fn().mockResolvedValue({ id: 1 }) };
@@ -102,7 +102,7 @@ describe('EnrollmentService', () => {
                 provideMockRepository(Group, groupRepo),
                 // E20/S2 gave this service the per-class seat count as well, so it now reads the
                 // make-up ledger: a child sitting in on a make-up fills a chair for that hour.
-                provideMockRepository(MakeUpCredit, makeUpCreditRepo),
+                provideMockRepository(AbsenceNotice, absenceNoticeRepo),
                 { provide: OutboxService, useValue: outbox },
                 // E20/S1: resolving a trial tells its lead what happened. Mocked here because this
                 // suite is about seats; the real behaviour is asserted in the lead suites and e2e.

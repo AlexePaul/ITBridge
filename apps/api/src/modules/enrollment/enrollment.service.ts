@@ -5,7 +5,7 @@ import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Child } from 'src/entities/child.entity';
 import { Group } from 'src/entities/group.entity';
-import { MakeUpCredit } from 'src/entities/make-up-credit.entity';
+import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { EnrollmentStatus, IN_FORCE_STATUSES, isInForce } from 'src/enum/enrollment-status.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { isAccountActive } from 'src/entities/user.entity';
@@ -79,7 +79,7 @@ export class EnrollmentService {
         @InjectRepository(WaitlistEntry) private readonly waitlistRepository: Repository<WaitlistEntry>,
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
-        @InjectRepository(MakeUpCredit) private readonly makeUpCreditRepository: Repository<MakeUpCredit>,
+        @InjectRepository(AbsenceNotice) private readonly absenceNoticeRepository: Repository<AbsenceNotice>,
         private readonly outbox: OutboxService,
         private readonly leadProgress: LeadProgressService,
         @InjectDataSource() private readonly dataSource: DataSource,
@@ -155,7 +155,7 @@ export class EnrollmentService {
      * none at all next Monday and one the Monday after.
      *
      * It lives here, beside `occupancyOf`, because both answer "is there room" and D7 must have one
-     * owner: `MakeUpCreditService` asked it first and now delegates, and E20/S2's public booking form
+     * owner: `ReplacementService` asked it first and now delegates, and E20/S2's public booking form
      * asks it too — three callers, one definition. Batched over a list of sessions because the
      * booking form asks about every hour it is about to offer, and a query per session is how a
      * public page becomes slow.
@@ -165,7 +165,7 @@ export class EnrollmentService {
         if (sessions.length === 0) return free;
 
         const enrollmentRepository = manager ? manager.getRepository(Enrollment) : this.enrollmentRepository;
-        const creditRepository = manager ? manager.getRepository(MakeUpCredit) : this.makeUpCreditRepository;
+        const noticeRepository = manager ? manager.getRepository(AbsenceNotice) : this.absenceNoticeRepository;
 
         const groupIds = [...new Set(sessions.map((session) => session.group.id))];
         const sessionIds = sessions.map((session) => session.id);
@@ -179,12 +179,15 @@ export class EnrollmentService {
             .groupBy('enrollment.group_id')
             .getRawMany<{ groupId: number; count: number }>();
 
-        const visitingRows = await creditRepository
-            .createQueryBuilder('credit')
-            .select('credit.booked_session_id', 'sessionId')
+        // Visitors are children the office moved here for one week — E12/S4. They used to be
+        // make-up credits booked onto the session by their own families; the column moved, the
+        // question did not.
+        const visitingRows = await noticeRepository
+            .createQueryBuilder('notice')
+            .select('notice.replacement_session_id', 'sessionId')
             .addSelect('COUNT(*)::int', 'count')
-            .where('credit.booked_session_id IN (:...sessionIds)', { sessionIds })
-            .groupBy('credit.booked_session_id')
+            .where('notice.replacement_session_id IN (:...sessionIds)', { sessionIds })
+            .groupBy('notice.replacement_session_id')
             .getRawMany<{ sessionId: number; count: number }>();
 
         const enrolled = new Map(enrolledRows.map((row) => [Number(row.groupId), row.count]));

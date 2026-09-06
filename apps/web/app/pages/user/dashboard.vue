@@ -129,7 +129,7 @@ import { useAttendanceStore } from "~/stores/attendanceStore";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useProfileStore } from "~/stores/profileStore";
 import { AttendanceType } from "~/types/attendance.types";
-import type { MakeUpCredit } from "~/types/attendance.types";
+import type { AbsenceNotice } from "~/types/attendance.types";
 import type { Child } from "~/types/child.types";
 import type { ClassSession, ClassSessionWithAttendance } from "~/types/class-session.types";
 import { SessionStatus } from "~/types/class-session.types";
@@ -171,7 +171,7 @@ const loading = ref(true);
 const loadError = ref("");
 
 const sessionsByGroup = ref<Record<number, ClassSessionWithAttendance[]>>({});
-const credits = ref<MakeUpCredit[]>([]);
+const notices = ref<AbsenceNotice[]>([]);
 const invoices = ref<Invoice[]>([]);
 const projects = ref<Project[]>([]);
 
@@ -223,7 +223,7 @@ onMounted(async () => {
     await Promise.allSettled([
       loadSessions(mine),
       Promise.all(mine.map((child) => childrenApi.fetchChildrenAttendance(child.id))),
-      attendanceApi.fetchMakeUpCredits().then((rows) => (credits.value = rows)),
+      attendanceApi.fetchUpcomingAbsences().then((rows: AbsenceNotice[]) => (notices.value = rows)),
       invoiceApi.fetchInvoices().then(() => (invoices.value = invoiceApi.getInvoices())),
       projectsApi.fetchProjects().then((rows) => (projects.value = rows)),
     ]);
@@ -327,12 +327,15 @@ interface Todo {
 const todosFor = (child: Child): Todo[] => {
   const items: Todo[] = [];
 
-  for (const credit of credits.value) {
-    if (credit.child.id !== child.id || credit.status !== "available") continue;
+  // A move the office has made is the one thing on this screen a parent has to *do* something
+  // about: the child goes somewhere else that week, and nobody remembers a room from an email.
+  for (const notice of notices.value) {
+    if (notice.child.id !== child.id || !notice.replacementSession) continue;
+    const to = notice.replacementSession;
     items.push({
-      key: `credit-${credit.id}`,
-      text: `Un credit de recuperare expiră pe ${formatDateKey(credit.expiresOn)}.`,
-      cta: "Alege o oră →",
+      key: `mutare-${notice.id}`,
+      text: `L-am mutat la grupa ${to.group?.name ?? "alta"}, ${weekdayNameOf(to.date)} ${formatDateKey(to.date)}, ora ${formatTime(to.startTime)}.`,
+      cta: "Vezi detaliile →",
       to: "/user/absente",
     });
   }

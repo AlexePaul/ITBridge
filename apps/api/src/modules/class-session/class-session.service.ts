@@ -14,7 +14,7 @@ import { UnmarkedClassSessionsDto } from './dto/unmarkedClassSessions.dto';
 import { addDays, occurrencesOf, parseIsoDate, startOfToday, toIsoDate } from './class-session.dates';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { ClassSessionNotifier } from './class-session-notifier';
-import { MakeUpCreditService } from 'src/modules/attendance/make-up-credit.service';
+import { ReplacementService } from 'src/modules/attendance/replacement.service';
 
 /** The rolling horizon from E12/S1: eight weeks of timetable, always. */
 export const DEFAULT_HORIZON_WEEKS = 8;
@@ -54,7 +54,7 @@ export class ClassSessionService {
         @InjectRepository(Room) private readonly roomRepository: Repository<Room>,
         private readonly nonTeachingPeriodService: NonTeachingPeriodService,
         private readonly notifier: ClassSessionNotifier,
-        private readonly makeUpCredits: MakeUpCreditService,
+        private readonly replacements: ReplacementService,
         private readonly dataSource: DataSource,
     ) {}
 
@@ -237,20 +237,16 @@ export class ClassSessionService {
         session.notes = session.notes === null || session.notes.trim() === '' ? reason : `${session.notes}\n\n${reason}`;
         session.status = ClassSessionStatus.CANCELLED;
 
-        // The write, the credits, the note to the families and the release of any make-up booked
-        // into the class are one unit of work — E12/S5. A class that is off with nobody told is the
-        // failure the outbox exists to prevent, and a family told about a cancellation that then
-        // rolled back is worse than either.
-        const grantMakeUp = dto.grantMakeUpCredits ?? false;
+        // The write, the note to the families and the release of any child moved into the class are
+        // one unit of work — E12/S5. A class that is off with nobody told is the failure the outbox
+        // exists to prevent, and a family told about a cancellation that then rolled back is worse
+        // than either.
         return this.dataSource.transaction(async (manager) => {
             const saved = await manager.getRepository(ClassSession).save(session);
-            if (grantMakeUp) {
-                await this.makeUpCredits.grantForCancellation(id, manager);
-            }
-            // Notify before releasing: the notifier reads the bookings to find the visiting
-            // families, and a released booking is one it can no longer see.
-            await this.notifier.notifyCancelled(id, dto.reason, grantMakeUp, manager);
-            await this.makeUpCredits.releaseBookingsOn(id, manager);
+            // Notify before releasing: the notifier reads the placements to find the visiting
+            // families, and a cleared one is a family it can no longer see.
+            await this.notifier.notifyCancelled(id, dto.reason, manager);
+            await this.replacements.clearOn(id, manager);
             return saved;
         });
     }

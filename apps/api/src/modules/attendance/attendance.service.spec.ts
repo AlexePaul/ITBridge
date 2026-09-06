@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { AbsenceNoticeService } from './absence-notice.service';
-import { MakeUpCreditService } from './make-up-credit.service';
 import { Attendance } from 'src/entities/attendance.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Child } from 'src/entities/child.entity';
@@ -45,17 +44,8 @@ describe('AttendanceService', () => {
         settleForEnrollment: jest.fn().mockResolvedValue(undefined),
     };
 
-    const makeUpCredits = {
-        earnFor: jest.fn().mockResolvedValue(null),
-        revokeFor: jest.fn().mockResolvedValue(undefined),
-        consumeFor: jest.fn().mockResolvedValue(undefined),
-    };
-
     beforeEach(async () => {
         forSessionMock.mockResolvedValue(new Map());
-        makeUpCredits.earnFor.mockClear();
-        makeUpCredits.revokeFor.mockClear();
-        makeUpCredits.consumeFor.mockClear();
         leadProgress.markTrialHeld.mockClear();
         leadProgress.revertTrialHeld.mockClear();
         attendanceRepo = createMockRepository();
@@ -71,10 +61,10 @@ describe('AttendanceService', () => {
                 provideMockRepository(ClassSession, classSessionRepo),
                 provideMockRepository(Child, childRepo),
                 { provide: AbsenceNoticeService, useValue: { forSession: forSessionMock } },
-                // E12/S4 hangs off marking; every test but its own runs with a double that does
-                // nothing, so a register test never becomes a credit test by accident.
-                { provide: MakeUpCreditService, useValue: makeUpCredits },
-                // E20/S3 hangs off the same mark, for the same reason and with the same double.
+                // E20/S3 hangs off marking; it runs with a double that does nothing, so a register
+                // test never becomes a lead test by accident. E12/S4 used to hang off the same
+                // mark and no longer does — a make-up is a placement the office records before the
+                // class, not a consequence the register works out afterwards.
                 { provide: LeadProgressService, useValue: leadProgress },
             ],
         }).compile();
