@@ -240,9 +240,10 @@ amuțit, apoi ce e scadent azi. Mesajul zilnic către birou (`lead-reminders.job
 prezență, fiindcă un mesaj care vine și în zilele bune e un mesaj pe care oamenii îl filtrează.
 
 - **Starea „probă ținută" o pune catalogul.** `LeadProgressService.markTrialHeld` e chemat din
-  `AttendanceService`, lângă `settleMakeUp` și din amândouă căile de scriere. O bifă separată ar fi
-  depins de exact atenția de admin pe care ecranul e menit s-o suplinească. Corectarea unui marcaj
-  greșit dă înapoi, la fel ca revocarea unui credit de recuperare.
+  `AttendanceService`, din amândouă căile de scriere. O bifă separată ar fi depins de exact atenția
+  de admin pe care ecranul e menit s-o suplinească. Corectarea unui marcaj greșit dă înapoi. E
+  singurul lucru pe care marcarea îl mai decontează: `settleMakeUp` stătea alături și a plecat cu
+  creditele din E12/S4, fiindcă o mutare se aranjează înaintea orei, nu se deduce după ea.
 - **`lastActivityAt` e o coloană proprie, nu `updatedAt`.** Job-ul nu scrie nimic în ea, deci un lead
   nu poate deveni „proaspăt" fiindcă a fost amintit.
 - **Un catalog nemarcat nu e o absență.** Recontactarea după neprezentare cere ca cineva să fi marcat

@@ -129,9 +129,9 @@ deci un seed care punea doar `new` ascundea exact ce numără raportul de pâlni
 outbox în **toate cele patru stări**, inclusiv rândul `undeliverable` fără adresă — ecranul de
 livrări există ca să arate că un părinte n-a fost sărit tăcut, iar un seed doar cu succese l-ar fi
 arătat făcând treaba, niciodată treaba pentru care există; două anunțuri de absență, unul în termen
-și unul după începerea orei; trei credite de recuperare — unul liber, unul programat pe o oră
-viitoare, unul expirat, fiindcă „expirat" nu e o coloană, e calendarul care s-a mișcat; și două
-șabloane de email editate, ca editorul să aibă cu ce compara.
+și unul după termen; trei absențe anunțate care acoperă cele trei citiri ale ecranului — una în
+termen și mutată la altă grupă, una în termen și încă neplasată (adică lista de luni a biroului), una
+anunțată prea târziu; și două șabloane de email editate, ca editorul să aibă cu ce compara.
 
 Câteva alegeri deliberate, ca ecranele să arate ca realitatea și nu ca un caz fericit:
 
