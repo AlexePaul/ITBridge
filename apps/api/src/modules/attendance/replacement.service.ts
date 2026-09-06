@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
@@ -52,6 +52,7 @@ export class ReplacementService {
         private readonly enrollments: EnrollmentService,
         private readonly outbox: OutboxService,
         private readonly mailTemplates: MailTemplateService,
+        @InjectDataSource() private readonly dataSource: DataSource,
     ) {}
 
     /**
@@ -86,11 +87,15 @@ export class ReplacementService {
             .addOrderBy('session.startTime', 'ASC')
             .getMany();
 
+        // An hour that has begun cannot be offered: whoever is in that room is already in it.
+        const open = candidates.filter((session) => canBackfill(session, now));
+        // One query for the week's seats, not one per class — the same batching the public trial
+        // form relies on, and for the same reason.
+        const seats = await this.enrollments.freeSeatsAtSessions(open);
+
         const options: ReplacementOption[] = [];
-        for (const session of candidates) {
-            // An hour that has begun cannot be offered: whoever is in that room is already in it.
-            if (!canBackfill(session, now)) continue;
-            const free = await this.enrollments.freeSeatsAt(session);
+        for (const session of open) {
+            const free = seats.get(session.id) ?? 0;
             if (free <= 0) continue;
             options.push({
                 sessionId: session.id,
@@ -119,9 +124,20 @@ export class ReplacementService {
      * refusing the move would take the week away for a delay that was never theirs. What cannot be
      * forgiven is a class that has already happened, because recording that move would be writing
      * down something that did not occur.
+     *
+     * **Recording the same move twice is a no-op**, checked before the seat count rather than after
+     * it: the child already holds a chair in that class, so counting them against it would refuse
+     * the office for repeating itself once the class is full.
+     *
+     * **The row and the message are one transaction**, as everywhere else that writes to a family.
+     * A move recorded without the family told is the failure the outbox exists to prevent — they
+     * turn up at the wrong room — and a message about a move that then rolled back is worse. The
+     * outbox row is an insert into the same database, so there is no reason for them to be able to
+     * disagree.
      */
     async place(noticeId: number, classSessionId: number, now: Date = new Date()): Promise<AbsenceNotice> {
         const notice = await this.requireNotice(noticeId);
+        if (notice.replacementSession?.id === classSessionId) return notice;
 
         const session = await this.classSessionRepository.findOne({
             where: { id: classSessionId },
@@ -162,8 +178,11 @@ export class ReplacementService {
         }
 
         notice.replacementSession = session;
-        const saved = await this.noticeRepository.save(notice);
-        await this.tellTheFamily(notice, session);
+        const saved = await this.dataSource.transaction(async (manager) => {
+            const written = await manager.getRepository(AbsenceNotice).save(notice);
+            await this.tellTheFamily(notice, session, manager);
+            return written;
+        });
         this.logger.log(`Child ${notice.child.id} moved to session ${session.id} for the week of ${toIsoDate(notice.classSession.date)}.`);
         return saved;
     }
@@ -240,11 +259,11 @@ export class ReplacementService {
      * instead", and it is useful the minute the office decides it — which may be Monday, for a class
      * on Thursday.
      *
-     * Failure to write is logged and swallowed. Recording the move is the fact; a mail server having
-     * a bad afternoon must not roll it back, or the office would be told the move did not happen
-     * when it did.
+     * Queued with the caller's transaction manager, so it cannot outlive a move that rolled back
+     * and a move cannot be recorded without it. No mail server is involved here — the outbox is a
+     * table, and the dispatcher's bad afternoons are its own.
      */
-    private async tellTheFamily(notice: AbsenceNotice, replacement: ClassSession): Promise<void> {
+    private async tellTheFamily(notice: AbsenceNotice, replacement: ClassSession, manager: EntityManager): Promise<void> {
         const parent = notice.child.parent;
         if (!parent) return;
 
@@ -257,29 +276,26 @@ export class ReplacementService {
             .filter(Boolean)
             .join(', ');
 
-        try {
-            const mail = await this.mailTemplates.render('absence-replacement', {
-                firstName: parent.firstName,
-                childName: notice.child.firstName,
-                missed: `${romanianDayAndDate(notice.classSession.date)}, ora ${notice.classSession.startTime.slice(0, 5)}`,
-                replacement: where,
-                portalUrl: absencesUrl(),
-            });
-            await this.outbox.queueOrRecord(
-                { email: parent.email ?? null },
-                {
-                    subject: mail.subject,
-                    bodyText: mail.bodyText,
-                    bodyHtml: mail.bodyHtml ?? undefined,
-                    // Keyed on the notice *and* the class it was moved to, so re-recording the same
-                    // move is silent while a genuine change of group writes again — which is the
-                    // only case where a family needs a second message.
-                    dedupeKey: `${REPLACEMENT_DEDUPE_PREFIX}${notice.id}:${replacement.id}`,
-                },
-            );
-        } catch (error) {
-            this.logger.error(`Could not write the move notice for absence ${notice.id}: ${error instanceof Error ? error.message : String(error)}`);
-        }
+        const mail = await this.mailTemplates.render('absence-replacement', {
+            firstName: parent.firstName,
+            childName: notice.child.firstName,
+            missed: `${romanianDayAndDate(notice.classSession.date)}, ora ${notice.classSession.startTime.slice(0, 5)}`,
+            replacement: where,
+            portalUrl: absencesUrl(),
+        });
+        await this.outbox.queueOrRecord(
+            { email: parent.email ?? null },
+            {
+                subject: mail.subject,
+                bodyText: mail.bodyText,
+                bodyHtml: mail.bodyHtml ?? undefined,
+                // Keyed on the notice *and* the class it was moved to: a genuine change of group
+                // writes again, which is the only case where a family needs a second message. The
+                // same-session repeat never gets this far — `place` returns before it.
+                dedupeKey: `${REPLACEMENT_DEDUPE_PREFIX}${notice.id}:${replacement.id}`,
+            },
+            manager,
+        );
     }
 
     /** A notice with everything the rules ask about, or a 404. */

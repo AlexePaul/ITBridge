@@ -77,15 +77,22 @@ export class AttendanceController {
     }
 
     /**
-     * A parent announcing that their child will miss a class — E12/S3. Not a guard's job to
-     * restrict: the service checks the child is theirs, because that is a fact about rows.
+     * Recording that a child will miss a class — E12/S3, and **the office does it**.
+     *
+     * It used to be the parent's, from a button in the portal, and the guard was deliberately open
+     * with the row-level check left to the service. The school changed the shape of the thing:
+     * families ring, message or email, and somebody here writes it down along with the reason. The
+     * button is gone from `/user/absente`, and leaving the endpoint reachable would have made the
+     * rule true only of the screen — which is the same as not being true.
      */
     @Post('absences')
     @ApiBearerAuth()
-    @UseGuards(AuthGuard)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
     @ApiResponse({ status: 201, description: 'Notice recorded, with whether it arrived in time' })
     @ApiResponse({ status: 400, description: 'CHILD_NOT_IN_SESSION_GROUP' })
-    @ApiResponse({ status: 404, description: 'No such child of yours, or no such session' })
+    @ApiResponse({ status: 403, description: 'Only the office records absences' })
+    @ApiResponse({ status: 404, description: 'No such child, or no such session' })
     @ApiResponse({ status: 409, description: 'CLASS_SESSION_CANCELLED or ATTENDANCE_ALREADY_MARKED' })
     async announceAbsence(@Body() dto: AnnounceAbsenceDto, @Request() req: AuthenticatedRequest) {
         return this.absenceNoticeService.announce(dto, req.user.role, req.user.sub);
@@ -100,11 +107,18 @@ export class AttendanceController {
         return this.absenceNoticeService.upcoming(req.user.role, req.user.sub);
     }
 
-    /** The child is coming after all. */
+    /**
+     * The child is coming after all.
+     *
+     * Admin too, and for the same reason: withdrawing an announcement is the same act as making
+     * one, and it comes back down the same phone line.
+     */
     @Delete('absences/:id')
     @ApiBearerAuth()
-    @UseGuards(AuthGuard)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
     @ApiResponse({ status: 200, description: 'Notice withdrawn' })
+    @ApiResponse({ status: 403, description: 'Only the office records absences' })
     async withdrawAbsence(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
         return this.absenceNoticeService.withdraw(id, req.user.role, req.user.sub);
     }

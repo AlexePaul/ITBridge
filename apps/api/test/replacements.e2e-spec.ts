@@ -74,9 +74,10 @@ describe('Temporary group moves (e2e)', () => {
         missedSessionId = await createClassSession(dataSource, ownGroupId, { date: iso(0) });
         hostSessionId = await createClassSession(dataSource, hostGroupId, { date: iso(3) });
 
+        // The office records it, not the family — E12/S3. Parents ring, message or email.
         const announced = await request(app.getHttpServer())
             .post('/attendance/absences')
-            .set('Authorization', parent.auth)
+            .set('Authorization', admin.auth)
             .send({ childId, classSessionId: missedSessionId, reason: 'Răcit' })
             .expect(201);
         noticeId = announced.body.id as number;
@@ -119,6 +120,22 @@ describe('Temporary group moves (e2e)', () => {
 
             const mail = await mailTo('parinte.mutari@example.com');
             expect(mail.filter((row) => row.subject.includes('Ana')).length).toBe(1);
+        });
+
+        it('the family reads the move from their own absences list — group, day, hour and room', async () => {
+            // This is the payload `/user/absente` and the Acasă to-do render from. Without the
+            // replacement joined in, both would read every notice as "not placed yet".
+            await place(hostSessionId).expect(200);
+
+            const mine = await request(app.getHttpServer()).get('/attendance/absences').set('Authorization', parent.auth).expect(200);
+            expect(mine.body).toHaveLength(1);
+            expect(mine.body[0].replacementSession).toMatchObject({
+                id: hostSessionId,
+                date: iso(3),
+                startTime: '18:00:00',
+                group: { name: 'Python' },
+            });
+            expect(mine.body[0].replacementSession.room.location.name).toBe('Mutări');
         });
 
         it('writes again when the child is moved somewhere else — that is a new thing to know', async () => {
@@ -211,6 +228,9 @@ describe('Temporary group moves (e2e)', () => {
             const tightSession = await createClassSession(dataSource, small.body.id as number, { date: iso(4) });
 
             await place(tightSession).expect(200);
+            // Recording the same move again is a no-op, not a refusal: the child already holds the
+            // one chair, and must not be counted against themselves.
+            await place(tightSession).expect(200);
 
             // A second family, announcing the same week, is not offered the hour that is now taken.
             const other = await registerUser(app, 'alta.familie.mutari');
@@ -223,7 +243,7 @@ describe('Temporary group moves (e2e)', () => {
             await request(app.getHttpServer()).post(`/children/${otherChild.body.id}/groups/${ownGroupId}`).set('Authorization', admin.auth).expect(201);
             const otherNotice = await request(app.getHttpServer())
                 .post('/attendance/absences')
-                .set('Authorization', other.auth)
+                .set('Authorization', admin.auth)
                 .send({ childId: otherChild.body.id, classSessionId: missedSessionId, reason: 'Plecăm din oraș' })
                 .expect(201);
 
