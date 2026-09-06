@@ -848,8 +848,22 @@ e toată regula: fără ea, suma ar depinde de ordinea rândurilor dintr-o inter
 ședințe nu consumă tariful întreg.
 
 **Emiterea se face din `/admin/invoices/emitere`, și numai de acolo**: un ecran cu familiile ca
-arbore, o valoare per copil, total jos, un buton. Serverul facturează numerele de pe ecran, nu și le
-recalculează — cine apasă s-a uitat la fiecare.
+arbore, o valoare per copil, total jos, un buton. Serverul facturează **numărul de ședințe** de pe
+ecran, nu și-l recalculează — cine apasă s-a uitat la fiecare.
+
+**Dar nu suma de pe ecran: la emitere se citește tabelul `discounts`.** `issueFromSessions` cere,
+pentru fiecare familie, reducerile pe **luna care se emite** (`monthIssued`) și trece totul prin
+`sessionAmountAfterDiscounts`. Deci ordinea e: ecranul dă ședințele, prețul din `pricing.ts` dă
+lista, iar tabelul de reduceri dă ce se scade. Dacă adaugi o cale nouă prin care se emite ceva, **ea
+trebuie să facă aceeași interogare** — o factură emisă fără pasul ăsta e o factură la preț întreg
+pentru o familie căreia școala i-a promis jumătate, iar promisiunea rămâne în tabel, nevăzută.
+
+Consecința pe care ecranul nu o arată încă, și de care e bine să știi înainte s-o descoperi:
+**totalul afișat nu conține reducerile.** Ecranul le calculează în browser din ședințe și tarife
+(`emitere.vue` oglindește cele două rate din `pricing.ts`), deci o familie cu o recomandare pe luna
+aia apare cu 350 și primește o factură de 175. Banii sunt corecți — reducerea e voită —, dar cifra
+de dinaintea apăsării nu e cea care se emite. De la E20/S5 încoace reducerile se dau dintr-un buton,
+deci cazul ăsta nu mai e rar.
 
 Al doilea drum a fost **șters** (E18/S5b): `/admin/invoices/new` și `/admin/invoices/preview/:month`
 emiteau aceeași lună prin `POST /invoices/preview` plus `POST /invoices`, adică pe numere calculate

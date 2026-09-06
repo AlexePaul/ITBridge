@@ -203,7 +203,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 ### E15 · Pricing și facturare v2 — `în lucru; S1–S3 scoase`
 
-- [x] S0 · Prețul pe ședință și ecranul de emitere — 87,50/62,50 per ședință, arbore familie→copii, zero se consemnează ca `waived`. **Facturarea pe modul a fost analizată și abandonată**, vezi caseta din epic
+- [x] S0 · Prețul pe ședință și ecranul de emitere — 87,50/62,50 per ședință, arbore familie→copii, zero se consemnează ca `waived`. **Emiterea citește tabelul `discounts`** pe luna emisă și scade ce găsește; ecranul însă nu arată reducerile în total, deci o familie cu recomandare se vede cu 350 și primește 175 — de reparat în `GET /invoices/worksheet`. **Facturarea pe modul a fost analizată și abandonată**, vezi caseta din epic
 - ~~S1 · Catalogul de prețuri~~ — **scos:** cheia lui e modulul din E10, iar textul interzice explicit coloana de preț pe ședință, care e azi tot modelul. Dacă tarifele trebuie vreodată scoase din cod, e un story nou, pe ședință
 - ~~S2 · Factura pe modul, cu linii~~ — **scos:** `Billing` există doar fiindcă S3 rupea o notă de plată în două facturi. Liniile de factură rămân o idee bună și n-au legătură cu modulele — story nou, când se face
 - ~~S3 · Planuri de plată~~ — **scos:** factura lunară e deja plata în tranșe; nu mai există suma de 700 pe modul care să se rupă în două

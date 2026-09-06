@@ -24,6 +24,19 @@
 > validare că fiecare câmp are un răspuns, sumele calculate în timp real, total jos, un buton.
 > Emiterea creează o factură pe familie, cu tariful întreg pe copilul cu cele mai multe ședințe.
 >
+> **Reducerile se citesc la emitere, din tabel.** `issueFromSessions` cere pentru fiecare familie
+> rândurile din `discounts` cu `monthIssued` egal cu luna care se emite, și le trece prin
+> `sessionAmountAfterDiscounts`. Ecranul dă ședințele, `pricing.ts` dă prețul de listă, tabelul dă
+> ce se scade — trei surse, fiecare cu treaba ei. **Orice cale nouă de emitere trebuie să facă
+> aceeași interogare**: altfel promisiunea rămâne în tabel, iar familia primește factura întreagă.
+>
+> **Ce nu face încă ecranul: nu le arată.** Totalul de pe `/admin/invoices/emitere` se calculează în
+> browser din ședințe și cele două tarife, fără reduceri, deci o familie cu o recomandare pe luna
+> aceea se vede cu 350 și primește 175. Suma emisă e cea corectă; cifra la care se uită omul înainte
+> să apese nu e. Cât timp reducerile erau rare și tastate de mână, diferența era teoretică — de la
+> [E20](E20-achizitie-lead.md) S5, unde se dau dintr-un buton, nu mai e. Reparația e o coloană în
+> plus în `GET /invoices/worksheet` și o linie pe rândul familiei; nu e făcută.
+>
 > **Zero e un răspuns, nu un câmp gol.** O lună fără plată — copilul n-a putut veni, sau școala a
 > decis să nu taxeze — se scrie în baza de date ca factură `waived`, de 0 lei, fără PDF. Rândul
 > există tocmai fiindcă n-are bani în el: o familie fără nicio factură pe octombrie arată la fel cu
