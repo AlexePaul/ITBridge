@@ -455,7 +455,7 @@ Condiția în care se repune întrebarea, scrisă ca să fie recunoscută la tim
 o înscriere care se finalizează online, sau o încasare de la o familie fără contract pe hârtie.**
 Ambele mută încheierea contractului în afara sediului, deci readuc termenul de 14 zile și, odată cu
 el, un caz real de stornat. Ziua în care una dintre ele se propune, întrebarea se pune înainte de
-implementare, nu după — și înainte ca [E07](E07-securitate-gdpr.md) S5 să publice termenii, fiindcă
+implementare, nu după — și înainte ca [E22](E22-termeni-si-date.md) S2 să publice termenii, fiindcă
 acolo regula devine text publicat.
 
 ## Întrebări deschise

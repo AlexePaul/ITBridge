@@ -566,10 +566,12 @@ E un poll, nu un declanșator armat per ședință: un timer ar trebui re-armat 
 după fiecare `POST /class-sessions/generate` și după fiecare anulare, iar un timer care n-a mai fost
 re-armat arată exact ca o după-amiază liniștită. O interogare indexată la 5 minute nu se poate uita.
 
-**Din S7 rămâne nelivrată o singură bucată**: a doua linie către părinte pentru absență, care așteaptă
-un mecanism în care un catalog greșit nu sperie pe nimeni ([E17](E17-comunicare-notificari.md) S6).
-Notificarea de absență din prima versiune a fost scoasă prin decizia de mai sus, iar mementourile de
-recuperare sunt livrate în S4. Iar amândouă mementourile
+**Bucata rămasă din S7 nu mai are pe ce aștepta, deci S7 se închide așa cum e**: a doua linie către
+părinte pentru absență aștepta mecanismul de rezumate din [E17](E17-comunicare-notificari.md) S6, iar
+acela a fost construit și **scos prin decizie** — deci nu vine. Notificarea de absență din prima
+versiune fusese oricum scoasă prin decizia de mai sus, iar mementourile de recuperare sunt livrate în
+S4. Dacă rezumatele revin cândva, revine și ea, cu ele; până atunci nu e o datorie deschisă, e o
+linie pe care școala a ales să n-o trimită. Iar amândouă mementourile
 **se scriu azi în coadă și nu pleacă nicăieri în producție**: nu există producție — vezi
 [Dependențe](#dependențe), imediat mai jos.
 

@@ -17,9 +17,9 @@ Deci se scrie la final, cu platforma în față — și abia atunci poate spune 
 
 Trei lucruri diferite se cheamă toate „legal" și se amestecă ușor. Epicul ăsta le ține separate:
 
-- **Ce vede vizitatorul site-ului** — politica de cookie-uri, bannerul de consimțământ, nota de
-  confidențialitate publică. **Mecanica lor rămâne la [E07](E07-securitate-gdpr.md) S5**, care e o
-  problemă tehnică: bannerul chiar trebuie să blocheze scripturile până la accept.
+- **Ce vede vizitatorul site-ului** — politica de cookie-uri și nota de confidențialitate publică.
+  **Textele lor intră în S2**, cu restul; la [E07](E07-securitate-gdpr.md) S5 rămâne bannerul însuși,
+  care e o problemă tehnică: trebuie să blocheze scripturile până la accept.
 - **Contractul dintre școală și familie** — se semnează pe hârtie, iar platforma reține doar că
   există. Rămâne la [E07](E07-securitate-gdpr.md) S8 și nu se mută.
 - **Termenii care guvernează contul și datele din el** — ce ține platforma despre o familie și
@@ -34,18 +34,20 @@ stocării nu permite.
 
 ## Story-uri
 
-### S1 · Inventarul a ce se stochează, la zi
+> Granița cu [E07](E07-securitate-gdpr.md) e în tabelul din capul acelui fișier: acolo mecanica, aici
+> ce citește și acceptă familia. Dacă rezultatul unui story e un rând, un endpoint sau un script, nu
+> e al epicului ăstuia.
 
-Ce câmpuri există despre o familie și despre un copil, în ce tabel, de ce, și cine le poate citi.
-Nu un document scris de mână: derivat din entități, ca să nu poată rămâne în urmă tăcut — aceeași
-disciplină ca `contract.ts`, care există fiindcă două seturi de tipuri divergeau fără să spună.
+### ~~S1 · Inventarul a ce se stochează, la zi~~ — mutat la [E07](E07-securitate-gdpr.md) S1
 
-Se suprapune cu [E07](E07-securitate-gdpr.md) S1, și intenționat: acolo e inventarul ca exercițiu de
-securitate, aici e sursa din care se scriu termenii. Dacă S1 din E07 e făcut înainte, ăsta îl
-citește în loc să-l refacă.
+Era același tabel scris de două ori, cu justificarea că „acolo e inventarul ca exercițiu de
+securitate, aici e sursa din care se scriu termenii". Justificarea nu ține: două inventare
+întreținute separat diverg, iar cel care ajunge sub ochii unei familii ar fi tocmai cel rămas în
+urmă.
 
-**Acceptanță:** o coloană nouă pe o entitate cu date personale nu poate ajunge în producție fără să
-apară în inventar.
+Inventarul e unul singur și stă în E07 S1, derivat din entități. **S2 de mai jos îl citește.** Ce
+rămâne al epicului ăstuia din vechiul story e cerința pe care i-o pune: dacă din inventar nu se
+poate scrie direct o notă de confidențialitate, inventarul nu e gata.
 
 ### S2 · Termenii contului și nota de confidențialitate
 
@@ -87,8 +89,9 @@ Cine a acceptat ce versiune și când. Versionat, fiindcă un document care se s
 face imposibil de spus ce a acceptat de fapt o familie — iar aia e singura întrebare care contează
 dacă vreodată e întrebat cineva.
 
-Se leagă de [E07](E07-securitate-gdpr.md) S5, care cere același lucru pentru documentele de
-vizitator. Un singur mecanism pentru amândouă.
+Acoperă și documentele de vizitator, nu doar termenii contului: sunt aceleași texte, versionate în
+același loc. [E07](E07-securitate-gdpr.md) S5 nu ține niciun istoric — el doar întreabă dacă
+vizitatorul a acceptat, ca să știe dacă poate porni scripturile.
 
 **Acceptanță:** pentru orice familie și orice document, se poate spune ce versiune a acceptat și în
 ce zi.

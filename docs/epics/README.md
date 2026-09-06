@@ -282,13 +282,15 @@ business, deci trebuie să existe deja plasa de siguranță din E03. [E16](E16-p
 S7 — confirmarea de plată și mementoul de restanță — cer același canal, dar sunt în același val cu
 el, deci nu produc decalajul care apare la E11 și E12.
 
-**Val 5 — creștere și măsurare.** E20, E21, E13.
+**Val 5 — creștere și măsurare.** E20 și E21; **E13 a ieșit din MVP** și pleacă din val, iar din E21
+au ieșit S3 și S6 — vezi [Stare curentă](#stare-curentă).
 
 **Val 6 — ce se scrie la sfârșit.** [E22](E22-termeni-si-date.md), singur. Nu blochează nimic din
 construcție și de asta e ultimul; condiția de ieșire e însă tare, și e scrisă în epic: **nu se
 deschide accesul familiilor la platformă fără termenii din S2.**
 
-E06 și E07 se pot strecura oriunde după val 1, și cu cât mai devreme cu atât mai bine.
+E07 se poate strecura oriunde după val 1, și cu cât mai devreme cu atât mai bine. **E06 nu mai are
+val:** a ieșit din MVP, iar ce rămâne din el — rotația logurilor — intră ca o linie în E01 S4.
 
 Primele șase luni, realist: **val 1 complet, val 2 complet, plus E18.** E15 era și el pe
 listă și rămâne posibil, dar nu în forma din tabelul de decizii: fără E10, ce se poate face acum e
@@ -360,6 +362,16 @@ ca E22 de mai jos și fișierul rămâne unde e — decizia e despre moment, nu 
 are val. Motivul, pe larg, la [Ordinea recomandată](#ordinea-recomandată): prin „curriculum"
 patronul a înțeles programa publicată părinților, care nu e MVP, iar facturarea pe modul nu e
 realitatea de azi.
+
+**[E06](E06-observabilitate-operare.md) și [E13](E13-progres-evaluare.md) ies și ele din MVP,
+septembrie 2026.** E06 fiindcă observabilitatea de zi cu zi e PM2 — `pm2 logs` și `pm2 monit` pe
+instanța din E01 S4 — iar un al doilea sistem de urmărit e el însuși o cheltuială de operare; din el
+rămâne doar rotația logurilor, care se pune ca linie de configurare odată cu procesul. E13 fiindcă
+n-are pe ce sta: evaluarea e pe competențele din E10, iar E10 e deja afară. Aceeași rundă a scos
+[E14](E14-proiecte-elevi.md) S6 (vitrina publică se face cu mâna, două-trei lucrări puse ca orice alt
+conținut), [E21](E21-raportare-analytics.md) S3 și S6 (retenția cere E10 și E09, iar exportul pentru
+contabil îl ține SmartBill), și a mutat inventarul din E22 S1 la [E07](E07-securitate-gdpr.md) S1,
+unde era oricum scris a doua oară.
 
 [E09](E09-personal-roluri.md) rămâne `propus` și **s-a micșorat**: rolurile `TEACHER` și
 `LOCATION_MANAGER` nu se implementează acum, deci cad și restrângerea pe locație, și dependența de
