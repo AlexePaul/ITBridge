@@ -20,7 +20,7 @@
     "test:e2e": "dotenv -e .env -- turbo run test:e2e",
     "test:a11y": "dotenv -e .env -- turbo run test:a11y",
     "seed": "dotenv -e .env -- pnpm --filter api seed",
-    "seed:stage": "dotenv -e .env.stage -- pnpm --filter api seed"
+    "seed:stage": "dotenv -e .env.stage -v SEED_TARGET=stage -- pnpm --filter api seed"
   },
   "devDependencies": {
     "husky": "^9.1.7",

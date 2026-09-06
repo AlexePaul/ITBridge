@@ -106,6 +106,13 @@ mediu autorizează orice scrie `DB_NAME` data viitoare —, iar `SEED_PASSWORD` 
 se tipărește la final: ar ajunge în logul rulării. Regula e pură și are spec propriu; dacă adaugi o
 a treia țintă, treci prin ea, nu pe lângă.
 
+**`seed:stage` trimite `SEED_TARGET=stage`, iar o bază locală de acolo e refuz.** `dotenv -e
+.env.stage` **nu dă eroare când fișierul lipsește** — încarcă nimic —, iar `data-source.ts` cade
+atunci pe `localhost`, deci comanda ar fi golit tăcut baza de dezvoltare a celui care aștepta să se
+umple staging-ul: exact greșeala de țintă pe care restul fișierului o oprește, intrată pe ușa din
+față. Dacă adaugi o comandă de seed pentru încă un mediu, dă-i și ei un `SEED_TARGET` — un flag de
+mediu care se pierde tăcut e mai rău decât unul care lipsește.
+
 **O variabilă de mediu nouă trebuie declarată în `turbo.json`, la `globalEnv`.** Turbo rulează în
 mod `strict`: un task vede doar ce e declarat acolo, iar restul lipsesc fără niciun mesaj. E cea
 mai probabilă cauză când ceva „nu vede” o variabilă pe care tocmai ai pus-o în `.env`.

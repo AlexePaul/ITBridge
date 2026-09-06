@@ -21,6 +21,20 @@ describe('checkSeedTarget', () => {
             // No reason to refuse it, and it keeps one command working across both targets.
             expect(checkSeedTarget(local, { SEED_PASSWORD: 'altceva' })).toEqual({ ok: true, password: 'altceva' });
         });
+
+        it('is refused when `pnpm seed:stage` is what asked for it', () => {
+            // The failure this catches is silent and destructive: `dotenv -e .env.stage` does not
+            // error on a missing file, it loads nothing, and `data-source.ts` falls back to
+            // localhost — so the command wipes the developer's own database while they wait for
+            // staging to fill up.
+            const verdict = checkSeedTarget(local, { SEED_TARGET: 'stage' });
+            expect(verdict.ok).toBe(false);
+            expect((verdict as { reason: string }).reason).toContain('.env.stage');
+        });
+
+        it('is allowed from the plain `pnpm seed`, which is what it is for', () => {
+            expect(checkSeedTarget(local, { SEED_TARGET: undefined }).ok).toBe(true);
+        });
     });
 
     describe('anything else', () => {

@@ -48,6 +48,21 @@ export const LOCAL_PASSWORD = 'parola123';
  */
 export function checkSeedTarget(target: SeedTarget, env: NodeJS.ProcessEnv = process.env): SeedVerdict {
     if (isLocalHost(target.host)) {
+        // `pnpm seed:stage` sets `SEED_TARGET=stage`, and reaching a local host from it means the
+        // connection details never arrived — `dotenv -e .env.stage` does **not** fail when the file
+        // is missing, it loads nothing, and `data-source.ts` then falls back to localhost. Without
+        // this the command would quietly truncate the developer's own database while they watched
+        // for staging to fill up: the exact wrong-target failure the rest of this file prevents,
+        // walked in through the front door.
+        if (env.SEED_TARGET === 'stage') {
+            return {
+                ok: false,
+                reason:
+                    `\`pnpm seed:stage\` resolved to a local database (host: ${target.host}, database: ${target.database}), which would ` +
+                    `wipe your development data instead of staging. Copy \`.env.stage.example\` to \`.env.stage\` and fill in DB_HOST, ` +
+                    `DB_NAME, SEED_ALLOW_NON_LOCAL and SEED_PASSWORD — a missing \`.env.stage\` loads nothing and falls back to localhost.`,
+            };
+        }
         return { ok: true, password: env.SEED_PASSWORD || LOCAL_PASSWORD };
     }
 
