@@ -43,8 +43,9 @@ urcă, adminul se uită pe grupă și apasă, părintele deschide în portal.
   document.
 
 **Ce nu s-a livrat, și de ce:** S3b are nevoie de ffmpeg pe un host care nu există
-([E01](E01-infrastructura-medii.md) S4), iar **S6 are nevoie de consimțământul din
-[E07](E07-securitate-gdpr.md) S2, care nu e construit.** Consecința e scrisă în cod: nu există
+([E01](E01-infrastructura-medii.md) S4), iar **S6 a ieșit din MVP**: vitrina se publică de mână, cu
+două-trei lucrări puse în paginile publice, fiindcă mecanismul automat cerea oricum consimțământul
+din [E07](E07-securitate-gdpr.md) S2, care nu e construit. Consecința e scrisă în cod: nu există
 niciun câmp `isPublic` nicăieri. Un boolean pe `Project` ar fi fost al doilea loc în care se poate
 răspunde la aceeași întrebare, fără precedență între ele, iar o revocare ar fi lăsat în urmă rânduri
 care încă spun „da". Vitrina așteaptă înregistrarea care o guvernează.
@@ -450,6 +451,20 @@ Consecința e vizibilă în model: **nu există `isPublic` pe `Project`, deloc.*
 alegerea de a nu avea un al doilea loc în care se poate răspunde la aceeași întrebare înainte să
 existe primul.
 
+**Scos din MVP prin decizie (septembrie 2026), și înlocuit cu mâna.** Vitrina automată — randată
+pe server, gatată de consimțământ, cu retragere care are efect în sub un minut — e un mecanism
+proporțional cu zeci de lucrări publicate continuu. Ce vrea școala acum sunt **două-trei lucrări pe
+pagină**, alese pe sprânceană și schimbate rar. Alea se pun ca orice alt conținut public: imaginea și
+textul intră în `apps/web/`, pe `release/prod`, fără backend, fără `isPublic` și fără nicio
+interogare la afișare — deci nici blocajul de infrastructură de mai sus nu se mai aplică.
+
+Ce **nu** cade odată cu mecanismul e regula: se publică lucrarea, nu copilul, iar acordul părintelui
+se cere înainte, chiar dacă e cerut la telefon și consemnat pe hârtie, nu printr-o bifă. Un proiect
+pus de mână pe site fără să fi întrebat cineva e exact aceeași încălcare ca unul pus de un job.
+
+Story-ul rămâne scris, fiindcă pragul lui rămâne adevărat: în ziua în care vitrina merită să fie
+automată, condiția e tot [E07](E07-securitate-gdpr.md) S2, nu efortul de randare.
+
 ### S7 · Corectarea unei atribuiri greșite
 
 Un fișier se salvează într-un folder, iar folderul de lângă e al altui copil. Greșeala apare în prima
@@ -515,7 +530,8 @@ acolo. Prezența nu mai ordonează nicio listă și nu se deduce din nimic — v
 [E17](E17-comunicare-notificari.md) pentru livrare, pentru butonul de trimitere pe grupă din S9,
 pentru coada în care rulează S3b și pentru evidența de livrări din S5, unde apar părinții fără adresă.
 
-[E01](E01-infrastructura-medii.md) S4 pentru S3b și S6: ffmpeg pe host și un backend deployat.
+[E01](E01-infrastructura-medii.md) S4 pentru S3b: ffmpeg pe host. S6 nu mai cere nimic de aici —
+vitrina de MVP e conținut static pe `release/prod`, pus de mână.
 
 [E02](E02-monorepo-tooling.md) a anticipat deja o a treia aplicație în monorepo, „un uploader pentru
 E14". Aia e agentul, și îi stă bine ca workspace lângă `apps/api` și `apps/web`: consumă același

@@ -231,13 +231,31 @@ dreptul de recuperare.
 care vorbește despre o oră de curs, fiindcă orarul e singurul răspuns la „când". Părintele anunță
 din `/user/absente`; adminul poate anunța pentru oricine, fiindcă el e cel care ridică telefonul.
 
-**Termenul e „înainte să înceapă ora".** Story-ul lasă pragul școlii („sau după regula pe care o
-stabiliți"), iar ăsta e cel care se potrivește cu motivul pentru care story-ul vrea anunțuri:
-_profesorul vede dinainte cine lipsește_. Un anunț ajuns înainte ca profesorul să intre în sală
-și-a făcut toată treaba; unul de după, nu, la ce oră o fi venit. O fereastră mai strictă — două ore
-înainte, sau ora 10 în ziua cursului — e o linie schimbată în `absence-notice.rules.ts`; nu e
-implicit fiindcă ar pedepsi exact cazul copilului care face febră la trei pentru o oră de la patru,
-iar nicio școală nu vrea să pună familia aia într-o situație mai proastă decât una care tace.
+**Termenul e luni, ora 12:00, pentru toată săptămâna.** Story-ul lăsa pragul școlii („sau după
+regula pe care o stabiliți"); școala l-a stabilit, iar el nu e per oră, ci **per săptămână**.
+Anunțul nu există ca să-l prevină pe profesorul care intră în sală — există ca biroul să poată muta
+copilul în altă grupă **în aceeași săptămână**, iar planificarea aia se face o dată, luni. Un anunț
+venit miercuri pentru o oră de miercuri n-a ratat nimic din ce-i trebuia profesorului și tot ce-i
+trebuia biroului.
+
+Consecința e dură și a fost aleasă știind-o: copilul care se trezește bolnav miercuri **nu câștigă
+nicio recuperare**. Răspunsul școlii e cel pe care îl dă și despre taxă — locul a fost ținut,
+profesorul a fost în sală, deci luna costă la fel, iar ce cumperi anunțând din timp e **șansa de a
+muta**, nu o reducere. E aceeași logică ca la un abonament de telefon, care nu vine mai mic fiindcă
+ai vorbit puțin.
+
+**Singura îngăduință e backfill-ul, și e pentru biroul care uită, nu pentru termen.** Părinții ne
+anunță pe telefon, WhatsApp sau email, iar cineva trebuie să treacă asta în sistem — **doar adminul
+notează absențe**. Când nimeni n-o face, familia și-a făcut partea și ar pierde săptămâna dintr-o
+întârziere care n-a fost a ei. Fereastra se închide **când începe ora la care copilul a fost mutat**:
+înainte de ea mutarea mai e ceva de aranjat, după ea ora s-a ținut deja și n-ai ce consemna. Nu se
+poate nici întinde — ședința-țintă se numește în momentul backfill-ului, deci termenul e o
+proprietate a orei oferite, nu un interval ales de cineva.
+
+Ambele sunt în `absence-notice.rules.ts`: `isInTime` compară cu luni 12:00 din săptămâna ședinței,
+`canBackfill` cu începutul ședinței de înlocuire. **Școala n-are grupă luni dimineața**, deci prânzul
+de luni cade întotdeauna înaintea oricărei ore din săptămâna lui; dacă apare vreodată una, regula
+încetează tăcut să mai poată fi respectată pentru ea, iar linia aia e locul de schimbat.
 
 Cinci decizii care se încalcă ușor:
 
@@ -288,12 +306,26 @@ anunțat și a venit totuși a fost prezentă, iar un copil absent fără o vorb
 exact intersecția asta e definiția. Dreptul nu e un endpoint: se câștigă și se consumă ca **efect al
 marcării**, în `AttendanceService.settleMakeUp`.
 
-**Termenul e 30 de zile de la ora pierdută**, iar numărul e o alegere scrisă în `make-up.rules.ts`.
-Alternativa cântărită — „până la finalul lunii următoare" — dă unui copil care lipsește pe 2 aproape
-opt săptămâni și unuia care lipsește pe 30 abia patru, pentru un motiv pe care niciun părinte nu l-ar
-accepta dacă i-ar fi explicat. O fereastră fixă e aceeași promisiune pentru toți: destul de lungă cât
-să conțină patru ore din grupa proprie, destul de scurtă cât dreptrile să nu se adune într-o datorie
-pe care școala n-o mai poate onora.
+**Fereastra e săptămâna în care s-a pierdut ora, nu o zi mai mult** (`make-up.rules.ts`). O oră de
+miercuri se recuperează joia sau sâmbăta aceleiași săptămâni, ori nu se recuperează deloc.
+
+Asta a înlocuit un credit de 30 de zile, iar diferența nu e un număr mai mic — e alt lucru. Treizeci
+de zile făceau din recuperare un jeton pe care familia îl purta și îl cheltuia când îi convenea, de
+unde și ecranul pe care părintele își alegea singur ora. Școala nu lucrează așa: citește absențele
+săptămânii luni și mută copiii între grupe **pentru săptămâna aia**, deci ce i se datorează unei
+familii e un loc în altă grupă _acum_, nu un drept ținut în sertar.
+
+Două consecințe care țin greutate:
+
+- **Nu mai e nicio expirare de anunțat.** O fereastră care se deschide și se închide într-o
+  săptămână nu poate fi anunțată cu o săptămână înainte, iar mesajul care contează e cel care spune
+  unde a fost mutat copilul. Mementoul de expirare din S7 a fost **șters**, nu scurtat — vezi acolo.
+- **Termenul din S3 e ce face fereastra asta accesibilă.** Prânzul de luni există exact ca toată
+  săptămâna să fie încă înainte când biroul începe să plaseze copii. Cele două reguli se citesc
+  împreună sau niciuna n-are sens.
+
+Data rămâne înghețată pe rând la scriere, ca înainte. Aia n-a fost niciodată despre lungimea
+ferestrei, ci despre o familie căreia i s-a spus o dată care nu se mai mișcă sub ea.
 
 Patru decizii care se încalcă ușor:
 
@@ -481,7 +513,14 @@ profesorului. Două, în `parent-notifications.job.ts`, și **amândouă sunt de
 despre absență**:
 
 - **Recuperare câștigată → familia află în seara aceleiași zile.** La 19:00, ora școlii.
-- **Recuperare care expiră → memento cu șapte zile înainte.**
+- ~~**Recuperare care expiră → memento cu șapte zile înainte.**~~ **Șters odată cu fereastra de o
+  săptămână din S4.** Avertiza o familie cu șapte zile înainte ca un credit de treizeci de zile să
+  expire, ca să apuce să-și programeze o oră. Ambele jumătăți au devenit false: fereastra e acum
+  săptămâna orei pierdute, care nu se poate anunța cu o săptămână înainte, iar familia nu-și mai
+  programează nimic — biroul mută copilul. Un memento adresat cuiva care n-are ce apăsa e mai rău
+  decât niciunul. Ce l-ar înlocui e o întrebare **către birou**, nu către familie: care dintre
+  absențele anunțate săptămâna asta n-au fost încă plasate? Aia n-are ecran și n-are destinatar,
+  deci nu s-a strecurat aici — vezi [Întrebări deschise](#întrebări-deschise).
 
 **A existat aici și un mesaj „copilul tău n-a fost azi la curs", și a fost scos.** Merită scris de
 ce, fiindcă e o decizie, nu o simplificare. Mesajul citea `Attendance.present = false`, iar catalogul
@@ -570,10 +609,12 @@ E un poll, nu un declanșator armat per ședință: un timer ar trebui re-armat 
 după fiecare `POST /class-sessions/generate` și după fiecare anulare, iar un timer care n-a mai fost
 re-armat arată exact ca o după-amiază liniștită. O interogare indexată la 5 minute nu se poate uita.
 
-**Din S7 rămâne nelivrată o singură bucată**: a doua linie către părinte pentru absență, care așteaptă
-un mecanism în care un catalog greșit nu sperie pe nimeni ([E17](E17-comunicare-notificari.md) S6).
-Notificarea de absență din prima versiune a fost scoasă prin decizia de mai sus, iar mementourile de
-recuperare sunt livrate în S4. Iar amândouă mementourile
+**Bucata rămasă din S7 nu mai are pe ce aștepta, deci S7 se închide așa cum e**: a doua linie către
+părinte pentru absență aștepta mecanismul de rezumate din [E17](E17-comunicare-notificari.md) S6, iar
+acela a fost construit și **scos prin decizie** — deci nu vine. Notificarea de absență din prima
+versiune fusese oricum scoasă prin decizia de mai sus, iar mementourile de recuperare sunt livrate în
+S4. Dacă rezumatele revin cândva, revine și ea, cu ele; până atunci nu e o datorie deschisă, e o
+linie pe care școala a ales să n-o trimită. Iar amândouă mementourile
 **se scriu azi în coadă și nu pleacă nicăieri în producție**: nu există producție — vezi
 [Dependențe](#dependențe), imediat mai jos.
 
@@ -639,7 +680,7 @@ măsoară într-un mesaj ajuns la cineva: anularea unei ședințe notifică toat
 minute, iar părintele află de o absență neanunțată în aceeași zi. Fără canal, S5 poate livra cel
 mult anularea și drepturile de recuperare, iar din S7 rămân doar butonul de apel și mementoul din
 interfață — partea care ajunge la părinte fără ca el să deschidă portalul lipsește. Aceeași
-dependență ține și mementourile de recuperare expirată.
+dependență ține și mesajul de recuperare câștigată.
 
 **Ce s-a schimbat: canalul există, dar n-are unde să ruleze.** Mementoul zilnic a cerut din E17 exact
 cât îi trebuia, deci S1 și S3 de acolo sunt livrate parțial, în `apps/api/src/modules/mail/`:
@@ -786,6 +827,11 @@ Un profesor care vede prețul lângă numele copilului marchează altfel.
 Niciuna nu ține pe loc ce s-a livrat; fiecare spune ce blochează.
 
 - Recuperarea se poate face în cealaltă locație? **Blochează S4**, și e o decizie de business.
+- **Cine îi spune biroului ce absențe din săptămâna asta n-au fost încă plasate?** Mementoul care
+  avertiza familia despre o expirare a fost șters odată cu fereastra de treizeci de zile (S7), și
+  întrebarea care rămâne e a biroului, nu a familiei. N-are ecran, n-are destinatar și n-are oră.
+  **Nu blochează regula**, care e livrată; blochează faptul că cineva poate uita să mute un copil
+  și nimic nu-l întreabă.
 - Cine reînnoiește orizontul de opt săptămâni, și când? Azi e o cerere HTTP pe care o face un
   dezvoltator. Variantele sunt un buton în admin sau un cron lângă cel de la ora 10:00 — al doilea e
   aproape gratuit acum, dar are aceeași problemă ca restul: cere un proces care rulează continuu.
