@@ -170,7 +170,7 @@ teste unitare și build într-un job, integrarea într-altul, cu Postgres ca ser
 comenzile de mai sus — dacă CI-ul și localul diverg, CI devine un al doilea sistem de verificat,
 nu o plasă de siguranță.
 
-> Ca un test roșu să chiar blocheze un merge, `main` are nevoie de **branch protection** cu
+> Ca un test roșu să chiar blocheze un merge, `release/prod` are nevoie de **branch protection** cu
 > verificările `verify` și `e2e` obligatorii. Se activează din Settings → Branches; nu se poate
 > configura din repo.
 

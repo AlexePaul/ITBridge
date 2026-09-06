@@ -179,7 +179,7 @@ navigarea pe rută fără niciun alt semnal.
 ### S6 · Workflow CI
 
 `.github/workflows/ci.yml` rulează pe fiecare pull request: install, lint, typecheck, test, build,
-prin Turborepo, cu cache. Branch protection pe `main` cere CI verde.
+prin Turborepo, cu cache. Branch protection pe `release/prod` cere CI verde.
 
 **Acceptanță:** un PR cu un test stricat nu poate fi merge-uit. CI pe o schimbare doar de frontend
 nu reface build-ul de backend.
@@ -188,8 +188,9 @@ nu reface build-ul de backend.
 typecheck, test, build, cu cache Turborepo restaurat din `actions/cache` — și `e2e`, cu Postgres ca
 serviciu. Sunt exact comenzile pe care le rulează un dezvoltator local.
 
-**Ce lipsește:** branch protection pe `main`, cu `verify` și `e2e` ca verificări obligatorii. Se
-activează din Settings → Branches, nu din repo. Până atunci CI raportează, dar nu blochează.
+**Ce lipsește:** branch protection pe `release/prod`, cu `verify` și `e2e` ca verificări
+obligatorii. Se activează din Settings → Branches, nu din repo. Până atunci CI raportează, dar nu
+blochează.
 
 ## Dependențe
 
@@ -203,8 +204,8 @@ eșuând, nu pe cel actual.
 
 ## Definition of done
 
-CI verde obligatoriu pe `main`. Peste 80% acoperire pe modulele de bani și autorizare. Niciun test
-dezactivat fără comentariu care explică de ce și până când.
+CI verde obligatoriu pe `release/prod`. Peste 80% acoperire pe modulele de bani și autorizare.
+Niciun test dezactivat fără comentariu care explică de ce și până când.
 
 ## Întrebări deschise
 
