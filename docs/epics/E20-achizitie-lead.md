@@ -357,16 +357,27 @@ Trei lucruri de știut:
   acestei recompense — un procent tastat de mână nu e al butonului să-l retragă, și
   `DISCOUNT_ALREADY_GRANTED` refuză oricum să se adune peste el.
 
-**Unde ajunge efectiv recompensa:** în factura lunii, prin interogarea pe care `issueFromSessions`
-o face oricum — reducerile familiei pe `monthIssued`, scăzute prin `sessionAmountAfterDiscounts`.
-Butonul nu atinge facturarea; scrie un rând în `discounts`, iar emiterea îl găsește acolo. Asta e și
-condiția ca butonul să însemne ceva: **o cale de emitere care nu citește tabelul emite la preț
-întreg**, iar promisiunea rămâne nefolosită într-o lună care a trecut.
+**Butonul nu atinge facturarea. Scrie un rând în `discounts`, atât** — familie, `monthIssued`,
+`percent`, 50. Recompensa devine bani abia când cineva emite factura acelei luni și scade rândul,
+prin `discountTotal` din `pricing.ts`. Calea de azi o face; ce contează e că **rămâne o condiție, nu
+un fapt**.
 
-**Ecranul de emitere nu arată încă reducerea** — totalul de pe `/admin/invoices/emitere` se
-calculează în browser din ședințe, deci familia se vede cu 350 și primește 175. Vezi
-[E15](E15-pricing-facturare.md), caseta de sus: banii sunt corecți, cifra dinaintea apăsării nu.
-Butonul ăsta face cazul obișnuit în loc de rar, deci e prima reparație de făcut acolo.
+**De verificat la orice schimbare a facturării** — și [E15](E15-pricing-facturare.md) își schimbă
+modelul de calcul, deci asta e o listă care se va citi:
+
+1. **Suma emisă trece prin reducerile lunii.** Oricum s-ar calcula totalul — ședințe numărate de un
+   om, prezențe marcate, orice vine după —, ultimul pas e tabelul, pe `monthIssued`. Un calcul nou
+   care sare peste el nu dă nicio eroare: suma e validă, doar că e întreagă, iar familia căreia i
+   s-a promis jumătate află din factură.
+2. **Ecranul care arată suma înainte de emitere o arată cu reducerea scăzută.** Altfel omul care
+   apasă se uită la un număr, iar familia primește altul. Nu e o greșeală de bani — reducerea e
+   voită — dar e exact felul de nepotrivire care face pe cineva să creadă că s-a facturat greșit și
+   să „repare" cu mâna.
+3. **Reducerea e pe lună, nu pe ședință și nu pe copil.** 50% din cât iese luna aceea, oricât ar fi:
+   într-o lună scurtă înseamnă mai puțini lei, și așa trebuie să fie. O sumă fixă calculată o dată
+   ar fi greșită din prima lună cu o vacanță în ea.
+
+Cât timp cele trei se respectă, butonul e corect indiferent ce se întâmplă cu modelul de preț.
 
 **Ce nu s-a construit, tot prin decizie:** nimic nu leagă cele două reduceri între ele. Sunt două
 rânduri independente, cu același nume, pe două familii. Legătura ar fi exact mașinăria de atribuire

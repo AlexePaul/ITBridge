@@ -848,22 +848,8 @@ e toată regula: fără ea, suma ar depinde de ordinea rândurilor dintr-o inter
 ședințe nu consumă tariful întreg.
 
 **Emiterea se face din `/admin/invoices/emitere`, și numai de acolo**: un ecran cu familiile ca
-arbore, o valoare per copil, total jos, un buton. Serverul facturează **numărul de ședințe** de pe
-ecran, nu și-l recalculează — cine apasă s-a uitat la fiecare.
-
-**Dar nu suma de pe ecran: la emitere se citește tabelul `discounts`.** `issueFromSessions` cere,
-pentru fiecare familie, reducerile pe **luna care se emite** (`monthIssued`) și trece totul prin
-`sessionAmountAfterDiscounts`. Deci ordinea e: ecranul dă ședințele, prețul din `pricing.ts` dă
-lista, iar tabelul de reduceri dă ce se scade. Dacă adaugi o cale nouă prin care se emite ceva, **ea
-trebuie să facă aceeași interogare** — o factură emisă fără pasul ăsta e o factură la preț întreg
-pentru o familie căreia școala i-a promis jumătate, iar promisiunea rămâne în tabel, nevăzută.
-
-Consecința pe care ecranul nu o arată încă, și de care e bine să știi înainte s-o descoperi:
-**totalul afișat nu conține reducerile.** Ecranul le calculează în browser din ședințe și tarife
-(`emitere.vue` oglindește cele două rate din `pricing.ts`), deci o familie cu o recomandare pe luna
-aia apare cu 350 și primește o factură de 175. Banii sunt corecți — reducerea e voită —, dar cifra
-de dinaintea apăsării nu e cea care se emite. De la E20/S5 încoace reducerile se dau dintr-un buton,
-deci cazul ăsta nu mai e rar.
+arbore, o valoare per copil, total jos, un buton. Serverul facturează numerele de pe ecran, nu și le
+recalculează — cine apasă s-a uitat la fiecare.
 
 Al doilea drum a fost **șters** (E18/S5b): `/admin/invoices/new` și `/admin/invoices/preview/:month`
 emiteau aceeași lună prin `POST /invoices/preview` plus `POST /invoices`, adică pe numere calculate
@@ -903,6 +889,15 @@ Trei reguli care par detalii și nu sunt:
   retragă, iar peste el `DISCOUNT_ALREADY_GRANTED` refuză să se adune. Refuzul e în serviciu, fără
   index unic în spate — spre deosebire de locurile din E11, un rând duplicat aici se vede pe ecran
   și se șterge din două clicuri.
+
+**Ultimul pas al oricărei facturi e tabelul `discounts`, și nu depinde de cum s-a calculat suma.**
+Indiferent ce dă totalul — ședințe numărate pe un ecran, prezențe, orice vine după —, rândurile
+familiei pe **luna care se emite** (`monthIssued`) se scad la final, prin `discountTotal` din
+`apps/api/src/modules/invoice/pricing.ts`. Calea de azi o face în `issueFromSessions`; **o cale nouă
+de emitere trebuie s-o facă și ea.** Fără pasul ăsta, familia căreia școala i-a promis jumătate
+primește factura întreagă, iar promisiunea rămâne în tabel, nevăzută de nimeni: nu apare ca eroare
+nicăieri, fiindcă suma calculată e perfect validă. Cazul obișnuit e −50% din E20/S5, dat dintr-un
+buton, deci nu mai e rar.
 
 **Zero e un răspuns, nu un câmp gol.** O lună fără plată se scrie ca factură `waived`, de 0 lei,
 fără PDF. Rândul există fiindcă n-are bani în el: fără el, o familie fără factură pe octombrie arată
