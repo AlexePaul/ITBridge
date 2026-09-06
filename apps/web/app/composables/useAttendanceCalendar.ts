@@ -140,3 +140,49 @@ export function calendarDayColor(input: CalendarDayInput): CalendarDayColor | un
   const state = calendarDayState(input);
   return state && CALENDAR_DAY_COLORS[state];
 }
+
+/** One cell of a month grid: the day it stands for, and whether it belongs to the month drawn. */
+export interface MonthCell {
+  /** `YYYY-MM-DD`. */
+  date: string;
+  /** Day of the month, for printing. */
+  day: number;
+  /** False for the days either side that only share the month's first or last week. */
+  inMonth: boolean;
+}
+
+/** Six weeks of cells: enough for any month in any starting weekday, so the grid never resizes. */
+const MONTH_CELLS = 42;
+
+/**
+ * The Monday-first grid for one month — E18/S4.
+ *
+ * Pure, and here rather than in the page, because it is date arithmetic and this file is where this
+ * app keeps its date arithmetic honest. Everything is built with `Date.UTC` and read back with
+ * `getUTC*`, so no local offset ever touches it: a grid built from local components and formatted
+ * through UTC lands a day early east of Greenwich, which is exactly where the school is. The keys
+ * it produces compare directly against `ClassSession.date`, which is a bare date with no timezone.
+ *
+ * Always 42 cells. A month starting on a Sunday and running 31 days needs six rows, and a grid that
+ * shrank to five for February would move everything below it as the reader paged through the year.
+ *
+ * @param month 1-based, as a person writes it.
+ */
+export function monthGrid(year: number, month: number): MonthCell[] {
+  // `getUTCDay` counts Sunday as 0; shifting by 6 puts Monday at 0, which is how a Romanian
+  // calendar is read.
+  const lead = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
+
+  return Array.from({ length: MONTH_CELLS }, (_, index) => {
+    const at = new Date(Date.UTC(year, month - 1, 1 - lead + index));
+    return {
+      date: toDateKey({
+        year: at.getUTCFullYear(),
+        month: at.getUTCMonth() + 1,
+        day: at.getUTCDate(),
+      }),
+      day: at.getUTCDate(),
+      inMonth: at.getUTCFullYear() === year && at.getUTCMonth() === month - 1,
+    };
+  });
+}
