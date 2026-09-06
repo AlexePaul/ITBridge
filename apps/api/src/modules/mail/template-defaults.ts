@@ -279,6 +279,83 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
         ),
     },
     {
+        key: 'payment-received',
+        name: 'Am primit plata, factura e achitată',
+        description: 'Pleacă în clipa în care o încasare acoperă factura. Confirmarea că banii au ajuns și că nu mai e nimic de plată.',
+        variables: [
+            { name: 'firstName', description: 'Prenumele părintelui' },
+            { name: 'month', description: 'Luna facturată, în cuvinte' },
+            { name: 'amount', description: 'Cât s-a încasat acum' },
+            { name: 'paidOn', description: 'Ziua în care au intrat banii, în cuvinte' },
+            { name: 'officeEmail', description: 'Adresa biroului' },
+        ],
+        sampleData: { firstName: 'Ana', month: 'martie', amount: '350 lei', paidOn: '5 martie', officeEmail: 'office@itbridgeschool.com' },
+        subject: 'Am primit plata pentru {{month}}',
+        bodyText: [
+            'Bună, {{firstName}}!',
+            '',
+            'Am înregistrat {{amount}} pe {{paidOn}}. Factura pe {{month}} e achitată integral —',
+            'nu mai ai nimic de plată pe ea.',
+            '',
+            'Dacă cifrele nu se potrivesc cu ce ai plătit tu, scrie-ne la {{officeEmail}} și verificăm.',
+            '',
+            SIGNATURE,
+        ].join('\n'),
+        bodyHtml: htmlFrame(
+            [
+                paragraph('Bună, {{firstName}}!'),
+                paragraph(
+                    'Am înregistrat <strong>{{amount}}</strong> pe {{paidOn}}. Factura pe {{month}} e achitată integral — nu mai ai nimic de plată pe ea.',
+                ),
+                paragraph('Dacă cifrele nu se potrivesc cu ce ai plătit tu, scrie-ne la {{officeEmail}} și verificăm.'),
+            ].join('\n'),
+        ),
+    },
+    {
+        key: 'payment-received-partial',
+        name: 'Am primit plata, mai rămâne o parte',
+        description: 'Aceeași confirmare, când încasarea nu acoperă toată factura. Spune cât a rămas, ca familia să nu afle din următorul memento.',
+        variables: [
+            { name: 'firstName', description: 'Prenumele părintelui' },
+            { name: 'month', description: 'Luna facturată, în cuvinte' },
+            { name: 'amount', description: 'Cât s-a încasat acum' },
+            { name: 'paidOn', description: 'Ziua în care au intrat banii, în cuvinte' },
+            { name: 'outstanding', description: 'Cât a rămas de plată după această încasare' },
+            { name: 'officeEmail', description: 'Adresa biroului' },
+        ],
+        sampleData: {
+            firstName: 'Ana',
+            month: 'martie',
+            amount: '200 lei',
+            paidOn: '5 martie',
+            outstanding: '150 lei',
+            officeEmail: 'office@itbridgeschool.com',
+        },
+        subject: 'Am primit plata pentru {{month}}',
+        bodyText: [
+            'Bună, {{firstName}}!',
+            '',
+            'Am înregistrat {{amount}} pe {{paidOn}}, mulțumim. Pe factura din {{month}} mai rămân',
+            '{{outstanding}}.',
+            '',
+            'Nu e nimic de făcut acum dacă așa ați stabilit. Dacă ai plătit mai mult și noi am',
+            'înregistrat mai puțin, scrie-ne la {{officeEmail}} și verificăm.',
+            '',
+            SIGNATURE,
+        ].join('\n'),
+        bodyHtml: htmlFrame(
+            [
+                paragraph('Bună, {{firstName}}!'),
+                paragraph(
+                    'Am înregistrat <strong>{{amount}}</strong> pe {{paidOn}}, mulțumim. Pe factura din {{month}} mai rămân <strong>{{outstanding}}</strong>.',
+                ),
+                paragraph(
+                    'Nu e nimic de făcut acum dacă așa ați stabilit. Dacă ai plătit mai mult și noi am înregistrat mai puțin, scrie-ne la {{officeEmail}} și verificăm.',
+                ),
+            ].join('\n'),
+        ),
+    },
+    {
         key: 'approval-needed',
         name: 'Cont nou în așteptare (intern)',
         description: 'Mesajul intern către birou: o familie s-a înregistrat și așteaptă aprobarea. Singurul destinatar e școala.',

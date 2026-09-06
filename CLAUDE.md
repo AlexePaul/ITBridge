@@ -42,8 +42,7 @@ proiectul, nu ramura. Deci pe `release/prod` vei citi despre module care nu exis
 sub tine — `enrollment`, `project`, `storage` — și e în regulă: sunt pe `release/stage`. Ce **nu** e
 în regulă e ca cele două copii ale documentației să divergă; dacă atingi una, adu-o și pe cealaltă.
 
-**Amândouă numele sunt noi: `main` → `release/prod` și `develop` → `release/stage`, septembrie
-2026.** Sunt redenumiri, nu branch-uri noi — același istoric, aceleași SHA-uri — deci un mesaj de
+**Amândouă numele sunt noi: `main` → `release/prod` și `develop` → `release/stage`, septembrie 2026.** Sunt redenumiri, nu branch-uri noi — același istoric, aceleași SHA-uri — deci un mesaj de
 commit, un titlu de PR sau un paragraf mai vechi care spune `main` sau `develop` vorbește despre
 ele. Pe origin nu mai există niciunul dintre numele vechi. Într-o clonă mai veche:
 
@@ -659,6 +658,24 @@ mai au ceva de plată e lista de restanțe**, nu o interogare nouă peste toate 
 ceva de plată" înseamnă `pending` sau `overdue` cu rest pozitiv, adică fix ce răspunde
 `GET /invoices/arrears`. Dacă adaugi un al doilea loc de unde se încasează, cere-i tot un rând de
 acolo — o a doua scădere `amount - plăți` ar fi a doua definiție a aceluiași număr.
+
+**Chitanța se datorează când o plată _devine_ `succeeded`, nu când se scrie un rând** (E16 S6).
+Regula e în `apps/api/src/modules/payment/payment-receipt.rules.ts`, iar distincția e tot ce
+contează: un transfer trecut ca `initiated` cât timp extrasul e provizoriu n-a ajuns încă, iar „am
+primit plata" atunci e o promisiune despre banii altcuiva. Deci `createPayment` trimite dacă plata
+intră direct reușită, `updatePayment` trimite dacă tocmai a devenit, iar o editare pe o plată deja
+reușită nu retrimite — n-a devenit adevărat nimic. `PaymentStatus` are patru stări și **niciuna nu
+se numește `PENDING`**: sunt `INITIATED`, `SUCCEEDED`, `FAILED` și `REVERSED`; un test scris cu
+`PaymentStatus.PENDING` compară cu `undefined` și trece degeaba.
+
+Restul de plată din chitanță vine din `recomputeInvoiceStatus`, care returnează
+`{ paid, outstanding, status }` — suma plăților reușite se face acolo oricum, iar un
+`amount - plăți` scris a doua oară în compozitor ar fi exact a doua definiție de mai sus. Cheia de
+deduplicare e `receipt:<id-ul plății>`, **fără ziua în ea**, spre deosebire de mementourile de
+restanță: alea se repetă prin design, o plată se confirmă o dată. Mesajul se pune în coadă în
+tranzacția care înregistrează banii — dă-i `EntityManager`-ul —, iar dacă adaugi un al doilea loc de
+unde se încasează, cheamă și de acolo aceeași ușă: o încasare tăcută arată pentru familie exact ca
+una pierdută.
 
 **Numai marketingul stă pe o bifă** (E17 S4). `Profile.marketingOptIn` e implicit `false` — un
 consimțământ pe care nu l-a dat nimeni nu e consimțământ — și gatează exclusiv `queueMarketing`.
