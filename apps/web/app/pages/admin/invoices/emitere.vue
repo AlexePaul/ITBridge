@@ -4,13 +4,14 @@
       <div>
         <h1 class="text-3xl font-bold">Emitere facturi</h1>
         <p class="text-muted mt-1">
-          Ședințele fiecărui copil sunt <strong>numărate din cataloage</strong>, nu tastate. Aici le
-          verifici: desfă un copil ca să vezi ce zile intră și de ce, iar ce n-are catalog stă
-          deasupra, fiindcă aia sunt banii care nu se cer.
+          Ședințele fiecărui copil sunt <strong>numărate din cataloage</strong>. Aici le verifici:
+          desfă un copil ca să vezi ce zile intră și de ce, iar ce n-are catalog stă deasupra,
+          fiindcă aia sunt banii care nu se cer. Dacă numărul nu e cel bun, îl corectezi aici, pe
+          copil — corectura rămâne consemnată, cu cine și de ce.
         </p>
       </div>
       <UFormField label="Luna">
-        <UInput v-model="monthIssued" type="month" class="w-44" @change="load" />
+        <UInput v-model="monthIssued" type="month" class="w-44" @change="load()" />
       </UFormField>
     </div>
 
@@ -29,9 +30,9 @@
 
       <!--
         First, and loud: a session with no register is not a gap in the paperwork, it is an hour
-        nobody is being billed for — 87,50 lei of every child in the group. There is no override
-        field on this screen on purpose (E15/S9): the fix is the register, which can still be taken,
-        or a cancellation, which is the explicit way to say the hour did not happen.
+        nobody is being billed for — 87,50 lei of every child in the group. The fix is the register,
+        which can still be taken, or a cancellation, which is the explicit way to say the hour did
+        not happen. The per-child correction below is for the number, not for the register.
       -->
       <UCard v-if="worksheet.unmarked.length > 0" class="border border-warning" variant="subtle">
         <div class="flex items-start gap-3">
@@ -112,7 +113,7 @@
                     </p>
                   </div>
 
-                  <!-- Read, not typed. The button unfolds the sessions behind the number. -->
+                  <!-- The count, read from the registers. The button unfolds the sessions behind it. -->
                   <UButton
                     variant="ghost"
                     color="neutral"
@@ -124,8 +125,33 @@
                     :disabled="child.lines.length === 0"
                     @click="toggle(child.childId)"
                   >
-                    {{ child.sessions }} {{ child.sessions === 1 ? "ședință" : "ședințe" }}
+                    {{ child.counted }} în catalog
                   </UButton>
+
+                  <!--
+                    The one number that still enters by hand. Prefilled with what will be billed;
+                    typing something else records a correction for this child and month, typing
+                    the count back clears it. Saved on blur or Enter, then the sheet reloads so the
+                    family total is the server's, not this screen's arithmetic.
+                  -->
+                  <div class="flex items-center gap-2 shrink-0">
+                    <UInput
+                      type="number"
+                      min="0"
+                      step="1"
+                      class="w-20"
+                      :model-value="String(draftFor(child))"
+                      :disabled="family.alreadyInvoiced || saving.has(child.childId)"
+                      :color="child.override ? 'warning' : undefined"
+                      :aria-label="`Ședințe facturate pentru ${child.childName}`"
+                      @update:model-value="(value) => (drafts[child.childId] = value)"
+                      @blur="commit(family, child)"
+                      @keydown.enter.prevent="commit(family, child)"
+                    />
+                    <span class="text-sm text-muted">{{
+                      child.sessions === 1 ? "ședință" : "ședințe"
+                    }}</span>
+                  </div>
 
                   <p
                     class="text-sm w-44 shrink-0 tabular-nums"
@@ -138,6 +164,27 @@
                       {{ formatLei(lineTotal(family, child.childId)) }}
                     </template>
                   </p>
+                </div>
+
+                <!-- A correction on file says so, and carries its reason — editable until issued. -->
+                <div
+                  v-if="child.override"
+                  class="mt-1 flex flex-col sm:flex-row sm:items-center gap-2 text-sm"
+                >
+                  <UBadge color="warning" variant="subtle" size="sm" class="shrink-0">
+                    corectat din {{ child.counted }}
+                  </UBadge>
+                  <UInput
+                    class="flex-1"
+                    size="sm"
+                    placeholder="motiv (opțional)"
+                    maxlength="500"
+                    :model-value="reasonFor(child)"
+                    :disabled="family.alreadyInvoiced || saving.has(child.childId)"
+                    @update:model-value="(value) => (reasons[child.childId] = String(value))"
+                    @blur="commitReason(child)"
+                    @keydown.enter.prevent="commitReason(child)"
+                  />
                 </div>
 
                 <!--
@@ -210,7 +257,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
@@ -229,9 +276,10 @@ import type { InvoiceWorksheet, InvoiceWorksheetRow } from "~/types/invoice.type
  * lets it be unfolded, and puts the sessions with no register above everything else.
  *
  * "No manual invoicing" does not mean "no eyes". It means the eyes look at what happened, not at
- * what somebody typed. There is no override field, on purpose: a wrong number is a wrong register,
- * and the register can still be taken — or the hour cancelled, which is the explicit way to say it
- * did not happen.
+ * what somebody typed — and when what happened is not what should be billed, the person says so
+ * here, per child, as a recorded correction: what the registers say stays visible next to it, and
+ * the server keeps who decided, when and why. The invoice carries a single product line, so the
+ * correction changes the amount without the document ever contradicting the registers.
  */
 definePageMeta({
   layout: "dashboard" as any,
@@ -258,8 +306,11 @@ const MONTHS = [
   "decembrie",
 ];
 
-const { fetchWorksheet, issueInvoices } = useInvoiceApi();
+const { fetchWorksheet, issueInvoices, setSessionCountOverride, clearSessionCountOverride } =
+  useInvoiceApi();
 const { success, error: notifyError } = useNotifications();
+
+type WorksheetChild = InvoiceWorksheetRow["children"][number];
 
 const worksheet = ref<InvoiceWorksheet | null>(null);
 const loading = ref(true);
@@ -328,6 +379,83 @@ const lineTotal = (family: InvoiceWorksheetRow, childId: number) => {
   return Math.round(child.sessions * rateFor(family, childId) * 100) / 100;
 };
 
+/**
+ * What is being typed, per child, until it is committed. Keyed by child because the sheet reloads
+ * after every save and the rows are rebuilt; an entry exists only while the field has been touched.
+ */
+const drafts = reactive<Record<number, string | number>>({});
+const reasons = reactive<Record<number, string>>({});
+const saving = ref(new Set<number>());
+
+const draftFor = (child: WorksheetChild) => drafts[child.childId] ?? child.sessions;
+const reasonFor = (child: WorksheetChild) => reasons[child.childId] ?? child.override?.reason ?? "";
+
+const withSaving = async (childId: number, work: () => Promise<void>) => {
+  saving.value = new Set(saving.value).add(childId);
+  try {
+    await work();
+    // Reloaded, not patched: the family total and the sibling rate are the server's business.
+    await load({ keepOpen: true });
+  } catch (err) {
+    notifyError("Nu am putut salva corectura", apiErrorMessage(err));
+  } finally {
+    const next = new Set(saving.value);
+    next.delete(childId);
+    saving.value = next;
+  }
+};
+
+/**
+ * Commits the typed number. Equal to the count means "no correction" — an existing one is cleared
+ * rather than stored as a correction that changes nothing. Equal to what is already billed means
+ * nothing to do.
+ */
+const commit = async (family: InvoiceWorksheetRow, child: WorksheetChild) => {
+  const raw = drafts[child.childId];
+  if (raw === undefined || family.alreadyInvoiced) return;
+  delete drafts[child.childId];
+
+  const value = raw === "" ? NaN : Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    notifyError("Numărul de ședințe trebuie să fie un întreg, zero sau mai mare.");
+    return;
+  }
+  if (value === child.sessions) return;
+
+  await withSaving(child.childId, async () => {
+    if (value === child.counted) {
+      await clearSessionCountOverride(monthIssued.value, child.childId);
+    } else {
+      const reason = reasonFor(child).trim();
+      await setSessionCountOverride({
+        monthIssued: monthIssued.value,
+        childId: child.childId,
+        sessions: value,
+        reason: reason || undefined,
+      });
+    }
+  });
+};
+
+/** The reason on its own: the number stays, the words change. Only ever on a correction on file. */
+const commitReason = async (child: WorksheetChild) => {
+  const typed = reasons[child.childId];
+  if (typed === undefined || !child.override) return;
+  delete reasons[child.childId];
+
+  const reason = typed.trim();
+  if (reason === (child.override.reason ?? "")) return;
+
+  await withSaving(child.childId, async () => {
+    await setSessionCountOverride({
+      monthIssued: monthIssued.value,
+      childId: child.childId,
+      sessions: child.override!.sessions,
+      reason: reason || undefined,
+    });
+  });
+};
+
 const billable = computed(() => families.value.filter((family) => !family.alreadyInvoiced));
 
 const grandTotal = computed(
@@ -348,10 +476,16 @@ const skippedCount = computed(
   () => families.value.filter((family) => family.alreadyInvoiced).length
 );
 
-const load = async () => {
-  loading.value = true;
+/**
+ * `keepOpen` for the reload after a correction: the person is looking at one child's sessions and
+ * should not find them folded away because a number was saved.
+ */
+const load = async ({ keepOpen = false } = {}) => {
   loadError.value = null;
-  open.value = new Set();
+  if (!keepOpen) {
+    loading.value = true;
+    open.value = new Set();
+  }
   try {
     worksheet.value = await fetchWorksheet(monthIssued.value);
   } catch (err) {
@@ -390,5 +524,5 @@ const send = async () => {
   }
 };
 
-onMounted(load);
+onMounted(() => load());
 </script>

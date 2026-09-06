@@ -150,8 +150,9 @@ const MESSAGES: Record<string, string> = {
   // E12/S5. The timetable screen can hit these when two admins act on the same class, or when the
   // list is stale; each is a different thing to do next.
   CLASS_SESSION_ALREADY_CANCELLED: "Ora e deja anulată.",
-  // E12/S8. The vacation tick is a billing fact, and it freezes with the invoice.
-  MONTH_ALREADY_INVOICED: "Luna e deja facturată — bifa de vacanță nu se mai poate schimba.",
+  // E12/S8 and E15/S9. The vacation tick and the session-count override are billing facts, and
+  // both freeze with the invoice.
+  MONTH_ALREADY_INVOICED: "Luna e deja facturată — ce a intrat pe factură nu se mai poate schimba.",
   CLASS_SESSION_NOT_CANCELLED: "Ora nu e anulată, deci nu are ce reactiva.",
   CLASS_SESSION_HAS_ATTENDANCE:
     "Ora are deja prezențe înregistrate, deci s-a ținut — nu mai poate fi anulată sau mutată.",

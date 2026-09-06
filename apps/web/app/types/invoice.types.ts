@@ -6,4 +6,5 @@ export type {
   InvoiceWorksheetRow,
   InvoiceWorksheetUnmarked,
   IssueInvoicesResult,
+  SessionCountOverrideDto,
 } from "@itbridge/types";

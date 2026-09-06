@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource, EntityManager } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { InvoiceService } from './invoice.service';
+import { Child } from 'src/entities/child.entity';
+import { SessionCountOverride } from 'src/entities/session-count-override.entity';
 import { PdfService } from './pdf.service';
 import { S3Service } from 'src/modules/storage/s3.service';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
@@ -19,6 +21,8 @@ describe('InvoiceService', () => {
     let profileRepo: MockRepository;
     let discountRepo: MockRepository;
     let enrollmentRepo: MockRepository;
+    let childRepo: MockRepository;
+    let overrideRepo: MockRepository;
     let s3: { putObject: jest.Mock; downloadFile: jest.Mock };
     let transactionManager: { save: jest.Mock };
     /** E15/S9's one query, mute: what it counts is its own suite's business. */
@@ -39,6 +43,8 @@ describe('InvoiceService', () => {
         profileRepo = createMockRepository();
         discountRepo = createMockRepository();
         enrollmentRepo = createMockRepository();
+        childRepo = createMockRepository();
+        overrideRepo = createMockRepository();
         s3 = { putObject: jest.fn(), downloadFile: jest.fn() };
         billable = { countForMonth: jest.fn() };
 
@@ -54,6 +60,8 @@ describe('InvoiceService', () => {
                 provideMockRepository(Profile, profileRepo),
                 provideMockRepository(Discount, discountRepo),
                 provideMockRepository(Enrollment, enrollmentRepo),
+                provideMockRepository(Child, childRepo),
+                provideMockRepository(SessionCountOverride, overrideRepo),
                 { provide: PdfService, useValue: { generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from('')) } },
                 { provide: S3Service, useValue: s3 },
                 { provide: BillableSessionsService, useValue: billable },
@@ -324,6 +332,22 @@ describe('InvoiceService', () => {
             invoiceRepo.find!.mockResolvedValue([]);
             profileRepo.find!.mockResolvedValue([{ id: 1, firstName: 'Ana', lastName: 'Pop', email: 'ana@example.com' }]);
             discountRepo.find!.mockResolvedValue([]);
+            overrideRepo.find!.mockResolvedValue([]);
+        });
+
+        it('bills the correction on file instead of the count, and shows both', async () => {
+            overrideRepo.find!.mockResolvedValue([{ child: { id: 5 }, monthIssued: '2026-10', sessions: 1, reason: 'A venit o dată' }]);
+
+            const sheet = await service.getWorksheet('2026-10');
+
+            // 1 × 87,50: the decided number reaches the price; the count stays visible beside it.
+            expect(sheet.families[0].amount).toBe(87.5);
+            expect(sheet.families[0].children[0]).toMatchObject({ sessions: 1, counted: 2, override: { sessions: 1, reason: 'A venit o dată' } });
+        });
+
+        it('carries the count as both numbers when nothing is on file', async () => {
+            const sheet = await service.getWorksheet('2026-10');
+            expect(sheet.families[0].children[0]).toMatchObject({ sessions: 2, counted: 2, override: null });
         });
 
         it('returns the month, its range, the unmarked sessions and one row per family, with the count read', async () => {
@@ -392,7 +416,15 @@ describe('InvoiceService', () => {
             profileRepo.find!.mockResolvedValue([{ id: 1, firstName: 'Ana', lastName: 'Pop', email: null }]);
             profileRepo.findOne!.mockImplementation(({ where }: { where: { id: number } }) => Promise.resolve(aProfile(where.id)));
             discountRepo.find!.mockResolvedValue([]);
+            overrideRepo.find!.mockResolvedValue([]);
             transactionManager.save.mockImplementation((invoice: { amount: number }) => Promise.resolve({ ...invoice, id: 55 }));
+        });
+
+        it('bills the correction on file, through the same worksheet the screen showed', async () => {
+            overrideRepo.find!.mockResolvedValue([{ child: { id: 5 }, monthIssued: '2026-10', sessions: 3, reason: null }]);
+
+            const result = await service.issueFromSessions(october);
+            expect(result.issued[0].amount).toBe(262.5);
         });
 
         it('bills what the registers say, and nothing the caller could have typed', async () => {
@@ -438,6 +470,50 @@ describe('InvoiceService', () => {
             // The 14-day term (E16/S7) runs from this date, and the month can only be issued once
             // its last register exists — which is the following month.
             expect(transactionManager.save).toHaveBeenCalledWith(expect.objectContaining({ dateIssued: new Date('2026-11-01'), monthIssued: '2026-10' }));
+        });
+    });
+
+    describe('setSessionCountOverride', () => {
+        const decision = { monthIssued: '2026-10', childId: 5, sessions: 3 };
+
+        beforeEach(() => {
+            childRepo.findOne!.mockResolvedValue({ id: 5, parent: { id: 1 } });
+            invoiceRepo.findOne!.mockResolvedValue(null);
+            overrideRepo.findOne!.mockResolvedValue(null);
+            overrideRepo.create!.mockImplementation((row: object) => ({ ...row }));
+            overrideRepo.save!.mockImplementation((row: object) => Promise.resolve({ id: 7, ...row }));
+        });
+
+        it('records the number, the reason and who decided', async () => {
+            await service.setSessionCountOverride({ ...decision, reason: 'A venit doar la trei' }, 42);
+
+            expect(overrideRepo.save).toHaveBeenCalledWith(
+                expect.objectContaining({ monthIssued: '2026-10', sessions: 3, reason: 'A venit doar la trei', createdBy: { id: 42 } }),
+            );
+        });
+
+        it('replaces the decision already on file rather than adding a second', async () => {
+            overrideRepo.findOne!.mockResolvedValue({ id: 7, monthIssued: '2026-10', sessions: 3, reason: 'first' });
+
+            await service.setSessionCountOverride({ ...decision, sessions: 2 }, 42);
+
+            expect(overrideRepo.create).not.toHaveBeenCalled();
+            expect(overrideRepo.save).toHaveBeenCalledWith(expect.objectContaining({ id: 7, sessions: 2, reason: null }));
+        });
+
+        it("refuses once the family's month is issued", async () => {
+            invoiceRepo.findOne!.mockResolvedValue({ id: 9 });
+
+            await expect(service.setSessionCountOverride(decision, 42)).rejects.toThrow(ConflictException);
+            await expect(service.clearSessionCountOverride('2026-10', 5)).rejects.toThrow(ConflictException);
+            expect(overrideRepo.save).not.toHaveBeenCalled();
+            expect(overrideRepo.delete).not.toHaveBeenCalled();
+        });
+
+        it('knows no such child', async () => {
+            childRepo.findOne!.mockResolvedValue(null);
+
+            await expect(service.setSessionCountOverride(decision, 42)).rejects.toThrow(NotFoundException);
         });
     });
 
