@@ -1,25 +1,20 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Profiluri de Utilizatori</h1>
-        <p class="text-muted mt-1">Gestionează și vizualizează toate profilurile utilizatorilor</p>
-      </div>
+  <AdminPage title="Profiluri" subtitle="Familiile școlii, cu datele lor de contact" width="xl">
+    <template #actions>
       <UButton
         color="secondary"
         variant="subtle"
-        class="mr-3 ml-auto flex items-center h-11"
         size="lg"
-        @click="navigateTo('/admin/profiles/new')"
+        class="min-h-11 flex items-center"
+        icon="i-lucide-user-plus"
+        to="/admin/profiles/new"
       >
-        <UIcon name="i-lucide-user-plus" class="mr-2" />
-        Adaugă Profil Nou
+        Adaugă profil nou
       </UButton>
-      <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
+      <UBadge color="primary" variant="subtle" size="lg" class="min-h-11 flex items-center px-4">
         {{ filteredProfiles.length }} total
       </UBadge>
-    </div>
+    </template>
 
     <!-- Filters Card -->
     <UCard class="border">
@@ -99,7 +94,7 @@
     <UCard class="border">
       <UTable ref="table" :data="filteredProfiles" :columns="columns" class="w-full" />
     </UCard>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">

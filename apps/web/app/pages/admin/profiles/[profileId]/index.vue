@@ -180,7 +180,6 @@ const profile: Ref<Profile | null> = ref(null);
 
 onMounted(async () => {
   profile.value = (await profileApi.fetchProfile(route.params.profileId as string))[0] || null;
-  console.log("Profile details:", profile.value);
 });
 definePageMeta({
   layout: "dashboard" as any,

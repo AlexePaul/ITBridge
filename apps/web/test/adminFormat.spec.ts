@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatDateKey, formatLei, formatMonth, formatPercent } from "~/composables/useAdminFormat";
+import {
+  formatDateKey,
+  formatLei,
+  formatMonth,
+  formatPercent,
+  formatSeats,
+} from "~/composables/useAdminFormat";
 
 /**
  * The admin area's formatting vocabulary — E18/S5a.
@@ -77,5 +83,30 @@ describe("formatPercent", () => {
   it("dashes anything that is not a number", () => {
     expect(formatPercent(null)).toBe("—");
     expect(formatPercent(Number.NaN)).toBe("—");
+  });
+});
+
+/**
+ * Seats — E18/S5b, and D7.
+ *
+ * The group card used to print the length of the enrolled-children list, which has no trials in
+ * it, so a full group advertised a free seat on the screen where somebody picks a group for a
+ * child. The count now comes from the server; what is held here is that the formatter refuses to
+ * invent one when it has not arrived, because a wrong number reads exactly like a right one.
+ */
+describe("formatSeats", () => {
+  it("prints the counted seats against the capacity", () => {
+    expect(formatSeats(7, 10)).toBe("7 din 10 locuri ocupate");
+    expect(formatSeats(0, 10)).toBe("0 din 10 locuri ocupate");
+  });
+
+  it("says a full group is full", () => {
+    expect(formatSeats(10, 10)).toBe("10 din 10 locuri ocupate");
+  });
+
+  it("dashes the count it has not been given, rather than guessing zero", () => {
+    expect(formatSeats(undefined, 10)).toBe("— din 10 locuri ocupate");
+    expect(formatSeats(null, 10)).toBe("— din 10 locuri ocupate");
+    expect(formatSeats(Number.NaN, 10)).toBe("— din 10 locuri ocupate");
   });
 });

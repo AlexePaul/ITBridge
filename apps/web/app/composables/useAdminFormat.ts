@@ -91,3 +91,21 @@ export function formatPercent(share: unknown): string {
   if (typeof share !== "number" || !Number.isFinite(share)) return "—";
   return `${Math.round(share * 100)}%`;
 }
+
+/**
+ * `(7, 10)` → `"7 din 10 locuri ocupate"`, `(undefined, 10)` → `"— din 10 locuri ocupate"`.
+ *
+ * Takes the number already counted by the server, and refuses to invent one. The count that
+ * belongs here is `EnrollmentService.occupancyOf` — enrolments **in force**, active plus booked
+ * trials, because a trial child sits on a chair, at a computer, in the same room (D7). The card
+ * used to print the length of the enrolled-children list instead, which excludes trials: a full
+ * group advertised a free seat, on the screen where somebody decides whether to put a child in it.
+ *
+ * The em dash is there for the moment before the count arrives. It is deliberately not a zero and
+ * deliberately not the old list length: a number that is wrong reads exactly like a number that is
+ * right, while a dash asks the reader to wait.
+ */
+export function formatSeats(taken: number | null | undefined, capacity: number): string {
+  const counted = typeof taken === "number" && Number.isFinite(taken) ? String(taken) : "—";
+  return `${counted} din ${capacity} locuri ocupate`;
+}

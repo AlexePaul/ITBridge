@@ -1,59 +1,39 @@
 <template>
-  <div>
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-3xl font-bold">Genereaza Facturi</h1>
-        <p class="text-muted mt-1">
-          Selecteaza luna si anul pentru care doresti sa generezi facturi
-        </p>
-      </div>
-      <UButton @click="navigateTo('/admin/invoices')" variant="outline"> Înapoi </UButton>
-    </div>
+  <AdminPage
+    title="Generează facturi"
+    subtitle="Alege luna pentru care vrei să vezi facturile propuse"
+    width="md"
+    back-to="/admin/invoices"
+  >
+    <UCard>
+      <template #header>
+        <h2 class="text-lg font-semibold">Luna de facturat</h2>
+      </template>
 
-    <div class="max-w-md mx-auto">
-      <UCard>
-        <template #header>
-          <h2 class="text-lg font-semibold">Genereaza Facturi Noi</h2>
-        </template>
-
-        <UForm :state="formState" @submit="generateInvoices" class="flex flex-col gap-4">
-          <UFormGroup label="An" name="year" class="w-full">
-            <USelect
-              v-model="formState.year"
-              :items="yearitems"
-              placeholder="Selecteaza anul"
-              value-attribute="value"
-              option-attribute="label"
-              class="w-full"
-            />
-          </UFormGroup>
-
-          <UFormGroup label="Luna" name="month" class="w-full">
-            <USelect
-              v-model="formState.month"
-              :items="monthitems"
-              :disabled="!formState.year"
-              placeholder="Selecteaza luna"
-              value-attribute="value"
-              option-attribute="label"
-              class="w-full"
-            />
-          </UFormGroup>
-
-          <UButton
-            type="submit"
-            :loading="isLoading"
-            :disabled="!formState.year || !formState.month || isLoading"
-            color="primary"
-            variant="subtle"
+      <UForm :state="formState" class="flex flex-col gap-4" @submit="openPreview">
+        <UFormField label="An" name="year" required>
+          <USelect
+            v-model="formState.year"
+            :items="yearItems"
+            placeholder="Selectează anul"
             class="w-full"
-          >
-            Genereaza Facturi
-          </UButton>
-        </UForm>
-      </UCard>
-    </div>
-  </div>
+          />
+        </UFormField>
+
+        <UFormField label="Lună" name="month" required>
+          <USelect
+            v-model="formState.month"
+            :items="monthItems"
+            :disabled="!formState.year"
+            placeholder="Selectează luna"
+            class="w-full"
+          />
+        </UFormField>
+
+        <AdminFormActions submit-label="Vezi propunerea" :disabled="!monthChosen" />
+      </UForm>
+    </UCard>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
@@ -63,12 +43,19 @@ import type { Invoice } from "~/types/invoice.types";
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "Genereaza Facturi",
+  title: "Generează facturi",
 });
 
+/**
+ * Pick a month, then look at what would be issued — E18/S5b.
+ *
+ * The screen was written against @nuxt/ui v2 and never moved: `UFormGroup` does not exist in v4,
+ * so both labels rendered as an unknown element and the two selects sat on the page unnamed. The
+ * v2 `value-attribute` / `option-attribute` pair went with it; v4 reads `{ label, value }` items
+ * on its own.
+ */
 const invoiceApi = useInvoiceApi();
 const invoices: Ref<Invoice[]> = ref([]);
-const isLoading = ref(false);
 
 const formState = reactive({
   year: "",
@@ -92,7 +79,7 @@ const monthNames = [
 
 const currentYear = new Date().getFullYear();
 
-const yearitems = computed(() => {
+const yearItems = computed(() => {
   const years = [];
   for (let i = currentYear - 2; i <= currentYear + 1; i++) {
     years.push({ value: String(i), label: String(i) });
@@ -100,32 +87,26 @@ const yearitems = computed(() => {
   return years;
 });
 
-console.log(yearitems.value);
+/** Months that already have invoices, so the list can say so instead of letting them be picked. */
+const existingMonths = computed(() => new Set(invoices.value.map((inv) => inv.monthIssued)));
 
-const existingMonths = computed(() => {
-  const months = new Set<string>();
-  invoices.value.forEach((inv) => {
-    months.add(inv.monthIssued);
-  });
-  return months;
-});
-
-const monthitems = computed(() => {
-  return monthNames.map((name, index) => {
+const monthItems = computed(() =>
+  monthNames.map((name, index) => {
     const month = String(index + 1).padStart(2, "0");
-    const fullMonth = `${formState.year}-${month}`;
-    const isDisabled = existingMonths.value.has(fullMonth);
+    const alreadyIssued = existingMonths.value.has(`${formState.year}-${month}`);
     return {
       value: month,
-      label: isDisabled ? `${name} (exista deja)` : name,
-      disabled: isDisabled,
+      label: alreadyIssued ? `${name} (există deja)` : name,
+      disabled: alreadyIssued,
     };
-  });
-});
+  })
+);
 
-const generateInvoices = async () => {
-  if (!formState.year || !formState.month) return;
-  navigateTo(`/admin/invoices/preview/${formState.year}-${formState.month}`);
+const monthChosen = computed(() => Boolean(formState.year && formState.month));
+
+const openPreview = async () => {
+  if (!monthChosen.value) return;
+  await navigateTo(`/admin/invoices/preview/${formState.year}-${formState.month}`);
 };
 
 onMounted(async () => {

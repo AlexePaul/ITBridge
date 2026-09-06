@@ -1,33 +1,15 @@
 <template>
-  <div class="w-full max-w-4xl mx-auto px-4 py-6 space-y-8">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Editează locația</h1>
-        <p class="text-muted mt-1">Adresa se schimbă aici, într-un singur loc.</p>
-      </div>
-      <UButton
-        color="secondary"
-        variant="subtle"
-        class="ml-auto flex items-center h-11"
-        size="lg"
-        to="/admin/locations"
-      >
-        <UIcon name="i-lucide-arrow-left" class="mr-2" />
-        Înapoi
-      </UButton>
-    </div>
-
+  <AdminPage
+    title="Editează locația"
+    subtitle="Adresa se schimbă aici, într-un singur loc."
+    back-to="/admin/locations"
+  >
     <UCard v-if="location" class="hover:shadow-lg transition-shadow">
       <LocationForm :initial="location" submit-label="Salvează" @submit="handleSubmit" />
     </UCard>
 
-    <UCard v-else>
-      <div class="flex justify-center items-center py-8">
-        <UIcon name="i-lucide-loader" class="animate-spin mr-2" />
-        <span>Se încarcă...</span>
-      </div>
-    </UCard>
-  </div>
+    <AdminLoading v-else />
+  </AdminPage>
 </template>
 
 <script setup lang="ts">

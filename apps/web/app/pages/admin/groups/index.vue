@@ -1,25 +1,20 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Grupe</h1>
-        <p class="text-muted mt-1">{{ subtitle }}</p>
-      </div>
+  <AdminPage title="Grupe" :subtitle="subtitle" width="xl">
+    <template #actions>
       <UButton
         color="secondary"
         variant="subtle"
-        class="mr-3 ml-auto flex items-center h-11"
         size="lg"
-        @click="handleAddGroup"
+        class="min-h-11 flex items-center"
+        icon="i-lucide-plus"
+        to="/admin/groups/new"
       >
-        <UIcon name="i-lucide-plus" class="mr-2" />
-        Adaugă Grup nou
+        Adaugă grupă nouă
       </UButton>
-      <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
+      <UBadge color="primary" variant="subtle" size="lg" class="min-h-11 flex items-center px-4">
         {{ visibleGroups.length }} total
       </UBadge>
-    </div>
+    </template>
 
     <!--
       Schedule generation, on the page where groups are born.
@@ -76,6 +71,7 @@
               <template v-for="group in groupsByDay(day.id)" :key="group.id">
                 <GroupCard
                   :group="group"
+                  :occupancy="occupancyOf(group.id)"
                   @edit="handleEditGroup"
                   @manage-children="handleManageChildren"
                 />
@@ -93,19 +89,16 @@
         </div>
       </template>
     </div>
-  </div>
+  </AdminPage>
 </template>
 <script setup lang="ts">
 import { WEEKDAYS_IN_ORDER, WEEKDAY_LABELS } from "~/types/group.types";
-import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { generatedScheduleMessage } from "~/composables/useClassSessionSchedule";
+import { useGroupOccupancy } from "~/composables/useGroupOccupancy";
 import { useNotifications } from "~/composables/useNotifications";
-import { formatTime } from "~/composables/useUtils";
-import { useChildrenStore } from "~/stores/childrenStore";
-import { useGroupsStore } from "~/stores/groupsStore";
 import { useLocationStore } from "~/stores/locationStore";
 import type { Group } from "~/types/group.types";
 
@@ -119,9 +112,6 @@ definePageMeta({
 // group — which the API and both group forms accept — rendered in no section at all.
 const days = WEEKDAYS_IN_ORDER.map((id) => ({ id, label: WEEKDAY_LABELS[id] }));
 const groupsApi = useGroupsApi();
-const childrenStore = useChildrenStore();
-const groupsStore = useGroupsStore();
-const childrenApi = useChildrenApi();
 
 const groups: Ref<Group[]> = ref([]);
 const locationStore = useLocationStore();
@@ -129,9 +119,13 @@ const classSessionsApi = useClassSessionsApi();
 const { success, error } = useNotifications();
 const isGeneratingSchedule = ref(false);
 
+// Seats come from the server, per D7 — the children this page could count do not include trials.
+// The page used to load every child in the school for that wrong count; now it loads none.
+const { occupancyOf, loadFor } = useGroupOccupancy();
+
 onMounted(async () => {
   groups.value = await groupsApi.fetchGroups();
-  await childrenApi.fetchChildren();
+  await loadFor(groups.value.map((group) => group.id));
 });
 
 // The header says which location is being shown; this list has to agree with it, or the count and
@@ -170,10 +164,6 @@ const handleGenerateSchedule = async () => {
   } finally {
     isGeneratingSchedule.value = false;
   }
-};
-
-const handleAddGroup = () => {
-  navigateTo("/admin/groups/new");
 };
 
 const handleEditGroup = (groupId: number) => {

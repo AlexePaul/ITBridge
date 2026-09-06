@@ -1,17 +1,10 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Copii</h1>
-        <p class="text-muted mt-1">{{ subtitle }}</p>
-      </div>
-      <div class="flex items-center gap-3">
-        <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
-          {{ filteredChildren.length }} total
-        </UBadge>
-      </div>
-    </div>
+  <AdminPage title="Copii" :subtitle="subtitle" width="xl">
+    <template #actions>
+      <UBadge color="primary" variant="subtle" size="lg" class="min-h-11 flex items-center px-4">
+        {{ filteredChildren.length }} total
+      </UBadge>
+    </template>
 
     <!-- Filters Card -->
     <UCard class="border">
@@ -60,7 +53,7 @@
     <UCard class="border">
       <UTable ref="table" :data="filteredChildren" :columns="columns" class="w-full" />
     </UCard>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">

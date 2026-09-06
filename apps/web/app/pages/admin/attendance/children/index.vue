@@ -1,35 +1,20 @@
 <template>
-  <UCard>
-    <template #header>
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-3xl font-bold">Evidență Copil</h1>
-          <p class="text-muted mt-1">Gestionează prezența copiilor</p>
-        </div>
-        <UButton
-          color="secondary"
-          variant="subtle"
-          class="mr-3 ml-auto flex items-center h-11"
-          size="lg"
-          @click="handleBack"
-        >
-          <UIcon name="i-lucide-arrow-left" class="mr-2" />
-          Înapoi
-        </UButton>
-      </div>
-    </template>
-    <template #default>
+  <AdminPage
+    title="Evidență copil"
+    subtitle="Prezența unui singur copil, căutat după nume"
+    back-to="/admin/attendance"
+  >
+    <UCard>
       <div class="space-y-3">
-        <div>
-          <label class="text-sm font-semibold mb-2 block">Cauta copil</label>
+        <UFormField label="Caută copil">
           <UInput
             v-model="searchQuery"
-            placeholder="Cauta copil dupa nume sau ID..."
+            placeholder="Nume sau ID…"
             icon="i-lucide-search"
             color="primary"
             class="w-full"
           />
-        </div>
+        </UFormField>
 
         <!-- Search Results -->
         <div v-if="searchResults.length > 0" class="space-y-3 pt-4 border-t border-muted">
@@ -48,12 +33,16 @@
           </div>
         </div>
 
-        <div v-if="searchQuery && searchResults.length === 0" class="text-center py-6 text-muted">
-          Niciun rezultat pentru "{{ searchQuery }}"
-        </div>
+        <AdminEmpty
+          v-if="searchQuery && searchResults.length === 0"
+          bare
+          icon="i-lucide-search-x"
+          :title="`Niciun rezultat pentru „${searchQuery}”`"
+          description="Caută după numele copilului sau după ID."
+        />
       </div>
-    </template>
-  </UCard>
+    </UCard>
+  </AdminPage>
 </template>
 <script setup lang="ts">
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
@@ -94,10 +83,6 @@ const filterChildren = () => {
 
 const selectChild = (child: Child) => {
   navigateTo(`/admin/attendance/children/${child.id}`);
-};
-
-const handleBack = () => {
-  navigateTo("/admin/attendance");
 };
 
 onMounted(async () => {

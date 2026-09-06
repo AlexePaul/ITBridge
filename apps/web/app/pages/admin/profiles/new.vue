@@ -1,67 +1,69 @@
 <template>
-  <UCard variant="subtle" class="border max-w-3xl mx-auto">
-    <template #header>
-      <h1 class="text-2xl font-bold">Adaugă Profil Nou</h1>
-    </template>
+  <AdminPage
+    title="Adaugă profil nou"
+    subtitle="Familia introdusă de la telefon: toate câmpurile sunt opționale în afară de nume."
+    back-to="/admin/profiles"
+  >
+    <UCard variant="subtle" class="border">
+      <UForm :schema="schema" :state="state" class="space-y-5" @submit="handleSubmit">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <UFormField name="lastName">
+            <template #label>Nume<span class="text-error">*</span></template>
+            <UInput v-model="state.lastName" />
+          </UFormField>
 
-    <UForm :schema="schema" :state="state" class="space-y-5" @submit="handleSubmit">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <UFormField name="lastName">
-          <template #label>Nume<span class="text-error">*</span></template>
-          <UInput v-model="state.lastName" />
+          <UFormField name="firstName">
+            <template #label>Prenume<span class="text-error">*</span></template>
+            <UInput v-model="state.firstName" />
+          </UFormField>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <UFormField name="email">
+            <template #label>Email</template>
+            <UInput v-model="state.email" type="email" placeholder="user@example.com" />
+          </UFormField>
+
+          <UFormField name="phone">
+            <template #label>Telefon</template>
+            <UInput v-model="state.phone" type="tel" placeholder="+40712345678" />
+          </UFormField>
+        </div>
+
+        <UFormField name="userId" class="w-full">
+          <template #label>Asociază utilizator (opțional)</template>
+          <USelectMenu
+            v-model="state.userId"
+            :items="userOptions"
+            value-key="id"
+            searchable
+            placeholder="Fără utilizator"
+            class="w-full"
+          />
         </UFormField>
 
-        <UFormField name="firstName">
-          <template #label>Prenume<span class="text-error">*</span></template>
-          <UInput v-model="state.firstName" />
-        </UFormField>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <UFormField name="email">
-          <template #label>Email</template>
-          <UInput v-model="state.email" type="email" placeholder="user@example.com" />
+        <UFormField name="address">
+          <template #label>Adresă</template>
+          <UInput v-model="state.address" />
         </UFormField>
 
-        <UFormField name="phone">
-          <template #label>Telefon</template>
-          <UInput v-model="state.phone" type="tel" placeholder="+40712345678" />
-        </UFormField>
-      </div>
-
-      <UFormField name="userId" class="w-full">
-        <template #label>Asociază utilizator (opțional)</template>
-        <USelectMenu
-          v-model="state.userId"
-          :items="userOptions"
-          value-key="id"
-          searchable
-          placeholder="Fără utilizator"
-          class="w-full"
-        />
-      </UFormField>
-
-      <UFormField name="address">
-        <template #label>Adresă</template>
-        <UInput v-model="state.address" />
-      </UFormField>
-
-      <div class="flex gap-3 pt-2">
-        <UButton type="submit" size="lg" class="flex-1 justify-center" variant="solid">
-          Creează Profil
-        </UButton>
-        <UButton
-          type="button"
-          size="lg"
-          class="flex-1 justify-center"
-          variant="subtle"
-          @click="navigateTo('/admin/profiles')"
-        >
-          Anulează
-        </UButton>
-      </div>
-    </UForm>
-  </UCard>
+        <div class="flex gap-3 pt-2">
+          <UButton type="submit" size="lg" class="flex-1 justify-center" variant="solid">
+            Creează Profil
+          </UButton>
+          <UButton
+            type="button"
+            size="lg"
+            class="flex-1 justify-center"
+            variant="subtle"
+            @click="navigateTo('/admin/profiles')"
+          >
+            Anulează
+          </UButton>
+        </div>
+      </UForm>
+    </UCard>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
@@ -90,24 +92,17 @@ const userOptions: Ref<SelectMenuItem[]> = ref([{ label: "Fără utilizator", va
 onMounted(async () => {
   try {
     const fetchedUsers = await userApi.fetchUsersWithoutProfile();
-    console.log("Fetched users raw:", fetchedUsers);
-    console.log("Fetched users length:", fetchedUsers?.length);
 
     usersWithoutProfile.value = fetchedUsers;
-    console.log("Users without profile ref:", usersWithoutProfile.value);
-    console.log("Users without profile ref length:", usersWithoutProfile.value.length);
 
     const mappedOptions = usersWithoutProfile.value.map((u: any) => {
-      console.log("Mapping user:", u);
       return {
         id: Number(u.id),
         label: `${u.username} (#${u.id})`,
       };
     });
-    console.log("Mapped options:", mappedOptions);
 
     userOptions.value = [{ id: null, label: "Fără utilizator" }, ...mappedOptions];
-    console.log("Final userOptions:", userOptions.value);
   } catch (e: any) {
     console.error("Error fetching users:", e);
     error(e?.message || "Nu am putut încărca utilizatorii fără profil");

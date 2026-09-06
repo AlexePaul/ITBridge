@@ -109,13 +109,12 @@
                   </UFormField>
                 </div>
                 <UFormField label="Stare" size="xs">
-                  <select
+                  <USelect
                     v-model="editing[room.id]!.isActive"
-                    class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-                  >
-                    <option :value="true">Activă</option>
-                    <option :value="false">Inactivă</option>
-                  </select>
+                    :items="ROOM_STATE_ITEMS"
+                    size="sm"
+                    class="w-full"
+                  />
                 </UFormField>
                 <div class="flex gap-2 pt-1">
                   <UButton type="submit" color="primary" variant="subtle" size="xs"
@@ -196,6 +195,19 @@ definePageMeta({
   middleware: "admin-check" as any,
   title: "Locații și săli",
 });
+
+/**
+ * The two states a room can be in — E18/S5b.
+ *
+ * A `USelect` rather than the bare `<select class="border-gray-300 …">` that eight admin screens
+ * had each hand-styled: those ignore the theme, so they stayed light-grey in dark mode and drifted
+ * a pixel from every field beside them. `isActive` blocks **new** groups; it does not touch the
+ * ones already in the room.
+ */
+const ROOM_STATE_ITEMS = [
+  { value: true, label: "Activă" },
+  { value: false, label: "Inactivă" },
+];
 
 const { success, error } = useNotifications();
 const locationStore = useLocationStore();

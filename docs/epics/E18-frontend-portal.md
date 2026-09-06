@@ -252,11 +252,33 @@ a fiecărui tipar, nu o invenție:
 **Ecranul-dovadă e `/admin/calendar`** (E12 S2), migrat integral: shell, triadă, rânduri, USelect
 în locul select-ului nativ, iar ștergerea a trecut de pe `confirm()` pe modal.
 
-**Rămân pentru S5b** — migrarea celor 32 de ecrane, planificată de catalog: salvarea de la v2 a
-celor două formulare, măturarea de limbă (dropdown-uri în engleză, „No data"), `AdminDateField`
-(izolarea hack-ului fragil de popover din children/edit), bara de filtre (trei forme incompatibile
-azi — se extrage după ce migrarea arată care supraviețuiește) și grila de carduri (cinci ecrane,
-patru semantici; înainte de orice partajare, `GroupCard` trebuie mutat pe `occupancyOf` — D7).
+**S5b, prima trecere: 15 ecrane migrate, 27 din 44 sunt acum pe componente** (erau 12). S-au luat
+întâi cele care ascundeau un defect, nu cele mai ușoare:
+
+- **`GroupCard` numără acum locurile de la server, și ăsta e un bug reparat, nu o mutare de cod.**
+  Cardul tipărea lungimea listei de copii înscriși — care **nu conține probele** —, deci o grupă
+  plină se lăuda cu un loc liber, exact pe ecranul de pe care cineva alege unde să pună un copil
+  (D7). Numărul vine din `GET /enrollments/group/:id/occupancy`, prin `useGroupOccupancy`, o cerere
+  per grupă în paralel, cum face și `OccupancyReportService` pentru aceeași întrebare. Cât timp
+  numărul nu a venit, cardul scrie **o liniuță**, nu vechea valoare și nici zero: un număr greșit
+  se citește exact ca unul corect. `formatSeats` e ținut de vitest. Cele două ecrane cu carduri nu
+  mai încarcă toți copiii școlii ca să numere greșit.
+- **`/admin/invoices/new` era rupt de la migrarea la @nuxt/ui v4.** `UFormGroup` nu există în v4, deci
+  cele două etichete — „An" și „Lună" — nu se randau deloc, iar perechea v2 `value-attribute` /
+  `option-attribute` era ignorată tăcut. Acum e `UFormField` plus `USelect`, cu diacritice și fără
+  `console.log`-ul rămas în producție.
+- **Cele patru `<select>` native au plecat** din `locations/index`, `groups/new` și
+  `groups/[groupId]/edit`. Aveau `border-gray-300` scris de mână, deci rămâneau gri-deschis în tema
+  întunecată, lângă câmpuri care se schimbau.
+- **Zece `console.log` care scriau date de familii în consola browserului** — „Profile details",
+  „Fetched users raw", „Mapping user" — au fost șterse din patru ecrane.
+
+**Rămân pentru S5b** — cele 17 ecrane care nu s-au migrat încă, între ele cele patru mari
+(`attendance/azi`, `attendance/group/[groupId]`, `groups/[groupId]/children`,
+`proiecte/grupa/[groupId]`), plus lucrurile care se extrag abia după ce migrarea arată forma
+majoritară: `AdminDateField` (izolarea hack-ului fragil de popover din children/edit), bara de
+filtre (trei forme incompatibile azi) și grila de carduri (cinci ecrane, patru semantici — acum că
+`GroupCard` e pe `occupancyOf`, partajarea nu mai e blocată de D7).
 
 ### S6 · Accesibilitate — livrat parțial (verificarea automată, livrată)
 

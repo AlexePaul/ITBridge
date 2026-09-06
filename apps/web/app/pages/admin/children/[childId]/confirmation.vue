@@ -1,18 +1,19 @@
-<template class="mt-12">
-  <div class="flex justify-center">
-    <UIcon name="i-lucide-alert-triangle" class="text-error text-5xl" />
-  </div>
-  <h1 class="text-2xl font-bold text-error text-center">
-    ATENTIE! ACEASTA ESTE O ACȚIUNE IREVERSIBILĂ!
-  </h1>
-  <div class="mt-6 flex items-center justify-center gap-3 flex-wrap mx-auto">
-    <UButton color="error" size="lg" variant="solid" @click="handleConfirmation">
-      Șterge Copilul Definitiv
-    </UButton>
-    <UButton color="neutral" size="lg" variant="outline" @click="$router.push(`/admin/children`)">
-      Anulează și Revino la lista Copiilor
-    </UButton>
-  </div>
+<template>
+  <AdminPage title="Ștergere copil" width="md">
+    <div class="text-center space-y-4">
+      <UIcon name="i-lucide-alert-triangle" class="text-error text-5xl" />
+      <h2 class="text-2xl font-bold text-error">ATENȚIE! Aceasta este o acțiune ireversibilă.</h2>
+      <p class="text-muted">Copilul dispare din listă împreună cu prezențele și înscrierile lui.</p>
+    </div>
+    <div class="flex items-center justify-center gap-3 flex-wrap">
+      <UButton color="error" size="lg" variant="solid" class="min-h-11" @click="handleConfirmation">
+        Șterge copilul definitiv
+      </UButton>
+      <UButton color="neutral" size="lg" variant="outline" class="min-h-11" to="/admin/children">
+        Anulează și revino la lista copiilor
+      </UButton>
+    </div>
+  </AdminPage>
 </template>
 <script setup lang="ts">
 import { useChildrenApi } from "~/composables/api/useChildrenApi";

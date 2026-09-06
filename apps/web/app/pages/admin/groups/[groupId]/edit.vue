@@ -30,27 +30,13 @@
         <!-- Room -->
         <UFormField name="roomId" help="Locația rezultă din sală.">
           <template #label>Sala<span class="text-error">*</span></template>
-          <select
-            v-model.number="state.roomId"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-          >
-            <option v-for="room in roomOptions" :key="room.value" :value="room.value">
-              {{ room.label }}
-            </option>
-          </select>
+          <USelect v-model="state.roomId" :items="roomOptions" class="w-full" />
         </UFormField>
 
         <!-- Weekday -->
         <UFormField name="weekday">
           <template #label>Ziua săptămânii<span class="text-error">*</span></template>
-          <select
-            v-model.number="state.weekday"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-          >
-            <option v-for="day in days" :key="day.id" :value="day.id">
-              {{ day.label }}
-            </option>
-          </select>
+          <USelect v-model="state.weekday" :items="dayOptions" class="w-full" />
         </UFormField>
 
         <!-- Time Range -->
@@ -86,13 +72,7 @@
         <!-- Active Status -->
         <UFormField name="isActive">
           <template #label>Grup Activ<span class="text-error">*</span></template>
-          <select
-            v-model="state.isActive"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-          >
-            <option :value="true">Activ</option>
-            <option :value="false">Inactiv</option>
-          </select>
+          <USelect v-model="state.isActive" :items="ACTIVE_ITEMS" class="w-full" />
         </UFormField>
 
         <!-- Actions -->
@@ -145,7 +125,20 @@ const groupsApi = useGroupsApi();
 // Built from the shared enum, so the list cannot drift from what the API accepts. The two
 // hand-written copies this replaces both stopped at Saturday, so a Sunday group could not be
 // created from the UI at all.
-const days = WEEKDAYS_IN_ORDER.map((id) => ({ id, label: WEEKDAY_LABELS[id] }));
+/**
+ * The weekdays, shaped for `USelect` — E18/S5b.
+ *
+ * The native `<select>` these replace carried `border-gray-300` in eight admin screens: a fixed
+ * grey that does not follow the theme, so it stayed light in dark mode. `v-model.number` went with
+ * it — `USelect` hands back the item's own value, which is already the ISO day number.
+ */
+const dayOptions = WEEKDAYS_IN_ORDER.map((id) => ({ value: id, label: WEEKDAY_LABELS[id] }));
+
+/** Same shape for the group's own on/off switch. */
+const ACTIVE_ITEMS = [
+  { value: true, label: "Activ" },
+  { value: false, label: "Inactiv" },
+];
 
 const group: Ref<Group | null> = ref(null);
 

@@ -1,31 +1,30 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Gestionarea Plăților</h1>
-        <p class="text-muted mt-1">Gestionează și vizualizează toate plățile</p>
-      </div>
+  <AdminPage
+    title="Plăți"
+    subtitle="Toate încasările înregistrate, oricare ar fi metoda"
+    width="xl"
+  >
+    <template #actions>
       <UButton
         color="secondary"
         variant="subtle"
-        class="mr-3 ml-auto flex items-center h-11"
         size="lg"
-        @click="navigateTo('/admin/payments/new')"
+        class="min-h-11 flex items-center"
+        icon="i-lucide-circle-fading-plus"
+        to="/admin/payments/new"
       >
-        <UIcon name="i-lucide-circle-fading-plus" class="mr-2" />
-        Adaugă Plata Nouă
+        Adaugă plată nouă
       </UButton>
-      <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
+      <UBadge color="primary" variant="subtle" size="lg" class="min-h-11 flex items-center px-4">
         {{ payments.length }} total
       </UBadge>
-    </div>
+    </template>
 
     <!-- Table Card -->
     <UCard class="border">
       <UTable ref="table" :data="payments" :columns="columns" class="w-full" />
     </UCard>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
@@ -60,7 +59,6 @@ onMounted(async () => {
   payments.value = (paymentsStore.payments as Payment[]).sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
-  console.log("Payments list:", payments.value);
 });
 
 const columns: TableColumn<Payment>[] = [
