@@ -1,6 +1,6 @@
 # E15 · Pricing și facturare v2
 
-**Status:** în lucru — **prețul pe ședință e livrat** · **Pistă:** Bani · **Depinde de:** E10, E11 · **Blochează:** E16, E21
+**Status:** în lucru — **prețul pe ședință e livrat**; S1, S2 și S3 sunt **scoase**, fiind scrise pe modelul pe modul · **Pistă:** Bani · **Depinde de:** E10, E11 · **Blochează:** E16, E21
 
 > ## Ce s-a decis, și ce s-a livrat
 >
@@ -37,9 +37,10 @@
 > răspunsuri la aceeași întrebare, iar cel de pe ecran era cel greșit. Cele două rute de server au
 > rămas, testate; nimic din interfață nu le mai cheamă.
 >
-> **Nelivrat din story-urile de mai jos:** catalogul de prețuri (S1), factura cu linii (S2),
-> planurile de plată (S3), tipurile de reducere (S5), PDF-ul din SmartBill (S7). Facturarea pe modul
-> nu mai e obiectiv.
+> **Ce s-a ales cu story-urile de mai jos:** catalogul de prețuri (S1), factura cu linii (S2) și
+> planurile de plată (S3) sunt **scoase** — sunt scrise integral pe modelul pe modul, care nu mai e
+> obiectiv, la fel ca S8. Rămân deschise doar S5 (tipurile de reducere, livrate pe jumătate) și S6/S7,
+> amândouă în așteptarea SmartBill.
 
 ## Problemă
 
@@ -85,18 +86,23 @@ presupună.
 
 ## Rezultat
 
-Prețurile sunt configurabile. Unitatea de facturare e modulul. O factură are linii care explică din
-ce se compune. Planurile de plată în tranșe sunt de primă clasă. Un părinte cu trei copii primește
-suma corectă.
+**Rezultatul de mai jos e cel scris la începutul epicului, pe modelul pe modul.** Cel în vigoare, din
+caseta de sus: unitatea de facturare e **luna**, prețul e pe **ședință**, iar o lună scurtă costă mai
+puțin fără ca nimeni să calculeze nimic. Un părinte cu trei copii primește suma corectă — asta a
+rămas, și era jumătate din motivul epicului.
+
+~~Prețurile sunt configurabile. Unitatea de facturare e modulul. O factură are linii care explică din
+ce se compune. Planurile de plată în tranșe sunt de primă clasă.~~
 
 ## În scop
 
-- Catalog de prețuri configurabil, versionat.
-- Facturare pe modul, cu linii detaliate.
-- Planuri de plată: integral sau în tranșe.
-- Reguli pentru mai mulți copii, corecte la orice număr.
-- Înscrierea la mijlocul unui modul, cu plată proporțională.
-- Reduceri cu tip și regulă.
+- ~~Catalog de prețuri configurabil, versionat~~ — S1, scos.
+- ~~Facturare pe modul, cu linii detaliate~~ — S2, scos.
+- ~~Planuri de plată: integral sau în tranșe~~ — S3, scos.
+- Reguli pentru mai mulți copii, corecte la orice număr. **Livrat**, S4.
+- ~~Înscrierea la mijlocul unui modul, cu plată proporțională~~ — S8: iese singură din prețul pe
+  ședință.
+- Reduceri cu tip și regulă. **Tipul livrat**, S5.
 - Regenerarea PDF-ului.
 - Previzualizare înainte de emitere.
 - Trecerea prețului de pe site-ul public de pe lună pe modul, odată cu catalogul.
@@ -107,7 +113,22 @@ suma corectă.
 
 ## Story-uri
 
-### S1 · Catalogul de prețuri
+### S1 · Catalogul de prețuri — **scos, ca S8: descrie modelul pe modul**
+
+**Story-ul își contrazice acum propria interdicție.** Textul de mai jos spune, în litere, că
+„catalogul nu capătă niciodată o coloană de preț pe ședință — dacă apare una, e semn că s-a
+strecurat presupunerea greșită". Prețul pe ședință e, din S0, întregul model: 87,50 și 62,50, în
+`apps/api/src/modules/invoice/pricing.ts`. Iar cheia catalogului e modulul din
+[E10](E10-curriculum-module.md), care e scos din MVP — deci nici măcar rândurile n-ar avea de ce să
+se agațe.
+
+**Ce rămâne adevărat din el, și nu se rezolvă aici:** cele două tarife sunt tot constante în cod,
+deci o schimbare de preț e un deploy. Dacă vreodată devine o problemă, story-ul care o rezolvă e un
+catalog **pe ședință**, editabil din interfață — adică exact ce interzice ăsta. Se scrie de la zero,
+nu se reînvie. Și n-ar rezolva oricum a doua copie: `apps/web/shared/courses.ts` alimentează site-ul
+public, care nu vede baza de date.
+
+**Textul original**, păstrat ca urmă a deciziei:
 
 `Price`: modul din [E10](E10-curriculum-module.md), locație (opțional, dacă tarifele diferă),
 valabil de la, valabil până la, sumă, monedă. Versionat, ca o schimbare de tarif să nu rescrie
@@ -123,7 +144,19 @@ Constantele `350` și `250` dispar din cod.
 **Acceptanță:** o schimbare de preț se face din interfață și nu afectează facturile emise anterior.
 Două module de durate diferite din același curs produc aceeași sumă.
 
-### S2 · Factura pe modul, cu linii
+### S2 · Factura pe modul, cu linii — **scos, ca S8: descrie modelul pe modul**
+
+**Există numai fiindcă S3 produce două facturi dintr-o notă de plată.** Cu S3 scos, nivelul
+`Billing` de deasupra facturii n-are ce ține: o lună e o factură, iar `@Unique(['parent',
+'monthIssued'])` rămâne exact constrângerea corectă. Facturarea pe modul a fost analizată și
+abandonată la S0.
+
+**Ce rămâne adevărat din el:** factura e azi o singură sumă, fără detaliere, deci un părinte nu vede
+ce a costat fiecare copil. Liniile de factură sunt o idee bună și **n-au nicio legătură cu
+modulele** — se pot pune peste modelul pe ședință, cu o linie per copil și numărul lui de ședințe.
+Când se face, e story nou; ăsta cară cu el o entitate de care nu e nevoie.
+
+**Textul original**, păstrat ca urmă a deciziei:
 
 Fiindcă plata în tranșe produce **două facturi** (vezi S3), factura nu mai poate fi unitatea de
 calcul — e rezultatul lui. Apare un nivel deasupra: `Billing`, nota de plată a unei familii pentru
@@ -148,7 +181,19 @@ calculul reducerilor într-un loc mai greu de verificat.
 modul 2 · 700 lei" și „Maria · Robotică · modul 1 · reducere frați −25% · 525 lei", total 1225.
 Totalul se verifică prin adunare, iar suma facturilor emise din ea e exact 1225.
 
-### S3 · Planuri de plată
+### S3 · Planuri de plată — **scos, ca S8: descrie modelul pe modul**
+
+**Facturarea lunară e deja plata în tranșe.** Story-ul împarte 700 de lei pe modul în două tranșe,
+la înscriere și la mijloc; în modelul de azi familia primește oricum o factură pe lună, pentru
+ședințele lunii aceleia. Nu mai există o sumă mare de rupt în bucăți, deci nici planul care s-o
+rupă, nici jobul care emite a doua tranșă, nici regula de rotunjire pentru ca cele două să adune
+exact totalul.
+
+Consecința pentru cine citește în aval: **trimiterile către „a doua tranșă" din
+[E16](E16-plati-fiscal.md) și [E17](E17-comunicare-notificari.md) nu descriu nimic din ce se
+construiește.** Sunt marcate acolo.
+
+**Textul original**, păstrat ca urmă a deciziei:
 
 Părintele alege la înscriere, iar alegerea determină **câte facturi se emit**:
 

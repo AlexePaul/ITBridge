@@ -5,7 +5,8 @@ adunate într-un loc.
 
 **Ultima actualizare:** 6 septembrie 2026, pe `release/stage`. Peste starea de cod adusă de E18 S4
 vine, în aceeași zi, o **tăietură de scop**: E06 și E13 ies din MVP, la fel E14 S6, E21 S3 și E21 S6;
-E21 S5 se dovedește livrat de E20 S4; E22 S1 se mută la E07 S1. Codul din spate e neschimbat — E18 S4
+E15 S1, S2 și S3 se scot, fiind scrise pe modelul pe modul, ca S8; E21 S5 se dovedește livrat de
+E20 S4; E22 S1 se mută la E07 S1. Codul din spate e neschimbat — E18 S4
 peste E18 S7 și E20 S1–S4, care veneau peste E17 S8, jumătatea din CI a lui E18 S6, E17 S7, E21 S1,
 E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 
@@ -18,12 +19,12 @@ E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **146 de story-uri** în 22 de epicuri: 72 livrate, 18 parțiale, 6 blocate, 9 scoase din scop,
-41 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
+Din **146 de story-uri** în 22 de epicuri: 72 livrate, 18 parțiale, 6 blocate, 12 scoase din scop,
+38 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit, dar
 nu rulează nicăieri". (Cifrele sunt numărate din rândurile de mai jos. Cele dinainte erau ținute de
 mână și o luaseră razna cu câte unul în patru categorii din cinci.)
 
-Cele 41 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+Cele 38 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
 E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
 mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
@@ -200,12 +201,12 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 ## Bani
 
-### E15 · Pricing și facturare v2 — `în lucru`
+### E15 · Pricing și facturare v2 — `în lucru; S1–S3 scoase`
 
 - [x] S0 · Prețul pe ședință și ecranul de emitere — 87,50/62,50 per ședință, arbore familie→copii, zero se consemnează ca `waived`. **Facturarea pe modul a fost analizată și abandonată**, vezi caseta din epic
-- [ ] S1 · Catalogul de prețuri
-- [ ] S2 · Factura pe modul, cu linii
-- [ ] S3 · Planuri de plată
+- ~~S1 · Catalogul de prețuri~~ — **scos:** cheia lui e modulul din E10, iar textul interzice explicit coloana de preț pe ședință, care e azi tot modelul. Dacă tarifele trebuie vreodată scoase din cod, e un story nou, pe ședință
+- ~~S2 · Factura pe modul, cu linii~~ — **scos:** `Billing` există doar fiindcă S3 rupea o notă de plată în două facturi. Liniile de factură rămân o idee bună și n-au legătură cu modulele — story nou, când se face
+- ~~S3 · Planuri de plată~~ — **scos:** factura lunară e deja plata în tranșe; nu mai există suma de 700 pe modul care să se rupă în două
 - [x] S4 · Regula pentru mai mulți copii — 350 + 250 pe frate, într-un singur loc; ambele bug-uri reparate. Din E11/S4, suma numără doar copiii înscriși activ
 - [~] S5 · Reduceri cu tip — **tipul livrat** (`fixed`/`percent`, plafon 100%, ecranul `/admin/reduceri`); scopul, condițiile și valabilitatea nu s-au construit, fiindcă n-au niciun client
 - [ ] S6 · Previzualizare și emitere în masă
