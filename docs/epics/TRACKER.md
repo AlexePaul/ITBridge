@@ -309,12 +309,12 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
-| Cine           | Ce                                | Ce ține în loc                                                                                                                                                             |
-| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cine           | Ce                                | Ce ține în loc                                                                                                                                                                                          |
+| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Tu**         | Instanța EC2                      | E01 S4, **verificarea lui E18 S4 și migrarea din S5**, E04 S4, E14 S3b, scheduler-ul din E17 și pagina publică din E20 S2. Șapte story-uri din cinci epicuri — E14 S6 a ieșit din listă odată cu MVP-ul |
-| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                    |
-| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                              |
-| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                     |
+| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                                                 |
+| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                                                           |
+| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                                                  |
 
 ## Ce urmează
 

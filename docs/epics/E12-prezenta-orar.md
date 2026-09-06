@@ -30,6 +30,14 @@ Ce lipsește:
   de retenție, nu juridică — un copil care lipsește la două din șase ședințe rămâne în urmă, iar
   școala nu are nici cum să-i ofere recuperarea, nici cum să arate că a oferit-o. Vezi
   [Decizii luate](#decizii-luate).
+
+  **Jumătate din diagnosticul ăsta s-a dovedit greșit, și e scris aici fiindcă e instructiv.** „Nimic
+  nu spune că avea dreptul, nimeni nu l-a programat și nimic nu se consumă" descria lipsa unui
+  mecanism care, construit, s-a dovedit că nu descrie școala — vezi S4. Marcajul chiar e o etichetă,
+  și asta e forma lui finală. Ce lipsea cu adevărat era cealaltă jumătate: **școala nu putea arăta că
+  a oferit recuperarea**. Aia s-a rezolvat, dar printr-o coloană care spune unde a fost mutat
+  copilul, nu printr-un drept.
+
 - **Nu există orar.** Ședințele nu sunt entități; se deduc din `Group.weekday` plus `startTime`.
   Deci nu poți anula o ședință, nu poți muta una, nu poți marca vacanțele școlare, nu poți gestiona
   o zi liberă legală. Cu regula veche de trei simplă pe lunile cu vacanță, asta se compensa manual.
@@ -39,15 +47,17 @@ Ce lipsește:
 
 ## Rezultat
 
-Orarul e explicit, cu ședințe care pot fi anulate sau mutate. Absențele se anunță și se recuperează.
-Profesorul marchează prezența în câteva secunde. Părintele știe ce se întâmplă fără să întrebe.
+Orarul e explicit, cu ședințe care pot fi anulate sau mutate. Absențele se anunță — la telefon, iar
+biroul le notează — și se recuperează mutând copilul la altă grupă în aceeași săptămână. Profesorul
+marchează prezența în câteva secunde. Părintele știe ce se întâmplă fără să întrebe.
 
 ## În scop
 
 - Entitatea `ClassSession` — ședința programată.
 - Calendar de vacanțe și zile libere.
 - Absențe anunțate, cu motiv.
-- Recuperări: drept, programare, consumare.
+- Recuperări: mutarea unui copil la altă grupă pentru o săptămână. **Nu** un drept de recuperare cu
+  programare și consumare — vezi S4 pentru de ce a căzut formularea aia.
 - Interfață de marcare optimizată pentru telefon.
 - Notificări legate de prezență.
 - Bifa de vacanță pe ședință, ca faptul din care se calculează factura.
@@ -248,11 +258,25 @@ copilul în altă grupă **în aceeași săptămână**, iar planificarea aia se
 venit miercuri pentru o oră de miercuri n-a ratat nimic din ce-i trebuia profesorului și tot ce-i
 trebuia biroului.
 
-Consecința e dură și a fost aleasă știind-o: copilul care se trezește bolnav miercuri **nu câștigă
-nicio recuperare**. Răspunsul școlii e cel pe care îl dă și despre taxă — locul a fost ținut,
-profesorul a fost în sală, deci luna costă la fel, iar ce cumperi anunțând din timp e **șansa de a
-muta**, nu o reducere. E aceeași logică ca la un abonament de telefon, care nu vine mai mic fiindcă
-ai vorbit puțin.
+Consecința e dură și a fost aleasă știind-o: copilul care se trezește bolnav miercuri **nu se mai
+mută nicăieri** în săptămâna aia. Răspunsul școlii e cel pe care îl dă și despre taxă — locul a fost
+ținut, profesorul a fost în sală, deci luna costă la fel, iar ce cumperi anunțând din timp e **șansa
+de a muta**, nu o reducere. E aceeași logică ca la un abonament de telefon, care nu vine mai mic
+fiindcă ai vorbit puțin.
+
+**Regula asta o ține biroul, nu codul — și e important să nu se creadă altceva.** Nimic din API nu
+refuză o mutare fiindcă anunțul a venit marți: `place` se uită la săptămână, la grupă, la vârstă, la
+locuri și la ora de start a ședinței-țintă, niciodată la `inTime`. Și **nu e o scăpare**, e singura
+variantă onestă: de când absențele le notează adminul, `inTime` spune când a **tastat el**, nu când a
+**sunat familia**. Un anunț venit luni la 11:00 și trecut în sistem marți iese `inTime = false`,
+exact ca unul venit marți — iar dintre cele două doar prima merită mutată. Codul nu le poate
+deosebi; omul care a răspuns la telefon, da. Deci `inTime` e ce se **arată**, iar decizia e a
+biroului.
+
+Ce ar face regula verificabilă de mașină, dacă vreodată contează: un al doilea moment pe rând, **când
+a anunțat familia**, tastat de admin odată cu motivul. Atunci deadline-ul s-ar putea compara cu el,
+iar `inTime` ar redeveni ce pretinde numele. Nu e construit, și nu e o gaură tăcută — e mai jos, la
+[Întrebări deschise](#întrebări-deschise).
 
 **Singura îngăduință e backfill-ul, și e pentru biroul care uită, nu pentru termen.** Părinții ne
 anunță pe telefon, WhatsApp sau email, iar cineva trebuie să treacă asta în sistem — **doar adminul
@@ -280,7 +304,8 @@ Cinci decizii care se încalcă ușor:
   și pentru două apăsări în aceeași secundă. `inTime` se rejudecă la modificare: modificarea e ea
   însăși un act cu un moment.
 - **Un anunț târziu se acceptă, dar nu e „în termen".** Refuzul l-ar face pe părinte să nu mai spună
-  nimic, iar școala pierde motivul — care îi trebuie oricum. Ce pierde familia e eligibilitatea.
+  nimic, iar școala pierde motivul — care îi trebuie oricum. Ce pierde familia e mutarea, iar cine îi
+  spune asta e biroul, nu un 409: vezi paragraful de mai sus despre cine ține regula.
 - **Timpul se compară pe ceasul școlii.** Ședința ține o dată locală și un `HH:mm` local, iar `now` e
   un instant; comparația trece prin `Intl` pe `Europe/Bucharest`. Prin UTC, un anunț de la 01:00
   ora școlii ar fi judecat ca fiind „încă ziua de ieri" — greșeala de exact o zi din CLAUDE.md, în
@@ -290,8 +315,9 @@ Cinci decizii care se încalcă ușor:
 motivul sub nume, iar butonul „Sună părintele" **dispare** pentru un copil anunțat — familia a
 răspuns deja la întrebarea pe care ar fi pus-o telefonul.
 
-Story-ul e și poarta către S4: „absență eligibilă" înseamnă acum ceva concret și stocat — `inTime` —,
-deci recuperarea are de unde să înceapă. Dreptul, programarea și consumarea rămân S4.
+Story-ul e și poarta către S4, dar nu în felul în care a fost scris: „absență eligibilă" e ceva
+concret și stocat — `inTime` —, iar ce urmează în S4 nu e un drept care se programează și se consumă,
+ci **mutarea copilului la altă grupă**, făcută de birou.
 
 ### S4 · Recuperări
 
@@ -348,10 +374,12 @@ Cinci decizii care se încalcă ușor:
   luni dimineață, iar dacă cineva de la birou a trecut asta în sistem abia marți, familia nu are de ce
   să piardă săptămâna pentru o întârziere care n-a fost a ei.
 - **Marcajul nu mai consumă nimic, dar rămâne adevărat.** `AttendanceType.MAKE_UP` se scrie în
-  continuare singur pentru orice copil marcat în afara grupei lui. Nu mai e „și-a folosit dreptul",
-  e ce a fost dintotdeauna: o observație corectă despre unde a stat copilul în ora aia.
+  continuare singur pentru orice copil marcat în afara grupei lui. Asta **răstoarnă** propoziția din
+  textul story-ului de mai sus — „«a fost prezent în altă grupă» să însemne «și-a consumat
+  recuperarea», nu doar o observație": marcajul nu mai înseamnă asta, fiindcă nu mai e nimic de
+  consumat. E ce a fost dintotdeauna, o observație corectă despre unde a stat copilul în ora aia.
 - **Locul liber se numără pe ședință, nu pe grupă.** Un copil mutat temporar stă pe un scaun, la un
-  calculator, exact ca o probă (D7), deci numărătoarea e înscrieri în vigoare **plus** copii deja
+  calculator, exact ca o probă ([E11](E11-inscrieri-capacitate.md), D7), deci numărătoarea e înscrieri în vigoare **plus** copii deja
   mutați pe acea ședință. O grupă plină cu copiii ei n-are loc pentru un vizitator, deși nimeni nu e
   „înscris" în vizită.
 
@@ -422,7 +450,7 @@ Acceptanța de cinci minute rămâne a dispecerului, care pornește odată cu
 **Recuperarea la anulare nu mai e nici bifă, nici automatism — nu mai e nimic.** Story-ul cerea ca
 toți copiii să primească drept de recuperare când ora se anulează, iar o vreme asta a fost o bifă pe
 ecranul de anulare, ca decizie de preț. Amândouă au dispărut cu creditul din S4, și pe bună dreptate:
-întrebarea la care răspundeau primeau acum răspuns din alte două reguli, fără să aleagă nimeni.
+întrebarea la care răspundeau primește acum răspuns din alte două reguli, fără să aleagă nimeni.
 **O oră fără catalog nu se facturează nimănui** (E15/S9), deci familia nu plătește o lecție pe care
 n-a primit-o; iar dacă săptămâna mai are o oră potrivită, biroul mută copilul acolo — o plasare pe
 care o face cineva după aceea, nu o casetă bifată în timp ce anulează.
@@ -430,10 +458,6 @@ care o face cineva după aceea, nu o casetă bifată în timp ce anulează.
 Câmpul `grantMakeUpCredits` e **scos din DTO, nu ignorat**: validarea rulează cu
 `forbidNonWhitelisted`, deci un client care încă îl trimite primește 400 în loc să creadă că a cerut
 ceva.
-
-Mutarea de aici e și temelia lui **S9**, care cere aceeași operație pornită din celălalt capăt: nu
-„am hotărât să mut ora", ci „ora asta nu se poate ține, unde încape". Ce lipsește acolo e scris
-acolo.
 
 **Mutarea există acum**: `PUT /class-sessions/:id/move` — altă zi, altă oră, altă sală, oricare din
 ele, cu motiv obligatoriu exact ca la anulare. E o editare a rândului, nu un rând nou — stare de
@@ -446,6 +470,12 @@ ar refuza oricum; verificarea întâi transformă eroarea de driver în propozi�
 la ora aia de altă ședință vie — cele anulate nu blochează, sala lor e liberă în fapt. Are acum și
 ecran, și mesaj: părintele primește ambele jumătăți, de unde a plecat ora și unde a ajuns, fiindcă
 după mutare doar nota mai ține minte prima.
+
+Mutarea asta e și temelia lui **S9**, care cere aceeași operație pornită din celălalt capăt: nu „am
+hotărât să mut ora", ci „ora asta nu se poate ține, unde încape". Ce lipsește pentru capătul acela e
+scris acolo — pe scurt, o listă a ferestrelor libere, o poartă de pornire pentru ședințele pe care
+calendarul le-a anulat sau nu le-a generat, și regula de săptămână, pe care mutarea de aici **nu** o
+verifică.
 
 ### S6 · Marcarea prezenței pe telefon
 
@@ -483,7 +513,10 @@ mână.
 
 **Fără poze**, deși schița story-ului le numește: `Child` nu are câmp de poză, iar a-l adăuga e o
 întrebare de stocare și consimțământ care aparține E07/E14, nu ecranului ăstuia. Ecranul vechi de
-marcare pe desktop rămâne neschimbat, pentru cataloagele din urmă și pentru recuperări.
+marcare pe desktop rămâne neschimbat, pentru cataloagele din urmă. **Nu și „pentru recuperări"**,
+cum scria aici: un copil mutat temporar se marchează în catalogul obișnuit al grupei-gazdă, iar
+`MAKE_UP` se scrie singur fiindcă nu e din grupa aia. N-a existat niciodată un al doilea drum de
+marcare, și cu atât mai puțin acum.
 
 ### S7 · Notificări
 
@@ -627,10 +660,13 @@ re-armat arată exact ca o după-amiază liniștită. O interogare indexată la 
 părinte pentru absență aștepta mecanismul de rezumate din [E17](E17-comunicare-notificari.md) S6, iar
 acela a fost construit și **scos prin decizie** — deci nu vine. Notificarea de absență din prima
 versiune fusese oricum scoasă prin decizia de mai sus, iar cele două mementouri de recuperare au
-plecat cu creditele — ce trimite S4 azi e un singur mesaj, cel care spune unde a fost mutat copilul.
-Dacă rezumatele revin cândva, revine și ea, cu ele; până atunci nu e o datorie deschisă, e o linie
-pe care școala a ales să n-o trimită. Iar amândouă mementourile
-**se scriu azi în coadă și nu pleacă nicăieri în producție**: nu există producție — vezi
+plecat cu creditele. Ce mai pleacă azi spre familie e un singur mesaj — cel care spune unde a fost
+mutat copilul; el aparține story-ului ăstuia, chiar dacă îl scrie `ReplacementService.place`, adică
+mecanismul lui S4. Dacă rezumatele revin cândva, revine și linia de absență cu ele; până atunci nu e
+o datorie deschisă, e o linie pe care școala a ales să n-o trimită.
+
+Iar **mementourile către birou** — cel de la minutul 15 și raportul de la 10:00 — **se scriu azi în
+coadă și nu pleacă nicăieri în producție**: nu există producție. Vezi
 [Dependențe](#dependențe), imediat mai jos.
 
 **Din [E15](E15-pricing-facturare.md) S9, amândouă mementourile apără bani, nu doar evidența.** O
@@ -669,9 +705,15 @@ să plece ceva. După emitere e istorie, iar corectura devine o discuție despre
 un rând.
 
 **Ce nu face bifa:** nu anulează ședința, nu scutește pe nimeni de catalog și nu schimbă cine ocupă
-un loc — un copil venit în vacanță stă pe scaunul lui ca în orice altă zi, la fel ca o probă sau o
-recuperare (D7). Nu atinge nici mutările: o absență într-o zi bifată nu produce nimic de recuperat,
-fiindcă familia aia nici nu plătește ora.
+un loc — un copil venit în vacanță stă pe scaunul lui ca în orice altă zi, la fel ca o probă sau un
+copil mutat ([E11](E11-inscrieri-capacitate.md), D7).
+
+**Ce ar trebui să facă, și nu face azi:** o absență la o oră bifată vacanță n-ar trebui să ducă la
+nicio mutare, fiindcă familia aia nici nu plătește ora — n-ai ce recupera dintr-o oră necumpărată.
+Regula asta e a story-ului ăstuia și **nu e implementată**: `ReplacementService.place` se uită la
+săptămână, la grupă, la vârstă și la locuri, niciodată la `isVacation`. Se scrie aici fiindcă e
+singurul loc din epic unde o proprietate a orei **pierdute** ar limita mutarea, iar cine construiește
+S8 trebuie s-o adauge odată cu bifa.
 
 **Acceptanță:** o ședință bifată apare marcată în catalogul de pe telefon și în `/admin/orar`, bifa
 se pune și se scoate dintr-o apăsare, iar `GET /attendance/session/:id/register` o întoarce — de
@@ -688,12 +730,14 @@ zi liberă națională. Dacă marți la 17:00 e o fereastră — nimeni altcinev
 profesorul mută ora acolo. Dacă nu e, ora nu se ține, iar restul îl face regula de facturare din
 [E15](E15-pricing-facturare.md) S9: ședința fără catalog nu se pune la nimeni pe factură.
 
-**Acceptanță:** dintr-un ecran de orar, profesorul ia o ședință care nu se poate ține și o așază în
-alt interval liber din aceeași săptămână; intervalele ocupate nu se pot alege, familiile grupei află
-noua zi și noua oră, iar catalogul rămâne al aceleiași ședințe.
+**Acceptanță:** dintr-un ecran de orar, profesorul ia o oră care nu se poate ține și o așază în alt
+interval liber din aceeași săptămână; intervalele ocupate nu se pot alege, familiile grupei află noua
+zi și noua oră, iar la final săptămâna are **un singur rând** pentru grupa aia — cel mutat, dacă
+ședința exista, cu catalogul ei cu tot.
 
-**Nelivrat ca ecran. Ca mecanism, depinde de unde pornești — și de asta merită scris explicit,
-fiindcă „ora nu e acolo ca s-o muți" e adevărat doar pe jumătate.**
+**Nelivrat — dar mai puțin decât pare, și inegal.** Ecranul de orar există din S5, cu butonul de
+mutare pe fiecare rând; ce lipsește depinde de unde pornești, iar „ora nu e acolo ca s-o muți" e
+adevărat doar pe jumătate.
 
 Ce există, din S5: `PUT /class-sessions/:id/move` — altă zi, altă oră, altă sală, oricare din ele,
 cu motiv obligatoriu. E o editare a rândului, deci catalogul rămâne atașat, nota păstrează de unde a
@@ -707,9 +751,11 @@ fiindcă a scris-o cineva în `/admin/calendar` (S2). Deci sunt două stări de 
 aceeași lipsă:
 
 - **Ziua nu e trecută în calendar.** Ședința e acolo, `scheduled`, exact ca oricare alta —
-  platforma nu are niciun motiv s-o creadă specială. Mutarea de azi face toată povestea: alegi marți
-  la 17:00, ea refuză dacă sala e ocupată atunci, editează rândul și scrie familiilor. **Nu
-  lipsește nimic în afară de listă**, adică de ferestre.
+  platforma nu are niciun motiv s-o creadă specială. Mutarea de azi duce povestea până la capăt:
+  alegi marți la 17:00, ea refuză dacă sala e ocupată atunci, editează rândul și scrie familiilor.
+  Lipsesc doar două lucruri, și niciunul nu e mecanismul: **lista ferestrelor** și **regula de
+  săptămână**, pe care `moveSession` nu o verifică — azi ar accepta la fel de bine o mutare peste
+  două săptămâni, ceea ce ar schimba luna facturată (vezi regulile de mai jos).
 - **Ziua e trecută în calendar.** Atunci ședința ori n-a fost generată deloc (generatorul sare
   peste zilele închise), ori a trecut în `CANCELLED` (perioada s-a adăugat peste un orar deja
   scris). Mutarea refuză o ședință anulată — „reactiveaz-o întâi", ca să nu ascundă anularea —, deci
@@ -732,8 +778,11 @@ Ce lipsește, deci:
   fereastra o ghicește omul: alege un interval, iar API-ul îl refuză dacă e ocupat. Sunt două
   lucruri diferite — a **refuza** o coliziune și a **arăta** ce e liber — iar al doilea e ce face
   ecranul folosibil într-o luni dimineață. Forma cerută: pentru o ședință dată, ce intervale din
-  aceeași săptămână sunt libere, cu sala în care ar încăpea. Asta lipsește în **amândouă** stările,
-  și e singurul lucru care lipsește în prima.
+  aceeași săptămână sunt libere, cu sala în care ar încăpea. Asta lipsește în **amândouă** stările.
+- **Regula de săptămână nu e verificată nicăieri.** `moveSession` refuză ziua închisă, ziua ocupată
+  și sala ocupată, dar nu se uită la ce săptămână e ținta. Ori intră în operația nouă de
+  reprogramare, ori în `moveSession` însuși — a doua variantă ar strânge și mutările obișnuite din
+  S5, ceea ce e probabil corect, dar e o decizie separată.
 - **„Liber" înseamnă azi doar sala.** Coliziunea verificată e sala, la ora aia, cu o ședință
   netăiată. Ce nu se verifică e **profesorul**, fiindcă platforma nu are profesori: nu există nici
   entitate de personal, nici câmp de profesor pe grupă — [E09](E09-personal-roluri.md) e scos din
@@ -788,9 +837,12 @@ orizont rulant în loc de generare pe durata modulului.
 
 **[E17](E17-comunicare-notificari.md) e necesar pentru S5 și S7.** Amândouă au acceptanțe care se
 măsoară într-un mesaj ajuns la cineva: anularea unei ședințe notifică toată grupa în sub cinci
-minute, iar părintele află de o absență neanunțată în aceeași zi. Fără canal, S5 poate livra cel
-mult anularea în sine, iar din S7 rămân doar butonul de apel și mementoul din interfață — partea care
-ajunge la părinte fără ca el să deschidă portalul lipsește. Aceeași dependență ține și mesajul care
+minute, iar familia află unde a fost mutat copilul. Fără canal, S5 poate livra cel mult anularea în
+sine, iar din S7 rămân doar butonul de apel și mementourile către birou.
+
+Ce **nu** mai ține de dependența asta e mesajul de absență neanunțată din story: n-a fost amânat, a
+fost scos prin decizie (mai sus, la S7), iar rezumatele E17/S6 pe care le-ar fi purtat au fost la
+rândul lor construite și scoase. Singura linie către părinte care mai așteaptă un canal e cea care
 spune unde a fost mutat copilul.
 
 **Ce s-a schimbat: canalul există, dar n-are unde să ruleze.** Mementoul zilnic a cerut din E17 exact
@@ -809,9 +861,16 @@ locul unde să ruleze; și lipsesc în continuare șabloanele din E17 S2.
 
 **Regulile de recuperare sunt o decizie de business, nu tehnică.** Prea generoase și se umplu
 grupele cu vizitatori; prea stricte și părinții se simt înșelați după ce au plătit o lună întreagă.
-Școala le-a fixat: anunț până luni la 12:00, mutare în aceeași săptămână, atât. Riscul care rămâne e
-al doilea — o familie care anunță marți nu primește nimic, și cineva de la birou va trebui să spună
-asta la telefon.
+Școala le-a fixat: anunț până luni la 12:00, mutare în aceeași săptămână, atât.
+
+Rămân două riscuri, și sunt de sens contrar:
+
+- **Prea strict, la telefon.** O familie care anunță marți nu primește nimic, iar cine îi spune asta
+  e omul de la birou, nu un mesaj de eroare.
+- **Prea larg, în tăcere.** Termenul de luni **nu e verificat de cod** — vezi S3 pentru de ce nu
+  poate fi, cât timp `inTime` spune când a tastat adminul. Deci nimic nu oprește o mutare acordată
+  din bunăvoință, iar dacă se acordă des, regula nu mai e o regulă. Ce o face vizibilă e chiar
+  `inTime`: o mutare pe un anunț „în afara termenului" se vede pe rând.
 
 ## Definition of done
 
@@ -961,6 +1020,11 @@ Niciuna nu ține pe loc ce s-a livrat; fiecare spune ce blochează.
   acum răspuns — `GET /attendance/replacements/unplaced` — dar n-are cine s-o pună: endpoint-ul nu e
   legat de niciun ecran și nimic nu-l citește la o oră fixă. **Nu blochează regula**, care e livrată;
   blochează faptul că cineva poate uita să mute un copil și nimic nu-l întreabă.
+- **Cum devine termenul de luni o regulă pe care o poate ține codul?** Azi nu poate: `inTime` spune
+  când a tastat adminul, nu când a sunat familia, iar cele două se despart doar în capul omului care
+  a răspuns la telefon (S3). Ce ar închide întrebarea e un al doilea moment pe rând — „a anunțat pe",
+  tastat odată cu motivul — față de care deadline-ul s-ar putea compara. **Nu blochează nimic**:
+  regula se aplică azi, de către birou, iar `inTime` arată pe rând când n-a fost respectată.
 - Cine reînnoiește orizontul de opt săptămâni, și când? Azi e o cerere HTTP pe care o face un
   dezvoltator. Variantele sunt un buton în admin sau un cron lângă cel de la ora 10:00 — al doilea e
   aproape gratuit acum, dar are aceeași problemă ca restul: cere un proces care rulează continuu.
