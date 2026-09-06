@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { CreateInvoiceDto } from './dto/createInvoice.dto';
@@ -12,7 +12,9 @@ import { Discount } from 'src/entities/discount.entity';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { GetPreviewDto } from './dto/getPreview.dto';
-import { IssueFromSessionsDto } from './dto/issueFromSessions.dto';
+import { IssueMonthDto } from './dto/issueMonth.dto';
+import { BillableSessionsService, UnmarkedSession } from './billable-sessions.service';
+import { BillableLine } from './billable-sessions.rules';
 // E14 moved `S3Service` out of this module: it is no longer only about invoices, it stores
 // children's project files too.
 import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
@@ -23,27 +25,33 @@ export interface InvoiceWorksheetRow {
     parentId: number;
     parentName: string;
     email: string | null;
-    /** True when this family already has an invoice for the month, so the screen can skip them. */
     alreadyInvoiced: boolean;
+    /** What the family will be billed after the month's discounts — read, so the screen shows what the server will write. */
+    amount: number;
     children: {
         childId: number;
         childName: string;
         groupId: number | null;
         groupName: string | null;
-        /** ISO weekday of the group, so whoever is counting knows which day to count. */
         weekday: number | null;
+        /** The number that reaches the price — counted from the registers, never typed. */
+        sessions: number;
+        /** Every held session of the child's group in the month, and whether it counted for them. */
+        lines: BillableLine[];
     }[];
 }
 
-/**
- * Where an invoice's PDF lives in object storage.
- *
- * Keyed on the invoice id alone, never on the parent's name. The name used to be part of the key,
- * and it was rebuilt from the *current* profile at download time — so renaming a parent (a
- * marriage, a corrected typo) silently made every invoice they had ever received unreachable, with
- * the object still sitting in the bucket under the old spelling. Verified before the change: a
- * PUT on the profile turned a working download into a 500, permanently.
- */
+/** The whole issuing screen in one payload — E15/S9. */
+export interface InvoiceWorksheet {
+    month: string;
+    /** First and last day the teaching month covers, both inclusive. */
+    from: string;
+    to: string;
+    /** The month's sessions with no register: the money not being asked for. Shown first. */
+    unmarked: UnmarkedSession[];
+    families: InvoiceWorksheetRow[];
+}
+
 export function invoicePdfKey(monthIssued: string, invoiceId: number): string {
     return `invoices/${monthIssued}/${invoiceId}.pdf`;
 }
@@ -59,6 +67,7 @@ export class InvoiceService {
         @InjectRepository(Enrollment) private readonly enrollmentRepository: Repository<Enrollment>,
         private readonly pdfService: PdfService,
         private readonly s3Service: S3Service,
+        private readonly billable: BillableSessionsService,
         private readonly dataSource: DataSource,
     ) {}
 
@@ -222,96 +231,98 @@ export class InvoiceService {
     }
 
     /**
-     * The worksheet behind the issuing screen — every family, every child, every group, for a month.
+     * The worksheet behind the issuing screen — every family, every child, every group, for a
+     * month, **with the count already read** — E15/S9.
      *
-     * Deliberately does **not** carry an amount. It carries the rows an admin has to fill in, plus
-     * what is already known about each of them, and the arithmetic happens on the screen as they
-     * type. Sending a pre-computed total would invite pressing the button without reading it.
+     * It used to carry no amount, on the argument that a pre-computed total invites pressing the
+     * button without reading it. That argument was about a number somebody *typed*: sending it back
+     * would have been echoing an admin to themselves. The number is now counted from the registers,
+     * so the screen's job is the opposite — to show the count, let it be unfolded to the sessions
+     * behind it, and put the sessions with no register above everything, because those are the
+     * money nobody is asking for.
      *
-     * `alreadyInvoiced` is the field that makes the screen re-runnable, and it will be used: an
-     * admin issues on the first, a family enrols on the fifth, and the second run must invoice only
-     * them. `@Unique(['parent', 'monthIssued'])` means a blind second pass fails for everybody,
-     * including the families that were fine.
+     * Rows come from **enrolments that touch the month**, not from `Child.group`: a child who left
+     * on the 15th still owes the sessions before it, and a child enrolled on the 20th owes only what
+     * came after. The group column on `Child` has no time in it and cannot answer either.
+     *
+     * `alreadyInvoiced` is what makes the screen re-runnable: an admin issues on the first, a family
+     * enrols on the fifth, and the second run must invoice only them.
      */
-    async getWorksheet(monthIssued: string): Promise<InvoiceWorksheetRow[]> {
-        const profiles = await this.profileRepository
-            .createQueryBuilder('profile')
-            .leftJoin('profile.children', 'child')
-            .addSelect(['child.id', 'child.firstName', 'child.lastName'])
-            .leftJoin('child.group', 'group')
-            .addSelect(['group.id', 'group.name', 'group.weekday'])
-            .orderBy('profile.lastName', 'ASC')
-            .addOrderBy('profile.firstName', 'ASC')
-            .addOrderBy('child.firstName', 'ASC')
-            .getMany();
+    async getWorksheet(monthIssued: string): Promise<InvoiceWorksheet> {
+        const month = await this.billable.countForMonth(monthIssued);
 
-        const invoiced = await this.invoiceRepository.find({
-            where: { monthIssued },
-            relations: { parent: true },
-        });
+        const invoiced = await this.invoiceRepository.find({ where: { monthIssued }, relations: { parent: true } });
         const invoicedParentIds = new Set(invoiced.map((invoice) => invoice.parent?.id));
 
-        return (
-            profiles
-                // A family with no child in any group has nothing to count and nothing to owe. They stay
-                // off the screen rather than sitting there as a row that must be filled in with zero.
-                .filter((profile) => profile.children?.some((child) => child.group))
-                .map((profile) => ({
-                    parentId: profile.id,
-                    parentName: `${profile.lastName} ${profile.firstName}`,
-                    email: profile.email ?? null,
-                    alreadyInvoiced: invoicedParentIds.has(profile.id),
-                    children: (profile.children ?? [])
-                        .filter((child) => child.group)
-                        .map((child) => ({
-                            childId: child.id,
-                            childName: `${child.firstName} ${child.lastName}`,
-                            groupId: child.group?.id ?? null,
-                            groupName: child.group?.name ?? null,
-                            weekday: child.group?.weekday ?? null,
-                        })),
-                }))
-        );
+        const parentIds = [...new Set(month.children.map((child) => child.parentId))];
+        const parents = parentIds.length === 0 ? [] : await this.profileRepository.find({ where: { id: In(parentIds) } });
+        const discounts =
+            parentIds.length === 0
+                ? []
+                : await this.discountRepository.find({ where: { monthIssued, parent: { id: In(parentIds) } }, relations: { parent: true } });
+
+        const families: InvoiceWorksheetRow[] = [];
+        for (const parent of parents) {
+            const children = month.children
+                .filter((child) => child.parentId === parent.id)
+                .sort((a, b) => a.firstName.localeCompare(b.firstName))
+                .map((child) => {
+                    const count = month.counts.get(child.childId) ?? { sessions: 0, lines: [] };
+                    return {
+                        childId: child.childId,
+                        childName: `${child.firstName} ${child.lastName}`,
+                        groupId: child.groupId,
+                        groupName: child.groupName,
+                        weekday: child.weekday,
+                        sessions: count.sessions,
+                        lines: count.lines,
+                    };
+                });
+            const own = discounts.filter((discount) => discount.parent?.id === parent.id);
+            families.push({
+                parentId: parent.id,
+                parentName: `${parent.lastName} ${parent.firstName}`,
+                email: parent.email ?? null,
+                alreadyInvoiced: invoicedParentIds.has(parent.id),
+                amount: sessionAmountAfterDiscounts(
+                    children.map((child) => child.sessions),
+                    own,
+                ),
+                children,
+            });
+        }
+        families.sort((a, b) => a.parentName.localeCompare(b.parentName));
+
+        return { month: month.month, from: month.from, to: month.to, unmarked: month.unmarked, families };
     }
 
     /**
-     * Issues a month's invoices from session counts supplied by the caller — E15, the model actually
-     * in force.
+     * Issues a month's invoices from the registers — E15/S9.
      *
-     * A family whose total comes to zero still gets a **row**, marked `WAIVED`, with no PDF. That is
-     * the case where a child could not come at all, or where the school decided not to charge. The
-     * record matters more than the document: "October, nothing owed" is settled, while no row at all
-     * is a month somebody has to go and check.
+     * The caller names the month and the date to print; everything else is read. Each family
+     * enrolled for any part of the month gets exactly one row: an invoice with a PDF when the count
+     * comes to something, a `WAIVED` row with no PDF when it comes to nothing — "October, nothing
+     * owed" is settled, while no row at all is a month somebody has to go and check. Families that
+     * already have a row for the month are skipped and reported, which is what lets the screen be
+     * run again after somebody enrols mid-month.
      *
-     * The only families skipped are those that already have an invoice for the month — which is what
-     * lets the screen be run a second time after somebody enrols mid-month.
+     * The amount is the same one the worksheet showed, computed by the same code from the same
+     * query. There is no path by which the screen and the invoice can disagree, because there is
+     * no second number.
      */
-    async issueFromSessions(dto: IssueFromSessionsDto): Promise<{ issued: Invoice[]; waived: Invoice[]; skipped: { parentId: number; reason: string }[] }> {
+    async issueFromSessions(dto: IssueMonthDto): Promise<{ issued: Invoice[]; waived: Invoice[]; skipped: { parentId: number; reason: string }[] }> {
+        const worksheet = await this.getWorksheet(dto.monthIssued);
+
         const skipped: { parentId: number; reason: string }[] = [];
         const prepared: { parent: Profile; amount: number }[] = [];
-
-        for (const family of dto.families) {
-            const parent = await this.profileRepository.findOne({ where: { id: family.parentId } });
-            if (!parent) throw new NotFoundException(`Parent profile ${family.parentId} not found`);
-
-            const existing = await this.invoiceRepository.findOne({
-                where: { parent: { id: family.parentId }, monthIssued: dto.monthIssued },
-            });
-            if (existing) {
+        for (const family of worksheet.families) {
+            if (family.alreadyInvoiced) {
                 skipped.push({ parentId: family.parentId, reason: 'ALREADY_INVOICED' });
                 continue;
             }
-
-            const discounts = await this.discountRepository.find({
-                where: { parent: { id: family.parentId }, monthIssued: dto.monthIssued },
-            });
-
-            const amount = sessionAmountAfterDiscounts(
-                family.children.map((child) => child.sessions),
-                discounts,
-            );
-
-            prepared.push({ parent, amount });
+            const parent = await this.profileRepository.findOne({ where: { id: family.parentId } });
+            if (!parent) throw new NotFoundException(`Parent profile ${family.parentId} not found`);
+            prepared.push({ parent, amount: family.amount });
         }
 
         const { issued, waived } = await this.dataSource.transaction(async (manager) => {
@@ -351,7 +362,9 @@ export class InvoiceService {
             return { issued: created, waived: nil };
         });
 
-        this.logger.log(`Month ${dto.monthIssued}: issued ${issued.length} invoice(s), waived ${waived.length}, skipped ${skipped.length} already invoiced.`);
+        this.logger.log(
+            `Month ${dto.monthIssued}: issued ${issued.length} invoice(s), waived ${waived.length}, skipped ${skipped.length} already invoiced; ${worksheet.unmarked.length} session(s) had no register.`,
+        );
         return { issued, waived, skipped };
     }
 

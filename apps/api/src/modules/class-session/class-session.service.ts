@@ -15,6 +15,9 @@ import { addDays, occurrencesOf, parseIsoDate, startOfToday, toIsoDate } from '.
 import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { ClassSessionNotifier } from './class-session-notifier';
 import { ReplacementService } from 'src/modules/attendance/replacement.service';
+import { Invoice } from 'src/entities/invoice.entity';
+import { SetVacationDto } from './dto/setVacation.dto';
+import { teachingMonthOf } from 'src/modules/invoice/billing-period.rules';
 
 /** The rolling horizon from E12/S1: eight weeks of timetable, always. */
 export const DEFAULT_HORIZON_WEEKS = 8;
@@ -52,6 +55,9 @@ export class ClassSessionService {
         @InjectRepository(ClassSession) private readonly classSessionRepository: Repository<ClassSession>,
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
         @InjectRepository(Room) private readonly roomRepository: Repository<Room>,
+        // Only to ask "is this session's month already invoiced" — the one thing that freezes the
+        // vacation tick (E12/S8). Issuing itself never runs from here.
+        @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
         private readonly nonTeachingPeriodService: NonTeachingPeriodService,
         private readonly notifier: ClassSessionNotifier,
         private readonly replacements: ReplacementService,
@@ -390,6 +396,53 @@ export class ClassSessionService {
             await this.notifier.notifyMoved(id, from, dto.reason, manager);
             return saved;
         });
+    }
+
+    /**
+     * Marks a class as held in a school holiday, or takes the mark off — E12/S8.
+     *
+     * A fact about the hour, put there by whoever took the register. It tells nobody anything: no
+     * message goes to the families, because nothing about the timetable changed — the class was
+     * on, it was taught, the register exists. What changes is what the hour is worth on the
+     * invoice (E15/S9: only to the children marked present), and that is why the two refusals are
+     * what they are:
+     *
+     * - **a cancelled session** cannot be a vacation one — an hour that did not happen was not
+     *   held in anything;
+     * - **a session whose teaching month is already invoiced** cannot change — the tick would
+     *   retroactively alter what a family was billed, and that correction is a conversation about
+     *   an invoice, not a flag on a row. Before issuing, the tick is as reversible as any mark.
+     *
+     * Idempotent: setting what is already set is a save that changes nothing, not an error.
+     */
+    async setVacation(id: number, dto: SetVacationDto): Promise<ClassSession> {
+        const session = await this.classSessionRepository.findOne({
+            where: { id },
+            relations: { group: true, room: { location: true } },
+        });
+        if (!session) {
+            throw new NotFoundException('Class session not found');
+        }
+        if (session.status === ClassSessionStatus.CANCELLED) {
+            throw new ConflictException({
+                message: 'Ședința e anulată — o oră care nu se ține nu poate fi „de vacanță".',
+                error: 'CLASS_SESSION_CANCELLED',
+            });
+        }
+
+        // The teaching month, not the calendar one: a session on Friday 4 September belongs to
+        // August if its Monday did, and August is the invoice it would be changing.
+        const month = teachingMonthOf(session.date);
+        const invoiced = await this.invoiceRepository.count({ where: { monthIssued: month } });
+        if (invoiced > 0) {
+            throw new ConflictException({
+                message: `Luna ${month} e deja facturată — bifa nu se mai poate schimba.`,
+                error: 'MONTH_ALREADY_INVOICED',
+            });
+        }
+
+        session.isVacation = dto.isVacation;
+        return this.classSessionRepository.save(session);
     }
 
     async reinstateSession(id: number): Promise<ClassSession> {

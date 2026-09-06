@@ -11,6 +11,7 @@ import { Enrollment } from 'src/entities/enrollment.entity';
 import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { Role } from 'src/enum/role.enum';
 import { createMockQueryBuilder, createMockRepository, isScopedToUser, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
+import { BillableSessionsService, MonthCount } from './billable-sessions.service';
 
 describe('InvoiceService', () => {
     let service: InvoiceService;
@@ -20,6 +21,8 @@ describe('InvoiceService', () => {
     let enrollmentRepo: MockRepository;
     let s3: { putObject: jest.Mock; downloadFile: jest.Mock };
     let transactionManager: { save: jest.Mock };
+    /** E15/S9's one query, mute: what it counts is its own suite's business. */
+    let billable: { countForMonth: jest.Mock };
 
     const aProfile = (id = 1) => ({ id, firstName: 'Ana', lastName: 'Pop' });
 
@@ -37,6 +40,7 @@ describe('InvoiceService', () => {
         discountRepo = createMockRepository();
         enrollmentRepo = createMockRepository();
         s3 = { putObject: jest.fn(), downloadFile: jest.fn() };
+        billable = { countForMonth: jest.fn() };
 
         // `createInvoice` writes the row and uploads the PDF inside one transaction. The fake runs
         // the callback with a manager whose `save` behaves like the repository's, so a rejected
@@ -52,6 +56,7 @@ describe('InvoiceService', () => {
                 provideMockRepository(Enrollment, enrollmentRepo),
                 { provide: PdfService, useValue: { generateInvoicePdf: jest.fn().mockResolvedValue(Buffer.from('')) } },
                 { provide: S3Service, useValue: s3 },
+                { provide: BillableSessionsService, useValue: billable },
                 {
                     provide: DataSource,
                     useValue: {
@@ -287,94 +292,128 @@ describe('InvoiceService', () => {
         });
     });
 
+    /**
+     * A month as `BillableSessionsService` hands it over: one family (parent 1), Maria (5) with
+     * two held sessions, in Scratch on Mondays. The count is the query's; this suite is about what
+     * the service does with it.
+     */
+    const aMonth = (overrides: Partial<MonthCount> = {}): MonthCount => ({
+        month: '2026-10',
+        from: '2026-10-05',
+        to: '2026-11-01',
+        counts: new Map([
+            [
+                5,
+                {
+                    sessions: 2,
+                    lines: [
+                        { sessionId: 1, date: '2026-10-05', isVacation: false, present: true, counted: true },
+                        { sessionId: 2, date: '2026-10-12', isVacation: false, present: false, counted: true },
+                    ],
+                },
+            ],
+        ]),
+        children: [{ childId: 5, firstName: 'Maria', lastName: 'Pop', parentId: 1, groupId: 2, groupName: 'Scratch', weekday: 1 }],
+        unmarked: [{ sessionId: 3, groupId: 2, groupName: 'Scratch', date: '2026-10-19', startTime: '16:00:00' }],
+        ...overrides,
+    });
+
     describe('getWorksheet', () => {
         beforeEach(() => {
+            billable.countForMonth.mockResolvedValue(aMonth());
             invoiceRepo.find!.mockResolvedValue([]);
+            profileRepo.find!.mockResolvedValue([{ id: 1, firstName: 'Ana', lastName: 'Pop', email: 'ana@example.com' }]);
+            discountRepo.find!.mockResolvedValue([]);
         });
 
-        const withProfiles = (profiles: unknown[]) => {
-            profileRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ many: profiles as never[] }));
-        };
+        it('returns the month, its range, the unmarked sessions and one row per family, with the count read', async () => {
+            const sheet = await service.getWorksheet('2026-10');
 
-        it('returns a family with its children and their groups, and no amount', async () => {
-            withProfiles([
-                {
-                    id: 1,
-                    firstName: 'Ana',
-                    lastName: 'Pop',
-                    email: 'ana@example.com',
-                    children: [{ id: 5, firstName: 'Maria', lastName: 'Pop', group: { id: 2, name: 'Scratch', weekday: 1 } }],
-                },
-            ]);
-
-            const [row] = await service.getWorksheet('2026-10');
-
-            // No amount on the wire: the arithmetic belongs on the screen, where somebody reads it.
-            expect(row).toEqual({
+            expect(sheet).toMatchObject({ month: '2026-10', from: '2026-10-05', to: '2026-11-01' });
+            expect(sheet.unmarked).toEqual([{ sessionId: 3, groupId: 2, groupName: 'Scratch', date: '2026-10-19', startTime: '16:00:00' }]);
+            expect(sheet.families).toHaveLength(1);
+            expect(sheet.families[0]).toMatchObject({
                 parentId: 1,
                 parentName: 'Pop Ana',
                 email: 'ana@example.com',
                 alreadyInvoiced: false,
-                children: [{ childId: 5, childName: 'Maria Pop', groupId: 2, groupName: 'Scratch', weekday: 1 }],
+                // 2 × 87,50 — the same number the invoice will carry, so the screen shows it.
+                amount: 175,
+                children: [expect.objectContaining({ childId: 5, childName: 'Maria Pop', groupName: 'Scratch', weekday: 1, sessions: 2 })],
             });
+            expect(sheet.families[0].children[0].lines).toHaveLength(2);
         });
 
-        it('leaves out a family whose children are in no group', async () => {
-            withProfiles([{ id: 1, firstName: 'Ana', lastName: 'Pop', children: [{ id: 5, firstName: 'Maria', lastName: 'Pop', group: null }] }]);
+        it('asks the one query for the month, and never counts on its own', async () => {
+            await service.getWorksheet('2026-10');
 
-            // Nothing to count and nothing to owe. A row that must be filled in with zero is worse
-            // than no row.
-            await expect(service.getWorksheet('2026-10')).resolves.toEqual([]);
+            expect(billable.countForMonth).toHaveBeenCalledWith('2026-10');
+            expect(enrollmentRepo.createQueryBuilder).not.toHaveBeenCalled();
+        });
+
+        it("takes the month's discounts off the amount it shows", async () => {
+            discountRepo.find!.mockResolvedValue([{ value: 50, parent: { id: 1 } }]);
+
+            const sheet = await service.getWorksheet('2026-10');
+            expect(sheet.families[0].amount).toBe(125);
+        });
+
+        it('lists a family with nothing held, at zero', async () => {
+            billable.countForMonth.mockResolvedValue(aMonth({ counts: new Map([[5, { sessions: 0, lines: [] }]]) }));
+
+            const sheet = await service.getWorksheet('2026-10');
+            expect(sheet.families[0]).toMatchObject({ amount: 0, children: [expect.objectContaining({ sessions: 0 })] });
+        });
+
+        it('returns no families for a month nobody was enrolled in', async () => {
+            billable.countForMonth.mockResolvedValue(aMonth({ counts: new Map(), children: [] }));
+
+            const sheet = await service.getWorksheet('2026-10');
+            expect(sheet.families).toEqual([]);
+            expect(profileRepo.find).not.toHaveBeenCalled();
         });
 
         it('marks a family that already has an invoice for the month', async () => {
-            withProfiles([
-                {
-                    id: 1,
-                    firstName: 'Ana',
-                    lastName: 'Pop',
-                    children: [{ id: 5, firstName: 'Maria', lastName: 'Pop', group: { id: 2, name: 'S', weekday: 1 } }],
-                },
-            ]);
             invoiceRepo.find!.mockResolvedValue([{ id: 9, parent: { id: 1 } }]);
 
             // This is what makes the screen safe to run a second time after somebody enrols on the
             // fifth: `@Unique(['parent', 'monthIssued'])` fails the whole pass otherwise.
-            const [row] = await service.getWorksheet('2026-10');
-            expect(row.alreadyInvoiced).toBe(true);
+            const sheet = await service.getWorksheet('2026-10');
+            expect(sheet.families[0].alreadyInvoiced).toBe(true);
         });
     });
 
     describe('issueFromSessions', () => {
-        const family = (parentId: number, sessions: number[]) => ({
-            parentId,
-            children: sessions.map((count, index) => ({ childId: index + 1, sessions: count })),
-        });
+        const october = { monthIssued: '2026-10', dateIssued: '2026-11-01' };
 
         beforeEach(() => {
+            billable.countForMonth.mockResolvedValue(aMonth());
+            invoiceRepo.find!.mockResolvedValue([]);
+            profileRepo.find!.mockResolvedValue([{ id: 1, firstName: 'Ana', lastName: 'Pop', email: null }]);
             profileRepo.findOne!.mockImplementation(({ where }: { where: { id: number } }) => Promise.resolve(aProfile(where.id)));
-            invoiceRepo.findOne!.mockResolvedValue(null);
             discountRepo.find!.mockResolvedValue([]);
             transactionManager.save.mockImplementation((invoice: { amount: number }) => Promise.resolve({ ...invoice, id: 55 }));
         });
 
-        it('bills the sessions it was given, not a figure of its own', async () => {
-            const result = await service.issueFromSessions({ monthIssued: '2026-10', dateIssued: '2026-10-01', families: [family(1, [2])] });
+        it('bills what the registers say, and nothing the caller could have typed', async () => {
+            const result = await service.issueFromSessions(october);
 
-            // The person pressing the button has looked at every number. A server that quietly
-            // substituted its own would issue a different invoice from the one on screen.
+            // Two held sessions at the first-child rate. The DTO has no place for a count.
             expect(result.issued[0].amount).toBe(175);
+            expect(billable.countForMonth).toHaveBeenCalledWith('2026-10');
         });
 
         it("takes the month's discounts off", async () => {
-            discountRepo.find!.mockResolvedValue([{ value: 50 }]);
+            discountRepo.find!.mockResolvedValue([{ value: 50, parent: { id: 1 } }]);
 
-            const result = await service.issueFromSessions({ monthIssued: '2026-10', dateIssued: '2026-10-01', families: [family(1, [4])] });
-            expect(result.issued[0].amount).toBe(300);
+            const result = await service.issueFromSessions(october);
+            expect(result.issued[0].amount).toBe(125);
         });
 
         it('records a month that comes to nothing, without a PDF', async () => {
-            const result = await service.issueFromSessions({ monthIssued: '2026-10', dateIssued: '2026-10-01', families: [family(1, [0])] });
+            billable.countForMonth.mockResolvedValue(aMonth({ counts: new Map([[5, { sessions: 0, lines: [] }]]) }));
+
+            const result = await service.issueFromSessions(october);
 
             // The row is the point: no invoice at all looks the same as a month nobody got round to.
             expect(result.issued).toHaveLength(0);
@@ -384,21 +423,21 @@ describe('InvoiceService', () => {
         });
 
         it('skips a family already invoiced rather than failing the whole pass', async () => {
-            invoiceRepo.findOne!.mockResolvedValue({ id: 9 });
+            invoiceRepo.find!.mockResolvedValue([{ id: 9, parent: { id: 1 } }]);
 
-            const result = await service.issueFromSessions({ monthIssued: '2026-10', dateIssued: '2026-10-01', families: [family(1, [4])] });
+            const result = await service.issueFromSessions(october);
 
             expect(result.skipped).toEqual([{ parentId: 1, reason: 'ALREADY_INVOICED' }]);
             expect(result.issued).toHaveLength(0);
+            expect(transactionManager.save).not.toHaveBeenCalled();
         });
 
-        it('404s on a parent that does not exist, before writing anything', async () => {
-            profileRepo.findOne!.mockResolvedValue(null);
+        it('prints the date it was given, not the first of the teaching month', async () => {
+            await service.issueFromSessions(october);
 
-            await expect(service.issueFromSessions({ monthIssued: '2026-10', dateIssued: '2026-10-01', families: [family(99, [4])] })).rejects.toThrow(
-                NotFoundException,
-            );
-            expect(transactionManager.save).not.toHaveBeenCalled();
+            // The 14-day term (E16/S7) runs from this date, and the month can only be issued once
+            // its last register exists — which is the following month.
+            expect(transactionManager.save).toHaveBeenCalledWith(expect.objectContaining({ dateIssued: new Date('2026-11-01'), monthIssued: '2026-10' }));
         });
     });
 

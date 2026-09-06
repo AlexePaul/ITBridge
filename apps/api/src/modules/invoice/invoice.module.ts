@@ -15,6 +15,9 @@ import { ArrearsJob } from './arrears.job';
 import { MailModule } from 'src/modules/mail/mail.module';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { StorageModule } from 'src/modules/storage/storage.module';
+import { ClassSession } from 'src/entities/class-session.entity';
+import { Attendance } from 'src/entities/attendance.entity';
+import { BillableSessionsService } from './billable-sessions.service';
 
 @Module({
     // `Enrollment` because the amount counts children *actively enrolled*, not children on file:
@@ -22,9 +25,17 @@ import { StorageModule } from 'src/modules/storage/storage.module';
     //
     // `StorageModule` because `S3Service` is no longer only about invoices — E14 stores children's
     // project files through the same client.
-    imports: [TypeOrmModule.forFeature([Invoice, Payment, Profile, Discount, Enrollment]), JwtModule.register({}), StorageModule, MailModule],
+    //
+    // `ClassSession` and `Attendance` because since E15/S9 the amount is counted from the month's
+    // registers, not typed: `BillableSessionsService` is the one query that reads them.
+    imports: [
+        TypeOrmModule.forFeature([Invoice, Payment, Profile, Discount, Enrollment, ClassSession, Attendance]),
+        JwtModule.register({}),
+        StorageModule,
+        MailModule,
+    ],
     controllers: [InvoiceController],
-    providers: [InvoiceService, PdfService, ArrearsService, ArrearsJob, AuthGuard, RolesGuard],
+    providers: [InvoiceService, BillableSessionsService, PdfService, ArrearsService, ArrearsJob, AuthGuard, RolesGuard],
     // The overview screen asks the arrears question rather than re-deriving it — one definition.
     exports: [ArrearsService],
 })

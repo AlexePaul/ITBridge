@@ -2,7 +2,18 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createClassSession, createTestApp, enrolInNewGroup, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import {
+    createClassSession,
+    createTestApp,
+    enrolInNewGroup,
+    holdSessions,
+    ownProfileId,
+    promoteToAdmin,
+    registerUser,
+    teachingMondays,
+    TestUser,
+    truncateAll,
+} from './helpers';
 
 /**
  * The overview — E21/S1, against a real database.
@@ -45,7 +56,7 @@ describe('Overview (e2e)', () => {
             .send({ firstName: 'Maria', lastName: 'Pop', birthDate: '2016-01-01', parentId: profileId })
             .expect(201);
         childId = child.body.id as number;
-        groupId = await enrolInNewGroup(app, admin, [childId]);
+        groupId = await enrolInNewGroup(app, admin, [childId], {}, { startDate: '2026-01-01' });
     });
 
     const overview = (user: TestUser = admin) => request(app.getHttpServer()).get('/overview').set('Authorization', user.auth);
@@ -76,14 +87,11 @@ describe('Overview (e2e)', () => {
 
     describe('it agrees with the screens it summarises', () => {
         it('the arrears figure matches the arrears list, to the leu', async () => {
+            await holdSessions(app, dataSource, admin, groupId, [childId], teachingMondays('2026-03').slice(0, 4));
             await request(app.getHttpServer())
                 .post('/invoices/issue')
                 .set('Authorization', admin.auth)
-                .send({
-                    monthIssued: '2026-03',
-                    dateIssued: '2026-03-01',
-                    families: [{ parentId: profileId, children: [{ childId, sessions: 4 }] }],
-                })
+                .send({ monthIssued: '2026-03', dateIssued: '2026-03-01' })
                 .expect(201);
 
             const list = await request(app.getHttpServer()).get('/invoices/arrears').set('Authorization', admin.auth).expect(200);

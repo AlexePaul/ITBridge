@@ -77,6 +77,20 @@ export class ClassSession {
     @Column({ type: 'text', nullable: true })
     notes: string | null;
 
+    /**
+     * Held in a school holiday, for whoever wanted to come — E12/S8.
+     *
+     * A fact about the hour, recorded where the person who knows it is: the teacher in the room,
+     * that day. Three weeks later, at the issuing screen, nobody remembers which Monday in December
+     * was the break and which was just a day with four children. What the tick *means* for money is
+     * E15/S9's — billed only to the children marked present — and is not decided here.
+     *
+     * Not a status. `status` says whether the class exists; this says what kind of class it was.
+     * A cancelled session cannot carry it, and the service refuses the combination.
+     */
+    @Column({ type: 'boolean', default: false })
+    isVacation: boolean;
+
     @OneToMany(() => Attendance, (attendance) => attendance.classSession)
     attendances: Attendance[];
 }

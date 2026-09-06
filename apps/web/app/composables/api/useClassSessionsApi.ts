@@ -201,6 +201,19 @@ export const useClassSessionsApi = () => {
       body: payload,
     });
 
+  /**
+   * Marks a class as held in a school holiday, or takes the mark off — E12/S8.
+   *
+   * A fact about the hour, not a change to the timetable: no message goes out. What it changes is
+   * the invoice (E15/S9), which is why the API refuses it once the month is issued.
+   */
+  const setVacation = async (id: EntityId, isVacation: boolean) =>
+    api<ClassSessionWithAttendance>(`/class-sessions/${id}/vacation`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: { isVacation },
+    });
+
   /** Puts a cancelled class back on — and tells the families, who were told it was off. */
   const reinstateSession = async (id: EntityId) =>
     api<ClassSessionWithAttendance>(`/class-sessions/${id}/reinstate`, {
@@ -222,6 +235,7 @@ export const useClassSessionsApi = () => {
     cancelSession,
     moveSession,
     reinstateSession,
+    setVacation,
     fetchNonTeachingPeriods,
     fetchNonTeachingImpact,
     createNonTeachingPeriod,

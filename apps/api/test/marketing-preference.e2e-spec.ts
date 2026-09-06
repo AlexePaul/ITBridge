@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { createTestApp, enrolInNewGroup, holdSessions, ownProfileId, promoteToAdmin, registerUser, teachingMondays, TestUser, truncateAll } from './helpers';
 
 /**
  * The preference, and the promise around it — E17/S4.
@@ -100,16 +100,16 @@ describe('Marketing preference (e2e)', () => {
                 .set('Authorization', parent.auth)
                 .send({ firstName: 'Ana', lastName: 'Pop', birthDate: '2016-01-01', parentId: profileId })
                 .expect(201);
-            void child;
+            // Enrolled, and present at four April Mondays: since E15/S9 the invoice is counted from
+            // the registers, so the month has to have been held for there to be one.
+            const childId = child.body.id as number;
+            const groupId = await enrolInNewGroup(app, admin, [childId], {}, { startDate: '2026-01-01' });
+            await holdSessions(app, dataSource, admin, groupId, [childId], teachingMondays('2026-04').slice(0, 4));
 
             const res = await request(app.getHttpServer())
                 .post('/invoices/issue')
                 .set('Authorization', admin.auth)
-                .send({
-                    monthIssued: '2026-04',
-                    dateIssued: '2026-04-01',
-                    families: [{ parentId: profileId, children: [{ childId: child.body.id as number, sessions: 4 }] }],
-                })
+                .send({ monthIssued: '2026-04', dateIssued: '2026-04-01' })
                 .expect(201);
 
             // The invoice is issued regardless: it is the contract, not a message the family may

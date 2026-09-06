@@ -70,6 +70,20 @@
               }}
               · {{ markedCount }}/{{ register.entries.length }} marcați
             </p>
+            <!--
+              E12/S8. The teacher in the room is the one who knows this was a holiday hour, and
+              today is when they know it — so the tick lives here, not on the issuing screen three
+              weeks later. It changes nothing about the register; it changes what the hour costs
+              (E15/S9: only the children marked present pay for it).
+            -->
+            <label class="mt-2 flex items-center gap-2 min-h-11 text-sm cursor-pointer select-none">
+              <UCheckbox
+                :model-value="register.session.isVacation"
+                :disabled="savingVacation"
+                @update:model-value="(value) => setVacation(value === true)"
+              />
+              <span>Oră de vacanță — se facturează doar cine a venit</span>
+            </label>
           </div>
           <UButton
             v-if="todaySessions.length > 1"
@@ -283,6 +297,25 @@ const scheduleRetry = () => {
     retryTimer.value = null;
     void flushQueue();
   }, retryDelayMs(failedFlushes.value));
+};
+
+const savingVacation = ref(false);
+
+/**
+ * Saves the tick straight away, like every mark on this screen. Refused once the month is
+ * invoiced — the server says so, and the box springs back to what the server holds.
+ */
+const setVacation = async (isVacation: boolean) => {
+  if (!register.value || savingVacation.value) return;
+  savingVacation.value = true;
+  try {
+    const updated = await classSessionsApi.setVacation(register.value.session.id, isVacation);
+    register.value.session.isVacation = updated.isVacation;
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut salva bifa de vacanță"));
+  } finally {
+    savingVacation.value = false;
+  }
 };
 
 const openSession = async (sessionId: number) => {

@@ -7,6 +7,7 @@ import { Role } from 'src/enum/role.enum';
 import { ClassSessionService } from './class-session.service';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { CancelClassSessionDto } from './dto/cancelClassSession.dto';
+import { SetVacationDto } from './dto/setVacation.dto';
 import { MoveClassSessionDto } from './dto/moveClassSession.dto';
 import { CreateNonTeachingPeriodDto } from './dto/nonTeachingPeriod.dto';
 import { FilterClassSessionDto } from './dto/filterClassSession.dto';
@@ -173,6 +174,23 @@ export class ClassSessionController {
     @ApiResponse({ status: 409, description: 'Already cancelled, or attendance has already been recorded for it' })
     async cancelSession(@Param('id', ParseIntPipe) id: number, @Body() cancelClassSessionDto: CancelClassSessionDto) {
         return this.classSessionService.cancelSession(id, cancelClassSessionDto);
+    }
+
+    @Put(':id/vacation')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiOperation({
+        summary: 'Marchează o ședință ca ținută în vacanță, sau scoate bifa',
+        description:
+            'Un fapt despre oră, pus de cine face catalogul — E12/S8. Nu trimite nimic familiilor. Ce înseamnă pentru bani e E15/S9: o ședință bifată se facturează doar copiilor marcați prezenți. ' +
+            'Refuză ședințele anulate și lunile deja facturate.',
+    })
+    @ApiResponse({ status: 200, description: 'Session updated' })
+    @ApiResponse({ status: 404, description: 'Class session not found' })
+    @ApiResponse({ status: 409, description: 'CLASS_SESSION_CANCELLED or MONTH_ALREADY_INVOICED' })
+    async setVacation(@Param('id', ParseIntPipe) id: number, @Body() dto: SetVacationDto) {
+        return this.classSessionService.setVacation(id, dto);
     }
 
     @Put(':id/reinstate')

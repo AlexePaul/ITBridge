@@ -9,6 +9,7 @@ import { toIsoDate } from './class-session.dates';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
+import { Invoice } from 'src/entities/invoice.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { Weekday } from 'src/enum/weekday.enum';
 import { Role } from 'src/enum/role.enum';
@@ -40,6 +41,7 @@ describe('ClassSessionService', () => {
     let sessionRepo: MockRepository;
     let groupRepo: MockRepository;
     let roomRepo: MockRepository;
+    let invoiceRepo: MockRepository;
     /** The school calendar. Every test but one runs with nothing closed. */
     let closedDates: jest.Mock;
     /** The transaction cancel, move and reinstate write inside — it hands back `sessionRepo`. */
@@ -68,6 +70,8 @@ describe('ClassSessionService', () => {
         sessionRepo = createMockRepository();
         groupRepo = createMockRepository();
         roomRepo = createMockRepository();
+        invoiceRepo = createMockRepository();
+        invoiceRepo.count!.mockResolvedValue(0);
         manager = createMockEntityManager(new Map([[ClassSession, sessionRepo]]));
         notifier = {
             notifyCancelled: jest.fn().mockResolvedValue(0),
@@ -82,6 +86,7 @@ describe('ClassSessionService', () => {
                 provideMockRepository(ClassSession, sessionRepo),
                 provideMockRepository(Group, groupRepo),
                 provideMockRepository(Room, roomRepo),
+                provideMockRepository(Invoice, invoiceRepo),
                 { provide: NonTeachingPeriodService, useValue: { datesIn: closedDates } },
                 // The three effects of a cancellation, mute. What each one does is its own suite's
                 // business; here the question is that the timetable calls them, and with what.
