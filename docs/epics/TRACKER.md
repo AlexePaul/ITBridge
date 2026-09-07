@@ -3,7 +3,10 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 7 septembrie 2026, pe `release/stage`. Două story-uri în aceeași zi.
+**Ultima actualizare:** 7 septembrie 2026, pe `release/stage`. Trei story-uri în aceeași zi.
+**S-a închis E07 S8**, evidența contractului de înscriere — jumătatea care lipsea din E11: lista
+înscrierilor active fără contract consemnat, `/admin/contracte`, ușa de consemnat după și insigna
+„Fără contract" pe fișa copilului și pe grupă; E07 trece din `propus` în `în lucru`.
 **S-a livrat E21 S7**, semnalele timpurii: copii cu trei absențe la rând, grupe cu prezența în
 scădere, familii cu două facturi restante, grupe sub prag — fila „Semnale" din rapoarte, cu
 verificarea retroactivă prin „la data de", plus un mesaj către birou luni dimineața, doar când e
@@ -27,12 +30,12 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **148 de story-uri** în 22 de epicuri: 74 livrate, 19 parțiale, 6 blocate, 12 scoase din
-scop, 37 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **148 de story-uri** în 22 de epicuri: 75 livrate, 19 parțiale, 6 blocate, 12 scoase din
+scop, 36 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar nu rulează nicăieri". (Cifrele sunt numărate din rândurile de mai jos. Cele dinainte erau ținute
 de mână și o luaseră razna cu câte unul în patru categorii din cinci.)
 
-Cele 37 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+Cele 36 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
 E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
 mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
@@ -104,7 +107,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
 > află de la părintele care sună.
 
-### E07 · Securitate, GDPR și consimțământ — `propus`
+### E07 · Securitate, GDPR și consimțământ — `în lucru; S8 livrat, restul propus`
 
 - [ ] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface
 - [ ] S2 · Consimțământ parental — granularitate `(părinte, copil, scop)`, decisă
@@ -113,7 +116,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [ ] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2
 - [ ] S6 · Managementul secretelor
 - [ ] S7 · Contracte de prelucrare
-- [ ] S8 · Evidența contractului de înscriere — contractul se semnează fizic; platforma reține doar că există
+- [x] S8 · Evidența contractului de înscriere — contractul se semnează fizic; platforma reține doar că există și din ce zi. Coloana și completarea la înscriere/la confirmarea probei veniseră cu E11 S1; aici s-a livrat acceptanța: `PUT /enrollments/:id/contract` consemnează după (proba e refuzată, n-are contract), `GET /enrollments/without-contract` e lista înscrierilor active fără nimic pe fișă, `/admin/contracte` o arată cu un câmp de dată pe rând, fișa copilului și pagina grupei poartă „Fără contract", tabloul de bord numără. Fără versiune de text: contractul n-are încă a doua versiune
 
 > **Granița cu E22 a fost tăiată pe tip, în septembrie 2026:** aici stă mecanica — inventarul,
 > consimțământul, audit log-ul, exportul și ștergerea, bannerul, secretele, contractele de prelucrare

@@ -15,6 +15,7 @@ import { OutboxService } from 'src/modules/mail/outbox.service';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
 import {
     createMockEntityManager,
+    createMockQueryBuilder,
     createMockRepository,
     MockEntityManager,
     MockRepository,
@@ -632,6 +633,70 @@ describe('EnrollmentService', () => {
 
             const error = await service.resolveTrial(9, { accepted: true }).catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('NOT_A_TRIAL');
+        });
+    });
+
+    describe('contract evidence (E07 S8)', () => {
+        const active = { id: 12, status: EnrollmentStatus.ACTIVE, child: { id: 1 }, group: { id: 2 }, contractSignedAt: null };
+
+        beforeEach(() => {
+            enrollmentRepo.findOne!.mockResolvedValue(active);
+            enrollmentRepo.findOneOrFail!.mockResolvedValue({ ...active, contractSignedAt: '2026-01-14' });
+            enrollmentRepo.update!.mockResolvedValue({ affected: 1 });
+        });
+
+        it('records the day the paper was signed, and hands back the row', async () => {
+            const saved = await service.recordContract(12, '2026-01-14');
+
+            expect(enrollmentRepo.update).toHaveBeenCalledWith({ id: 12 }, { contractSignedAt: '2026-01-14' });
+            expect(saved.contractSignedAt).toBe('2026-01-14');
+        });
+
+        it('keeps only the day of a full timestamp', async () => {
+            await service.recordContract(12, '2026-01-14T10:30:00.000Z');
+
+            expect(enrollmentRepo.update).toHaveBeenCalledWith({ id: 12 }, { contractSignedAt: '2026-01-14' });
+        });
+
+        it('clears a mistaken entry with null', async () => {
+            await service.recordContract(12, null);
+
+            expect(enrollmentRepo.update).toHaveBeenCalledWith({ id: 12 }, { contractSignedAt: null });
+        });
+
+        it('refuses a trial — there is no contract to have signed yet', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ ...active, status: EnrollmentStatus.TRIAL });
+
+            const error = await service.recordContract(12, '2026-01-14').catch((e: unknown) => e);
+
+            expect(error).toBeInstanceOf(ConflictException);
+            expect(responseOf(error).error).toBe('TRIAL_HAS_NO_CONTRACT');
+            expect(enrollmentRepo.update).not.toHaveBeenCalled();
+        });
+
+        it('refuses a day in the future', async () => {
+            const error = await service.recordContract(12, '2999-01-01').catch((e: unknown) => e);
+
+            expect(error).toBeInstanceOf(BadRequestException);
+            expect(responseOf(error).error).toBe('CONTRACT_DATE_IN_FUTURE');
+        });
+
+        it('404s an enrolment that does not exist', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue(null);
+
+            await expect(service.recordContract(99, '2026-01-14')).rejects.toThrow(NotFoundException);
+        });
+
+        it('lists only active, open enrolments with nothing on file, oldest first', async () => {
+            const qb = createMockQueryBuilder({ many: [active] });
+            enrollmentRepo.createQueryBuilder!.mockReturnValue(qb);
+
+            const rows = await service.withoutContract();
+
+            expect(rows).toEqual([active]);
+            expect(qb.where).toHaveBeenCalledWith('enrollment.status = :status', { status: EnrollmentStatus.ACTIVE });
+            expect(qb.andWhereCalls.map(([condition]) => condition)).toEqual(['enrollment.endDate IS NULL', 'enrollment.contractSignedAt IS NULL']);
+            expect(qb.orderBy).toHaveBeenCalledWith('enrollment.startDate', 'ASC');
         });
     });
 

@@ -166,6 +166,18 @@ const tiles = computed(() => {
       to: "/admin/approvals",
     },
     {
+      // E07/S8. A child in a room nobody has the signed paper for — found here, not in the
+      // binder at the wrong moment.
+      label: "Contracte nesemnate",
+      value: data.enrollmentsWithoutContract,
+      display: String(data.enrollmentsWithoutContract),
+      note:
+        data.enrollmentsWithoutContract > 0
+          ? "înscrieri active fără contract consemnat"
+          : undefined,
+      to: "/admin/contracte",
+    },
+    {
       // The age, not just the count — E17/S8. Five uploaded this afternoon is a normal afternoon;
       // one from Tuesday still here on Friday is a document nobody has looked at, and the two are
       // indistinguishable from a number on its own.

@@ -108,12 +108,29 @@ export const useEnrollmentsApi = () => {
       body: { status },
     });
 
+  /** Active enrolments with no signed contract on file, oldest first — E07/S8. */
+  const fetchWithoutContract = async () =>
+    api<Enrollment[]>("/enrollments/without-contract", { headers: authHeader() });
+
+  /**
+   * Records the day the paper was signed — E07/S8. `null` clears a mistaken entry. A trial is
+   * refused by the API: there is no contract to have signed yet.
+   */
+  const recordContract = async (id: number, contractSignedAt: string | null) =>
+    api<Enrollment>(`/enrollments/${id}/contract`, {
+      method: "PUT",
+      headers: authHeader(),
+      body: { contractSignedAt },
+    });
+
   return {
     fetchHistory,
     fetchMembers,
     fetchOccupancy,
     fetchUnresolvedTrials,
     fetchDemand,
+    fetchWithoutContract,
+    recordContract,
     transfer,
     resolveTrial,
     enrol,

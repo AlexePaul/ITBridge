@@ -194,6 +194,16 @@ probele. Dacă schimbi asta, e o decizie de preț și e a E15 — nu o numărare
 se oferă listei de așteptare — nu e liber, se dă acestui copil. Coada e întrebată doar când un loc
 chiar pleacă din grupă.
 
+**Contractul de înscriere e pe hârtie; platforma ține faptul și ziua, nimic altceva** (E07 S8).
+`Enrollment.contractSignedAt` se completează la înscriere, la confirmarea probei sau după, prin
+`PUT /enrollments/:id/contract` — cu `null` pentru o dată greșită. **Proba e refuzată**
+(`TRIAL_HAS_NO_CONTRACT`): e gratuită și n-are contract, deci o dată pe ea ar spune că familia s-a
+angajat înainte să decidă. Lista `GET /enrollments/without-contract` numără doar înscrierile
+**active**: o înscriere închisă e istorie, iar tabloul de bord o cere de la
+`EnrollmentService.withoutContract`, nu numără el. Nu adăuga textul, versiunea sau o acceptare
+digitală: nu există auto-înscriere, deci e mereu cineva în cameră când se semnează, iar hârtia se
+obține la fel de ușor ca o bifă.
+
 **Verificarea de vârstă e avertisment, nu blocaj** (E11/S6): prima cerere primește 409
 `COMPATIBILITY_WARNINGS` cu vârstele în mesaj, a doua trece cu `acknowledgeWarnings: true`. Nu e o
 cale de acces peste capacitate — aia se verifică prima și refuză oricum. Dacă adaugi un endpoint care

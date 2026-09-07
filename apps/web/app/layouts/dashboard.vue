@@ -152,6 +152,9 @@ const navigationItems = computed(() => {
       // sees it without navigating to it.
       { label: "Cereri și probe", to: "/admin/leads", icon: "i-lucide-inbox" },
       { label: "Conturi în așteptare", to: "/admin/approvals", icon: "i-lucide-user-check" },
+      // E07/S8: the active enrolments the office has no signed paper for. A list, so that
+      // "a semnat familia X?" is not answered from a binder at the wrong moment.
+      { label: "Contracte nesemnate", to: "/admin/contracte", icon: "i-lucide-file-signature" },
       { label: "Profiluri", to: "/admin/profiles", icon: "i-lucide-users" },
       { label: "Copii", to: "/admin/children", icon: "i-lucide-baby" },
     ],
