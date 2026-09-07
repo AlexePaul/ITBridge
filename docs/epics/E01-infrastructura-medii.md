@@ -1,6 +1,6 @@
 # E01 · Curățenie infrastructură și medii de rulare
 
-**Status:** în lucru · **Pistă:** Fundație · **Depinde de:** — · **Blochează:** tot ce trebuie să ruleze undeva
+**Status:** în lucru — stage rulează · **Pistă:** Fundație · **Depinde de:** — · **Blochează:** ce cere producție
 
 ## Problemă
 
@@ -78,11 +78,12 @@ certificatul expiră oricum în ianuarie 2027 și nu e servit de nimeni.
 scos din `package.json`, iar `package-lock.json` regenerat — 203 linii de tranzitive dispărute.
 
 **`.github/workflows/aws.yml` a fost șters, nu rescris.** Decizia din secțiunea de mai jos spune
-„se rescrie", dar rescrierea *este* S4, care nu s-a făcut încă fiindcă nu există instanță EC2.
-Până atunci workflow-ul ar fi rulat la fiecare push pe `release/prod`, către un host inexistent, cu
-`pm2 delete` înaintea lui `pm2 start`. Un workflow rupt care se declanșează automat e mai rău
-decât niciunul. Destinația rămâne EC2; S4 scrie workflow-ul de la zero, în forma cu `pm2 reload`
-și health check.
+„se rescrie", iar rescrierea _este_ S4 — făcută între timp, ca `.github/workflows/deploy.yml`. La
+momentul ștergerii nu exista instanță, deci workflow-ul ar fi rulat la fiecare push pe
+`release/prod`, către un host inexistent, cu `pm2 delete` înaintea lui `pm2 start`. Un workflow rupt
+care se declanșează automat e mai rău decât niciunul. Destinația a rămas EC2, iar forma nouă are
+`pm2 reload` și health check — plus două lucruri pe care cea veche nu le avea: niciun secret AWS
+stocat și niciun port deschis.
 
 ### S3 · Docker doar pentru infrastructură — ✅ livrat
 
@@ -92,7 +93,7 @@ decât niciunul. Destinația rămâne EC2; S4 scrie workflow-ul de la zero, în 
 **Verificat:** `docker compose up -d` pornește doar Postgres, `healthy` în 6 secunde. Backend-ul
 pornit cu `node dist/main.js` se conectează pe `localhost:5432` și mapează toate rutele.
 
-### S4 · Producție pe VPS cu PM2
+### S4 · Producție pe VPS cu PM2 — ✅ livrat pentru stage
 
 Un VPS cu Node LTS, pnpm și PM2. Backend-ul rulează sub PM2 cu fișier de ecosistem versionat în
 repo: nume de proces, mod cluster dacă are sens, restart pe crash, rotație de loguri, variabile de
@@ -103,12 +104,55 @@ Deploy-ul: `git pull`, `pnpm install --frozen-lockfile`, `pnpm build`, migrări,
 `pm2 reload` — **reload, nu delete plus start**, ca să existe repornire fără downtime și ca un
 build eșuat să lase versiunea veche în funcțiune.
 
-**Acceptanță:** un deploy cu build stricat nu întrerupe serviciul. `GET /health` public răspunde
-200. Repornirea VPS-ului readuce aplicația singură, prin `pm2 startup` plus `pm2 save`.
+**Acceptanță:** un deploy cu build stricat nu întrerupe serviciul. `GET /health` public răspunde 200. Repornirea VPS-ului readuce aplicația singură, prin `pm2 startup` plus `pm2 save`.
 
-**Stare: neînceput.** Amânat deliberat până există instanța EC2 — un `ecosystem.config.js` și un
-workflow scrise împotriva unui host imaginar sunt ficțiune, nu infrastructură. Odată cu S4 intră
-și `GET /health`, care astăzi nu există.
+**Stare: livrat pentru `release/stage`.** `api-stage.itbridgeschool.com` rulează pe o instanță EC2
+în `eu-north-1`: Postgres 17 pe aceeași mașină, PM2 pentru proces, Caddy pentru TLS și proxy invers.
+`GET /health` și `GET /ready` există. Producția n-are încă backend, și nu din lipsă de infrastructură
+— vezi mai jos.
+
+**Deploy-ul e un push pe `release/stage`.** `deploy.yml` cheamă `ci.yml` prin `workflow_call`, deci
+verificările și deploy-ul sunt o singură rulare și nimic nu pleacă pe un commit roșu. Apoi:
+un token OIDC schimbat pe un rol AWS de o oră, comanda trimisă prin SSM, `fetch-env.sh` ca root ca
+să regenereze `/etc/itbridge/stage.env` din Parameter Store, `deploy.sh` ca `deploy` pentru install,
+build, migrări și `pm2 reload`, iar la final workflow-ul cere `/ready`.
+
+Cinci decizii care nu se citesc din cod:
+
+- **Nicio cheie AWS în GitHub.** Rolul se asumă prin OIDC, cu trust policy limitat la
+  `refs/heads/release/*`; în secrete stau doar ARN-ul rolului și id-ul instanței. SSM înseamnă că
+  instanța n-are niciun port deschis pentru deploy și că nu există cheie SSH care să se scurgă.
+- **`fetch-env.sh` ca root, `deploy.sh` ca `deploy`.** SSM rulează comenzile ca root; un
+  `node_modules` al lui root sau un al doilea daemon PM2 ar strica fiecare deploy de după, în timp
+  ce ăsta ar raporta succes. `/etc/itbridge` e 750, deci scrisul fișierului de mediu chiar cere root.
+- **`deploy.sh` se oprește dacă build-ul n-a produs `apps/api/dist/main.js`.** `nest-cli.json` are
+  `deleteOutDir`, deci un build întrerupt golește `dist/` fără să oprească procesul care servește
+  din memorie — defecțiunea apare abia la următoarea repornire, ore mai târziu și fără legătură
+  vizibilă cu deploy-ul. Acceptanța („un build stricat nu întrerupe serviciul") e respectată exact
+  pentru că refuzul vine înaintea lui `pm2 reload`.
+- **`instances: 1` și `exec_mode: 'fork'`.** Nu e o economie de resurse, e cerința de la
+  „Scheduler-ul trebuie să ruleze într-o singură instanță": doi worker-i s-ar trezi amândoi la
+  fiecare tick al outbox-ului.
+- **Verificarea finală e `/ready`, nu `/health`.** `/health` spune doar că procesul trăiește;
+  `/ready` atinge Postgres și S3, deci prinde un proces pornit lângă o bază la care migrarea n-a
+  ajuns — singurul eșec care altfel ar trecut drept succes.
+
+**Configurația nu e în repo și nu e în GitHub**, ci în SSM Parameter Store, de unde ajunge pe
+instanță ca `/etc/itbridge/<env>.env` (640, `root:deploy`), regenerat la fiecare deploy. Din același
+motiv, `ecosystem.config.js`, `deploy.sh`, `fetch-env.sh` și `backup.sh` stau în `/srv/itbridge/` pe
+instanță, nu în arborele ăsta.
+
+**Rămâne deschis: producția.** `release/prod` nu e în trigger, iar `deploy.yml` îl refuză pe nume —
+branch-ul ăla poartă API-ul de dinainte de E08, zece module față de nouăsprezece, deci un deploy de
+acolo ar publica altă aplicație, mai veche, nu o versiune timpurie a ăsteia. Deblocarea nu e o
+sarcină de infrastructură: e decizia de a duce platforma pe `release/prod`. Mai rămân, tot în afara
+repo-ului, backup-ul restaurat măcar o dată ([E04](E04-migrari-date.md), S4) și fixarea explicită a
+scheduler-ului dacă instanța capătă vreodată un al doilea proces.
+
+**Verificat:** patru deploy-uri consecutive din `deploy.yml`, fiecare terminat cu `/ready` verde pe
+`api-stage.itbridgeschool.com`. Primul, pe commit-ul care a introdus workflow-ul, a picat la
+asumarea rolului — trust policy-ul nu fusese încă pus pe rol. O repornire a instanței readuce
+aplicația prin `pm2 startup` plus `pm2 save`.
 
 ### S5 · Vercel documentat și `API_BASE` corect
 
@@ -132,9 +176,10 @@ Două lucruri care au ieșit la iveală pe drum:
 - **`AWS_REGION` e obligatorie la boot.** `S3Service.onModuleInit` aruncă fără ea și aplicația
   nu pornește, chiar dacă nu atingi nicio factură. E acum în `.env.example` și în CLAUDE.md.
 
-**Rămâne de făcut, în afara repo-ului:** setarea `API_BASE` în Vercel, pe toate mediile inclusiv
-Preview. Verificarea capăt-la-capăt de pe domeniul real depinde de S4, fiindcă backend-ul nu e
-încă deployat.
+**Verificat capăt-la-capăt pe stage**, odată cu S4: `stage.itbridgeschool.com` (Vercel, de pe
+`release/stage`) vorbește cu `api-stage.itbridgeschool.com`, cu `API_BASE` setat în Vercel. Pe
+`itbridgeschool.com` verificarea rămâne imposibilă cât timp producția n-are backend — nu din cauza
+configurației Vercel, care e aceeași.
 
 **Verificat local:** `nuxt build` trece, `API_BASE` ajunge corect în `runtimeConfig.public.apiBase`
 al bundle-ului, iar build-ul servit răspunde 200 cu `apiBase` pointat spre backend.
@@ -153,18 +198,18 @@ Nu a fost nevoie să se merge-uiască nimic; evaluarea a fost întreaga decizie.
 SHA-urile de la momentul ștergerii, ca referința să existe dacă cineva caută vreodată un branch
 după nume:
 
-| Branch | HEAD | Ultimul commit |
-|---|---|---|
-| `backup-02-01-2026` | `c5027b7` | 2026-01-02 |
-| `backup-ui-02-01-2026` | `de4976c` | 2026-01-02 |
-| `development` | `b81cbc9` | 2026-01-12 |
-| `flyio-new-files` | `e86f4e8` | 2026-01-12 |
-| `feature/docker-image-creation` | `7703747` | 2026-01-17 |
-| `feature/configure-github-actions-CD` | `84f00d0` | 2026-01-21 |
-| `feature/configure-github-actions-CD-1` | `aed01eb` | 2026-03-05 |
-| `docs/onboarding-and-epics` | `bb395e9` | 2026-08-26 |
-| `feat/e01-infrastructure-cleanup` | — | merge-uit prin #9 |
-| `feat/e02-pnpm-workspaces-turborepo` | — | merge-uit prin #10 |
+| Branch                                  | HEAD      | Ultimul commit     |
+| --------------------------------------- | --------- | ------------------ |
+| `backup-02-01-2026`                     | `c5027b7` | 2026-01-02         |
+| `backup-ui-02-01-2026`                  | `de4976c` | 2026-01-02         |
+| `development`                           | `b81cbc9` | 2026-01-12         |
+| `flyio-new-files`                       | `e86f4e8` | 2026-01-12         |
+| `feature/docker-image-creation`         | `7703747` | 2026-01-17         |
+| `feature/configure-github-actions-CD`   | `84f00d0` | 2026-01-21         |
+| `feature/configure-github-actions-CD-1` | `aed01eb` | 2026-03-05         |
+| `docs/onboarding-and-epics`             | `bb395e9` | 2026-08-26         |
+| `feat/e01-infrastructure-cleanup`       | —         | merge-uit prin #9  |
+| `feat/e02-pnpm-workspaces-turborepo`    | —         | merge-uit prin #10 |
 
 Ultimele două nu erau în lista epicului: sunt branch-urile PR-urilor deja merge-uite, șterse din
 aceeași mișcare.
@@ -226,9 +271,9 @@ Asta schimbă S2 și S4 față de forma inițială a epicului:
 
 - **`.github/workflows/aws.yml` nu se șterge, se rescrie.** Destinația rămâne aceeași; problema
   nu a fost niciodată EC2, ci lipsa de rollback. Forma nouă: `git pull`, `pnpm install
-  --frozen-lockfile`, `pnpm build`, migrări, `pm2 reload`, health check. Dacă build-ul sau
+--frozen-lockfile`, `pnpm build`, migrări, `pm2 reload`, health check. Dacă build-ul sau
   migrarea eșuează, nu se ajunge la reload și versiunea veche rămâne în funcțiune.
-  *Amendament, la curățenia din S2:* fișierul vechi a fost totuși șters, fiindcă rescrierea e
+  _Amendament, la curățenia din S2:_ fișierul vechi a fost totuși șters, fiindcă rescrierea e
   parte din S4 și până atunci s-ar fi declanșat la fiecare push. Se scrie de la zero în S4.
 - **Postgres pe instanță** înseamnă că backup-ul, restaurarea și actualizările sunt ale voastre.
   [E04](E04-migrari-date.md), S4 — proba de restaurare — devine obligatorie, nu opțională.
