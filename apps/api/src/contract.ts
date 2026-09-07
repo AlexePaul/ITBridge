@@ -21,6 +21,7 @@ import type { Enrollment } from './entities/enrollment.entity';
 import type { InvoiceWorksheetRow } from './modules/invoice/invoice.service';
 import type { FinanceReport } from './modules/dashboard/finance-report.service';
 import type { OccupancyReport } from './modules/dashboard/occupancy-report.service';
+import type { EarlySignals } from './modules/dashboard/early-signals.service';
 import type { AnnouncementDetail, AnnouncementPreview, AnnouncementResult, AnnouncementSummary } from './modules/announcement/announcement.service';
 import type { PendingSummary } from './modules/project/project.service';
 import type { ReferralReward } from './modules/discount/discount.rules';
@@ -205,6 +206,7 @@ type _DeliveryRecord = Check<
 // other, or the page that reads it types against a figure that never arrives.
 type _FinanceReport = Check<Wire.FinanceReport, FinanceReport>;
 type _OccupancyReport = Check<Wire.OccupancyReport, OccupancyReport>;
+type _EarlySignals = Check<Wire.EarlySignals, EarlySignals>;
 
 // E17/S8. Service-shaped, like the reports: what leaves the controller is an aggregate, so the
 // check is on the interface the service returns rather than on the entity behind it.

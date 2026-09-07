@@ -674,6 +674,20 @@ factură). Diferă exact când o familie plătește târziu, deci nu alege unul 
 plățile `succeeded` sunt bani, iar `waived` se numără, nu se adună. Pragul de ocupare (60%) și prețul
 unui loc gol stau în `reports.rules.ts` și sunt propuneri afișate ca atare, nu decizii.
 
+**Semnalele timpurii sunt patru liste și un email de luni, nu o acțiune** (E21 S7).
+`EarlySignalsService` (`apps/api/src/modules/dashboard/early-signals.service.ts`) cere fiecare
+listă de la cine deține definiția: restanțele repetate de la `ArrearsService.list`, grupele sub prag
+din raportul de ocupare — aceleași rânduri, nu a doua numărare —, iar cele două tipare de prezență,
+care sunt noi, din regula pură `signals.rules.ts`: un copil ale cărui ultime trei marcaje sunt
+absențe (și seria e „vie": ultimul marcaj sub trei săptămâni, altfel copilul a plecat), o grupă a
+cărei medii pe ultimele trei ședințe ținute a căzut cu 20 de puncte față de cele trei dinainte.
+Toate pragurile sunt constante acolo și pleacă pe sârmă, ca ecranul să numească linia pe care o
+trage. **`asOf` e verificarea retroactivă**: marcajele și facturile se citesc așa cum stăteau în
+ziua cerută, ocuparea mereu azi — și răspunsul o spune. Digest-ul `EarlySignalsJob` pleacă luni la
+08:00 pe ceasul școlii, prin outbox, cu `dedupeKey` `early-signals:<zi>`, și **doar când există ceva
+de semnalat**, ca mementourile de prezență și de lead-uri. Un semnal nu declanșează nimic — nici
+reducere, nici transfer, nici mesaj către familie; e un motiv de telefon, cu numărul lângă el.
+
 **Restanța se derivă, iar `Invoice.status` e doar o memorie** (E16 S7). Termenul e 14 zile de la
 `dateIssued` — `arrears.rules.ts`, fără coloană `dueDate` — iar `ArrearsService.list` numără plățile
 **reușite**, nu se uită la coloana de stare: un ecran despre bani n-are voie să greșească o zi

@@ -9,4 +9,9 @@ export type {
   OccupancyRoom,
   OccupancyLocation,
   TimetableSlot,
+  EarlySignals,
+  ChildAbsenceSignal,
+  GroupAttendanceSignal,
+  FamilyArrearsSignal,
+  UnderfilledGroupSignal,
 } from "@itbridge/types";

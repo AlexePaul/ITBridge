@@ -9,6 +9,9 @@ import { FinanceReportService } from './finance-report.service';
 import { OccupancyReportService } from './occupancy-report.service';
 import { LeadFunnelService } from 'src/modules/lead/lead-funnel.service';
 import { FunnelReportQueryDto } from './dto/funnelReportQuery.dto';
+import { SignalsReportQueryDto } from './dto/signalsReportQuery.dto';
+import { EarlySignalsService } from './early-signals.service';
+import { parseIsoDate } from 'src/modules/class-session/class-session.dates';
 import { defaultFunnelRange } from './reports.rules';
 import { DEFAULT_FINANCE_MONTHS, addMonths, defaultFinanceRange } from './reports.rules';
 
@@ -23,7 +26,29 @@ export class ReportsController {
         private readonly finance: FinanceReportService,
         private readonly occupancy: OccupancyReportService,
         private readonly funnel: LeadFunnelService,
+        private readonly signals: EarlySignalsService,
     ) {}
+
+    /**
+     * E21/S7. `asOf` is the retrospective check the story asks for: a past day evaluates the marks
+     * and the invoices as they stood then, so the office can page back through the weeks and see
+     * whether the families who later left were on this list in time.
+     */
+    @Get('signals')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Semnale timpurii: copii care au încetat să vină, grupe cu prezența în scădere, familii cu două facturi restante, grupe sub prag',
+        description:
+            'Fiecare listă e cerută de la cine deține definiția: absențele din marcaje (regula pură din signals.rules.ts), restanțele de la ArrearsService, ocuparea de la raportul de locuri. ' +
+            'Pragurile sunt propuneri și vin în răspuns. `asOf` evaluează marcajele și facturile așa cum stăteau într-o zi din trecut; locurile se numără mereu azi.',
+    })
+    @ApiResponse({ status: 200, description: 'The four lists, the thresholds they were drawn with, totals, and what they were computed from' })
+    @ApiResponse({ status: 400, description: 'asOf is not a calendar date' })
+    async signalsReport(@Query() query: SignalsReportQueryDto) {
+        return this.signals.build(query.asOf === undefined ? new Date() : parseIsoDate(query.asOf));
+    }
 
     @Get('finance')
     @UseGuards(AuthGuard, RolesGuard)

@@ -238,6 +238,105 @@
       </template>
     </section>
 
+    <!-- ============================== SEMNALE ============================== -->
+    <section v-else-if="tab === 'semnale'" class="space-y-6">
+      <div class="flex flex-wrap items-end gap-3">
+        <UFormField
+          label="La data de"
+          name="signalsAsOf"
+          help="Marcajele și facturile, așa cum stăteau atunci — ca să vezi dacă lista ar fi prins din timp o familie care a plecat."
+        >
+          <AdminDateField v-model="signalsAsOf" :max="todayKey()" />
+        </UFormField>
+        <UButton
+          variant="soft"
+          icon="i-lucide-refresh-cw"
+          :loading="signalsLoading"
+          @click="loadSignals(true)"
+        >
+          Arată
+        </UButton>
+      </div>
+
+      <AdminLoading v-if="signalsLoading" />
+      <AdminError v-else-if="signalsError" :message="signalsError" />
+
+      <template v-else-if="signals">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div
+            v-for="tile in signalTilesView"
+            :key="tile.label"
+            class="border border-muted rounded-lg p-4"
+          >
+            <p class="text-2xl font-semibold tabular-nums">{{ tile.display }}</p>
+            <p class="text-sm text-muted mt-0.5">{{ tile.label }}</p>
+            <p class="text-xs text-muted mt-1">{{ tile.note }}</p>
+          </div>
+        </div>
+
+        <AdminEmpty
+          v-if="signals.totals.all === 0"
+          icon="i-lucide-shield-check"
+          title="Nimic de semnalat"
+          description="Niciun copil cu absențe la rând, nicio grupă în scădere, nicio familie cu restanțe repetate, nicio grupă sub prag."
+        />
+
+        <section v-if="signals.children.length > 0" class="space-y-3">
+          <h2 class="text-sm font-semibold text-muted uppercase tracking-wide">
+            Copii care nu mai vin
+          </h2>
+          <p class="text-sm text-muted">
+            Ultimele marcaje ale copilului sunt absențe, iar ultimul e recent. O absență anunțată e
+            o altă discuție — de aceea se numără separat.
+          </p>
+          <AdminTable
+            :rows="signals.children"
+            :columns="childColumns"
+            empty-text="Niciun copil."
+            @row-click="(row) => navigateTo(`/admin/groups/${row.groupId}/children`)"
+          />
+        </section>
+
+        <section v-if="signals.groups.length > 0" class="space-y-3">
+          <h2 class="text-sm font-semibold text-muted uppercase tracking-wide">
+            Grupe cu prezența în scădere
+          </h2>
+          <AdminTable
+            :rows="signals.groups"
+            :columns="groupSignalColumns"
+            empty-text="Nicio grupă."
+            @row-click="(row) => navigateTo(`/admin/groups/${row.groupId}/children`)"
+          />
+        </section>
+
+        <section v-if="signals.families.length > 0" class="space-y-3">
+          <h2 class="text-sm font-semibold text-muted uppercase tracking-wide">
+            Familii cu restanțe repetate
+          </h2>
+          <AdminTable
+            :rows="signals.families"
+            :columns="familyColumns"
+            empty-text="Nicio familie."
+            @row-click="() => navigateTo('/admin/restante')"
+          />
+        </section>
+
+        <section v-if="signals.underfilled.length > 0" class="space-y-3">
+          <h2 class="text-sm font-semibold text-muted uppercase tracking-wide">
+            Grupe sub pragul de ocupare
+          </h2>
+          <AdminTable
+            :rows="signals.underfilled"
+            :columns="underfilledColumns"
+            empty-text="Nicio grupă."
+            @row-click="(row) => navigateTo(`/admin/groups/${row.groupId}/children`)"
+          />
+        </section>
+
+        <p class="text-xs text-muted">{{ basisSentence(signals) }}</p>
+      </template>
+    </section>
+
     <!-- ============================== PÂLNIA ============================== -->
     <section v-else-if="tab === 'palnie'" class="space-y-6">
       <form class="flex flex-wrap items-end gap-3" @submit.prevent="loadFunnel">
@@ -355,16 +454,28 @@ import type { LeadChannel, LeadFunnel } from "~/types/lead.types";
 import { formatDateKey, formatLei, formatMonth, formatPercent } from "~/composables/useAdminFormat";
 import { defaultReportRange, isValidRange } from "~/composables/useReportRange";
 import { todayKey } from "~/composables/useAttendanceCalendar";
+import {
+  arrearsSentence,
+  basisSentence,
+  signalTiles,
+  streakSentence,
+  trendSentence,
+} from "~/composables/useEarlySignals";
 import type { AdminBadgeColor, AdminTableColumn } from "~/types/admin-ui.types";
 import type { ArrearsBucket } from "~/types/arrears.types";
 import { ARREARS_BUCKET_LABELS } from "~/types/arrears.types";
 import { WEEKDAY_LABELS, type Weekday } from "~/types/group.types";
 import type {
+  ChildAbsenceSignal,
+  EarlySignals,
+  FamilyArrearsSignal,
   FinanceMonth,
   FinanceReport,
+  GroupAttendanceSignal,
   OccupancyGroup,
   OccupancyReport,
   TimetableSlot,
+  UnderfilledGroupSignal,
 } from "~/types/reports.types";
 
 /**
@@ -389,6 +500,7 @@ const tabs: TabsItem[] = [
   { label: "Bani", icon: "i-lucide-wallet", value: "bani" },
   { label: "Locuri", icon: "i-lucide-armchair", value: "locuri" },
   { label: "Pâlnia", icon: "i-lucide-filter", value: "palnie" },
+  { label: "Semnale", icon: "i-lucide-siren", value: "semnale" },
 ];
 const TABS = new Set(tabs.map((entry) => entry.value as string));
 const tab = ref<string>(TABS.has(String(route.query.tab)) ? String(route.query.tab) : "bani");
@@ -620,5 +732,95 @@ const groupColumns: AdminTableColumn<OccupancyGroup>[] = [
 ];
 
 watch(tab, (value) => value === "locuri" && loadOccupancy(), { immediate: true });
+
+// ---- Semnale (E21/S7) -----------------------------------------------------------------------
+
+const signalsAsOf = ref<string | undefined>(todayKey());
+const signalsLoading = ref(false);
+const signalsError = ref("");
+const signals = ref<EarlySignals | null>(null);
+
+/**
+ * `force` is the "Arată" button, after the day was changed. The tab itself loads once. The day is
+ * sent only when it is not today, so the default request is the one the Monday digest makes.
+ */
+const loadSignals = async (force = false) => {
+  if (signals.value && !force) return;
+  // `AdminDateField` publishes on every keystroke; a half-typed year is not a question yet.
+  const asOf = signalsAsOf.value;
+  if (force && (!asOf || !/^\d{4}-\d{2}-\d{2}$/.test(asOf))) return;
+  signalsLoading.value = true;
+  signalsError.value = "";
+  try {
+    signals.value = await reportsApi.fetchSignals(asOf && asOf !== todayKey() ? asOf : undefined);
+  } catch (err: unknown) {
+    signalsError.value = apiErrorMessage(err, "Eroare la încărcarea semnalelor");
+  } finally {
+    signalsLoading.value = false;
+  }
+};
+
+const signalTilesView = computed(() => (signals.value ? signalTiles(signals.value) : []));
+
+const childColumns: AdminTableColumn<ChildAbsenceSignal>[] = [
+  { key: "childName", label: "Copilul", icon: "i-lucide-user-round" },
+  { key: "groupName", label: "Grupa" },
+  { key: "streak", label: "Absențe", accessor: (row) => streakSentence(row) },
+  { key: "lastMarkOn", label: "Ultimul marcaj", accessor: (row) => formatDateKey(row.lastMarkOn) },
+  {
+    key: "family",
+    label: "Familia",
+    accessor: (row) =>
+      row.parentName
+        ? `${row.parentName}${row.phone ? ` · ${row.phone}` : ""}`
+        : "fără părinte în platformă",
+  },
+];
+
+const groupSignalColumns: AdminTableColumn<GroupAttendanceSignal>[] = [
+  { key: "groupName", label: "Grupa", icon: "i-lucide-users-round" },
+  { key: "locationName", label: "Unde" },
+  {
+    key: "drop",
+    label: "Prezența",
+    accessor: (row) => trendSentence(row, signals.value?.thresholds.groupAttendanceWindow ?? 0),
+  },
+  {
+    key: "lastSessionOn",
+    label: "Ultima ședință",
+    accessor: (row) => formatDateKey(row.lastSessionOn),
+  },
+];
+
+const familyColumns: AdminTableColumn<FamilyArrearsSignal>[] = [
+  { key: "parentName", label: "Familia", icon: "i-lucide-users" },
+  { key: "invoices", label: "Restanțe", accessor: (row) => arrearsSentence(row) },
+  {
+    key: "contact",
+    label: "Contact",
+    accessor: (row) => [row.phone, row.email].filter(Boolean).join(" · ") || "—",
+  },
+];
+
+const underfilledColumns: AdminTableColumn<UnderfilledGroupSignal>[] = [
+  { key: "groupName", label: "Grupa", icon: "i-lucide-users-round" },
+  { key: "locationName", label: "Unde" },
+  {
+    key: "seats",
+    label: "Ocupate",
+    align: "right",
+    accessor: (row) => `${row.taken} / ${row.capacity}`,
+  },
+  {
+    key: "fillRate",
+    label: "Grad",
+    type: "badge",
+    accessor: (row) => formatPercent(row.fillRate),
+    badgeColor: () => "warning",
+  },
+  { key: "waiting", label: "În așteptare", align: "right" },
+];
+
+watch(tab, (value) => value === "semnale" && loadSignals(), { immediate: true });
 onMounted(loadFinance);
 </script>
