@@ -27,10 +27,12 @@ profesorii acolo (E14 S2). Se construiește cu `pnpm --filter agent build`; inst
 
 **`release/prod` e site-ul public. `release/stage` e restul.**
 
-Vercel servește `release/prod`, iar paginile publice nu ating backend-ul — de asta site-ul stă în
-producție deși API-ul nu e deployat nicăieri. Tot ce e după autentificare — portalul, zona de admin,
-întreg `apps/api` de după E08 — trăiește pe `release/stage` și rămâne acolo până există instanța de
-care are nevoie ([E01](docs/epics/E01-infrastructura-medii.md), S4).
+Vercel servește `release/prod` pe `itbridgeschool.com`, iar paginile publice nu ating backend-ul —
+de asta site-ul stă în producție deși API-ul de producție nu e deployat nicăieri. Tot ce e după
+autentificare — portalul, zona de admin, întreg `apps/api` de după E08 — trăiește pe `release/stage`,
+iar de acolo **se deployează singur**: web pe `stage.itbridgeschool.com` (Vercel), API pe
+`api-stage.itbridgeschool.com` (EC2). Un push pe branch e un deploy; vezi „Infrastructură — stare
+reală" mai jos.
 
 În `release/prod` intră doar ce afectează site-ul public și poate fi verificat fără backend:
 conținut, SEO, performanță, corecturi de interfață publică. Se aduc prin cherry-pick, nu prin merge
@@ -424,11 +426,12 @@ manuală, iar cifrele de referință sunt în E18 S7.
 
 **Partea publică nu atinge backend-ul, cu o singură excepție declarată.** Cele șapte pagini publice
 vechi, formularul de contact, `robots.txt`, `sitemap.xml`, `llms.txt` și datele structurate
-funcționează fără `API_BASE` — de aceea site-ul stă în producție pe Vercel deși backend-ul nu e
-deployat. Excepția e `/proba`, formularul de programare la lecția de probă (E20/S2): el chiar are
-nevoie de API, fiindcă scrie un rând. E scris să pice moale — orele se cer doar din client, iar fără
-răspuns formularul tot se trimite și cititorul primește numărul de telefon — dar **nu se aduce pe
-`release/prod`** până nu rulează un backend. Faptele despre școală stau în `apps/web/shared/`, nu în
+funcționează fără `API_BASE` — de aceea site-ul stă în producție pe Vercel deși backend-ul de
+producție nu e deployat. Excepția e `/proba`, formularul de programare la lecția de probă (E20/S2):
+el chiar are nevoie de API, fiindcă scrie un rând. E scris să pice moale — orele se cer doar din
+client, iar fără răspuns formularul tot se trimite și cititorul primește numărul de telefon — dar
+**nu se aduce pe `release/prod`** până nu rulează un backend acolo. Pe `release/stage` funcționează,
+pe `api-stage.itbridgeschool.com`. Faptele despre școală stau în `apps/web/shared/`, nu în
 pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts` (nivelurile și prețurile),
 `teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini), `structured-data.ts` (constructorii
 de JSON-LD). Aceleași constante alimentează pagina, graful JSON-LD, sitemap-ul și `llms.txt` —
@@ -535,13 +538,18 @@ entitățile au divergat.
 Când schimbi o entitate: `pnpm --filter api migration:generate src/migrations/<Nume>`, apoi citește
 SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD`.
 
-**Nu te chinui însă să păstrezi date: nu există niciunele.** Baza nu rulează nicăieri în afara
-mașinilor de dezvoltare și a testelor, n-a avut niciodată un utilizator real, iar seed-ul se reface
-dintr-o comandă. Deci o migrare generată se ia ca atare, se rescriu liber migrările nepornite încă
-și nu se scrie cod de backfill pentru rânduri care nu există. Ce **rămâne** obligatoriu e ca migrările
-să existe și să corespundă entităților, fiindcă de asta depinde `check:schema` din CI — și fiindcă
-regula se schimbă în ziua în care există prima familie reală (E01 S4). Până atunci, singurul cost al
-unei migrări greșite e un `docker compose down -v`.
+**Nu te chinui însă să păstrezi date: nu există niciunele.** Nici pe stage — baza de acolo e tot
+seed, refăcută dintr-o comandă —, n-a existat niciodată un utilizator real, iar în afara ei baza
+rulează doar pe mașinile de dezvoltare și în teste. Deci o migrare generată se ia ca atare, se
+rescriu liber migrările nepornite încă și nu se scrie cod de backfill pentru rânduri care nu există.
+Ce **rămâne** obligatoriu e ca migrările să existe și să corespundă entităților, fiindcă de asta
+depinde `check:schema` din CI — și fiindcă regula se schimbă în ziua în care există prima familie
+reală, nu în ziua în care a existat un deploy.
+
+Ce s-a schimbat de când există stage e **prețul greșelii, nu regula**: `deploy.sh` rulează
+`migration:run` între build și `pm2 reload`, deci o migrare care pică oprește deploy-ul și lasă pe
+`api-stage` versiunea dinainte. Costul nu mai e un `docker compose down -v` pe laptopul tău, e un
+branch care nu mai ajunge nicăieri până e reparat.
 
 **Migrările nu rulează la boot.** `migrationsRun` e `false` intenționat: în deploy se rulează
 explicit, între build și `pm2 reload`, ca o migrare eșuată să oprească deploy-ul în loc să lase
@@ -871,7 +879,9 @@ formatează** — nu scădea din text.
 
 **Scheduler-ul trebuie să ruleze într-o singură instanță.** `FOR UPDATE SKIP LOCKED` face două
 treceri simultane inofensive una față de alta, dar doi worker-i PM2 s-ar trezi amândoi la fiecare
-tick. Fixarea se face în fișierul de ecosistem din E01 S4, care nu există încă.
+tick. Fixarea e în `/srv/itbridge/ecosystem.config.js`, pe instanță: `instances: 1` și
+`exec_mode: 'fork'`. Fișierul **nu e în repo** — vezi „Infrastructură — stare reală". Dacă cineva
+trece vreodată aplicația pe `cluster`, asta e linia care se rupe prima, tăcut.
 
 **Orizontul de opt săptămâni nu se rulează singur.** Ședințele se scriu doar la cerere, prin
 `POST /class-sessions/generate` (admin); nu există niciun job care să le scrie. Ce e programat în
@@ -884,7 +894,8 @@ niciunul. Iar prezența se marchează pe
 `POST /attendance/session/:classSessionId`, deci fără ședință generată marcarea răspunde 404 și
 ecranul n-are ce afișa. Generarea e idempotentă pe `(group, date)` și lasă neatins ce există deja,
 indiferent de stare — se poate chema oricând și de oricâte ori, iar o a doua rulare nu învie o
-ședință anulată. Până când E01 S4 aduce procesul care poate purta un cron, o cheamă cineva.
+ședință anulată. Procesul care poate purta un cron există acum pe stage, dar **job-ul de generare
+tot nu există** — o cheamă cineva.
 
 **Datele calendaristice se construiesc din componente locale, niciodată printr-un ocol prin UTC.**
 TypeORM scrie o coloană `date` citind componentele locale ale valorii, iar `new Date('2026-08-29')`
@@ -1038,11 +1049,48 @@ prețul unei luni pline, nu regula. Dacă atingi prețul, potrivește-le pe amâ
 
 ## Infrastructură — stare reală
 
-Frontend-ul e pe **Vercel**, configurat din dashboard — nu există `vercel.json`. Backend-ul **nu e
-deployat nicăieri** în acest moment, deci site-ul funcționează efectiv ca prezentare statică.
-Ținta stabilită e AWS EC2 cu PM2, Postgres pe aceeași instanță și Caddy pentru TLS; fluxul de
-deploy se scrie în [E01](docs/epics/E01-infrastructura-medii.md), S4. Până atunci repo-ul nu
-conține niciun workflow de deploy — dacă nu găsești unul, nu s-a pierdut, nu există încă.
+**Stage rulează întreg. Din producție, doar site-ul.**
+
+|                 | web                                 | API                                  |
+| --------------- | ----------------------------------- | ------------------------------------ |
+| `release/stage` | `stage.itbridgeschool.com` (Vercel) | `api-stage.itbridgeschool.com` (EC2) |
+| `release/prod`  | `itbridgeschool.com` (Vercel)       | — nedeployat                         |
+
+Frontend-ul e pe **Vercel** pe amândouă branch-urile, configurat din dashboard — nu există
+`vercel.json`. Backend-ul e pe o singură instanță **EC2** în `eu-north-1`, cu Postgres 17 pe aceeași
+mașină, PM2 pentru proces și **Caddy** pentru TLS și proxy invers către `127.0.0.1` (nu `localhost`:
+`main.ts` ascultă pe IPv4, iar numele se rezolvă întâi la `::1`). `api.itbridgeschool.com` n-are
+nimic în spate, deliberat: `release/prod` poartă API-ul de dinainte de E08 — zece module față de
+nouăsprezece — deci un deploy de acolo n-ar fi o lansare timpurie a platformei ăsteia, ci a alteia,
+mult mai vechi. `deploy.yml` refuză branch-ul pe nume.
+
+**Un push pe `release/stage` e un deploy.** `.github/workflows/deploy.yml` cheamă `ci.yml` prin
+`workflow_call` — verificările și deploy-ul sunt o singură rulare în Actions, deci deploy-ul nu poate
+porni pe un commit roșu — și apoi:
+
+1. schimbă un token OIDC pe un rol AWS de o oră. **Nicio cheie AWS nu e stocată în GitHub**; ce e
+   acolo e ARN-ul rolului și id-ul instanței. Trust policy-ul e limitat la `refs/heads/release/*`.
+2. trimite comanda prin **SSM**, deci nu se deschide niciun port pentru deploy și nu există cheie SSH
+   care să se scurgă.
+3. pe instanță rulează întâi `fetch-env.sh` **ca root** — regenerează `/etc/itbridge/stage.env` din
+   Parameter Store, iar `/etc/itbridge` e 750 —, apoi `deploy.sh` **ca `deploy`**: SSM rulează ca
+   root, iar un `node_modules` al lui root sau un al doilea daemon PM2 ar strica fiecare deploy de
+   după ăsta, în timp ce ăsta ar raporta succes.
+4. `deploy.sh` face `install`, `build`, **se oprește dacă n-a ieșit `apps/api/dist/main.js`** —
+   `deleteOutDir` golește `dist/` la început, deci un build întrerupt lasă procesul viu servind din
+   memorie și rupe abia la următoarea repornire —, rulează `migration:run`, apoi `pm2 reload`, și
+   așteaptă ca procesul să răspundă pe `/health`.
+5. workflow-ul verifică la final `/ready`, nu `/health`: `/ready` atinge Postgres și S3, deci prinde
+   un proces pornit lângă o bază la care migrarea n-a ajuns.
+
+**Configurația nu e în repo și nu e în GitHub.** Stă în **SSM Parameter Store** și ajunge pe instanță
+ca `/etc/itbridge/<env>.env` (640, `root:deploy`), regenerat la fiecare deploy. O variabilă nouă se
+scrie acolo — dacă aplicația n-o vede după un deploy, ori n-a fost pusă în Parameter Store, ori
+lipsește din lista lui `fetch-env.sh`.
+
+**`ecosystem.config.js`, `deploy.sh`, `fetch-env.sh` și `backup.sh` nu sunt în repo.** Stau în
+`/srv/itbridge/` pe instanță. Dacă le cauți aici și nu le găsești, acolo sunt. Backup-ul e un
+`pg_dump` zilnic la 03:15 către S3, cu ținte separate pentru cele două medii.
 
 `docker-compose.yml` conține Postgres și MinIO — infrastructura, și numai ea. Aplicația rulează
 direct pe Node, local și în producție. Nu adăuga servicii de aplicație acolo.

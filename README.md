@@ -11,13 +11,13 @@ Pentru context de arhitectură și capcane, vezi [CLAUDE.md](CLAUDE.md). Pentru 
 
 Monorepo pnpm, orchestrat cu Turborepo.
 
-| Workspace                        | Ce e                                           | Port local | Producție                                                                |
-| -------------------------------- | ---------------------------------------------- | ---------- | ------------------------------------------------------------------------ |
-| [apps/api](apps/api)             | NestJS 11, TypeORM, JWT, PDFKit, S3, sharp     | 3000       | nedeployat încă — vezi [E01](docs/epics/E01-infrastructura-medii.md), S4 |
-| [apps/web](apps/web)             | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind            | 3001       | Vercel                                                                   |
-| [apps/agent](apps/agent)         | Agentul de încărcare: Node 22, fără dependențe | —          | un calculator Windows din biroul școlii                                  |
-| [packages/types](packages/types) | Contractul API partajat de cele trei           | —          | —                                                                        |
-| Postgres 17                      | `docker-compose.yml`                           | 5432       | pe instanța de backend                                                   |
+| Workspace                        | Ce e                                           | Port local | Producție                                                 |
+| -------------------------------- | ---------------------------------------------- | ---------- | --------------------------------------------------------- |
+| [apps/api](apps/api)             | NestJS 11, TypeORM, JWT, PDFKit, S3, sharp     | 3000       | EC2 — `api-stage.itbridgeschool.com`; producția, încă nu  |
+| [apps/web](apps/web)             | Nuxt 4, @nuxt/ui 4, Pinia, Tailwind            | 3001       | Vercel — `itbridgeschool.com`, `stage.itbridgeschool.com` |
+| [apps/agent](apps/agent)         | Agentul de încărcare: Node 22, fără dependențe | —          | un calculator Windows din biroul școlii                   |
+| [packages/types](packages/types) | Contractul API partajat de cele trei           | —          | —                                                         |
+| Postgres 17                      | `docker-compose.yml`                           | 5432       | pe instanța de backend                                    |
 
 **Aplicația nu rulează în Docker.** Nici local, nici în producție. Docker e folosit exclusiv
 pentru infrastructura locală, adică Postgres.
@@ -115,14 +115,29 @@ Variabilele de mediu, toate în `turbo.json` la `globalEnv`:
 | `CONTACT_FROM`   | opțional             | Expeditorul. Domeniul lui trebuie verificat în Resend, altfel fiecare trimitere pică cu 403. Nesetată, se folosește `contact@itbridgeschool.com`.                                                                                                                   |
 | `SITE_URL`       | **nesetată**         | Domeniul din care se construiesc canonical, `og:url`, `sitemap.xml`, `robots.txt` și `@id`-urile din JSON-LD. Nesetată, `nuxt.config.ts` cade pe domeniul real. O valoare de localhost aici scoate tot site-ul din index. Se setează doar dacă se schimbă domeniul. |
 
-**Backend.** Nu e deployat nicăieri în acest moment. Ținta e AWS EC2 cu PM2, Postgres pe aceeași
-instanță și Caddy pentru TLS; se face în [E01](docs/epics/E01-infrastructura-medii.md), S4.
+**Backend, pe EC2.** O singură instanță în `eu-north-1`, cu Postgres 17 pe aceeași mașină, PM2
+pentru proces și Caddy pentru TLS. Deployat pentru **stage**, la `api-stage.itbridgeschool.com`;
+producția n-are încă backend.
+
+**Deploy-ul e un push pe `release/stage`.** `.github/workflows/deploy.yml` cheamă `ci.yml` prin
+`workflow_call`, deci verificările și deploy-ul sunt o singură rulare și nimic nu pleacă pe un commit
+roșu. Nicio cheie AWS nu e stocată în GitHub: workflow-ul schimbă un token OIDC pe un rol de o oră și
+trimite comanda prin SSM, deci instanța n-are niciun port deschis pentru deploy și nu există cheie
+SSH. Pe instanță, `fetch-env.sh` regenerează `/etc/itbridge/stage.env` din SSM Parameter Store, apoi
+`deploy.sh` construiește, rulează migrările și dă `pm2 reload`. La final, workflow-ul cere `/ready`.
+
+`release/prod` **nu** e în trigger, și `deploy.yml` îl refuză pe nume: branch-ul ăla poartă API-ul de
+dinainte de E08 — zece module față de nouăsprezece — deci un deploy de acolo ar publica altă
+aplicație, mai veche, nu o versiune timpurie a ăsteia.
+
+Scripturile de pe instanță (`ecosystem.config.js`, `deploy.sh`, `fetch-env.sh`, `backup.sh`) stau în
+`/srv/itbridge/`, nu în repo.
 
 Consecința pentru site: **partea publică funcționează întreagă și fără backend.** Cele șapte pagini
 publice, formularul de contact (care merge prin Resend, dintr-o rută Nitro de pe Vercel), `robots.txt`,
-`sitemap.xml`, `llms.txt` și datele structurate nu ating `API_BASE`. Ce depinde de backend e tot ce
-vine după autentificare — portalul părintelui și zona de admin — și acelea rămân neconectate până
-la S4 din E01. Vezi „Stare cunoscută” mai jos.
+`sitemap.xml`, `llms.txt` și datele structurate nu ating `API_BASE`. De asta `itbridgeschool.com` stă
+în producție deși API-ul de producție nu există. Ce depinde de backend — portalul părintelui și zona
+de admin — se verifică pe `stage.itbridgeschool.com`. Vezi „Stare cunoscută” mai jos.
 
 ## Schema bazei de date
 
@@ -209,8 +224,9 @@ pagini, fotografiile, SEO și datele structurate — e făcută și poate sta î
 ([E18](docs/epics/E18-frontend-portal.md) S1 și S3, [E19](docs/epics/E19-seo-geo.md) S1, S2, S3 și
 S7). Ce **nu** e făcut, și e explicit muncă viitoare:
 
-- **Cablarea la backend.** Nimic din ce e după login nu vorbește cu un API care rulează, fiindcă
-  backend-ul nu e deployat. Paginile există și compilează; datele nu vin de nicăieri.
+- **Cablarea la backend, în producție.** Pe stage e cablată: `stage.itbridgeschool.com` vorbește cu
+  `api-stage.itbridgeschool.com`, pe date de seed. Pe `itbridgeschool.com` nu, fiindcă acolo nu
+  rulează niciun API — paginile de după login există și compilează, dar datele nu vin de nicăieri.
 - **Zona de admin.** Ecranele n-au fost rescrise pe noul sistem de design; jumătatea de componente
   a lui E18 S5 e făcută, iar din migrarea propriu-zisă (S5b) e făcută prima felie — meniul grupat și
   trei ecrane. Restul rămâne.
@@ -218,10 +234,9 @@ S7). Ce **nu** e făcut, și e explicit muncă viitoare:
   paginile publice, în ambele teme; ce e după login a fost verificat doar manual.
 
 **Portalul părintelui a fost rescris** pe sistemul de design (E18 S4): cinci ecrane plus cele trei de
-intrare în cont, pe un layout propriu, cu comutatorul de copil care se păstrează între pagini. Dar
-n-a fost văzut niciodată pe date reale, din același motiv ca mai sus — deci ordinea firească rămâne
-[E01](docs/epics/E01-infrastructura-medii.md) S4 (instanța și deploy-ul) înainte de orice altceva din
-zona autentificată.
+intrare în cont, pe un layout propriu, cu comutatorul de copil care se păstrează între pagini. De la
+[E01](docs/epics/E01-infrastructura-medii.md) S4 se poate și **umbla** pe el, pe stage — dar tot pe
+date de seed: nicio familie reală n-a folosit încă nimic din platformă.
 
 Niciun `it.failing` nu mai e viu în repo: bug-urile de preț pe care le documentau sunt reparate și
 testele au devenit teste de regresie. Regula, și sursa de adevăr pentru orice discuție despre

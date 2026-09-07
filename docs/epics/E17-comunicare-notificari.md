@@ -243,7 +243,9 @@ integral în Postgres. Purjarea sesiunilor se mută pe același scheduler odată
 **Acceptanță:** furnizorul indisponibil o oră nu pierde niciun mesaj și nu blochează nimic. Două
 treceri simultane ale scheduler-ului nu trimit același mesaj de două ori.
 
-**Livrat parțial. Mecanismul e întreg; nu rulează nicăieri și îl folosește un singur apelant.**
+**Livrat parțial. Mecanismul e întreg și rulează pe stage de la [E01](E01-infrastructura-medii.md)
+S4 — dar acolo nu există cheie de trimitere, deci coada se revendică și mesajele rămân în tabel cu
+motivul în `lastError`.**
 
 Ce există: tabelul `outbox`, din migrarea `1787994566464-ClassSessionsAndOutbox.ts`, cu entitatea
 `apps/api/src/entities/outbox-message.entity.ts`, plus `OutboxService` și `OutboxDispatcher` în
