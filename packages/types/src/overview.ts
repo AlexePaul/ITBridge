@@ -62,4 +62,6 @@ export interface Overview {
     pendingApprovals: number;
     /** Messages that had nowhere to go — a family not reached, who does not know it. */
     undeliverableMessages: number;
+    /** Active enrolments with no signed contract on file — E07/S8. A child in a room nobody has the paper for. */
+    enrollmentsWithoutContract: number;
 }

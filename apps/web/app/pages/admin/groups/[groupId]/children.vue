@@ -76,7 +76,19 @@
               <UBadge variant="subtle" color="secondary" class="w-10 justify-center"
                 >#{{ child.id }}</UBadge
               >
-              <p class="font-semibold">{{ child.firstName }} {{ child.lastName }}</p>
+              <p class="font-semibold">
+                {{ child.firstName }} {{ child.lastName }}
+                <!-- E07/S8: seen in the list, not found in the binder at the wrong moment. -->
+                <UBadge
+                  v-if="withoutContract.has(child.id)"
+                  color="warning"
+                  variant="subtle"
+                  size="sm"
+                  class="ml-2"
+                >
+                  Fără contract
+                </UBadge>
+              </p>
             </div>
             <UButton
               color="info"
@@ -287,18 +299,28 @@ const formatDeadline = (value: string) =>
  */
 const refreshSeats = async (groupId: number) => {
   try {
-    const [seats, queue] = await Promise.all([
+    const [seats, queue, members] = await Promise.all([
       enrollmentsApi.fetchOccupancy(groupId),
       enrollmentsApi.fetchWaitlist(groupId),
+      enrollmentsApi.fetchMembers(groupId),
     ]);
     occupancy.value = seats;
     waitlist.value = queue ?? [];
+    // E07/S8: the children sitting here on an active enrolment nobody has the signed paper for.
+    // A trial is not one of them — a trial has no contract to sign.
+    withoutContract.value = new Set(
+      (members ?? [])
+        .filter((entry) => entry.status === "ACTIVE" && entry.contractSignedAt === null)
+        .map((entry) => entry.child?.id)
+        .filter((id): id is number => id !== undefined)
+    );
   } catch {
     // The rest of the page still works without these; showing a wrong number would be worse than
     // showing none.
     occupancy.value = null;
   }
 };
+const withoutContract = ref<Set<number>>(new Set());
 
 /** "Adaugă sau elimină copii din Scratch Începători · Drumul Taberei · Sala 1". */
 const subtitle = computed(() => {

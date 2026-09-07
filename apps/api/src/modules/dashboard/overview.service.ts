@@ -65,6 +65,8 @@ export interface Overview {
     pendingApprovals: number;
     /** Messages that had nowhere to go — a family who was not reached and does not know it. */
     undeliverableMessages: number;
+    /** Active enrolments with no contract on file — E07/S8. Asked of `EnrollmentService.withoutContract`. */
+    enrollmentsWithoutContract: number;
 }
 
 /**
@@ -95,22 +97,26 @@ export class OverviewService {
     async build(today: Date = new Date()): Promise<Overview> {
         const date = toIsoDate(today);
 
-        const [sessions, unmarked, arrearsRows, groupsNearlyFull, pendingProjects, pendingApprovals, undeliverableMessages] = await Promise.all([
-            // The admin view of the day: `findSessions` narrows for a parent and not for an admin,
-            // and this endpoint is admin-only, so it sees the whole school.
-            this.classSessions.findSessions({ dateFrom: date, dateTo: date }, Role.ADMIN, 0),
-            // The week behind today, today excluded: what is missing from the day in progress is
-            // not a backlog, it is work still being done.
-            this.classSessions.findUnmarkedSessions({ dateFrom: toIsoDate(addDays(today, -7)), dateTo: toIsoDate(addDays(today, -1)) }),
-            this.arrears.list(today),
-            this.nearlyFullGroups(),
-            // Asked of the service that owns the question, not counted here. A report deriving
-            // its own definition of "waiting" is the second definition that eventually diverges
-            // from the group screen's — and this one now carries an age, which a `count` cannot.
-            this.projects.pendingSummary(today),
-            this.userRepository.count({ where: { role: Role.PARENT, approvalStatus: ApprovalStatus.PENDING } }),
-            this.outboxRepository.count({ where: { status: OutboxStatus.UNDELIVERABLE } }),
-        ]);
+        const [sessions, unmarked, arrearsRows, groupsNearlyFull, pendingProjects, pendingApprovals, undeliverableMessages, withoutContract] =
+            await Promise.all([
+                // The admin view of the day: `findSessions` narrows for a parent and not for an admin,
+                // and this endpoint is admin-only, so it sees the whole school.
+                this.classSessions.findSessions({ dateFrom: date, dateTo: date }, Role.ADMIN, 0),
+                // The week behind today, today excluded: what is missing from the day in progress is
+                // not a backlog, it is work still being done.
+                this.classSessions.findUnmarkedSessions({ dateFrom: toIsoDate(addDays(today, -7)), dateTo: toIsoDate(addDays(today, -1)) }),
+                this.arrears.list(today),
+                this.nearlyFullGroups(),
+                // Asked of the service that owns the question, not counted here. A report deriving
+                // its own definition of "waiting" is the second definition that eventually diverges
+                // from the group screen's — and this one now carries an age, which a `count` cannot.
+                this.projects.pendingSummary(today),
+                this.userRepository.count({ where: { role: Role.PARENT, approvalStatus: ApprovalStatus.PENDING } }),
+                this.outboxRepository.count({ where: { status: OutboxStatus.UNDELIVERABLE } }),
+                // E07/S8: the enrolments the office has no signed contract for. The list is the
+                // enrolment module's; the tile only counts what it is handed.
+                this.enrollments.withoutContract(),
+            ]);
 
         const todaySessions: OverviewSession[] = sessions.map((session) => ({
             id: session.id,
@@ -139,6 +145,7 @@ export class OverviewService {
             projectsAwaitingSendOldestDays: pendingProjects.oldestDays,
             pendingApprovals,
             undeliverableMessages,
+            enrollmentsWithoutContract: withoutContract.length,
         };
     }
 

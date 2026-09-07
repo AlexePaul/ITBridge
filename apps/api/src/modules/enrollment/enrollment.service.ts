@@ -520,6 +520,69 @@ export class EnrollmentService {
     }
 
     /**
+     * Records that the enrolment contract was signed, and when — E07/S8.
+     *
+     * The paper is signed in the room and stays in the folder; the platform keeps the fact and the
+     * date, nothing else, so that "a semnat familia X?" is answered from a list instead of from a
+     * binder. It can be set at enrolment and at trial confirmation already; this is the door for
+     * every enrolment where nobody typed it then, which at a few dozen families is most of them.
+     *
+     * A trial is refused: a trial is free and has no contract to sign, so a date recorded on it
+     * would say the family committed before they decided. Confirm the trial first — that door
+     * takes the date too. A date in the future is refused for the plainer reason that nobody has
+     * signed anything yet. `null` clears a mistaken entry.
+     */
+    async recordContract(enrollmentId: number, contractSignedAt: string | null): Promise<Enrollment> {
+        const enrollment = await this.enrollmentRepository.findOne({ where: { id: enrollmentId }, relations: { child: true, group: true } });
+        if (!enrollment) {
+            throw new NotFoundException('Enrollment not found');
+        }
+        if (enrollment.status === EnrollmentStatus.TRIAL) {
+            throw new ConflictException({
+                message: 'Proba nu are contract — confirmă proba întâi, apoi consemnează semnarea.',
+                error: 'TRIAL_HAS_NO_CONTRACT',
+            });
+        }
+        if (contractSignedAt !== null && contractSignedAt.slice(0, 10) > today()) {
+            throw new BadRequestException({
+                message: 'Data semnării nu poate fi în viitor.',
+                error: 'CONTRACT_DATE_IN_FUTURE',
+            });
+        }
+        await this.enrollmentRepository.update({ id: enrollmentId }, { contractSignedAt: contractSignedAt === null ? null : contractSignedAt.slice(0, 10) });
+        this.logger.log(
+            contractSignedAt === null
+                ? `Enrollment ${enrollmentId}: contract evidence cleared.`
+                : `Enrollment ${enrollmentId}: contract recorded as signed on ${contractSignedAt.slice(0, 10)}.`,
+        );
+        return this.enrollmentRepository.findOneOrFail({ where: { id: enrollmentId }, relations: { child: true, group: true } });
+    }
+
+    /**
+     * The active enrolments with no contract on file, oldest first — E07/S8's list.
+     *
+     * Active only: a trial has no contract by design, and a closed enrolment is history — the
+     * family has left, and the folder is the folder. What this answers is "who is sitting in a
+     * group without having signed", which is the question the office would otherwise answer at
+     * the wrong moment.
+     */
+    async withoutContract(): Promise<Enrollment[]> {
+        return this.enrollmentRepository
+            .createQueryBuilder('enrollment')
+            .leftJoinAndSelect('enrollment.group', 'group')
+            .leftJoin('enrollment.child', 'child')
+            .addSelect(['child.id', 'child.firstName', 'child.lastName'])
+            .leftJoin('child.parent', 'parent')
+            .addSelect(['parent.id', 'parent.firstName', 'parent.lastName', 'parent.phone', 'parent.email'])
+            .where('enrollment.status = :status', { status: EnrollmentStatus.ACTIVE })
+            .andWhere('enrollment.endDate IS NULL')
+            .andWhere('enrollment.contractSignedAt IS NULL')
+            .orderBy('enrollment.startDate', 'ASC')
+            .addOrderBy('child.lastName', 'ASC')
+            .getMany();
+    }
+
+    /**
      * Where the unmet demand is — E11/S7.
      *
      * Buckets the children nobody has placed by age and by location, so "do I have enough children

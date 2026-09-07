@@ -73,6 +73,26 @@
         <p v-if="entry.contractSignedAt" class="text-sm text-muted whitespace-nowrap">
           Contract {{ formatDate(entry.contractSignedAt) }}
         </p>
+        <!-- E07/S8: an active enrolment with nothing on file says so, and takes the day here,
+             without a detour through the list — a trial has no contract, so it shows nothing. -->
+        <div
+          v-else-if="entry.status === 'ACTIVE' && entry.endDate === null"
+          class="flex items-end gap-2 shrink-0"
+        >
+          <UFormField label="Contract semnat la" name="contractSignedAt">
+            <AdminDateField v-model="contractDay" :max="today" />
+          </UFormField>
+          <UButton
+            color="warning"
+            variant="soft"
+            class="min-h-11"
+            :loading="recordingContract"
+            :disabled="recordingContract || !DATE_KEY_PATTERN.test(contractDay ?? '')"
+            @click="recordContractFor(entry)"
+          >
+            Fără contract — consemnează
+          </UButton>
+        </div>
       </div>
     </div>
 
@@ -140,6 +160,26 @@ const saving = ref(false);
 const today = todayKey();
 const transferTargetId = ref<number | undefined>();
 const transferring = ref(false);
+
+// E07/S8: the day on the paper, recorded from here for the running enrolment. Defaults to today —
+// most contracts are recorded the day they are signed — and the calendar stops there.
+const contractDay = ref<string | undefined>(today);
+const recordingContract = ref(false);
+
+const recordContractFor = async (entry: Enrollment) => {
+  const day = contractDay.value;
+  if (!day || !DATE_KEY_PATTERN.test(day)) return;
+  recordingContract.value = true;
+  try {
+    await enrollmentsApi.recordContract(entry.id, day);
+    success("Contract consemnat", `Semnat la ${formatDate(day)}.`);
+    history.value = (await enrollmentsApi.fetchHistory(Number(route.params.childId))) ?? [];
+  } catch (err: unknown) {
+    notifyError("Nu am putut consemna contractul", apiErrorMessage(err));
+  } finally {
+    recordingContract.value = false;
+  }
+};
 
 /** The enrolment still running, if any. Only one can be, by D6. */
 const inForce = computed(() => history.value.find((entry) => entry.endDate === null));

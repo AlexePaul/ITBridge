@@ -418,8 +418,10 @@ export async function seed(dataSource: DataSource): Promise<void> {
     // group with more people wanting in than it has seats.
     const enrollmentRepo = dataSource.getRepository(Enrollment);
 
+    let enrolled = 0;
     for (const child of children) {
         if (!child.group) continue;
+        enrolled += 1;
         await enrollmentRepo.save(
             enrollmentRepo.create({
                 child,
@@ -428,7 +430,9 @@ export async function seed(dataSource: DataSource): Promise<void> {
                 startDate: toIsoDate(daysAgo(120)),
                 endDate: null,
                 exitReason: null,
-                contractSignedAt: toIsoDate(daysAgo(121)),
+                // Every third family has nothing on file, so `/admin/contracte` (E07/S8) opens on
+                // a list rather than on an empty state.
+                contractSignedAt: enrolled % 3 === 0 ? null : toIsoDate(daysAgo(121)),
             }),
         );
     }

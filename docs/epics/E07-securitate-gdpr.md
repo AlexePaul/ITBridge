@@ -1,7 +1,7 @@
 # E07 · Securitate, GDPR și consimțământ
 
-**Status:** propus · **Pistă:** Fundație · **Depinde de:** E04, E05 · **Blochează:** E14, E19; E09 doar
-odată cu reluarea lui S2
+**Status:** în lucru — **S8 livrat**, restul propus · **Pistă:** Fundație · **Depinde de:** E04, E05 ·
+**Blochează:** E14, E19; E09 doar odată cu reluarea lui S2
 
 > **Granița cu [E22](E22-termeni-si-date.md), fiindcă se confundă ușor: aici e mecanica, acolo e ce
 > citește și acceptă familia.** Cele două epicuri descriau aceleași patru lucruri cu cuvinte
@@ -240,6 +240,29 @@ din ce dată, fără să deschidă cineva un biblioraft. O înscriere fără con
 **Nu blochează nimic din [E11](E11-inscrieri-capacitate.md).** Singura situație în care acceptarea ar
 fi trebuit capturată digital era auto-înscrierea din portal, fiindcă acolo nu mai e nimeni în cameră.
 Nu se face — vezi [Decizii luate](#decizii-luate).
+
+**Livrat — jumătate de E11, jumătate aici.** Coloana `Enrollment.contractSignedAt` a venit cu E11 S1
+și se completa la înscriere (`POST /enrollments`) și la confirmarea probei (`PUT
+/enrollments/:id/resolve-trial`), iar fișa copilului o arăta când exista. Ce lipsea era exact
+acceptanța: **o înscriere fără contract nu se vedea nicăieri**, iar pentru cele câteva zeci de
+înscrieri la care nimeni n-a tastat data atunci nu exista nicio ușă de consemnat după. Acum:
+
+- `PUT /enrollments/:id/contract` consemnează ziua de pe hârtie pe orice înscriere care nu e probă;
+  `null` șterge o dată greșită. **Proba e refuzată** (`TRIAL_HAS_NO_CONTRACT`): e gratuită și n-are
+  contract, iar o dată pe ea ar spune că familia s-a angajat înainte să decidă — se confirmă proba
+  întâi, ușa aceea ia și data. O zi din viitor e refuzată (`CONTRACT_DATE_IN_FUTURE`).
+- `GET /enrollments/without-contract` e lista: înscrierile **active** fără nimic consemnat, cele mai
+  vechi primele, cu copilul, familia (telefon, email) și grupa. Doar active: proba n-are contract prin
+  construcție, iar o înscriere închisă e istorie — familia a plecat, dosarul e dosarul.
+- Se vede în trei locuri: `/admin/contracte`, o listă cu câte un câmp de dată și un buton pe rând;
+  fișa copilului, unde înscrierea activă fără contract spune „Fără contract — consemnează" în loc să
+  tacă; pagina grupei, unde copilul poartă insigna „Fără contract". Tabloul de bord numără
+  (`Overview.enrollmentsWithoutContract`), cerut de la `EnrollmentService.withoutContract`, nu
+  numărat acolo.
+
+Ce nu s-a construit, prin decizia de mai sus: versiunea textului. Contractul n-are încă versiuni, deci
+un câmp pentru ele ar fi liber să fie completat cu orice. Se adaugă în ziua în care avocatul dă a doua
+versiune. Exportul din S4 va include faptul și data, când S4 va exista.
 
 ## Dependențe
 

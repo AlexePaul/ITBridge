@@ -11,6 +11,7 @@ import { CreateWaitlistEntryDto } from './dto/createWaitlistEntry.dto';
 import { RemoveWaitlistEntryDto } from './dto/removeWaitlistEntry.dto';
 import { TransferEnrollmentDto } from './dto/transferEnrollment.dto';
 import { ResolveTrialDto } from './dto/resolveTrial.dto';
+import { RecordContractDto } from './dto/recordContract.dto';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 /**
@@ -119,6 +120,42 @@ export class EnrollmentController {
     @ApiResponse({ status: 409, description: 'NOT_A_TRIAL' })
     async resolveTrial(@Param('id', ParseIntPipe) id: number, @Body() resolveTrialDto: ResolveTrialDto) {
         return this.enrollmentService.resolveTrial(id, resolveTrialDto);
+    }
+
+    /**
+     * E07/S8. The contract is paper; the platform keeps the fact that it was signed, and the day.
+     * Declared before the `:id` routes for the reason `trials/unresolved` is.
+     */
+    @Get('without-contract')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Înscrierile active fără contract semnat consemnat',
+        description:
+            'Doar cele active: proba nu are contract, iar o înscriere închisă e istorie. Răspunde la „cine stă în grupă fără să fi semnat" dintr-o listă, nu dintr-un biblioraft.',
+    })
+    @ApiResponse({ status: 200, description: 'Active enrolments with no contract on file, oldest first, with the child, the family and the group' })
+    async withoutContract() {
+        return this.enrollmentService.withoutContract();
+    }
+
+    @Put(':id/contract')
+    @HttpCode(200)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Consemnează că s-a semnat contractul, și din ce dată',
+        description:
+            'Faptul și data, nu textul și nu acceptarea — contractul se semnează pe hârtie. `null` șterge o dată greșită. Proba nu are contract: confirm-o întâi.',
+    })
+    @ApiResponse({ status: 200, description: 'Recorded' })
+    @ApiResponse({ status: 400, description: 'CONTRACT_DATE_IN_FUTURE' })
+    @ApiResponse({ status: 404, description: 'Enrollment not found' })
+    @ApiResponse({ status: 409, description: 'TRIAL_HAS_NO_CONTRACT' })
+    async recordContract(@Param('id', ParseIntPipe) id: number, @Body() recordContractDto: RecordContractDto) {
+        return this.enrollmentService.recordContract(id, recordContractDto.contractSignedAt);
     }
 
     @Get('trials/unresolved')

@@ -24,7 +24,7 @@ describe('OverviewService', () => {
     let userRepo: MockRepository;
     let outboxRepo: MockRepository;
     let classSessions: { findSessions: jest.Mock; findUnmarkedSessions: jest.Mock };
-    let enrollments: { occupancyOf: jest.Mock };
+    let enrollments: { occupancyOf: jest.Mock; withoutContract: jest.Mock };
     let arrears: { list: jest.Mock };
 
     const DAY = new Date(2026, 2, 20);
@@ -44,7 +44,7 @@ describe('OverviewService', () => {
         userRepo = createMockRepository();
         outboxRepo = createMockRepository();
         classSessions = { findSessions: jest.fn().mockResolvedValue([]), findUnmarkedSessions: jest.fn().mockResolvedValue([]) };
-        enrollments = { occupancyOf: jest.fn() };
+        enrollments = { occupancyOf: jest.fn(), withoutContract: jest.fn().mockResolvedValue([]) };
         arrears = { list: jest.fn().mockResolvedValue([]) };
 
         groupRepo.find!.mockResolvedValue([]);
