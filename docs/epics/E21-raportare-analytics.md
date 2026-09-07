@@ -1,6 +1,6 @@
 # E21 · Raportare și analytics
 
-**Status:** în lucru — **S1, S2, S4 și S5 livrate** (S5 prin [E20](E20-achizitie-lead.md) S4), fiecare cu ce n-a intrat scris în dreptul lui; **S3 și S6 scoase din scop** · **Pistă:** Business · **Depinde de:** E12, E15, E16 · **Blochează:** —
+**Status:** în lucru — **S1, S2, S4, S5 și S7 livrate** (S5 prin [E20](E20-achizitie-lead.md) S4), fiecare cu ce n-a intrat scris în dreptul lui; **S3 și S6 scoase din scop** · **Pistă:** Business · **Depinde de:** E12, E15, E16 · **Blochează:** —
 
 ## Problemă
 
@@ -224,6 +224,47 @@ Intervenția devine posibilă cât mai e ceva de făcut.
 
 **Acceptanță:** o scădere de prezență generează alertă înainte de abandon, verificat retroactiv pe
 datele istorice.
+
+**Livrat**, pe `/admin/rapoarte`, fila „Semnale", din `GET /reports/signals`, plus **un mesaj către
+birou luni la 08:00** — fiindcă o listă pe o filă pe care n-o deschide nimeni e un raport, nu o
+alertă. Mesajul pleacă prin outbox, cu cheie de deduplicare pe zi, și **numai când există ceva de
+semnalat**: mementoul zilnic de prezență și rezumatul de lead-uri au ales la fel, din același motiv.
+
+Cele patru tipare din story, fiecare cerut de la cine deține definiția — regula epicului, ținută și
+aici:
+
+- **Copii care nu mai vin**: ultimele trei marcaje ale copilului sunt absențe, iar ultimul e recent
+  (sub trei săptămâni — altfel copilul a plecat, sau catalogul s-a oprit, și l-ar acoperi pe cel
+  care încă e pe listă). Se citește pe copil, peste grupe, ca un transfer la mijlocul seriei să
+  rămână o serie; se spune și câte dintre absențe fuseseră **anunțate** (E12/S3), fiindcă o serie
+  anunțată e altă discuție. Definiția e nouă, deci e a acestui story: `signals.rules.ts`, pură.
+- **Grupe cu prezența în scădere**: media ultimelor trei ședințe ținute față de media celor trei de
+  dinainte, cu o cădere de 20 de puncte sau mai mult. „Ținută" înseamnă cu catalog, regula din
+  [E15](E15-pricing-facturare.md) S9. O grupă fără două ferestre pline nu se judecă — trei săptămâni
+  față de nimic nu sunt o scădere — dar se numără în `basis`.
+- **Familii cu două facturi restante**: din `ArrearsService.list`, care derivă restanța din plățile
+  reușite; „restantă" e peste termenul de 14 zile, nu „încă în termen".
+- **Grupe sub prag**: rândurile pe care raportul de ocupare (S4) le marchează deja sub 60% — aceleași
+  rânduri, nu a doua numărare de locuri.
+
+**Pragurile sunt propuneri**, ca la S4: constante în `signals.rules.ts` — trei absențe, trei ședințe
+pe fereastră, 20 de puncte, două facturi, trei săptămâni de „viu" — trimise în răspuns, ca ecranul și
+emailul să numească linia pe care o trag, și schimbate dintr-o singură editare.
+
+**„Verificat retroactiv" e parametrul `asOf`.** Nu există istoric real de verificat — backend-ul nu
+rulează nicăieri până la [E01](E01-infrastructura-medii.md) S4 —, deci verificarea a fost făcută pe
+istorii scrise de mână, în teste: aceeași serie de marcaje, întrebată în două zile diferite,
+răspunde pe cea de după a treia absență și tace pe cea de dinainte. Ce rămâne pentru ziua în care
+există date e un câmp pe ecran: „la data de", care evaluează marcajele și facturile așa cum stăteau
+într-o luni din trecut, ca biroul să poată da înapoi pe săptămâni și să vadă dacă familiile care au
+plecat apoi erau pe listă din timp. Locurile nu se pot citi pentru o zi trecută — o înscriere e o
+perioadă, dar „ocupat" se întreabă live —, iar răspunsul o spune (`basis.occupancyAsOfToday`).
+Definition of done-ul epicului cere ca semnalele să fi prins măcar un caz real; ăla se închide cu
+primul trimestru de date, nu cu cod.
+
+Ce nu e aici, prin decizie: nicio acțiune automată. Un semnal e un motiv de telefon, nu o
+reducere, un transfer sau un mesaj către familie; pe listă apar telefonul și emailul părintelui,
+și atât.
 
 ## Dependențe
 

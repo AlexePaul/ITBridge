@@ -155,3 +155,98 @@ export interface OccupancyReport {
         slotsInUse: TimetableSlot[];
     };
 }
+
+/** A child who has stopped coming — E21/S7: their last marks are all absences, and the run is live. */
+export interface ChildAbsenceSignal {
+    childId: number;
+    childName: string;
+    /** The group of the last mark — where the office would look for them. */
+    groupId: number;
+    groupName: string;
+    parentId: number | null;
+    parentName: string | null;
+    phone: string | null;
+    email: string | null;
+    /** Absences in a row, at the end of the marks. */
+    streak: number;
+    /** The first absence of the run. */
+    since: ISODate;
+    lastMarkOn: ISODate;
+    /** How many of the run's absences the family had announced (E12/S3). */
+    announced: number;
+}
+
+/** A group whose room is emptier than it was: the last window of held sessions against the one before. */
+export interface GroupAttendanceSignal {
+    groupId: number;
+    groupName: string;
+    locationName: string;
+    recentRate: number;
+    previousRate: number;
+    /** `previousRate - recentRate`. */
+    drop: number;
+    sessions: number;
+    lastSessionOn: ISODate;
+}
+
+/** A family two or more invoices past due, as the arrears list counts them. */
+export interface FamilyArrearsSignal {
+    parentId: number;
+    parentName: string;
+    email: string | null;
+    phone: string | null;
+    invoices: number;
+    outstanding: number;
+    oldestDaysOverdue: number;
+}
+
+/** A group under the occupancy line — the occupancy report's own flag, repeated so the page is one list. */
+export interface UnderfilledGroupSignal {
+    groupId: number;
+    groupName: string;
+    locationName: string;
+    taken: number;
+    capacity: number;
+    free: number;
+    waiting: number;
+    fillRate: number;
+}
+
+/**
+ * What `GET /reports/signals` answers — E21/S7.
+ *
+ * Four lists, the lines they were drawn with (every one a proposal), totals, and what it was all
+ * computed from. `asOf` is the day the marks and the invoices were read as of; seats are always
+ * today's, and `basis.occupancyAsOfToday` says so.
+ */
+export interface EarlySignals {
+    asOf: ISODate;
+    lookbackFrom: ISODate;
+    generatedOn: ISODate;
+    thresholds: {
+        childAbsenceStreak: number;
+        staleStreakAfterDays: number;
+        groupAttendanceWindow: number;
+        groupAttendanceDrop: number;
+        familyOverdueInvoices: number;
+        occupancy: number;
+    };
+    children: ChildAbsenceSignal[];
+    groups: GroupAttendanceSignal[];
+    families: FamilyArrearsSignal[];
+    underfilled: UnderfilledGroupSignal[];
+    totals: {
+        children: number;
+        groups: number;
+        families: number;
+        underfilled: number;
+        all: number;
+    };
+    basis: {
+        marksRead: number;
+        childrenWithMarks: number;
+        sessionsWithRegister: number;
+        groupsWithHistory: number;
+        occupancyAsOfToday: boolean;
+    };
+}

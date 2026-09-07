@@ -7,12 +7,15 @@ import { ClassSessionModule } from 'src/modules/class-session/class-session.modu
 import { EnrollmentModule } from 'src/modules/enrollment/enrollment.module';
 import { InvoiceModule } from 'src/modules/invoice/invoice.module';
 import { LeadModule } from 'src/modules/lead/lead.module';
+import { MailModule } from 'src/modules/mail/mail.module';
 import { ProjectModule } from 'src/modules/project/project.module';
 import { OverviewController } from './overview.controller';
 import { OverviewService } from './overview.service';
 import { ReportsController } from './reports.controller';
 import { FinanceReportService } from './finance-report.service';
 import { OccupancyReportService } from './occupancy-report.service';
+import { EarlySignalsService } from './early-signals.service';
+import { EarlySignalsJob } from './early-signals.job';
 
 /**
  * The overview — E21/S1 — and the reports — E21/S2 and S4.
@@ -25,8 +28,10 @@ import { OccupancyReportService } from './occupancy-report.service';
  * sum what they are handed.
  */
 @Module({
-    imports: [EntitiesModule, JwtModule.register({}), ClassSessionModule, EnrollmentModule, InvoiceModule, ProjectModule, LeadModule],
+    // `MailModule` for the Monday digest of E21/S7 — the one thing this module writes, and it
+    // writes it through the outbox like every other message the backend sends.
+    imports: [EntitiesModule, JwtModule.register({}), ClassSessionModule, EnrollmentModule, InvoiceModule, ProjectModule, LeadModule, MailModule],
     controllers: [OverviewController, ReportsController],
-    providers: [OverviewService, FinanceReportService, OccupancyReportService, AuthGuard, RolesGuard],
+    providers: [OverviewService, FinanceReportService, OccupancyReportService, EarlySignalsService, EarlySignalsJob, AuthGuard, RolesGuard],
 })
 export class DashboardModule {}
