@@ -9,9 +9,19 @@ on:
 
 # A new push on the same PR cancels the previous run - there is no point verifying a commit that
 # another one has already replaced.
+#
+# Cancellation is off for a deploy, and that is the whole reason this is an expression. Called
+# through `workflow_call`, `github.workflow` resolves to the *caller's* name, so every deploy on a
+# branch lands in one group - `ci-Deploy-refs/heads/release/stage` - and `cancel-in-progress: true`
+# cancelled the run in flight, taking the parent Deploy run with it. deploy.yml's own
+# `cancel-in-progress: false` cannot prevent that: the cancellation happens in here. Two pushes a
+# minute apart did exactly this on 7 September, killing run 7 mid-`verify`. Harmless there, but the
+# guarantee deploy.yml documents - never interrupt a deploy between `migration:run` and
+# `pm2 reload` - was not actually held. With this off, a second deploy queues behind the first
+# instead, which is what deploy.yml's own group already asks for.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Turborepo skips tasks whose inputs have not changed. The cache is restored from actions/cache,
