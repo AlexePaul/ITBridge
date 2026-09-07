@@ -156,6 +156,23 @@ biroul notează diagnostice sau dacă ștergerea nu rulează. Și jurisprudența
 an. Dacă se alege să nu treacă pe la un avocat, riscul rămas e în lista de mai sus, nu în text — și
 e cel mai mare la art. 30 (evidența) și la E07 S7 (acordurile), amândouă fapte, nu fraze.
 
+## Ediția PDF
+
+`docs/legal/pdf/build.sh` scrie câte un PDF pentru fiecare document, în `docs/legal/pdf/out/`
+(ignorat de git), din **aceleași fișiere Markdown** — nu există o a doua sursă. Cere `pandoc` și
+XeLaTeX (diacriticele românești scot din discuție pdflatex), plus fonturile TeX Gyre ca pagina să
+semene cu site-ul; fără ele cade pe DejaVu și spune asta. Pe Debian/Ubuntu, lista de pachete e în
+capul scriptului.
+
+Ce face în plus față de pagina web, fiindcă hârtia cere altceva: cuprins, subsol cu documentul,
+versiunea și „pagina X din Y", versiunea și data citite din prima linie boldată, legăturile între
+documente transformate în adrese publice, iar placeholder-ele `[[…]]` tipărite **roșu, îngroșat**,
+ca o ciornă să nu poată fi luată drept document. Stilul stă în `legal.tex`, regulile de transformare
+în `filters.lua`, marcarea placeholder-elor în `placeholders.py`.
+
+PDF-urile nu se comit: un PDF vechi lângă un Markdown nou ar fi exact minciuna întreținută de care
+vorbește epicul. Se regenerează la fiecare versiune publicată și se atașează acolo unde e nevoie.
+
 ## Regula de întreținere
 
 O coloană nouă cu date personale înseamnă o frază nouă în politica de confidențialitate, în

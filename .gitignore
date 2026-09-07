@@ -20,3 +20,4 @@ certs/
 *.pem
 *.key
 *.crt
+docs/legal/pdf/out/
