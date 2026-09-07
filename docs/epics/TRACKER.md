@@ -4,12 +4,13 @@ Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare
 adunate într-un loc.
 
 **Ultima actualizare:** 6 septembrie 2026, pe `release/stage`. Două lucruri în aceeași zi. **S-au
-adăugat** E12 S8 și E15 S9, facturarea numărată din catalog — plus, la cererea școlii, corectura
-pe copil de pe fișa de emitere, consemnată și înghețată cu factura. **S-a tăiat scopul:** E06 și E13 ies
-din MVP, la fel E14 S6, E21 S3 și E21 S6; E15 S1, S2 și S3 se scot, fiind scrise pe modelul pe
+adăugat** E12 S8 și E15 S9, facturarea numărată din catalog — plus, la cererea școlii, corectura pe
+copil de pe fișa de emitere, consemnată și înghețată cu factura. **S-a tăiat scopul:** E06 și E13
+ies din MVP, la fel E14 S6, E21 S3 și E21 S6; E15 S1, S2 și S3 se scot, fiind scrise pe modelul pe
 modul, ca S8; E21 S5 se dovedește livrat de E20 S4; E22 S1 se mută la E07 S1. Ultimele merge-uri de
-cod: E18 S4 și a doua felie din S5b, peste E18 S7 și E20 S1–S4, care veneau peste E17 S8, jumătatea
-din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
+cod: a treia felie din E18 S5b (`AdminDateField`), E18 S4 și a doua felie din S5b, peste E18 S7 și
+E20 S1–S4, care veneau peste E17 S8, jumătatea din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7,
+E21 S2/S4 și E12 S5.
 
 ## Legendă
 
@@ -262,7 +263,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S2 · Pipeline de imagini — `@nuxt/image`, WebP cu rezervă JPEG, `srcset` pe lățimile reale: **1056KB → 239KB**. AVIF măsurat și respins
 - [x] S3 · Paginile publice
 - [~] S4 · Portalul părintelui — **rescris pe sistemul din S1**: shell propriu (`layouts/portal.vue` — navbar plus rând de taburi, nu bara laterală de admin), Acasă / Prezența / Absențe / Proiecte / Plăți / Profil, cele trei ecrane de intrare în cont, și comutatorul de copil, care se păstrează între pagini și în URL. Rămâne verificarea pe date reale și pe telefon, care cere deploy-ul din E01 S4
-- [~] S5 · Uniformizarea zonei de admin — **componentele livrate** (`AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`), pe un catalog al celor 7 dialecte de tabel și 5 de formular. **S5b, două felii:** meniul grupat pe șase secțiuni, `/admin/facturi` cu bani în loc de „Facturi: 10", lista de copii cu vârstă în loc de marca de timp brută, cardul de grupă mutat pe `occupancyOf` (D7); apoi încă paisprezece ecrane pe componente, patru `<select>` native și zece `console.log` cu date de familii scoase, și al doilea drum de emitere (`invoices/new` + `invoices/preview/:month`) **șters**, fiindcă emitea o lună pe numere pe care nu se uitase nimeni. **25 din 42 de ecrane sunt migrate**; rămân `AdminDateField`, bara de filtre și grila de carduri
+- [~] S5 · Uniformizarea zonei de admin — **componentele livrate** (`AdminPage`, triada de stări, `AdminTable`, `AdminListRow`, `AdminFormActions`, `AdminConfirmModal`), pe un catalog al celor 7 dialecte de tabel și 5 de formular. **S5b, două felii:** meniul grupat pe șase secțiuni, `/admin/facturi` cu bani în loc de „Facturi: 10", lista de copii cu vârstă în loc de marca de timp brută, cardul de grupă mutat pe `occupancyOf` (D7); apoi încă paisprezece ecrane pe componente, patru `<select>` native și zece `console.log` cu date de familii scoase, și al doilea drum de emitere (`invoices/new` + `invoices/preview/:month`) **șters**, fiindcă emitea o lună pe numere pe care nu se uitase nimeni. **25 din 42 de ecrane sunt migrate**; `AdminDateField` a intrat pe cele două formulare de copil, rămân bara de filtre și grila de carduri
 - [~] S6 · Accesibilitate — **verificarea automată rulează în CI**: axe-core într-un Chromium adevărat, pe fiecare pagină din sitemap, în ambele teme, pe WCAG 2.0 și 2.1 A+AA. Rămâne zona autentificată, care se verifică odată cu S4 și S5
 - [x] S7 · Interfața profesorului — fără rol separat, e o vedere din zona de admin, nu o zonă a ei. Măsurat la 390px: **meniul era acoperit de filtrul de locație** (10px din 44 apăsabili), accentul lui Nuxt UI rămăsese la 2,61:1 de partea autentificată, iconițele veneau de la Iconify la rulare, iar coada aștepta un `online` care nu vine pe conexiunea din sală
 

@@ -855,6 +855,11 @@ exact în România. Amândouă capetele au deja unelte: `parseIsoDate`, `toIsoDa
 `YYYY-MM-DD` și nu ating deloc `Date`. Greșeala e de exact o zi, apare doar în unele fusuri și nu se
 vede la review.
 
+Într-un formular de admin, o dată se alege prin `AdminDateField`, al cărui model e chiar string-ul
+`YYYY-MM-DD`: trecerea la `CalendarDate` stă în `apps/web/app/composables/useDateField.ts` și nu
+atinge nici ea `Date`. Nu ancora un popover la `inputsRef` al lui `UInputDate` — e un index de
+segment care depinde de locale, iar exemplul din documentația Nuxt UI exact asta face.
+
 **Familia `no-unsafe-*` e pe `error` în codul de producție și oprită în teste.** Excepția pentru
 teste e îngustă și justificată: supertest tipează `res.body` ca `any`, iar valorile întoarse de
 mock-urile jest sunt netipate prin construcție — exact lucrurile pe care testul le verifică. În
