@@ -16,6 +16,9 @@
             <NuxtLink to="/cursuri" class="footer-link">Cursuri și înscrieri</NuxtLink>
             <NuxtLink to="/despre-noi" class="footer-link">Despre noi</NuxtLink>
             <NuxtLink to="/contact" class="footer-link">Contact</NuxtLink>
+            <NuxtLink to="/termeni" class="footer-link">Termeni și condiții</NuxtLink>
+            <NuxtLink to="/confidentialitate" class="footer-link">Confidențialitate</NuxtLink>
+            <NuxtLink to="/cookies" class="footer-link">Cookie-uri</NuxtLink>
           </div>
         </div>
         <div>

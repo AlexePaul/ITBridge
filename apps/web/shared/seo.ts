@@ -144,7 +144,44 @@ const LOCATION_PAGES: PageSeo[] = [
   },
 ];
 
-export const PUBLIC_PAGES: PageSeo[] = [...STATIC_PAGES, LOCATIONS_INDEX, ...LOCATION_PAGES];
+// The legal pages — E22 S2. In the sitemap so they are found and checked (the a11y run reads the
+// sitemap back), at the bottom of the list because nobody searches for them.
+const LEGAL_PAGES: PageSeo[] = [
+  {
+    path: "/termeni",
+    title: "Termeni și condiții | IT Bridge School",
+    description:
+      "Termenii de utilizare a contului de părinte: ce e contul, ce poți face din portal, cum se " +
+      "facturează, ce se întâmplă cu datele la retragere.",
+    summary: "Termenii contului de părinte, acceptați la înregistrare.",
+    priority: 0.2,
+  },
+  {
+    path: "/confidentialitate",
+    title: "Politica de confidențialitate | IT Bridge School",
+    description:
+      "Ce date păstrăm despre familie și despre copil, de ce, cât timp, cu cine le împărțim și ce " +
+      "drepturi ai.",
+    summary: "Nota de informare privind prelucrarea datelor familiei și ale copilului.",
+    priority: 0.2,
+  },
+  {
+    path: "/cookies",
+    title: "Politica de cookie-uri | IT Bridge School",
+    description:
+      "Cele patru cookie-uri proprii ale portalului, ce ține browserul în afara lor, și harta Google " +
+      "care se încarcă doar dacă o ceri.",
+    summary: "Cookie-urile site-ului și ale portalului, și singurul terț.",
+    priority: 0.2,
+  },
+];
+
+export const PUBLIC_PAGES: PageSeo[] = [
+  ...STATIC_PAGES,
+  LOCATIONS_INDEX,
+  ...LOCATION_PAGES,
+  ...LEGAL_PAGES,
+];
 
 export const pageSeo = (path: string): PageSeo => {
   const page = PUBLIC_PAGES.find((entry) => entry.path === path);

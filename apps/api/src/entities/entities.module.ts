@@ -28,6 +28,7 @@ import { UnassignedFile } from './unassigned-file.entity';
 import { AgentStatus } from './agent-status.entity';
 import { Announcement } from './announcement.entity';
 import { Lead } from './lead.entity';
+import { DocumentAcceptance } from './document-acceptance.entity';
 
 @Module({
     imports: [
@@ -60,6 +61,7 @@ import { Lead } from './lead.entity';
             AgentStatus,
             Announcement,
             Lead,
+            DocumentAcceptance,
         ]),
     ],
     exports: [TypeOrmModule],

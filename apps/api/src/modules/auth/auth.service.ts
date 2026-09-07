@@ -3,6 +3,8 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 import { User, isAccountActive } from 'src/entities/user.entity';
 import { Profile, isProfileComplete } from 'src/entities/profile.entity';
+import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
+import { ACCEPTED_AT_REGISTRATION, LEGAL_DOCUMENT_VERSIONS } from './legal-documents';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
@@ -103,6 +105,16 @@ export class AuthService {
                 approvalDecidedAt: null,
                 rejectionReason: null,
             });
+
+            // What was accepted, per document, with the version in force — E22 S4's ledger, first
+            // half. Rows rather than a flag on the user: the next version of either document adds
+            // a row when it is accepted again, and "which version did this family agree to" keeps
+            // its answer. Same transaction as the account: no account without them, no rows without
+            // an account.
+            await manager.save(
+                DocumentAcceptance,
+                ACCEPTED_AT_REGISTRATION.map((document) => ({ user: created, document, version: LEGAL_DOCUMENT_VERSIONS[document] })),
+            );
 
             // A shell: who they are and where the confirmation goes. The rest is step two, and it
             // is not optional — `isProfileComplete` is what a child's placement is gated on.

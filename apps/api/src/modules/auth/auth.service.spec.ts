@@ -17,6 +17,8 @@ import {
 } from 'src/testing/repository.mock';
 import { SessionService } from './session.service';
 import { Profile } from 'src/entities/profile.entity';
+import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
+import { LEGAL_DOCUMENT_VERSIONS } from './legal-documents';
 import { EmailConfirmationService } from './email-confirmation.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
@@ -34,6 +36,7 @@ const REGISTRATION = {
     firstName: 'Ana',
     lastName: 'Popescu',
     email: 'ana@example.com',
+    acceptedTerms: true,
 };
 
 describe('AuthService', () => {
@@ -123,6 +126,19 @@ describe('AuthService', () => {
             userRepo.findOne!.mockResolvedValue(null);
             manager.save.mockImplementation((entity: unknown, data: Record<string, unknown>) => Promise.resolve(entity === User ? { id: 7, ...data } : data));
         };
+
+        it('records the version of each document the parent accepted, in the same transaction as the account', async () => {
+            registrationSucceeds();
+
+            await service.register(REGISTRATION);
+
+            const [rows] = saved(DocumentAcceptance) as unknown as { user: { id: number }; document: string; version: string }[][];
+            expect(rows.map(({ document, version }) => ({ document, version }))).toEqual([
+                { document: 'terms', version: LEGAL_DOCUMENT_VERSIONS.terms },
+                { document: 'privacy', version: LEGAL_DOCUMENT_VERSIONS.privacy },
+            ]);
+            expect(rows.every((row) => row.user.id === 7)).toBe(true);
+        });
 
         it('stores the password as a bcrypt hash, never in clear text', async () => {
             registrationSucceeds();

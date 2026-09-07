@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { createTestApp, registerUser, registrationBody, truncateAll } from './helpers';
+import { LEGAL_DOCUMENT_VERSIONS } from '../src/modules/auth/legal-documents';
 
 describe('Authentication (e2e)', () => {
     let app: INestApplication<App>;
@@ -112,5 +113,32 @@ describe('Authentication (e2e)', () => {
 
     it('rejects a register body with no password at all', async () => {
         await request(app.getHttpServer()).post('/auth/register').send({ username: 'fara' }).expect(400);
+    });
+
+    describe('the terms and the privacy notice — E22 S2/S4', () => {
+        it('refuses a registration that has not accepted them, naming the field', async () => {
+            const res = await request(app.getHttpServer())
+                .post('/auth/register')
+                .send({ ...registrationBody('grabit'), acceptedTerms: false })
+                .expect(400);
+
+            // The refusal carries the DTO's own sentence, not the field name: it is what the form
+            // would show if it ever let the request through.
+            expect(res.body).toMatchObject({ code: 'VALIDATION_FAILED' });
+            expect(JSON.stringify(res.body)).toContain('trebuie acceptate');
+        });
+
+        it('records which version of each document the parent accepted, one row per document', async () => {
+            await registerUser(app, 'ana');
+
+            const rows = await dataSource.query<{ document: string; version: string }[]>(
+                `SELECT a.document, a.version FROM document_acceptances a JOIN users u ON u.id = a.user_id WHERE u.username = 'ana' ORDER BY a.id`,
+            );
+
+            expect(rows).toEqual([
+                { document: 'terms', version: LEGAL_DOCUMENT_VERSIONS.terms },
+                { document: 'privacy', version: LEGAL_DOCUMENT_VERSIONS.privacy },
+            ]);
+        });
     });
 });

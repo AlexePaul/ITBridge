@@ -104,6 +104,27 @@
               urgență. Contul se activează în doi pași: confirmi adresa de email, apoi îl aprobăm
               noi. Înscrierea copilului într-o grupă o facem tot noi, după ce vorbim.
             </p>
+
+            <!-- E22 S2/S4: the account is the contract the terms describe, so there is no account
+                 without them. The server refuses the request without this; the version accepted
+                 is recorded there, with the account. -->
+            <div class="field">
+              <label class="checkbox checkbox-consent">
+                <input v-model="form.acceptedTerms" type="checkbox" />
+                <span>
+                  Am citit
+                  <NuxtLink to="/termeni" class="link" target="_blank"
+                    >Termenii și condițiile</NuxtLink
+                  >
+                  și
+                  <NuxtLink to="/confidentialitate" class="link" target="_blank">
+                    Politica de confidențialitate
+                  </NuxtLink>
+                  și sunt de acord cu ele.
+                </span>
+              </label>
+              <p v-if="errors.acceptedTerms" class="field-error">{{ errors.acceptedTerms }}</p>
+            </div>
           </template>
 
           <label class="checkbox">
@@ -154,6 +175,8 @@ export interface RegisterSubmitPayload extends LoginSubmitPayload {
   firstName: string;
   lastName: string;
   email: string;
+  /** The checkbox. Typed as `true` because the form does not submit any other value. */
+  acceptedTerms: true;
 }
 
 /**
@@ -214,6 +237,7 @@ const registration = credentials.extend({
     .trim()
     .min(1, "Adresa de email este obligatorie")
     .email("Adresa de email nu pare validă"),
+  acceptedTerms: z.literal(true, "Bifează că ai citit termenii și politica de confidențialitate"),
 });
 
 type FieldName = keyof z.infer<typeof registration>;
@@ -225,6 +249,7 @@ const form = reactive({
   firstName: "",
   lastName: "",
   email: "",
+  acceptedTerms: false,
 });
 
 const errors = reactive<Partial<Record<FieldName, string>>>({});

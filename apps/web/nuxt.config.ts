@@ -136,6 +136,11 @@ export default defineNuxtConfig({
         "content-security-policy": "frame-ancestors 'none'",
       },
     },
+    // The legal pages are one Markdown file each, rendered once: prerendered so they are static
+    // on Vercel and in the a11y run, and reach the reader without a function in between.
+    "/termeni": { prerender: true },
+    "/confidentialitate": { prerender: true },
+    "/cookies": { prerender: true },
     "/courses": { redirect: { to: "/cursuri", statusCode: 301 } },
     "/about": { redirect: { to: "/despre-noi", statusCode: 301 } },
     // The other set of stray links: paths from the WordPress site that used to

@@ -29,6 +29,7 @@ describe('AuthController', () => {
         emergencyContactName: 'Maria Popescu',
         emergencyContactRelation: 'bunica',
         emergencyContactPhone: '0723456789',
+        acceptedTerms: true,
     };
 
     it('passes credentials to the service without touching them', async () => {

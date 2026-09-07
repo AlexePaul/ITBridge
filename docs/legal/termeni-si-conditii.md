@@ -49,7 +49,8 @@ aici pare să contrazică una din contractul de înscriere, contractul are înt�
 **4.1 Cine își poate face cont.** Un părinte sau reprezentant legal, cu vârsta de cel puțin 18
 ani. Îți faci cont pentru tine, nu pentru copil, și confirmi că ai dreptul să iei decizii în
 numele copiilor pe care îi adaugi. O familie are un singur cont; dacă amândoi părinții vor acces,
-[[DE DECIS: îl folosesc împreună / ne scriu și adăugăm al doilea cont]].
+[[DE DECIS: îl folosesc împreună / ne scriu și adăugăm al doilea cont]]. Platforma e oferită numai
+în România și în limba română; nu o adresăm familiilor din afara ei.
 
 **4.2 Cum se creează.** La înregistrare cerem utilizator, parolă, prenume, nume și adresa de
 email. Imediat după, cerem telefonul, adresa și o persoană de contact pentru urgențe (nume, relația

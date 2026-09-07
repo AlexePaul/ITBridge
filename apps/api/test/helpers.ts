@@ -105,6 +105,9 @@ export function registrationBody(username: string, password = 'parola123'): Reco
         firstName: username,
         lastName: 'Test',
         email: `${username}@example.com`,
+        // The checkbox — E22 S2/S4. Without it the request is a 400, and a suite about something
+        // else would fail on a rule it is not about.
+        acceptedTerms: true,
     };
 }
 

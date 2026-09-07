@@ -8,9 +8,12 @@ Cele trei documente pe care le citește și le acceptă o familie, în ordinea �
 | [politica-de-confidentialitate.md](politica-de-confidentialitate.md) | vizitator, familie la probă, părinte cu cont | din footer, de pe `/proba`, la înregistrare                      |
 | [termeni-si-conditii.md](termeni-si-conditii.md)                     | părintele care își face cont                 | acceptat la înregistrare; versiunea acceptată se reține (E22 S4) |
 
-**Starea: ciornă 0.1, neverificată de avocat, nepublicată.** Nu sunt încă pagini în `apps/web` și
-nu există bifa de acceptare la înregistrare — amândouă vin după ce textul trece pe la avocat, ca
-să nu se versioneze de trei ori un document care încă nu e bun.
+**Starea: ciornă 0.1, neverificată de avocat.** Pe `release/stage` textele **sunt pagini** —
+`/termeni`, `/confidentialitate`, `/cookies`, randate din fișierele de aici de
+`apps/web/server/api/legal/[doc].get.ts` —, iar înregistrarea cere bifa de acceptare și scrie în
+`document_acceptances` versiunea fiecărui document (E22 S4, prima jumătate). Pe `release/prod` nu
+ajung până nu trec pe la avocat și nu se umplu placeholder-ele: acolo ar fi un contract cu
+`[[CUI]]` în el.
 
 ## De unde vin faptele
 
@@ -39,6 +42,7 @@ ce se stochează sau ce se întâmplă are o sursă; când sursa se schimbă, se
 | hărțile se încarcă azi fără acord                                                                            | `loading="lazy"` pe `<iframe>`, fără poartă — E07 S5                                                                                                                                 |
 | regiunea: Stockholm (`eu-north-1`), pentru server, bază, fișiere și backup                                   | `.env.stage.example`, E01 S4, E04 S4; `.env.example` și `ci.yml` spun `eu-central-1` doar pentru dezvoltare și CI. Producția nu există încă — de confirmat că rămâne aceeași regiune |
 | fără CNP, fără fotografii ale copiilor, fără date de sănătate                                                | E16 „Decizii luate", E07 „Decizii luate"; niciun câmp în entități                                                                                                                    |
+| versiunea acceptată la înregistrare e cea din capul fișierului                                               | `LEGAL_DOCUMENT_VERSIONS` în `apps/api/src/modules/auth/legal-documents.ts`, ținută egală cu prima linie boldată a fiecărui document de `legal-documents.spec.ts`                    |
 
 ## Ce lipsește: `[[…]]`
 
@@ -85,8 +89,9 @@ Lista, ca să se poată bifa:
    a altcuiva. Lista de mai jos e ce i-am cere să verifice în mod special.
 2. **E07 S5** — harta de pe paginile locațiilor se încarcă azi fără acord. Politica de cookie-uri
    descrie starea de după, deci nu se publică înaintea bannerului.
-3. **E22 S4** — evidența acceptărilor: bifa la înregistrare, versiunea acceptată pe cont,
-   re-acceptarea la versiune nouă. Termenii §18 promit exact asta.
+3. **E22 S4, a doua jumătate** — re-acceptarea la versiune nouă, la prima autentificare de după.
+   Prima jumătate e livrată: bifa la înregistrare, un rând per document în `document_acceptances`,
+   cu versiunea. Termenii §4.7 și §18 promit amândouă jumătățile.
 4. **E22 S3** — jobul care șterge la termen. Politica §7 promite un număr; fără job, e o minciună
    întreținută.
 5. **E01 S4 pentru producție** — pe stage e livrat, deci regiunea și backup-ul zilnic sunt fapte; la

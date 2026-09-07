@@ -77,8 +77,9 @@ clauză contra legii** — GDPR art. 12–14, 6–9, 28, 30, 44; Legile 506/2004
 o astfel de verificare scris sub el. Neverificate de avocat și nepublicate: faptele pe care codul nu le știe — firma, persoana de contact, furnizorii — și
 deciziile propuse — termenul de păstrare, 12 luni de la retragere, care e cifra pe care o preia S3 —
 sunt marcate `[[…]]` și listate în README, împreună cu ce trebuie să existe înainte de publicare:
-bannerul din E07 S5, jobul din S3, evidența acceptărilor din S4, și restrângerea ștergerii de profil,
-care azi cade în cascadă peste facturi.
+bannerul din E07 S5, jobul din S3, a doua jumătate a lui S4, și restrângerea ștergerii de profil,
+care azi cade în cascadă peste facturi. Pe `release/stage` textele sunt pagini — `/termeni`,
+`/confidentialitate`, `/cookies` — randate din aceleași fișiere, cu bifa de acceptare la înregistrare.
 
 ### S3 · Termenul de păstrare, și ștergerea care chiar șterge
 
@@ -107,6 +108,14 @@ vizitatorul a acceptat, ca să știe dacă poate porni scripturile.
 
 **Acceptanță:** pentru orice familie și orice document, se poate spune ce versiune a acceptat și în
 ce zi.
+
+**Stare: prima jumătate livrată.** Înregistrarea cere `acceptedTerms: true` — un `400` fără el —
+și scrie, în aceeași tranzacție cu contul, un rând în `document_acceptances` pentru fiecare
+document (`terms`, `privacy`), cu versiunea din `LEGAL_DOCUMENT_VERSIONS`; un spec ține constanta
+egală cu versiunea tipărită în capul fișierului din `docs/legal/`. Ce lipsește e a doua jumătate:
+re-acceptarea la versiune nouă, la prima autentificare de după, și a doua bifă pentru clauzele
+neuzuale (Cod civil art. 1203). Documentele de vizitator nu au acceptare — bannerul din E07 S5
+întreabă doar de cookie-uri.
 
 ## Dependențe
 

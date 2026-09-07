@@ -127,6 +127,8 @@
             <p class="note">
               Îți răspundem în cel mult 24 de ore. Dacă preferi, sună-ne sau scrie-ne direct la
               <a :href="`mailto:${SCHOOL_EMAIL}`" class="link">{{ SCHOOL_EMAIL }}</a
+              >. Mesajul ajunge doar în căsuța noastră de email — vezi
+              <NuxtLink to="/confidentialitate" class="link">politica de confidențialitate</NuxtLink
               >.
             </p>
           </div>

@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, Length, MinLength } from 'class-validator';
+import { Equals, IsBoolean, IsEmail, IsNotEmpty, IsString, Length, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
@@ -61,6 +61,17 @@ export class RegisterDto {
     @IsEmail()
     @Length(1, 255)
     email: string;
+
+    /**
+     * The checkbox on the form — E22 S2/S4. `true` or the request is refused: the account is the
+     * contract the terms describe, so there is no account without them. What was accepted — which
+     * version of which document, when — is written by `AuthService.register` in the same
+     * transaction as the account, not read back from this flag.
+     */
+    @ApiProperty({ example: true, description: 'Must be true: the parent has read and accepts the terms and the privacy notice' })
+    @IsBoolean()
+    @Equals(true, { message: 'Termenii și politica de confidențialitate trebuie acceptate' })
+    acceptedTerms: boolean;
 
     /**
      * One free-text line, as `Profile.address` already is. Whether the invoice needs street, city

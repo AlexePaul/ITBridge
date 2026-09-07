@@ -252,7 +252,10 @@
               {{ loading ? "Se trimite…" : "Trimite cererea" }}
             </button>
             <p class="note">
-              Nu creezi cont și nu te înscrii. Înscrierea o facem împreună, după probă.
+              Nu creezi cont și nu te înscrii. Înscrierea o facem împreună, după probă. Datele din
+              formular le folosim doar ca să ținem locul și să te contactăm — vezi
+              <NuxtLink to="/confidentialitate" class="link">politica de confidențialitate</NuxtLink
+              >.
             </p>
           </div>
         </form>

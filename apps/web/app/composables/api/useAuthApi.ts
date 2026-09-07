@@ -15,6 +15,8 @@ export interface RegistrationPayload {
   firstName: string;
   lastName: string;
   email: string;
+  /** The checkbox on the form — the server refuses anything else (E22 S2/S4). */
+  acceptedTerms: true;
 }
 
 export const useAuthApi = () => {
