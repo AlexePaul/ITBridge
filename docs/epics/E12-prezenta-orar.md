@@ -419,8 +419,10 @@ pentru cele care urmează, împăturite pe săptămâni, fiecare cu insigna „�
 cu butonul „Mută". Dialogul de mutare cere lista API-ului, o arată pe zile, cu grupa, adresa și
 locurile libere, și spune înainte de buton că familia primește un email; „Anulează mutarea" spune la
 fel de clar că **nu** pleacă nimic. A doua secțiune sunt mutările consemnate, ca o mutare să poată
-fi verificată sau schimbată fără telefon. Trei lucruri pe care ecranul le încodează în loc să le
-explice:
+fi verificată sau schimbată fără telefon — citite **de la lunea săptămânii curente**, nu de acum
+(`GET /attendance/absences?from=`): rândul e cheiat pe ora pierdută, iar un copil mutat de luni pe
+joi e marți tot un copil mutat, chiar dacă ora lui de luni a trecut. Trei lucruri pe care ecranul le
+încodează în loc să le explice:
 
 - **Un anunț după termen păstrează butonul „Mută".** `inTime` spune când a tastat biroul, nu când a
   sunat familia (S3), deci ecranul arată faptul și lasă decizia omului — un buton ascuns ar fi fost

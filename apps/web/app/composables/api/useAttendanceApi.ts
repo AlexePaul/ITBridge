@@ -93,11 +93,18 @@ export const useAttendanceApi = () => {
       body: dto,
     });
 
-  /** Announced absences for classes still to come. A parent gets their own; an admin the school. */
-  const fetchUpcomingAbsences = async () =>
+  /**
+   * Announced absences for classes still to come. A parent gets their own; an admin the school.
+   *
+   * `from` (`YYYY-MM-DD`) widens the list backwards — the office's screen asks from the Monday of
+   * the current week, so a move out of a class already missed this week stays visible while the
+   * replacement is still ahead. Left out, the API answers from now.
+   */
+  const fetchUpcomingAbsences = async (from?: string) =>
     api<AbsenceNotice[]>("/attendance/absences", {
       method: "GET",
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      ...(from ? { query: { from } } : {}),
     });
 
   /** The child is coming after all. */

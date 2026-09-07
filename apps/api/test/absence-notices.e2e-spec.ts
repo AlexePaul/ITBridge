@@ -185,5 +185,28 @@ describe('Absence notices (e2e)', () => {
             const all = await request(app.getHttpServer()).get('/attendance/absences').set('Authorization', admin.auth).expect(200);
             expect(all.body).toHaveLength(2);
         });
+
+        /**
+         * The office's screen reads from the Monday of the current week, not from now: a child
+         * moved out of Monday's class into Thursday's is still a move on Tuesday, and the row is
+         * keyed on the missed class, which is already behind.
+         */
+        it('`from` widens the list backwards; the default stays "still to come"', async () => {
+            const pastSessionId = await createClassSession(dataSource, groupId, { date: '2026-01-05' });
+            await announce(admin, { classSessionId: pastSessionId }).expect(201);
+            await announce(admin, {}).expect(201);
+
+            const stillToCome = await request(app.getHttpServer()).get('/attendance/absences').set('Authorization', admin.auth).expect(200);
+            expect(stillToCome.body.map((row: { classSession: { id: number } }) => row.classSession.id)).toEqual([sessionId]);
+
+            const sinceJanuary = await request(app.getHttpServer())
+                .get('/attendance/absences')
+                .query({ from: '2026-01-01' })
+                .set('Authorization', admin.auth)
+                .expect(200);
+            expect(sinceJanuary.body.map((row: { classSession: { id: number } }) => row.classSession.id)).toEqual([pastSessionId, sessionId]);
+
+            await request(app.getHttpServer()).get('/attendance/absences').query({ from: 'luni' }).set('Authorization', admin.auth).expect(400);
+        });
     });
 });

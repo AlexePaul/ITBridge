@@ -300,6 +300,7 @@ import {
   noticeState,
   optionLabel,
   sessionChoiceLabel,
+  weekOf,
 } from "~/composables/useAbsenceOffice";
 import { useUnplacedAbsencesStore } from "~/stores/unplacedAbsencesStore";
 import type { AbsenceNotice, ReplacementOption } from "~/types/attendance.types";
@@ -348,7 +349,9 @@ const placed = computed(() => upcoming.value.filter((notice) => notice.replaceme
 
 /**
  * Both lists in one go. The worklist lands in the store — the menu badge reads it — and the
- * upcoming list is page-local: it is only here to show and undo the moves already made.
+ * upcoming list is page-local: it is only here to show and undo the moves already made. Both are
+ * read from the Monday of the current week, not from now: a child moved out of Monday's class into
+ * Thursday's is still a move on Tuesday, and the row is keyed on the class that was missed.
  * `silent` keeps the page in place while a change is being written back.
  */
 const load = async (silent = false) => {
@@ -357,7 +360,7 @@ const load = async (silent = false) => {
   try {
     const [, fetchedUpcoming] = await Promise.all([
       attendanceApi.fetchUnplacedAbsences(),
-      attendanceApi.fetchUpcomingAbsences(),
+      attendanceApi.fetchUpcomingAbsences(weekOf(today).from),
     ]);
     upcoming.value = fetchedUpcoming ?? [];
   } catch (err: unknown) {
