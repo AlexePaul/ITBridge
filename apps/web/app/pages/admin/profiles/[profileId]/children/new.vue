@@ -55,9 +55,12 @@ const saving = ref(false);
 const schema = z.object({
   firstName: z.string().min(1, "Prenumele este obligatoriu"),
   lastName: z.string().min(1, "Numele este obligatoriu"),
+  // Day keys compare as strings (CLAUDE.md), so "not in the future" is one comparison. The calendar
+  // already refuses those days; this refuses the same date typed into the segments.
   birthDate: z
     .string({ error: "Data nașterii este obligatorie" })
-    .regex(DATE_KEY_PATTERN, "Data nașterii este obligatorie"),
+    .regex(DATE_KEY_PATTERN, "Data nașterii nu este validă")
+    .refine((value) => value <= today, "Data nașterii nu poate fi în viitor"),
 });
 
 type Schema = z.output<typeof schema>;

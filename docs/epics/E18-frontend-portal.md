@@ -363,11 +363,18 @@ segmentelor e altceva, citit printr-un ref pe care componenta doar se întâmpl�
 Componenta ancorează calendarul la propriul înveliș, deci nu citește nimic din interiorul lui
 `UInputDate`. Modelul ei e string-ul `YYYY-MM-DD` de pe sârmă, prin `dateKeyToCalendar` /
 `calendarToDateKey` din `useDateField.ts` — pure, ținute de vitest, fără niciun `Date` —, deci
-formularele nu mai trec valoarea aleasă prin `toISOString()`, capcana UTC din CLAUDE.md, iar data
-de naștere se cere acum în schemă, nu abia la server. Calendarul se închide la alegere, nu
-deselectează ziua deja aleasă și nu oferă zile din viitor; butonul își spune numele în română.
-Cele două formulare au primit odată cu ea `AdminFormActions`, deci `loading` pe salvare; shell-ul
-și istoricul înscrierilor din `children/edit` rămân de migrat, așa că numărătoarea nu se mișcă.
+formularele nu mai trec valoarea aleasă prin `toISOString()`, capcana UTC din CLAUDE.md. Anul se
+scrie pe patru cifre în cheie: `UInputDate` publică valoarea la fiecare tastă, deci un an retastat
+trece prin `0002-03-16`, iar cu anul pe o cifră cheia nu se mai citea înapoi și câmpul se golea la
+prima apăsare. Data de naștere se cere acum în schemă, pe amândouă formularele — coloana e `NOT
+NULL`, deci „opțional" pe editare însemna o ștergere care raporta succes și nu schimba nimic — și nu
+poate fi în viitor: calendarul nu oferă zilele alea, iar una tastată e refuzată cu o propoziție, nu
+doar înroșită. Calendarul se închide la alegere, nu deselectează ziua deja aleasă și anunță
+formularul că s-a schimbat ceva — `UInputDate` nu emite nimic la o schimbare venită din afară, deci
+eroarea „obligatorie" rămânea sub un câmp tocmai completat. Butonul își spune numele în română și e
+de patru ori mai lat decât iconița din exemplu. Cele două formulare au primit odată cu ea
+`AdminFormActions`, deci `loading` pe salvare; shell-urile lor și istoricul înscrierilor din
+`children/edit` rămân de migrat, așa că numărătoarea nu se mișcă.
 
 ### S6 · Accesibilitate — livrat parțial (verificarea automată, livrată)
 

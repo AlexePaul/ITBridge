@@ -50,6 +50,18 @@ describe("calendarToDateKey", () => {
     expect(calendarToDateKey(dateKeyToCalendar("2018-03-16"))).toBe("2018-03-16");
   });
 
+  it("survives the years a segment passes through while being retyped", () => {
+    // reka commits a value on every keystroke once all segments are filled, so retyping the year
+    // of 16.03.2018 hands the model year 2, then 20, then 201. Each has to come back as itself,
+    // or the field clears on the first digit.
+    for (const year of [2, 20, 201]) {
+      const key = calendarToDateKey(new CalendarDate(year, 3, 16));
+      expect(key).toMatch(DATE_KEY_PATTERN);
+      expect(dateKeyToCalendar(key)?.year).toBe(year);
+    }
+    expect(calendarToDateKey(new CalendarDate(2, 3, 16))).toBe("0002-03-16");
+  });
+
   it("keeps the date part of a date-time value, in its own day", () => {
     expect(calendarToDateKey(new CalendarDateTime(2026, 9, 6, 23, 30))).toBe("2026-09-06");
     // 00:30 in Bucharest is 21:30 UTC of the day before; the key is the day the school sees.

@@ -13,14 +13,14 @@
           :reference="fieldEl"
           :content="{ align: 'start', sideOffset: 8 }"
         >
+          <!-- Full-size, pulled back over the field's own end padding: a 40×32 target instead of 16×28. -->
           <UButton
             color="neutral"
             variant="link"
-            size="sm"
             icon="i-lucide-calendar"
             aria-label="Alege data din calendar"
             :disabled="disabled"
-            class="px-0"
+            class="-me-2.5"
           />
           <template #content>
             <UCalendar
@@ -29,7 +29,7 @@
               :max-value="maxValue"
               prevent-deselect
               class="p-2"
-              @update:model-value="open = false"
+              @update:model-value="onPick"
             />
           </template>
         </UPopover>
@@ -55,7 +55,9 @@
  * `min` and `max` are day keys too. Picking a day closes the calendar; clicking the day already
  * picked keeps it, rather than clearing a birth date by accident.
  */
+import { inject } from "vue";
 import type { DateValue } from "@internationalized/date";
+import { formBusInjectionKey, formFieldInjectionKey } from "@nuxt/ui/composables/useFormField";
 import { calendarToDateKey, dateKeyToCalendar } from "~/composables/useDateField";
 
 const props = withDefaults(
@@ -84,4 +86,20 @@ const calendarValue = computed<DateValue | undefined, DateValue | null | undefin
 
 const minValue = computed(() => dateKeyToCalendar(props.min));
 const maxValue = computed(() => dateKeyToCalendar(props.max));
+
+/**
+ * A calendar pick reaches `UInputDate` as a prop change, and reka syncs a prop change in without
+ * emitting — so `UForm` never hears about it, and an error shown for an empty date would stay under
+ * a field that now has one. The field tells the form itself. `useFormField()` is deliberately not
+ * called here: it re-provides the field context as `undefined` and would cut the inner `UInputDate`
+ * off from its `UFormField`.
+ */
+const formBus = inject(formBusInjectionKey, undefined);
+const formField = inject(formFieldInjectionKey, undefined);
+
+function onPick() {
+  open.value = false;
+  const name = formField?.value?.name;
+  if (formBus && name) formBus.emit({ type: "change", name });
+}
 </script>

@@ -18,7 +18,7 @@
       </div>
 
       <UFormField name="birthDate">
-        <template #label>Data Nașterii</template>
+        <template #label>Data Nașterii<span class="text-error">*</span></template>
         <AdminDateField v-model="state.birthDate" :max="today" />
       </UFormField>
 
@@ -168,7 +168,12 @@ definePageMeta({
 const schema = z.object({
   firstName: z.string().min(1, "Prenumele este obligatoriu"),
   lastName: z.string().min(1, "Numele este obligatoriu"),
-  birthDate: z.string().regex(DATE_KEY_PATTERN, "Data nașterii nu este validă").optional(),
+  // Required, because the column is `NOT NULL`: an emptied field used to pass as "optional", drop
+  // out of the payload, and report success while the server kept the old date.
+  birthDate: z
+    .string({ error: "Data nașterii este obligatorie" })
+    .regex(DATE_KEY_PATTERN, "Data nașterii nu este validă")
+    .refine((value) => value <= today, "Data nașterii nu poate fi în viitor"),
 });
 
 type Schema = z.output<typeof schema>;

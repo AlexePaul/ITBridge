@@ -67,7 +67,11 @@ export interface CalendarDayInput {
  * these strings avoids `Date` entirely: they sort and compare lexicographically as dates.
  */
 export function toDateKey({ year, month, day }: CalendarDayParts): string {
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  // Four digits for the year too: `UInputDate` publishes a value on every keystroke, so a year being
+  // retyped passes through 2, 20 and 202 on its way to 2026, and `"2-03-16"` is not a key anything
+  // can read back — the field went blank on the first digit (E18/S5b, `AdminDateField`).
+  const y = String(year).padStart(4, "0");
+  return `${y}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 /** Today as a day key, in the browser's own timezone. */

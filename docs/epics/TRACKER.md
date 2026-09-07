@@ -4,12 +4,13 @@ Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare
 adunate într-un loc.
 
 **Ultima actualizare:** 6 septembrie 2026, pe `release/stage`. Două lucruri în aceeași zi. **S-au
-adăugat** E12 S8 și E15 S9, facturarea numărată din catalog — plus, la cererea școlii, corectura
-pe copil de pe fișa de emitere, consemnată și înghețată cu factura. **S-a tăiat scopul:** E06 și E13 ies
-din MVP, la fel E14 S6, E21 S3 și E21 S6; E15 S1, S2 și S3 se scot, fiind scrise pe modelul pe
+adăugat** E12 S8 și E15 S9, facturarea numărată din catalog — plus, la cererea școlii, corectura pe
+copil de pe fișa de emitere, consemnată și înghețată cu factura. **S-a tăiat scopul:** E06 și E13
+ies din MVP, la fel E14 S6, E21 S3 și E21 S6; E15 S1, S2 și S3 se scot, fiind scrise pe modelul pe
 modul, ca S8; E21 S5 se dovedește livrat de E20 S4; E22 S1 se mută la E07 S1. Ultimele merge-uri de
-cod: E18 S4 și a doua felie din S5b, peste E18 S7 și E20 S1–S4, care veneau peste E17 S8, jumătatea
-din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
+cod: a treia felie din E18 S5b (`AdminDateField`), E18 S4 și a doua felie din S5b, peste E18 S7 și
+E20 S1–S4, care veneau peste E17 S8, jumătatea din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7,
+E21 S2/S4 și E12 S5.
 
 ## Legendă
 

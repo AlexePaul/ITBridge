@@ -183,6 +183,7 @@ describe("calendarDayColor", () => {
 describe("toDateKey", () => {
   it("pads month and day, so the keys compare as dates", () => {
     expect(toDateKey({ year: 2026, month: 3, day: 7 })).toBe("2026-03-07");
+    expect(toDateKey({ year: 2, month: 3, day: 7 })).toBe("0002-03-07");
   });
 
   it("builds the same key a session carries, with no Date and no timezone in between", () => {
