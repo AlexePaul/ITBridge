@@ -170,6 +170,14 @@ documente transformate în adrese publice, iar placeholder-ele `[[…]]` tipări
 ca o ciornă să nu poată fi luată drept document. Stilul stă în `legal.tex`, regulile de transformare
 în `filters.lua`, marcarea placeholder-elor în `placeholders.py`.
 
+Tot acolo iese și **`formular-completare.pdf`**, un PDF cu câmpuri de formular: `questionnaire.py`
+citește toate `[[…]]`-urile din cele trei documente, le împarte în fapte despre firmă (un câmp per
+fapt, oricâte ori apare), cifre propuse (bifă „accept" plus câmp pentru altă valoare), decizii și
+confirmări, fiecare cu fraza în care apare, și scrie un LaTeX cu `\TextField`/`\CheckBox` din
+hyperref. Se completează în Acrobat, Preview sau Chrome și se trimite înapoi; răspunsurile se pun
+apoi în texte de mână, fiindcă o decizie schimbă o frază, nu doar un cuvânt. Formularul e generat la
+fiecare build, deci nu poate întreba ceva ce textul nu mai lasă gol.
+
 PDF-urile nu se comit: un PDF vechi lângă un Markdown nou ar fi exact minciuna întreținută de care
 vorbește epicul. Se regenerează la fiecare versiune publicată și se atașează acolo unde e nevoie.
 

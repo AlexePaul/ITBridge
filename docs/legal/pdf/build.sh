@@ -67,3 +67,19 @@ for name in termeni-si-conditii politica-de-confidentialitate politica-de-cookie
     -M "author=IT Bridge School" -M "date=${date:-}"
   echo "wrote $out/$name.pdf"
 done
+
+# The fill-in form: one field per [[placeholder]] still open in the three documents, generated from
+# the same files, so it can never list a question the text no longer asks.
+version="$(grep -oE '\*\*Versiunea [0-9]+\.[0-9]+' "$here/../termeni-si-conditii.md" | head -1 | sed 's/.*Versiunea //')"
+date="$(grep -oE 'din [0-9]+ [a-zăâîșț]+ [0-9]{4}' "$here/../termeni-si-conditii.md" | head -1 | sed 's/^din //')"
+python3 "$here/questionnaire.py" --legal "$here/legal.tex" --mainfont "$mainfont" \
+  --version "${version:-—}" --date "${date:-—}" \
+  "$here/../termeni-si-conditii.md" "$here/../politica-de-confidentialitate.md" "$here/../politica-de-cookies.md" \
+  > "$tmp/formular-completare.tex"
+# Twice: the first pass writes the page count the footer reads.
+for _ in 1 2; do
+  (cd "$tmp" && xelatex -interaction=nonstopmode -halt-on-error formular-completare.tex > formular.log 2>&1) \
+    || { tail -n 30 "$tmp/formular.log" >&2; exit 1; }
+done
+cp "$tmp/formular-completare.pdf" "$out/formular-completare.pdf"
+echo "wrote $out/formular-completare.pdf"
