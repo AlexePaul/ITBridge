@@ -3,15 +3,18 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 7 septembrie 2026, pe `release/stage`. **S-a livrat E12 S9**, recuperarea
-unei ore care nu se poate ține: un singur act, pornit din oricare dintre cele trei stări —
-programată, anulată de calendar, negenerată —, cu lista ferestrelor libere pe grila școlii și cu
-regula de săptămână verificată; familiile primesc un singur mesaj. Cu o zi înainte, două lucruri
-deodată. **S-au adăugat** E12 S8 și E15 S9, facturarea numărată din catalog — plus, la cererea
+**Ultima actualizare:** 7 septembrie 2026, pe `release/stage`. Două story-uri în aceeași zi.
+**S-a livrat E21 S7**, semnalele timpurii: copii cu trei absențe la rând, grupe cu prezența în
+scădere, familii cu două facturi restante, grupe sub prag — fila „Semnale" din rapoarte, cu
+verificarea retroactivă prin „la data de", plus un mesaj către birou luni dimineața, doar când e
+ceva de semnalat. **Și E12 S9**, recuperarea unei ore care nu se poate ține: un singur act, pornit
+din oricare dintre cele trei stări — programată, anulată de calendar, negenerată —, cu lista
+ferestrelor libere pe grila școlii și cu regula de săptămână verificată; familiile primesc un singur
+mesaj. Cu o zi înainte, două lucruri deodată. **S-au adăugat** E12 S8 și E15 S9, facturarea numărată din catalog — plus, la cererea
 școlii, corectura pe copil de pe fișa de emitere, consemnată și înghețată cu factura. **S-a tăiat
 scopul:** E06 și E13 ies din MVP, la fel E14 S6, E21 S3 și E21 S6; E15 S1, S2 și S3 se scot, fiind
 scrise pe modelul pe modul, ca S8; E21 S5 se dovedește livrat de E20 S4; E22 S1 se mută la E07 S1.
-Ultimele merge-uri de cod: E12 S9, a treia felie din E18 S5b (`AdminDateField`), E18 S4 și a doua
+Ultimele merge-uri de cod: E21 S7, E12 S9, a treia felie din E18 S5b (`AdminDateField`), E18 S4 și a doua
 felie din S5b, peste E18 S7 și E20 S1–S4, care veneau peste E17 S8, jumătatea din CI a lui E18 S6,
 E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 
@@ -24,12 +27,12 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **148 de story-uri** în 22 de epicuri: 73 livrate, 19 parțiale, 6 blocate, 12 scoase din
-scop, 38 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **148 de story-uri** în 22 de epicuri: 74 livrate, 19 parțiale, 6 blocate, 12 scoase din
+scop, 37 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar nu rulează nicăieri". (Cifrele sunt numărate din rândurile de mai jos. Cele dinainte erau ținute
 de mână și o luaseră razna cu câte unul în patru categorii din cinci.)
 
-Cele 38 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+Cele 37 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
 E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
 mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
@@ -306,7 +309,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S4 · Ocupare — fila „Locuri": grupe cele mai goale primele, săli cu orele moarte măsurate pe orarul școlii, totaluri pe adresă. Ocupatul vine din `occupancyOf`, probele incluse; pragul de 60% și venitul pierdut la preț de listă sunt propuneri, afișate ca atare
 - [x] S5 · Pâlnia — **livrat în celălalt epic**, ca E20 S4: fila „Pâlnia" din `/admin/rapoarte`, servită de `GET /reports/funnel`. Rămân două jumătăți de acceptanță fără intrare, nu fără cod: costul de achiziție cere o cheltuială de marketing pe care n-o înregistrează nimeni, iar „familii care rămân" cere S3
 - ~~S6 · Export pentru contabil~~ — **scos din scop:** contabilul își ia datele din SmartBill, unde facturile există oficial. Un export din baza noastră ar fi a doua versiune a acelorași cifre. Se repune dacă E16 S0 iese prost și emiterea rămâne la noi
-- [ ] S7 · Semnale timpurii
+- [x] S7 · Semnale timpurii — fila „Semnale" din `/admin/rapoarte` (`GET /reports/signals`) plus un mesaj către birou luni la 08:00, doar când e ceva de semnalat. Patru liste, fiecare de la cine deține definiția: copii cu ultimele trei marcaje absente (regulă nouă, pură, în `signals.rules.ts`, cu absențele anunțate numărate separat), grupe cu media ultimelor trei ședințe cu 20 de puncte sub cele trei dinainte, familii cu două facturi peste termen (`ArrearsService`), grupe sub prag (rândurile raportului de ocupare). Pragurile sunt propuneri și vin în răspuns. **„Verificat retroactiv" e `asOf`** — marcajele și facturile așa cum stăteau într-o zi din trecut; pe istorii scrise de mână în teste, fiindcă istoric real nu există până la deploy. Fără nicio acțiune automată: un semnal e un motiv de telefon
 
 ---
 
