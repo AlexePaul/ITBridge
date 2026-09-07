@@ -230,6 +230,21 @@ familiile au fost anunțate că nu se ține. O recuperare programată pe ora anu
 aceeași tranzacție, după ce familia ei a fost anunțată; creditele acordate la anulare nu se retrag la
 reactivare.
 
+**O oră care nu se poate ține se recuperează dintr-un singur act, cheiat pe grupă și zi** (E12 S9).
+`RescheduleService` (`apps/api/src/modules/class-session/reschedule.service.ts`) nu pornește de la
+un id de ședință, fiindcă ora poate să nu fie un rând: o sărbătoare trecută în `/admin/calendar`
+înainte de generare lasă ziua goală, una trecută după o anulează. Din amândouă stările — și din
+cea programată — `POST /class-sessions/reschedule` scrie **exact un rând** pentru săptămâna grupei:
+îl editează pe cel care există (și îl pune la loc dacă era anulat, cu nota de anulare păstrată) sau
+îl scrie pe ziua-țintă. Nu trece prin `reinstateSession` + `moveSession`: ar fi două mesaje către
+familie, dintre care primul, „ora se ține", e neadevărat pe o zi liberă. Ținta trebuie să fie **în
+aceeași săptămână** — `RESCHEDULE_OUT_OF_WEEK` — fiindcă luna facturată e a lunii în care cade lunea
+săptămânii (E15 S9), iar `moveSession` **nu** verifică asta, prin decizie amânată, nu prin scăpare.
+Ferestrele din `GET /class-sessions/reschedule-windows` sunt pe grila școlii — orele de început ale
+grupelor active de la adresa grupei, în sălile ei, regula pură fiind în `reschedule.rules.ts` — și
+„liber" înseamnă doar sala: platforma nu are profesori (E09 e scos din MVP), deci o fereastră în care
+același om predă în cealaltă sală se oferă cu convingere.
+
 **Recuperarea la anulare e o bifă pe ecran, nu un automatism** (E12 S5). Prețul e pe ședință
 ținută, deci o oră anulată nu se facturează oricum; un credit pe deasupra dă a patra lecție la
 prețul a trei, ceea ce e o decizie de preț și e a celui care anulează. Se scrie prin
@@ -854,6 +869,11 @@ exact în România. Amândouă capetele au deja unelte: `parseIsoDate`, `toIsoDa
 `todayKey` din `apps/web/app/composables/useAttendanceCalendar.ts`, care compară string-uri
 `YYYY-MM-DD` și nu ating deloc `Date`. Greșeala e de exact o zi, apare doar în unele fusuri și nu se
 vede la review.
+
+Într-un formular de admin, o dată se alege prin `AdminDateField`, al cărui model e chiar string-ul
+`YYYY-MM-DD`: trecerea la `CalendarDate` stă în `apps/web/app/composables/useDateField.ts` și nu
+atinge nici ea `Date`. Nu ancora un popover la `inputsRef` al lui `UInputDate` — e un index de
+segment care depinde de locale, iar exemplul din documentația Nuxt UI exact asta face.
 
 **Familia `no-unsafe-*` e pe `error` în codul de producție și oprită în teste.** Excepția pentru
 teste e îngustă și justificată: supertest tipează `res.body` ca `any`, iar valorile întoarse de
