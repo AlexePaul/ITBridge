@@ -360,10 +360,10 @@ Restul deschis e polish cu proprietar clar: migrarea ecranelor rămase din E18 S
 accesibilitate a zonei autentificate din E18 S6, SPF/DKIM/DMARC din E17 S1, conținutul de la E19 S6.
 Niciunul nu blochează pe altcineva.
 
-### E22 · Termeni, confidențialitate și ciclul de viață al datelor — `propus`
+### E22 · Termeni, confidențialitate și ciclul de viață al datelor — `în lucru`
 
 - ~~S1 · Inventarul a ce se stochează~~ — **mutat la E07 S1.** Era același tabel scris de două ori; cel care ajunge sub ochii unei familii ar fi fost tocmai cel rămas în urmă
-- [ ] S2 · Termenii contului și nota de confidențialitate — **condiția de ieșire a platformei**: fără ei nu se deschide accesul familiilor. Absoarbe și textele de vizitator — confidențialitate, cookie-uri — din fostul E07 S5
+- [~] S2 · Termenii contului și nota de confidențialitate — **condiția de ieșire a platformei**: fără ei nu se deschide accesul familiilor. Absoarbe și textele de vizitator — confidențialitate, cookie-uri — din fostul E07 S5. **Ciornă 0.1 în `docs/legal/`**: cele trei texte plus README-ul cu sursa fiecărui fapt; scrise din entități, neverificate de avocat, cu faptele lipsă și deciziile propuse marcate `[[…]]`
 - [ ] S3 · Termenul de păstrare, și ștergerea care chiar șterge — perechea ștergerii logice din E04 S5; numărul se scrie aici, îl execută E07 S4
 - [ ] S4 · Evidența acceptărilor, versionată
 

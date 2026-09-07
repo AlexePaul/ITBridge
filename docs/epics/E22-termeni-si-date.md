@@ -1,6 +1,6 @@
 # E22 · Termeni, confidențialitate și ciclul de viață al datelor
 
-**Status:** propus · **Pistă:** Fundație · **Depinde de:** toate · **Blochează:** —
+**Status:** în lucru · **Pistă:** Fundație · **Depinde de:** toate · **Blochează:** —
 
 ## De ce e ultimul
 
@@ -67,6 +67,16 @@ deja și ar fi absurd să nu le spună:
 
 **Acceptanță:** un părinte poate citi documentul și poate spune, corect, ce se întâmplă cu datele
 copilului lui după ce se retrage.
+
+**Stare: ciornă 0.1 scrisă, în [`docs/legal/`](../legal/README.md)** — termenii, nota de
+confidențialitate și politica de cookie-uri, trei fișiere și un README care spune de unde vine
+fiecare fapt. Scrise direct din entități, fiindcă inventarul din [E07](E07-securitate-gdpr.md) S1 nu
+există încă; când va exista, documentele se reconciliază cu el, nu invers. Neverificate de avocat
+și nepublicate: faptele pe care codul nu le știe — firma, persoana de contact, furnizorii — și
+deciziile propuse — termenul de păstrare, 12 luni de la retragere, care e cifra pe care o preia S3 —
+sunt marcate `[[…]]` și listate în README, împreună cu ce trebuie să existe înainte de publicare:
+bannerul din E07 S5, jobul din S3, evidența acceptărilor din S4, și restrângerea ștergerii de profil,
+care azi cade în cascadă peste facturi.
 
 ### S3 · Termenul de păstrare, și ștergerea care chiar șterge
 
