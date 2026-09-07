@@ -76,6 +76,17 @@ describe('Absence notices (e2e)', () => {
             await announce(admin, { childId: bogdanChildId }).expect(201);
         });
 
+        it('the response names the child and the class, and carries no account', async () => {
+            // The service loads the child with the parent's account to check ownership; `User`
+            // carries `passwordHash`. The screen that presses this button gets the row without it.
+            const res = await announce(admin, {}).expect(201);
+            expect(res.body.child).toMatchObject({ id: anaChildId, firstName: 'Ana' });
+            expect(res.body.child.parent).toBeUndefined();
+            expect(res.body.classSession.group.name).toBeDefined();
+            expect(res.body.classSession.group.children).toBeUndefined();
+            expect(JSON.stringify(res.body)).not.toContain('passwordHash');
+        });
+
         /**
          * The portal button is gone and so is the route behind it — E12/S3.
          *
@@ -173,6 +184,29 @@ describe('Absence notices (e2e)', () => {
 
             const all = await request(app.getHttpServer()).get('/attendance/absences').set('Authorization', admin.auth).expect(200);
             expect(all.body).toHaveLength(2);
+        });
+
+        /**
+         * The office's screen reads from the Monday of the current week, not from now: a child
+         * moved out of Monday's class into Thursday's is still a move on Tuesday, and the row is
+         * keyed on the missed class, which is already behind.
+         */
+        it('`from` widens the list backwards; the default stays "still to come"', async () => {
+            const pastSessionId = await createClassSession(dataSource, groupId, { date: '2026-01-05' });
+            await announce(admin, { classSessionId: pastSessionId }).expect(201);
+            await announce(admin, {}).expect(201);
+
+            const stillToCome = await request(app.getHttpServer()).get('/attendance/absences').set('Authorization', admin.auth).expect(200);
+            expect(stillToCome.body.map((row: { classSession: { id: number } }) => row.classSession.id)).toEqual([sessionId]);
+
+            const sinceJanuary = await request(app.getHttpServer())
+                .get('/attendance/absences')
+                .query({ from: '2026-01-01' })
+                .set('Authorization', admin.auth)
+                .expect(200);
+            expect(sinceJanuary.body.map((row: { classSession: { id: number } }) => row.classSession.id)).toEqual([pastSessionId, sessionId]);
+
+            await request(app.getHttpServer()).get('/attendance/absences').query({ from: 'luni' }).set('Authorization', admin.auth).expect(400);
         });
     });
 });

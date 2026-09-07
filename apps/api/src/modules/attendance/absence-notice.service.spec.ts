@@ -58,6 +58,16 @@ describe('AbsenceNoticeService', () => {
     const responseOf = (error: unknown) => (error as { getResponse(): { error?: string } }).getResponse();
 
     describe('announcing', () => {
+        it('sends back the notice without the account it was checked against', async () => {
+            // `User.passwordHash` has no `select: false`, and the child is loaded with the parent's
+            // account to see who may speak for whom. The office's screen must not receive it.
+            const notice = await announce(MORNING, Role.ADMIN, 1);
+            expect(notice.child).toEqual({ id: 5 });
+            expect(notice.child).not.toHaveProperty('parent');
+            expect(notice.classSession.group).not.toHaveProperty('children');
+            expect(notice.classSession.group.id).toBe(3);
+        });
+
         it('records the reason and freezes that it arrived in time', async () => {
             const notice = await announce();
 

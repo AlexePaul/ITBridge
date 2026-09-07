@@ -259,8 +259,20 @@ scriere** — eligibilitatea e un fapt despre momentul anunțului, iar o valoare
 și-ar schimba răspunsul pe măsură ce ora intră în trecut; un al doilea anunț **modifică** rândul, nu
 adaugă unul (`UQ_absence_notice_child_session`), și rejudecă `inTime`; iar termenul se compară pe
 **ceasul școlii**, prin `Intl` pe `Europe/Bucharest` — prin UTC, un anunț de la 01:00 ora Bucureștiului
-ar fi judecat ca fiind ziua dinainte. Regula însăși („înainte să înceapă ora") e o linie în
-`apps/api/src/modules/attendance/absence-notice.rules.ts`.
+ar fi judecat ca fiind ziua dinainte. Regula însăși („luni la 12:00 din săptămâna ședinței") e o linie
+în `apps/api/src/modules/attendance/absence-notice.rules.ts`. **Biroul notează și mută din
+`/admin/absente`**, iar ecranul arată `inTime` fără să-l facă poartă: de când notează adminul,
+coloana spune când a tastat el, nu când a sunat familia, deci un buton „Mută" ascuns pe „după
+termen" ar fi ținut de cod o regulă pe care S3 a lăsat-o dinadins biroului. Cifra celor de mutat stă
+în meniu, prin `unplacedAbsencesStore`, din același motiv ca restanța de documente din E17 S8.
+
+**`User.passwordHash` n-are `select: false`, deci orice rând care ajunge la `parent.user` îl cară.**
+Serviciile care încarcă contul ca să verifice proprietatea — `AbsenceNoticeService.announce` o face
+prin `relations: { parent: { user: true } }` — trebuie să-l scoată înainte să răspundă; `announce`
+întoarce rândul prin `forResponse`, fără `child.parent` și fără lista copiilor grupei. Un test
+unitar și unul de integrare țin linia (`JSON.stringify(res.body)` nu conține `passwordHash`).
+Tiparul e același ca la `Payment.recordedBy`, care serializează doar `{ id, username }`. Dacă
+încarci `user` într-un serviciu nou, verifică ce pleacă pe sârmă, nu doar ce verifici.
 
 **Recuperarea e un drept câștigat, nu un marcaj observat** (E12 S4). `MakeUpCredit` apare acolo unde
 un anunț **în termen** se întâlnește cu un catalog care spune că nu a fost acolo — niciuna dintre

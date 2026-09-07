@@ -1,5 +1,6 @@
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
+import { useUnplacedAbsencesStore } from "~/stores/unplacedAbsencesStore";
 import type {
   AbsenceNotice,
   AnnounceAbsenceDto,
@@ -11,6 +12,7 @@ import type {
 export const useAttendanceApi = () => {
   const api = useApi();
   const tokenStore = useTokenStore();
+  const unplacedAbsences = useUnplacedAbsencesStore();
 
   /**
    * Marks a whole class, named by its session id.
@@ -91,11 +93,18 @@ export const useAttendanceApi = () => {
       body: dto,
     });
 
-  /** Announced absences for classes still to come. A parent gets their own; an admin the school. */
-  const fetchUpcomingAbsences = async () =>
+  /**
+   * Announced absences for classes still to come. A parent gets their own; an admin the school.
+   *
+   * `from` (`YYYY-MM-DD`) widens the list backwards — the office's screen asks from the Monday of
+   * the current week, so a move out of a class already missed this week stays visible while the
+   * replacement is still ahead. Left out, the API answers from now.
+   */
+  const fetchUpcomingAbsences = async (from?: string) =>
     api<AbsenceNotice[]>("/attendance/absences", {
       method: "GET",
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      ...(from ? { query: { from } } : {}),
     });
 
   /** The child is coming after all. */
@@ -107,12 +116,19 @@ export const useAttendanceApi = () => {
 
   /**
    * This week's announced absences nobody has placed yet — the office's list, E12/S4. Admin only.
+   *
+   * Into the store as well as back to the caller: the count sits in the admin menu, and the
+   * screen that changes it refreshes through this same call, so the badge and the list never
+   * disagree.
    */
-  const fetchUnplacedAbsences = async () =>
-    api<AbsenceNotice[]>("/attendance/replacements/unplaced", {
+  const fetchUnplacedAbsences = async () => {
+    const notices = await api<AbsenceNotice[]>("/attendance/replacements/unplaced", {
       method: "GET",
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
+    unplacedAbsences.set(notices);
+    return notices;
+  };
 
   /** The classes this child could be moved into: same week, other group, right age, a free seat. */
   const fetchReplacementOptions = async (noticeId: number) =>
