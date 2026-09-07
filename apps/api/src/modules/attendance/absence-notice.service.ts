@@ -5,6 +5,7 @@ import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { Attendance } from 'src/entities/attendance.entity';
 import { Child } from 'src/entities/child.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
+import { Group } from 'src/entities/group.entity';
 import { User } from 'src/entities/user.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { Role } from 'src/enum/role.enum';
@@ -106,7 +107,23 @@ export class AbsenceNoticeService {
 
         const saved = await this.noticeRepository.save(notice);
         this.logger.log(`Absence announced for child ${child.id} at session ${session.id}; in time: ${saved.inTime}.`);
-        return saved;
+        return this.forResponse(saved);
+    }
+
+    /**
+     * The saved notice, minus what was loaded only to check it.
+     *
+     * The child came with their parent's *account* attached — `relations: { parent: { user: true } }`
+     * above, for the ownership branch — and `User` carries `passwordHash` with no `select: false`
+     * behind it. Returned as-is, the row the office's screen receives after pressing "notează" would
+     * have had the family's password hash in it. The group's whole roster, loaded to check that the
+     * child is in it, is nobody's business on this response either. Everything the screen reads —
+     * the child's name, the class, its group's name, `inTime` — stays.
+     */
+    private forResponse(notice: AbsenceNotice): AbsenceNotice {
+        const { parent: _parent, ...child } = notice.child;
+        const { children: _children, ...group } = notice.classSession.group;
+        return { ...notice, child: child as Child, classSession: { ...notice.classSession, group: group as Group } };
     }
 
     /**

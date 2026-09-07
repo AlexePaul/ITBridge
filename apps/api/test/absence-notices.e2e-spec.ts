@@ -76,6 +76,17 @@ describe('Absence notices (e2e)', () => {
             await announce(admin, { childId: bogdanChildId }).expect(201);
         });
 
+        it('the response names the child and the class, and carries no account', async () => {
+            // The service loads the child with the parent's account to check ownership; `User`
+            // carries `passwordHash`. The screen that presses this button gets the row without it.
+            const res = await announce(admin, {}).expect(201);
+            expect(res.body.child).toMatchObject({ id: anaChildId, firstName: 'Ana' });
+            expect(res.body.child.parent).toBeUndefined();
+            expect(res.body.classSession.group.name).toBeDefined();
+            expect(res.body.classSession.group.children).toBeUndefined();
+            expect(JSON.stringify(res.body)).not.toContain('passwordHash');
+        });
+
         /**
          * The portal button is gone and so is the route behind it — E12/S3.
          *
