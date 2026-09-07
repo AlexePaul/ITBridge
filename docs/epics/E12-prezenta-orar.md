@@ -251,7 +251,12 @@ dreptul de recuperare.
 care vorbește despre o oră de curs, fiindcă orarul e singurul răspuns la „când". **Anunțul îl scrie
 adminul**, fiindcă el e cel care ridică telefonul: părinții sună, dau mesaj pe WhatsApp sau scriu pe
 email. `/user/absente` rămâne locul unde familia **citește** ce s-a notat și unde a fost mutat
-copilul.
+copilul. **Biroul notează din `/admin/absente`**, în „Zi de zi", lângă orar: alege copilul, una
+dintre orele grupei lui din următoarele patru săptămâni și motivul, iar răspunsul îi spune pe loc
+dacă a intrat în termen — și, dacă da, îi deschide direct lista de ore la care poate muta copilul
+(S4). Rândul întors de `POST /attendance/absences` **nu poartă contul părintelui**: serviciul îl
+încarcă doar ca să verifice cine poate vorbi în numele cui, iar `User.passwordHash` n-are
+`select: false`, deci un răspuns trimis ca atare ar fi pus hash-ul familiei în browserul biroului.
 
 Și e o regulă, nu o convenție de ecran: pe lângă butonul scos din portal, `POST /attendance/absences`
 și `DELETE /attendance/absences/:id` sunt **`ADMIN`**. Story-ul le lăsase deschise dinadins,
@@ -406,11 +411,32 @@ din intenție e cealaltă jumătate — familia nu trebuie să alerge după nime
 ajuns. În `/user/absente` scrie, fără să întrebe nimeni: „Ana merge la grupa Python, joi 10
 septembrie, ora 18:00".
 
-**Ce a rămas în afara acestui story:** ecranele de birou. Endpoint-urile există și sunt ADMIN
+**Ecranele de birou au venit după, și sunt unul singur: `/admin/absente`.** Endpoint-urile
 (`GET /attendance/replacements/unplaced`, `GET /attendance/absences/:id/replacement-options`,
-`PUT`/`DELETE /attendance/absences/:id/replacement`), dar **niciun ecran nu le apasă**. Nu sunt ale
-lui S6, care e livrat și e catalogul de pe telefon; sunt o bucată de admin care nu are încă story —
-vezi [Întrebări deschise](#întrebări-deschise), unde stă ca gaura pe care o lasă.
+`PUT`/`DELETE /attendance/absences/:id/replacement`) au stat o vreme fără niciun ecran care să le
+apese; acum lista de luni e prima secțiune a paginii — absențele anunțate pentru săptămâna asta și
+pentru cele care urmează, împăturite pe săptămâni, fiecare cu insigna „În termen" / „După termen" și
+cu butonul „Mută". Dialogul de mutare cere lista API-ului, o arată pe zile, cu grupa, adresa și
+locurile libere, și spune înainte de buton că familia primește un email; „Anulează mutarea" spune la
+fel de clar că **nu** pleacă nimic. A doua secțiune sunt mutările consemnate, ca o mutare să poată
+fi verificată sau schimbată fără telefon — citite **de la lunea săptămânii curente**, nu de acum
+(`GET /attendance/absences?from=`): rândul e cheiat pe ora pierdută, iar un copil mutat de luni pe
+joi e marți tot un copil mutat, chiar dacă ora lui de luni a trecut. Trei lucruri pe care ecranul le
+încodează în loc să le explice:
+
+- **Un anunț după termen păstrează butonul „Mută".** `inTime` spune când a tastat biroul, nu când a
+  sunat familia (S3), deci ecranul arată faptul și lasă decizia omului — un buton ascuns ar fi fost
+  regula ținută de cod pe care S3 a refuzat-o dinadins.
+- **Numărul stă în meniu**, ca restanța de documente din E17 S8: `unplacedAbsencesStore`, încărcat
+  din layout-ul `dashboard`, pune pe „Absențe anunțate" câte sunt de mutat și îl face portocaliu
+  când un copil anunțat în termen a ajuns în ziua orei pierdute fără nicio mutare. Riscul pe care îl
+  acoperă e exact cel din întrebarea deschisă de mai jos: cineva uită, și nimic nu-l întreabă.
+- **Lista oferită e a API-ului și se recere la refuz.** Un loc poate pleca între citire și buton;
+  un 409 pe „Mută" reîncarcă opțiunile în loc să ofere aceeași oră a doua oară.
+
+Regulile de mai sus ale ecranului sunt pure, în `apps/web/app/composables/useAbsenceOffice.ts`, și
+ținute de vitest: săptămâna unei zile din componente, starea unui anunț din cele două fapte
+înghețate, propoziția „merge la grupa X, joi, ora 18:00, la Y" în aceeași ordine cu emailul.
 
 ### S5 · Anulări și mutări
 
@@ -1082,10 +1108,11 @@ Niciuna nu ține pe loc ce s-a livrat; fiecare spune ce blochează.
   de business — un părinte care conduce douăzeci de minute în plus într-o săptămână oarecare poate să
   prefere să piardă ora — și fiindcă azi biroul e cel care o ia, de la caz la caz, uitându-se la
   numele locației din listă.
-- **Cine îi spune biroului ce absențe din săptămâna asta n-au fost încă plasate?** Întrebarea are
-  acum răspuns — `GET /attendance/replacements/unplaced` — dar n-are cine s-o pună: endpoint-ul nu e
-  legat de niciun ecran și nimic nu-l citește la o oră fixă. **Nu blochează regula**, care e livrată;
-  blochează faptul că cineva poate uita să mute un copil și nimic nu-l întreabă.
+- ~~Cine îi spune biroului ce absențe din săptămâna asta n-au fost încă plasate?~~ **Închisă:**
+  `/admin/absente` e lista, iar cifra ei stă în meniul de admin pe fiecare ecran, portocalie când un
+  copil anunțat în termen a ajuns în ziua orei fără mutare (S4). Ce n-a intrat, prin decizie: un
+  memento pe email către birou la o oră fixă — ar fi al treilea mesaj către aceeași adresă despre
+  aceeași săptămână, iar numărul din meniu e citit de oricine deschide orice ecran.
 - **Cum devine termenul de luni o regulă pe care o poate ține codul?** Azi nu poate: `inTime` spune
   când a tastat adminul, nu când a sunat familia, iar cele două se despart doar în capul omului care
   a răspuns la telefon (S3). Ce ar închide întrebarea e un al doilea moment pe rând — „a anunțat pe",

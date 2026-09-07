@@ -18,14 +18,17 @@ Pentru primele șase luni realiste, vezi secțiunea [Ordinea recomandată](#ordi
 
 ## Stare curentă
 
-Frontend pe Vercel, funcționând ca prezentare statică. Backend nedeployat nicăieri — de aceea stă pe
-loc [E01](E01-infrastructura-medii.md) S4, care așteaptă instanța EC2, și odată cu el tot ce are
-nevoie de un API care rulează: [E18](E18-frontend-portal.md) S4 și S5, backupul din
-[E04](E04-migrari-date.md) S4, [E14](E14-proiecte-elevi.md) S3b (ffmpeg pe host), S5 (galeria
-părintelui, scrisă și netestabilă pe viu) și S6 (vitrina publică). Șase story-uri din trei epicuri,
-toate în așteptarea aceleiași instanțe — de aceea S4 din E01 nu e o sarcină de infrastructură printre
-altele, ci pragul peste care nu trece nimic altceva. Agentul din E14 e primul lucru construit care nu
-are nici măcar unde să se conecteze.
+Frontend pe Vercel — `itbridgeschool.com` din `release/prod`, `stage.itbridgeschool.com` din
+`release/stage`. Backendul rulează pe EC2, dar **numai pentru stage**:
+`api-stage.itbridgeschool.com`, cu deploy automat la fiecare push pe `release/stage`
+([E01](E01-infrastructura-medii.md) S4). Producția n-are backend, și nu din lipsă de instanță —
+`release/prod` poartă API-ul de dinainte de E08, deci acolo nu e nimic de deployat încă.
+
+Pragul s-a mutat, deci: ce avea nevoie doar de „undeva unde rulează" se poate face acum, pe stage —
+[E18](E18-frontend-portal.md) S4 și S5, [E14](E14-proiecte-elevi.md) S3b (ffmpeg pe host) și S5
+(galeria părintelui). Ce mai cere domeniul real rămâne blocat: backupul restaurat din
+[E04](E04-migrari-date.md) S4, vitrina publică din E14 S6 și pagina `/proba` din
+[E20](E20-palnie-inscriere.md) S2. Agentul din E14 are de acum unde să se conecteze.
 Locația e dimensiune de primă clasă din [E08](E08-multi-locatie.md).
 
 Curățenia de infrastructură din E01 a intrat: aplicația nu mai rulează în Docker, `docker-compose.yml`
@@ -86,8 +89,9 @@ explicit de patron nu avea pe unde pleca: la 10:00, ședințele de ieri rămase 
 nicio prezență se adună într-un singur email către adresa școlii, iar în zilele în care totul e
 marcat nu pleacă nimic. `apps/api` nu putea trimite nimic până atunci — Resend era doar în ruta
 Nitro a formularului de contact, care rulează pe Vercel și nu vede baza de date. Deci s-au construit
-`MailService` și tabelul `outbox`, cât a cerut jobul; **scheduler-ul care golește coada nu rulează
-în producție până la [E01](E01-infrastructura-medii.md) S4.**
+`MailService` și tabelul `outbox`, cât a cerut jobul; **scheduler-ul rulează de la
+[E01](E01-infrastructura-medii.md) S4, dar deocamdată doar pe stage**, unde nu există cheie de
+trimitere — mesajele se scriu, nu pleacă.
 
 Tot aici s-au reparat două bug-uri mai vechi decât branch-ul, amândouă în calendarul părintelui.
 Prezența stătea într-un cookie: măsurat pe API-ul real, șapte ședințe înseamnă 11,7 KB de JSON și
@@ -281,9 +285,9 @@ Varianta cealaltă e legitimă: E11 și E12 se pot livra fără partea de notifi
 scrie de la început că acele criterii de acceptanță rămân deschise până în val 4, ca revenirea la
 ele să fie planificată, nu descoperită.
 
-Un lucru rămâne de val 4 oricum: scheduler-ul din E17 S3 nu are unde să ruleze continuu până nu
-există instanța din [E01](E01-infrastructura-medii.md) S4. Coada se construiește și se testează
-înainte; pornirea ei permanentă vine odată cu deploy-ul.
+Un lucru a atârnat de val 4 până la deploy: scheduler-ul din E17 S3 n-avea unde să ruleze continuu
+fără instanța din [E01](E01-infrastructura-medii.md) S4. Rulează acum, pe stage, într-un singur
+proces PM2 — coada se golește, dar fără cheie de trimitere, deci mesajele rămân în tabel.
 
 **Val 4 — bani și livrare.** E15, E16, restul lui E17 (S4–S9) și E14. Aici se schimbă modelul de
 business, deci trebuie să existe deja plasa de siguranță din E03. [E16](E16-plati-fiscal.md) S6 și
@@ -336,25 +340,29 @@ agreate cu patronul.
 [E17](E17-comunicare-notificari.md) e `în lucru`, dar numai cât a cerut jobul de mai sus. Din S1
 există `MailService` în `apps/api`, cu cheia și expeditorul lui, separate de ale formularului
 public; din S3 există tabelul `outbox`, scrierea în tranzacția apelantului și scheduler-ul cu
-`FOR UPDATE SKIP LOCKED` și pauză crescătoare. **Scheduler-ul nu rulează în producție până la
-[E01](E01-infrastructura-medii.md) S4** — nu există instanța și nici fișierul de ecosistem care să-l
-fixeze pe una singură. Nu există șabloane (S2), preferințe și dezabonare (S4), evidența pe care o
-citește un admin (S5), rezumate (S6), anunțuri (S7) și trimitere pe grupă (S8). Singurul destinatar
-de până acum e adresa școlii: **niciun mesaj nu a plecat încă spre un părinte.**
+`FOR UPDATE SKIP LOCKED` și pauză crescătoare. **Scheduler-ul rulează de la
+[E01](E01-infrastructura-medii.md) S4, dar numai pe stage**, fixat pe un singur proces prin
+`instances: 1` și `exec_mode: 'fork'` în fișierul de ecosistem de pe instanță. Nu există șabloane
+(S2), preferințe și dezabonare (S4), evidența pe care o citește un admin (S5), rezumate (S6),
+anunțuri (S7) și trimitere pe grupă (S8). Singurul destinatar de până acum e adresa școlii:
+**niciun mesaj nu a plecat încă spre un părinte** — pe stage nu există cheie de trimitere,
+deliberat.
 
-[E01](E01-infrastructura-medii.md) și [E04](E04-migrari-date.md) sunt `în lucru`, amândouă blocate
-în același punct: **nu există instanța EC2.** La E01 rămâne S4 (deploy) — S6, curățarea de
-branch-uri, e făcută. La E04, S2 e livrat parțial — comenzile și garda de CI există, cablarea în
-deploy nu — iar S4 (backup) și S5 (retenție) așteaptă, primul instanța, al doilea răspunsul
-contabilului despre cât se păstrează facturile.
+[E01](E01-infrastructura-medii.md) și [E04](E04-migrari-date.md) sunt `în lucru`. La E01, S4 e
+livrat pentru stage și rămâne producția — **care nu mai e o problemă de infrastructură**, ci faptul
+că `release/prod` poartă API-ul de dinainte de E08. S6, curățarea de branch-uri, e făcută. La E04,
+S2 s-a închis odată cu deploy-ul, care rulează migrările între build și `pm2 reload`; S4 are
+dump-urile zilnice, dar îi lipsește proba de restaurare, care e chiar acceptanța lui; S5 (retenția)
+așteaptă răspunsul contabilului despre cât se păstrează facturile.
 
 [E18](E18-frontend-portal.md) și [E19](E19-seo-geo.md) sunt `în lucru`, livrate amândouă pe partea
 publică și oprite amândouă în același punct:
 
 - La **E18** sunt gata S1 (sistemul de design) și S3 (cele șapte pagini publice); S2 e parțial —
   imaginile sunt sub 200KB, dar `@nuxt/image` tot nu e instalat. Rămân S4 (portalul părintelui) și
-  S5 (zona de admin), **amândouă blocate de faptul că backend-ul nu rulează nicăieri**: paginile de
-  după autentificare nu sunt cablate la un API și nu se pot nici testa, nici arăta. Plus S6
+  S5 (zona de admin). **Deblocate de deploy-ul de stage**: paginile de după autentificare sunt
+  cablate la un API care rulează și se pot deschide pe `stage.itbridgeschool.com`, pe date de
+  seed — ce lipsește e verificarea, nu mediul. Plus S6
   (verificarea de accesibilitate în CI) și S7 (interfața profesorului — care, fără rol separat, e o
   vedere din zona de admin, nu o zonă a ei).
 - La **E19** sunt gata S1, S2, S3 și S7. S4 așteaptă [E10](E10-curriculum-module.md), S5 se face
@@ -362,8 +370,9 @@ publică și oprite amândouă în același punct:
 - Lucrul cel mai valoros rămas în E19 **nu e cod**: două profiluri Google Business verificate, unul
   per adresă. Pentru căutările locale contează mai mult decât orice a rămas în repo.
 
-Deci ordinea firească e [E01](E01-infrastructura-medii.md) S4 înaintea verificării lui E18 S4 —
-portalul e scris, dar un portal fără API nu se poate termina.
+Ordinea firească era [E01](E01-infrastructura-medii.md) S4 înaintea verificării lui E18 S4 — un
+portal fără API nu se poate termina. Condiția e îndeplinită de la deploy-ul de stage, deci
+verificarea lui E18 S4 e prima muncă care se poate începe azi.
 
 [E10](E10-curriculum-module.md) rămâne `propus` și **iese din MVP**, respins de patron. Nu e anulat
 ca E22 de mai jos și fișierul rămâne unde e — decizia e despre moment, nu despre scop —, dar nu mai
@@ -411,7 +420,7 @@ Consemnate aici ca să nu fie relitigate în fiecare epic. Fiecare e detaliată,
 | Frontend pe Vercel                   | Rămâne.                                                                                                                                       | [E01](E01-infrastructura-medii.md)  |
 | pnpm workspaces plus Turborepo       | Lockfile unic. `pnpm dev` pornește ambele; `dev:api` și `dev:web` separat.                                                                    | [E02](E02-monorepo-tooling.md)      |
 | Fără date de producție de păstrat    | Baza se reconstruiește de la zero. Simplifică mult E04, E11 și E12.                                                                           | [E04](E04-migrari-date.md)          |
-| Joburi de fundal                     | Tabel outbox în Postgres, cu scheduler în procesul API. Fără Redis, fără BullMQ. Construit, dar fără unde să ruleze continuu până la E01 S4.  | [E17](E17-comunicare-notificari.md) |
+| Joburi de fundal                     | Tabel outbox în Postgres, cu scheduler în procesul API. Fără Redis, fără BullMQ. Rulează pe stage de la E01 S4, într-un singur proces.        | [E17](E17-comunicare-notificari.md) |
 | O sală per locație, 10 locuri        | Valoare implicită, nu regulă: numărul de locuri, numele și starea fiecărei săli se editează din `/admin/locations`, fără migrare și fără cod. | [E08](E08-multi-locatie.md)         |
 
 ### Model de business

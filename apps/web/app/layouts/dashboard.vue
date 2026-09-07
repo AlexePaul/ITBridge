@@ -52,6 +52,8 @@ import { useLocationsApi } from "~/composables/api/useLocationsApi";
 import { useRoomsApi } from "~/composables/api/useRoomsApi";
 import { useProjectsApi } from "~/composables/api/useProjectsApi";
 import { usePendingProjectsStore } from "~/stores/pendingProjectsStore";
+import { useUnplacedAbsencesStore } from "~/stores/unplacedAbsencesStore";
+import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import { computed } from "vue";
 import { useRoute, useSeoMeta } from "#imports";
 
@@ -76,6 +78,7 @@ useHead(() => ({
 useSeoMeta({ robots: "noindex, nofollow" });
 
 const pendingProjects = usePendingProjectsStore();
+const unplacedAbsences = useUnplacedAbsencesStore();
 
 // Loaded once, here, rather than in each admin page: the switcher lives in this layout and every
 // page below it filters on the selection, so the list has to exist before the first page renders.
@@ -83,6 +86,7 @@ if (isAdmin) {
   const locationsApi = useLocationsApi();
   const roomsApi = useRoomsApi();
   const projectsApi = useProjectsApi();
+  const attendanceApi = useAttendanceApi();
   onMounted(async () => {
     try {
       await Promise.all([locationsApi.fetchLocations(), roomsApi.fetchRooms()]);
@@ -99,6 +103,13 @@ if (isAdmin) {
       // No badge, then. An absent badge reads as "nothing waiting", which is a wrong answer — but
       // a layout that refuses to render over it would be a worse one, and the projects screen still
       // shows the backlog to anybody who opens it.
+    }
+    try {
+      // E12/S4. The same argument as the figure above: the office's Monday list is only a list if
+      // somebody opens it, and the child who falls through is the one nobody was reminded of.
+      await attendanceApi.fetchUnplacedAbsences();
+    } catch {
+      // No badge. The screen itself still shows the list, with its own error state.
     }
   });
 }
@@ -142,6 +153,23 @@ const navigationItems = computed(() => {
       { type: "label" as const, label: "Zi de zi" },
       { label: "Prezența de azi", to: "/admin/attendance/azi", icon: "i-lucide-smartphone" },
       { label: "Orarul", to: "/admin/orar", icon: "i-lucide-calendar-clock" },
+      {
+        label: "Absențe anunțate",
+        to: "/admin/absente",
+        icon: "i-lucide-user-x",
+        // Same rule as the projects badge below: only when there is somebody to move, and
+        // warning-coloured once a child announced in time has reached the day of the missed
+        // class with no move recorded (E12/S4).
+        ...(unplacedAbsences.total > 0
+          ? {
+              badge: {
+                label: String(unplacedAbsences.total),
+                color: unplacedAbsences.slipping > 0 ? ("warning" as const) : ("neutral" as const),
+                variant: "subtle" as const,
+              },
+            }
+          : {}),
+      },
       { label: "Prezență", to: "/admin/attendance", icon: "i-lucide-check-square" },
       { label: "Calendar școlar", to: "/admin/calendar", icon: "i-lucide-calendar-x" },
     ],

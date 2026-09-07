@@ -11,6 +11,8 @@ import { AnnounceAbsenceDto } from './dto/announceAbsence.dto';
 import { AbsenceNoticeService } from './absence-notice.service';
 import { ReplacementService } from './replacement.service';
 import { PlaceReplacementDto } from './dto/placeReplacement.dto';
+import { UpcomingAbsencesQueryDto } from './dto/upcomingAbsences.dto';
+import { parseIsoDate } from 'src/modules/class-session/class-session.dates';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('attendance')
@@ -98,13 +100,21 @@ export class AttendanceController {
         return this.absenceNoticeService.announce(dto, req.user.role, req.user.sub);
     }
 
-    /** What has been announced for classes still to come. Admin sees the school, a parent their own. */
+    /**
+     * What has been announced for classes still to come. Admin sees the school, a parent their own.
+     *
+     * `from` lets the office's screen read from the Monday of the current week rather than from now:
+     * a move made out of a class already missed this week is still a move, and the row is keyed on
+     * the missed class, not on the replacement. See `UpcomingAbsencesQueryDto`.
+     */
     @Get('absences')
     @ApiBearerAuth()
     @UseGuards(AuthGuard)
-    @ApiResponse({ status: 200, description: 'Upcoming announced absences, soonest first' })
-    async upcomingAbsences(@Request() req: AuthenticatedRequest) {
-        return this.absenceNoticeService.upcoming(req.user.role, req.user.sub);
+    @ApiResponse({ status: 200, description: 'Announced absences from `from` (default: now) on, soonest first' })
+    @ApiResponse({ status: 400, description: '`from` is not a YYYY-MM-DD date' })
+    async upcomingAbsences(@Query() query: UpcomingAbsencesQueryDto, @Request() req: AuthenticatedRequest) {
+        const from = query.from ? parseIsoDate(query.from) : new Date();
+        return this.absenceNoticeService.upcoming(req.user.role, req.user.sub, from);
     }
 
     /**
