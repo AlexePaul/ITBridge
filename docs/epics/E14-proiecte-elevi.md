@@ -407,9 +407,9 @@ există; și nu o pagină goală, fiindcă un refuz tăcut e mai greu de raporta
 răspuns, deci procesul ține un fișier o dată, nu munca unui copil pe un semestru. E aceeași greșeală
 ca un upload buferat, venită din direcția opusă.
 
-Ecranele nu se pot arăta nimănui până la [E01](E01-infrastructura-medii.md) S4 — sunt pagini de după
-autentificare, iar backend-ul nu e deployat. Blocajul e al lui [E18](E18-frontend-portal.md) S4, nu
-al acestui story: codul e scris și testat.
+Ecranele se pot deschide de la [E01](E01-infrastructura-medii.md) S4, pe stage — sunt pagini de după
+autentificare, iar acolo rulează un API. Ce lipsește e verificarea, care e a lui
+[E18](E18-frontend-portal.md) S4, nu a acestui story: codul e scris și testat.
 
 ### S6 · Vitrina publică
 
