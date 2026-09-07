@@ -76,6 +76,19 @@ export function endOfIsoWeek(date: Date): Date {
 }
 
 /**
+ * Both boundaries of the week `date` falls in, as ISO dates, inclusive — Monday through Sunday.
+ *
+ * The week is the unit this epic is written in: the absence deadline (S3), the move of one child
+ * (S4) and the recovery of a whole class (S9) all say "the same week" and mean this one. The
+ * billing rule reads it too — a week is billed to the month its Monday falls in (E15/S9) — which is
+ * why a class recovered inside its own week stays on the same invoice whatever the calendar says.
+ */
+export function isoWeekOf(date: Date | string): { from: string; to: string } {
+    const day = typeof date === 'string' ? parseIsoDate(date.slice(0, 10)) : date;
+    return { from: toIsoDate(startOfIsoWeek(day)), to: toIsoDate(endOfIsoWeek(day)) };
+}
+
+/**
  * Every occurrence of `weekday` in `[from, until)` — `from` included when it is that weekday.
  *
  * The window is half-open so that a horizon of N weeks is exactly `N * 7` days and contains exactly

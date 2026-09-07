@@ -37,6 +37,7 @@ import type { Location } from './entities/location.entity';
 import type { Room } from './entities/room.entity';
 import type { Attendance } from './entities/attendance.entity';
 import type { ClassSession } from './entities/class-session.entity';
+import type { RescheduleWindowsResult } from './modules/class-session/reschedule.service';
 import type { Invoice } from './entities/invoice.entity';
 import type { Payment } from './entities/payment.entity';
 import type { PaymentMethod } from './enum/payment-method.enum';
@@ -105,6 +106,10 @@ type _WaitlistEntry = Check<
     Pick<Serialized<WaitlistEntry>, 'id' | 'status' | 'createdAt' | 'offeredAt' | 'respondBy' | 'note'>
 >;
 type _ClassSession = Check<Omit<Wire.ClassSession, never>, Omit<Serialized<ClassSession>, 'attendances'>>;
+// A computed shape rather than an entity, so the service's own result type is what is checked —
+// there is no row for `Serialized` to read. The enum on `source.status` is compared through the
+// template literal, exactly as `_ClassSessionStatus` below does it.
+type _RescheduleWindows = Check<Wire.RescheduleWindows, RescheduleWindowsResult>;
 
 // E14. Checked field by field rather than whole, because the entity carries several things that
 // never leave: `classSession`, `uploadedBy`, the reassignment trail, and the outbox row id. The

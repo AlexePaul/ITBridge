@@ -82,3 +82,66 @@ export interface NonTeachingImpact {
     affected: { id: number; date: ISODate; groupId: number; groupName: string }[];
     byGroup: { groupId: number; groupName: string; count: number; dates: ISODate[] }[];
 }
+
+/**
+ * One free slot a class that cannot be held could move into — E12/S9. `HH:mm`, not `HH:mm:ss`:
+ * these are computed, not read off a `time` column, and the write takes `HH:mm`.
+ */
+export interface RescheduleWindow {
+    date: ISODate;
+    startTime: TimeOfDay;
+    endTime: TimeOfDay;
+    roomId: number;
+    roomName: string;
+    locationName: string;
+}
+
+/** The row on the missed day, as the screen describes it. `null` in the result when generation never wrote one. */
+export interface RescheduleSource {
+    id: number;
+    status: ClassSessionStatus;
+    hasAttendance: boolean;
+    startTime: TimeOfDay;
+    endTime: TimeOfDay;
+    roomId: number;
+    roomName: string;
+    notes: string | null;
+}
+
+/**
+ * What `GET /class-sessions/reschedule-windows` answers — E12/S9.
+ *
+ * The week, the class as it stands on the missed day, why it could not be recovered at all
+ * (`blocked`, with the same code the write would refuse with), and every free slot of the week.
+ * `windows` is empty both when blocked and when the week simply has nothing free; the screen tells
+ * the two apart by `blocked`.
+ */
+export interface RescheduleWindows {
+    week: { from: ISODate; to: ISODate };
+    missedDate: ISODate;
+    /** Whether the school calendar closes the missed day — the usual reason there is no row, or a cancelled one. */
+    missedDayClosed: boolean;
+    /** The group's own hour and room, what the class defaults to if only the day changes. */
+    usual: { startTime: TimeOfDay; endTime: TimeOfDay; roomId: number; roomName: string };
+    source: RescheduleSource | null;
+    blocked: {
+        code: 'CLASS_SESSION_HAS_ATTENDANCE' | 'CLASS_SESSION_NOT_FOUND' | 'GROUP_ALREADY_HAS_SESSION_THAT_WEEK';
+        message: string;
+    } | null;
+    windows: RescheduleWindow[];
+}
+
+/**
+ * Body for `POST /class-sessions/reschedule` — E12/S9. Keyed on the group and the day the class
+ * was, or would have been, on; `targetDate` must fall in the same week. Hour and room default to
+ * the class's own.
+ */
+export interface RescheduleClassSessionPayload {
+    groupId: number;
+    date: ISODate;
+    targetDate: ISODate;
+    startTime?: TimeOfDay;
+    endTime?: TimeOfDay;
+    roomId?: number;
+    reason: string;
+}

@@ -6,7 +6,10 @@ import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
 import { ClassSessionService } from './class-session.service';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
+import { RescheduleService } from './reschedule.service';
 import { CancelClassSessionDto } from './dto/cancelClassSession.dto';
+import { RescheduleClassSessionDto } from './dto/rescheduleClassSession.dto';
+import { RescheduleWindowsDto } from './dto/rescheduleWindows.dto';
 import { SetVacationDto } from './dto/setVacation.dto';
 import { MoveClassSessionDto } from './dto/moveClassSession.dto';
 import { CreateNonTeachingPeriodDto } from './dto/nonTeachingPeriod.dto';
@@ -20,6 +23,7 @@ export class ClassSessionController {
     constructor(
         private readonly classSessionService: ClassSessionService,
         private readonly nonTeachingPeriodService: NonTeachingPeriodService,
+        private readonly rescheduleService: RescheduleService,
     ) {}
 
     @Post('generate')
@@ -140,6 +144,52 @@ export class ClassSessionController {
     @ApiResponse({ status: 400, description: 'The interval is reversed, or a date is not a real day' })
     async getUnmarkedSessions(@Query() range: UnmarkedClassSessionsDto) {
         return this.classSessionService.findUnmarkedSessions(range);
+    }
+
+    /**
+     * Recovering a class that cannot be held — E12/S9. Both routes are keyed on the group and the
+     * day rather than on a session id, because the class may not be a row: a holiday written into
+     * the calendar before generation leaves nothing behind to name. Declared before the `:id`
+     * routes for the reason `unmarked` is.
+     */
+    @Get('reschedule-windows')
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiOperation({
+        summary: 'Ferestrele libere din săptămâna unei ore care nu se poate ține',
+        description:
+            'Pentru grupa și ziua date: starea orei (programată, anulată sau negenerată), de ce nu s-ar putea recupera, și fiecare interval liber din aceeași săptămână — ' +
+            'pe orele la care predă locația, în sălile ei, fără zilele din calendar și fără intervalele deja începute. „Liber" înseamnă sala: platforma nu are profesori.',
+    })
+    @ApiResponse({ status: 200, description: 'The week, the class as it stands, and the free slots' })
+    @ApiResponse({ status: 404, description: 'Group not found' })
+    async rescheduleWindows(@Query() query: RescheduleWindowsDto) {
+        return this.rescheduleService.windowsFor(query);
+    }
+
+    @Post('reschedule')
+    @HttpCode(200)
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiOperation({
+        summary: 'Recuperează o oră care nu se poate ține: toată grupa, în alt interval din aceeași săptămână',
+        description:
+            'Un singur act, din oricare stare de pornire: o ședință programată se editează, una anulată se editează și se pune la loc, una negenerată se scrie pe ziua-țintă. ' +
+            'Săptămâna rămâne cu un singur rând pentru grupă, iar familiile primesc un singur mesaj — cel de mutare. Refuză altă săptămână (ar schimba luna facturată), ' +
+            'zilele din calendar, zilele în care grupa are deja oră și sălile ocupate.',
+    })
+    @ApiResponse({ status: 200, description: 'The class, where it now is' })
+    @ApiResponse({ status: 400, description: 'MOVE_CHANGES_NOTHING or SESSION_ENDS_BEFORE_IT_STARTS' })
+    @ApiResponse({ status: 404, description: 'No such group or room, or CLASS_SESSION_NOT_FOUND — the group has no class on that day' })
+    @ApiResponse({
+        status: 409,
+        description:
+            'CLASS_SESSION_HAS_ATTENDANCE, GROUP_ALREADY_HAS_SESSION_THAT_WEEK, RESCHEDULE_OUT_OF_WEEK, MOVED_ONTO_NON_TEACHING_DAY, GROUP_ALREADY_HAS_SESSION_THAT_DAY or ROOM_BUSY_AT_THAT_TIME',
+    })
+    async rescheduleSession(@Body() dto: RescheduleClassSessionDto) {
+        return this.rescheduleService.reschedule(dto);
     }
 
     @Put(':id/move')

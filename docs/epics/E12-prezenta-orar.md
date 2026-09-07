@@ -850,6 +850,39 @@ Diferența dintre cele două o face decizia unui om care se uită la orar, nu o 
 aceea nu se caută singură altă zi, nu se lungește alta și nu se dă nimic înapoi: **compensarea
 automată nu e în story.**
 
+**Livrat.** Un singur act, `POST /class-sessions/reschedule`, cheiat pe **grupă și zi**, nu pe id
+de ședință — cele două stări de pornire de mai sus se deosebesc exact prin faptul că una n-are
+rând. Serviciul e `RescheduleService` (`apps/api/src/modules/class-session/reschedule.service.ts`),
+separat de `moveSession` fiindcă pornește dintr-o ședință care poate să nu existe: rândul programat
+se editează, cel anulat se editează și trece înapoi în `scheduled` cu nota de anulare păstrată
+dedesubt, iar unde generatorul a sărit ziua se scrie un singur rând pe ziua-țintă. Nota e
+„Recuperată (de pe zi oră): motiv" în toate trei cazurile. Familiile primesc **un singur mesaj**,
+`class-moved`, cu ambele jumătăți — niciodată „se ține la loc" urmat de „s-a mutat".
+
+**Ferestrele se arată acum**: `GET /class-sessions/reschedule-windows?groupId&date` întoarce
+săptămâna, starea orei de pe ziua aceea (programată, anulată, negenerată), dacă ziua e în
+calendar, de ce n-ar putea fi recuperată deloc — același cod cu care ar refuza scrierea — și
+fiecare interval liber. „Interval" e pe **grila școlii**, nu pe jumătăți de oră: orele de început
+ale grupelor active de la adresa grupei, cu durata ei, în sălile ei — a ei prima —, fără zilele
+închise din calendar, fără zilele în care grupa are deja oră (indexul unic ține și rândurile
+anulate), fără intervalele deja începute pe ceasul școlii și fără intervalul pe care ora îl ocupă
+deja. Sălile de la cealaltă adresă nu se oferă: familiile au ales un sediu. Regula e pură, în
+`reschedule.rules.ts`, și e testată cu fapte date de mână; interogările stau în serviciu.
+
+**Regula de săptămână e verificată aici, nu în `moveSession`.** O țintă din altă săptămână primește
+409 `RESCHEDULE_OUT_OF_WEEK`, fiindcă ar sări luna facturată ([E15](E15-pricing-facturare.md) S9).
+Mutarea obișnuită din S5 rămâne cum era — a o strânge e decizia separată de mai sus, și rămâne
+deschisă. Restul refuzurilor sunt ale mutării, în aceeași ordine: calendarul pe locația sălii
+țintă, ziua în care grupa are deja oră, sala ocupată de o ședință vie. Două sunt ale pornirii: o
+oră cu prezențe nu se recuperează, fiindcă s-a ținut; iar o săptămână în care grupa are deja rândul
+pe altă zi refuză un al doilea (`GROUP_ALREADY_HAS_SESSION_THAT_WEEK`) — pornești de la rândul
+acela, ca săptămâna să rămână cu unul singur.
+
+Ecranul e tot `/admin/orar`: „Recuperează" pe rândurile programate și pe cele anulate, plus un
+buton în antet pentru ora care n-are rând — grupa și ziua, apoi lista ferestrelor pe zile, un motiv,
+o apăsare. Profesorul e adminul, cum spune story-ul. Ce rămâne scris mai sus și nu s-a schimbat:
+„liber" înseamnă sala, fiindcă platforma nu are profesori.
+
 ## Dependențe
 
 [E11](E11-inscrieri-capacitate.md) pentru cine e înscris când.

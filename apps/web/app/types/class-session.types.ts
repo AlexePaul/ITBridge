@@ -7,6 +7,10 @@ export type {
   ClassSessionWithAttendance,
   NonTeachingImpact,
   NonTeachingPeriod,
+  RescheduleClassSessionPayload,
+  RescheduleSource,
+  RescheduleWindow,
+  RescheduleWindows,
 } from "@itbridge/types";
 import type { ClassSessionStatus } from "@itbridge/types";
 

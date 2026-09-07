@@ -3,14 +3,17 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 6 septembrie 2026, pe `release/stage`. Două lucruri în aceeași zi. **S-au
-adăugat** E12 S8 și E15 S9, facturarea numărată din catalog — plus, la cererea școlii, corectura pe
-copil de pe fișa de emitere, consemnată și înghețată cu factura. **S-a tăiat scopul:** E06 și E13
-ies din MVP, la fel E14 S6, E21 S3 și E21 S6; E15 S1, S2 și S3 se scot, fiind scrise pe modelul pe
-modul, ca S8; E21 S5 se dovedește livrat de E20 S4; E22 S1 se mută la E07 S1. Ultimele merge-uri de
-cod: a treia felie din E18 S5b (`AdminDateField`), E18 S4 și a doua felie din S5b, peste E18 S7 și
-E20 S1–S4, care veneau peste E17 S8, jumătatea din CI a lui E18 S6, E17 S7, E21 S1, E16 S5, E12 S7,
-E21 S2/S4 și E12 S5.
+**Ultima actualizare:** 7 septembrie 2026, pe `release/stage`. **S-a livrat E12 S9**, recuperarea
+unei ore care nu se poate ține: un singur act, pornit din oricare dintre cele trei stări —
+programată, anulată de calendar, negenerată —, cu lista ferestrelor libere pe grila școlii și cu
+regula de săptămână verificată; familiile primesc un singur mesaj. Cu o zi înainte, două lucruri
+deodată. **S-au adăugat** E12 S8 și E15 S9, facturarea numărată din catalog — plus, la cererea
+școlii, corectura pe copil de pe fișa de emitere, consemnată și înghețată cu factura. **S-a tăiat
+scopul:** E06 și E13 ies din MVP, la fel E14 S6, E21 S3 și E21 S6; E15 S1, S2 și S3 se scot, fiind
+scrise pe modelul pe modul, ca S8; E21 S5 se dovedește livrat de E20 S4; E22 S1 se mută la E07 S1.
+Ultimele merge-uri de cod: E12 S9, a treia felie din E18 S5b (`AdminDateField`), E18 S4 și a doua
+felie din S5b, peste E18 S7 și E20 S1–S4, care veneau peste E17 S8, jumătatea din CI a lui E18 S6,
+E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 
 ## Legendă
 
@@ -21,12 +24,12 @@ E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **148 de story-uri** în 22 de epicuri: 72 livrate, 19 parțiale, 6 blocate, 12 scoase din
-scop, 39 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **148 de story-uri** în 22 de epicuri: 73 livrate, 19 parțiale, 6 blocate, 12 scoase din
+scop, 38 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar nu rulează nicăieri". (Cifrele sunt numărate din rândurile de mai jos. Cele dinainte erau ținute
 de mână și o luaseră razna cu câte unul în patru categorii din cinci.)
 
-Cele 39 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+Cele 38 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
 E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
 mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
@@ -173,7 +176,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [~] S6 · Marcarea prezenței pe telefon — livrat fără poze (`Child` n-are câmp, e o decizie E07/E14): `/admin/attendance/azi`, salvare la fiecare apăsare, coadă locală pe rețea picată, buton „Sună părintele" la absență
 - [~] S7 · Notificări — **mementoul de la minutul 15** (`@Interval` la 5 minute, fereastra se închide când se termină ora, o alertă per ședință) plus cel zilnic de la 10:00, amândouă către birou; și **unul singur** către părinte, trimis când biroul mută copilul, nu de un job. Mesajul de absență a fost scos prin decizie — catalogul uitat/târziu/greșit îl făcea nesigur când era inofensiv și alarmant când nu; cele două despre credite au plecat odată cu creditele. A doua linie către părinte nu mai e o datorie deschisă: aștepta rezumatele din E17 S6, iar acelea au fost construite și scoase prin decizie
 - [x] S8 · Bifa de vacanță pe catalog — `ClassSession.isVacation`, `PUT /class-sessions/:id/vacation`, pusă din catalogul de pe telefon și din `/admin/orar`. Refuză ședințele anulate și lunile deja facturate. Faptul stă aici, regula de bani la E15 S9. **Nu se unește cu `NonTeachingPeriod`**: calendarul înseamnă „școala e închisă", bifa înseamnă „deschisă, dar în vacanță"
-- [ ] S9 · Recuperarea unei ore care nu se poate ține — sărbătoare legală, clădire închisă: profesorul mută **toată grupa** într-o fereastră din aceeași săptămână. Mutarea în sine există din S5, cu tot cu refuzul coliziunii; lipsesc reprogramarea unei ședințe **anulate sau negenerate** dintr-un singur act (azi ar cere reactivare + mutare, deci două mesaje către familie) și lista ferestrelor libere, pe care azi le ghicește omul. „Liber" înseamnă doar sala — profesorul nu se verifică, fiindcă E09 e scos din MVP
+- [x] S9 · Recuperarea unei ore care nu se poate ține — sărbătoare legală, clădire închisă: adminul mută **toată grupa** într-o fereastră din aceeași săptămână. `POST /class-sessions/reschedule`, cheiat pe grupă și zi, dintr-un singur act din oricare stare de pornire: rândul programat se editează, cel anulat se editează și se pune la loc, cel negenerat se scrie — săptămâna rămâne cu un rând, familiile cu un mesaj. `GET /class-sessions/reschedule-windows` arată ferestrele libere pe grila școlii, la adresa grupei; regula de săptămână (`RESCHEDULE_OUT_OF_WEEK`) e verificată aici, nu în `moveSession`, prin decizie amânată. „Liber" înseamnă doar sala — profesorul nu se verifică, fiindcă E09 e scos din MVP
 
 ### E13 · Progres, evaluare și feedback — `scos din MVP`
 
