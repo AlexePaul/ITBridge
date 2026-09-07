@@ -29,7 +29,7 @@ probă și portalului de părinte. Se citește împreună cu
   punem reclame, nu urmărim ce faci pe site.
 - **Despre copil ținem numele, data nașterii, grupa, prezența, absențele anunțate și lucrările
   făcute la curs.** Nu cerem CNP, nu fotografiem copiii și nu cerem date despre sănătate.
-- **Datele stau în Uniunea Europeană**, pe servere din Frankfurt. Emailurile pleacă printr-un
+- **Datele stau în Uniunea Europeană**, pe servere din Suedia (Stockholm). Emailurile pleacă printr-un
   furnizor de trimitere; harta de pe site vine de la Google doar dacă accepți.
 - **Mesaje de marketing primești numai dacă bifezi tu.** Factura, ora anulată sau lucrarea
   copilului nu sunt marketing și vin oricum.
@@ -134,7 +134,7 @@ mărimea, data, o miniatură pe care o generăm noi din imagini, un titlu și, u
 scrisă de profesor, versiunile succesive, când și la ce adresă a fost trimisă lucrarea, și, dacă o
 lucrare a fost atribuită greșit și corectată, urma corecturii.
 
-Fișierele stau în spațiul nostru de stocare din Frankfurt, sub identificatori — numele copilului
+Fișierele stau în spațiul nostru de stocare din Stockholm, sub identificatori — numele copilului
 nu apare în calea fișierului. Linkul din email se deschide doar din contul tău, iar descărcarea
 trece printr-un link semnat, valabil 15 minute. Pe calculatorul din birou, dosarele poartă numele
 copilului și un identificator, ca profesorul să știe unde salvează; rețeaua e a școlii și nu e
@@ -235,7 +235,7 @@ calculatoarele din săli; [[DE CONFIRMAT: procedura de acces la ele]].
 
 | Cine                                         | Ce face pentru noi                                                                  | Unde prelucrează                                                               |
 | -------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Amazon Web Services EMEA SARL                | găzduiește serverul, baza de date și fișierele lucrărilor                           | Frankfurt, Germania (UE)                                                       |
+| Amazon Web Services EMEA SARL                | găzduiește serverul, baza de date, fișierele lucrărilor și copiile de siguranță     | Stockholm, Suedia (UE)                                                         |
 | Vercel Inc.                                  | găzduiește site-ul public și formularul de contact                                  | rețea globală; sediul în SUA [[de verificat regiunea funcțiilor și logurilor]] |
 | Resend, Inc.                                 | trimite emailurile — de serviciu, de marketing și pe cele din formularul de contact | SUA [[de verificat regiunea UE din contul Resend]]                             |
 | [[SmartBill — Intelligent IT S.R.L., Sibiu]] | emite și păstrează facturile [[de la E16 S2]]                                       | România (UE)                                                                   |
@@ -281,6 +281,7 @@ dispare.
 | Sesiunile de autentificare                                                                            | cel mult 7 zile; cele expirate se șterg automat                                                                                                                    |
 | Linkurile de confirmare a emailului                                                                   | 48 de ore                                                                                                                                                          |
 | Logurile tehnice ale serverului                                                                       | [[PROPUNERE: 30 de zile]]                                                                                                                                          |
+| Copiile de siguranță ale bazei de date                                                                | zilnice, păstrate **30 de zile** în aceeași stocare; ce ștergem dispare și din ele în cel mult 30 de zile [[DE CONFIRMAT: regula de lifecycle din E04 S4]]         |
 | Mesajele din formularul de contact                                                                    | în căsuța noastră de email, cât e nevoie ca să răspundem, cel mult [[PROPUNERE: 24 de luni]]                                                                       |
 | Cookie-urile                                                                                          | vezi politica de cookie-uri                                                                                                                                        |
 
@@ -323,8 +324,9 @@ Prelucrării Datelor cu Caracter Personal (ANSPDCP): B-dul G-ral. Gheorghe Maghe
 - Fișierele se descarcă prin linkuri semnate, scurte, ca atașament, nu se deschid în pagină. Calea
   unui fișier nu conține numele copilului.
 - În cookie-uri nu ținem date despre tine, doar tokenurile de sesiune.
-- Serverul din Frankfurt accesează stocarea prin rolul lui, fără chei statice; secretele nu stau în
-  cod. [[DE CONFIRMAT la publicare: copii de siguranță ale bazei — E04 S4.]]
+- Serverul accesează stocarea prin rolul lui, fără chei statice; secretele nu stau în cod.
+- Baza de date are o copie de siguranță zilnică, păstrată 30 de zile, ca o defecțiune să nu piardă
+  evidența școlii. [[DE CONFIRMAT la publicare: restaurarea testată măcar o dată — E04 S4.]]
 - Dacă avem vreodată o breșă care îți pune datele în pericol, anunțăm ANSPDCP în 72 de ore și pe
   tine, dacă riscul pentru tine e ridicat.
 

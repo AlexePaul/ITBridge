@@ -17,28 +17,28 @@ să nu se versioneze de trei ori un document care încă nu e bun.
 Documentele descriu platforma așa cum e în cod, nu cum ar trebui să fie. Fiecare afirmație despre
 ce se stochează sau ce se întâmplă are o sursă; când sursa se schimbă, se schimbă și fraza.
 
-| Afirmația din text                                                                                           | Sursa                                                                                                                       |
-| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| ce câmpuri se țin despre cont, copil, înscriere, prezență, absență, lucrare, factură, plată, cerere de probă | `apps/api/src/entities/*.entity.ts` — inventarul din E07 S1 încă nu există, deci documentele s-au scris direct din entități |
-| cele cinci câmpuri la înregistrare și cele obligatorii după                                                  | `RegisterDto`, `isProfileComplete` din `profile.entity.ts`                                                                  |
-| linkul de confirmare valabil 48 de ore                                                                       | `CONFIRMATION_TTL_MS` în `email-confirmation.service.ts`                                                                    |
-| acces 15 minute, reîmprospătare 7 zile, revocarea lanțului la refolosire                                     | `jwtConstants.ts`, `session.service.ts`                                                                                     |
-| ce poate scrie un părinte din portal                                                                         | `PARENT_WRITABLE` din `authorization.spec.ts`                                                                               |
-| termenul de anunțare a absenței: luni 12:00, pe săptămână                                                    | `NOTICE_DEADLINE_HOUR` în `absence-notice.rules.ts`                                                                         |
-| recuperarea: mutare de către birou, în aceeași săptămână, fără credit                                        | `replacement.service.ts`, E12 S4                                                                                            |
-| 48 de ore de răspuns la oferta de pe lista de așteptare                                                      | `WAITLIST_RESPONSE_HOURS` în `enrollment.service.ts`                                                                        |
-| preț pe ședință ținută, tarif întreg pentru copilul cu cele mai multe ședințe                                | `pricing.ts`, `billable-sessions.rules.ts`                                                                                  |
-| termen de plată 14 zile; memento cu 3 zile înainte, apoi săptămânal, tăcere după 60                          | `arrears.rules.ts`, `arrears.job.ts`                                                                                        |
-| lista mesajelor de serviciu                                                                                  | `template-defaults.ts`, `waitlist-mail.ts`, `lead-mail.ts`, `class-session-notifier.ts`                                     |
-| marketing implicit oprit, neconsultat de tranzacțional                                                       | `Profile.marketingOptIn`, `OutboxService.queueMarketing`, `marketing-consent.spec.ts`                                       |
-| fișierele lucrărilor: tipuri, chei fără nume de copil, link semnat 15 minute, atașament                      | `file-types.ts`, `project.keys.ts`, `DEFAULT_SIGNED_URL_TTL_SECONDS` în `s3.service.ts`                                     |
-| dosarul copilului pe calculatorul din birou poartă numele și identificatorul                                 | `apps/agent/README.md`                                                                                                      |
-| listele interne care nu declanșează nimic                                                                    | `early-signals.service.ts`, `signals.rules.ts`, E21 S7                                                                      |
-| cookie-urile și ce e în `localStorage`                                                                       | `tokenStore.ts`, `locationStore.ts`, `useChildSelection.ts`, `useAttendanceQueue.ts`                                        |
-| harta Google, singurul terț de pe site                                                                       | `mapEmbedUrl` în `shared/school.ts`, paginile din `pages/locatii/`                                                          |
-| hărțile se încarcă azi fără acord                                                                            | `loading="lazy"` pe `<iframe>`, fără poartă — E07 S5                                                                        |
-| regiunea: Frankfurt                                                                                          | `AWS_REGION=eu-central-1` în `.env.example` și `ci.yml`; `deploy.yml` citește `vars.AWS_REGION`, de confirmat că e aceeași  |
-| fără CNP, fără fotografii ale copiilor, fără date de sănătate                                                | E16 „Decizii luate", E07 „Decizii luate"; niciun câmp în entități                                                           |
+| Afirmația din text                                                                                           | Sursa                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ce câmpuri se țin despre cont, copil, înscriere, prezență, absență, lucrare, factură, plată, cerere de probă | `apps/api/src/entities/*.entity.ts` — inventarul din E07 S1 încă nu există, deci documentele s-au scris direct din entități                                                          |
+| cele cinci câmpuri la înregistrare și cele obligatorii după                                                  | `RegisterDto`, `isProfileComplete` din `profile.entity.ts`                                                                                                                           |
+| linkul de confirmare valabil 48 de ore                                                                       | `CONFIRMATION_TTL_MS` în `email-confirmation.service.ts`                                                                                                                             |
+| acces 15 minute, reîmprospătare 7 zile, revocarea lanțului la refolosire                                     | `jwtConstants.ts`, `session.service.ts`                                                                                                                                              |
+| ce poate scrie un părinte din portal                                                                         | `PARENT_WRITABLE` din `authorization.spec.ts`                                                                                                                                        |
+| termenul de anunțare a absenței: luni 12:00, pe săptămână                                                    | `NOTICE_DEADLINE_HOUR` în `absence-notice.rules.ts`                                                                                                                                  |
+| recuperarea: mutare de către birou, în aceeași săptămână, fără credit                                        | `replacement.service.ts`, E12 S4                                                                                                                                                     |
+| 48 de ore de răspuns la oferta de pe lista de așteptare                                                      | `WAITLIST_RESPONSE_HOURS` în `enrollment.service.ts`                                                                                                                                 |
+| preț pe ședință ținută, tarif întreg pentru copilul cu cele mai multe ședințe                                | `pricing.ts`, `billable-sessions.rules.ts`                                                                                                                                           |
+| termen de plată 14 zile; memento cu 3 zile înainte, apoi săptămânal, tăcere după 60                          | `arrears.rules.ts`, `arrears.job.ts`                                                                                                                                                 |
+| lista mesajelor de serviciu                                                                                  | `template-defaults.ts`, `waitlist-mail.ts`, `lead-mail.ts`, `class-session-notifier.ts`                                                                                              |
+| marketing implicit oprit, neconsultat de tranzacțional                                                       | `Profile.marketingOptIn`, `OutboxService.queueMarketing`, `marketing-consent.spec.ts`                                                                                                |
+| fișierele lucrărilor: tipuri, chei fără nume de copil, link semnat 15 minute, atașament                      | `file-types.ts`, `project.keys.ts`, `DEFAULT_SIGNED_URL_TTL_SECONDS` în `s3.service.ts`                                                                                              |
+| dosarul copilului pe calculatorul din birou poartă numele și identificatorul                                 | `apps/agent/README.md`                                                                                                                                                               |
+| listele interne care nu declanșează nimic                                                                    | `early-signals.service.ts`, `signals.rules.ts`, E21 S7                                                                                                                               |
+| cookie-urile și ce e în `localStorage`                                                                       | `tokenStore.ts`, `locationStore.ts`, `useChildSelection.ts`, `useAttendanceQueue.ts`                                                                                                 |
+| harta Google, singurul terț de pe site                                                                       | `mapEmbedUrl` în `shared/school.ts`, paginile din `pages/locatii/`                                                                                                                   |
+| hărțile se încarcă azi fără acord                                                                            | `loading="lazy"` pe `<iframe>`, fără poartă — E07 S5                                                                                                                                 |
+| regiunea: Stockholm (`eu-north-1`), pentru server, bază, fișiere și backup                                   | `.env.stage.example`, E01 S4, E04 S4; `.env.example` și `ci.yml` spun `eu-central-1` doar pentru dezvoltare și CI. Producția nu există încă — de confirmat că rămâne aceeași regiune |
+| fără CNP, fără fotografii ale copiilor, fără date de sănătate                                                | E16 „Decizii luate", E07 „Decizii luate"; niciun câmp în entități                                                                                                                    |
 
 ## Ce lipsește: `[[…]]`
 
@@ -59,7 +59,8 @@ Lista, ca să se poată bifa:
   implementează E07 S4 și E04 S5; odată publicat, devine promisiune;
 - cererile de probă care nu duc la înscriere — propus 12 luni de la ultima activitate;
 - copiile mesajelor din `outbox` — propus 12 luni; azi nu se șterg niciodată;
-- logurile serverului — propus 30 de zile; depinde de ce configurează E01 S4 în PM2;
+- logurile serverului — propus 30 de zile; depinde de rotația de loguri din `ecosystem.config.js`,
+  care stă pe instanță, nu în repo;
 - mesajele din formularul de contact — propus 24 de luni; trăiesc în căsuța de email, nu în
   platformă;
 - preavizul la schimbarea termenilor — propus 15 zile; termenul de răspuns la reclamații — propus
@@ -86,7 +87,9 @@ Lista, ca să se poată bifa:
    re-acceptarea la versiune nouă. Termenii §18 promit exact asta.
 4. **E22 S3** — jobul care șterge la termen. Politica §7 promite un număr; fără job, e o minciună
    întreținută.
-5. **E01 S4** — regiunea, logurile și copiile de siguranță devin fapte, nu intenții.
+5. **E01 S4 pentru producție** — pe stage e livrat, deci regiunea și backup-ul zilnic sunt fapte; la
+   producție se confirmă că rămân aceleași, plus rotația logurilor și retenția de 30 de zile a
+   backup-urilor (E04 S4).
 6. **E07 S7** — acordurile de prelucrare cu furnizorii din tabelul §5.2.
 7. **`DELETE /profiles/:id` e azi în `PARENT_WRITABLE` și șterge fizic, în cascadă** — copiii,
    prezența, lucrările **și facturile** (`Invoice.parent` e `onDelete: 'CASCADE'`). Portalul n-are
