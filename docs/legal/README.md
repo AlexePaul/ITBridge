@@ -49,6 +49,7 @@ Lista, ca să se poată bifa:
 
 - denumirea legală, forma juridică, sediul social, numărul de la Registrul Comerțului, CUI;
 - adresa de corespondență, dacă diferă de sediu;
+- statutul de TVA (plătitoare sau nu) — Legea 365/2002 cere să fie afișat pe site;
 - persoana care răspunde de protecția datelor și o adresă de email pentru asta (propunere:
   `date@itbridgeschool.com`, redirectată către office@);
 - cabinetul de contabilitate, dacă vede date de familii, și dacă are acord de prelucrare.
@@ -70,11 +71,12 @@ Lista, ca să se poată bifa:
 - dacă alegerea de a încărca harta se ține minte într-un cookie sau se întreabă de fiecare dată;
 - reducerea de recomandare: 50% pe o lună — de confirmat că e regula anunțată familiilor.
 
-**Fapte despre furnizori** — de verificat în conturile respective, nu în cod:
+**Fapte despre furnizori** — verificate pe 7 septembrie 2026, pe paginile lor:
 
-- Vercel: regiunea funcțiilor serverless și a logurilor; certificarea Data Privacy Framework;
-- Resend: dacă contul e setat pe regiunea UE; DPF sau clauze standard;
-- Google: temeiul transferului pentru hartă;
+- Vercel, Resend, AWS și Google LLC sunt certificate în Cadrul UE–SUA de protecție a datelor (DPF);
+  Resend are și clauze contractuale standard în DPA, dar ține datele de cont și jurnalele în SUA,
+  fără opțiune de stocare în UE. Rămâne de verificat, în conturi, că acordurile de prelucrare sunt
+  acceptate (E07 S7);
 - SmartBill: intră în text abia când E16 S2 e livrat; până atunci paragraful e marcat.
 
 ## Ce trebuie să existe înainte de publicare
@@ -95,40 +97,59 @@ Lista, ca să se poată bifa:
    prezența, lucrările **și facturile** (`Invoice.parent` e `onDelete: 'CASCADE'`). Portalul n-are
    buton pentru el, dar endpoint-ul răspunde unui părinte autentificat. Documentele spun că
    ștergerea se cere la școală și că evidența facturilor rămâne; până la anonimizarea din E07 S4,
-   ruta ar trebui restrânsă la admin sau să refuze un profil cu facturi.
+   ruta ar trebui restrânsă la admin sau să refuze un profil cu facturi. Sarcină propusă.
+8. **Linia de dezabonare pe mesajele de marketing** — azi niciun mesaj promoțional nu spune cum se
+   oprește (Legea 506/2004 art. 12, GDPR art. 7 alin. 3). Termenii §13 și politica §3.8 promit
+   linia. Sarcină propusă.
+9. **A doua bifă la înregistrare**, pentru clauzele pe care Codul civil (art. 1203) le numește
+   neuzuale — limitarea răspunderii (§15), suspendarea (§14), modificarea unilaterală (§18): produc
+   efecte doar dacă sunt acceptate expres, deci E22 S4 le cere separat, nu în bifa generală.
 
-## Pentru avocat
+## Verificarea juridică
 
-Ce am scris și de ce, ca verificarea să înceapă de la întrebările grele, nu de la zero:
+Făcută pe 7 septembrie 2026, clauză cu clauză, contra textelor de lege care se aplică. Nu e opinia
+unui avocat: e o verificare a textului contra cerințelor, cu sursele la vedere, făcută de cine știe
+ce face sistemul. Ce **nu** acoperă e scris la final.
 
-- **Nu există drept de retragere în 14 zile (OUG 34/2014).** Contractul de înscriere se semnează
-  față în față, contul e aprobat de un om și nu se plătește nimic online — decizia e în E07
-  „Decizii luate". Contul în sine e un serviciu digital gratuit, accesoriu contractului; datele se
-  prelucrează doar ca să funcționeze, deci ar trebui să cadă sub excepția din OUG 141/2021 pentru
-  serviciile digitale. De confirmat.
-- **Clauzele care ar putea fi considerate abuzive (Legea 193/2000)** sau neuzuale (art. 1203 Cod
-  civil): limitarea răspunderii (§15), modificarea unilaterală (§18), suspendarea contului (§14).
-  Sunt scrise cât de îngust s-a putut; dacă tot cer acceptare expresă separată, E22 S4 poate
-  cere o a doua bifă.
-- **Datele copiilor.** Temeiul folosit e contractul semnat de părinte în numele copilului (art. 6
-  alin. 1 lit. b), nu consimțământul; vârsta de consimțământ digital în România e 16, iar toți
-  elevii sunt sub. Legea 272/2004 — de verificat dacă cere ceva în plus pentru evidența prezenței
-  sau a lucrărilor.
-- **Motivul absenței** e text liber și poate conține, fără să cerem, date de sănătate. Am pus
-  cererea explicită să nu ni-l spună în detaliu (§3.5) în loc să interzicem câmpul. De confirmat că
-  e suficient sau dacă trebuie un temei din art. 9.
-- **Persoana de contact pentru urgențe** e un terț ale cărui date le primim de la părinte —
-  informarea din art. 14 se face prin părinte (§3.4). De confirmat.
-- **Transferurile în afara UE** pentru Vercel, Resend și Google — instrumentul potrivit pentru
-  fiecare, după ce se verifică conturile.
-- **Retenția facturilor** — 5 ani conform Legii contabilității 82/1991, cu modificările din 2023;
-  de confirmat că nu e 10 pentru vreo categorie, și cum se anonimizează o factură păstrată.
-- **Platforma SOL/ODR a Comisiei Europene a fost închisă în iulie 2025** — de asta nu e citată în
-  §19; rămân ANPC și SAL.
-- **Legea 506/2004 art. 4** — încadrarea celor patru cookie-uri ca strict necesare, mai ales
-  `portalChild` și `selectedLocation`, care sunt de preferință, nu de autentificare.
-- **Legea 365/2002** — datele de identificare care trebuie afișate pe site (§1 din termeni); de
-  confirmat lista completă.
+| Cerința                                                                                                                     | Unde                       | Stare                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GDPR art. 12 — limbaj clar, gratuit, răspuns într-o lună                                                                    | confidențialitate §8       | ✓                                                                                                                                                                                   |
+| art. 13 alin. 1 a–f — operator, contact, scopuri, temeiuri, interese legitime, destinatari, transferuri                     | §1, §3, §5, §6             | ✓; identitatea firmei e placeholder                                                                                                                                                 |
+| art. 13 alin. 2 a–d, f — termene, drepturi, retragerea consimțământului, plângere, decizii automate                         | §7, §8, §3.10              | ✓                                                                                                                                                                                   |
+| art. 13 alin. 2 e — ce e obligatoriu și ce se întâmplă dacă nu                                                              | §3.11                      | **adăugat** la verificare                                                                                                                                                           |
+| art. 13 alin. 3 — informare înainte de un scop nou                                                                          | §10                        | **adăugat**                                                                                                                                                                         |
+| art. 14 — date primite de la altcineva: persoana de urgență, copilul                                                        | §3.4, §3.5                 | ✓, sursa e numită; informarea persoanei de urgență trece prin părinte                                                                                                               |
+| art. 6 — un temei pentru fiecare situație                                                                                   | §3                         | ✓; contractul pentru copil, consimțământ doar pentru marketing și hartă                                                                                                             |
+| art. 7 alin. 3 — retragerea la fel de ușoară ca acordarea                                                                   | §3.8, termeni §13          | comutatorul există; **linia de dezabonare din mesaj lipsește** — sarcină                                                                                                            |
+| art. 8 — copii sub 16 ani                                                                                                   | §4                         | ✓, contul e al părintelui                                                                                                                                                           |
+| art. 9 — date de sănătate                                                                                                   | §3.5                       | **întărit**: biroul nu scrie diagnostice; sarcină pentru indicația de pe câmp                                                                                                       |
+| art. 21 alin. 2 — opoziția la marketing                                                                                     | §8                         | ✓                                                                                                                                                                                   |
+| art. 22 — decizii automate                                                                                                  | §3.10                      | ✓, nu există                                                                                                                                                                        |
+| art. 28 — acorduri cu împuterniciții                                                                                        | §5.2                       | tabelul e complet; **acordurile acceptate** sunt E07 S7                                                                                                                             |
+| art. 30 — evidența prelucrărilor                                                                                            | —                          | **obligatorie**: prelucrarea datelor copiilor nu e ocazională, deci excepția pentru sub 250 de angajați nu se aplică. Inventarul din E07 S1 e chiar ea                              |
+| art. 33–34 — breșe                                                                                                          | §9                         | ✓                                                                                                                                                                                   |
+| art. 35 — DPIA                                                                                                              | —                          | probabil nu e cerută: lista ANSPDCP (Decizia 174/2018) vizează prelucrarea **pe scară largă** a datelor minorilor, iar școala are zeci de copii. De reevaluat dacă se schimbă scara |
+| art. 44–46 — transferuri                                                                                                    | §6                         | **verificat**: DPF pentru Vercel, Resend, AWS, Google                                                                                                                               |
+| Legea 190/2018                                                                                                              | §1                         | citată                                                                                                                                                                              |
+| Legea 506/2004 art. 4 — cookie-uri fără acord doar dacă sunt strict necesare                                                | cookie-uri §2              | ✓, cu justificarea pentru cele două de preferință                                                                                                                                   |
+| Legea 506/2004 art. 12 — marketing doar cu acord prealabil, cu refuz posibil din fiecare mesaj                              | termeni §13                | acordul ✓; **refuzul din mesaj lipsește** — sarcină                                                                                                                                 |
+| Legea 365/2002 art. 5 — datele de identificare pe site                                                                      | termeni §1, site           | placeholder; **statutul de TVA** trebuie afișat și pe pagina de contact                                                                                                             |
+| Legea 365/2002 art. 8–9 — pașii încheierii contractului electronic, limba, stocarea, corectarea erorilor                    | termeni §4.7               | **adăugat**                                                                                                                                                                         |
+| Legea 193/2000 — clauze abuzive (anexa: limitarea răspunderii, modificarea unilaterală, restrângerea accesului la justiție) | termeni §14, §15, §18, §19 | **corectate**: excepție pentru intenție și culpă gravă, motiv întemeiat și drept de ieșire la modificare, contestarea suspendării, instanțele competente fără restrângere           |
+| Cod civil art. 1203 — clauzele neuzuale cer acceptare expresă                                                               | termeni §14, §15, §18      | a doua bifă în E22 S4                                                                                                                                                               |
+| OUG 34/2014 și OUG 141/2021 — contracte la distanță, servicii digitale                                                      | —                          | nu se aplică: contractul de înscriere e față în față, contul e gratuit și datele se prelucrează doar ca să funcționeze (excepția din OUG 141/2021 art. 3)                           |
+| OG 21/1992 — informare în limba română                                                                                      | toate                      | ✓                                                                                                                                                                                   |
+| Legea 82/1991 art. 25 — 5 ani de la 1 iulie a anului următor, pentru documente din 2023 încoace                             | §7                         | **verificat**                                                                                                                                                                       |
+| Legea 272/2004 — drepturile copilului                                                                                       | §4                         | nimic peste GDPR pentru un curs privat; fără imagine, deci nici art. 73 Cod civil                                                                                                   |
+| Platforma SOL/ODR                                                                                                           | termeni §19                | închisă în iulie 2025, deci necitată; rămân ANPC și SAL                                                                                                                             |
+
+**Ce nu acoperă verificarea asta.** Faptele din afara codului: dacă acordurile de prelucrare sunt
+acceptate în conturi, ce scrie în contractul de înscriere de pe hârtie (clauza de abandon din E15 e
+acolo, nu aici), statutul de TVA, cine e persoana de contact. Practica: un text corect nu ajută dacă
+biroul notează diagnostice sau dacă ștergerea nu rulează. Și jurisprudența: interpretările ANSPDCP
+și ANPC se schimbă, iar textul ăsta e verificat contra legii, nu contra deciziilor lor din ultimul
+an. Dacă se alege să nu treacă pe la un avocat, riscul rămas e în lista de mai sus, nu în text — și
+e cel mai mare la art. 30 (evidența) și la E07 S7 (acordurile), amândouă fapte, nu fraze.
 
 ## Regula de întreținere
 

@@ -23,6 +23,9 @@ probă și portalului de părinte. Se citește împreună cu
 [Termenii și condițiile](termeni-si-conditii.md) și cu
 [Politica de cookie-uri](politica-de-cookies.md).
 
+Prelucrăm datele după Regulamentul (UE) 2016/679 („GDPR"), Legea nr. 190/2018 de punere în
+aplicare a lui și, pentru cookie-uri și mesajele comerciale, Legea nr. 506/2004.
+
 ## 2. Pe scurt
 
 - **Ținem strictul necesar ca să ținem cursul, să te anunțăm și să facturăm.** Nu vindem date, nu
@@ -96,9 +99,10 @@ confirmare trimise (hash și valabilitate, 48 de ore); bifa de marketing.
 curs — de asta telefonul, adresa și contactul de urgență sunt obligatorii; ca să emitem factura pe
 numele și adresa ta; ca să-ți putem închide sesiunile dacă ți-a fost furat un dispozitiv.
 
-**Persoana de urgență e altcineva decât tine.** Îi ținem numele și telefonul fiindcă ni le-ai dat
-tu; te rugăm să-i spui că ne-ai dat numărul ei și pentru ce. Nu o contactăm decât într-o urgență cu
-copilul.
+**Persoana de urgență e altcineva decât tine.** Îi ținem numele, relația cu copilul și telefonul;
+sursa lor ești tu, nu le luăm de nicăieri altundeva. Te rugăm să-i spui că ne-ai dat numărul ei și
+pentru ce — documentul ăsta e public și e valabil și pentru ea. Nu o contactăm decât într-o urgență
+cu copilul.
 
 _Temei:_ contractul cu tine (art. 6 alin. 1 lit. b); pentru numele și adresa de pe factură,
 obligația legală de facturare (lit. c); pentru sesiuni și linkuri de confirmare, interesul legitim
@@ -117,9 +121,10 @@ cu motiv, cine și când.
 **De ce:** ca să ținem cursul — să știm cine e în ce grupă, cine a fost la oră, cine trebuie
 recuperat — și ca să facturăm corect: factura numără ședințele ținute.
 
-**Despre motivul absenței.** Notăm ce ne spui, pe scurt. Nu îți cerem motivul medical și te rugăm
-să nu ni-l spui în detaliu: „nu poate veni" e suficient. Dacă totuși ne spui, rămâne între biroul
-școlii și tine, nu apare nicăieri altundeva și îl ștergem odată cu restul.
+**Despre motivul absenței.** Biroul notează un motiv scurt, fără detalii medicale — „nu poate
+veni", „plecați din oraș". Nu îți cerem diagnosticul și, dacă ni-l spui la telefon, nu îl scriem:
+platforma nu ține date despre sănătate. Ce e notat vezi și tu, în portal, și se șterge odată cu
+restul.
 
 _Temei:_ contractul de înscriere (art. 6 alin. 1 lit. b), pe care l-ai semnat în numele copilului;
 organizarea grupelor pe vârste e interesul legitim al școlii de a ține un curs care se potrivește
@@ -180,7 +185,7 @@ ore anulate sau mutate, recuperarea, lista de așteptare, lucrarea trimisă, anu
 organizare — pleacă fiindcă ai cont și copil înscris; nu depind de nicio bifă.
 
 **Mesajele de marketing** pleacă numai cu **bifa ta**, care e implicit oprită și pe care o schimbi
-din „Profil". Un anunț promoțional către o grupă sare peste familiile fără bifă; refuzul nu lasă
+din „Profil"; fiecare astfel de mesaj spune la final cum îl oprești. Un anunț promoțional către o grupă sare peste familiile fără bifă; refuzul nu lasă
 nicio urmă în afară de un număr.
 
 _Temei:_ contractul (art. 6 alin. 1 lit. b) pentru mesajele de serviciu; consimțământul (lit. a)
@@ -205,6 +210,16 @@ dat de un om. Nu luăm decizii automate cu efect asupra ta (art. 22 GDPR nu e in
 
 _Temei:_ interesul legitim de a conduce școala și de a observa la timp o familie care are nevoie
 de o vorbă (art. 6 alin. 1 lit. f).
+
+### 3.11 Ce ești obligat să ne dai, și ce se întâmplă dacă nu
+
+Nimic din ce cerem nu îți e cerut de lege; e cerut de contract, ca să-l putem ține. Fără
+utilizator, parolă, nume și email nu se poate crea contul. Fără telefon, adresă și persoana de
+urgență contul se creează, dar copilul nu poate fi repartizat într-o grupă — n-am avea pe cine
+suna. Fără numele și data nașterii copilului nu-l putem înscrie și nu-l putem pune la probă. La
+lecția de probă ne trebuie numele tău, o cale de contact, numele și data nașterii copilului;
+experiența copilului și „de unde ai auzit de noi" sunt opționale. Bifa de marketing e opțională și
+nu schimbă nimic altceva.
 
 ## 4. Datele copiilor: ce nu colectăm
 
@@ -233,14 +248,14 @@ calculatoarele din săli; [[DE CONFIRMAT: procedura de acces la ele]].
 
 ### 5.2 Furnizori care prelucrează în numele nostru
 
-| Cine                                         | Ce face pentru noi                                                                  | Unde prelucrează                                                               |
-| -------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Amazon Web Services EMEA SARL                | găzduiește serverul, baza de date, fișierele lucrărilor și copiile de siguranță     | Stockholm, Suedia (UE)                                                         |
-| Vercel Inc.                                  | găzduiește site-ul public și formularul de contact                                  | rețea globală; sediul în SUA [[de verificat regiunea funcțiilor și logurilor]] |
-| Resend, Inc.                                 | trimite emailurile — de serviciu, de marketing și pe cele din formularul de contact | SUA [[de verificat regiunea UE din contul Resend]]                             |
-| [[SmartBill — Intelligent IT S.R.L., Sibiu]] | emite și păstrează facturile [[de la E16 S2]]                                       | România (UE)                                                                   |
-| Google Ireland Ltd.                          | harta de pe paginile locațiilor, numai după acordul tău                             | Irlanda / SUA                                                                  |
-| [[CABINETUL DE CONTABILITATE]]               | contabilitatea școlii                                                               | România (UE)                                                                   |
+| Cine                                         | Ce face pentru noi                                                                  | Unde prelucrează                                                                                                                                 |
+| -------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Amazon Web Services EMEA SARL                | găzduiește serverul, baza de date, fișierele lucrărilor și copiile de siguranță     | Stockholm, Suedia (UE)                                                                                                                           |
+| Vercel Inc.                                  | găzduiește site-ul public și formularul de contact                                  | rețea globală, sediul în SUA; certificat în Cadrul UE–SUA de protecție a datelor                                                                 |
+| Resend, Inc.                                 | trimite emailurile — de serviciu, de marketing și pe cele din formularul de contact | SUA; certificat în Cadrul UE–SUA, cu clauze contractuale standard în acordul de prelucrare. Datele de cont și jurnalele de trimitere stau în SUA |
+| [[SmartBill — Intelligent IT S.R.L., Sibiu]] | emite și păstrează facturile [[de la E16 S2]]                                       | România (UE)                                                                                                                                     |
+| Google Ireland Ltd., cu Google LLC în SUA    | harta de pe paginile locațiilor, numai după acordul tău                             | Irlanda; transferul spre SUA pe certificarea Google LLC în Cadrul UE–SUA                                                                         |
+| [[CABINETUL DE CONTABILITATE]]               | contabilitatea școlii                                                               | România (UE)                                                                                                                                     |
 
 Cu fiecare avem sau vom avea un acord de prelucrare a datelor, conform art. 28 GDPR
 [[DE CONFIRMAT: lista acordurilor semnate — E07 S7]]. Ei prelucrează doar ce le dăm și doar
@@ -258,11 +273,12 @@ pentru ce le dăm.
 ## 6. Transferuri în afara Uniunii Europene
 
 Datele stau în UE. Trei furnizori au sediul în Statele Unite — Vercel, Resend și Google — și pot
-prelucra acolo părți din date (adresa IP la vizitarea site-ului, adresa de email și conținutul
-mesajelor la trimitere). Transferul se face pe baza [[Cadrului UE–SUA de protecție a datelor
-(Data Privacy Framework), în care furnizorul e certificat, sau a clauzelor contractuale standard
-ale Comisiei Europene — de verificat pentru fiecare dintre cei trei]]. La cerere îți dăm o copie
-a garanțiilor.
+prelucra acolo părți din date: adresa IP la vizitarea site-ului sau la încărcarea hărții, adresa
+de email și conținutul mesajelor la trimitere. Toți trei, ca și Amazon, sunt certificați în Cadrul
+UE–SUA de protecție a datelor (Data Privacy Framework), recunoscut prin decizia de adecvare a
+Comisiei Europene din 10 iulie 2023, deci transferul nu are nevoie de garanții suplimentare;
+acordul nostru cu Resend conține în plus clauzele contractuale standard ale Comisiei, ca rezervă.
+La cerere îți spunem ce garanție acoperă un transfer anume.
 
 ## 7. Cât timp păstrăm
 
@@ -270,20 +286,20 @@ Retragerea e un fapt pe care școala îl știe — ne anunți, sau constatăm �
 termenele. Nu ștergem nimic „pentru inactivitate": o familie care ia o pauză de o vacanță nu
 dispare.
 
-| Ce                                                                                                    | Cât timp                                                                                                                                                           |
-| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Contul, datele de contact, persoana de urgență, bifa de marketing                                     | [[PROPUNERE: 12 luni]] de la retragerea ultimului copil sau de la închiderea contului, apoi șterse                                                                 |
-| Copiii: nume, data nașterii, înscrieri, lista de așteptare, prezența, absențele anunțate, corecturile | același termen; apoi șterse. Ședința rămâne în orar, fără copil                                                                                                    |
-| Lucrările: fișierele, miniaturile, urma trimiterii                                                    | același termen; apoi șterse din stocarea noastră. Pe calculatorul din birou: [[DE DECIS: procedura școlii]]                                                        |
-| Cererea de probă și fișa creată de ea, dacă familia nu s-a înscris                                    | [[PROPUNERE: 12 luni]] de la ultima discuție, apoi șterse                                                                                                          |
-| Facturile și plățile                                                                                  | **5 ani** de la închiderea exercițiului financiar (Legea contabilității), la noi și la SmartBill; la termenul de mai sus rămân fără datele de contact ale familiei |
-| Copiile mesajelor trimise                                                                             | [[PROPUNERE: 12 luni]] de la trimitere                                                                                                                             |
-| Sesiunile de autentificare                                                                            | cel mult 7 zile; cele expirate se șterg automat                                                                                                                    |
-| Linkurile de confirmare a emailului                                                                   | 48 de ore                                                                                                                                                          |
-| Logurile tehnice ale serverului                                                                       | [[PROPUNERE: 30 de zile]]                                                                                                                                          |
-| Copiile de siguranță ale bazei de date                                                                | zilnice, păstrate **30 de zile** în aceeași stocare; ce ștergem dispare și din ele în cel mult 30 de zile [[DE CONFIRMAT: regula de lifecycle din E04 S4]]         |
-| Mesajele din formularul de contact                                                                    | în căsuța noastră de email, cât e nevoie ca să răspundem, cel mult [[PROPUNERE: 24 de luni]]                                                                       |
-| Cookie-urile                                                                                          | vezi politica de cookie-uri                                                                                                                                        |
+| Ce                                                                                                    | Cât timp                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contul, datele de contact, persoana de urgență, bifa de marketing                                     | [[PROPUNERE: 12 luni]] de la retragerea ultimului copil sau de la închiderea contului, apoi șterse                                                                                                                          |
+| Copiii: nume, data nașterii, înscrieri, lista de așteptare, prezența, absențele anunțate, corecturile | același termen; apoi șterse. Ședința rămâne în orar, fără copil                                                                                                                                                             |
+| Lucrările: fișierele, miniaturile, urma trimiterii                                                    | același termen; apoi șterse din stocarea noastră. Pe calculatorul din birou: [[DE DECIS: procedura școlii]]                                                                                                                 |
+| Cererea de probă și fișa creată de ea, dacă familia nu s-a înscris                                    | [[PROPUNERE: 12 luni]] de la ultima discuție, apoi șterse                                                                                                                                                                   |
+| Facturile și plățile                                                                                  | **5 ani** de la 1 iulie a anului următor exercițiului financiar în care au fost emise (Legea contabilității nr. 82/1991, art. 25), la noi și la SmartBill; la termenul de mai sus rămân fără datele de contact ale familiei |
+| Copiile mesajelor trimise                                                                             | [[PROPUNERE: 12 luni]] de la trimitere                                                                                                                                                                                      |
+| Sesiunile de autentificare                                                                            | cel mult 7 zile; cele expirate se șterg automat                                                                                                                                                                             |
+| Linkurile de confirmare a emailului                                                                   | 48 de ore                                                                                                                                                                                                                   |
+| Logurile tehnice ale serverului                                                                       | [[PROPUNERE: 30 de zile]]                                                                                                                                                                                                   |
+| Copiile de siguranță ale bazei de date                                                                | zilnice, păstrate **30 de zile** în aceeași stocare; ce ștergem dispare și din ele în cel mult 30 de zile [[DE CONFIRMAT: regula de lifecycle din E04 S4]]                                                                  |
+| Mesajele din formularul de contact                                                                    | în căsuța noastră de email, cât e nevoie ca să răspundem, cel mult [[PROPUNERE: 24 de luni]]                                                                                                                                |
+| Cookie-urile                                                                                          | vezi politica de cookie-uri                                                                                                                                                                                                 |
 
 Ștergerea la cerere (§8) taie prin termenele de mai sus: ce nu suntem obligați legal să păstrăm se
 șterge la cerere, nu la termen.
@@ -313,7 +329,7 @@ păstra ce cere legea și să ștergem restul.
 
 **Dacă nu ești mulțumit** de răspuns, te poți adresa Autorității Naționale de Supraveghere a
 Prelucrării Datelor cu Caracter Personal (ANSPDCP): B-dul G-ral. Gheorghe Magheru 28-30, Sector 1,
-010336 București; anspdcp@dataprotection.ro; www.dataprotection.ro. Te poți adresa și instanței.
+010336 București; telefon +40 31 805 9211; anspdcp@dataprotection.ro; www.dataprotection.ro. Te poți adresa și instanței.
 
 ## 9. Cum protejăm datele
 
@@ -334,4 +350,6 @@ Prelucrării Datelor cu Caracter Personal (ANSPDCP): B-dul G-ral. Gheorghe Maghe
 
 Când se schimbă platforma, se schimbă și documentul ăsta. Fiecare versiune are număr și dată, iar
 versiunile vechi rămân disponibile. Pentru schimbări care te privesc — o categorie nouă de date, un
-furnizor nou, un termen mai lung — te anunțăm pe email înainte să intre în vigoare.
+furnizor nou, un termen mai lung — te anunțăm pe email înainte să intre în vigoare. Dacă vreodată
+am vrea să folosim datele pentru un scop care nu e aici, te informăm înainte și cerem acordul unde
+legea îl cere.

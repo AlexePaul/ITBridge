@@ -71,8 +71,10 @@ copilului lui după ce se retrage.
 **Stare: ciornă 0.1 scrisă, în [`docs/legal/`](../legal/README.md)** — termenii, nota de
 confidențialitate și politica de cookie-uri, trei fișiere și un README care spune de unde vine
 fiecare fapt. Scrise direct din entități, fiindcă inventarul din [E07](E07-securitate-gdpr.md) S1 nu
-există încă; când va exista, documentele se reconciliază cu el, nu invers. Neverificate de avocat
-și nepublicate: faptele pe care codul nu le știe — firma, persoana de contact, furnizorii — și
+există încă; când va exista, documentele se reconciliază cu el, nu invers. **Verificate clauză cu
+clauză contra legii** — GDPR art. 12–14, 6–9, 28, 30, 44; Legile 506/2004, 365/2002, 193/2000,
+82/1991; Cod civil art. 1203 — cu tabelul cerință → secțiune → stare în README, și cu ce nu acoperă
+o astfel de verificare scris sub el. Neverificate de avocat și nepublicate: faptele pe care codul nu le știe — firma, persoana de contact, furnizorii — și
 deciziile propuse — termenul de păstrare, 12 luni de la retragere, care e cifra pe care o preia S3 —
 sunt marcate `[[…]]` și listate în README, împreună cu ce trebuie să existe înainte de publicare:
 bannerul din E07 S5, jobul din S3, evidența acceptărilor din S4, și restrângerea ștergerii de profil,

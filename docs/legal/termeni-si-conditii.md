@@ -10,7 +10,8 @@ Faptele marcate `[[…]]` lipsesc sau sunt propuneri; vezi [README](README.md).
 Platforma de la `itbridgeschool.com` — site-ul public, formularul de programare la lecția de probă
 și portalul în care intri cu cont — e pusă la dispoziție de **[[DENUMIREA LEGALĂ A ȘCOLII]]**
 („școala", „noi"), cu sediul în [[SEDIUL SOCIAL]], înregistrată la Registrul Comerțului sub nr.
-[[J…]], cod de identificare fiscală [[CUI]], sub numele comercial **IT Bridge School**.
+[[J…]], cod de identificare fiscală [[CUI]], [[plătitoare / neplătitoare de TVA]], sub numele comercial
+**IT Bridge School**.
 
 Ne găsești la [[ADRESA DE CORESPONDENȚĂ]], la telefon +40 732 273 347 și la
 office@itbridgeschool.com. Cursurile se țin la cele două adrese din București: Strada Valea Oltului
@@ -25,8 +26,8 @@ aici pare să contrazică una din contractul de înscriere, contractul are înt�
 
 - **Contractul de înscriere.** Participarea copilului la curs — grupa, prețul, regulile de plată,
   ce se întâmplă la abandon — e stabilită prin contractul semnat pe hârtie, la școală, față în față.
-  Platforma reține doar că există un contract și din ce dată. Nu se semnează nimic online și nu
-  există înscriere fără contract.
+  Platforma reține doar că există un contract și din ce dată. Contractul nu se semnează online și
+  nu există înscriere fără contract semnat.
 - **Datele personale.** Ce date păstrăm, de ce, cât timp și ce drepturi ai sunt în
   [Politica de confidențialitate](politica-de-confidentialitate.md). Cookie-urile sunt în
   [Politica de cookie-uri](politica-de-cookies.md). Cele trei documente se citesc împreună.
@@ -74,6 +75,13 @@ reține tipul de browser al fiecărei sesiuni deschise, ca să-l poți recunoaș
 
 **4.6 Datele din cont trebuie să fie ale tale și adevărate.** Le poți schimba oricând din
 „Profil". Un număr de telefon sau o adresă de email pot fi pe un singur cont.
+
+**4.7 Cum se încheie acordul ăsta.** Pașii sunt cei de mai sus: completezi formularul de
+înregistrare, bifezi că ai citit documentul ăsta și politica de confidențialitate, confirmi
+emailul, iar școala aprobă contul. Până apeși „Creează contul" poți corecta orice câmp; după, din
+„Profil". Acordul se încheie în limba română. Versiunea pe care ai acceptat-o, cu ziua acceptării,
+rămâne înregistrată pe cont și o poți reciti oricând din portal; primești și un email de
+confirmare. Nu e nevoie de semnătură — acceptarea din formular ține loc de ea.
 
 ## 5. Copiii în platformă
 
@@ -223,8 +231,9 @@ către toată școala (schimbări de program, ce trebuie adus la oră). Nu se po
 prin închiderea contului.
 
 **Mesaje de marketing** — oferte, cursuri noi, evenimente — le primești **numai dacă ai bifat** în
-portal că le vrei. Bifa e implicit oprită și o poți opri oricând, din „Profil". Refuzul nu
-schimbă nimic din ce primești ca mesaj de serviciu.
+portal că le vrei. Bifa e implicit oprită și o poți opri oricând, din „Profil", iar fiecare mesaj
+de marketing îți spune, la final, cum îl oprești. Refuzul nu schimbă nimic din ce primești ca
+mesaj de serviciu.
 
 Mesajele pleacă de la notificari@itbridgeschool.com și poți răspunde la ele: răspunsul ajunge la
 birou. Un părinte primește un singur mesaj chiar dacă are doi copii în aceeași grupă.
@@ -241,8 +250,9 @@ Te rugăm — și, unde e cazul, îți cerem — să:
 - ne spui la office@itbridgeschool.com dacă găsești o problemă de securitate, înainte să o spui
   altcuiva. Nu vom lua măsuri împotriva cuiva care ne semnalează cu bună-credință o vulnerabilitate.
 
-Putem suspenda un cont folosit contrar regulilor de mai sus, cu un email care spune de ce.
-Suspendarea contului nu afectează contractul de înscriere al copilului.
+Putem suspenda un cont folosit contrar regulilor de mai sus, cu un email care spune de ce, și îl
+reactivăm când motivul dispare. Poți contesta suspendarea scriindu-ne; răspundem în termenul din
+§19. Suspendarea contului nu afectează contractul de înscriere al copilului.
 
 ## 15. Disponibilitate, erori, răspundere
 
@@ -257,9 +267,10 @@ datorată, iar o factură greșită se corectează. Îți cerem să ne semnalezi
 
 În limita permisă de lege, școala nu răspunde pentru pagube indirecte legate de folosirea
 platformei, pentru consecințele unei parole împărțite cu altcineva, sau pentru mesaje care nu au
-ajuns fiindcă adresa din cont nu mai e valabilă. Nimic de aici nu limitează răspunderea pe care
-legea nu permite s-o limităm — în special răspunderea față de consumatori și cea pentru datele
-personale.
+ajuns fiindcă adresa din cont nu mai e valabilă. Limitarea nu se aplică pagubelor produse cu
+intenție sau din culpă gravă, și nimic de aici nu limitează răspunderea pe care legea nu permite
+s-o limităm — în special răspunderea față de consumatori, cea pentru vătămări corporale și cea
+pentru datele personale.
 
 ## 16. Proprietate intelectuală
 
@@ -287,11 +298,13 @@ de retragere din contractul de înscriere.
 
 ## 18. Modificarea termenilor
 
-Putem schimba documentul ăsta când se schimbă platforma. Fiecare versiune are număr și dată, iar
-versiunile vechi rămân disponibile. Pentru schimbări care îți afectează drepturile sau obligațiile
-te anunțăm pe email cu cel puțin [[PROPUNERE: 15 zile]] înainte, iar la prima autentificare de
-după, portalul îți cere să accepți versiunea nouă. Corecturile de formulare și adăugirile de
-funcții noi intră în vigoare la publicare.
+Putem schimba documentul ăsta când se schimbă platforma, legea sau furnizorii noștri. Fiecare
+versiune are număr și dată, iar versiunile vechi rămân disponibile. Pentru schimbări care îți
+afectează drepturile sau obligațiile te anunțăm pe email cu cel puțin [[PROPUNERE: 15 zile]]
+înainte, iar la prima autentificare de după, portalul îți cere să accepți versiunea nouă. Dacă nu
+ești de acord cu ea, poți închide contul, fără niciun cost și fără efect asupra cursului copilului
+— contul e un instrument, nu o condiție. Corecturile de formulare și adăugirile de funcții noi
+intră în vigoare la publicare.
 
 Ce ai acceptat — versiunea și ziua — rămâne înregistrat pe cont.
 

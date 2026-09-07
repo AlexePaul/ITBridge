@@ -31,6 +31,10 @@ altcineva decât de platforma noastră.
 
 Vizitatorii site-ului public, care nu se autentifică, **nu primesc niciun cookie**.
 
+Toate patru sunt strict necesare în sensul Legii 506/2004, art. 4: fără primele două nu poți
+rămâne autentificat, iar ultimele două apar doar după o alegere pe care o faci tu — copilul sau
+locația — și dispar odată cu sesiunea. De asta nu cerem acord pentru ele.
+
 ## 3. Ce ține browserul în afară de cookie-uri
 
 Portalul folosește și memoria locală a browserului (`localStorage`), tot pe domeniul nostru:
@@ -42,8 +46,9 @@ din asta nu pleacă spre altcineva.
 
 Pe paginile „Drumul Taberei" și „Străulești" e o hartă încorporată de la Google Maps. Când se
 încarcă, browserul tău cere harta de la Google, iar Google primește adresa ta IP și poate pune
-cookie-uri ale lui (de exemplu `NID`), după propria
-[politică de confidențialitate](https://policies.google.com/privacy).
+cookie-uri ale lui — `NID`, care ține până la 13 luni —, după propria
+[politică de confidențialitate](https://policies.google.com/privacy). Google LLC e certificată în
+Cadrul UE–SUA de protecție a datelor, deci transferul spre SUA e acoperit.
 
 De aceea **harta nu se încarcă până nu apeși pe ea**. Până atunci vezi adresa, o legătură către
 Google Maps care se deschide în altă filă, și un buton. Dacă nu apeși, Google nu află că ai fost
