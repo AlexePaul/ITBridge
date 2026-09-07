@@ -83,8 +83,9 @@ eșuează. În fluxul PM2 din [E01](E01-infrastructura-medii.md), asta înseamn�
 **Livrat parțial — partea care nu depinde de EC2.**
 
 Comenzile există (`migration:run`, `migration:revert`, `migration:generate`), iar `migrationsRun`
-e oprit tocmai ca ele să fie rulate explicit, între `build` și `pm2 reload`. Cablarea în workflow-ul
-de deploy așteaptă [E01](E01-infrastructura-medii.md), S4, care așteaptă instanța.
+e oprit tocmai ca ele să fie rulate explicit, între `build` și `pm2 reload`. Cablarea s-a făcut la
+[E01](E01-infrastructura-medii.md), S4: `deploy.sh` rulează `migration:run` exact acolo, deci o
+migrare care pică oprește deploy-ul în loc să lase procesul să se restarteze în buclă.
 
 **În schimb a intrat ceva ce epicul nu cerea, dar care s-a dovedit necesar:** `check:schema`, rulat
 în CI pe fiecare PR. Cât timp mergea `synchronize`, o entitate schimbată fără migrare se repara
@@ -179,10 +180,15 @@ restaurare e scrisă și **executată o dată**, cu durata măsurată și notat�
 **Acceptanță:** există un document cu pașii de restaurare și data ultimei probe reale. Dacă data e
 mai veche de șase luni, se repetă.
 
-**Neînceput, și blocat pe infrastructură.** Backup-ul cere instanța EC2 și bucket-ul S3 din
-[E01](E01-infrastructura-medii.md), S4. Mai important, acceptanța cere o **probă reală de
-restaurare, cu durata măsurată** — un document scris fără ea ar fi exact genul de siguranță
-imaginară pe care epicul o respinge. Se face când există ce restaura, pe ce restaura.
+**Livrat pe jumătate — jumătatea care nu închide story-ul.** Odată cu
+[E01](E01-infrastructura-medii.md) S4 există instanța, bucket-ul și `pg_dump`-ul zilnic:
+`/srv/itbridge/backup.sh`, rulat de cron la 03:15, cu ținte separate pentru cele două medii. Un dump
+gol nu se urcă și nu oprește rularea celuilalt mediu — o bază neseedată nu are voie nici să
+suprascrie un backup bun, nici să blocheze backup-ul care contează.
+
+**Ce lipsește e exact acceptanța: proba de restaurare, cu durata măsurată,** și documentul care o
+datează. Un backup care n-a fost restaurat niciodată e o presupunere, nu o siguranță — iar acum
+există și ce restaura, și pe ce. Story-ul rămâne deschis până se face.
 
 **Forma e însă decisă (septembrie 2026): `pg_dump` zilnic, urcat în același bucket S3** în care stau
 facturile și proiectele. Nu snapshot-uri de volum, nu un serviciu gestionat, nu replicare — o
@@ -333,19 +339,18 @@ Prima factură emisă cap-coadă din istoria proiectului, de altfel.
 
 ## Ce rămâne
 
-| Story                     | Stare                | Blocat de                      |
-| ------------------------- | -------------------- | ------------------------------ |
-| S1 · Migrarea de bază     | ✅ livrat            | —                              |
-| S2 · Migrările în deploy  | ✅ cât se poate      | —                              |
-| S3 · Seed                 | ✅ livrat            | —                              |
-| S4 · Backup și restaurare | amânat, formă decisă | instanța EC2 și bucket-ul S3   |
-| S5 · Retenție             | amânat deliberat     | se reia la final, vezi mai jos |
+| Story                     | Stare              | Blocat de                      |
+| ------------------------- | ------------------ | ------------------------------ |
+| S1 · Migrarea de bază     | ✅ livrat          | —                              |
+| S2 · Migrările în deploy  | ✅ livrat          | —                              |
+| S3 · Seed                 | ✅ livrat          | —                              |
+| S4 · Backup și restaurare | ~ dump-uri zilnice | proba de restaurare, datată    |
+| S5 · Retenție             | amânat deliberat   | se reia la final, vezi mai jos |
 
-**S2 se închide aici.** Nu a existat niciodată vreun deploy, deci nu există un pipeline în care să
-se cableze migrările. Ce ține de repo e livrat: comenzile, `migrationsRun: false` ca ele să fie
-rulate explicit, și garda de CI care prinde entitățile divergente. Pasul de `migration:run` între
-`build` și `pm2 reload` se scrie odată cu pipeline-ul însuși, în [E01](E01-infrastructura-medii.md),
-S4 — ca o linie, nu ca un story.
+**S2 e închis.** Ce ținea de repo era livrat de mult: comenzile, `migrationsRun: false` ca ele să
+fie rulate explicit, și garda de CI care prinde entitățile divergente. Pasul de `migration:run` între
+`build` și `pm2 reload` s-a scris odată cu pipeline-ul însuși, în
+[E01](E01-infrastructura-medii.md), S4 — ca o linie în `deploy.sh`, exact cât s-a estimat.
 
 **S5 e amânat deliberat, nu blocat din neglijență.** Retenția facturilor cere răspunsul
 contabilului, iar politica atinge oricum [E07](E07-securitate-gdpr.md). Se reia la finalul valului

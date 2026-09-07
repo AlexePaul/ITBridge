@@ -33,7 +33,7 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 
 Din **148 de story-uri** în 22 de epicuri: 74 livrate, 19 parțiale, 6 blocate, 12 scoase din
 scop, 37 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
-dar nu rulează nicăieri". (Cifrele sunt numărate din rândurile de mai jos. Cele dinainte erau ținute
+dar n-a fost văzut pe date reale". (Cifrele sunt numărate din rândurile de mai jos. Cele dinainte erau ținute
 de mână și o luaseră razna cu câte unul în patru categorii din cinci.)
 
 Cele 37 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
@@ -49,7 +49,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S1 · Revocarea cheii scurse
 - [x] S2 · Ștergerea infrastructurii moarte
 - [x] S3 · Docker doar pentru infrastructură
-- [!] S4 · Producție pe VPS cu PM2 — **nu există instanța EC2.** Ăsta e blocajul central al hărții
+- [~] S4 · Producție pe VPS cu PM2 — **livrat pentru stage.** `api-stage.itbridgeschool.com` rulează pe EC2 (Postgres 17 lângă el, PM2, Caddy), iar un push pe `release/stage` deployează singur prin OIDC plus SSM, fără chei AWS în GitHub și fără port deschis. Rămâne producția, care nu e o problemă de infrastructură: `release/prod` poartă API-ul de dinainte de E08
 - [x] S5 · Vercel documentat și `API_BASE` corect
 - [x] S6 · Curățare de branch-uri
 
@@ -78,7 +78,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S1 · Migrarea de bază
 - [~] S2 · Migrările în deploy — comenzile și garda de CI există; cablarea în deploy nu, fiindcă nu există deploy
 - [x] S3 · Seed pentru dezvoltare **și pentru staging** — **ancorat la ziua de azi**, nu la o constantă din martie: grupele acoperă luni–sâmbătă, deci „azi" are oră în șase zile din șapte. Lead-uri pe toate cele șase stări, outbox pe toate cele patru, anunțuri, absențe anunțate, credite de recuperare și șabloane — șase tabele care se deschideau goale. `pnpm seed:stage` populează staging-ul din `.env.stage`, dar numai dacă `SEED_ALLOW_NON_LOCAL` **numește baza** (nu `1`, care ar autoriza orice ar scrie `DB_NAME` luna viitoare) și `SEED_PASSWORD` e setată — `parola123` e în repo, iar staging-ul e la îndemâna oricui știe hostname-ul
-- [!] S4 · Backup și restaurare — așteaptă instanța. **Forma e decisă:** `pg_dump` zilnic în același bucket S3, retenție de 30 de zile pe o regulă de lifecycle, o linie de cron pe instanță. Proba de restaurare, cu durata măsurată, rămâne condiția de închidere
+- [~] S4 · Backup și restaurare — `pg_dump` zilnic la 03:15 din cron pe instanță, în S3, cu ținte separate per mediu și retenție pe o regulă de lifecycle; un dump gol nu se urcă. **Proba de restaurare, cu durata măsurată, rămâne condiția de închidere** — și de acum se poate face
 - [!] S5 · Retenție — **decis**: ștergere logică pe contul familiei, aplicată de admin la retragere; facturile n-au nevoie de politică, stau în SmartBill. Blocat de termenii din E22, fiindcă „când dispar efectiv datele" cere un termen scris undeva unde familia l-a văzut
 
 ### E05 · Robustețe backend — `livrat`
@@ -104,7 +104,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 > Scos din MVP prin decizie: observabilitatea de zi cu zi e **PM2** — `pm2 logs` și `pm2 monit` pe
 > instanța din E01 S4, citite de omul care a făcut deploy-ul. Singura bucată care se strică singură e
-> discul umplut de loguri, iar rotația se pune odată cu procesul, în E01 S4, ca linie de configurare.
+> discul umplut de loguri, iar rotația se pune pe instanță, ca modul PM2, sub utilizatorul `deploy`.
 > Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
 > află de la părintele care sună.
 
@@ -204,7 +204,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S3a · Miniatură pentru imagini
 - [!] S3b · Miniaturi pentru video și `.sb3` — cere ffmpeg pe host, deci deploy
 - [x] S4 · Trimiterea către părinte — părinții fără adresă apar în raportul trimiterii, nu în evidența din E17 S5, care nu există
-- [x] S5 · Galeria din portal — scrisă și testată; nu se poate arăta nimănui până la E01 S4
+- [x] S5 · Galeria din portal — scrisă și testată; de la E01 S4 se poate și deschide, pe stage
 - ~~S6 · Vitrina publică~~ — **scos din MVP:** două-trei lucrări puse de mână în paginile publice, ca orice alt conținut, fără backend și fără `isPublic`. Vitrina automată cerea oricum consimțământul din E07 S2; regula „se publică lucrarea, nu copilul" rămâne, iar acordul se cere înainte, chiar dacă la telefon
 - [x] S7 · Corectarea unei atribuiri greșite — urma stă pe `Project`, nu în audit log-ul din E07 S3
 
@@ -254,7 +254,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 - [~] S1 · Furnizorul și livrabilitatea — parțial: `MailService` există în `apps/api`; SPF/DKIM/DMARC și partea de operare, nu
 - [x] S2 · Șabloane — implicitele în cod, editările în `mail_templates`; ecranul `/admin/emailuri` cu previzualizare pe draft; mesajele de cont din E11 S2 mutate pe `render()`, cu variantă HTML
-- [~] S3 · Coadă și reîncercare — parțial: outbox-ul e întreg, dar **nu rulează nicăieri** până la deploy. Prin el trece deja tot ce trimite backend-ul: mementourile de prezență și de recuperare din E12, restanțele din E16, mesajele de cont și locul eliberat din E11, proiectele din E14
+- [~] S3 · Coadă și reîncercare — parțial: outbox-ul e întreg și **rulează pe stage** de la E01 S4, într-un singur proces; fără cheie de trimitere acolo, mesajele se scriu și rămân. Prin el trece deja tot ce trimite backend-ul: mementourile de prezență și de recuperare din E12, restanțele din E16, mesajele de cont și locul eliberat din E11, proiectele din E14
 - [~] S4 · Preferințe și dezabonare — comutatorul (`Profile.marketingOptIn`, implicit **false**) din setările părintelui, plus garanția că tranzacționalul nu-l consultă. Frecvențele sunt S6, iar expeditor de marketing încă nu există
 - [x] S5 · Evidența livrărilor — `GET /deliveries` + ecranul `/admin/livrari`; starea `undeliverable` cu motiv tipizat, deci un părinte fără adresă nu mai e sărit tăcut. Doar de citit, fără reîncercare manuală
 - ~~S6 · Rezumate în loc de rafale~~ — **construit și scos prin decizie.** Un părinte nu se supără că primește trei emailuri într-o zi, iar motorul cerea ca fiecare mesaj să treacă printr-o stare în care nu a plecat și nu a eșuat — clasa de defecte care arată ca liniște. Gruparea care conta rămâne: **un mesaj per părinte, nu per copil**, în E12 S5 și S7, E14 S4 și E17 S7. Argumentul și ce ar trebui adus înapoi sunt scrise în epic
@@ -321,19 +321,21 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
-| Cine           | Ce                                | Ce ține în loc                                                                                                                                                                                          |
-| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tu**         | Instanța EC2                      | E01 S4, **verificarea lui E18 S4 și migrarea din S5**, E04 S4, E14 S3b, scheduler-ul din E17 și pagina publică din E20 S2. Șapte story-uri din cinci epicuri — E14 S6 a ieșit din listă odată cu MVP-ul |
-| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                                                 |
-| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                                                           |
-| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                                                  |
+| Cine           | Ce                                | Ce ține în loc                                                                                                                                                                                                                        |
+| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tu**         | Producția pe `release/prod`       | Ce mai cere **domeniul real**: pagina publică din E20 S2 și E04 S4 (proba de restaurare). Stage rulează, deci verificarea lui E18 S4, migrarea din S5, E14 S3b și scheduler-ul din E17 se pot face azi, pe `stage.itbridgeschool.com` |
+| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                                                                               |
+| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                                                                                         |
+| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                                                                                |
 
 ## Ce urmează
 
-**Cu instanța EC2:** E01 S4, deploy-ul. În ziua în care merge, portalul părintelui, prezența și
-facturile devin lucruri pe care le poate folosi cineva.
+**Instanța EC2 există, și stage rulează pe ea.** Portalul părintelui, prezența și facturile sunt de
+azi lucruri pe care le poate deschide cineva, pe `stage.itbridgeschool.com` — pe date de seed, dar
+într-un browser, pe un telefon, la o adresă. Ce rămâne din E01 S4 e producția, iar aia nu se
+deblochează cu infrastructură: `release/prod` poartă API-ul de dinainte de E08.
 
-**Fără ea:** jumătatea de componente din E18 S5 e făcută, iar bucla banilor e închisă cât se poate
+**În paralel:** jumătatea de componente din E18 S5 e făcută, iar bucla banilor e închisă cât se poate
 fără SmartBill — se emite (E15 S0), se vede cine n-a plătit (E16 S7) și se încasează de acolo
 (E16 S5). Ce rămâne nedependent de deploy e restul lui E16, care așteaptă verificarea abonamentului
 din S0. **E17 nu mai are story-uri deschise:** S7 și S8 sunt livrate, iar S6 a fost construit și
@@ -345,8 +347,10 @@ profesorilor la S7 — depinde de E10 și E09, nu de E11.
 **După tăietura de scop din 6 septembrie, tot ce mai stă între azi și un MVP folosibil încape în
 trei rânduri:**
 
-1. **Instanța EC2 și deploy-ul** — E01 S4, cu cele șapte story-uri care atârnă de el, din tabelul de
-   mai sus. Niciunul nu e muncă de gândit; e muncă de pornit.
+1. **Platforma pe `release/prod`** — restul lui E01 S4. Deploy-ul există și merge, pe stage; ce
+   lipsește e decizia și munca de a duce platforma pe branch-ul de producție, fiindcă acolo stă încă
+   API-ul de dinainte de E08. Verificările care aveau nevoie doar de „undeva unde rulează" se pot
+   face de acum pe stage.
 2. **SmartBill** — E16, începând cu verificarea abonamentului din S0. Până la ea nu se scrie cod, iar
    după ea se închid S2, S3, S6 și S8, plus S7 din E15, fiindcă PDF-ul nu se mai generează local.
 3. **Termenii, E22 S2** — condiția de ieșire, și singura care nu se poate cumpăra cu timp de
