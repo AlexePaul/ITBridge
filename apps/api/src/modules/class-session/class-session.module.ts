@@ -10,6 +10,7 @@ import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { UnmarkedAttendanceJob } from './unmarked-attendance.job';
 import { LateRegisterJob } from './late-register.job';
 import { ClassSessionNotifier } from './class-session-notifier';
+import { RescheduleService } from './reschedule.service';
 import { AttendanceModule } from 'src/modules/attendance/attendance.module';
 
 @Module({
@@ -22,7 +23,18 @@ import { AttendanceModule } from 'src/modules/attendance/attendance.module';
     // attendance reaches sessions through their repository, not through this module.
     imports: [EntitiesModule, JwtModule.register({}), MailModule, AttendanceModule],
     controllers: [ClassSessionController],
-    providers: [ClassSessionService, NonTeachingPeriodService, ClassSessionNotifier, UnmarkedAttendanceJob, LateRegisterJob, AuthGuard, RolesGuard],
+    // `RescheduleService` is the one act E12/S9 adds — recovering a class that cannot be held —
+    // kept out of `ClassSessionService` because it starts from a class that may not be a row.
+    providers: [
+        ClassSessionService,
+        NonTeachingPeriodService,
+        ClassSessionNotifier,
+        RescheduleService,
+        UnmarkedAttendanceJob,
+        LateRegisterJob,
+        AuthGuard,
+        RolesGuard,
+    ],
     // Exported because both attendance reminders ask this service the question rather than
     // writing their own query. One definition of "unmarked", and it is this one.
     // `NonTeachingPeriodService` is exported alongside it because the calendar is the timetable's,

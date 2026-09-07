@@ -7,6 +7,8 @@ import type {
   GenerateClassSessionsResult,
   NonTeachingImpact,
   NonTeachingPeriod,
+  RescheduleClassSessionPayload,
+  RescheduleWindows,
 } from "~/types/class-session.types";
 import type { EntityId } from "~/types/entityId";
 
@@ -221,6 +223,35 @@ export const useClassSessionsApi = () => {
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
+  /**
+   * The free slots in the week of a class that cannot be held — E12/S9.
+   *
+   * Keyed on the group and the day rather than on a session id, because the class may not be a
+   * row: a holiday written into the calendar before generation left nothing behind. The answer
+   * also says what the class is on that day (scheduled, cancelled, never generated) and, when it
+   * cannot be recovered at all, why — so the dialog says so instead of offering windows.
+   */
+  const fetchRescheduleWindows = async (params: { groupId: number; date: string }) =>
+    api<RescheduleWindows>("/class-sessions/reschedule-windows", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      query: params,
+    });
+
+  /**
+   * Puts the whole group in the chosen slot, in the same week, and tells the families where.
+   *
+   * One act whichever state the class started in: an existing row is edited (and put back on if
+   * it was cancelled), a missing one is written. The families get one message, the move. The API
+   * re-checks everything the windows list filtered on, because that list was a snapshot.
+   */
+  const rescheduleSession = async (payload: RescheduleClassSessionPayload) =>
+    api<ClassSessionWithAttendance>("/class-sessions/reschedule", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: payload,
+    });
+
   /** Removes a period. The sessions it cancelled stay cancelled — the API is explicit about that. */
   const deleteNonTeachingPeriod = async (id: EntityId) =>
     api<{ message: string }>(`/class-sessions/non-teaching/${id}`, {
@@ -235,6 +266,8 @@ export const useClassSessionsApi = () => {
     cancelSession,
     moveSession,
     reinstateSession,
+    fetchRescheduleWindows,
+    rescheduleSession,
     setVacation,
     fetchNonTeachingPeriods,
     fetchNonTeachingImpact,

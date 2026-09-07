@@ -1,13 +1,18 @@
 <template>
   <AdminPage
     title="Orarul"
-    subtitle="Ce se ține și ce nu. O oră se poate anula, muta sau pune la loc de aici — familiile grupei află prin email de fiecare dată."
+    subtitle="Ce se ține și ce nu. O oră se poate anula, muta, recupera sau pune la loc de aici — familiile grupei află prin email de fiecare dată."
     width="xl"
   >
     <template #actions>
       <UBadge v-if="sessions.length > 0" color="neutral" variant="subtle" size="lg">
         {{ sessions.length }} {{ sessions.length === 1 ? "oră" : "ore" }}
       </UBadge>
+      <!-- The entry point for a class that has no row to press a button on: the generator skipped
+           the day because the calendar closed it (E12/S9). -->
+      <UButton variant="soft" icon="i-lucide-calendar-sync" @click="startRecover(null)">
+        Recuperează o oră
+      </UButton>
     </template>
 
     <div class="flex flex-wrap items-end gap-3">
@@ -79,6 +84,17 @@
             >
               Reactivează
             </UButton>
+            <!-- A cancelled class that has to happen somewhere else this week: one act, one
+                 message, not reinstate-then-move (E12/S9). -->
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-calendar-sync"
+              @click="startRecover(session)"
+            >
+              Recuperează
+            </UButton>
           </template>
           <template v-else-if="session.hasAttendance">
             <!-- A class with a register against it happened. The API refuses both actions, so the
@@ -115,6 +131,15 @@
               @click="startMove(session)"
             >
               Mută
+            </UButton>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-calendar-sync"
+              @click="startRecover(session)"
+            >
+              Recuperează
             </UButton>
             <UButton
               color="error"
@@ -224,6 +249,80 @@
         </p>
       </template>
     </AdminConfirmModal>
+
+    <!-- Recovering a class that cannot be held — E12/S9 -->
+    <AdminConfirmModal
+      v-model:open="recovering"
+      title="Recuperează ora"
+      confirm-label="Recuperează"
+      :loading="saving"
+      @confirm="confirmRecover"
+    >
+      <template #body>
+        <div class="space-y-4">
+          <p class="text-sm text-muted">
+            Ora nu se poate ține — toată grupa se mută într-o fereastră liberă din aceeași
+            săptămână. Familiile grupei primesc un singur email, cu noua zi și noua oră.
+          </p>
+
+          <div v-if="!recoverFromRow" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <UFormField label="Grupa" name="recoverGroupId">
+              <USelect v-model="recoverGroupId" :items="recoverGroupItems" class="w-full" />
+            </UFormField>
+            <UFormField label="Ziua în care nu se poate ține" name="recoverDate">
+              <AdminDateField v-model="recoverDate" />
+            </UFormField>
+          </div>
+          <p v-else class="text-sm font-medium">
+            {{ recoverGroupName }} · {{ formatDateKey(recoverDate ?? "") }}
+          </p>
+
+          <AdminLoading v-if="windowsLoading" />
+          <p v-else-if="windowsError" class="text-sm text-error">{{ windowsError }}</p>
+          <template v-else-if="windowsResult">
+            <p class="text-sm" :class="windowsResult.blocked ? 'text-error' : 'text-muted'">
+              {{ rescheduleStateSentence(windowsResult) }}
+            </p>
+
+            <template v-if="!windowsResult.blocked">
+              <p v-if="windowsByDay.length === 0" class="text-sm text-muted">
+                {{ NO_WINDOWS_SENTENCE }}
+              </p>
+              <div v-else class="space-y-3 max-h-72 overflow-y-auto pr-1">
+                <p class="text-xs text-muted">
+                  Săptămâna {{ weekLabel(windowsResult.week) }} · „liber" înseamnă sala, nu
+                  profesorul.
+                </p>
+                <div v-for="day in windowsByDay" :key="day.date">
+                  <p class="text-sm font-medium mb-1 capitalize">{{ day.label }}</p>
+                  <div class="flex flex-wrap gap-2">
+                    <UButton
+                      v-for="window in day.windows"
+                      :key="windowKey(window)"
+                      size="sm"
+                      :variant="selectedWindowKey === windowKey(window) ? 'solid' : 'outline'"
+                      :color="selectedWindowKey === windowKey(window) ? 'primary' : 'neutral'"
+                      @click="selectedWindowKey = windowKey(window)"
+                    >
+                      {{ windowLabel(window) }}
+                    </UButton>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </template>
+
+          <UFormField
+            label="Motivul"
+            name="reason"
+            required
+            help="Ajunge la părinți, așa cum îl scrii."
+          >
+            <UInput v-model="reason" placeholder="Luni e zi liberă legală" class="w-full" />
+          </UFormField>
+        </div>
+      </template>
+    </AdminConfirmModal>
   </AdminPage>
 </template>
 
@@ -235,7 +334,19 @@ import { useRoomsApi } from "~/composables/api/useRoomsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { formatDateKey } from "~/composables/useAdminFormat";
 import { todayKey } from "~/composables/useAttendanceCalendar";
-import type { ClassSessionStatus, ClassSessionWithAttendance } from "~/types/class-session.types";
+import {
+  NO_WINDOWS_SENTENCE,
+  groupWindowsByDay,
+  rescheduleStateSentence,
+  weekLabel,
+  windowKey,
+  windowLabel,
+} from "~/composables/useRescheduleWindows";
+import type {
+  ClassSessionStatus,
+  ClassSessionWithAttendance,
+  RescheduleWindows,
+} from "~/types/class-session.types";
 import { CLASS_SESSION_STATUS_LABELS, SessionStatus } from "~/types/class-session.types";
 import type { Group } from "~/types/group.types";
 import type { Room } from "~/types/room.types";
@@ -249,9 +360,16 @@ import type { Room } from "~/types/room.types";
  * is not happening", and it is asked about a handful of days at a time.
  *
  * Three rules the buttons encode rather than explain:
- * a cancelled class offers only "reactivează"; a class with a register against it offers nothing,
- * because it happened and the API refuses both actions; and every one of the three writes an email
- * to the group's families, which is why each dialog says so before the button is pressed.
+ * a cancelled class offers "reactivează" and "recuperează"; a class with a register against it
+ * offers nothing, because it happened and the API refuses every action; and every one of the
+ * actions writes an email to the group's families, which is why each dialog says so before the
+ * button is pressed.
+ *
+ * "Recuperează" is E12/S9: the class cannot be held at all — a public holiday, a closed building —
+ * and the whole group moves into a free slot of the same week. Unlike "mută", the slot is chosen
+ * from a list the API builds (the school's own hours, the rooms at the group's address, minus what
+ * the calendar closes and what other classes occupy), and it works from a cancelled class or from
+ * one the generator never wrote, which is why the header has a button with no row behind it.
  */
 definePageMeta({
   layout: "dashboard" as any,
@@ -434,6 +552,111 @@ const confirmReinstate = async () => {
     await load();
   } catch (err: unknown) {
     error("Eroare", apiErrorMessage(err, "Nu s-a putut reactiva ora"));
+  } finally {
+    saving.value = false;
+  }
+};
+
+// Recovering — E12/S9. Keyed on a group and a day rather than on `target`, because the class may
+// have no row: the header button opens the dialog with a group select and a date field, a row's
+// button opens it with both fixed.
+const recovering = ref(false);
+const recoverFromRow = ref(false);
+const recoverGroupId = ref<number | undefined>(undefined);
+const recoverDate = ref<string | undefined>(undefined);
+const windowsLoading = ref(false);
+const windowsError = ref("");
+const windowsResult = ref<RescheduleWindows | null>(null);
+const selectedWindowKey = ref<string | null>(null);
+
+const recoverGroupItems = computed(() =>
+  groups.value.map((group) => ({ value: group.id, label: group.name }))
+);
+const recoverGroupName = computed(
+  () =>
+    groups.value.find((group) => group.id === recoverGroupId.value)?.name ??
+    target.value?.group.name ??
+    ""
+);
+const windowsByDay = computed(() => groupWindowsByDay(windowsResult.value?.windows ?? []));
+const selectedWindow = computed(
+  () =>
+    windowsResult.value?.windows.find((window) => windowKey(window) === selectedWindowKey.value) ??
+    null
+);
+
+const loadWindows = async () => {
+  selectedWindowKey.value = null;
+  windowsResult.value = null;
+  windowsError.value = "";
+  // `AdminDateField` publishes on every keystroke; a half-typed year is not a question yet.
+  if (
+    !recoverGroupId.value ||
+    !recoverDate.value ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(recoverDate.value)
+  ) {
+    return;
+  }
+  windowsLoading.value = true;
+  try {
+    windowsResult.value = await sessionsApi.fetchRescheduleWindows({
+      groupId: recoverGroupId.value,
+      date: recoverDate.value,
+    });
+  } catch (err: unknown) {
+    windowsError.value = apiErrorMessage(err, "Nu am putut citi ferestrele libere");
+  } finally {
+    windowsLoading.value = false;
+  }
+};
+
+const startRecover = (session: ClassSessionWithAttendance | null) => {
+  target.value = session;
+  reason.value = "";
+  recoverFromRow.value = session !== null;
+  recoverGroupId.value = session
+    ? session.group.id
+    : groupId.value === "all"
+      ? groups.value[0]?.id
+      : groupId.value;
+  recoverDate.value = session ? session.date : todayKey();
+  recovering.value = true;
+  void loadWindows();
+};
+
+// The free-entry form asks again on every change: the group and the day are the whole question.
+watch([recoverGroupId, recoverDate], () => {
+  if (recovering.value && !recoverFromRow.value) void loadWindows();
+});
+
+const confirmRecover = async () => {
+  const chosen = selectedWindow.value;
+  if (!chosen || !recoverGroupId.value || !recoverDate.value) {
+    error("Alege o fereastră", "Ora se mută într-un interval liber din listă.");
+    return;
+  }
+  if (reason.value.trim().length < 3) {
+    error("Scrie un motiv", "Părintele primește motivul în email, deci nu poate lipsi.");
+    return;
+  }
+  saving.value = true;
+  try {
+    // The whole window is sent, hour and room included: the API defaults to the class's own,
+    // and a window in another room at the same hour would otherwise land in the old one.
+    await sessionsApi.rescheduleSession({
+      groupId: recoverGroupId.value,
+      date: recoverDate.value,
+      targetDate: chosen.date,
+      startTime: chosen.startTime,
+      endTime: chosen.endTime,
+      roomId: chosen.roomId,
+      reason: reason.value.trim(),
+    });
+    success("Ora a fost recuperată", "Familiile grupei primesc un email cu noua zi și noua oră.");
+    recovering.value = false;
+    await load();
+  } catch (err: unknown) {
+    error("Eroare", apiErrorMessage(err, "Nu s-a putut recupera ora"));
   } finally {
     saving.value = false;
   }
