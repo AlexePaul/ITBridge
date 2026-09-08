@@ -5,10 +5,13 @@ adunate într-un loc.
 
 **Ultima actualizare:** 8 septembrie 2026, pe `release/stage`. **A intrat lista de lansare**,
 [`docs/lansare.md`](../lansare.md): cele douăzeci de întrebări obișnuite de dinaintea lansării unui
-site, fiecare cu starea verificată contra codului și cu dovada lângă ea. Cincisprezece sunt livrate
-cu gardă; ce lipsește e bannerul de cookie-uri (E07 S5), textele juridice pe prod (E22 S2),
-verificarea legăturilor (E19 S9, story nou), HSTS de verificat (E01 S5) și analiza de trafic (E19
-S8), în ordinea asta. Cu o zi înainte, **s-a închis E07 S8**, evidența
+site, fiecare cu starea verificată contra codului și cu dovada lângă ea. Paisprezece din douăzeci
+sunt livrate cu gardă; ce lipsește e textele juridice pe prod (E22 S2), verificarea legăturilor (E19 S9, story
+nou), HSTS de verificat (E01 S5) și analiza de trafic (E19 S8), în ordinea asta. Primul punct de pe
+acea listă, **bannerul de cookie-uri, s-a închis în aceeași zi**: E07 S5 a găsit un singur terț pe
+site — harta Google, care se încărca singură la derulare — și l-a pus în spatele unui buton, cu o
+verificare în CI care pică dacă vreo pagină publică mai iese din origine. Cu o zi înainte,
+**s-a închis E07 S8**, evidența
 contractului de înscriere — jumătatea care lipsea din E11: lista înscrierilor active fără contract
 consemnat, `/admin/contracte`, ușa de consemnat după și insigna „Fără contract" pe fișa copilului și
 pe grupă; E07 trece din `propus` în `în lucru`. În aceeași zi, **E12 S3/S4 și-au primit ecranul de
@@ -116,13 +119,13 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
 > află de la părintele care sună.
 
-### E07 · Securitate, GDPR și consimțământ — `în lucru; S8 livrat, restul propus`
+### E07 · Securitate, GDPR și consimțământ — `în lucru; S5 și S8 livrate, restul propus`
 
 - [ ] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface
 - [ ] S2 · Consimțământ parental — granularitate `(părinte, copil, scop)`, decisă
 - [ ] S3 · Audit log
 - [ ] S4 · Export și ștergere — termenul pe care îl aplică e scris în E22 S3
-- [ ] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2
+- [x] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2. Inventarul n-a găsit niciun script neesențial și un singur terț: harta Google, care pleca singură pe `loading="lazy"`. Deci poarta e la terț, nu peste tot — `MapEmbed.vue` ține `<iframe>`-ul în afara DOM-ului până apasă cititorul, iar `consentStore` ține alegerea în memorie, fără cookie. Fără banner pe site cât nu e nimic de refuzat; primul scop nou (analiza din E19 S8) îl aduce. Acceptanța rulează în CI: `pnpm test:privacy` pică dacă vreo pagină publică iese din origine sau pune un cookie
 - [ ] S6 · Managementul secretelor
 - [ ] S7 · Contracte de prelucrare
 - [x] S8 · Evidența contractului de înscriere — contractul se semnează fizic; platforma reține doar că există și din ce zi. Coloana și completarea la înscriere/la confirmarea probei veniseră cu E11 S1; aici s-a livrat acceptanța: `PUT /enrollments/:id/contract` consemnează după (proba e refuzată, n-are contract), `GET /enrollments/without-contract` e lista înscrierilor active fără nimic pe fișă, `/admin/contracte` o arată cu un câmp de dată pe rând, fișa copilului și pagina grupei poartă „Fără contract", tabloul de bord numără. Fără versiune de text: contractul n-are încă a doua versiune

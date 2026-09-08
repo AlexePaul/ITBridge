@@ -1,8 +1,7 @@
-import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { chromium } from "playwright";
+import { launchChromium, publicPaths, startPreviewServer } from "./preview-site.mjs";
 
 /**
  * The automated half of E18/S6 — accessibility, checked rather than remembered.
@@ -27,6 +26,9 @@ import { chromium } from "playwright";
  *
  * Only the public pages. The authenticated area is unchecked and stays that way until E18/S4 and S5,
  * which is written down in the epic rather than left to be discovered here.
+ *
+ * Booting the built site and launching the browser live in `preview-site.mjs`, shared with
+ * `check-third-party.mjs`.
  */
 
 /** WCAG 2.0 and 2.1, levels A and AA — the standard the story names. */
@@ -40,65 +42,14 @@ const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
  */
 
 const PORT = Number(process.env.A11Y_PORT ?? 3123);
-const BASE = `http://127.0.0.1:${PORT}`;
-const SERVER_ENTRY = ".output/server/index.mjs";
-
-/**
- * A browser that is already on the machine, when there is one.
- *
- * CI installs Chromium through Playwright's own installer and needs nothing here. Some environments
- * — this project's cloud sandboxes among them — ship a Chromium at a fixed path whose build number
- * does not match the pinned Playwright, and downloading a second copy of a browser to check a
- * handful of static pages is a poor trade. Unset, Playwright resolves its own, which is the ordinary path.
- */
-const EXECUTABLE = process.env.A11Y_CHROMIUM_PATH;
-
-/**
- * Chromium's own sandbox cannot start as root without user namespaces, which is the ordinary state
- * inside a container — it does not fail, it hangs, which costs a while to work out the first time.
- *
- * Off by default, and deliberately a separate switch from the one above: CI runs unprivileged and
- * keeps the sandbox, and a script that quietly dropped it everywhere would be weakening the browser
- * for everybody to spare one environment an env var.
- */
-const NO_SANDBOX = process.env.A11Y_NO_SANDBOX === "1";
 
 const require = createRequire(import.meta.url);
 const AXE_SOURCE = readFileSync(join(dirname(require.resolve("axe-core")), "axe.min.js"), "utf8");
 
-async function waitForServer(timeoutMs = 30_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(BASE, { signal: AbortSignal.timeout(2000) });
-      if (res.ok) return;
-    } catch {
-      // Not up yet. The loop is the wait.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(
-    `The preview server did not answer on ${BASE} within ${timeoutMs / 1000}s. \`pnpm test:a11y\` from the root builds the site first; run on its own, the build has to be there already.`
-  );
-}
-
-/** The paths the site publishes, read back from the sitemap it serves. */
-async function publicPaths() {
-  const xml = await (await fetch(`${BASE}/sitemap.xml`)).text();
-  const paths = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
-    (match) => new URL(match[1]).pathname
-  );
-  if (paths.length === 0)
-    throw new Error(
-      "The sitemap listed no pages, so there is nothing to check — that is itself a failure."
-    );
-  return paths;
-}
-
-async function violationsOn(context, path) {
+async function violationsOn(context, base, path) {
   const page = await context.newPage();
   try {
-    const response = await page.goto(`${BASE}${path}`, { waitUntil: "load" });
+    const response = await page.goto(`${base}${path}`, { waitUntil: "load" });
     if (!response || !response.ok()) {
       throw new Error(`${path} answered ${response ? response.status() : "nothing"}`);
     }
@@ -123,50 +74,14 @@ async function violationsOn(context, path) {
 }
 
 async function main() {
-  // No shell. `sh -c` would be the parent of the server rather than the server itself, and the
-  // kill at the end would take the shell and leave the server holding the port — which is not a
-  // tidiness problem: the next run finds the port taken, its own server dies, and it checks the
-  // stale build still answering there while reporting "ok" on every page.
-  const server = spawn(process.execPath, [SERVER_ENTRY], {
-    cwd: process.cwd(),
-    // `SITE_URL` is deliberately not set: unset is what production uses, and it only affects
-    // canonical tags and JSON-LD ids, neither of which this looks at.
-    env: { ...process.env, PORT: String(PORT), NITRO_PORT: String(PORT), NODE_ENV: "production" },
-    stdio: ["ignore", "ignore", "inherit"],
-  });
-
-  /**
-   * The server's own death, as something the wait can lose a race to.
-   *
-   * A health check that only asks whether *something* answers on the port cannot tell our build
-   * from anybody else's — and the case where they differ is precisely the case where the server
-   * did not start. Watching the child settles it: if it exits, there is nothing of ours there.
-   *
-   * The no-op catch is for the ordinary ending, where we kill it on purpose: a rejection nobody
-   * is racing any more is still a rejection, and Node ends the process over one.
-   */
-  const serverDied = new Promise((_, reject) => {
-    server.once("exit", (code, signal) => {
-      reject(
-        new Error(
-          `The preview server exited (${signal ?? `code ${code}`}) instead of serving ${BASE}. If the port was taken, whatever holds it would have answered in its place.`
-        )
-      );
-    });
-  });
-  serverDied.catch(() => {});
-
+  const { base, stop } = await startPreviewServer(PORT);
   let browser;
   let failures = 0;
   let failedPages = 0;
 
   try {
-    await Promise.race([waitForServer(), serverDied]);
-    const paths = await publicPaths();
-    browser = await chromium.launch({
-      ...(EXECUTABLE ? { executablePath: EXECUTABLE } : {}),
-      ...(NO_SANDBOX ? { args: ["--no-sandbox", "--disable-dev-shm-usage"] } : {}),
-    });
+    const paths = await publicPaths(base);
+    browser = await launchChromium();
 
     for (const colorScheme of ["light", "dark"]) {
       const context = await browser.newContext({
@@ -181,7 +96,7 @@ async function main() {
         reducedMotion: "reduce",
       });
       for (const path of paths) {
-        const violations = await violationsOn(context, path);
+        const violations = await violationsOn(context, base, path);
         const label = `${path} (${colorScheme})`;
         if (violations.length === 0) {
           console.log(`  ok  ${label}`);
@@ -205,7 +120,7 @@ async function main() {
     }
   } finally {
     await browser?.close();
-    server.kill("SIGTERM");
+    stop();
   }
 
   if (failures > 0) {

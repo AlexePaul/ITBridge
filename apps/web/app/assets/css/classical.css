@@ -1807,6 +1807,27 @@ textarea.input {
   margin-top: var(--rhythm-2);
 }
 
+/* The gate that stands where the map will stand, until the reader asks for it (E07 S5).
+
+   It carries the map's own height so that pressing the button swaps one for the other without
+   moving the rest of the page — the story's own layout-shift rule applies to content a reader
+   summons, not only to content that arrives on its own.
+
+   Deliberately not inside `.plate`: that mat tints what it holds with `sepia(0.22)`, which is
+   right for a photograph and wrong for text and a button. The tint would also put the rendered
+   contrast a step away from the computed one, and the computed one is what the accessibility
+   gate reads — a difference nobody would see until a reader could not. */
+.map-gate {
+  /* 320px is the iframe's own `height` attribute; 12px is the mat the `.plate` draws around it,
+     6px on each side. Together they are what the map will occupy, measured rather than guessed —
+     at plain 320px the page still stepped 12px when the reader pressed the button. */
+  min-height: calc(320px + 12px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--rhythm-1);
+}
+
 .footer-grid-5 {
   grid-template-columns: 1.6fr 1fr 1.2fr 1.4fr 0.8fr;
   gap: var(--rhythm-3);

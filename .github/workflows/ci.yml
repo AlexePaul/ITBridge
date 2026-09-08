@@ -30,7 +30,7 @@ env:
 
 jobs:
   verify:
-    name: Lint, typecheck, test, build, accessibility
+    name: Lint, typecheck, test, build, accessibility, privacy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -82,6 +82,14 @@ jobs:
       # restores that build rather than running a second one under a different hash.
       - name: Accessibility
         run: pnpm test:a11y
+        env:
+          API_BASE: http://localhost:3000
+
+      # E07/S5's acceptance, in the same browser: no public page reaches a third party, and none
+      # sets a cookie, before the reader presses anything. The map that used to call Google on
+      # scroll passed every review it went through — this is the check that would not have.
+      - name: Third-party requests and cookies
+        run: pnpm test:privacy
         env:
           API_BASE: http://localhost:3000
 
