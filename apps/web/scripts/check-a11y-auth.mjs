@@ -162,10 +162,18 @@ async function violationsOn(context, base, path) {
     if (!response || !response.ok()) {
       throw new Error(`${path} answered ${response ? response.status() : "nothing"}`);
     }
-    // These screens fetch after hydration and render nothing until the answer arrives — measuring
-    // a spinner would pass every time. `networkidle` is the wrong tool: the portal holds a
-    // long-poll open on some screens, so it never arrives.
+    // These screens fetch after hydration and render nothing until the answer arrives, so the wait
+    // is for the network to go quiet rather than for `load`.
+    //
+    // **The swallowed timeout is a known hole.** A screen that never settles gets measured with
+    // nothing on it, and nothing has no violations, so it would report `ok` and mean it. Closing it
+    // needs an assertion that the screen actually rendered — and the obvious one, looking for
+    // `AdminLoading`, could not be shown to fire: every attempt to construct a genuinely stuck
+    // screen ended with the app deciding the session was gone and redirecting to the login page
+    // instead. An unproven guard here would be the same shape of green it is meant to catch, so
+    // the hole is written down rather than papered over.
     await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+
     await page.addScriptTag({ content: AXE_SOURCE });
     return await page.evaluate(async (tags) => {
       const result = await window.axe.run(document, { runOnly: { type: "tag", values: tags } });
