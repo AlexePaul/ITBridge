@@ -114,10 +114,11 @@ export class AbsenceNoticeService {
      * The saved notice, minus what was loaded only to check it.
      *
      * The child came with their parent's *account* attached — `relations: { parent: { user: true } }`
-     * above, for the ownership branch — and `User` carries `passwordHash` with no `select: false`
-     * behind it. Returned as-is, the row the office's screen receives after pressing "notează" would
-     * have had the family's password hash in it. The group's whole roster, loaded to check that the
-     * child is in it, is nobody's business on this response either. Everything the screen reads —
+     * above, for the ownership branch. Returned as-is, the row the office's screen received after
+     * pressing "notează" once carried the family's password hash; `User.passwordHash` is
+     * `select: false` since, so the hash cannot ride along any more, but the account row — with the
+     * admin's `rejectionReason` on it — is still not the screen's business, and neither is the
+     * group's whole roster, loaded to check that the child is in it. Everything the screen reads —
      * the child's name, the class, its group's name, `inTime` — stays.
      */
     private forResponse(notice: AbsenceNotice): AbsenceNotice {

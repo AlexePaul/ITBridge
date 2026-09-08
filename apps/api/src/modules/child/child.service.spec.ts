@@ -125,6 +125,18 @@ describe('ChildService', () => {
             });
         });
 
+        it('hands back the child without the account it was checked against', async () => {
+            childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
+            childRepo.save!.mockImplementation((c: unknown) => Promise.resolve(c));
+
+            const saved = await service.updateChild(1, { firstName: 'Ana' }, Role.PARENT, 5);
+
+            // `parent.user` was loaded for the ownership check only. It carries the admin's
+            // `rejectionReason`, and carried the password hash before the column was `select: false`.
+            expect(saved.parent).toBeDefined();
+            expect(saved.parent.user).toBeUndefined();
+        });
+
         it("forbids updating another parent's child", async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
 

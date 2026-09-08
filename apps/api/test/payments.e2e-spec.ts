@@ -10,9 +10,11 @@ import { createTestApp, enrolInNewGroup, ownProfileId, promoteToAdmin, registerU
  * The unit spec checks the derivation's arithmetic against a mocked SUM. This checks the part only
  * Postgres can show: that the payment and the state it implies commit together, that the sum is
  * really summed across rows, and that what goes over the wire when the recording admin is joined
- * in is the username and nothing else. The last one is the reason this suite exists: `User` has no
- * `select: false` on `passwordHash`, so one careless `leftJoinAndSelect` would publish every
- * admin's hash to every parent with a payment.
+ * in is the username and nothing else. The last one is the reason this suite exists: it was
+ * written when `User` had no `select: false` on `passwordHash` and one careless
+ * `leftJoinAndSelect` would have published every admin's hash to every parent with a payment. The
+ * column is guarded now; the check stays, because `{ id, username }` is still all a parent should
+ * learn about the admin who took their money.
  */
 describe('Payments (e2e)', () => {
     let app: INestApplication<App>;
@@ -122,8 +124,7 @@ describe('Payments (e2e)', () => {
             expect(list.body).toHaveLength(1);
             const recordedBy = list.body[0].recordedBy as Record<string, unknown>;
             expect(recordedBy.username).toBe('admin.payments');
-            // The whole point: `passwordHash` has no `select: false`, so only the query shape
-            // stands between an admin's hash and every parent's browser.
+            // The query shape is the first line; `select: false` on the column is the second.
             expect(recordedBy.passwordHash).toBeUndefined();
             expect(Object.keys(recordedBy).sort()).toEqual(['id', 'username']);
         });
