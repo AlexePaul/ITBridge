@@ -1170,4 +1170,6 @@ exemplu, citește-le în `pricing.spec.ts` ca teste normale; convenția rămâne
 
 Epic-urile sunt în [docs/epics/](docs/epics/). Citește
 [docs/epics/README.md](docs/epics/README.md) pentru harta dependențelor înainte să începi ceva
-mai mare decât un bugfix.
+mai mare decât un bugfix. Lista de lansare a site-ului public — cele douăzeci de întrebări
+obișnuite, fiecare cu starea verificată în cod și cu cine o ține — e în
+[docs/lansare.md](docs/lansare.md).

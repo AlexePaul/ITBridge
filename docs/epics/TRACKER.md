@@ -3,7 +3,12 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 7 septembrie 2026, pe `release/stage`. **S-a închis E07 S8**, evidența
+**Ultima actualizare:** 8 septembrie 2026, pe `release/stage`. **A intrat lista de lansare**,
+[`docs/lansare.md`](../lansare.md): cele douăzeci de întrebări obișnuite de dinaintea lansării unui
+site, fiecare cu starea verificată contra codului și cu dovada lângă ea. Cincisprezece sunt livrate
+cu gardă; ce lipsește e bannerul de cookie-uri (E07 S5), textele juridice pe prod (E22 S2),
+verificarea legăturilor (E19 S9, story nou), HSTS de verificat (E01 S5) și analiza de trafic (E19
+S8), în ordinea asta. Cu o zi înainte, **s-a închis E07 S8**, evidența
 contractului de înscriere — jumătatea care lipsea din E11: lista înscrierilor active fără contract
 consemnat, `/admin/contracte`, ușa de consemnat după și insigna „Fără contract" pe fișa copilului și
 pe grupă; E07 trece din `propus` în `în lucru`. În aceeași zi, **E12 S3/S4 și-au primit ecranul de
@@ -286,10 +291,11 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S2 · Date structurate
 - [x] S3 · Pagini locale — livrat pe site, **iar cele două profiluri Google Business sunt create**, unul per adresă
 - [!] S4 · Pagini de modul — așteaptă E10, care e scos din MVP
-- [~] S5 · Performanță — livrat odată cu E18 S2; rămâne confirmarea pe trafic real, care cere domeniul live
+- [~] S5 · Performanță — livrat odată cu E18 S2; rămâne confirmarea pe trafic real — domeniul e live, deci ce lipsește sunt săptămânile de vizite din raportul Core Web Vitals
 - [!] S6 · Conținut — blocat de „cine scrie textele"
 - [x] S7 · Pregătire pentru motoare generative
 - [~] S8 · Măsurare — **Search Console e configurat pe ambele proprietăți**, cu linia de bază consemnată în epic. Analiza de trafic așteaptă consimțământul din E07 S2, nu domeniul
+- [ ] S9 · Legături rupte — un crawler în CI peste paginile din sitemap, lângă verificarea de accesibilitate; a intrat din lista de lansare
 
 > Lucrul cel mai valoros rămas aici nu e cod. Pentru căutările locale, cele două profiluri Google
 > Business contează mai mult decât orice a rămas de scris în repo.
@@ -332,6 +338,10 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 | **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                                                                                |
 
 ## Ce urmează
+
+**Pentru site-ul public**, ce mai stă între azi și o lansare fără rezerve e în
+[`docs/lansare.md`](../lansare.md), punct cu punct: bannerul, textele, legăturile, HSTS, cifra pe
+trafic real, analiza. Restul secțiunii e despre platformă.
 
 **Instanța EC2 există, și stage rulează pe ea.** Portalul părintelui, prezența și facturile sunt de
 azi lucruri pe care le poate deschide cineva, pe `stage.itbridgeschool.com` — pe date de seed, dar

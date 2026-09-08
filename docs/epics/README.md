@@ -15,6 +15,8 @@ harta completă, ca să nu descoperim la jumătatea drumului că o decizie luat�
 ceva ce oricum trebuia făcut.
 
 Pentru primele șase luni realiste, vezi secțiunea [Ordinea recomandată](#ordinea-recomandată).
+Pentru site-ul public — ce e bifat și ce nu din lista obișnuită de dinaintea lansării — vezi
+[../lansare.md](../lansare.md).
 
 ## Stare curentă
 
