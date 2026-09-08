@@ -1,128 +1,129 @@
 <template>
-  <UCard variant="subtle" class="max-w-2xl mx-auto">
-    <template #header>
-      <h1 class="text-2xl font-bold">Editare Copil</h1>
-    </template>
+  <AdminPage title="Editare copil" back-to="/admin/children">
+    <UCard variant="subtle">
+      <UForm :schema="schema" :state="state" class="space-y-5 w-full" @submit="handleSubmit">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <UFormField name="firstName">
+            <template #label>Prenume<span class="text-error">*</span></template>
+            <UInput v-model="state.firstName" placeholder="ex. John" />
+          </UFormField>
 
-    <UForm :schema="schema" :state="state" class="space-y-5 w-full" @submit="handleSubmit">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <UFormField name="firstName">
-          <template #label>Prenume<span class="text-error">*</span></template>
-          <UInput v-model="state.firstName" placeholder="ex. John" />
+          <UFormField name="lastName">
+            <template #label>Nume<span class="text-error">*</span></template>
+            <UInput v-model="state.lastName" placeholder="ex. Doe" />
+          </UFormField>
+        </div>
+
+        <UFormField name="birthDate">
+          <template #label>Data Nașterii<span class="text-error">*</span></template>
+          <AdminDateField v-model="state.birthDate" :max="today" />
         </UFormField>
 
-        <UFormField name="lastName">
-          <template #label>Nume<span class="text-error">*</span></template>
-          <UInput v-model="state.lastName" placeholder="ex. Doe" />
-        </UFormField>
-      </div>
+        <AdminFormActions
+          submit-label="Salvează modificări"
+          cancel-to="/admin/children"
+          :loading="saving"
+        />
+      </UForm>
+    </UCard>
 
-      <UFormField name="birthDate">
-        <template #label>Data Nașterii<span class="text-error">*</span></template>
-        <AdminDateField v-model="state.birthDate" :max="today" />
-      </UFormField>
-
-      <AdminFormActions
-        submit-label="Salvează modificări"
-        cancel-to="/admin/children"
-        :loading="saving"
-      />
-    </UForm>
-  </UCard>
-
-  <!--
+    <!--
     E11/S1. The history is the answer to "which group was this child in last October" — the question
     the old single foreign key on `Child` could not answer at all, and the one that comes up when a
     family disputes an invoice.
   -->
-  <UCard variant="subtle" class="max-w-2xl mx-auto mt-6">
-    <template #header>
-      <div class="flex items-center gap-2">
-        <UIcon name="i-lucide-history" class="text-primary" />
-        <h2 class="text-xl font-bold">Istoricul înscrierilor</h2>
-      </div>
-    </template>
-
-    <div v-if="historyLoading" class="py-6 text-center text-muted">Se încarcă…</div>
-
-    <div v-else-if="history.length === 0" class="py-6 text-center">
-      <p class="text-muted">Copilul nu a fost înscris în nicio grupă.</p>
-    </div>
-
-    <div v-else class="space-y-3">
-      <div
-        v-for="entry in history"
-        :key="entry.id"
-        class="flex items-start justify-between gap-4 p-4 border border-gray-200 rounded-lg"
-      >
-        <div>
-          <p class="font-semibold">
-            {{ entry.group?.name ?? "Grupă ștearsă" }}
-            <UBadge
-              :color="entry.endDate === null ? 'success' : 'neutral'"
-              variant="subtle"
-              size="sm"
-              class="ml-2"
-            >
-              {{ ENROLLMENT_STATUS_LABELS[entry.status] }}
-            </UBadge>
-          </p>
-          <p class="text-sm text-muted">{{ periodOf(entry) }}</p>
-          <p v-if="entry.exitReason" class="text-sm text-muted">{{ entry.exitReason }}</p>
+    <UCard variant="subtle">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-history" class="text-primary" />
+          <h2 class="text-xl font-bold">Istoricul înscrierilor</h2>
         </div>
-        <p v-if="entry.contractSignedAt" class="text-sm text-muted whitespace-nowrap">
-          Contract {{ formatDate(entry.contractSignedAt) }}
-        </p>
-        <!-- E07/S8: an active enrolment with nothing on file says so, and takes the day here,
-             without a detour through the list — a trial has no contract, so it shows nothing. -->
+      </template>
+
+      <AdminLoading v-if="historyLoading" />
+
+      <AdminEmpty
+        v-else-if="history.length === 0"
+        bare
+        title="Copilul nu a fost înscris în nicio grupă."
+        icon="i-lucide-history"
+      />
+
+      <div v-else class="space-y-3">
         <div
-          v-else-if="entry.status === 'ACTIVE' && entry.endDate === null"
-          class="flex items-end gap-2 shrink-0"
+          v-for="entry in history"
+          :key="entry.id"
+          class="flex items-start justify-between gap-4 p-4 border border-gray-200 rounded-lg"
         >
-          <UFormField label="Contract semnat la" name="contractSignedAt">
-            <AdminDateField v-model="contractDay" :max="today" />
-          </UFormField>
-          <UButton
-            color="warning"
-            variant="soft"
-            class="min-h-11"
-            :loading="recordingContract"
-            :disabled="recordingContract || !DATE_KEY_PATTERN.test(contractDay ?? '')"
-            @click="recordContractFor(entry)"
+          <div>
+            <p class="font-semibold">
+              {{ entry.group?.name ?? "Grupă ștearsă" }}
+              <UBadge
+                :color="entry.endDate === null ? 'success' : 'neutral'"
+                variant="subtle"
+                size="sm"
+                class="ml-2"
+              >
+                {{ ENROLLMENT_STATUS_LABELS[entry.status] }}
+              </UBadge>
+            </p>
+            <p class="text-sm text-muted">{{ periodOf(entry) }}</p>
+            <p v-if="entry.exitReason" class="text-sm text-muted">{{ entry.exitReason }}</p>
+          </div>
+          <p v-if="entry.contractSignedAt" class="text-sm text-muted whitespace-nowrap">
+            Contract {{ formatDate(entry.contractSignedAt) }}
+          </p>
+          <!-- E07/S8: an active enrolment with nothing on file says so, and takes the day here,
+             without a detour through the list — a trial has no contract, so it shows nothing. -->
+          <div
+            v-else-if="entry.status === 'ACTIVE' && entry.endDate === null"
+            class="flex items-end gap-2 shrink-0"
           >
-            Fără contract — consemnează
-          </UButton>
+            <UFormField label="Contract semnat la" name="contractSignedAt">
+              <AdminDateField v-model="contractDay" :max="today" />
+            </UFormField>
+            <UButton
+              color="warning"
+              variant="soft"
+              class="min-h-11"
+              :loading="recordingContract"
+              :disabled="recordingContract || !DATE_KEY_PATTERN.test(contractDay ?? '')"
+              @click="recordContractFor(entry)"
+            >
+              Fără contract — consemnează
+            </UButton>
+          </div>
         </div>
       </div>
-    </div>
 
-    <template v-if="inForce" #footer>
-      <!--
+      <template v-if="inForce" #footer>
+        <!--
         E11/S5. A transfer is the only way a child changes group, because D6 forbids a second
         enrolment in force — so this is a move, not an add, and it says so.
       -->
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-        <USelect
-          v-model="transferTargetId"
-          :items="transferOptions"
-          placeholder="Mută în altă grupă…"
-          class="flex-1"
-        />
-        <UButton
-          color="primary"
-          :disabled="!transferTargetId || transferring"
-          :loading="transferring"
-          @click="handleTransfer"
-        >
-          Transferă
-        </UButton>
-      </div>
-      <p class="text-sm text-muted mt-2">
-        Închide înscrierea curentă și o deschide pe cea nouă, într-o singură operațiune. Istoricul
-        păstrează ambele perioade.
-      </p>
-    </template>
-  </UCard>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+          <USelect
+            v-model="transferTargetId"
+            :items="transferOptions"
+            placeholder="Mută în altă grupă…"
+            class="flex-1"
+          />
+          <UButton
+            color="primary"
+            :disabled="!transferTargetId || transferring"
+            :loading="transferring"
+            @click="handleTransfer"
+          >
+            Transferă
+          </UButton>
+        </div>
+        <p class="text-sm text-muted mt-2">
+          Închide înscrierea curentă și o deschide pe cea nouă, într-o singură operațiune. Istoricul
+          păstrează ambele perioade.
+        </p>
+      </template>
+    </UCard>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
@@ -202,7 +203,7 @@ const periodOf = (entry: Enrollment) =>
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "Editare Copil",
+  title: "Editare copil",
 });
 
 const schema = z.object({

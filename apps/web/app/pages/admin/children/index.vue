@@ -28,7 +28,7 @@
     </UInput>
 
     <AdminLoading v-if="loading" />
-    <AdminError v-else-if="loadError" :message="loadError" />
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
     <AdminTable
       v-else
       :rows="filteredChildren"
@@ -88,7 +88,7 @@ const loading = ref(true);
 const loadError = ref("");
 const search = ref("");
 
-onMounted(async () => {
+const load = async () => {
   try {
     children.value = await childrenApi.fetchChildren();
   } catch (err: unknown) {
@@ -96,7 +96,9 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+};
+
+onMounted(load);
 
 /**
  * A child belongs to a location through their group's room. Children with no group yet stay

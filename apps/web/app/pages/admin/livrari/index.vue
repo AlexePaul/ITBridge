@@ -36,7 +36,7 @@
     </form>
 
     <AdminLoading v-if="loading" />
-    <AdminError v-else-if="loadError" :message="loadError" />
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
 
     <AdminEmpty
       v-else-if="records.length === 0"

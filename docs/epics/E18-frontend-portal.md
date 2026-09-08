@@ -363,10 +363,43 @@ pe `occupancyOf` — D7).
 - **Două copii ale tabelului cu numele lunilor** au intrat în `formatMonthName`, lângă `formatMonth`,
   care e construit pe el.
 
+**A treia trecere (E18/S5b) a început cu două butoane care nu existau.** `AdminError` declara
+`retry` ca eveniment și întreba `useAttrs().onRetry` ca să afle dacă ascultă cineva — iar Vue
+**scoate din `$attrs` ascultătorii evenimentelor declarate**, deci răspunsul era mereu „nu".
+Consecința: `leads` și panoul de pâlnie din `rapoarte` scriau amândouă `@retry="load"` de ani, iar
+butonul nu se randa niciodată; celelalte șaptesprezece ecrane n-aveau nici măcar atât, fiindcă
+`#action` era singura ușă și nu intrase nimeni pe ea. Un ecran cu eroare și fără ieșire în afară de
+reîncărcarea paginii. `AdminFormActions` avea exact aceeași greșeală pentru `cancel`, iar singurul
+ecran care o folosește — editorul de șabloane din `/admin/emailuri` — livrase fără butonul lui de
+anulare.
+
+Reparat prin **prop, nu emit**: `onRetry` și `onCancel` sunt proprietăți, iar `@retry="load"` se
+compilează exact într-un `onRetry`, deci niciun apelant nu-și schimbă sintaxa, dar componenta
+primește o valoare pe care chiar o poate verifica. Un emit declarat era alegerea idiomatică și e
+exact cea care a picat. Butonul apare doar când există ce să cheme — un ecran care nu poate reîncerca
+n-are voie să arate un buton care pretinde că poate.
+
+Cele **șaptesprezece ecrane care aveau doar mesajul au primit și butonul**, iar trei dintre ele
+(`invoices`, `children`, `dashboard`) și-au scos întâi încărcarea din `onMounted` într-un `load`,
+fiindcă n-aveau ce lega de el.
+
 Ecrane migrate în trecerea asta: `attendance/group/index`, `attendance/children/index`,
 `locations/new`, `locations/[locationId]/edit`, `profiles/index`, `profiles/new`,
 `profiles/[profileId]/edit`, cele două ecrane de confirmare a ștergerii, `approvals/index` și
-`payments/index`. **25 din 42 de ecrane sunt acum pe componente.**
+`payments/index`.
+
+A treia trecere a mai adus cinci, cele care ceruseră doar învelișul: `formare/index`,
+`proiecte/index`, `proiecte/grupa/[groupId]`, `profiles/[profileId]/children/new` și
+`children/[childId]/edit`. **32 din 44 de ecrane sunt acum pe componente** — numărătoarea de
+dinainte spunea 25 din 42 și era în urmă cu un fișier la fiecare capăt.
+
+Ce rămâne nu mai e mecanic, și două ecrane cer o schimbare în `AdminPage`, nu în ele:
+`attendance/azi` **n-are titlu dinadins** — navbar-ul îl scrie deja, iar pe telefon un al doilea
+titlu costă exact rândul de sus —, iar `invoices/emitere` stă pe `max-w-4xl` cu `pb-32` pentru bara
+lipită de jos, iar `AdminPage` cunoaște doar `md`, `lg` și `xl`. Restul — `groups/*`,
+`locations/index`, `attendance/group/[groupId]`, `invoices/[month]`,
+`profiles/[profileId]/index` — au nevoie de stări de încărcare și de eroare **inventate**, nu mutate:
+azi nu randează nimic la eșec, doar un toast care trece.
 
 **`AdminDateField` a intrat, a treia trecere.** Cele două formulare de copil lipiseră exemplul din
 documentația Nuxt UI: un `UInputDate` cu un `UPopover` ancorat la `inputsRef?.[3]?.$el` — al

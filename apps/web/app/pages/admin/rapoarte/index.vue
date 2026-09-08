@@ -27,7 +27,7 @@
       </form>
 
       <AdminLoading v-if="financeLoading && !finance" />
-      <AdminError v-else-if="financeError" :message="financeError" />
+      <AdminError v-else-if="financeError" :message="financeError" @retry="loadFinance" />
 
       <template v-else-if="finance">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -112,7 +112,7 @@
     <!-- ============================== LOCURI ============================== -->
     <section v-else-if="tab === 'locuri'" class="space-y-6">
       <AdminLoading v-if="occupancyLoading" />
-      <AdminError v-else-if="occupancyError" :message="occupancyError" />
+      <AdminError v-else-if="occupancyError" :message="occupancyError" @retry="loadOccupancy" />
 
       <template v-else-if="occupancy">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -259,7 +259,7 @@
       </div>
 
       <AdminLoading v-if="signalsLoading" />
-      <AdminError v-else-if="signalsError" :message="signalsError" />
+      <AdminError v-else-if="signalsError" :message="signalsError" @retry="loadSignals" />
 
       <template v-else-if="signals">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">

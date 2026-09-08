@@ -9,7 +9,7 @@
       </UBadge>
     </template>
 
-    <AdminError v-if="loadError" :message="loadError" />
+    <AdminError v-if="loadError" :message="loadError" @retry="load" />
 
     <AdminLoading v-else-if="loading" />
 

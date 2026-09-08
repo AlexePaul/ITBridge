@@ -4,7 +4,7 @@
     subtitle="Formularea mesajelor pe care le trimite platforma. Se modifică de aici, fără deploy; ce nu atingi rămâne pe textul din cod."
   >
     <AdminLoading v-if="loading" />
-    <AdminError v-else-if="loadError" :message="loadError" />
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
 
     <template v-else>
       <!-- The list -->

@@ -125,7 +125,7 @@
       <h2 class="text-lg font-semibold">Anunțuri trimise</h2>
 
       <AdminLoading v-if="loading" />
-      <AdminError v-else-if="loadError" :message="loadError" />
+      <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
       <AdminEmpty
         v-else-if="sent.length === 0"
         icon="i-lucide-inbox"
