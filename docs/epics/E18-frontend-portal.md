@@ -569,7 +569,23 @@ de butoane radio acolo unde se alege una dintre grupe, ca săgețile să funcți
 tastatura, într-un browser adevărat: cardul de grupă se deschide cu Enter, săgeata mută alegerea de
 la o grupă la alta și trimiterea o urmează.
 
-**Ce rămâne:** cele 14 ecrane care primesc un parametru — nu se pot vizita fără un id care există,
+**Cele 14 ecrane cu parametru sunt acum verificate și ele**, cu câte un id real cerut de la API —
+copil, grupă, familie, locație, factură, lună —, deci poarta trece prin **51 de ecrane**, nu 37.
+Primul rând al fiecărei colecții, niciodată unul la întâmplare: o rulare care verifică alt ecran de
+fiecare dată răspunde altceva de fiecare dată, iar prima ei picare n-ar fi reproductibilă. Cele
+paisprezece aduceau **șase încălcări proprii**, dintre care două erau chiar rostul ecranului:
+butoanele de prezență din catalog n-aveau niciun nume accesibil — „Prezent" stătea în slotul
+implicit al lui `USwitch`, care nu e eticheta lui —, iar bifa de selecție a documentelor la fel.
+
+**Iar garda de „încă se încarcă" a fost demonstrată înainte să fie crezută.** Un ecran care nu se
+așază e măsurat gol, iar golul n-are încălcări: ar raporta `ok` și ar avea dreptate. Ca s-o vezi
+declanșându-se trebuie **atârnat un singur endpoint** — o promisiune care nu se rezolvă niciodată,
+nu una care pică, fiindcă aia desenează cardul de eroare. Două încercări dinainte blocaseră toate
+cererile și luaseră cu ele reîmprospătarea tokenului, deci aplicația decidea că sesiunea s-a dus și
+mergea la login; predicatul fusese văzut doar întorcând `false`. O gardă văzută numai nedeclanșându-se
+nu e gardă.
+
+**Ce rămâne:** ecranele care primesc un parametru — nu se pot vizita fără un id care există,
 iar unul inventat ar verifica pagina de eroare. Scriptul le tipărește la final, cu număr, ca golul
 să fie o cifră citibilă, nu o tăcere. Și restul acceptanței de tastatură: axe verifică ce e în DOM,
 nu ce se întâmplă când cineva apasă Tab de douăzeci de ori.
