@@ -87,41 +87,45 @@
         >
           Șterge Filtre
         </UButton>
-      </div> </UCard
-    ><AdminLoading v-if="loading" />
+      </div>
+    </UCard>
+
+    <AdminLoading v-if="loading" />
 
     <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
 
     <!--
-      The empty state only after a load that worked. Until E18/S6 measured it, this screen had no
-      `catch` at all: an unreachable API read as "the school has no families", on the screen where
-      somebody would go to add one.
+      The empty state belongs to `AdminTable` now, and it can tell the two empties apart: a school
+      with no families, and a filter that matched none. Until E18/S6 measured it this screen had no
+      `catch` at all, so an unreachable API read as the first — on the screen where somebody would
+      go to add one.
     -->
-    <AdminEmpty
-      v-else-if="profiles.length === 0"
-      title="Nicio familie încă."
-      description="Familiile apar aici după înregistrare sau după ce le adaugă biroul."
-      icon="i-lucide-users"
+    <AdminTable
+      v-else
+      :rows="filteredProfiles"
+      :columns="columns"
+      :actions="rowActions"
+      :to="(profile) => `/admin/profiles/${profile.id}`"
+      empty-icon="i-lucide-users"
+      :empty-text="hasActiveFilters ? 'Nicio familie nu se potrivește.' : 'Nicio familie încă.'"
+      :empty-description="
+        hasActiveFilters
+          ? 'Încearcă alt nume, email sau telefon.'
+          : 'Familiile apar aici după înregistrare sau după ce le adaugă biroul.'
+      "
     />
-
-    <UCard v-else class="border">
-      <UTable ref="table" :data="filteredProfiles" :columns="columns" class="w-full" />
-    </UCard>
   </AdminPage>
 </template>
 
 <script setup lang="ts">
-import type { TableColumn } from "@nuxt/ui";
+import type { DropdownMenuItem } from "@nuxt/ui";
+import type { AdminTableColumn } from "~/types/admin-ui.types";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import type { Profile } from "~/types/profile.types";
 import { computed } from "vue";
 
 const profileApi = useProfileApi();
-const UBadge = resolveComponent("UBadge");
-const UIcon = resolveComponent("UIcon");
-const UDropdownMenu = resolveComponent("UDropdownMenu");
-const UButton = resolveComponent("UButton");
 
 const profiles: Ref<Profile[]> = ref([]);
 const loading = ref(true);
@@ -191,135 +195,49 @@ const load = async () => {
 
 onMounted(load);
 
-const columns: TableColumn<Profile>[] = [
+/**
+ * The columns, as config rather than a hundred lines of `h()` — E18/S5b, last of the seven dialects.
+ *
+ * The migration is also where four English strings a person actually reads go away: the column
+ * header said "Phone", and the row menu said "Actions", "View Profile", "Add Children" and "Edit
+ * Profile", with `aria-label="Actions dropdown"` on the button. The rule is English everywhere
+ * except what somebody sees or hears, and a menu is both.
+ */
+const columns: AdminTableColumn<Profile>[] = [
+  { key: "id", label: "#", type: "id" },
   {
-    accessorKey: "id",
-    header: "#",
-    cell: ({ row }) =>
-      h(
-        UBadge,
-        { class: "capitalize", variant: "subtle", color: "primary" },
-        () => `#${row.getValue("id")}`
-      ),
+    key: "hasUser",
+    label: "Are cont",
+    type: "badge",
+    accessor: (profile) => (profile.hasUser ? "Da" : "Nu"),
+    badgeColor: (profile) => (profile.hasUser ? "success" : "error"),
   },
   {
-    accessorKey: "hasUser",
-    header: "Are utilizator",
-    cell: ({ row }) => {
-      const color = {
-        true: "success" as const,
-        false: "error" as const,
-      }[row.getValue("hasUser") as string];
+    key: "name",
+    label: "Nume",
+    icon: "i-lucide-user",
+    accessor: (profile) => `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim(),
+  },
+  { key: "email", label: "Email", icon: "i-lucide-mail" },
+  { key: "phone", label: "Telefon", icon: "i-lucide-phone" },
+  { key: "address", label: "Adresă", icon: "i-lucide-map-pin" },
+  {
+    key: "children",
+    label: "Copii",
+    icon: "i-lucide-baby",
+    type: "badge",
+    accessor: (profile) => String(profile.children?.length ?? 0),
+    badgeColor: () => "secondary",
+  },
+];
 
-      return h(UBadge, { class: "capitalize", variant: "subtle", color }, () =>
-        row.getValue("hasUser") ? "Da" : "Nu"
-      );
-    },
-  },
+const rowActions = (profile: Profile): DropdownMenuItem[] => [
+  { label: "Vezi familia", icon: "i-lucide-eye", to: `/admin/profiles/${profile.id}` },
   {
-    id: "name",
-    header: () =>
-      h("div", { class: "flex items-center gap-2" }, [
-        h(UIcon, { name: "i-lucide-user", class: "text-secondary" }),
-        h("span", "Nume"),
-      ]),
-    cell: ({ row }) => {
-      const firstName = row.original.firstName || "";
-      const lastName = row.original.lastName || "";
-      return `${firstName} ${lastName}`.trim() || h("span", { class: "text-muted" }, "N/A");
-    },
+    label: "Adaugă un copil",
+    icon: "i-lucide-plus",
+    to: `/admin/profiles/${profile.id}/children/new`,
   },
-  {
-    accessorKey: "email",
-    header: () =>
-      h("div", { class: "flex items-center gap-2" }, [
-        h(UIcon, { name: "i-lucide-mail", class: "text-secondary" }),
-        h("span", "Email"),
-      ]),
-  },
-  {
-    accessorKey: "phone",
-    header: () =>
-      h("div", { class: "flex items-center gap-2" }, [
-        h(UIcon, { name: "i-lucide-phone", class: "text-secondary" }),
-        h("span", "Phone"),
-      ]),
-  },
-  {
-    accessorKey: "address",
-    header: () =>
-      h("div", { class: "flex items-center gap-2" }, [
-        h(UIcon, { name: "i-lucide-map-pin", class: "text-secondary" }),
-        h("span", "Adresă"),
-      ]),
-    cell: ({ row }) => row.getValue("address") || h("span", { class: "text-muted" }, "N/A"),
-  },
-  {
-    accessorKey: "children",
-    header: () =>
-      h("div", { class: "flex items-center gap-2" }, [
-        h(UIcon, { name: "i-lucide-baby", class: "text-secondary" }),
-        h("span", "Copii"),
-      ]),
-    cell: ({ row }) =>
-      h(
-        UBadge,
-        { color: "secondary", variant: "subtle" },
-        () => `${row.original.children?.length ?? 0}`
-      ),
-  },
-  {
-    id: "actions",
-    enableHiding: false,
-    meta: {
-      class: {
-        td: "text-right",
-      },
-    },
-    cell: ({ row }) => {
-      const items = [
-        {
-          type: "label",
-          label: "Actions",
-        },
-        {
-          type: "link",
-          label: "View Profile",
-          icon: "i-lucide-eye",
-          to: `/admin/profiles/${row.original.id}`,
-        },
-        {
-          type: "link",
-          label: "Add Children",
-          icon: "i-lucide-plus",
-          to: `/admin/profiles/${row.original.id}/children/new`,
-        },
-        {
-          type: "link",
-          label: "Edit Profile",
-          icon: "i-lucide-edit",
-          to: `/admin/profiles/${row.original.id}/edit`,
-        },
-      ];
-
-      return h(
-        UDropdownMenu,
-        {
-          content: {
-            align: "end",
-          },
-          items,
-          "aria-label": "Actions dropdown",
-        },
-        () =>
-          h(UButton, {
-            icon: "i-lucide-ellipsis-vertical",
-            color: "neutral",
-            variant: "ghost",
-            "aria-label": "Actions dropdown",
-          })
-      );
-    },
-  },
+  { label: "Editează", icon: "i-lucide-pencil", to: `/admin/profiles/${profile.id}/edit` },
 ];
 </script>

@@ -23,4 +23,11 @@ export interface AdminTableColumn<R> {
   accessor?: (row: R) => unknown;
   badgeColor?: (row: R) => AdminBadgeColor;
   align?: "left" | "right";
+  /**
+   * Lifts this cell above the row's stretched link, so a control inside it can be clicked.
+   *
+   * Needed only on a table that has `to`: the link in the first cell covers the whole row, and
+   * anything under it is unreachable by mouse. See `AdminTable`'s docblock.
+   */
+  interactive?: boolean;
 }

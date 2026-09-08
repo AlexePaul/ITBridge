@@ -54,8 +54,15 @@
  * `NuxtLink`, which is focusable, activates on Enter, announces its destination, and can be opened
  * in a new tab like any other link on the web. Clicking anywhere in the row still works — the link
  * stretches over it through `after:absolute after:inset-0` against a `relative` row — so nothing is
- * lost at the mouse. The actions cell sits above that overlay on its own `relative z-10`, or the
- * row's link would swallow every menu press.
+ * lost at the mouse.
+ *
+ * **That overlay covers every cell, which is the price of the pattern.** A `<td>` is not positioned,
+ * so it paints below the link's absolutely-positioned `::after`; hit-testing the middle of a row
+ * returns the link, not the cell under the cursor. The actions column escapes on its own
+ * `relative z-10` — without it the row's link would swallow every menu press — and any other column
+ * that puts a control in a cell needs the same. That is what `interactive: true` on a column is
+ * for. It is worth stating rather than leaving to be discovered: nothing about a dead button in the
+ * third column points back at a link in the first.
  */
 import { h, resolveComponent } from "vue";
 import type { TableColumn, DropdownMenuItem } from "@nuxt/ui";
@@ -125,6 +132,9 @@ function cellFor(column: AdminTableColumn<T>, row: T) {
 const tableColumns = computed<TableColumn<T>[]>(() => {
   const defs: TableColumn<T>[] = props.columns.map((column, index) => ({
     id: column.key,
+    // Only when there is an overlay to escape; an unconditional `relative` would change stacking
+    // on every table for the benefit of the ones that do not have one.
+    ...(column.interactive && props.to ? { meta: { class: { td: "relative z-10" } } } : {}),
     header: () => {
       const label =
         column.type === "money" || column.align === "right"
