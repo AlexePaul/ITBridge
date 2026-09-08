@@ -18,7 +18,13 @@
             </UBadge>
           </div>
         </div>
-        <UButton color="neutral" variant="ghost" size="sm" icon="i-lucide-ellipsis-vertical" />
+        <!--
+          Aici era un buton „⋮" fără `@click`, fără emit și fără meniu în spate: nouă butoane
+          pe `/admin/groups`, fiecare promițând acțiuni pe care nu le avea nimeni de dat. Axe îl
+          raporta ca `button-name`, dar un `aria-label` l-ar fi făcut doar un buton mort cu nume —
+          un cititor de ecran l-ar fi anunțat, cineva l-ar fi apăsat, și tot nimic. Acțiunile
+          cardului sunt în subsol, scrise cu litere: „Editare" și „Gestionează".
+        -->
       </div>
     </template>
 

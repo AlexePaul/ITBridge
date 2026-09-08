@@ -86,7 +86,13 @@
 
       <!-- Everything open, in one table. -->
       <div class="flex flex-wrap items-center gap-3">
-        <USelect v-model="statusFilter" :items="statusItems" class="w-56" />
+        <!-- Cele două bife de alături își poartă eticheta; asta n-o avea deloc. -->
+        <USelect
+          v-model="statusFilter"
+          :items="statusItems"
+          class="w-56"
+          aria-label="Filtrează după stare"
+        />
         <UCheckbox v-model="onlyUnassigned" label="Doar fără responsabil" />
         <UCheckbox v-model="includeSettled" label="Include închise" />
         <span class="text-sm text-muted">{{ leads.length }} cereri</span>
