@@ -30,7 +30,7 @@ env:
 
 jobs:
   verify:
-    name: Lint, typecheck, test, build, accessibility, privacy
+    name: Lint, typecheck, test, build, accessibility, privacy, links
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -90,6 +90,13 @@ jobs:
       # scroll passed every review it went through — this is the check that would not have.
       - name: Third-party requests and cookies
         run: pnpm test:privacy
+        env:
+          API_BASE: http://localhost:3000
+
+      # E19/S9: every internal link on the public pages goes somewhere, fragments included. A 404
+      # nobody follows is still one Google records, a month before we would have noticed.
+      - name: Internal links
+        run: pnpm test:links
         env:
           API_BASE: http://localhost:3000
 

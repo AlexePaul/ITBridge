@@ -84,6 +84,7 @@ pnpm test           # jest pe api, vitest pe web
 pnpm test:e2e       # integrare prin HTTP; cere Postgres pornit
 pnpm test:a11y      # axe-core pe paginile publice, într-un Chromium adevărat; construiește întâi
 pnpm test:privacy   # aceleași pagini: nicio cerere în afara originii, niciun cookie
+pnpm test:links     # aceleași pagini: fiecare link intern răspunde 200, fragmente incluse
 
 pnpm --filter api <script>   # o comandă într-un singur workspace
 ```
@@ -1180,6 +1181,19 @@ ci atârnă. Trei lucruri de știut:
 - **Nu apasă butonul.** Cine cere harta primește Google, cu consecințele scrise lângă buton; garda
   e despre cine nu cere. Dacă adaugi ceva care iese din domeniu, poarta e `consentStore` plus un
   `v-if` — `v-show` sau un `src` schimbat sunt cereri care au plecat deja.
+
+**A treia gardă, pe aceeași listă de pagini: fiecare link intern răspunde 200.** `pnpm test:links`
+(`apps/web/scripts/check-links.mjs`, E19 S9) citește linkurile **din pagina randată**, nu din sursă,
+deci intră și cele construite la rulare. Trei lucruri:
+
+- **Țintele n-au de ce să fie în sitemap.** Paginile de pe care pleacă vin de acolo, dar
+  `/auth/login` e legat din navigație și e dinadins în afara lui — dacă se rupe, e la fel de rupt.
+- **Fragmentele se verifică pe id-urile paginii-țintă**, fiindcă sunt jumătatea pe care un cod de
+  stare n-o vede: `#o-secțiune` se rupe când cineva reformulează un titlu, iar pagina răspunde în
+  continuare 200.
+- **Linkurile externe nu sunt verificate**, prin decizia story-ului: un site terț picat o oră nu e
+  un motiv ca CI-ul nostru să fie roșu. Sunt citirea lunară din E19 S8 — și, la fel ca vecinele ei,
+  verificarea asta nu face nicio cerere în afara originii.
 
 `apps/agent` folosește `node --test`, fără jest și fără nicio unealtă proprie — n-are motiv să
 capete una. `pnpm --filter agent test` compilează întâi și rulează din `dist`: un `.ts` cu `import`
