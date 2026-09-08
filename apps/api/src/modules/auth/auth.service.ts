@@ -245,8 +245,11 @@ export class AuthService {
     async login(loginDto: LoginDto, userAgent?: string) {
         // Matched the same way registration checks for collisions, so the account you are stopped
         // from creating is the account you can sign in to.
+        // `addSelect`, because the column is `select: false` on the entity: this is the one place in
+        // the application that needs the hash, and the only one that asks for it.
         const user = await this.userRepository
             .createQueryBuilder('user')
+            .addSelect('user.passwordHash')
             .where('lower(user.username) = lower(:username)', { username: loginDto.username })
             .getOne();
 

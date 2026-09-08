@@ -278,13 +278,19 @@ coloana spune când a tastat el, nu când a sunat familia, deci un buton „Mut�
 termen" ar fi ținut de cod o regulă pe care S3 a lăsat-o dinadins biroului. Cifra celor de mutat stă
 în meniu, prin `unplacedAbsencesStore`, din același motiv ca restanța de documente din E17 S8.
 
-**`User.passwordHash` n-are `select: false`, deci orice rând care ajunge la `parent.user` îl cară.**
-Serviciile care încarcă contul ca să verifice proprietatea — `AbsenceNoticeService.announce` o face
-prin `relations: { parent: { user: true } }` — trebuie să-l scoată înainte să răspundă; `announce`
-întoarce rândul prin `forResponse`, fără `child.parent` și fără lista copiilor grupei. Un test
-unitar și unul de integrare țin linia (`JSON.stringify(res.body)` nu conține `passwordHash`).
-Tiparul e același ca la `Payment.recordedBy`, care serializează doar `{ id, username }`. Dacă
-încarci `user` într-un serviciu nou, verifică ce pleacă pe sârmă, nu doar ce verifici.
+**`User.passwordHash` e `select: false`: nu iese din bază decât cerut pe nume.** Până în septembrie
+2026 nu era, și singurul lucru dintre hash-ul unei familii și un browser era forma fiecărei
+interogări — iar două au greșit-o: rândul întors de `POST /attendance/absences` și cel întors de
+`PUT /children/:childId`, al doilea chiar către părinte. Consecințele de ținut minte: **singurul
+cititor e `AuthService.login`**, care îl cere cu `.addSelect('user.passwordHash')` — un al doilea
+loc care compară parola trebuie să facă la fel, altfel `bcrypt.compare` primește `undefined` și
+refuză pe toată lumea; inserările și `update()` îl scriu oricum, fiindcă `select` guvernează doar
+citirile. Și **contul tot nu se întoarce** acolo unde a fost încărcat doar ca să verifice
+proprietatea: `AbsenceNoticeService.forResponse` și `ChildService.updateChild` scot `parent.user`
+înainte să răspundă, ca `ProfileService`, fiindcă pe rând stă și `rejectionReason`, nota adminului
+pe care un părinte respins n-are de ce s-o citească. `password-hash.e2e-spec.ts` mătură rutele care
+au cont la un join distanță și verifică că `passwordHash` nu apare nicăieri în corp, iar login-ul
+încă merge.
 
 **Recuperarea e un drept câștigat, nu un marcaj observat** (E12 S4). `MakeUpCredit` apare acolo unde
 un anunț **în termen** se întâlnește cu un catalog care spune că nu a fost acolo — niciuna dintre

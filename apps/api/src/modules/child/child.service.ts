@@ -85,7 +85,12 @@ export class ChildService {
         }
 
         applyDefined(child, updateChildDto);
-        return this.childRepository.save(child);
+        const saved = await this.childRepository.save(child);
+        // The account was loaded for the ownership check above and is not part of the answer: a
+        // parent editing their own child was handed their own `rejectionReason` and, until the
+        // column became `select: false`, their password hash. Same shape as `ProfileService`.
+        saved.parent.user = undefined;
+        return saved;
     }
 
     async deleteChild(childId: number, role: Role, userId: number) {

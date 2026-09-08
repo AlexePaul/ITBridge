@@ -1,0 +1,129 @@
+import { INestApplication } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import request from 'supertest';
+import { App } from 'supertest/types';
+import { createTestApp, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+
+/**
+ * The password hash never leaves the API.
+ *
+ * `User.passwordHash` is `select: false`, so a join that pulls an account onto a child, a profile
+ * or a payment cannot carry the hash along — it used to, and two routes did: the saved absence
+ * notice, and `PUT /children/:childId`, which handed a parent their own hash. This suite walks the
+ * routes with an account one join away and reads the whole body, because the shape of each query
+ * is no longer the only thing standing in the way and the column guard must actually hold over
+ * HTTP. The last two cases are the other half of the guarantee: the one reader, `login`, still
+ * gets the hash it needs.
+ */
+describe('The password hash never leaves the API (e2e)', () => {
+    let app: INestApplication<App>;
+    let dataSource: DataSource;
+
+    let admin: TestUser;
+    let ana: TestUser;
+    let anaProfileId: number;
+    let childId: number;
+
+    beforeAll(async () => {
+        ({ app, dataSource } = await createTestApp());
+    });
+
+    afterAll(async () => {
+        await app.close();
+    });
+
+    beforeEach(async () => {
+        await truncateAll(dataSource);
+        admin = await promoteToAdmin(app, dataSource, await registerUser(app, 'admin.hash'));
+        ana = await registerUser(app, 'ana.hash');
+        anaProfileId = await ownProfileId(app, ana);
+
+        const child = await request(app.getHttpServer())
+            .post('/children')
+            .set('Authorization', ana.auth)
+            .send({ firstName: 'Ana', lastName: 'Pop', birthDate: '2016-01-01', parentId: anaProfileId })
+            .expect(201);
+        childId = child.body.id as number;
+    });
+
+    const expectNoHash = (body: unknown) => {
+        expect(JSON.stringify(body)).not.toContain('passwordHash');
+    };
+
+    describe('a child, edited', () => {
+        it('gives the parent their child back, not their account', async () => {
+            const res = await request(app.getHttpServer()).put(`/children/${childId}`).set('Authorization', ana.auth).send({ firstName: 'Anca' }).expect(200);
+
+            expect(res.body.firstName).toBe('Anca');
+            expect(res.body.parent).toMatchObject({ id: anaProfileId });
+            // The account was loaded for the ownership check and is not part of the answer — it
+            // carries the admin's rejection note, and carried the hash.
+            expect(res.body.parent.user).toBeUndefined();
+            expectNoHash(res.body);
+        });
+
+        it("gives an admin the child, not the family's account", async () => {
+            const res = await request(app.getHttpServer())
+                .put(`/children/${childId}`)
+                .set('Authorization', admin.auth)
+                .send({ lastName: 'Popescu' })
+                .expect(200);
+
+            expect(res.body.parent.user).toBeUndefined();
+            expectNoHash(res.body);
+        });
+
+        it('lists children with the parent and without the account', async () => {
+            const res = await request(app.getHttpServer()).get('/children').set('Authorization', admin.auth).expect(200);
+
+            expect(res.body).toHaveLength(1);
+            expectNoHash(res.body);
+        });
+    });
+
+    describe('accounts, read by an admin', () => {
+        it('the list carries every account and no hash', async () => {
+            const res = await request(app.getHttpServer()).get('/users').set('Authorization', admin.auth).expect(200);
+
+            const usernames = (res.body as { username: string }[]).map((row) => row.username).sort();
+            expect(usernames).toEqual(['admin.hash', 'ana.hash']);
+            expectNoHash(res.body);
+        });
+
+        it('one account, by id', async () => {
+            const res = await request(app.getHttpServer()).get(`/users/${ana.userId}`).set('Authorization', admin.auth).expect(200);
+
+            expect(res.body.username).toBe('ana.hash');
+            expectNoHash(res.body);
+        });
+
+        it('the accounts still waiting for a profile', async () => {
+            const res = await request(app.getHttpServer()).get('/users/without-profile').set('Authorization', admin.auth).expect(200);
+
+            expectNoHash(res.body);
+        });
+
+        it('the profiles, joined to their accounts for the list', async () => {
+            // `ProfileService.findAll` joins the account and then unsets it, keeping only `hasUser`;
+            // the join is the part that would have carried the hash.
+            const res = await request(app.getHttpServer()).get('/profiles').set('Authorization', admin.auth).expect(200);
+
+            expect(res.body).toHaveLength(2);
+            expect((res.body as { hasUser: boolean }[]).every((row) => row.hasUser)).toBe(true);
+            expectNoHash(res.body);
+        });
+    });
+
+    describe('the one reader', () => {
+        it('login still finds the hash it needs to compare', async () => {
+            const res = await request(app.getHttpServer()).post('/auth/login').send({ username: 'ana.hash', password: 'parola123' }).expect(200);
+
+            expect(res.body.accessToken).toBeDefined();
+            expectNoHash(res.body);
+        });
+
+        it('and still refuses a wrong password — the hash was read, not skipped', async () => {
+            await request(app.getHttpServer()).post('/auth/login').send({ username: 'ana.hash', password: 'gresita123' }).expect(401);
+        });
+    });
+});

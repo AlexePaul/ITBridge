@@ -11,7 +11,18 @@ export class User {
     @Column({ unique: true, length: 30 })
     username: string;
 
-    @Column({ type: 'varchar', length: 255 })
+    /**
+     * `select: false`: the hash does not leave the database unless a query asks for it by name.
+     *
+     * Every read of a user — `find`, `findOne`, a relation joined onto a child or a profile — used to
+     * carry it, and the only thing between a family's password hash and a browser was the shape of
+     * each query. Two of them got it wrong: the saved absence notice returned the child with the
+     * parent's account attached, and `PUT /children/:childId` did the same, to the parent
+     * themselves. The one reader that needs the hash, `AuthService.login`, adds it with
+     * `addSelect`; inserts and `update()` calls write it regardless, because `select` governs
+     * reads only.
+     */
+    @Column({ type: 'varchar', length: 255, select: false })
     passwordHash: string;
 
     // An enum column, so `'admin'` in the wrong case cannot be written at all. The `Role` enum

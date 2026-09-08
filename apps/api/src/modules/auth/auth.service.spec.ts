@@ -53,6 +53,9 @@ describe('AuthService', () => {
     const saved = (entity: unknown): Record<string, unknown>[] =>
         manager.save.mock.calls.filter((call) => call[0] === entity).map((call) => call[1] as Record<string, unknown>);
 
+    /** The last builder `userRepo.createQueryBuilder` handed out, for asserting what it selected. */
+    let userQueryBuilder: Record<string, jest.Mock> = {};
+
     beforeEach(async () => {
         userRepo = createMockRepository();
         profileRepo = createMockRepository();
@@ -63,9 +66,12 @@ describe('AuthService', () => {
         // recorded `where` clause stays assertable.
         userRepo.createQueryBuilder!.mockImplementation(() => {
             const qb: Record<string, jest.Mock> = {};
+            // `passwordHash` is `select: false`, so `login` has to ask for it by name.
+            qb.addSelect = jest.fn().mockReturnValue(qb);
             qb.where = jest.fn().mockReturnValue(qb);
             qb.andWhere = jest.fn().mockReturnValue(qb);
             qb.getOne = jest.fn(() => userRepo.findOne!() as Promise<unknown>);
+            userQueryBuilder = qb;
             return qb;
         });
 
@@ -361,6 +367,14 @@ describe('AuthService', () => {
             const passwordHash = await bcrypt.hash(password, 10);
             userRepo.findOne!.mockResolvedValue({ id: 3, username: 'ana', passwordHash, role: 'PARENT' });
         };
+
+        it('asks for the hash by name — the column is select: false and this is its one reader', async () => {
+            await withUser('parola123');
+
+            await service.login({ username: 'ana', password: 'parola123' });
+
+            expect(userQueryBuilder.addSelect).toHaveBeenCalledWith('user.passwordHash');
+        });
 
         it('accepts the correct password', async () => {
             await withUser('corecta');
