@@ -60,8 +60,7 @@ acord.]]
 - Cookie-urile noastre le ștergi din setările browserului; la următoarea autentificare se pun la
   loc, fiindcă fără ele nu poți rămâne autentificat. Nu există o setare „fără cookie-uri
   necesare" — ar însemna „fără portal".
-- Harta o încarci sau nu, la fiecare vizită. [[DE DECIS: ținem minte alegerea într-un cookie
-      propriu, `mapConsent`, sau întrebăm de fiecare dată]].
+- Harta o încarci sau nu, la fiecare vizită. [[DE DECIS: ținem minte alegerea într-un cookie propriu, `mapConsent`, sau întrebăm de fiecare dată]].
 - Nu folosim unelte de analiză a traficului, pixeli de rețele sociale sau reclame, deci nu există
   nimic de refuzat în plus. Dacă vreodată adăugăm așa ceva, documentul ăsta se schimbă înainte, iar
   scripturile nu pornesc fără acordul tău.
