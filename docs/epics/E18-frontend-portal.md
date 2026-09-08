@@ -3,10 +3,8 @@
 **Status:** în lucru · **Pistă:** Public · **Depinde de:** E03 · **Blochează:** E19, E20
 
 **Livrate:** S1 (fundația de design), S2 (pipeline de imagini), S3 (paginile publice), S4 (portalul
-părintelui) și S7 (interfața profesorului), plus jumătatea din CI a lui S6 — verificarea automată de
-accesibilitate, pe paginile publice, în ambele teme. **Rămân:** S5 și restul lui S6, plus verificarea
-lui S4 pe date reale. Nimic din zona de după autentificare nu se poate demonstra până nu rulează un
-backend — vezi [E01](E01-infrastructura-medii.md), S4.
+părintelui), S6 (accesibilitatea, acum și în spatele autentificării) și S7 (interfața profesorului).
+**Rămâne:** S5, plus verificarea lui S4 pe date reale.
 
 > ## Cerut de școală: rescrierea întregii zone de după login
 >
@@ -64,12 +62,12 @@ plecat:
   nu au fost atinse de rescriere și nu sunt cablate la un backend care rulează.**
 - **Zona de admin e inconsecventă.** 44 de ecrane construite în momente diferite, cu tipare
   diferite de tabel, filtrare, formular și mesaj de eroare. Nerezolvat.
-- **Accesibilitate neverificată.** Rezolvat pe paginile publice: contrastul e conform AA
+- ~~**Accesibilitate neverificată.**~~ Rezolvat pe paginile publice: contrastul e conform AA
   (butoanele și legăturile folosesc `--color-accent-ink`, marginile de control un token separat la
   3:1), există legătură „Sari la conținut”, erorile de formular sunt legate prin `aria-describedby`
   și carusel are rol și etichete — iar din S6 **verificarea automată rulează în CI**, cu axe-core
-  într-un Chromium adevărat, pe fiecare pagină din sitemap și în ambele teme. Rămâne zona
-  autentificată, neverificată deloc: se face odată cu S4 și S5.
+  într-un Chromium adevărat, pe fiecare pagină din sitemap și în ambele teme. Zona autentificată a
+  intrat sub aceeași poartă: `pnpm test:a11y:auth`, un job propriu, 37 de ecrane, ambele teme.
 - **Fără stări de încărcare și eroare coerente.** `NotificationContainer` există; nu e clar că e
   folosit consecvent. Nerezolvat în zona autentificată.
 - ~~**Fără mod întunecat**, deși @nuxt/ui îl suportă din start.~~ Paleta întunecată e definită în
@@ -348,13 +346,125 @@ pe `occupancyOf` — D7).
   întunecată, lângă câmpuri care se schimbau.
 - **Zece `console.log` care scriau date de familii în consola browserului** — „Profile details",
   „Fetched users raw", „Mapping user" — au fost șterse din patru ecrane.
+
+  **Curățenia se oprise la `pages/`, iar opt rămăseseră un etaj mai jos**, în magazine, în
+  composable-urile de API și în pluginul de autentificare — de unde scriau mai mult, nu mai puțin:
+  `console.log("New child created:", newChild)` punea în consolă prenumele, numele și **data de
+  naștere** a unui minor, plus rezumatul părintelui; interogarea de profil punea acolo telefonul,
+  adresa și contactul de urgență; iar pluginul scria obiectul contului la **fiecare** încărcare de
+  pagină din zona autentificată. Consola unui calculator din birou e un log ca oricare altul: rămâne
+  deschisă, se derulează înapoi și ajunge în capturi de ecran. Toate opt sunt scoase, iar
+  `apps/web/test/no-console-log.spec.ts` ține linia — `apps/web` n-are ESLint, deci regula e un test.
+  `console.error` rămâne permis dinadins: alea sunt tratare de erori, nu urmărire, iar pe câteva
+  ecrane sunt singura care există.
+
 - **Două copii ale tabelului cu numele lunilor** au intrat în `formatMonthName`, lângă `formatMonth`,
   care e construit pe el.
+
+**A treia trecere (E18/S5b) a început cu două butoane care nu existau.** `AdminError` declara
+`retry` ca eveniment și întreba `useAttrs().onRetry` ca să afle dacă ascultă cineva — iar Vue
+**scoate din `$attrs` ascultătorii evenimentelor declarate**, deci răspunsul era mereu „nu".
+Consecința: `leads` și panoul de pâlnie din `rapoarte` scriau amândouă `@retry="load"` de ani, iar
+butonul nu se randa niciodată; celelalte șaptesprezece ecrane n-aveau nici măcar atât, fiindcă
+`#action` era singura ușă și nu intrase nimeni pe ea. Un ecran cu eroare și fără ieșire în afară de
+reîncărcarea paginii. `AdminFormActions` avea exact aceeași greșeală pentru `cancel`, iar singurul
+ecran care o folosește — editorul de șabloane din `/admin/emailuri` — livrase fără butonul lui de
+anulare.
+
+Reparat prin **prop, nu emit**: `onRetry` și `onCancel` sunt proprietăți, iar `@retry="load"` se
+compilează exact într-un `onRetry`, deci niciun apelant nu-și schimbă sintaxa, dar componenta
+primește o valoare pe care chiar o poate verifica. Un emit declarat era alegerea idiomatică și e
+exact cea care a picat. Butonul apare doar când există ce să cheme — un ecran care nu poate reîncerca
+n-are voie să arate un buton care pretinde că poate.
+
+Cele **șaptesprezece ecrane care aveau doar mesajul au primit și butonul**, iar trei dintre ele
+(`invoices`, `children`, `dashboard`) și-au scos întâi încărcarea din `onMounted` într-un `load`,
+fiindcă n-aveau ce lega de el.
 
 Ecrane migrate în trecerea asta: `attendance/group/index`, `attendance/children/index`,
 `locations/new`, `locations/[locationId]/edit`, `profiles/index`, `profiles/new`,
 `profiles/[profileId]/edit`, cele două ecrane de confirmare a ștergerii, `approvals/index` și
-`payments/index`. **25 din 42 de ecrane sunt acum pe componente.**
+`payments/index`.
+
+A treia trecere a mai adus opt: cele cinci care ceruseră doar învelișul — `formare/index`,
+`proiecte/index`, `proiecte/grupa/[groupId]`, `profiles/[profileId]/children/new`,
+`children/[childId]/edit` — și cele trei care n-aveau ce muta, fiindcă stările lor trebuiau
+inventate: `profiles/[profileId]/index`, `attendance/children/[childId]`, `invoices/[month]`.
+**41 din 44 de ecrane sunt acum pe componente** — numărătoarea de dinainte spunea 25 din 42 și era
+în urmă cu un fișier la fiecare capăt.
+
+**Trei ecrane nu spuneau nimic când încărcarea pica**, și fiecare minte în felul lui. Fișa
+familiei (`profiles/[profileId]`) n-avea nici `catch`, nici `v-else`: o cerere picată lăsa pagina
+**goală pentru totdeauna**, identic cu o familie care nu există. Istoricul de prezență al unui copil
+(`attendance/children/[childId]`) prindea eroarea într-un `console.error` și randa apoi starea lui
+goală — „Nicio înregistrare de prezență" —, adică o defecțiune de rețea se citea ca _copilul ăsta
+n-a fost niciodată la nicio oră_, exact greșeala pentru care s-a reparat calendarul părintelui, dar
+mai gravă: aici e cineva care e pe punctul de a i-o spune familiei. Iar facturile unei luni
+(`invoices/[month]`) n-aveau nici stare de încărcare, nici de eroare, deci o listă neajunsă apărea
+ca „Nu sunt facturi pentru această lună" — o propoziție despre bani, neadevărată, pe pagina pe care
+o deschizi ca să verifici dacă o familie a fost facturată.
+
+Toate trei au acum încărcare, eroare cu reîncercare, și — la fișa familiei — un „nu există"
+deosebit de „n-am putut citi": un 404 e un răspuns, un API inaccesibil nu.
+
+**A doua cerere `/invoices` a fost găsită, și era un plugin.** Sub o injecție de eroare,
+`invoices/[month]` ajungea la pagina generică de 500 a lui Nuxt înainte să se vadă starea nouă —
+se reproducea identic pe fișierul nemodificat, deci nu venea de acolo. Urma de stivă a arătat cine:
+`plugins/02.payments.client.ts`, care cerea **toate facturile la fiecare încărcare de pagină**, ca
+`async` fără `try`. Trei lucruri despre el, în ordinea în care sunt grave:
+
+- **Rezultatul nu era citit de nimeni.** `fetchInvoices` umple un `invoices` declarat _înăuntrul_
+  lui `useInvoiceApi()`, deci fiecare apelant are propriul ref: cel umplut de plugin nu era vizibil
+  din nicio pagină. Restul muncii lui erau două booleene la nivel de modul, `overdueInvoices` și
+  `pendingInvoices`, scrise în trei locuri și **citite în zero** — `useLogout` doar le punea pe
+  `false`. Un ecran care le-ar fi afișat n-a existat niciodată.
+- **Fără `catch`, ducea toată aplicația în pagina de eroare.** Un plugin `async` care aruncă e o
+  respingere neprinsă la boot, deci un `/invoices` picat nu strica ecranul facturilor, ci **orice
+  pagină**, pentru oricine e autentificat. Vecinul lui, `03.profile.client.ts`, prinde și explică
+  de ce — ăsta era singurul care nu.
+- **Pentru un admin, `GET /invoices` întoarce facturile tuturor familiilor.** Adică tot tabelul
+  trecea prin browser la fiecare navigare, ca să nu fie citit.
+
+Șters, cu tot cu cele două booleene. Odată plecat, starea de eroare a ecranului chiar se vede.
+
+**Cele patru ecrane de grupe au venit împreună, și două dintre ele chiar salvau de mai multe ori.**
+`groups/new` și `groups/[groupId]/edit` aveau rândul de butoane scris de mână, fără `:loading` —
+exact defectul pentru care `AdminFormActions` cere `loading` în semnătură. Măsurat, cu cererea
+încetinită la patru secunde și șase apăsări: **șase scrieri** înainte, **una** după. Nu e o
+îngrijorare teoretică despre rețele lente; e ce se întâmplă când cineva apasă din nou fiindcă nu
+s-a mișcat nimic pe ecran.
+
+`groups/index` avea `fetchGroups` și `fetchChildren` așteptate direct în `onMounted`, fără `catch` —
+adică aceeași respingere neprinsă ca plugin-ul de mai jos: nu strica lista, ducea toată aplicația în
+pagina de eroare. Are acum încărcare, eroare cu reîncercare, și `AdminEmpty` pe zilele fără grupe.
+
+Iar `groups/[groupId]/children` **a pierdut un rând de butoane care mințea**: „Salvează Modificări"
+arăta „Modificări salvate cu succes" peste o muncă salvată deja — fiecare adăugare și fiecare
+eliminare cheamă API-ul și își dă singură confirmarea —, iar „Anulare" nu anula nimic, doar naviga
+înapoi. Un buton care pretinde că salvează când nu e nimic în așteptare învață cititorul să creadă
+într-o stare nesalvată care nu există. Ieșirea e „Înapoi", din antet, adică fix ce făceau amândouă.
+
+**Ultimele două ecrane cu stări inventate, și al treilea formular care salva de două ori.**
+`locations/index` prindea eroarea într-un toast care trece și randa apoi starea lui goală — deci un
+API inaccesibil se citea ca „școala n-are nicio locație", exact pe ecranul unde cineva s-ar duce să
+adauge una. `attendance/group/[groupId]` avea cinci `await` goale în `onMounted`, adică aceeași
+respingere neprinsă: nu un catalog gol, ci toată aplicația pe pagina de eroare. Amândouă au acum
+încărcare și eroare cu reîncercare, iar catalogul a pierdut pe drum un `<UModal title="Modal with
+title">` cu un `<Placeholder>` înăuntru — schelărie copiată din documentația Nuxt UI, deschisă de
+nimic, care numea o componentă ce nu există nicăieri în aplicație. Al doilea `h1` al paginii a
+devenit `h2`.
+
+**`LocationForm` avea ultimul `<select>` nativ din zona de admin** — cu `border-gray-300` scris de
+mână, deci gri-deschis în tema întunecată lângă câmpuri care se schimbă — **și al treilea rând de
+butoane fără `loading`**: aceeași dublă trimitere ca la grupe, de data asta o a doua locație. Ambele
+reparate, iar `loading` trece prin componentă fiindcă pagina e cea care știe când s-a terminat
+cererea. În `pages/admin/` și în componentele lui nu mai există niciun `<select>` nativ.
+
+Ce rămâne nu mai e mecanic, și două ecrane cer o schimbare în `AdminPage`, nu în ele:
+`attendance/azi` **n-are titlu dinadins** — navbar-ul îl scrie deja, iar pe telefon un al doilea
+titlu costă exact rândul de sus —, iar `invoices/emitere` stă pe `max-w-4xl` cu `pb-32` pentru bara
+lipită de jos, iar `AdminPage` cunoaște doar `md`, `lg` și `xl`. Al treilea rămas e `invoices/[invoiceId]/pdf`, o rută de previzualizare la tipar — merită mai
+degrabă marcată ca exclusă decât în așteptare.
 
 **`AdminDateField` a intrat, a treia trecere.** Cele două formulare de copil lipiseră exemplul din
 documentația Nuxt UI: un `UInputDate` cu un `UPopover` ancorat la `inputsRef?.[3]?.$el` — al
@@ -376,7 +486,7 @@ de patru ori mai lat decât iconița din exemplu. Cele două formulare au primit
 `AdminFormActions`, deci `loading` pe salvare; shell-urile lor și istoricul înscrierilor din
 `children/edit` rămân de migrat, așa că numărătoarea nu se mișcă.
 
-### S6 · Accesibilitate — livrat parțial (verificarea automată, livrată)
+### S6 · Accesibilitate — livrat
 
 Contrast conform WCAG AA, navigare completă din tastatură, focus vizibil, etichete și roluri ARIA,
 text alternativ pe imagini semnificative. Verificare automată în CI.
@@ -423,10 +533,46 @@ mod în care verificarea ar fi putut fi verde degeaba:
 pe care story-ul a schimbat-o — verificarea cade pe fiecare pagină publică, în tema
 deschisă, cu 2,61:1 și numele elementului. Cu el la loc, trece.
 
-**Ce rămâne:** zona autentificată, neverificată deloc. Acceptanța cere și portalul, iar portalul se
-rescrie în S4 și S5 — se verifică atunci, nu înainte, fiindcă altfel s-ar cimenta ecranele pe care
-școala le-a cerut refăcute. Jumătatea de tastatură a acceptanței rămâne manuală: axe verifică ce e
-în DOM, nu ce se întâmplă când cineva apasă Tab de douăzeci de ori.
+**Zona autentificată, măsurată și trecută sub aceeași poartă.** S4 și S5 au rescris ecranele, deci
+verificarea nu mai cimentează nimic. `pnpm test:a11y:auth` — `apps/web/scripts/check-a11y-auth.mjs`,
+un job propriu în CI — se autentifică și trece axe peste **37 de ecrane** de admin și de portal, în
+ambele teme, pe aceleași etichete WCAG. Prima rulare a găsit **80 de încălcări**, și niciuna nu era
+a ecranului pe care apărea:
+
+- **Șase jetoane de culoare Nuxt UI stăteau pe 500-ul rampei lor.** `--ui-primary` fusese reparat la
+  S7; `--ui-secondary` arată spre aceeași rampă de aur și a scăpat neatins, iar cele patru culori
+  semantice nu se uitase nimeni la ele. 500 e putere de chenar, nu de propoziție: insigna `#id` de pe
+  fiecare card de grupă citea la 2,40:1, stările de livrare din `/admin/livrari` la 3,02:1. Fiecare
+  arată acum cu un pas mai jos, iar tema închisă face pasul în oglindă; `success` și `warning` fac
+  doi, fiindcă o insignă „soft" își desenează fundalul din același ton, deci întunecarea textului
+  întunecă și pământul de sub el.
+- **`.cal-day-outside` era o spălăcire de 35%, la 2,12:1** — zilele din lunile vecine din calendarul
+  de prezență, pe ecranul pe care un părinte îl deschide ca să vadă când a venit copilul.
+- **Patru comenzi fără nume accesibil**, dintre care una era un `⋮` fără handler, fără emit și fără
+  meniu: ștearsă, nu etichetată. Un buton mort cu nume e mai rău decât unul fără — cititorul de ecran
+  îl anunță, cineva îl apasă, și tot nu se întâmplă nimic.
+- **Rândurile lui `AdminTable` erau butoane care conțineau butoane.** Un singur `@select` pe `UTable`
+  pune `role="button" tabindex="0"` pe fiecare `<tr>`, iar asta cumpăra trei defecte deodată:
+  `nested-interactive`, o oprire de tab care nu putea fi acționată — un `<tr>` nu primește Enter pe
+  gratis, cum primește un buton adevărat — și un rol care nu spunea nimic despre unde duce. Toate
+  cele cinci apeluri navigau, deci `:to` înlocuiește emit-ul și prima celulă devine o legătură
+  adevărată, întinsă peste rând ca mouse-ul să nu piardă nimic.
+
+**Jumătatea de tastatură a acceptanței a găsit ce nu vede axe.** Patru comenzi erau `div`-uri cu
+`@click`: cardurile de grupă din `/admin/proiecte` — coada de documente pe care E17/S8 o numără în
+meniu —, rezultatele căutării din `/admin/attendance/children`, grila de selecție a grupei și
+cardurile de adăugare a unui copil. Un `div` care ascultă clicuri nu primește focus și nu răspunde
+la Enter, iar **nicio regulă axe nu-l raportează**: pentru un verificator automat e text. Ce s-a
+văzut a fost consecința, pe un singur ecran — panoul care derulează fără nimic focusabil înăuntru.
+Fiecare a devenit ce era de fapt: legătură unde se navighează, buton unde se acționează, și un grup
+de butoane radio acolo unde se alege una dintre grupe, ca săgețile să funcționeze. Verificat cu
+tastatura, într-un browser adevărat: cardul de grupă se deschide cu Enter, săgeata mută alegerea de
+la o grupă la alta și trimiterea o urmează.
+
+**Ce rămâne:** cele 14 ecrane care primesc un parametru — nu se pot vizita fără un id care există,
+iar unul inventat ar verifica pagina de eroare. Scriptul le tipărește la final, cu număr, ca golul
+să fie o cifră citibilă, nu o tăcere. Și restul acceptanței de tastatură: axe verifică ce e în DOM,
+nu ce se întâmplă când cineva apasă Tab de douăzeci de ori.
 
 ### S7 · Interfața profesorului — livrat
 
