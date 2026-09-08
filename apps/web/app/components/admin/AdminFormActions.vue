@@ -19,11 +19,11 @@
       {{ cancelLabel }}
     </UButton>
     <UButton
-      v-else-if="hasCancelListener"
+      v-else-if="onCancel"
       color="neutral"
       variant="subtle"
       class="flex-1 justify-center"
-      @click="emit('cancel')"
+      @click="onCancel()"
     >
       {{ cancelLabel }}
     </UButton>
@@ -38,10 +38,16 @@
  * `@click` that fires the handler a second time. `loading` is part of the signature rather than an
  * option, because seven of the ten admin forms shipped without it and every one of them
  * double-submits under a slow network. Cancel is a link when there is somewhere to go (`cancelTo`)
- * and an event when the form lives in a modal.
+ * and a handler when the form lives in a modal.
+ *
+ * **`onCancel` is a prop, not an emit**, and it had to become one (E18/S5b). It was
+ * `defineEmits({ cancel })` plus a `useAttrs().onCancel` test, which cannot work: Vue removes a
+ * declared emit's listener from `$attrs`, so the test was always false and the button never
+ * rendered at all. The template editor in `/admin/emailuri` is the one screen that passes
+ * `@cancel`, and it has been shipping without its cancel button. A prop spelled `onCancel`
+ * receives exactly the same `@cancel="…"` the call site already writes, and is a value the
+ * component can actually check. `AdminError` carries the same note about the same mistake.
  */
-import { useAttrs } from "vue";
-
 withDefaults(
   defineProps<{
     submitLabel: string;
@@ -51,13 +57,16 @@ withDefaults(
     disabled?: boolean;
     /** A destructive form — the submit turns red. */
     danger?: boolean;
+    /** Called when the reader cancels a form that has nowhere to navigate back to. */
+    onCancel?: () => void;
   }>(),
-  { cancelTo: undefined, cancelLabel: "Anulează", loading: false, disabled: false, danger: false }
+  {
+    cancelTo: undefined,
+    cancelLabel: "Anulează",
+    loading: false,
+    disabled: false,
+    danger: false,
+    onCancel: undefined,
+  }
 );
-
-const emit = defineEmits<{ cancel: [] }>();
-
-// Vue exposes listeners through attrs; the cancel button only renders when somebody listens.
-const attrs = useAttrs();
-const hasCancelListener = computed(() => typeof attrs.onCancel === "function");
 </script>

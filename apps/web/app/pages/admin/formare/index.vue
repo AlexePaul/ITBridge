@@ -1,13 +1,8 @@
 <template>
-  <div class="w-full max-w-5xl mx-auto px-4 py-6 space-y-6">
-    <div>
-      <h1 class="text-3xl font-bold">Formarea grupelor</h1>
-      <p class="text-muted mt-1">
-        Copiii pe care nu i-a repartizat nimeni, grupați pe vârstă și locație. Răspunde la „am
-        destui copii pentru o grupă nouă?" fără să compari două liste.
-      </p>
-    </div>
-
+  <AdminPage
+    title="Formarea grupelor"
+    subtitle='Copiii pe care nu i-a repartizat nimeni, grupați pe vârstă și locație. Răspunde la „am destui copii pentru o grupă nouă?" fără să compari două liste.'
+  >
     <!-- Trials nobody has decided on. A trial holds a seat until somebody closes it, so this list
          is not only a commercial tool — it is what keeps the capacity figures honest. -->
     <UCard v-if="trials.length > 0" class="border border-warning" variant="subtle">
@@ -60,21 +55,16 @@
       </div>
     </UCard>
 
-    <UCard v-if="loadError" class="border border-error" variant="subtle">
-      <p class="font-medium">{{ loadError }}</p>
-    </UCard>
+    <AdminError v-if="loadError" :message="loadError" @retry="load" />
 
-    <div v-else-if="loading" class="py-12 text-center text-muted">Se încarcă…</div>
+    <AdminLoading v-else-if="loading" />
 
-    <UCard v-else-if="demand.length === 0" class="border" variant="subtle">
-      <div class="py-8 text-center space-y-2">
-        <UIcon name="i-lucide-check-circle" class="text-3xl text-success" />
-        <p class="font-medium">Toți copiii sunt repartizați.</p>
-        <p class="text-muted text-sm">
-          Aici apar copiii de pe listele de așteptare și cei care n-au primit încă o grupă.
-        </p>
-      </div>
-    </UCard>
+    <AdminEmpty
+      v-else-if="demand.length === 0"
+      title="Toți copiii sunt repartizați."
+      description="Aici apar copiii de pe listele de așteptare și cei care n-au primit încă o grupă."
+      icon="i-lucide-check-circle"
+    />
 
     <UCard
       v-for="bucket in demand"
@@ -118,7 +108,7 @@
         </UBadge>
       </div>
     </UCard>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">

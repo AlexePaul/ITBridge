@@ -1,21 +1,10 @@
 <template>
-  <div class="w-full max-w-5xl mx-auto px-4 py-6 space-y-6">
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <UButton
-          to="/admin/proiecte"
-          variant="link"
-          color="neutral"
-          icon="i-lucide-arrow-left"
-          class="px-0"
-        >
-          Toate grupele
-        </UButton>
-        <h1 class="text-3xl font-bold">{{ groupName || "Grupă" }}</h1>
-        <p class="text-muted mt-1">
-          Uită-te la ce a urcat agentul, bifează ce e în regulă și trimite. Nimic nu pleacă singur.
-        </p>
-      </div>
+  <AdminPage
+    :title="groupName || 'Grupă'"
+    subtitle="Uită-te la ce a urcat agentul, bifează ce e în regulă și trimite. Nimic nu pleacă singur."
+    back-to="/admin/proiecte"
+  >
+    <template #actions>
       <UButton
         size="lg"
         :disabled="selected.size === 0 || sending"
@@ -24,13 +13,11 @@
       >
         Trimite ({{ selected.size }})
       </UButton>
-    </div>
+    </template>
 
-    <UCard v-if="loadError" class="border border-error" variant="subtle">
-      <p class="font-medium">{{ loadError }}</p>
-    </UCard>
+    <AdminError v-if="loadError" :message="loadError" @retry="load" />
 
-    <div v-else-if="loading" class="py-12 text-center text-muted">Se încarcă…</div>
+    <AdminLoading v-else-if="loading" />
 
     <template v-else>
       <!--
@@ -45,16 +32,12 @@
         </p>
       </UCard>
 
-      <UCard v-if="pending.length === 0 && sent.length === 0" variant="subtle" class="border">
-        <div class="py-8 text-center space-y-2">
-          <UIcon name="i-lucide-folder-open" class="text-3xl text-muted" />
-          <p class="font-medium">Nimic încă pentru grupa asta.</p>
-          <p class="text-sm text-muted">
-            Documentele apar aici la câteva zeci de secunde după ce profesorul le salvează în
-            folderul copilului.
-          </p>
-        </div>
-      </UCard>
+      <AdminEmpty
+        v-if="pending.length === 0 && sent.length === 0"
+        title="Nimic încă pentru grupa asta."
+        description="Documentele apar aici la câteva zeci de secunde după ce profesorul le salvează în folderul copilului."
+        icon="i-lucide-folder-open"
+      />
 
       <template v-if="pending.length">
         <div class="flex items-center justify-between">
@@ -209,7 +192,7 @@
         </div>
       </template>
     </UModal>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">

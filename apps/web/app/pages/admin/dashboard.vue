@@ -8,7 +8,7 @@
     </template>
 
     <AdminLoading v-if="loading" />
-    <AdminError v-else-if="loadError" :message="loadError" />
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
 
     <template v-else-if="overview">
       <!-- The things that need somebody. Only the ones with a number sit up front; a zero is good
@@ -202,7 +202,7 @@ const tiles = computed(() => {
   ];
 });
 
-onMounted(async () => {
+const load = async () => {
   try {
     overview.value = await overviewApi.fetchOverview();
   } catch (err: unknown) {
@@ -210,5 +210,7 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+};
+
+onMounted(load);
 </script>

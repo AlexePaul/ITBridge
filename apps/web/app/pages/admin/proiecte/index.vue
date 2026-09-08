@@ -1,12 +1,8 @@
 <template>
-  <div class="w-full max-w-5xl mx-auto px-4 py-6 space-y-6">
-    <div>
-      <h1 class="text-3xl font-bold">Proiectele elevilor</h1>
-      <p class="text-muted mt-1">
-        Agentul urcă ce salvează profesorii în folderele copiilor. Tu te uiți și trimiți.
-      </p>
-    </div>
-
+  <AdminPage
+    title="Proiectele elevilor"
+    subtitle="Agentul urcă ce salvează profesorii în folderele copiilor. Tu te uiți și trimiți."
+  >
     <!--
       The agent banner is the first thing on the screen, not a detail at the bottom. A single agent
       on a single office computer fails by going quiet, and silence looks exactly like a day when
@@ -60,15 +56,11 @@
       </div>
     </UCard>
 
-    <UCard v-if="loadError" class="border border-error" variant="subtle">
-      <p class="font-medium">{{ loadError }}</p>
-    </UCard>
+    <AdminError v-if="loadError" :message="loadError" @retry="load" />
 
-    <div v-else-if="loading" class="py-12 text-center text-muted">Se încarcă…</div>
+    <AdminLoading v-else-if="loading" />
 
-    <UCard v-else-if="groups.length === 0" variant="subtle" class="border">
-      <p class="py-8 text-center text-muted">Nu există grupe active.</p>
-    </UCard>
+    <AdminEmpty v-else-if="groups.length === 0" title="Nu există grupe active." />
 
     <div v-else class="grid gap-3 sm:grid-cols-2">
       <UCard
@@ -105,7 +97,7 @@
         </div>
       </UCard>
     </div>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">

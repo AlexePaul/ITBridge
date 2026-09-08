@@ -1,30 +1,28 @@
 <template>
-  <UCard variant="subtle" class="max-w-2xl mx-auto">
-    <template #header>
-      <h1 class="text-2xl font-bold">Adaugă Copil</h1>
-    </template>
+  <AdminPage title="Adaugă copil" :back-to="profileUrl">
+    <UCard variant="subtle">
+      <UForm :schema="schema" :state="state" class="space-y-5 w-full" @submit="handleSubmit">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <UFormField name="firstName">
+            <template #label>Prenume<span class="text-error">*</span></template>
+            <UInput v-model="state.firstName" placeholder="ex. John" />
+          </UFormField>
 
-    <UForm :schema="schema" :state="state" class="space-y-5 w-full" @submit="handleSubmit">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <UFormField name="firstName">
-          <template #label>Prenume<span class="text-error">*</span></template>
-          <UInput v-model="state.firstName" placeholder="ex. John" />
+          <UFormField name="lastName">
+            <template #label>Nume<span class="text-error">*</span></template>
+            <UInput v-model="state.lastName" placeholder="ex. Doe" />
+          </UFormField>
+        </div>
+
+        <UFormField name="birthDate">
+          <template #label>Data Nașterii<span class="text-error">*</span></template>
+          <AdminDateField v-model="state.birthDate" :max="today" />
         </UFormField>
 
-        <UFormField name="lastName">
-          <template #label>Nume<span class="text-error">*</span></template>
-          <UInput v-model="state.lastName" placeholder="ex. Doe" />
-        </UFormField>
-      </div>
-
-      <UFormField name="birthDate">
-        <template #label>Data Nașterii<span class="text-error">*</span></template>
-        <AdminDateField v-model="state.birthDate" :max="today" />
-      </UFormField>
-
-      <AdminFormActions submit-label="Adaugă copil" :cancel-to="profileUrl" :loading="saving" />
-    </UForm>
-  </UCard>
+        <AdminFormActions submit-label="Adaugă copil" :cancel-to="profileUrl" :loading="saving" />
+      </UForm>
+    </UCard>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
@@ -44,7 +42,7 @@ const childrenApi = useChildrenApi();
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "Adaugă Copil",
+  title: "Adaugă copil",
 });
 
 const profileUrl = `/admin/profiles/${route.params.profileId}`;

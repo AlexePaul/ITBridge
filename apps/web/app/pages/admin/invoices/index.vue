@@ -11,7 +11,7 @@
     </template>
 
     <AdminLoading v-if="loading" />
-    <AdminError v-else-if="loadError" :message="loadError" />
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
 
     <template v-else-if="report">
       <!-- The three numbers somebody opens this screen to read, before any month in particular. -->
@@ -120,7 +120,7 @@ const columns: AdminTableColumn<FinanceMonth>[] = [
   { key: "outstanding", label: "Rest", type: "money" },
 ];
 
-onMounted(async () => {
+const load = async () => {
   try {
     // `fetchInvoices` fills the composable's own ref and returns nothing; `getInvoices` reads it.
     await invoiceApi.fetchInvoices();
@@ -142,5 +142,7 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+};
+
+onMounted(load);
 </script>
