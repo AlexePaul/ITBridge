@@ -49,9 +49,11 @@
 
         <UCard v-for="project in pending" :key="project.id" class="border">
           <div class="flex gap-4">
+            <!-- Which document it selects, or a screen reader hears "checkbox" once per row. -->
             <UCheckbox
               :model-value="selected.has(project.id)"
               class="mt-1"
+              :aria-label="`Selectează documentul „${project.title}”`"
               @update:model-value="toggle(project.id)"
             />
             <ProjectThumbnail
@@ -128,6 +130,7 @@
               value-key="value"
               class="w-full"
               placeholder="Alege copilul"
+              aria-label="Copilul căruia îi aparține documentul"
             />
           </UFormField>
         </div>
