@@ -111,8 +111,20 @@
         </UCard>
         <!-- Dropdown Results (outside card) -->
       </div>
-    </template>
-    <template #footer>
+
+      <!--
+        The register's footer, back where it renders — E18/S6.
+
+        This block was `<template #footer>` of the `<UCard>` that used to wrap the page. S5b
+        replaced that wrapper with `<AdminPage>`, which has only `#actions` and a default slot, so
+        from that day the slot named nothing: Vue dropped the session picker, the "generate the
+        schedule" escape hatch and the **Salvează Prezența** button without a word, and a teacher
+        could mark a whole group and had no way to save it.
+
+        A slot that matches nothing is silent by design, which is why nothing failed — no test, no
+        typecheck, no accessibility rule. Content that is absent has no contrast and no missing
+        label. It took walking the screen the way a teacher does to see the button was not there.
+      -->
       <div class="flex items-end gap-4 w-1/2 mx-auto mt-4">
         <div class="flex-1">
           <!-- The visible label is a bare `<label>` with no `for`, so it names nothing as far as
