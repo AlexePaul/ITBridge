@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:a11y": "node scripts/check-a11y.mjs",
-    "test:privacy": "node scripts/check-third-party.mjs"
+    "test:privacy": "node scripts/check-third-party.mjs",
+    "test:links": "node scripts/check-links.mjs"
   },
   "dependencies": {
     "@internationalized/date": "^3.12.3",

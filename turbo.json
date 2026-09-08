@@ -79,6 +79,11 @@
       "dependsOn": ["build"],
       "cache": false
     },
+    // Third of the same family, same reasons.
+    "test:links": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
     "dev": {
       "cache": false,
       "persistent": true,
