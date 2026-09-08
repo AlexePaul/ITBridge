@@ -121,6 +121,8 @@ const columns: AdminTableColumn<FinanceMonth>[] = [
 ];
 
 const load = async () => {
+  loading.value = true;
+  loadError.value = "";
   try {
     // `fetchInvoices` fills the composable's own ref and returns nothing; `getInvoices` reads it.
     await invoiceApi.fetchInvoices();

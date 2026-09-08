@@ -112,6 +112,8 @@ const visible = computed(() => {
 });
 
 const load = async () => {
+  loading.value = true;
+  loadError.value = "";
   try {
     rows.value = await invoiceApi.fetchArrears();
   } catch (err: unknown) {

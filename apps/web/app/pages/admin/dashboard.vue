@@ -203,6 +203,8 @@ const tiles = computed(() => {
 });
 
 const load = async () => {
+  loading.value = true;
+  loadError.value = "";
   try {
     overview.value = await overviewApi.fetchOverview();
   } catch (err: unknown) {

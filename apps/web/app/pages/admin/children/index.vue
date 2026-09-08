@@ -89,6 +89,8 @@ const loadError = ref("");
 const search = ref("");
 
 const load = async () => {
+  loading.value = true;
+  loadError.value = "";
   try {
     children.value = await childrenApi.fetchChildren();
   } catch (err: unknown) {

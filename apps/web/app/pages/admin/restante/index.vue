@@ -126,6 +126,8 @@ const startRecording = (row: ArrearsRow) => {
 };
 
 const load = async () => {
+  loading.value = true;
+  loadError.value = "";
   try {
     rows.value = await invoiceApi.fetchArrears();
   } catch (err: unknown) {

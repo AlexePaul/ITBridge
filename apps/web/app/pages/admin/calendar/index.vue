@@ -70,6 +70,15 @@
 
     <AdminLoading v-if="loading" />
 
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
+
+    <!--
+      The empty state only after a load that worked (E18/S6). The failure used to go to a toast,
+      which passes, and what stayed on screen was "Niciun interval încă" — so an unreachable API
+      read as a school with no holidays at all, on the screen that decides whether a session is
+      generated. The toast is gone: two reports of the same failure, one of which disappears, is
+      how the disappearing one gets trusted.
+    -->
     <AdminEmpty
       v-else-if="periods.length === 0"
       icon="i-lucide-calendar-off"
@@ -150,6 +159,7 @@ const locationStore = useLocationStore();
 
 const periods = ref<NonTeachingPeriod[]>([]);
 const loading = ref(true);
+const loadError = ref<string | null>(null);
 const saving = ref(false);
 
 const draft = reactive({
@@ -230,10 +240,11 @@ const impactSummary = computed(() => {
 
 const load = async () => {
   loading.value = true;
+  loadError.value = null;
   try {
     periods.value = await classSessionsApi.fetchNonTeachingPeriods();
   } catch (err: unknown) {
-    error(apiErrorMessage(err, "Eroare la încărcarea calendarului"));
+    loadError.value = apiErrorMessage(err, "Nu am putut încărca calendarul.");
   } finally {
     loading.value = false;
   }
