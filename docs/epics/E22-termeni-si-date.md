@@ -1,6 +1,6 @@
 # E22 · Termeni, confidențialitate și ciclul de viață al datelor
 
-**Status:** propus · **Pistă:** Fundație · **Depinde de:** toate · **Blochează:** —
+**Status:** în lucru · **Pistă:** Fundație · **Depinde de:** toate · **Blochează:** —
 
 ## De ce e ultimul
 
@@ -68,6 +68,19 @@ deja și ar fi absurd să nu le spună:
 **Acceptanță:** un părinte poate citi documentul și poate spune, corect, ce se întâmplă cu datele
 copilului lui după ce se retrage.
 
+**Stare: ciornă 0.1 scrisă, în [`docs/legal/`](../legal/README.md)** — termenii, nota de
+confidențialitate și politica de cookie-uri, trei fișiere și un README care spune de unde vine
+fiecare fapt. Scrise direct din entități, fiindcă inventarul din [E07](E07-securitate-gdpr.md) S1 nu
+există încă; când va exista, documentele se reconciliază cu el, nu invers. **Verificate clauză cu
+clauză contra legii** — GDPR art. 12–14, 6–9, 28, 30, 44; Legile 506/2004, 365/2002, 193/2000,
+82/1991; Cod civil art. 1203 — cu tabelul cerință → secțiune → stare în README, și cu ce nu acoperă
+o astfel de verificare scris sub el. Neverificate de avocat și nepublicate: faptele pe care codul nu le știe — firma, persoana de contact, furnizorii — și
+deciziile propuse — termenul de păstrare, 12 luni de la retragere, care e cifra pe care o preia S3 —
+sunt marcate `[[…]]` și listate în README, împreună cu ce trebuie să existe înainte de publicare:
+bannerul din E07 S5, jobul din S3, a doua jumătate a lui S4, și restrângerea ștergerii de profil,
+care azi cade în cascadă peste facturi. Pe `release/stage` textele sunt pagini — `/termeni`,
+`/confidentialitate`, `/cookies` — randate din aceleași fișiere, cu bifa de acceptare la înregistrare.
+
 ### S3 · Termenul de păstrare, și ștergerea care chiar șterge
 
 Un număr, scris în S2 și implementat: după cât timp de la retragere dispar efectiv datele unei
@@ -95,6 +108,14 @@ vizitatorul a acceptat, ca să știe dacă poate porni scripturile.
 
 **Acceptanță:** pentru orice familie și orice document, se poate spune ce versiune a acceptat și în
 ce zi.
+
+**Stare: prima jumătate livrată.** Înregistrarea cere `acceptedTerms: true` — un `400` fără el —
+și scrie, în aceeași tranzacție cu contul, un rând în `document_acceptances` pentru fiecare
+document (`terms`, `privacy`), cu versiunea din `LEGAL_DOCUMENT_VERSIONS`; un spec ține constanta
+egală cu versiunea tipărită în capul fișierului din `docs/legal/`. Ce lipsește e a doua jumătate:
+re-acceptarea la versiune nouă, la prima autentificare de după, și a doua bifă pentru clauzele
+neuzuale (Cod civil art. 1203). Documentele de vizitator nu au acceptare — bannerul din E07 S5
+întreabă doar de cookie-uri.
 
 ## Dependențe
 

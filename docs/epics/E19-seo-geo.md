@@ -5,7 +5,9 @@
 **Livrate:** S1 (fundația tehnică), S2 (date structurate), S3 (pagini locale) și S7 (motoare
 generative). **Rămân:** S4 (pagini de modul, care așteaptă [E10](E10-curriculum-module.md)), S5
 (performanță — partea de imagini, împreună cu S2 din [E18](E18-frontend-portal.md)), S6 (conținut,
-blocat de întrebarea „cine scrie”) și S8 (măsurare, care cere domeniul live).
+blocat de întrebarea „cine scrie”), S8 (măsurare — Search Console e configurat, analiza de trafic
+așteaptă consimțământul) și S9 (legăturile rupte, neînceput — a intrat din lista de lansare,
+[`docs/lansare.md`](../lansare.md)).
 
 **Cele două profiluri Google Business sunt create**, câte unul per adresă — lucrul care nu era cod
 și care, la căutările locale, cântărește mai mult decât orice a rămas de scris aici. De acum sunt o
@@ -143,10 +145,11 @@ foaia de stil.
 CLS era deja rezolvat înainte: fiecare imagine are `width` și `height`, iar caruselul are
 `aspect-ratio` pe container, deci nimic nu sare.
 
-**Ce rămâne de făcut, și nu se poate acum:** măsurarea _pe date reale_, adică pe trafic. Cere
-domeniul live și câteva zile de date în Search Console. Cifrele de mai sus sunt de laborator, ceea ce
-acceptanța spune explicit că nu e suficient — deci story-ul e livrat ca lucrare, dar confirmarea vine
-de la Google.
+**Ce rămâne de făcut:** măsurarea _pe date reale_, adică pe trafic. Domeniul e live și Search
+Console vede site-ul (S8), deci ce lipsește acum sunt săptămânile de vizite din care raportul Core
+Web Vitals să poată spune ceva — o citire, nu o lucrare, consemnată aici când există. Cifrele de mai
+sus sunt de laborator, ceea ce acceptanța spune explicit că nu e suficient — deci story-ul e livrat
+ca lucrare, dar confirmarea vine de la Google.
 
 ### S6 · Conținut — muncă viitoare, blocat
 
@@ -219,6 +222,30 @@ n-are de unde porni fără o linie de bază:
 `Sitemap:` și nu blochează nimic public, iar canonicele se rezolvă. Configurația e corectă;
 neindexarea e o chestiune de timp și autoritate, iar o schimbare de cod făcută ca să pară că se face
 ceva ar strica exact partea care merge.
+
+### S9 · Legături rupte — neînceput
+
+Un crawler peste paginile pe care le publică `sitemap.xml`, care cere fiecare link intern din ele și
+raportează ce nu răspunde 200. Rulează în CI, în același job cu verificarea de accesibilitate —
+aceeași listă de pagini, același Chromium, în `apps/web/scripts/` lângă `check-a11y.mjs` —, deci un
+link rupt pică PR-ul care l-a rupt, în loc să apară peste o lună în Search Console ca un 404 pe
+care îl vede Google înaintea noastră.
+
+„Rupt" înseamnă un `<a href>` intern care răspunde 404 sau 500, sau un `#fragment` care nu există
+în pagina-țintă. Linkurile externe — hărțile, profilurile Google Business, rețelele — se verifică
+separat și mai rar: un site terț picat pentru o oră nu e un motiv să pice CI-ul nostru. Alea intră
+în citirea lunară din S8, de mână.
+
+De ce n-a existat până acum: site-ul are șapte pagini, cele două de locație și cele trei legale, iar
+linkurile dintre ele stau în componente partajate — `AppFooter`, navigația —, deci unul rupt s-ar fi
+văzut la prima trecere prin site. E o gardă pentru site-ul de mâine, cu conținutul din S6 și paginile
+din S4, unde linkurile vor fi în text, nu în componente, și unde nimeni nu mai trece prin toate.
+
+A intrat din [`docs/lansare.md`](../lansare.md), singurul dintre cele douăzeci de puncte de acolo
+care n-avea un story să-l țină.
+
+**Acceptanță:** niciun link intern de pe nicio pagină din sitemap nu răspunde altceva decât 200,
+iar un PR care rupe unul nu poate fi îmbinat.
 
 ## Dependențe
 

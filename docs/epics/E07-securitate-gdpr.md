@@ -1,21 +1,21 @@
 # E07 · Securitate, GDPR și consimțământ
 
-**Status:** propus · **Pistă:** Fundație · **Depinde de:** E04, E05 · **Blochează:** E14, E19; E09 doar
-odată cu reluarea lui S2
+**Status:** în lucru — **S8 livrat**, restul propus · **Pistă:** Fundație · **Depinde de:** E04, E05 ·
+**Blochează:** E14, E19; E09 doar odată cu reluarea lui S2
 
 > **Granița cu [E22](E22-termeni-si-date.md), fiindcă se confundă ușor: aici e mecanica, acolo e ce
 > citește și acceptă familia.** Cele două epicuri descriau aceleași patru lucruri cu cuvinte
 > diferite, iar un inventar ținut în două locuri e exact defectul pe care restul repo-ului îl evită.
 > Împărțirea, din septembrie 2026:
 >
-> | Subiect | Cine îl ține |
-> | --- | --- |
-> | Inventarul câmpurilor | **E07 S1**, o singură dată. E22 îl citește, nu îl reface |
-> | Textele juridice | **E22 S2** — termenii contului, nota de confidențialitate, cookie-urile |
-> | Bannerul care chiar blochează scripturile | **E07 S5** — cod, nu proză |
-> | Consimțământul de publicare | **E07 S2**, pe `(Profile, Child, scop)` |
-> | Ce versiune a acceptat cine, și când | **E22 S4** |
-> | Termenul de păstrare | scris în **E22 S3**, executat de **E07 S4** și [E04](E04-migrari-date.md) S5 |
+> | Subiect                                   | Cine îl ține                                                                 |
+> | ----------------------------------------- | ---------------------------------------------------------------------------- |
+> | Inventarul câmpurilor                     | **E07 S1**, o singură dată. E22 îl citește, nu îl reface                     |
+> | Textele juridice                          | **E22 S2** — termenii contului, nota de confidențialitate, cookie-urile      |
+> | Bannerul care chiar blochează scripturile | **E07 S5** — cod, nu proză                                                   |
+> | Consimțământul de publicare               | **E07 S2**, pe `(Profile, Child, scop)`                                      |
+> | Ce versiune a acceptat cine, și când      | **E22 S4**                                                                   |
+> | Termenul de păstrare                      | scris în **E22 S3**, executat de **E07 S4** și [E04](E04-migrari-date.md) S5 |
 >
 > Regula din care iese tabelul: dacă rezultatul e un document pe care îl citește un părinte, e al
 > E22; dacă rezultatul e un rând, un endpoint sau un script, e al epicului ăstuia.
@@ -94,7 +94,7 @@ datelor e copilul. Fiecare înregistrare are dată, versiune de text acceptat ș
 **Granularitatea doar pe `Profile` nu funcționează**, deși așa era scris aici înainte. Un părinte
 acceptă publicarea pentru cel mare, care e mândru de ce a construit, și o refuză pentru cel mic —
 cazul obișnuit, nu unul de margine. Cu un singur rând pe familie, singurele răspunsuri exprimabile
-sunt „toți copiii" și „niciunul", iar [E14](E14-proiecte-elevi.md) S6 publică *per copil* („prenume
+sunt „toți copiii" și „niciunul", iar [E14](E14-proiecte-elevi.md) S6 publică _per copil_ („prenume
 și inițială, vârstă"), deci ar publica un copil pentru care nu există acord. `Child` există deja ca
 entitate proprie (`apps/api/src/entities/child.entity.ts`), iar consimțământul nu e construit
 nicăieri — o căutare după `consent` în `apps/api/src` nu întoarce nimic. Deci schimbarea costă azi
@@ -241,6 +241,29 @@ din ce dată, fără să deschidă cineva un biblioraft. O înscriere fără con
 fi trebuit capturată digital era auto-înscrierea din portal, fiindcă acolo nu mai e nimeni în cameră.
 Nu se face — vezi [Decizii luate](#decizii-luate).
 
+**Livrat — jumătate de E11, jumătate aici.** Coloana `Enrollment.contractSignedAt` a venit cu E11 S1
+și se completa la înscriere (`POST /enrollments`) și la confirmarea probei (`PUT
+/enrollments/:id/resolve-trial`), iar fișa copilului o arăta când exista. Ce lipsea era exact
+acceptanța: **o înscriere fără contract nu se vedea nicăieri**, iar pentru cele câteva zeci de
+înscrieri la care nimeni n-a tastat data atunci nu exista nicio ușă de consemnat după. Acum:
+
+- `PUT /enrollments/:id/contract` consemnează ziua de pe hârtie pe orice înscriere care nu e probă;
+  `null` șterge o dată greșită. **Proba e refuzată** (`TRIAL_HAS_NO_CONTRACT`): e gratuită și n-are
+  contract, iar o dată pe ea ar spune că familia s-a angajat înainte să decidă — se confirmă proba
+  întâi, ușa aceea ia și data. O zi din viitor e refuzată (`CONTRACT_DATE_IN_FUTURE`).
+- `GET /enrollments/without-contract` e lista: înscrierile **active** fără nimic consemnat, cele mai
+  vechi primele, cu copilul, familia (telefon, email) și grupa. Doar active: proba n-are contract prin
+  construcție, iar o înscriere închisă e istorie — familia a plecat, dosarul e dosarul.
+- Se vede în trei locuri: `/admin/contracte`, o listă cu câte un câmp de dată și un buton pe rând;
+  fișa copilului, unde înscrierea activă fără contract spune „Fără contract — consemnează" în loc să
+  tacă; pagina grupei, unde copilul poartă insigna „Fără contract". Tabloul de bord numără
+  (`Overview.enrollmentsWithoutContract`), cerut de la `EnrollmentService.withoutContract`, nu
+  numărat acolo.
+
+Ce nu s-a construit, prin decizia de mai sus: versiunea textului. Contractul n-are încă versiuni, deci
+un câmp pentru ele ar fi liber să fie completat cu orice. Se adaugă în ziua în care avocatul dă a doua
+versiune. Exportul din S4 va include faptul și data, când S4 va exista.
+
 ## Dependențe
 
 [E04](E04-migrari-date.md) pentru schema de consimțământ și audit,
@@ -275,7 +298,7 @@ câmp pe înscrierea făcută de admin, nu o precondiție pentru ea.
 ## Riscuri
 
 **Consimțământul adăugat după ce proiectele sunt deja publicate e mult mai scump.** Trebuie
-construit *înainte* de [E14](E14-proiecte-elevi.md), nu retrofitat. E motivul pentru care acest
+construit _înainte_ de [E14](E14-proiecte-elevi.md), nu retrofitat. E motivul pentru care acest
 epic apare în pista de fundație și nu la sfârșit.
 
 **Retenția contabilă intră în conflict cu dreptul la ștergere.** Facturile trebuie păstrate ani de
@@ -327,7 +350,7 @@ contul de părinte se aprobă de admin, copilul e înscris de admin, iar contrac
 față. Regula „fără returnare la abandon" din [E15](E15-pricing-facturare.md) rămâne o clauză
 contractuală obișnuită, de validat de avocat ca oricare alta, nu o derogare de la un drept legal.
 Întrebarea se repune în clipa în care apare înscriere sau plată online fără contract semnat înainte —
-atunci contractul redevine încheiat la distanță, iar corectura trebuie făcută *înainte* de
+atunci contractul redevine încheiat la distanță, iar corectura trebuie făcută _înainte_ de
 redactarea termenilor, nu după.
 
 ## Întrebări deschise
