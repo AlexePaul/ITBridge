@@ -392,7 +392,7 @@ A treia trecere a mai adus opt: cele cinci care ceruseră doar învelișul — `
 `proiecte/index`, `proiecte/grupa/[groupId]`, `profiles/[profileId]/children/new`,
 `children/[childId]/edit` — și cele trei care n-aveau ce muta, fiindcă stările lor trebuiau
 inventate: `profiles/[profileId]/index`, `attendance/children/[childId]`, `invoices/[month]`.
-**39 din 44 de ecrane sunt acum pe componente** — numărătoarea de dinainte spunea 25 din 42 și era
+**41 din 44 de ecrane sunt acum pe componente** — numărătoarea de dinainte spunea 25 din 42 și era
 în urmă cu un fișier la fiecare capăt.
 
 **Trei ecrane nu spuneau nimic când încărcarea pica**, și fiecare minte în felul lui. Fișa
@@ -446,11 +446,27 @@ eliminare cheamă API-ul și își dă singură confirmarea —, iar „Anulare"
 înapoi. Un buton care pretinde că salvează când nu e nimic în așteptare învață cititorul să creadă
 într-o stare nesalvată care nu există. Ieșirea e „Înapoi", din antet, adică fix ce făceau amândouă.
 
+**Ultimele două ecrane cu stări inventate, și al treilea formular care salva de două ori.**
+`locations/index` prindea eroarea într-un toast care trece și randa apoi starea lui goală — deci un
+API inaccesibil se citea ca „școala n-are nicio locație", exact pe ecranul unde cineva s-ar duce să
+adauge una. `attendance/group/[groupId]` avea cinci `await` goale în `onMounted`, adică aceeași
+respingere neprinsă: nu un catalog gol, ci toată aplicația pe pagina de eroare. Amândouă au acum
+încărcare și eroare cu reîncercare, iar catalogul a pierdut pe drum un `<UModal title="Modal with
+title">` cu un `<Placeholder>` înăuntru — schelărie copiată din documentația Nuxt UI, deschisă de
+nimic, care numea o componentă ce nu există nicăieri în aplicație. Al doilea `h1` al paginii a
+devenit `h2`.
+
+**`LocationForm` avea ultimul `<select>` nativ din zona de admin** — cu `border-gray-300` scris de
+mână, deci gri-deschis în tema întunecată lângă câmpuri care se schimbă — **și al treilea rând de
+butoane fără `loading`**: aceeași dublă trimitere ca la grupe, de data asta o a doua locație. Ambele
+reparate, iar `loading` trece prin componentă fiindcă pagina e cea care știe când s-a terminat
+cererea. În `pages/admin/` și în componentele lui nu mai există niciun `<select>` nativ.
+
 Ce rămâne nu mai e mecanic, și două ecrane cer o schimbare în `AdminPage`, nu în ele:
 `attendance/azi` **n-are titlu dinadins** — navbar-ul îl scrie deja, iar pe telefon un al doilea
 titlu costă exact rândul de sus —, iar `invoices/emitere` stă pe `max-w-4xl` cu `pb-32` pentru bara
-lipită de jos, iar `AdminPage` cunoaște doar `md`, `lg` și `xl`. Restul — `locations/index` și `attendance/group/[groupId]` — au nevoie de stări de încărcare și de
-eroare **inventate**, nu mutate: azi nu randează nimic la eșec, doar un toast care trece.
+lipită de jos, iar `AdminPage` cunoaște doar `md`, `lg` și `xl`. Al treilea rămas e `invoices/[invoiceId]/pdf`, o rută de previzualizare la tipar — merită mai
+degrabă marcată ca exclusă decât în așteptare.
 
 **`AdminDateField` a intrat, a treia trecere.** Cele două formulare de copil lipiseră exemplul din
 documentația Nuxt UI: un `UInputDate` cu un `UPopover` ancorat la `inputsRef?.[3]?.$el` — al

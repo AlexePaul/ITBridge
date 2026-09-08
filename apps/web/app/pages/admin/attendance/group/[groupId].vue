@@ -1,34 +1,15 @@
 <template>
-  <!-- Header -->
-  <UCard>
-    <template #header>
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-3xl font-bold">
-            Prezența · {{ group?.name || `Grupa ${$route.params.groupId}` }}
-          </h1>
-          <p class="text-muted mt-1">
-            {{ getWeekdayName(group?.weekday as number) }},
-            {{ formatTime((group?.startTime as string) || "00:00:00") }} -
-            {{ formatTime((group?.endTime as string) || "23:59:59") }}
-            <template v-if="group?.room">
-              · {{ group.room.location.name }} · {{ group.room.name }}
-            </template>
-          </p>
-        </div>
-        <UButton
-          color="secondary"
-          variant="subtle"
-          class="mr-3 ml-auto flex items-center h-11"
-          size="lg"
-          @click="handleBack"
-        >
-          <UIcon name="i-lucide-arrow-left" class="mr-2" />
-          Înapoi
-        </UButton>
-      </div>
-    </template>
-    <template #default>
+  <AdminPage
+    :title="`Prezența · ${group?.name || `Grupa ${$route.params.groupId}`}`"
+    :subtitle="scheduleLine"
+    back-to="/admin/attendance"
+    width="xl"
+  >
+    <AdminLoading v-if="loading" />
+
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
+
+    <template v-else>
       <div class="w-1/3 mx-auto">
         <template v-for="child in children" :key="child.id">
           <UCard class="mb-4">
@@ -83,7 +64,7 @@
         </template>
         <UCard>
           <template #header>
-            <h1>Adauga copii de la alte grupe</h1>
+            <h2 class="text-xl font-semibold">Adaugă copii de la alte grupe</h2>
           </template>
           <template #default>
             <div class="space-y-3 relative">
@@ -174,14 +155,7 @@
         </UModal>
       </div>
     </template>
-  </UCard>
-
-  <!-- Confirmation Dialog -->
-  <UModal title="Modal with title">
-    <template #body>
-      <Placeholder class="h-48" />
-    </template>
-  </UModal>
+  </AdminPage>
 </template>
 <script setup lang="ts">
 import { apiErrorMessage } from "~/composables/useApiError";
@@ -220,6 +194,18 @@ const availableChildren: Ref<Child[]> = ref([]);
 const groupsStore = useGroupsStore();
 const groupsApi = useGroupsApi();
 const group = ref<Group>();
+const loading = ref(true);
+const loadError = ref<string | null>(null);
+
+/** The day, hour and room, as one line under the title. */
+const scheduleLine = computed(() => {
+  const day = getWeekdayName(group.value?.weekday as number);
+  const from = formatTime(group.value?.startTime ?? "00:00:00");
+  const to = formatTime(group.value?.endTime ?? "23:59:59");
+  const room = group.value?.room;
+  const where = room ? ` · ${room.location.name} · ${room.name}` : "";
+  return `${day}, ${from} - ${to}${where}`;
+});
 const attendanceData = reactive<Record<string, boolean>>({});
 const attendanceApi = useAttendanceApi();
 const classSessionsApi = useClassSessionsApi();
@@ -332,12 +318,28 @@ const loadSessions = async () => {
   selectedSessionId.value = sessionOptions.value[0]?.value;
 };
 
-onMounted(async () => {
-  await childrenApi.fetchChildren();
-  children.value = await childrenStore.getChildrenByGroupId(groupId.value);
-  availableChildren.value = await childrenStore.getChildrenNotInGroupId(groupId.value);
-  await groupsApi.fetchGroups();
-  group.value = groupsStore.getGroupById(groupId.value as string);
+/**
+ * The register, and the five awaits that used to have nothing around them.
+ *
+ * Every one of these was awaited bare in `onMounted`, so a failed request was an unhandled
+ * rejection at mount: not an empty register, the whole app on Nuxt's error page. The trial-badge
+ * call below already had its own `catch` and keeps it, for the reason written next to it.
+ */
+const load = async () => {
+  loading.value = true;
+  loadError.value = null;
+  try {
+    await childrenApi.fetchChildren();
+    children.value = await childrenStore.getChildrenByGroupId(groupId.value);
+    availableChildren.value = await childrenStore.getChildrenNotInGroupId(groupId.value);
+    await groupsApi.fetchGroups();
+    group.value = groupsStore.getGroupById(groupId.value as string);
+  } catch (err: unknown) {
+    loadError.value = apiErrorMessage(err, "Nu am putut încărca grupa.");
+    return;
+  } finally {
+    loading.value = false;
+  }
 
   try {
     const members = await enrollmentsApi.fetchMembers(Number(groupId.value));
@@ -357,13 +359,11 @@ onMounted(async () => {
   });
 
   await loadSessions();
-});
+};
+
+onMounted(load);
 
 const { success, error } = useNotifications();
-
-const handleBack = () => {
-  navigateTo("/admin/attendance/group");
-};
 
 /**
  * Generates this group's timetable, from where the admin is actually blocked.
