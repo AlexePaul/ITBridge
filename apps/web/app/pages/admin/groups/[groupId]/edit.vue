@@ -1,23 +1,5 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Editează Grup</h1>
-        <p class="text-muted mt-1">Modifică detaliile grupului</p>
-      </div>
-      <UButton
-        color="secondary"
-        variant="subtle"
-        class="mr-3 ml-auto flex items-center h-11"
-        size="lg"
-        @click="handleBack"
-      >
-        <UIcon name="i-lucide-arrow-left" class="mr-2" />
-        Înapoi
-      </UButton>
-    </div>
-
+  <AdminPage title="Editează grup" subtitle="Modifică detaliile grupului." back-to="/admin/groups">
     <!-- Form Card -->
     <UCard v-if="group" class="hover:shadow-lg transition-shadow">
       <UForm :schema="schema" :state="state" class="space-y-6" @submit="handleSubmit">
@@ -75,26 +57,12 @@
           <USelect v-model="state.isActive" :items="ACTIVE_ITEMS" class="w-full" />
         </UFormField>
 
-        <!-- Actions -->
-        <div class="flex gap-3 pt-6 border-t border-muted justify-center">
-          <UButton type="submit" color="primary" variant="subtle" size="md" class="w-40">
-            Salvează
-          </UButton>
-          <UButton color="primary" variant="outline" size="md" class="w-40" @click="handleBack">
-            Anulare
-          </UButton>
-        </div>
+        <AdminFormActions submit-label="Salvează" cancel-to="/admin/groups" :loading="saving" />
       </UForm>
     </UCard>
 
-    <!-- Loading State -->
-    <UCard v-else class="hover:shadow-lg transition-shadow">
-      <div class="flex justify-center items-center py-8">
-        <UIcon name="i-lucide-loader" class="animate-spin mr-2" />
-        <span>Se încarcă...</span>
-      </div>
-    </UCard>
-  </div>
+    <AdminLoading v-else />
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
@@ -121,6 +89,7 @@ const route = useRoute();
 const { success, error } = useNotifications();
 const groupsStore = useGroupsStore();
 const groupsApi = useGroupsApi();
+const saving = ref(false);
 
 // Built from the shared enum, so the list cannot drift from what the API accepts. The two
 // hand-written copies this replaces both stopped at Saturday, so a Sunday group could not be
@@ -228,11 +197,10 @@ onMounted(async () => {
   }
 });
 
-const handleBack = () => {
-  navigateTo("/admin/groups");
-};
-
 async function handleSubmit(event: FormSubmitEvent<Schema>) {
+  // See `groups/new.vue`: the button stayed live while the request was in flight, so a slow
+  // network bought two saves of the same edit.
+  saving.value = true;
   try {
     const payload = {
       name: event.data.name,
@@ -251,6 +219,8 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
     await navigateTo("/admin/groups");
   } catch (err: unknown) {
     error(apiErrorMessage(err, "Eroare la actualizarea grupului"));
+  } finally {
+    saving.value = false;
   }
 }
 </script>

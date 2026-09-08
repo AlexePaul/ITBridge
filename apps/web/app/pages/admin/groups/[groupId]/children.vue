@@ -1,23 +1,5 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Gestionează Copii</h1>
-        <p class="text-muted mt-1">{{ subtitle }}</p>
-      </div>
-      <UButton
-        color="secondary"
-        variant="subtle"
-        class="mr-3 ml-auto flex items-center h-11"
-        size="lg"
-        @click="handleBack"
-      >
-        <UIcon name="i-lucide-arrow-left" class="mr-2" />
-        Înapoi
-      </UButton>
-    </div>
-
+  <AdminPage title="Gestionează copiii" :subtitle="subtitle" back-to="/admin/groups" width="xl">
     <div v-if="group" class="space-y-8">
       <!--
         Occupancy comes from the server, not from `childrenInGroup.length`. The two differ the
@@ -206,24 +188,18 @@
         </div>
       </UCard>
 
-      <!-- Save Changes -->
-      <div class="flex gap-3 justify-center">
-        <UButton color="primary" variant="subtle" size="md" class="w-40" @click="handleSaveChanges">
-          Salvează Modificări
-        </UButton>
-        <UButton color="primary" variant="outline" size="md" class="w-40" @click="handleBack">
-          Anulare
-        </UButton>
-      </div>
+      <!--
+        No save row here, deliberately. Every change on this screen is already written when it is
+        made — `addChildToGroup` and `removeChildFromGroup` call the API and toast on their own —
+        so the pair that used to sit here saved nothing and cancelled nothing: "Salvează
+        Modificări" showed "Modificări salvate cu succes" over work that had been saved minutes
+        earlier, and "Anulare" only navigated away. A button that claims to save when nothing is
+        pending teaches the reader to expect an unsaved state that does not exist. The way out is
+        "Înapoi", in the page header, which is what both of them actually did.
+      -->
     </div>
 
-    <!-- Loading State -->
-    <UCard v-else class="hover:shadow-lg transition-shadow">
-      <div class="flex justify-center items-center py-8">
-        <UIcon name="i-lucide-loader" class="animate-spin mr-2" />
-        <span>Se încarcă...</span>
-      </div>
-    </UCard>
+    <AdminLoading v-else />
 
     <UModal v-model:open="warningOpen" title="Confirmi înscrierea?">
       <template #body>
@@ -240,7 +216,7 @@
         </div>
       </template>
     </UModal>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
@@ -355,10 +331,6 @@ onMounted(async () => {
   }
 });
 
-const handleBack = () => {
-  navigateTo("/admin/groups");
-};
-
 const handleAddChild = async (childId: number, acknowledgeWarnings = false) => {
   try {
     isLoading.value = true;
@@ -429,10 +401,5 @@ const handleRemoveFromWaitlist = async (entryId: number) => {
   } finally {
     isLoading.value = false;
   }
-};
-
-const handleSaveChanges = () => {
-  success("Modificări salvate cu succes");
-  navigateTo("/admin/groups");
 };
 </script>

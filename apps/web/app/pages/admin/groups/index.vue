@@ -1,25 +1,23 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Grupe</h1>
-        <p class="text-muted mt-1">{{ subtitle }}</p>
-      </div>
+  <AdminPage title="Grupe" :subtitle="subtitle" width="xl">
+    <template #actions>
       <UButton
         color="secondary"
         variant="subtle"
-        class="mr-3 ml-auto flex items-center h-11"
-        size="lg"
-        @click="handleAddGroup"
+        icon="i-lucide-plus"
+        class="min-h-11"
+        to="/admin/groups/new"
       >
-        <UIcon name="i-lucide-plus" class="mr-2" />
-        Adaugă Grup nou
+        Adaugă grup nou
       </UButton>
       <UBadge color="primary" variant="subtle" size="lg" class="h-11 flex items-center px-4">
         {{ visibleGroups.length }} total
       </UBadge>
-    </div>
+    </template>
+
+    <AdminError v-if="loadError" :message="loadError" @retry="load" />
+
+    <AdminLoading v-else-if="loading" />
 
     <!--
       Schedule generation, on the page where groups are born.
@@ -86,15 +84,12 @@
 
           <!-- Empty State -->
           <template v-else>
-            <div class="text-center py-12 border border-dashed border-muted rounded-lg">
-              <UIcon name="i-lucide-inbox" class="mx-auto text-4xl text-muted mb-3" />
-              <p class="text-muted">Nu sunt grupe pentru această zi</p>
-            </div>
+            <AdminEmpty title="Nu sunt grupe pentru această zi" />
           </template>
         </div>
       </template>
     </div>
-  </div>
+  </AdminPage>
 </template>
 <script setup lang="ts">
 import { WEEKDAYS_IN_ORDER, WEEKDAY_LABELS } from "~/types/group.types";
@@ -127,6 +122,8 @@ const childrenApi = useChildrenApi();
 const reportsApi = useReportsApi();
 
 const groups: Ref<Group[]> = ref([]);
+const loading = ref(true);
+const loadError = ref<string | null>(null);
 /**
  * Seats per group, keyed by id — E18/S5, and the reason this fetch exists.
  *
@@ -144,9 +141,26 @@ const classSessionsApi = useClassSessionsApi();
 const { success, error } = useNotifications();
 const isGeneratingSchedule = ref(false);
 
-onMounted(async () => {
-  groups.value = await groupsApi.fetchGroups();
-  await childrenApi.fetchChildren();
+/**
+ * The list, and the failure it used to have no answer for.
+ *
+ * `fetchGroups` and `fetchChildren` were awaited straight in `onMounted` with no `catch`, so a
+ * failed request was an unhandled rejection at mount — which does not break this screen, it takes
+ * the whole app to Nuxt's error page. The occupancy call below already had its own `catch` and
+ * keeps it: cards without a fill are a worse list, not a broken one.
+ */
+const load = async () => {
+  loading.value = true;
+  loadError.value = null;
+  try {
+    groups.value = await groupsApi.fetchGroups();
+    await childrenApi.fetchChildren();
+  } catch (err: unknown) {
+    loadError.value = apiErrorMessage(err, "Nu am putut încărca grupele.");
+    return;
+  } finally {
+    loading.value = false;
+  }
   try {
     const report = await reportsApi.fetchOccupancyReport();
     occupancyByGroup.value = new Map(
@@ -158,7 +172,9 @@ onMounted(async () => {
   } catch {
     // Cards then show the capacity without a fill. See the note on `occupancyByGroup`.
   }
-});
+};
+
+onMounted(load);
 
 // The header says which location is being shown; this list has to agree with it, or the count and
 // the schedule below describe a different school than the one the admin selected.
@@ -196,10 +212,6 @@ const handleGenerateSchedule = async () => {
   } finally {
     isGeneratingSchedule.value = false;
   }
-};
-
-const handleAddGroup = () => {
-  navigateTo("/admin/groups/new");
 };
 
 const handleEditGroup = (groupId: number) => {
