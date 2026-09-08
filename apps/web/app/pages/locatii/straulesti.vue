@@ -119,17 +119,7 @@
           </p>
         </div>
       </div>
-      <div class="plate map-plate">
-        <iframe
-          :src="location.mapEmbedUrl"
-          :title="`Hartă: ${SCHOOL_NAME} ${location.neighbourhood}`"
-          width="100%"
-          height="320"
-          style="border: 0"
-          loading="lazy"
-          referrerpolicy="no-referrer-when-downgrade"
-        ></iframe>
-      </div>
+      <MapEmbed :location="location" />
     </section>
 
     <hr class="rule" />

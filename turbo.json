@@ -73,6 +73,12 @@
       "dependsOn": ["build"],
       "cache": false
     },
+    // Same shape, same reason, and it shares the browser and the preview server with the one
+    // above through `scripts/preview-site.mjs`.
+    "test:privacy": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
     "dev": {
       "cache": false,
       "persistent": true,

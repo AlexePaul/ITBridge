@@ -12,7 +12,8 @@
     "lint": "prettier --check app shared server scripts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:a11y": "node scripts/check-a11y.mjs"
+    "test:a11y": "node scripts/check-a11y.mjs",
+    "test:privacy": "node scripts/check-third-party.mjs"
   },
   "dependencies": {
     "@internationalized/date": "^3.12.3",

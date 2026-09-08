@@ -83,6 +83,7 @@ pnpm lint           # verifică, nu modifică; corectare: pnpm --filter api lint
 pnpm test           # jest pe api, vitest pe web
 pnpm test:e2e       # integrare prin HTTP; cere Postgres pornit
 pnpm test:a11y      # axe-core pe paginile publice, într-un Chromium adevărat; construiește întâi
+pnpm test:privacy   # aceleași pagini: nicio cerere în afara originii, niciun cookie
 
 pnpm --filter api <script>   # o comandă într-un singur workspace
 ```
@@ -1159,6 +1160,26 @@ Patru lucruri de știut înainte să-l atingi:
   ci **atârnă**, ceea ce costă o jumătate de oră prima dată.
 
 Zona autentificată nu e verificată deloc: se rescrie în E18 S4 și S5 și se verifică atunci.
+
+**A doua gardă rulează în același browser: nicio pagină publică nu iese din origine și nu pune
+niciun cookie.** `pnpm test:privacy` (`apps/web/scripts/check-third-party.mjs`, E07 S5) încarcă
+fiecare pagină din sitemap, **o derulează până jos** și pică la prima cerere către alt domeniu sau
+la primul cookie. Serverul de probă, citirea sitemap-ului și pornirea lui Chromium sunt împărțite cu
+verificarea de accesibilitate, în `scripts/preview-site.mjs` — de asta variabilele de mediu îi spun
+tot `A11Y_*`: sunt scrise mai sus și setate în shell-urile oamenilor, iar una necitită nu dă eroare,
+ci atârnă. Trei lucruri de știut:
+
+- **Derularea e tot rostul rulării.** Bug-ul pentru care există garda era `loading="lazy"` pe
+  `<iframe>`-ul hărții: se citește ca reținere și se declanșează când cititorul derulează până la
+  el. Fără derulare, iframe-ul de sub linia de plutire nu intră niciodată în vizor și verificarea
+  raportează verde pe o pagină care ar chema Google la prima mișcare a cititorului.
+- **Cookie-urile se numără de la zero, nu „doar cele neesențiale".** Pe site-ul public numărul
+  onest e zero — cele patru cookie-uri pe care le are platforma sunt toate după autentificare —,
+  iar politica de cookie-uri promite exact asta cititorului. O linie mai strictă și mult mai ușor
+  de verificat.
+- **Nu apasă butonul.** Cine cere harta primește Google, cu consecințele scrise lângă buton; garda
+  e despre cine nu cere. Dacă adaugi ceva care iese din domeniu, poarta e `consentStore` plus un
+  `v-if` — `v-show` sau un `src` schimbat sunt cereri care au plecat deja.
 
 `apps/agent` folosește `node --test`, fără jest și fără nicio unealtă proprie — n-are motiv să
 capete una. `pnpm --filter agent test` compilează întâi și rulează din `dist`: un `.ts` cu `import`
