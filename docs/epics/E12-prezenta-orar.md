@@ -255,8 +255,10 @@ copilul. **Biroul notează din `/admin/absente`**, în „Zi de zi", lângă ora
 dintre orele grupei lui din următoarele patru săptămâni și motivul, iar răspunsul îi spune pe loc
 dacă a intrat în termen — și, dacă da, îi deschide direct lista de ore la care poate muta copilul
 (S4). Rândul întors de `POST /attendance/absences` **nu poartă contul părintelui**: serviciul îl
-încarcă doar ca să verifice cine poate vorbi în numele cui, iar `User.passwordHash` n-are
-`select: false`, deci un răspuns trimis ca atare ar fi pus hash-ul familiei în browserul biroului.
+încarcă doar ca să verifice cine poate vorbi în numele cui, iar la vremea aceea `User.passwordHash`
+n-avea `select: false`, deci un răspuns trimis ca atare ar fi pus hash-ul familiei în browserul
+biroului. Coloana e de atunci `select: false` (vezi CLAUDE.md, „Capcane"), dar contul tot nu se
+întoarce — pe el stă și nota adminului de la respingere.
 
 Și e o regulă, nu o convenție de ecran: pe lângă butonul scos din portal, `POST /attendance/absences`
 și `DELETE /attendance/absences/:id` sunt **`ADMIN`**. Story-ul le lăsase deschise dinadins,
