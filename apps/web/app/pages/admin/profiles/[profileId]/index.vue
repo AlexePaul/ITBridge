@@ -1,9 +1,17 @@
 <template>
-  <div class="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-    <h1 class="text-4xl font-bold text-center mt-12 mb-8">Profil</h1>
+  <AdminPage title="Profil" back-to="/admin/profiles">
+    <AdminLoading v-if="loading" />
 
-    <!-- Profile Content -->
-    <div v-if="profile" class="space-y-6">
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
+
+    <AdminEmpty
+      v-else-if="!profile"
+      title="Familia asta nu există."
+      description="Poate a fost ștearsă, sau adresa e greșită."
+      icon="i-lucide-user-x"
+    />
+
+    <div v-else class="space-y-6">
       <!-- Personal Information Card -->
       <UCard class="border rounded-lg" variant="subtle">
         <template #header>
@@ -223,7 +231,7 @@
         Sterge Profil
       </UButton>
     </div>
-  </div>
+  </AdminPage>
 </template>
 <script setup lang="ts">
 import { useDiscountsApi } from "~/composables/api/useDiscountsApi";
@@ -239,6 +247,8 @@ const profileApi = useProfileApi();
 const discountsApi = useDiscountsApi();
 const { success, error } = useNotifications();
 const profile: Ref<Profile | null> = ref(null);
+const loading = ref(true);
+const loadError = ref<string | null>(null);
 
 /**
  * The referral reward — E20/S5, a bump in each direction.
@@ -279,8 +289,25 @@ const bumpReferral = async (direction: 1 | -1) => {
   }
 };
 
-onMounted(async () => {
-  profile.value = (await profileApi.fetchProfile(route.params.profileId as string))[0] || null;
+/**
+ * The family, and the two ways it can fail to arrive.
+ *
+ * The fetch used to have no `catch` and the template no `v-else`, so a failed request left the
+ * page blank — permanently, and identically to a family that does not exist. Both are now said
+ * out loud, and they are said differently: a 404 is an answer, an unreachable API is not.
+ */
+const load = async () => {
+  loading.value = true;
+  loadError.value = null;
+  try {
+    profile.value = (await profileApi.fetchProfile(route.params.profileId as string))[0] || null;
+  } catch (err: unknown) {
+    profile.value = null;
+    loadError.value = apiErrorMessage(err, "Nu am putut încărca familia.");
+    return;
+  } finally {
+    loading.value = false;
+  }
   if (!profile.value) return;
   try {
     referralMonths.value = (await discountsApi.fetchReferralReward(profile.value.id)).months;
@@ -289,7 +316,9 @@ onMounted(async () => {
     // zero rather than replacing the profile with an error.
     referralMonths.value = [];
   }
-});
+};
+
+onMounted(load);
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,

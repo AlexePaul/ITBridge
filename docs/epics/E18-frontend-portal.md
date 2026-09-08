@@ -388,18 +388,38 @@ Ecrane migrate în trecerea asta: `attendance/group/index`, `attendance/children
 `profiles/[profileId]/edit`, cele două ecrane de confirmare a ștergerii, `approvals/index` și
 `payments/index`.
 
-A treia trecere a mai adus cinci, cele care ceruseră doar învelișul: `formare/index`,
-`proiecte/index`, `proiecte/grupa/[groupId]`, `profiles/[profileId]/children/new` și
-`children/[childId]/edit`. **32 din 44 de ecrane sunt acum pe componente** — numărătoarea de
-dinainte spunea 25 din 42 și era în urmă cu un fișier la fiecare capăt.
+A treia trecere a mai adus opt: cele cinci care ceruseră doar învelișul — `formare/index`,
+`proiecte/index`, `proiecte/grupa/[groupId]`, `profiles/[profileId]/children/new`,
+`children/[childId]/edit` — și cele trei care n-aveau ce muta, fiindcă stările lor trebuiau
+inventate: `profiles/[profileId]/index`, `attendance/children/[childId]`, `invoices/[month]`.
+**35 din 44 de ecrane sunt acum pe componente** — numărătoarea de dinainte spunea 25 din 42 și era
+în urmă cu un fișier la fiecare capăt.
+
+**Trei ecrane nu spuneau nimic când încărcarea pica**, și fiecare minte în felul lui. Fișa
+familiei (`profiles/[profileId]`) n-avea nici `catch`, nici `v-else`: o cerere picată lăsa pagina
+**goală pentru totdeauna**, identic cu o familie care nu există. Istoricul de prezență al unui copil
+(`attendance/children/[childId]`) prindea eroarea într-un `console.error` și randa apoi starea lui
+goală — „Nicio înregistrare de prezență" —, adică o defecțiune de rețea se citea ca _copilul ăsta
+n-a fost niciodată la nicio oră_, exact greșeala pentru care s-a reparat calendarul părintelui, dar
+mai gravă: aici e cineva care e pe punctul de a i-o spune familiei. Iar facturile unei luni
+(`invoices/[month]`) n-aveau nici stare de încărcare, nici de eroare, deci o listă neajunsă apărea
+ca „Nu sunt facturi pentru această lună" — o propoziție despre bani, neadevărată, pe pagina pe care
+o deschizi ca să verifici dacă o familie a fost facturată.
+
+Toate trei au acum încărcare, eroare cu reîncercare, și — la fișa familiei — un „nu există"
+deosebit de „n-am putut citi": un 404 e un răspuns, un API inaccesibil nu.
+
+**Rămâne o întrebare deschisă pe `invoices/[month]`:** sub o injecție de eroare, ruta ajunge la
+pagina generică de 500 a lui Nuxt înainte să se vadă starea nouă. Se reproduce identic pe fișierul
+nemodificat, deci nu vine de la schimbarea asta; sunt **două** cereri `/invoices` pe acea rută, iar
+pagina face una singură. Cine o face pe a doua, și de ce scapă neprinsă, n-a fost găsit.
 
 Ce rămâne nu mai e mecanic, și două ecrane cer o schimbare în `AdminPage`, nu în ele:
 `attendance/azi` **n-are titlu dinadins** — navbar-ul îl scrie deja, iar pe telefon un al doilea
 titlu costă exact rândul de sus —, iar `invoices/emitere` stă pe `max-w-4xl` cu `pb-32` pentru bara
 lipită de jos, iar `AdminPage` cunoaște doar `md`, `lg` și `xl`. Restul — `groups/*`,
-`locations/index`, `attendance/group/[groupId]`, `invoices/[month]`,
-`profiles/[profileId]/index` — au nevoie de stări de încărcare și de eroare **inventate**, nu mutate:
-azi nu randează nimic la eșec, doar un toast care trece.
+`locations/index`, `attendance/group/[groupId]` — au nevoie de stări de încărcare și de eroare
+**inventate**, nu mutate: azi nu randează nimic la eșec, doar un toast care trece.
 
 **`AdminDateField` a intrat, a treia trecere.** Cele două formulare de copil lipiseră exemplul din
 documentația Nuxt UI: un `UInputDate` cu un `UPopover` ancorat la `inputsRef?.[3]?.$el` — al
