@@ -21,6 +21,7 @@
     "test:a11y": "dotenv -e .env -- turbo run test:a11y",
     "test:privacy": "dotenv -e .env -- turbo run test:privacy",
     "test:links": "dotenv -e .env -- turbo run test:links",
+    "test:a11y:auth": "dotenv -e .env -- turbo run test:a11y:auth",
     "seed": "dotenv -e .env -- pnpm --filter api seed",
     "seed:stage": "dotenv -e .env.stage -v SEED_TARGET=stage -- pnpm --filter api seed"
   },

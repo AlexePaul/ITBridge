@@ -83,6 +83,7 @@ pnpm lint           # verifică, nu modifică; corectare: pnpm --filter api lint
 pnpm test           # jest pe api, vitest pe web
 pnpm test:e2e       # integrare prin HTTP; cere Postgres pornit
 pnpm test:a11y      # axe-core pe paginile publice, într-un Chromium adevărat; construiește întâi
+pnpm test:a11y:auth # același lucru pe ecranele din spatele autentificării; cere API pornit și seed
 pnpm test:privacy   # aceleași pagini: nicio cerere în afara originii, niciun cookie
 pnpm test:links     # aceleași pagini: fiecare link intern răspunde 200, fragmente incluse
 
@@ -1173,7 +1174,21 @@ Patru lucruri de știut înainte să-l atingi:
   `A11Y_NO_SANDBOX=1` fiindcă sandbox-ul propriu al lui Chromium nu pornește ca root — și nu pică,
   ci **atârnă**, ceea ce costă o jumătate de oră prima dată.
 
-Zona autentificată nu e verificată deloc: se rescrie în E18 S4 și S5 și se verifică atunci.
+**Zona autentificată e sub aceeași poartă, dar într-un job propriu.** `pnpm test:a11y:auth`
+(`apps/web/scripts/check-a11y-auth.mjs`, E18 S6) se autentifică și trece axe peste cele 37 de
+ecrane de admin și de portal, în ambele teme, pe aceleași etichete. Trei lucruri îl deosebesc de cel
+public:
+
+- **Are nevoie de bază de date, seed și un API care răspunde**, fiindcă un ecran fără date pe el nu e
+  ecranul pe care îl folosește cineva. De asta e job separat în CI, cu Postgres al lui — MinIO nu,
+  `seedInvoicePdfs` întreabă dacă S3 e accesibil și sare când nu e.
+- **Originea trebuie trecută în `CORS_ORIGINS`.** Scriptul servește build-ul pe `127.0.0.1:3124`, iar
+  fără linia aia browserul refuză fiecare cerere înainte ca API-ul s-o audă: nu apare nimic în logul
+  lui, iar simptomul arată exact ca o parolă greșită. Scriptul întreabă întâi, cu un singur OPTIONS,
+  și pică imediat cu linia de adăugat — înainte să pornească un browser degeaba.
+- **Rutele vin din `app/pages/`**, cum vin cele publice din sitemap: un ecran nou e verificat fără
+  să-l adauge nimeni a doua oară. Cele cu `[param]` în cale nu se pot vizita fără un id care există,
+  deci sunt tipărite la final cu număr — golul e o cifră, nu o tăcere.
 
 **A doua gardă rulează în același browser: nicio pagină publică nu iese din origine și nu pune
 niciun cookie.** `pnpm test:privacy` (`apps/web/scripts/check-third-party.mjs`, E07 S5) încarcă

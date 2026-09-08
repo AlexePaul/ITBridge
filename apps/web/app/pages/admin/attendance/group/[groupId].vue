@@ -79,8 +79,17 @@
                 />
               </div>
             </div>
+            <!--
+              Adaugă un copil în catalog, deci e un buton — nu un card cu `@click`, care nu se
+              poate nici focusa, nici apăsa cu Enter (E18/S6).
+            -->
             <template v-for="child in filteredChildren">
-              <UCard class="mt-2 cursor-pointer" @click="addChildToList(child)">
+              <UCard
+                as="button"
+                type="button"
+                class="mt-2 w-full text-left"
+                @click="addChildToList(child)"
+              >
                 <div class="items-center justify-between flex">
                   <span class="inline-block text-lg">{{
                     child.firstName + " " + child.lastName

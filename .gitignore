@@ -21,3 +21,8 @@ certs/
 *.key
 *.crt
 docs/legal/pdf/out/
+
+# Written at every API boot by `main.ts`, relative to the process's working directory — so it
+# lands here whenever the API is started from the repo root. CLAUDE.md has always said it was
+# ignored; it was not.
+swagger.json

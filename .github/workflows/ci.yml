@@ -100,6 +100,96 @@ jobs:
         env:
           API_BASE: http://localhost:3000
 
+  # The other half of E18/S6, and its own job for one reason: unlike the three checks above it
+  # needs a database, a seed and an API that answers, because a screen with no data on it is not
+  # the screen anybody uses. Postgres is here for the same reason it is in `e2e` below, and MinIO
+  # is deliberately absent — `seedInvoicePdfs` asks whether S3 is reachable and skips when it is
+  # not, and no screen this check visits reads an object.
+  a11y-auth:
+    name: Accessibility (authenticated)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: itbridge
+          POSTGRES_PASSWORD: dev_password
+          POSTGRES_DB: itbridge_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U itbridge"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USER: itbridge
+      DB_PASSWORD: dev_password
+      DB_NAME: itbridge_db
+      # Distinct and over sixteen characters, because `env.validation.ts` refuses to start the app
+      # otherwise — and one secret used for both tokens would make an access token spendable as a
+      # refresh token. Throwaway values for a throwaway database.
+      JWT_ACCESS_TOKEN_SECRET: ci-access-secret-for-a11y-run
+      JWT_REFRESH_TOKEN_SECRET: ci-refresh-secret-for-a11y-run
+      # Required at boot: `S3Service.onModuleInit` throws without it whether or not anything is
+      # uploaded. No credentials, so the SDK falls through to its default chain and never resolves
+      # one — which is fine, since nothing here asks it to.
+      AWS_REGION: eu-central-1
+      AWS_S3_BUCKET: itbridge-local
+      # The check serves the built site on 127.0.0.1:3124 and calls the API from there, so that
+      # exact origin has to be allowed. Without it the browser refuses every call before the API
+      # hears it, nothing appears in the API log, and the failure looks like a bad password.
+      CORS_ORIGINS: http://127.0.0.1:3124
+      API_BASE: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      # The same path production takes, and the same one `test/global-setup.ts` takes: the schema
+      # comes from the migrations, so a missing one fails here rather than at the first query.
+      - name: Migrate
+        run: pnpm --filter api migration:run
+
+      # `pnpm seed` reads `.env` through dotenv, which loads nothing when the file is absent and
+      # says nothing about it — the job's own env is what it ends up using. `DB_HOST` is localhost,
+      # so `checkSeedTarget` allows the run and the familiar password.
+      - name: Seed
+        run: pnpm seed
+
+      # Backgrounded, then waited for: `pm2` is not here, and a job step that never returns is a
+      # job that times out at six hours.
+      - name: Start the API
+        run: |
+          node apps/api/dist/main &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3000/health && break
+            sleep 2
+          done
+          curl -sf http://localhost:3000/health
+
+      - name: Install Chromium
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Accessibility behind the login
+        run: pnpm test:a11y:auth
+
   e2e:
     name: Integration tests
     runs-on: ubuntu-latest

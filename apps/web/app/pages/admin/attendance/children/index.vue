@@ -19,18 +19,23 @@
         <!-- Search Results -->
         <div v-if="searchResults.length > 0" class="space-y-3 pt-4 border-t border-muted">
           <p class="text-sm font-semibold text-muted">Rezultate căutare:</p>
-          <div
+          <!--
+            Un rezultat de căutare duce undeva, deci e o legătură (E18/S6). Ca `div` cu `@click`
+            nu primea focus și nu răspundea la Enter: cine caută un copil de la tastatură scria
+            numele, vedea rândul și nu-l putea deschide.
+          -->
+          <NuxtLink
             v-for="child in searchResults"
             :key="child.id"
-            class="flex items-center justify-between p-3 rounded-lg border border-muted hover:bg-muted/50 transition-colors cursor-pointer"
-            @click="selectChild(child)"
+            :to="`/admin/attendance/children/${child.id}`"
+            class="flex items-center justify-between p-3 rounded-lg border border-muted hover:bg-muted/50 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             <div class="flex-1">
               <p class="font-semibold">{{ child.firstName }} {{ child.lastName }}</p>
               <p class="text-sm text-muted">ID: {{ child.id }}</p>
             </div>
             <UIcon name="i-lucide-arrow-right" class="text-muted" />
-          </div>
+          </NuxtLink>
         </div>
 
         <AdminEmpty
@@ -79,10 +84,6 @@ const filterChildren = () => {
     const idMatch = String(child.id).includes(query);
     return firstNameMatch || lastNameMatch || idMatch;
   });
-};
-
-const selectChild = (child: Child) => {
-  navigateTo(`/admin/attendance/children/${child.id}`);
 };
 
 onMounted(async () => {
