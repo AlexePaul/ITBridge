@@ -4,11 +4,12 @@ Cele trei documente pe care le citește și le acceptă o familie, în ordinea �
 
 | Fișier                                                               | Cine îl citește                              | Când                                                             |
 | -------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------- |
-| [politica-de-cookies.md](politica-de-cookies.md)                     | orice vizitator al site-ului                 | din footer; bannerul din E07 S5 trimite aici                     |
+| [politica-de-cookies.md](politica-de-cookies.md)                     | orice vizitator al site-ului                 | din footer; și de sub butonul care încarcă harta (E07 S5)        |
 | [politica-de-confidentialitate.md](politica-de-confidentialitate.md) | vizitator, familie la probă, părinte cu cont | din footer, de pe `/proba`, la înregistrare                      |
 | [termeni-si-conditii.md](termeni-si-conditii.md)                     | părintele care își face cont                 | acceptat la înregistrare; versiunea acceptată se reține (E22 S4) |
 
-**Starea: ciornă 0.1, neverificată de avocat.** Pe `release/stage` textele **sunt pagini** —
+**Starea: ciornă neverificată de avocat — termenii și confidențialitatea la 0.1, cookie-urile la
+0.2, după E07 S5.** Pe `release/stage` textele **sunt pagini** —
 `/termeni`, `/confidentialitate`, `/cookies`, randate din fișierele de aici de
 `apps/web/server/api/legal/[doc].get.ts` —, iar înregistrarea cere bifa de acceptare și scrie în
 `document_acceptances` versiunea fiecărui document (E22 S4, prima jumătate). Pe `release/prod` nu
@@ -39,7 +40,7 @@ ce se stochează sau ce se întâmplă are o sursă; când sursa se schimbă, se
 | listele interne care nu declanșează nimic                                                                    | `early-signals.service.ts`, `signals.rules.ts`, E21 S7                                                                                                                               |
 | cookie-urile și ce e în `localStorage`                                                                       | `tokenStore.ts`, `locationStore.ts`, `useChildSelection.ts`, `useAttendanceQueue.ts`                                                                                                 |
 | harta Google, singurul terț de pe site                                                                       | `mapEmbedUrl` în `shared/school.ts`, paginile din `pages/locatii/`                                                                                                                   |
-| hărțile se încarcă azi fără acord                                                                            | `loading="lazy"` pe `<iframe>`, fără poartă — E07 S5                                                                                                                                 |
+| harta se încarcă doar după ce cititorul apasă, iar alegerea nu se scrie nicăieri                             | `MapEmbed.vue`, `consentStore.ts`, `check-third-party.mjs` — E07 S5, livrat                                                                                                          |
 | regiunea: Stockholm (`eu-north-1`), pentru server, bază, fișiere și backup                                   | `.env.stage.example`, E01 S4, E04 S4; `.env.example` și `ci.yml` spun `eu-central-1` doar pentru dezvoltare și CI. Producția nu există încă — de confirmat că rămâne aceeași regiune |
 | fără CNP, fără fotografii ale copiilor, fără date de sănătate                                                | E16 „Decizii luate", E07 „Decizii luate"; niciun câmp în entități                                                                                                                    |
 | versiunea acceptată la înregistrare e cea din capul fișierului                                               | `LEGAL_DOCUMENT_VERSIONS` în `apps/api/src/modules/auth/legal-documents.ts`, ținută egală cu prima linie boldată a fiecărui document de `legal-documents.spec.ts`                    |
@@ -72,7 +73,6 @@ Lista, ca să se poată bifa:
   10 zile lucrătoare;
 - ce se întâmplă cu dosarele de lucrări de pe calculatorul din birou după retragere;
 - dacă un al doilea părinte primește cont propriu sau familia folosește unul singur;
-- dacă alegerea de a încărca harta se ține minte într-un cookie sau se întreabă de fiecare dată;
 - reducerea de recomandare: 50% pe o lună — de confirmat că e regula anunțată familiilor.
 
 **Fapte despre furnizori** — verificate pe 7 septembrie 2026, pe paginile lor:
@@ -87,8 +87,10 @@ Lista, ca să se poată bifa:
 
 1. **Avocatul.** Epicul e explicit: scris aici fiindcă aici se știe ce face sistemul; validitatea e
    a altcuiva. Lista de mai jos e ce i-am cere să verifice în mod special.
-2. **E07 S5** — harta de pe paginile locațiilor se încarcă azi fără acord. Politica de cookie-uri
-   descrie starea de după, deci nu se publică înaintea bannerului.
+2. ~~**E07 S5** — harta de pe paginile locațiilor se încarcă azi fără acord.~~ **Livrat.** Harta
+   stă în spatele unui buton, alegerea ține cât ține vizita și nu se scrie nicăieri, iar
+   `pnpm test:privacy` pică în CI dacă vreo pagină publică mai cere ceva din afara domeniului sau
+   pune vreun cookie. Politica de cookie-uri descrie de acum starea din cod.
 3. **E22 S4, a doua jumătate** — re-acceptarea la versiune nouă, la prima autentificare de după.
    Prima jumătate e livrată: bifa la înregistrare, un rând per document în `document_acceptances`,
    cu versiunea. Termenii §4.7 și §18 promit amândouă jumătățile.

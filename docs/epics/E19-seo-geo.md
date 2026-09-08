@@ -2,12 +2,13 @@
 
 **Status:** în lucru · **Pistă:** Public · **Depinde de:** E08, E18 · **Blochează:** —
 
-**Livrate:** S1 (fundația tehnică), S2 (date structurate), S3 (pagini locale) și S7 (motoare
-generative). **Rămân:** S4 (pagini de modul, care așteaptă [E10](E10-curriculum-module.md)), S5
-(performanță — partea de imagini, împreună cu S2 din [E18](E18-frontend-portal.md)), S6 (conținut,
-blocat de întrebarea „cine scrie”), S8 (măsurare — Search Console e configurat, analiza de trafic
-așteaptă consimțământul) și S9 (legăturile rupte, neînceput — a intrat din lista de lansare,
-[`docs/lansare.md`](../lansare.md)).
+**Livrate:** S1 (fundația tehnică), S2 (date structurate), S3 (pagini locale), S7 (motoare
+generative) și S9 (legăturile rupte, intrată din lista de lansare,
+[`docs/lansare.md`](../lansare.md)). **Rămân:** S4 (pagini de modul, care așteaptă
+[E10](E10-curriculum-module.md)), S5 (performanță — partea de imagini, împreună cu S2 din
+[E18](E18-frontend-portal.md)), S6 (conținut, blocat de întrebarea „cine scrie”) și S8 (măsurare —
+Search Console e configurat; analiza de trafic nu mai e blocată de consimțământ, fiindcă E07 S5 i-a
+construit poarta, ci e o alegere de unealtă).
 
 **Cele două profiluri Google Business sunt create**, câte unul per adresă — lucrul care nu era cod
 și care, la căutările locale, cântărește mai mult decât orice a rămas de scris aici. De acum sunt o
@@ -223,7 +224,7 @@ n-are de unde porni fără o linie de bază:
 neindexarea e o chestiune de timp și autoritate, iar o schimbare de cod făcută ca să pară că se face
 ceva ar strica exact partea care merge.
 
-### S9 · Legături rupte — neînceput
+### S9 · Legături rupte — livrat
 
 Un crawler peste paginile pe care le publică `sitemap.xml`, care cere fiecare link intern din ele și
 raportează ce nu răspunde 200. Rulează în CI, în același job cu verificarea de accesibilitate —
@@ -246,6 +247,25 @@ care n-avea un story să-l țină.
 
 **Acceptanță:** niciun link intern de pe nicio pagină din sitemap nu răspunde altceva decât 200,
 iar un PR care rupe unul nu poate fi îmbinat.
+
+**Livrat** ca `apps/web/scripts/check-links.mjs` — `pnpm test:links`, în CI lângă verificarea de
+accesibilitate și cea de terți, cu care împarte serverul de probă, citirea sitemap-ului și
+pornirea lui Chromium prin `preview-site.mjs`. Prima rulare: **240 de linkuri interne**, toate 200,
+și 38 externe lăsate citirii lunare din S8. Patru lucruri de știut:
+
+- **Linkurile se citesc din pagina randată, nu din sursă.** Browserul e oricum plătit de
+  verificările vecine, și e ce are cititorul: un link construit la rulare intră, iar unul care
+  există doar într-un `.vue` pe care nu-l randează nimeni nu.
+- **Paginile vin din sitemap; țintele n-au de ce.** `/auth/login` e legat din navigație și e
+  dinadins în afara sitemap-ului — dacă se rupe, e la fel de rupt ca oricare altul.
+- **Fragmentele se verifică pe id-urile paginii-țintă**, nu pe codul de stare. Sunt jumătatea pe
+  care un 200 n-o poate vedea, și cea care se rupe când se reformulează un titlu.
+- **Constatările se grupează pe țintă**, fiindcă linkurile care se rup cel mai des sunt cele din
+  `AppFooter` și din navigație, adică cele de pe toate paginile: negrupate, un singur link stricat
+  raportează de unsprezece ori și îngroapă a doua constatare sub repetițiile primei.
+
+Verificat pe ambele sensuri: cu un link către o pagină inexistentă și un `#fragment` inventat puse
+în footer, verificarea le raportează pe amândouă, cu paginile de pe care pleacă, și iese cu 1.
 
 ## Dependențe
 
