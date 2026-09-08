@@ -87,11 +87,24 @@
         >
           Șterge Filtre
         </UButton>
-      </div>
-    </UCard>
+      </div> </UCard
+    ><AdminLoading v-if="loading" />
 
-    <!-- Table Card -->
-    <UCard class="border">
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
+
+    <!--
+      The empty state only after a load that worked. Until E18/S6 measured it, this screen had no
+      `catch` at all: an unreachable API read as "the school has no families", on the screen where
+      somebody would go to add one.
+    -->
+    <AdminEmpty
+      v-else-if="profiles.length === 0"
+      title="Nicio familie încă."
+      description="Familiile apar aici după înregistrare sau după ce le adaugă biroul."
+      icon="i-lucide-users"
+    />
+
+    <UCard v-else class="border">
       <UTable ref="table" :data="filteredProfiles" :columns="columns" class="w-full" />
     </UCard>
   </AdminPage>
@@ -99,6 +112,7 @@
 
 <script setup lang="ts">
 import type { TableColumn } from "@nuxt/ui";
+import { apiErrorMessage } from "~/composables/useApiError";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import type { Profile } from "~/types/profile.types";
 import { computed } from "vue";
@@ -110,6 +124,8 @@ const UDropdownMenu = resolveComponent("UDropdownMenu");
 const UButton = resolveComponent("UButton");
 
 const profiles: Ref<Profile[]> = ref([]);
+const loading = ref(true);
+const loadError = ref<string | null>(null);
 
 definePageMeta({
   layout: "dashboard" as any,
@@ -161,9 +177,19 @@ const clearFilters = () => {
   filters.value.phone = "";
 };
 
-onMounted(async () => {
-  profiles.value = await profileApi.fetchProfile();
-});
+const load = async () => {
+  loading.value = true;
+  loadError.value = null;
+  try {
+    profiles.value = await profileApi.fetchProfile();
+  } catch (err: unknown) {
+    loadError.value = apiErrorMessage(err, "Nu am putut încărca familiile.");
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(load);
 
 const columns: TableColumn<Profile>[] = [
   {

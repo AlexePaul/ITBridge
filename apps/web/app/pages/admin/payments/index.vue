@@ -20,8 +20,24 @@
       </UBadge>
     </template>
 
+    <AdminLoading v-if="loading" />
+
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
+
+    <!--
+      The empty state only after a load that worked. Until E18/S6 measured it, this screen had no
+      `catch` at all: a dead API left `payments` empty and the table drew its own "no rows" — a
+      sentence about money, on the screen somebody opens to check whether a family has paid.
+    -->
+    <AdminEmpty
+      v-else-if="payments.length === 0"
+      title="Nicio plată înregistrată."
+      description="Încasările apar aici pe măsură ce sunt înregistrate."
+      icon="i-lucide-banknote"
+    />
+
     <!-- Table Card -->
-    <UCard class="border">
+    <UCard v-else class="border">
       <UTable ref="table" :data="payments" :columns="columns" class="w-full" />
     </UCard>
   </AdminPage>
@@ -30,6 +46,7 @@
 <script setup lang="ts">
 import type { TableColumn } from "@nuxt/ui";
 import type { Profile } from "~/types/profile.types";
+import { apiErrorMessage } from "~/composables/useApiError";
 import { usePaymentsApi } from "~/composables/api/usePaymentsApi";
 import type { Payment } from "~/types/payment.types";
 import { usePaymentsStore } from "~/stores/paymentsStore";
@@ -47,6 +64,8 @@ const UDropdownMenu = resolveComponent("UDropdownMenu");
 const UButton = resolveComponent("UButton");
 
 const payments: Ref<Payment[]> = ref([]);
+const loading = ref(true);
+const loadError = ref<string | null>(null);
 
 definePageMeta({
   layout: "dashboard" as any,
@@ -54,12 +73,22 @@ definePageMeta({
   title: "Gestionarea Plăților",
 });
 
-onMounted(async () => {
-  await paymentsApi.fetchPayments();
-  payments.value = (paymentsStore.payments as Payment[]).sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
-});
+const load = async () => {
+  loading.value = true;
+  loadError.value = null;
+  try {
+    await paymentsApi.fetchPayments();
+    payments.value = (paymentsStore.payments as Payment[]).sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  } catch (err: unknown) {
+    loadError.value = apiErrorMessage(err, "Nu am putut încărca plățile.");
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(load);
 
 const columns: TableColumn<Payment>[] = [
   {
