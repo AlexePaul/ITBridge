@@ -75,7 +75,6 @@
                   icon="i-lucide-search"
                   color="primary"
                   class="w-full"
-                  @input="filterChildren"
                 />
               </div>
             </div>
@@ -198,7 +197,6 @@ const children: Ref<Child[]> = ref([]);
  */
 const trialChildIds = ref<Set<number>>(new Set());
 const searchQuery = ref("");
-const filteredChildren: Ref<Child[]> = ref([]);
 const availableChildren: Ref<Child[]> = ref([]);
 const groupsStore = useGroupsStore();
 const groupsApi = useGroupsApi();
@@ -272,20 +270,32 @@ definePageMeta({
   title: "Înregistrarea Prezenței pe Grup",
 });
 
-const filterChildren = () => {
-  if (!searchQuery.value.trim()) {
-    filteredChildren.value = [];
-    return;
-  }
-
-  const query = searchQuery.value.toLowerCase();
-  filteredChildren.value = availableChildren.value.filter(
+/**
+ * The search results, derived rather than kept — and the difference was a whole keystroke.
+ *
+ * This was a `ref` filled by `@input="filterChildren"` on the `UInput`, which looks right and is
+ * not: Vue merges a listener passed through `$attrs` with the component's own, **ours first**, so
+ * `filterChildren` ran before `v-model` had written the character just typed. The list was
+ * therefore always one keystroke behind. Measured on seed data: typing `a` matched nothing (it
+ * filtered on the empty string and cleared the list), `aa` returned eleven children (it filtered on
+ * `a`), `aaa` returned nothing again. A teacher typing a whole name saw an empty list, because the
+ * last letter had not arrived yet — and nothing about the screen suggested the name was the
+ * problem.
+ *
+ * A `computed` cannot be out of step with what it reads. Same reason `isProfileComplete` and
+ * `isAccountActive` are derived on the backend: a second copy of a value is free to disagree with
+ * the first.
+ */
+const filteredChildren = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+  if (!query) return [];
+  return availableChildren.value.filter(
     (child) =>
       child.firstName.toLowerCase().includes(query) ||
       child.lastName.toLowerCase().includes(query) ||
       String(child.id).includes(query)
   );
-};
+});
 
 const addChildToList = (child: Child) => {
   // Avoid duplicates
@@ -295,9 +305,8 @@ const addChildToList = (child: Child) => {
   }
   // Remove from available list
   availableChildren.value = availableChildren.value.filter((c) => c.id !== child.id);
-  // Clear search
+  // Clearing the query empties the results on its own, now that they are derived from it.
   searchQuery.value = "";
-  filteredChildren.value = [];
 };
 
 const removeChildFromList = (childId: number) => {
