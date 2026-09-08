@@ -20,7 +20,6 @@ export const useProfileApi = () => {
           profileId: id,
         },
       });
-      console.log("Fetched profile data:", data);
       profileStore.setProfile(data[0] as Profile);
       return data;
     } catch (err: any) {

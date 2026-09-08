@@ -43,7 +43,6 @@ export const useChildrenApi = () => {
       },
       body: JSON.stringify(childData),
     });
-    console.log("New child created:", newChild);
     return newChild;
   };
 
@@ -56,7 +55,6 @@ export const useChildrenApi = () => {
       },
       body: JSON.stringify(childData),
     });
-    console.log("Child updated:", updatedChild);
     return updatedChild;
   };
 
@@ -85,7 +83,6 @@ export const useChildrenApi = () => {
         Authorization: `Bearer ${tokenStore.accessToken}`,
       },
     });
-    console.log(`Child ${childId} removed from group ${groupId}:`, updatedChild);
     return updatedChild;
   };
 
@@ -96,7 +93,6 @@ export const useChildrenApi = () => {
         Authorization: `Bearer ${tokenStore.accessToken}`,
       },
     });
-    console.log("Child deleted:", childId);
   };
   return {
     fetchChildren,
