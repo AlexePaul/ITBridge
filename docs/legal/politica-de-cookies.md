@@ -1,7 +1,9 @@
 # Politica de cookie-uri
 
-**Versiunea 0.1 · ciornă din 7 septembrie 2026 · neverificată de un avocat · nepublicată.**
-Faptele marcate `[[…]]` lipsesc sau sunt propuneri; vezi [README](README.md).
+**Versiunea 0.2 · ciornă din 8 septembrie 2026 · neverificată de un avocat · nepublicată.**
+Nu mai are fapte marcate `[[…]]`: cele două pe care le avea erau despre hartă, iar E07 S5 le-a
+răspuns în cod — harta stă acum în spatele unui buton, iar alegerea nu se scrie nicăieri. Ce mai
+lipsește înainte de publicare e în [README](README.md).
 
 ---
 
@@ -37,10 +39,18 @@ locația — și dispar odată cu sesiunea. De asta nu cerem acord pentru ele.
 
 ## 3. Ce ține browserul în afară de cookie-uri
 
-Portalul folosește și memoria locală a browserului (`localStorage`), tot pe domeniul nostru:
-preferința de temă (deschisă sau închisă, după setarea sistemului tău) și, doar pentru personalul
-școlii, marcajele de prezență care așteaptă o conexiune atunci când rețeaua din sală pică. Nimic
-din asta nu pleacă spre altcineva.
+Site-ul folosește și memoria locală a browserului (`localStorage`), tot pe domeniul nostru, și
+tot pe paginile publice, nu doar în portal:
+
+- `nuxt-color-mode` — dacă vrei temă deschisă, închisă, sau cea a sistemului tău. Se scrie pe orice
+  pagină, de la prima, cu valoarea `system` până alegi altceva.
+- `attendance-pending-marks-v1` — doar pentru personalul școlii, în portal: marcajele de prezență
+  care așteaptă o conexiune atunci când rețeaua din sală pică.
+
+Niciuna nu e un cookie, deci nu se trimite nicăieri cu fiecare cerere, și nimic din ele nu pleacă
+spre altcineva. Prima ține o preferință de afișare pe care ai exprimat-o tu, a doua ține munca
+făcută offline a unui profesor; amândouă sunt strict necesare în același sens ca și cookie-urile de
+mai sus, deci nu cerem acord nici pentru ele.
 
 ## 4. Harta Google
 
@@ -52,15 +62,17 @@ Cadrul UE–SUA de protecție a datelor, deci transferul spre SUA e acoperit.
 
 De aceea **harta nu se încarcă până nu apeși pe ea**. Până atunci vezi adresa, o legătură către
 Google Maps care se deschide în altă filă, și un buton. Dacă nu apeși, Google nu află că ai fost
-pe pagină. [[DE CONFIRMAT ÎNAINTE DE PUBLICARE: E07 S5 — azi harta se încarcă la derulare, fără
-acord.]]
+pe pagină.
 
 ## 5. Cum le controlezi
 
 - Cookie-urile noastre le ștergi din setările browserului; la următoarea autentificare se pun la
   loc, fiindcă fără ele nu poți rămâne autentificat. Nu există o setare „fără cookie-uri
   necesare" — ar însemna „fără portal".
-- Harta o încarci sau nu, la fiecare vizită. [[DE DECIS: ținem minte alegerea într-un cookie propriu, `mapConsent`, sau întrebăm de fiecare dată]].
+- Harta o încarci sau nu, la fiecare vizită: alegerea ține cât stai pe site — apeși o dată și
+  amândouă paginile de locație o respectă —, dar nu o scriem nicăieri, deci la vizita următoare
+  întrebăm din nou. Un cookie care ține minte acordul ar fi fost legal fără acord, dar ar fi
+  costat propoziția de mai sus: că un vizitator care nu se autentifică nu primește niciun cookie.
 - Nu folosim unelte de analiză a traficului, pixeli de rețele sociale sau reclame, deci nu există
   nimic de refuzat în plus. Dacă vreodată adăugăm așa ceva, documentul ăsta se schimbă înainte, iar
   scripturile nu pornesc fără acordul tău.

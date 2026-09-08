@@ -1,7 +1,7 @@
 # E07 · Securitate, GDPR și consimțământ
 
-**Status:** în lucru — **S8 livrat**, restul propus · **Pistă:** Fundație · **Depinde de:** E04, E05 ·
-**Blochează:** E14, E19; E09 doar odată cu reluarea lui S2
+**Status:** în lucru — **S5 și S8 livrate**, restul propus · **Pistă:** Fundație · **Depinde de:**
+E04, E05 · **Blochează:** E14, E19; E09 doar odată cu reluarea lui S2
 
 > **Granița cu [E22](E22-termeni-si-date.md), fiindcă se confundă ușor: aici e mecanica, acolo e ce
 > citește și acceptă familia.** Cele două epicuri descriau aceleași patru lucruri cu cuvinte
@@ -157,7 +157,7 @@ periodic. Trei locuri, trei treburi diferite, un singur număr — al E22.
 
 **Acceptanță:** ambele fluxuri funcționează capăt-la-capăt, cu termen sub 30 de zile.
 
-### S5 · Bannerul de cookie-uri și blocarea scripturilor
+### S5 · Bannerul de cookie-uri și blocarea scripturilor — livrat
 
 Bannerul care chiar **blochează scripturile neesențiale până la accept** — nu unul care anunță că
 site-ul folosește cookie-uri după ce le-a pus deja. E singura bucată din vechiul „documente legale"
@@ -174,6 +174,63 @@ retragere în 14 zile nu intră în niciunul; motivul e la [Decizii luate](#deci
 **Acceptanță:** un vizitator nou nu are niciun cookie neesențial înainte de a accepta, iar nicio
 cerere către un domeniu terț neesențial nu pleacă din pagină — verificat în tab-ul de rețea, nu în
 configurație.
+
+#### Ce s-a construit, și de ce nu e un banner
+
+**Nu există niciun script neesențial de blocat, și un singur terț de oprit: harta.** Inventarul,
+făcut înainte de orice cod: zero unelte de analiză, zero pixeli, zero reclame, fonturile servite de
+pe domeniul propriu, imaginile locale; patru cookie-uri, toate ale noastre, toate în spatele
+autentificării. Singurul lucru care pleca din pagină era `<iframe>`-ul Google Maps de pe cele două
+pagini de locație — și pleca **de la sine**, fiindcă avea `loading="lazy"`, care se citește ca
+reținere și e opusul: se declanșează când cititorul derulează până la el. Nimic din sursă nu spunea
+„cheamă Google la derulare"; browserul o spunea.
+
+Deci poarta e acolo unde e terțul, nu peste tot: `MapEmbed.vue` arată adresa, legătura către Google
+Maps și un buton, iar `<iframe>`-ul **nu există în DOM** până nu se apasă. `v-if`, nu `v-show` și
+nu un `src` schimbat — un iframe ascuns cu `src` pus e o cerere care a plecat deja.
+
+**Un banner pe toate paginile ar fi fost în plus, și mai rău decât în plus.** Nu are ce să blocheze
+pe zece din douăsprezece pagini, iar un dialog care apare mereu și n-are ce refuza devine o bifă
+apăsată reflex — același motiv pentru care avertismentul de la E17 S7 nu blochează. Ziua în care
+intră prima unealtă de analiză (E19 S8) e ziua în care apare al doilea scop în `consentStore`, și
+atunci un banner are ce cere. Până atunci, cine vrea să știe ce se pune și cât ține are legătura
+către `/cookies` chiar sub buton.
+
+**Alegerea nu se scrie nicăieri** — asta răspunde întrebării pe care politica de cookie-uri o lăsase
+deschisă, „un cookie `mapConsent` sau întrebăm de fiecare dată". Nici, nici: `consentStore` ține
+scopurile acordate în memorie, deci apeși o dată și amândouă paginile de locație o respectă, iar la
+vizita următoare întrebăm din nou. Un cookie de consimțământ ar fi fost legal fără consimțământ, dar
+ar fi costat propoziția pe care politica o face fiecărui cititor — _un vizitator care nu se
+autentifică nu primește niciun cookie_ —, iar o promisiune adevărată fără nota de subsol valorează
+mai mult decât o apăsare economisită la a doua vizită.
+
+**Acceptanța rulează, nu se ține minte.** `apps/web/scripts/check-third-party.mjs` (`pnpm
+test:privacy`, în CI lângă verificarea de accesibilitate, cu care împarte serverul și browserul prin
+`preview-site.mjs`) încarcă fiecare pagină din sitemap într-un Chromium adevărat, **o derulează până
+jos** ca să dea drumul la orice e lazy, și pică la prima cerere care iese din origine sau la primul
+cookie. Derularea e tot rostul rulării: fără ea, bug-ul de dinainte trece verde, fiindcă iframe-ul
+de sub linia de plutire nu intră niciodată în vizor. Verificat pe ambele sensuri — cu poarta scoasă,
+verificarea pică pe exact cele două pagini și numește cele două origini Google.
+
+Verifică și **cealaltă jumătate a porții: că apăsarea chiar arată harta.** Nu e zel — bug-ul a
+existat și a fost prins de gardă, nu la review. `useReveal` decupează fiecare `.plate` la zero până
+când observatorul lui o marchează, iar observatorul își face recensământul o singură dată, la
+montare; o placă apărută mai târziu nu e marcată niciodată și rămâne decupată **definitiv**. Adică:
+cititorul apasă, cererea pleacă spre Google, și i se arată o casetă goală — cel mai prost dintre
+cele trei rezultate posibile. Nimic din el nu se vede în sursa vreunuia dintre cele două fișiere.
+Soluția e `is-revealed` pe placă, iar `MapEmbed.vue` scrie de ce, fiindcă arată exact ca o clasă de
+prisos. Garda apasă butonul cu Google rutat spre `abort`, deci nu face nicio cerere externă, și
+**așteaptă ștergerea în loc să citească o dată**: animația pornește de la decupajul închis, deci o
+citire la momentul apariției nu deosebește o hartă care merge de una care nu — prima versiune a
+verificării a raportat exact bug-ul pe care tocmai îl reparase.
+
+Ce **nu** face: nu apasă butonul în trecerea de rețea. Cititorul care cere harta primește Google, cu
+consecințele scrise lângă buton; acolo garda e despre cititorul care nu cere.
+
+O corectură căzută din inventar: politica spunea că memoria locală e a portalului, iar `localStorage`
+are `nuxt-color-mode` scris pe **orice** pagină, de la prima. Nu e cookie și e strict necesar în
+același sens, deci nu schimbă ce cerem — dar §3 îl numește acum, fiindcă un document care
+enumeră greșit e un document care nu mai e citit.
 
 ### S6 · Managementul secretelor
 

@@ -5,10 +5,15 @@ adunate într-un loc.
 
 **Ultima actualizare:** 8 septembrie 2026, pe `release/stage`. **A intrat lista de lansare**,
 [`docs/lansare.md`](../lansare.md): cele douăzeci de întrebări obișnuite de dinaintea lansării unui
-site, fiecare cu starea verificată contra codului și cu dovada lângă ea. Cincisprezece sunt livrate
-cu gardă; ce lipsește e bannerul de cookie-uri (E07 S5), textele juridice pe prod (E22 S2),
-verificarea legăturilor (E19 S9, story nou), HSTS de verificat (E01 S5) și analiza de trafic (E19
-S8), în ordinea asta. Cu o zi înainte, **s-a închis E07 S8**, evidența
+site, fiecare cu starea verificată contra codului și cu dovada lângă ea. Cincisprezece din douăzeci
+sunt livrate cu gardă; ce lipsește e textele juridice pe prod (E22 S2), verificarea legăturilor (E19 S9, story
+nou), HSTS de verificat (E01 S5) și analiza de trafic (E19 S8), în ordinea asta. Primul punct de pe
+acea listă, **bannerul de cookie-uri, s-a închis în aceeași zi**: E07 S5 a găsit un singur terț pe
+site — harta Google, care se încărca singură la derulare — și l-a pus în spatele unui buton, cu o
+verificare în CI care pică dacă vreo pagină publică mai iese din origine. Tot atunci **s-a închis și
+E19 S9**, verificarea legăturilor: 240 de linkuri interne, citite din paginile randate, cu
+fragmentele verificate pe id-uri. Cu o zi înainte,
+**s-a închis E07 S8**, evidența
 contractului de înscriere — jumătatea care lipsea din E11: lista înscrierilor active fără contract
 consemnat, `/admin/contracte`, ușa de consemnat după și insigna „Fără contract" pe fișa copilului și
 pe grupă; E07 trece din `propus` în `în lucru`. În aceeași zi, **E12 S3/S4 și-au primit ecranul de
@@ -116,13 +121,13 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
 > află de la părintele care sună.
 
-### E07 · Securitate, GDPR și consimțământ — `în lucru; S8 livrat, restul propus`
+### E07 · Securitate, GDPR și consimțământ — `în lucru; S5 și S8 livrate, restul propus`
 
 - [ ] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface
 - [ ] S2 · Consimțământ parental — granularitate `(părinte, copil, scop)`, decisă
 - [ ] S3 · Audit log
 - [ ] S4 · Export și ștergere — termenul pe care îl aplică e scris în E22 S3
-- [ ] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2
+- [x] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2. Inventarul n-a găsit niciun script neesențial și un singur terț: harta Google, care pleca singură pe `loading="lazy"`. Deci poarta e la terț, nu peste tot — `MapEmbed.vue` ține `<iframe>`-ul în afara DOM-ului până apasă cititorul, iar `consentStore` ține alegerea în memorie, fără cookie. Fără banner pe site cât nu e nimic de refuzat; primul scop nou (analiza din E19 S8) îl aduce. Acceptanța rulează în CI: `pnpm test:privacy` pică dacă vreo pagină publică iese din origine sau pune un cookie
 - [ ] S6 · Managementul secretelor
 - [ ] S7 · Contracte de prelucrare
 - [x] S8 · Evidența contractului de înscriere — contractul se semnează fizic; platforma reține doar că există și din ce zi. Coloana și completarea la înscriere/la confirmarea probei veniseră cu E11 S1; aici s-a livrat acceptanța: `PUT /enrollments/:id/contract` consemnează după (proba e refuzată, n-are contract), `GET /enrollments/without-contract` e lista înscrierilor active fără nimic pe fișă, `/admin/contracte` o arată cu un câmp de dată pe rând, fișa copilului și pagina grupei poartă „Fără contract", tabloul de bord numără. Fără versiune de text: contractul n-are încă a doua versiune
@@ -294,8 +299,8 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [~] S5 · Performanță — livrat odată cu E18 S2; rămâne confirmarea pe trafic real — domeniul e live, deci ce lipsește sunt săptămânile de vizite din raportul Core Web Vitals
 - [!] S6 · Conținut — blocat de „cine scrie textele"
 - [x] S7 · Pregătire pentru motoare generative
-- [~] S8 · Măsurare — **Search Console e configurat pe ambele proprietăți**, cu linia de bază consemnată în epic. Analiza de trafic așteaptă consimțământul din E07 S2, nu domeniul
-- [ ] S9 · Legături rupte — un crawler în CI peste paginile din sitemap, lângă verificarea de accesibilitate; a intrat din lista de lansare
+- [~] S8 · Măsurare — **Search Console e configurat pe ambele proprietăți**, cu linia de bază consemnată în epic. Analiza de trafic nu mai e blocată: E07 S5 i-a construit poarta, deci de aici e o alegere de unealtă
+- [x] S9 · Legături rupte — `pnpm test:links` peste paginile din sitemap, lângă verificarea de accesibilitate și cea de terți, cu care împarte serverul și browserul. Linkurile se citesc din pagina randată; țintele n-au de ce să fie în sitemap (`/auth/login` e legat din navigație și dinadins în afara lui); fragmentele se verifică pe id-urile paginii-țintă, jumătatea pe care un 200 n-o vede. Prima rulare: 240 de linkuri interne, toate 200
 
 > Lucrul cel mai valoros rămas aici nu e cod. Pentru căutările locale, cele două profiluri Google
 > Business contează mai mult decât orice a rămas de scris în repo.
