@@ -400,6 +400,22 @@ toată clauza, deci un `where` pus după restrângerea pe utilizator o șterge f
 așa a scăpat `PaymentService.findOne`: orice părinte putea citi plata oricărei alte familii, cu
 profilul complet atașat. Dacă ai nevoie de o primă condiție, pune-o tot cu `andWhere`.
 
+**Un slot care nu se potrivește cu nimic e aruncat în tăcere.** Ecranul de catalog a stat trei
+story-uri fără butonul de salvare: blocul cu selectorul de oră și cu **Salvează Prezența** e un
+`<template #footer>`, iar S5b a înlocuit `<UCard>`-ul care îl învelea cu `<AdminPage>`, care are doar
+`#actions` și slotul implicit. Vue nu spune nimic despre un slot pe care nu-l cere nimeni, deci
+profesorul putea marca toată grupa și n-avea ce apăsa. **Nimic nu putea prinde asta**: un slot care
+nu duce nicăieri nu e eroare de tip, nu e finding de lint și nu e încălcare de accesibilitate —
+conținutul absent n-are contrast și n-are etichetă lipsă, deci poarta din S6 a trecut ecranul de
+două ori. Când muți un ecran pe `AdminPage`, uită-te ce sloturi foloseau învelișurile dinainte; ce
+nu e `#actions` sau conținut implicit trebuie mutat, nu redenumit.
+
+**Magazinele Pinia întorc `readonly(...)`, iar `Array.sort` reordonează pe loc.** Deci
+`payments.value = paymentsStore.payments.sort(...)` nu sortează nimic: fiecare schimb e o scriere
+refuzată de Vue — optsprezece avertismente pentru optsprezece rânduri — și înapoi vine lista în
+ordinea în care a venit de la API, prefăcându-se sortată. Ecranul de plăți a promis „cele mai noi
+întâi" fără să fie, de la început. Copiază înainte de sortare: `[...store.lista].sort(...)`.
+
 **Un buton de retry care nu șterge eroarea apasă degeaba.** `AdminError` cheamă `load()` din nou, dar dacă acel `load()` nu pune `loadError` pe gol **înainte** de cerere, a doua încercare reușește, datele vin, iar `v-else-if="loadError"` ține cardul de eroare deasupra lor: cererea pleacă, primește 200, și pe ecran nu se schimbă nimic. Cinci ecrane au fost livrate așa, și niciunul n-a fost găsit citind — butonul e acolo, e legat, cheamă funcția care trebuie, iar ce lipsește sunt două linii la începutul unei funcții aflate la douăzeci de rânduri distanță. Forma corectă e `loading.value = true;` plus golirea lui `loadError`, amândouă înaintea lui `try`; `retry-clears-error.spec.ts` mătură sursele după ordinea asta.
 
 **Nu pune `@input` pe un câmp de text Nuxt UI.** Handler-ul rulează, dar **înainte** ca `v-model` să scrie caracterul tocmai tastat: Vue îmbină ascultătorul venit prin `$attrs` cu al componentei într-un vector și le cheamă în ordinea aia, al nostru primul. Deci orice citește din model e cu o tastă în urmă. Căutarea de copii din catalog a fost exact asta: `a` nu găsea nimic (filtra pe șirul gol), `aa` găsea unsprezece (filtra pe `a`), iar un nume întreg nu găsea niciodată nimic. Derivă din model — un `computed` nu poate fi decalat față de ce citește. `@change` și `@blur` sunt emit-uri declarate și se produc după actualizare, deci sunt în regulă. `no-input-listener.spec.ts` ține linia.
