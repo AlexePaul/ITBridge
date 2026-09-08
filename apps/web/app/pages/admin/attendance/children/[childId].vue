@@ -1,61 +1,51 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold" v-if="child">{{ child.firstName }} {{ child.lastName }}</h1>
-        <p class="text-muted mt-1">Istoricul prezenței</p>
-      </div>
-      <UButton
-        color="secondary"
-        variant="subtle"
-        class="flex items-center h-11"
-        size="lg"
-        @click="handleBack"
-      >
-        <UIcon name="i-lucide-arrow-left" class="mr-2" />
-        Înapoi
-      </UButton>
-    </div>
+  <AdminPage
+    :title="child ? `${child.firstName} ${child.lastName}` : 'Prezența copilului'"
+    subtitle="Istoricul prezenței"
+    back-to="/admin/attendance/children"
+  >
+    <AdminLoading v-if="loading" />
 
-    <!-- Child Info Card -->
-    <UCard v-if="child" class="bg-primary/5">
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div>
-          <p class="text-sm text-muted">ID</p>
-          <p class="font-semibold text-lg">#{{ child.id }}</p>
-        </div>
-        <div>
-          <p class="text-sm text-muted">Data Nașterii</p>
-          <p class="font-semibold">{{ child.birthDate }}</p>
-        </div>
-        <div>
-          <p class="text-sm text-muted">Total Sesiuni</p>
-          <p class="font-semibold text-lg">{{ attendances.length }}</p>
-        </div>
-        <div>
-          <p class="text-sm text-muted">Procent Prezență</p>
-          <p
-            class="font-semibold text-lg"
-            :class="attendancePercentage >= 80 ? 'text-success' : 'text-warning'"
-          >
-            {{ attendancePercentage }}%
-          </p>
-        </div>
-      </div>
-    </UCard>
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
 
-    <UTable :data="attendancesByDate" :columns="columns" />
+    <template v-else>
+      <!-- Child Info Card -->
+      <UCard v-if="child" class="bg-primary/5">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <p class="text-sm text-muted">ID</p>
+            <p class="font-semibold text-lg">#{{ child.id }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-muted">Data Nașterii</p>
+            <p class="font-semibold">{{ child.birthDate }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-muted">Total Sesiuni</p>
+            <p class="font-semibold text-lg">{{ attendances.length }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-muted">Procent Prezență</p>
+            <p
+              class="font-semibold text-lg"
+              :class="attendancePercentage >= 80 ? 'text-success' : 'text-warning'"
+            >
+              {{ attendancePercentage }}%
+            </p>
+          </div>
+        </div>
+      </UCard>
 
-    <div v-if="attendances.length === 0" class="text-center py-12 text-muted">
-      <UIcon name="i-lucide-inbox" class="mx-auto text-4xl mb-4 opacity-50" />
-      <p class="text-lg">Nicio înregistrare de prezență</p>
-    </div>
-  </div>
+      <UTable v-if="attendances.length > 0" :data="attendancesByDate" :columns="columns" />
+
+      <AdminEmpty v-else title="Nicio înregistrare de prezență" />
+    </template>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
+import { apiErrorMessage } from "~/composables/useApiError";
 import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import type { Child } from "~/types/child.types";
 import type { Attendance } from "~/types/attendance.types";
@@ -76,6 +66,8 @@ const UBadge = resolveComponent("UBadge");
 
 const child: Ref<Child | null> = ref(null);
 const attendances: Ref<Attendance[]> = ref([]);
+const loading = ref(true);
+const loadError = ref<string | null>(null);
 
 const columns: TableColumn<Attendance>[] = [
   {
@@ -158,19 +150,30 @@ const attendancePercentage = computed(() => {
   return Math.round((presentCount / attendances.value.length) * 100);
 });
 
-const handleBack = () => {
-  navigateTo("/admin/attendance/children");
-};
-
-onMounted(async () => {
+/**
+ * The register, and why a failure here cannot stay quiet.
+ *
+ * This used to catch into `console.error` and stop. The screen then rendered its empty state —
+ * "Nicio înregistrare de prezență" — over a list that had never arrived, so a network fault read
+ * as *this child has never once been to a class*. That is the same misreading the parent's
+ * calendar was fixed for, and it is worse here, because the person looking is about to say it out
+ * loud to the family.
+ */
+const load = async () => {
+  loading.value = true;
+  loadError.value = null;
   try {
     const childId = route.params.childId as string;
     const allChildren = await childrenApi.fetchChildren();
     child.value = allChildren.find((c) => String(c.id) === childId) || null;
 
     attendances.value = await attendanceApi.getAttendanceByChild(parseInt(childId));
-  } catch (err) {
-    console.error("Error loading attendance:", err);
+  } catch (err: unknown) {
+    loadError.value = apiErrorMessage(err, "Nu am putut încărca prezența copilului.");
+  } finally {
+    loading.value = false;
   }
-});
+};
+
+onMounted(load);
 </script>

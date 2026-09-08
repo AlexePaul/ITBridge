@@ -1,18 +1,22 @@
 <template>
-  <div>
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-3xl font-bold">Facturi - {{ month }}</h1>
-        <p class="text-muted mt-1">Toate facturile emise în luna {{ formatMonth(month) }}</p>
-      </div>
-      <UButton @click="navigateTo('/admin/invoices')" variant="outline"> Înapoi </UButton>
-    </div>
+  <AdminPage
+    :title="`Facturi — ${month}`"
+    :subtitle="`Toate facturile emise în luna ${formatMonth(month)}`"
+    back-to="/admin/invoices"
+    width="xl"
+  >
+    <AdminLoading v-if="loading" />
 
-    <div v-if="filteredInvoices.length === 0" class="text-center py-12">
-      <p class="text-muted text-lg">Nu sunt facturi pentru această lună.</p>
-    </div>
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
 
-    <div v-else class="w-full mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+    <AdminEmpty
+      v-else-if="filteredInvoices.length === 0"
+      title="Nu sunt facturi pentru această lună."
+      description="Se emit din „Emitere facturi”, pe luna aleasă acolo."
+      icon="i-lucide-file-text"
+    />
+
+    <div v-else>
       <div class="overflow-x-auto">
         <table class="w-full border-collapse">
           <thead>
@@ -52,12 +56,13 @@
         </table>
       </div>
     </div>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
 import { formatMonth } from "~/composables/useAdminFormat";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
+import { apiErrorMessage } from "~/composables/useApiError";
 import type { Invoice } from "~/types/invoice.types";
 
 definePageMeta({
@@ -69,6 +74,8 @@ definePageMeta({
 const route = useRoute();
 const invoiceApi = useInvoiceApi();
 const invoices: Ref<Invoice[]> = ref([]);
+const loading = ref(true);
+const loadError = ref<string | null>(null);
 const month = computed(() => route.params.month as string);
 
 const filteredInvoices = computed(() =>
@@ -121,8 +128,25 @@ const visualisePDF = (invoiceId: number) => {
   navigateTo(`/admin/invoices/${invoiceId}/pdf`);
 };
 
-onMounted(async () => {
-  await invoiceApi.fetchInvoices();
-  invoices.value = (await invoiceApi.getInvoices()) || [];
-});
+/**
+ * The month's invoices, with the two states the screen used to skip.
+ *
+ * There was no `catch` and no loading state, so a failed fetch left an empty list behind the
+ * screen's own "no invoices for this month" — a sentence about billing that was not true, on a
+ * page somebody opens to check whether a family was charged.
+ */
+const load = async () => {
+  loading.value = true;
+  loadError.value = null;
+  try {
+    await invoiceApi.fetchInvoices();
+    invoices.value = (await invoiceApi.getInvoices()) || [];
+  } catch (err: unknown) {
+    loadError.value = apiErrorMessage(err, "Nu am putut încărca facturile lunii.");
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(load);
 </script>
