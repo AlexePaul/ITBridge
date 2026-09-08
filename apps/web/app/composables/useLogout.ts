@@ -2,7 +2,6 @@ import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
-import { overdueInvoices, pendingInvoices } from "./api/useInvoiceApi";
 import { useAttendanceStore } from "~/stores/attendanceStore";
 import { useClassSessionStore } from "~/stores/classSessionStore";
 import { useChildrenStore } from "~/stores/childrenStore";
@@ -31,8 +30,6 @@ export const useLogout = () => {
     childrenStore.clearChildren();
     profileStore.clearProfile();
 
-    pendingInvoices.value = false;
-    overdueInvoices.value = false;
     navigateTo("/");
   };
 

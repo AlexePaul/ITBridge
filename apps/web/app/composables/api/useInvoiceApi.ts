@@ -9,10 +9,6 @@ import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import { date } from "zod";
 
-export const overdueInvoices = ref<boolean>(false);
-
-export const pendingInvoices = ref<boolean>(false);
-
 export const useInvoiceApi = () => {
   const api = useApi();
   const tokenStore = useTokenStore();
@@ -28,14 +24,6 @@ export const useInvoiceApi = () => {
     });
 
     invoices.value = fetchedInvoices;
-    for (const invoice of invoices.value) {
-      if (invoice.status === "overdue") {
-        overdueInvoices.value = true;
-      }
-      if (invoice.status === "pending") {
-        pendingInvoices.value = true;
-      }
-    }
   };
 
   const getInvoices = () => {
