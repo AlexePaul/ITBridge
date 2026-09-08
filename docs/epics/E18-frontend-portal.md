@@ -348,6 +348,18 @@ pe `occupancyOf` — D7).
   întunecată, lângă câmpuri care se schimbau.
 - **Zece `console.log` care scriau date de familii în consola browserului** — „Profile details",
   „Fetched users raw", „Mapping user" — au fost șterse din patru ecrane.
+
+  **Curățenia se oprise la `pages/`, iar opt rămăseseră un etaj mai jos**, în magazine, în
+  composable-urile de API și în pluginul de autentificare — de unde scriau mai mult, nu mai puțin:
+  `console.log("New child created:", newChild)` punea în consolă prenumele, numele și **data de
+  naștere** a unui minor, plus rezumatul părintelui; interogarea de profil punea acolo telefonul,
+  adresa și contactul de urgență; iar pluginul scria obiectul contului la **fiecare** încărcare de
+  pagină din zona autentificată. Consola unui calculator din birou e un log ca oricare altul: rămâne
+  deschisă, se derulează înapoi și ajunge în capturi de ecran. Toate opt sunt scoase, iar
+  `apps/web/test/no-console-log.spec.ts` ține linia — `apps/web` n-are ESLint, deci regula e un test.
+  `console.error` rămâne permis dinadins: alea sunt tratare de erori, nu urmărire, iar pe câteva
+  ecrane sunt singura care există.
+
 - **Două copii ale tabelului cu numele lunilor** au intrat în `formatMonthName`, lângă `formatMonth`,
   care e construit pe el.
 
