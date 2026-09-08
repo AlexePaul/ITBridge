@@ -392,7 +392,7 @@ A treia trecere a mai adus opt: cele cinci care ceruseră doar învelișul — `
 `proiecte/index`, `proiecte/grupa/[groupId]`, `profiles/[profileId]/children/new`,
 `children/[childId]/edit` — și cele trei care n-aveau ce muta, fiindcă stările lor trebuiau
 inventate: `profiles/[profileId]/index`, `attendance/children/[childId]`, `invoices/[month]`.
-**35 din 44 de ecrane sunt acum pe componente** — numărătoarea de dinainte spunea 25 din 42 și era
+**39 din 44 de ecrane sunt acum pe componente** — numărătoarea de dinainte spunea 25 din 42 și era
 în urmă cu un fișier la fiecare capăt.
 
 **Trei ecrane nu spuneau nimic când încărcarea pica**, și fiecare minte în felul lui. Fișa
@@ -429,12 +429,28 @@ se reproducea identic pe fișierul nemodificat, deci nu venea de acolo. Urma de 
 
 Șters, cu tot cu cele două booleene. Odată plecat, starea de eroare a ecranului chiar se vede.
 
+**Cele patru ecrane de grupe au venit împreună, și două dintre ele chiar salvau de mai multe ori.**
+`groups/new` și `groups/[groupId]/edit` aveau rândul de butoane scris de mână, fără `:loading` —
+exact defectul pentru care `AdminFormActions` cere `loading` în semnătură. Măsurat, cu cererea
+încetinită la patru secunde și șase apăsări: **șase scrieri** înainte, **una** după. Nu e o
+îngrijorare teoretică despre rețele lente; e ce se întâmplă când cineva apasă din nou fiindcă nu
+s-a mișcat nimic pe ecran.
+
+`groups/index` avea `fetchGroups` și `fetchChildren` așteptate direct în `onMounted`, fără `catch` —
+adică aceeași respingere neprinsă ca plugin-ul de mai jos: nu strica lista, ducea toată aplicația în
+pagina de eroare. Are acum încărcare, eroare cu reîncercare, și `AdminEmpty` pe zilele fără grupe.
+
+Iar `groups/[groupId]/children` **a pierdut un rând de butoane care mințea**: „Salvează Modificări"
+arăta „Modificări salvate cu succes" peste o muncă salvată deja — fiecare adăugare și fiecare
+eliminare cheamă API-ul și își dă singură confirmarea —, iar „Anulare" nu anula nimic, doar naviga
+înapoi. Un buton care pretinde că salvează când nu e nimic în așteptare învață cititorul să creadă
+într-o stare nesalvată care nu există. Ieșirea e „Înapoi", din antet, adică fix ce făceau amândouă.
+
 Ce rămâne nu mai e mecanic, și două ecrane cer o schimbare în `AdminPage`, nu în ele:
 `attendance/azi` **n-are titlu dinadins** — navbar-ul îl scrie deja, iar pe telefon un al doilea
 titlu costă exact rândul de sus —, iar `invoices/emitere` stă pe `max-w-4xl` cu `pb-32` pentru bara
-lipită de jos, iar `AdminPage` cunoaște doar `md`, `lg` și `xl`. Restul — `groups/*`,
-`locations/index`, `attendance/group/[groupId]` — au nevoie de stări de încărcare și de eroare
-**inventate**, nu mutate: azi nu randează nimic la eșec, doar un toast care trece.
+lipită de jos, iar `AdminPage` cunoaște doar `md`, `lg` și `xl`. Restul — `locations/index` și `attendance/group/[groupId]` — au nevoie de stări de încărcare și de
+eroare **inventate**, nu mutate: azi nu randează nimic la eșec, doar un toast care trece.
 
 **`AdminDateField` a intrat, a treia trecere.** Cele două formulare de copil lipiseră exemplul din
 documentația Nuxt UI: un `UInputDate` cu un `UPopover` ancorat la `inputsRef?.[3]?.$el` — al

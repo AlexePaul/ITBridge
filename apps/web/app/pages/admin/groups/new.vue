@@ -1,23 +1,9 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Adaugă Grup Nou</h1>
-        <p class="text-muted mt-1">Completează detaliile pentru a crea un nou grup</p>
-      </div>
-      <UButton
-        color="secondary"
-        variant="subtle"
-        class="mr-3 ml-auto flex items-center h-11"
-        size="lg"
-        @click="handleBack"
-      >
-        <UIcon name="i-lucide-arrow-left" class="mr-2" />
-        Înapoi
-      </UButton>
-    </div>
-
+  <AdminPage
+    title="Adaugă grup nou"
+    subtitle="Completează detaliile pentru a crea un nou grup."
+    back-to="/admin/groups"
+  >
     <!-- Form Card -->
     <UCard class="hover:shadow-lg transition-shadow">
       <UForm :schema="schema" :state="state" class="space-y-6" @submit="handleSubmit">
@@ -69,18 +55,10 @@
           </UFormField>
         </div>
 
-        <!-- Actions -->
-        <div class="flex gap-3 pt-6 border-t border-muted justify-center">
-          <UButton type="submit" color="primary" variant="subtle" size="md" class="w-40">
-            Creează Grup
-          </UButton>
-          <UButton color="primary" variant="outline" size="md" class="w-40" @click="handleBack">
-            Anulare
-          </UButton>
-        </div>
+        <AdminFormActions submit-label="Creează grup" cancel-to="/admin/groups" :loading="saving" />
       </UForm>
     </UCard>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
@@ -114,6 +92,7 @@ const { success, error } = useNotifications();
  */
 const dayOptions = WEEKDAYS_IN_ORDER.map((id) => ({ value: id, label: WEEKDAY_LABELS[id] }));
 const groupsApi = useGroupsApi();
+const saving = ref(false);
 
 const locationStore = useLocationStore();
 const locationsApi = useLocationsApi();
@@ -183,11 +162,11 @@ watch(
   }
 );
 
-const handleBack = () => {
-  navigateTo("/admin/groups");
-};
-
 async function handleSubmit(event: FormSubmitEvent<Schema>) {
+  // Without this the button stays live while the request is in flight, and a slow network buys
+  // the school a second group with the same name — the exact failure `AdminFormActions` was
+  // built around.
+  saving.value = true;
   try {
     const payload = {
       name: event.data.name,
@@ -207,6 +186,8 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
     // The composable rethrows now, so this branch is reachable — it used to be dead, and a
     // rejected create still showed "Grup creat cu succes" and navigated away.
     error(apiErrorMessage(err, "Eroare la crearea grupului"));
+  } finally {
+    saving.value = false;
   }
 }
 </script>
