@@ -83,6 +83,7 @@ pnpm lint           # verifică, nu modifică; corectare: pnpm --filter api lint
 pnpm test           # jest pe api, vitest pe web
 pnpm test:e2e       # integrare prin HTTP; cere Postgres pornit
 pnpm test:a11y      # axe-core pe paginile publice, într-un Chromium adevărat; construiește întâi
+pnpm test:a11y:auth # același lucru pe ecranele din spatele autentificării; cere API pornit și seed
 pnpm test:privacy   # aceleași pagini: nicio cerere în afara originii, niciun cookie
 pnpm test:links     # aceleași pagini: fiecare link intern răspunde 200, fragmente incluse
 
@@ -404,6 +405,19 @@ profilul complet atașat. Dacă ai nevoie de o primă condiție, pune-o tot cu `
 `01.auth.global.ts` și `02.profile-setup.global.ts` **ies devreme** dacă flag-ul e fals →
 `apps/web/app/middleware/admin-check.ts` e opt-in, pus explicit pe paginile `/admin/*`. Prefixele numerice
 din numele fișierelor dictează ordinea de execuție; nu le redenumi.
+
+**Un plugin `async` care aruncă duce toată aplicația în pagina de eroare.** O respingere neprinsă la
+boot nu strică ecranul care a cerut, ci **orice** pagină, pentru oricine e autentificat — iar cauza
+nu se vede de pe ecranul stricat. `02.payments.client.ts` a fost exact asta: cerea toate facturile
+la fiecare încărcare de pagină, fără `try`, ca să umple două booleene pe care nu le citea nimeni.
+Șters. Dacă adaugi un plugin care atinge rețeaua, prinde-i eroarea și scrie de ce e în regulă să
+continui fără — cum face `03.profile.client.ts`.
+
+**Iar `useInvoiceApi()` și frații lui își fac câte un `ref` propriu la fiecare apel**, deci ce umple
+un apelant nu se vede din alt apelant. E de ce plugin-ul de mai sus n-avea cum să folosească
+cuiva: fiecare ecran își cheamă oricum propriul `fetch`. Ce se împarte între apelanți sunt doar
+lucrurile declarate la nivel de modul, în afara factory-ului — și alea sunt magazinele Pinia, nu
+composable-urile de API.
 
 Tokenurile trăiesc în cookies (`apps/web/app/stores/tokenStore.ts`). Toate apelurile trec prin
 `apps/web/app/composables/api/useApi.ts`, care face refresh automat pe 401 și de-duplică refresh-urile
@@ -1160,7 +1174,21 @@ Patru lucruri de știut înainte să-l atingi:
   `A11Y_NO_SANDBOX=1` fiindcă sandbox-ul propriu al lui Chromium nu pornește ca root — și nu pică,
   ci **atârnă**, ceea ce costă o jumătate de oră prima dată.
 
-Zona autentificată nu e verificată deloc: se rescrie în E18 S4 și S5 și se verifică atunci.
+**Zona autentificată e sub aceeași poartă, dar într-un job propriu.** `pnpm test:a11y:auth`
+(`apps/web/scripts/check-a11y-auth.mjs`, E18 S6) se autentifică și trece axe peste cele 37 de
+ecrane de admin și de portal, în ambele teme, pe aceleași etichete. Trei lucruri îl deosebesc de cel
+public:
+
+- **Are nevoie de bază de date, seed și un API care răspunde**, fiindcă un ecran fără date pe el nu e
+  ecranul pe care îl folosește cineva. De asta e job separat în CI, cu Postgres al lui — MinIO nu,
+  `seedInvoicePdfs` întreabă dacă S3 e accesibil și sare când nu e.
+- **Originea trebuie trecută în `CORS_ORIGINS`.** Scriptul servește build-ul pe `127.0.0.1:3124`, iar
+  fără linia aia browserul refuză fiecare cerere înainte ca API-ul s-o audă: nu apare nimic în logul
+  lui, iar simptomul arată exact ca o parolă greșită. Scriptul întreabă întâi, cu un singur OPTIONS,
+  și pică imediat cu linia de adăugat — înainte să pornească un browser degeaba.
+- **Rutele vin din `app/pages/`**, cum vin cele publice din sitemap: un ecran nou e verificat fără
+  să-l adauge nimeni a doua oară. Cele cu `[param]` în cale nu se pot vizita fără un id care există,
+  deci sunt tipărite la final cu număr — golul e o cifră, nu o tăcere.
 
 **A doua gardă rulează în același browser: nicio pagină publică nu iese din origine și nu pune
 niciun cookie.** `pnpm test:privacy` (`apps/web/scripts/check-third-party.mjs`, E07 S5) încarcă
