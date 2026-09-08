@@ -3,7 +3,15 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 7 septembrie 2026, pe `release/stage`. **E12 S3/S4 și-au primit ecranul de
+**Ultima actualizare:** 8 septembrie 2026, pe `release/stage`. **A intrat lista de lansare**,
+[`docs/lansare.md`](../lansare.md): cele douăzeci de întrebări obișnuite de dinaintea lansării unui
+site, fiecare cu starea verificată contra codului și cu dovada lângă ea. Cincisprezece sunt livrate
+cu gardă; ce lipsește e bannerul de cookie-uri (E07 S5), textele juridice pe prod (E22 S2),
+verificarea legăturilor (E19 S9, story nou), HSTS de verificat (E01 S5) și analiza de trafic (E19
+S8), în ordinea asta. Cu o zi înainte, **s-a închis E07 S8**, evidența
+contractului de înscriere — jumătatea care lipsea din E11: lista înscrierilor active fără contract
+consemnat, `/admin/contracte`, ușa de consemnat după și insigna „Fără contract" pe fișa copilului și
+pe grupă; E07 trece din `propus` în `în lucru`. În aceeași zi, **E12 S3/S4 și-au primit ecranul de
 birou**, `/admin/absente`: biroul notează absența din telefon, vede lista de luni a copiilor de
 mutat, împăturită pe săptămâni, alege ora dintr-o listă a API-ului și ia o mutare înapoi; cifra celor
 de mutat stă în meniu. Tot atunci, `POST /attendance/absences` a încetat să întoarcă contul
@@ -31,12 +39,12 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **148 de story-uri** în 22 de epicuri: 74 livrate, 19 parțiale, 6 blocate, 12 scoase din
-scop, 37 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **148 de story-uri** în 22 de epicuri: 75 livrate, 19 parțiale, 6 blocate, 12 scoase din
+scop, 36 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale". (Cifrele sunt numărate din rândurile de mai jos. Cele dinainte erau ținute
 de mână și o luaseră razna cu câte unul în patru categorii din cinci.)
 
-Cele 37 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+Cele 36 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
 E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
 mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
@@ -108,7 +116,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
 > află de la părintele care sună.
 
-### E07 · Securitate, GDPR și consimțământ — `propus`
+### E07 · Securitate, GDPR și consimțământ — `în lucru; S8 livrat, restul propus`
 
 - [ ] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface
 - [ ] S2 · Consimțământ parental — granularitate `(părinte, copil, scop)`, decisă
@@ -117,7 +125,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [ ] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2
 - [ ] S6 · Managementul secretelor
 - [ ] S7 · Contracte de prelucrare
-- [ ] S8 · Evidența contractului de înscriere — contractul se semnează fizic; platforma reține doar că există
+- [x] S8 · Evidența contractului de înscriere — contractul se semnează fizic; platforma reține doar că există și din ce zi. Coloana și completarea la înscriere/la confirmarea probei veniseră cu E11 S1; aici s-a livrat acceptanța: `PUT /enrollments/:id/contract` consemnează după (proba e refuzată, n-are contract), `GET /enrollments/without-contract` e lista înscrierilor active fără nimic pe fișă, `/admin/contracte` o arată cu un câmp de dată pe rând, fișa copilului și pagina grupei poartă „Fără contract", tabloul de bord numără. Fără versiune de text: contractul n-are încă a doua versiune
 
 > **Granița cu E22 a fost tăiată pe tip, în septembrie 2026:** aici stă mecanica — inventarul,
 > consimțământul, audit log-ul, exportul și ștergerea, bannerul, secretele, contractele de prelucrare
@@ -283,10 +291,11 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S2 · Date structurate
 - [x] S3 · Pagini locale — livrat pe site, **iar cele două profiluri Google Business sunt create**, unul per adresă
 - [!] S4 · Pagini de modul — așteaptă E10, care e scos din MVP
-- [~] S5 · Performanță — livrat odată cu E18 S2; rămâne confirmarea pe trafic real, care cere domeniul live
+- [~] S5 · Performanță — livrat odată cu E18 S2; rămâne confirmarea pe trafic real — domeniul e live, deci ce lipsește sunt săptămânile de vizite din raportul Core Web Vitals
 - [!] S6 · Conținut — blocat de „cine scrie textele"
 - [x] S7 · Pregătire pentru motoare generative
 - [~] S8 · Măsurare — **Search Console e configurat pe ambele proprietăți**, cu linia de bază consemnată în epic. Analiza de trafic așteaptă consimțământul din E07 S2, nu domeniul
+- [ ] S9 · Legături rupte — un crawler în CI peste paginile din sitemap, lângă verificarea de accesibilitate; a intrat din lista de lansare
 
 > Lucrul cel mai valoros rămas aici nu e cod. Pentru căutările locale, cele două profiluri Google
 > Business contează mai mult decât orice a rămas de scris în repo.
@@ -330,6 +339,10 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
 ## Ce urmează
 
+**Pentru site-ul public**, ce mai stă între azi și o lansare fără rezerve e în
+[`docs/lansare.md`](../lansare.md), punct cu punct: bannerul, textele, legăturile, HSTS, cifra pe
+trafic real, analiza. Restul secțiunii e despre platformă.
+
 **Instanța EC2 există, și stage rulează pe ea.** Portalul părintelui, prezența și facturile sunt de
 azi lucruri pe care le poate deschide cineva, pe `stage.itbridgeschool.com` — pe date de seed, dar
 într-un browser, pe un telefon, la o adresă. Ce rămâne din E01 S4 e producția, iar aia nu se
@@ -360,12 +373,12 @@ Restul deschis e polish cu proprietar clar: migrarea ecranelor rămase din E18 S
 accesibilitate a zonei autentificate din E18 S6, SPF/DKIM/DMARC din E17 S1, conținutul de la E19 S6.
 Niciunul nu blochează pe altcineva.
 
-### E22 · Termeni, confidențialitate și ciclul de viață al datelor — `propus`
+### E22 · Termeni, confidențialitate și ciclul de viață al datelor — `în lucru`
 
 - ~~S1 · Inventarul a ce se stochează~~ — **mutat la E07 S1.** Era același tabel scris de două ori; cel care ajunge sub ochii unei familii ar fi fost tocmai cel rămas în urmă
-- [ ] S2 · Termenii contului și nota de confidențialitate — **condiția de ieșire a platformei**: fără ei nu se deschide accesul familiilor. Absoarbe și textele de vizitator — confidențialitate, cookie-uri — din fostul E07 S5
+- [~] S2 · Termenii contului și nota de confidențialitate — **condiția de ieșire a platformei**: fără ei nu se deschide accesul familiilor. Absoarbe și textele de vizitator — confidențialitate, cookie-uri — din fostul E07 S5. **Ciornă 0.1 în `docs/legal/`**: cele trei texte plus README-ul cu sursa fiecărui fapt; scrise din entități și verificate clauză cu clauză contra legii (tabelul e în README); neverificate de avocat, cu faptele lipsă și deciziile propuse marcate `[[…]]`. **Pagini pe stage**: `/termeni`, `/confidentialitate`, `/cookies`, randate din aceleași fișiere
 - [ ] S3 · Termenul de păstrare, și ștergerea care chiar șterge — perechea ștergerii logice din E04 S5; numărul se scrie aici, îl execută E07 S4
-- [ ] S4 · Evidența acceptărilor, versionată
+- [~] S4 · Evidența acceptărilor — **prima jumătate**: bifa la înregistrare (`acceptedTerms`, refuzată fără), un rând per document în `document_acceptances` cu versiunea, spec care ține constanta egală cu capul fișierului. Rămâne re-acceptarea la versiune nouă și a doua bifă pentru clauzele neuzuale
 
 > Ultimul prin decizie: termenii descriu ce face platforma, deci se scriu după ce platforma nu-și
 > mai schimbă forma. Scris prea devreme, un asemenea document e o minciună întreținută.
