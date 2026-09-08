@@ -8,14 +8,14 @@
 > diferite, iar un inventar ținut în două locuri e exact defectul pe care restul repo-ului îl evită.
 > Împărțirea, din septembrie 2026:
 >
-> | Subiect | Cine îl ține |
-> | --- | --- |
-> | Inventarul câmpurilor | **E07 S1**, o singură dată. E22 îl citește, nu îl reface |
-> | Textele juridice | **E22 S2** — termenii contului, nota de confidențialitate, cookie-urile |
-> | Bannerul care chiar blochează scripturile | **E07 S5** — cod, nu proză |
-> | Consimțământul de publicare | **E07 S2**, pe `(Profile, Child, scop)` |
-> | Ce versiune a acceptat cine, și când | **E22 S4** |
-> | Termenul de păstrare | scris în **E22 S3**, executat de **E07 S4** și [E04](E04-migrari-date.md) S5 |
+> | Subiect                                   | Cine îl ține                                                                 |
+> | ----------------------------------------- | ---------------------------------------------------------------------------- |
+> | Inventarul câmpurilor                     | **E07 S1**, o singură dată. E22 îl citește, nu îl reface                     |
+> | Textele juridice                          | **E22 S2** — termenii contului, nota de confidențialitate, cookie-urile      |
+> | Bannerul care chiar blochează scripturile | **E07 S5** — cod, nu proză                                                   |
+> | Consimțământul de publicare               | **E07 S2**, pe `(Profile, Child, scop)`                                      |
+> | Ce versiune a acceptat cine, și când      | **E22 S4**                                                                   |
+> | Termenul de păstrare                      | scris în **E22 S3**, executat de **E07 S4** și [E04](E04-migrari-date.md) S5 |
 >
 > Regula din care iese tabelul: dacă rezultatul e un document pe care îl citește un părinte, e al
 > E22; dacă rezultatul e un rând, un endpoint sau un script, e al epicului ăstuia.
@@ -94,7 +94,7 @@ datelor e copilul. Fiecare înregistrare are dată, versiune de text acceptat ș
 **Granularitatea doar pe `Profile` nu funcționează**, deși așa era scris aici înainte. Un părinte
 acceptă publicarea pentru cel mare, care e mândru de ce a construit, și o refuză pentru cel mic —
 cazul obișnuit, nu unul de margine. Cu un singur rând pe familie, singurele răspunsuri exprimabile
-sunt „toți copiii" și „niciunul", iar [E14](E14-proiecte-elevi.md) S6 publică *per copil* („prenume
+sunt „toți copiii" și „niciunul", iar [E14](E14-proiecte-elevi.md) S6 publică _per copil_ („prenume
 și inițială, vârstă"), deci ar publica un copil pentru care nu există acord. `Child` există deja ca
 entitate proprie (`apps/api/src/entities/child.entity.ts`), iar consimțământul nu e construit
 nicăieri — o căutare după `consent` în `apps/api/src` nu întoarce nimic. Deci schimbarea costă azi
@@ -298,7 +298,7 @@ câmp pe înscrierea făcută de admin, nu o precondiție pentru ea.
 ## Riscuri
 
 **Consimțământul adăugat după ce proiectele sunt deja publicate e mult mai scump.** Trebuie
-construit *înainte* de [E14](E14-proiecte-elevi.md), nu retrofitat. E motivul pentru care acest
+construit _înainte_ de [E14](E14-proiecte-elevi.md), nu retrofitat. E motivul pentru care acest
 epic apare în pista de fundație și nu la sfârșit.
 
 **Retenția contabilă intră în conflict cu dreptul la ștergere.** Facturile trebuie păstrate ani de
@@ -350,7 +350,7 @@ contul de părinte se aprobă de admin, copilul e înscris de admin, iar contrac
 față. Regula „fără returnare la abandon" din [E15](E15-pricing-facturare.md) rămâne o clauză
 contractuală obișnuită, de validat de avocat ca oricare alta, nu o derogare de la un drept legal.
 Întrebarea se repune în clipa în care apare înscriere sau plată online fără contract semnat înainte —
-atunci contractul redevine încheiat la distanță, iar corectura trebuie făcută *înainte* de
+atunci contractul redevine încheiat la distanță, iar corectura trebuie făcută _înainte_ de
 redactarea termenilor, nu după.
 
 ## Întrebări deschise
