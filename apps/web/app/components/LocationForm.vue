@@ -62,23 +62,10 @@
     </UFormField>
 
     <UFormField name="isActive" label="Stare">
-      <select
-        v-model="state.isActive"
-        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-      >
-        <option :value="true">Activă</option>
-        <option :value="false">Inactivă</option>
-      </select>
+      <USelect v-model="state.isActive" :items="ACTIVE_ITEMS" class="w-full" />
     </UFormField>
 
-    <div class="flex gap-3 pt-6 border-t border-muted justify-center">
-      <UButton type="submit" color="primary" variant="subtle" size="md" class="w-40">
-        {{ submitLabel }}
-      </UButton>
-      <UButton color="primary" variant="outline" size="md" class="w-40" to="/admin/locations">
-        Anulare
-      </UButton>
-    </div>
+    <AdminFormActions :submit-label="submitLabel" cancel-to="/admin/locations" :loading="loading" />
   </UForm>
 </template>
 
@@ -91,9 +78,21 @@ import type { Location } from "~/types/location.types";
  * Shared by the create and the edit page, so the two cannot validate differently — which is how
  * the group forms in this app ended up with three copies of the weekday list, two of them wrong.
  */
+/**
+ * The last native `<select>` in the admin area went from here — it carried a hand-written
+ * `border-gray-300`, so it stayed light grey in the dark theme beside fields that changed. Same
+ * fix as the four in `groups/*` and `locations/index`: `USelect`, which reads the theme.
+ */
+const ACTIVE_ITEMS = [
+  { label: "Activă", value: true },
+  { label: "Inactivă", value: false },
+];
+
 const props = defineProps<{
   initial?: Location | null;
   submitLabel: string;
+  /** Held by the page, because the page is what knows when the request finishes. */
+  loading?: boolean;
 }>();
 
 const emit = defineEmits<{ submit: [payload: Record<string, unknown>] }>();

@@ -5,7 +5,12 @@
     back-to="/admin/locations"
   >
     <UCard v-if="location" class="hover:shadow-lg transition-shadow">
-      <LocationForm :initial="location" submit-label="Salvează" @submit="handleSubmit" />
+      <LocationForm
+        :initial="location"
+        submit-label="Salvează"
+        :loading="saving"
+        @submit="handleSubmit"
+      />
     </UCard>
 
     <AdminLoading v-else />
@@ -29,6 +34,7 @@ const route = useRoute();
 const { success, error } = useNotifications();
 const locationStore = useLocationStore();
 const locationsApi = useLocationsApi();
+const saving = ref(false);
 
 const locationId = Number(route.params.locationId);
 const location = ref<Location | null>(null);
@@ -53,12 +59,17 @@ onMounted(async () => {
 });
 
 async function handleSubmit(payload: Record<string, unknown>) {
+  // Third instance of the same defect as the two group forms: without this the button stays live
+  // while the write is in flight, and a second press is a second location.
+  saving.value = true;
   try {
     await locationsApi.updateLocation(locationId, payload);
     success("Locație actualizată");
     await navigateTo("/admin/locations");
   } catch (err: unknown) {
     error(apiErrorMessage(err, "Eroare la actualizarea locației"));
+  } finally {
+    saving.value = false;
   }
 }
 </script>

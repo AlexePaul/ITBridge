@@ -1,34 +1,35 @@
 <template>
-  <div class="w-full max-w-7xl mx-auto px-4 py-6 space-y-8">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold">Locații și săli</h1>
-        <p class="text-muted mt-1">
-          Adresele școlii și sălile din fiecare. O grupă se ține într-o sală, iar locația rezultă
-          din ea.
-        </p>
-      </div>
+  <AdminPage
+    title="Locații și săli"
+    subtitle="Adresele școlii și sălile din fiecare. O grupă se ține într-o sală, iar locația rezultă din ea."
+    width="xl"
+  >
+    <template #actions>
       <UButton
         color="secondary"
         variant="subtle"
-        class="ml-auto flex items-center h-11"
-        size="lg"
+        icon="i-lucide-plus"
+        class="min-h-11"
         to="/admin/locations/new"
       >
-        <UIcon name="i-lucide-plus" class="mr-2" />
         Adaugă locație
       </UButton>
-    </div>
+    </template>
 
-    <!-- Empty state -->
-    <div
-      v-if="locationStore.locations.length === 0"
-      class="text-center py-12 border border-dashed border-muted rounded-lg"
-    >
-      <UIcon name="i-lucide-map-pin-off" class="mx-auto text-4xl text-muted mb-3" />
-      <p class="text-muted">Nu există nicio locație încă.</p>
-    </div>
+    <AdminLoading v-if="loading" />
+
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
+
+    <!--
+      The empty state only after a load that worked. It used to sit on `locations.length === 0`
+      alone, with the failure reported by a toast that passes — so an unreachable API read as
+      "the school has no locations", on the screen where somebody would go to add one.
+    -->
+    <AdminEmpty
+      v-else-if="locationStore.locations.length === 0"
+      title="Nu există nicio locație încă."
+      icon="i-lucide-map-pin-off"
+    />
 
     <!-- One card per location, with its rooms -->
     <div v-else class="space-y-6">
@@ -178,7 +179,7 @@
         </div>
       </UCard>
     </div>
-  </div>
+  </AdminPage>
 </template>
 
 <script setup lang="ts">
@@ -211,6 +212,8 @@ const ROOM_STATE_ITEMS = [
 
 const { success, error } = useNotifications();
 const locationStore = useLocationStore();
+const loading = ref(true);
+const loadError = ref<string | null>(null);
 const locationsApi = useLocationsApi();
 const roomsApi = useRoomsApi();
 
@@ -243,14 +246,21 @@ const ensureDrafts = () => {
   }
 };
 
-onMounted(async () => {
+const load = async () => {
+  loading.value = true;
+  loadError.value = null;
   try {
     await Promise.all([locationsApi.fetchLocations(), roomsApi.fetchRooms()]);
   } catch (err: unknown) {
-    error(apiErrorMessage(err, "Eroare la încărcarea locațiilor"));
+    loadError.value = apiErrorMessage(err, "Nu am putut încărca locațiile.");
+    return;
+  } finally {
+    loading.value = false;
   }
   ensureDrafts();
-});
+};
+
+onMounted(load);
 
 watch(() => locationStore.locations.length, ensureDrafts);
 
