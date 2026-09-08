@@ -34,10 +34,13 @@
                   </UBadge>
                 </div>
                 <template v-if="String(child?.group?.id) !== groupId">
+                  <!-- The child's name in the label: on a register of ten, ten "Scoate" sound
+                       identical in a screen reader's list of controls. -->
                   <UButton
                     icon="i-lucide-x"
                     variant="ghost"
                     color="warning"
+                    :aria-label="`Scoate pe ${child.firstName} ${child.lastName} din catalog`"
                     @click="removeChildFromList(child.id)"
                   />
                 </template>
@@ -48,16 +51,21 @@
                 <span class="inline-block text-lg">{{
                   child.firstName + " " + child.lastName
                 }}</span>
+                <!--
+                  The child's name is the switch's accessible name (E18/S6). "Prezent" sat in the
+                  default slot, which `USwitch` does not use as a label, so the most important
+                  control on this screen announced itself as "switch, checked" and nothing else —
+                  ten identical toggles, on the one screen a teacher marks a whole group from.
+                -->
                 <USwitch
+                  v-model="attendanceData[String(child.id)]"
                   unchecked-icon="i-lucide-x"
                   checked-icon="i-lucide-check"
                   class="inline-block"
                   size="lg"
                   color="success"
-                  v-model="attendanceData[String(child.id)]"
-                >
-                  Prezent</USwitch
-                >
+                  :aria-label="`Prezent: ${child.firstName} ${child.lastName}`"
+                />
               </div>
             </template>
           </UCard>
@@ -103,10 +111,24 @@
         </UCard>
         <!-- Dropdown Results (outside card) -->
       </div>
-    </template>
-    <template #footer>
+
+      <!--
+        The register's footer, back where it renders — E18/S6.
+
+        This block was `<template #footer>` of the `<UCard>` that used to wrap the page. S5b
+        replaced that wrapper with `<AdminPage>`, which has only `#actions` and a default slot, so
+        from that day the slot named nothing: Vue dropped the session picker, the "generate the
+        schedule" escape hatch and the **Salvează Prezența** button without a word, and a teacher
+        could mark a whole group and had no way to save it.
+
+        A slot that matches nothing is silent by design, which is why nothing failed — no test, no
+        typecheck, no accessibility rule. Content that is absent has no contrast and no missing
+        label. It took walking the screen the way a teacher does to see the button was not there.
+      -->
       <div class="flex items-end gap-4 w-1/2 mx-auto mt-4">
         <div class="flex-1">
+          <!-- The visible label is a bare `<label>` with no `for`, so it names nothing as far as
+               the combobox is concerned; the accessible name has to be said outright. -->
           <label class="text-sm font-semibold mb-2 block">Ora de curs</label>
           <USelectMenu
             v-model="selectedSessionId"
@@ -114,6 +136,7 @@
             value-key="value"
             label-key="label"
             placeholder="Selectează ora de curs..."
+            aria-label="Ora de curs"
             class="w-full"
           />
           <div v-if="sessionOptions.length === 0" class="mt-2 space-y-2">

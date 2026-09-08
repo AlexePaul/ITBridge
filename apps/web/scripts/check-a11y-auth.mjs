@@ -67,19 +67,85 @@ function pageFiles(dir) {
   return out;
 }
 
+/** Every screen, as a route path — `[param]` segments still in place. */
+function allRoutes() {
+  const out = [];
+  for (const area of AREAS) {
+    for (const file of pageFiles(join(PAGES_ROOT, area)).sort()) {
+      out.push("/" + file.replace(/\.vue$/, "").replace(/\/index$/, ""));
+    }
+  }
+  return out;
+}
+
+/**
+ * Where each `[param]` gets a value that exists.
+ *
+ * A screen that takes an id cannot be visited blind, and inventing one checks an error page rather
+ * than the screen. Fourteen of them were simply listed as uncovered — honest, but
+ * `/admin/children/[childId]/edit` is opened every day, so "we do not check the ones people use"
+ * is a poor place to stop. Asking the API for one real id each turns the whole set into ordinary
+ * screens.
+ *
+ * The first row of each collection, not a random one: a run that checks a different screen every
+ * time reports a different answer every time, and the first failure would be unreproducible.
+ */
+const PARAM_SOURCES = {
+  childId: { path: "/children", read: (row) => row.id },
+  groupId: { path: "/groups", read: (row) => row.id },
+  profileId: { path: "/profiles", read: (row) => row.id },
+  locationId: { path: "/locations", read: (row) => row.id },
+  invoiceId: { path: "/invoices", read: (row) => row.id },
+  month: { path: "/invoices", read: (row) => row.monthIssued },
+};
+
+async function resolveParams() {
+  const apiBase = process.env.API_BASE;
+  const auth = await fetch(`${apiBase}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: USERNAME, password: PASSWORD }),
+  });
+  if (!auth.ok) throw new Error(`Signing in to read sample ids answered ${auth.status}.`);
+  const { accessToken } = await auth.json();
+
+  const collections = new Map();
+  const values = {};
+  for (const [param, { path, read }] of Object.entries(PARAM_SOURCES)) {
+    if (!collections.has(path)) {
+      const res = await fetch(`${apiBase}${path}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      collections.set(path, res.ok ? await res.json() : []);
+    }
+    const rows = collections.get(path);
+    const value = Array.isArray(rows) && rows.length ? read(rows[0]) : undefined;
+    if (value !== undefined && value !== null) values[param] = String(value);
+  }
+  return values;
+}
+
 /**
  * The screens, split into the ones a URL can be built for and the ones it cannot.
  *
- * `admin/groups/[groupId]/edit.vue` needs a group that exists; `admin/children/index.vue` needs
- * nothing. Only the second kind can be visited blind.
+ * A path stays uncovered only when its parameter has no value to stand in — an empty seed, or a
+ * `[param]` nothing in `PARAM_SOURCES` knows about. Either way it is named and counted rather than
+ * dropped, so the gap is a number somebody can read.
  */
-function routes() {
+function routes(params) {
   const visitable = [];
   const parameterised = [];
-  for (const area of AREAS) {
-    for (const file of pageFiles(join(PAGES_ROOT, area)).sort()) {
-      const path = "/" + file.replace(/\.vue$/, "").replace(/\/index$/, "");
-      (path.includes("[") ? parameterised : visitable).push(path);
+  for (const route of allRoutes()) {
+    const names = [...route.matchAll(/\[(\w+)\]/g)].map((m) => m[1]);
+    if (names.length === 0) {
+      visitable.push({ route, path: route });
+      continue;
+    }
+    if (names.every((name) => params[name])) {
+      const path = names.reduce((acc, name) => acc.replace(`[${name}]`, params[name]), route);
+      visitable.push({ route, path });
+    } else {
+      parameterised.push(route);
     }
   }
   return { visitable, parameterised };
@@ -163,16 +229,29 @@ async function violationsOn(context, base, path) {
       throw new Error(`${path} answered ${response ? response.status() : "nothing"}`);
     }
     // These screens fetch after hydration and render nothing until the answer arrives, so the wait
-    // is for the network to go quiet rather than for `load`.
-    //
-    // **The swallowed timeout is a known hole.** A screen that never settles gets measured with
-    // nothing on it, and nothing has no violations, so it would report `ok` and mean it. Closing it
-    // needs an assertion that the screen actually rendered — and the obvious one, looking for
-    // `AdminLoading`, could not be shown to fire: every attempt to construct a genuinely stuck
-    // screen ended with the app deciding the session was gone and redirecting to the login page
-    // instead. An unproven guard here would be the same shape of green it is meant to catch, so
-    // the hole is written down rather than papered over.
+    // is for the network to go quiet rather than for `load`. The timeout is swallowed because a
+    // slow screen is still worth measuring — and the check below is what makes that safe.
     await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+
+    // A screen still on `AdminLoading` has nothing on it, and nothing has no violations: it would
+    // report `ok` and mean it, which is the one shape of green this file exists to avoid.
+    //
+    // **Shown to fire before being trusted.** Hanging one endpoint — the promise never resolves,
+    // rather than failing, which would draw the error card instead — leaves `/admin/children` on
+    // "Se încarcă…" with zero rows, and the predicate returns true. Two earlier attempts blocked
+    // every call instead, which took the token refresh with them: the app decided the session was
+    // gone, redirected to the login page, and the predicate was only ever observed returning false.
+    // A guard that has only been seen not firing is not a guard.
+    const stillLoading = await page.evaluate(() =>
+      [...document.querySelectorAll('[role="status"]')].some((el) =>
+        /Se încarcă/.test(el.textContent ?? "")
+      )
+    );
+    if (stillLoading) {
+      throw new Error(
+        `${path} was still loading after 15s, so there was nothing on it to check. A screen that renders no content cannot fail an accessibility rule — reporting it as ok would be the check reporting on itself.`
+      );
+    }
 
     await page.addScriptTag({ content: AXE_SOURCE });
     return await page.evaluate(async (tags) => {
@@ -237,7 +316,8 @@ async function assertApiAcceptsOrigin(origin) {
 }
 
 async function main() {
-  const { visitable, parameterised } = routes();
+  const params = await resolveParams();
+  const { visitable, parameterised } = routes(params);
   if (visitable.length === 0) {
     throw new Error(
       "No authenticated screens were found under app/pages/admin or app/pages/user, so there is nothing to check — that is itself a failure."
@@ -262,9 +342,11 @@ async function main() {
     for (const colorScheme of ["light", "dark"]) {
       const context = await browser.newContext({ colorScheme, reducedMotion: "reduce" });
       await signIn(context, base);
-      for (const path of visitable) {
+      for (const { route, path } of visitable) {
         const violations = await violationsOn(context, base, path);
-        const label = `${path} (${colorScheme})`;
+        // The route, not the resolved path: `/admin/children/[childId]/edit` is the thing that
+        // failed, and the id it happened to be checked with is noise in a diff.
+        const label = `${route} (${colorScheme})`;
         if (violations.length === 0) {
           console.log(`  ok  ${label}`);
           continue;
@@ -290,9 +372,11 @@ async function main() {
     stop();
   }
 
-  console.log(
-    `\n${parameterised.length} screen(s) take a parameter and are not visited: ${parameterised.join(", ")}`
-  );
+  if (parameterised.length > 0) {
+    console.log(
+      `\n${parameterised.length} screen(s) have a parameter nothing could stand in for, and were not visited: ${parameterised.join(", ")}`
+    );
+  }
 
   if (failures > 0) {
     console.error(

@@ -106,6 +106,7 @@
             v-model="transferTargetId"
             :items="transferOptions"
             placeholder="Mută în altă grupă…"
+            aria-label="Grupa în care se mută copilul"
             class="flex-1"
           />
           <UButton

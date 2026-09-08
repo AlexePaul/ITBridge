@@ -19,13 +19,19 @@
       </div>
     </div>
 
+    <!--
+      On the theme's error token, not raw Tailwind reds (E18/S6). `text-red-600` on `bg-red-50`
+      measured 4.36:1 and `text-red-500` less — close enough to look fine and not close enough to
+      read. `text-error` follows `--ui-error`, which S6 moved off its ramp's 500, so this line
+      moves with the rest of the admin area instead of drifting on its own.
+    -->
     <div
       v-else-if="error"
-      class="flex items-center justify-center h-96 bg-red-50 rounded-lg border border-red-200"
+      class="flex items-center justify-center h-96 bg-error/10 rounded-lg border border-error/25"
     >
       <div class="text-center">
-        <p class="text-red-600 font-semibold">Eroare la încărcarea facturii</p>
-        <p class="text-red-500 mt-2">{{ error }}</p>
+        <p class="text-error font-semibold">Eroare la încărcarea facturii</p>
+        <p class="text-error mt-2">{{ error }}</p>
       </div>
     </div>
 
