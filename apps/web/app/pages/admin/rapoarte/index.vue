@@ -171,7 +171,7 @@
             :columns="groupColumns"
             empty-text="Nicio grupă activă."
             empty-icon="i-lucide-users-round"
-            @row-click="(row) => navigateTo(`/admin/groups/${row.groupId}/children`)"
+            :to="(row) => `/admin/groups/${row.groupId}/children`"
           />
         </section>
 
@@ -293,7 +293,7 @@
             :rows="signals.children"
             :columns="childColumns"
             empty-text="Niciun copil."
-            @row-click="(row) => navigateTo(`/admin/groups/${row.groupId}/children`)"
+            :to="(row) => `/admin/groups/${row.groupId}/children`"
           />
         </section>
 
@@ -305,7 +305,7 @@
             :rows="signals.groups"
             :columns="groupSignalColumns"
             empty-text="Nicio grupă."
-            @row-click="(row) => navigateTo(`/admin/groups/${row.groupId}/children`)"
+            :to="(row) => `/admin/groups/${row.groupId}/children`"
           />
         </section>
 
@@ -317,7 +317,7 @@
             :rows="signals.families"
             :columns="familyColumns"
             empty-text="Nicio familie."
-            @row-click="() => navigateTo('/admin/restante')"
+            :to="() => '/admin/restante'"
           />
         </section>
 
@@ -329,7 +329,7 @@
             :rows="signals.underfilled"
             :columns="underfilledColumns"
             empty-text="Nicio grupă."
-            @row-click="(row) => navigateTo(`/admin/groups/${row.groupId}/children`)"
+            :to="(row) => `/admin/groups/${row.groupId}/children`"
           />
         </section>
 

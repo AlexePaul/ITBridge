@@ -63,15 +63,27 @@
     <AdminEmpty v-else-if="groups.length === 0" title="Nu există grupe active." />
 
     <div v-else class="grid gap-3 sm:grid-cols-2">
+      <!--
+        Cardul e o legătură, nu un `div` cu `@click` (E18/S6). Așa era: nimic din ecranul ăsta —
+        coada de documente pe care E17/S8 o numără în meniu — nu se putea deschide din tastatură,
+        fiindcă un `div` care ascultă clicuri nu primește focus și nu răspunde la Enter. Nu-l
+        raportează nicio regulă axe: pentru un verificator automat, `div`-ul ăla e text. Ce s-a
+        văzut a fost consecința — panoul care derulează fără nimic focusabil înăuntru.
+        Legătura se întinde peste tot cardul prin `after`, deci mouse-ul lucrează la fel ca înainte.
+      -->
       <UCard
         v-for="group in groups"
         :key="group.id"
-        class="border hover:border-primary transition-colors cursor-pointer"
-        @click="open(group.id)"
+        class="border hover:border-primary transition-colors relative"
       >
         <div class="flex items-center justify-between gap-3">
           <div class="min-w-0">
-            <p class="font-semibold truncate">{{ group.name }}</p>
+            <NuxtLink
+              :to="`/admin/proiecte/grupa/${group.id}`"
+              class="font-semibold truncate block rounded-xs hover:underline after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              {{ group.name }}
+            </NuxtLink>
             <p class="text-sm text-muted truncate">
               {{ group.room?.location?.name }} · {{ group.room?.name }}
             </p>
@@ -102,7 +114,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
 import { useProjectsApi } from "~/composables/api/useProjectsApi";
 import { isAgentStale, lastSeenLabel, useAgentApi } from "~/composables/api/useAgentApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
@@ -127,7 +138,6 @@ definePageMeta({
   title: "Proiectele elevilor",
 });
 
-const router = useRouter();
 const { fetchPendingProjects } = useProjectsApi();
 const { fetchStatuses, fetchUnassigned, resolveUnassigned } = useAgentApi();
 const { fetchGroups } = useGroupsApi();
@@ -233,10 +243,6 @@ async function resolve(file: UnassignedFile) {
   } finally {
     resolving.value = null;
   }
-}
-
-function open(groupId: number) {
-  void router.push(`/admin/proiecte/grupa/${groupId}`);
 }
 
 onMounted(load);

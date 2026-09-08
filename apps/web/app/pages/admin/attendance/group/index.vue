@@ -9,17 +9,36 @@
       <form @submit.prevent="handleSubmit" class="space-y-6">
         <!-- Group Selection Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!--
+            Alegi una dintre grupe, deci sunt butoane radio — nu `div`-uri cu `@click`, care nu
+            primesc focus și nu răspund la tastatură (E18/S6). Ecranul ăsta e primul pas al
+            marcării prezenței, iar înainte nu se putea face niciunul din tastatură. Butonul e
+            ascuns vizual, nu scos din pagină: `sr-only` îl lasă focusabil și citibil, iar cardul
+            rămâne exact ce se vede. Cu radio, săgețile trec de la o grupă la alta — comportamentul
+            pe care îl așteaptă cineva care alege una dintr-o listă.
+          -->
           <template v-for="group in selectableGroups" :key="group.id">
-            <div class="cursor-pointer" @click="groupId = group.id">
-              <GroupCard
-                :group="group"
-                :occupancy="occupancyByGroup.get(group.id)"
-                :show-edit="false"
-                :show-manage-children="false"
-                :show-weekday="true"
-                :is-selected="groupId === group.id"
+            <label class="block cursor-pointer">
+              <input
+                v-model="groupId"
+                type="radio"
+                name="attendance-group"
+                :value="group.id"
+                class="sr-only peer"
               />
-            </div>
+              <span
+                class="block rounded-lg peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2"
+              >
+                <GroupCard
+                  :group="group"
+                  :occupancy="occupancyByGroup.get(group.id)"
+                  :show-edit="false"
+                  :show-manage-children="false"
+                  :show-weekday="true"
+                  :is-selected="groupId === group.id"
+                />
+              </span>
+            </label>
           </template>
         </div>
         <!-- Submit Button -->

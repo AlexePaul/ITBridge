@@ -29,7 +29,7 @@
         empty-icon="i-lucide-receipt"
         empty-text="Nicio factură încă."
         empty-description="Prima lună apare aici după prima emitere."
-        @row-click="(month) => navigateTo(`/admin/invoices/${month.month}`)"
+        :to="(month) => `/admin/invoices/${month.month}`"
       />
 
       <p class="text-muted text-xs">

@@ -3,10 +3,8 @@
 **Status:** în lucru · **Pistă:** Public · **Depinde de:** E03 · **Blochează:** E19, E20
 
 **Livrate:** S1 (fundația de design), S2 (pipeline de imagini), S3 (paginile publice), S4 (portalul
-părintelui) și S7 (interfața profesorului), plus jumătatea din CI a lui S6 — verificarea automată de
-accesibilitate, pe paginile publice, în ambele teme. **Rămân:** S5 și restul lui S6, plus verificarea
-lui S4 pe date reale. Nimic din zona de după autentificare nu se poate demonstra până nu rulează un
-backend — vezi [E01](E01-infrastructura-medii.md), S4.
+părintelui), S6 (accesibilitatea, acum și în spatele autentificării) și S7 (interfața profesorului).
+**Rămâne:** S5, plus verificarea lui S4 pe date reale.
 
 > ## Cerut de școală: rescrierea întregii zone de după login
 >
@@ -64,12 +62,12 @@ plecat:
   nu au fost atinse de rescriere și nu sunt cablate la un backend care rulează.**
 - **Zona de admin e inconsecventă.** 44 de ecrane construite în momente diferite, cu tipare
   diferite de tabel, filtrare, formular și mesaj de eroare. Nerezolvat.
-- **Accesibilitate neverificată.** Rezolvat pe paginile publice: contrastul e conform AA
+- ~~**Accesibilitate neverificată.**~~ Rezolvat pe paginile publice: contrastul e conform AA
   (butoanele și legăturile folosesc `--color-accent-ink`, marginile de control un token separat la
   3:1), există legătură „Sari la conținut”, erorile de formular sunt legate prin `aria-describedby`
   și carusel are rol și etichete — iar din S6 **verificarea automată rulează în CI**, cu axe-core
-  într-un Chromium adevărat, pe fiecare pagină din sitemap și în ambele teme. Rămâne zona
-  autentificată, neverificată deloc: se face odată cu S4 și S5.
+  într-un Chromium adevărat, pe fiecare pagină din sitemap și în ambele teme. Zona autentificată a
+  intrat sub aceeași poartă: `pnpm test:a11y:auth`, un job propriu, 37 de ecrane, ambele teme.
 - **Fără stări de încărcare și eroare coerente.** `NotificationContainer` există; nu e clar că e
   folosit consecvent. Nerezolvat în zona autentificată.
 - ~~**Fără mod întunecat**, deși @nuxt/ui îl suportă din start.~~ Paleta întunecată e definită în
@@ -488,7 +486,7 @@ de patru ori mai lat decât iconița din exemplu. Cele două formulare au primit
 `AdminFormActions`, deci `loading` pe salvare; shell-urile lor și istoricul înscrierilor din
 `children/edit` rămân de migrat, așa că numărătoarea nu se mișcă.
 
-### S6 · Accesibilitate — livrat parțial (verificarea automată, livrată)
+### S6 · Accesibilitate — livrat
 
 Contrast conform WCAG AA, navigare completă din tastatură, focus vizibil, etichete și roluri ARIA,
 text alternativ pe imagini semnificative. Verificare automată în CI.
@@ -535,10 +533,46 @@ mod în care verificarea ar fi putut fi verde degeaba:
 pe care story-ul a schimbat-o — verificarea cade pe fiecare pagină publică, în tema
 deschisă, cu 2,61:1 și numele elementului. Cu el la loc, trece.
 
-**Ce rămâne:** zona autentificată, neverificată deloc. Acceptanța cere și portalul, iar portalul se
-rescrie în S4 și S5 — se verifică atunci, nu înainte, fiindcă altfel s-ar cimenta ecranele pe care
-școala le-a cerut refăcute. Jumătatea de tastatură a acceptanței rămâne manuală: axe verifică ce e
-în DOM, nu ce se întâmplă când cineva apasă Tab de douăzeci de ori.
+**Zona autentificată, măsurată și trecută sub aceeași poartă.** S4 și S5 au rescris ecranele, deci
+verificarea nu mai cimentează nimic. `pnpm test:a11y:auth` — `apps/web/scripts/check-a11y-auth.mjs`,
+un job propriu în CI — se autentifică și trece axe peste **37 de ecrane** de admin și de portal, în
+ambele teme, pe aceleași etichete WCAG. Prima rulare a găsit **80 de încălcări**, și niciuna nu era
+a ecranului pe care apărea:
+
+- **Șase jetoane de culoare Nuxt UI stăteau pe 500-ul rampei lor.** `--ui-primary` fusese reparat la
+  S7; `--ui-secondary` arată spre aceeași rampă de aur și a scăpat neatins, iar cele patru culori
+  semantice nu se uitase nimeni la ele. 500 e putere de chenar, nu de propoziție: insigna `#id` de pe
+  fiecare card de grupă citea la 2,40:1, stările de livrare din `/admin/livrari` la 3,02:1. Fiecare
+  arată acum cu un pas mai jos, iar tema închisă face pasul în oglindă; `success` și `warning` fac
+  doi, fiindcă o insignă „soft" își desenează fundalul din același ton, deci întunecarea textului
+  întunecă și pământul de sub el.
+- **`.cal-day-outside` era o spălăcire de 35%, la 2,12:1** — zilele din lunile vecine din calendarul
+  de prezență, pe ecranul pe care un părinte îl deschide ca să vadă când a venit copilul.
+- **Patru comenzi fără nume accesibil**, dintre care una era un `⋮` fără handler, fără emit și fără
+  meniu: ștearsă, nu etichetată. Un buton mort cu nume e mai rău decât unul fără — cititorul de ecran
+  îl anunță, cineva îl apasă, și tot nu se întâmplă nimic.
+- **Rândurile lui `AdminTable` erau butoane care conțineau butoane.** Un singur `@select` pe `UTable`
+  pune `role="button" tabindex="0"` pe fiecare `<tr>`, iar asta cumpăra trei defecte deodată:
+  `nested-interactive`, o oprire de tab care nu putea fi acționată — un `<tr>` nu primește Enter pe
+  gratis, cum primește un buton adevărat — și un rol care nu spunea nimic despre unde duce. Toate
+  cele cinci apeluri navigau, deci `:to` înlocuiește emit-ul și prima celulă devine o legătură
+  adevărată, întinsă peste rând ca mouse-ul să nu piardă nimic.
+
+**Jumătatea de tastatură a acceptanței a găsit ce nu vede axe.** Patru comenzi erau `div`-uri cu
+`@click`: cardurile de grupă din `/admin/proiecte` — coada de documente pe care E17/S8 o numără în
+meniu —, rezultatele căutării din `/admin/attendance/children`, grila de selecție a grupei și
+cardurile de adăugare a unui copil. Un `div` care ascultă clicuri nu primește focus și nu răspunde
+la Enter, iar **nicio regulă axe nu-l raportează**: pentru un verificator automat e text. Ce s-a
+văzut a fost consecința, pe un singur ecran — panoul care derulează fără nimic focusabil înăuntru.
+Fiecare a devenit ce era de fapt: legătură unde se navighează, buton unde se acționează, și un grup
+de butoane radio acolo unde se alege una dintre grupe, ca săgețile să funcționeze. Verificat cu
+tastatura, într-un browser adevărat: cardul de grupă se deschide cu Enter, săgeata mută alegerea de
+la o grupă la alta și trimiterea o urmează.
+
+**Ce rămâne:** cele 14 ecrane care primesc un parametru — nu se pot vizita fără un id care există,
+iar unul inventat ar verifica pagina de eroare. Scriptul le tipărește la final, cu număr, ca golul
+să fie o cifră citibilă, nu o tăcere. Și restul acceptanței de tastatură: axe verifică ce e în DOM,
+nu ce se întâmplă când cineva apasă Tab de douăzeci de ori.
 
 ### S7 · Interfața profesorului — livrat
 

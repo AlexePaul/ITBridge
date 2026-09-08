@@ -84,6 +84,13 @@
       "dependsOn": ["build"],
       "cache": false
     },
+    // The same gate as `test:a11y`, on the screens behind the login (E18/S6). The one difference
+    // that matters is not visible here: it needs an API that answers and a database with the seed
+    // in it, so it runs in the job that already has Postgres rather than beside the other three.
+    "test:a11y:auth": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
     "dev": {
       "cache": false,
       "persistent": true,

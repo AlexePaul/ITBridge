@@ -39,7 +39,7 @@
       :empty-description="
         search ? 'Încearcă alt nume, telefon sau email.' : 'Copiii apar aici după înregistrare.'
       "
-      @row-click="(child) => navigateTo(`/admin/children/${child.id}/edit`)"
+      :to="(child) => `/admin/children/${child.id}/edit`"
     />
   </AdminPage>
 </template>
