@@ -409,10 +409,25 @@ o deschizi ca să verifici dacă o familie a fost facturată.
 Toate trei au acum încărcare, eroare cu reîncercare, și — la fișa familiei — un „nu există"
 deosebit de „n-am putut citi": un 404 e un răspuns, un API inaccesibil nu.
 
-**Rămâne o întrebare deschisă pe `invoices/[month]`:** sub o injecție de eroare, ruta ajunge la
-pagina generică de 500 a lui Nuxt înainte să se vadă starea nouă. Se reproduce identic pe fișierul
-nemodificat, deci nu vine de la schimbarea asta; sunt **două** cereri `/invoices` pe acea rută, iar
-pagina face una singură. Cine o face pe a doua, și de ce scapă neprinsă, n-a fost găsit.
+**A doua cerere `/invoices` a fost găsită, și era un plugin.** Sub o injecție de eroare,
+`invoices/[month]` ajungea la pagina generică de 500 a lui Nuxt înainte să se vadă starea nouă —
+se reproducea identic pe fișierul nemodificat, deci nu venea de acolo. Urma de stivă a arătat cine:
+`plugins/02.payments.client.ts`, care cerea **toate facturile la fiecare încărcare de pagină**, ca
+`async` fără `try`. Trei lucruri despre el, în ordinea în care sunt grave:
+
+- **Rezultatul nu era citit de nimeni.** `fetchInvoices` umple un `invoices` declarat _înăuntrul_
+  lui `useInvoiceApi()`, deci fiecare apelant are propriul ref: cel umplut de plugin nu era vizibil
+  din nicio pagină. Restul muncii lui erau două booleene la nivel de modul, `overdueInvoices` și
+  `pendingInvoices`, scrise în trei locuri și **citite în zero** — `useLogout` doar le punea pe
+  `false`. Un ecran care le-ar fi afișat n-a existat niciodată.
+- **Fără `catch`, ducea toată aplicația în pagina de eroare.** Un plugin `async` care aruncă e o
+  respingere neprinsă la boot, deci un `/invoices` picat nu strica ecranul facturilor, ci **orice
+  pagină**, pentru oricine e autentificat. Vecinul lui, `03.profile.client.ts`, prinde și explică
+  de ce — ăsta era singurul care nu.
+- **Pentru un admin, `GET /invoices` întoarce facturile tuturor familiilor.** Adică tot tabelul
+  trecea prin browser la fiecare navigare, ca să nu fie citit.
+
+Șters, cu tot cu cele două booleene. Odată plecat, starea de eroare a ecranului chiar se vede.
 
 Ce rămâne nu mai e mecanic, și două ecrane cer o schimbare în `AdminPage`, nu în ele:
 `attendance/azi` **n-are titlu dinadins** — navbar-ul îl scrie deja, iar pe telefon un al doilea

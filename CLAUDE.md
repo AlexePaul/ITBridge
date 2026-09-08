@@ -405,6 +405,19 @@ profilul complet atașat. Dacă ai nevoie de o primă condiție, pune-o tot cu `
 `apps/web/app/middleware/admin-check.ts` e opt-in, pus explicit pe paginile `/admin/*`. Prefixele numerice
 din numele fișierelor dictează ordinea de execuție; nu le redenumi.
 
+**Un plugin `async` care aruncă duce toată aplicația în pagina de eroare.** O respingere neprinsă la
+boot nu strică ecranul care a cerut, ci **orice** pagină, pentru oricine e autentificat — iar cauza
+nu se vede de pe ecranul stricat. `02.payments.client.ts` a fost exact asta: cerea toate facturile
+la fiecare încărcare de pagină, fără `try`, ca să umple două booleene pe care nu le citea nimeni.
+Șters. Dacă adaugi un plugin care atinge rețeaua, prinde-i eroarea și scrie de ce e în regulă să
+continui fără — cum face `03.profile.client.ts`.
+
+**Iar `useInvoiceApi()` și frații lui își fac câte un `ref` propriu la fiecare apel**, deci ce umple
+un apelant nu se vede din alt apelant. E de ce plugin-ul de mai sus n-avea cum să folosească
+cuiva: fiecare ecran își cheamă oricum propriul `fetch`. Ce se împarte între apelanți sunt doar
+lucrurile declarate la nivel de modul, în afara factory-ului — și alea sunt magazinele Pinia, nu
+composable-urile de API.
+
 Tokenurile trăiesc în cookies (`apps/web/app/stores/tokenStore.ts`). Toate apelurile trec prin
 `apps/web/app/composables/api/useApi.ts`, care face refresh automat pe 401 și de-duplică refresh-urile
 concurente printr-un `refreshPromise` partajat. Nu apela `$fetch` direct — folosește
