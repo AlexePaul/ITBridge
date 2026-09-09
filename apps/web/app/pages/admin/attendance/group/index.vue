@@ -1,7 +1,25 @@
 <template>
   <AdminPage title="Evidență grupă" :subtitle="subtitle" width="xl" back-to="/admin/attendance">
+    <AdminLoading v-if="loading" />
+
+    <!--
+      The three states this screen shipped without. `fetchGroups` was awaited unguarded, so a
+      failing API left `groups` empty and drew the picker with no cards and no sentence — on the
+      first step of marking a register, which reads as "the school has no groups". The occupancy
+      call below it was already wrapped, so the failure path had been thought about for the second
+      call and missed for the first.
+    -->
+    <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
+
+    <AdminEmpty
+      v-else-if="selectableGroups.length === 0"
+      title="Nicio grupă activă la această locație."
+      description="Grupele inactive nu apar aici. Schimbă locația din antet sau activează o grupă din /admin/groups."
+      icon="i-lucide-users"
+    />
+
     <!-- Form Card -->
-    <UCard class="hover:shadow-lg transition-shadow">
+    <UCard v-else class="hover:shadow-lg transition-shadow">
       <template #header>
         <h2 class="text-2xl font-bold">Selectează Grup</h2>
       </template>
@@ -63,6 +81,7 @@
 </template>
 
 <script setup lang="ts">
+import { apiErrorMessage } from "~/composables/useApiError";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { useReportsApi } from "~/composables/api/useReportsApi";
 import { useNotifications } from "~/composables/useNotifications";
@@ -80,6 +99,8 @@ const groupId = ref<number | null>(null);
 const groups: Ref<Group[]> = ref([]);
 const groupsApi = useGroupsApi();
 const locationStore = useLocationStore();
+const loading = ref(true);
+const loadError = ref("");
 
 /**
  * Seats per group, keyed by id — the same source `/admin/groups` uses.
@@ -124,8 +145,26 @@ const handleSubmit = () => {
   navigateTo(`/admin/attendance/group/${groupId.value}`);
 };
 
-onMounted(async () => {
-  groups.value = await groupsApi.fetchGroups();
+/**
+ * Both calls, with the difference between them kept: the groups are the screen, the occupancy is
+ * a detail on it.
+ *
+ * `loading` and `loadError` are set **before** the request, not in the `catch` — a retry that does
+ * not clear the error first gets its data and leaves the error card sitting on top of it, which is
+ * the trap `retry-clears-error.spec.ts` sweeps for.
+ */
+const load = async () => {
+  loading.value = true;
+  loadError.value = "";
+  try {
+    groups.value = await groupsApi.fetchGroups();
+  } catch (err: unknown) {
+    loadError.value = apiErrorMessage(err, "Nu am putut încărca grupele.");
+    return;
+  } finally {
+    loading.value = false;
+  }
+
   try {
     const report = await reportsApi.fetchOccupancyReport();
     occupancyByGroup.value = new Map(
@@ -137,5 +176,7 @@ onMounted(async () => {
   } catch {
     // Cards then show the capacity without a fill. See the note on `occupancyByGroup`.
   }
-});
+};
+
+onMounted(load);
 </script>

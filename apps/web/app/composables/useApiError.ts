@@ -173,6 +173,18 @@ const MESSAGES: Record<string, string> = {
 /**
  * A message to show the user. `details` wins when present: "phone must be a valid phone number"
  * is more useful than "datele nu sunt valide", even in English, because it names the field.
+ *
+ * **`err.message` is never shown, and that is the point of the last line.** Everything above it
+ * comes out of `err.data` — the body the API answered with. `err.message` is the layer below that:
+ * when the request never reached anybody, ofetch synthesises a string out of the method, the URL
+ * and the browser's own wording. It used to win over `fallback`, so an admin whose connection
+ * dropped read this, in a Romanian-only interface, with the internal address in it:
+ *
+ *     [GET] "http://127.0.0.1:3000/groups": <no response> Failed to fetch
+ *
+ * Which is the most likely error of all on the wifi in a classroom, on every screen at once. The
+ * caller's `fallback` says what the screen was trying to do and is written in the right language,
+ * so it is what is left when the server said nothing.
  */
 export function apiErrorMessage(
   err: unknown,
@@ -189,5 +201,5 @@ export function apiErrorMessage(
   if (body.message) {
     return body.message;
   }
-  return (err as { message?: string })?.message || fallback;
+  return fallback;
 }

@@ -22,7 +22,7 @@
         <div
           v-for="trial in trials"
           :key="trial.id"
-          class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border border-gray-200 rounded-lg"
+          class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border border-muted rounded-lg"
         >
           <div>
             <p class="font-semibold">
