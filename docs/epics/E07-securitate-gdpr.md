@@ -320,8 +320,15 @@ proiectele; ștergerea `User`-ului ia sesiunile, confirmările de email și acce
 Ce **rămâne pe dinafară** e exact ce serviciul trebuie să spună cu voce tare, și sunt patru lucruri:
 
 - **Lead-urile își țin propriile copii ale numelor.** `Lead.child` e `SET NULL`, iar rândul poartă
-  `childFirstName`, `childLastName` și `childBirthDate`, scrise dintr-un formular public. Ștergerea
-  copilului le-ar lăsa pe toate trei în `leads`.
+  `childFirstName`, `childLastName` și `childBirthDate`. Ștergerea copilului le-ar lăsa pe toate
+  trei în `leads`. Se caută **și după adresă, nu doar după legătură**: `Lead.profile` e scris de un
+  singur apelant, formularul public de probă din E20/S2, deci familia care a sunat întâi la telefon
+  are un rând cu numele ei, adresa, telefonul și numele copilului la care nu arată nimic. Regula e
+  în `apps/api/src/modules/privacy/family-rows.ts` și o citesc **amândouă** fluxurile — altfel
+  exportul și ștergerea ar ajunge să răspundă diferit la aceeași întrebare, „care rânduri sunt ale
+  familiei ăsteia". E sigur fiindcă `Profile.email` și `Profile.phone` sunt unice, deci o adresă
+  identifică o singură familie sau niciuna; și poate găsi doar **mai multe** rânduri, niciodată mai
+  puține.
 - **Outbox-ul n-are relație către profil** — coada e partajată și scrie și către birou —, deci
   rândurile se caută după adresă, exact cum spune inventarul din S1 că va trebui.
 - **`Payment.notes` e text liber scris de un admin despre o familie**, pe un rând care se păstrează.
@@ -336,6 +343,11 @@ plece, fiindcă se derivă din identificatori și după aceea n-ar mai avea din 
 obiectele ar rămâne acolo pentru totdeauna. Un obiect care nu s-a putut șterge e o linie de log, nu
 o ștergere eșuată: e recuperabil, spre deosebire de o ștergere care a lăsat rândurile în urmă. PDF-
 urile facturilor rămân, împreună cu facturile.
+
+**Un lead lăsat la o adresă pe care familia a schimbat-o între timp nu se găsește**, și e același
+punct orb ca al outbox-ului, din aceeași cauză: nicio relație, doar o adresă, și niciun istoric de
+adrese — E07 S3 consemnează dinadins numele câmpului, nu valoarea. Se repară în ziua în care rândul
+are o legătură, nu prin ghicit.
 
 **Ce nu se poate atinge**, scris aici în loc să fie descoperit mai târziu: un fișier pe care agentul
 nu l-a putut atribui (`unassigned_files`) poate purta numele unui copil în cale, și nu există
