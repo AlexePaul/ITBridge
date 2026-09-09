@@ -24,11 +24,18 @@ export interface RecordInput {
 /**
  * The one writer of the audit log — E07 S3.
  *
- * **Give it your transaction's `EntityManager`.** The same argument the outbox makes: a record of a
- * change that survives when the change itself rolled back is a lie, and one that is lost when the
- * change succeeded is a gap. Passed a manager, the row is written with it and shares its fate.
- * Called without one it writes on its own connection, which is right only where there is no
- * surrounding transaction to join.
+ * **The transaction's `EntityManager` is required, not offered.** The same argument the outbox
+ * makes: a record of a change that survives when the change itself rolled back is a lie, and one
+ * that is lost when the change succeeded is a gap. Written with the caller's manager, the row
+ * shares the fate of what it describes.
+ *
+ * It is a required parameter and the outbox's is not, and the asymmetry is the point: a message can
+ * legitimately have no surrounding transaction — the arrears run and the attendance reminder both
+ * compose one out of a read — whereas an audit entry *is* the account of a change, so there is
+ * always a transaction for it to join. Eight writers had drifted into calling this on its own
+ * connection — every personal-data one, and both halves of the erasure request — and one of them,
+ * the profile edit, had a transaction open at the time and simply did not pass it. The signature is
+ * what stops the ninth.
  *
  * There is no `update` and no `delete` here, and that is the whole point of the class: the only
  * thing anybody can do to this table through the application is add to it.
@@ -40,10 +47,8 @@ export class AuditService {
         private readonly auditLogRepository: Repository<AuditLog>,
     ) {}
 
-    async record(input: RecordInput, manager?: EntityManager): Promise<void> {
-        const repository = manager ? manager.getRepository(AuditLog) : this.auditLogRepository;
-
-        await repository.insert({
+    async record(input: RecordInput, manager: EntityManager): Promise<void> {
+        await manager.getRepository(AuditLog).insert({
             actorUserId: input.actor.userId,
             actorUsername: input.actor.username,
             action: input.action,
@@ -109,7 +114,7 @@ export class AuditService {
             fields: string[];
             note?: string | null;
         },
-        manager?: EntityManager,
+        manager: EntityManager,
     ): Promise<void> {
         if (params.fields.length === 0) return;
 
@@ -143,7 +148,7 @@ export class AuditService {
             fields: string[];
             note?: string | null;
         },
-        manager?: EntityManager,
+        manager: EntityManager,
     ): Promise<void> {
         const changes = diffFields(params.before, params.after, params.fields);
         if (Object.keys(changes).length === 0) return;

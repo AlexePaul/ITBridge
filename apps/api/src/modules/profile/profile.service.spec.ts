@@ -102,12 +102,14 @@ describe('ProfileService', () => {
         it('records the act and the id, never what was typed into it', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
             profileRepo.create!.mockImplementation((d: unknown) => d);
-            profileRepo.save!.mockImplementation((p: object) => Promise.resolve({ ...p, id: 77 }));
+            manager.save.mockImplementation((_entity: unknown, p: object) => Promise.resolve({ ...p, id: 77 }));
 
             await service.createProfile({ firstName: 'Ana', lastName: 'Pop', email: 'ana@pop.ro' }, Role.ADMIN, undefined, ACTOR);
 
+            // With the transaction's manager: the row and the account of it are one unit of work.
             expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
                 expect.objectContaining({ actor: ACTOR, entityType: 'Profile', entityId: 77, fields: ['profile'] }),
+                manager,
             );
             expect(JSON.stringify(audit.recordPersonalDataChange.mock.calls[0][0])).not.toContain('ana@pop.ro');
         });
@@ -268,7 +270,7 @@ describe('ProfileService', () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
 
             await expect(service.deleteProfile(1, Role.PARENT, 5, ACTOR)).rejects.toThrow(UnauthorizedException);
-            expect(profileRepo.delete).not.toHaveBeenCalled();
+            expect(manager.delete).not.toHaveBeenCalled();
         });
 
         it('lets an admin delete a profile with nothing hanging off it', async () => {
@@ -276,7 +278,7 @@ describe('ProfileService', () => {
 
             await service.deleteProfile(1, Role.ADMIN, 5, ACTOR);
 
-            expect(profileRepo.delete).toHaveBeenCalledWith(1);
+            expect(manager.delete).toHaveBeenCalledWith(Profile, 1);
         });
 
         /**
@@ -292,7 +294,7 @@ describe('ProfileService', () => {
             await expect(service.deleteProfile(1, Role.ADMIN, 5, ACTOR)).rejects.toMatchObject({
                 response: { error: 'PROFILE_HAS_INVOICES' },
             });
-            expect(profileRepo.delete).not.toHaveBeenCalled();
+            expect(manager.delete).not.toHaveBeenCalled();
         });
 
         it('refuses when the family has children, and deletes nothing', async () => {
@@ -302,7 +304,7 @@ describe('ProfileService', () => {
             await expect(service.deleteProfile(1, Role.ADMIN, 5, ACTOR)).rejects.toMatchObject({
                 response: { error: 'PROFILE_HAS_CHILDREN' },
             });
-            expect(profileRepo.delete).not.toHaveBeenCalled();
+            expect(manager.delete).not.toHaveBeenCalled();
         });
 
         /** The money is named first: it is the one thing the platform promised to keep. */
@@ -323,7 +325,7 @@ describe('ProfileService', () => {
             await expect(service.deleteProfile(1, Role.PARENT, 5, ACTOR)).rejects.toMatchObject({
                 response: { error: 'PROFILE_HAS_INVOICES' },
             });
-            expect(profileRepo.delete).not.toHaveBeenCalled();
+            expect(manager.delete).not.toHaveBeenCalled();
         });
     });
     /**
@@ -357,6 +359,7 @@ describe('ProfileService', () => {
 
             expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
                 expect.objectContaining({ actor: ACTOR, entityType: 'Profile', entityId: 1, fields: ['phone'] }),
+                manager,
             );
             const [[call]] = audit.recordPersonalDataChange.mock.calls as [{ fields: string[] }][];
             expect(JSON.stringify(call)).not.toContain('+40799999999');
@@ -368,7 +371,7 @@ describe('ProfileService', () => {
 
             // `recordPersonalDataChange` returns early on an empty list, but the service should not
             // have found anything to give it either.
-            expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(expect.objectContaining({ fields: [] }));
+            expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(expect.objectContaining({ fields: [] }), manager);
         });
 
         it('records a deletion as the act, not as a copy of what was deleted', async () => {

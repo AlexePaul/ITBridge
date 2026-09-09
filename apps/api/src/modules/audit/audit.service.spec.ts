@@ -8,12 +8,17 @@ describe('AuditService', () => {
     let service: AuditService;
     let repo: MockRepository;
     let qb: MockQueryBuilder<AuditLog>;
+    /** The caller's transaction, and the only road a write may take — see `record`'s signature. */
+    let managerRepo: { insert: jest.Mock };
+    let manager: { getRepository: jest.Mock };
 
     const ACTOR = { userId: 7, username: 'admin' };
 
     beforeEach(async () => {
         repo = createMockRepository();
         repo.insert = jest.fn().mockResolvedValue({});
+        managerRepo = { insert: jest.fn().mockResolvedValue({}) };
+        manager = { getRepository: jest.fn().mockReturnValue(managerRepo) };
         qb = createMockQueryBuilder<AuditLog>({ many: [] });
         repo.createQueryBuilder!.mockReturnValue(qb);
 
@@ -26,26 +31,30 @@ describe('AuditService', () => {
 
     describe('record', () => {
         it('stores the actor by id and by name, so the entry survives the account', async () => {
-            await service.record({ actor: ACTOR, action: AuditAction.CREATED, entityType: 'Payment', entityId: 11 });
+            await service.record({ actor: ACTOR, action: AuditAction.CREATED, entityType: 'Payment', entityId: 11 }, manager as never);
 
-            expect(repo.insert).toHaveBeenCalledWith(expect.objectContaining({ actorUserId: 7, actorUsername: 'admin', entityType: 'Payment', entityId: 11 }));
+            expect(managerRepo.insert).toHaveBeenCalledWith(
+                expect.objectContaining({ actorUserId: 7, actorUsername: 'admin', entityType: 'Payment', entityId: 11 }),
+            );
         });
 
         it('accepts an actor with no user, for the work nobody pressed', async () => {
-            await service.record({ actor: { userId: null, username: null }, action: AuditAction.UPDATED, entityType: 'Invoice', entityId: 412 });
+            await service.record(
+                { actor: { userId: null, username: null }, action: AuditAction.UPDATED, entityType: 'Invoice', entityId: 412 },
+                manager as never,
+            );
 
-            expect(repo.insert).toHaveBeenCalledWith(expect.objectContaining({ actorUserId: null, actorUsername: null }));
+            expect(managerRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ actorUserId: null, actorUsername: null }));
         });
 
         /**
-         * The whole reason the method takes a manager: the row has to share the fate of the change
+         * The whole reason the method demands a manager: the row has to share the fate of the change
          * it describes. Written on the service's own connection it would outlive a rollback, which
-         * is a log that says something happened that did not.
+         * is a log that says something happened that did not — and it would be lost by a failure
+         * after a change that stood, which is the same gap the other way round. The parameter is
+         * required rather than offered because six writers had drifted into calling it without one.
          */
-        it("writes through the caller's transaction when given one", async () => {
-            const managerRepo = { insert: jest.fn().mockResolvedValue({}) };
-            const manager = { getRepository: jest.fn().mockReturnValue(managerRepo) };
-
+        it("writes through the caller's transaction and never on its own connection", async () => {
             await service.record({ actor: ACTOR, action: AuditAction.DELETED, entityType: 'Payment', entityId: 11 }, manager as never);
 
             expect(manager.getRepository).toHaveBeenCalledWith(AuditLog);
@@ -63,17 +72,19 @@ describe('AuditService', () => {
         };
 
         it('keeps only the fields that moved', async () => {
-            await service.recordUpdate({ ...params, before: { amount: 350, notes: 'x' }, after: { amount: 150, notes: 'x' } });
+            await service.recordUpdate({ ...params, before: { amount: 350, notes: 'x' }, after: { amount: 150, notes: 'x' } }, manager as never);
 
-            expect(repo.insert).toHaveBeenCalledWith(expect.objectContaining({ action: AuditAction.UPDATED, changes: { amount: { from: 350, to: 150 } } }));
+            expect(managerRepo.insert).toHaveBeenCalledWith(
+                expect.objectContaining({ action: AuditAction.UPDATED, changes: { amount: { from: 350, to: 150 } } }),
+            );
         });
 
         // A save that set every field to what it already held is not an event, and a log full of
         // those is a log nobody reads — the failure this story exists to avoid, by another road.
         it('writes nothing when nothing moved', async () => {
-            await service.recordUpdate({ ...params, before: { amount: 350, notes: 'x' }, after: { amount: 350, notes: 'x' } });
+            await service.recordUpdate({ ...params, before: { amount: 350, notes: 'x' }, after: { amount: 350, notes: 'x' } }, manager as never);
 
-            expect(repo.insert).not.toHaveBeenCalled();
+            expect(managerRepo.insert).not.toHaveBeenCalled();
         });
     });
 

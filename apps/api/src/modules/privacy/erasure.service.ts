@@ -93,14 +93,21 @@ export class ErasureService {
         // A second request before the first is served is the same request made twice, so the first
         // day stands: it is the one the thirty-day term runs from.
         const requestedAt = profile.erasureRequestedAt ?? new Date();
-        await this.profiles.update(profileId, { erasureRequestedAt: requestedAt });
-        await this.audit.record({
-            actor,
-            action: AuditAction.UPDATED,
-            entityType: 'Profile',
-            entityId: profileId,
-            changes: { erasureRequestedAt: { from: null, to: requestedAt.toISOString() } },
-            note: 'cerere de ștergere',
+        // The column and the trail together, as in `erase` below: a request on file that nothing
+        // accounts for is the same gap one step earlier.
+        await this.dataSource.transaction(async (manager) => {
+            await manager.update(Profile, profileId, { erasureRequestedAt: requestedAt });
+            await this.audit.record(
+                {
+                    actor,
+                    action: AuditAction.UPDATED,
+                    entityType: 'Profile',
+                    entityId: profileId,
+                    changes: { erasureRequestedAt: { from: null, to: requestedAt.toISOString() } },
+                    note: 'cerere de ștergere',
+                },
+                manager,
+            );
         });
 
         return { requestedAt };
@@ -113,14 +120,22 @@ export class ErasureService {
         if (isErased(profile)) throw new ConflictException({ message: 'Contul e deja șters.', error: 'ALREADY_ERASED' });
         if (!profile.erasureRequestedAt) return;
 
-        await this.profiles.update(profileId, { erasureRequestedAt: null });
-        await this.audit.record({
-            actor,
-            action: AuditAction.UPDATED,
-            entityType: 'Profile',
-            entityId: profileId,
-            changes: { erasureRequestedAt: { from: profile.erasureRequestedAt.toISOString(), to: null } },
-            note: 'cerere de ștergere retrasă',
+        // Read out here: inside the closure TypeScript can no longer see that the guard above ruled
+        // out null.
+        const requestedAt = profile.erasureRequestedAt;
+        await this.dataSource.transaction(async (manager) => {
+            await manager.update(Profile, profileId, { erasureRequestedAt: null });
+            await this.audit.record(
+                {
+                    actor,
+                    action: AuditAction.UPDATED,
+                    entityType: 'Profile',
+                    entityId: profileId,
+                    changes: { erasureRequestedAt: { from: requestedAt.toISOString(), to: null } },
+                    note: 'cerere de ștergere retrasă',
+                },
+                manager,
+            );
         });
     }
 

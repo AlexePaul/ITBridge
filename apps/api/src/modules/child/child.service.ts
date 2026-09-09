@@ -1,9 +1,9 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Child } from 'src/entities/child.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Role } from 'src/enum/role.enum';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CreateChildDto } from './dto/createChild.dto';
 import { FilterChildDto } from './dto/filterChild.dto';
 import { UpdateChildDto } from './dto/updateChild.dto';
@@ -26,6 +26,7 @@ export class ChildService {
         @InjectRepository(Attendance) private readonly attendanceRepository: Repository<Attendance>,
         @InjectRepository(Project) private readonly projectRepository: Repository<Project>,
         private readonly enrollmentService: EnrollmentService,
+        @InjectDataSource() private readonly dataSource: DataSource,
         private readonly audit: AuditService,
     ) {}
 
@@ -46,18 +47,25 @@ export class ChildService {
         }
         const child = this.childRepository.create(createChildDto);
         child.parent = parentProfile;
-        const saved = await this.childRepository.save(child);
-        // The act and the id, not the name that came with it. Whoever entered this child is the
-        // half the row cannot answer for itself.
-        await this.audit.recordPersonalDataChange({
-            actor,
-            action: AuditAction.CREATED,
-            entityType: 'Child',
-            entityId: saved.id,
-            fields: ['child'],
-            note: 'copil adăugat',
+        // Row and trail in one transaction — E07/S3. They were two loose statements, so a failure
+        // between them left a child on file with nothing saying who added them.
+        return this.dataSource.transaction(async (manager) => {
+            const saved = await manager.save(Child, child);
+            // The act and the id, not the name that came with it. Whoever entered this child is the
+            // half the row cannot answer for itself.
+            await this.audit.recordPersonalDataChange(
+                {
+                    actor,
+                    action: AuditAction.CREATED,
+                    entityType: 'Child',
+                    entityId: saved.id,
+                    fields: ['child'],
+                    note: 'copil adăugat',
+                },
+                manager,
+            );
+            return saved;
         });
-        return saved;
     }
 
     async findChildren(filterChildDto: FilterChildDto, role: Role, sub: number) {
@@ -109,13 +117,19 @@ export class ChildService {
         const moved = changedFieldNames(child as unknown as Record<string, unknown>, updateChildDto as unknown as Record<string, unknown>);
 
         applyDefined(child, updateChildDto);
-        const saved = await this.childRepository.save(child);
-        await this.audit.recordPersonalDataChange({
-            actor,
-            action: AuditAction.UPDATED,
-            entityType: 'Child',
-            entityId: childId,
-            fields: moved,
+        const saved = await this.dataSource.transaction(async (manager) => {
+            const written = await manager.save(Child, child);
+            await this.audit.recordPersonalDataChange(
+                {
+                    actor,
+                    action: AuditAction.UPDATED,
+                    entityType: 'Child',
+                    entityId: childId,
+                    fields: moved,
+                },
+                manager,
+            );
+            return written;
         });
         // The account was loaded for the ownership check above and is not part of the answer: a
         // parent editing their own child was handed their own `rejectionReason` and, until the
@@ -177,16 +191,23 @@ export class ChildService {
             });
         }
 
-        await this.childRepository.delete(childId);
-        // The act, not the contents: a deleted child leaving a copy of their name in the trail is
-        // the failure this half exists to avoid.
-        await this.audit.recordPersonalDataChange({
-            actor,
-            action: AuditAction.DELETED,
-            entityType: 'Child',
-            entityId: childId,
-            fields: ['child'],
-            note: 'copil șters',
+        // The removal and its trail commit together: once the row is gone the trail is the only
+        // thing that can say who removed it.
+        await this.dataSource.transaction(async (manager) => {
+            await manager.delete(Child, childId);
+            // The act, not the contents: a deleted child leaving a copy of their name in the trail
+            // is the failure this half exists to avoid.
+            await this.audit.recordPersonalDataChange(
+                {
+                    actor,
+                    action: AuditAction.DELETED,
+                    entityType: 'Child',
+                    entityId: childId,
+                    fields: ['child'],
+                    note: 'copil șters',
+                },
+                manager,
+            );
         });
         return { message: 'Child deleted successfully' };
     }
