@@ -18,8 +18,8 @@ import { launchChromium, startPreviewServer } from "./preview-site.mjs";
  * What it costs is the reason it did not exist earlier: the public check needs a built site and
  * nothing else, while this one needs a database, a seed and an API that answers, because a screen
  * with no data on it is not the screen anybody uses. That is a whole second CI job. It buys a
- * guarantee the public half cannot give — the shared admin components are used by 36 screens, so a
- * token edited once is 36 screens changed at once, in a place no reviewer opens.
+ * guarantee the public half cannot give — the shared admin components are used by 44 of the 51
+ * screens, so a token edited once is 44 screens changed at once, in a place no reviewer opens.
  *
  * **The routes come from the filesystem, not from a list in here** — the same property the public
  * check gets from the sitemap, by the only route available on this side. `app/pages/admin/**` and
@@ -254,7 +254,7 @@ async function violationsOn(context, base, path) {
     }
 
     await page.addScriptTag({ content: AXE_SOURCE });
-    return await page.evaluate(async (tags) => {
+    const violations = await page.evaluate(async (tags) => {
       const result = await window.axe.run(document, { runOnly: { type: "tag", values: tags } });
       return result.violations.map((violation) => ({
         id: violation.id,
@@ -266,9 +266,75 @@ async function violationsOn(context, base, path) {
         total: violation.nodes.length,
       }));
     }, TAGS);
+
+    return [...violations, ...(await nameProblemsOn(page))];
   } finally {
     await page.close();
   }
+}
+
+/**
+ * The two things wrong with a control's name that axe will never tell you about.
+ *
+ * Axe asks whether a control **has** a name, and stops there. Both of these passed it on every
+ * screen and neither is usable:
+ *
+ * - **A name repeated across the screen.** Twenty rows named "Acțiuni", three date pickers named
+ *   "Alege data din calendar", fourteen buttons named "Luna anterioară" — read out as a list of
+ *   controls, that is fourteen identical entries and no way to pick one. Found by walking the
+ *   screens; every instance was a component drawn in a loop, which is why reading the source finds
+ *   none of it.
+ * - **A name in English.** Everything a user sees is Romanian, and a default label from a
+ *   dependency is still a label somebody hears. reka-ui's combobox trigger says "Show popup", and
+ *   it reached **44 screens** through one unlabelled `USelectMenu` in the admin navbar. Nothing in
+ *   this repo said "Show popup"; grep could not have found it.
+ *
+ * They are returned in the same shape as an axe violation so the reporting downstream does not
+ * need to know the difference — a control nobody can tell apart from another is an accessibility
+ * failure whether or not a rule engine has a rule for it.
+ */
+async function nameProblemsOn(page) {
+  return await page.evaluate(() => {
+    const ENGLISH =
+      /^(Show popup|Open|Close|Toggle|Select|Search|No data|Previous|Next|Submit|Clear|Menu|Loading)\b/i;
+    const SELECTOR =
+      'button, a[aria-label], [role="button"], [role="switch"], [role="checkbox"], [role="combobox"]';
+
+    const named = [...document.querySelectorAll(SELECTOR)]
+      .filter((el) => el.offsetParent !== null || el.getClientRects().length > 0)
+      .map((el) => (el.getAttribute("aria-label") ?? "").trim())
+      .filter(Boolean);
+
+    const out = [];
+
+    const counts = new Map();
+    for (const name of named) counts.set(name, (counts.get(name) ?? 0) + 1);
+    const repeated = [...counts].filter(([, n]) => n > 1);
+    if (repeated.length > 0) {
+      out.push({
+        id: "duplicate-control-name",
+        impact: "serious",
+        help: "Two or more controls on this screen answer to the same name",
+        nodes: repeated
+          .slice(0, 5)
+          .map(([name, n]) => ({ target: `aria-label="${name}"`, summary: `${n} controls` })),
+        total: repeated.length,
+      });
+    }
+
+    const english = [...new Set(named.filter((name) => ENGLISH.test(name)))];
+    if (english.length > 0) {
+      out.push({
+        id: "english-control-name",
+        impact: "serious",
+        help: "A control is named in English; everything a user hears or reads is Romanian",
+        nodes: english.slice(0, 5).map((name) => ({ target: `aria-label="${name}"`, summary: "" })),
+        total: english.length,
+      });
+    }
+
+    return out;
+  });
 }
 
 /**

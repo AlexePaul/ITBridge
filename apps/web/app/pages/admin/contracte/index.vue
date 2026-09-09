@@ -42,7 +42,11 @@
         </div>
         <div class="flex items-end gap-2 shrink-0">
           <UFormField label="Semnat la" :name="`signed-${row.id}`">
-            <AdminDateField v-model="signedOn[row.id]" :max="today" />
+            <AdminDateField
+              v-model="signedOn[row.id]"
+              :max="today"
+              :label="`data semnării pentru ${row.child?.firstName} ${row.child?.lastName}`"
+            />
           </UFormField>
           <UButton
             color="primary"

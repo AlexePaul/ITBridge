@@ -16,7 +16,7 @@
 
         <UFormField name="birthDate">
           <template #label>Data Nașterii<span class="text-error">*</span></template>
-          <AdminDateField v-model="state.birthDate" :max="today" />
+          <AdminDateField v-model="state.birthDate" :max="today" label="data nașterii" />
         </UFormField>
 
         <AdminFormActions
@@ -80,7 +80,11 @@
             class="flex items-end gap-2 shrink-0"
           >
             <UFormField label="Contract semnat la" name="contractSignedAt">
-              <AdminDateField v-model="contractDay" :max="today" />
+              <AdminDateField
+                v-model="contractDay"
+                :max="today"
+                label="data semnării contractului"
+              />
             </UFormField>
             <UButton
               color="warning"

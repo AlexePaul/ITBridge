@@ -146,6 +146,7 @@
               searchable
               placeholder="Caută după nume"
               class="w-full"
+              aria-label="Copilul care lipsește"
             />
           </UFormField>
 

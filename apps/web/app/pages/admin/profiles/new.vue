@@ -39,6 +39,7 @@
             searchable
             placeholder="Fără utilizator"
             class="w-full"
+            aria-label="Asociază utilizator"
           />
         </UFormField>
 

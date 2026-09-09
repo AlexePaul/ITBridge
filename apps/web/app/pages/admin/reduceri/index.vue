@@ -39,6 +39,7 @@
               :disabled="Boolean(editing)"
               placeholder="Caută familia…"
               class="w-full"
+              aria-label="Familie"
             />
           </UFormField>
 

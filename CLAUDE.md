@@ -1195,9 +1195,9 @@ Patru lucruri de știut înainte să-l atingi:
   ci **atârnă**, ceea ce costă o jumătate de oră prima dată.
 
 **Zona autentificată e sub aceeași poartă, dar într-un job propriu.** `pnpm test:a11y:auth`
-(`apps/web/scripts/check-a11y-auth.mjs`, E18 S6) se autentifică și trece axe peste cele 37 de
-ecrane de admin și de portal, în ambele teme, pe aceleași etichete. Trei lucruri îl deosebesc de cel
-public:
+(`apps/web/scripts/check-a11y-auth.mjs`, E18 S6) se autentifică și trece axe peste cele 51 de
+ecrane de admin și de portal, în ambele teme, pe aceleași etichete. Patru lucruri îl deosebesc de
+cel public:
 
 - **Are nevoie de bază de date, seed și un API care răspunde**, fiindcă un ecran fără date pe el nu e
   ecranul pe care îl folosește cineva. De asta e job separat în CI, cu Postgres al lui — MinIO nu,
@@ -1209,6 +1209,16 @@ public:
 - **Rutele vin din `app/pages/`**, cum vin cele publice din sitemap: un ecran nou e verificat fără
   să-l adauge nimeni a doua oară. Cele cu `[param]` în cale nu se pot vizita fără un id care există,
   deci sunt tipărite la final cu număr — golul e o cifră, nu o tăcere.
+- **Două verificări de nume rulează lângă axe, fiindcă axe nu le are.** axe întreabă dacă un control
+  **are** nume și se oprește acolo; amândouă cazurile de mai jos treceau pe fiecare ecran. Primul e
+  **același nume de mai multe ori**: douăzeci de rânduri cu „Acțiuni", trei alegătoare de dată cu
+  „Alege data din calendar", paisprezece butoane cu „Luna anterioară" — citite ca listă de controale,
+  sunt paisprezece intrări identice și nicio cale de a alege una. Al doilea e **un nume în engleză**:
+  „Show popup" e implicitul lui reka-ui pe declanșatorul de combobox și a ajuns pe **44 de ecrane**
+  dintr-un singur `USelectMenu` neetichetat din navbar-ul de admin. Niciunul nu se putea găsi citind:
+  primul apare doar când componenta e desenată în buclă, iar al doilea nu e scris nicăieri în repo.
+  De aici și regula: dacă un ecran desenează **mai mult de un** `AdminDateField`, dă-i `label` —
+  butonul lui arată o iconiță și nimic altceva, deci numele e tot ce primește cititorul.
 
 **A doua gardă rulează în același browser: nicio pagină publică nu iese din origine și nu pune
 niciun cookie.** `pnpm test:privacy` (`apps/web/scripts/check-third-party.mjs`, E07 S5) încarcă

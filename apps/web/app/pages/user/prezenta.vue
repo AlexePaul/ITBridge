@@ -24,25 +24,41 @@
         Încă nu e niciun copil înscris, deci nu există prezențe de arătat.
       </p>
 
+      <!--
+        One pair of arrows for the page, not one per child. `cursor` is a single month for the
+        whole screen, so the nav that moves it is a single control: a family with four children
+        used to get eight buttons named "Luna anterioară" and "Luna următoare", every one of them
+        moving all four grids at once. Which one a reader reached for made no difference, and a
+        list of controls read out by name was eight indistinguishable entries.
+
+        The month is named inside the group and announced politely, because the thing that changes
+        when the button is pressed is a grid somewhere below — possibly off screen, and definitely
+        not where the focus is. Without it the press is silent, which is the same failure as a
+        retry button that fires and shows nothing.
+      -->
+      <div v-if="months.length > 0" class="cal-nav-bar" role="group" aria-label="Luna afișată">
+        <button
+          type="button"
+          class="btn btn-secondary btn-icon"
+          aria-label="Luna anterioară"
+          @click="shiftMonth(-1)"
+        >
+          <UIcon name="i-lucide-chevron-left" class="size-4" />
+        </button>
+        <p class="cal-nav-month" aria-live="polite">{{ monthLabel }}</p>
+        <button
+          type="button"
+          class="btn btn-secondary btn-icon"
+          aria-label="Luna următoare"
+          @click="shiftMonth(1)"
+        >
+          <UIcon name="i-lucide-chevron-right" class="size-4" />
+        </button>
+      </div>
+
       <section v-for="{ child, cells, isEmpty } in months" :key="child.id" class="portal-section">
         <div class="cal-head">
           <h2 class="cal-month">{{ child.firstName }} · {{ monthLabel }}</h2>
-          <button
-            type="button"
-            class="btn btn-secondary btn-icon cal-nav"
-            aria-label="Luna anterioară"
-            @click="shiftMonth(-1)"
-          >
-            <UIcon name="i-lucide-chevron-left" class="size-4" />
-          </button>
-          <button
-            type="button"
-            class="btn btn-secondary btn-icon cal-nav"
-            aria-label="Luna următoare"
-            @click="shiftMonth(1)"
-          >
-            <UIcon name="i-lucide-chevron-right" class="size-4" />
-          </button>
         </div>
 
         <p v-if="!child.group" class="portal-empty">

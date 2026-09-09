@@ -141,10 +141,11 @@
                   </p>
                 </div>
                 <!--
-                  Numele sălii intră în etichetă, nu doar verbul (E18/S6): pe o locație cu trei
-                  săli, trei butoane „Editează" sunt trei butoane care sună identic în lista de
-                  controale a unui cititor de ecran, iar creionul nu spune singur pe care sală
-                  cade. Textul nu se vede — iconița rămâne tot ce se vede.
+                  The label carries the room name **and the location** (E18/S6). Naming only the
+                  room fixed half the problem and left the other half exactly as it was: a room
+                  name is unique within its location, not within the school, and the seed has a
+                  "Sala 1" at both addresses — so two buttons with the same name, which is the
+                  thing the label was added to prevent. The text is not shown; the icon still is.
                 -->
                 <div class="flex gap-1 shrink-0">
                   <UButton
@@ -152,7 +153,7 @@
                     variant="ghost"
                     size="xs"
                     icon="i-lucide-pencil"
-                    :aria-label="`Editează sala ${room.name}`"
+                    :aria-label="`Editează ${room.name}, ${location.name}`"
                     @click="startEditing(room)"
                   />
                   <UButton
@@ -160,7 +161,7 @@
                     variant="ghost"
                     size="xs"
                     icon="i-lucide-trash-2"
-                    :aria-label="`Șterge sala ${room.name}`"
+                    :aria-label="`Șterge ${room.name}, ${location.name}`"
                     @click="handleDeleteRoom(room.id)"
                   />
                 </div>

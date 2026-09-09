@@ -2462,6 +2462,22 @@ textarea.input {
   margin: 0 auto 0 0;
 }
 
+/* The month nav — one pair for the page, sitting above every child's grid. */
+.cal-nav-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--rhythm-1);
+}
+
+.cal-nav-month {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 28px;
+  margin: 0;
+}
+
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));

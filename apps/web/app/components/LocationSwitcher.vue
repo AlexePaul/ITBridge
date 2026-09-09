@@ -8,6 +8,7 @@
     size="md"
     class="w-36 sm:w-auto sm:min-w-56"
     :ui="{ base: 'w-full min-h-11' }"
+    aria-label="Filtrează după locație"
   />
 </template>
 
