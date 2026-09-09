@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="IT Bridge School">
+  <title>IT Bridge School</title>
+  <defs><clipPath id="badge"><circle cx="256" cy="256" r="256"/></clipPath></defs>
+  <circle cx="256" cy="256" r="256" fill="#201f1d"/>
+  
+  <!-- Clipped to the badge, so the deck meets the edge instead of poking through it. The bare
+       mark is not clipped: there is no edge for it to respect. -->
+  <g clip-path="url(#badge)" fill="none" stroke="#c28d41" stroke-linecap="square" stroke-linejoin="miter">
+    <!-- hangers, thin, behind the structure -->
+    <g stroke-width="7" opacity="0.92">
+      <line x1="57.2" y1="251.7" x2="57.2" y2="366"/>
+      <line x1="454.8" y1="251.7" x2="454.8" y2="366"/>
+      <line x1="88.9" y1="231.0" x2="88.9" y2="366"/>
+      <line x1="423.1" y1="231.0" x2="423.1" y2="366"/>
+      <line x1="120.6" y1="204.6" x2="120.6" y2="366"/>
+      <line x1="391.4" y1="204.6" x2="391.4" y2="366"/>
+      <line x1="152.2" y1="172.5" x2="152.2" y2="366"/>
+      <line x1="359.8" y1="172.5" x2="359.8" y2="366"/>
+      <line x1="180.4" y1="139.1" x2="180.4" y2="366"/>
+      <line x1="331.6" y1="139.1" x2="331.6" y2="366"/>
+      <line x1="216.6" y1="155.8" x2="216.6" y2="366"/>
+      <line x1="235.1" y1="180.4" x2="235.1" y2="366"/>
+      <line x1="256.0" y1="190.0" x2="256.0" y2="366"/>
+      <line x1="276.9" y1="180.4" x2="276.9" y2="366"/>
+      <line x1="295.4" y1="155.8" x2="295.4" y2="366"/>
+    </g>
+    <!-- main cable: straight side spans, one clean curve between the towers -->
+    <path d="M 22 268 Q 110.0 236.0 198 116" stroke-width="15"/>
+    <path d="M 198 116 Q 256 264 314 116" stroke-width="15"/>
+    <path d="M 314 116 Q 402.0 236.0 490 268" stroke-width="15"/>
+    <!-- towers: straight verticals with two crossbeams -->
+    <line x1="198" y1="116" x2="198" y2="366" stroke-width="19"/>
+    <line x1="314" y1="116" x2="314" y2="366" stroke-width="19"/>
+    <line x1="198" y1="116" x2="314" y2="116" stroke-width="15"/>
+    <line x1="198" y1="252" x2="314" y2="252" stroke-width="13"/>
+    <!-- the deck -->
+    <line x1="0" y1="366" x2="512" y2="366" stroke-width="22"/>
+  </g>
+</svg>
