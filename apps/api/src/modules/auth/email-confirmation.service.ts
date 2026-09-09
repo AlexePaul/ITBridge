@@ -3,7 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes } from 'crypto';
 import { EntityManager, IsNull, Repository } from 'typeorm';
 import { EmailConfirmation } from 'src/entities/email-confirmation.entity';
+import { Profile } from 'src/entities/profile.entity';
 import { User } from 'src/entities/user.entity';
+import { sameAddress } from 'src/common/same-address';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { emailConfirmationUrl } from './portal-urls';
@@ -43,6 +45,7 @@ export class EmailConfirmationService {
     constructor(
         @InjectRepository(EmailConfirmation) private readonly confirmationRepository: Repository<EmailConfirmation>,
         @InjectRepository(User) private readonly userRepository: Repository<User>,
+        @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
         private readonly mailTemplates: MailTemplateService,
         private readonly outbox: OutboxService,
     ) {}
@@ -102,6 +105,19 @@ export class EmailConfirmationService {
      * situations for the person holding the link and the interface has to say different things: a
      * link that expired can be replaced, a link already used means the job is done, and a link that
      * matches nothing means it was mistyped or the account is gone.
+     *
+     * **A link proves one address, and only while it is still the address on file.** The row keeps
+     * the address it was issued for precisely so this can be asked. Without the question, a link
+     * outstanding from before an edit went on working after it: `PUT /profiles/:id` closes the gate
+     * and sends a fresh link when the address moves — E11/S2 — but the old link stayed live for the
+     * rest of its forty-eight hours, and clicking it stamped `emailConfirmedAt` again. What that
+     * stamp then licensed is the whole problem: `queueOrRecord` reads it before writing to an
+     * address, and `isAccountActive` reads it before a child can be put in a group. So somebody who
+     * could read the *old* address — a stranger, if the reason for the edit was a typo — could
+     * reopen a gate that says the family proved they read the *new* one.
+     *
+     * Refused rather than quietly ignored, and with its own code: the person holding the link did
+     * nothing wrong and the way out is a fresh one, which is a different sentence from "expired".
      */
     async confirm(token: string, now: Date = new Date()): Promise<User> {
         const confirmation = await this.confirmationRepository.findOne({
@@ -127,6 +143,21 @@ export class EmailConfirmationService {
             throw new BadRequestException({
                 message: 'Linkul de confirmare a expirat',
                 error: 'CONFIRMATION_TOKEN_EXPIRED',
+            });
+        }
+
+        // Compared through `sameAddress`, the same way `movesTheAddress` decides an edit is a move:
+        // a change of capitalisation reaches the same mailbox, is not a move, issues no new link,
+        // and must not kill the live one.
+        //
+        // No profile at all is not a contradiction — there is no address on file for the token to
+        // disagree with — so it falls through. A registered account always has one; this is the
+        // account an admin promoted by hand.
+        const profile = await this.profileRepository.findOne({ where: { user: { id: confirmation.user.id } } });
+        if (profile && !sameAddress(profile.email, confirmation.email)) {
+            throw new BadRequestException({
+                message: 'Adresa s-a schimbat între timp, iar linkul acesta confirma adresa veche. Am trimis unul nou la adresa nouă.',
+                error: 'CONFIRMATION_TOKEN_SUPERSEDED',
             });
         }
 
