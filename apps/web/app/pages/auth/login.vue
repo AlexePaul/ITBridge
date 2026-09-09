@@ -3,7 +3,6 @@ import { ref } from "vue";
 import { useSeo } from "~/composables/useSeo";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
-import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { useProfileInitialization } from "~/composables/useProfileInitialization";
 
 definePageMeta({
@@ -21,7 +20,6 @@ useSeo({
 const { login } = useAuthApi();
 const { success } = useNotifications();
 const profileInitialization = useProfileInitialization();
-const invoiceApi = useInvoiceApi();
 
 const isLoading = ref(false);
 const errorMessage = ref<string | null>(null);
@@ -34,8 +32,12 @@ async function onSubmit(payload: { username: string; password: string }) {
 
     success("Bine te-am găsit!", "Autentificare reușită");
 
-    profileInitialization.initializeProfile();
-    invoiceApi.fetchInvoices();
+    // Awaited, because the middleware that follows reads what it sets. `initializeProfile` fetches
+    // the profile before assigning `ProfileSetup`, so unawaited the flag is still `false` when
+    // `navigateTo` runs its guards — and a family that has not finished step two lands on the
+    // dashboard instead of the form, then gets bounced on their next click. It swallows its own
+    // failures, so awaiting cannot make the login fail.
+    await profileInitialization.initializeProfile();
 
     await navigateTo("/");
   } catch (error) {

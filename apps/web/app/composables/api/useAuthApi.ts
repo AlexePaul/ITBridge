@@ -35,7 +35,19 @@ export const useAuthApi = () => {
       tokenStore.setRefreshToken(response.refreshToken || "");
     }
 
-    useUserStore().fetchUser();
+    // Awaited: `/auth/login` returning is not the same as the session being readable. Unawaited,
+    // this left `userStore.user` null for the length of a round trip — and `admin-check` sends a
+    // null user back to the login page, while `initializeProfile` gives up early on one, so the
+    // parent who still owes step two landed on the dashboard instead of the form.
+    //
+    // Caught, because the tokens are already stored and the session really exists: `/auth/me`
+    // failing is something the portal recovers from on its next load, and reporting it to the
+    // caller would say „utilizator sau parolă incorectă" about a password that was right.
+    try {
+      await useUserStore().fetchUser();
+    } catch {
+      // Left to the boot plugin, which asks again.
+    }
 
     return response;
   };
@@ -59,7 +71,17 @@ export const useAuthApi = () => {
       tokenStore.setRefreshToken(response.refreshToken || "");
     }
 
-    useUserStore().fetchUser();
+    // Awaited, for the same reason as in `login`: the account exists the moment this returns, and
+    // step two is where the parent goes next — but the middleware that sends them there reads a
+    // flag `initializeProfile` only sets once `userStore.user` is loaded.
+    //
+    // Caught, because the tokens are stored and the account is real: a failed `/auth/me` is not a
+    // failed registration, and saying so would send the family back to a form they already filled.
+    try {
+      await useUserStore().fetchUser();
+    } catch {
+      // Left to the boot plugin, which asks again.
+    }
 
     return response;
   };
