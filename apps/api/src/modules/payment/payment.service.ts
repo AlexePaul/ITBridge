@@ -125,7 +125,15 @@ export class PaymentService {
      * stays OVERDUE, because lateness is a fact about the calendar, not about the balance. WAIVED is
      * never touched: it means "nothing to pay", and no payment row should exist against it anyway.
      *
-     * Runs inside the caller's transaction so a payment and the state it implies commit together.
+     * Runs inside the caller's transaction so a payment and the state it implies commit together,
+     * and **takes the invoice's row lock before it counts**. Two admins recording money against the
+     * same invoice in the same second — cash at the desk, a transfer off the statement — each ran
+     * this on their own snapshot, so neither saw the other's row: 100 and 250 against a 350 lei
+     * invoice both derived "still owing", the invoice stayed `pending`, and each family got a
+     * receipt naming a balance they had already cleared. Same shape as the seat count in E11, and
+     * the same fix: the lock goes before the number it protects, so the second transaction waits
+     * and then counts a total that includes the first. A second take inside one transaction is a
+     * no-op, which is why the three writers need nothing of their own.
      *
      * **Returns the balance it computed** — E16/S6. The receipt needs to tell a family what is left,
      * and the sum of succeeded payments is already made here; asking a second time, or subtracting
@@ -134,7 +142,7 @@ export class PaymentService {
      * follows, applied one layer down.
      */
     async recomputeInvoiceStatus(invoiceId: number, manager: EntityManager): Promise<InvoiceBalance> {
-        const invoice = await manager.findOne(Invoice, { where: { id: invoiceId } });
+        const invoice = await manager.findOne(Invoice, { where: { id: invoiceId }, lock: { mode: 'pessimistic_write' } });
         // Nothing to derive, and nothing owed: a waived month is 0 lei by definition.
         if (!invoice) return { paid: 0, outstanding: 0, status: InvoiceStatus.PENDING };
         if (invoice.status === InvoiceStatus.WAIVED) return { paid: 0, outstanding: 0, status: InvoiceStatus.WAIVED };

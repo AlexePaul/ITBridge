@@ -188,6 +188,26 @@ describe('PaymentService', () => {
             expect(manager.update).not.toHaveBeenCalled();
         });
 
+        it('holds the invoice row while it counts, so two payments in the same second cannot both miss the other', async () => {
+            // Without the lock each transaction summed its own snapshot: 100 and 250 against a 350
+            // lei invoice both read "still owing", the invoice stayed pending, and each family was
+            // told a balance it had already cleared. The seat count in E11 had the same shape.
+            await create();
+
+            expect(manager.findOne).toHaveBeenCalledWith(Invoice, { where: { id: 5 }, lock: { mode: 'pessimistic_write' } });
+        });
+
+        it('takes it before the sum — a lock taken after the count guards a number already read', async () => {
+            await create();
+
+            const calls = (manager.findOne as jest.Mock).mock.calls;
+            const lockedAt = calls.findIndex((call: unknown[]) => (call[1] as { lock?: unknown }).lock !== undefined);
+            expect(lockedAt).toBeGreaterThanOrEqual(0);
+            expect((manager.findOne as jest.Mock).mock.invocationCallOrder[lockedAt]).toBeLessThan(
+                (manager.createQueryBuilder as jest.Mock).mock.invocationCallOrder[0],
+            );
+        });
+
         it('a zero-amount invoice is never derived to paid — zero paid of zero owed is not a payment', async () => {
             invoiceInDb.amount = 0;
             paidSum = null;
