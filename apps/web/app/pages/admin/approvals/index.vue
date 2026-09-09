@@ -101,6 +101,7 @@ import { onMounted, ref } from "vue";
 import { useUserApi } from "~/composables/api/useUserApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
+import { daysSince } from "~/composables/useUtils";
 import type { PendingAccount } from "~/types/user.types";
 
 /**
@@ -131,7 +132,9 @@ const fullName = (account: PendingAccount) =>
 
 /** "azi", "ieri", "acum 5 zile" — how long somebody has been waiting is the only useful reading. */
 const registeredAgo = (createdAt: string) => {
-  const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / 86_400_000);
+  // Calendar days, not blocks of 24 hours — E17/S8's rule, and the one „ieri" means: an account
+  // opened yesterday at 18:00 and read at 09:00 has been waiting a day, not none.
+  const days = daysSince(createdAt);
   if (days <= 0) return "azi";
   if (days === 1) return "ieri";
   return `acum ${days} zile`;

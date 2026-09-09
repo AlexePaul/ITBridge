@@ -70,6 +70,7 @@ import { apiErrorMessage } from "~/composables/useApiError";
 import { usePrivacyApi } from "~/composables/api/usePrivacyApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { formatDateKey } from "~/composables/useAdminFormat";
+import { daysSince } from "~/composables/useUtils";
 import type { ProfileSummary } from "~/types/profile.types";
 
 /**
@@ -112,10 +113,7 @@ const eraseLabel = (row: ProfileSummary) =>
 /** Calendar days, like E17/S8's document backlog: somebody counts mornings, not 24-hour blocks. */
 const daysWaiting = (row: ProfileSummary) => {
   const requested = row.erasureRequestedAt;
-  if (!requested) return 0;
-  const from = new Date(String(requested).slice(0, 10));
-  const today = new Date(new Date().toISOString().slice(0, 10));
-  return Math.max(0, Math.round((today.getTime() - from.getTime()) / 86_400_000));
+  return daysSince(requested);
 };
 
 const load = async () => {

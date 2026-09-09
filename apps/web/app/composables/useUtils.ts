@@ -58,3 +58,46 @@ export function normalizePhone(raw: string): string {
 export function isRomanianPhone(raw: string): boolean {
   return /^\+407\d{8}$/.test(normalizePhone(raw));
 }
+
+/**
+ * The calendar day an instant falls on, `YYYY-MM-DD`, read from local components.
+ *
+ * Never `toISOString().slice(0, 10)`. That is the **UTC** day, and Romania is ahead of UTC all
+ * year, so between midnight and 03:00 every one of those reads as yesterday — a period that ended
+ * last night still counted as running, a date picker offering a day already gone, a family
+ * counted as having waited a day less than they have. The backend has the same rule twice, in
+ * `class-session.dates.ts` and in `school-clock.ts`; this is the browser's copy, and the browser
+ * it runs in is the office's.
+ */
+export function dayKey(at: Date = new Date()): string {
+  const year = String(at.getFullYear()).padStart(4, "0");
+  const month = String(at.getMonth() + 1).padStart(2, "0");
+  const day = String(at.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Whole calendar days between an instant and now — mornings, not blocks of 24 hours.
+ *
+ * The distinction is E17/S8's, and it is the one anybody reading „acum 2 zile" actually means:
+ * something recorded yesterday at 18:00 and read today at 09:00 is **one** day old, not zero. An
+ * elapsed-milliseconds division answers the other question, and answers it differently on two
+ * screens asking the same one.
+ *
+ * Negative differences are floored at zero: a row dated in the future has not been waiting.
+ */
+export function daysSince(
+  instant: string | Date | null | undefined,
+  now: Date = new Date()
+): number {
+  if (!instant) return 0;
+  const at = instant instanceof Date ? instant : new Date(instant);
+  if (Number.isNaN(at.getTime())) return 0;
+  return Math.max(0, Math.round((midnightOf(dayKey(now)) - midnightOf(dayKey(at))) / 86_400_000));
+}
+
+/** `YYYY-MM-DD` as a UTC instant, so two of them subtract to an exact number of days. */
+function midnightOf(key: string): number {
+  const [year, month, day] = key.split("-").map(Number);
+  return Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1);
+}

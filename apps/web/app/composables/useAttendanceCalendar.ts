@@ -1,3 +1,4 @@
+import { dayKey } from "./useUtils";
 import type { Attendance } from "~/types/attendance.types";
 import { AttendanceType } from "~/types/attendance.types";
 import type { ClassSession, ClassSessionWithAttendance } from "~/types/class-session.types";
@@ -74,9 +75,15 @@ export function toDateKey({ year, month, day }: CalendarDayParts): string {
   return `${y}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-/** Today as a day key, in the browser's own timezone. */
+/**
+ * Today as a day key, in the browser's own timezone — which, for the people who use these screens,
+ * is the school's.
+ *
+ * Delegates rather than repeating the formatting: `dayKey` is the one answer to "what day is this
+ * instant on", and the trap it exists to avoid has already produced the wrong day on four screens.
+ */
 export function todayKey(now: Date = new Date()): string {
-  return toDateKey({ year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() });
+  return dayKey(now);
 }
 
 /**

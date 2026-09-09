@@ -143,6 +143,7 @@ import { apiErrorMessage } from "~/composables/useApiError";
 import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useLocationsApi } from "~/composables/api/useLocationsApi";
 import { useNotifications } from "~/composables/useNotifications";
+import { dayKey } from "~/composables/useUtils";
 import { useLocationStore } from "~/stores/locationStore";
 import type { NonTeachingImpact, NonTeachingPeriod } from "~/types/class-session.types";
 
@@ -276,7 +277,7 @@ const years = computed(() => {
     .map(([year, entries]) => ({ label: `Anul școlar ${year}–${year + 1}`, periods: entries }));
 });
 
-const today = new Date().toISOString().slice(0, 10);
+const today = dayKey();
 const isPast = (period: NonTeachingPeriod) => period.endDate < today;
 
 const MONTHS = [
