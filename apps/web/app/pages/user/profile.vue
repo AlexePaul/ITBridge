@@ -137,6 +137,53 @@
           {{ downloading ? "Se pregătește…" : "Descarcă datele mele" }}
         </button>
       </section>
+
+      <!--
+        E07/S4, the second right. Two presses, not one: a control that empties an account on the
+        first click is a control somebody empties an account with by accident, and there is nothing
+        on the other side of it. The request is also not the deletion — the office has up to thirty
+        days, and has to check what the accounting obligation keeps — so the copy says what will
+        happen rather than implying it already has.
+
+        No colour of its own. The palette has no danger token, and a hex written here would be a
+        colour with no dark-mode counterpart — the thing `themed-colours.spec.ts` exists to stop.
+        What makes this safe is the second press, not a red border.
+      -->
+      <section class="portal-section">
+        <h2 class="portal-label">Ștergerea contului</h2>
+
+        <template v-if="erasureRequestedAt">
+          <p class="body-text">
+            Am primit cererea ta pe {{ formatDateKey(erasureRequestedAt.slice(0, 10)) }}. Ștergem
+            datele în cel mult 30 de zile. Îți rămân doar facturile, fiindcă legea ne obligă să
+            păstrăm evidența plăților.
+          </p>
+          <button
+            type="button"
+            class="btn btn-secondary details-action"
+            :disabled="erasing"
+            @click="onWithdraw"
+          >
+            Renunț la cerere
+          </button>
+        </template>
+
+        <template v-else>
+          <p class="body-text">
+            Poți cere ștergerea contului tău și a datelor copiilor. Îți rămân doar facturile,
+            fiindcă legea ne obligă să păstrăm evidența plăților; restul dispare, iar contul nu se
+            mai poate folosi.
+          </p>
+          <button
+            type="button"
+            class="btn btn-secondary details-action"
+            :disabled="erasing"
+            @click="onRequestErasure"
+          >
+            {{ confirmingErasure ? "Sigur? Apasă din nou" : "Cere ștergerea contului" }}
+          </button>
+        </template>
+      </section>
     </template>
   </div>
 </template>
@@ -176,6 +223,11 @@ const { success, error: notifyError } = useNotifications();
 
 const saving = ref(false);
 const downloading = ref(false);
+const erasing = ref(false);
+/** First press arms, second one asks. Reset on success, on failure and on leaving the screen. */
+const confirmingErasure = ref(false);
+
+const erasureRequestedAt = computed(() => profile.value?.erasureRequestedAt ?? null);
 
 const profile = computed(() => profileStore.profile);
 const emailConfirmed = computed(() => Boolean(userStore.user?.emailConfirmed));
@@ -238,6 +290,41 @@ const onDownload = async () => {
   } finally {
     if (url) URL.revokeObjectURL(url);
     downloading.value = false;
+  }
+};
+
+const onRequestErasure = async () => {
+  if (!confirmingErasure.value) {
+    confirmingErasure.value = true;
+    return;
+  }
+
+  erasing.value = true;
+  try {
+    await privacyApi.requestErasure();
+    await profileApi.fetchProfile();
+    success(
+      "Am primit cererea.",
+      "Ștergem datele în cel mult 30 de zile. Poți renunța oricând până atunci."
+    );
+  } catch (err) {
+    notifyError("Nu am putut trimite cererea", apiErrorMessage(err));
+  } finally {
+    confirmingErasure.value = false;
+    erasing.value = false;
+  }
+};
+
+const onWithdraw = async () => {
+  erasing.value = true;
+  try {
+    await privacyApi.withdrawErasure();
+    await profileApi.fetchProfile();
+    success("Am anulat cererea.", "Contul rămâne așa cum e.");
+  } catch (err) {
+    notifyError("Nu am putut anula cererea", apiErrorMessage(err));
+  } finally {
+    erasing.value = false;
   }
 };
 

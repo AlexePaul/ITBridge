@@ -169,6 +169,13 @@ describe('authorization matrix', () => {
             // real, and cannot exceed a group's capacity, because it takes the same seat through the
             // same `EnrollmentService` every admin screen does.
             'TrialController.book',
+            // E07/S4. A family asking for its own account to be erased, and taking the request
+            // back. Neither deletes anything: the row they write is „this family asked, on this
+            // day", and the erasure itself is `PrivacyController.erase`, which is ADMIN. Both take
+            // no id — the profile comes from the token — so there is nothing to point at somebody
+            // else's family.
+            'PrivacyController.requestErasure',
+            'PrivacyController.withdrawErasure',
         ]);
 
         const writes = HANDLERS.filter((h) => WRITE_METHODS.includes(h.httpMethod));

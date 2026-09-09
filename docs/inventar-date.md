@@ -26,8 +26,8 @@ Trei lucruri de citit înainte de tabele:
 
 ## Pe scurt
 
-- **30 tabele**, cu **231 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
-- **99 coloane sunt date personale**, în **22 tabele**.
+- **30 tabele**, cu **233 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
+- **101 coloane sunt date personale**, în **22 tabele**.
 - Restul de **132** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
 
 ## Datele personale, câmp cu câmp
@@ -50,6 +50,8 @@ Trei lucruri de citit înainte de tabele:
 | `profiles.emergencyContactRelation` | Părinte | Date de contact | Ce e persoana de urgență pentru copil. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `profiles.emergencyContactPhone` | Părinte | Date de contact | Numărul la care se sună în urgență. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `profiles.marketingOptIn` | Părinte | Urme de utilizare | Dacă familia a acceptat comunicările comerciale. | Consimțământ | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
+| `profiles.erasureRequestedAt` | Părinte | Urme de utilizare | Ziua în care familia a cerut ștergerea contului; de la ea curge termenul de 30 de zile. | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
+| `profiles.erasedAt` | Părinte | Urme de utilizare | Ziua în care s-a făcut ștergerea. | Obligație legală | Termenul contabil legal | Admin |
 | `children.firstName` | Copil | Identitate | Catalogul, orarul și fișa copilului. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `children.lastName` | Copil | Identitate | Catalogul, orarul și fișa copilului. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `children.birthDate` | Copil | Identitate | Potrivirea cu banda de vârstă a grupei. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
@@ -183,6 +185,8 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 - **`users.rejectionReason`** — Nota adminului. Nu se întoarce părintelui — de asta `parent.user` se scoate din răspunsuri.
 - **`profiles.emergencyContactName`** — Poate fi o a treia persoană, care nu are cont: datele ei ajung aici prin părinte.
 - **`profiles.marketingOptIn`** — Implicit `false`. Gatează exclusiv `queueMarketing`; nicio factură și niciun anunț despre ore nu trece prin ea.
+- **`profiles.erasureRequestedAt`** — O a doua cerere înainte ca prima să fie servită e aceeași cerere făcută de două ori: ziua dintâi rămâne.
+- **`profiles.erasedAt`** — Rândul supraviețuiește ștergerii fiindcă facturile atârnă de el (`Invoice.parent` e `CASCADE`). Coloana asta e ce spune ecranelor că e o coajă, nu o familie pe care n-a completat-o nimeni.
 - **`children.birthDate`** — Data nașterii unui minor. Verificarea de vârstă din E11 S6 e singurul lucru care o citește ca regulă.
 - **`enrollments.exitReason`** — Text liber scris de birou despre o familie.
 - **`enrollments.contractSignedAt`** — Doar faptul și ziua. Textul contractului nu e în platformă.

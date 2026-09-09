@@ -224,7 +224,7 @@ nu o completare, și se ia înainte de a scrie a doua jumătate.
 **Retenția nu e decisă aici.** Numărul e al [E22](E22-termeni-si-date.md) S3, iar jobul care îl
 aplică e al S4 de mai jos și al [E04](E04-migrari-date.md) S5.
 
-### S4 · Export și ștergere — exportul livrat
+### S4 · Export și ștergere — livrat
 
 Un părinte poate cere, prin portal, exportul datelor sale și ale copiilor, în format citibil, și
 ștergerea contului. Ștergerea respectă obligațiile contabile: facturile se păstrează, dar se
@@ -275,8 +275,59 @@ public n-are voie să scrie în rândul altei familii). Dacă familia se înregi
 timp nu sunt unite, `GET /privacy/export` — care pleacă de la cont — nu vede lead-ul, fiindcă pentru
 bază el e al altcuiva. Exact pentru asta e ruta de admin: biroul exportă profilul-coajă după id.
 
-**Rămâne ștergerea.** Nu e blocată de E22 — termenul de acolo guvernează purjarea automată, nu o
-cerere —, dar e cod distructiv și merită propriul PR și propria citire.
+**Livrat: ștergerea.** Familia cere din `/user/profile` (`POST /privacy/erasure`), biroul o duce la
+capăt din `/admin/stergeri` (`POST /privacy/erasure/:profileId`). Cererea nu șterge nimic: legea dă
+o lună, iar biroul trebuie să se uite întâi — la cine cere și la ce păstrează obligația contabilă.
+Ambele butoane cer **două apăsări**; cel din portal fiindcă nu e nimic de partea cealaltă a lui, cel
+din birou fiindcă acela chiar șterge, iar armarea e **pe rând**: armezi o familie, apeși pe alta, și
+a doua nu se șterge.
+
+**Nu e ștergerea logică din [E04](E04-migrari-date.md) S5.** Aceea e o stare „retras", reversibilă,
+pe care o pune adminul când o familie nu mai vine; asta e dreptul pe care îl exercită familia, și
+taie prin orice stare logică. Cele două poartă nume diferite dinadins: un soft delete care răspunde
+la cuvântul „ștergere" e felul în care o platformă îi spune unei familii că datele ei au dispărut
+când n-au dispărut.
+
+**Rândul familiei supraviețuiește, golit.** `Invoice.parent` e `CASCADE`, deci ștergerea rândului ar
+lua evidența contabilă cu ea — iar E04 S5 a decis că platforma păstrează evidența a ce a plătit o
+familie chiar dacă documentul fiscal e al SmartBill. Deci rândul rămâne o coajă: nume înlocuit,
+email, telefon, adresă și contact de urgență golite, `marketingOptIn` pe `false`, `erasedAt` pus.
+Email și telefon devin `null`, nu un text inventat: coloanele sunt unice, deci două familii șterse
+s-ar ciocni pe orice valoare născocită, iar o adresă inventată nu se poate deosebi de una reală care
+respinge mesajele — același argument ca la rândul nelivrabil din E17 S5.
+
+**Cascadele fac cea mai mare parte, și ăsta e tot ideea.** Ștergerea unui `Child` ia cu ea
+înscrierile, prezențele, absențele anunțate, cererile din listă, corecturile de ședințe și
+proiectele; ștergerea `User`-ului ia sesiunile, confirmările de email și acceptările de documente.
+Ce **rămâne pe dinafară** e exact ce serviciul trebuie să spună cu voce tare, și sunt patru lucruri:
+
+- **Lead-urile își țin propriile copii ale numelor.** `Lead.child` e `SET NULL`, iar rândul poartă
+  `childFirstName`, `childLastName` și `childBirthDate`, scrise dintr-un formular public. Ștergerea
+  copilului le-ar lăsa pe toate trei în `leads`.
+- **Outbox-ul n-are relație către profil** — coada e partajată și scrie și către birou —, deci
+  rândurile se caută după adresă, exact cum spune inventarul din S1 că va trebui.
+- **`Payment.notes` e text liber scris de un admin despre o familie**, pe un rând care se păstrează.
+  Cifrele rămân, fiindcă sunt evidența contabilă; propoziția nu.
+- **Reducerile pleacă.** Epicul păstrează facturile și nimic altceva, iar un rând de reducere
+  numește motivul pentru care o anumită familie a plătit mai puțin. Factura poartă deja numărul.
+
+**Se golește și bucket-ul**, după ce tranzacția a făcut commit, nu înăuntrul ei: stocarea de
+obiecte n-are rollback, deci ștergerea lucrărilor unui copil urmată de o tranzacție care cade ar
+distruge fișierele unei familii care rămâne pe fișă. Cheile se citesc **înainte** ca rândurile să
+plece, fiindcă se derivă din identificatori și după aceea n-ar mai avea din ce fi calculate — iar
+obiectele ar rămâne acolo pentru totdeauna. Un obiect care nu s-a putut șterge e o linie de log, nu
+o ștergere eșuată: e recuperabil, spre deosebire de o ștergere care a lăsat rândurile în urmă. PDF-
+urile facturilor rămân, împreună cu facturile.
+
+**Ce nu se poate atinge**, scris aici în loc să fie descoperit mai târziu: un fișier pe care agentul
+nu l-a putut atribui (`unassigned_files`) poate purta numele unui copil în cale, și nu există
+legătură de la el către o familie — eșecul acelei legături e chiar conținutul rândului. Se curăță de
+mână, din ecranul care le listează, iar nota de pe `/admin/stergeri` spune asta.
+
+**Urma supraviețuiește familiei, și trebuie să supraviețuiască.** Intrarea din audit log se scrie în
+aceeași tranzacție, iar „cine a șters familia 412 și când" rămâne de răspuns **tocmai fiindcă** tot
+restul a dispărut. E sigur fiindcă jurnalul ține identificatori, nu nume (E07 S3) — verificat în
+test: după ștergere, nici prenumele copilului, nici adresa familiei nu apar în el.
 
 ### S5 · Bannerul de cookie-uri și blocarea scripturilor — livrat
 
