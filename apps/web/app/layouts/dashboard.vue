@@ -183,6 +183,9 @@ const navigationItems = computed(() => {
       // E07/S8: the active enrolments the office has no signed paper for. A list, so that
       // "a semnat familia X?" is not answered from a binder at the wrong moment.
       { label: "Contracte nesemnate", to: "/admin/contracte", icon: "i-lucide-file-signature" },
+      // E07/S4. A family asks from the portal; the law gives thirty days. The screen exists because
+      // a request nobody sees is a term nobody meets.
+      { label: "Cereri de ștergere", to: "/admin/stergeri", icon: "i-lucide-trash-2" },
       { label: "Profiluri", to: "/admin/profiles", icon: "i-lucide-users" },
       { label: "Copii", to: "/admin/children", icon: "i-lucide-baby" },
     ],

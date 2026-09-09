@@ -76,6 +76,28 @@ export class Profile {
      */
     @Column({ type: 'boolean', default: false })
     marketingOptIn: boolean;
+
+    /**
+     * When the family asked for the account to be erased — E07 S4.
+     *
+     * A column rather than a table: a request is one fact about one family, it is either standing or
+     * it is not, and a second request before the first is served is the same request made twice.
+     * Cleared when the office declines or the family changes its mind; the erasure itself sets
+     * `erasedAt` and leaves this as the day the clock started.
+     */
+    @Column({ type: 'timestamptz', nullable: true })
+    erasureRequestedAt: Date | null;
+
+    /**
+     * When the erasure was carried out.
+     *
+     * The row survives it, because the invoices point here and accounting law keeps them (E04 S5:
+     * the fiscal document is SmartBill's, but the evidence of what a family paid is ours). What is
+     * left is a shell: no name, no address, no way to reach anybody. This column is what tells the
+     * screens that the shell is a shell rather than a family nobody has filled in yet.
+     */
+    @Column({ type: 'timestamptz', nullable: true })
+    erasedAt: Date | null;
 }
 
 /**

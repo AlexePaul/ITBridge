@@ -3,7 +3,11 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 9 septembrie 2026, pe `release/stage`. **S-a închis E07 S1**, inventarul de
+**Ultima actualizare:** 9 septembrie 2026, pe `release/stage`. **S-a închis E07 S4**, exportul și
+ștergerea la cerere: o familie își descarcă din portal tot ce ține școala despre ea și despre copiii
+ei, și tot de acolo poate cere ștergerea contului — pe care biroul o duce la capăt dintr-un ecran
+propriu, în cel mult 30 de zile, păstrând doar facturile. Nu e ștergerea logică din E04 S5: aceea e
+o stare reversibilă pusă de admin, asta taie prin ea. **Și E07 S1**, inventarul de
 date: toate cele 231 de coloane clasificate, 99 dintre ele date personale, cu temeiul, termenul și
 cititorul scrise la fiecare — iar propoziția din acceptanță („o coloană nouă nu poate ajunge în
 producție fără să apară în el") e ținută de un test care citește metadatele lui TypeORM, nu o listă.
@@ -53,7 +57,7 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 82 livrate, 23 parțiale, 4 blocate, 12 scoase din
+Din **150 de story-uri** în 22 de epicuri: 83 livrate, 22 parțiale, 4 blocate, 12 scoase din
 scop, 29 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
@@ -137,12 +141,12 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
 > află de la părintele care sună.
 
-### E07 · Securitate, GDPR și consimțământ — `în lucru; S1, S5 și S8 livrate, S3 și S4 pe jumătate, restul propus`
+### E07 · Securitate, GDPR și consimțământ — `în lucru; S1, S4, S5 și S8 livrate, S3 pe jumătate, restul propus`
 
 - [x] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface. Toate cele **231 de coloane** din cele 30 de tabele sunt clasificate, nu doar cele personale: fiecare e ori dată personală cu cele cinci răspunsuri, ori nu e, cu un motiv numit — **99 sunt date personale**, în 22 de tabele. Sursa e `apps/api/src/privacy/data-inventory.ts`, documentul [`docs/inventar-date.md`](../inventar-date.md) e randat din ea, iar `data-inventory.spec.ts` citește metadatele lui TypeORM și pică pe o coloană neclasificată, pe un rând învechit, pe un scop gol, pe document rămas în urmă și pe un `linkedVia` care nu duce la `Profile` — drumul pe care îl va parcurge S4. Termenele rămân ale E22 S3, dar acum sunt cinci reguli de numerotat, nu 231 de câmpuri
 - [ ] S2 · Consimțământ parental — granularitate `(părinte, copil, scop)`, decisă
 - [~] S3 · Audit log — **jumătatea de bani**: `audit_log` plus `apps/api/src/modules/audit/`, legat în facturi, plăți și reduceri, cu rândul scris în tranzacția schimbării pe care o descrie și fără nicio cale de a-l edita sau șterge. Acceptanța rulează capăt-la-capăt: `GET /audit?entityType=Invoice&entityId=412` spune cine a schimbat suma și când. **Lipsesc datele personale** — `Profile` și `Child` n-au urmă, fiindcă acolo _valoarea_ e data personală și „ce câmp" contra „din ce în ce" e o decizie de luat, nu o completare de scris
-- [~] S4 · Export și ștergere — **exportul livrat**: `GET /privacy/export` întoarce tot ce ține școala despre familia care cere, cu buton pe `/user/profile`; adminul produce același document pentru o familie care a sunat, pe rută separată. Fără `:id` pe ruta părintelui — profilul vine din token —, fără niciun hash întors și fără nimic despre altă familie, verificat pe două familii reale. `export.spec.ts` pică dacă inventarul din S1 numește un tabel pe care exportul nu-l citește. **Rămâne ștergerea**: nu e blocată de E22 (termenul de acolo e pentru purjarea automată), dar e cod distructiv și merită propriul PR
+- [x] S4 · Export și ștergere — **ambele fluxuri**. Exportul: `GET /privacy/export` întoarce tot ce ține școala despre familia care cere, cu buton pe `/user/profile`; fără `:id` pe ruta părintelui (profilul vine din token), fără niciun hash întors, fără nimic despre altă familie. Ștergerea: familia cere din portal, biroul o duce la capăt din `/admin/stergeri`, în cel mult 30 de zile; dispar copiii cu tot ce atârnă de ei, lead-urile, reducerile, mesajele și contul, iar rândul familiei rămâne golit fiindcă facturile atârnă de el. **Nu e ștergerea logică din E04 S5** — aceea e o stare reversibilă pusă de admin; asta taie prin ea. Urma din audit log supraviețuiește, și trebuie: ține identificatori, nu nume
 - [x] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2. Inventarul n-a găsit niciun script neesențial și un singur terț: harta Google, care pleca singură pe `loading="lazy"`. Deci poarta e la terț, nu peste tot — `MapEmbed.vue` ține `<iframe>`-ul în afara DOM-ului până apasă cititorul, iar `consentStore` ține alegerea în memorie, fără cookie. Fără banner pe site cât nu e nimic de refuzat; primul scop nou (analiza din E19 S8) îl aduce. Acceptanța rulează în CI: `pnpm test:privacy` pică dacă vreo pagină publică iese din origine sau pune un cookie
 - [ ] S6 · Managementul secretelor
 - [ ] S7 · Contracte de prelucrare
