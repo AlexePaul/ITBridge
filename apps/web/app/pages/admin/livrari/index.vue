@@ -6,17 +6,14 @@
   >
     <!-- The header numbers: every state present, even at zero. -->
     <div v-if="summary" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <button
+      <AdminStatTile
         v-for="state in states"
         :key="state"
-        type="button"
-        class="border border-muted rounded-lg p-4 text-left hover:bg-muted transition-colors"
-        :class="filter.status === state && 'border-primary'"
-        @click="toggleStatus(state)"
-      >
-        <p class="text-2xl font-semibold tabular-nums">{{ summary[state] }}</p>
-        <p class="text-sm text-muted">{{ DELIVERY_STATUS_LABELS[state] }}</p>
-      </button>
+        :value="summary[state]"
+        :label="DELIVERY_STATUS_LABELS[state]"
+        :pressed="filter.status === state"
+        @select="toggleStatus(state)"
+      />
     </div>
 
     <form class="flex flex-wrap items-end gap-3" @submit.prevent="load">

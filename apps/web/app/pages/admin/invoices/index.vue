@@ -16,11 +16,13 @@
     <template v-else-if="report">
       <!-- The three numbers somebody opens this screen to read, before any month in particular. -->
       <div class="grid gap-3 sm:grid-cols-3">
-        <div v-for="total in totals" :key="total.label" class="border-muted rounded-lg border p-4">
-          <p class="text-2xl font-semibold tabular-nums">{{ total.value }}</p>
-          <p class="text-muted mt-0.5 text-sm">{{ total.label }}</p>
-          <p class="text-muted mt-1 text-xs">{{ total.note }}</p>
-        </div>
+        <AdminStatTile
+          v-for="total in totals"
+          :key="total.label"
+          :value="total.value"
+          :label="total.label"
+          :note="total.note"
+        />
       </div>
 
       <AdminTable

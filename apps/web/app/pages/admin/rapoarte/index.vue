@@ -31,15 +31,13 @@
 
       <template v-else-if="finance">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div
+          <AdminStatTile
             v-for="tile in financeTiles"
             :key="tile.label"
-            class="border border-muted rounded-lg p-4"
-          >
-            <p class="text-2xl font-semibold tabular-nums">{{ tile.display }}</p>
-            <p class="text-sm text-muted mt-0.5">{{ tile.label }}</p>
-            <p v-if="tile.note" class="text-xs text-muted mt-1">{{ tile.note }}</p>
-          </div>
+            :value="tile.display"
+            :label="tile.label"
+            :note="tile.note"
+          />
         </div>
 
         <!-- Two calendars, both shown. Hiding one inside the other is how a money report ends up
@@ -72,16 +70,13 @@
             </UButton>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div v-for="band in buckets" :key="band" class="border border-muted rounded-lg p-4">
-              <p class="text-2xl font-semibold tabular-nums">
-                {{ formatLei(finance.arrears.byBucket[band].outstanding) }}
-              </p>
-              <p class="text-sm text-muted">{{ ARREARS_BUCKET_LABELS[band] }}</p>
-              <p class="text-xs text-muted mt-1 tabular-nums">
-                {{ finance.arrears.byBucket[band].invoices }}
-                {{ finance.arrears.byBucket[band].invoices === 1 ? "factură" : "facturi" }}
-              </p>
-            </div>
+            <AdminStatTile
+              v-for="band in buckets"
+              :key="band"
+              :value="formatLei(finance.arrears.byBucket[band].outstanding)"
+              :label="ARREARS_BUCKET_LABELS[band]"
+              :note="invoiceCount(finance.arrears.byBucket[band].invoices)"
+            />
           </div>
         </section>
 
@@ -116,15 +111,13 @@
 
       <template v-else-if="occupancy">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div
+          <AdminStatTile
             v-for="tile in occupancyTiles"
             :key="tile.label"
-            class="border border-muted rounded-lg p-4"
-          >
-            <p class="text-2xl font-semibold tabular-nums">{{ tile.display }}</p>
-            <p class="text-sm text-muted mt-0.5">{{ tile.label }}</p>
-            <p v-if="tile.note" class="text-xs text-muted mt-1">{{ tile.note }}</p>
-          </div>
+            :value="tile.display"
+            :label="tile.label"
+            :note="tile.note"
+          />
         </div>
 
         <section class="space-y-3">
@@ -263,15 +256,13 @@
 
       <template v-else-if="signals">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div
+          <AdminStatTile
             v-for="tile in signalTilesView"
             :key="tile.label"
-            class="border border-muted rounded-lg p-4"
-          >
-            <p class="text-2xl font-semibold tabular-nums">{{ tile.display }}</p>
-            <p class="text-sm text-muted mt-0.5">{{ tile.label }}</p>
-            <p class="text-xs text-muted mt-1">{{ tile.note }}</p>
-          </div>
+            :value="tile.display"
+            :label="tile.label"
+            :note="tile.note"
+          />
         </div>
 
         <AdminEmpty
@@ -662,6 +653,9 @@ const loadOccupancy = async () => {
     occupancyLoading.value = false;
   }
 };
+
+/** "1 factură" / "4 facturi" — the arrears tile's note, which the tile takes as one string. */
+const invoiceCount = (n: number) => `${n} ${n === 1 ? "factură" : "facturi"}`;
 
 const fillColor = (rate: number): AdminBadgeColor => {
   // The threshold is the report's, never a copy; 0.9 is only a colour band for the screen.

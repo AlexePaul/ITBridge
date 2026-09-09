@@ -14,17 +14,15 @@
       <!-- The things that need somebody. Only the ones with a number sit up front; a zero is good
            news and does not deserve the same weight as a problem. -->
       <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <NuxtLink
+        <AdminStatTile
           v-for="tile in tiles"
           :key="tile.label"
+          :value="tile.display"
+          :label="tile.label"
+          :note="tile.note"
           :to="tile.to"
-          class="border rounded-lg p-4 transition-colors hover:bg-muted"
-          :class="tile.value > 0 ? 'border-warning' : 'border-muted'"
-        >
-          <p class="text-2xl font-semibold tabular-nums">{{ tile.display }}</p>
-          <p class="text-sm text-muted mt-0.5">{{ tile.label }}</p>
-          <p v-if="tile.note" class="text-xs text-muted mt-1">{{ tile.note }}</p>
-        </NuxtLink>
+          :tone="tile.value > 0 ? 'warning' : 'muted'"
+        />
       </div>
 
       <!-- Today, because taking the register is the daily act. -->

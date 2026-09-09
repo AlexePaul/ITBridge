@@ -22,10 +22,12 @@
 
     <template v-else>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div v-for="band in buckets" :key="band" class="border border-muted rounded-lg p-4">
-          <p class="text-2xl font-semibold tabular-nums">{{ countOf(band) }}</p>
-          <p class="text-sm text-muted">{{ ARREARS_BUCKET_LABELS[band] }}</p>
-        </div>
+        <AdminStatTile
+          v-for="band in buckets"
+          :key="band"
+          :value="countOf(band)"
+          :label="ARREARS_BUCKET_LABELS[band]"
+        />
       </div>
 
       <div class="space-y-2">
