@@ -139,9 +139,14 @@ describe('authorization matrix', () => {
             'AuthController.refresh',
             'ProfileController.createProfile', // a parent creates their own profile
             'ProfileController.updateProfile', // the service checks ownership
+            // Both deletes stay reachable, and both are narrow. A profile with invoices or children
+            // is refused, and so is a child with attendance or saved work — `profiles` and
+            // `children` cascade into the register, the invoices and the bucket, so what is left
+            // here is undoing a row somebody typed in by mistake. Erasing a family is E07/S4,
+            // ADMIN-only, and it keeps the invoices.
             'ProfileController.deleteProfile',
             'ChildController.createChild', // the service checks the parent profile
-            'ChildController.updateChild',
+            'ChildController.updateChild', // the service checks ownership; the audit trail takes field names only
             'ChildController.deleteChild',
             'AuthController.logout',
             'AuthController.logoutEverywhere', // revokes only the caller's own sessions
