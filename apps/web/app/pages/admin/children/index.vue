@@ -7,25 +7,14 @@
       </UBadge>
     </template>
 
-    <UInput
+    <AdminSearchInput
       v-model="search"
+      label="Căutare"
       placeholder="Caută după copil, părinte, telefon, email sau #grupă"
-      icon="i-lucide-search"
       size="lg"
-      class="w-full max-w-xl"
-      :ui="{ base: 'w-full' }"
-    >
-      <template #trailing>
-        <UButton
-          v-if="search"
-          color="neutral"
-          variant="link"
-          icon="i-lucide-x"
-          aria-label="Șterge căutarea"
-          @click="search = ''"
-        />
-      </template>
-    </UInput>
+      clear-label="Șterge căutarea"
+      class="max-w-xl"
+    />
 
     <AdminLoading v-if="loading" />
     <AdminError v-else-if="loadError" :message="loadError" @retry="load" />

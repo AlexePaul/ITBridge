@@ -7,12 +7,11 @@
     <UCard>
       <div class="space-y-3">
         <UFormField label="Caută copil">
-          <UInput
+          <AdminSearchInput
             v-model="searchQuery"
+            label="Caută un copil"
             placeholder="Nume sau ID…"
-            icon="i-lucide-search"
-            color="primary"
-            class="w-full"
+            clear-label="Șterge căutarea"
           />
         </UFormField>
 

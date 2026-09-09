@@ -16,79 +16,25 @@
       </UBadge>
     </template>
 
-    <!-- Filters Card -->
-    <UCard class="border">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <UInput
-          v-model="filters.search"
-          placeholder="Caută după nume..."
-          icon="i-lucide-search"
-          color="primary"
-        >
-          <template #trailing>
-            <UButton
-              v-if="filters.search"
-              color="neutral"
-              variant="link"
-              icon="i-lucide-x"
-              :padded="false"
-              @click="filters.search = ''"
-            />
-          </template>
-        </UInput>
-
-        <UInput
-          v-model="filters.email"
-          placeholder="Filtrare după email..."
-          icon="i-lucide-mail"
-          color="primary"
-        >
-          <template #trailing>
-            <UButton
-              v-if="filters.email"
-              color="neutral"
-              variant="link"
-              icon="i-lucide-x"
-              :padded="false"
-              @click="filters.email = ''"
-            />
-          </template>
-        </UInput>
-
-        <UInput
-          v-model="filters.phone"
-          placeholder="Filtrare după telefon..."
-          icon="i-lucide-phone"
-          color="primary"
-        >
-          <template #trailing>
-            <UButton
-              v-if="filters.phone"
-              color="neutral"
-              variant="link"
-              icon="i-lucide-x"
-              :padded="false"
-              @click="filters.phone = ''"
-            />
-          </template>
-        </UInput>
-      </div>
-
-      <div class="flex justify-between items-center mt-4 pt-4 border-t">
-        <div class="text-sm text-muted">
-          Afișez {{ filteredProfiles.length }} din {{ profiles.length }} profiluri
-        </div>
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-refresh-cw"
-          @click="clearFilters"
-          :disabled="!hasActiveFilters"
-        >
-          Șterge Filtre
-        </UButton>
-      </div>
-    </UCard>
+    <AdminFilterBar
+      :count-label="`Afișez ${filteredProfiles.length} din ${profiles.length} profiluri`"
+      :active="hasActiveFilters"
+      @clear="clearFilters"
+    >
+      <AdminSearchInput v-model="filters.search" label="Nume" placeholder="Caută după nume..." />
+      <AdminSearchInput
+        v-model="filters.email"
+        label="Email"
+        placeholder="Filtrare după email..."
+        icon="i-lucide-mail"
+      />
+      <AdminSearchInput
+        v-model="filters.phone"
+        label="Telefon"
+        placeholder="Filtrare după telefon..."
+        icon="i-lucide-phone"
+      />
+    </AdminFilterBar>
 
     <AdminLoading v-if="loading" />
 
