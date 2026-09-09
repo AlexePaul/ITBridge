@@ -385,6 +385,20 @@ corectează o greșeală de tastare n-a dovedit mai mult decât familia. Compozi
 randat, mesaj în coadă — e una singură, `EmailConfirmationService.issueAndSend`, iar cei trei
 apelanți i-o dau pe a lor `EntityManager`.
 
+**Și linkul vechi încetează să meargă în clipa aia.** Poarta închisă de editare se redeschidea
+singură: linkul emis înainte de mutare mai trăia restul celor 48 de ore, iar un clic pe el punea
+`emailConfirmedAt` la loc — pe o adresă pe care nu o dovedise nimeni. Ce autorizează ștampila aia e
+tot: `queueOrRecord` o citește înainte să scrie la o adresă, iar `isAccountActive` înainte să lase un
+copil într-o grupă. Deci cine putea citi adresa _veche_ — un străin, dacă motivul editării a fost o
+greșeală de tastare — putea declara dovedită adresa nouă. `EmailConfirmation.email` purta de la
+început adresa pentru care a fost emis linkul; nimeni n-o întreba. `confirm` refuză acum când nu mai
+e adresa de pe fișă, cu cod propriu (`CONFIRMATION_TOKEN_SUPERSEDED`): cel care ține linkul n-a
+greșit cu nimic, iar ieșirea e linkul mai nou, deja în inbox — altă propoziție decât „expirat".
+Comparația trece prin `sameAddress` din `apps/api/src/common/same-address.ts`, aceeași pe care o
+folosește `movesTheAddress`: una decide că editarea _e_ o mutare, cealaltă că linkul e vechi, și
+n-au voie să nu fie de acord ce înseamnă „aceeași cutie poștală" — scrisă mai strict aici, o editare
+care schimbă doar majusculele ar omorî singurul link viu al familiei.
+
 Porțile se pot deschide în orice ordine, iar singurul lucru pe care îl blochează efectiv e
 repartizarea unui copil într-o grupă (`PARENT_ACCOUNT_NOT_ACTIVE`). **Un cont neactiv se poate
 autentifica** — portalul îi arată ce mai lipsește și butonul de retrimitere a linkului; un login care
@@ -791,11 +805,17 @@ neclasificat. Trei lucruri care se ratează:
   care ts-jest nu-l poate face — deci verificarea compară randarea brută, iar un hook care ar
   reformata fișierul ar face-o roșie pe alinierea barelor și pe nimic altceva.
 
-**Urma unei schimbări de bani se scrie în tranzacția care a produs-o** (E07 S3). `AuditService`
-(`apps/api/src/modules/audit/audit.service.ts`) primește `EntityManager`-ul tău — același argument
-ca la outbox: o urmă care supraviețuiește unei tranzacții date înapoi spune că s-a întâmplat ceva ce
-nu s-a întâmplat, iar una pierdută când schimbarea a reușit e o gaură. Patru lucruri de ținut minte
-dacă adaugi un al patrulea scriitor lângă facturi, plăți și reduceri:
+**Urma unei schimbări se scrie în tranzacția care a produs-o** (E07 S3). `AuditService`
+(`apps/api/src/modules/audit/audit.service.ts`) **cere** `EntityManager`-ul tău — nu îl acceptă
+opțional, ca outbox-ul: o urmă care supraviețuiește unei tranzacții date înapoi spune că s-a
+întâmplat ceva ce nu s-a întâmplat, iar una pierdută când schimbarea a reușit e o gaură. Asimetria
+față de coadă e intenționată: un mesaj poate să n-aibă nicio tranzacție în jur — rularea de restanțe
+și mementoul de prezență și-o compun dintr-o citire —, în timp ce o intrare în jurnal _e_ relatarea
+unei schimbări, deci există mereu o tranzacție la care să se alăture. Opt scriitori derivaseră spre
+apelul fără manager — toți cei de date personale, plus ambele jumătăți ale cererii de ștergere —, iar
+unul dintre ei, editarea de profil, avea chiar atunci o tranzacție deschisă și pur și simplu n-o
+dădea mai departe. Semnătura e ce oprește al nouălea; un tip ține linia mai bine decât un comentariu.
+Patru lucruri de ținut minte dacă adaugi un scriitor nou lângă facturi, plăți și reduceri:
 
 - **Nu există `update` și nu există `delete`** — nici metodă pe serviciu, nici rută pe
   `AuditController`, care are un singur verb. Singurul lucru care se poate face tabelului prin
@@ -900,7 +920,15 @@ se numește `PENDING`**: sunt `INITIATED`, `SUCCEEDED`, `FAILED` și `REVERSED`;
 
 Restul de plată din chitanță vine din `recomputeInvoiceStatus`, care returnează
 `{ paid, outstanding, status }` — suma plăților reușite se face acolo oricum, iar un
-`amount - plăți` scris a doua oară în compozitor ar fi exact a doua definiție de mai sus. Cheia de
+`amount - plăți` scris a doua oară în compozitor ar fi exact a doua definiție de mai sus.
+**Și numără ținând lacătul rândului de factură**, ca locurile din E11: doi admini care înregistrează
+bani pe aceeași factură în aceeași secundă — numerar la birou, un transfer de pe extras — numărau
+fiecare pe fotografia lui, deci niciunul nu vedea rândul celuilalt. Pe o factură de 350, 100 și 250
+deodată dădeau amândouă „mai are de plată": factura rămânea `pending`, iar fiecare chitanță spunea
+familiei un rest pe care tocmai îl achitase. Ecranul de restanțe nu era atins, fiindcă el numără
+plățile reușite în loc să citească coloana de stare — exact de aia numărul greșit ieșea doar acolo
+unde îl citea o familie. Lacătul stă înăuntrul derivării, nu la cele trei apeluri, fiindcă aia e
+singura ușă prin care trec toate. Cheia de
 deduplicare e `receipt:<id-ul plății>`, **fără ziua în ea**, spre deosebire de mementourile de
 restanță: alea se repetă prin design, o plată se confirmă o dată. Mesajul se pune în coadă în
 tranzacția care înregistrează banii — dă-i `EntityManager`-ul —, iar dacă adaugi un al doilea loc de
