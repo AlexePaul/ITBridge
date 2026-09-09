@@ -202,10 +202,16 @@ export class TrialBookingService {
 
         try {
             return await this.dataSource.transaction(async (manager) => {
-                // Re-checked here, inside the transaction, and on the **class** rather than the
-                // group: the list the parent saw is a photograph, and between it and this line a
-                // make-up may have been booked onto exactly this hour. `enrol` below still checks
-                // the group, which is the other half of D7.
+                // Behind the lock, then re-checked — and in that order. `enrol` below takes the
+                // same lock, but it takes it *after* this count, so two bookings for one class both
+                // read the last seat and only then queued up to insert. The lock has to be in front
+                // of the number it protects; re-locking inside `enrol` is a no-op in the same
+                // transaction.
+                await this.enrollments.lockGroup(manager, session.group.id);
+
+                // On the **class** rather than the group: the list the parent saw is a photograph,
+                // and between it and this line the office may have moved a child onto exactly this
+                // hour. `enrol` still checks the group, which is the other half of D7.
                 const seats = await this.enrollments.freeSeatsAt({ id: session.id, group: session.group }, manager);
                 if (seats <= 0) {
                     throw new ConflictException({ message: 'Ora aleasă tocmai s-a ocupat', error: 'GROUP_FULL' });

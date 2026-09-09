@@ -315,7 +315,12 @@ anunțul care a provocat-o: `AbsenceNotice.replacementSession`, scrisă de `Repl
   înscrieri în vigoare plus copiii mutați în acea ședință — nu `occupancyOf`, care e despre grupă.
   Numărătoarea stă în `EnrollmentService.freeSeatsAt` / `freeSeatsAtSessions`, lângă `occupancyOf`:
   D7 are un singur proprietar, iar cei trei care întreabă — mutările, programarea la probă și
-  rezervarea ei — obțin același răspuns.
+  rezervarea ei — obțin același răspuns. **Și se numără ținând lacătul**: `lockGroup` se ia pe rândul
+  grupei _înaintea_ numărătorii, în aceeași tranzacție cu scrierea. Verificat-apoi-scris fără lacăt
+  a fost exact defecțiunea pe care E20/S2 a închis-o pentru grupă și a lăsat-o deschisă pentru
+  ședință: două programări la aceeași oră citeau amândouă ultimul loc, iar la `ReplacementService`
+  verificarea stătea chiar în afara tranzacției care o folosea. Lacătul se pune înaintea numărului
+  pe care îl apără; a doua luare, în `enrol`, e no-op în aceeași tranzacție.
 
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin

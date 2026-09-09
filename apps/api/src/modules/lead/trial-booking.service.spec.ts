@@ -31,7 +31,7 @@ describe('TrialBookingService', () => {
     let groupRepo: MockRepository<Group>;
     let sessionRepo: MockRepository<ClassSession>;
     let manager: MockEntityManager;
-    let enrollments: { enrol: jest.Mock; occupancyOf: jest.Mock; freeSeatsAtSessions: jest.Mock; freeSeatsAt: jest.Mock };
+    let enrollments: { enrol: jest.Mock; occupancyOf: jest.Mock; freeSeatsAtSessions: jest.Mock; freeSeatsAt: jest.Mock; lockGroup: jest.Mock };
     let outbox: { queueOrRecord: jest.Mock };
 
     const now = new Date('2026-03-10T09:00:00Z');
@@ -85,6 +85,9 @@ describe('TrialBookingService', () => {
             // The default says every offered hour has room; a test that is about a full hour says so.
             freeSeatsAtSessions: jest.fn().mockImplementation((sessions: { id: number }[]) => Promise.resolve(new Map(sessions.map((entry) => [entry.id, 3])))),
             freeSeatsAt: jest.fn().mockResolvedValue(3),
+            // Missing from the double, this reads as a bug in the service — the same lesson as
+            // `exists` on the repository mock. It is here because the booking takes it.
+            lockGroup: jest.fn().mockResolvedValue({ id: 1 }),
         };
         outbox = { queueOrRecord: jest.fn().mockResolvedValue({ id: 1 }) };
         leadRepo.findOne?.mockResolvedValue(null);
@@ -187,6 +190,32 @@ describe('TrialBookingService', () => {
             await service.book(booking, now);
 
             expect(enrollments.enrol).toHaveBeenCalledWith(expect.objectContaining({ groupId: 5, status: EnrollmentStatus.TRIAL }), null, manager);
+        });
+
+        /**
+         * The lock has to come **before** the number it protects.
+         *
+         * `enrol` takes the same lock, but it takes it after this count — so two bookings for one
+         * class both read the last seat and only then queued up to insert, and D7's per-class
+         * number, the one about chairs at a specific hour, had nothing behind it at all. Asserted
+         * on call order rather than by racing two transactions: what went wrong here is the order
+         * of two lines, and that is a thing a unit test can hold still.
+         */
+        it('locks the group before it counts the seats, not after', async () => {
+            const order: string[] = [];
+            enrollments.lockGroup.mockImplementation(() => {
+                order.push('lock');
+                return Promise.resolve({ id: 5 });
+            });
+            enrollments.freeSeatsAt.mockImplementation(() => {
+                order.push('count');
+                return Promise.resolve(3);
+            });
+
+            await service.book(booking, now);
+
+            expect(order).toEqual(['lock', 'count']);
+            expect(enrollments.lockGroup).toHaveBeenCalledWith(manager, 5);
         });
 
         it('queues the confirmation in the same transaction as the booking', async () => {
