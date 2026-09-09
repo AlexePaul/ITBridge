@@ -53,8 +53,8 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 82 livrate, 22 parțiale, 4 blocate, 12 scoase din
-scop, 30 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **150 de story-uri** în 22 de epicuri: 82 livrate, 23 parțiale, 4 blocate, 12 scoase din
+scop, 29 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
 **Cifrele s-au recitit din rânduri, și cinci din șase erau greșite** — 75/19/6/36 pentru
@@ -65,7 +65,7 @@ coloana întâi cu `- [x]`, `- [~]`, `- [!]`, `- [ ]` sau `- ~~`, **numărate do
 `### E`** — altfel intră în total și rândul din legendă care arată cum se scrie un story tăiat, iar
 numărul iese cu unul peste, ceea ce e greu de observat tocmai fiindcă e aproape.
 
-Cele 30 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+Cele 29 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
 E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
 mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
@@ -137,12 +137,12 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
 > află de la părintele care sună.
 
-### E07 · Securitate, GDPR și consimțământ — `în lucru; S1, S5 și S8 livrate, S3 pe jumătate, restul propus`
+### E07 · Securitate, GDPR și consimțământ — `în lucru; S1, S5 și S8 livrate, S3 și S4 pe jumătate, restul propus`
 
 - [x] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface. Toate cele **231 de coloane** din cele 30 de tabele sunt clasificate, nu doar cele personale: fiecare e ori dată personală cu cele cinci răspunsuri, ori nu e, cu un motiv numit — **99 sunt date personale**, în 22 de tabele. Sursa e `apps/api/src/privacy/data-inventory.ts`, documentul [`docs/inventar-date.md`](../inventar-date.md) e randat din ea, iar `data-inventory.spec.ts` citește metadatele lui TypeORM și pică pe o coloană neclasificată, pe un rând învechit, pe un scop gol, pe document rămas în urmă și pe un `linkedVia` care nu duce la `Profile` — drumul pe care îl va parcurge S4. Termenele rămân ale E22 S3, dar acum sunt cinci reguli de numerotat, nu 231 de câmpuri
 - [ ] S2 · Consimțământ parental — granularitate `(părinte, copil, scop)`, decisă
 - [~] S3 · Audit log — **jumătatea de bani**: `audit_log` plus `apps/api/src/modules/audit/`, legat în facturi, plăți și reduceri, cu rândul scris în tranzacția schimbării pe care o descrie și fără nicio cale de a-l edita sau șterge. Acceptanța rulează capăt-la-capăt: `GET /audit?entityType=Invoice&entityId=412` spune cine a schimbat suma și când. **Lipsesc datele personale** — `Profile` și `Child` n-au urmă, fiindcă acolo _valoarea_ e data personală și „ce câmp" contra „din ce în ce" e o decizie de luat, nu o completare de scris
-- [ ] S4 · Export și ștergere — termenul pe care îl aplică e scris în E22 S3
+- [~] S4 · Export și ștergere — **exportul livrat**: `GET /privacy/export` întoarce tot ce ține școala despre familia care cere, cu buton pe `/user/profile`; adminul produce același document pentru o familie care a sunat, pe rută separată. Fără `:id` pe ruta părintelui — profilul vine din token —, fără niciun hash întors și fără nimic despre altă familie, verificat pe două familii reale. `export.spec.ts` pică dacă inventarul din S1 numește un tabel pe care exportul nu-l citește. **Rămâne ștergerea**: nu e blocată de E22 (termenul de acolo e pentru purjarea automată), dar e cod distructiv și merită propriul PR
 - [x] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2. Inventarul n-a găsit niciun script neesențial și un singur terț: harta Google, care pleca singură pe `loading="lazy"`. Deci poarta e la terț, nu peste tot — `MapEmbed.vue` ține `<iframe>`-ul în afara DOM-ului până apasă cititorul, iar `consentStore` ține alegerea în memorie, fără cookie. Fără banner pe site cât nu e nimic de refuzat; primul scop nou (analiza din E19 S8) îl aduce. Acceptanța rulează în CI: `pnpm test:privacy` pică dacă vreo pagină publică iese din origine sau pune un cookie
 - [ ] S6 · Managementul secretelor
 - [ ] S7 · Contracte de prelucrare
