@@ -34,7 +34,7 @@ describe('ProfileService', () => {
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
             const dto = { firstName: 'Ana', lastName: 'Pop', userId: 999 };
-            await service.createProfile(dto, Role.PARENT, 5);
+            await service.createProfile(dto, Role.PARENT, 5, ACTOR);
 
             expect(dto.userId).toBe(5);
         });
@@ -45,7 +45,7 @@ describe('ProfileService', () => {
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
             const dto = { firstName: 'Ana', lastName: 'Pop', userId: 999 };
-            await service.createProfile(dto, Role.ADMIN, 5);
+            await service.createProfile(dto, Role.ADMIN, 5, ACTOR);
 
             expect(dto.userId).toBe(999);
         });
@@ -56,7 +56,7 @@ describe('ProfileService', () => {
             profileRepo.create!.mockImplementation((d: { user: unknown }) => d);
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
-            await service.createProfile({ firstName: 'Ana', lastName: 'Pop' }, Role.ADMIN);
+            await service.createProfile({ firstName: 'Ana', lastName: 'Pop' }, Role.ADMIN, undefined, ACTOR);
 
             expect(profileRepo.create!.mock.calls[0][0]).toMatchObject({ user: null });
         });
@@ -64,7 +64,20 @@ describe('ProfileService', () => {
         it('rejects a second profile for the same account', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1 });
 
-            await expect(service.createProfile({ firstName: 'A', lastName: 'B', userId: 5 }, Role.ADMIN)).rejects.toThrow(ConflictException);
+            await expect(service.createProfile({ firstName: 'A', lastName: 'B', userId: 5 }, Role.ADMIN, undefined, ACTOR)).rejects.toThrow(ConflictException);
+        });
+
+        it('records the act and the id, never what was typed into it', async () => {
+            profileRepo.findOne!.mockResolvedValue(null);
+            profileRepo.create!.mockImplementation((d: unknown) => d);
+            profileRepo.save!.mockImplementation((p: object) => Promise.resolve({ ...p, id: 77 }));
+
+            await service.createProfile({ firstName: 'Ana', lastName: 'Pop', email: 'ana@pop.ro' }, Role.ADMIN, undefined, ACTOR);
+
+            expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
+                expect.objectContaining({ actor: ACTOR, entityType: 'Profile', entityId: 77, fields: ['profile'] }),
+            );
+            expect(JSON.stringify(audit.recordPersonalDataChange.mock.calls[0][0])).not.toContain('ana@pop.ro');
         });
 
         it('rejects an email that is already taken', async () => {
@@ -72,7 +85,9 @@ describe('ProfileService', () => {
                 .findOne!.mockResolvedValueOnce(null) // no profile on the account
                 .mockResolvedValueOnce({ id: 2 }); // email taken
 
-            await expect(service.createProfile({ firstName: 'A', lastName: 'B', email: 'a@b.c', userId: 5 }, Role.ADMIN)).rejects.toThrow(ConflictException);
+            await expect(service.createProfile({ firstName: 'A', lastName: 'B', email: 'a@b.c', userId: 5 }, Role.ADMIN, undefined, ACTOR)).rejects.toThrow(
+                ConflictException,
+            );
         });
     });
 

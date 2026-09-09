@@ -1,6 +1,6 @@
 # E07 · Securitate, GDPR și consimțământ
 
-**Status:** în lucru — **S1, S5 și S8 livrate**, S3 pe jumătate, restul propus · **Pistă:** Fundație · **Depinde de:**
+**Status:** în lucru — **S1, S3, S4, S5 și S8 livrate**, restul propus · **Pistă:** Fundație · **Depinde de:**
 E04, E05 · **Blochează:** E14, E19; E09 doar odată cu reluarea lui S2
 
 > **Granița cu [E22](E22-termeni-si-date.md), fiindcă se confundă ușor: aici e mecanica, acolo e ce
@@ -176,14 +176,14 @@ copil și acel scop în momentul afișării.
 pentru copilul acela și scopul acela. Revocarea îl retrage în sub un minut. Un părinte cu doi copii
 poate accepta pentru unul și refuza pentru celălalt, iar vitrina arată exact asta.
 
-### S3 · Audit log — jumătatea de bani livrată
+### S3 · Audit log — livrat
 
 Fiecare acțiune administrativă care atinge date personale sau bani lasă o înregistrare: cine, ce,
 când, valoarea veche și cea nouă. Imutabil, cu retenție separată de datele operaționale.
 
 **Acceptanță:** "cine a schimbat suma facturii 412 și când" are răspuns în sub un minut.
 
-**Livrat: banii.** `audit_log` (`apps/api/src/entities/audit-log.entity.ts`) plus
+**Banii.** `audit_log` (`apps/api/src/entities/audit-log.entity.ts`) plus
 `apps/api/src/modules/audit/`, legat în cele trei module unde se mișcă bani — facturi, plăți,
 reduceri. Acceptanța rulează capăt-la-capăt în `apps/api/test/audit-log.e2e-spec.ts`: după o
 schimbare de sumă, `GET /audit?entityType=Invoice&entityId=412` întoarce cine, ce a fost și ce a
@@ -214,12 +214,30 @@ lunile `waived`), editarea și ștergerea unei facturi, corectura de ședințe p
 deci o citire nemărginită ar fi o cale de a trage tot istoricul de bani al unei familii printr-o
 singură cerere.
 
-**Rămâne: datele personale.** Modificările de `Profile` și `Child` încă nu lasă urmă, și nu din
-grabă — povestea cere „valoarea veche și cea nouă", dar la un profil _valoarea însăși e dată
-personală_. Consemnat ca atare, jurnalul ar păstra fiecare telefon și fiecare adresă pe care le-a
-avut vreodată o familie, într-un tabel cu retenție mai lungă decât rândul pe care îl descrie — adică
-exact ce E07 există să reducă. Alegerea dintre „ce câmp s-a schimbat" și „din ce în ce" e o decizie,
-nu o completare, și se ia înainte de a scrie a doua jumătate.
+**Datele personale, și decizia care le desparte de bani.** Modificările de `Profile` și `Child`
+lasă acum urmă, dar consemnează **numele câmpurilor care s-au mișcat, niciodată valorile lor**.
+Povestea cerea „valoarea veche și cea nouă"; la un profil _valoarea însăși e dată personală_, iar
+argumentul care decide nu e de gust, ci din inventarul S1: câmpurile lui `Profile` și `Child` au
+retenția `account` — pleacă odată cu familia —, iar `audit_log` are retenția `audit`, fiindcă
+supraviețuiește lucrului pe care îl descrie. Scrise în jurnal, fiecare telefon și fiecare adresă pe
+care le-a avut vreodată o familie ar rămâne de partea greșită a acelei granițe, într-un tabel pe
+care ștergerea din S4 nu-l atinge — și nu-l poate atinge, fiindcă n-are relație către profil,
+tocmai ca să rămână răspuns la „cine a șters familia 412" după ce familia 412 nu mai e.
+
+Deci „cine a schimbat adresa copilului 87, și când" are răspuns; „care era adresa dinainte" nu are,
+și asta e intenția. Se consemnează crearea, editarea și ștergerea unui `Profile` și ale unui
+`Child` — cele șase drumuri prin care un om atinge datele unei familii de la un ecran. Creația e
+acolo fiindcă rândul nou nu poate răspunde singur **cine** l-a scris: o familie introdusă la telefon
+n-are altă evidență decât asta. Trei lucruri de știut:
+
+- **Ce a fost atins se calculează, nu se presupune.** `changedFieldNames`
+  (`apps/api/src/modules/audit/personal-fields.ts`) compară rândul de dinainte cu peticul: un câmp
+  netrimis nu e o schimbare, un `null` sau un `''` trimis **este** una, iar o dată de naștere
+  retrimisă neschimbată nu e, deși vine în două forme diferite din cele două capete.
+- **O salvare care n-a mișcat nimic nu scrie niciun rând**, ca la bani: `recordPersonalDataChange`
+  iese devreme pe listă goală.
+- **`changes` păstrează forma comună**, cu `from` și `to` pe `null`, ca un singur ecran să citească
+  ambele jumătăți ale jurnalului. Nota rândului spune de ce sunt goale.
 
 **Retenția nu e decisă aici.** Numărul e al [E22](E22-termeni-si-date.md) S3, iar jobul care îl
 aplică e al S4 de mai jos și al [E04](E04-migrari-date.md) S5.

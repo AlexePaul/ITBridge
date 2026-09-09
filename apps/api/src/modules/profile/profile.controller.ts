@@ -19,7 +19,7 @@ export class ProfileController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
     async createProfile(@Request() req: AuthenticatedRequest, @Body() createProfileDto: CreateProfileDto) {
-        return this.profileService.createProfile(createProfileDto, req.user.role, req.user.sub);
+        return this.profileService.createProfile(createProfileDto, req.user.role, req.user.sub, actorFrom(req));
     }
 
     @Get('')

@@ -25,7 +25,7 @@ export class ChildService {
         private readonly audit: AuditService,
     ) {}
 
-    async createChild(createChildDto: CreateChildDto, role: Role, userId: number) {
+    async createChild(createChildDto: CreateChildDto, role: Role, userId: number, actor: Actor) {
         if (role !== Role.ADMIN) {
             const profile = await this.profileRepository.findOne({
                 where: { user: { id: userId } },
@@ -42,7 +42,18 @@ export class ChildService {
         }
         const child = this.childRepository.create(createChildDto);
         child.parent = parentProfile;
-        return this.childRepository.save(child);
+        const saved = await this.childRepository.save(child);
+        // The act and the id, not the name that came with it. Whoever entered this child is the
+        // half the row cannot answer for itself.
+        await this.audit.recordPersonalDataChange({
+            actor,
+            action: AuditAction.CREATED,
+            entityType: 'Child',
+            entityId: saved.id,
+            fields: ['child'],
+            note: 'copil adăugat',
+        });
+        return saved;
     }
 
     async findChildren(filterChildDto: FilterChildDto, role: Role, sub: number) {

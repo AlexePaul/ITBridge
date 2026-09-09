@@ -16,7 +16,7 @@ describe('ProfileController', () => {
     const lastTwoArgs = (mock: jest.Mock) => mock.mock.calls[0].slice(-2);
 
     /**
-     * The same rule for the two handlers that also carry an actor (E07/S3): role and user id come
+     * The same rule for the handlers that also carry an actor (E07/S3): role and user id come
      * from the token, and so does the actor beside them. `lastTwoArgs` cannot serve here — the last
      * two are now the user id and the actor — and stretching it to would hide which position each
      * value is meant to occupy.
@@ -25,8 +25,8 @@ describe('ProfileController', () => {
 
     it('createProfile receives the role and user id from the token', async () => {
         const { controller, service } = await build();
-        await controller.createProfile(requestOf(Role.PARENT, 42), { firstName: 'A', lastName: 'B' });
-        expect(lastTwoArgs(service.createProfile as jest.Mock)).toEqual([Role.PARENT, 42]);
+        await controller.createProfile(requestOf(Role.PARENT, 42, 'ana'), { firstName: 'A', lastName: 'B' });
+        expect(identityAndActor(service.createProfile as jest.Mock)).toEqual([Role.PARENT, 42, { userId: 42, username: 'ana' }]);
     });
 
     it('findProfiles receives the role and user id from the token', async () => {

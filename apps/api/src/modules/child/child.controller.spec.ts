@@ -15,13 +15,13 @@ describe('ChildController', () => {
         });
 
     /**
-     * `carriesActor` marks the two handlers that also hand the service an actor (E07/S3), so the
+     * `carriesActor` marks the handlers that also hand the service an actor (E07/S3), so the
      * identity check has to look one position further back. Written per case rather than as a
      * blanket `slice(-3)`: the point of this test is *which* position each value occupies, and a
      * slice wide enough for every signature would stop checking that.
      */
     const cases: [string, (c: ChildController) => Promise<unknown>, boolean][] = [
-        ['createChild', (c) => c.createChild({ parentId: 1 } as never, requestOf(Role.PARENT, 42, 'ana')), false],
+        ['createChild', (c) => c.createChild({ parentId: 1 } as never, requestOf(Role.PARENT, 42, 'ana')), true],
         ['findChildren', (c) => c.findChildren({}, requestOf(Role.PARENT, 42, 'ana')), false],
         ['updateChild', (c) => c.updateChild(7, {}, requestOf(Role.PARENT, 42, 'ana')), true],
         ['deleteChild', (c) => c.deleteChild(7, requestOf(Role.PARENT, 42, 'ana')), true],

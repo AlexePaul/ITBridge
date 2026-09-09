@@ -59,7 +59,9 @@ describe('ChildService', () => {
             childRepo.create!.mockReturnValue({});
             childRepo.save!.mockResolvedValue({ id: 1 });
 
-            await expect(service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.ADMIN, 999)).resolves.toEqual({
+            await expect(
+                service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.ADMIN, 999, ACTOR),
+            ).resolves.toEqual({
                 id: 1,
             });
         });
@@ -69,27 +71,42 @@ describe('ChildService', () => {
             childRepo.create!.mockReturnValue({});
             childRepo.save!.mockResolvedValue({ id: 1 });
 
-            await expect(service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5)).resolves.toEqual({
+            await expect(
+                service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5, ACTOR),
+            ).resolves.toEqual({
                 id: 1,
             });
+        });
+
+        it('records the act and the id, never the name that came with it', async () => {
+            profileRepo.findOne!.mockResolvedValue({ id: 10 });
+            childRepo.create!.mockReturnValue({});
+            childRepo.save!.mockResolvedValue({ id: 4 });
+
+            await service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.ADMIN, 999, ACTOR);
+
+            expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
+                expect.objectContaining({ actor: ACTOR, entityType: 'Child', entityId: 4, fields: ['child'] }),
+            );
+            expect(JSON.stringify(audit.recordPersonalDataChange.mock.calls[0][0])).not.toContain('Ion');
         });
 
         it("forbids a parent from creating a child on someone else's profile", async () => {
             // The authenticated user's profile is 10, but the request targets 11.
             profileRepo.findOne!.mockResolvedValue({ id: 10 });
 
-            await expect(service.createChild({ parentId: 11, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5)).rejects.toThrow(
-                ForbiddenException,
-            );
+            await expect(
+                service.createChild({ parentId: 11, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5, ACTOR),
+            ).rejects.toThrow(ForbiddenException);
             expect(childRepo.save).not.toHaveBeenCalled();
         });
 
         it('forbids a user without a profile from creating children', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
 
-            await expect(service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5)).rejects.toThrow(
-                ForbiddenException,
-            );
+            await expect(
+                service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5, ACTOR),
+            ).rejects.toThrow(ForbiddenException);
         });
     });
 

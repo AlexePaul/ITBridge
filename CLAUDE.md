@@ -768,6 +768,19 @@ dacă adaugi un al patrulea scriitor lângă facturi, plăți și reduceri:
   există `SYSTEM_ACTOR`, cu ambele câmpuri `null`, fiindcă „n-a apăsat nimeni" e un fapt care merită
   citit, nu un gol de umplut cu un nume inventat.
 
+**Datele personale lasă numele câmpului, nu valoarea** (E07 S3). Cealaltă jumătate a jurnalului —
+`Profile` și `Child`, create, editate sau șterse — trece prin
+`AuditService.recordPersonalDataChange`, care scrie `{ from: null, to: null }` pe fiecare câmp
+atins. Nu e prudență: câmpurile alea au retenția `account` în inventarul din E07 S1 și pleacă odată
+cu familia, în timp ce `audit_log` are retenția `audit` și îi supraviețuiește **prin construcție**,
+fiindcă n-are relație către profil — de aia mai poate răspunde „cine a șters familia 412" după ce
+familia 412 nu mai e. O valoare copiată acolo ar rămâne de partea la care ștergerea din S4 nu
+ajunge. Două consecințe: ce s-a mișcat se calculează cu `changedFieldNames`
+(`apps/api/src/modules/audit/personal-fields.ts`) **înainte** de `applyDefined`, altfel compari
+rândul cu el însuși; iar o salvare care n-a mișcat nimic nu scrie niciun rând, ca la bani. Dacă
+adaugi un al treilea drum prin care un om atinge datele unei familii, cheamă aceeași ușă — nu
+`record` cu valori în ea.
+
 **Mailul din backend pleacă prin outbox, niciodată direct.** `MailService`
 (`apps/api/src/modules/mail/mail.service.ts`) e implementarea; ce injectezi într-un modul e
 `OutboxService`. `queue()` primește opțional `EntityManager`-ul tranzacției tale — dă-i-l, altfel

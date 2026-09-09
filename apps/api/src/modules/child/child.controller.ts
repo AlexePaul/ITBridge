@@ -24,7 +24,7 @@ export class ChildController {
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'Children not found' })
     async createChild(@Body() createChildDto: CreateChildDto, @Request() req: AuthenticatedRequest) {
-        return this.childService.createChild(createChildDto, req.user.role, req.user.sub);
+        return this.childService.createChild(createChildDto, req.user.role, req.user.sub, actorFrom(req));
     }
 
     @Get()

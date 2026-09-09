@@ -19,7 +19,7 @@ export class ProfileService {
         private readonly audit: AuditService,
     ) {}
 
-    async createProfile(createProfileDto: CreateProfileDto, userRole: Role, userId?: number) {
+    async createProfile(createProfileDto: CreateProfileDto, userRole: Role, userId: number | undefined, actor: Actor) {
         if (userRole !== Role.ADMIN) {
             createProfileDto.userId = userId;
         }
@@ -49,7 +49,18 @@ export class ProfileService {
             ...createProfileDto,
             user: (createProfileDto.userId ? { id: createProfileDto.userId } : null) as User,
         });
-        return this.profileRepository.save(profile);
+        const saved = await this.profileRepository.save(profile);
+        // The act and the id, not the contact details that came with it. A family entered over the
+        // phone has no other record of who entered it.
+        await this.audit.recordPersonalDataChange({
+            actor,
+            action: AuditAction.CREATED,
+            entityType: 'Profile',
+            entityId: saved.id,
+            fields: ['profile'],
+            note: 'profil creat',
+        });
+        return saved;
     }
 
     async findProfiles(filters: FilterProfileDto, userRole: Role, userId: number) {
