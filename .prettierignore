@@ -4,3 +4,10 @@ dist
 .nuxt
 .turbo
 pnpm-lock.yaml
+
+# Generated from apps/api/src/privacy/data-inventory.ts by `pnpm --filter api inventory:render`.
+# Left unformatted on purpose: prettier v3 loads its markdown parser by dynamic import, which
+# ts-jest cannot do, so the freshness check in data-inventory.spec.ts compares the raw render. With
+# the hook reformatting the file on the way in, that check would fail on pipe alignment and nothing
+# else — a red suite for a reason nobody can act on.
+docs/inventar-date.md
