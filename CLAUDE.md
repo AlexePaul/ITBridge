@@ -715,6 +715,26 @@ moare în ts-jest cu `SyntaxError: Unexpected token 'export'` — nu doar în te
 în orice suită care ajunge la `app.module.ts`. Un `pnpm up` care îl urcă rupe toate testele deodată,
 cu un mesaj care nu spune de ce. Ăsta e și motivul pentru care nu există `@nestjs/config`.
 
+**O coloană nouă pe o entitate trebuie clasificată în inventarul de date** (E07 S1). Sursa e
+`apps/api/src/privacy/data-inventory.ts`, iar `data-inventory.spec.ts` citește metadatele lui
+TypeORM — nu o listă întreținută de cineva — deci o coloană adăugată fără intrare pică suita, cu
+numele ei în mesaj. Sunt clasificate **toate** coloanele, nu doar cele personale: fiecare e ori dată
+personală, cu scop, temei legal, regulă de păstrare și cine o poate citi, ori nu e, cu un motiv
+dintr-o listă scurtă. Nu există a treia stare — aia e felul în care un număr de telefon ajunge
+neclasificat. Trei lucruri care se ratează:
+
+- **Un rând despre o familie face personale coloanele lui, orice ar conține.** Suma unei facturi nu
+  e un număr în abstract, e ce datorează familia aia. „N-are niciun nume în el" nu e un motiv.
+- **`linkedVia` e drumul de la rând la familie**, iar testul îl parcurge relație cu relație și cere
+  să se termine la `Profile`. E coloana pe care o citește E07 S4: un export trebuie să găsească
+  fiecare rând despre o familie, deci un drum inventat e o gaură pe care nimic n-o semnalează. Trei
+  tabele n-au drum, dinadins, și scrie de ce la fiecare.
+- **Documentul se randează, nu se editează**: `pnpm --filter api inventory:render` scrie
+  `docs/inventar-date.md`, iar același spec pică dacă a rămas în urmă. Fișierul e în
+  `.prettierignore` fiindcă prettier v3 își încarcă parserul de markdown prin `import()` dinamic, pe
+  care ts-jest nu-l poate face — deci verificarea compară randarea brută, iar un hook care ar
+  reformata fișierul ar face-o roșie pe alinierea barelor și pe nimic altceva.
+
 **Urma unei schimbări de bani se scrie în tranzacția care a produs-o** (E07 S3). `AuditService`
 (`apps/api/src/modules/audit/audit.service.ts`) primește `EntityManager`-ul tău — același argument
 ca la outbox: o urmă care supraviețuiește unei tranzacții date înapoi spune că s-a întâmplat ceva ce

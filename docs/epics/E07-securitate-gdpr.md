@@ -1,6 +1,6 @@
 # E07 · Securitate, GDPR și consimțământ
 
-**Status:** în lucru — **S5 și S8 livrate**, restul propus · **Pistă:** Fundație · **Depinde de:**
+**Status:** în lucru — **S1, S5 și S8 livrate**, S3 pe jumătate, restul propus · **Pistă:** Fundație · **Depinde de:**
 E04, E05 · **Blochează:** E14, E19; E09 doar odată cu reluarea lui S2
 
 > **Granița cu [E22](E22-termeni-si-date.md), fiindcă se confundă ușor: aici e mecanica, acolo e ce
@@ -72,7 +72,7 @@ acordul explicit al părintelui, revocabil.
 
 ## Story-uri
 
-### S1 · Inventar și clasificare
+### S1 · Inventar și clasificare — livrat
 
 Un tabel cu fiecare câmp de date personale: unde e stocat, de ce, pe ce temei legal, cât se
 păstrează, cine îl poate vedea. Include datele copiilor — nume, dată de naștere, prezență, proiecte,
@@ -85,6 +85,45 @@ ajunge sub ochii unei familii ar fi tocmai cel rămas în urmă. Derivarea din e
 
 **Acceptanță:** tabelul e complet, fiecare câmp are temei legal identificat, iar o coloană nouă cu
 date personale nu poate ajunge în producție fără să apară în el.
+
+**Livrat.** Sursa e `apps/api/src/privacy/data-inventory.ts`, documentul e
+[`docs/inventar-date.md`](../inventar-date.md), randat din ea. **Toate cele 231 de coloane din cele
+30 de tabele sunt clasificate**, nu doar cele personale: fiecare e ori dată personală cu cele cinci
+răspunsuri completate, ori nu e, cu un motiv dintr-o listă scurtă. Nu există a treia stare, fiindcă
+a treia stare e exact felul în care un număr de telefon ajunge neclasificat. **99 de coloane sunt
+date personale**, în 22 de tabele.
+
+Propoziția care face din asta cod, nu proză, e ultima din acceptanță, și e ținută de
+`data-inventory.spec.ts`. Acesta citește metadatele **lui TypeORM**, nu o listă întreținută de
+cineva — `getMetadataArgsStorage()` se umple din decoratori la import, deci o coloană adăugată mâine
+e acolo mâine —, și pică pe cinci lucruri, fiecare demonstrat pe o greșeală reală înainte de a fi
+crezut:
+
+- o coloană fără clasificare;
+- o clasificare a cărei coloană nu mai există (un rând învechit e mai rău decât unul lipsă: se
+  citește ca răspuns);
+- un scop lăsat gol sau pus ca `TODO`;
+- documentul rămas în urmă față de cod, fiindcă altfel „nota se scrie din inventar" e o promisiune
+  fără gardă;
+- **un drum care nu duce nicăieri**: `linkedVia` spune cum se ajunge de la un rând la familia lui,
+  iar testul îl parcurge relație cu relație și cere să se termine la `Profile`. E coloana pe care o
+  va citi S4 — un export trebuie să găsească fiecare rând despre o familie, iar o ștergere aceeași
+  mulțime —, deci un drum inventat ar fi o gaură pe care nimic nu ar semnala-o.
+
+Trei tabele **nu** se pot ajunge prin relații, și scrie de ce la fiecare: `unassigned_files` (drumul
+a eșuat, tocmai asta consemnează rândul), `outbox` (coada e partajată și scrie și către birou, deci
+S4 caută după adresă) și `audit_log` (trimite la rândul schimbat prin tip și id, fiindcă o relație
+către un rând care se poate șterge e cum pierde un jurnal exact intrările care contează).
+
+Două lucruri pe care le-a scos la iveală clasificarea și care nu se vedeau de nicăieri:
+`unassigned_files.relativePath` **poate conține numele unui copil** — calea trece prin folderele
+lor —, iar `projects.sentToEmail` e **a doua copie** a adresei părintelui, înghețată la trimitere.
+Amândouă sunt lucruri pe care S4 trebuie să le găsească.
+
+**Termenele nu sunt aici.** Coloana „cât se păstrează" grupează câmpurile în cinci reguli — contul,
+obligația contabilă, operațional, expiră singur, evidență —, iar numărul pe care îl pune fiecare
+regulă e al [E22](E22-termeni-si-date.md) S3. Așa, S3 pune cinci numere, nu două sute treizeci și
+unu.
 
 ### S2 · Consimțământ parental
 
