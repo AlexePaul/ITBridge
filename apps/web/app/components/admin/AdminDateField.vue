@@ -18,7 +18,7 @@
             color="neutral"
             variant="link"
             icon="i-lucide-calendar"
-            aria-label="Alege data din calendar"
+            :aria-label="calendarLabel"
             :disabled="disabled"
             class="-me-2.5"
           />
@@ -67,8 +67,20 @@ const props = withDefaults(
     /** The latest day on offer, `YYYY-MM-DD`. A typed date after it is marked invalid. */
     max?: string;
     disabled?: boolean;
+    /**
+     * What this particular date is, for the calendar button's name — "data semnării, Ana Popescu".
+     * The button shows an icon and nothing else, so its name is all a reader gets, and the default
+     * is deliberately generic. Pass it wherever a screen draws **more than one** of these fields:
+     * `/admin/contracte` renders one per pending enrollment, and three buttons all called "Alege
+     * data din calendar" are three buttons a reader cannot tell apart.
+     */
+    label?: string;
   }>(),
-  { min: undefined, max: undefined, disabled: false }
+  { min: undefined, max: undefined, disabled: false, label: undefined }
+);
+
+const calendarLabel = computed(() =>
+  props.label ? `Alege ${props.label} din calendar` : "Alege data din calendar"
 );
 
 const model = defineModel<string | undefined>();

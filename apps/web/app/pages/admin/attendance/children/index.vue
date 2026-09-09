@@ -19,9 +19,9 @@
         <div v-if="searchResults.length > 0" class="space-y-3 pt-4 border-t border-muted">
           <p class="text-sm font-semibold text-muted">Rezultate căutare:</p>
           <!--
-            Un rezultat de căutare duce undeva, deci e o legătură (E18/S6). Ca `div` cu `@click`
-            nu primea focus și nu răspundea la Enter: cine caută un copil de la tastatură scria
-            numele, vedea rândul și nu-l putea deschide.
+            A search result leads somewhere, so it is a link (E18/S6). As a `div` with `@click` it
+            took no focus and answered no Enter: somebody searching for a child from the keyboard
+            typed the name, saw the row, and could not open it.
           -->
           <NuxtLink
             v-for="child in searchResults"
