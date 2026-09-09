@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, registrationBody, TestUser, truncateAll } from './helpers';
 import { EmailConfirmationService } from 'src/modules/auth/email-confirmation.service';
+import { Profile } from 'src/entities/profile.entity';
 import { User } from 'src/entities/user.entity';
 
 /**
@@ -23,9 +24,15 @@ describe('Account gates (e2e)', () => {
         // The plain token exists nowhere on the server, by design, so the suite cannot read it out
         // of the database. It re-issues one through the service instead, which is the same code
         // path registration used.
+        //
+        // **For the address actually on file**, which registration would also have used. The
+        // helper used to hardcode `x@example.com`, and that was invisible for as long as nothing
+        // compared the two — until `confirm` started refusing a token issued for an address that
+        // is no longer the family's, and every caller of this helper was holding one.
         const service = app.get(EmailConfirmationService);
         const user = await dataSource.getRepository(User).findOneOrFail({ where: { id: userId } });
-        const { token } = await service.issueFor(user, 'x@example.com');
+        const profile = await dataSource.getRepository(Profile).findOneOrFail({ where: { user: { id: userId } } });
+        const { token } = await service.issueFor(user, profile.email ?? '');
         return token;
     };
 
@@ -205,6 +212,30 @@ describe('Account gates (e2e)', () => {
                 expect(me.body.emailConfirmed).toBe(true);
                 const after = await dataSource.query('SELECT count(*)::int AS n FROM outbox');
                 expect(after[0].n).toBe(before[0].n);
+            });
+
+            /**
+             * The other end of the same rule: closing the gate is worth nothing while the key to
+             * the old lock still turns. A link outstanding from before the edit used to stamp the
+             * account confirmed again — and `queueOrRecord` reads that stamp before writing to an
+             * address, so whoever could read the *old* mailbox could declare the new one proved.
+             */
+            it('refuses the link that was already in the old inbox', async () => {
+                const parent = await registerUser(app, 'ana', 'parola123', { active: false });
+                const oldToken = await tokenFor(parent.userId);
+                const profileId = await ownProfileId(app, parent);
+
+                await request(app.getHttpServer())
+                    .put(`/profiles/${profileId}`)
+                    .set('Authorization', parent.auth)
+                    .send({ email: 'ana.noua@example.com' })
+                    .expect(200);
+
+                const res = await request(app.getHttpServer()).post('/auth/confirm-email').send({ token: oldToken }).expect(400);
+                expect(res.body.code).toBe('CONFIRMATION_TOKEN_SUPERSEDED');
+
+                const me = await request(app.getHttpServer()).get('/auth/me').set('Authorization', parent.auth).expect(200);
+                expect(me.body.emailConfirmed).toBe(false);
             });
 
             /** An admin fixing a typo has proved no more about the new address than the family would. */
