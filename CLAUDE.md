@@ -315,7 +315,12 @@ anunțul care a provocat-o: `AbsenceNotice.replacementSession`, scrisă de `Repl
   înscrieri în vigoare plus copiii mutați în acea ședință — nu `occupancyOf`, care e despre grupă.
   Numărătoarea stă în `EnrollmentService.freeSeatsAt` / `freeSeatsAtSessions`, lângă `occupancyOf`:
   D7 are un singur proprietar, iar cei trei care întreabă — mutările, programarea la probă și
-  rezervarea ei — obțin același răspuns.
+  rezervarea ei — obțin același răspuns. **Și se numără ținând lacătul**: `lockGroup` se ia pe rândul
+  grupei _înaintea_ numărătorii, în aceeași tranzacție cu scrierea. Verificat-apoi-scris fără lacăt
+  a fost exact defecțiunea pe care E20/S2 a închis-o pentru grupă și a lăsat-o deschisă pentru
+  ședință: două programări la aceeași oră citeau amândouă ultimul loc, iar la `ReplacementService`
+  verificarea stătea chiar în afara tranzacției care o folosea. Lacătul se pune înaintea numărului
+  pe care îl apără; a doua luare, în `enrol`, e no-op în aceeași tranzacție.
 
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin
@@ -370,6 +375,16 @@ independente pe `User`, nu un singur status: `emailConfirmedAt` — părintele a
 la înregistrare — și `approvalStatus` — un admin a recunoscut familia. „Activ" nu e stocat, e derivat
 prin `isAccountActive` din `apps/api/src/entities/user.entity.ts`, fiindcă o a treia coloană ar fi
 liberă să contrazică primele două. Adminii sunt exceptați: nimeni nu-i confirmă și nu-i aprobă.
+**O adresă schimbată închide poarta la loc.** `PUT /profiles/:id` golește `emailConfirmedAt` și
+trimite un link nou către adresa nouă, în aceeași tranzacție cu editarea — fiindcă „confirmat"
+înseamnă că familia a dovedit că citește adresa _aceea_, iar după mutare n-a dovedit nimic. Regula
+era deja scrisă, în comentariul lui `AuthService.resendConfirmation`: acela refuză să primească o
+adresă tocmai ca nimeni cu o sesiune să nu poată trimite confirmarea unde vrea, și lasă redeschiderea
+porții în seama editării care a mutat-o. Editarea n-o făcea. Cine apasă nu contează: un admin care
+corectează o greșeală de tastare n-a dovedit mai mult decât familia. Compoziția — rând, token, link
+randat, mesaj în coadă — e una singură, `EmailConfirmationService.issueAndSend`, iar cei trei
+apelanți i-o dau pe a lor `EntityManager`.
+
 Porțile se pot deschide în orice ordine, iar singurul lucru pe care îl blochează efectiv e
 repartizarea unui copil într-o grupă (`PARENT_ACCOUNT_NOT_ACTIVE`). **Un cont neactiv se poate
 autentifica** — portalul îi arată ce mai lipsește și butonul de retrimitere a linkului; un login care
