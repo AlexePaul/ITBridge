@@ -67,7 +67,7 @@ plecat:
   3:1), există legătură „Sari la conținut”, erorile de formular sunt legate prin `aria-describedby`
   și carusel are rol și etichete — iar din S6 **verificarea automată rulează în CI**, cu axe-core
   într-un Chromium adevărat, pe fiecare pagină din sitemap și în ambele teme. Zona autentificată a
-  intrat sub aceeași poartă: `pnpm test:a11y:auth`, un job propriu, 37 de ecrane, ambele teme.
+  intrat sub aceeași poartă: `pnpm test:a11y:auth`, un job propriu, 51 de ecrane, ambele teme.
 - **Fără stări de încărcare și eroare coerente.** `NotificationContainer` există; nu e clar că e
   folosit consecvent. Nerezolvat în zona autentificată.
 - ~~**Fără mod întunecat**, deși @nuxt/ui îl suportă din start.~~ Paleta întunecată e definită în
@@ -486,6 +486,59 @@ de patru ori mai lat decât iconița din exemplu. Cele două formulare au primit
 `AdminFormActions`, deci `loading` pe salvare; shell-urile lor și istoricul înscrierilor din
 `children/edit` rămân de migrat, așa că numărătoarea nu se mișcă.
 
+**A șasea trecere a închis S5b, și a găsit ce nu vede nicio poartă — de trei ori.**
+
+Ultimele două lucruri din listă au intrat: **bara de filtre** (`AdminFilterBar` plus
+`AdminSearchInput`, cu ștergerea din câmp numită pe câmpul ei) și **grila de carduri**, care s-a
+dovedit a fi un singur card desenat de opt ori — `AdminStatTile`. Cifra mare, numele sub ea,
+uneori o notă; identică pe `/admin/dashboard`, `/admin/restante`, `/admin/invoices`,
+`/admin/livrari` și pe patru rânduri din `/admin/rapoarte`. Ce diferea era **elementul**, care nu e
+podoabă, ci ce face cardul: un `div` e un fapt de citit, o legătură te duce unde se acționează, un
+buton filtrează lista de sub el. Componenta îl alege din props — `to` face legătură, `onSelect`
+buton, niciunul lasă cardul inert — deci un card nu mai poate ajunge un `div` cu `@click`, forma pe
+care S6 a scos-o de pe patru ecrane fiindcă nu primește focus și nu răspunde la Enter. Pe drum,
+`/admin/livrari` a primit `aria-pressed`: cele patru butoane de filtru marcau starea activă cu o
+culoare de chenar și cu nimic altceva, deci care dintre ele filtra lista era o informație pe care o
+avea doar cine vede.
+
+Două forme asemănătoare au rămas dinadins pe loc: pasul de pâlnie din `rapoarte` își citește
+eticheta **înaintea** cifrei și poartă o linie de conversie, iar previzualizarea din `anunturi` e un
+panou cu o listă sub număr.
+
+Restul trecerii n-a fost migrare, ci trei defecte pe care le-a scos la iveală condusul ecranelor:
+
+- **Numele controalelor.** Poarta întreabă dacă un control **are** nume și se oprește acolo, deci
+  două lucruri treceau pe fiecare ecran. Primul, **același nume de mai multe ori**: paisprezece
+  butoane „Luna anterioară" pe `/user/prezenta` (o pereche de săgeți per copil, deși luna e una
+  singură pe pagină), trei alegătoare de dată cu „Alege data din calendar" pe `/admin/contracte`,
+  două săli „Sala 1" la adrese diferite. Al doilea, **un nume în engleză**: „Show popup", implicitul
+  lui reka-ui pe declanșatorul de combobox, ajuns pe **44 de ecrane** dintr-un singur `USelectMenu`
+  neetichetat din navbar. Niciunul nu se putea găsi citind — primul apare doar când o componentă e
+  desenată în buclă, al doilea nu e scris nicăieri în repo. Amândouă rulează acum lângă axe, în
+  aceeași trecere de browser.
+- **Textul erorii venea de la ofetch, în engleză, cu adresa API-ului în el.** `apiErrorMessage`
+  prefera `err.message` în locul propoziției primite de la apelant. Tot ce e deasupra acelei linii
+  citește `err.data` — corpul cu care a răspuns API-ul —, dar `err.message` e stratul de dedesubt:
+  când n-a răspuns nimeni, ofetch compune un șir din metodă și adresă. Deci o conexiune căzută
+  tipărea `[GET] "http://…/groups": <no response> Failed to fetch` într-o interfață numai în română,
+  pe toate ecranele de admin deodată, la cea mai probabilă defecțiune din toate — rețeaua din sală.
+  Nu s-a găsit citind codul, ci **citind ce scria pe cardul de eroare**: trecerea dinainte
+  verificase că apare un card și că reîncercarea funcționează, niciodată ce spune.
+- **Culori fără temă întunecată.** `border-gray-200` e doar în afara sistemului, dar
+  `hover:bg-gray-50` pune un fundal aproape alb sub text deschis: rândul unui copil din grupă
+  devenea ilizibil la trecerea cursorului. **Poarta n-avea cum**: axe măsoară culorile din clipa în
+  care se uită, iar nimic nu trece cu cursorul peste rânduri.
+
+Iar `/admin/attendance/group`, primul pas al marcării unui catalog, n-avea nici încărcare, nici
+eroare, nici stare goală: `fetchGroups` era așteptat fără gardă, deci un API picat desena selectorul
+fără carduri și fără nicio propoziție. Detaliul care spune totul: cererea de ocupare de dedesubt
+**era** prinsă — calea de eșec fusese gândită pentru a doua cerere și ratată pentru prima.
+
+Trei măturări de sursă noi țin liniile astea: `themed-colours.spec.ts` (nicio culoare fixă fără
+pereche `dark:`), `apiErrorMessage.spec.ts` (eroarea de transport nu ajunge la utilizator) și
+`icon-button-name.spec.ts` (un buton numai cu iconiță are `aria-label`). Fiecare a fost arătată
+picând pe codul dinainte, nu doar pe șiruri inventate.
+
 ### S6 · Accesibilitate — livrat
 
 Contrast conform WCAG AA, navigare completă din tastatură, focus vizibil, etichete și roluri ARIA,
@@ -535,7 +588,7 @@ deschisă, cu 2,61:1 și numele elementului. Cu el la loc, trece.
 
 **Zona autentificată, măsurată și trecută sub aceeași poartă.** S4 și S5 au rescris ecranele, deci
 verificarea nu mai cimentează nimic. `pnpm test:a11y:auth` — `apps/web/scripts/check-a11y-auth.mjs`,
-un job propriu în CI — se autentifică și trece axe peste **37 de ecrane** de admin și de portal, în
+un job propriu în CI — se autentifică și trece axe peste **51 de ecrane** de admin și de portal, în
 ambele teme, pe aceleași etichete WCAG. Prima rulare a găsit **80 de încălcări**, și niciuna nu era
 a ecranului pe care apărea:
 
