@@ -221,9 +221,11 @@ export class EnrollmentService {
      * unlike a child's age. So it cannot happen by accident, and when it does happen it is written
      * down.
      *
-     * **The audit trail S3 asks for does not exist yet.** What an override leaves behind today is a
-     * warning in the log naming the group and the admin. The audit log itself is E06; until then
-     * this is the honest half of the promise, not the whole of it.
+     * **What an override leaves behind is still only a log line**, naming the group and the admin.
+     * The audit log S3 asks for exists now — E07/S3, `AuditService` — but nothing here writes to it,
+     * because `enrol` carries an `actingUserId` and the trail wants an `Actor` (id *and* the
+     * username copied at write time), and the one caller that has neither is the public trial form.
+     * Threading it is the work; saying it exists would be the lie.
      */
     async enrol(
         input: {
@@ -904,7 +906,7 @@ export class EnrollmentService {
 
         if (allowOverCapacity) {
             this.logger.warn(
-                `${actingUserId === null ? 'The public trial form' : `User ${actingUserId}`} enrolled over capacity in group ${group.id}: ${taken + 1} children in ${group.capacity} seats. No audit record was written — see E06.`,
+                `${actingUserId === null ? 'The public trial form' : `User ${actingUserId}`} enrolled over capacity in group ${group.id}: ${taken + 1} children in ${group.capacity} seats. No audit record was written — see the note on \`enrol\`.`,
             );
             return;
         }

@@ -235,15 +235,19 @@ rând cu aceleași date la ambele capete. `location` gol înseamnă „toată ș
   ar face acceptarea să depindă de ordinea în care au fost tastate cele două intervale.
 
 **O oră schimbată e trei scrieri într-o singură tranzacție** (E12 S5). Anularea, mutarea și
-reactivarea trec prin `dataSource.transaction`: rândul, eventualele credite de recuperare și
+reactivarea trec prin `dataSource.transaction`: rândul, plasările copiilor mutați în ora aceea și
 mesajele către familiile grupei stau sau cad împreună — o oră anulată fără ca nimeni să afle e exact
 defecțiunea pentru care există coada. `ClassSessionNotifier` scrie **un mesaj per părinte**, nu per
 copil, iar cheia de deduplicare poartă **a câta anunțare e pentru ședința aceea**, nu ziua: o oră
 anulată, reactivată și anulată din nou — chiar în aceeași după-amiază — trebuie anunțată de două
 ori, în timp ce doi admini care apasă în aceeași clipă nu. Reactivarea are mesaj din același motiv —
-familiile au fost anunțate că nu se ține. O recuperare programată pe ora anulată se eliberează în
-aceeași tranzacție, după ce familia ei a fost anunțată; creditele acordate la anulare nu se retrag la
-reactivare.
+familiile au fost anunțate că nu se ține. Copiii mutați în ora anulată se eliberează în aceeași
+tranzacție, prin `ReplacementService.clearOn` — **după** `notifyCancelled`, și ordinea e regula, nu
+stilul: notificatorul citește plasările ca să afle care sunt familiile vizitatoare, iar una ștearsă
+deja e o familie pe care n-o mai vede. Anularea **nu** compensează cu nimic: prețul e pe ședință
+ținută (`pricing.ts`), deci ora care nu s-a ținut nu se facturează, iar un drept pe deasupra ar fi a
+patra lecție la prețul a trei — o decizie de preț, nu o consecință a butonului. Dacă familia
+trebuie totuși mutată undeva, se mută, din `/admin/absente`.
 
 **O oră care nu se poate ține se recuperează dintr-un singur act, cheiat pe grupă și zi** (E12 S9).
 `RescheduleService` (`apps/api/src/modules/class-session/reschedule.service.ts`) nu pornește de la
@@ -259,13 +263,6 @@ Ferestrele din `GET /class-sessions/reschedule-windows` sunt pe grila școlii �
 grupelor active de la adresa grupei, în sălile ei, regula pură fiind în `reschedule.rules.ts` — și
 „liber" înseamnă doar sala: platforma nu are profesori (E09 e scos din MVP), deci o fereastră în care
 același om predă în cealaltă sală se oferă cu convingere.
-
-**Recuperarea la anulare e o bifă pe ecran, nu un automatism** (E12 S5). Prețul e pe ședință
-ținută, deci o oră anulată nu se facturează oricum; un credit pe deasupra dă a patra lecție la
-prețul a trei, ceea ce e o decizie de preț și e a celui care anulează. Se scrie prin
-`MakeUpCreditService.grantForCancellation`, ușă separată de `earnFor`: aia cere anunț în termen plus
-absență reală, iar aici n-a lipsit nimeni de nicăieri. Nu o uni cu `earnFor` — ar slăbi definiția
-lui „câștigat" pentru toată lumea.
 
 **O absență anunțată nu marchează pe nimeni absent** (E12 S3). `AbsenceNotice` leagă copilul de o
 **ședință**, ca tot ce vorbește despre o oră de curs. Catalogul rămâne al profesorului: un copil al
@@ -295,17 +292,30 @@ pe care un părinte respins n-are de ce s-o citească. `password-hash.e2e-spec.t
 au cont la un join distanță și verifică că `passwordHash` nu apare nicăieri în corp, iar login-ul
 încă merge.
 
-**Recuperarea e un drept câștigat, nu un marcaj observat** (E12 S4). `MakeUpCredit` apare acolo unde
-un anunț **în termen** se întâlnește cu un catalog care spune că nu a fost acolo — niciuna dintre
-jumătăți nu ajunge singură. Nu e un endpoint: se câștigă, se retrage și se consumă ca efect al
-marcării, în `AttendanceService.settleMakeUp`. **Nu are coloană de stare**: trei stări se citesc din
-rând, iar „expirată" e calendarul care s-a mișcat — o coloană ar fi greșită exact cât timp n-a rulat
-nimic s-o corecteze. `expiresOn` se îngheață la scriere, ca `inTime`. Iar **locul liber se numără pe
-ședință**: un copil în recuperare ocupă un scaun ca o probă (D7), deci înscrieri în vigoare plus
-recuperări deja programate pe acea ședință — nu `occupancyOf`, care e despre grupă. Numărătoarea stă
-în `EnrollmentService.freeSeatsAt` / `freeSeatsAtSessions`, lângă `occupancyOf`: D7 are un singur
-proprietar, iar cei trei care întreabă — recuperările, programarea la probă și rezervarea ei — obțin
-același răspuns.
+**Recuperarea nu e un credit, e o mutare pe o săptămână — și n-a mai fost un credit din E12 S4.**
+`MakeUpCredit`, `MakeUpCreditService`, `AttendanceService.settleMakeUp`, `expiresOn` și tabela
+`make_up_credits` **nu mai există**; dacă le găsești pomenite undeva, textul e vechi, nu codul.
+Un jeton descrie o școală în care familia alege ora; asta citește luni absențele anunțate și mută
+copiii între grupe cu mâna, fiindcă „ce grupă are un scaun liber și un profesor care mai poate lua
+un copil de nouă ani" nu e o interogare. Deci toată tabela s-a strâns într-o coloană nullable pe
+anunțul care a provocat-o: `AbsenceNotice.replacementSession`, scrisă de `ReplacementService`
+(`apps/api/src/modules/attendance/replacement.service.ts`) din `/admin/absente`. Patru consecințe:
+
+- **`null` înseamnă două lucruri, și le desparte calendarul**: cât săptămâna e în față, „nu s-a
+  ocupat nimeni încă"; după ce a trecut, „nu s-a întâmplat". Nu adăuga o coloană de stare — ar fi al
+  doilea loc care spune ce spune deja data.
+- **Fereastra e săptămâna în care s-a pierdut ora** (`replacement.rules.ts`), fiindcă un copil nu
+  poate sta cu altă grupă într-o săptămână care a trecut. Ce oprește o mutare e ora oferită
+  (`canBackfill` — ședința de înlocuire n-a început încă), **nu** `inTime`: ăla rămâne un fapt despre
+  anunț, iar biroul care tastează marți ce a sunat luni n-are de ce să coste familia săptămâna.
+- **Marcarea nu mai consumă nimic.** `AttendanceType.MAKE_UP` se scrie în continuare singur pentru
+  orice copil marcat în afara grupei lui, dar e o observație despre unde a stat, nu decontarea unui
+  drept.
+- **Locul liber se numără pe ședință**: un copil mutat temporar ocupă un scaun ca o probă (D7), deci
+  înscrieri în vigoare plus copiii mutați în acea ședință — nu `occupancyOf`, care e despre grupă.
+  Numărătoarea stă în `EnrollmentService.freeSeatsAt` / `freeSeatsAtSessions`, lângă `occupancyOf`:
+  D7 are un singur proprietar, iar cei trei care întreabă — mutările, programarea la probă și
+  rezervarea ei — obțin același răspuns.
 
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin
@@ -901,16 +911,17 @@ tot ce e între „cineva a întrebat" și „s-a înscris". Două lucruri o fac
 Patru reguli pe care le încalci ușor:
 
 - **Patru din cele șase stări nu se scriu de la niciun ecran.** `trial_scheduled` vine din
-  programare, `trial_held` din catalog (`LeadProgressService`, chemat din `AttendanceService` lângă
-  `settleMakeUp`), iar `enrolled` / `lost` din `resolveTrial` în E11. `UpdateLeadDto` **nu are câmp
+  programare, `trial_held` din catalog (`LeadProgressService`, chemat din
+  `AttendanceService.settleLead` — singurul lucru pe care marcarea îl mai decontează), iar
+  `enrolled` / `lost` din `resolveTrial` în E11. `UpdateLeadDto` **nu are câmp
   `status`**, iar cele două stări pe care le declară un om au endpoint-uri proprii. Un câmp de stare
   pe un PATCH ar lăsa un ecran să scrie `înscris` pe o familie pe care n-a înscris-o nimeni — și aia
   e cifra pe care se sprijină tot raportul de pâlnie.
 - **Orele se filtrează pe dată, nu pe grupă.** Ce alege părintele e o zi, iar o grupă cu un loc
-  liber n-are niciunul în ziua în care cineva și-a programat deja o recuperare — și are din nou
-  săptămâna următoare. Lista cere `freeSeatsAtSessions` pentru toate orele pe care e pe cale să le
-  ofere, într-o singură interogare, iar la trimitere se reverifică ora aleasă, în tranzacție: între
-  fotografie și buton se poate strecura o recuperare.
+  liber n-are niciunul în ziua în care biroul a mutat deja un copil acolo — și are din nou săptămâna
+  următoare. Lista cere `freeSeatsAtSessions` pentru toate orele pe care e pe cale să le ofere,
+  într-o singură interogare, iar la trimitere se reverifică ora aleasă, în tranzacție: între
+  fotografie și buton se poate strecura o mutare.
 - **Formularul nu se termină niciodată într-o eroare.** Fără loc liber, cu ultimul loc luat între
   timp, sau fără nicio oră potrivită — toate trei scriu un lead marcat `noSeats` și răspund „te
   contactăm noi". Cel mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca

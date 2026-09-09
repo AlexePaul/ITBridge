@@ -255,8 +255,11 @@ odată cu el; sunt în [În afara scopului](#în-afara-scopului), explicit, ca s
 > ăsta e cazul care se pierde cel mai ușor.
 >
 > Excepția pentru admin există, dar cere un câmp explicit (`allowOverCapacity`) și lasă un
-> `warn` în log cu cine a făcut-o. **Jurnalul de audit pe care îl cere story-ul nu există** — e E06.
-> Până atunci asta e jumătatea onestă a promisiunii, nu promisiunea întreagă.
+> `warn` în log cu cine a făcut-o. **Jurnalul de audit pe care îl cere story-ul există de la E07 S3,
+> dar nimic de aici nu scrie în el**: `enrol` primește un `actingUserId`, iar urma cere un `Actor` —
+> id plus numele copiat la scriere — și unul dintre apelanți e formularul public de probă, care n-are
+> niciunul. Până se trece prin toți trei, asta e jumătatea onestă a promisiunii, nu promisiunea
+> întreagă.
 >
 > Lista de așteptare: `WaitlistEntry`, ordonată după momentul cererii, cu index parțial care
 > împiedică o a doua cerere deschisă pentru același copil și aceeași grupă. Închiderea unei
