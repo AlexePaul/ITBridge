@@ -350,6 +350,17 @@ E07 S4, `/admin/stergeri`**: aia păstrează facturile, golește rândul, cură�
 a apăsat. Dacă adaugi o a doua ușă care șterge o familie, prima întrebare e ce ia cu ea — și
 răspunsul nu se citește din entitate, fiindcă `onDelete` stă pe partea copilului.
 
+**Același lucru, un nivel mai jos: `DELETE /children/:id`.** Tot ce atârnă de un copil e `CASCADE`,
+inclusiv catalogul și proiectele — măsurat la fel: un copil, o înscriere și un marcaj înainte, zero
+din fiecare după, 200, de pe tokenul părintelui. `ChildService.deleteChild` refuză acum dacă
+copilul are prezențe (`CHILD_HAS_ATTENDANCE` — catalogul e ce s-a întâmplat, iar E15 S9 facturează
+din el) sau lucrări (`CHILD_HAS_PROJECTS` — cheile de obiect se derivă din id-uri, deci după
+ștergerea rândurilor nimic nu mai poate spune ce era de scos din bucket). **Înscrierile singure nu
+blochează**, dinadins: o înscriere fără niciun marcaj consemnează o intenție, nu un fapt, iar
+refuzul pe ea ar închide singura folosință rămasă rutei — un copil adăugat și repartizat din
+greșeală. Ștergerea din E07 S4 nu trece pe aici: `ErasureService` șterge rândurile prin tranzacția
+lui, după ce citește cheile.
+
 **Auth** — două roluri, `ADMIN` și `PARENT` (`apps/api/src/enum/role.enum.ts`). `register` creează
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
 access (15 min) / refresh (7 zile), cu secrete distincte în `apps/api/src/constants/jwtConstants.ts`.

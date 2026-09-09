@@ -65,6 +65,13 @@ const MESSAGES: Record<string, string> = {
   PROFILE_HAS_CHILDREN:
     "Familia are copii înregistrați, cu prezențe și proiecte legate de ei. Șterge întâi copiii, sau fă ștergerea din Ștergeri.",
 
+  // E07/S4 again, for a child. Deleting one cascades into the register and into the bucket, so the
+  // two refusals name what happened rather than what is stored.
+  CHILD_HAS_ATTENDANCE:
+    "Copilul are prezențe marcate, iar catalogul se păstrează. Dacă nu mai vine, scoate-l din grupă.",
+  CHILD_HAS_PROJECTS:
+    "Copilul are lucrări încărcate. Șterge întâi lucrările, sau fă ștergerea din Ștergeri.",
+
   // E08. "Există deja o înregistrare cu aceste date" is true of all of these and useful for none:
   // an admin who has just double-booked a room needs to know that is what happened.
   GROUP_SLOT_TAKEN: "Sala este deja ocupată în acest interval de altă grupă.",
