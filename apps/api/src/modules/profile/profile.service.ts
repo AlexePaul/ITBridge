@@ -8,12 +8,18 @@ import { FilterProfileDto } from './dto/filterProfile.dto';
 import { Repository } from 'typeorm';
 import { UpdateProfileDto } from './dto/updateProfile.dto';
 import { applyDefined } from 'src/common/apply-defined';
+import { AuditService, type Actor } from 'src/modules/audit/audit.service';
+import { AuditAction } from 'src/enum/audit-action.enum';
+import { changedFieldNames } from 'src/modules/audit/personal-fields';
 
 @Injectable()
 export class ProfileService {
-    constructor(@InjectRepository(Profile) private readonly profileRepository: Repository<Profile>) {}
+    constructor(
+        @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
+        private readonly audit: AuditService,
+    ) {}
 
-    async createProfile(createProfileDto: CreateProfileDto, userRole: Role, userId?: number) {
+    async createProfile(createProfileDto: CreateProfileDto, userRole: Role, userId: number | undefined, actor: Actor) {
         if (userRole !== Role.ADMIN) {
             createProfileDto.userId = userId;
         }
@@ -43,7 +49,18 @@ export class ProfileService {
             ...createProfileDto,
             user: (createProfileDto.userId ? { id: createProfileDto.userId } : null) as User,
         });
-        return this.profileRepository.save(profile);
+        const saved = await this.profileRepository.save(profile);
+        // The act and the id, not the contact details that came with it. A family entered over the
+        // phone has no other record of who entered it.
+        await this.audit.recordPersonalDataChange({
+            actor,
+            action: AuditAction.CREATED,
+            entityType: 'Profile',
+            entityId: saved.id,
+            fields: ['profile'],
+            note: 'profil creat',
+        });
+        return saved;
     }
 
     async findProfiles(filters: FilterProfileDto, userRole: Role, userId: number) {
@@ -91,7 +108,7 @@ export class ProfileService {
         return profilesReturnObject;
     }
 
-    async updateProfile(updateProfileDto: UpdateProfileDto, profileId: number, userRole: Role, userId: number) {
+    async updateProfile(updateProfileDto: UpdateProfileDto, profileId: number, userRole: Role, userId: number, actor: Actor) {
         const profile = await this.profileRepository.findOne({
             where: { id: profileId },
             relations: ['user'],
@@ -119,13 +136,25 @@ export class ProfileService {
             }
         }
 
+        // Read before the merge: which fields move, never what they become. The values are held
+        // under a different retention rule from this trail (E07 S1), and copying them across would
+        // leave them here after the family itself is erased — see `recordPersonalDataChange`.
+        const moved = changedFieldNames(profile as unknown as Record<string, unknown>, updateProfileDto as unknown as Record<string, unknown>);
+
         applyDefined(profile, updateProfileDto);
         const updatedProfile = await this.profileRepository.save(profile);
+        await this.audit.recordPersonalDataChange({
+            actor,
+            action: AuditAction.UPDATED,
+            entityType: 'Profile',
+            entityId: profileId,
+            fields: moved,
+        });
         updatedProfile.user = undefined;
         return updatedProfile;
     }
 
-    async deleteProfile(profileId: number, userRole: Role, userId: number) {
+    async deleteProfile(profileId: number, userRole: Role, userId: number, actor: Actor) {
         const profile = await this.profileRepository.findOne({
             where: { id: profileId },
             relations: ['user'],
@@ -139,5 +168,15 @@ export class ProfileService {
             throw new UnauthorizedException('You do not have permission to delete this profile');
         }
         await this.profileRepository.delete(profileId);
+        // The act, not the contents. A deleted profile leaving a copy of itself in the trail is the
+        // failure this whole half exists to avoid.
+        await this.audit.recordPersonalDataChange({
+            actor,
+            action: AuditAction.DELETED,
+            entityType: 'Profile',
+            entityId: profileId,
+            fields: ['profile'],
+            note: 'profil șters de la ecranul de admin',
+        });
     }
 }

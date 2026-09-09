@@ -5,10 +5,16 @@ import { Child } from 'src/entities/child.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Group } from 'src/entities/group.entity';
 import { Role } from 'src/enum/role.enum';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { createMockQueryBuilder, createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 
 describe('ChildService', () => {
+    /** E07/S3. Field names reach the trail; values never do. */
+    let audit: { recordPersonalDataChange: jest.Mock };
+
+    /** Whoever pressed the button, in the shape `actorFrom` hands over. */
+    const ACTOR = { userId: 5, username: 'ana' };
     let service: ChildService;
     let childRepo: MockRepository;
     let profileRepo: MockRepository;
@@ -31,9 +37,12 @@ describe('ChildService', () => {
             inForceFor: jest.fn().mockResolvedValue(null),
         };
 
+        audit = { recordPersonalDataChange: jest.fn(() => Promise.resolve()) };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 ChildService,
+                { provide: AuditService, useValue: audit },
                 provideMockRepository(Child, childRepo),
                 provideMockRepository(Profile, profileRepo),
                 provideMockRepository(Group, groupRepo),
@@ -50,7 +59,9 @@ describe('ChildService', () => {
             childRepo.create!.mockReturnValue({});
             childRepo.save!.mockResolvedValue({ id: 1 });
 
-            await expect(service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.ADMIN, 999)).resolves.toEqual({
+            await expect(
+                service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.ADMIN, 999, ACTOR),
+            ).resolves.toEqual({
                 id: 1,
             });
         });
@@ -60,27 +71,42 @@ describe('ChildService', () => {
             childRepo.create!.mockReturnValue({});
             childRepo.save!.mockResolvedValue({ id: 1 });
 
-            await expect(service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5)).resolves.toEqual({
+            await expect(
+                service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5, ACTOR),
+            ).resolves.toEqual({
                 id: 1,
             });
+        });
+
+        it('records the act and the id, never the name that came with it', async () => {
+            profileRepo.findOne!.mockResolvedValue({ id: 10 });
+            childRepo.create!.mockReturnValue({});
+            childRepo.save!.mockResolvedValue({ id: 4 });
+
+            await service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.ADMIN, 999, ACTOR);
+
+            expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
+                expect.objectContaining({ actor: ACTOR, entityType: 'Child', entityId: 4, fields: ['child'] }),
+            );
+            expect(JSON.stringify(audit.recordPersonalDataChange.mock.calls[0][0])).not.toContain('Ion');
         });
 
         it("forbids a parent from creating a child on someone else's profile", async () => {
             // The authenticated user's profile is 10, but the request targets 11.
             profileRepo.findOne!.mockResolvedValue({ id: 10 });
 
-            await expect(service.createChild({ parentId: 11, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5)).rejects.toThrow(
-                ForbiddenException,
-            );
+            await expect(
+                service.createChild({ parentId: 11, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5, ACTOR),
+            ).rejects.toThrow(ForbiddenException);
             expect(childRepo.save).not.toHaveBeenCalled();
         });
 
         it('forbids a user without a profile from creating children', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
 
-            await expect(service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5)).rejects.toThrow(
-                ForbiddenException,
-            );
+            await expect(
+                service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5, ACTOR),
+            ).rejects.toThrow(ForbiddenException);
         });
     });
 
@@ -120,7 +146,7 @@ describe('ChildService', () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
             childRepo.save!.mockImplementation((c: unknown) => Promise.resolve(c));
 
-            await expect(service.updateChild(1, { firstName: 'Ana' }, Role.PARENT, 5)).resolves.toMatchObject({
+            await expect(service.updateChild(1, { firstName: 'Ana' }, Role.PARENT, 5, ACTOR)).resolves.toMatchObject({
                 firstName: 'Ana',
             });
         });
@@ -129,7 +155,7 @@ describe('ChildService', () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
             childRepo.save!.mockImplementation((c: unknown) => Promise.resolve(c));
 
-            const saved = await service.updateChild(1, { firstName: 'Ana' }, Role.PARENT, 5);
+            const saved = await service.updateChild(1, { firstName: 'Ana' }, Role.PARENT, 5, ACTOR);
 
             // `parent.user` was loaded for the ownership check only. It carries the admin's
             // `rejectionReason`, and carried the password hash before the column was `select: false`.
@@ -140,7 +166,7 @@ describe('ChildService', () => {
         it("forbids updating another parent's child", async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
 
-            await expect(service.updateChild(1, { firstName: 'Ana' }, Role.PARENT, 5)).rejects.toThrow(ForbiddenException);
+            await expect(service.updateChild(1, { firstName: 'Ana' }, Role.PARENT, 5, ACTOR)).rejects.toThrow(ForbiddenException);
             expect(childRepo.save).not.toHaveBeenCalled();
         });
 
@@ -148,12 +174,12 @@ describe('ChildService', () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
             childRepo.save!.mockImplementation((c: unknown) => Promise.resolve(c));
 
-            await expect(service.updateChild(1, { firstName: 'Ana' }, Role.ADMIN, 5)).resolves.toBeDefined();
+            await expect(service.updateChild(1, { firstName: 'Ana' }, Role.ADMIN, 5, ACTOR)).resolves.toBeDefined();
         });
 
         it('rejects a child that does not exist', async () => {
             childRepo.findOne!.mockResolvedValue(null);
-            await expect(service.updateChild(99, {}, Role.ADMIN, 5)).rejects.toThrow(NotFoundException);
+            await expect(service.updateChild(99, {}, Role.ADMIN, 5, ACTOR)).rejects.toThrow(NotFoundException);
         });
     });
 
@@ -161,14 +187,14 @@ describe('ChildService', () => {
         it("forbids deleting another parent's child", async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
 
-            await expect(service.deleteChild(1, Role.PARENT, 5)).rejects.toThrow(ForbiddenException);
+            await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).rejects.toThrow(ForbiddenException);
             expect(childRepo.delete).not.toHaveBeenCalled();
         });
 
         it('lets a parent delete their own child', async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
 
-            await expect(service.deleteChild(1, Role.PARENT, 5)).resolves.toMatchObject({ message: expect.any(String) });
+            await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).resolves.toMatchObject({ message: expect.any(String) });
             expect(childRepo.delete).toHaveBeenCalledWith(1);
         });
     });

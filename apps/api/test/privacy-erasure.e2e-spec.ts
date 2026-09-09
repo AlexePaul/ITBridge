@@ -287,6 +287,34 @@ describe('Privacy erasure (e2e)', () => {
             }
         });
 
+        /**
+         * The whole argument for recording field names and not values, made testable — E07/S3.
+         *
+         * A `Profile`'s fields are held under the `account` retention rule and go when the family
+         * goes; the trail is held under `audit` and outlives what it describes. If the values
+         * crossed that line they would sit here afterwards, and nothing could clean them up: the
+         * log has no relation to a profile, deliberately, so an erasure has nothing to walk.
+         */
+        it('holds no personal value of the family it just erased', async () => {
+            await request(app.getHttpServer())
+                .put(`/profiles/${anaProfileId}`)
+                .set('Authorization', admin.auth)
+                .send({ address: 'Str. Secretă 12', emergencyContactName: 'Bunica Ioana' })
+                .expect(200);
+
+            await erase(anaProfileId).expect(201);
+
+            const trail = await request(app.getHttpServer()).get('/audit').query({ limit: 200 }).set('Authorization', admin.auth).expect(200);
+            const wholeTrail = JSON.stringify(trail.body);
+
+            // The edit is recorded — the fields are named — and the values are not there.
+            expect(wholeTrail).toContain('address');
+            expect(wholeTrail).not.toContain('Str. Secretă 12');
+            expect(wholeTrail).not.toContain('Bunica Ioana');
+            expect(wholeTrail).not.toContain('ana.stergere@example.com');
+            expect(wholeTrail).not.toContain('Maria');
+        });
+
         it('refuses to do it twice', async () => {
             await erase(anaProfileId).expect(201);
             const res = await erase(anaProfileId).expect(409);

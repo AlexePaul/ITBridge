@@ -11,6 +11,9 @@ import { Group } from 'src/entities/group.entity';
 import { applyDefined } from 'src/common/apply-defined';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
+import { AuditService, type Actor } from 'src/modules/audit/audit.service';
+import { AuditAction } from 'src/enum/audit-action.enum';
+import { changedFieldNames } from 'src/modules/audit/personal-fields';
 
 @Injectable()
 export class ChildService {
@@ -19,9 +22,10 @@ export class ChildService {
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
         private readonly enrollmentService: EnrollmentService,
+        private readonly audit: AuditService,
     ) {}
 
-    async createChild(createChildDto: CreateChildDto, role: Role, userId: number) {
+    async createChild(createChildDto: CreateChildDto, role: Role, userId: number, actor: Actor) {
         if (role !== Role.ADMIN) {
             const profile = await this.profileRepository.findOne({
                 where: { user: { id: userId } },
@@ -38,7 +42,18 @@ export class ChildService {
         }
         const child = this.childRepository.create(createChildDto);
         child.parent = parentProfile;
-        return this.childRepository.save(child);
+        const saved = await this.childRepository.save(child);
+        // The act and the id, not the name that came with it. Whoever entered this child is the
+        // half the row cannot answer for itself.
+        await this.audit.recordPersonalDataChange({
+            actor,
+            action: AuditAction.CREATED,
+            entityType: 'Child',
+            entityId: saved.id,
+            fields: ['child'],
+            note: 'copil adăugat',
+        });
+        return saved;
     }
 
     async findChildren(filterChildDto: FilterChildDto, role: Role, sub: number) {
@@ -71,7 +86,7 @@ export class ChildService {
         return query.getMany();
     }
 
-    async updateChild(childId: number, updateChildDto: UpdateChildDto, role: Role, userId: number) {
+    async updateChild(childId: number, updateChildDto: UpdateChildDto, role: Role, userId: number, actor: Actor) {
         const child = await this.childRepository.findOne({
             where: { id: childId },
             relations: ['parent', 'parent.user'],
@@ -84,8 +99,20 @@ export class ChildService {
             throw new ForbiddenException('You do not have permission to update this child');
         }
 
+        // Which fields moved, never what they became — E07/S3. A child's name and date of birth are
+        // held under the `account` retention rule and go when the family goes; this trail outlives
+        // what it describes, so the values must not cross into it.
+        const moved = changedFieldNames(child as unknown as Record<string, unknown>, updateChildDto as unknown as Record<string, unknown>);
+
         applyDefined(child, updateChildDto);
         const saved = await this.childRepository.save(child);
+        await this.audit.recordPersonalDataChange({
+            actor,
+            action: AuditAction.UPDATED,
+            entityType: 'Child',
+            entityId: childId,
+            fields: moved,
+        });
         // The account was loaded for the ownership check above and is not part of the answer: a
         // parent editing their own child was handed their own `rejectionReason` and, until the
         // column became `select: false`, their password hash. Same shape as `ProfileService`.
@@ -93,7 +120,7 @@ export class ChildService {
         return saved;
     }
 
-    async deleteChild(childId: number, role: Role, userId: number) {
+    async deleteChild(childId: number, role: Role, userId: number, actor: Actor) {
         const child = await this.childRepository.findOne({
             where: { id: childId },
             relations: ['parent', 'parent.user'],
@@ -107,6 +134,16 @@ export class ChildService {
         }
 
         await this.childRepository.delete(childId);
+        // The act, not the contents: a deleted child leaving a copy of their name in the trail is
+        // the failure this half exists to avoid.
+        await this.audit.recordPersonalDataChange({
+            actor,
+            action: AuditAction.DELETED,
+            entityType: 'Child',
+            entityId: childId,
+            fields: ['child'],
+            note: 'copil șters',
+        });
         return { message: 'Child deleted successfully' };
     }
 

@@ -3,17 +3,25 @@ import { ConflictException, NotFoundException, UnauthorizedException } from '@ne
 import { ProfileService } from './profile.service';
 import { Profile } from 'src/entities/profile.entity';
 import { Role } from 'src/enum/role.enum';
+import { AuditService } from 'src/modules/audit/audit.service';
 import { createMockQueryBuilder, createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 
 describe('ProfileService', () => {
+    /** E07/S3. Field names reach the trail; values never do. */
+    let audit: { recordPersonalDataChange: jest.Mock };
+
+    /** Whoever pressed the button, in the shape `actorFrom` hands over. */
+    const ACTOR = { userId: 5, username: 'ana' };
     let service: ProfileService;
     let profileRepo: MockRepository;
 
     beforeEach(async () => {
         profileRepo = createMockRepository();
 
+        audit = { recordPersonalDataChange: jest.fn(() => Promise.resolve()) };
+
         const module: TestingModule = await Test.createTestingModule({
-            providers: [ProfileService, provideMockRepository(Profile, profileRepo)],
+            providers: [ProfileService, provideMockRepository(Profile, profileRepo), { provide: AuditService, useValue: audit }],
         }).compile();
 
         service = module.get(ProfileService);
@@ -26,7 +34,7 @@ describe('ProfileService', () => {
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
             const dto = { firstName: 'Ana', lastName: 'Pop', userId: 999 };
-            await service.createProfile(dto, Role.PARENT, 5);
+            await service.createProfile(dto, Role.PARENT, 5, ACTOR);
 
             expect(dto.userId).toBe(5);
         });
@@ -37,7 +45,7 @@ describe('ProfileService', () => {
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
             const dto = { firstName: 'Ana', lastName: 'Pop', userId: 999 };
-            await service.createProfile(dto, Role.ADMIN, 5);
+            await service.createProfile(dto, Role.ADMIN, 5, ACTOR);
 
             expect(dto.userId).toBe(999);
         });
@@ -48,7 +56,7 @@ describe('ProfileService', () => {
             profileRepo.create!.mockImplementation((d: { user: unknown }) => d);
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
-            await service.createProfile({ firstName: 'Ana', lastName: 'Pop' }, Role.ADMIN);
+            await service.createProfile({ firstName: 'Ana', lastName: 'Pop' }, Role.ADMIN, undefined, ACTOR);
 
             expect(profileRepo.create!.mock.calls[0][0]).toMatchObject({ user: null });
         });
@@ -56,7 +64,20 @@ describe('ProfileService', () => {
         it('rejects a second profile for the same account', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1 });
 
-            await expect(service.createProfile({ firstName: 'A', lastName: 'B', userId: 5 }, Role.ADMIN)).rejects.toThrow(ConflictException);
+            await expect(service.createProfile({ firstName: 'A', lastName: 'B', userId: 5 }, Role.ADMIN, undefined, ACTOR)).rejects.toThrow(ConflictException);
+        });
+
+        it('records the act and the id, never what was typed into it', async () => {
+            profileRepo.findOne!.mockResolvedValue(null);
+            profileRepo.create!.mockImplementation((d: unknown) => d);
+            profileRepo.save!.mockImplementation((p: object) => Promise.resolve({ ...p, id: 77 }));
+
+            await service.createProfile({ firstName: 'Ana', lastName: 'Pop', email: 'ana@pop.ro' }, Role.ADMIN, undefined, ACTOR);
+
+            expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
+                expect.objectContaining({ actor: ACTOR, entityType: 'Profile', entityId: 77, fields: ['profile'] }),
+            );
+            expect(JSON.stringify(audit.recordPersonalDataChange.mock.calls[0][0])).not.toContain('ana@pop.ro');
         });
 
         it('rejects an email that is already taken', async () => {
@@ -64,7 +85,9 @@ describe('ProfileService', () => {
                 .findOne!.mockResolvedValueOnce(null) // no profile on the account
                 .mockResolvedValueOnce({ id: 2 }); // email taken
 
-            await expect(service.createProfile({ firstName: 'A', lastName: 'B', email: 'a@b.c', userId: 5 }, Role.ADMIN)).rejects.toThrow(ConflictException);
+            await expect(service.createProfile({ firstName: 'A', lastName: 'B', email: 'a@b.c', userId: 5 }, Role.ADMIN, undefined, ACTOR)).rejects.toThrow(
+                ConflictException,
+            );
         });
     });
 
@@ -94,21 +117,21 @@ describe('ProfileService', () => {
         it("forbids updating another user's profile", async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
 
-            await expect(service.updateProfile({ firstName: 'X' }, 1, Role.PARENT, 5)).rejects.toThrow(UnauthorizedException);
+            await expect(service.updateProfile({ firstName: 'X' }, 1, Role.PARENT, 5, ACTOR)).rejects.toThrow(UnauthorizedException);
             expect(profileRepo.save).not.toHaveBeenCalled();
         });
 
         it('forbids a PARENT from updating a profile with no account attached', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: null });
 
-            await expect(service.updateProfile({ firstName: 'X' }, 1, Role.PARENT, 5)).rejects.toThrow(UnauthorizedException);
+            await expect(service.updateProfile({ firstName: 'X' }, 1, Role.PARENT, 5, ACTOR)).rejects.toThrow(UnauthorizedException);
         });
 
         it('lets a user update their own profile', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 5 } });
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
-            await expect(service.updateProfile({ firstName: 'Ana' }, 1, Role.PARENT, 5)).resolves.toMatchObject({
+            await expect(service.updateProfile({ firstName: 'Ana' }, 1, Role.PARENT, 5, ACTOR)).resolves.toMatchObject({
                 firstName: 'Ana',
             });
         });
@@ -117,14 +140,14 @@ describe('ProfileService', () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 5 } });
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
-            const result = await service.updateProfile({ firstName: 'Ana' }, 1, Role.PARENT, 5);
+            const result = await service.updateProfile({ firstName: 'Ana' }, 1, Role.PARENT, 5, ACTOR);
 
             expect(result.user).toBeUndefined();
         });
 
         it('rejects a profile that does not exist', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
-            await expect(service.updateProfile({}, 99, Role.ADMIN, 5)).rejects.toThrow(NotFoundException);
+            await expect(service.updateProfile({}, 99, Role.ADMIN, 5, ACTOR)).rejects.toThrow(NotFoundException);
         });
     });
 
@@ -132,16 +155,69 @@ describe('ProfileService', () => {
         it("forbids deleting another user's profile", async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
 
-            await expect(service.deleteProfile(1, Role.PARENT, 5)).rejects.toThrow(UnauthorizedException);
+            await expect(service.deleteProfile(1, Role.PARENT, 5, ACTOR)).rejects.toThrow(UnauthorizedException);
             expect(profileRepo.delete).not.toHaveBeenCalled();
         });
 
         it('lets an admin delete any profile', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
 
-            await service.deleteProfile(1, Role.ADMIN, 5);
+            await service.deleteProfile(1, Role.ADMIN, 5, ACTOR);
 
             expect(profileRepo.delete).toHaveBeenCalledWith(1);
+        });
+    });
+    /**
+     * E07/S3, the personal-data half. What reaches the trail is *which* fields moved, never what
+     * they became: `Profile`'s fields are held under the `account` retention rule and go when the
+     * family goes, while the log is held under `audit` and outlives what it describes. Values
+     * crossing that line would sit here after the family was erased, with nothing left to walk to
+     * find them.
+     */
+    describe('audit trail', () => {
+        /**
+         * Rebuilt per test, not shared. `applyDefined` mutates the row the repository handed back,
+         * so one object across the describe would carry the first test's edit into the second — and
+         * the second is precisely the one asserting that nothing changed.
+         */
+        let stored: Record<string, unknown>;
+
+        beforeEach(() => {
+            stored = { id: 1, firstName: 'Ana', lastName: 'Pop', phone: '+40712345678', user: { id: 5 } };
+            // The service looks the row up by id and then, for a changed phone, asks whether anybody
+            // else already has that number. One blanket answer makes the second lookup find *this*
+            // profile and refuse the edit as a duplicate of itself.
+            profileRepo.findOne!.mockImplementation((options: { where?: Record<string, unknown> }) =>
+                Promise.resolve(options?.where && 'id' in options.where ? stored : null),
+            );
+            profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
+        });
+
+        it('names the fields that moved, and passes no values at all', async () => {
+            await service.updateProfile({ phone: '+40799999999' }, 1, Role.ADMIN, 5, ACTOR);
+
+            expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
+                expect.objectContaining({ actor: ACTOR, entityType: 'Profile', entityId: 1, fields: ['phone'] }),
+            );
+            const [[call]] = audit.recordPersonalDataChange.mock.calls as [{ fields: string[] }][];
+            expect(JSON.stringify(call)).not.toContain('+40799999999');
+            expect(JSON.stringify(call)).not.toContain('+40712345678');
+        });
+
+        it('writes nothing when a form round-trips without changing anything', async () => {
+            await service.updateProfile({ firstName: 'Ana', phone: '+40712345678' }, 1, Role.ADMIN, 5, ACTOR);
+
+            // `recordPersonalDataChange` returns early on an empty list, but the service should not
+            // have found anything to give it either.
+            expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(expect.objectContaining({ fields: [] }));
+        });
+
+        it('records a deletion as the act, not as a copy of what was deleted', async () => {
+            await service.deleteProfile(1, Role.ADMIN, 5, ACTOR);
+
+            const [[call]] = audit.recordPersonalDataChange.mock.calls as [{ fields: string[] }][];
+            expect(JSON.stringify(call)).not.toContain('Ana');
+            expect(JSON.stringify(call)).not.toContain('+40712345678');
         });
     });
 });
