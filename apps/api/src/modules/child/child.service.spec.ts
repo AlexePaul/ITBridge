@@ -9,7 +9,15 @@ import { Project } from 'src/entities/project.entity';
 import { Role } from 'src/enum/role.enum';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
-import { createMockQueryBuilder, createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
+import {
+    MockEntityManager,
+    MockRepository,
+    createMockEntityManager,
+    createMockQueryBuilder,
+    createMockRepository,
+    provideMockDataSource,
+    provideMockRepository,
+} from 'src/testing/repository.mock';
 
 describe('ChildService', () => {
     /** E07/S3. Field names reach the trail; values never do. */
@@ -23,6 +31,8 @@ describe('ChildService', () => {
     let groupRepo: MockRepository;
     let attendanceRepo: MockRepository;
     let projectRepo: MockRepository;
+    /** The transaction each write opens: the row and its audit trail share it — E07/S3. */
+    let manager: MockEntityManager;
     let enrollments: Record<string, jest.Mock>;
 
     /** A child of the parent whose account is `ownerUserId`. */
@@ -37,6 +47,7 @@ describe('ChildService', () => {
         groupRepo = createMockRepository();
         attendanceRepo = createMockRepository();
         projectRepo = createMockRepository();
+        manager = createMockEntityManager();
         // Nothing recorded against the child unless a test says so: `deleteChild` looks before it
         // deletes, and an unstubbed `exists` returns `undefined`, which reads as "there is nothing".
         attendanceRepo.exists!.mockResolvedValue(false);
@@ -59,6 +70,7 @@ describe('ChildService', () => {
                 provideMockRepository(Attendance, attendanceRepo),
                 provideMockRepository(Project, projectRepo),
                 { provide: EnrollmentService, useValue: enrollments },
+                provideMockDataSource(manager),
             ],
         }).compile();
 
@@ -69,7 +81,7 @@ describe('ChildService', () => {
         it('lets an admin create a child for any parent', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 10 });
             childRepo.create!.mockReturnValue({});
-            childRepo.save!.mockResolvedValue({ id: 1 });
+            manager.save.mockResolvedValue({ id: 1 });
 
             await expect(
                 service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.ADMIN, 999, ACTOR),
@@ -81,7 +93,7 @@ describe('ChildService', () => {
         it('lets a parent create a child on their own profile', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 10 });
             childRepo.create!.mockReturnValue({});
-            childRepo.save!.mockResolvedValue({ id: 1 });
+            manager.save.mockResolvedValue({ id: 1 });
 
             await expect(
                 service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5, ACTOR),
@@ -93,12 +105,14 @@ describe('ChildService', () => {
         it('records the act and the id, never the name that came with it', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 10 });
             childRepo.create!.mockReturnValue({});
-            childRepo.save!.mockResolvedValue({ id: 4 });
+            manager.save.mockResolvedValue({ id: 4 });
 
             await service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.ADMIN, 999, ACTOR);
 
+            // With the transaction's manager: the row and the account of it are one unit of work.
             expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
                 expect.objectContaining({ actor: ACTOR, entityType: 'Child', entityId: 4, fields: ['child'] }),
+                manager,
             );
             expect(JSON.stringify(audit.recordPersonalDataChange.mock.calls[0][0])).not.toContain('Ion');
         });
@@ -110,7 +124,7 @@ describe('ChildService', () => {
             await expect(
                 service.createChild({ parentId: 11, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5, ACTOR),
             ).rejects.toThrow(ForbiddenException);
-            expect(childRepo.save).not.toHaveBeenCalled();
+            expect(manager.save).not.toHaveBeenCalled();
         });
 
         it('forbids a user without a profile from creating children', async () => {
@@ -156,7 +170,7 @@ describe('ChildService', () => {
     describe('updateChild', () => {
         it('lets a parent update their own child', async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
-            childRepo.save!.mockImplementation((c: unknown) => Promise.resolve(c));
+            manager.save.mockImplementation((_entity: unknown, c: unknown) => Promise.resolve(c));
 
             await expect(service.updateChild(1, { firstName: 'Ana' }, Role.PARENT, 5, ACTOR)).resolves.toMatchObject({
                 firstName: 'Ana',
@@ -165,7 +179,7 @@ describe('ChildService', () => {
 
         it('hands back the child without the account it was checked against', async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
-            childRepo.save!.mockImplementation((c: unknown) => Promise.resolve(c));
+            manager.save.mockImplementation((_entity: unknown, c: unknown) => Promise.resolve(c));
 
             const saved = await service.updateChild(1, { firstName: 'Ana' }, Role.PARENT, 5, ACTOR);
 
@@ -179,12 +193,12 @@ describe('ChildService', () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
 
             await expect(service.updateChild(1, { firstName: 'Ana' }, Role.PARENT, 5, ACTOR)).rejects.toThrow(ForbiddenException);
-            expect(childRepo.save).not.toHaveBeenCalled();
+            expect(manager.save).not.toHaveBeenCalled();
         });
 
         it('lets an admin update any child', async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
-            childRepo.save!.mockImplementation((c: unknown) => Promise.resolve(c));
+            manager.save.mockImplementation((_entity: unknown, c: unknown) => Promise.resolve(c));
 
             await expect(service.updateChild(1, { firstName: 'Ana' }, Role.ADMIN, 5, ACTOR)).resolves.toBeDefined();
         });
@@ -200,14 +214,14 @@ describe('ChildService', () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
 
             await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).rejects.toThrow(ForbiddenException);
-            expect(childRepo.delete).not.toHaveBeenCalled();
+            expect(manager.delete).not.toHaveBeenCalled();
         });
 
         it('lets a parent delete a child who has been nowhere and made nothing', async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
 
             await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).resolves.toMatchObject({ message: expect.any(String) });
-            expect(childRepo.delete).toHaveBeenCalledWith(1);
+            expect(manager.delete).toHaveBeenCalledWith(Child, 1);
         });
 
         /**
@@ -221,7 +235,7 @@ describe('ChildService', () => {
             await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).rejects.toMatchObject({
                 response: { error: 'CHILD_HAS_ATTENDANCE' },
             });
-            expect(childRepo.delete).not.toHaveBeenCalled();
+            expect(manager.delete).not.toHaveBeenCalled();
         });
 
         /** Deleting the rows would leave every object in the bucket with nothing left to name it. */
@@ -232,7 +246,7 @@ describe('ChildService', () => {
             await expect(service.deleteChild(1, Role.ADMIN, 999, ACTOR)).rejects.toMatchObject({
                 response: { error: 'CHILD_HAS_PROJECTS' },
             });
-            expect(childRepo.delete).not.toHaveBeenCalled();
+            expect(manager.delete).not.toHaveBeenCalled();
         });
 
         /** The ownership check comes first: a stranger must not learn what a child has done. */
@@ -255,7 +269,7 @@ describe('ChildService', () => {
             // `acknowledgeWarnings` defaults to false: the S6 age check refuses once and asks, and
             // this route answers only when the screen passes the confirmation through.
             expect(enrollments.enrol).toHaveBeenCalledWith({ childId: 1, groupId: 2, acknowledgeWarnings: false }, 42);
-            expect(childRepo.save).not.toHaveBeenCalled();
+            expect(manager.save).not.toHaveBeenCalled();
         });
 
         it('passes the S6 confirmation through when the screen sends one', async () => {
@@ -270,7 +284,7 @@ describe('ChildService', () => {
             await service.removeChildFromGroup(1, 2);
 
             expect(enrollments.close).toHaveBeenCalledWith(9, { status: 'WITHDRAWN' });
-            expect(childRepo.save).not.toHaveBeenCalled();
+            expect(manager.save).not.toHaveBeenCalled();
         });
 
         it('404s when the child is not in the group it is being removed from', async () => {

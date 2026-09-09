@@ -57,18 +57,25 @@ export class ProfileService {
             ...createProfileDto,
             user: (createProfileDto.userId ? { id: createProfileDto.userId } : null) as User,
         });
-        const saved = await this.profileRepository.save(profile);
-        // The act and the id, not the contact details that came with it. A family entered over the
-        // phone has no other record of who entered it.
-        await this.audit.recordPersonalDataChange({
-            actor,
-            action: AuditAction.CREATED,
-            entityType: 'Profile',
-            entityId: saved.id,
-            fields: ['profile'],
-            note: 'profil creat',
+        // Row and trail in one transaction — E07/S3. They were two loose statements, so a failure
+        // between them left a family on file with nothing saying who put it there.
+        return this.dataSource.transaction(async (manager) => {
+            const saved = await manager.save(Profile, profile);
+            // The act and the id, not the contact details that came with it. A family entered over
+            // the phone has no other record of who entered it.
+            await this.audit.recordPersonalDataChange(
+                {
+                    actor,
+                    action: AuditAction.CREATED,
+                    entityType: 'Profile',
+                    entityId: saved.id,
+                    fields: ['profile'],
+                    note: 'profil creat',
+                },
+                manager,
+            );
+            return saved;
         });
-        return saved;
     }
 
     async findProfiles(filters: FilterProfileDto, userRole: Role, userId: number) {
@@ -175,14 +182,19 @@ export class ProfileService {
                     await this.confirmations.issueAndSend(profile.user, { firstName: saved.firstName, email: saved.email }, new Date(), manager);
                 }
             }
+            // Inside the transaction the edit already opened, not after it: a trail written on its
+            // own connection is one that can be lost while the change it describes stands.
+            await this.audit.recordPersonalDataChange(
+                {
+                    actor,
+                    action: AuditAction.UPDATED,
+                    entityType: 'Profile',
+                    entityId: profileId,
+                    fields: moved,
+                },
+                manager,
+            );
             return saved;
-        });
-        await this.audit.recordPersonalDataChange({
-            actor,
-            action: AuditAction.UPDATED,
-            entityType: 'Profile',
-            entityId: profileId,
-            fields: moved,
         });
         updatedProfile.user = undefined;
         return updatedProfile;
@@ -237,16 +249,24 @@ export class ProfileService {
             });
         }
 
-        await this.profileRepository.delete(profileId);
-        // The act, not the contents. A deleted profile leaving a copy of itself in the trail is the
-        // failure this whole half exists to avoid.
-        await this.audit.recordPersonalDataChange({
-            actor,
-            action: AuditAction.DELETED,
-            entityType: 'Profile',
-            entityId: profileId,
-            fields: ['profile'],
-            note: 'profil șters de la ecranul de admin',
+        // The removal and its trail commit together. Of the three this matters most here: after the
+        // row is gone the trail is the only thing that can answer who removed it, so losing it
+        // leaves the question unanswerable rather than merely unanswered.
+        await this.dataSource.transaction(async (manager) => {
+            await manager.delete(Profile, profileId);
+            // The act, not the contents. A deleted profile leaving a copy of itself in the trail is
+            // the failure this whole half exists to avoid.
+            await this.audit.recordPersonalDataChange(
+                {
+                    actor,
+                    action: AuditAction.DELETED,
+                    entityType: 'Profile',
+                    entityId: profileId,
+                    fields: ['profile'],
+                    note: 'profil șters de la ecranul de admin',
+                },
+                manager,
+            );
         });
     }
 }
