@@ -78,6 +78,55 @@ export class AuditService {
     }
 
     /**
+     * A change to somebody's personal data: **which fields moved, never what they became** — E07 S3.
+     *
+     * This is not squeamishness, it is the retention boundary drawn by the data inventory (E07 S1).
+     * A `Profile`'s or a `Child`'s fields are held under the `account` rule: they go when the
+     * family goes. This table is held under `audit`, and outlives the rows it describes — that is
+     * the point of it. Copying values across that boundary would leave every phone number and every
+     * address a family ever had sitting here after the family itself was erased, and **the erasure
+     * could not clean it up**: the trail deliberately has no relation to a profile (a relation to a
+     * deletable row is how an audit log loses the entries that matter), so there would be nothing to
+     * walk. `privacy-erasure.e2e-spec.ts` asserts the absence directly.
+     *
+     * What it costs is real and worth naming: "you changed my address and got it wrong" cannot be
+     * answered from here with the old value. What it buys is that the answer to "who touched my
+     * family's details, and when" survives without the details surviving with it. For money the
+     * trade goes the other way and `recordUpdate` keeps the figures — an invoice's amount is held
+     * under `accounting` anyway, so nothing crosses a boundary.
+     *
+     * The field names sit in `changes` so one reader handles every entry, and both sides are `null`
+     * because there is nothing to put there. The note says so, rather than leaving a reader to
+     * conclude the values were lost.
+     */
+    async recordPersonalDataChange(
+        params: {
+            actor: Actor;
+            action: AuditAction;
+            entityType: string;
+            entityId: number;
+            /** The fields that moved. Nothing is written when the list is empty. */
+            fields: string[];
+            note?: string | null;
+        },
+        manager?: EntityManager,
+    ): Promise<void> {
+        if (params.fields.length === 0) return;
+
+        await this.record(
+            {
+                actor: params.actor,
+                action: params.action,
+                entityType: params.entityType,
+                entityId: params.entityId,
+                changes: Object.fromEntries(params.fields.map((field) => [field, { from: null, to: null }])),
+                note: params.note ?? 'valorile nu se consemnează: sunt date personale',
+            },
+            manager,
+        );
+    }
+
+    /**
      * The common case: something was edited, and only the fields that moved are worth keeping.
      *
      * **Writes nothing when nothing changed.** A save that set every field to what it already held

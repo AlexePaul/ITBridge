@@ -10,6 +10,7 @@ import { RolesGuard } from 'src/guards/role.guard';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
+import { actorFrom } from 'src/modules/audit/actor';
 
 @Controller('children')
 export class ChildController {
@@ -43,7 +44,7 @@ export class ChildController {
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'Child not found' })
     async updateChild(@Param('childId', ParseIntPipe) childId: number, @Body() updateChildDto: UpdateChildDto, @Request() req: AuthenticatedRequest) {
-        return this.childService.updateChild(childId, updateChildDto, req.user.role, req.user.sub);
+        return this.childService.updateChild(childId, updateChildDto, req.user.role, req.user.sub, actorFrom(req));
     }
 
     @Delete('/:childId')
@@ -54,7 +55,7 @@ export class ChildController {
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'Child not found' })
     async deleteChild(@Param('childId', ParseIntPipe) childId: number, @Request() req: AuthenticatedRequest) {
-        return this.childService.deleteChild(childId, req.user.role, req.user.sub);
+        return this.childService.deleteChild(childId, req.user.role, req.user.sub, actorFrom(req));
     }
 
     @Post('/:childId/groups/:groupId')

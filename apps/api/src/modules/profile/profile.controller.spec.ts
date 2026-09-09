@@ -15,6 +15,14 @@ describe('ProfileController', () => {
     /** Identity must come from the token, never from body or query. */
     const lastTwoArgs = (mock: jest.Mock) => mock.mock.calls[0].slice(-2);
 
+    /**
+     * The same rule for the two handlers that also carry an actor (E07/S3): role and user id come
+     * from the token, and so does the actor beside them. `lastTwoArgs` cannot serve here — the last
+     * two are now the user id and the actor — and stretching it to would hide which position each
+     * value is meant to occupy.
+     */
+    const identityAndActor = (mock: jest.Mock) => mock.mock.calls[0].slice(-3);
+
     it('createProfile receives the role and user id from the token', async () => {
         const { controller, service } = await build();
         await controller.createProfile(requestOf(Role.PARENT, 42), { firstName: 'A', lastName: 'B' });
@@ -29,14 +37,14 @@ describe('ProfileController', () => {
 
     it('updateProfile receives the role and user id from the token', async () => {
         const { controller, service } = await build();
-        await controller.updateProfile(requestOf(Role.PARENT, 42), {}, 7);
-        expect(lastTwoArgs(service.updateProfile as jest.Mock)).toEqual([Role.PARENT, 42]);
+        await controller.updateProfile(requestOf(Role.PARENT, 42, 'ana'), {}, 7);
+        expect(identityAndActor(service.updateProfile as jest.Mock)).toEqual([Role.PARENT, 42, { userId: 42, username: 'ana' }]);
     });
 
     it('deleteProfile receives the role and user id from the token', async () => {
         const { controller, service } = await build();
-        await controller.deleteProfile(requestOf(Role.PARENT, 42), 7);
-        expect(lastTwoArgs(service.deleteProfile as jest.Mock)).toEqual([Role.PARENT, 42]);
+        await controller.deleteProfile(requestOf(Role.PARENT, 42, 'ana'), 7);
+        expect(identityAndActor(service.deleteProfile as jest.Mock)).toEqual([Role.PARENT, 42, { userId: 42, username: 'ana' }]);
     });
 
     it("a PARENT cannot request someone else's profile through the query - identity still comes from the token", async () => {

@@ -6,6 +6,7 @@ import { CreateProfileDto } from './dto/createProfile.dto';
 import { FilterProfileDto } from './dto/filterProfile.dto';
 import { UpdateProfileDto } from './dto/updateProfile.dto';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
+import { actorFrom } from 'src/modules/audit/actor';
 
 @Controller('profiles')
 export class ProfileController {
@@ -38,7 +39,7 @@ export class ProfileController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
     async updateProfile(@Request() req: AuthenticatedRequest, @Body() updateProfileDto: UpdateProfileDto, @Param('profileId', ParseIntPipe) profileId: number) {
-        return this.profileService.updateProfile(updateProfileDto, profileId, req.user.role, req.user.sub);
+        return this.profileService.updateProfile(updateProfileDto, profileId, req.user.role, req.user.sub, actorFrom(req));
     }
 
     @Delete('/:profileId')
@@ -49,6 +50,6 @@ export class ProfileController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
     async deleteProfile(@Request() req: AuthenticatedRequest, @Param('profileId', ParseIntPipe) profileId: number) {
-        return this.profileService.deleteProfile(profileId, req.user.role, req.user.sub);
+        return this.profileService.deleteProfile(profileId, req.user.role, req.user.sub, actorFrom(req));
     }
 }
