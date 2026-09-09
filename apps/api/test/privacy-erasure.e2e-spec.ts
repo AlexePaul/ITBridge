@@ -84,6 +84,19 @@ describe('Privacy erasure (e2e)', () => {
         return Number(rows[0].count);
     };
 
+    /**
+     * The stubbed storage client `createTestApp` installs: `helpers.ts` replaces `S3Service` with
+     * plain `jest.fn()`s, so its methods carry jest's surface rather than the real signatures.
+     *
+     * Written as a narrowing from `unknown` rather than a double assertion on the call, because
+     * `no-unnecessary-type-assertion` strips `as unknown as X` under `--fix` and leaves the real
+     * type behind — which typechecks locally right up until the moment `lint:fix` runs.
+     */
+    const stubbedStorage = (): { deleteObject: jest.Mock } => {
+        const client: unknown = app.get(S3Service);
+        return client as { deleteObject: jest.Mock };
+    };
+
     const erase = (profileId: number) => request(app.getHttpServer()).post(`/privacy/erasure/${profileId}`).set('Authorization', admin.auth);
 
     describe('the request', () => {
@@ -242,7 +255,7 @@ describe('Privacy erasure (e2e)', () => {
          * there is no way left to work out what to remove.
          */
         it("takes the children's files out of the bucket, and says how many", async () => {
-            const storage = app.get(S3Service);
+            const storage = stubbedStorage();
             storage.deleteObject.mockClear();
 
             await request(app.getHttpServer())
@@ -264,7 +277,7 @@ describe('Privacy erasure (e2e)', () => {
 
         /** The other half of what the accounting obligation keeps stays where it is. */
         it('leaves the invoice PDFs alone', async () => {
-            const storage = app.get(S3Service);
+            const storage = stubbedStorage();
             storage.deleteObject.mockClear();
 
             await erase(anaProfileId).expect(201);

@@ -531,6 +531,15 @@ Lucruri care te vor bloca dacă nu le știi dinainte.
 fișierele de test, deci o suită poate trece în timp ce `tsc --noEmit` raportează erori pe același
 cod. Rulează amândouă înainte să deschizi un PR — CI le rulează separat.
 
+**`lint:fix` poate schimba tipuri, deci `typecheck` se rulează _după_ el, nu înainte.** Regula
+`@typescript-eslint/no-unnecessary-type-assertion` **șterge** o aserțiune pe care o consideră
+inutilă, iar `--fix` o face fără să întrebe: un `app.get(S3Service) as unknown as { deleteObject:
+jest.Mock }` din care rămâne `app.get(S3Service)` compilează perfect până în clipa în care cineva
+cheamă `.mockClear()` pe el. Local trece dacă ai rulat typecheck-ul înaintea lui `lint:fix`, și
+pică în CI. Când ai nevoie de forma asta, îngustează dintr-un `unknown` declarat — `const client:
+unknown = ...; return client as X;` — fiindcă aia e o îngustare reală, pe care regula n-o poate
+numi inutilă.
+
 **Testele de integrare pornesc un server real, cu `app.listen(0)`, nu `getHttpServer()` direct.**
 Nu schimba asta: supertest ridică altfel un server efemer la fiecare cerere, iar suita devine
 intermitentă în chip înșelător — am văzut cereri neautentificate răspunzând 200, ceea ce arată ca o
