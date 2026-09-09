@@ -235,15 +235,19 @@ rând cu aceleași date la ambele capete. `location` gol înseamnă „toată ș
   ar face acceptarea să depindă de ordinea în care au fost tastate cele două intervale.
 
 **O oră schimbată e trei scrieri într-o singură tranzacție** (E12 S5). Anularea, mutarea și
-reactivarea trec prin `dataSource.transaction`: rândul, eventualele credite de recuperare și
+reactivarea trec prin `dataSource.transaction`: rândul, plasările copiilor mutați în ora aceea și
 mesajele către familiile grupei stau sau cad împreună — o oră anulată fără ca nimeni să afle e exact
 defecțiunea pentru care există coada. `ClassSessionNotifier` scrie **un mesaj per părinte**, nu per
 copil, iar cheia de deduplicare poartă **a câta anunțare e pentru ședința aceea**, nu ziua: o oră
 anulată, reactivată și anulată din nou — chiar în aceeași după-amiază — trebuie anunțată de două
 ori, în timp ce doi admini care apasă în aceeași clipă nu. Reactivarea are mesaj din același motiv —
-familiile au fost anunțate că nu se ține. O recuperare programată pe ora anulată se eliberează în
-aceeași tranzacție, după ce familia ei a fost anunțată; creditele acordate la anulare nu se retrag la
-reactivare.
+familiile au fost anunțate că nu se ține. Copiii mutați în ora anulată se eliberează în aceeași
+tranzacție, prin `ReplacementService.clearOn` — **după** `notifyCancelled`, și ordinea e regula, nu
+stilul: notificatorul citește plasările ca să afle care sunt familiile vizitatoare, iar una ștearsă
+deja e o familie pe care n-o mai vede. Anularea **nu** compensează cu nimic: prețul e pe ședință
+ținută (`pricing.ts`), deci ora care nu s-a ținut nu se facturează, iar un drept pe deasupra ar fi a
+patra lecție la prețul a trei — o decizie de preț, nu o consecință a butonului. Dacă familia
+trebuie totuși mutată undeva, se mută, din `/admin/absente`.
 
 **O oră care nu se poate ține se recuperează dintr-un singur act, cheiat pe grupă și zi** (E12 S9).
 `RescheduleService` (`apps/api/src/modules/class-session/reschedule.service.ts`) nu pornește de la
@@ -259,13 +263,6 @@ Ferestrele din `GET /class-sessions/reschedule-windows` sunt pe grila școlii �
 grupelor active de la adresa grupei, în sălile ei, regula pură fiind în `reschedule.rules.ts` — și
 „liber" înseamnă doar sala: platforma nu are profesori (E09 e scos din MVP), deci o fereastră în care
 același om predă în cealaltă sală se oferă cu convingere.
-
-**Recuperarea la anulare e o bifă pe ecran, nu un automatism** (E12 S5). Prețul e pe ședință
-ținută, deci o oră anulată nu se facturează oricum; un credit pe deasupra dă a patra lecție la
-prețul a trei, ceea ce e o decizie de preț și e a celui care anulează. Se scrie prin
-`MakeUpCreditService.grantForCancellation`, ușă separată de `earnFor`: aia cere anunț în termen plus
-absență reală, iar aici n-a lipsit nimeni de nicăieri. Nu o uni cu `earnFor` — ar slăbi definiția
-lui „câștigat" pentru toată lumea.
 
 **O absență anunțată nu marchează pe nimeni absent** (E12 S3). `AbsenceNotice` leagă copilul de o
 **ședință**, ca tot ce vorbește despre o oră de curs. Catalogul rămâne al profesorului: un copil al
@@ -295,17 +292,30 @@ pe care un părinte respins n-are de ce s-o citească. `password-hash.e2e-spec.t
 au cont la un join distanță și verifică că `passwordHash` nu apare nicăieri în corp, iar login-ul
 încă merge.
 
-**Recuperarea e un drept câștigat, nu un marcaj observat** (E12 S4). `MakeUpCredit` apare acolo unde
-un anunț **în termen** se întâlnește cu un catalog care spune că nu a fost acolo — niciuna dintre
-jumătăți nu ajunge singură. Nu e un endpoint: se câștigă, se retrage și se consumă ca efect al
-marcării, în `AttendanceService.settleMakeUp`. **Nu are coloană de stare**: trei stări se citesc din
-rând, iar „expirată" e calendarul care s-a mișcat — o coloană ar fi greșită exact cât timp n-a rulat
-nimic s-o corecteze. `expiresOn` se îngheață la scriere, ca `inTime`. Iar **locul liber se numără pe
-ședință**: un copil în recuperare ocupă un scaun ca o probă (D7), deci înscrieri în vigoare plus
-recuperări deja programate pe acea ședință — nu `occupancyOf`, care e despre grupă. Numărătoarea stă
-în `EnrollmentService.freeSeatsAt` / `freeSeatsAtSessions`, lângă `occupancyOf`: D7 are un singur
-proprietar, iar cei trei care întreabă — recuperările, programarea la probă și rezervarea ei — obțin
-același răspuns.
+**Recuperarea nu e un credit, e o mutare pe o săptămână — și n-a mai fost un credit din E12 S4.**
+`MakeUpCredit`, `MakeUpCreditService`, `AttendanceService.settleMakeUp`, `expiresOn` și tabela
+`make_up_credits` **nu mai există**; dacă le găsești pomenite undeva, textul e vechi, nu codul.
+Un jeton descrie o școală în care familia alege ora; asta citește luni absențele anunțate și mută
+copiii între grupe cu mâna, fiindcă „ce grupă are un scaun liber și un profesor care mai poate lua
+un copil de nouă ani" nu e o interogare. Deci toată tabela s-a strâns într-o coloană nullable pe
+anunțul care a provocat-o: `AbsenceNotice.replacementSession`, scrisă de `ReplacementService`
+(`apps/api/src/modules/attendance/replacement.service.ts`) din `/admin/absente`. Patru consecințe:
+
+- **`null` înseamnă două lucruri, și le desparte calendarul**: cât săptămâna e în față, „nu s-a
+  ocupat nimeni încă"; după ce a trecut, „nu s-a întâmplat". Nu adăuga o coloană de stare — ar fi al
+  doilea loc care spune ce spune deja data.
+- **Fereastra e săptămâna în care s-a pierdut ora** (`replacement.rules.ts`), fiindcă un copil nu
+  poate sta cu altă grupă într-o săptămână care a trecut. Ce oprește o mutare e ora oferită
+  (`canBackfill` — ședința de înlocuire n-a început încă), **nu** `inTime`: ăla rămâne un fapt despre
+  anunț, iar biroul care tastează marți ce a sunat luni n-are de ce să coste familia săptămâna.
+- **Marcarea nu mai consumă nimic.** `AttendanceType.MAKE_UP` se scrie în continuare singur pentru
+  orice copil marcat în afara grupei lui, dar e o observație despre unde a stat, nu decontarea unui
+  drept.
+- **Locul liber se numără pe ședință**: un copil mutat temporar ocupă un scaun ca o probă (D7), deci
+  înscrieri în vigoare plus copiii mutați în acea ședință — nu `occupancyOf`, care e despre grupă.
+  Numărătoarea stă în `EnrollmentService.freeSeatsAt` / `freeSeatsAtSessions`, lângă `occupancyOf`:
+  D7 are un singur proprietar, iar cei trei care întreabă — mutările, programarea la probă și
+  rezervarea ei — obțin același răspuns.
 
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin
@@ -328,6 +338,28 @@ să primească un singur email. Trei consecințe de ținut minte:
 la fel, deci fiecare grupă știe unde se ține fără să poată contrazice sala. Ștergerile sunt
 `RESTRICT` în ambele direcții, verificate întâi în serviciu, ca refuzul să ajungă la client ca 409 cu
 explicație, nu ca 500 de la driver.
+
+**Familia, în schimb, e `CASCADE` în trei direcții deodată, și de aia nu se șterge de nicăieri.**
+`children.parent_id`, `invoices.parent_id` și `discounts.parent_id` sunt toate `CASCADE`, iar
+`payments.invoice_id` e `CASCADE` după ele — deci un singur `DELETE` pe `profiles` lua copiii, toate
+prezențele lor, proiectele, facturile emise și încasările înregistrate. Măsurat pe o bază reală:
+1 copil, 1 înscriere, 1 factură, 1 plată înainte; zero din fiecare după. `ProfileService.deleteProfile`
+refuză acum, cu cod propriu, dacă familia are facturi (`PROFILE_HAS_INVOICES`) sau copii
+(`PROFILE_HAS_CHILDREN`) — ruta rămâne pentru rândul tastat greșit, atât. **Ștergerea unei familii e
+E07 S4, `/admin/stergeri`**: aia păstrează facturile, golește rândul, curăță bucket-ul și scrie cine
+a apăsat. Dacă adaugi o a doua ușă care șterge o familie, prima întrebare e ce ia cu ea — și
+răspunsul nu se citește din entitate, fiindcă `onDelete` stă pe partea copilului.
+
+**Același lucru, un nivel mai jos: `DELETE /children/:id`.** Tot ce atârnă de un copil e `CASCADE`,
+inclusiv catalogul și proiectele — măsurat la fel: un copil, o înscriere și un marcaj înainte, zero
+din fiecare după, 200, de pe tokenul părintelui. `ChildService.deleteChild` refuză acum dacă
+copilul are prezențe (`CHILD_HAS_ATTENDANCE` — catalogul e ce s-a întâmplat, iar E15 S9 facturează
+din el) sau lucrări (`CHILD_HAS_PROJECTS` — cheile de obiect se derivă din id-uri, deci după
+ștergerea rândurilor nimic nu mai poate spune ce era de scos din bucket). **Înscrierile singure nu
+blochează**, dinadins: o înscriere fără niciun marcaj consemnează o intenție, nu un fapt, iar
+refuzul pe ea ar închide singura folosință rămasă rutei — un copil adăugat și repartizat din
+greșeală. Ștergerea din E07 S4 nu trece pe aici: `ErasureService` șterge rândurile prin tranzacția
+lui, după ce citește cheile.
 
 **Auth** — două roluri, `ADMIN` și `PARENT` (`apps/api/src/enum/role.enum.ts`). `register` creează
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
@@ -531,6 +563,15 @@ Lucruri care te vor bloca dacă nu le știi dinainte.
 fișierele de test, deci o suită poate trece în timp ce `tsc --noEmit` raportează erori pe același
 cod. Rulează amândouă înainte să deschizi un PR — CI le rulează separat.
 
+**`lint:fix` poate schimba tipuri, deci `typecheck` se rulează _după_ el, nu înainte.** Regula
+`@typescript-eslint/no-unnecessary-type-assertion` **șterge** o aserțiune pe care o consideră
+inutilă, iar `--fix` o face fără să întrebe: un `app.get(S3Service) as unknown as { deleteObject:
+jest.Mock }` din care rămâne `app.get(S3Service)` compilează perfect până în clipa în care cineva
+cheamă `.mockClear()` pe el. Local trece dacă ai rulat typecheck-ul înaintea lui `lint:fix`, și
+pică în CI. Când ai nevoie de forma asta, îngustează dintr-un `unknown` declarat — `const client:
+unknown = ...; return client as X;` — fiindcă aia e o îngustare reală, pe care regula n-o poate
+numi inutilă.
+
 **Testele de integrare pornesc un server real, cu `app.listen(0)`, nu `getHttpServer()` direct.**
 Nu schimba asta: supertest ridică altfel un server efemer la fiecare cerere, iar suita devine
 intermitentă în chip înșelător — am văzut cereri neautentificate răspunzând 200, ceea ce arată ca o
@@ -715,6 +756,26 @@ moare în ts-jest cu `SyntaxError: Unexpected token 'export'` — nu doar în te
 în orice suită care ajunge la `app.module.ts`. Un `pnpm up` care îl urcă rupe toate testele deodată,
 cu un mesaj care nu spune de ce. Ăsta e și motivul pentru care nu există `@nestjs/config`.
 
+**O coloană nouă pe o entitate trebuie clasificată în inventarul de date** (E07 S1). Sursa e
+`apps/api/src/privacy/data-inventory.ts`, iar `data-inventory.spec.ts` citește metadatele lui
+TypeORM — nu o listă întreținută de cineva — deci o coloană adăugată fără intrare pică suita, cu
+numele ei în mesaj. Sunt clasificate **toate** coloanele, nu doar cele personale: fiecare e ori dată
+personală, cu scop, temei legal, regulă de păstrare și cine o poate citi, ori nu e, cu un motiv
+dintr-o listă scurtă. Nu există a treia stare — aia e felul în care un număr de telefon ajunge
+neclasificat. Trei lucruri care se ratează:
+
+- **Un rând despre o familie face personale coloanele lui, orice ar conține.** Suma unei facturi nu
+  e un număr în abstract, e ce datorează familia aia. „N-are niciun nume în el" nu e un motiv.
+- **`linkedVia` e drumul de la rând la familie**, iar testul îl parcurge relație cu relație și cere
+  să se termine la `Profile`. E coloana pe care o citește E07 S4: un export trebuie să găsească
+  fiecare rând despre o familie, deci un drum inventat e o gaură pe care nimic n-o semnalează. Trei
+  tabele n-au drum, dinadins, și scrie de ce la fiecare.
+- **Documentul se randează, nu se editează**: `pnpm --filter api inventory:render` scrie
+  `docs/inventar-date.md`, iar același spec pică dacă a rămas în urmă. Fișierul e în
+  `.prettierignore` fiindcă prettier v3 își încarcă parserul de markdown prin `import()` dinamic, pe
+  care ts-jest nu-l poate face — deci verificarea compară randarea brută, iar un hook care ar
+  reformata fișierul ar face-o roșie pe alinierea barelor și pe nimic altceva.
+
 **Urma unei schimbări de bani se scrie în tranzacția care a produs-o** (E07 S3). `AuditService`
 (`apps/api/src/modules/audit/audit.service.ts`) primește `EntityManager`-ul tău — același argument
 ca la outbox: o urmă care supraviețuiește unei tranzacții date înapoi spune că s-a întâmplat ceva ce
@@ -738,6 +799,19 @@ dacă adaugi un al patrulea scriitor lângă facturi, plăți și reduceri:
   pierde exact intrările care contează: cele despre un cont scos ulterior. Pentru munca programată
   există `SYSTEM_ACTOR`, cu ambele câmpuri `null`, fiindcă „n-a apăsat nimeni" e un fapt care merită
   citit, nu un gol de umplut cu un nume inventat.
+
+**Datele personale lasă numele câmpului, nu valoarea** (E07 S3). Cealaltă jumătate a jurnalului —
+`Profile` și `Child`, create, editate sau șterse — trece prin
+`AuditService.recordPersonalDataChange`, care scrie `{ from: null, to: null }` pe fiecare câmp
+atins. Nu e prudență: câmpurile alea au retenția `account` în inventarul din E07 S1 și pleacă odată
+cu familia, în timp ce `audit_log` are retenția `audit` și îi supraviețuiește **prin construcție**,
+fiindcă n-are relație către profil — de aia mai poate răspunde „cine a șters familia 412" după ce
+familia 412 nu mai e. O valoare copiată acolo ar rămâne de partea la care ștergerea din S4 nu
+ajunge. Două consecințe: ce s-a mișcat se calculează cu `changedFieldNames`
+(`apps/api/src/modules/audit/personal-fields.ts`) **înainte** de `applyDefined`, altfel compari
+rândul cu el însuși; iar o salvare care n-a mișcat nimic nu scrie niciun rând, ca la bani. Dacă
+adaugi un al treilea drum prin care un om atinge datele unei familii, cheamă aceeași ușă — nu
+`record` cu valori în ea.
 
 **Mailul din backend pleacă prin outbox, niciodată direct.** `MailService`
 (`apps/api/src/modules/mail/mail.service.ts`) e implementarea; ce injectezi într-un modul e
@@ -872,16 +946,17 @@ tot ce e între „cineva a întrebat" și „s-a înscris". Două lucruri o fac
 Patru reguli pe care le încalci ușor:
 
 - **Patru din cele șase stări nu se scriu de la niciun ecran.** `trial_scheduled` vine din
-  programare, `trial_held` din catalog (`LeadProgressService`, chemat din `AttendanceService` lângă
-  `settleMakeUp`), iar `enrolled` / `lost` din `resolveTrial` în E11. `UpdateLeadDto` **nu are câmp
+  programare, `trial_held` din catalog (`LeadProgressService`, chemat din
+  `AttendanceService.settleLead` — singurul lucru pe care marcarea îl mai decontează), iar
+  `enrolled` / `lost` din `resolveTrial` în E11. `UpdateLeadDto` **nu are câmp
   `status`**, iar cele două stări pe care le declară un om au endpoint-uri proprii. Un câmp de stare
   pe un PATCH ar lăsa un ecran să scrie `înscris` pe o familie pe care n-a înscris-o nimeni — și aia
   e cifra pe care se sprijină tot raportul de pâlnie.
 - **Orele se filtrează pe dată, nu pe grupă.** Ce alege părintele e o zi, iar o grupă cu un loc
-  liber n-are niciunul în ziua în care cineva și-a programat deja o recuperare — și are din nou
-  săptămâna următoare. Lista cere `freeSeatsAtSessions` pentru toate orele pe care e pe cale să le
-  ofere, într-o singură interogare, iar la trimitere se reverifică ora aleasă, în tranzacție: între
-  fotografie și buton se poate strecura o recuperare.
+  liber n-are niciunul în ziua în care biroul a mutat deja un copil acolo — și are din nou săptămâna
+  următoare. Lista cere `freeSeatsAtSessions` pentru toate orele pe care e pe cale să le ofere,
+  într-o singură interogare, iar la trimitere se reverifică ora aleasă, în tranzacție: între
+  fotografie și buton se poate strecura o mutare.
 - **Formularul nu se termină niciodată într-o eroare.** Fără loc liber, cu ultimul loc luat între
   timp, sau fără nicio oră potrivită — toate trei scriu un lead marcat `noSeats` și răspund „te
   contactăm noi". Cel mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca

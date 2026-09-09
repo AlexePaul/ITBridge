@@ -3,11 +3,22 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 9 septembrie 2026, pe `release/stage`. **S-a livrat jumătatea de bani din
+**Ultima actualizare:** 9 septembrie 2026, pe `release/stage`. **S-a închis E07 S4**, exportul și
+ștergerea la cerere: o familie își descarcă din portal tot ce ține școala despre ea și despre copiii
+ei, și tot de acolo poate cere ștergerea contului — pe care biroul o duce la capăt dintr-un ecran
+propriu, în cel mult 30 de zile, păstrând doar facturile. Nu e ștergerea logică din E04 S5: aceea e
+o stare reversibilă pusă de admin, asta taie prin ea. **Și E07 S1**, inventarul de
+date: toate cele 231 de coloane clasificate, 99 dintre ele date personale, cu temeiul, termenul și
+cititorul scrise la fiecare — iar propoziția din acceptanță („o coloană nouă nu poate ajunge în
+producție fără să apară în el") e ținută de un test care citește metadatele lui TypeORM, nu o listă.
+Documentul din care E22 S2 va scrie nota de confidențialitate e randat din același fișier și
+verificat că nu rămâne în urmă. Tot azi, **s-a închis
 E07 S3**, audit log-ul: facturi, plăți și reduceri lasă fiecare o urmă cu cine, ce a fost și ce a
 devenit, scrisă în tranzacția schimbării pe care o descrie și fără nicio cale de a o edita sau
-șterge; „cine a schimbat suma facturii 412 și când" e o cerere. Datele personale rămân neconsemnate
-până se decide ce se păstrează despre ele. Tot azi, **s-a închis E18 S5b** — bara de filtre și grila de carduri, ultima fiind un singur card desenat de opt ori; aceeași trecere a scos numele de control repetate și englezești, textul de eroare al lui ofetch arătat utilizatorului și culorile fără temă întunecată. **A intrat lista de lansare**,
+șterge; „cine a schimbat suma facturii 412 și când" e o cerere. Cealaltă jumătate, datele personale,
+consemnează numele câmpurilor atinse și nu valorile lor: câmpurile unei familii pleacă odată cu ea,
+jurnalul îi supraviețuiește, iar o valoare copiată acolo ar rămâne de partea la care ștergerea din
+S4 nu ajunge. Tot azi, **s-a închis E18 S5b** — bara de filtre și grila de carduri, ultima fiind un singur card desenat de opt ori; aceeași trecere a scos numele de control repetate și englezești, textul de eroare al lui ofetch arătat utilizatorului și culorile fără temă întunecată. **A intrat lista de lansare**,
 [`docs/lansare.md`](../lansare.md): cele douăzeci de întrebări obișnuite de dinaintea lansării unui
 site, fiecare cu starea verificată contra codului și cu dovada lângă ea. Cincisprezece din douăzeci
 sunt livrate cu gardă; ce lipsește e textele juridice pe prod (E22 S2), verificarea legăturilor (E19 S9, story
@@ -48,8 +59,8 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 81 livrate, 22 parțiale, 4 blocate, 12 scoase din
-scop, 31 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **150 de story-uri** în 22 de epicuri: 84 livrate, 21 parțiale, 4 blocate, 12 scoase din
+scop, 29 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
 **Cifrele s-au recitit din rânduri, și cinci din șase erau greșite** — 75/19/6/36 pentru
@@ -60,7 +71,7 @@ coloana întâi cu `- [x]`, `- [~]`, `- [!]`, `- [ ]` sau `- ~~`, **numărate do
 `### E`** — altfel intră în total și rândul din legendă care arată cum se scrie un story tăiat, iar
 numărul iese cu unul peste, ceea ce e greu de observat tocmai fiindcă e aproape.
 
-Cele 32 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+Cele 29 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
 E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
 mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
@@ -132,12 +143,12 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
 > află de la părintele care sună.
 
-### E07 · Securitate, GDPR și consimțământ — `în lucru; S5 și S8 livrate, S3 pe jumătate, restul propus`
+### E07 · Securitate, GDPR și consimțământ — `în lucru; S1, S3, S4, S5 și S8 livrate, restul propus`
 
-- [ ] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface
+- [x] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface. Toate cele **231 de coloane** din cele 30 de tabele sunt clasificate, nu doar cele personale: fiecare e ori dată personală cu cele cinci răspunsuri, ori nu e, cu un motiv numit — **99 sunt date personale**, în 22 de tabele. Sursa e `apps/api/src/privacy/data-inventory.ts`, documentul [`docs/inventar-date.md`](../inventar-date.md) e randat din ea, iar `data-inventory.spec.ts` citește metadatele lui TypeORM și pică pe o coloană neclasificată, pe un rând învechit, pe un scop gol, pe document rămas în urmă și pe un `linkedVia` care nu duce la `Profile` — drumul pe care îl va parcurge S4. Termenele rămân ale E22 S3, dar acum sunt cinci reguli de numerotat, nu 231 de câmpuri
 - [ ] S2 · Consimțământ parental — granularitate `(părinte, copil, scop)`, decisă
-- [~] S3 · Audit log — **jumătatea de bani**: `audit_log` plus `apps/api/src/modules/audit/`, legat în facturi, plăți și reduceri, cu rândul scris în tranzacția schimbării pe care o descrie și fără nicio cale de a-l edita sau șterge. Acceptanța rulează capăt-la-capăt: `GET /audit?entityType=Invoice&entityId=412` spune cine a schimbat suma și când. **Lipsesc datele personale** — `Profile` și `Child` n-au urmă, fiindcă acolo _valoarea_ e data personală și „ce câmp" contra „din ce în ce" e o decizie de luat, nu o completare de scris
-- [ ] S4 · Export și ștergere — termenul pe care îl aplică e scris în E22 S3
+- [x] S3 · Audit log — **ambele jumătăți**. Banii: `audit_log` plus `apps/api/src/modules/audit/`, legat în facturi, plăți și reduceri, cu rândul scris în tranzacția schimbării pe care o descrie și fără nicio cale de a-l edita sau șterge; acceptanța rulează capăt-la-capăt, `GET /audit?entityType=Invoice&entityId=412` spune cine a schimbat suma și când. Datele personale: crearea, editarea și ștergerea unui `Profile` sau a unui `Child` lasă **numele câmpurilor care s-au mișcat, niciodată valorile lor** — nu din prudență, ci fiindcă inventarul din S1 le dă retenția `account`, care pleacă odată cu familia, în timp ce jurnalul are retenția `audit` și îi supraviețuiește prin construcție, neavând relație către profil. Deci „cine a schimbat adresa copilului 87, și când" are răspuns, iar „care era adresa dinainte" n-are, și asta e alegerea
+- [x] S4 · Export și ștergere — **ambele fluxuri**. Exportul: `GET /privacy/export` întoarce tot ce ține școala despre familia care cere, cu buton pe `/user/profile`; fără `:id` pe ruta părintelui (profilul vine din token), fără niciun hash întors, fără nimic despre altă familie. Ștergerea: familia cere din portal, biroul o duce la capăt din `/admin/stergeri`, în cel mult 30 de zile; dispar copiii cu tot ce atârnă de ei, lead-urile, reducerile, mesajele și contul, iar rândul familiei rămâne golit fiindcă facturile atârnă de el. **Nu e ștergerea logică din E04 S5** — aceea e o stare reversibilă pusă de admin; asta taie prin ea. Urma din audit log supraviețuiește, și trebuie: ține identificatori, nu nume
 - [x] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2. Inventarul n-a găsit niciun script neesențial și un singur terț: harta Google, care pleca singură pe `loading="lazy"`. Deci poarta e la terț, nu peste tot — `MapEmbed.vue` ține `<iframe>`-ul în afara DOM-ului până apasă cititorul, iar `consentStore` ține alegerea în memorie, fără cookie. Fără banner pe site cât nu e nimic de refuzat; primul scop nou (analiza din E19 S8) îl aduce. Acceptanța rulează în CI: `pnpm test:privacy` pică dacă vreo pagină publică iese din origine sau pune un cookie
 - [ ] S6 · Managementul secretelor
 - [ ] S7 · Contracte de prelucrare
@@ -191,7 +202,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 - [x] S1 · Entitatea de înscriere — perioadă, istoric și starea; „o singură înscriere în vigoare" e index parțial, nu doar verificare în serviciu. `Child.group` rămâne, derivată
 - [x] S2 · Contul de părinte: date complete, email confirmat, aprobat de admin — **revizuit și relivrat**: înregistrarea e în doi pași (cont, apoi profil), amândoi obligatorii, fiindcă zece câmpuri ca prim ecran sunt o barieră exact unde E20 coboară una. Nu e o întoarcere la starea de dinainte: pasul doi nu se poate sări, iar „complet" se derivă, nu se stochează — cele două porți, ecranul de aprobări, și blocarea înscrierii cât timp contul nu e activ
-- [x] S3 · Capacitate și listă de așteptare — aplicată, probele numărate ca locuri; lista oferă automat locul eliberat, iar **ofertele expirate se mătură din oră în oră** (`expireLapsedOffers`): înainte, o ofertă fără răspuns ținea scaunul la nesfârșit, fiindcă se ofereau doar cererile `WAITING`. Familia căreia i-a expirat oferta e anunțată — i se spusese că are loc până joi. Rămâne jurnalul de audit al excepției de capacitate (E06)
+- [x] S3 · Capacitate și listă de așteptare — aplicată, probele numărate ca locuri; lista oferă automat locul eliberat, iar **ofertele expirate se mătură din oră în oră** (`expireLapsedOffers`): înainte, o ofertă fără răspuns ținea scaunul la nesfârșit, fiindcă se ofereau doar cererile `WAITING`. Familia căreia i-a expirat oferta e anunțată — i se spusese că are loc până joi. Rămâne jurnalul de audit al excepției de capacitate: tabelul există de la E07 S3, dar `enrol` poartă un `actingUserId`, nu un `Actor`, iar unul dintre apelanți e formularul public de probă, care n-are niciunul — deocamdată excepția lasă o linie în log
 - [x] S4 · Lecție de probă — ocupă un loc, apare distinct în catalog, se confirmă sau se închide. **Facturarea numără acum doar înscrierile active**, deci nici proba, nici un copil fără grupă
 - [x] S5 · Transferuri — o singură tranzacție, starea și contractul trec mai departe. Efectul pe factură nu se afișează fiindcă prețul e per ședință și pe familie, nu pe grupă
 - [~] S6 · Verificări de compatibilitate — vârsta, ca avertisment care cere confirmare. **Acceptat ca stare finală pentru MVP**; cerințele prealabile de modul aparțin lui E10, scos din MVP
