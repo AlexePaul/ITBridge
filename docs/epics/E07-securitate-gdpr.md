@@ -311,6 +311,14 @@ Ce **rămâne pe dinafară** e exact ce serviciul trebuie să spună cu voce tar
 - **Reducerile pleacă.** Epicul păstrează facturile și nimic altceva, iar un rând de reducere
   numește motivul pentru care o anumită familie a plătit mai puțin. Factura poartă deja numărul.
 
+**Se golește și bucket-ul**, după ce tranzacția a făcut commit, nu înăuntrul ei: stocarea de
+obiecte n-are rollback, deci ștergerea lucrărilor unui copil urmată de o tranzacție care cade ar
+distruge fișierele unei familii care rămâne pe fișă. Cheile se citesc **înainte** ca rândurile să
+plece, fiindcă se derivă din identificatori și după aceea n-ar mai avea din ce fi calculate — iar
+obiectele ar rămâne acolo pentru totdeauna. Un obiect care nu s-a putut șterge e o linie de log, nu
+o ștergere eșuată: e recuperabil, spre deosebire de o ștergere care a lăsat rândurile în urmă. PDF-
+urile facturilor rămân, împreună cu facturile.
+
 **Ce nu se poate atinge**, scris aici în loc să fie descoperit mai târziu: un fișier pe care agentul
 nu l-a putut atribui (`unassigned_files`) poate purta numele unui copil în cale, și nu există
 legătură de la el către o familie — eșecul acelei legături e chiar conținutul rândului. Se curăță de

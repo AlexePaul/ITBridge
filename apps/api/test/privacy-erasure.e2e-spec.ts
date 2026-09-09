@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { createClassSession, createTestApp, enrolInNewGroup, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { S3Service } from 'src/modules/storage/s3.service';
 
 /**
  * Erasure on request, against a real database — E07 S4.
@@ -23,6 +24,9 @@ describe('Privacy erasure (e2e)', () => {
     let bogdanProfileId: number;
     let anaChildId: number;
     let groupId: number;
+
+    /** A real 1x1 PNG, so the ingestion pipeline runs rather than rejecting the bytes. */
+    const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
     beforeAll(async () => {
         ({ app, dataSource } = await createTestApp());
@@ -229,6 +233,45 @@ describe('Privacy erasure (e2e)', () => {
             expect(trail.body[0].actorUsername).toBe('admin.stergere');
             expect(JSON.stringify(trail.body)).not.toContain('Maria');
             expect(JSON.stringify(trail.body)).not.toContain('ana.stergere@example.com');
+        });
+
+        /**
+         * Deleting the rows is not deleting the data. A child's work lives in the bucket, and an
+         * erasure that leaves it there has erased nothing a family would recognise as theirs. The
+         * keys are derived from identifiers, so they have to be read *before* the rows go — after,
+         * there is no way left to work out what to remove.
+         */
+        it("takes the children's files out of the bucket, and says how many", async () => {
+            const storage = app.get(S3Service);
+            storage.deleteObject.mockClear();
+
+            await request(app.getHttpServer())
+                .post('/projects/ingest')
+                .set('Authorization', admin.auth)
+                .field('childId', String(anaChildId))
+                .field('capturedOn', '2026-03-04')
+                .attach('file', PNG, 'robot.png')
+                .expect(201);
+
+            const res = await erase(anaProfileId).expect(201);
+
+            expect(res.body.filesRemoved).toBeGreaterThan(0);
+            // Identifiers only, never a name — the keys travel into signed URLs and logs.
+            for (const [key] of storage.deleteObject.mock.calls) {
+                expect(String(key)).toMatch(/^projects\/\d+\//);
+            }
+        });
+
+        /** The other half of what the accounting obligation keeps stays where it is. */
+        it('leaves the invoice PDFs alone', async () => {
+            const storage = app.get(S3Service);
+            storage.deleteObject.mockClear();
+
+            await erase(anaProfileId).expect(201);
+
+            for (const [key] of storage.deleteObject.mock.calls) {
+                expect(String(key)).not.toContain('invoices/');
+            }
         });
 
         it('refuses to do it twice', async () => {

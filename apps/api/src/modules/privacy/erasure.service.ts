@@ -1,16 +1,19 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Not, Repository } from 'typeorm';
 import { Profile } from 'src/entities/profile.entity';
 import { Child } from 'src/entities/child.entity';
 import { Discount } from 'src/entities/discount.entity';
 import { Invoice } from 'src/entities/invoice.entity';
 import { Payment } from 'src/entities/payment.entity';
 import { Lead } from 'src/entities/lead.entity';
+import { Project } from 'src/entities/project.entity';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { User } from 'src/entities/user.entity';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
+import { S3Service } from 'src/modules/storage/s3.service';
+import { projectFileKey, projectThumbnailKey } from 'src/modules/project/project.keys';
 import { erasedProfileFields, isErased } from './erasure.rules';
 
 export interface ErasureReport {
@@ -21,6 +24,8 @@ export interface ErasureReport {
     messagesRemoved: number;
     invoicesKept: number;
     accountRemoved: boolean;
+    /** Objects removed from the bucket: the children's own files and their thumbnails. */
+    filesRemoved: number;
 }
 
 /**
@@ -52,6 +57,12 @@ export interface ErasureReport {
  * - **Discounts go.** The epic keeps invoices and nothing else, and a discount row names the reason
  *   a particular family was charged less. The invoice already carries the number.
  *
+ * **The bucket is emptied too**, after the transaction commits rather than inside it: object
+ * storage has no rollback, so deleting a child's work and then failing the transaction would
+ * destroy files belonging to a family still on file. The keys are read *before* the rows go,
+ * because they are derived from identifiers and there is no way to work them out afterwards.
+ * Invoice PDFs stay, with the invoices.
+ *
  * **What this cannot reach**, and it is written here rather than discovered later: a stray file the
  * agent could not attribute (`unassigned_files`) may carry a child's name in its path, and there is
  * no link from it to a family — failing to make that link is the whole content of the row. The
@@ -66,6 +77,7 @@ export class ErasureService {
         @InjectRepository(Profile) private readonly profiles: Repository<Profile>,
         @InjectDataSource() private readonly dataSource: DataSource,
         private readonly audit: AuditService,
+        private readonly storage: S3Service,
     ) {}
 
     /** The family asks. Nothing is deleted here — the office has to look first. */
@@ -132,9 +144,17 @@ export class ErasureService {
         const email = profile.email;
         const userId = profile.user?.id;
 
+        /** Filled inside the transaction, acted on after it commits. */
+        let objectKeys: string[] = [];
+
         const report = await this.dataSource.transaction(async (manager) => {
             const children = await manager.find(Child, { where: { parent: { id: profileId } }, select: { id: true } });
             const childIds = children.map((child) => child.id);
+
+            // Read before the rows go. Object keys are derived from identifiers (`project.keys.ts`),
+            // so once the rows are deleted there is no way left to work out what to remove from the
+            // bucket — the objects would sit there for good.
+            objectKeys = childIds.length ? await this.projectObjectKeys(manager, childIds) : [];
 
             // Before the children go: `Lead.child` is SET NULL, and the row keeps its own copies of
             // the child's name and birth date, written from a public form.
@@ -187,8 +207,16 @@ export class ErasureService {
                 messagesRemoved: messages.affected ?? 0,
                 invoicesKept: invoiceIds.length,
                 accountRemoved: Boolean(userId),
+                filesRemoved: 0,
             };
         });
+
+        // **After the commit, and never inside it.** Object storage has no rollback: deleting a
+        // child's work and then having the transaction fail would destroy files belonging to a
+        // family still on file. A failure in the other direction is recoverable — an object nobody
+        // can reach any more, which the same keys can clear later — so it is logged and the erasure
+        // still counts as done.
+        report.filesRemoved = await this.removeObjects(objectKeys);
 
         // No names, on purpose: this line ends up in a log file, and a log is not a place a family's
         // name should survive its own erasure.
@@ -198,5 +226,40 @@ export class ErasureService {
         );
 
         return report;
+    }
+
+    /**
+     * Every object the children's projects put in the bucket: each stored file, and the thumbnail
+     * where one was generated.
+     *
+     * Invoice PDFs are deliberately not here. They are the other half of what the accounting
+     * obligation keeps, and they belong to the invoices that survive.
+     */
+    private async projectObjectKeys(manager: EntityManager, childIds: number[]): Promise<string[]> {
+        const projects = await manager.find(Project, {
+            where: { child: { id: In(childIds) } },
+            relations: { versions: { files: true } },
+        });
+
+        return projects.flatMap((project) => [
+            ...(project.hasThumbnail ? [projectThumbnailKey(project.id)] : []),
+            ...(project.versions ?? []).flatMap((version) => (version.files ?? []).map((file) => projectFileKey(project.id, version.id, file.id))),
+        ]);
+    }
+
+    /** Deletes what it can and says how many; one unreachable object does not undo an erasure. */
+    private async removeObjects(keys: string[]): Promise<number> {
+        let removed = 0;
+        for (const key of keys) {
+            try {
+                await this.storage.deleteObject(key);
+                removed += 1;
+            } catch (error: unknown) {
+                // The key, not the child: this line ends up in a log, and the keys carry
+                // identifiers only, which is why `project.keys.ts` derives them that way.
+                this.logger.error(`Could not remove ${key} after an erasure: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
+        return removed;
     }
 }
