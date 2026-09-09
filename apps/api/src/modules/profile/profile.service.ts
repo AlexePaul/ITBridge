@@ -1,6 +1,8 @@
 import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Profile } from 'src/entities/profile.entity';
+import { Child } from 'src/entities/child.entity';
+import { Invoice } from 'src/entities/invoice.entity';
 import { CreateProfileDto } from './dto/createProfile.dto';
 import { User } from 'src/entities/user.entity';
 import { Role } from 'src/enum/role.enum';
@@ -16,6 +18,8 @@ import { changedFieldNames } from 'src/modules/audit/personal-fields';
 export class ProfileService {
     constructor(
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
+        @InjectRepository(Child) private readonly childRepository: Repository<Child>,
+        @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
         private readonly audit: AuditService,
     ) {}
 
@@ -154,6 +158,26 @@ export class ProfileService {
         return updatedProfile;
     }
 
+    /**
+     * Removes a profile row — and only a row that is on its own.
+     *
+     * **This is not a way to delete a family.** `children.parent_id`, `invoices.parent_id` and
+     * `discounts.parent_id` are all `CASCADE`, and `payments.invoice_id` is `CASCADE` after that,
+     * so deleting the row used to take the children, every mark of attendance against them, every
+     * project they ever saved, every invoice the school issued and every payment it recorded —
+     * silently, in one statement, from a screen whose own words promised the opposite.
+     *
+     * Keeping the invoices is not a preference. E04/S5 decided the platform keeps the evidence of
+     * what a family paid even though the fiscal document is SmartBill's, and E07/S4 goes to the
+     * trouble of leaving an emptied shell row behind *precisely because* `Invoice.parent` cascades.
+     * A second door that skips all of that is the first one's undoing.
+     *
+     * So both are refused in the service, with their own codes, the way `RESTRICT` is checked for
+     * locations and rooms: the client gets a 409 that says which thing is in the way, rather than a
+     * 500 from the driver or — worse, and what happened here — a 204 and no data. A family that
+     * asked to be forgotten goes through `/admin/stergeri`, which keeps the invoices, empties the
+     * row, clears the bucket and writes down who did it.
+     */
     async deleteProfile(profileId: number, userRole: Role, userId: number, actor: Actor) {
         const profile = await this.profileRepository.findOne({
             where: { id: profileId },
@@ -167,6 +191,22 @@ export class ProfileService {
         if (userRole !== Role.ADMIN && profile.user?.id !== userId) {
             throw new UnauthorizedException('You do not have permission to delete this profile');
         }
+
+        // The money first: it is the one the platform promised to keep.
+        if (await this.invoiceRepository.exists({ where: { parent: { id: profileId } } })) {
+            throw new ConflictException({
+                message: 'Familia are facturi emise, care nu se pot șterge. Pentru o cerere de ștergere, folosește ecranul de ștergeri.',
+                error: 'PROFILE_HAS_INVOICES',
+            });
+        }
+
+        if (await this.childRepository.exists({ where: { parent: { id: profileId } } })) {
+            throw new ConflictException({
+                message: 'Familia are copii înregistrați. Șterge-i întâi pe ei, sau folosește ecranul de ștergeri.',
+                error: 'PROFILE_HAS_CHILDREN',
+            });
+        }
+
         await this.profileRepository.delete(profileId);
         // The act, not the contents. A deleted profile leaving a copy of itself in the trail is the
         // failure this whole half exists to avoid.

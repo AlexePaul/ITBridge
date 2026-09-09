@@ -27,6 +27,12 @@ export function createMockRepository<T extends ObjectLiteral = ObjectLiteral>():
         remove: jest.fn(),
         update: jest.fn(),
         count: jest.fn(),
+        // `exists` is how a service asks "is there anything hanging off this row" before deleting
+        // it. Missing from the double it returns `undefined`, which is falsy — so a guard written
+        // to refuse would sail straight through, and the test would pass on the bug it exists to
+        // stop. Present and unstubbed it is still `undefined`, so a suite that cares must say so.
+        exists: jest.fn(),
+        existsBy: jest.fn(),
         createQueryBuilder: jest.fn(),
     };
 }

@@ -58,6 +58,13 @@ const MESSAGES: Record<string, string> = {
     "Pe luna aceea stă deja o reducere procentuală dată din formular. Încă una s-ar aduna cu ea și ar face luna gratuită — dacă asta vrei, dă-o tot din formular.",
   REFERRAL_NOTHING_TO_REVOKE: "Familia nu are nicio lună de recomandare de scos.",
 
+  // E07/S4. The two refusals that stop a profile delete from taking the school's records with it.
+  // Both name the door that does the thing the admin probably meant.
+  PROFILE_HAS_INVOICES:
+    "Familia are facturi emise, iar acelea se păstrează. Dacă a cerut ștergerea datelor, fă-o din Ștergeri.",
+  PROFILE_HAS_CHILDREN:
+    "Familia are copii înregistrați, cu prezențe și proiecte legate de ei. Șterge întâi copiii, sau fă ștergerea din Ștergeri.",
+
   // E08. "Există deja o înregistrare cu aceste date" is true of all of these and useful for none:
   // an admin who has just double-booked a room needs to know that is what happened.
   GROUP_SLOT_TAKEN: "Sala este deja ocupată în acest interval de altă grupă.",
