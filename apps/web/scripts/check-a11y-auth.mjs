@@ -279,15 +279,20 @@ async function violationsOn(context, base, path) {
  * Axe asks whether a control **has** a name, and stops there. Both of these passed it on every
  * screen and neither is usable:
  *
- * - **A name repeated across the screen.** Twenty rows named "Acțiuni", three date pickers named
- *   "Alege data din calendar", fourteen buttons named "Luna anterioară" — read out as a list of
- *   controls, that is fourteen identical entries and no way to pick one. Found by walking the
- *   screens; every instance was a component drawn in a loop, which is why reading the source finds
- *   none of it.
+ * - **An `aria-label` repeated across the screen.** Twenty rows named "Acțiuni", three date pickers
+ *   named "Alege data din calendar", fourteen buttons named "Luna anterioară" — read out as a list
+ *   of controls, that is fourteen identical entries and no way to pick one. Every instance was a
+ *   component drawn in a loop, which is why reading the source finds none of it.
  * - **A name in English.** Everything a user sees is Romanian, and a default label from a
  *   dependency is still a label somebody hears. reka-ui's combobox trigger says "Show popup", and
  *   it reached **44 screens** through one unlabelled `USelectMenu` in the admin navbar. Nothing in
  *   this repo said "Show popup"; grep could not have found it.
+ *
+ * **Scope: `aria-label` only, deliberately, not the full accessible name.** That is the case where
+ * the name is the reader's *whole* share of the control — an icon button, a combobox trigger —
+ * so a repeat there leaves nothing to tell two of them apart. Two buttons that repeat their own
+ * visible text sit in rows a reader can see, and flagging those would fire on every table in the
+ * app for something nobody is actually stuck on.
  *
  * They are returned in the same shape as an axe violation so the reporting downstream does not
  * need to know the difference — a control nobody can tell apart from another is an accessibility
