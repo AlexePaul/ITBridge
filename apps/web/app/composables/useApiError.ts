@@ -107,6 +107,8 @@ const MESSAGES: Record<string, string> = {
     "Linkul de confirmare nu este valid. Verifică dacă l-ai copiat întreg.",
   CONFIRMATION_TOKEN_USED: "Linkul a fost deja folosit — adresa ta este confirmată.",
   CONFIRMATION_TOKEN_EXPIRED: "Linkul de confirmare a expirat. Cere unul nou din contul tău.",
+  CONFIRMATION_TOKEN_SUPERSEDED:
+    "Adresa de email s-a schimbat între timp, iar linkul acesta confirma adresa veche. Caută în inbox linkul trimis la adresa nouă.",
   EMAIL_ALREADY_CONFIRMED: "Adresa ta de email este deja confirmată.",
   NO_EMAIL_ON_FILE: "Contul nu are o adresă de email pe care să trimitem confirmarea.",
 

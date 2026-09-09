@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { CONFIRMATION_TTL_MS, EmailConfirmationService, hashToken } from './email-confirmation.service';
 import { EmailConfirmation } from 'src/entities/email-confirmation.entity';
 import { User } from 'src/entities/user.entity';
+import { Profile } from 'src/entities/profile.entity';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
@@ -11,6 +12,8 @@ describe('EmailConfirmationService', () => {
     let service: EmailConfirmationService;
     let confirmationRepo: MockRepository;
     let userRepo: MockRepository;
+    /** The address on file. A link proves one address, and only while it is still this one. */
+    let profileRepo: MockRepository;
     let transaction: jest.Mock;
     let manager: { update: jest.Mock };
     let mailTemplates: { render: jest.Mock };
@@ -21,6 +24,8 @@ describe('EmailConfirmationService', () => {
     beforeEach(async () => {
         confirmationRepo = createMockRepository();
         userRepo = createMockRepository();
+        profileRepo = createMockRepository();
+        profileRepo.findOne!.mockResolvedValue({ id: 3, email: 'ana@pop.ro' });
 
         confirmationRepo.create!.mockImplementation((data: unknown) => data);
         confirmationRepo.save!.mockImplementation((data: unknown) => Promise.resolve(data));
@@ -45,6 +50,7 @@ describe('EmailConfirmationService', () => {
                 EmailConfirmationService,
                 provideMockRepository(EmailConfirmation, confirmationRepo),
                 provideMockRepository(User, userRepo),
+                provideMockRepository(Profile, profileRepo),
                 { provide: MailTemplateService, useValue: mailTemplates },
                 { provide: OutboxService, useValue: outbox },
             ],
@@ -139,9 +145,12 @@ describe('EmailConfirmationService', () => {
     });
 
     describe('confirm', () => {
+        // `email` is on every real row — `issueFor` copies the address the link was sent to onto it
+        // — and it is what says whether the link still proves the address on file.
         const live = (overrides: Record<string, unknown> = {}) => ({
             id: 3,
             user: { id: 7 },
+            email: 'ana@pop.ro',
             consumedAt: null,
             expiresAt: new Date('2026-09-01T00:00:00Z'),
             ...overrides,
@@ -153,6 +162,44 @@ describe('EmailConfirmationService', () => {
             await service.confirm('tok-abc', new Date('2026-08-30T00:00:00Z'));
 
             expect(confirmationRepo.findOne!.mock.calls[0][0]).toMatchObject({ where: { tokenHash: hashToken('tok-abc') } });
+        });
+
+        /**
+         * The hole E11/S2 left open. The edit that moves an address clears `emailConfirmedAt` and
+         * sends a fresh link — but the old link stayed live for the rest of its forty-eight hours,
+         * and clicking it stamped the account confirmed again. `queueOrRecord` reads that stamp
+         * before writing to an address and `isAccountActive` reads it before a child can be put in
+         * a group, so whoever could read the *old* address — a stranger, when the reason for the
+         * edit was a typo — could reopen a gate that claims the family proved the *new* one.
+         */
+        it('refuses a link issued for an address that has since moved', async () => {
+            confirmationRepo.findOne!.mockResolvedValue(live({ email: 'gresit@pop.ro' }));
+            profileRepo.findOne!.mockResolvedValue({ id: 3, email: 'corect@pop.ro' });
+
+            await expect(service.confirm('tok-abc', new Date('2026-08-30T00:00:00Z'))).rejects.toMatchObject({
+                response: { error: 'CONFIRMATION_TOKEN_SUPERSEDED' },
+            });
+            expect(transaction).not.toHaveBeenCalled();
+        });
+
+        /**
+         * Capitalisation reaches the same mailbox, so `movesTheAddress` does not call it a move and
+         * no new link is issued. A stricter comparison here would kill the only live link a family
+         * has, over an edit that changed nothing.
+         */
+        it('takes a link whose address differs only in capitalisation', async () => {
+            confirmationRepo.findOne!.mockResolvedValue(live({ email: 'Ana@Pop.ro' }));
+            profileRepo.findOne!.mockResolvedValue({ id: 3, email: 'ana@pop.ro ' });
+
+            await expect(service.confirm('tok-abc', new Date('2026-08-30T00:00:00Z'))).resolves.toBeDefined();
+        });
+
+        /** No profile is no contradiction: there is no address on file for the token to disagree with. */
+        it('takes a link for an account with no profile at all', async () => {
+            confirmationRepo.findOne!.mockResolvedValue(live());
+            profileRepo.findOne!.mockResolvedValue(null);
+
+            await expect(service.confirm('tok-abc', new Date('2026-08-30T00:00:00Z'))).resolves.toBeDefined();
         });
 
         it('consumes the row and stamps the user in one transaction', async () => {
@@ -191,12 +238,18 @@ describe('EmailConfirmationService', () => {
             });
         });
 
-        it('tells the three refusals apart, because the interface has to', async () => {
-            // Expired can be replaced, used means the job is done, unknown means it was mistyped.
-            // One shared message would leave a parent with no idea which of the three they are in.
+        it('tells the four refusals apart, because the interface has to', async () => {
+            // Expired can be replaced, used means the job is done, unknown means it was mistyped,
+            // and superseded means a newer link is already in the inbox. One shared message would
+            // leave a parent with no idea which of the four they are in.
+            // The `now` is passed rather than left to the system clock. It used to be left, and the
+            // fixture's expiry is a fixed day — so every row read as expired once that day passed,
+            // and three of the four cases would have collapsed into one answer without the
+            // assertion noticing which.
+            const now = new Date('2026-08-30T00:00:00Z');
             const codeOf = async (token: string): Promise<string | undefined> =>
                 service
-                    .confirm(token)
+                    .confirm(token, now)
                     .then(() => undefined)
                     .catch((error: BadRequestException) => (error.getResponse() as { error?: string }).error);
 
@@ -206,8 +259,10 @@ describe('EmailConfirmationService', () => {
             const used = await codeOf('b');
             confirmationRepo.findOne!.mockResolvedValue(live({ expiresAt: new Date('2026-01-01') }));
             const expired = await codeOf('c');
+            confirmationRepo.findOne!.mockResolvedValue(live({ email: 'veche@pop.ro' }));
+            const superseded = await codeOf('d');
 
-            expect(new Set([unknown, used, expired]).size).toBe(3);
+            expect(new Set([unknown, used, expired, superseded]).size).toBe(4);
         });
     });
 });
