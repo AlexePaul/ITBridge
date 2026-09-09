@@ -6,6 +6,7 @@ import { CreatePaymentDto } from './dto/createPayment.dto';
 import { UpdatePaymentDto } from './dto/updatePayment.dto';
 import { RolesGuard } from 'src/guards/role.guard';
 import { Roles } from 'src/decorators/role.decorator';
+import { actorFrom } from 'src/modules/audit/actor';
 import { Role } from 'src/enum/role.enum';
 import { FilterPaymentDto } from './dto/filterPayment.dto';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
@@ -21,7 +22,7 @@ export class PaymentController {
     @ApiResponse({ status: 201, description: 'Payment created' })
     @ApiResponse({ status: 409, description: 'INVOICE_WAIVED — a waived month has nothing to pay' })
     async createPayment(@Body() dto: CreatePaymentDto, @Request() req: AuthenticatedRequest) {
-        return this.paymentService.createPayment(dto, req.user.sub);
+        return this.paymentService.createPayment(dto, req.user.sub, actorFrom(req));
     }
 
     @Get()
@@ -42,8 +43,8 @@ export class PaymentController {
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
-    async updatePayment(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePaymentDto) {
-        return this.paymentService.updatePayment(id, dto);
+    async updatePayment(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePaymentDto, @Request() req: AuthenticatedRequest) {
+        return this.paymentService.updatePayment(id, dto, actorFrom(req));
     }
 
     @Delete('/:id')
@@ -51,7 +52,7 @@ export class PaymentController {
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
     @ApiResponse({ status: 200, description: 'Payment deleted' })
-    async deletePayment(@Param('id', ParseIntPipe) id: number) {
-        return this.paymentService.deletePayment(id);
+    async deletePayment(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
+        return this.paymentService.deletePayment(id, actorFrom(req));
     }
 }

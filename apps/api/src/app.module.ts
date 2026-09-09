@@ -16,6 +16,7 @@ import { ClassSessionModule } from './modules/class-session/class-session.module
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { DiscountModule } from './modules/discount/discount.module';
 import { HealthModule } from './modules/health/health.module';
 import { MailModule } from './modules/mail/mail.module';
@@ -55,6 +56,7 @@ import { LeadModule } from './modules/lead/lead.module';
         AttendanceModule,
         InvoiceModule,
         PaymentModule,
+        AuditModule,
         DiscountModule,
         HealthModule,
         MailModule,

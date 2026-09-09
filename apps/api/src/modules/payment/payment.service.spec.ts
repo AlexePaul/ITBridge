@@ -18,6 +18,8 @@ import {
 } from 'src/testing/repository.mock';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
+import { AuditService } from 'src/modules/audit/audit.service';
+import { AuditAction } from 'src/enum/audit-action.enum';
 
 describe('PaymentService', () => {
     let service: PaymentService;
@@ -27,6 +29,8 @@ describe('PaymentService', () => {
     /** E16/S6. What the family was told, if anything — the receipt is queued, never sent here. */
     let outbox: { queueOrRecord: jest.Mock };
     let templates: { render: jest.Mock };
+    /** E07/S3. What went into the trail, and with which manager. */
+    let audit: { record: jest.Mock; recordUpdate: jest.Mock };
 
     /** What the SUM(...) inside the recomputation answers, as the driver returns it: a string. */
     let paidSum: string | null;
@@ -67,6 +71,7 @@ describe('PaymentService', () => {
         manager.save.mockImplementation((_entity: unknown, data: Record<string, unknown>) => Promise.resolve({ id: 11, ...data }));
 
         outbox = { queueOrRecord: jest.fn(() => Promise.resolve({ id: 1 })) };
+        audit = { record: jest.fn(() => Promise.resolve()), recordUpdate: jest.fn(() => Promise.resolve()) };
         // Echoes the key back as the subject so a test can assert *which* of the two receipts went,
         // without asserting the Romanian wording — that belongs to the template's own spec.
         templates = {
@@ -81,6 +86,7 @@ describe('PaymentService', () => {
                 provideMockDataSource(manager),
                 { provide: OutboxService, useValue: outbox },
                 { provide: MailTemplateService, useValue: templates },
+                { provide: AuditService, useValue: audit },
             ],
         }).compile();
 
@@ -88,7 +94,11 @@ describe('PaymentService', () => {
         invoiceRepo.findOne!.mockResolvedValue(invoiceInDb);
     });
 
-    const create = (overrides: Record<string, unknown> = {}) => service.createPayment({ invoiceId: 5, amount: 350, date: '2026-03-10', ...overrides }, 7);
+    /** Whoever pressed the button, in the shape `actorFrom` hands over. */
+    const ACTOR = { userId: 7, username: 'admin' };
+
+    const create = (overrides: Record<string, unknown> = {}) =>
+        service.createPayment({ invoiceId: 5, amount: 350, date: '2026-03-10', ...overrides }, 7, ACTOR);
 
     describe('createPayment', () => {
         it('saves the figure, and the derivation marks the invoice paid when it is covered', async () => {
@@ -253,7 +263,7 @@ describe('PaymentService', () => {
             paymentRepo.findOne!.mockResolvedValue(payment);
             paidSum = '350';
 
-            await service.updatePayment(1, { method: PaymentMethod.BANK_TRANSFER });
+            await service.updatePayment(1, { method: PaymentMethod.BANK_TRANSFER }, ACTOR);
 
             expect(payment.method).toBe(PaymentMethod.BANK_TRANSFER);
             expect(payment.date).toEqual(new Date('2026-03-01'));
@@ -266,14 +276,14 @@ describe('PaymentService', () => {
             invoiceInDb.status = InvoiceStatus.PAID;
             paidSum = null;
 
-            await service.updatePayment(1, { status: PaymentStatus.REVERSED });
+            await service.updatePayment(1, { status: PaymentStatus.REVERSED }, ACTOR);
 
             expect(manager.update).toHaveBeenCalledWith(Invoice, 5, { status: InvoiceStatus.PENDING });
         });
 
         it('rejects a payment that does not exist', async () => {
             paymentRepo.findOne!.mockResolvedValue(null);
-            await expect(service.updatePayment(99, { method: PaymentMethod.CASH })).rejects.toThrow(NotFoundException);
+            await expect(service.updatePayment(99, { method: PaymentMethod.CASH }, ACTOR)).rejects.toThrow(NotFoundException);
         });
     });
 
@@ -283,7 +293,7 @@ describe('PaymentService', () => {
             invoiceInDb.status = InvoiceStatus.PAID;
             paidSum = null;
 
-            await service.deletePayment(11);
+            await service.deletePayment(11, ACTOR);
 
             expect(manager.delete).toHaveBeenCalledWith(Payment, 11);
             expect(manager.update).toHaveBeenCalledWith(Invoice, 5, { status: InvoiceStatus.PENDING });
@@ -291,7 +301,7 @@ describe('PaymentService', () => {
 
         it('rejects a payment that does not exist', async () => {
             paymentRepo.findOne!.mockResolvedValue(null);
-            await expect(service.deletePayment(99)).rejects.toThrow(NotFoundException);
+            await expect(service.deletePayment(99, ACTOR)).rejects.toThrow(NotFoundException);
         });
     });
 
@@ -361,7 +371,7 @@ describe('PaymentService', () => {
             });
             paidSum = '350';
 
-            await service.updatePayment(11, { status: PaymentStatus.SUCCEEDED });
+            await service.updatePayment(11, { status: PaymentStatus.SUCCEEDED }, ACTOR);
 
             expect(outbox.queueOrRecord).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ dedupeKey: 'receipt:11' }), manager);
         });
@@ -376,7 +386,7 @@ describe('PaymentService', () => {
             });
             paidSum = '350';
 
-            await service.updatePayment(11, { externalReference: 'OP 4242' });
+            await service.updatePayment(11, { externalReference: 'OP 4242' }, ACTOR);
 
             expect(outbox.queueOrRecord).not.toHaveBeenCalled();
         });
@@ -387,9 +397,91 @@ describe('PaymentService', () => {
             paymentRepo.findOne!.mockResolvedValue({ id: 11, invoice: invoiceInDb });
             paidSum = null;
 
-            await service.deletePayment(11);
+            await service.deletePayment(11, ACTOR);
 
             expect(outbox.queueOrRecord).not.toHaveBeenCalled();
+        });
+    });
+
+    /**
+     * E07/S3. The story's question is "who changed invoice 412's amount and when", and the money
+     * screens are where it gets asked. What these assert is not the log's shape — `audit.rules.spec`
+     * owns that — but that every write here reaches it, and reaches it *with the transaction's
+     * manager*: a trail that survives a rolled-back edit is worse than none.
+     */
+    describe('audit trail', () => {
+        it('records a created payment, in the transaction that wrote it', async () => {
+            paidSum = '350';
+
+            await create({ notes: 'chitanta 12' });
+
+            expect(audit.record).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    actor: ACTOR,
+                    action: AuditAction.CREATED,
+                    entityType: 'Payment',
+                    entityId: 11,
+                    changes: expect.objectContaining({ amount: { from: null, to: 350 }, notes: { from: null, to: 'chitanta 12' } }),
+                }),
+                manager,
+            );
+        });
+
+        it('records an edit as the fields that moved, read before the assignment', async () => {
+            paymentRepo.findOne!.mockResolvedValue({
+                id: 11,
+                amount: 350,
+                method: PaymentMethod.CASH,
+                status: PaymentStatus.SUCCEEDED,
+                date: new Date('2026-03-10'),
+                externalReference: null,
+                notes: null,
+                invoice: invoiceInDb,
+            });
+            paidSum = '150';
+
+            await service.updatePayment(11, { amount: 150 }, ACTOR);
+
+            expect(audit.recordUpdate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    actor: ACTOR,
+                    entityType: 'Payment',
+                    entityId: 11,
+                    before: expect.objectContaining({ amount: 350 }),
+                    after: expect.objectContaining({ amount: 150 }),
+                }),
+                manager,
+            );
+        });
+
+        it('keeps what a deleted row held, because nothing is left to look at afterwards', async () => {
+            paymentRepo.findOne!.mockResolvedValue({
+                id: 11,
+                amount: 350,
+                method: PaymentMethod.CASH,
+                status: PaymentStatus.SUCCEEDED,
+                date: new Date('2026-03-10T00:00:00.000Z'),
+                externalReference: null,
+                notes: null,
+                invoice: invoiceInDb,
+            });
+            paidSum = null;
+
+            await service.deletePayment(11, ACTOR);
+
+            expect(audit.record).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    actor: ACTOR,
+                    action: AuditAction.DELETED,
+                    entityType: 'Payment',
+                    entityId: 11,
+                    changes: expect.objectContaining({
+                        amount: { from: 350, to: null },
+                        date: { from: '2026-03-10T00:00:00.000Z', to: null },
+                    }),
+                }),
+                manager,
+            );
         });
     });
 });

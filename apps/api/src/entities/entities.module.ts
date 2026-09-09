@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from './audit-log.entity';
 import { User } from './user.entity';
 import { Profile } from './profile.entity';
 import { Child } from './child.entity';
@@ -33,6 +34,7 @@ import { DocumentAcceptance } from './document-acceptance.entity';
 @Module({
     imports: [
         TypeOrmModule.forFeature([
+            AuditLog,
             User,
             Profile,
             Child,

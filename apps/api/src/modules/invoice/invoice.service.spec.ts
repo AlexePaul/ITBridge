@@ -6,6 +6,8 @@ import { Child } from 'src/entities/child.entity';
 import { SessionCountOverride } from 'src/entities/session-count-override.entity';
 import { PdfService } from './pdf.service';
 import { S3Service } from 'src/modules/storage/s3.service';
+import { AuditService } from 'src/modules/audit/audit.service';
+import { AuditAction } from 'src/enum/audit-action.enum';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Discount } from 'src/entities/discount.entity';
@@ -16,6 +18,8 @@ import { createMockQueryBuilder, createMockRepository, isScopedToUser, MockRepos
 import { BillableSessionsService, MonthCount } from './billable-sessions.service';
 
 describe('InvoiceService', () => {
+    /** E07/S3. What reached the trail, and with which manager. */
+    let audit: { record: jest.Mock; recordUpdate: jest.Mock };
     let service: InvoiceService;
     let invoiceRepo: MockRepository;
     let profileRepo: MockRepository;
@@ -24,7 +28,7 @@ describe('InvoiceService', () => {
     let childRepo: MockRepository;
     let overrideRepo: MockRepository;
     let s3: { putObject: jest.Mock; downloadFile: jest.Mock };
-    let transactionManager: { save: jest.Mock };
+    let transactionManager: { save: jest.Mock; delete: jest.Mock };
     /** E15/S9's one query, mute: what it counts is its own suite's business. */
     let billable: { countForMonth: jest.Mock };
 
@@ -37,6 +41,9 @@ describe('InvoiceService', () => {
     const withEnrolledChildren = (n: number) => {
         enrollmentRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ count: n }));
     };
+
+    /** Whoever pressed the button, in the shape `actorFrom` hands over. */
+    const ACTOR = { userId: 42, username: 'admin' };
 
     beforeEach(async () => {
         invoiceRepo = createMockRepository();
@@ -51,7 +58,9 @@ describe('InvoiceService', () => {
         // `createInvoice` writes the row and uploads the PDF inside one transaction. The fake runs
         // the callback with a manager whose `save` behaves like the repository's, so a rejected
         // upload propagates exactly as it would in production.
-        transactionManager = { save: jest.fn() };
+        transactionManager = { save: jest.fn(), delete: jest.fn() };
+
+        audit = { record: jest.fn(() => Promise.resolve()), recordUpdate: jest.fn(() => Promise.resolve()) };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -71,6 +80,7 @@ describe('InvoiceService', () => {
                         transaction: jest.fn((cb: (m: EntityManager) => Promise<unknown>) => cb(transactionManager as unknown as EntityManager)),
                     },
                 },
+                { provide: AuditService, useValue: audit },
             ],
         }).compile();
 
@@ -214,7 +224,7 @@ describe('InvoiceService', () => {
         it('issues one invoice per parent, with the calculated amount', async () => {
             setUpHappyPath();
 
-            const created = await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' });
+            const created = await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' }, ACTOR);
 
             expect(created).toHaveLength(1);
             expect(transactionManager.save).toHaveBeenCalledWith(
@@ -225,7 +235,7 @@ describe('InvoiceService', () => {
         it('issues the invoice as PENDING, not as paid', async () => {
             setUpHappyPath();
 
-            await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' });
+            await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' }, ACTOR);
 
             expect((transactionManager.save.mock.calls[0][0] as { status: InvoiceStatus }).status).toBe(InvoiceStatus.PENDING);
         });
@@ -233,7 +243,7 @@ describe('InvoiceService', () => {
         it('uploads a PDF to S3 under a predictable path, keyed by billing month', async () => {
             setUpHappyPath();
 
-            await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' });
+            await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' }, ACTOR);
 
             // The type is now an argument rather than a constant inside the client, so the assertion
             // covers it: an invoice stored as anything other than a PDF would be served back wrong.
@@ -247,11 +257,14 @@ describe('InvoiceService', () => {
         it('processes several parents in a single request', async () => {
             setUpHappyPath();
 
-            const created = await service.createInvoice({
-                parentIds: [10, 11],
-                monthIssued: '2026-03',
-                dateIssued: '2026-03-01',
-            });
+            const created = await service.createInvoice(
+                {
+                    parentIds: [10, 11],
+                    monthIssued: '2026-03',
+                    dateIssued: '2026-03-01',
+                },
+                ACTOR,
+            );
 
             expect(created).toHaveLength(2);
         });
@@ -259,7 +272,9 @@ describe('InvoiceService', () => {
         it('rejects a non-existent parent before saving anything', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
 
-            await expect(service.createInvoice({ parentIds: [99], monthIssued: '2026-03', dateIssued: '2026-03-01' })).rejects.toThrow(NotFoundException);
+            await expect(service.createInvoice({ parentIds: [99], monthIssued: '2026-03', dateIssued: '2026-03-01' }, ACTOR)).rejects.toThrow(
+                NotFoundException,
+            );
 
             expect(invoiceRepo.save).not.toHaveBeenCalled();
         });
@@ -269,33 +284,88 @@ describe('InvoiceService', () => {
         it('changes only the fields that were sent', async () => {
             const invoice = { id: 1, amount: 350, status: InvoiceStatus.PENDING, dateIssued: new Date('2026-03-01') };
             invoiceRepo.findOne!.mockResolvedValue(invoice);
-            invoiceRepo.save!.mockImplementation((i: unknown) => Promise.resolve(i));
+            transactionManager.save.mockImplementation((_entity: unknown, i: unknown) => Promise.resolve(i));
 
-            await service.updateInvoice(1, { status: InvoiceStatus.PAID });
+            await service.updateInvoice(1, { status: InvoiceStatus.PAID }, ACTOR);
 
             expect(invoice.status).toBe(InvoiceStatus.PAID);
             expect(invoice.amount).toBe(350);
         });
 
+        // E07/S3. The trail entry and the change it describes commit together, so the record is
+        // written with the transaction's manager and holds only what moved.
+        it('writes down what moved, with the transaction that moved it', async () => {
+            invoiceRepo.findOne!.mockResolvedValue({
+                id: 1,
+                amount: 350,
+                status: InvoiceStatus.PENDING,
+                dateIssued: new Date('2026-03-01'),
+                monthIssued: '2026-03',
+            });
+            transactionManager.save.mockImplementation((_entity: unknown, i: unknown) => Promise.resolve(i));
+
+            await service.updateInvoice(1, { amount: 150 }, ACTOR);
+
+            expect(audit.recordUpdate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    actor: ACTOR,
+                    entityType: 'Invoice',
+                    entityId: 1,
+                    before: expect.objectContaining({ amount: 350 }),
+                    after: expect.objectContaining({ amount: 150 }),
+                }),
+                transactionManager,
+            );
+        });
+
         it('rejects an invoice that does not exist', async () => {
             invoiceRepo.findOne!.mockResolvedValue(null);
-            await expect(service.updateInvoice(99, { amount: 1 })).rejects.toThrow(NotFoundException);
+            await expect(service.updateInvoice(99, { amount: 1 }, ACTOR)).rejects.toThrow(NotFoundException);
         });
     });
 
     describe('deleteInvoice', () => {
         it('deletes an existing invoice', async () => {
-            invoiceRepo.findOne!.mockResolvedValue({ id: 1 });
+            invoiceRepo.findOne!.mockResolvedValue({
+                id: 1,
+                amount: 350,
+                status: InvoiceStatus.PENDING,
+                dateIssued: new Date('2026-03-01'),
+                monthIssued: '2026-03',
+            });
 
-            await service.deleteInvoice(1);
+            await service.deleteInvoice(1, ACTOR);
 
-            expect(invoiceRepo.delete).toHaveBeenCalledWith(1);
+            expect(transactionManager.delete).toHaveBeenCalledWith(Invoice, 1);
+        });
+
+        // After the delete there is nothing left to look at, so the entry carries what the row held.
+        it('keeps what the row held, in the transaction that removed it', async () => {
+            invoiceRepo.findOne!.mockResolvedValue({
+                id: 1,
+                amount: 350,
+                status: InvoiceStatus.PENDING,
+                dateIssued: new Date('2026-03-01'),
+                monthIssued: '2026-03',
+            });
+
+            await service.deleteInvoice(1, ACTOR);
+
+            expect(audit.record).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: AuditAction.DELETED,
+                    entityType: 'Invoice',
+                    entityId: 1,
+                    changes: expect.objectContaining({ amount: { from: 350, to: null } }),
+                }),
+                transactionManager,
+            );
         });
 
         it('rejects a non-existent invoice without deleting anything', async () => {
             invoiceRepo.findOne!.mockResolvedValue(null);
 
-            await expect(service.deleteInvoice(99)).rejects.toThrow(NotFoundException);
+            await expect(service.deleteInvoice(99, ACTOR)).rejects.toThrow(NotFoundException);
             expect(invoiceRepo.delete).not.toHaveBeenCalled();
         });
     });
@@ -423,12 +493,12 @@ describe('InvoiceService', () => {
         it('bills the correction on file, through the same worksheet the screen showed', async () => {
             overrideRepo.find!.mockResolvedValue([{ child: { id: 5 }, monthIssued: '2026-10', sessions: 3, reason: null }]);
 
-            const result = await service.issueFromSessions(october);
+            const result = await service.issueFromSessions(october, ACTOR);
             expect(result.issued[0].amount).toBe(262.5);
         });
 
         it('bills what the registers say, and nothing the caller could have typed', async () => {
-            const result = await service.issueFromSessions(october);
+            const result = await service.issueFromSessions(october, ACTOR);
 
             // Two held sessions at the first-child rate. The DTO has no place for a count.
             expect(result.issued[0].amount).toBe(175);
@@ -438,14 +508,14 @@ describe('InvoiceService', () => {
         it("takes the month's discounts off", async () => {
             discountRepo.find!.mockResolvedValue([{ value: 50, parent: { id: 1 } }]);
 
-            const result = await service.issueFromSessions(october);
+            const result = await service.issueFromSessions(october, ACTOR);
             expect(result.issued[0].amount).toBe(125);
         });
 
         it('records a month that comes to nothing, without a PDF', async () => {
             billable.countForMonth.mockResolvedValue(aMonth({ counts: new Map([[5, { sessions: 0, lines: [] }]]) }));
 
-            const result = await service.issueFromSessions(october);
+            const result = await service.issueFromSessions(october, ACTOR);
 
             // The row is the point: no invoice at all looks the same as a month nobody got round to.
             expect(result.issued).toHaveLength(0);
@@ -457,15 +527,27 @@ describe('InvoiceService', () => {
         it('skips a family already invoiced rather than failing the whole pass', async () => {
             invoiceRepo.find!.mockResolvedValue([{ id: 9, parent: { id: 1 } }]);
 
-            const result = await service.issueFromSessions(october);
+            const result = await service.issueFromSessions(october, ACTOR);
 
             expect(result.skipped).toEqual([{ parentId: 1, reason: 'ALREADY_INVOICED' }]);
             expect(result.issued).toHaveLength(0);
             expect(transactionManager.save).not.toHaveBeenCalled();
         });
 
+        // E07/S3. "Who issued this family's October" is answered per invoice, not per batch: the
+        // question is always asked about one row.
+        it('writes down who issued each invoice', async () => {
+            const result = await service.issueFromSessions(october, ACTOR);
+
+            expect(audit.record).toHaveBeenCalledTimes(result.issued.length + result.waived.length);
+            expect(audit.record).toHaveBeenCalledWith(
+                expect.objectContaining({ actor: ACTOR, action: AuditAction.CREATED, entityType: 'Invoice' }),
+                transactionManager,
+            );
+        });
+
         it('prints the date it was given, not the first of the teaching month', async () => {
-            await service.issueFromSessions(october);
+            await service.issueFromSessions(october, ACTOR);
 
             // The 14-day term (E16/S7) runs from this date, and the month can only be issued once
             // its last register exists — which is the following month.
@@ -481,13 +563,14 @@ describe('InvoiceService', () => {
             invoiceRepo.findOne!.mockResolvedValue(null);
             overrideRepo.findOne!.mockResolvedValue(null);
             overrideRepo.create!.mockImplementation((row: object) => ({ ...row }));
-            overrideRepo.save!.mockImplementation((row: object) => Promise.resolve({ id: 7, ...row }));
+            transactionManager.save.mockImplementation((_entity: unknown, row: object) => Promise.resolve({ id: 7, ...row }));
         });
 
         it('records the number, the reason and who decided', async () => {
-            await service.setSessionCountOverride({ ...decision, reason: 'A venit doar la trei' }, 42);
+            await service.setSessionCountOverride({ ...decision, reason: 'A venit doar la trei' }, 42, ACTOR);
 
-            expect(overrideRepo.save).toHaveBeenCalledWith(
+            expect(transactionManager.save).toHaveBeenCalledWith(
+                SessionCountOverride,
                 expect.objectContaining({ monthIssued: '2026-10', sessions: 3, reason: 'A venit doar la trei', createdBy: { id: 42 } }),
             );
         });
@@ -495,17 +578,58 @@ describe('InvoiceService', () => {
         it('replaces the decision already on file rather than adding a second', async () => {
             overrideRepo.findOne!.mockResolvedValue({ id: 7, monthIssued: '2026-10', sessions: 3, reason: 'first' });
 
-            await service.setSessionCountOverride({ ...decision, sessions: 2 }, 42);
+            await service.setSessionCountOverride({ ...decision, sessions: 2 }, 42, ACTOR);
 
             expect(overrideRepo.create).not.toHaveBeenCalled();
-            expect(overrideRepo.save).toHaveBeenCalledWith(expect.objectContaining({ id: 7, sessions: 2, reason: null }));
+            expect(transactionManager.save).toHaveBeenCalledWith(SessionCountOverride, expect.objectContaining({ id: 7, sessions: 2, reason: null }));
+        });
+
+        // E07/S3. The row keeps only the decision standing now; "four, then two, then four again"
+        // is readable in the trail or nowhere.
+        it('writes the first decision down as a creation, and the second as what moved', async () => {
+            await service.setSessionCountOverride({ ...decision, reason: 'A venit doar la trei' }, 42, ACTOR);
+
+            expect(audit.record).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    action: AuditAction.CREATED,
+                    entityType: 'SessionCountOverride',
+                    entityId: 7,
+                    changes: expect.objectContaining({ sessions: { from: null, to: 3 } }),
+                    note: 'copil 5, luna 2026-10',
+                }),
+                transactionManager,
+            );
+
+            audit.record.mockClear();
+            overrideRepo.findOne!.mockResolvedValue({ id: 7, monthIssued: '2026-10', sessions: 3, reason: 'first' });
+
+            await service.setSessionCountOverride({ ...decision, sessions: 2 }, 42, ACTOR);
+
+            expect(audit.record).not.toHaveBeenCalled();
+            expect(audit.recordUpdate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    entityType: 'SessionCountOverride',
+                    before: { sessions: 3, reason: 'first' },
+                    after: { sessions: 2, reason: null },
+                }),
+                transactionManager,
+            );
+        });
+
+        // A delete that removed no row would otherwise leave an entry claiming a decision was
+        // withdrawn that nobody ever made.
+        it('records nothing when there was no decision to clear', async () => {
+            await service.clearSessionCountOverride('2026-10', 5, ACTOR);
+
+            expect(transactionManager.delete).not.toHaveBeenCalled();
+            expect(audit.record).not.toHaveBeenCalled();
         });
 
         it("refuses once the family's month is issued", async () => {
             invoiceRepo.findOne!.mockResolvedValue({ id: 9 });
 
-            await expect(service.setSessionCountOverride(decision, 42)).rejects.toThrow(ConflictException);
-            await expect(service.clearSessionCountOverride('2026-10', 5)).rejects.toThrow(ConflictException);
+            await expect(service.setSessionCountOverride(decision, 42, ACTOR)).rejects.toThrow(ConflictException);
+            await expect(service.clearSessionCountOverride('2026-10', 5, ACTOR)).rejects.toThrow(ConflictException);
             expect(overrideRepo.save).not.toHaveBeenCalled();
             expect(overrideRepo.delete).not.toHaveBeenCalled();
         });
@@ -513,7 +637,7 @@ describe('InvoiceService', () => {
         it('knows no such child', async () => {
             childRepo.findOne!.mockResolvedValue(null);
 
-            await expect(service.setSessionCountOverride(decision, 42)).rejects.toThrow(NotFoundException);
+            await expect(service.setSessionCountOverride(decision, 42, ACTOR)).rejects.toThrow(NotFoundException);
         });
     });
 

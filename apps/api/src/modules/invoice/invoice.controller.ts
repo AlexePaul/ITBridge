@@ -13,6 +13,7 @@ import { IssueMonthDto } from './dto/issueMonth.dto';
 import { SessionCountOverrideDto } from './dto/sessionCountOverride.dto';
 import { ArrearsService } from './arrears.service';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
+import { actorFrom } from 'src/modules/audit/actor';
 
 @Controller('invoices')
 export class InvoiceController {
@@ -26,8 +27,8 @@ export class InvoiceController {
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
     @ApiResponse({ status: 201, description: 'Invoice created' })
-    async createInvoice(@Body() dto: CreateInvoiceDto) {
-        return this.invoiceService.createInvoice(dto);
+    async createInvoice(@Body() dto: CreateInvoiceDto, @Request() req: AuthenticatedRequest) {
+        return this.invoiceService.createInvoice(dto, actorFrom(req));
     }
 
     @Get()
@@ -94,7 +95,7 @@ export class InvoiceController {
     @ApiResponse({ status: 404, description: 'No such child' })
     @ApiResponse({ status: 409, description: 'MONTH_ALREADY_INVOICED' })
     async setOverride(@Body() dto: SessionCountOverrideDto, @Request() req: AuthenticatedRequest) {
-        return this.invoiceService.setSessionCountOverride(dto, req.user.sub);
+        return this.invoiceService.setSessionCountOverride(dto, req.user.sub, actorFrom(req));
     }
 
     @Delete('/overrides/:monthIssued/:childId')
@@ -104,8 +105,8 @@ export class InvoiceController {
     @ApiOperation({ summary: 'Renunță la decizie: numărul revine la cel din cataloage' })
     @ApiResponse({ status: 200, description: 'Cleared' })
     @ApiResponse({ status: 409, description: 'MONTH_ALREADY_INVOICED' })
-    async clearOverride(@Param('monthIssued') monthIssued: string, @Param('childId', ParseIntPipe) childId: number) {
-        await this.invoiceService.clearSessionCountOverride(monthIssued, childId);
+    async clearOverride(@Param('monthIssued') monthIssued: string, @Param('childId', ParseIntPipe) childId: number, @Request() req: AuthenticatedRequest) {
+        await this.invoiceService.clearSessionCountOverride(monthIssued, childId, actorFrom(req));
         return { cleared: true };
     }
 
@@ -120,8 +121,8 @@ export class InvoiceController {
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
-    async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateInvoiceDto) {
-        return this.invoiceService.updateInvoice(id, dto);
+    async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateInvoiceDto, @Request() req: AuthenticatedRequest) {
+        return this.invoiceService.updateInvoice(id, dto, actorFrom(req));
     }
 
     @Delete('/:id')
@@ -130,8 +131,8 @@ export class InvoiceController {
     @ApiBearerAuth()
     @HttpCode(204)
     @ApiResponse({ status: 204, description: 'Invoice deleted' })
-    async remove(@Param('id', ParseIntPipe) id: number) {
-        await this.invoiceService.deleteInvoice(id);
+    async remove(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
+        await this.invoiceService.deleteInvoice(id, actorFrom(req));
     }
 
     @Post('/issue')
@@ -145,8 +146,8 @@ export class InvoiceController {
     })
     @ApiResponse({ status: 201, description: 'Invoices issued, plus the families skipped and why' })
     @ApiResponse({ status: 400, description: 'A request that still sends session counts' })
-    async issueFromSessions(@Body() dto: IssueMonthDto) {
-        return this.invoiceService.issueFromSessions(dto);
+    async issueFromSessions(@Body() dto: IssueMonthDto, @Request() req: AuthenticatedRequest) {
+        return this.invoiceService.issueFromSessions(dto, actorFrom(req));
     }
 
     @Post('/preview')

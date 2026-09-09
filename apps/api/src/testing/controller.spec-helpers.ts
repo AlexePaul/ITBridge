@@ -32,5 +32,11 @@ export async function buildController<C, S extends object>(
     return { controller: module.get(controller), service: mock };
 }
 
-/** A request as a controller sees it after AuthGuard: the JWT payload under `req.user`. */
-export const requestOf = (role: string, sub: number) => ({ user: { role, sub } }) as never;
+/**
+ * A request as a controller sees it after AuthGuard: the JWT payload under `req.user`.
+ *
+ * `username` is in the payload and is carried here because `actorFrom` (E07/S3) reads it — a double
+ * that stopped at `sub` would let a controller record every change against a nameless actor and
+ * still pass its test.
+ */
+export const requestOf = (role: string, sub: number, username = `user${sub}`) => ({ user: { role, sub, username } }) as never;

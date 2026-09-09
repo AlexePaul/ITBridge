@@ -20,6 +20,7 @@ import { Attendance } from 'src/entities/attendance.entity';
 import { BillableSessionsService } from './billable-sessions.service';
 import { Child } from 'src/entities/child.entity';
 import { SessionCountOverride } from 'src/entities/session-count-override.entity';
+import { AuditModule } from 'src/modules/audit/audit.module';
 
 @Module({
     // `Enrollment` because the amount counts children *actively enrolled*, not children on file:
@@ -38,6 +39,9 @@ import { SessionCountOverride } from 'src/entities/session-count-override.entity
         JwtModule.register({}),
         StorageModule,
         MailModule,
+        // E07/S3: an invoice's amount, date and status, and the one hand-typed session count, are
+        // written down with whoever changed them — inside the transaction that changed them.
+        AuditModule,
     ],
     controllers: [InvoiceController],
     providers: [InvoiceService, BillableSessionsService, PdfService, ArrearsService, ArrearsJob, AuthGuard, RolesGuard],
