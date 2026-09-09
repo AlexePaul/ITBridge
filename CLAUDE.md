@@ -715,6 +715,30 @@ moare în ts-jest cu `SyntaxError: Unexpected token 'export'` — nu doar în te
 în orice suită care ajunge la `app.module.ts`. Un `pnpm up` care îl urcă rupe toate testele deodată,
 cu un mesaj care nu spune de ce. Ăsta e și motivul pentru care nu există `@nestjs/config`.
 
+**Urma unei schimbări de bani se scrie în tranzacția care a produs-o** (E07 S3). `AuditService`
+(`apps/api/src/modules/audit/audit.service.ts`) primește `EntityManager`-ul tău — același argument
+ca la outbox: o urmă care supraviețuiește unei tranzacții date înapoi spune că s-a întâmplat ceva ce
+nu s-a întâmplat, iar una pierdută când schimbarea a reușit e o gaură. Patru lucruri de ținut minte
+dacă adaugi un al patrulea scriitor lângă facturi, plăți și reduceri:
+
+- **Nu există `update` și nu există `delete`** — nici metodă pe serviciu, nici rută pe
+  `AuditController`, care are un singur verb. Singurul lucru care se poate face tabelului prin
+  aplicație e să i se adauge, și ăsta e tot rostul lui.
+- **`changes` ține doar ce s-a mișcat, și numai scalari.** `diffFields` din `audit.rules.ts` compară
+  datele pe instant și zecimalele pe valoare — altfel două `Date` cu același moment, sau `350` față
+  de `"350"` venit ca text din driver, ar raporta o schimbare pe care n-a făcut-o nimeni. O salvare
+  care n-a schimbat nimic **nu scrie niciun rând**: `recordUpdate` iese devreme. Un „înainte și
+  după" al rândului întreg ar face din jurnal a doua copie a datelor unei familii, adică invers
+  decât cere epicul care l-a cerut.
+- **Derivările nu se consemnează.** `recomputeInvoiceStatus` mută starea facturii fiindcă s-au
+  adunat plăți; e o consecință, nu o decizie a nimănui. Un jurnal în care fiecare derivare stă lângă
+  deciziile oamenilor e un jurnal în care deciziile nu se mai găsesc.
+- **Actorul vine din token, prin `actorFrom(req)`**, și se stochează denormalizat — id plus numele
+  copiat la scriere, fără relație către `User`. O urmă care arată către un rând ce poate fi șters
+  pierde exact intrările care contează: cele despre un cont scos ulterior. Pentru munca programată
+  există `SYSTEM_ACTOR`, cu ambele câmpuri `null`, fiindcă „n-a apăsat nimeni" e un fapt care merită
+  citit, nu un gol de umplut cu un nume inventat.
+
 **Mailul din backend pleacă prin outbox, niciodată direct.** `MailService`
 (`apps/api/src/modules/mail/mail.service.ts`) e implementarea; ce injectezi într-un modul e
 `OutboxService`. `queue()` primește opțional `EntityManager`-ul tranzacției tale — dă-i-l, altfel
