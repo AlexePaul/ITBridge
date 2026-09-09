@@ -4,6 +4,8 @@ import { ChildService } from './child.service';
 import { Child } from 'src/entities/child.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Group } from 'src/entities/group.entity';
+import { Attendance } from 'src/entities/attendance.entity';
+import { Project } from 'src/entities/project.entity';
 import { Role } from 'src/enum/role.enum';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
@@ -19,6 +21,8 @@ describe('ChildService', () => {
     let childRepo: MockRepository;
     let profileRepo: MockRepository;
     let groupRepo: MockRepository;
+    let attendanceRepo: MockRepository;
+    let projectRepo: MockRepository;
     let enrollments: Record<string, jest.Mock>;
 
     /** A child of the parent whose account is `ownerUserId`. */
@@ -31,6 +35,12 @@ describe('ChildService', () => {
         childRepo = createMockRepository();
         profileRepo = createMockRepository();
         groupRepo = createMockRepository();
+        attendanceRepo = createMockRepository();
+        projectRepo = createMockRepository();
+        // Nothing recorded against the child unless a test says so: `deleteChild` looks before it
+        // deletes, and an unstubbed `exists` returns `undefined`, which reads as "there is nothing".
+        attendanceRepo.exists!.mockResolvedValue(false);
+        projectRepo.exists!.mockResolvedValue(false);
         enrollments = {
             enrol: jest.fn().mockResolvedValue({ id: 9 }),
             close: jest.fn().mockResolvedValue({ id: 9 }),
@@ -46,6 +56,8 @@ describe('ChildService', () => {
                 provideMockRepository(Child, childRepo),
                 provideMockRepository(Profile, profileRepo),
                 provideMockRepository(Group, groupRepo),
+                provideMockRepository(Attendance, attendanceRepo),
+                provideMockRepository(Project, projectRepo),
                 { provide: EnrollmentService, useValue: enrollments },
             ],
         }).compile();
@@ -191,11 +203,44 @@ describe('ChildService', () => {
             expect(childRepo.delete).not.toHaveBeenCalled();
         });
 
-        it('lets a parent delete their own child', async () => {
+        it('lets a parent delete a child who has been nowhere and made nothing', async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
 
             await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).resolves.toMatchObject({ message: expect.any(String) });
             expect(childRepo.delete).toHaveBeenCalledWith(1);
+        });
+
+        /**
+         * `attendances.childId` is CASCADE, so this used to take the register — from a parent's own
+         * token. A mark can be corrected; it cannot be made never to have existed.
+         */
+        it('refuses when the child has been marked, and deletes nothing', async () => {
+            childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
+            attendanceRepo.exists!.mockResolvedValue(true);
+
+            await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).rejects.toMatchObject({
+                response: { error: 'CHILD_HAS_ATTENDANCE' },
+            });
+            expect(childRepo.delete).not.toHaveBeenCalled();
+        });
+
+        /** Deleting the rows would leave every object in the bucket with nothing left to name it. */
+        it('refuses when the child has saved work, and deletes nothing', async () => {
+            childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
+            projectRepo.exists!.mockResolvedValue(true);
+
+            await expect(service.deleteChild(1, Role.ADMIN, 999, ACTOR)).rejects.toMatchObject({
+                response: { error: 'CHILD_HAS_PROJECTS' },
+            });
+            expect(childRepo.delete).not.toHaveBeenCalled();
+        });
+
+        /** The ownership check comes first: a stranger must not learn what a child has done. */
+        it('forbids before it explains', async () => {
+            childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
+            attendanceRepo.exists!.mockResolvedValue(true);
+
+            await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).rejects.toThrow(ForbiddenException);
         });
     });
 

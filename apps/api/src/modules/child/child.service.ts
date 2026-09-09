@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Child } from 'src/entities/child.entity';
 import { Profile } from 'src/entities/profile.entity';
@@ -8,6 +8,8 @@ import { CreateChildDto } from './dto/createChild.dto';
 import { FilterChildDto } from './dto/filterChild.dto';
 import { UpdateChildDto } from './dto/updateChild.dto';
 import { Group } from 'src/entities/group.entity';
+import { Attendance } from 'src/entities/attendance.entity';
+import { Project } from 'src/entities/project.entity';
 import { applyDefined } from 'src/common/apply-defined';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
@@ -21,6 +23,8 @@ export class ChildService {
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
+        @InjectRepository(Attendance) private readonly attendanceRepository: Repository<Attendance>,
+        @InjectRepository(Project) private readonly projectRepository: Repository<Project>,
         private readonly enrollmentService: EnrollmentService,
         private readonly audit: AuditService,
     ) {}
@@ -120,6 +124,32 @@ export class ChildService {
         return saved;
     }
 
+    /**
+     * Removes a child row — and only a row that records nothing that happened.
+     *
+     * Everything that hangs off a `Child` is `CASCADE`: enrolments, attendance, announced absences,
+     * waitlist entries, session-count overrides, and projects with their versions, files and links.
+     * So this used to take the school's register with it, from a parent's own token — measured:
+     * one child, one enrolment and one mark before; zero of each after, 200 OK.
+     *
+     * Two of those are refused, and they are the two that record something that happened:
+     *
+     * - **Attendance is the register.** It is who was in the room, and E15/S9 counts an invoice
+     *   from it. A mark can be corrected; it cannot be made never to have existed.
+     * - **A project is work, and bytes in the bucket.** Deleting the rows leaves every object
+     *   orphaned: the keys are derived from ids (`project.keys.ts`), so once the rows are gone
+     *   nothing can work out what to remove. `ErasureService` reads the keys *before* it deletes
+     *   for exactly this reason; there is nowhere here to put that, and a child with saved work is
+     *   not a row somebody typed by mistake anyway.
+     *
+     * Enrolments alone are deliberately **not** a blocker. An enrolment with no marks against it
+     * records an intention rather than an event, and refusing on it would close the one legitimate
+     * use left: undoing a child added, and placed, in error.
+     *
+     * The erasure does not come through here — `ErasureService` deletes `Child` rows through its
+     * own transaction, after reading the object keys — so none of this stands in a family's way
+     * when they ask to be forgotten.
+     */
     async deleteChild(childId: number, role: Role, userId: number, actor: Actor) {
         const child = await this.childRepository.findOne({
             where: { id: childId },
@@ -131,6 +161,20 @@ export class ChildService {
         }
         if (role !== Role.ADMIN && child.parent.user?.id !== userId) {
             throw new ForbiddenException('You do not have permission to delete this child');
+        }
+
+        if (await this.attendanceRepository.exists({ where: { child: { id: childId } } })) {
+            throw new ConflictException({
+                message: 'Copilul are prezențe marcate, iar catalogul se păstrează. Scoate-l din grupă dacă nu mai vine.',
+                error: 'CHILD_HAS_ATTENDANCE',
+            });
+        }
+
+        if (await this.projectRepository.exists({ where: { child: { id: childId } } })) {
+            throw new ConflictException({
+                message: 'Copilul are lucrări încărcate. Șterge-le întâi pe ele, sau folosește ecranul de ștergeri.',
+                error: 'CHILD_HAS_PROJECTS',
+            });
         }
 
         await this.childRepository.delete(childId);
