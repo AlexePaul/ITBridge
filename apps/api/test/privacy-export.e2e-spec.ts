@@ -109,6 +109,34 @@ describe('Privacy export (e2e)', () => {
      * A hash is personal data and it is in the inventory as such, but handing it back gives a
      * family nothing and gives anybody who reads the file something to guess against.
      */
+    /**
+     * The enquiry that started it all, which no link can find: `Lead.profile` is written only by the
+     * public trial form, so a family who first telephoned has a row about them and their child that
+     * a link-only query does not return. „Everything the school holds about you" has to include the
+     * first thing it ever held.
+     */
+    it('includes the enquiry an admin typed in before the family had an account', async () => {
+        await request(app.getHttpServer())
+            .post('/leads')
+            .set('Authorization', admin.auth)
+            .send({
+                parentName: 'Ana Test',
+                parentEmail: 'ana.export@example.com',
+                childFirstName: 'Maria',
+                childLastName: 'Pop',
+                childBirthDate: '2016-04-02',
+                source: 'phone',
+            })
+            .expect(201);
+
+        const mine = await exportOwn(ana).expect(200);
+        const theirs = await exportOwn(bogdan).expect(200);
+
+        expect(mine.body.solicitari).toHaveLength(1);
+        expect(mine.body.solicitari[0].copil).toBe('Maria Pop');
+        expect(theirs.body.solicitari).toHaveLength(0);
+    });
+
     it('never returns a credential', async () => {
         const res = await exportOwn(ana).expect(200);
         const wholeDocument = JSON.stringify(res.body);

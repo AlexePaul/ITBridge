@@ -13,6 +13,7 @@ import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { SessionCountOverride } from 'src/entities/session-count-override.entity';
 import { Project } from 'src/entities/project.entity';
 import { Lead } from 'src/entities/lead.entity';
+import { leadsOfFamily } from './family-rows';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { Session } from 'src/entities/session.entity';
 import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
@@ -137,7 +138,10 @@ export class ExportService {
             ? await this.payments.find({ where: { invoice: { id: In(invoiceIds) } }, relations: { invoice: true }, order: { id: 'ASC' } })
             : [];
         const discounts = await this.discounts.find({ where: { parent: { id: profileId } }, order: { id: 'ASC' } });
-        const leads = await this.leads.find({ where: { profile: { id: profileId } }, order: { id: 'ASC' } });
+        // Not `{ profile: { id } }` alone: a lead an admin typed in from a phone call has no link
+        // to either the family or the child, so the family's first contact with the school would be
+        // missing from the copy of "everything we hold about you". See `leadsOfFamily`.
+        const leads = await this.leads.find({ where: leadsOfFamily(profile), order: { id: 'ASC' } });
 
         // The queue has no relation to a profile — it is shared, and it also writes to the office —
         // so it is searched by address, exactly as the inventory says E07 S4 would have to.

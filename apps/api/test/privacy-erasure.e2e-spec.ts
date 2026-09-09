@@ -211,6 +211,55 @@ describe('Privacy erasure (e2e)', () => {
             expect(stillThere.body.parinte.email).toBe('bogdan.stergere@example.com');
         });
 
+        /**
+         * The one a link cannot find. `Lead.profile` is written by the public trial form and by
+         * nothing else, so a family whose first contact was a telephone call has a row carrying
+         * their name, their address, their telephone number and their child's name and date of
+         * birth, with nothing pointing at it from the family. Left behind, it is the erasure
+         * telling a family their data is gone while it is not.
+         */
+        it('takes a lead an admin typed in from a phone call, matched by address', async () => {
+            await request(app.getHttpServer())
+                .post('/leads')
+                .set('Authorization', admin.auth)
+                .send({
+                    parentName: 'Ana Test',
+                    parentEmail: 'ana.stergere@example.com',
+                    childFirstName: 'Maria',
+                    childLastName: 'Pop',
+                    childBirthDate: '2016-04-02',
+                    source: 'phone',
+                })
+                .expect(201);
+            expect(await countRows('SELECT COUNT(*) FROM leads WHERE profile_id IS NULL')).toBe(1);
+
+            const report = await erase(anaProfileId).expect(201);
+
+            expect(report.body.leadsRemoved).toBe(1);
+            expect(await countRows('SELECT COUNT(*) FROM leads')).toBe(0);
+        });
+
+        it("leaves the other family's unlinked lead exactly where it was", async () => {
+            await request(app.getHttpServer())
+                .post('/leads')
+                .set('Authorization', admin.auth)
+                .send({
+                    parentName: 'Bogdan Test',
+                    parentEmail: 'bogdan.stergere@example.com',
+                    childFirstName: 'Andrei',
+                    childLastName: 'Ionescu',
+                    childBirthDate: '2015-09-09',
+                    source: 'phone',
+                })
+                .expect(201);
+
+            const report = await erase(anaProfileId).expect(201);
+
+            expect(report.body.leadsRemoved).toBe(0);
+            const rows = await dataSource.query('SELECT "parentEmail" FROM leads');
+            expect(rows).toEqual([{ parentEmail: 'bogdan.stergere@example.com' }]);
+        });
+
         it('clears the note an admin wrote on a payment, and keeps the figures', async () => {
             const invoices = await request(app.getHttpServer()).get('/invoices').query({ parentId: anaProfileId }).set('Authorization', admin.auth).expect(200);
             const invoiceId = invoices.body[0].id as number;

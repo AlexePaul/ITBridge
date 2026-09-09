@@ -15,6 +15,7 @@ import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { S3Service } from 'src/modules/storage/s3.service';
 import { projectFileKey, projectThumbnailKey } from 'src/modules/project/project.keys';
 import { erasedProfileFields, isErased } from './erasure.rules';
+import { leadsOfFamily } from './family-rows';
 
 export interface ErasureReport {
     profileId: number;
@@ -49,7 +50,10 @@ export interface ErasureReport {
  *
  * - **Leads keep their own copies of the names.** `Lead.child` is `SET NULL`, and the row carries
  *   `childFirstName`, `childLastName` and `childBirthDate` written from a public form. Deleting the
- *   child would leave all three sitting in `leads`.
+ *   child would leave all three sitting in `leads`. They are matched by address as well as by the
+ *   link, because a lead an admin typed in from a phone call has no link at all — `leadsOfFamily`
+ *   holds the rule, and `ExportService` reads it too, so the two flows cannot come to disagree
+ *   about which rows are a family's.
  * - **The outbox has no relation to a profile.** It is shared and it also writes to the office, so
  *   its rows are found by address — which is what the data inventory says E07 S4 would have to do.
  * - **A payment's `notes` is free text an admin wrote about a family**, on a row that is kept. The
@@ -158,7 +162,13 @@ export class ErasureService {
 
             // Before the children go: `Lead.child` is SET NULL, and the row keeps its own copies of
             // the child's name and birth date, written from a public form.
-            const leads = await manager.delete(Lead, { profile: { id: profileId } });
+            //
+            // Matched by address as well as by the link, because a lead an admin typed in from a
+            // phone call has neither — see `leadsOfFamily`. Two steps rather than one `delete`:
+            // TypeORM reads an array criterion as a list of ids, so the OR has to be a `find`.
+            const leadRows = await manager.find(Lead, { where: leadsOfFamily(profile), select: { id: true } });
+            const leadIds = leadRows.map((lead) => lead.id);
+            if (leadIds.length) await manager.delete(Lead, leadIds);
 
             // One delete, and the cascades take enrolments, attendance, announced absences, waitlist
             // entries, session-count overrides and projects with them.
@@ -202,7 +212,7 @@ export class ErasureService {
             return {
                 profileId,
                 childrenRemoved: childIds.length,
-                leadsRemoved: leads.affected ?? 0,
+                leadsRemoved: leadIds.length,
                 discountsRemoved: discounts.affected ?? 0,
                 messagesRemoved: messages.affected ?? 0,
                 invoicesKept: invoiceIds.length,
