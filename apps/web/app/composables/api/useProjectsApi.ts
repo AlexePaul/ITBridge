@@ -98,6 +98,24 @@ export const useProjectsApi = () => {
   };
 
   /**
+   * Every document of one child, as a zip blob.
+   *
+   * The same shape as `fetchThumbnail`, and for the same two reasons: the endpoint needs the bearer
+   * token, which a plain link does not carry, and the bytes have to arrive as a blob.
+   *
+   * It lives here rather than in the page because the page was calling `fetch` directly. That skips
+   * `useApi`, and with it the 401 refresh — so on a portal left open past the access token's fifteen
+   * minutes, every other call on the screen refreshed silently and this one alone failed. The
+   * parent read "Nu am putut descărca arhiva" on a session that was working perfectly.
+   */
+  const fetchChildArchive = async (childId: number): Promise<Blob> =>
+    api<Blob>(`/projects/child/${childId}/archive`, {
+      method: "GET",
+      headers: authHeader(),
+      responseType: "blob",
+    });
+
+  /**
    * Queues one email per parent for the ticked documents. E14/S4.
    *
    * The answer is a report, not a delivery confirmation: it says what was queued, what was skipped
@@ -155,6 +173,7 @@ export const useProjectsApi = () => {
     fetchByPublicId,
     fileDownloadUrl,
     fetchThumbnail,
+    fetchChildArchive,
     sendProjects,
     reassignProject,
     deleteProject,
