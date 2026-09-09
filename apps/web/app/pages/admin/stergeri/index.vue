@@ -47,7 +47,7 @@
             class="min-h-11"
             :loading="busyId === row.id"
             :disabled="busyId !== null"
-            :aria-label="`Șterge datele familiei ${row.firstName} ${row.lastName}`"
+            :aria-label="eraseLabel(row)"
             @click="confirm(row)"
           >
             {{ confirmingId === row.id ? "Sigur? Apasă din nou" : "Șterge datele" }}
@@ -95,6 +95,19 @@ const loading = ref(true);
 const loadError = ref("");
 const busyId = ref<number | null>(null);
 const confirmingId = ref<number | null>(null);
+
+/**
+ * The button's name, which has to move with its text.
+ *
+ * The label names the family, because twenty rows all called „Șterge datele" are twenty identical
+ * entries in the list a screen reader navigates by — the sweep in E18/S6 found exactly that. But a
+ * fixed label would break WCAG 2.5.3 the moment the button arms: the accessible name has to contain
+ * the visible text, and the visible text changes to „Sigur?". So both halves move together.
+ */
+const eraseLabel = (row: ProfileSummary) =>
+  confirmingId.value === row.id
+    ? `Sigur? Apasă din nou pentru a șterge datele familiei ${row.firstName} ${row.lastName}`
+    : `Șterge datele familiei ${row.firstName} ${row.lastName}`;
 
 /** Calendar days, like E17/S8's document backlog: somebody counts mornings, not 24-hour blocks. */
 const daysWaiting = (row: ProfileSummary) => {
