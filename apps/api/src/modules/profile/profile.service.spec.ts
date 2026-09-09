@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { Profile } from 'src/entities/profile.entity';
+import { Child } from 'src/entities/child.entity';
+import { Invoice } from 'src/entities/invoice.entity';
 import { Role } from 'src/enum/role.enum';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { createMockQueryBuilder, createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
@@ -14,14 +16,28 @@ describe('ProfileService', () => {
     const ACTOR = { userId: 5, username: 'ana' };
     let service: ProfileService;
     let profileRepo: MockRepository;
+    let childRepo: MockRepository;
+    let invoiceRepo: MockRepository;
 
     beforeEach(async () => {
         profileRepo = createMockRepository();
+        childRepo = createMockRepository();
+        invoiceRepo = createMockRepository();
+        // Nothing hanging off the family unless a test says so: `deleteProfile` looks before it
+        // deletes, and a bare mock returning `undefined` would read as "there are invoices".
+        childRepo.exists!.mockResolvedValue(false);
+        invoiceRepo.exists!.mockResolvedValue(false);
 
         audit = { recordPersonalDataChange: jest.fn(() => Promise.resolve()) };
 
         const module: TestingModule = await Test.createTestingModule({
-            providers: [ProfileService, provideMockRepository(Profile, profileRepo), { provide: AuditService, useValue: audit }],
+            providers: [
+                ProfileService,
+                provideMockRepository(Profile, profileRepo),
+                provideMockRepository(Child, childRepo),
+                provideMockRepository(Invoice, invoiceRepo),
+                { provide: AuditService, useValue: audit },
+            ],
         }).compile();
 
         service = module.get(ProfileService);
@@ -159,12 +175,59 @@ describe('ProfileService', () => {
             expect(profileRepo.delete).not.toHaveBeenCalled();
         });
 
-        it('lets an admin delete any profile', async () => {
+        it('lets an admin delete a profile with nothing hanging off it', async () => {
             profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
 
             await service.deleteProfile(1, Role.ADMIN, 5, ACTOR);
 
             expect(profileRepo.delete).toHaveBeenCalledWith(1);
+        });
+
+        /**
+         * `invoices.parent_id` is CASCADE and `payments.invoice_id` is CASCADE after it, so this
+         * one statement used to take the school's whole record of what a family paid. Keeping it is
+         * E04/S5's decision and the reason E07/S4 leaves an emptied shell row behind instead of
+         * deleting one.
+         */
+        it('refuses when the family has invoices, and deletes nothing', async () => {
+            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
+            invoiceRepo.exists!.mockResolvedValue(true);
+
+            await expect(service.deleteProfile(1, Role.ADMIN, 5, ACTOR)).rejects.toMatchObject({
+                response: { error: 'PROFILE_HAS_INVOICES' },
+            });
+            expect(profileRepo.delete).not.toHaveBeenCalled();
+        });
+
+        it('refuses when the family has children, and deletes nothing', async () => {
+            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
+            childRepo.exists!.mockResolvedValue(true);
+
+            await expect(service.deleteProfile(1, Role.ADMIN, 5, ACTOR)).rejects.toMatchObject({
+                response: { error: 'PROFILE_HAS_CHILDREN' },
+            });
+            expect(profileRepo.delete).not.toHaveBeenCalled();
+        });
+
+        /** The money is named first: it is the one thing the platform promised to keep. */
+        it('names the invoices when the family has both', async () => {
+            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
+            invoiceRepo.exists!.mockResolvedValue(true);
+            childRepo.exists!.mockResolvedValue(true);
+
+            await expect(service.deleteProfile(1, Role.ADMIN, 5, ACTOR)).rejects.toMatchObject({
+                response: { error: 'PROFILE_HAS_INVOICES' },
+            });
+        });
+
+        it('refuses a parent deleting their own family out from under the invoices', async () => {
+            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 5 } });
+            invoiceRepo.exists!.mockResolvedValue(true);
+
+            await expect(service.deleteProfile(1, Role.PARENT, 5, ACTOR)).rejects.toMatchObject({
+                response: { error: 'PROFILE_HAS_INVOICES' },
+            });
+            expect(profileRepo.delete).not.toHaveBeenCalled();
         });
     });
     /**

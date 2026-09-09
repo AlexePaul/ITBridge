@@ -339,6 +339,17 @@ la fel, deci fiecare grupă știe unde se ține fără să poată contrazice sal
 `RESTRICT` în ambele direcții, verificate întâi în serviciu, ca refuzul să ajungă la client ca 409 cu
 explicație, nu ca 500 de la driver.
 
+**Familia, în schimb, e `CASCADE` în trei direcții deodată, și de aia nu se șterge de nicăieri.**
+`children.parent_id`, `invoices.parent_id` și `discounts.parent_id` sunt toate `CASCADE`, iar
+`payments.invoice_id` e `CASCADE` după ele — deci un singur `DELETE` pe `profiles` lua copiii, toate
+prezențele lor, proiectele, facturile emise și încasările înregistrate. Măsurat pe o bază reală:
+1 copil, 1 înscriere, 1 factură, 1 plată înainte; zero din fiecare după. `ProfileService.deleteProfile`
+refuză acum, cu cod propriu, dacă familia are facturi (`PROFILE_HAS_INVOICES`) sau copii
+(`PROFILE_HAS_CHILDREN`) — ruta rămâne pentru rândul tastat greșit, atât. **Ștergerea unei familii e
+E07 S4, `/admin/stergeri`**: aia păstrează facturile, golește rândul, curăță bucket-ul și scrie cine
+a apăsat. Dacă adaugi o a doua ușă care șterge o familie, prima întrebare e ce ia cu ea — și
+răspunsul nu se citește din entitate, fiindcă `onDelete` stă pe partea copilului.
+
 **Auth** — două roluri, `ADMIN` și `PARENT` (`apps/api/src/enum/role.enum.ts`). `register` creează
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
 access (15 min) / refresh (7 zile), cu secrete distincte în `apps/api/src/constants/jwtConstants.ts`.
