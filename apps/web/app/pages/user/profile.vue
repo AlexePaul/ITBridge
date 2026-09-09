@@ -196,6 +196,7 @@ import { useProfileStore } from "~/stores/profileStore";
 import { useUserStore } from "~/stores/userStore";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
+import { dayKey } from "~/composables/useUtils";
 import { formatDateKey } from "~/composables/useAdminFormat";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
@@ -281,7 +282,7 @@ const onDownload = async () => {
 
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `datele-mele-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.download = `datele-mele-${dayKey()}.json`;
     anchor.click();
 
     success("Datele tale s-au descărcat.", "Fișierul e în folderul de descărcări.");

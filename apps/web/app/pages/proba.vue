@@ -293,6 +293,7 @@ import { schoolGraph, breadcrumbNode, webPageNode } from "#shared/structured-dat
 import { useRuntimeConfig } from "#imports";
 import { SCHOOL_EMAIL, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 import { useLeadsApi } from "~/composables/api/useLeadsApi";
+import { dayKey } from "~/composables/useUtils";
 import { LEAD_CHANNEL_LABELS, WEEKDAY_NAMES } from "~/types/lead.types";
 import type { LeadChannel, TrialSlot } from "~/types/lead.types";
 
@@ -331,7 +332,7 @@ useJsonLd([
 
 const { fetchTrialSlots, bookTrial } = useLeadsApi();
 
-const today = new Date().toISOString().slice(0, 10);
+const today = dayKey();
 
 const emptyForm = () => ({
   childFirstName: "",
