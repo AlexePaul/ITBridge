@@ -33,7 +33,7 @@
             <tr
               v-for="invoice in filteredInvoices"
               :key="invoice.id"
-              class="border-b border-gray-200 hover:border-primary"
+              class="border-b border-muted hover:border-primary"
             >
               <td class="py-3 px-4">{{ invoice.id }}</td>
               <td class="py-3 px-4">

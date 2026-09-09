@@ -102,7 +102,7 @@
               </div>
             </div>
 
-            <div class="space-y-2 pl-4 border-l-2 border-gray-200">
+            <div class="space-y-2 pl-4 border-l-2 border-muted">
               <div v-for="child in family.children" :key="child.childId">
                 <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                   <div class="flex-1 min-w-0">
@@ -194,7 +194,7 @@
                 -->
                 <ul
                   v-if="isOpen(child.childId)"
-                  class="mt-2 ml-2 text-sm space-y-1 border-l pl-3 border-gray-200"
+                  class="mt-2 ml-2 text-sm space-y-1 border-l pl-3 border-muted"
                 >
                   <li
                     v-for="line in child.lines"

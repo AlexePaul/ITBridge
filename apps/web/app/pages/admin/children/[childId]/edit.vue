@@ -53,7 +53,7 @@
         <div
           v-for="entry in history"
           :key="entry.id"
-          class="flex items-start justify-between gap-4 p-4 border border-gray-200 rounded-lg"
+          class="flex items-start justify-between gap-4 p-4 border border-muted rounded-lg"
         >
           <div>
             <p class="font-semibold">

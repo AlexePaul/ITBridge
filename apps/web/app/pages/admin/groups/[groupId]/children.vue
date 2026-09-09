@@ -52,7 +52,7 @@
           <div
             v-for="child in childrenInGroup"
             :key="child.id"
-            class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            class="flex items-center justify-between p-4 border border-muted rounded-lg hover:bg-muted/50 transition-colors"
           >
             <div>
               <UBadge variant="subtle" color="secondary" class="w-10 justify-center"
@@ -106,7 +106,7 @@
           <div
             v-for="child in childrenWithoutGroup"
             :key="child.id"
-            class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            class="flex items-center justify-between p-4 border border-muted rounded-lg hover:bg-muted/50 transition-colors"
           >
             <div>
               <UBadge variant="subtle" color="secondary" class="w-10 justify-center"
@@ -151,7 +151,7 @@
           <div
             v-for="(entry, index) in waitlist"
             :key="entry.id"
-            class="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+            class="flex items-center justify-between p-4 border border-muted rounded-lg"
           >
             <div class="flex items-center gap-3">
               <UBadge variant="subtle" color="secondary" class="w-8 justify-center">
