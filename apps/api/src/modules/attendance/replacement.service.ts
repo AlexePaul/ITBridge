@@ -173,12 +173,18 @@ export class ReplacementService {
                 error: 'REPLACEMENT_AGE_MISMATCH',
             });
         }
-        if ((await this.enrollments.freeSeatsAt(session)) <= 0) {
-            throw new ConflictException({ message: 'Nu mai e loc la ședința asta.', error: 'REPLACEMENT_SESSION_FULL' });
-        }
-
         notice.replacementSession = session;
         const saved = await this.dataSource.transaction(async (manager) => {
+            // The seat check used to sit above this line, outside the transaction that acts on it —
+            // so two placements into the same class could both read the last chair, and a public
+            // trial booking could take it from under both. It counts in-force enrolments plus the
+            // children already moved in, which is D7's number, and D7's number is guarded by the
+            // group row: `EnrollmentService.lockGroup`, the same one `enrol` takes.
+            await this.enrollments.lockGroup(manager, session.group.id);
+            if ((await this.enrollments.freeSeatsAt(session, manager)) <= 0) {
+                throw new ConflictException({ message: 'Nu mai e loc la ședința asta.', error: 'REPLACEMENT_SESSION_FULL' });
+            }
+
             const written = await manager.getRepository(AbsenceNotice).save(notice);
             await this.tellTheFamily(notice, session, manager);
             return written;

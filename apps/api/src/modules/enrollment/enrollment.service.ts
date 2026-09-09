@@ -334,8 +334,16 @@ export class EnrollmentService {
      *
      * Only the group being joined is locked, never the one being left, so two transfers in opposite
      * directions cannot wait on each other.
+     *
+     * **Public, because "everybody who wants a seat" is three callers, not one.** `enrol` was the
+     * only one holding it, so it serialised enrolments against enrolments and nothing else — while
+     * the *per-class* count that D7 is actually about (`freeSeatsAt`: enrolments in force plus the
+     * children the office moved in for a week) was read without any lock at all by the public trial
+     * booking and by `ReplacementService.place`. Two of those racing put two children on one chair
+     * without either check noticing. The group row is the right single point: every writer that can
+     * change a class's occupancy is a writer against that group.
      */
-    private async lockGroup(manager: EntityManager, groupId: number): Promise<Group> {
+    async lockGroup(manager: EntityManager, groupId: number): Promise<Group> {
         const group = await manager.getRepository(Group).findOne({ where: { id: groupId }, lock: { mode: 'pessimistic_write' } });
         if (!group) {
             throw new NotFoundException('Group not found');
