@@ -10,12 +10,12 @@
         <!-- Group Selection Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <!--
-            Alegi una dintre grupe, deci sunt butoane radio — nu `div`-uri cu `@click`, care nu
-            primesc focus și nu răspund la tastatură (E18/S6). Ecranul ăsta e primul pas al
-            marcării prezenței, iar înainte nu se putea face niciunul din tastatură. Butonul e
-            ascuns vizual, nu scos din pagină: `sr-only` îl lasă focusabil și citibil, iar cardul
-            rămâne exact ce se vede. Cu radio, săgețile trec de la o grupă la alta — comportamentul
-            pe care îl așteaptă cineva care alege una dintr-o listă.
+            Picking one of the groups, so these are radio buttons — not `div`s with `@click`, which
+            take no focus and answer no key (E18/S6). This screen is the first step of marking a
+            register, and none of it could be done from a keyboard before. The input is hidden
+            visually rather than removed: `sr-only` leaves it focusable and readable, and the card
+            stays exactly what is seen. With radios, the arrow keys move from one group to the next
+            — the behaviour somebody choosing one item from a list expects.
           -->
           <template v-for="group in selectableGroups" :key="group.id">
             <label class="block cursor-pointer">

@@ -64,12 +64,12 @@
 
     <div v-else class="grid gap-3 sm:grid-cols-2">
       <!--
-        Cardul e o legătură, nu un `div` cu `@click` (E18/S6). Așa era: nimic din ecranul ăsta —
-        coada de documente pe care E17/S8 o numără în meniu — nu se putea deschide din tastatură,
-        fiindcă un `div` care ascultă clicuri nu primește focus și nu răspunde la Enter. Nu-l
-        raportează nicio regulă axe: pentru un verificator automat, `div`-ul ăla e text. Ce s-a
-        văzut a fost consecința — panoul care derulează fără nimic focusabil înăuntru.
-        Legătura se întinde peste tot cardul prin `after`, deci mouse-ul lucrează la fel ca înainte.
+        The card is a link, not a `div` with `@click` (E18/S6). It used to be one, and so nothing on
+        this screen — the document queue E17/S8 counts in the menu — could be opened from a
+        keyboard: a `div` listening for clicks takes no focus and answers no Enter. No axe rule
+        reports it, because to an automated checker that `div` is text. What could be seen was the
+        consequence — a panel that scrolls with nothing focusable inside it. The link stretches over
+        the whole card through `after`, so the mouse works exactly as it did.
       -->
       <UCard
         v-for="group in groups"

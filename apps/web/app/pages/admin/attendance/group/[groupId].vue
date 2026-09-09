@@ -87,8 +87,8 @@
               </div>
             </div>
             <!--
-              Adaugă un copil în catalog, deci e un buton — nu un card cu `@click`, care nu se
-              poate nici focusa, nici apăsa cu Enter (E18/S6).
+              Adding a child to the register, so it is a button — not a card with `@click`, which
+              can neither take focus nor be pressed with Enter (E18/S6).
             -->
             <template v-for="child in filteredChildren">
               <UCard
