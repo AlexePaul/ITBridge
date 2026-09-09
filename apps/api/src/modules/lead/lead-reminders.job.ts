@@ -23,8 +23,8 @@ import { composeNoShowFollowUp, composeOfficeDigest, composeTrialReminder, offic
  *
  * **Only one instance may run this.** Two PM2 workers would both wake and both compose the same
  * messages; `dedupeKey` turns the second into a refused insert rather than a second email, so the
- * failure mode is a wasted query. The single-instance pin belongs in the ecosystem file from
- * E01/S4, which does not exist yet.
+ * failure mode is a wasted query. E01/S4 pinned it: `instances: 1` in
+ * `/srv/itbridge/ecosystem.config.js` on the stage instance.
  */
 
 /** 09:00, school time — before the office starts ringing people. */

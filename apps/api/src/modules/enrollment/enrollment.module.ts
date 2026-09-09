@@ -21,8 +21,8 @@ import { WaitlistExpiryJob } from './waitlist-expiry.job';
     imports: [EntitiesModule, MailModule, LeadProgressModule, JwtModule.register({})],
     controllers: [EnrollmentController],
     // `WaitlistExpiryJob` sweeps offers whose deadline passed, so a seat nobody answered for stops
-    // being held by nobody — E11/S3. It will not fire until something runs a scheduler (E01/S4),
-    // like every other job here.
+    // being held by nobody — E11/S3. It fires hourly on `api-stage`, in the single PM2 instance
+    // E01/S4 pins, like every other job here.
     providers: [EnrollmentService, WaitlistExpiryJob, AuthGuard, RolesGuard],
     exports: [EnrollmentService],
 })

@@ -8,10 +8,13 @@ const MONTHS = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'i
  * Lower case, because these appear mid-sentence: „o ședință de vineri 28.08.2026".
  *
  * `WEEKDAY_LABELS` in `@itbridge/types` has the same seven words, capitalised for a table header,
- * and is not reused here on purpose: `apps/api` imports that package for **types only** today, and
- * pulling a value out of it would make the compiled backend require the workspace package at
- * runtime. Guaranteeing that in production is the deploy story's job, and the deploy story is not
- * written (E01/S4). Seven words are not worth being the first thing to depend on it.
+ * and is not reused here on purpose: the contract package carries **types only** by rule, and the
+ * few runtime values still in it are grandfathered, with nothing new joining them. Reaching into it
+ * for a value would be going the wrong way. Seven words are cheap to keep here.
+ *
+ * **Here, and only here.** `unmarked-attendance.job.ts` had a second copy of this map with a second
+ * copy of this paragraph, from before the wording had a home — the same drift `officeAddress` was
+ * pulled out of. It imports `romanianWeekdayName` now.
  */
 const WEEKDAY_NAMES: Record<Weekday, string> = {
     [Weekday.MONDAY]: 'luni',

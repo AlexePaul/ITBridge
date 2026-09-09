@@ -8,8 +8,8 @@ import { EnrollmentService } from './enrollment.service';
  * `WaitlistEntry.respondBy` has always been in the offer mail, so families were told there was a
  * clock. Nothing was watching it: an offer nobody answered kept its seat indefinitely, and the next
  * family on the list was never asked. The entity said as much in a comment, deferring the sweeper
- * until "anything actually runs" — but every other scheduled thing in this codebase is already
- * written and waiting on the same deploy (E01/S4), and being written is what makes it testable.
+ * until "anything actually runs" — and it was written anyway, because being written is what makes
+ * it testable. Since E01/S4 it also runs: `api-stage` carries the scheduler.
  *
  * **Hourly, not by the minute.** The window is 48 hours; an offer that lapses at 14:03 and is swept
  * at 15:00 costs the next family fifty-seven minutes of a two-day clock. Checking every minute
@@ -21,7 +21,7 @@ import { EnrollmentService } from './enrollment.service';
  *
  * **One instance only**, like the rest: two would both sweep the same entry, and the second would
  * find nothing to do rather than double-offering, but the mail for the next family is not deduped.
- * The fix belongs to the ecosystem file in E01/S4, with the other schedulers.
+ * The pin is in `/srv/itbridge/ecosystem.config.js`, with the other schedulers — E01/S4.
  */
 
 /** Every hour, on the hour, on the school's clock. */

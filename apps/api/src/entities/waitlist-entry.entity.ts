@@ -54,7 +54,7 @@ export class WaitlistEntry {
      * Before it existed the seat was held by a family who had already lost it: `offerFreedSeat`
      * only ever looks at `WAITING`, so an unanswered offer stayed at the head of the queue and the
      * next family was asked only if an admin happened to release another seat in the same group.
-     * Like every job here, it does not fire until something runs a scheduler (E01/S4).
+     * Like every job here it needs a process to carry the cron, and since E01/S4 `api-stage` is one.
      */
     @Column({ type: 'timestamptz', nullable: true })
     respondBy: Date | null;

@@ -6,11 +6,13 @@ import { OutboxService } from './outbox.service';
  * The clock behind the outbox. Everything it knows how to do is in `OutboxService`; this class
  * only decides *when*, so the queue can be tested without waiting for a timer.
  *
- * **This must run in exactly one instance.** `FOR UPDATE SKIP LOCKED` makes two passes safe against
- * each other — neither sends the other's rows — but two PM2 cluster workers would still both wake
- * on every tick and both hammer the provider for nothing. The single-instance pin belongs in the
- * ecosystem file from E01/S4, **which does not exist yet**: this backend is not deployed anywhere
- * today, so the queue is built and tested here but has nowhere to run continuously until then.
+ * **This must run in exactly one instance, and since E01/S4 it does.** `FOR UPDATE SKIP LOCKED`
+ * makes two passes safe against each other — neither sends the other's rows — but two PM2 cluster
+ * workers would still both wake on every tick and both hammer the provider for nothing. The pin is
+ * `instances: 1` plus `exec_mode: 'fork'` in `/srv/itbridge/ecosystem.config.js` on the stage
+ * instance; that file is not in this repository, so nothing here can hold the line and nothing here
+ * will complain when it moves. If the API is ever put on `cluster`, this is what breaks first and
+ * quietest.
  *
  * On `@nestjs/schedule`: `session.service.ts` schedules its purge on a bare `setInterval` with a
  * comment saying the package is ESM-only and jest cannot load it. That was true, and is still true
