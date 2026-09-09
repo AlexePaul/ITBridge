@@ -2,9 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
-import { Weekday } from 'src/enum/weekday.enum';
 import { officeAddress } from 'src/modules/mail/office-address';
 import { ClassSessionService } from './class-session.service';
+import { romanianWeekdayName } from 'src/modules/mail/romanian-date';
 import { addDays, isoWeekday, parseIsoDate, toIsoDate } from './class-session.dates';
 import { describeSession } from './class-session.text';
 
@@ -22,10 +22,9 @@ import { describeSession } from './class-session.text';
  *
  * **This must run in exactly one instance.** Two PM2 cluster workers would both wake at ten and
  * both compose the same message; `dedupeKey` means the second one is refused by the database rather
- * than delivered, so the failure mode is a wasted query, not two emails. The single-instance pin
- * still belongs in the ecosystem file from E01/S4, **which does not exist yet** — this backend is
- * not deployed anywhere, so the job is built and tested here but does not run in production until
- * the deploy story lands.
+ * than delivered, so the failure mode is a wasted query, not two emails. Since E01/S4 the pin
+ * exists — `instances: 1` in `/srv/itbridge/ecosystem.config.js` on the stage instance — and so
+ * does the process, so this job runs and sends on `api-stage`.
  *
  * On the epic: E12/S7 argues for a reminder 10-15 minutes into the class, because at that point it
  * can still change something. That is `late-register.job.ts`, built afterwards and **in addition**
@@ -174,7 +173,7 @@ export function schoolDateOf(now: Date): string {
  */
 export function composeUnmarkedReminder(date: string, sessions: ClassSession[]): { subject: string; bodyText: string } {
     const day = parseIsoDate(date);
-    const weekday = WEEKDAY_NAMES[isoWeekday(day)];
+    const weekday = romanianWeekdayName(isoWeekday(day));
     const when = `${weekday} ${formatRomanianDate(day)}`;
     const count = countSessions(sessions.length);
     const verb = sessions.length === 1 ? 'a rămas' : 'au rămas';
@@ -217,22 +216,3 @@ function countSessions(count: number): string {
 function capitalise(value: string): string {
     return value.charAt(0).toUpperCase() + value.slice(1);
 }
-
-/**
- * Lower case, because these appear mid-sentence: "o ședință de vineri 28.08.2026".
- *
- * `WEEKDAY_LABELS` in `@itbridge/types` has the same seven words, capitalised for a table header,
- * and is not reused here on purpose: `apps/api` imports that package for **types only** today, and
- * pulling a value out of it would make the compiled backend require the workspace package at
- * runtime. Guaranteeing that in production is the deploy story's job, and the deploy story is not
- * written (E01/S4). Seven words are not worth being the first thing to depend on it.
- */
-const WEEKDAY_NAMES: Record<Weekday, string> = {
-    [Weekday.MONDAY]: 'luni',
-    [Weekday.TUESDAY]: 'marți',
-    [Weekday.WEDNESDAY]: 'miercuri',
-    [Weekday.THURSDAY]: 'joi',
-    [Weekday.FRIDAY]: 'vineri',
-    [Weekday.SATURDAY]: 'sâmbătă',
-    [Weekday.SUNDAY]: 'duminică',
-};

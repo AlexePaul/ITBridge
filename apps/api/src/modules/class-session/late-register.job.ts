@@ -33,9 +33,9 @@ import { describeSession, formatTime } from './class-session.text';
  *
  * **It must run in exactly one instance.** Two PM2 cluster workers would both wake on every tick
  * and both compose the same alert; `dedupeKey` makes the second a refused insert rather than a
- * second email, so the failure mode is a wasted query. The single-instance pin still belongs in the
- * ecosystem file from E01/S4, which does not exist yet — this backend is not deployed anywhere, so
- * the job is built and tested here and sends nothing in production until the deploy story lands.
+ * second email, so the failure mode is a wasted query. Since E01/S4 the pin exists — `instances: 1`
+ * in `/srv/itbridge/ecosystem.config.js` on the stage instance — and so does the process, so this
+ * job runs and sends on `api-stage`.
  */
 
 /**

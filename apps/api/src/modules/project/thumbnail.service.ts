@@ -12,8 +12,8 @@ import sharp from 'sharp';
  * project that did not upload, so everything below returns `null` rather than throwing, and the
  * caller carries on.
  *
- * Images only, which is most of what arrives. A frame out of a video needs ffmpeg on a host that
- * does not exist yet (E01/S4) and belongs in a queued job rather than in the request that ingests —
+ * Images only, which is most of what arrives. A frame out of a video needs ffmpeg, which the stage
+ * instance does not have, and belongs in a queued job rather than in the request that ingests —
  * a synchronous extraction would block the event loop on every upload. Whether a `.sb3` can give up
  * a stage image at all is an open question with its own answer to write down. Both are E14/S3b.
  */

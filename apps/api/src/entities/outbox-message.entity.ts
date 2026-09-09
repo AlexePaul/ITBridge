@@ -30,9 +30,8 @@ export interface OutboxAttachment {
  * **The scheduler that drains this runs in a single instance.** Nothing here enforces that —
  * `SELECT … FOR UPDATE SKIP LOCKED` makes two concurrent passes safe against each other, but two
  * PM2 cluster workers would both wake up on the same cron tick and both hammer the provider. The
- * single-instance pin belongs in the PM2 ecosystem file from E01/S4, **which does not exist yet**.
- * Until it does, this queue can be built and tested but has nowhere to run continuously — the
- * backend is not deployed at all today.
+ * pin is `instances: 1` and `exec_mode: 'fork'` in `/srv/itbridge/ecosystem.config.js` on the stage
+ * instance, out of this repository's reach — see `outbox.dispatcher.ts`.
  */
 @Entity('outbox')
 // The claim query is `WHERE status = 'pending' AND nextAttemptAt <= now() ORDER BY nextAttemptAt`.
