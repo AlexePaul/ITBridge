@@ -10,6 +10,9 @@ import { CreatePaymentDto } from './dto/createPayment.dto';
 import { UpdatePaymentDto } from './dto/updatePayment.dto';
 import { FilterPaymentDto } from './dto/filterPayment.dto';
 import { Role } from 'src/enum/role.enum';
+import { AuditService, type Actor } from 'src/modules/audit/audit.service';
+import { AuditAction } from 'src/enum/audit-action.enum';
+import { snapshotFields } from 'src/modules/audit/audit.rules';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { officeAddress } from 'src/modules/mail/office-address';
@@ -26,6 +29,27 @@ export interface InvoiceBalance {
     status: InvoiceStatus;
 }
 
+/**
+ * The fields of a payment worth a line in the audit log — E07 S3.
+ *
+ * Money, how it arrived, when, and the two free-text fields an admin can put a correction in. Not
+ * the invoice or the parent: those are the *subject* of the entry, carried by `entityId` and
+ * findable from it, and copying a family's details into every entry would make the log a second
+ * store of personal data — which is the opposite of what E07 is for.
+ */
+const AUDITED_PAYMENT_FIELDS = ['amount', 'method', 'status', 'date', 'externalReference', 'notes'];
+
+function auditableFields(payment: Payment): Record<string, unknown> {
+    return {
+        amount: payment.amount,
+        method: payment.method,
+        status: payment.status,
+        date: payment.date,
+        externalReference: payment.externalReference,
+        notes: payment.notes,
+    };
+}
+
 @Injectable()
 export class PaymentService {
     private readonly office = officeAddress();
@@ -36,6 +60,7 @@ export class PaymentService {
         @InjectDataSource() private readonly dataSource: DataSource,
         private readonly outbox: OutboxService,
         private readonly mailTemplates: MailTemplateService,
+        private readonly audit: AuditService,
     ) {}
 
     /**
@@ -45,7 +70,7 @@ export class PaymentService {
      * recomputation is exactly the bug the old model had, where `status = PAID` was set by hand next
      * to the row that justified it and nothing kept the two in step afterwards.
      */
-    async createPayment(dto: CreatePaymentDto, recordedByUserId?: number) {
+    async createPayment(dto: CreatePaymentDto, recordedByUserId: number | undefined, actor: Actor) {
         const invoice = await this.invoiceRepo.findOne({ where: { id: dto.invoiceId }, relations: { parent: true } });
         if (!invoice) throw new NotFoundException('Invoice not found');
 
@@ -73,6 +98,16 @@ export class PaymentService {
                     notes: dto.notes ?? null,
                     recordedBy: recordedByUserId ? ({ id: recordedByUserId } as User) : null,
                 }),
+            );
+            await this.audit.record(
+                {
+                    actor,
+                    action: AuditAction.CREATED,
+                    entityType: 'Payment',
+                    entityId: payment.id,
+                    changes: snapshotFields(auditableFields(payment), 'created'),
+                },
+                manager,
             );
             const balance = await this.recomputeInvoiceStatus(invoice.id, manager);
             if (owesReceipt(status)) {
@@ -207,7 +242,7 @@ export class PaymentService {
         return payment;
     }
 
-    async updatePayment(id: number, dto: UpdatePaymentDto) {
+    async updatePayment(id: number, dto: UpdatePaymentDto, actor: Actor) {
         // `invoice.parent` because a payment that becomes succeeded here earns a receipt, and the
         // receipt is addressed to the family — E16/S6.
         const payment = await this.paymentRepo.findOne({ where: { id }, relations: { invoice: { parent: true } } });
@@ -216,6 +251,10 @@ export class PaymentService {
         // Read before the edit overwrites it: the receipt hinges on the *transition* into succeeded,
         // and after the assignments below there is nothing left to compare against.
         const previousStatus = payment.status;
+
+        // A copy of the fields the log cares about, taken before the assignments below overwrite
+        // them. Read after, `before` and `after` would be the same object and every diff empty.
+        const before = auditableFields(payment);
 
         if (dto.amount !== undefined) payment.amount = dto.amount;
         if (dto.method !== undefined) payment.method = dto.method;
@@ -234,11 +273,24 @@ export class PaymentService {
             if (owesReceipt(saved.status, previousStatus)) {
                 await this.sendReceipt(payment.invoice, saved, balance, manager);
             }
+            // Inside the transaction, with the manager: a record of a change that rolled back is a
+            // lie, and one lost when the change succeeded is a gap. E07/S3.
+            await this.audit.recordUpdate(
+                {
+                    actor,
+                    entityType: 'Payment',
+                    entityId: saved.id,
+                    before,
+                    after: auditableFields(saved),
+                    fields: AUDITED_PAYMENT_FIELDS,
+                },
+                manager,
+            );
             return saved;
         });
     }
 
-    async deletePayment(id: number) {
+    async deletePayment(id: number, actor: Actor) {
         const payment = await this.paymentRepo.findOne({ where: { id }, relations: { invoice: true } });
         if (!payment) throw new NotFoundException('Payment not found');
 
@@ -247,6 +299,18 @@ export class PaymentService {
         return this.dataSource.transaction(async (manager) => {
             await manager.delete(Payment, id);
             await this.recomputeInvoiceStatus(payment.invoice.id, manager);
+            // What the row held is kept, because after the delete there is nothing left to look at:
+            // "who removed the 350 lei against invoice 412" has no answer otherwise.
+            await this.audit.record(
+                {
+                    actor,
+                    action: AuditAction.DELETED,
+                    entityType: 'Payment',
+                    entityId: id,
+                    changes: snapshotFields(auditableFields(payment), 'deleted'),
+                },
+                manager,
+            );
             return { message: 'Payment deleted' };
         });
     }

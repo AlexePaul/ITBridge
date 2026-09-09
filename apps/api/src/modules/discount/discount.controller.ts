@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Param, Body, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 import { DiscountService } from './discount.service';
 import { RolesGuard } from 'src/guards/role.guard';
 import { Role } from 'src/enum/role.enum';
@@ -8,6 +8,8 @@ import { ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { CreateDiscountDto } from './dto/createDiscount.dto';
 import { UpdateDiscountDto } from './dto/updateDiscount.dto';
 import { GrantReferralDiscountDto } from './dto/grantReferralDiscount.dto';
+import { actorFrom } from 'src/modules/audit/actor';
+import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('discounts')
 export class DiscountController {
@@ -18,8 +20,8 @@ export class DiscountController {
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
     @ApiResponse({ status: 201, description: 'Invoice created' })
-    async createDiscount(@Body() createDiscountDto: CreateDiscountDto) {
-        return this.discountService.createDiscount(createDiscountDto);
+    async createDiscount(@Body() createDiscountDto: CreateDiscountDto, @Request() req: AuthenticatedRequest) {
+        return this.discountService.createDiscount(createDiscountDto, actorFrom(req));
     }
 
     /**
@@ -49,8 +51,8 @@ export class DiscountController {
     @ApiBearerAuth()
     @ApiResponse({ status: 201, description: 'One more month at half price' })
     @ApiResponse({ status: 409, description: 'A percentage from somewhere else already sits on that month' })
-    async grantReferral(@Body() dto: GrantReferralDiscountDto) {
-        return this.discountService.grantReferralMonth(dto.parentId);
+    async grantReferral(@Body() dto: GrantReferralDiscountDto, @Request() req: AuthenticatedRequest) {
+        return this.discountService.grantReferralMonth(dto.parentId, actorFrom(req));
     }
 
     @Delete('/referral/:parentId')
@@ -59,8 +61,8 @@ export class DiscountController {
     @ApiBearerAuth()
     @ApiResponse({ status: 200, description: 'The last month taken back off the reward' })
     @ApiResponse({ status: 409, description: 'The family has no referral month left to take back' })
-    async revokeReferral(@Param('parentId', ParseIntPipe) parentId: number) {
-        return this.discountService.revokeReferralMonth(parentId);
+    async revokeReferral(@Param('parentId', ParseIntPipe) parentId: number, @Request() req: AuthenticatedRequest) {
+        return this.discountService.revokeReferralMonth(parentId, actorFrom(req));
     }
 
     @Get()
@@ -77,8 +79,8 @@ export class DiscountController {
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
     @ApiResponse({ status: 200, description: 'Discount updated successfully' })
-    async updateDiscount(@Param('id', ParseIntPipe) id: number, @Body() updateDiscountDto: UpdateDiscountDto) {
-        return this.discountService.updateDiscount(id, updateDiscountDto);
+    async updateDiscount(@Param('id', ParseIntPipe) id: number, @Body() updateDiscountDto: UpdateDiscountDto, @Request() req: AuthenticatedRequest) {
+        return this.discountService.updateDiscount(id, updateDiscountDto, actorFrom(req));
     }
 
     @Delete('/:id')
@@ -86,7 +88,7 @@ export class DiscountController {
     @Roles(Role.ADMIN)
     @ApiBearerAuth()
     @ApiResponse({ status: 204, description: 'Discount deleted successfully' })
-    async deleteDiscount(@Param('id', ParseIntPipe) id: number) {
-        await this.discountService.deleteDiscount(id);
+    async deleteDiscount(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
+        await this.discountService.deleteDiscount(id, actorFrom(req));
     }
 }

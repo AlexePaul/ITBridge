@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Discount } from 'src/entities/discount.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { CreateDiscountDto } from './dto/createDiscount.dto';
@@ -8,21 +8,63 @@ import { UpdateDiscountDto } from './dto/updateDiscount.dto';
 import { applyDefined } from 'src/common/apply-defined';
 import { DiscountType } from 'src/enum/discount-type.enum';
 import { REFERRAL_DISCOUNT_NAME, REFERRAL_PERCENT, nextBillingMonthAt, nextUncoveredMonth, type ReferralReward } from './discount.rules';
+import { AuditService, type Actor } from 'src/modules/audit/audit.service';
+import { snapshotFields } from 'src/modules/audit/audit.rules';
+import { AuditAction } from 'src/enum/audit-action.enum';
+
+/**
+ * The fields of a discount worth a line in the trail — E07/S3.
+ *
+ * All four, because all four decide what the family is charged: a `fixed` 50 and a `percent` 50 are
+ * different money, and the month says which invoice it lands on. The parent is who the entry is
+ * about, carried by the row it points at rather than copied into the log.
+ */
+const AUDITED_DISCOUNT_FIELDS = ['name', 'type', 'value', 'monthIssued'];
+
+function auditableDiscount(discount: Discount): Record<string, unknown> {
+    return { name: discount.name, type: discount.type, value: discount.value, monthIssued: discount.monthIssued };
+}
 
 @Injectable()
 export class DiscountService {
     constructor(
         @InjectRepository(Discount) private discountRepository: Repository<Discount>,
         @InjectRepository(Profile) private profileRepository: Repository<Profile>,
+        @InjectDataSource() private readonly dataSource: DataSource,
+        private readonly audit: AuditService,
     ) {}
 
-    async createDiscount(createDiscountDto: CreateDiscountDto): Promise<Discount> {
+    /**
+     * One row of the trail for a discount that appeared or went away, with the note that says which
+     * family it was for — the id alone is unreadable once the row is gone.
+     */
+    private async recordDiscount(discount: Discount, parentId: number | null, action: AuditAction, actor: Actor, manager: EntityManager): Promise<void> {
+        await this.audit.record(
+            {
+                actor,
+                action,
+                entityType: 'Discount',
+                entityId: discount.id,
+                changes: snapshotFields(auditableDiscount(discount), action === AuditAction.CREATED ? 'created' : 'deleted'),
+                // No family, no note: `familia 0` would name a profile that does not exist.
+                note: parentId === null ? null : `familia ${parentId}`,
+            },
+            manager,
+        );
+    }
+
+    async createDiscount(createDiscountDto: CreateDiscountDto, actor: Actor): Promise<Discount> {
         this.assertWithinBounds(createDiscountDto.type ?? DiscountType.FIXED, createDiscountDto.value);
 
         const discount = this.discountRepository.create(createDiscountDto);
         // Only the id is set: TypeORM writes the foreign key without loading the whole profile.
         discount.parent = { id: createDiscountDto.parentId } as Profile;
-        return await this.discountRepository.save(discount);
+
+        return this.dataSource.transaction(async (manager) => {
+            const saved = await manager.save(Discount, discount);
+            await this.recordDiscount(saved, createDiscountDto.parentId, AuditAction.CREATED, actor, manager);
+            return saved;
+        });
     }
 
     /**
@@ -72,7 +114,7 @@ export class DiscountService {
      * the same second leave a duplicate row that is visible on `/admin/reduceri` and deletable in
      * two clicks, which is not the class of damage an index is for.
      */
-    async grantReferralMonth(parentId: number, now: Date = new Date()): Promise<ReferralReward> {
+    async grantReferralMonth(parentId: number, actor: Actor, now: Date = new Date()): Promise<ReferralReward> {
         await this.assertParentExists(parentId);
 
         const from = nextBillingMonthAt(now);
@@ -89,15 +131,21 @@ export class DiscountService {
             });
         }
 
-        await this.discountRepository.save(
-            this.discountRepository.create({
-                name: REFERRAL_DISCOUNT_NAME,
-                type: DiscountType.PERCENT,
-                value: REFERRAL_PERCENT,
-                monthIssued,
-                parent: { id: parentId } as Profile,
-            }),
-        );
+        await this.dataSource.transaction(async (manager) => {
+            const saved = await manager.save(
+                Discount,
+                this.discountRepository.create({
+                    name: REFERRAL_DISCOUNT_NAME,
+                    type: DiscountType.PERCENT,
+                    value: REFERRAL_PERCENT,
+                    monthIssued,
+                    parent: { id: parentId } as Profile,
+                }),
+            );
+            // Half a month off is money, and a button is the easiest way for it to be given twice
+            // by accident — so who pressed it, and for which month, is written down.
+            await this.recordDiscount(saved, parentId, AuditAction.CREATED, actor, manager);
+        });
 
         return { parentId, months: [...covered, monthIssued].sort() };
     }
@@ -114,7 +162,7 @@ export class DiscountService {
      * withdraw from a button that says "recomandare", and deleting it here would make the `−` press
      * mean something different depending on what the family happened to have.
      */
-    async revokeReferralMonth(parentId: number, now: Date = new Date()): Promise<ReferralReward> {
+    async revokeReferralMonth(parentId: number, actor: Actor, now: Date = new Date()): Promise<ReferralReward> {
         await this.assertParentExists(parentId);
 
         const from = nextBillingMonthAt(now);
@@ -136,7 +184,10 @@ export class DiscountService {
             },
         });
         if (row) {
-            await this.discountRepository.delete(row.id);
+            await this.dataSource.transaction(async (manager) => {
+                await manager.delete(Discount, row.id);
+                await this.recordDiscount(row, parentId, AuditAction.DELETED, actor, manager);
+            });
         }
 
         return { parentId, months: covered.slice(0, -1) };
@@ -165,11 +216,20 @@ export class DiscountService {
         }
     }
 
-    async updateDiscount(id: number, updateDiscountDto: UpdateDiscountDto): Promise<Discount> {
+    async updateDiscount(id: number, updateDiscountDto: UpdateDiscountDto, actor: Actor): Promise<Discount> {
+        // **Without the parent relation**, deliberately. The row this loads is the one that goes
+        // back over the wire, and `Profile` carries the family's email, phone and address — loading
+        // it for the sake of a note on a log entry would publish all three to whoever pressed save.
+        // The entry points at the discount, which still exists after an edit; only the deletion,
+        // where nothing is left to look up, earns a note naming the family.
         const discount = await this.discountRepository.findOne({ where: { id } });
         if (!discount) {
             throw new NotFoundException('Discount not found');
         }
+
+        // Read before the merge overwrites it — after `applyDefined` there is nothing left to
+        // compare against and every diff would come out empty.
+        const before = auditableDiscount(discount);
 
         // Only the fields actually sent are overwritten; `undefined` leaves the current value alone.
         applyDefined(discount, updateDiscountDto);
@@ -178,11 +238,33 @@ export class DiscountService {
         // 200 turned into a `percent` by a later request is the case a per-payload check misses.
         this.assertWithinBounds(discount.type, discount.value);
 
-        return await this.discountRepository.save(discount);
+        return this.dataSource.transaction(async (manager) => {
+            const saved = await manager.save(Discount, discount);
+            await this.audit.recordUpdate(
+                {
+                    actor,
+                    entityType: 'Discount',
+                    entityId: saved.id,
+                    before,
+                    after: auditableDiscount(saved),
+                    fields: AUDITED_DISCOUNT_FIELDS,
+                },
+                manager,
+            );
+            return saved;
+        });
     }
 
-    async deleteDiscount(id: number): Promise<void> {
-        await this.discountRepository.delete(id);
+    async deleteDiscount(id: number, actor: Actor): Promise<void> {
+        const discount = await this.discountRepository.findOne({ where: { id }, relations: { parent: true } });
+        // Nothing on file is not an act. `delete` on a missing id has always answered without
+        // complaint, and an entry for it would claim somebody withdrew a discount that never was.
+        if (!discount) return;
+
+        await this.dataSource.transaction(async (manager) => {
+            await manager.delete(Discount, id);
+            await this.recordDiscount(discount, discount.parent?.id ?? null, AuditAction.DELETED, actor, manager);
+        });
     }
 
     /**

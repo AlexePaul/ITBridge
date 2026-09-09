@@ -137,12 +137,53 @@ copil și acel scop în momentul afișării.
 pentru copilul acela și scopul acela. Revocarea îl retrage în sub un minut. Un părinte cu doi copii
 poate accepta pentru unul și refuza pentru celălalt, iar vitrina arată exact asta.
 
-### S3 · Audit log
+### S3 · Audit log — jumătatea de bani livrată
 
 Fiecare acțiune administrativă care atinge date personale sau bani lasă o înregistrare: cine, ce,
 când, valoarea veche și cea nouă. Imutabil, cu retenție separată de datele operaționale.
 
 **Acceptanță:** "cine a schimbat suma facturii 412 și când" are răspuns în sub un minut.
+
+**Livrat: banii.** `audit_log` (`apps/api/src/entities/audit-log.entity.ts`) plus
+`apps/api/src/modules/audit/`, legat în cele trei module unde se mișcă bani — facturi, plăți,
+reduceri. Acceptanța rulează capăt-la-capăt în `apps/api/test/audit-log.e2e-spec.ts`: după o
+schimbare de sumă, `GET /audit?entityType=Invoice&entityId=412` întoarce cine, ce a fost și ce a
+devenit. Cinci decizii pe care le repetă oricine adaugă un al patrulea scriitor:
+
+- **Rândul se scrie cu `EntityManager`-ul tranzacției care l-a provocat**, ca la outbox. O urmă care
+  supraviețuiește unei tranzacții date înapoi spune că s-a întâmplat ceva ce nu s-a întâmplat, iar
+  una pierdută când schimbarea a reușit e o gaură. `AuditService.record` primește managerul; toate
+  apelurile de azi i-l dau.
+- **Nu există `update` și nu există `delete`** — nici metodă, nici endpoint. Singurul lucru care se
+  poate face tabelului prin aplicație e să i se adauge. Ăsta e tot rostul lui.
+- **Actorul e denormalizat**, `actor_user_id` plus `actor_username` copiat la scriere. O urmă care
+  arată către un rând ce poate fi șters pierde exact intrările care contează: cele despre un cont
+  scos ulterior.
+- **`changes` ține doar ce s-a mișcat**, nu rândul întreg — și numai scalari
+  (`AuditValue`). Un „înainte și după" al întregii facturi ar face din jurnal a doua copie a datelor
+  unei familii, adică fix invers decât cere epicul. O salvare care n-a schimbat nimic **nu scrie
+  nimic**: `recordUpdate` iese devreme.
+- **Derivările nu se consemnează.** `recomputeInvoiceStatus` mută starea facturii fiindcă s-au
+  adunat plăți; e o consecință, nu o decizie. Un jurnal în care fiecare derivare stă lângă deciziile
+  oamenilor e un jurnal în care deciziile nu se mai găsesc.
+
+Se consemnează: emiterea (`POST /invoices/issue` și `POST /invoices`, un rând per factură, inclusiv
+lunile `waived`), editarea și ștergerea unei facturi, corectura de ședințe pe copil și lună
+(`SessionCountOverride` — singurul număr tastat de mână), plata înregistrată, corectată sau ștearsă,
+și reducerea creată, editată, ștearsă sau dată din butonul de recomandare. Citirea e
+`GET /audit`, numai ADMIN, cu plafon de 200 pe cerere: jurnalul crește nemărginit prin construcție,
+deci o citire nemărginită ar fi o cale de a trage tot istoricul de bani al unei familii printr-o
+singură cerere.
+
+**Rămâne: datele personale.** Modificările de `Profile` și `Child` încă nu lasă urmă, și nu din
+grabă — povestea cere „valoarea veche și cea nouă", dar la un profil _valoarea însăși e dată
+personală_. Consemnat ca atare, jurnalul ar păstra fiecare telefon și fiecare adresă pe care le-a
+avut vreodată o familie, într-un tabel cu retenție mai lungă decât rândul pe care îl descrie — adică
+exact ce E07 există să reducă. Alegerea dintre „ce câmp s-a schimbat" și „din ce în ce" e o decizie,
+nu o completare, și se ia înainte de a scrie a doua jumătate.
+
+**Retenția nu e decisă aici.** Numărul e al [E22](E22-termeni-si-date.md) S3, iar jobul care îl
+aplică e al S4 de mai jos și al [E04](E04-migrari-date.md) S5.
 
 ### S4 · Export și ștergere
 

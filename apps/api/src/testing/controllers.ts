@@ -21,6 +21,7 @@ import { ReportsController } from 'src/modules/dashboard/reports.controller';
 import { AnnouncementController } from 'src/modules/announcement/announcement.controller';
 import { LeadController } from 'src/modules/lead/lead.controller';
 import { TrialController } from 'src/modules/lead/trial.controller';
+import { AuditController } from 'src/modules/audit/audit.controller';
 
 /**
  * Every HTTP surface the application exposes, in one place.
@@ -59,4 +60,5 @@ export const CONTROLLERS = [
     AnnouncementController,
     LeadController,
     TrialController,
+    AuditController,
 ];

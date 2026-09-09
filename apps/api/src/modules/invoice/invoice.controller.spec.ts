@@ -51,7 +51,7 @@ describe('InvoiceController', () => {
 
     it('deleteInvoice returns no content', async () => {
         const { controller } = await build();
-        await expect(controller.remove(1)).resolves.toBeUndefined();
+        await expect(controller.remove(1, requestOf(Role.ADMIN, 1))).resolves.toBeUndefined();
     });
 
     it('the arrears list takes no input at all — it is the same question for every admin', async () => {

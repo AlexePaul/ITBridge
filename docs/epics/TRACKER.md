@@ -3,7 +3,11 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 9 septembrie 2026, pe `release/stage`. **S-a închis E18 S5b** — bara de filtre și grila de carduri, ultima fiind un singur card desenat de opt ori; aceeași trecere a scos numele de control repetate și englezești, textul de eroare al lui ofetch arătat utilizatorului și culorile fără temă întunecată. **A intrat lista de lansare**,
+**Ultima actualizare:** 9 septembrie 2026, pe `release/stage`. **S-a livrat jumătatea de bani din
+E07 S3**, audit log-ul: facturi, plăți și reduceri lasă fiecare o urmă cu cine, ce a fost și ce a
+devenit, scrisă în tranzacția schimbării pe care o descrie și fără nicio cale de a o edita sau
+șterge; „cine a schimbat suma facturii 412 și când" e o cerere. Datele personale rămân neconsemnate
+până se decide ce se păstrează despre ele. Tot azi, **s-a închis E18 S5b** — bara de filtre și grila de carduri, ultima fiind un singur card desenat de opt ori; aceeași trecere a scos numele de control repetate și englezești, textul de eroare al lui ofetch arătat utilizatorului și culorile fără temă întunecată. **A intrat lista de lansare**,
 [`docs/lansare.md`](../lansare.md): cele douăzeci de întrebări obișnuite de dinaintea lansării unui
 site, fiecare cu starea verificată contra codului și cu dovada lângă ea. Cincisprezece din douăzeci
 sunt livrate cu gardă; ce lipsește e textele juridice pe prod (E22 S2), verificarea legăturilor (E19 S9, story
@@ -44,8 +48,8 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 81 livrate, 21 parțiale, 4 blocate, 12 scoase din
-scop, 32 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **150 de story-uri** în 22 de epicuri: 81 livrate, 22 parțiale, 4 blocate, 12 scoase din
+scop, 31 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
 **Cifrele s-au recitit din rânduri, și cinci din șase erau greșite** — 75/19/6/36 pentru
@@ -128,11 +132,11 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
 > află de la părintele care sună.
 
-### E07 · Securitate, GDPR și consimțământ — `în lucru; S5 și S8 livrate, restul propus`
+### E07 · Securitate, GDPR și consimțământ — `în lucru; S5 și S8 livrate, S3 pe jumătate, restul propus`
 
 - [ ] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface
 - [ ] S2 · Consimțământ parental — granularitate `(părinte, copil, scop)`, decisă
-- [ ] S3 · Audit log
+- [~] S3 · Audit log — **jumătatea de bani**: `audit_log` plus `apps/api/src/modules/audit/`, legat în facturi, plăți și reduceri, cu rândul scris în tranzacția schimbării pe care o descrie și fără nicio cale de a-l edita sau șterge. Acceptanța rulează capăt-la-capăt: `GET /audit?entityType=Invoice&entityId=412` spune cine a schimbat suma și când. **Lipsesc datele personale** — `Profile` și `Child` n-au urmă, fiindcă acolo _valoarea_ e data personală și „ce câmp" contra „din ce în ce" e o decizie de luat, nu o completare de scris
 - [ ] S4 · Export și ștergere — termenul pe care îl aplică e scris în E22 S3
 - [x] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2. Inventarul n-a găsit niciun script neesențial și un singur terț: harta Google, care pleca singură pe `loading="lazy"`. Deci poarta e la terț, nu peste tot — `MapEmbed.vue` ține `<iframe>`-ul în afara DOM-ului până apasă cititorul, iar `consentStore` ține alegerea în memorie, fără cookie. Fără banner pe site cât nu e nimic de refuzat; primul scop nou (analiza din E19 S8) îl aduce. Acceptanța rulează în CI: `pnpm test:privacy` pică dacă vreo pagină publică iese din origine sau pune un cookie
 - [ ] S6 · Managementul secretelor

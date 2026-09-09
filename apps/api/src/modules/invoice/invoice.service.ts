@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Child } from 'src/entities/child.entity';
@@ -23,6 +23,9 @@ import { BillableLine } from './billable-sessions.rules';
 // children's project files too.
 import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
 import { amountAfterDiscounts, sessionAmountAfterDiscounts } from './pricing';
+import { AuditService, type Actor } from 'src/modules/audit/audit.service';
+import { snapshotFields } from 'src/modules/audit/audit.rules';
+import { AuditAction } from 'src/enum/audit-action.enum';
 
 /** One family's row on the issuing screen, with the children whose sessions have to be counted. */
 export interface InvoiceWorksheetRow {
@@ -79,7 +82,27 @@ export class InvoiceService {
         private readonly s3Service: S3Service,
         private readonly billable: BillableSessionsService,
         private readonly dataSource: DataSource,
+        private readonly audit: AuditService,
     ) {}
+
+    /**
+     * The fields of an invoice worth a line in the trail — E07/S3.
+     *
+     * `amount`, because "cine a schimbat suma facturii 412" is the story's own question; the date
+     * and the status because both change what the family is asked for and when. Not the parent:
+     * that is who the entry is *about*, reachable from `entityId`, and copying a family's details
+     * into every entry would make the log a second store of personal data.
+     */
+    private static readonly AUDITED_INVOICE_FIELDS = ['amount', 'dateIssued', 'status', 'monthIssued'];
+
+    private static auditableInvoice(invoice: Invoice): Record<string, unknown> {
+        return {
+            amount: invoice.amount,
+            dateIssued: invoice.dateIssued,
+            status: invoice.status,
+            monthIssued: invoice.monthIssued,
+        };
+    }
 
     /**
      * Issues one invoice per parent.
@@ -97,7 +120,7 @@ export class InvoiceService {
      * Uploads happen while the transaction is open, holding it across network calls. At this scale
      * that is the right trade: a slow issue beats a half-written one.
      */
-    async createInvoice(createInvoiceDto: CreateInvoiceDto) {
+    async createInvoice(createInvoiceDto: CreateInvoiceDto, actor: Actor) {
         // Resolved before the transaction opens: a missing parent should fail the request without
         // having held a transaction across an S3 round trip first.
         const parents = await Promise.all(
@@ -120,6 +143,8 @@ export class InvoiceService {
                 invoice.parent = parent;
 
                 const persisted = await manager.save(invoice);
+
+                await this.recordInvoice(persisted, AuditAction.CREATED, actor, manager);
 
                 const pdfBuffer = await this.pdfService.generateInvoicePdf(persisted);
                 const fileName = invoicePdfKey(persisted.monthIssued, persisted.id);
@@ -157,24 +182,70 @@ export class InvoiceService {
         return invoice;
     }
 
-    async updateInvoice(id: number, dto: UpdateInvoiceDto) {
+    async updateInvoice(id: number, dto: UpdateInvoiceDto, actor: Actor) {
         const invoice = await this.invoiceRepository.findOne({ where: { id }, relations: ['parent', 'parent.user'] });
 
         if (!invoice) throw new NotFoundException('Invoice not found');
+
+        // Read before the assignments below overwrite it — after them there is nothing left to
+        // compare against and every diff would be empty.
+        const before = InvoiceService.auditableInvoice(invoice);
 
         if (dto.amount) invoice.amount = dto.amount;
         if (dto.dateIssued) invoice.dateIssued = new Date(dto.dateIssued);
         if (dto.status) invoice.status = dto.status;
 
-        return this.invoiceRepository.save(invoice);
+        // The save and its record in one transaction: a trail entry that survives a rolled-back
+        // edit says something happened that did not — E07/S3.
+        return this.dataSource.transaction(async (manager) => {
+            const saved = await manager.save(Invoice, invoice);
+            await this.audit.recordUpdate(
+                {
+                    actor,
+                    entityType: 'Invoice',
+                    entityId: saved.id,
+                    before,
+                    after: InvoiceService.auditableInvoice(saved),
+                    fields: InvoiceService.AUDITED_INVOICE_FIELDS,
+                },
+                manager,
+            );
+            return saved;
+        });
     }
 
-    async deleteInvoice(id: number) {
+    async deleteInvoice(id: number, actor: Actor) {
         const invoice = await this.invoiceRepository.findOne({ where: { id }, relations: ['parent', 'parent.user'] });
 
         if (!invoice) throw new NotFoundException('Invoice not found');
 
-        await this.invoiceRepository.delete(id);
+        // What the row held is kept, because after the delete there is nothing left to look at:
+        // "who removed the family's March invoice" has no answer otherwise.
+        await this.dataSource.transaction(async (manager) => {
+            await manager.delete(Invoice, id);
+            await this.recordInvoice(invoice, AuditAction.DELETED, actor, manager);
+        });
+    }
+
+    /**
+     * One row of the trail for an invoice that appeared or went away.
+     *
+     * Only the two one-sided acts go through here; an edit is `recordUpdate`, which keeps just the
+     * fields that moved. `recomputeInvoiceStatus` in `PaymentService` is deliberately *not* audited:
+     * it derives a status from the payments that exist, and a log where every derivation sits beside
+     * the human decisions is a log in which the decisions cannot be found.
+     */
+    private async recordInvoice(invoice: Invoice, action: AuditAction, actor: Actor, manager: EntityManager): Promise<void> {
+        await this.audit.record(
+            {
+                actor,
+                action,
+                entityType: 'Invoice',
+                entityId: invoice.id,
+                changes: snapshotFields(InvoiceService.auditableInvoice(invoice), action === AuditAction.CREATED ? 'created' : 'deleted'),
+            },
+            manager,
+        );
     }
 
     async getInvoicePdf(id: number, role: Role, userId: number) {
@@ -331,7 +402,10 @@ export class InvoiceService {
      * query. There is no path by which the screen and the invoice can disagree, because there is
      * no second number.
      */
-    async issueFromSessions(dto: IssueMonthDto): Promise<{ issued: Invoice[]; waived: Invoice[]; skipped: { parentId: number; reason: string }[] }> {
+    async issueFromSessions(
+        dto: IssueMonthDto,
+        actor: Actor,
+    ): Promise<{ issued: Invoice[]; waived: Invoice[]; skipped: { parentId: number; reason: string }[] }> {
         const worksheet = await this.getWorksheet(dto.monthIssued);
 
         const skipped: { parentId: number; reason: string }[] = [];
@@ -362,6 +436,7 @@ export class InvoiceService {
                 invoice.parent = parent;
 
                 const persisted = await manager.save(invoice);
+                await this.recordInvoice(persisted, AuditAction.CREATED, actor, manager);
 
                 if (amount > 0) {
                     const pdfBuffer = await this.pdfService.generateInvoicePdf(persisted);
@@ -401,26 +476,74 @@ export class InvoiceService {
      * (E12/S8): it would change what was already billed, and the invoice would no longer be the
      * number the screen showed.
      */
-    async setSessionCountOverride(dto: SessionCountOverrideDto, userId: number): Promise<SessionCountOverride> {
+    async setSessionCountOverride(dto: SessionCountOverrideDto, userId: number, actor: Actor): Promise<SessionCountOverride> {
         const child = await this.childRepository.findOne({ where: { id: dto.childId }, relations: { parent: true } });
         if (!child) throw new NotFoundException('Child not found');
         await this.assertMonthOpenFor(child, dto.monthIssued);
 
         const existing = await this.overrideRepository.findOne({ where: { monthIssued: dto.monthIssued, child: { id: child.id } } });
+        // The row keeps who decided and why, but only for the decision standing now — a second
+        // decision replaces the first. The trail is where "four, then two, then four again" can
+        // still be read afterwards, which is the whole reason a hand-typed number is audited.
+        const before = existing ? { sessions: existing.sessions, reason: existing.reason } : null;
         const row = existing ?? this.overrideRepository.create({ child, monthIssued: dto.monthIssued });
         row.sessions = dto.sessions;
         row.reason = dto.reason ?? null;
         row.createdBy = { id: userId } as User;
-        return this.overrideRepository.save(row);
+
+        return this.dataSource.transaction(async (manager) => {
+            const saved = await manager.save(SessionCountOverride, row);
+            const after = { sessions: saved.sessions, reason: saved.reason };
+            const note = `copil ${child.id}, luna ${dto.monthIssued}`;
+            if (before) {
+                await this.audit.recordUpdate(
+                    { actor, entityType: 'SessionCountOverride', entityId: saved.id, before, after, fields: ['sessions', 'reason'], note },
+                    manager,
+                );
+            } else {
+                await this.audit.record(
+                    {
+                        actor,
+                        action: AuditAction.CREATED,
+                        entityType: 'SessionCountOverride',
+                        entityId: saved.id,
+                        changes: snapshotFields(after, 'created'),
+                        note,
+                    },
+                    manager,
+                );
+            }
+            return saved;
+        });
     }
 
     /** Removes the decision; the registers speak again. Same freeze as setting it. */
-    async clearSessionCountOverride(monthIssued: string, childId: number): Promise<void> {
+    async clearSessionCountOverride(monthIssued: string, childId: number, actor: Actor): Promise<void> {
         const child = await this.childRepository.findOne({ where: { id: childId }, relations: { parent: true } });
         if (!child) throw new NotFoundException('Child not found');
         await this.assertMonthOpenFor(child, monthIssued);
 
-        await this.overrideRepository.delete({ monthIssued, child: { id: child.id } });
+        const existing = await this.overrideRepository.findOne({ where: { monthIssued, child: { id: child.id } } });
+        // Nothing on file is not an act: a delete that removed no row would otherwise leave an
+        // entry claiming a decision was withdrawn that nobody ever made.
+        if (!existing) return;
+
+        await this.dataSource.transaction(async (manager) => {
+            // By id, now that the row is in hand: the index makes it the only one, and a criteria
+            // object with a relation in it is a shape `delete` reads differently from `findOne`.
+            await manager.delete(SessionCountOverride, existing.id);
+            await this.audit.record(
+                {
+                    actor,
+                    action: AuditAction.DELETED,
+                    entityType: 'SessionCountOverride',
+                    entityId: existing.id,
+                    changes: snapshotFields({ sessions: existing.sessions, reason: existing.reason }, 'deleted'),
+                    note: `copil ${child.id}, luna ${monthIssued}`,
+                },
+                manager,
+            );
+        });
     }
 
     private async assertMonthOpenFor(child: Child, monthIssued: string): Promise<void> {
