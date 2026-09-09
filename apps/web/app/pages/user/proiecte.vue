@@ -99,7 +99,6 @@ import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { formatDateKey } from "~/composables/useAdminFormat";
 import { useChildrenStore } from "~/stores/childrenStore";
-import { useTokenStore } from "~/stores/tokenStore";
 import type { Child } from "~/types/child.types";
 import type { Project, ProjectFile } from "~/types/project.types";
 
@@ -120,12 +119,10 @@ import type { Project, ProjectFile } from "~/types/project.types";
  */
 definePageMeta({ layout: "portal" as any, title: "Proiectele copiilor" });
 
-const { fetchProjects, fileDownloadUrl } = useProjectsApi();
+const { fetchProjects, fileDownloadUrl, fetchChildArchive } = useProjectsApi();
 const childrenApi = useChildrenApi();
 const childrenStore = useChildrenStore();
 const notifications = useNotifications();
-const tokenStore = useTokenStore();
-const config = useRuntimeConfig();
 const { includes, isShowingAll, selected, reconcile } = useChildSelection();
 
 const loading = ref(true);
@@ -202,28 +199,27 @@ async function downloadFile(projectId: number, fileId: number) {
 /**
  * The whole archive for one child.
  *
- * Fetched with the bearer token and handed to the browser as a blob, for the same reason the
- * thumbnails are: a plain link carries no `Authorization` header, and this endpoint needs one.
+ * Through `useProjectsApi`, not `fetch`. It used to call `fetch` directly with the token pasted
+ * into a header, which skips `useApi` — and with it the refresh on 401. A portal left open past
+ * the access token's fifteen minutes had every other call on the screen refresh silently, and this
+ * one alone fail: the parent read "Nu am putut descărca arhiva" on a session that was fine.
  */
 async function downloadArchive(child: Child) {
   downloading.value = child.id;
+  let url: string | null = null;
   try {
-    const response = await fetch(
-      `${config.public.apiBase as string}/projects/child/${child.id}/archive`,
-      { headers: { Authorization: `Bearer ${tokenStore.accessToken}` } }
-    );
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
+    url = URL.createObjectURL(await fetchChildArchive(child.id));
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = `proiecte-${child.firstName.toLowerCase()}.zip`;
     anchor.click();
-    URL.revokeObjectURL(url);
   } catch (err) {
     notifications.error("Nu am putut descărca arhiva", apiErrorMessage(err));
   } finally {
+    // Revoked in `finally`, and only if it was created. Tidiness rather than a fixed bug: nothing
+    // between the object URL and the click realistically throws, so the old placement leaked in
+    // theory only. It costs nothing to put it where a throw cannot skip it.
+    if (url) URL.revokeObjectURL(url);
     downloading.value = null;
   }
 }

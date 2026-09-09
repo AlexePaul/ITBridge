@@ -15,10 +15,17 @@ import { describe, expect, it } from "vitest";
  * exists under the cursor. The gate had passed all three of those screens.
  *
  * The rule is narrow on purpose — a literal `gray` in a colour utility — because that is the shape
- * with no theme behind it. A pair that names both themes (`bg-gray-50 dark:bg-gray-900/30`, as
- * `GroupCard` writes it) is left alone: it is off-token, but it is not a screen that fails to
- * change. The tokens to reach for instead are `border-muted`, `bg-muted` and `text-muted`, which
- * `classical.css` redefines per theme.
+ * with no theme behind it. A colour whose `dark:` counterpart appears too is left alone
+ * (`bg-gray-50 dark:bg-gray-900/30`, as `GroupCard` writes it): off-token, but not a screen that
+ * fails to change. The tokens to reach for instead are `border-muted`, `bg-muted` and `text-muted`,
+ * which `classical.css` redefines per theme.
+ *
+ * **The pairing is counted per file, not per element**, and that is worth saying rather than
+ * leaving to be discovered. A file with `dark:bg-gray-800` on one element excuses a `bg-gray-50` on
+ * a different one. Matching them properly means knowing which classes sit in the same attribute,
+ * which is parsing, and the failure this exists to catch — a whole screen written in fixed greys
+ * with no dark variants anywhere — is caught either way. If a file ever mixes the two, this sweep
+ * will not see it; the browser in a dark theme will.
  */
 
 const APP_DIR = new URL("../app", import.meta.url).pathname;
