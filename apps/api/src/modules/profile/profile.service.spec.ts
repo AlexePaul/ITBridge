@@ -6,7 +6,16 @@ import { Child } from 'src/entities/child.entity';
 import { Invoice } from 'src/entities/invoice.entity';
 import { Role } from 'src/enum/role.enum';
 import { AuditService } from 'src/modules/audit/audit.service';
-import { createMockQueryBuilder, createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
+import {
+    createMockEntityManager,
+    createMockQueryBuilder,
+    createMockRepository,
+    MockRepository,
+    provideMockDataSource,
+    provideMockRepository,
+} from 'src/testing/repository.mock';
+import { EmailConfirmationService } from 'src/modules/auth/email-confirmation.service';
+import { User } from 'src/entities/user.entity';
 
 describe('ProfileService', () => {
     /** E07/S3. Field names reach the trail; values never do. */
@@ -18,6 +27,9 @@ describe('ProfileService', () => {
     let profileRepo: MockRepository;
     let childRepo: MockRepository;
     let invoiceRepo: MockRepository;
+    /** E11/S2: an edit that moves the address closes the gate behind it and sends a fresh link. */
+    let confirmations: { issueAndSend: jest.Mock };
+    let manager: ReturnType<typeof createMockEntityManager>;
 
     beforeEach(async () => {
         profileRepo = createMockRepository();
@@ -29,6 +41,8 @@ describe('ProfileService', () => {
         invoiceRepo.exists!.mockResolvedValue(false);
 
         audit = { recordPersonalDataChange: jest.fn(() => Promise.resolve()) };
+        confirmations = { issueAndSend: jest.fn(() => Promise.resolve()) };
+        manager = createMockEntityManager();
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -37,6 +51,8 @@ describe('ProfileService', () => {
                 provideMockRepository(Child, childRepo),
                 provideMockRepository(Invoice, invoiceRepo),
                 { provide: AuditService, useValue: audit },
+                { provide: EmailConfirmationService, useValue: confirmations },
+                provideMockDataSource(manager),
             ],
         }).compile();
 
@@ -164,6 +180,86 @@ describe('ProfileService', () => {
         it('rejects a profile that does not exist', async () => {
             profileRepo.findOne!.mockResolvedValue(null);
             await expect(service.updateProfile({}, 99, Role.ADMIN, 5, ACTOR)).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    /**
+     * E11/S2's first gate, closing behind a moved address.
+     *
+     * `AuthService.resendConfirmation` refuses to take an address, so that nobody holding a session
+     * can point a confirmation at a mailbox of their choosing — and it says, in as many words, that
+     * reopening the gate belongs to the edit that moved the address. This is that edit; it did not
+     * do it, so `emailConfirmedAt` went on standing for an address the family had stopped using.
+     */
+    describe('an address that moves', () => {
+        const withAccount = (email: string) => ({
+            id: 1,
+            firstName: 'Ana',
+            lastName: 'Pop',
+            email,
+            user: { id: 42 },
+        });
+
+        beforeEach(() => {
+            // Not a duplicate of itself: the uniqueness check looks for another row with the new
+            // address, and this suite is about what happens once it finds none.
+            profileRepo.findOne!.mockImplementation((options: { where: Record<string, unknown> }) =>
+                Promise.resolve('id' in options.where ? withAccount('ana@example.com') : null),
+            );
+        });
+
+        it('stops counting as confirmed, and sends a link to the new address', async () => {
+            await service.updateProfile({ email: 'ana.pop@example.com' }, 1, Role.PARENT, 42, ACTOR);
+
+            expect(manager.update).toHaveBeenCalledWith(User, 42, { emailConfirmedAt: null });
+            expect(confirmations.issueAndSend).toHaveBeenCalledWith({ id: 42 }, { firstName: 'Ana', email: 'ana.pop@example.com' }, expect.any(Date), manager);
+        });
+
+        it('does both through the same transaction as the edit, or neither', async () => {
+            await service.updateProfile({ email: 'ana.pop@example.com' }, 1, Role.ADMIN, 9, ACTOR);
+
+            expect(manager.save).toHaveBeenCalled();
+            expect(confirmations.issueAndSend.mock.calls[0][3]).toBe(manager);
+        });
+
+        it('leaves an edit that does not touch the address alone', async () => {
+            await service.updateProfile({ address: 'Str. Nouă 4' }, 1, Role.PARENT, 42, ACTOR);
+
+            expect(manager.update).not.toHaveBeenCalled();
+            expect(confirmations.issueAndSend).not.toHaveBeenCalled();
+        });
+
+        it('leaves an address re-sent unchanged alone', async () => {
+            await service.updateProfile({ email: 'ana@example.com' }, 1, Role.PARENT, 42, ACTOR);
+
+            expect(manager.update).not.toHaveBeenCalled();
+            expect(confirmations.issueAndSend).not.toHaveBeenCalled();
+        });
+
+        /** The family an admin typed in from a phone call. There is no account to de-confirm. */
+        it('has nothing to close for a profile with no account', async () => {
+            profileRepo.findOne!.mockImplementation((options: { where: Record<string, unknown> }) =>
+                Promise.resolve('id' in options.where ? { id: 1, firstName: 'Ana', lastName: 'Pop', email: 'ana@example.com', user: null } : null),
+            );
+
+            await service.updateProfile({ email: 'ana.pop@example.com' }, 1, Role.ADMIN, 9, ACTOR);
+
+            expect(manager.update).not.toHaveBeenCalled();
+            expect(confirmations.issueAndSend).not.toHaveBeenCalled();
+        });
+
+        /**
+         * Cleared, the account proves nothing either — and there is nowhere to send a link.
+         *
+         * Not reachable through `UpdateProfileDto` today, since `@IsEmail()` refuses an empty
+         * value. It is here because the gate closing and the link going out are two facts, and a
+         * service that writes them as one is a service where the second can swallow the first.
+         */
+        it('closes the gate but sends nothing when the address is cleared', async () => {
+            await service.updateProfile({ email: null } as never, 1, Role.ADMIN, 9, ACTOR);
+
+            expect(manager.update).toHaveBeenCalledWith(User, 42, { emailConfirmedAt: null });
+            expect(confirmations.issueAndSend).not.toHaveBeenCalled();
         });
     });
 

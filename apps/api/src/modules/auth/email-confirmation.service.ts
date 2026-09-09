@@ -4,6 +4,9 @@ import { createHash, randomBytes } from 'crypto';
 import { EntityManager, IsNull, Repository } from 'typeorm';
 import { EmailConfirmation } from 'src/entities/email-confirmation.entity';
 import { User } from 'src/entities/user.entity';
+import { MailTemplateService } from 'src/modules/mail/mail-template.service';
+import { OutboxService } from 'src/modules/mail/outbox.service';
+import { emailConfirmationUrl } from './portal-urls';
 
 /**
  * The first gate of E11/S2: proving the address a parent typed is one they can read.
@@ -40,7 +43,29 @@ export class EmailConfirmationService {
     constructor(
         @InjectRepository(EmailConfirmation) private readonly confirmationRepository: Repository<EmailConfirmation>,
         @InjectRepository(User) private readonly userRepository: Repository<User>,
+        private readonly mailTemplates: MailTemplateService,
+        private readonly outbox: OutboxService,
     ) {}
+
+    /**
+     * The whole act: a row, a token, and the link on its way to the address.
+     *
+     * Three callers now — registration, the resend button, and a profile edit that changes the
+     * address — and the composition is theirs to share rather than to copy. Copied, the third one
+     * would have been free to render a different template or queue to a different address, and the
+     * only way to notice would be a family who never got a link.
+     *
+     * `manager` is the caller's transaction, and every caller passes it: the token, the message and
+     * whatever provoked them are one write or none.
+     */
+    async issueAndSend(user: User, recipient: { firstName: string; email: string }, now: Date = new Date(), manager?: EntityManager): Promise<void> {
+        const { token } = await this.issueFor(user, recipient.email, now, manager);
+        const mail = await this.mailTemplates.render('email-confirmation', {
+            firstName: recipient.firstName,
+            confirmUrl: emailConfirmationUrl(token),
+        });
+        await this.outbox.queue({ to: recipient.email, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined }, manager);
+    }
 
     /**
      * Writes a confirmation row and returns the token to put in the link.

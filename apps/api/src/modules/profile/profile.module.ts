@@ -9,6 +9,8 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { RolesGuard } from 'src/guards/role.guard';
 import { ProfileController } from './profile.controller';
 import { AuditModule } from 'src/modules/audit/audit.module';
+import { AuthModule } from 'src/modules/auth/auth.module';
+import { User } from 'src/entities/user.entity';
 
 @Module({
     // `AuditModule` because a change to a family's own details leaves a trail — E07/S3. The names
@@ -16,7 +18,10 @@ import { AuditModule } from 'src/modules/audit/audit.module';
     // and would outlive the family that owns them.
     // `Child` and `Invoice` alongside `Profile`: deleting a profile cascades into both, so the
     // service has to look before it deletes — see `deleteProfile`.
-    imports: [TypeOrmModule.forFeature([Profile, Child, Invoice]), JwtModule.register({}), AuditModule],
+    // `AuthModule` for `EmailConfirmationService`: changing the address on file closes the
+    // confirmation gate behind it and sends a fresh link, which is the job `resendConfirmation`
+    // says belongs to this edit. No cycle — `AuthModule` reaches only entities, mail and JWT.
+    imports: [TypeOrmModule.forFeature([Profile, Child, Invoice, User]), JwtModule.register({}), AuditModule, AuthModule],
     controllers: [ProfileController],
     providers: [ProfileService, AuthGuard, RolesGuard],
 })

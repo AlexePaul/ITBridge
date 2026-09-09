@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Profile } from 'src/entities/profile.entity';
 import { Child } from 'src/entities/child.entity';
 import { Invoice } from 'src/entities/invoice.entity';
@@ -7,12 +7,14 @@ import { CreateProfileDto } from './dto/createProfile.dto';
 import { User } from 'src/entities/user.entity';
 import { Role } from 'src/enum/role.enum';
 import { FilterProfileDto } from './dto/filterProfile.dto';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { UpdateProfileDto } from './dto/updateProfile.dto';
 import { applyDefined } from 'src/common/apply-defined';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { changedFieldNames } from 'src/modules/audit/personal-fields';
+import { EmailConfirmationService } from 'src/modules/auth/email-confirmation.service';
+import { movesTheAddress } from './address-change';
 
 @Injectable()
 export class ProfileService {
@@ -20,7 +22,9 @@ export class ProfileService {
         @InjectRepository(Profile) private readonly profileRepository: Repository<Profile>,
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
         @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
+        @InjectDataSource() private readonly dataSource: DataSource,
         private readonly audit: AuditService,
+        private readonly confirmations: EmailConfirmationService,
     ) {}
 
     async createProfile(createProfileDto: CreateProfileDto, userRole: Role, userId: number | undefined, actor: Actor) {
@@ -145,8 +149,34 @@ export class ProfileService {
         // leave them here after the family itself is erased — see `recordPersonalDataChange`.
         const moved = changedFieldNames(profile as unknown as Record<string, unknown>, updateProfileDto as unknown as Record<string, unknown>);
 
+        // A changed address is an unproven one, and the gate has to close behind it — E11/S2.
+        // `AuthService.resendConfirmation` already says whose job this is, in as many words: it
+        // refuses to take an address precisely so that nobody can point a confirmation somewhere
+        // else, and leaves reopening the gate to the edit that moved it. The edit never did, so
+        // `emailConfirmedAt` went on standing for an address the family had stopped using — and
+        // `queueOrRecord`'s `confirmed` check, which exists to keep mail away from unverified
+        // addresses, read it and let everything through.
+        //
+        // Whose account it is does not matter: an admin fixing a typo has proved no more than the
+        // family would have. The new link goes out in the same transaction, so the way back is one
+        // click rather than a phone call.
+        const addressChanged = movesTheAddress(profile, updateProfileDto);
+
         applyDefined(profile, updateProfileDto);
-        const updatedProfile = await this.profileRepository.save(profile);
+        const updatedProfile = await this.dataSource.transaction(async (manager) => {
+            const saved = await manager.save(Profile, profile);
+            if (addressChanged && profile.user) {
+                await manager.update(User, profile.user.id, { emailConfirmedAt: null });
+                // The link goes only where there is somewhere to send it. Clearing the address
+                // cannot happen through `UpdateProfileDto` today — `@IsEmail()` refuses an empty
+                // value — but the gate closing and the link going out are two facts, not one, and
+                // writing them as one is how the second silently swallows the first.
+                if (saved.email) {
+                    await this.confirmations.issueAndSend(profile.user, { firstName: saved.firstName, email: saved.email }, new Date(), manager);
+                }
+            }
+            return saved;
+        });
         await this.audit.recordPersonalDataChange({
             actor,
             action: AuditAction.UPDATED,

@@ -152,6 +152,79 @@ describe('Account gates (e2e)', () => {
             expect(res.body.code).toBe('CONFIRMATION_TOKEN_USED');
         });
 
+        /**
+         * The other half of the gate, and the one that was missing.
+         *
+         * `resendConfirmation` refuses to take an address so that a session cannot point a
+         * confirmation at a mailbox of somebody's choosing — and says the edit that moves the
+         * address is the one that reopens the gate. The edit did not, so `emailConfirmedAt` went on
+         * standing for an address the family had stopped using.
+         */
+        describe('and then changing the address', () => {
+            const confirm = async (parent: TestUser) => {
+                const token = await tokenFor(parent.userId);
+                await request(app.getHttpServer()).post('/auth/confirm-email').send({ token }).expect(200);
+            };
+
+            it('closes the gate again and sends a link to the new address', async () => {
+                const parent = await registerUser(app, 'ana', 'parola123', { active: false });
+                await confirm(parent);
+                const profileId = await ownProfileId(app, parent);
+
+                await request(app.getHttpServer())
+                    .put(`/profiles/${profileId}`)
+                    .set('Authorization', parent.auth)
+                    .send({ email: 'ana.noua@example.com' })
+                    .expect(200);
+
+                const me = await request(app.getHttpServer()).get('/auth/me').set('Authorization', parent.auth).expect(200);
+                expect(me.body.emailConfirmed).toBe(false);
+
+                const confirmations = await dataSource.query('SELECT email FROM email_confirmations WHERE user_id = $1 ORDER BY id DESC LIMIT 1', [
+                    parent.userId,
+                ]);
+                expect(confirmations[0].email).toBe('ana.noua@example.com');
+
+                const queued = await dataSource.query('SELECT "to" FROM outbox ORDER BY id DESC LIMIT 1');
+                expect(queued[0].to).toBe('ana.noua@example.com');
+            });
+
+            it('leaves a confirmed account alone when the edit does not touch the address', async () => {
+                const parent = await registerUser(app, 'ana', 'parola123', { active: false });
+                await confirm(parent);
+                const profileId = await ownProfileId(app, parent);
+                const before = await dataSource.query('SELECT count(*)::int AS n FROM outbox');
+
+                await request(app.getHttpServer())
+                    .put(`/profiles/${profileId}`)
+                    .set('Authorization', parent.auth)
+                    .send({ address: 'Str. Nouă 4, București' })
+                    .expect(200);
+
+                const me = await request(app.getHttpServer()).get('/auth/me').set('Authorization', parent.auth).expect(200);
+                expect(me.body.emailConfirmed).toBe(true);
+                const after = await dataSource.query('SELECT count(*)::int AS n FROM outbox');
+                expect(after[0].n).toBe(before[0].n);
+            });
+
+            /** An admin fixing a typo has proved no more about the new address than the family would. */
+            it('closes the gate when an admin is the one who moved it', async () => {
+                const parent = await registerUser(app, 'ana', 'parola123', { active: false });
+                await confirm(parent);
+                const profileId = await ownProfileId(app, parent);
+                const admin = await promoteToAdmin(app, dataSource, await registerUser(app, 'admin.adresa'));
+
+                await request(app.getHttpServer())
+                    .put(`/profiles/${profileId}`)
+                    .set('Authorization', admin.auth)
+                    .send({ email: 'ana.corectata@example.com' })
+                    .expect(200);
+
+                const me = await request(app.getHttpServer()).get('/auth/me').set('Authorization', parent.auth).expect(200);
+                expect(me.body.emailConfirmed).toBe(false);
+            });
+        });
+
         it('refuses a token nobody issued', async () => {
             const res = await request(app.getHttpServer())
                 .post('/auth/confirm-email')

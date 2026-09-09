@@ -4,6 +4,8 @@ import { CONFIRMATION_TTL_MS, EmailConfirmationService, hashToken } from './emai
 import { EmailConfirmation } from 'src/entities/email-confirmation.entity';
 import { User } from 'src/entities/user.entity';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
+import { MailTemplateService } from 'src/modules/mail/mail-template.service';
+import { OutboxService } from 'src/modules/mail/outbox.service';
 
 describe('EmailConfirmationService', () => {
     let service: EmailConfirmationService;
@@ -11,6 +13,8 @@ describe('EmailConfirmationService', () => {
     let userRepo: MockRepository;
     let transaction: jest.Mock;
     let manager: { update: jest.Mock };
+    let mailTemplates: { render: jest.Mock };
+    let outbox: { queue: jest.Mock };
 
     const user = { id: 7 } as User;
 
@@ -21,6 +25,15 @@ describe('EmailConfirmationService', () => {
         confirmationRepo.create!.mockImplementation((data: unknown) => data);
         confirmationRepo.save!.mockImplementation((data: unknown) => Promise.resolve(data));
 
+        mailTemplates = {
+            render: jest
+                .fn()
+                .mockImplementation((_name: string, vars: { confirmUrl: string; firstName: string }) =>
+                    Promise.resolve({ subject: 'Confirmă adresa', bodyText: `Salut ${vars.firstName}: ${vars.confirmUrl}`, bodyHtml: null }),
+                ),
+        };
+        outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }) };
+
         manager = { update: jest.fn().mockResolvedValue({ affected: 1 }) };
         transaction = jest.fn((run: (m: unknown) => Promise<unknown>) => run(manager));
         // `confirm` reaches the manager through the repository it already holds, rather than
@@ -28,10 +41,52 @@ describe('EmailConfirmationService', () => {
         (confirmationRepo as Record<string, unknown>).manager = { transaction };
 
         const module: TestingModule = await Test.createTestingModule({
-            providers: [EmailConfirmationService, provideMockRepository(EmailConfirmation, confirmationRepo), provideMockRepository(User, userRepo)],
+            providers: [
+                EmailConfirmationService,
+                provideMockRepository(EmailConfirmation, confirmationRepo),
+                provideMockRepository(User, userRepo),
+                { provide: MailTemplateService, useValue: mailTemplates },
+                { provide: OutboxService, useValue: outbox },
+            ],
         }).compile();
 
         service = module.get(EmailConfirmationService);
+    });
+
+    /**
+     * The composition three callers share — registration, the resend button, and the profile edit
+     * that moves the address. It lived twice inside `AuthService` and was about to live a third
+     * time; copied again, the newest caller would have been free to render a different template or
+     * queue to a different address, and the only way to find out would have been a family who
+     * never got a link.
+     */
+    describe('issueAndSend', () => {
+        it('puts the issued token in the link, and the link in the message', async () => {
+            await service.issueAndSend(user, { firstName: 'Ana', email: 'ana@example.com' });
+
+            const token = (confirmationRepo.save!.mock.calls[0][0] as { tokenHash: string }).tokenHash;
+            const rendered = mailTemplates.render.mock.calls[0][1] as { confirmUrl: string; firstName: string };
+            expect(rendered.firstName).toBe('Ana');
+            // The row keeps the hash, the link carries the token — so the link must not contain it.
+            expect(rendered.confirmUrl).not.toContain(token);
+            expect(hashToken(rendered.confirmUrl.split('=').pop() as string)).toBe(token);
+
+            const queued = outbox.queue.mock.calls[0][0] as { to: string; bodyText: string };
+            expect(queued.to).toBe('ana@example.com');
+            expect(queued.bodyText).toContain(rendered.confirmUrl);
+        });
+
+        it("writes the row and the message through the caller's transaction, or neither", async () => {
+            const callersManager = { note: 'the caller' } as unknown as Parameters<typeof service.issueAndSend>[3];
+            (confirmationRepo as Record<string, unknown>).manager = { transaction };
+            const repositoryOf = jest.fn().mockReturnValue(confirmationRepo);
+            (callersManager as unknown as { getRepository: jest.Mock }).getRepository = repositoryOf;
+
+            await service.issueAndSend(user, { firstName: 'Ana', email: 'ana@example.com' }, new Date(), callersManager);
+
+            expect(repositoryOf).toHaveBeenCalled();
+            expect(outbox.queue.mock.calls[0][1]).toBe(callersManager);
+        });
     });
 
     describe('issueFor', () => {

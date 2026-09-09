@@ -19,7 +19,7 @@ import { EmailConfirmationService } from './email-confirmation.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { officeAddress } from 'src/modules/mail/office-address';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
-import { approvalsUrl, emailConfirmationUrl } from './portal-urls';
+import { approvalsUrl } from './portal-urls';
 
 @Injectable()
 export class AuthService {
@@ -125,16 +125,7 @@ export class AuthService {
                 email: registerDto.email,
             });
 
-            const { token } = await this.emailConfirmationService.issueFor(created, registerDto.email, now, manager);
-
-            const confirmation = await this.mailTemplates.render('email-confirmation', {
-                firstName: registerDto.firstName,
-                confirmUrl: emailConfirmationUrl(token),
-            });
-            await this.outbox.queue(
-                { to: registerDto.email, subject: confirmation.subject, bodyText: confirmation.bodyText, bodyHtml: confirmation.bodyHtml ?? undefined },
-                manager,
-            );
+            await this.emailConfirmationService.issueAndSend(created, { firstName: registerDto.firstName, email: registerDto.email }, now, manager);
 
             // The visible signal E11 asks for under "two gates before the first class". Without it,
             // an admin who does not think to open the approvals screen turns a registration into
@@ -226,17 +217,9 @@ export class AuthService {
         }
 
         const now = new Date();
-        await this.dataSource.transaction(async (manager) => {
-            const { token } = await this.emailConfirmationService.issueFor(user, profile.email as string, now, manager);
-            const mail = await this.mailTemplates.render('email-confirmation', {
-                firstName: profile.firstName,
-                confirmUrl: emailConfirmationUrl(token),
-            });
-            await this.outbox.queue(
-                { to: profile.email as string, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined },
-                manager,
-            );
-        });
+        await this.dataSource.transaction(async (manager) =>
+            this.emailConfirmationService.issueAndSend(user, { firstName: profile.firstName, email: profile.email as string }, now, manager),
+        );
 
         this.logger.log(`Reissued an email confirmation for user ${userId}.`);
         return { message: 'Am retrimis linkul de confirmare' };

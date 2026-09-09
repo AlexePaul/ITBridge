@@ -87,6 +87,10 @@ describe('AuthService', () => {
 
         confirmations = {
             issueFor: jest.fn().mockResolvedValue({ token: 'tok-123', expiresAt: new Date() }),
+            // The composition — row, token, rendered link, queued message — belongs to
+            // `EmailConfirmationService` and is tested there. What matters here is that the two
+            // callers hand it the right address and their own transaction manager.
+            issueAndSend: jest.fn().mockResolvedValue(undefined),
             confirm: jest.fn(),
             countPending: jest.fn().mockResolvedValue(0),
             findLiveFor: jest.fn().mockResolvedValue([]),
@@ -207,21 +211,15 @@ describe('AuthService', () => {
             // that 400s on a parent who did as they were told.
             expect(saved(User)).toHaveLength(1);
             expect(saved(Profile)).toHaveLength(1);
-            expect(confirmations.issueFor).toHaveBeenCalledWith(expect.anything(), 'ana@example.com', expect.any(Date), manager);
+            expect(confirmations.issueAndSend).toHaveBeenCalledWith(
+                expect.anything(),
+                { firstName: 'Ana', email: 'ana@example.com' },
+                expect.any(Date),
+                manager,
+            );
             for (const call of outbox.queue.mock.calls) {
                 expect(call[1]).toBe(manager);
             }
-        });
-
-        it('mails the parent a link carrying the issued token', async () => {
-            registrationSucceeds();
-            confirmations.issueFor.mockResolvedValue({ token: 'tok-abc', expiresAt: new Date() });
-
-            await service.register(REGISTRATION);
-
-            const toParent = outbox.queue.mock.calls.find((call) => (call[0] as { to: string }).to === 'ana@example.com');
-            expect(toParent).toBeDefined();
-            expect((toParent?.[0] as { bodyText: string }).bodyText).toContain('tok-abc');
         });
 
         it('tells the office that somebody is waiting for approval', async () => {
@@ -330,8 +328,12 @@ describe('AuthService', () => {
 
             // The method takes no address for exactly this reason: one that did would let anyone
             // holding a session point a confirmation at a mailbox of their choosing.
-            expect(confirmations.issueFor).toHaveBeenCalledWith(expect.anything(), 'ana@example.com', expect.any(Date), manager);
-            expect((outbox.queue.mock.calls[0][0] as { to: string }).to).toBe('ana@example.com');
+            expect(confirmations.issueAndSend).toHaveBeenCalledWith(
+                expect.anything(),
+                { firstName: 'Ana', email: 'ana@example.com' },
+                expect.any(Date),
+                manager,
+            );
         });
 
         it('refuses when the address is already confirmed', async () => {
