@@ -85,7 +85,7 @@
       </div>
 
       <!-- Everything open, in one table. -->
-      <div class="flex flex-wrap items-center gap-3">
+      <AdminFilterBar layout="row" :count-label="`${leads.length} cereri`">
         <!-- Cele două bife de alături își poartă eticheta; asta n-o avea deloc. -->
         <USelect
           v-model="statusFilter"
@@ -95,8 +95,7 @@
         />
         <UCheckbox v-model="onlyUnassigned" label="Doar fără responsabil" />
         <UCheckbox v-model="includeSettled" label="Include închise" />
-        <span class="text-sm text-muted">{{ leads.length }} cereri</span>
-      </div>
+      </AdminFilterBar>
 
       <AdminTable
         :rows="leads"
