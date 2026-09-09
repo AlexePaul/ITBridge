@@ -22,6 +22,7 @@ import { AnnouncementController } from 'src/modules/announcement/announcement.co
 import { LeadController } from 'src/modules/lead/lead.controller';
 import { TrialController } from 'src/modules/lead/trial.controller';
 import { AuditController } from 'src/modules/audit/audit.controller';
+import { PrivacyController } from 'src/modules/privacy/privacy.controller';
 
 /**
  * Every HTTP surface the application exposes, in one place.
@@ -61,4 +62,5 @@ export const CONTROLLERS = [
     LeadController,
     TrialController,
     AuditController,
+    PrivacyController,
 ];

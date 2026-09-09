@@ -105,6 +105,38 @@
           </div>
         </div>
       </section>
+
+      <!--
+        E07/S4. The right of access, as a button rather than as an email to the office.
+
+        The file is built in the browser from the JSON the server returns, so nothing is written to
+        disk on our side and no link needs signing. `URL.revokeObjectURL` runs in `finally`: the
+        anchor is gone the moment the click is handled, and the blob would otherwise be held for the
+        life of the tab.
+      -->
+      <section class="portal-section">
+        <!--
+          Not "Datele tale": that heading is already the contact block at the top of this page, and
+          two identical headings on one screen are two identical entries in the list a screen reader
+          navigates by — the same failure the admin sweep found in twenty rows called „Acțiuni".
+        -->
+        <h2 class="portal-label">Copia datelor tale</h2>
+
+        <p class="body-text">
+          Poți descărca tot ce ține școala despre tine și despre copiii tăi — datele de contact,
+          înscrierile, prezențele, facturile, plățile și proiectele. Fișierul e al tău; noi nu-l
+          păstrăm.
+        </p>
+
+        <button
+          type="button"
+          class="btn btn-secondary details-action"
+          :disabled="downloading"
+          @click="onDownload"
+        >
+          {{ downloading ? "Se pregătește…" : "Descarcă datele mele" }}
+        </button>
+      </section>
     </template>
   </div>
 </template>
@@ -112,6 +144,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useProfileApi } from "~/composables/api/useProfileApi";
+import { usePrivacyApi } from "~/composables/api/usePrivacyApi";
 import { useProfileStore } from "~/stores/profileStore";
 import { useUserStore } from "~/stores/userStore";
 import { useNotifications } from "~/composables/useNotifications";
@@ -136,11 +169,13 @@ definePageMeta({
 });
 
 const profileApi = useProfileApi();
+const privacyApi = usePrivacyApi();
 const profileStore = useProfileStore();
 const userStore = useUserStore();
 const { success, error: notifyError } = useNotifications();
 
 const saving = ref(false);
+const downloading = ref(false);
 
 const profile = computed(() => profileStore.profile);
 const emailConfirmed = computed(() => Boolean(userStore.user?.emailConfirmed));
@@ -178,6 +213,34 @@ onMounted(async () => {
  * they have withdrawn consent when they have not. The input is bound to the stored value rather than
  * to local state, so a failed request leaves it showing what the server actually holds.
  */
+/**
+ * Builds the file in the browser and hands it over.
+ *
+ * A date in the name because a family may ask twice, months apart, and two files called
+ * `datele-mele.json` in a downloads folder are one file as far as anybody can tell.
+ */
+const onDownload = async () => {
+  downloading.value = true;
+  let url: string | null = null;
+  try {
+    const data = await privacyApi.fetchOwnExport();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    url = URL.createObjectURL(blob);
+
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `datele-mele-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+
+    success("Datele tale s-au descărcat.", "Fișierul e în folderul de descărcări.");
+  } catch (err) {
+    notifyError("Nu am putut pregăti fișierul", apiErrorMessage(err));
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+    downloading.value = false;
+  }
+};
+
 const onToggle = async (event: Event) => {
   const current = profile.value;
   if (!current) return;
@@ -203,6 +266,8 @@ const onToggle = async (event: Event) => {
   margin-top: var(--space-2);
 }
 
+/* 44px is the minimum target on the parent's path — E18/S7 — and both controls on this page that
+   sit under a block of text share it. */
 .details-action {
   min-height: 44px;
   margin-top: var(--space-4);

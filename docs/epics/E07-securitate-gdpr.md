@@ -224,7 +224,7 @@ nu o completare, și se ia înainte de a scrie a doua jumătate.
 **Retenția nu e decisă aici.** Numărul e al [E22](E22-termeni-si-date.md) S3, iar jobul care îl
 aplică e al S4 de mai jos și al [E04](E04-migrari-date.md) S5.
 
-### S4 · Export și ștergere
+### S4 · Export și ștergere — exportul livrat
 
 Un părinte poate cere, prin portal, exportul datelor sale și ale copiilor, în format citibil, și
 ștergerea contului. Ștergerea respectă obligațiile contabile: facturile se păstrează, dar se
@@ -236,6 +236,47 @@ e drumul pe care îl parcurge o cerere, iar în [E04](E04-migrari-date.md) S5 e 
 periodic. Trei locuri, trei treburi diferite, un singur număr — al E22.
 
 **Acceptanță:** ambele fluxuri funcționează capăt-la-capăt, cu termen sub 30 de zile.
+
+**Livrat: exportul.** `GET /privacy/export` întoarce tot ce ține școala despre familia care cere —
+datele de contact, contul, copiii cu înscrierile, prezențele, absențele anunțate și proiectele lor,
+facturile cu plățile, reducerile, solicitările de probă, mesajele primite, sesiunile și documentele
+acceptate. Butonul e pe `/user/profile`, iar fișierul se construiește în browser din JSON-ul
+serverului. Adminul poate produce același document pentru o familie care a sunat, prin
+`GET /privacy/export/:profileId` — rută separată, nu un parametru opțional pe prima: un endpoint a
+cărui audiență depinde de un query string e la un refactor distanță de a o servi pe cealaltă.
+
+Patru decizii:
+
+- **Nu există `:id` pe ruta părintelui.** Profilul vine din token, deci nu există parametru de
+  schimbat. E forma cea mai tare a regulii pe care restul codului o ține în serviciu, aplicată acolo
+  unde payload-ul e _tot_ ce știe școala.
+- **Cheile de la casă nu se dau înapoi.** Hash-ul parolei și cel al tokenului sunt date personale și
+  sunt în inventar ca atare, dar întoarse familiei nu-i spun nimic, iar cuiva care citește fișierul
+  îi dau ceva de ghicit. Ce primește familia e că o sesiune a existat, când și de pe ce dispozitiv.
+- **Nimic despre altă familie.** O ședință spune când s-a ținut grupa — e orarul școlii, și intră.
+  Cine a mai stat în sală, nu. Testul de integrare verifică asta pe două familii reale, fiindcă e
+  singurul loc unde se poate verifica.
+- **Cheile documentului sunt în română**, spre deosebire de restul codului. Nu e cod, e răspunsul pe
+  care îl citește o familie; art. 15 îl cere inteligibil pentru ea, ca textele din interfață și ca
+  e-mailurile.
+
+Legătura cu S1 e ținută de un test, nu de memorie: interogările sunt scrise de mână, ca forma
+răspunsului să semene cu viața familiei și nu cu un dump de tabele normalizate, iar `export.spec.ts`
+pică dacă inventarul numește un tabel cu date de familie pe care exportul nu-l citește. Asta face
+`linkedVia` să conteze, nu doar să existe. Două tabele sunt excluse **cu motiv scris**: `audit_log`
+(consemnează ce a făcut personalul, iar o felie din activitatea lor e altă funcționalitate, cu alte
+întrebări în spate) și `unassigned_files` (rândul există tocmai fiindcă legătura cu un copil a
+eșuat).
+
+**Un avertisment care e al modelului, nu al exportului.** O probă programată de pe formularul public
+scrie un `Profile` **coajă**, fără cont (E20/S2, dinadins: coloanele alea sunt unice, iar un formular
+public n-are voie să scrie în rândul altei familii). Dacă familia se înregistrează mai târziu,
+`register` scrie un al doilea `Profile`, iar unirea celor două e treaba adminului la înscriere. Cât
+timp nu sunt unite, `GET /privacy/export` — care pleacă de la cont — nu vede lead-ul, fiindcă pentru
+bază el e al altcuiva. Exact pentru asta e ruta de admin: biroul exportă profilul-coajă după id.
+
+**Rămâne ștergerea.** Nu e blocată de E22 — termenul de acolo guvernează purjarea automată, nu o
+cerere —, dar e cod distructiv și merită propriul PR și propria citire.
 
 ### S5 · Bannerul de cookie-uri și blocarea scripturilor — livrat
 
