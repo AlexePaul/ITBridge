@@ -1185,6 +1185,20 @@ exact în România. Amândouă capetele au deja unelte: `parseIsoDate`, `toIsoDa
 `YYYY-MM-DD` și nu ating deloc `Date`. Greșeala e de exact o zi, apare doar în unele fusuri și nu se
 vede la review.
 
+**Testele de pe `api` rulează pe ceasul școlii, `TZ=Europe/Bucharest`, iar asta e portanță, nu
+preferință.** CI rulează în UTC, care e exact singurul fus în care greșeala de mai sus **nu se
+vede**: o coloană `date` citită înapoi ca `Date` stă la miezul nopții local, iar `toISOString()` pe
+ea dă ziua dinainte doar la est de Greenwich. Adică suita ar fi verde pe o mașină care nu e a
+școlii, pentru o școală care își citește toate datele la București. Nu e ipotetic — `sameValue` din
+`personal-fields.ts` compara data nașterii prin `toISOString()` și raporta drept schimbată una pe
+care n-o atinsese nimeni, scriind în jurnal că cineva a editat data nașterii unui copil. Testul
+pentru asta trece în UTC și pică în Europe/Bucharest.
+
+`TZ` trebuie pus **înainte să pornească Node** — o atribuire pe `process.env.TZ` într-un spec e
+prea târziu, fiindcă fusul e deja memorat —, deci stă pe scripturile din `apps/api/package.json`.
+`tests-run-on-the-school-clock.spec.ts` verifică și declarația, și efectul; dacă adaugi un script
+care pornește jest, treci-l acolo.
+
 Într-un formular de admin, o dată se alege prin `AdminDateField`, al cărui model e chiar string-ul
 `YYYY-MM-DD`: trecerea la `CalendarDate` stă în `apps/web/app/composables/useDateField.ts` și nu
 atinge nici ea `Date`. Nu ancora un popover la `inputsRef` al lui `UInputDate` — e un index de
