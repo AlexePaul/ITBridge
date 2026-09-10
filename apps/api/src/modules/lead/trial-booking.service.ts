@@ -288,6 +288,27 @@ export class TrialBookingService {
                 this.logger.log(`Seat in group ${session.group.id} went before the booking landed; kept lead ${lead.id} instead.`);
                 return { status: 'no_seats', leadId: lead.id };
             }
+
+            // A double-click, where the second press read "no such booking yet" before the first
+            // had committed. The check at the top of this method catches the *sequential* repeat;
+            // it cannot catch this one, which is why `bookingKey` is unique in the database. But
+            // the index refusing the insert is not an answer to give a parent: it surfaced as a
+            // 409, and `/proba` renders any failure as „Nu am putut trimite cererea… sună-ne" —
+            // telling somebody their request failed, and to ring the school, about a child who is
+            // in fact booked. The form's rule is that it never ends in an error (E20/S2).
+            //
+            // Asking the table rather than reading the driver's error code: a lead carrying this
+            // key exists only if some transaction wrote it and committed, so its presence *is* the
+            // proof that the booking landed. An unrelated failure leaves no such row and still
+            // throws.
+            const landed = await this.leadRepository.findOne({ where: { bookingKey }, relations: { trialSession: true } });
+            if (landed) {
+                this.logger.log(`Double-pressed booking lost the race; answering with lead ${landed.id}, which holds it.`);
+                return landed.noSeats
+                    ? { status: 'no_seats', leadId: landed.id }
+                    : { status: 'booked', leadId: landed.id, trial: await this.describeTrial(landed.trialSession?.id) };
+            }
+
             throw error;
         }
     }

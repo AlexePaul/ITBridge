@@ -273,6 +273,32 @@ describe('TrialBookingService', () => {
         });
     });
 
+    describe('when the write fails', () => {
+        /**
+         * The catch answers with the lead that holds the booking key, because a row carrying that
+         * key exists only if some transaction committed it — that presence *is* the proof the
+         * booking landed. What must not happen is the same generosity for a failure that wrote
+         * nothing.
+         */
+        it('rethrows a failure that left no booking behind', async () => {
+            sessionRepo.findOne?.mockResolvedValue(session());
+            // Nothing on file before, and nothing after: whatever went wrong, it was not a race.
+            leadRepo.findOne?.mockResolvedValue(null);
+            enrollments.enrol.mockRejectedValue(new Error('the database went away'));
+
+            await expect(service.book(booking, now)).rejects.toThrow('the database went away');
+        });
+
+        it('answers with the booking somebody else just committed under the same key', async () => {
+            sessionRepo.findOne?.mockResolvedValue(session());
+            enrollments.enrol.mockRejectedValue(new Error('duplicate key value violates unique constraint'));
+            // The pre-check saw nothing; by the time the insert failed, the other press had landed.
+            leadRepo.findOne?.mockResolvedValueOnce(null).mockResolvedValue({ id: 77, noSeats: false, trialSession: { id: 42 } });
+
+            await expect(service.book(booking, now)).resolves.toMatchObject({ status: 'booked', leadId: 77 });
+        });
+    });
+
     describe('splitParentName', () => {
         it('takes the last word as the surname', () => {
             expect(splitParentName('Ioana Maria Popescu')).toEqual({ firstName: 'Ioana Maria', lastName: 'Popescu' });

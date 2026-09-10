@@ -125,6 +125,27 @@ describe('Trial booking, public (e2e)', () => {
             const children = await dataSource.query<{ count: string }[]>('SELECT COUNT(*)::int AS count FROM "children"');
             expect(Number(children[0].count)).toBe(1);
         });
+
+        it('survives a double-click, where the second press lands before the first has committed', async () => {
+            const { sessionId } = await schoolWithAClass();
+            const body = bookingBody({ classSessionId: sessionId });
+
+            // The sequential case above is the one the pre-check catches. This is the one it
+            // cannot: two requests in flight together, both reading "no such booking yet" before
+            // either commits. `bookingKey` is unique in the database precisely for this, and the
+            // form's whole promise is that the worst outcome is never an error page — a family
+            // that gets one leaves, and the school never learns they came by.
+            const [first, second] = await Promise.all([
+                request(app.getHttpServer()).post('/trial/bookings').send(body),
+                request(app.getHttpServer()).post('/trial/bookings').send(body),
+            ]);
+
+            expect([first.status, second.status].sort()).toEqual([201, 201]);
+            expect(first.body.leadId).toBe(second.body.leadId);
+
+            const children = await dataSource.query<{ count: string }[]>('SELECT COUNT(*)::int AS count FROM "children"');
+            expect(Number(children[0].count)).toBe(1);
+        });
     });
 
     describe('the seat is a real seat', () => {
