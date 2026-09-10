@@ -297,6 +297,47 @@ describe('TrialBookingService', () => {
 
             await expect(service.book(booking, now)).resolves.toMatchObject({ status: 'booked', leadId: 77 });
         });
+
+        it('answers the same way when the losing press was the one that found the seat gone', async () => {
+            // The double-click onto the *last* seat, which is the shape the index never sees: the
+            // second press waits on `lockGroup`, counts zero, and raises `GROUP_FULL` — no
+            // duplicate key anywhere. Asked after that branch, the lookup below never ran and
+            // `recordNoSeats` wrote a second lead under a key the winning press had just
+            // committed, so the family got a 500 instead of their booking.
+            sessionRepo.findOne?.mockResolvedValue(session());
+            enrollments.freeSeatsAt.mockResolvedValue(0);
+            leadRepo.findOne?.mockResolvedValueOnce(null).mockResolvedValue({ id: 77, noSeats: false, trialSession: { id: 42 } });
+
+            const result = await service.book(booking, now);
+
+            expect(result).toMatchObject({ status: 'booked', leadId: 77 });
+            // And crucially not a second row: the key is taken, and taking it again is the crash.
+            expect(leadRepo.save).not.toHaveBeenCalled();
+        });
+
+        it('still records a no-seats lead when the seat went and nothing holds the key', async () => {
+            // The ordering above must not cost the ordinary race its lead — the seat really did go
+            // to somebody else, and this family is the one nobody would otherwise know about.
+            sessionRepo.findOne?.mockResolvedValue(session());
+            enrollments.freeSeatsAt.mockResolvedValue(0);
+            leadRepo.findOne?.mockResolvedValue(null);
+
+            const result = await service.book(booking, now);
+
+            expect(result.status).toBe('no_seats');
+            expect(leadRepo.save).toHaveBeenCalledWith(expect.objectContaining({ noSeats: true }));
+        });
+
+        it('reports the original failure when the booking cannot even be looked up', async () => {
+            // The lookup is asked about a failure that may be the database itself. If it throws
+            // too, the error that reaches the log has to be the first one — the second is another
+            // sentence about the same outage, and the first is the one worth reading.
+            sessionRepo.findOne?.mockResolvedValue(session());
+            enrollments.enrol.mockRejectedValue(new Error('the database went away'));
+            leadRepo.findOne?.mockResolvedValueOnce(null).mockRejectedValue(new Error('the database is still away'));
+
+            await expect(service.book(booking, now)).rejects.toThrow('the database went away');
+        });
     });
 
     describe('splitParentName', () => {

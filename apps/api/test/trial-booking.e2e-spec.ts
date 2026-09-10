@@ -146,6 +146,31 @@ describe('Trial booking, public (e2e)', () => {
             const children = await dataSource.query<{ count: string }[]>('SELECT COUNT(*)::int AS count FROM "children"');
             expect(Number(children[0].count)).toBe(1);
         });
+
+        it('survives a double-click onto the last seat, where the loser finds it gone', async () => {
+            // The room holds one child, so the losing press never reaches the unique index: it
+            // waits on the group lock, counts zero seats and raises `GROUP_FULL`. That branch
+            // writes a no-seats lead — under a `bookingKey` the winning press has just committed —
+            // so before the catch was reordered this pair ended in a duplicate-key 500, which is a
+            // worse answer than the 409 it was meant to replace.
+            const { sessionId } = await schoolWithAClass({ capacity: 1 });
+            const body = bookingBody({ classSessionId: sessionId });
+
+            const [first, second] = await Promise.all([
+                request(app.getHttpServer()).post('/trial/bookings').send(body),
+                request(app.getHttpServer()).post('/trial/bookings').send(body),
+            ]);
+
+            expect([first.status, second.status].sort()).toEqual([201, 201]);
+            expect(first.body.leadId).toBe(second.body.leadId);
+            expect(first.body.status).toBe('booked');
+
+            // One child on one seat, and one lead — not a second family invented by the loser.
+            const children = await dataSource.query<{ count: string }[]>('SELECT COUNT(*)::int AS count FROM "children"');
+            expect(Number(children[0].count)).toBe(1);
+            const leads = await dataSource.query<{ count: string }[]>('SELECT COUNT(*)::int AS count FROM "leads"');
+            expect(Number(leads[0].count)).toBe(1);
+        });
     });
 
     describe('the seat is a real seat', () => {
