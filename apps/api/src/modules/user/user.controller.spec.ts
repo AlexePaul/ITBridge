@@ -1,9 +1,14 @@
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { AccountApprovalService } from './account-approval.service';
-import { buildController } from 'src/testing/controller.spec-helpers';
+import { buildController, requestOf } from 'src/testing/controller.spec-helpers';
+import { Role } from 'src/enum/role.enum';
 
 describe('UserController', () => {
+    /** Whoever pressed. Every write below is an ADMIN decision about a person, so all four record it. */
+    const ADMIN_REQ = requestOf(Role.ADMIN, 7, 'ana.admin');
+    const ACTOR = { userId: 7, username: 'ana.admin' };
+
     const approvals = {
         listPending: jest.fn().mockResolvedValue([]),
         approve: jest.fn().mockResolvedValue({ message: 'Cont aprobat' }),
@@ -48,8 +53,20 @@ describe('UserController', () => {
 
     it('passes the id and body to update', async () => {
         const { controller, service } = await build();
-        await controller.updateUser(7, { username: 'ana' });
-        expect(service.updateUser).toHaveBeenCalledWith(7, { username: 'ana' });
+        await controller.updateUser(7, { username: 'ana' }, ADMIN_REQ);
+        expect(service.updateUser).toHaveBeenCalledWith(7, { username: 'ana' }, ACTOR);
+    });
+
+    /**
+     * The four writes on this controller are the platform's access decisions — who gets in, who is
+     * refused, who becomes an admin, whose account goes. None of them carried an actor, so none of
+     * them could be recorded. The assertion is on `actorFrom`'s output rather than the request,
+     * because that is what reaches the log.
+     */
+    it('names whoever pressed on the delete, as on the other three', async () => {
+        const { controller, service } = await build();
+        await controller.deleteUser(7, ADMIN_REQ);
+        expect(service.deleteUser).toHaveBeenCalledWith(7, ACTOR);
     });
 
     it('serves the approvals queue from the approval service', async () => {
@@ -60,16 +77,16 @@ describe('UserController', () => {
 
     it('passes the route id to approve', async () => {
         const { controller } = await build();
-        await controller.approveAccount(7);
-        expect(approvals.approve).toHaveBeenCalledWith(7);
+        await controller.approveAccount(7, ADMIN_REQ);
+        expect(approvals.approve).toHaveBeenCalledWith(7, ACTOR);
     });
 
     it('passes the reason through to reject, and undefined when there is none', async () => {
         const { controller } = await build();
-        await controller.rejectAccount(7, { reason: 'duplicat' });
-        expect(approvals.reject).toHaveBeenCalledWith(7, 'duplicat');
+        await controller.rejectAccount(7, { reason: 'duplicat' }, ADMIN_REQ);
+        expect(approvals.reject).toHaveBeenCalledWith(7, ACTOR, 'duplicat');
 
-        await controller.rejectAccount(8, {});
-        expect(approvals.reject).toHaveBeenCalledWith(8, undefined);
+        await controller.rejectAccount(8, {}, ADMIN_REQ);
+        expect(approvals.reject).toHaveBeenCalledWith(8, ACTOR, undefined);
     });
 });
