@@ -13,6 +13,23 @@ import { isInTime } from './absence-notice.rules';
 import { AnnounceAbsenceDto } from './dto/announceAbsence.dto';
 
 /**
+ * A notice as it leaves this service — the entity, minus the rows loaded only to check it.
+ *
+ * `forResponse` used to return `AbsenceNotice` and cast the two trimmed objects back to `Child` and
+ * `Group`, which said the opposite of what the method is for: the whole point is that `child.parent`
+ * and `classSession.group.children` are *gone*. Written with `Omit` rather than by hand so a column
+ * added to either entity reaches the screen without anybody remembering this file.
+ *
+ * Narrower than the wire contract, not wider: `packages/types/src/attendance.ts` declares `child` as
+ * `{ id, firstName, lastName }`, so nothing changes shape on the way out — this only stops the
+ * compiler from being told two things that are not true.
+ */
+export type AbsenceNoticeResponse = Omit<AbsenceNotice, 'child' | 'classSession'> & {
+    child: Omit<Child, 'parent'>;
+    classSession: Omit<ClassSession, 'group'> & { group: Omit<Group, 'children'> };
+};
+
+/**
  * Absences announced ahead of the class — E12/S3.
  *
  * The story's whole value is in the word *ahead*: the teacher learns before the lesson rather than
@@ -36,11 +53,14 @@ export class AbsenceNoticeService {
      *
      * Amending rather than refusing a second notice: a parent who writes again has changed their
      * mind or their wording, not produced a second absence. `inTime` is recomputed on an amendment,
-     * because the amendment is itself an act with a moment — a family that announces at nine and
-     * corrects the reason at ten is still in time; one who first says anything after the class has
-     * started is not, however early they meant to.
+     * because the amendment is itself an act with a moment — and the moment is judged against one
+     * deadline for the whole week, Monday noon (`isInTime`), never against the hour the class
+     * starts. So a family that announces on Sunday and corrects the reason on Monday at eleven is
+     * still in time, while one that first says anything on Monday afternoon is not, however early
+     * they meant to. It cuts the other way too, and that is what "recomputed" costs: an amendment
+     * made after Monday noon spends the standing the first notice had.
      */
-    async announce(dto: AnnounceAbsenceDto, role: Role, userId: number, now: Date = new Date()): Promise<AbsenceNotice> {
+    async announce(dto: AnnounceAbsenceDto, role: Role, userId: number, now: Date = new Date()): Promise<AbsenceNoticeResponse> {
         const child = await this.childRepository.findOne({
             where: { id: dto.childId },
             relations: { parent: { user: true } },
@@ -121,10 +141,10 @@ export class AbsenceNoticeService {
      * group's whole roster, loaded to check that the child is in it. Everything the screen reads —
      * the child's name, the class, its group's name, `inTime` — stays.
      */
-    private forResponse(notice: AbsenceNotice): AbsenceNotice {
+    private forResponse(notice: AbsenceNotice): AbsenceNoticeResponse {
         const { parent: _parent, ...child } = notice.child;
         const { children: _children, ...group } = notice.classSession.group;
-        return { ...notice, child: child as Child, classSession: { ...notice.classSession, group: group as Group } };
+        return { ...notice, child, classSession: { ...notice.classSession, group } };
     }
 
     /**

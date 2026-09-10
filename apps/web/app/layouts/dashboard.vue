@@ -88,6 +88,19 @@ if (isAdmin) {
   const projectsApi = useProjectsApi();
   const attendanceApi = useAttendanceApi();
   onMounted(async () => {
+    // E12/S4. The same argument as the projects figure below: the office's Monday list is only a
+    // list if somebody opens it, and the child who falls through is the one nobody was reminded of.
+    //
+    // Started here, before the awaits, rather than in sequence after them. `/admin/absente` asks
+    // for this same list in its own `load()` on the same paint, and `useAttendanceApi` collapses
+    // two callers into one request — but only while both are still in flight. Sequenced third, as
+    // it was, this one always went out after the screen's had already come back, so the office's
+    // screen fetched the list twice on every cold open. The `catch` is attached now rather than at
+    // the `await` below, so a failure is never an unhandled rejection in between.
+    const unplaced = attendanceApi.fetchUnplacedAbsences().catch(() => {
+      // No badge. The screen itself still shows the list, with its own error state.
+    });
+
     try {
       await Promise.all([locationsApi.fetchLocations(), roomsApi.fetchRooms()]);
     } catch {
@@ -104,13 +117,7 @@ if (isAdmin) {
       // a layout that refuses to render over it would be a worse one, and the projects screen still
       // shows the backlog to anybody who opens it.
     }
-    try {
-      // E12/S4. The same argument as the figure above: the office's Monday list is only a list if
-      // somebody opens it, and the child who falls through is the one nobody was reminded of.
-      await attendanceApi.fetchUnplacedAbsences();
-    } catch {
-      // No badge. The screen itself still shows the list, with its own error state.
-    }
+    await unplaced;
   });
 }
 

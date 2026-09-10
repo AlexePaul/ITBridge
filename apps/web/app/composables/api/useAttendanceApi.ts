@@ -9,6 +9,22 @@ import type {
   SessionRegister,
 } from "~/types/attendance.types";
 
+/**
+ * The unplaced list while it is in flight, shared between everybody who asks for it — E12/S4.
+ *
+ * Opening `/admin/absente` cold asked the same question twice on one paint: the dashboard layout
+ * fetches the list on mount for the menu badge, and the screen fetches it again in its own
+ * `load()`. Neither call can be dropped — the badge has to be there on every admin screen, and the
+ * screen needs its own loading and error state rather than a store that may or may not have been
+ * filled behind it — so the request is shared instead. Nothing after the first paint changes: by
+ * the time a move or a withdrawal refreshes the list, this is null again and the call goes out.
+ *
+ * Module level, not a `let` inside the composable, for the same reason `refreshPromise` in
+ * `useApi` is: every `useAttendanceApi()` call builds its own closure, so a variable in there
+ * would de-duplicate nothing.
+ */
+let unplacedInFlight: Promise<AbsenceNotice[]> | null = null;
+
 export const useAttendanceApi = () => {
   const api = useApi();
   const tokenStore = useTokenStore();
@@ -119,13 +135,20 @@ export const useAttendanceApi = () => {
    *
    * Into the store as well as back to the caller: the count sits in the admin menu, and the
    * screen that changes it refreshes through this same call, so the badge and the list never
-   * disagree.
+   * disagree. Callers that ask at the same moment share one request — see `unplacedInFlight`.
    */
   const fetchUnplacedAbsences = async () => {
-    const notices = await api<AbsenceNotice[]>("/attendance/replacements/unplaced", {
-      method: "GET",
-      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
-    });
+    if (!unplacedInFlight) {
+      unplacedInFlight = api<AbsenceNotice[]>("/attendance/replacements/unplaced", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      }).finally(() => {
+        unplacedInFlight = null;
+      });
+    }
+    const notices = await unplacedInFlight;
+    // Outside the shared promise on purpose: each caller writes to the store it holds. The second
+    // write assigns the same array, which Vue compares by identity and drops, so it costs nothing.
     unplacedAbsences.set(notices);
     return notices;
   };
