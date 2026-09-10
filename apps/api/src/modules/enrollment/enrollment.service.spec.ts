@@ -356,6 +356,107 @@ describe('EnrollmentService', () => {
         });
     });
 
+    /**
+     * E11's lock, on the doors that *release* a seat rather than take one.
+     *
+     * `enrol` and `transfer` have held the group row since E20/S2, but the four paths that hand a
+     * seat back counted without it — and the count is what decides whether a waiting family is
+     * written to. `enrol` locking the group, counting nine of ten and inserting the tenth is
+     * invisible to a `close` reading its own snapshot, so the offer went out for a chair that was
+     * already gone, with a 48-hour clock on it.
+     *
+     * Asserted as an order rather than by racing two transactions: what went wrong is which of two
+     * lines comes first, and that is a thing a unit test can hold still.
+     */
+    describe('the lock behind a freed seat', () => {
+        /** `occupancyOf` reads the group unlocked as well, so the locking read is found by its options. */
+        const lockedReadIndex = (): number => {
+            const calls = groupRepo.findOne!.mock.calls as unknown as [{ lock?: unknown }][];
+            return calls.findIndex(([options]) => options?.lock !== undefined);
+        };
+
+        /**
+         * Asserts there *is* a locked read before returning when it happened.
+         *
+         * Without that assertion the helper answers `-1` when the lock is missing, and `-1` is less
+         * than everything — so every ordering test below would have passed on the very bug it is
+         * here to catch.
+         */
+        const lockedReadOrder = (): number => {
+            const index = lockedReadIndex();
+            expect(index).toBeGreaterThanOrEqual(0);
+            return groupRepo.findOne!.mock.invocationCallOrder[index];
+        };
+
+        const waitingFamily = () => {
+            enrollmentRepo.count!.mockResolvedValue(9);
+            waitlistRepo.findOne!.mockResolvedValue({
+                id: 5,
+                child: { firstName: 'Ana', parent: { email: 'urmatorul@example.com' } },
+                group: { id: 2, name: 'Scratch Începători' },
+            });
+        };
+
+        it('closing an enrolment holds the group row, and holds it before counting', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ id: 9, status: EnrollmentStatus.ACTIVE, child: { id: 1 }, group: { id: 2 } });
+            enrollmentRepo.findOneOrFail!.mockResolvedValue({ id: 9, status: EnrollmentStatus.WITHDRAWN, group: { id: 2 } });
+            waitingFamily();
+
+            await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
+
+            expect(groupRepo.findOne).toHaveBeenCalledWith({ where: { id: 2 }, lock: { mode: 'pessimistic_write' } });
+            expect(lockedReadOrder()).toBeLessThan(enrollmentRepo.count!.mock.invocationCallOrder[0]);
+        });
+
+        it('a trial that does not continue holds it too', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ id: 9, status: EnrollmentStatus.TRIAL, child: { id: 1 }, group: { id: 2 }, contractSignedAt: null });
+            enrollmentRepo.findOneOrFail!.mockResolvedValue({ id: 9, status: EnrollmentStatus.WITHDRAWN, group: { id: 2 } });
+            waitingFamily();
+
+            await service.resolveTrial(9, { accepted: false });
+
+            expect(lockedReadOrder()).toBeLessThan(enrollmentRepo.count!.mock.invocationCallOrder[0]);
+        });
+
+        /** A trial becoming an enrolment frees nothing — D7 counts both — so there is nothing to guard. */
+        it('a trial that becomes an enrolment takes no lock', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ id: 9, status: EnrollmentStatus.TRIAL, child: { id: 1 }, group: { id: 2 }, contractSignedAt: null });
+            enrollmentRepo.findOneOrFail!.mockResolvedValue({ id: 9, status: EnrollmentStatus.ACTIVE, group: { id: 2 } });
+
+            await service.resolveTrial(9, { accepted: true });
+
+            expect(lockedReadIndex()).toBe(-1);
+        });
+
+        it('a lapsed offer holds it before it moves the seat on', async () => {
+            waitlistRepo.find!.mockResolvedValue([
+                { id: 4, child: { firstName: 'Vlad', parent: { email: 'parinte@example.com' } }, group: { id: 2, name: 'Scratch Începători' } },
+            ]);
+            waitingFamily();
+
+            await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
+
+            expect(lockedReadOrder()).toBeLessThan(enrollmentRepo.count!.mock.invocationCallOrder[0]);
+        });
+
+        /**
+         * And this one holds it **before touching the entry**, which is about deadlock rather than
+         * counting: `close` holds the group and then writes to the next family's entry, so a path
+         * that held an entry and then wanted the group would meet it head-on. One order everywhere —
+         * group first — is what stops that.
+         */
+        it('taking an entry off the list holds it before writing to the entry', async () => {
+            waitlistRepo
+                .findOne!.mockResolvedValueOnce({ id: 4, status: WaitlistStatus.OFFERED, group: { id: 2 } })
+                .mockResolvedValue({ id: 5, child: { firstName: 'Ana', parent: { email: 'urmatorul@example.com' } }, group: { id: 2, name: 'Grupa' } });
+            enrollmentRepo.count!.mockResolvedValue(9);
+
+            await service.removeFromWaitlist(4, WaitlistStatus.DECLINED);
+
+            expect(lockedReadOrder()).toBeLessThan(manager.update.mock.invocationCallOrder[0]);
+        });
+    });
+
     describe('occupancyOf', () => {
         it('reports free seats as capacity minus everything in force', async () => {
             enrollmentRepo.count!.mockResolvedValue(7);

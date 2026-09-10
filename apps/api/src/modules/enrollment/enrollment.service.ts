@@ -381,6 +381,13 @@ export class EnrollmentService {
                 });
             }
 
+            // Before the write, not after it: the seat this releases is offered further down, and
+            // the count behind that offer is only honest while the group's row is held. Taking it
+            // first also keeps one lock order everywhere — group, then enrolment, then child, then
+            // waiting list — which is the order `enrol` already uses. Reversed here, an admin
+            // cancelling a waiting entry at the same moment would meet this transaction head-on.
+            await this.lockGroup(manager, enrollment.group.id);
+
             await manager.update(
                 Enrollment,
                 { id: enrollmentId },
@@ -496,6 +503,11 @@ export class EnrollmentService {
                 // the two happening without the other is exactly what S4's numbers cannot survive.
                 await this.leadProgress.settleForEnrollment(enrollmentId, { enrolled: true }, new Date(), manager);
             } else {
+                // Same order as `close`: the group first, because the seat leaves here and the
+                // offer below counts what is left. The accepted branch needs no lock — a trial
+                // becoming active frees nothing, since D7 counts both.
+                await this.lockGroup(manager, trial.group.id);
+
                 await manager.update(
                     Enrollment,
                     { id: enrollmentId },
@@ -780,6 +792,12 @@ export class EnrollmentService {
         let expired = 0;
         for (const entry of lapsed) {
             await this.dataSource.transaction(async (manager) => {
+                // The group before the entry. This transaction ends up writing to a *second*
+                // waiting entry — the next family — through `offerFreedSeat`, and an admin
+                // cancelling that entry runs the same two rows in the opposite order. One of the
+                // two has to move, and the group is the one every other path already takes first.
+                await this.lockGroup(manager, entry.group.id);
+
                 await manager.update(WaitlistEntry, { id: entry.id }, { status: WaitlistStatus.EXPIRED });
 
                 const mail = composeWaitlistOfferExpired(entry.child.firstName, entry.group.name);
@@ -807,6 +825,11 @@ export class EnrollmentService {
         }
 
         await this.dataSource.transaction(async (manager) => {
+            // Unconditionally, even when nothing is handed on: the lock is cheap and the order is
+            // what matters — this is the path that would otherwise hold a waiting entry while
+            // `close` held the group and wanted that same entry.
+            await this.lockGroup(manager, entry.group.id);
+
             await manager.update(WaitlistEntry, { id: entryId }, { status });
             // A declined or expired offer hands the seat straight to the next family, rather than
             // leaving it held by nobody until an admin notices.
@@ -824,8 +847,17 @@ export class EnrollmentService {
      * Called from inside the transaction that freed the seat, so the offer and the release commit
      * together. Offers exactly one seat per call: two seats freed means two calls, and a loop here
      * would be a promise made to a second family on the strength of a number read once.
+     *
+     * **The count is taken holding the group's row**, like every other count of D7's number. Without
+     * it an enrolment committing on another connection was invisible: `enrol` locks the group,
+     * counts nine of ten and inserts the tenth, while this read its own snapshot, saw a free chair
+     * and wrote to a family that a place was theirs — with a 48-hour clock on a seat that was
+     * already gone. Every caller takes the lock before it touches anything else, so this re-take is
+     * a no-op in the same transaction; it is here so the rule cannot be lost by a fifth caller
+     * that forgets it.
      */
     private async offerFreedSeat(groupId: number, manager: EntityManager): Promise<void> {
+        await this.lockGroup(manager, groupId);
         const occupancy = await this.occupancyOf(groupId, manager);
         if (occupancy.free <= 0) {
             return;
