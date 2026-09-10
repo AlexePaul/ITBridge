@@ -157,6 +157,28 @@ describe('The password hash never leaves the API (e2e)', () => {
             expectNoAccount(opened.body);
             expectNoHash(opened.body);
         });
+
+        it('and does not carry it on the second ingest of a file already on file', async () => {
+            // A real 1x1 PNG, so the ingest runs for real. The second pass takes `ingest`'s fast
+            // path, which answers with what it finds instead of going round through
+            // `requireProject` — the one route on this service that could still have carried it.
+            const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+            const upload = () =>
+                request(app.getHttpServer())
+                    .post('/projects/ingest')
+                    .set('Authorization', admin.auth)
+                    .field('childId', String(childId))
+                    .field('capturedOn', '2026-09-14')
+                    .attach('file', png, 'macheta.png')
+                    .expect(201);
+
+            const first = await upload();
+            const again = await upload();
+
+            expect(again.body.id).toBe(first.body.id);
+            expectNoAccount(again.body);
+            expectNoHash(again.body);
+        });
     });
 
     describe('the one reader', () => {

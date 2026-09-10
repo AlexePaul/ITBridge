@@ -609,10 +609,17 @@ export class ProjectService {
         return { ...project, child: { ...project.child, parent } } as Project;
     }
 
+    /**
+     * Stripped here rather than at the callers, because one of them answers with what it finds:
+     * `ingest`'s fast path returns this row straight to the caller instead of going round through
+     * `requireProject`, so a re-ingest of a file already on file would have carried the account
+     * while a first ingest of the same file did not.
+     */
     private async findByIngestionKey(key: string): Promise<Project | null> {
         const file = await this.fileRepository.findOne({ where: { ingestionKey: key }, relations: ['version', 'version.project'] });
         if (!file) return null;
-        return this.projectRepository.findOne({ where: { id: file.version.project.id }, relations: PROJECT_RELATIONS });
+        const project = await this.projectRepository.findOne({ where: { id: file.version.project.id }, relations: PROJECT_RELATIONS });
+        return project && ProjectService.withoutAccount(project);
     }
 
     private async requireChild(childId: number): Promise<Child> {
