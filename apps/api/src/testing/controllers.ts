@@ -16,6 +16,7 @@ import { ProjectController } from 'src/modules/project/project.controller';
 import { AgentController } from 'src/modules/project/agent.controller';
 import { MailTemplateController } from 'src/modules/mail/mail-template.controller';
 import { DeliveryLogController } from 'src/modules/mail/delivery-log.controller';
+import { UnsubscribeController } from 'src/modules/mail/unsubscribe.controller';
 import { OverviewController } from 'src/modules/dashboard/overview.controller';
 import { ReportsController } from 'src/modules/dashboard/reports.controller';
 import { AnnouncementController } from 'src/modules/announcement/announcement.controller';
@@ -56,6 +57,7 @@ export const CONTROLLERS = [
     AgentController,
     MailTemplateController,
     DeliveryLogController,
+    UnsubscribeController,
     OverviewController,
     ReportsController,
     AnnouncementController,

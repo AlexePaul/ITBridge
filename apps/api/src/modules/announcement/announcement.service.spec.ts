@@ -248,6 +248,37 @@ describe('AnnouncementService', () => {
 
             expect(preview.recipients).toMatchObject({ total: 2, deliverable: 1, declined: 1 });
         });
+
+        it('shows the way out that a promotional message will actually carry — E17/S4', async () => {
+            withAudience([childOf(1, { marketingOptIn: true })]);
+
+            const preview = await service.preview(announcement({ kind: MessageKind.MARKETING }));
+
+            // This screen exists so somebody can check what will be sent. Since `queueMarketing`
+            // adds the footer, a preview without it is a preview of a different message.
+            expect(preview.bodyText).toContain('/dezabonare?token=');
+        });
+
+        it("shows a sample token there, never a family's own", async () => {
+            withAudience([childOf(1, { marketingOptIn: true, unsubscribeToken: 'jetonul-anei' })]);
+
+            const preview = await service.preview(announcement({ kind: MessageKind.MARKETING }));
+
+            // The column is `select: false` to keep real tokens out of payloads; an admin screen is
+            // a payload. Whoever reads this preview must not come away holding a working link.
+            expect(preview.bodyText).not.toContain('jetonul-anei');
+            expect(preview.bodyText).toContain('EXEMPLU');
+        });
+
+        it('leaves an operational announcement without one', async () => {
+            withAudience([childOf(1)]);
+
+            // An unsubscribe link on a cancelled-class notice would be telling a family they can
+            // opt out of being told their child's class is off.
+            const preview = await service.preview(announcement());
+
+            expect(preview.bodyText).not.toContain('/dezabonare');
+        });
     });
 
     describe('the dedupe key', () => {

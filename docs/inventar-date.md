@@ -26,8 +26,8 @@ Trei lucruri de citit înainte de tabele:
 
 ## Pe scurt
 
-- **30 tabele**, cu **233 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
-- **101 coloane sunt date personale**, în **22 tabele**.
+- **30 tabele**, cu **234 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
+- **102 coloane sunt date personale**, în **22 tabele**.
 - Restul de **132** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
 
 ## Datele personale, câmp cu câmp
@@ -50,6 +50,7 @@ Trei lucruri de citit înainte de tabele:
 | `profiles.emergencyContactRelation` | Părinte | Date de contact | Ce e persoana de urgență pentru copil. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `profiles.emergencyContactPhone` | Părinte | Date de contact | Numărul la care se sună în urgență. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `profiles.marketingOptIn` | Părinte | Urme de utilizare | Dacă familia a acceptat comunicările comerciale. | Consimțământ | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
+| `profiles.unsubscribeToken` | Părinte | Credențiale | Recunoaște familia în linkul de dezabonare dintr-un mesaj promoțional (E17 S4). | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin |
 | `profiles.erasureRequestedAt` | Părinte | Urme de utilizare | Ziua în care familia a cerut ștergerea contului; de la ea curge termenul de 30 de zile. | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `profiles.erasedAt` | Părinte | Urme de utilizare | Ziua în care s-a făcut ștergerea. | Obligație legală | Termenul contabil legal | Admin |
 | `children.firstName` | Copil | Identitate | Catalogul, orarul și fișa copilului. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
@@ -185,6 +186,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 - **`users.rejectionReason`** — Nota adminului. Nu se întoarce părintelui — de asta `parent.user` se scoate din răspunsuri.
 - **`profiles.emergencyContactName`** — Poate fi o a treia persoană, care nu are cont: datele ei ajung aici prin părinte.
 - **`profiles.marketingOptIn`** — Implicit `false`. Gatează exclusiv `queueMarketing`; nicio factură și niciun anunț despre ore nu trece prin ea.
+- **`profiles.unsubscribeToken`** — Singura coloană de tip `credential` ținută în clar, și dinadins: linkul trimis prin e-mail trebuie să funcționeze peste luni, deci nu poate fi comparat cu un hash al unui secret pe care nu-l mai are nimeni. Ce face acceptabil compromisul e cât de puțin poate: oprește marketingul, niciodată nu-l pornește, și nu deschide nimic altceva. Nu apare în export și pe niciun ecran.
 - **`profiles.erasureRequestedAt`** — O a doua cerere înainte ca prima să fie servită e aceeași cerere făcută de două ori: ziua dintâi rămâne.
 - **`profiles.erasedAt`** — Rândul supraviețuiește ștergerii fiindcă facturile atârnă de el (`Invoice.parent` e `CASCADE`). Coloana asta e ce spune ecranelor că e o coajă, nu o familie pe care n-a completat-o nimeni.
 - **`children.birthDate`** — Data nașterii unui minor. Verificarea de vârstă din E11 S6 e singurul lucru care o citește ca regulă.

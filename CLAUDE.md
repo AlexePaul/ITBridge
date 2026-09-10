@@ -1026,6 +1026,30 @@ ar putea opri o factură, o chitanță, o oră anulată sau proiectul copilului:
 contractului, nu reclamă. Un refuz **nu** lasă rând în evidență, spre deosebire de un mesaj fără
 destinatar — acolo cineva trebuia contactat și n-a fost, aici nimeni nu trebuia.
 
+**Marketingul își poartă propria cale de oprire, iar aceea se adaugă la ușă, nu în șablon**
+(E17 S4). Legea 506/2004 art. 12 cere ca refuzul să fie posibil **din fiecare mesaj**, nu dintr-un
+ecran, iar GDPR art. 7 alin. 3 ca retragerea să fie la fel de ușoară ca acordarea — un login e mai
+greu decât bifa care a pornit mesajele. Footerul se compune în `queueMarketing`
+(`unsubscribe-footer.ts`), adică exact acolo unde se verifică și consimțământul: un subsol pe care
+fiecare expeditor trebuie să-l lipească e un subsol pe care cineva îl uită, iar aici un mesaj de
+marketing fără cale de oprire e **imposibil de trimis**, nu doar descurajat. Patru lucruri:
+
+- **`Profile.unsubscribeToken` e `select: false`**, ca `User.passwordHash`: `GET /profiles` citește
+  entități întregi printr-un query builder, deci fără asta listarea de admin ar duce în browser
+  jetonul fiecărei familii. Singurul cititor îl cere pe nume — interogarea de audiență a anunțului.
+- **Îl scrie un `EventSubscriber`, nu un `@BeforeInsert`.** Un hook de entitate rulează doar când
+  ce se salvează e o **instanță** a clasei, iar `register`, programarea la probă și `ProfileService`
+  dau lui `save` un obiect simplu. Cu hook, înregistrarea moare pe `NOT NULL` — măsurat, nu
+  presupus. De aceea `data-source.ts` are acum și un glob de `subscribers`.
+- **Linkul deschide o pagină; scrierea e un `POST`.** Clienții de mail, scanerele de securitate și
+  boții de previzualizare deschid linkuri fără om, deci un `GET` care dezabonează la atingere ar
+  opri tăcut familii care n-au refuzat niciodată — iar urma ar arăta exact ca oameni care refuză.
+  `unsubscribe-needs-a-click.spec.ts` ține linia.
+- **Comută într-o singură direcție și nu spune dacă jetonul e real.** Oprește marketingul, niciodată
+  nu-l pornește — de aia jetonul poate fi stabil și fără expirare, iar cel mai rău lucru pe care îl
+  face unul scurs e să oprească un buletin. Un răspuns care ar distinge „oprit" de „nu există" ar fi
+  un oracol pentru ghicit jetoane.
+
 **Un mesaj care n-are unde să plece lasă un rând, nu o linie de log** (E17 S5). `queueOrRecord` din
 `OutboxService` primește destinatarul oricare ar fi el și scrie `undeliverable` cu motiv tipizat
 (`no_address` / `unconfirmed_address`) când n-are adresă — starea e terminală și dispecerul n-o
