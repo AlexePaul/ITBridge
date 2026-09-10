@@ -24,6 +24,17 @@ export enum Role {
  */
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
+/**
+ * Mirrors `LegalDocument` in `apps/api/src/enum/legal-document.enum.ts` — a union of literals, for
+ * the reason `ApprovalStatus` above is one: nothing new in this package may be a runtime value.
+ *
+ * `unusual_clauses` is not a third document but the clauses inside the terms that Cod civil
+ * art. 1203 requires to be accepted expressly and separately — §14, §15, §18. It carries the terms'
+ * version, and it is ticked on its own. The Romanian labels live beside the screens that show them,
+ * in `apps/web/app/types/`, because on the wire this is `'terms'`, not „Termenii și condițiile".
+ */
+export type LegalDocumentKey = 'terms' | 'privacy' | 'unusual_clauses';
+
 export interface User {
     id: number;
     username: string;
@@ -51,6 +62,15 @@ export interface CurrentUser extends User {
      * has no profile and needs none.
      */
     profileComplete: boolean;
+    /**
+     * Which documents this family has not accepted in the version in force — E22 S4, second half.
+     *
+     * Terms §18 promises that a new version is asked for at the first sign-in after it, and this is
+     * what the portal reads to ask. Derived on the server, like `active` and `profileComplete` and
+     * for the same reason: the screen that redirects and the endpoint that records must not hold
+     * two copies of one rule. Empty for an admin, who is the school rather than a family.
+     */
+    pendingLegalDocuments: LegalDocumentKey[];
 }
 
 /** One row of the admin approvals queue, `GET /users/pending`. */

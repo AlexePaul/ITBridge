@@ -105,9 +105,11 @@ export function registrationBody(username: string, password = 'parola123'): Reco
         firstName: username,
         lastName: 'Test',
         email: `${username}@example.com`,
-        // The checkbox — E22 S2/S4. Without it the request is a 400, and a suite about something
-        // else would fail on a rule it is not about.
+        // Both checkboxes — E22 S2/S4. Without either the request is a 400, and a suite about
+        // something else would fail on a rule it is not about. The second one is the express,
+        // separate acceptance Cod civil art. 1203 asks for on the terms' unusual clauses.
         acceptedTerms: true,
+        acceptedUnusualClauses: true,
     };
 }
 

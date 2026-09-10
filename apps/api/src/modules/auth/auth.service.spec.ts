@@ -9,6 +9,7 @@ import { User } from 'src/entities/user.entity';
 import { jwtConstants } from 'src/constants/jwtConstants';
 import {
     createMockEntityManager,
+    createMockInsertBuilder,
     createMockRepository,
     MockEntityManager,
     MockRepository,
@@ -22,6 +23,7 @@ import { LEGAL_DOCUMENT_VERSIONS } from './legal-documents';
 import { EmailConfirmationService } from './email-confirmation.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
+import { LegalDocument } from 'src/enum/legal-document.enum';
 
 /**
  * Everything `register` now requires, so each test can say only what it is about.
@@ -37,6 +39,7 @@ const REGISTRATION = {
     lastName: 'Popescu',
     email: 'ana@example.com',
     acceptedTerms: true,
+    acceptedUnusualClauses: true,
 };
 
 describe('AuthService', () => {
@@ -44,6 +47,7 @@ describe('AuthService', () => {
     let jwtService: JwtService;
     let userRepo: MockRepository;
     let profileRepo: MockRepository;
+    let acceptanceRepo: MockRepository;
     let sessions: Record<string, jest.Mock>;
     let confirmations: Record<string, jest.Mock>;
     let outbox: Record<string, jest.Mock>;
@@ -59,6 +63,9 @@ describe('AuthService', () => {
     beforeEach(async () => {
         userRepo = createMockRepository();
         profileRepo = createMockRepository();
+        acceptanceRepo = createMockRepository();
+        // An account that has accepted nothing, unless a test says otherwise.
+        acceptanceRepo.find!.mockResolvedValue([]);
 
         // `register` and `login` look the user up case-insensitively, which needs a query builder
         // rather than `findOne`. The builder's `getOne` delegates to the same `findOne` mock, so
@@ -115,6 +122,7 @@ describe('AuthService', () => {
                 AuthService,
                 provideMockRepository(User, userRepo),
                 provideMockRepository(Profile, profileRepo),
+                provideMockRepository(DocumentAcceptance, acceptanceRepo),
                 { provide: SessionService, useValue: sessions },
                 { provide: EmailConfirmationService, useValue: confirmations },
                 { provide: OutboxService, useValue: outbox },
@@ -146,6 +154,10 @@ describe('AuthService', () => {
             expect(rows.map(({ document, version }) => ({ document, version }))).toEqual([
                 { document: 'terms', version: LEGAL_DOCUMENT_VERSIONS.terms },
                 { document: 'privacy', version: LEGAL_DOCUMENT_VERSIONS.privacy },
+                // The third row is the express, separate acceptance Cod civil art. 1203 asks for
+                // on §14, §15 and §18. Recorded as its own row so that "did they accept the
+                // clauses" is a question the ledger answers, not one inferred from the terms row.
+                { document: 'unusual_clauses', version: LEGAL_DOCUMENT_VERSIONS.unusual_clauses },
             ]);
             expect(rows.every((row) => row.user.id === 7)).toBe(true);
         });
@@ -477,6 +489,87 @@ describe('AuthService', () => {
             userRepo.findOne!.mockResolvedValue(null);
 
             await expect(service.getUserProfile(99)).resolves.toBeNull();
+        });
+
+        it('names every document a parent has not accepted in the version in force — E22 S4', async () => {
+            userRepo.findOne!.mockResolvedValue({ id: 3, username: 'ana', role: 'PARENT', emailConfirmedAt: null, approvalStatus: ApprovalStatus.PENDING });
+            acceptanceRepo.find!.mockResolvedValue([{ document: LegalDocument.PRIVACY, version: LEGAL_DOCUMENT_VERSIONS.privacy }]);
+
+            await expect(service.getUserProfile(3)).resolves.toMatchObject({
+                pendingLegalDocuments: [LegalDocument.TERMS, LegalDocument.UNUSUAL_CLAUSES],
+            });
+        });
+
+        it('asks the ledger only about the caller', async () => {
+            userRepo.findOne!.mockResolvedValue({ id: 3, username: 'ana', role: 'PARENT', emailConfirmedAt: null, approvalStatus: ApprovalStatus.PENDING });
+
+            await service.getUserProfile(3);
+
+            expect(acceptanceRepo.find).toHaveBeenCalledWith(expect.objectContaining({ where: { user: { id: 3 } } }));
+        });
+
+        it('asks nothing of an admin, who is the school rather than a family', async () => {
+            userRepo.findOne!.mockResolvedValue({ id: 1, username: 'admin', role: 'ADMIN', emailConfirmedAt: null, approvalStatus: ApprovalStatus.PENDING });
+
+            await expect(service.getUserProfile(1)).resolves.toMatchObject({ pendingLegalDocuments: [] });
+            // Not merely empty — never asked. A version bump must not be able to lock the only
+            // people who could fix it out of the admin area.
+            expect(acceptanceRepo.find).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('acceptDocuments', () => {
+        const parent = { id: 3, username: 'ana', role: 'PARENT' };
+        /** The `.insert().values().orIgnore().execute()` chain the write goes through. */
+        let insertBuilder: ReturnType<typeof createMockInsertBuilder>;
+
+        beforeEach(() => {
+            insertBuilder = createMockInsertBuilder([]);
+            acceptanceRepo.createQueryBuilder!.mockReturnValue(insertBuilder);
+        });
+
+        it('writes a row for each outstanding document, in the version in force', async () => {
+            userRepo.findOne!.mockResolvedValue(parent);
+            acceptanceRepo.find!.mockResolvedValue([{ document: LegalDocument.PRIVACY, version: LEGAL_DOCUMENT_VERSIONS.privacy }]);
+
+            await service.acceptDocuments(3, { documents: [LegalDocument.TERMS, LegalDocument.PRIVACY, LegalDocument.UNUSUAL_CLAUSES] });
+
+            expect(insertBuilder.values).toHaveBeenCalledWith([
+                { user: { id: 3 }, document: LegalDocument.TERMS, version: LEGAL_DOCUMENT_VERSIONS.terms },
+                { user: { id: 3 }, document: LegalDocument.UNUSUAL_CLAUSES, version: LEGAL_DOCUMENT_VERSIONS.unusual_clauses },
+            ]);
+            // `ON CONFLICT DO NOTHING` against the unique constraint: the second submit of a
+            // double-click is not an error to show a family who did accept.
+            expect(insertBuilder.orIgnore).toHaveBeenCalled();
+        });
+
+        it('refuses a list that leaves the unusual clauses unaccepted', async () => {
+            userRepo.findOne!.mockResolvedValue(parent);
+
+            // Cod civil art. 1203 is the whole reason this case exists: ticking the terms and not
+            // the clauses inside them is a request that must not half-succeed.
+            await expect(service.acceptDocuments(3, { documents: [LegalDocument.TERMS, LegalDocument.PRIVACY] })).rejects.toMatchObject({
+                response: { error: 'LEGAL_ACCEPTANCE_INCOMPLETE' },
+            });
+            expect(insertBuilder.execute).not.toHaveBeenCalled();
+        });
+
+        it('writes nothing when everything is already accepted, so a second click keeps the first day', async () => {
+            userRepo.findOne!.mockResolvedValue(parent);
+            acceptanceRepo.find!.mockResolvedValue(
+                Object.entries(LEGAL_DOCUMENT_VERSIONS).map(([document, version]) => ({ document: document as LegalDocument, version })),
+            );
+
+            await service.acceptDocuments(3, { documents: [LegalDocument.TERMS, LegalDocument.PRIVACY, LegalDocument.UNUSUAL_CLAUSES] });
+
+            expect(insertBuilder.execute).not.toHaveBeenCalled();
+        });
+
+        it('404s on a user that is gone rather than writing rows against an id', async () => {
+            userRepo.findOne!.mockResolvedValue(null);
+
+            await expect(service.acceptDocuments(99, { documents: [LegalDocument.TERMS] })).rejects.toThrow(NotFoundException);
+            expect(insertBuilder.execute).not.toHaveBeenCalled();
         });
     });
 

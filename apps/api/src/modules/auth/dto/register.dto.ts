@@ -74,6 +74,24 @@ export class RegisterDto {
     acceptedTerms: boolean;
 
     /**
+     * The second checkbox — E22 S4, second half, and the whole of Cod civil art. 1203.
+     *
+     * Terms §14 (suspension), §15 (limited liability) and §18 (unilateral amendment) are what the
+     * article calls unusual clauses in a standard contract, and they *produce no effect* unless
+     * they are accepted expressly and separately. A single tick covering the whole document is
+     * exactly the acceptance the article does not count, so the form asks twice and the ledger
+     * records two things: that the terms were accepted, and that these clauses were.
+     *
+     * Separate, not optional. An account is the contract these clauses are part of, so there is no
+     * account without them either — the way out of disagreeing with them is not to have an account,
+     * which §18 names and which the portal offers as erasure on request (E07 S4).
+     */
+    @ApiProperty({ example: true, description: 'Must be true: the parent expressly accepts the unusual clauses of the terms (§14, §15, §18)' })
+    @IsBoolean()
+    @Equals(true, { message: 'Clauzele din §14, §15 și §18 trebuie acceptate separat' })
+    acceptedUnusualClauses: boolean;
+
+    /**
      * One free-text line, as `Profile.address` already is. Whether the invoice needs street, city
      * and county as separate columns is E16's question — it is a change of shape to this same
      * field, not another field.

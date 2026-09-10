@@ -64,6 +64,7 @@ import type { UnassignedFileReason } from './enum/unassigned-file-reason.enum';
 import type { OutboxMessage } from './entities/outbox-message.entity';
 import type { OutboxStatus } from './enum/outbox-status.enum';
 import type { DeliveryFailureReason } from './enum/delivery-failure-reason.enum';
+import type { LegalDocument } from './enum/legal-document.enum';
 
 /** Fails compilation when `Actual` does not satisfy `Expected` on the shared fields. */
 type Covers<Expected, Actual> = Actual extends Expected ? true : { missingOrMismatched: Expected };
@@ -73,6 +74,10 @@ type Check<Expected, Actual extends Expected> = Covers<Expected, Actual>;
 // Each line compiles only if the serialized entity covers the shape from the contract.
 type _User = Check<Pick<Wire.User, 'id' | 'username' | 'role'>, Pick<Serialized<User>, 'id' | 'username' | 'role'>>;
 type _ApprovalStatus = Check<Wire.ApprovalStatus, ApprovalStatus>;
+// E22/S4. Both directions through `${Enum}`, like the other literal unions: a document added on one
+// side and not the other is the version a family never accepted, or one the portal never asks for.
+type _LegalDocument = Check<Wire.LegalDocumentKey, `${LegalDocument}`>;
+type _LegalDocumentBack = Check<`${LegalDocument}`, Wire.LegalDocumentKey>;
 type _Profile = Check<Pick<Wire.ProfileSummary, 'id' | 'firstName' | 'lastName'>, Pick<Serialized<Profile>, 'id' | 'firstName' | 'lastName'>>;
 type _ProfileEmergency = Check<
     Pick<Wire.ProfileSummary, 'emergencyContactName' | 'emergencyContactRelation' | 'emergencyContactPhone'>,

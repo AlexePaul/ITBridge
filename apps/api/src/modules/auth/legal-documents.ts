@@ -12,13 +12,23 @@ import { LegalDocument } from 'src/enum/legal-document.enum';
 export const LEGAL_DOCUMENT_VERSIONS: Record<LegalDocument, string> = {
     [LegalDocument.TERMS]: '0.1',
     [LegalDocument.PRIVACY]: '0.1',
+    // The unusual clauses are §14, §15 and §18 of the terms, so they move when the terms move.
+    [LegalDocument.UNUSUAL_CLAUSES]: '0.1',
 };
 
 /** The file behind each document, relative to `docs/legal/`. */
 export const LEGAL_DOCUMENT_FILES: Record<LegalDocument, string> = {
     [LegalDocument.TERMS]: 'termeni-si-conditii.md',
     [LegalDocument.PRIVACY]: 'politica-de-confidentialitate.md',
+    [LegalDocument.UNUSUAL_CLAUSES]: 'termeni-si-conditii.md',
 };
 
-/** What one registration accepts, in the order the rows are written. */
-export const ACCEPTED_AT_REGISTRATION: readonly LegalDocument[] = [LegalDocument.TERMS, LegalDocument.PRIVACY];
+/**
+ * What one registration accepts, in the order the rows are written.
+ *
+ * Every document there is, which is why nothing else in the codebase iterates this constant to
+ * decide what is outstanding — `outstandingDocuments` walks `LEGAL_DOCUMENT_VERSIONS` instead. The
+ * two lists agree today and there is no reason for them to diverge; if a fourth document ever
+ * arrives that a registration does not accept, this one shrinks and that one must not.
+ */
+export const ACCEPTED_AT_REGISTRATION: readonly LegalDocument[] = [LegalDocument.TERMS, LegalDocument.PRIVACY, LegalDocument.UNUSUAL_CLAUSES];

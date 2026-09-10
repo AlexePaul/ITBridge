@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 import { LoginDto } from 'src/modules/auth/dto/login.dto';
 import { RefreshTokenDto } from 'src/modules/auth/dto/refreshToken.dto';
+import { AcceptDocumentsDto } from 'src/modules/auth/dto/accept-documents.dto';
 import { ConfirmEmailDto } from 'src/modules/auth/dto/confirm-email.dto';
 import { AuthGuard } from 'src/guards/auth.guard';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
@@ -77,6 +78,23 @@ export class AuthController {
     @ApiResponse({ status: 401, description: 'Invalid refresh token' })
     async refresh(@Body() refreshTokenDTO: RefreshTokenDto, @Headers('user-agent') userAgent?: string) {
         return this.authService.refreshToken(refreshTokenDTO, userAgent);
+    }
+
+    /**
+     * Records that the caller accepts the documents named in the body — E22 S4, second half.
+     *
+     * A parent write, and the narrowest kind: it takes no id, so the rows land on the account in
+     * the token and nowhere else, and it can only ever add to that account's own ledger. There is
+     * no route that removes one.
+     */
+    @Post('accept-documents')
+    @HttpCode(200)
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'The acceptances were recorded; nothing is outstanding' })
+    @ApiResponse({ status: 400, description: 'The list leaves a required document unaccepted' })
+    async acceptDocuments(@Request() req: AuthenticatedRequest, @Body() acceptDocumentsDto: AcceptDocumentsDto) {
+        return this.authService.acceptDocuments(req.user.sub, acceptDocumentsDto);
     }
 
     @Get('me')
