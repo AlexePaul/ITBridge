@@ -444,6 +444,37 @@ Celălalt drum către un `Profile` — adminul care introduce o familie de la te
 diferite, fiindcă au surse de adevăr diferite. Un test ține fluxul adminului viu, ca să nu fie
 strâns din greșeală odată cu `register`.
 
+**Formularul are două bife, iar a doua nu e o exagerare de avocat** (E22 S4). Codul civil
+art. 1203 spune că într-un contract standard clauzele neuzuale — la noi §14 suspendarea, §15
+limitarea răspunderii, §18 modificarea unilaterală — **nu produc efecte** decât acceptate expres și
+separat, deci o bifă care acoperă tot documentul e exact acceptarea care nu contează pentru ele.
+De aici `acceptedUnusualClauses`, refuzat ca orice altceva decât `true`, și un al treilea rând în
+`document_acceptances`: `unusual_clauses`, care poartă versiunea **termenilor**, fiindcă asta e — o
+parte din ei, nu un al treilea document. Din același motiv titlurile din `docs/legal/` au acum
+id-uri (`headingSlug` din `apps/web/server/utils/legal-markdown.ts`): o bifă care numește trei
+secțiuni și duce în capul unui document de douăzeci nu e „expres" în niciun sens util.
+
+**O versiune nouă se cere la prima autentificare de după, iar cine decide asta e serverul.**
+`outstandingDocuments` (`apps/api/src/modules/auth/legal-acceptance.rules.ts`) compară evidența cu
+`LEGAL_DOCUMENT_VERSIONS` prin **apartenență la mulțime**, nu prin „ultimul rând e vechi": un text
+pus la loc la o versiune deja acceptată nu se cere a doua oară, fiindcă familia chiar a acceptat-o,
+într-o zi pe care evidența o știe. Răspunsul pleacă în `GET /auth/me` ca
+`pendingLegalDocuments`, lângă `profileComplete` și pentru același motiv — altfel ecranul care
+redirecționează și evidența care consemnează ar avea două păreri despre aceeași familie. Patru
+lucruri de ținut minte:
+
+- **`POST /auth/accept-documents` scrie numai ce lipsește**, deci a doua apăsare nu mută ziua
+  primei acceptări, și **refuză o listă care lasă ceva neacceptat** — cazul care contează fiind fix
+  cel din art. 1203, bifa pe termeni fără bifa pe clauzele dinăuntru.
+- **Evidența nu se actualizează niciodată, se adaugă.** Rândul de la versiunea veche rămâne: „ce a
+  acceptat familia asta, și când" are răspuns pentru fiecare versiune, nu doar pentru ultima.
+- **Adminii sunt exceptați**, ca la porțile de cont: termenii sunt contractul părintelui cu școala,
+  iar o versiune nouă n-are voie să încuie afară singurii oameni care ar putea repara ceva.
+- **Nicio rută nu refuză o cerere pentru asta.** §18 promite că portalul cere, nu că platforma se
+  închide; poarta e `03.legal-acceptance.global.ts`, care **cedează cât timp ține poarta de profil**
+  — două middleware-uri globale care redirecționează amândouă sunt o buclă fără eroare și fără log,
+  iar precedența e scrisă în fișierul care a venit al doilea.
+
 Protecția se compune per-handler, nu global:
 
 ```ts

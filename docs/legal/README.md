@@ -91,9 +91,11 @@ Lista, ca să se poată bifa:
    stă în spatele unui buton, alegerea ține cât ține vizita și nu se scrie nicăieri, iar
    `pnpm test:privacy` pică în CI dacă vreo pagină publică mai cere ceva din afara domeniului sau
    pune vreun cookie. Politica de cookie-uri descrie de acum starea din cod.
-3. **E22 S4, a doua jumătate** — re-acceptarea la versiune nouă, la prima autentificare de după.
-   Prima jumătate e livrată: bifa la înregistrare, un rând per document în `document_acceptances`,
-   cu versiunea. Termenii §4.7 și §18 promit amândouă jumătățile.
+3. ~~**E22 S4, a doua jumătate** — re-acceptarea la versiune nouă, la prima autentificare de
+   după.~~ **Livrat.** `GET /auth/me` spune ce documente n-au fost acceptate în versiunea în
+   vigoare, portalul duce familia la `/user/termeni-noi` și `POST /auth/accept-documents` scrie
+   numai ce lipsește. Rămâne din §4.7 **e-mailul de confirmare a acceptării**, care nu se trimite
+   încă.
 4. **E22 S3** — jobul care șterge la termen. Politica §7 promite un număr; fără job, e o minciună
    întreținută.
 5. **E01 S4 pentru producție** — pe stage e livrat, deci regiunea și backup-ul zilnic sunt fapte; la
@@ -108,9 +110,11 @@ Lista, ca să se poată bifa:
 8. **Linia de dezabonare pe mesajele de marketing** — azi niciun mesaj promoțional nu spune cum se
    oprește (Legea 506/2004 art. 12, GDPR art. 7 alin. 3). Termenii §13 și politica §3.8 promit
    linia. Sarcină propusă.
-9. **A doua bifă la înregistrare**, pentru clauzele pe care Codul civil (art. 1203) le numește
-   neuzuale — limitarea răspunderii (§15), suspendarea (§14), modificarea unilaterală (§18): produc
-   efecte doar dacă sunt acceptate expres, deci E22 S4 le cere separat, nu în bifa generală.
+9. ~~**A doua bifă la înregistrare**, pentru clauzele pe care Codul civil (art. 1203) le numește
+   neuzuale — limitarea răspunderii (§15), suspendarea (§14), modificarea unilaterală (§18).~~
+   **Livrat.** Formularul cere `acceptedUnusualClauses` separat, evidența îl ține ca rând propriu
+   (`unusual_clauses`, cu versiunea termenilor), iar cele trei secțiuni se leagă din formular —
+   titlurile documentelor au acum id-uri, deci bifa duce la textul pe care îl acceptă.
 
 ## Verificarea juridică
 
@@ -143,7 +147,7 @@ ce face sistemul. Ce **nu** acoperă e scris la final.
 | Legea 365/2002 art. 5 — datele de identificare pe site                                                                      | termeni §1, site           | placeholder; **statutul de TVA** trebuie afișat și pe pagina de contact                                                                                                             |
 | Legea 365/2002 art. 8–9 — pașii încheierii contractului electronic, limba, stocarea, corectarea erorilor                    | termeni §4.7               | **adăugat**                                                                                                                                                                         |
 | Legea 193/2000 — clauze abuzive (anexa: limitarea răspunderii, modificarea unilaterală, restrângerea accesului la justiție) | termeni §14, §15, §18, §19 | **corectate**: excepție pentru intenție și culpă gravă, motiv întemeiat și drept de ieșire la modificare, contestarea suspendării, instanțele competente fără restrângere           |
-| Cod civil art. 1203 — clauzele neuzuale cer acceptare expresă                                                               | termeni §14, §15, §18      | a doua bifă în E22 S4                                                                                                                                                               |
+| Cod civil art. 1203 — clauzele neuzuale cer acceptare expresă                                                               | termeni §14, §15, §18      | ✓ — a doua bifă, separată, la înregistrare și la fiecare versiune nouă (E22 S4)                                                                                                     |
 | OUG 34/2014 și OUG 141/2021 — contracte la distanță, servicii digitale                                                      | —                          | nu se aplică: contractul de înscriere e față în față, contul e gratuit și datele se prelucrează doar ca să funcționeze (excepția din OUG 141/2021 art. 3)                           |
 | OG 21/1992 — informare în limba română                                                                                      | toate                      | ✓                                                                                                                                                                                   |
 | Legea 82/1991 art. 25 — 5 ani de la 1 iulie a anului următor, pentru documente din 2023 încoace                             | §7                         | **verificat**                                                                                                                                                                       |

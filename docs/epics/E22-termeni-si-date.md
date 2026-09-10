@@ -76,9 +76,9 @@ clauză contra legii** — GDPR art. 12–14, 6–9, 28, 30, 44; Legile 506/2004
 82/1991; Cod civil art. 1203 — cu tabelul cerință → secțiune → stare în README, și cu ce nu acoperă
 o astfel de verificare scris sub el. Neverificate de avocat și nepublicate: faptele pe care codul nu le știe — firma, persoana de contact, furnizorii — și
 deciziile propuse — termenul de păstrare, 12 luni de la retragere, care e cifra pe care o preia S3 —
-sunt marcate `[[…]]` și listate în README, împreună cu ce trebuie să existe înainte de publicare:
-bannerul din E07 S5, jobul din S3, a doua jumătate a lui S4, și restrângerea ștergerii de profil,
-care azi cade în cascadă peste facturi. Pe `release/stage` textele sunt pagini — `/termeni`,
+sunt marcate `[[…]]` și listate în README, împreună cu ce trebuie să existe înainte de publicare —
+din care **bannerul din E07 S5, a doua jumătate a lui S4 și restrângerea ștergerii de profil sunt
+livrate**, iar jobul din S3 rămâne. Pe `release/stage` textele sunt pagini — `/termeni`,
 `/confidentialitate`, `/cookies` — randate din aceleași fișiere, cu bifa de acceptare la înregistrare.
 
 ### S3 · Termenul de păstrare, și ștergerea care chiar șterge
@@ -109,13 +109,37 @@ vizitatorul a acceptat, ca să știe dacă poate porni scripturile.
 **Acceptanță:** pentru orice familie și orice document, se poate spune ce versiune a acceptat și în
 ce zi.
 
-**Stare: prima jumătate livrată.** Înregistrarea cere `acceptedTerms: true` — un `400` fără el —
-și scrie, în aceeași tranzacție cu contul, un rând în `document_acceptances` pentru fiecare
-document (`terms`, `privacy`), cu versiunea din `LEGAL_DOCUMENT_VERSIONS`; un spec ține constanta
-egală cu versiunea tipărită în capul fișierului din `docs/legal/`. Ce lipsește e a doua jumătate:
-re-acceptarea la versiune nouă, la prima autentificare de după, și a doua bifă pentru clauzele
-neuzuale (Cod civil art. 1203). Documentele de vizitator nu au acceptare — bannerul din E07 S5
+**Stare: livrat.** Înregistrarea cere `acceptedTerms: true` — un `400` fără el — și scrie, în
+aceeași tranzacție cu contul, un rând în `document_acceptances` pentru fiecare document, cu
+versiunea din `LEGAL_DOCUMENT_VERSIONS`; un spec ține constanta egală cu versiunea tipărită în
+capul fișierului din `docs/legal/`. Documentele de vizitator nu au acceptare — bannerul din E07 S5
 întreabă doar de cookie-uri.
+
+**A doua jumătate a adus două lucruri.** Întâi, **a doua bifă**: clauzele pe care Codul civil
+(art. 1203) le numește neuzuale — §14 suspendarea, §15 limitarea răspunderii, §18 modificarea
+unilaterală — nu produc efecte decât acceptate **expres și separat**, deci o bifă care acoperă tot
+documentul e exact acceptarea care nu contează pentru ele. Formularul întreabă a doua oară,
+`acceptedUnusualClauses` e refuzat ca orice altceva decât `true`, iar evidența capătă un al treilea
+rând, `unusual_clauses`, care poartă versiunea termenilor fiindcă asta e — o parte din ei. Ca să
+poată fi și citite, nu doar bifate, titlurile din `docs/legal/` primesc acum id-uri, iar cele trei
+secțiuni se leagă din formular.
+
+Apoi, **re-acceptarea la versiune nouă**, pe care §18 o promite în text. `outstandingDocuments`
+(`apps/api/src/modules/auth/legal-acceptance.rules.ts`) compară ce e în evidență cu ce e în vigoare
+— apartenență la mulțime, nu „ultimul rând e vechi", deci un text pus la loc la o versiune deja
+acceptată nu se cere a doua oară — iar răspunsul pleacă pe sârmă în `GET /auth/me`, ca
+`profileComplete`: derivat pe server, fiindcă altfel ecranul care redirecționează și evidența care
+consemnează ar avea două păreri despre aceeași familie. `POST /auth/accept-documents` scrie **numai
+ce lipsește**, deci a doua apăsare nu mută ziua primei acceptări, și **refuză o listă care lasă ceva
+neacceptat** (`LEGAL_ACCEPTANCE_INCOMPLETE`) — cazul care contează fiind exact cel din art. 1203.
+În portal, `03.legal-acceptance.global.ts` duce familia la `/user/termeni-noi`, o singură bifă per
+document, cu ieșirea pe care §18 o promite scrisă lângă buton. Adminii sunt exceptați: o versiune
+nouă n-are voie să încuie afară singurii oameni care ar putea repara ceva.
+
+Ce a rămas dinadins nefăcut: **nimic din API nu refuză o cerere** fiindcă familia n-a acceptat încă.
+§18 promite că portalul cere, nu că platforma se închide, iar un refuz pe fiecare rută ar fi o
+decizie de produs pe care n-a luat-o nimeni. Și e-mailul de confirmare din §4.7 nu se trimite încă —
+E17 are coada, dar șablonul e o propoziție de scris, nu o piesă de infrastructură.
 
 ## Dependențe
 
