@@ -442,6 +442,34 @@ describe('EnrollmentService', () => {
             expect(outbox.queue).toHaveBeenCalledWith(expect.objectContaining({ to: 'urmatorul@example.com' }), manager);
         });
 
+        /**
+         * The other path where the lock was hoisted ahead of the entry write, and the one that had
+         * no test — so removing the hoist, or the `if (releasesSeat)` around it, turned nothing red.
+         *
+         * Same cycle as the sweep's: `enrol` takes the group and *then* settles that child's
+         * waiting rows, so a decline that wrote the row first and asked for the group second would
+         * sit head-to-head with an enrolment holding the group and waiting on the row.
+         */
+        it('locks the group before it touches the entry', async () => {
+            waitlistRepo.findOne!.mockResolvedValueOnce({ id: 4, status: WaitlistStatus.OFFERED, group: { id: 2 } }).mockResolvedValue(null);
+            enrollmentRepo.count!.mockResolvedValue(9);
+
+            const order: string[] = [];
+            jest.spyOn(service, 'lockGroup').mockImplementation((_manager, groupId) => {
+                order.push('lock');
+                return Promise.resolve(group({ id: groupId }) as Group);
+            });
+            manager.update.mockImplementation((entity: unknown) => {
+                if (entity === WaitlistEntry) order.push('decline');
+                return Promise.resolve({ affected: 1 });
+            });
+
+            await service.removeFromWaitlist(4, WaitlistStatus.DECLINED);
+
+            // A third entry follows — `offerFreedSeat` re-taking the same lock, a no-op here.
+            expect(order.slice(0, 2)).toEqual(['lock', 'decline']);
+        });
+
         it('does not re-run the queue when the entry was merely waiting', async () => {
             waitlistRepo.findOne!.mockResolvedValue({ id: 4, status: WaitlistStatus.WAITING, group: { id: 2 } });
 
