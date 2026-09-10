@@ -281,14 +281,61 @@ export class TrialBookingService {
                 };
             });
         } catch (error) {
+            // A double-click, where the second press read "no such booking yet" before the first
+            // had committed. The check at the top of this method catches the *sequential* repeat;
+            // it cannot catch this one, which is why `bookingKey` is unique in the database. But
+            // the index refusing the insert is not an answer to give a parent: it surfaced as a
+            // 409, and `/proba` renders any failure as „Nu am putut trimite cererea… sună-ne" —
+            // telling somebody their request failed, and to ring the school, about a child who is
+            // in fact booked. The form's rule is that it never ends in an error (E20/S2).
+            //
+            // Asking the table rather than reading the driver's error code: a lead carrying this
+            // key exists only if some transaction wrote it and committed, so its presence *is* the
+            // proof that the booking landed. An unrelated failure leaves no such row and still
+            // throws.
+            //
+            // **Before the `GROUP_FULL` branch below, and that order is the whole point.** The
+            // losing press of a double-click onto the *last* seat does not fail on the index at
+            // all — it waits on `lockGroup`, then counts zero seats and raises `GROUP_FULL`. Asked
+            // second, this lookup never ran: `recordNoSeats` went first and tried to write a
+            // second lead under a `bookingKey` the winning press had just committed, so the family
+            // got a duplicate-key 500 where they had been getting a 409. Asked first, a key that
+            // is already on file answers for every way this transaction can have died.
+            const landed = await this.findLanded(bookingKey);
+            if (landed) {
+                this.logger.log(`Double-pressed booking lost the race; answering with lead ${landed.id}, which holds it.`);
+                return landed.noSeats
+                    ? { status: 'no_seats', leadId: landed.id }
+                    : { status: 'booked', leadId: landed.id, trial: await this.describeTrial(landed.trialSession?.id) };
+            }
+
             if (error instanceof ConflictException && errorCodeOf(error) === 'GROUP_FULL') {
                 // Somebody took the last seat while this parent was filling the form in. The
-                // transaction is gone; what must not be gone is the family.
+                // transaction is gone; what must not be gone is the family. Nothing holds the key
+                // — the lookup above just said so — so this insert has the row to itself.
                 const lead = await this.recordNoSeats(dto, bookingKey, session.group, now);
                 this.logger.log(`Seat in group ${session.group.id} went before the booking landed; kept lead ${lead.id} instead.`);
                 return { status: 'no_seats', leadId: lead.id };
             }
+
             throw error;
+        }
+    }
+
+    /**
+     * The lead already holding this booking key, if there is one — asked while handling a failure.
+     *
+     * Its own try/catch, because the failure it is asked about may be the database itself. Letting
+     * this query throw would replace the original error with a second one about the same outage,
+     * and the first is the one worth reading in the log. A booking that cannot be looked up is
+     * indistinguishable from one that never landed, which is exactly what the caller does next.
+     */
+    private async findLanded(bookingKey: string): Promise<Lead | null> {
+        try {
+            return await this.leadRepository.findOne({ where: { bookingKey }, relations: { trialSession: true } });
+        } catch {
+            this.logger.warn(`Could not check whether booking ${bookingKey} landed; reporting the original failure.`);
+            return null;
         }
     }
 
