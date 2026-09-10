@@ -347,6 +347,39 @@ describe('EnrollmentService', () => {
             expect(outbox.queue).not.toHaveBeenCalled();
         });
 
+        /**
+         * The lock has to come **before** the number it protects — the fourth time, and the same
+         * two lines every time.
+         *
+         * `enrol` locks the group and then counts, so an enrolment taking the last seat commits
+         * while this read its own snapshot and saw the seat free. The waiting family was then
+         * promised a chair for 48 hours that a child was already sitting in — the one outcome the
+         * list exists to prevent. Asserted on call order rather than by racing two transactions:
+         * what went wrong is the order of two lines, and that is a thing a unit test can hold
+         * still.
+         */
+        it('locks the group before it counts the seats, not after', async () => {
+            const order: string[] = [];
+            const lockGroup = jest.spyOn(service, 'lockGroup').mockImplementation((_manager, groupId) => {
+                order.push('lock');
+                return Promise.resolve(group({ id: groupId }) as Group);
+            });
+            jest.spyOn(service, 'occupancyOf').mockImplementation((groupId) => {
+                order.push('count');
+                return Promise.resolve({ groupId, capacity: 10, taken: 9, free: 1, waiting: 1 });
+            });
+            waitlistRepo.findOne!.mockResolvedValue({
+                id: 4,
+                child: { firstName: 'Vlad', parent: { email: 'parinte@example.com' } },
+                group: { id: 2, name: 'Scratch Începători' },
+            });
+
+            await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
+
+            expect(order).toEqual(['lock', 'count']);
+            expect(lockGroup).toHaveBeenCalledWith(manager, 2);
+        });
+
         it('clears Child.group when the last enrolment closes', async () => {
             enrollmentRepo.findOne!.mockResolvedValueOnce(inForce).mockResolvedValue(null);
 
@@ -496,6 +529,36 @@ describe('EnrollmentService', () => {
             // offer worth keeping.
             expect(result).toEqual({ expired: 1 });
             expect(manager.update).toHaveBeenCalledWith(WaitlistEntry, { id: 4 }, { status: WaitlistStatus.EXPIRED });
+        });
+
+        /**
+         * The sweep takes the group **before** it takes the entry, which is a lock-order rule and
+         * not a second copy of the one above.
+         *
+         * `enrol` locks the group and then settles that child's waitlist rows. A sweep that wrote
+         * the entry first and asked for the group second could therefore meet an enrolment
+         * head-on — each holding what the other was waiting for, and Postgres killing one of them.
+         * Same lock, same order, no cycle.
+         */
+        it('locks the group before it touches the entry', async () => {
+            waitlistRepo.find!.mockResolvedValue([lapsed]);
+            enrollmentRepo.count!.mockResolvedValue(9);
+            waitlistRepo.findOne!.mockResolvedValue(null);
+
+            const order: string[] = [];
+            jest.spyOn(service, 'lockGroup').mockImplementation((_manager, groupId) => {
+                order.push('lock');
+                return Promise.resolve(group({ id: groupId }) as Group);
+            });
+            manager.update.mockImplementation((entity: unknown) => {
+                if (entity === WaitlistEntry) order.push('expire');
+                return Promise.resolve({ affected: 1 });
+            });
+
+            await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
+
+            expect(order[0]).toBe('lock');
+            expect(order).toContain('expire');
         });
 
         it('does nothing, and says so, when no offer has lapsed', async () => {
