@@ -577,14 +577,17 @@ rămăseseră 10 apăsabili, iar o atingere în centrul hamburgerului deschidea 
 accesibilitate — S6 o amână deliberat până se rescrie portalul în S4/S5 — deci verificarea e
 manuală, iar cifrele de referință sunt în E18 S7.
 
-**Partea publică nu atinge backend-ul, cu o singură excepție declarată.** Cele șapte pagini publice
+**Partea publică nu atinge backend-ul, cu două excepții declarate.** Cele șapte pagini publice
 vechi, formularul de contact, `robots.txt`, `sitemap.xml`, `llms.txt` și datele structurate
 funcționează fără `API_BASE` — de aceea site-ul stă în producție pe Vercel deși backend-ul de
-producție nu e deployat. Excepția e `/proba`, formularul de programare la lecția de probă (E20/S2):
-el chiar are nevoie de API, fiindcă scrie un rând. E scris să pice moale — orele se cer doar din
-client, iar fără răspuns formularul tot se trimite și cititorul primește numărul de telefon — dar
-**nu se aduce pe `release/prod`** până nu rulează un backend acolo. Pe `release/stage` funcționează,
-pe `api-stage.itbridgeschool.com`. Faptele despre școală stau în `apps/web/shared/`, nu în
+producție nu e deployat. Prima excepție e `/proba`, formularul de programare la lecția de probă
+(E20/S2): el chiar are nevoie de API, fiindcă scrie un rând. E scris să pice moale — orele se cer
+doar din client, iar fără răspuns formularul tot se trimite și cititorul primește numărul de
+telefon. A doua e `/dezabonare` (E17/S4), pagina la care duce linkul din subsolul unui mesaj
+promoțional: acolo **pagina întreagă e scrierea**, deci nu poate pica moale la fel — ce face în loc
+e să spună că n-a mers și să dea adresa biroului. Niciuna **nu se aduce pe `release/prod`** până nu
+rulează un backend acolo; pe `release/stage` funcționează amândouă, pe
+`api-stage.itbridgeschool.com`. Faptele despre școală stau în `apps/web/shared/`, nu în
 pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts` (nivelurile și prețurile),
 `teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini), `structured-data.ts` (constructorii
 de JSON-LD). Aceleași constante alimentează pagina, graful JSON-LD, sitemap-ul și `llms.txt` —
@@ -1118,11 +1121,11 @@ Patru reguli pe care le încalci ușor:
 - **Un catalog nemarcat nu e o absență.** Recontactarea după neprezentare cere ca ședința să fi fost
   marcată de cineva; altfel i-am spune unei familii că a lipsit de la o oră la care poate a fost.
 
-**Pagina `/proba` e singura pagină publică ce atinge backend-ul**, ceea ce contrazice regula de mai
-sus doar în aparență: orele se încarcă exclusiv în client, iar când nu se pot încărca, formularul tot
-se trimite și cititorul primește numărul de telefon. Consecința pentru cele două branch-uri: **nu
-se aduce pe `release/prod`** până nu rulează un backend (E01 S4) — acolo ar fi o pagină de
-conversie care nu poate afișa nicio oră.
+**Pagina `/proba` e una dintre cele două pagini publice care ating backend-ul** — cealaltă e
+`/dezabonare` din E17/S4 —, ceea ce contrazice regula de mai sus doar în aparență: orele se încarcă
+exclusiv în client, iar când nu se pot încărca, formularul tot se trimite și cititorul primește
+numărul de telefon. Consecința pentru cele două branch-uri: **nu se aduce pe `release/prod`** până
+nu rulează un backend (E01 S4) — acolo ar fi o pagină de conversie care nu poate afișa nicio oră.
 
 **Restanța de documente se măsoară cu vârstă, nu doar cu număr** (E17 S8). `pendingSummary` din
 `apps/api/src/modules/project/project.service.ts` e proprietarul întrebării „cât așteaptă și de cât

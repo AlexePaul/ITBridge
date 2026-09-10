@@ -281,6 +281,42 @@ describe('AnnouncementService', () => {
         });
     });
 
+    describe('the test send', () => {
+        it('carries the same way out the preview showed, on a promotional message — E17/S4', async () => {
+            await service.sendTest(announcement({ kind: MessageKind.MARKETING }), 99);
+
+            // Both tools that exist to let somebody check a message before it goes out have to show
+            // the same message. The real footer is added by `queueMarketing`, which a test send does
+            // not go through — so without this the test copy would be the one that lied.
+            const sent = outbox.queue.mock.calls[0][0] as { bodyText: string };
+            expect(sent.bodyText).toContain('/dezabonare?token=');
+        });
+
+        it('shows a sample token there, never a working link for anybody', async () => {
+            await service.sendTest(announcement({ kind: MessageKind.MARKETING }), 99);
+
+            // Pressing „test" must not be able to unsubscribe the admin pressing it, and a real
+            // family's link has no business in a message addressed to somebody else.
+            const sent = outbox.queue.mock.calls[0][0] as { bodyText: string };
+            expect(sent.bodyText).toContain('EXEMPLU');
+        });
+
+        it('leaves an operational message without one', async () => {
+            await service.sendTest(announcement(), 99);
+
+            const sent = outbox.queue.mock.calls[0][0] as { bodyText: string };
+            expect(sent.bodyText).not.toContain('/dezabonare');
+        });
+
+        it('still prefixes the subject, so it cannot be mistaken for the real thing', async () => {
+            await service.sendTest(announcement({ kind: MessageKind.MARKETING }), 99);
+
+            const sent = outbox.queue.mock.calls[0][0] as { subject: string };
+            expect(sent.subject).toContain('Sâmbătă e zi liberă');
+            expect(sent.subject).not.toBe('Sâmbătă e zi liberă');
+        });
+    });
+
     describe('the dedupe key', () => {
         const day = new Date('2026-03-09T12:00:00.000Z');
 

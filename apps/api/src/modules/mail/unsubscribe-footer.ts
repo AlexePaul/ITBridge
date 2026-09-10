@@ -1,4 +1,5 @@
 import { unsubscribeUrl } from 'src/modules/auth/portal-urls';
+import { appendInsideFrame } from './mail-frame';
 
 /**
  * The refusal line every marketing message carries — E17 S4.
@@ -31,20 +32,27 @@ export function withUnsubscribeText(bodyText: string, token: string): string {
 }
 
 /**
- * Appended to the HTML body, when there is one.
+ * Added to the HTML body, when there is one — **inside the frame**, under the signature.
  *
- * The URL is escaped into both the `href` and the visible text: the token is ours, but a value
- * that lands in markup and is not escaped is a habit that outlives the one place it was safe.
+ * `appendInsideFrame` rather than a plain append, and the difference is not decoration: the frame
+ * from E17/S2 closes two `<div>`s, so appending drops this paragraph outside the white card
+ * altogether, onto the mail client's own background and into its own font. The one paragraph in the
+ * message whose job is to be believed would be the one that looks bolted on by somebody else.
+ *
+ * The URL is escaped into the `href`: the token is ours, but a value that lands in markup and is
+ * not escaped is a habit that outlives the one place it was safe.
  */
 export function withUnsubscribeHtml(bodyHtml: string, token: string): string {
     const url = escapeHtml(unsubscribeUrl(token));
-    return [
+    return appendInsideFrame(
         bodyHtml,
-        '<hr />',
-        `<p style="font-size:12px;color:#555">${escapeHtml(UNSUBSCRIBE_INTRO)}<br />`,
-        `Dacă nu mai vrei, <a href="${url}">oprește-le aici</a>.<br />`,
-        `${escapeHtml(UNSUBSCRIBE_REASSURANCE)}</p>`,
-    ].join('\n');
+        [
+            '    <hr style="border:none;border-top:1px solid #e0dedb;margin:24px 0 16px;" />',
+            `    <p style="margin:0;font-size:12px;line-height:1.5;color:#6b6864;">${escapeHtml(UNSUBSCRIBE_INTRO)}<br />`,
+            `    Dacă nu mai vrei, <a href="${url}" style="color:#7a4a2b;">oprește-le aici</a>.<br />`,
+            `    ${escapeHtml(UNSUBSCRIBE_REASSURANCE)}</p>`,
+        ].join('\n'),
+    );
 }
 
 function escapeHtml(value: string): string {

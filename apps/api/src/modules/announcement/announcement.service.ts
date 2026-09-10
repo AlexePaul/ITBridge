@@ -136,18 +136,7 @@ export class AnnouncementService {
         const kind = dto.kind ?? MessageKind.TRANSACTIONAL;
         const composed = composeAnnouncement(recipients[0]?.firstName ?? SAMPLE_FIRST_NAME, dto.subject, dto.body);
 
-        // A promotional message ends in the way out of promotional messages (E17/S4), and this
-        // screen's whole job is to show what will really be sent — so it shows that too, with a
-        // sample token rather than a family's own: the column is `select: false` to keep real ones
-        // out of payloads exactly like this one.
-        const previewed =
-            kind === MessageKind.MARKETING
-                ? {
-                      ...composed,
-                      bodyText: withUnsubscribeText(composed.bodyText, SAMPLE_UNSUBSCRIBE_TOKEN),
-                      bodyHtml: composed.bodyHtml ? withUnsubscribeHtml(composed.bodyHtml, SAMPLE_UNSUBSCRIBE_TOKEN) : composed.bodyHtml,
-                  }
-                : composed;
+        const previewed = this.withSampleUnsubscribe(composed, kind);
 
         return {
             audienceLabel: label,
@@ -173,14 +162,40 @@ export class AnnouncementService {
         const to = profile?.email ?? officeAddress();
         const composed = composeAnnouncement(profile?.firstName ?? SAMPLE_FIRST_NAME, dto.subject, dto.body);
 
+        // The same sample footer the preview shows, for the same reason and then one more: a test
+        // send exists to be read as the thing that will go out, and a promotional message that will
+        // go out ends in the way out of promotional messages (E17/S4). Left off, the two
+        // check-before-you-send tools would disagree about the same message.
+        //
+        // A sample token rather than the admin's own, so that pressing „test" cannot quietly
+        // unsubscribe the person pressing it, and so no working link for a real family leaves in a
+        // message addressed to somebody else.
+        const tested = this.withSampleUnsubscribe(composed, dto.kind ?? MessageKind.TRANSACTIONAL);
+
         await this.outbox.queue({
             to,
-            subject: `${TEST_SUBJECT_PREFIX}${composed.subject}`,
-            bodyText: composed.bodyText,
-            bodyHtml: composed.bodyHtml,
+            subject: `${TEST_SUBJECT_PREFIX}${tested.subject}`,
+            bodyText: tested.bodyText,
+            bodyHtml: tested.bodyHtml,
         });
 
         return { to };
+    }
+
+    /**
+     * The composed message as an admin should see it before sending — E17/S4.
+     *
+     * Only a promotional one changes: it gains the footer `queueMarketing` will add, carrying an
+     * obviously-fake token. Both screens that let somebody check a message go through here, because
+     * two of them rendering it differently is how one of them becomes a lie about the other.
+     */
+    private withSampleUnsubscribe<T extends { bodyText: string; bodyHtml?: string | null }>(composed: T, kind: MessageKind): T {
+        if (kind !== MessageKind.MARKETING) return composed;
+        return {
+            ...composed,
+            bodyText: withUnsubscribeText(composed.bodyText, SAMPLE_UNSUBSCRIBE_TOKEN),
+            bodyHtml: composed.bodyHtml ? withUnsubscribeHtml(composed.bodyHtml, SAMPLE_UNSUBSCRIBE_TOKEN) : composed.bodyHtml,
+        };
     }
 
     /**

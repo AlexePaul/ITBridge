@@ -209,7 +209,7 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
                 basis: 'legal_obligation',
                 retention: 'account',
                 readableBy: ['admin'],
-                note: 'Singura coloană de tip `credential` ținută în clar, și dinadins: linkul trimis prin e-mail trebuie să funcționeze peste luni, deci nu poate fi comparat cu un hash al unui secret pe care nu-l mai are nimeni. Ce face acceptabil compromisul e cât de puțin poate: oprește marketingul, niciodată nu-l pornește, și nu deschide nimic altceva. Nu apare în export și pe niciun ecran.',
+                note: 'Singura coloană de tip `credential` ținută în clar, și dinadins: linkul trimis prin e-mail trebuie să funcționeze peste luni, deci nu poate fi comparat cu un hash al unui secret pe care nu-l mai are nimeni. Ce face acceptabil compromisul e cât de puțin poate: oprește marketingul, niciodată nu-l pornește, și nu deschide nimic altceva. Nu apare în export și pe niciun ecran, iar ștergerea contului îl **rotește** (E07 S4) — altfel un link dintr-un mesaj de acum un an ar rămâne viu către rândul unei familii care a cerut să dispară.',
             },
             erasureRequestedAt: {
                 personal: true,

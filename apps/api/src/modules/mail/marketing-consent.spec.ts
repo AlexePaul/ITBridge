@@ -4,6 +4,7 @@ import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { MailService } from './mail.service';
 import { S3Service } from 'src/modules/storage/s3.service';
 import { createMockEntityManager, createMockRepository, MockRepository, provideMockDataSource, provideMockRepository } from 'src/testing/repository.mock';
+import { htmlFrame, paragraph } from './mail-frame';
 
 /**
  * The guarantee of E17/S4: a preference gates marketing and nothing else.
@@ -109,6 +110,29 @@ describe('marketing consent', () => {
 
             expect(insertValues[0].bodyHtml).toContain('<p>Se deschid înscrierile.</p>');
             expect(insertValues[0].bodyHtml).toContain('href="https://itbridgeschool.com/dezabonare?token=jeton-de-test"');
+        });
+
+        it('puts it inside the card, not adrift under it', async () => {
+            // Every message the school composes goes out in the frame from E17/S2, which closes two
+            // `<div>`s. Appended after them, the one paragraph a family has to believe would render
+            // on the mail client's own background, in its own font, looking bolted on by somebody
+            // else. So it goes in above the closing tags.
+            await service.queueMarketing(willing, { ...note, bodyHtml: htmlFrame(paragraph('Se deschid înscrierile.')) });
+
+            const html = insertValues[0].bodyHtml as string;
+            expect(html.indexOf('/dezabonare?token=')).toBeGreaterThan(-1);
+            expect(html.indexOf('/dezabonare?token=')).toBeLessThan(html.lastIndexOf('</div>'));
+            expect(html.trimEnd().endsWith('</div>')).toBe(true);
+        });
+
+        it('leaves a body nobody framed exactly where it is', async () => {
+            // An admin may have replaced a template's HTML wholesale (E17/S2). Guessing at the
+            // shape of somebody else's markup is worse than appending.
+            await service.queueMarketing(willing, { ...note, bodyHtml: '<article>Se deschid înscrierile.</article>' });
+
+            const html = insertValues[0].bodyHtml as string;
+            expect(html.startsWith('<article>Se deschid înscrierile.</article>')).toBe(true);
+            expect(html).toContain('/dezabonare?token=');
         });
 
         it('puts nothing in the ordinary queue, which is not marketing', async () => {
