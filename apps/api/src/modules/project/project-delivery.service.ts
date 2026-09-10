@@ -14,6 +14,7 @@ import { composeProjectDelivery, composeProjectReport, DeliveredProject } from '
 import { SendProjectsDto } from './dto/sendProjects.dto';
 import { ReportProjectDto } from './dto/reportProject.dto';
 import { ProjectService } from './project.service';
+import { schoolDay } from 'src/common/school-clock';
 
 /** Mirrors `SendProjectsResult` from the contract; the shapes are checked against it in `contract.ts`. */
 export interface SendReportRecipient {
@@ -225,11 +226,18 @@ export class ProjectDeliveryService {
         // One report per project per person per day. A parent who taps twice because nothing
         // visibly happened should not produce two identical messages to the office; a genuinely
         // different complaint tomorrow still gets through.
+        //
+        // The day is the **school's**, through `schoolDay`, not `toISOString()`. The UTC day rolls
+        // over at 02:00 or 03:00 in Bucharest, so a report at 23:30 and another after midnight —
+        // a different day to the person sending them, and the "tomorrow" this key promises to let
+        // through — shared a key and the second one was swallowed. The office simply never heard
+        // it. Every other dated key in the codebase already uses `schoolDay`; the file next door
+        // even documents why (`project-archive.service.ts`, `isoDay`).
         await this.outbox.queue({
             to: officeAddress(),
             subject: mail.subject,
             bodyText: mail.bodyText,
-            dedupeKey: `project-report:${project.id}:${userId}:${new Date().toISOString().slice(0, 10)}`,
+            dedupeKey: `project-report:${project.id}:${userId}:${schoolDay(new Date())}`,
         });
 
         return { reported: true };
