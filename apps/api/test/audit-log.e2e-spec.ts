@@ -128,6 +128,85 @@ describe('Audit log (e2e)', () => {
     });
 
     /**
+     * The third kind of decision, after the money and the personal data: **access**.
+     *
+     * Who is let in, who is refused, who becomes an admin, whose account goes. Each of these is an
+     * admin deciding something about a person, and none of them left anything behind — `User` rows
+     * carry `approvalDecidedAt`, which says when the school decided but never who decided.
+     *
+     * The values do not travel: `role`, `username` and `approvalStatus` are all classified personal
+     * with `account` retention in the inventory (E07/S1), so this half follows the same rule as
+     * `Profile` and `Child` — the field name, and the act in the note.
+     */
+    describe('the access decisions', () => {
+        it('names who let a family in', async () => {
+            const waiting = await registerUser(app, 'ana.asteapta', 'parola123', { active: false });
+
+            await request(app.getHttpServer()).post(`/users/${waiting.userId}/approve`).set('Authorization', admin.auth).expect(200);
+
+            const [entry] = await trailFor('User', waiting.userId);
+            expect(entry.actorUsername).toBe('admin.audit');
+            expect(entry.action).toBe('UPDATED');
+            expect(Object.keys(entry.changes)).toEqual(['approvalStatus', 'approvalDecidedAt']);
+        });
+
+        it('names who refused one, and keeps the admin’s reason off the trail', async () => {
+            const waiting = await registerUser(app, 'luca.asteapta', 'parola123', { active: false });
+
+            await request(app.getHttpServer())
+                .post(`/users/${waiting.userId}/reject`)
+                .set('Authorization', admin.auth)
+                .send({ reason: 'cont de test' })
+                .expect(200);
+
+            const [entry] = await trailFor('User', waiting.userId);
+            expect(entry.actorUsername).toBe('admin.audit');
+            expect(JSON.stringify(entry)).not.toContain('cont de test');
+        });
+
+        /**
+         * The write that hands somebody every family's data. It recorded nothing at all, so the
+         * question had no answer anywhere in the system.
+         */
+        it('names who made an account an admin, without copying the role in', async () => {
+            await request(app.getHttpServer()).put(`/users/${parent.userId}`).set('Authorization', admin.auth).send({ role: 'ADMIN' }).expect(200);
+
+            const [entry] = await trailFor('User', parent.userId);
+            expect(entry.actorUsername).toBe('admin.audit');
+            expect(entry.changes.role).toEqual({ from: null, to: null });
+            expect(JSON.stringify(entry.changes)).not.toContain('ADMIN');
+        });
+
+        /** Re-sending the username a form had prefilled used to be a 409 about the account's own name. */
+        it('lets an account keep its own username through an edit', async () => {
+            await request(app.getHttpServer())
+                .put(`/users/${parent.userId}`)
+                .set('Authorization', admin.auth)
+                .send({ username: parent.username, role: 'ADMIN' })
+                .expect(200);
+        });
+
+        /**
+         * The entry outlives what it describes, and here that is the whole point: the row is gone,
+         * so the trail is the only thing left that can say who removed it. It survives because the
+         * log deliberately has no relation to `users` — a trail pointing at a deletable row loses
+         * exactly the entries worth keeping.
+         */
+        it('names who removed an account, and survives the removal', async () => {
+            const doomed = await registerUser(app, 'cont.sters', 'parola123', { active: false });
+
+            await request(app.getHttpServer()).delete(`/users/${doomed.userId}`).set('Authorization', admin.auth).expect(200);
+
+            const [entry] = await trailFor('User', doomed.userId);
+            expect(entry.action).toBe('DELETED');
+            expect(entry.actorUsername).toBe('admin.audit');
+
+            const rows = await dataSource.query('SELECT id FROM users WHERE id = $1', [doomed.userId]);
+            expect(rows).toHaveLength(0);
+        });
+    });
+
+    /**
      * The log is a record of what the school's staff did. Handing a family a filtered slice of it
      * is a different feature with a different set of questions behind it — and an unfiltered one
      * would show them every other family's money.

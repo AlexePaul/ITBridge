@@ -1,10 +1,12 @@
-import { Controller, Get, Put, Post, UseGuards, Param, Body, Delete, HttpCode, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Post, Put, Request, UseGuards } from '@nestjs/common';
 import { ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { RolesGuard } from 'src/guards/role.guard';
 import { UserService } from './user.service';
+import { actorFrom } from 'src/modules/audit/actor';
+import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 import { UpdateUserDto } from './dto/updateUser.dto';
 import { RejectAccountDto } from './dto/rejectAccount.dto';
 import { AccountApprovalService } from './account-approval.service';
@@ -63,8 +65,8 @@ export class UserController {
     @ApiResponse({ status: 200, description: 'Account approved' })
     @ApiResponse({ status: 400, description: 'Not a parent account' })
     @ApiResponse({ status: 404, description: 'User not found' })
-    async approveAccount(@Param('id', ParseIntPipe) id: number) {
-        return this.accountApprovalService.approve(id);
+    async approveAccount(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
+        return this.accountApprovalService.approve(id, actorFrom(req));
     }
 
     @Post(':id/reject')
@@ -75,8 +77,8 @@ export class UserController {
     @ApiResponse({ status: 200, description: 'Account rejected' })
     @ApiResponse({ status: 400, description: 'Not a parent account, or already approved' })
     @ApiResponse({ status: 404, description: 'User not found' })
-    async rejectAccount(@Param('id', ParseIntPipe) id: number, @Body() rejectAccountDto: RejectAccountDto) {
-        return this.accountApprovalService.reject(id, rejectAccountDto.reason);
+    async rejectAccount(@Param('id', ParseIntPipe) id: number, @Body() rejectAccountDto: RejectAccountDto, @Request() req: AuthenticatedRequest) {
+        return this.accountApprovalService.reject(id, actorFrom(req), rejectAccountDto.reason);
     }
 
     @Get(':id')
@@ -103,8 +105,8 @@ export class UserController {
         status: 409,
         description: 'Email or phone number already in use',
     })
-    async updateUser(@Param('id') id: number, @Body() updateUserDto: UpdateUserDto) {
-        return this.userService.updateUser(id, updateUserDto);
+    async updateUser(@Param('id') id: number, @Body() updateUserDto: UpdateUserDto, @Request() req: AuthenticatedRequest) {
+        return this.userService.updateUser(id, updateUserDto, actorFrom(req));
     }
 
     @Delete(':id')
@@ -115,7 +117,7 @@ export class UserController {
     @ApiResponse({ status: 401, description: 'Unauthorized' })
     @ApiResponse({ status: 403, description: 'Forbidden' })
     @ApiResponse({ status: 404, description: 'User not found' })
-    async deleteUser(@Param('id') id: number) {
-        return this.userService.deleteUser(id);
+    async deleteUser(@Param('id') id: number, @Request() req: AuthenticatedRequest) {
+        return this.userService.deleteUser(id, actorFrom(req));
     }
 }

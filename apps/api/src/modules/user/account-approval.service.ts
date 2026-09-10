@@ -9,6 +9,8 @@ import { OutboxService } from 'src/modules/mail/outbox.service';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { loginUrl } from 'src/modules/auth/portal-urls';
 import { officeAddress } from 'src/modules/mail/office-address';
+import { AuditAction } from 'src/enum/audit-action.enum';
+import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 
 /**
  * The second gate of E11/S2, and the whole of D2: the school decides who gets in.
@@ -43,6 +45,7 @@ export class AccountApprovalService {
         private readonly outbox: OutboxService,
         private readonly mailTemplates: MailTemplateService,
         @InjectDataSource() private readonly dataSource: DataSource,
+        private readonly audit: AuditService,
     ) {}
 
     /**
@@ -98,7 +101,7 @@ export class AccountApprovalService {
      * are looking at your account", and a parent who reads "your account is active" and then cannot
      * sign in is a parent who goes and finds the confirmation mail, which is the action we want.
      */
-    async approve(userId: number): Promise<{ message: string }> {
+    async approve(userId: number, actor: Actor): Promise<{ message: string }> {
         const user = await this.requireParent(userId);
 
         if (user.approvalStatus === ApprovalStatus.APPROVED) {
@@ -123,6 +126,22 @@ export class AccountApprovalService {
                 { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined },
                 manager,
             );
+
+            // `approvalDecidedAt` on the row says *when* the school let this family in. Nothing said
+            // *who*, and this is the decision that turns a stranger into an account that can put a
+            // child in a room. Field names only: `approvalStatus` is personal data with `account`
+            // retention, and the note carries the act rather than a value copied off the row.
+            await this.audit.recordPersonalDataChange(
+                {
+                    actor,
+                    action: AuditAction.UPDATED,
+                    entityType: 'User',
+                    entityId: userId,
+                    fields: ['approvalStatus', 'approvalDecidedAt'],
+                    note: 'cont aprobat',
+                },
+                manager,
+            );
         });
 
         this.logger.log(`User ${userId} approved.`);
@@ -137,7 +156,7 @@ export class AccountApprovalService {
      * reason is stored for admins and, deliberately, does not travel in the mail — see the
      * `account-rejected` template's description in `template-defaults.ts`.
      */
-    async reject(userId: number, reason?: string): Promise<{ message: string }> {
+    async reject(userId: number, actor: Actor, reason?: string): Promise<{ message: string }> {
         const user = await this.requireParent(userId);
 
         if (user.approvalStatus === ApprovalStatus.APPROVED) {
@@ -161,6 +180,22 @@ export class AccountApprovalService {
             await this.outbox.queueOrRecord(
                 { email: profile?.email },
                 { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined },
+                manager,
+            );
+
+            // The refusal is the half a family is most likely to ask about, and `rejectionReason`
+            // records what was decided without recording who decided it. `rejectionReason` is not
+            // among the fields named: it is the admin's own sentence, and the trail takes names, not
+            // content — it is on the row for whoever is entitled to read it.
+            await this.audit.recordPersonalDataChange(
+                {
+                    actor,
+                    action: AuditAction.UPDATED,
+                    entityType: 'User',
+                    entityId: userId,
+                    fields: ['approvalStatus', 'approvalDecidedAt'],
+                    note: 'cont respins',
+                },
                 manager,
             );
         });

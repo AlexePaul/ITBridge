@@ -17,6 +17,8 @@ import {
     provideMockDataSource,
     provideMockRepository,
 } from 'src/testing/repository.mock';
+import { AuditService } from 'src/modules/audit/audit.service';
+import { AuditAction } from 'src/enum/audit-action.enum';
 
 describe('AccountApprovalService', () => {
     let service: AccountApprovalService;
@@ -24,6 +26,11 @@ describe('AccountApprovalService', () => {
     let profileRepo: MockRepository;
     let outbox: Record<string, jest.Mock>;
     let manager: MockEntityManager;
+    /** E07/S3: who decided. The row records when, and until now nothing recorded who. */
+    let audit: { recordPersonalDataChange: jest.Mock };
+
+    /** Whoever pressed, in the shape `actorFrom` hands over. */
+    const ACTOR = { userId: 3, username: 'ana.admin' };
 
     const pendingParent = { id: 7, username: 'ana', role: Role.PARENT, approvalStatus: ApprovalStatus.PENDING, emailConfirmedAt: null };
 
@@ -32,6 +39,7 @@ describe('AccountApprovalService', () => {
         profileRepo = createMockRepository();
         outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }), queueOrRecord: jest.fn().mockResolvedValue({ id: 1 }) };
         manager = createMockEntityManager();
+        audit = { recordPersonalDataChange: jest.fn(() => Promise.resolve()) };
 
         profileRepo.findOne!.mockResolvedValue({ id: 4, firstName: 'Ana', email: 'ana@example.com' });
 
@@ -46,6 +54,7 @@ describe('AccountApprovalService', () => {
                 MailTemplateService,
                 provideMockRepository(MailTemplate, createMockRepository()),
                 provideMockDataSource(manager),
+                { provide: AuditService, useValue: audit },
             ],
         }).compile();
 
@@ -99,7 +108,7 @@ describe('AccountApprovalService', () => {
         it('opens the second gate and stamps when the decision was made', async () => {
             userRepo.findOne!.mockResolvedValue(pendingParent);
 
-            await service.approve(7);
+            await service.approve(7, ACTOR);
 
             expect(manager.update).toHaveBeenCalledWith(
                 User,
@@ -111,15 +120,45 @@ describe('AccountApprovalService', () => {
         it('tells the family, in the same transaction as the decision', async () => {
             userRepo.findOne!.mockResolvedValue(pendingParent);
 
-            await service.approve(7);
+            await service.approve(7, ACTOR);
 
             expect(outbox.queueOrRecord).toHaveBeenCalledWith(expect.objectContaining({ email: 'ana@example.com' }), expect.anything(), manager);
+        });
+
+        /**
+         * `approvalDecidedAt` recorded when the school let a family in; nothing recorded who. This is
+         * the decision that turns a stranger into an account that can put a child in a room.
+         */
+        it('records who approved, in the transaction that approved', async () => {
+            userRepo.findOne!.mockResolvedValue(pendingParent);
+
+            await service.approve(7, ACTOR);
+
+            expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    actor: ACTOR,
+                    action: AuditAction.UPDATED,
+                    entityType: 'User',
+                    entityId: 7,
+                    fields: ['approvalStatus', 'approvalDecidedAt'],
+                    note: 'cont aprobat',
+                }),
+                manager,
+            );
+        });
+
+        it('records nothing when the second click has nothing left to decide', async () => {
+            userRepo.findOne!.mockResolvedValue({ ...pendingParent, approvalStatus: ApprovalStatus.APPROVED });
+
+            await service.approve(7, ACTOR);
+
+            expect(audit.recordPersonalDataChange).not.toHaveBeenCalled();
         });
 
         it('is idempotent: a second admin clicking approve is told, not refused', async () => {
             userRepo.findOne!.mockResolvedValue({ ...pendingParent, approvalStatus: ApprovalStatus.APPROVED });
 
-            await expect(service.approve(7)).resolves.toMatchObject({ message: 'Contul era deja aprobat' });
+            await expect(service.approve(7, ACTOR)).resolves.toMatchObject({ message: 'Contul era deja aprobat' });
             expect(manager.update).not.toHaveBeenCalled();
             expect(outbox.queue).not.toHaveBeenCalled();
         });
@@ -128,7 +167,7 @@ describe('AccountApprovalService', () => {
             userRepo.findOne!.mockResolvedValue(pendingParent);
             profileRepo.findOne!.mockResolvedValue({ id: 4, firstName: 'Ana', email: null });
 
-            await service.approve(7);
+            await service.approve(7, ACTOR);
 
             expect(manager.update).toHaveBeenCalled();
             // E17/S5 changed this from "sends nothing" to "records that it could not": the outbox
@@ -140,14 +179,14 @@ describe('AccountApprovalService', () => {
         it('refuses to approve an admin account', async () => {
             userRepo.findOne!.mockResolvedValue({ id: 1, role: Role.ADMIN, approvalStatus: ApprovalStatus.PENDING });
 
-            await expect(service.approve(1)).rejects.toThrow(BadRequestException);
+            await expect(service.approve(1, ACTOR)).rejects.toThrow(BadRequestException);
             expect(manager.update).not.toHaveBeenCalled();
         });
 
         it('404s on a user that does not exist', async () => {
             userRepo.findOne!.mockResolvedValue(null);
 
-            await expect(service.approve(99)).rejects.toThrow(NotFoundException);
+            await expect(service.approve(99, ACTOR)).rejects.toThrow(NotFoundException);
         });
     });
 
@@ -155,7 +194,7 @@ describe('AccountApprovalService', () => {
         it('records the reason on the row', async () => {
             userRepo.findOne!.mockResolvedValue(pendingParent);
 
-            await service.reject(7, 'duplicat');
+            await service.reject(7, ACTOR, 'duplicat');
 
             expect(manager.update).toHaveBeenCalledWith(
                 User,
@@ -167,7 +206,7 @@ describe('AccountApprovalService', () => {
         it('never puts the reason in the message to the parent', async () => {
             userRepo.findOne!.mockResolvedValue(pendingParent);
 
-            await service.reject(7, 'cont de test');
+            await service.reject(7, ACTOR, 'cont de test');
 
             // The reason is a note one admin leaves another. Sending it would either leak internal
             // shorthand or make every admin word each note as if a parent would read it.
@@ -176,17 +215,31 @@ describe('AccountApprovalService', () => {
             expect(message.subject).not.toContain('cont de test');
         });
 
+        it('records who refused, in the transaction that refused', async () => {
+            userRepo.findOne!.mockResolvedValue(pendingParent);
+
+            await service.reject(7, ACTOR, 'duplicat');
+
+            expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
+                expect.objectContaining({ actor: ACTOR, entityType: 'User', entityId: 7, note: 'cont respins' }),
+                manager,
+            );
+            // The admin's own sentence stays on the row for whoever may read it; the trail takes
+            // field names, not content.
+            expect(JSON.stringify(audit.recordPersonalDataChange.mock.calls[0][0])).not.toContain('duplicat');
+        });
+
         it('refuses to reject an account that is already approved', async () => {
             userRepo.findOne!.mockResolvedValue({ ...pendingParent, approvalStatus: ApprovalStatus.APPROVED });
 
-            await expect(service.reject(7)).rejects.toMatchObject({ response: { error: 'ACCOUNT_ALREADY_APPROVED' } });
+            await expect(service.reject(7, ACTOR)).rejects.toMatchObject({ response: { error: 'ACCOUNT_ALREADY_APPROVED' } });
             expect(manager.update).not.toHaveBeenCalled();
         });
 
         it('is idempotent on an account already rejected', async () => {
             userRepo.findOne!.mockResolvedValue({ ...pendingParent, approvalStatus: ApprovalStatus.REJECTED });
 
-            await expect(service.reject(7)).resolves.toMatchObject({ message: 'Contul era deja respins' });
+            await expect(service.reject(7, ACTOR)).resolves.toMatchObject({ message: 'Contul era deja respins' });
             expect(outbox.queue).not.toHaveBeenCalled();
         });
     });
