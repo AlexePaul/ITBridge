@@ -342,6 +342,11 @@ export class EnrollmentService {
      * booking and by `ReplacementService.place`. Two of those racing put two children on one chair
      * without either check noticing. The group row is the right single point: every writer that can
      * change a class's occupancy is a writer against that group.
+     *
+     * **And a writer that *frees* a seat is one of them**, which took a fourth pass to notice: the
+     * releasing paths all end in `offerFreedSeat`, which counted the seats without holding this.
+     * Everything above is about two people wanting the same chair; that was one person leaving it
+     * while another sat down, and the waiting list being promised the chair anyway.
      */
     async lockGroup(manager: EntityManager, groupId: number): Promise<Group> {
         const group = await manager.getRepository(Group).findOne({ where: { id: groupId }, lock: { mode: 'pessimistic_write' } });
@@ -780,6 +785,11 @@ export class EnrollmentService {
         let expired = 0;
         for (const entry of lapsed) {
             await this.dataSource.transaction(async (manager) => {
+                // Before the entry is touched, not just before the count below: `enrol` takes the
+                // group and *then* settles this child's waitlist rows, so a sweep that grabbed the
+                // row first and asked for the group second could sit head-to-head with an enrolment
+                // holding the group and waiting on the row. Same lock, same order, no cycle.
+                await this.lockGroup(manager, entry.group.id);
                 await manager.update(WaitlistEntry, { id: entry.id }, { status: WaitlistStatus.EXPIRED });
 
                 const mail = composeWaitlistOfferExpired(entry.child.firstName, entry.group.name);
@@ -806,11 +816,18 @@ export class EnrollmentService {
             throw new NotFoundException('Waitlist entry not found');
         }
 
+        // Only an offer holds a seat, so only an offer releases one — and only then is there a
+        // group to lock. Taken before the row is written, for the reason in `expireLapsedOffers`.
+        const releasesSeat = entry.status === WaitlistStatus.OFFERED;
+
         await this.dataSource.transaction(async (manager) => {
+            if (releasesSeat) {
+                await this.lockGroup(manager, entry.group.id);
+            }
             await manager.update(WaitlistEntry, { id: entryId }, { status });
             // A declined or expired offer hands the seat straight to the next family, rather than
             // leaving it held by nobody until an admin notices.
-            if (entry.status === WaitlistStatus.OFFERED) {
+            if (releasesSeat) {
                 await this.offerFreedSeat(entry.group.id, manager);
             }
         });
@@ -824,8 +841,23 @@ export class EnrollmentService {
      * Called from inside the transaction that freed the seat, so the offer and the release commit
      * together. Offers exactly one seat per call: two seats freed means two calls, and a loop here
      * would be a promise made to a second family on the strength of a number read once.
+     *
+     * **The lock comes before the count**, for the fourth time in this codebase and the same reason
+     * every time. `enrol` locks the group and then counts; this counted without locking, so an
+     * enrolment committing against its snapshot was invisible: the tenth seat went to a child and
+     * the queue was told, in the same second, that a seat was theirs for the next 48 hours. The
+     * family answers and finds the group full, which is the one outcome a waiting list exists to
+     * prevent. It also serialises two releases against each other, which used to read the same
+     * `WAITING` entry twice and offer it twice — two mails and a moved `respondBy` for one seat.
+     *
+     * It is taken **here**, next to the number it protects, rather than in the four callers, so a
+     * fifth path that frees a seat inherits it instead of having to remember it. The callers that
+     * write a `WaitlistEntry` before reaching this point take it earlier as well, so that the group
+     * row is the first lock every seat-touching transaction holds; a second take inside the same
+     * transaction is a no-op, which is why `enrol` and `transfer` need no change.
      */
     private async offerFreedSeat(groupId: number, manager: EntityManager): Promise<void> {
+        await this.lockGroup(manager, groupId);
         const occupancy = await this.occupancyOf(groupId, manager);
         if (occupancy.free <= 0) {
             return;
