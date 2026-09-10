@@ -32,8 +32,10 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     return;
   }
 
-  // If no token, user is not logged in
-  if (!tokenStore.accessToken) {
+  // Signed out means *neither* token. The refresh token is the durable half of a session — it
+  // outlives the browser closing, while the access token does not — so testing the access token
+  // alone would bounce a returning parent whose session is still perfectly valid.
+  if (!tokenStore.accessToken && !tokenStore.refreshToken) {
     // Redirect to login if trying to access protected pages
     if (isProtectedRoute(to.path)) {
       return navigateTo("/auth/login");

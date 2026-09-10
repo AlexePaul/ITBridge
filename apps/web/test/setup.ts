@@ -24,6 +24,13 @@ vi.stubGlobal("useCookie", <T>(name: string, opts?: { default?: () => T }): Ref<
 
 vi.stubGlobal("clearNuxtCookies", () => cookieJar.clear());
 
+/**
+ * `useRequestURL`, which `tokenStore` reads to decide whether its cookies are `secure`. Plain HTTP
+ * by default, the way `pnpm dev` and a phone on the LAN see the app; a test that cares about the
+ * other answer stubs it again with an `https:` URL.
+ */
+vi.stubGlobal("useRequestURL", () => new URL("http://localhost:3001/"));
+
 // Every test starts with an empty jar, otherwise state leaks between them.
 beforeEach(() => {
   cookieJar.clear();
