@@ -779,6 +779,35 @@ date la fiecare cerere. Dacă vine o cerință de revocare instantanee, ăsta e 
 cel prezentat; dacă păstrezi tokenul vechi, a doua reîmprospătare arată ca un replay, iar serverul
 revocă tot lanțul. `useApi.ts` a avut exact bug-ul ăsta și deloga fiecare părinte la ~30 de minute.
 
+**Un login ține șapte zile, cât refresh tokenul din spatele lui.** `useCookie("accessToken")` fără
+opțiuni scrie un cookie **de sesiune** — `CookieDefaults` din Nuxt pune `path`, `watch`, `decode`,
+`encode` și `refresh`, și nimic altceva, deci nici `maxAge` și nici `expires` —, așa că amândouă
+tokenurile se aruncau la închiderea browserului. Tot ce e de partea cealaltă a sârmei fusese
+construit pentru opusul: șapte zile de refresh token, tabelul `sessions` care îl urmărește, rotația
+care revocă lanțul la refolosire. Un părinte își retasta parola la fiecare vizită, iar nimeni nu
+alesese asta — era implicitul pe care nu-l recitise nimeni. Trei lucruri de ținut minte:
+
+- **`maxAge` pe cookie-ul de refresh, singur, nu repară nimic.** Și pluginul de boot
+  (`01.auth.client.ts`), și middleware-ul (`01.auth.global.ts`) citeau **access tokenul** ca „e
+  cineva autentificat", deci părintele întors a doua zi era trimis la formularul de login cu un
+  refresh token bun în borcan, neatins: nimic nu cheamă `/auth/refresh` până nu ia o cerere 401, și
+  nu pleca nicio cerere. Jumătatea durabilă a unei sesiuni e refresh tokenul, iar amândouă îl citesc
+  acum — `/auth/me` ia 401, `useApi` reîmprospătează, reluarea duce tokenul nou.
+- **Access tokenul rămâne pe sesiune, dinadins.** E un drept de cincisprezece minute pe care
+  `AuthGuard` îl onorează fără să atingă `sessions`, deci n-are ce căuta pe disc după ce s-a închis
+  tab-ul.
+- **`secure` se decide din protocolul paginii, nu din build.** `import.meta.dev` e testul evident și
+  e greșit în două locuri deodată: `pnpm test:a11y:auth` servește un build **de producție** pe
+  `http://127.0.0.1:3124` și așteaptă cookie-ul `accessToken`, iar zona autentificată se verifică pe
+  telefon la 390px (E18 S7), adică tot pe HTTP simplu. Un cookie `secure` pe HTTP e aruncat de
+  browser fără niciun mesaj, deci greșeala arată exact ca o parolă greșită. `sameSite: "lax"` e
+  igienă de stocare, nu apărare CSRF: tokenurile circulă în antetul `Authorization`, iar API-ul nu
+  citește niciun cookie.
+
+Cele două numere — `REFRESH_TOKEN_MAX_AGE_SECONDS` din `apps/web/app/stores/tokenStore.ts` și
+`JWT_REFRESH_TOKEN_EXPIRATION` — se mută împreună: browserul nu vede mediul API-ului, iar `useCookie`
+fixează `maxAge` când se creează ref-ul, deci valoarea nu poate fi citită nici de pe token.
+
 **Nimic din datele utilizatorului nu se ține în cookie.** Limita e ~4 KB per cookie, iar depășirea
 nu produce nicio eroare: browserul aruncă tăcut, `useCookie` citește mai departe o valoare goală și
 codul funcționează „corect" pe date care nu există. Prezența a stat acolo, iar o înregistrare cară
