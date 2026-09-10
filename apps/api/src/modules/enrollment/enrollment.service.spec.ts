@@ -557,8 +557,9 @@ describe('EnrollmentService', () => {
 
             await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
 
-            expect(order[0]).toBe('lock');
-            expect(order).toContain('expire');
+            // The third entry is `offerFreedSeat` taking the same lock again, a no-op in this
+            // transaction. What this pins is the first two.
+            expect(order.slice(0, 2)).toEqual(['lock', 'expire']);
         });
 
         it('does nothing, and says so, when no offer has lapsed', async () => {
