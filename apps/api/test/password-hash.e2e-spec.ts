@@ -114,6 +114,51 @@ describe('The password hash never leaves the API (e2e)', () => {
         });
     });
 
+    describe("a project, opened from the link in the parent's email", () => {
+        /**
+         * `PROJECT_RELATIONS` pulls the account so the ownership branches can compare it to the
+         * caller, and every answer used to hand it straight back — including the one route a parent
+         * is actually mailed. The hash cannot ride along since the column became `select: false`,
+         * but `rejectionReason` still could, and `user.entity.ts` says that note is for admins only.
+         */
+        const expectNoAccount = (project: { child: { parent: { user?: unknown } } }) => {
+            expect(project.child.parent).toBeDefined();
+            expect(project.child.parent.user).toBeUndefined();
+        };
+
+        it('gives the parent the document, not their own account row', async () => {
+            const created = await request(app.getHttpServer())
+                .post('/projects')
+                .set('Authorization', admin.auth)
+                .send({
+                    childId,
+                    capturedOn: '2026-09-14',
+                    title: 'Orașul din Tinkercad',
+                    links: [{ label: 'Macheta', url: 'https://www.tinkercad.com/things/abc123' }],
+                })
+                .expect(201);
+
+            // The admin's own answer comes through `requireProject`, which carried it too.
+            expectNoAccount(created.body);
+            expectNoHash(created.body);
+
+            await request(app.getHttpServer())
+                .post('/projects/send')
+                .set('Authorization', admin.auth)
+                .send({ projectIds: [created.body.id as number] })
+                .expect(201);
+
+            const opened = await request(app.getHttpServer())
+                .get(`/projects/link/${created.body.publicId as string}`)
+                .set('Authorization', ana.auth)
+                .expect(200);
+
+            expect(opened.body.title).toBe('Orașul din Tinkercad');
+            expectNoAccount(opened.body);
+            expectNoHash(opened.body);
+        });
+    });
+
     describe('the one reader', () => {
         it('login still finds the hash it needs to compare', async () => {
             const res = await request(app.getHttpServer()).post('/auth/login').send({ username: 'ana.hash', password: 'parola123' }).expect(200);
