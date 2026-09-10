@@ -286,11 +286,17 @@ cititor e `AuthService.login`**, care îl cere cu `.addSelect('user.passwordHash
 loc care compară parola trebuie să facă la fel, altfel `bcrypt.compare` primește `undefined` și
 refuză pe toată lumea; inserările și `update()` îl scriu oricum, fiindcă `select` guvernează doar
 citirile. Și **contul tot nu se întoarce** acolo unde a fost încărcat doar ca să verifice
-proprietatea: `AbsenceNoticeService.forResponse` și `ChildService.updateChild` scot `parent.user`
-înainte să răspundă, ca `ProfileService`, fiindcă pe rând stă și `rejectionReason`, nota adminului
-pe care un părinte respins n-are de ce s-o citească. `password-hash.e2e-spec.ts` mătură rutele care
-au cont la un join distanță și verifică că `passwordHash` nu apare nicăieri în corp, iar login-ul
-încă merge.
+proprietatea: `AbsenceNoticeService.forResponse`, `ChildService.updateChild` și
+`ProjectService.withoutAccount` scot `parent.user` înainte să răspundă, ca `ProfileService`, fiindcă
+pe rând stă și `rejectionReason`, nota adminului pe care un părinte respins n-are de ce s-o
+citească. Al treilea a venit ultimul și arată de ce regula are nevoie de mătură: `PROJECT_RELATIONS`
+încarcă contul **numai** pentru ramurile de proprietate din `findByPublicId` și `findOne`, iar toate
+trei răspunsurile îl dădeau înapoi — inclusiv singura rută pe care i-o trimite școala părintelui
+prin email, `GET /projects/link/:publicId`. Hash-ul nu mai putea pleca pe acolo, fiindcă între timp
+coloana devenise `select: false`; restul rândului putea. **Se scoate copiind, nu golind pe loc**:
+`child.parent` e o relație încărcată, iar un câmp șters ajunge în orice altceva ține același obiect.
+`password-hash.e2e-spec.ts` mătură rutele care au cont la un join distanță și verifică că
+`passwordHash` nu apare nicăieri în corp, iar login-ul încă merge.
 
 **Recuperarea nu e un credit, e o mutare pe o săptămână — și n-a mai fost un credit din E12 S4.**
 `MakeUpCredit`, `MakeUpCreditService`, `AttendanceService.settleMakeUp`, `expiresOn` și tabela

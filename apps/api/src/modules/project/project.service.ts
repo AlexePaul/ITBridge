@@ -38,7 +38,12 @@ export interface UploadedFile {
     size: number;
 }
 
-/** The relations a project needs to be answerable: whose it is, and what is in it. */
+/**
+ * The relations a project needs to be answerable: whose it is, and what is in it.
+ *
+ * `child.parent.user` is in the list for the ownership branches in `findByPublicId` and `findOne`
+ * and for nothing else — see `withoutAccount`, which takes it back off before anybody sees it.
+ */
 const PROJECT_RELATIONS = ['child', 'child.parent', 'child.parent.user', 'child.group', 'versions', 'versions.files', 'links'];
 
 /** What is waiting to be sent, for the whole school and per group — E17/S8. */
@@ -370,7 +375,7 @@ export class ProjectService {
             }
         }
 
-        return project;
+        return ProjectService.withoutAccount(project);
     }
 
     async findOne(id: number, role: Role, userId: number): Promise<Project> {
@@ -379,7 +384,7 @@ export class ProjectService {
         if (role !== Role.ADMIN && project.child.parent.user?.id !== userId) {
             throw new ForbiddenException({ message: "This is another family's document.", error: 'PROJECT_NOT_YOURS' });
         }
-        return project;
+        return ProjectService.withoutAccount(project);
     }
 
     /**
@@ -564,17 +569,57 @@ export class ProjectService {
             .getMany();
     }
 
-    /** Used by the delivery service, which needs the same relations and the same definition of "one project". */
+    /** One project with everything hanging off it — the shape every answer on this service has. */
     async requireProject(id: number): Promise<Project> {
         const project = await this.projectRepository.findOne({ where: { id }, relations: PROJECT_RELATIONS });
         if (!project) throw new NotFoundException('Project not found');
-        return project;
+        return ProjectService.withoutAccount(project);
     }
 
+    /**
+     * The project, minus the account that was loaded only to work out whose it is.
+     *
+     * `PROJECT_RELATIONS` pulls `child.parent.user` so that `findByPublicId` and `findOne` can
+     * compare it to the caller — and then every one of them handed it straight back. What the link
+     * in a parent's email opens, `GET /projects/link/:publicId`, answered with the family's own
+     * account row on it: `rejectionReason`, the admin's note about why an account was refused,
+     * which `user.entity.ts` says is shown to nobody but another admin. It carried `passwordHash`
+     * too until that column became `select: false`; the column guard is the backstop, not the
+     * reason this is allowed.
+     *
+     * Same rule and same shape as `ChildService.updateChild`, `ProfileService` and
+     * `AbsenceNoticeService.forResponse`: the account does not come back from a route that loaded
+     * it to check something. Applied on the way out rather than by narrowing the query, because the
+     * ownership branches need the row to do their job.
+     *
+     * Nothing downstream reads it: the two callers of `findOne` want `versions` and `status`,
+     * `requireProject` answers admin routes that never look at the account, and `report` wants the
+     * parent's name. The delivery service does read `parent.user.emailConfirmedAt`, from its own
+     * query, which does not come through here.
+     *
+     * Copied rather than unset in place, and the difference is not style. `child.parent` is a
+     * loaded relation, so clearing the field would reach through into whatever else holds that same
+     * object — which is exactly what the first attempt did: the unit spec shares one `child` fixture
+     * across its cases, and stripping it in one turned the *next* case's ownership check into a 403
+     * against `undefined`. Production loads a fresh row per request and would not have shown it.
+     */
+    private static withoutAccount(project: Project): Project {
+        if (!project.child?.parent) return project;
+        const { user: _user, ...parent } = project.child.parent;
+        return { ...project, child: { ...project.child, parent } } as Project;
+    }
+
+    /**
+     * Stripped here rather than at the callers, because one of them answers with what it finds:
+     * `ingest`'s fast path returns this row straight to the caller instead of going round through
+     * `requireProject`, so a re-ingest of a file already on file would have carried the account
+     * while a first ingest of the same file did not.
+     */
     private async findByIngestionKey(key: string): Promise<Project | null> {
         const file = await this.fileRepository.findOne({ where: { ingestionKey: key }, relations: ['version', 'version.project'] });
         if (!file) return null;
-        return this.projectRepository.findOne({ where: { id: file.version.project.id }, relations: PROJECT_RELATIONS });
+        const project = await this.projectRepository.findOne({ where: { id: file.version.project.id }, relations: PROJECT_RELATIONS });
+        return project && ProjectService.withoutAccount(project);
     }
 
     private async requireChild(childId: number): Promise<Child> {
