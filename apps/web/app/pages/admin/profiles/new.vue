@@ -36,7 +36,6 @@
             v-model="state.userId"
             :items="userOptions"
             value-key="id"
-            searchable
             placeholder="Fără utilizator"
             class="w-full"
             aria-label="Asociază utilizator"

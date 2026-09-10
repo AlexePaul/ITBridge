@@ -143,7 +143,6 @@
               v-model="announceChildId"
               :items="childItems"
               value-key="id"
-              searchable
               placeholder="Caută după nume"
               class="w-full"
               aria-label="Copilul care lipsește"
@@ -339,7 +338,17 @@ const { error, success } = useNotifications();
 /** How far ahead the "which class" list looks. Four weeks: a family rarely rings about later. */
 const ANNOUNCE_HORIZON_DAYS = 28;
 
-const today = todayKey();
+/**
+ * The day, re-read whenever the screen goes to the API.
+ *
+ * It was taken once in setup, and this tab is the one the office leaves open: past midnight the
+ * worklist folded under yesterday's week and the "ora e azi sau a trecut" badge stopped appearing
+ * on the notices that had just started to slip — which is the single thing that badge is for. The
+ * two entry points that fetch rows refresh it first, so the day the screen reasons about is always
+ * the day its rows were read on. Same rule as `unplacedAbsencesStore`, which re-reads it on every
+ * recompute of the menu count.
+ */
+const today = ref(todayKey());
 
 const loading = ref(true);
 const loadError = ref("");
@@ -356,12 +365,13 @@ const placed = computed(() => upcoming.value.filter((notice) => notice.replaceme
  * `silent` keeps the page in place while a change is being written back.
  */
 const load = async (silent = false) => {
+  today.value = todayKey();
   if (!silent) loading.value = true;
   loadError.value = "";
   try {
     const [, fetchedUpcoming] = await Promise.all([
       attendanceApi.fetchUnplacedAbsences(),
-      attendanceApi.fetchUpcomingAbsences(weekOf(today).from),
+      attendanceApi.fetchUpcomingAbsences(weekOf(today.value).from),
     ]);
     upcoming.value = fetchedUpcoming ?? [];
   } catch (err: unknown) {
@@ -395,13 +405,14 @@ const childItems = computed(() =>
 );
 
 const sessionItems = computed(() =>
-  announceableSessions(groupSessions.value, today).map((session) => ({
+  announceableSessions(groupSessions.value, today.value).map((session) => ({
     value: session.id,
     label: sessionChoiceLabel(session),
   }))
 );
 
 const startAnnounce = async () => {
+  today.value = todayKey();
   announceChildId.value = undefined;
   announceSessionId.value = undefined;
   announceReason.value = "";
@@ -432,8 +443,8 @@ watch(announceChildId, async (childId) => {
   try {
     const fetched = await sessionsApi.fetchSessions({
       groupId: child.group.id,
-      dateFrom: today,
-      dateTo: addDaysToKey(today, ANNOUNCE_HORIZON_DAYS),
+      dateFrom: today.value,
+      dateTo: addDaysToKey(today.value, ANNOUNCE_HORIZON_DAYS),
     });
     if (request !== sessionsRequest) return;
     groupSessions.value = fetched ?? [];

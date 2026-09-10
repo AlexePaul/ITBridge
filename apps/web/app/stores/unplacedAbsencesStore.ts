@@ -23,6 +23,12 @@ export const useUnplacedAbsencesStore = defineStore("unplacedAbsences", () => {
   /**
    * How many are about to fall through — in time, not placed, and the missed class is today or
    * already gone. Turns the badge warning-coloured; the week may still have a class that fits.
+   *
+   * The day is read inside the computed rather than held beside the store, and that is deliberate
+   * — the same rule the screen follows. `notices` is the only reactive thing this depends on and
+   * every fetch replaces it, so the count is always judged against the day its rows were read on.
+   * A `today` taken once at module or store level freezes on the tab the office leaves open
+   * overnight, and then stops colouring exactly the notices that have just started to slip.
    */
   const slipping = computed(() => {
     const today = todayKey();
