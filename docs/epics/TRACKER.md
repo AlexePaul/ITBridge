@@ -3,7 +3,11 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 9 septembrie 2026, pe `release/stage`. **S-a închis E07 S4**, exportul și
+**Ultima actualizare:** 10 septembrie 2026, pe `release/stage`. **S-a închis E22 S4**, evidența
+acceptărilor: clauzele pe care Codul civil art. 1203 le numește neuzuale — suspendarea, limitarea
+răspunderii, modificarea unilaterală — se acceptă acum printr-o bifă separată, cu rând propriu în
+evidență și cu linkuri către secțiunile pe care le acceptă, iar o versiune nouă a oricărui document
+se cere la prima autentificare de după, cum promite §18. Cu o zi înainte, **s-a închis E07 S4**, exportul și
 ștergerea la cerere: o familie își descarcă din portal tot ce ține școala despre ea și despre copiii
 ei, și tot de acolo poate cere ștergerea contului — pe care biroul o duce la capăt dintr-un ecran
 propriu, în cel mult 30 de zile, păstrând doar facturile. Nu e ștergerea logică din E04 S5: aceea e
@@ -59,7 +63,7 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 84 livrate, 21 parțiale, 4 blocate, 12 scoase din
+Din **150 de story-uri** în 22 de epicuri: 85 livrate, 20 parțiale, 4 blocate, 12 scoase din
 scop, 29 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
@@ -405,7 +409,7 @@ dovedit un singur card desenat de opt ori. Niciunul nu blochează pe altcineva.
 - ~~S1 · Inventarul a ce se stochează~~ — **mutat la E07 S1.** Era același tabel scris de două ori; cel care ajunge sub ochii unei familii ar fi fost tocmai cel rămas în urmă
 - [~] S2 · Termenii contului și nota de confidențialitate — **condiția de ieșire a platformei**: fără ei nu se deschide accesul familiilor. Absoarbe și textele de vizitator — confidențialitate, cookie-uri — din fostul E07 S5. **Ciornă 0.1 în `docs/legal/`**: cele trei texte plus README-ul cu sursa fiecărui fapt; scrise din entități și verificate clauză cu clauză contra legii (tabelul e în README); neverificate de avocat, cu faptele lipsă și deciziile propuse marcate `[[…]]`. **Pagini pe stage**: `/termeni`, `/confidentialitate`, `/cookies`, randate din aceleași fișiere
 - [ ] S3 · Termenul de păstrare, și ștergerea care chiar șterge — perechea ștergerii logice din E04 S5; numărul se scrie aici, îl execută E07 S4
-- [~] S4 · Evidența acceptărilor — **prima jumătate**: bifa la înregistrare (`acceptedTerms`, refuzată fără), un rând per document în `document_acceptances` cu versiunea, spec care ține constanta egală cu capul fișierului. Rămâne re-acceptarea la versiune nouă și a doua bifă pentru clauzele neuzuale
+- [x] S4 · Evidența acceptărilor — **ambele jumătăți**. Bifa la înregistrare (`acceptedTerms`, refuzată fără), un rând per document în `document_acceptances` cu versiunea, spec care ține constanta egală cu capul fișierului. Plus **a doua bifă**, separată, pentru clauzele pe care Codul civil art. 1203 le numește neuzuale — §14, §15, §18 — cu rând propriu care poartă versiunea termenilor, și cu titlurile documentelor legate prin id-uri, ca bifa să ducă la textul pe care îl acceptă. Plus **re-acceptarea la versiune nouă**, pe care termenii §18 o promit: `GET /auth/me` spune ce lipsește (derivat pe server, ca `profileComplete`), portalul duce la `/user/termeni-noi`, iar `POST /auth/accept-documents` scrie numai ce lipsește și refuză o listă incompletă. Nicio rută nu refuză o cerere pentru asta, dinadins: §18 promite că portalul cere, nu că platforma se închide
 
 > Ultimul prin decizie: termenii descriu ce face platforma, deci se scriu după ce platforma nu-și
 > mai schimbă forma. Scris prea devreme, un asemenea document e o minciună întreținută.

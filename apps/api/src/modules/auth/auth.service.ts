@@ -5,6 +5,9 @@ import { User, isAccountActive } from 'src/entities/user.entity';
 import { Profile, isProfileComplete } from 'src/entities/profile.entity';
 import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
 import { ACCEPTED_AT_REGISTRATION, LEGAL_DOCUMENT_VERSIONS } from './legal-documents';
+import { outstandingDocuments } from './legal-acceptance.rules';
+import { AcceptDocumentsDto } from 'src/modules/auth/dto/accept-documents.dto';
+import { LegalDocument } from 'src/enum/legal-document.enum';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
@@ -33,6 +36,8 @@ export class AuthService {
         private userRepository: Repository<User>,
         @InjectRepository(Profile)
         private profileRepository: Repository<Profile>,
+        @InjectRepository(DocumentAcceptance)
+        private acceptanceRepository: Repository<DocumentAcceptance>,
         private jwtService: JwtService,
         private sessionService: SessionService,
         private emailConfirmationService: EmailConfirmationService,
@@ -337,7 +342,80 @@ export class AuthService {
             // An admin has no profile and needs none; `false` here would send them to a form that
             // is not theirs to fill in.
             profileComplete: user.role === Role.ADMIN || (profile !== null && isProfileComplete(profile)),
+            pendingLegalDocuments: await this.pendingLegalDocuments(user),
         };
+    }
+
+    /**
+     * What terms §18 promises: at the first sign-in after a new version, the portal asks for it.
+     *
+     * Derived here and sent as a list, for the reason `profileComplete` is derived here — the
+     * portal must not own a second copy of a rule the server keeps, or the screen that redirects
+     * and the ledger that records would disagree about the same family. The rule itself is
+     * `outstandingDocuments`, which is pure and has its own spec; this method is only the read.
+     *
+     * Empty for an admin. The terms are the parent's contract with the school and an admin is the
+     * school; asking the office to accept them would also mean that a version bump could lock the
+     * only people who can fix it out of the admin area, which is the kind of gate that gets
+     * disabled rather than passed.
+     */
+    private async pendingLegalDocuments(user: Pick<User, 'id' | 'role'>): Promise<LegalDocument[]> {
+        if (user.role === Role.ADMIN) {
+            return [];
+        }
+
+        const accepted = await this.acceptanceRepository.find({
+            where: { user: { id: user.id } },
+            select: ['document', 'version'],
+        });
+
+        return outstandingDocuments(accepted);
+    }
+
+    /**
+     * Records that this family accepts the documents it names — E22 S4, second half.
+     *
+     * Only what is outstanding is written, so the second click of a double-click adds nothing and
+     * a document already accepted in the version in force keeps the day it was first accepted.
+     * Rows are never updated: the ledger's whole point is that "which version did they agree to,
+     * and when" keeps its answer for every version, not just the newest.
+     *
+     * A list that leaves something outstanding is refused rather than half-recorded. The screen
+     * would otherwise send the parent back to itself with nothing said, and the one case where
+     * that matters is the one art. 1203 is about: ticking the terms and not the clauses inside them.
+     */
+    async acceptDocuments(userId: number, dto: AcceptDocumentsDto) {
+        const user = await this.userRepository.findOne({ where: { id: userId }, select: ['id', 'role'] });
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        const outstanding = await this.pendingLegalDocuments(user);
+        const offered = new Set(dto.documents);
+        const missing = outstanding.filter((document) => !offered.has(document));
+
+        if (missing.length > 0) {
+            throw new BadRequestException({
+                message: 'Trebuie acceptate toate documentele cerute, inclusiv clauzele care se acceptă separat',
+                error: 'LEGAL_ACCEPTANCE_INCOMPLETE',
+            });
+        }
+
+        if (outstanding.length > 0) {
+            // `ON CONFLICT DO NOTHING` against `UQ_document_acceptance_user_document_version`,
+            // rather than trusting the read above: two submits in the same second both see the same
+            // thing outstanding, and the second one is not an error to report — the family did
+            // accept, and the row saying so is already there with the day it happened on it.
+            await this.acceptanceRepository
+                .createQueryBuilder()
+                .insert()
+                .values(outstanding.map((document) => ({ user: { id: userId }, document, version: LEGAL_DOCUMENT_VERSIONS[document] })))
+                .orIgnore()
+                .execute();
+            this.logger.log(`User ${userId} accepted ${outstanding.join(', ')}.`);
+        }
+
+        return { pendingLegalDocuments: [] as LegalDocument[] };
     }
 
     private generateTokens(userId: number, username: string, role: string) {

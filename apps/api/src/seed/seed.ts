@@ -3,6 +3,9 @@ import { DataSource } from 'typeorm';
 import AppDataSource from '../data-source';
 import { checkSeedTarget, isLocalHost, LOCAL_PASSWORD } from './seed-target';
 import { User } from '../entities/user.entity';
+import { DocumentAcceptance } from '../entities/document-acceptance.entity';
+import { LegalDocument } from '../enum/legal-document.enum';
+import { ACCEPTED_AT_REGISTRATION, LEGAL_DOCUMENT_VERSIONS } from '../modules/auth/legal-documents';
 import { Profile } from '../entities/profile.entity';
 import { Child } from '../entities/child.entity';
 import { Group } from '../entities/group.entity';
@@ -352,6 +355,32 @@ export async function seed(dataSource: DataSource): Promise<void> {
                 approvalStatus: ApprovalStatus.APPROVED,
                 approvalDecidedAt: daysAgo(60),
             }),
+        ),
+    );
+
+    // --- What each family accepted ------------------------------------------------------------
+    // E22 S4. Written for every parent account, in the version in force, because the seed is the
+    // only other door that creates accounts and it does not go through `register`. Without these
+    // rows every seeded family has all three documents outstanding, and `03.legal-acceptance` sends
+    // them from every portal page to the acceptance screen — the whole parent portal collapses to
+    // one page, on stage and in the accessibility run alike.
+    //
+    // One family is deliberately left on an older version of the terms, so a fresh seed has the
+    // state a developer would otherwise only meet by editing rows by hand: the screen §18 promises
+    // exists, and this is who sees it. Not the admin — the accessibility run signs in as them, and
+    // admins are exempt anyway.
+    const parentAccounts = await dataSource.getRepository(User).find({ where: { role: Role.PARENT } });
+    const staleFamily = parentAccounts.find((account) => account.username === 'diana.moldovan');
+
+    await dataSource.getRepository(DocumentAcceptance).save(
+        parentAccounts.flatMap((account) =>
+            ACCEPTED_AT_REGISTRATION.map((document) =>
+                dataSource.getRepository(DocumentAcceptance).create({
+                    user: account,
+                    document,
+                    version: account.id === staleFamily?.id && document === LegalDocument.TERMS ? '0.0' : LEGAL_DOCUMENT_VERSIONS[document],
+                }),
+            ),
         ),
     );
 

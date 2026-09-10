@@ -22,6 +22,10 @@ export function createMockRepository<T extends ObjectLiteral = ObjectLiteral>():
         // double, the call returns undefined and the failure reads as a service bug.
         findOneOrFail: jest.fn(),
         save: jest.fn(),
+        // `insert` is the writer a service picks when it means "add rows", never "add or replace" —
+        // an append-only ledger like `document_acceptances` is written with it precisely because
+        // `save` would update a row it recognises.
+        insert: jest.fn(),
         create: jest.fn(),
         delete: jest.fn(),
         remove: jest.fn(),

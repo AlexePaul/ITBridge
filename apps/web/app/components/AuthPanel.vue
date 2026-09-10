@@ -125,6 +125,36 @@
               </label>
               <p v-if="errors.acceptedTerms" class="field-error">{{ errors.acceptedTerms }}</p>
             </div>
+
+            <!-- The second tick, and it has to be a second one: Cod civil art. 1203 says the
+                 unusual clauses of a standard contract produce no effect unless they are accepted
+                 expressly and separately, so the box above — which covers the whole document —
+                 is precisely the acceptance that does not count for them. Named by section, so
+                 what is being accepted is legible without opening the terms. -->
+            <div class="field">
+              <label class="checkbox checkbox-consent">
+                <input v-model="form.acceptedUnusualClauses" type="checkbox" />
+                <span>
+                  Accept în mod expres clauzele din
+                  <NuxtLink to="/termeni#14-reguli-de-utilizare" class="link" target="_blank"
+                    >§14 (suspendarea contului)</NuxtLink
+                  >,
+                  <NuxtLink
+                    to="/termeni#15-disponibilitate-erori-raspundere"
+                    class="link"
+                    target="_blank"
+                    >§15 (limitarea răspunderii)</NuxtLink
+                  >
+                  și
+                  <NuxtLink to="/termeni#18-modificarea-termenilor" class="link" target="_blank"
+                    >§18 (modificarea termenilor)</NuxtLink
+                  >.
+                </span>
+              </label>
+              <p v-if="errors.acceptedUnusualClauses" class="field-error">
+                {{ errors.acceptedUnusualClauses }}
+              </p>
+            </div>
           </template>
 
           <label class="checkbox">
@@ -177,6 +207,8 @@ export interface RegisterSubmitPayload extends LoginSubmitPayload {
   email: string;
   /** The checkbox. Typed as `true` because the form does not submit any other value. */
   acceptedTerms: true;
+  /** The second one — the express, separate acceptance art. 1203 asks for. Same reason for `true`. */
+  acceptedUnusualClauses: true;
 }
 
 /**
@@ -238,6 +270,7 @@ const registration = credentials.extend({
     .min(1, "Adresa de email este obligatorie")
     .email("Adresa de email nu pare validă"),
   acceptedTerms: z.literal(true, "Bifează că ai citit termenii și politica de confidențialitate"),
+  acceptedUnusualClauses: z.literal(true, "Bifează că accepți clauzele din §14, §15 și §18"),
 });
 
 type FieldName = keyof z.infer<typeof registration>;
@@ -250,6 +283,7 @@ const form = reactive({
   lastName: "",
   email: "",
   acceptedTerms: false,
+  acceptedUnusualClauses: false,
 });
 
 const errors = reactive<Partial<Record<FieldName, string>>>({});

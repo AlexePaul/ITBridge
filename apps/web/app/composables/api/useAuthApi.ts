@@ -2,6 +2,7 @@ import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
 import type { ConfirmEmailResponse, LoginResponse } from "~/types/auth.types";
+import type { LegalDocumentKey } from "~/types/legal.types";
 
 /**
  * What `POST /auth/register` requires. Mirrors `RegisterDto`.
@@ -17,6 +18,12 @@ export interface RegistrationPayload {
   email: string;
   /** The checkbox on the form — the server refuses anything else (E22 S2/S4). */
   acceptedTerms: true;
+  /**
+   * The second checkbox. Separate because Cod civil art. 1203 makes it separate: the unusual
+   * clauses of the terms — §14, §15, §18 — produce no effect on an acceptance that covered the
+   * whole document in one tick. Refused as anything but `true`, like the one above.
+   */
+  acceptedUnusualClauses: true;
 }
 
 export const useAuthApi = () => {
@@ -126,5 +133,18 @@ export const useAuthApi = () => {
     }
   };
 
-  return { login, register, confirmEmail, resendConfirmation, logout };
+  /**
+   * Records that this family accepts the documents named — E22 S4, second half.
+   *
+   * The user is re-fetched afterwards rather than patched here: what is still outstanding is the
+   * server's answer, and a screen that crossed items off its own list would be the second copy of
+   * a rule this whole story exists to keep in one place. It is also what releases the middleware,
+   * which reads the same field.
+   */
+  const acceptDocuments = async (documents: LegalDocumentKey[]) => {
+    await api("/auth/accept-documents", { method: "POST", body: { documents } });
+    await useUserStore().fetchUser();
+  };
+
+  return { login, register, confirmEmail, resendConfirmation, logout, acceptDocuments };
 };

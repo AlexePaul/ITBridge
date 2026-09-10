@@ -154,6 +154,10 @@ describe('authorization matrix', () => {
             // Sends only to the address already on file, for the caller's own account — it takes no
             // address, so a session cannot be used to point a confirmation somewhere else.
             'AuthController.resendConfirmation',
+            // E22/S4. A family accepting a new version of the terms, which terms §18 promises to
+            // ask for at the first sign-in after one. It takes no id — the rows land on the account
+            // in the token — and the ledger has no route that removes one.
+            'AuthController.acceptDocuments',
             // E14/S7. A parent may say "this does not look like my child's work"; the write it
             // performs is a message to the office, not a change to the document. Deleting or
             // reassigning one stays with ADMIN, which is the point of this list existing.
