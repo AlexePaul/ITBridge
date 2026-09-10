@@ -848,6 +848,21 @@ rândul cu el însuși; iar o salvare care n-a mișcat nimic nu scrie niciun râ
 adaugi un al treilea drum prin care un om atinge datele unei familii, cheamă aceeași ușă — nu
 `record` cu valori în ea.
 
+**A treia categorie e accesul, și ea cade ușor între primele două** (E07 S3). Cine intră, cine e
+refuzat, cine devine admin, al cui cont dispare: cele patru scrieri din `apps/api/src/modules/user/`
+sunt deciziile prin care platforma spune cine o poate folosi, iar multă vreme n-au consemnat nimic —
+niciuna nu primea nici măcar un actor, fiindcă `UserController` n-avea niciun `@Request()` în el.
+`approvalDecidedAt` spune _când_ a hotărât școala, nu cine; `PUT /users/:id`, singura scriere care
+dă cuiva datele tuturor familiilor, nu lăsa absolut nimic. Toate patru trec acum prin
+`recordPersonalDataChange`, în tranzacția care face schimbarea, cu **numele câmpului, nu valoarea**:
+`username`, `role` și `approvalStatus` sunt clasificate personale cu retenția `account`, deci
+aceeași graniță care ține un număr de telefon în afara jurnalului ține și un rol. Nu se pierde
+nimic: rolul curent e pe rând, iar ce rândul nu poate spune — cine l-a mutat — e exact ce adaugă
+intrarea. Motivul respingerii nu e nici el trecut: e propoziția adminului, și rămâne pe rând pentru
+cine are dreptul s-o citească. Intrarea de la ștergere își supraviețuiește subiectului, fiindcă
+jurnalul n-are relație către `users`. Dacă adaugi o a cincea ușă prin care cineva capătă sau pierde
+acces, treci-o pe acolo.
+
 **Mailul din backend pleacă prin outbox, niciodată direct.** `MailService`
 (`apps/api/src/modules/mail/mail.service.ts`) e implementarea; ce injectezi într-un modul e
 `OutboxService`. `queue()` primește opțional `EntityManager`-ul tranzacției tale — dă-i-l, altfel
