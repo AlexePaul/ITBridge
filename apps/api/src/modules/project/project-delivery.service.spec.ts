@@ -13,6 +13,7 @@ import {
 } from 'src/testing/repository.mock';
 import { ProjectDeliveryService } from './project-delivery.service';
 import { ProjectService } from './project.service';
+import { Role } from 'src/enum/role.enum';
 
 /**
  * The send. E14/S4, carried by E17/S8.
@@ -59,23 +60,29 @@ describe('ProjectDeliveryService', () => {
     let projectRepo: MockRepository;
     let outbox: { queue: jest.Mock; queueOrRecord: jest.Mock };
     let manager: MockEntityManager;
+    let projectService: { findByPublicId: jest.Mock };
 
     beforeEach(async () => {
         projectRepo = createMockRepository();
         outbox = { queue: jest.fn().mockResolvedValue({ id: 500 }), queueOrRecord: jest.fn().mockResolvedValue({ id: 501 }) };
         manager = createMockEntityManager();
+        projectService = { findByPublicId: jest.fn() };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 ProjectDeliveryService,
                 provideMockRepository(Project, projectRepo),
-                { provide: ProjectService, useValue: { findByPublicId: jest.fn() } },
+                { provide: ProjectService, useValue: projectService },
                 { provide: OutboxService, useValue: outbox },
                 provideMockDataSource(manager),
             ],
         }).compile();
 
         service = module.get(ProjectDeliveryService);
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
     });
 
     it("queues one message per parent, each with only that parent's documents", async () => {
@@ -204,5 +211,43 @@ describe('ProjectDeliveryService', () => {
         projectRepo.find!.mockResolvedValue([row()]);
 
         await expect(service.send({ projectIds: [41, 999] }, 1)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    describe('a parent reporting a document', () => {
+        const reported = {
+            id: 41,
+            title: 'Joc',
+            child: { id: 12, firstName: 'Andrei', lastName: 'P', parent: { firstName: 'Maria', lastName: 'P' }, group: { id: 5 } },
+        };
+
+        beforeEach(() => {
+            jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+        });
+
+        it('keys the day on the school clock, not on UTC', async () => {
+            projectService.findByPublicId.mockResolvedValue(reported);
+
+            // 00:30 in Bucharest on the 12th is still the 11th in UTC. The key promises "one per
+            // day, and a different complaint tomorrow still gets through" — read in UTC, a report
+            // at 23:30 and another half an hour later, on what is plainly the next day to the
+            // person sending it, shared a key and the office never heard the second.
+            jest.setSystemTime(new Date('2026-03-11T22:30:00Z'));
+            await service.report('uuid-41', {}, Role.PARENT, 9);
+
+            const [message] = outbox.queue.mock.calls[0] as [{ dedupeKey: string }];
+            expect(message.dedupeKey).toBe('project-report:41:9:2026-03-12');
+        });
+
+        it('gives the same day the same key, so a double tap is one message', async () => {
+            projectService.findByPublicId.mockResolvedValue(reported);
+
+            jest.setSystemTime(new Date('2026-03-12T08:00:00Z'));
+            await service.report('uuid-41', {}, Role.PARENT, 9);
+            jest.setSystemTime(new Date('2026-03-12T08:00:20Z'));
+            await service.report('uuid-41', {}, Role.PARENT, 9);
+
+            const keys = outbox.queue.mock.calls.map(([message]) => (message as { dedupeKey: string }).dedupeKey);
+            expect(keys[0]).toBe(keys[1]);
+        });
     });
 });
