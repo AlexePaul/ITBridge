@@ -321,6 +321,15 @@ anunțul care a provocat-o: `AbsenceNotice.replacementSession`, scrisă de `Repl
   ședință: două programări la aceeași oră citeau amândouă ultimul loc, iar la `ReplacementService`
   verificarea stătea chiar în afara tranzacției care o folosea. Lacătul se pune înaintea numărului
   pe care îl apără; a doua luare, în `enrol`, e no-op în aceeași tranzacție.
+- **A patra oară a fost pe partea care _eliberează_ locul**, și acolo victima nu e cel care se
+  așază, ci cel care așteaptă. `offerFreedSeat` număra fără lacăt, deci un `enrol` care lua ultimul
+  scaun se comitea nevăzut, iar familia din capul listei era anunțată că are locul 48 de ore pentru
+  un scaun deja ocupat — exact rezultatul pentru care există lista. Lacătul stă acum **în**
+  `offerFreedSeat`, lângă numărul pe care îl apără, nu în cei patru apelanți, ca a cincea cale care
+  eliberează un loc să-l moștenească în loc să și-l amintească. Iar cele două căi care scriu un
+  `WaitlistEntry` înainte să ajungă acolo — `expireLapsedOffers` și `removeFromWaitlist` — îl iau
+  înaintea rândului ăluia: `enrol` ia grupa și _apoi_ decontează lista, deci ordinea inversă e
+  singurul ciclu de deadlock din zonă.
 
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin
