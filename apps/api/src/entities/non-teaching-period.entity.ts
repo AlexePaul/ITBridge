@@ -18,6 +18,7 @@ import { Location } from './location.entity';
  * to account for classes that never happened.
  */
 @Entity('non_teaching_periods')
+@Index('IDX_non_teaching_periods_location_id', ['location'])
 export class NonTeachingPeriod {
     @PrimaryGeneratedColumn('increment')
     id: number;

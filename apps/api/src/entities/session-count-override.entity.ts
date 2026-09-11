@@ -20,6 +20,7 @@ import { User } from './user.entity';
  */
 @Entity('session_count_overrides')
 @Index('UQ_session_count_override_child_month', ['child', 'monthIssued'], { unique: true })
+@Index('IDX_session_count_overrides_created_by_id', ['createdBy'])
 export class SessionCountOverride {
     @PrimaryGeneratedColumn('increment')
     id: number;

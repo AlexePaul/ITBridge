@@ -11,6 +11,7 @@ import { User } from './user.entity';
  * hand somebody a working set of sessions.
  */
 @Entity('sessions')
+@Index('IDX_sessions_user_id', ['user'])
 export class Session {
     @PrimaryGeneratedColumn('increment')
     id: number;

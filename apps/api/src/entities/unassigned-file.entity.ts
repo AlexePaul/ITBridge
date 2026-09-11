@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Group } from './group.entity';
 import { UnassignedFileReason } from '../enum/unassigned-file-reason.enum';
 
@@ -15,6 +15,7 @@ import { UnassignedFileReason } from '../enum/unassigned-file-reason.enum';
  * into the right folder, or it may simply not have been anybody's work.
  */
 @Entity('unassigned_files')
+@Index('IDX_unassigned_files_group_id', ['group'])
 export class UnassignedFile {
     @PrimaryGeneratedColumn('increment')
     id: number;

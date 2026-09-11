@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Project } from './project.entity';
 
 /**
@@ -12,6 +12,7 @@ import { Project } from './project.entity';
  * as a link rather than uploading, and an admin adding one from the group screen.
  */
 @Entity('project_links')
+@Index('IDX_project_links_project_id', ['project'])
 export class ProjectLink {
     @PrimaryGeneratedColumn('increment')
     id: number;

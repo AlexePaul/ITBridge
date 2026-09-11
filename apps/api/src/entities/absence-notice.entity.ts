@@ -22,6 +22,8 @@ import { User } from './user.entity';
 // Not unique: one class can host several visiting children. Indexed because every seat count for a
 // class asks "who was moved in here", and without it that is a scan of every notice ever taken.
 @Index('IDX_absence_notice_replacement_session', ['replacementSession'])
+@Index('IDX_absence_notices_announced_by_id', ['announcedBy'])
+@Index('IDX_absence_notices_class_session_id', ['classSession'])
 export class AbsenceNotice {
     @PrimaryGeneratedColumn('increment')
     id: number;

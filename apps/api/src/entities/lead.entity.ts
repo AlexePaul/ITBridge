@@ -30,6 +30,13 @@ import { LeadStatus } from '../enum/lead-status.enum';
 // The screens are "what is open" and "trials held, no decision", so status is what everything filters
 // on first.
 @Index('IDX_leads_status', ['status'])
+@Index('IDX_leads_assigned_to_id', ['assignedTo'])
+@Index('IDX_leads_child_id', ['child'])
+@Index('IDX_leads_class_session_id', ['trialSession'])
+@Index('IDX_leads_enrollment_id', ['enrollment'])
+@Index('IDX_leads_group_id', ['group'])
+@Index('IDX_leads_location_id', ['location'])
+@Index('IDX_leads_profile_id', ['profile'])
 export class Lead {
     @PrimaryGeneratedColumn('increment')
     id: number;

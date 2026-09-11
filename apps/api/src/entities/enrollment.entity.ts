@@ -31,6 +31,7 @@ import { EnrollmentStatus } from '../enum/enrollment-status.enum';
 // rows per child are normal and only the in-force ones must be unique. Postgres enforces this even
 // against two concurrent admins, which no amount of checking in the service can.
 @Index('UQ_enrollments_one_in_force', ['child'], { unique: true, where: `status IN ('TRIAL', 'ACTIVE')` })
+@Index('IDX_enrollments_group_id', ['group'])
 export class Enrollment {
     @PrimaryGeneratedColumn('increment')
     id: number;

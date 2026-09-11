@@ -1,9 +1,10 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Profile } from './profile.entity';
 import { decimalAsNumber } from './decimal.transformer';
 import { DiscountType } from '../enum/discount-type.enum';
 
 @Entity('discounts')
+@Index('IDX_discounts_parent_id', ['parent'])
 export class Discount {
     @PrimaryGeneratedColumn('increment')
     id: number;

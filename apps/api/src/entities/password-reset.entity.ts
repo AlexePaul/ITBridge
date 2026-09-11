@@ -25,6 +25,7 @@ import { User } from './user.entity';
  *   the account rather than a flag on it.
  */
 @Entity('password_resets')
+@Index('IDX_password_resets_user_id', ['user'])
 export class PasswordReset {
     @PrimaryGeneratedColumn('increment')
     id: number;
