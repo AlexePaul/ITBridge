@@ -35,7 +35,7 @@ describe('marketing consent', () => {
                 OutboxService,
                 provideMockRepository(OutboxMessage, outboxRepo),
                 provideMockDataSource(createMockEntityManager()),
-                { provide: MailService, useValue: { send: jest.fn() } },
+                { provide: MailService, useValue: { send: jest.fn(), isConfigured: jest.fn().mockReturnValue(true) } },
                 { provide: S3Service, useValue: {} },
             ],
         }).compile();

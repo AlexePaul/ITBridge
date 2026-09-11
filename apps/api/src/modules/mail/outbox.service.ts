@@ -5,7 +5,7 @@ import { OutboxAttachment, OutboxMessage } from 'src/entities/outbox-message.ent
 import { OutboxStatus } from 'src/enum/outbox-status.enum';
 import { DeliveryFailureReason } from 'src/enum/delivery-failure-reason.enum';
 import { S3Service } from 'src/modules/storage/s3.service';
-import { MailAttachment, MailSendError, MailService, MAX_ATTACHMENT_BYTES } from './mail.service';
+import { MailAttachment, MailNotConfiguredError, MailSendError, MailService, MAX_ATTACHMENT_BYTES } from './mail.service';
 import { withUnsubscribeHtml, withUnsubscribeText } from './unsubscribe-footer';
 
 /**
@@ -274,6 +274,14 @@ export class OutboxService {
         const pacingMs = options.pacingMs ?? DEFAULT_PACING_MS;
 
         const claimed = await this.claim(now, batchSize);
+        // One line for the pass, not one per message. Since a not-configured failure no longer
+        // spends an attempt, a backend without a key retries its whole backlog every couple of
+        // minutes forever — which is the point, and which would drown the log if each row said so
+        // itself. The reason is on every row in `lastError`; this is the operational half.
+        if (claimed.length > 0 && !this.mailService.isConfigured()) {
+            this.logger.warn(`${claimed.length} message(s) are waiting on mail configuration; nothing will send until it is set.`);
+        }
+
         let sent = 0;
         let failed = 0;
 
@@ -282,7 +290,7 @@ export class OutboxService {
                 await pause(pacingMs);
             }
             try {
-                if (await this.deliver(message)) {
+                if (await this.deliver(message, now)) {
                     sent += 1;
                 } else {
                     failed += 1;
@@ -349,7 +357,7 @@ export class OutboxService {
      * succeeds and marking it sent then fails, the message goes out a second time on the next pass.
      * Closing that needs an idempotency key at the provider, which is E17/S5 territory.
      */
-    private async deliver(message: OutboxMessage): Promise<boolean> {
+    private async deliver(message: OutboxMessage, now: Date): Promise<boolean> {
         const attachments = await this.resolveAttachments(message);
 
         let failure: unknown;
@@ -366,7 +374,7 @@ export class OutboxService {
         }
 
         if (failure !== undefined) {
-            await this.recordFailure(message, failure);
+            await this.recordFailure(message, failure, now);
             return false;
         }
 
@@ -423,14 +431,30 @@ export class OutboxService {
      * until the attempts run out. Either way the row remains — E17/S5 needs "no, and here is what
      * the provider said" to be answerable from the interface, which a deleted row cannot do.
      */
-    private async recordFailure(message: OutboxMessage, error: unknown): Promise<void> {
+    private async recordFailure(message: OutboxMessage, error: unknown, now: Date): Promise<void> {
         const permanent = error instanceof MailSendError && error.permanent;
-        const exhausted = message.attempts >= MAX_ATTEMPTS;
+        // A backend with no key never asked anybody anything: `send` throws before it reaches the
+        // network. So this is not an attempt, and it must not spend one — `attempts` is defined on
+        // the entity as "how many times the provider has been asked", and the claim increments it
+        // before knowing which kind of failure it is about to get.
+        //
+        // Counting it broke the promise this error type is named for. `exhausted` reads the count
+        // and not the reason, so an unfinished deployment buried its own queue: seven passes over
+        // roughly two hours and every message was `failed`, which `claim` never looks at again.
+        // Setting the variable afterwards then rescued nothing, which is the exact outcome
+        // `MailNotConfiguredError` says it exists to prevent — and the state `api-stage` is in.
+        const unasked = error instanceof MailNotConfiguredError;
+        const exhausted = !unasked && message.attempts >= MAX_ATTEMPTS;
         const reason = (error instanceof Error ? error.message : String(error)).slice(0, MAX_ERROR_LENGTH);
 
         await this.outboxRepository.update(message.id, {
             status: permanent || exhausted ? OutboxStatus.FAILED : OutboxStatus.PENDING,
             lastError: reason,
+            // Give the attempt back, and the escalating delay with it. The backoff paces *the
+            // provider*, and this never reached one, so a queue waiting on a key retries on the
+            // base cadence instead of drifting out to the hourly cap it did not earn — and goes
+            // out with its whole budget intact the moment somebody sets the variable.
+            ...(unasked ? { attempts: message.attempts - 1, nextAttemptAt: backoffFrom(now, 1) } : {}),
         });
 
         // The recipient is a parent's email address, so it stays out of the log; the id is enough
@@ -439,7 +463,9 @@ export class OutboxService {
             this.logger.error(`Message ${message.id} rejected permanently, not retrying: ${reason}`);
         } else if (exhausted) {
             this.logger.error(`Message ${message.id} given up on after ${message.attempts} attempts: ${reason}`);
-        } else {
+        } else if (!unasked) {
+            // `unasked` is reported once for the whole pass by `dispatchPending`; saying it again
+            // per row would repeat every couple of minutes for every message in the backlog.
             this.logger.warn(`Message ${message.id} failed on attempt ${message.attempts}, retrying later: ${reason}`);
         }
     }
