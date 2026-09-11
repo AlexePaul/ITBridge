@@ -419,6 +419,51 @@ repartizarea unui copil într-o grupă (`PARENT_ACCOUNT_NOT_ACTIVE`). **Un cont 
 autentifica** — portalul îi arată ce mai lipsește și butonul de retrimitere a linkului; un login care
 refuză fără să explice ar lăsa familia să nu distingă „încă nu" de „stricat".
 
+**Parola uitată e al treilea link din familia asta, și singurul care deschide contul.**
+`PasswordResetService` (`apps/api/src/modules/auth/password-reset.service.ts`) stă lângă
+`EmailConfirmationService` din același motiv pentru care acela stă lângă `AuthService`: unul e despre
+a dovedi cine ești la fiecare cerere, ăsta despre singura clipă în care se schimbă chiar
+credențialul. Tabela `password_resets` e modelată pe `email_confirmations`, care e modelată pe
+`sessions` — **tokenul nu se stochează niciodată**, doar un SHA-256 al lui. Șase reguli, și cinci
+dintre ele sunt diferențe față de linkul de confirmare, nu asemănări:
+
+- **O oră, nu patruzeci și opt.** Linkul de confirmare are voie să aștepte duminica dimineața a
+  cuiva, fiindcă tot ce dovedește e o adresă. Ăsta deschide un cont, iar fiecare oră în care rămâne
+  valabil e o oră în care poate fi găsit într-un mail redirecționat sau într-o cutie de familie.
+  Cine întârzie cere din nou — costă un clic, față de o ușă lăsată deschisă două zile.
+- **A doua cerere o omoară pe prima.** Exact invers față de `resendConfirmation`, și dinadins: două
+  tokenuri vii sunt două șanse pentru cine n-ar trebui să aibă niciuna, iar părintele care a apăsat
+  de două ori se uită oricum la mailul mai nou. La confirmare, prețul invalidării e o familie care
+  dă clic pe mailul vechi și e certată pentru asta; aici, prețul **ne**-invalidării e o ușă deschisă.
+- **Nimic nu spune dacă adresa are cont.** `POST /auth/forgot-password` răspunde aceeași propoziție
+  fie că a scris un rând, fie că n-a găsit nimic, fie că profilul e unul tastat de admin fără cont;
+  iar `reset` dă **același** `RESET_TOKEN_INVALID` pentru un token necunoscut, unul expirat, unul
+  folosit și unul emis pentru o adresă pe care contul n-o mai are. Un endpoint care distinge e un
+  endpoint care enumeră, iar ăsta ar enumera familiile unei școli de copii. Ce **nu** e identic e
+  durata: o adresă cunoscută randează un șablon și scrie două rânduri, una necunoscută se întoarce
+  după un singur `SELECT`. Nivelarea ar însemna să facem munca și pentru adresele fără cont, iar
+  ruta e limitată la trei pe minut — scris aici ca să nu fie descoperit mai târziu.
+- **Adresa e înghețată la emitere și recitită la folosire.** E raționamentul
+  `CONFIRMATION_TOKEN_SUPERSEDED` cu miza ridicată: dacă adresa a fost corectată fiindcă era greșit
+  tastată, cutia în care a ajuns linkul poate fi a unui străin, iar un token care ar mai merge ar fi
+  drumul lui înăuntru. Comparația trece prin acelaşi `sameAddress`.
+- **Porțile contului nu se consultă.** O familie neconfirmată sau neaprobată își poate reseta
+  parola: `isAccountActive` guvernează ce poate _face_ un cont, iar alegerea unei parole nu e printre
+  acele lucruri. Un refuz aici ar lăsa o familie încuiată afară cu o ușă care se deschide doar după
+  ce apasă altcineva un buton.
+- **Se revocă toate sesiunile**, la resetare și la schimbarea din cont deopotrivă. Cine cere o
+  resetare e ori încuiat afară, ori îngrijorat, iar în al doilea caz sesiunile rămase vii sunt exact
+  cele ale persoanei de care se teme. `AuthGuard` nu atinge `sessions`, deci un access token emis
+  înainte mai merge până la cincisprezece minute — compromisul deja documentat, și locul de schimbat
+  dacă vine vreodată o cerință de revocare instantanee.
+
+`POST /auth/change-password` **cere parola actuală**, și nu e ceremonie: un access token ține un
+sfert de oră și e onorat fără să se atingă `sessions`, deci un telefon împrumutat sau un tab uitat
+deschis ajunge până la rută. Ce știe doar proprietarul e ce oprește schimbarea să fie la îndemâna
+oricui are fila deschisă. Cititorul hash-ului e al doilea din tot repo-ul, după `AuthService.login`,
+și îl cere pe nume cu `.addSelect('user.passwordHash')` — fără asta, `bcrypt.compare` primește
+`undefined` și refuză pe toată lumea.
+
 **Înregistrarea are doi pași, iar al doilea nu se poate sări.** `register` cere cinci câmpuri —
 utilizator, parolă, prenume, nume, email — și scrie în aceeași tranzacție contul, un `Profile`
 **coajă** (atât cât să știm cine e și unde pleacă linkul de confirmare), tokenul de confirmare și
