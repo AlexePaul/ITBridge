@@ -226,6 +226,12 @@ apare pe ecranul grupei cu motivul, ca sarcină pentru admin. E aceeași discipl
 fără adresă din [E17](E17-comunicare-notificari.md) S5: absența unei atribuiri e o informație, nu un
 rând de sărit.
 
+Raportarea e idempotentă pe `{grupă}:{cale}`, dar **numai cât raportul stă deschis**. Unicul simplu
+de la început promitea altceva: că un fișier apărut o dată în rădăcina grupei nu mai poate apărea
+acolo niciodată. După ce un admin rezolva primul `proiect.sb3`, al doilea nu mai producea niciun
+rând, în timp ce agentul îl muta în `_neatribuite` la fel ca înainte — deci fișierul pleca din
+folder fără ca nimic să spună asta. Indexul e parțial acum, ca la înscrieri: unic e ce e în vigoare.
+
 **Agentul se autentifică sub un cont dedicat, cu rol `ADMIN`**, fiindcă alt rol nu există — vezi
 [Decizii luate](#decizii-luate). Două lucruri de scris în cod de la început, nu de descoperit în
 producție:

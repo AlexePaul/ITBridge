@@ -353,6 +353,18 @@ să primească un singur email. Trei consecințe de ținut minte:
 - **Un părinte vede doar ce a fost trimis.** Restrângerea e în serviciu, ca peste tot, și adaugă
   `status = 'sent'` pe lângă restrângerea pe utilizator. Portalul nu are voie să fie portița prin
   care se vede ce n-a verificat încă nimeni.
+- **O cheie de deduplicare are o durată, iar cea a fișierelor neatribuite e „cât stă deschis".**
+  `unassigned_files.reportKey` e `{grupă}:{cale}` și avea un unic simplu — ceea ce se citește ca
+  „raportează fiecare loc o dată", dar promite că un fișier apărut în rădăcina grupei în septembrie
+  nu mai poate apărea acolo niciodată. Cea mai frecventă cauză a lor e obiceiul unui profesor, deci
+  reapare în octombrie: a doua oară inserarea era ignorată, agentul muta fișierul în
+  `_neatribuite` exact ca prima dată, iar pe ecran nu apărea nimic — fișierul pleca din folder în
+  tăcere, adică fix ce promite S2 că nu se întâmplă. Acum indexul e **parțial**,
+  `WHERE "resolvedAt" IS NULL`, ca `UQ_enrollments_one_in_force`: unic e ce e în vigoare, nu ce a
+  fost vreodată. Restul cheilor din repo aveau deja discriminatorul în ele — ziua școlii la anunțuri
+  și la mementouri, a câta anunțare la o ședință, id-ul plății la chitanță —, deci asta era singura
+  cheiată pe o identitate care nu se schimbă niciodată. Dacă adaugi una, întreabă ce se întâmplă a
+  doua oară când lucrul ăla se întâmplă din nou.
 
 **Locația nu e un câmp pe grupă, ci o consecință a sălii.** `Group.room` e obligatoriu, `Room.location`
 la fel, deci fiecare grupă știe unde se ține fără să poată contrazice sala. Ștergerile sunt

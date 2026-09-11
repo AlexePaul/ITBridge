@@ -342,6 +342,39 @@ describe('Student projects (e2e)', () => {
             expect(waiting.body[0].reason).toBe('group_root');
         });
 
+        it('records it again when it turns up again after somebody dealt with it', async () => {
+            // The de-duplication is meant to cover one file sitting there across several passes,
+            // not the rest of the school year. A teacher saving `proiect.sb3` into the group folder
+            // is a habit, not a one-off — and once the first row was resolved, the second time it
+            // happened produced no row at all, while the agent moved the file to `_neatribuite`
+            // exactly as before. The file left the folder and nothing anywhere said so.
+            const stray = { groupId, relativePath: 'Drumul Taberei/Scratch Începători/iar.sb3', fileName: 'iar.sb3', reason: 'group_root' };
+            const post = () => request(app.getHttpServer()).post('/agent/unassigned').set('Authorization', admin.auth).send(stray).expect(201);
+
+            const first = await post();
+            await post(); // the same pass again: still one row, which is what the key is for.
+
+            const open = async () => {
+                const response = await request(app.getHttpServer()).get('/agent/unassigned').set('Authorization', admin.auth).expect(200);
+                return (response.body as { id: number; relativePath: string }[]).filter((row) => row.relativePath === stray.relativePath);
+            };
+            expect(await open()).toHaveLength(1);
+
+            await request(app.getHttpServer())
+                .put(`/agent/unassigned/${(first.body as { id: number }).id}/resolve`)
+                .set('Authorization', admin.auth)
+                .expect(200);
+            expect(await open()).toHaveLength(0);
+
+            await post();
+
+            const again = await open();
+            expect(again).toHaveLength(1);
+            // A new row, not the old one reopened: what an admin did about the first time stays on
+            // the record, and this is a second occurrence rather than an edit of the first.
+            expect(again[0].id).not.toBe((first.body as { id: number }).id);
+        });
+
         it('names the children who have nothing yet, as a nudge and never as attendance', async () => {
             // A read, deliberately. E14 is explicit that attendance is not derived from files — a
             // document proves somebody saved a file, not that a child sat in a chair — but the
