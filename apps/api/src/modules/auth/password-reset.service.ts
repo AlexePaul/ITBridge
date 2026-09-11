@@ -105,6 +105,14 @@ export class PasswordResetService {
         });
 
         await this.dataSource.transaction(async (manager) => {
+            // The account row, held for the length of the write — the same `pessimistic_write` the
+            // seats in E11 and the invoice totals in E16 take, and for the same shape of reason.
+            // „Kill the old link, then write the new one" is read-then-write, so two requests
+            // arriving together each invalidate what they saw and each insert: a double-click
+            // would leave **two** live links for one account, which is precisely the state the
+            // rule below exists to forbid. Cheap here — one row, one caller, once an hour at most.
+            await manager.getRepository(User).findOne({ where: { id: account.id }, lock: { mode: 'pessimistic_write' } });
+
             // Every earlier link for this account stops working now.
             await manager.update(PasswordReset, { user: { id: account.id }, consumedAt: IsNull() }, { consumedAt: now });
 

@@ -20,7 +20,7 @@ describe('PasswordResetService', () => {
     let mailTemplates: { render: jest.Mock };
     let outbox: { queue: jest.Mock };
     let sessions: { revokeAllForUser: jest.Mock };
-    let manager: { update: jest.Mock; save: jest.Mock; create: jest.Mock };
+    let manager: { getRepository: jest.Mock; update: jest.Mock; save: jest.Mock; create: jest.Mock };
     let transaction: jest.Mock;
 
     const now = new Date('2026-09-11T09:00:00.000Z');
@@ -48,6 +48,7 @@ describe('PasswordResetService', () => {
         sessions = { revokeAllForUser: jest.fn().mockResolvedValue(undefined) };
 
         manager = {
+            getRepository: jest.fn().mockReturnValue({ findOne: jest.fn().mockResolvedValue({ id: 7 }) }),
             update: jest.fn().mockResolvedValue({ affected: 1 }),
             save: jest.fn().mockImplementation((_entity: unknown, data: unknown) => Promise.resolve(data)),
             create: jest.fn().mockImplementation((_entity: unknown, data: unknown) => data),
@@ -108,6 +109,20 @@ describe('PasswordResetService', () => {
             expect(manager.update).toHaveBeenCalledWith(PasswordReset, { user: { id: 7 }, consumedAt: expect.anything() }, { consumedAt: now });
             // Order matters only in that both happen; the transaction is what makes them one act.
             expect(manager.update.mock.invocationCallOrder[0]).toBeLessThan(manager.save.mock.invocationCallOrder[0]);
+        });
+
+        it('holds the account row while it invalidates and writes', async () => {
+            await service.request('ana@pop.ro', now);
+
+            const locked = manager.getRepository.mock.results[0].value.findOne.mock.calls[0][0] as {
+                lock?: { mode: string };
+            };
+            expect(locked.lock).toEqual({ mode: 'pessimistic_write' });
+            // Before the pair it protects: read-then-write without it lets two simultaneous
+            // requests each invalidate what they saw and each insert, leaving two live links.
+            const lockOrder = manager.getRepository.mock.invocationCallOrder[0];
+            expect(lockOrder).toBeLessThan(manager.update.mock.invocationCallOrder[0]);
+            expect(lockOrder).toBeLessThan(manager.save.mock.invocationCallOrder[0]);
         });
 
         it('says nothing and writes nothing when the address is not on file', async () => {
