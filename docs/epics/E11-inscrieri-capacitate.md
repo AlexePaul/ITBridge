@@ -445,6 +445,36 @@ destui copii pentru o grupă nouă. Ține cont de disponibilitatea profesorilor 
 **Acceptanță:** răspunde la "am destui copii pentru o grupă nouă de Scratch la Titan?" fără muncă
 manuală.
 
+### S8 · Parola uitată și parola schimbată — **LIVRAT**
+
+Story-ul ăsta n-a existat în plan, și lipsa lui era chiar defectul: S2 a construit cele două porți
+prin care un cont devine folosibil și n-a construit niciodată drumul înapoi pentru cine își uită
+parola. Singura cale era biroul, la telefon, în program — pentru o platformă la care familiile intră
+seara.
+
+> **Ce s-a construit.** Trei rute: `POST /auth/forgot-password` și `POST /auth/reset-password`,
+> amândouă publice fiindcă premisa e un părinte care **nu** se poate autentifica, iar o poartă ar fi
+> un cerc; și `POST /auth/change-password`, după autentificare, care cere totuși parola actuală —
+> `AuthGuard` onorează un token un sfert de oră fără să atingă `sessions`, deci un tab uitat deschis
+> pe un calculator împărțit ajunge până acolo. În frontend: `/auth/forgot-password`,
+> `/auth/reset-password`, linkul de sub butonul de autentificare și formularul din profilul de
+> portal.
+>
+> Tabela `password_resets` e a treia din familia `sessions` / `email_confirmations` și se poartă la
+> fel: **tokenul nu se stochează niciodată**, doar un SHA-256. Ce diferă față de linkul de
+> confirmare — o oră în loc de patruzeci și opt, a doua cerere o omoară pe prima, niciun răspuns nu
+> spune dacă adresa are cont, adresa e înghețată la emitere și recitită la folosire, porțile contului
+> nu se consultă, iar toate sesiunile se revocă — e scris cu motivele în [CLAUDE.md](../../CLAUDE.md),
+> lângă regulile porților din S2. Aici nu se repetă: o a doua copie a unei reguli e copia care
+> divergează.
+>
+> **Ce n-are**: nicio întrebare de securitate, niciun cod pe SMS, nicio politică de complexitate
+> peste lungimea minimă pe care o cere deja înregistrarea. Prima e o parolă mai slabă cu alt nume, a
+> doua cere un al doilea furnizor, iar a treia mută costul pe familie fără să mute riscul.
+
+**Acceptanță:** un părinte încuiat afară intră la loc în cont fără să sune la școală, iar linkul pe
+care l-a folosit nu mai deschide nimic după aceea.
+
 ## Dependențe
 
 [E08](E08-multi-locatie.md) pentru sală și capacitate, [E09](E09-personal-roluri.md) pentru profesor,

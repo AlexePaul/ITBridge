@@ -1,6 +1,6 @@
 # E12 · Prezență, recuperări și orar
 
-**Status:** în lucru · **Pistă:** Operațiuni · **Depinde de:** E11 · **Blochează:** E13, E14, E15, E21
+**Status:** **livrat** · **Pistă:** Operațiuni · **Depinde de:** E11 · **Blochează:** E13, E14, E15, E21
 
 ## Problemă
 
