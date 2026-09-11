@@ -717,6 +717,15 @@ Rulează-le de la rădăcină, cu `pnpm test:e2e`, nu cu `pnpm --filter api test
 pornește cu directorul de lucru în `apps/api`, unde nu există `.env`, deci nu vede portul MinIO din
 configurația ta.
 
+**Imaginea MinIO vine de pe `quay.io`, nu de pe Docker Hub.** `minio/minio` de pe Hub răspunde acum
+unui `docker pull` anonim cu `pull access denied ... may require 'docker login'`, deci și
+`docker compose up -d`, și job-ul de integrare din CI se opreau înainte să ruleze ceva. În CI arăta
+cel mai prost cu putință: pasul „Start MinIO" pica într-o secundă, iar cei doi de după el —
+`check:schema` și **toată** suita de integrare — erau _skipped_, deci checkul ieșea roșu cu numele
+„Integration tests" și cu zero teste rulate. Dacă vezi vreodată roșu acolo, uită-te întâi dacă a
+rulat vreun test: un pas de infrastructură care cade nu seamănă cu un test picat, dar checkul are
+aceeași culoare.
+
 **`scripts/` e exclus din `tsconfig.build.json`, intenționat.** Inclus, ar urca `rootDir` la
 rădăcina pachetului, iar `nest build` ar scrie `dist/src/main.js` în loc de `dist/main.js` — deci
 `start:prod` și deploy-ul s-ar rupe în tăcere. Scripturile rulează oricum prin ts-node.
