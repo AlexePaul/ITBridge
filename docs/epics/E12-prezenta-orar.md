@@ -125,9 +125,12 @@ nullable, iar orizontul devine lungimea modulului.
 `ADMIN` și `PARENT`. Ar fi venit cu [E09](E09-personal-roluri.md), care e **scos din MVP** prin
 decizia școlii — cei care predau sunt și cei care administrează —, deci nu vine.
 
-**Orizontul nu se rulează singur.** Nu există nici job, nici buton — cineva cheamă `generate`. Cu opt
-săptămâni înainte e o operațiune la două luni, nu una zilnică, dar rămâne manuală, iar dacă o uită
-cineva orarul se golește din coadă, tăcut.
+**Orizontul se rulează singur de la `TimetableHorizonJob`.** A fost manual multă vreme, și nota de
+aici spunea că „dacă o uită cineva orarul se golește din coadă, tăcut" — exact ce s-a și întâmplat
+cât timp singurul declanșator a fost `POST /class-sessions/generate`. Acum o trecere zilnică la 04:30
+pe ceasul școlii cere aceeași generare pentru toate grupele active; butonul rămâne pentru cine vrea
+orarul acum. Zilnic, nu săptămânal, fiindcă orizontul se măsoară din ziua curentă — iar costul e
+zero pe o dimineață în care totul e deja scris, prin idempotența pe `(grupă, dată)`.
 
 Migrarea `1787994566464-ClassSessionsAndOutbox` reconstruiește ședințele din combinațiile distincte
 `(grupă, dată, oră)` deja existente în `attendances` și leagă fiecare marcaj de a lui, fără pierdere.
