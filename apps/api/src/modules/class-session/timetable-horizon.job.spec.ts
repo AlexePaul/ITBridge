@@ -59,6 +59,20 @@ describe('TimetableHorizonJob', () => {
         expect(dto.weeks).toBe(DEFAULT_HORIZON_WEEKS);
     });
 
+    /**
+     * `generateSessions` defaults `from` to `startOfToday()`, which reads the server's local
+     * components — so on a UTC host the job's own firing hour decides which day the horizon starts
+     * on. It works at 04:30 by arithmetic alone; it would be a day short at 01:00. Naming the day
+     * removes the dependency, and this is what stops somebody restoring the default.
+     */
+    it("starts the horizon on the school's day, not the server's", async () => {
+        await job.topUp();
+
+        const dto = classSessions.generateSessions.mock.calls[0][0] as { from?: string };
+        const schoolToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Bucharest' }).format(new Date());
+        expect(dto.from).toBe(schoolToday);
+    });
+
     it('reports what it wrote', async () => {
         classSessions.generateSessions.mockResolvedValue(summary({ groups: 4, created: 6, skipped: 2 }));
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { SCHOOL_TIME_ZONE } from 'src/common/school-clock';
+import { schoolDay, SCHOOL_TIME_ZONE } from 'src/common/school-clock';
 import { ClassSessionService, DEFAULT_HORIZON_WEEKS } from './class-session.service';
 
 /** Half past four in the morning, school time. */
@@ -87,7 +87,14 @@ export class TimetableHorizonJob {
      * quietly. Passing no `groupId` is what asks for every active group.
      */
     async topUp(): Promise<HorizonTopUp> {
-        const result = await this.classSessions.generateSessions({ weeks: DEFAULT_HORIZON_WEEKS });
+        // **`from` is passed, not defaulted, and that is a one-day bug closed rather than noted.**
+        // `generateSessions` falls back to `startOfToday()`, which reads the *server's* local
+        // components, while this job fires on the *school's* clock. Today they agree only by
+        // arithmetic: 04:30 in Bucharest is 01:30 or 02:30 UTC, the same calendar date either way.
+        // Move the trigger to 01:00 — a perfectly reasonable thing for somebody to do — and the
+        // server would compute yesterday, so the horizon would quietly start a day short and stay
+        // that way. Naming the day on the school's clock makes the hour stop being load-bearing.
+        const result = await this.classSessions.generateSessions({ weeks: DEFAULT_HORIZON_WEEKS, from: schoolDay(new Date()) });
         const summary: HorizonTopUp = { groups: result.groups, created: result.created, skipped: result.skipped };
 
         // Silent on the ordinary morning, which is every morning where nothing had lapsed. The
