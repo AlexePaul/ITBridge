@@ -3,7 +3,11 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 10 septembrie 2026, pe `release/stage`. **S-a închis E22 S4**, evidența
+**Ultima actualizare:** 10 septembrie 2026, pe `release/stage`. **S-a închis E17 S4**, dezabonarea:
+fiecare mesaj promoțional poartă acum calea lui de oprire, cum cere Legea 506/2004 art. 12 și cum
+promiteau deja termenii §13 — un jeton per familie, o pagină care întreabă înainte să scrie, și un
+footer adăugat la singura ușă prin care trece marketingul, ca niciun expeditor să nu-l poată uita.
+**S-a închis și E22 S4**, evidența
 acceptărilor: clauzele pe care Codul civil art. 1203 le numește neuzuale — suspendarea, limitarea
 răspunderii, modificarea unilaterală — se acceptă acum printr-o bifă separată, cu rând propriu în
 evidență și cu linkuri către secțiunile pe care le acceptă, iar o versiune nouă a oricărui document
@@ -63,7 +67,7 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 85 livrate, 20 parțiale, 4 blocate, 12 scoase din
+Din **150 de story-uri** în 22 de epicuri: 86 livrate, 19 parțiale, 4 blocate, 12 scoase din
 scop, 29 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
@@ -294,7 +298,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [~] S1 · Furnizorul și livrabilitatea — parțial: `MailService` există în `apps/api`; SPF/DKIM/DMARC și partea de operare, nu
 - [x] S2 · Șabloane — implicitele în cod, editările în `mail_templates`; ecranul `/admin/emailuri` cu previzualizare pe draft; mesajele de cont din E11 S2 mutate pe `render()`, cu variantă HTML
 - [~] S3 · Coadă și reîncercare — parțial: outbox-ul e întreg și **rulează pe stage** de la E01 S4, într-un singur proces; fără cheie de trimitere acolo, mesajele se scriu și rămân. Prin el trece deja tot ce trimite backend-ul: mementourile de prezență și de recuperare din E12, restanțele din E16, mesajele de cont și locul eliberat din E11, proiectele din E14
-- [~] S4 · Preferințe și dezabonare — comutatorul (`Profile.marketingOptIn`, implicit **false**) din setările părintelui, plus garanția că tranzacționalul nu-l consultă. Frecvențele sunt S6, iar expeditor de marketing încă nu există
+- [x] S4 · Preferințe și dezabonare — comutatorul (`Profile.marketingOptIn`, implicit **false**) din setările părintelui, garanția că tranzacționalul nu-l consultă, și acum **calea de refuz din mesaj**, pe care acceptanța o cerea de la început: un jeton per familie (`select: false`, scris de un subscriber fiindcă jumătate din scriitori dau lui `save` un obiect simplu), footerul adăugat **în `queueMarketing`** ca un expeditor să nu-l poată uita, o rută publică ce comută într-o singură direcție și `/dezabonare`, unde scrierea e un `POST` fiindcă scanerele de mail deschid linkuri fără om. **Răstoarnă o notă de decizie („din settings, nu dintr-un link magic”) — motivele sunt în epic, iar patronul poate reveni.** Frecvențele rămân S6, scos
 - [x] S5 · Evidența livrărilor — `GET /deliveries` + ecranul `/admin/livrari`; starea `undeliverable` cu motiv tipizat, deci un părinte fără adresă nu mai e sărit tăcut. Doar de citit, fără reîncercare manuală
 - ~~S6 · Rezumate în loc de rafale~~ — **construit și scos prin decizie.** Un părinte nu se supără că primește trei emailuri într-o zi, iar motorul cerea ca fiecare mesaj să treacă printr-o stare în care nu a plecat și nu a eșuat — clasa de defecte care arată ca liniște. Gruparea care conta rămâne: **un mesaj per părinte, nu per copil**, în E12 S5 și S7, E14 S4 și E17 S7. Argumentul și ce ar trebui adus înapoi sunt scrise în epic
 - [x] S7 · Anunțuri — `/admin/anunturi`: grupă, locație sau toată școala, un mesaj per **părinte**, previzualizare care randează mesajul adevărat și numără audiența pe felii, trimitere de test și confirmare. Anunțul își declară felul, iar cel promoțional e **primul expeditor de marketing** și respectă comutatorul din S4. Un text care numește un copil e avertisment cu confirmare, ca vârsta la E11/S6; același anunț de două ori în aceeași zi e refuzat de un index unic

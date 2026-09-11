@@ -23,6 +23,11 @@ export const dataSourceOptions: PostgresConnectionOptions = {
     // to the compiled `.js` under PM2.
     entities: [join(__dirname, '/**/*.entity{.ts,.js}')],
     migrations: [join(__dirname, '/migrations/*{.ts,.js}')],
+    // Same reasoning, and needed from E17/S4: a profile's unsubscribe token is filled in on insert
+    // by `ProfileTokenSubscriber`. It has to be a subscriber rather than a `@BeforeInsert` on the
+    // entity, because half the writers pass a plain object literal to `save` and an entity hook
+    // only fires for an instance — so without this line registration dies on a not-null column.
+    subscribers: [join(__dirname, '/**/*.subscriber{.ts,.js}')],
 
     synchronize: false,
 

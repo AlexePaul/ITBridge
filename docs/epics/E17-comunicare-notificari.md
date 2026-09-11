@@ -314,9 +314,47 @@ Distincția e și legală, și de bun-simț.
 **Acceptanță:** dezabonarea de la marketing nu oprește facturile și nici documentele copilului.
 Legătura de dezabonare funcționează dintr-un click.
 
-**Livrat parțial: comutatorul și garanția, nu frecvențele.** `Profile.marketingOptIn` e singura
-preferință, iar părintele o schimbă din propriile setări (`/user/profile`) — decizia patronului a
-fost „din settings", nu dintr-un link magic în subsolul mesajului.
+**Livrat: comutatorul, garanția și legătura de dezabonare. Nu frecvențele — alea sunt S6, scos.**
+`Profile.marketingOptIn` rămâne singura preferință, iar părintele o schimbă din propriile setări
+(`/user/profile`).
+
+**Linkul din subsolul mesajului a fost adăugat, iar asta răstoarnă o decizie scrisă aici.** Nota de
+livrare de dinainte spunea „decizia patronului a fost «din settings», nu dintr-un link magic în
+subsolul mesajului". Se schimbă din trei motive, și merită citite înainte să fie schimbată înapoi:
+
+1. **Acceptanța acestui story cere linkul**, cu cuvintele ei: „Legătura de dezabonare funcționează
+   dintr-un click". Story-ul se contrazicea pe el însuși.
+2. **Legea 506/2004 art. 12 cere refuzul din fiecare mesaj**, nu dintr-un ecran. Verificarea
+   juridică din E22 S2 marchează exact asta ca lipsă și ca sarcină
+   (`docs/legal/README.md`, punctul 8), iar GDPR art. 7 alin. 3 cere ca retragerea să fie la fel de
+   ușoară ca acordarea — un login e mai greu decât bifa care a pornit mesajele.
+3. **Textele publicate deja o promit**: termenii §13 și politica §3.8 îi spun familiei că fiecare
+   mesaj promoțional conține calea de oprire. Erau publicate pe stage înainte să existe calea.
+
+Ce **nu** s-a schimbat e argumentul din spatele deciziei inițiale: dezabonarea din settings rămâne,
+e locul în care se poate și porni la loc, iar linkul nu o înlocuiește. Dacă patronul preferă totuși
+numai settings, ce se scoate e footerul din `queueMarketing` — restul (jetonul, ruta, pagina) nu
+face rău stând acolo, dar nici nu are rost singur.
+
+**Cum e construit, și de ce așa:**
+
+- **Footerul se adaugă în `queueMarketing`, nu în șabloane.** Ușa prin care trece marketingul e
+  una singură, iar un subsol pe care fiecare expeditor trebuie să-l lipească e un subsol pe care
+  cineva îl uită. Un mesaj de marketing fără cale de oprire devine astfel _imposibil de trimis_, nu
+  doar descurajat — același argument ca verificarea de consimțământ de deasupra lui.
+- **`Profile.unsubscribeToken`**: 32 de octeți aleatori, `select: false` ca `User.passwordHash`,
+  generați de `ProfileTokenSubscriber`. Un **subscriber**, nu `@BeforeInsert`: jumătate din
+  scriitori dau lui `save` un obiect simplu, iar un hook de entitate rulează doar pentru o
+  instanță — cu hook, înregistrarea murea pe constrângerea `NOT NULL`. Măsurat, nu presupus.
+- **Linkul duce la o pagină, iar scrierea e un `POST`.** Un `GET` care dezabonează la atingere ar
+  fi dezabonat familii pe care nu le-a întrebat nimeni: clienții de mail, scanerele de securitate
+  și boții de previzualizare deschid linkuri fără om, iar urma ar fi arătat exact ca oameni care
+  refuză.
+- **Comută într-o singură direcție.** Linkul oprește marketingul, niciodată nu-l pornește — de aia
+  jetonul poate fi stabil și fără expirare (un buletin de acum opt luni trebuie să mai funcționeze),
+  iar cel mai rău lucru pe care îl poate face unul scurs e să oprească un buletin.
+- **Răspunsul nu spune dacă jetonul era real.** Altfel ruta devine un oracol pentru ghicit jetoane,
+  iar familia n-ar avea ce face cu distincția oricum.
 
 **Implicit e `false`, și e o decizie, nu o ridicare din umeri.** Consimțământul pe care nu l-a dat
 nimeni nu e consimțământ, iar o coloană implicit `true` ar face ca prima trimitere de marketing să
@@ -336,7 +374,8 @@ S5 le scoate la vedere. Ce **rămâne** nelivrabil e marketingul către o famili
 n-are adresă — ăla e un eșec.
 
 **Ce nu s-a construit:** frecvențele („imediat / rezumat zilnic / rezumat săptămânal") sunt de fapt
-S6, iar rezumatele nu există. Mecanismul a fost construit înaintea primului expeditor tocmai fiindcă
+S6, iar rezumatele nu există. Nici antetul `List-Unsubscribe` (RFC 8058), care e o îmbunătățire de
+livrabilitate, nu o cerință legală, și ține de S1. Mecanismul a fost construit înaintea primului expeditor tocmai fiindcă
 momentul în care s-ar retrofita în jurul lui e momentul în care ar fi greșit — iar **primul a apărut
 la S7**: un anunț își declară felul, iar cel promoțional trece prin `queueMarketing`. Fără el, ecranul
 de anunțuri ar fi fost gaura din garanția de aici, nu prima ei confirmare. Textul din setări spune explicit ce **nu** oprește comutatorul — un părinte care citește
