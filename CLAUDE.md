@@ -75,6 +75,7 @@ docker compose up -d              # Postgres + MinIO; aplicația rulează pe Nod
 pnpm --filter api migration:run   # schema; synchronize e oprit
 pnpm seed                         # date de dezvoltare; admin / parola123
 SEED_TODAY=2026-03-16 pnpm seed   # aceleași date, dar ancorate la o zi fixă
+pnpm seed:scale                   # o școală de trei ani, ca să se poată măsura o interogare
 pnpm dev                          # api + web, hot reload
 
 pnpm build          # turbo, în ordinea dependențelor
@@ -101,6 +102,25 @@ populată se deschidea pe „Nicio oră azi", cu cea mai nouă factură veche de
 implicitul e ziua curentă, iar `SEED_TODAY=2026-03-16` o fixează la loc dacă vrei două rulări
 identice. Grupele acoperă luni–sâmbătă tocmai ca „azi" să aibă o oră în șase zile din șapte.
 `pnpm seed` nu trece prin turbo, deci variabila **nu** se declară în `globalEnv`.
+
+**`pnpm seed:scale` e a doua volumetrie, nu a treia țintă.** Seed-ul obișnuit are ~120 de ședințe
+și ~80 de marcaje, iar la dimensiunea aia Postgres alege scanarea secvențială orice index i-ai pune
+— deci o interogare care scanează toată tabela și una care folosește un index dau **același plan și
+același timp**. Două defecte au stat fix în golul ăla până în septembrie 2026, printre ele un `SUM`
+peste plățile unei facturi care rula neindexat **ținând lacătul acelei facturi**.
+
+Comanda umple baza cu o școală de trei ani — implicit 250 de familii, 300 de copii, 30 de grupe,
+3.510 ședințe, 35.100 de marcaje, 9.000 de facturi, 54.000 de rânduri în coadă — în vreo două
+secunde, fiindcă scrie prin `generate_series`, nu prin TypeORM. Dimensiunea se schimbă din
+`SCALE_YEARS` și `SCALE_FAMILIES`; forma stă în `scale.rules.ts` și are spec propriu, fiindcă e
+partea care poate fi tăcut greșită: un copil înmulțit cu **toate** ședințele școlii, în loc cu cele
+ale grupei lui, dă 936.000 de rânduri în loc de 35.100, iar scriptul rulează la fel de vesel.
+
+**Nu e o bază în care se dă clic**: n-are conturi de părinte, toate familiile se cheamă `Familia 37`
+și **golește tot** înainte, deci trece prin acelaşi `checkSeedTarget`. Când ai terminat de măsurat,
+`pnpm seed` îți dă înapoi baza folosibilă. Ce tipărește la final sunt numerele **citite din bază**,
+nu cele prezise — prima versiune tipărea predicția și era greșită cu treizeci de rânduri la plăți,
+iar un rezumat care contrazice tabela e mai rău decât niciun rezumat.
 
 **Seed-ul are două ținte, iar `seed-target.ts` e tot ce le desparte.** `pnpm seed` merge pe baza
 locală; `pnpm seed:stage` citește `.env.stage` și merge pe staging. Pe orice host care nu e
