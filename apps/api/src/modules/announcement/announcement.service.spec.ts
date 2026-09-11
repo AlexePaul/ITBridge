@@ -248,6 +248,73 @@ describe('AnnouncementService', () => {
 
             expect(preview.recipients).toMatchObject({ total: 2, deliverable: 1, declined: 1 });
         });
+
+        it('shows the way out that a promotional message will actually carry — E17/S4', async () => {
+            withAudience([childOf(1, { marketingOptIn: true })]);
+
+            const preview = await service.preview(announcement({ kind: MessageKind.MARKETING }));
+
+            // This screen exists so somebody can check what will be sent. Since `queueMarketing`
+            // adds the footer, a preview without it is a preview of a different message.
+            expect(preview.bodyText).toContain('/dezabonare?token=');
+        });
+
+        it("shows a sample token there, never a family's own", async () => {
+            withAudience([childOf(1, { marketingOptIn: true, unsubscribeToken: 'jetonul-anei' })]);
+
+            const preview = await service.preview(announcement({ kind: MessageKind.MARKETING }));
+
+            // The column is `select: false` to keep real tokens out of payloads; an admin screen is
+            // a payload. Whoever reads this preview must not come away holding a working link.
+            expect(preview.bodyText).not.toContain('jetonul-anei');
+            expect(preview.bodyText).toContain('EXEMPLU');
+        });
+
+        it('leaves an operational announcement without one', async () => {
+            withAudience([childOf(1)]);
+
+            // An unsubscribe link on a cancelled-class notice would be telling a family they can
+            // opt out of being told their child's class is off.
+            const preview = await service.preview(announcement());
+
+            expect(preview.bodyText).not.toContain('/dezabonare');
+        });
+    });
+
+    describe('the test send', () => {
+        it('carries the same way out the preview showed, on a promotional message — E17/S4', async () => {
+            await service.sendTest(announcement({ kind: MessageKind.MARKETING }), 99);
+
+            // Both tools that exist to let somebody check a message before it goes out have to show
+            // the same message. The real footer is added by `queueMarketing`, which a test send does
+            // not go through — so without this the test copy would be the one that lied.
+            const sent = outbox.queue.mock.calls[0][0] as { bodyText: string };
+            expect(sent.bodyText).toContain('/dezabonare?token=');
+        });
+
+        it('shows a sample token there, never a working link for anybody', async () => {
+            await service.sendTest(announcement({ kind: MessageKind.MARKETING }), 99);
+
+            // Pressing „test" must not be able to unsubscribe the admin pressing it, and a real
+            // family's link has no business in a message addressed to somebody else.
+            const sent = outbox.queue.mock.calls[0][0] as { bodyText: string };
+            expect(sent.bodyText).toContain('EXEMPLU');
+        });
+
+        it('leaves an operational message without one', async () => {
+            await service.sendTest(announcement(), 99);
+
+            const sent = outbox.queue.mock.calls[0][0] as { bodyText: string };
+            expect(sent.bodyText).not.toContain('/dezabonare');
+        });
+
+        it('still prefixes the subject, so it cannot be mistaken for the real thing', async () => {
+            await service.sendTest(announcement({ kind: MessageKind.MARKETING }), 99);
+
+            const sent = outbox.queue.mock.calls[0][0] as { subject: string };
+            expect(sent.subject).toContain('Sâmbătă e zi liberă');
+            expect(sent.subject).not.toBe('Sâmbătă e zi liberă');
+        });
     });
 
     describe('the dedupe key', () => {

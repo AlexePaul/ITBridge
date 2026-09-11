@@ -48,6 +48,18 @@ export function projectUrl(publicId: string): string {
     return `${siteBase()}/files/${encodeURIComponent(publicId)}`;
 }
 
+/**
+ * The „nu mai vreau" link at the foot of every marketing e-mail — E17 S4.
+ *
+ * A public page rather than a bare endpoint, because the link is a `GET` in an e-mail and mail
+ * clients, scanners and link-preview bots fetch those without anybody clicking. A `GET` that
+ * unsubscribed on sight would quietly opt families out of a newsletter they never refused, and the
+ * evidence would look exactly like people refusing. The page asks first; the write is a `POST`.
+ */
+export function unsubscribeUrl(token: string): string {
+    return `${siteBase()}/dezabonare?token=${encodeURIComponent(token)}`;
+}
+
 /** The parent's own gallery: everything their children have made, in one place. */
 export function projectGalleryUrl(): string {
     return `${siteBase()}/user/proiecte`;

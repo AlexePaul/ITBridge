@@ -6,6 +6,7 @@ import { OutboxStatus } from 'src/enum/outbox-status.enum';
 import { DeliveryFailureReason } from 'src/enum/delivery-failure-reason.enum';
 import { S3Service } from 'src/modules/storage/s3.service';
 import { MailAttachment, MailNotConfiguredError, MailSendError, MailService, MAX_ATTACHMENT_BYTES } from './mail.service';
+import { withUnsubscribeHtml, withUnsubscribeText } from './unsubscribe-footer';
 
 /**
  * The transactional outbox from E17/S3: messages are written down, then sent.
@@ -127,17 +128,42 @@ export class OutboxService {
      * Built before any marketing sender existed, so the guarantee would be enforced from the first
      * one rather than retrofitted around it — which is the moment it would have been got wrong. The
      * first one is E17/S7's promotional announcement.
+     *
+     * **The way out is added here, not by the sender** — E17 S4. Legea 506/2004 art. 12 wants every
+     * promotional message to let the reader refuse from inside it, and a footer each caller
+     * remembers to paste is a footer somebody eventually forgets. Adding it at the one door that
+     * marketing goes through makes a message without it unsendable rather than merely discouraged,
+     * which is the same argument as the opt-in check on the line above.
      */
     async queueMarketing(
         // `confirmed` is passed straight through to `queueOrRecord` below, and belongs in the type
         // for the same reason it belongs there: an unconfirmed address is one nobody has proved is
         // theirs, and marketing is not the message to start writing to it with.
-        recipient: { email: string | null | undefined; marketingOptIn: boolean; confirmed?: boolean },
+        //
+        // `unsubscribeToken` is required, not optional: a caller that cannot produce one cannot
+        // send lawfully, and the compiler is a better place to learn that than a regulator.
+        recipient: { email: string | null | undefined; marketingOptIn: boolean; confirmed?: boolean; unsubscribeToken: string },
         message: Omit<QueuedMessage, 'to'>,
         manager?: EntityManager,
     ) {
         if (!recipient.marketingOptIn) return null;
-        return this.queueOrRecord(recipient, message, manager);
+
+        // Loud rather than lawful-looking. Every profile is given a token on insert, so an empty
+        // one is a row written around the entity — and the wrong repair is a newsletter that goes
+        // out with no way to stop it.
+        if (!recipient.unsubscribeToken) {
+            throw new Error('Refusing to queue a marketing message for a profile with no unsubscribe token.');
+        }
+
+        return this.queueOrRecord(
+            recipient,
+            {
+                ...message,
+                bodyText: withUnsubscribeText(message.bodyText, recipient.unsubscribeToken),
+                bodyHtml: message.bodyHtml ? withUnsubscribeHtml(message.bodyHtml, recipient.unsubscribeToken) : message.bodyHtml,
+            },
+            manager,
+        );
     }
 
     /**

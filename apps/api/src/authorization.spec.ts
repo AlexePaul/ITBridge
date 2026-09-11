@@ -32,6 +32,12 @@ const PUBLIC_ALLOWLIST = new Set([
     // Both are throttled well below the global bucket.
     'TrialController.slots',
     'TrialController.book',
+    // E17/S4. The way out of marketing, from inside a marketing message. Public by necessity, not
+    // by omission: Legea 506/2004 art. 12 asks that refusing be possible from the message, and GDPR
+    // art. 7 alin. 3 that it be no harder than consenting — a login would be harder than the
+    // checkbox that started them. The token is the whole credential, it only ever turns the
+    // preference off, and the answer is the same whether or not it named anybody.
+    'UnsubscribeController.unsubscribe',
 ]);
 
 interface Handler {
@@ -185,6 +191,9 @@ describe('authorization matrix', () => {
             // else's family.
             'PrivacyController.requestErasure',
             'PrivacyController.withdrawErasure',
+            // E17/S4, and fully public like the trial booking above. It writes one boolean, in one
+            // direction, on the row a random 32-byte token names.
+            'UnsubscribeController.unsubscribe',
         ]);
 
         const writes = HANDLERS.filter((h) => WRITE_METHODS.includes(h.httpMethod));

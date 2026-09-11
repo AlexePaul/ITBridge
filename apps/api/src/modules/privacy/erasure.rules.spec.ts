@@ -16,8 +16,25 @@ describe('erasedProfileFields', () => {
             emergencyContactRelation: null,
             emergencyContactPhone: null,
             marketingOptIn: false,
+            unsubscribeToken: expect.any(String),
             erasedAt: now,
         });
+    });
+
+    /**
+     * E17/S4's token travelled in every promotional message the family ever received, and those
+     * messages outlive the account. Left in place it would be a live link into the row of a family
+     * that asked to be gone.
+     */
+    it('rotates the unsubscribe token, so no link still in an inbox resolves here', () => {
+        const first = erasedProfileFields(now).unsubscribeToken as string;
+        const second = erasedProfileFields(now).unsubscribeToken as string;
+
+        // Rotated, not blanked: the column is unique and `NOT NULL`, so two erasures on the same
+        // day would collide on any shared value — which is why `email` and `phone` above, being
+        // nullable, get the opposite treatment.
+        expect(first).toHaveLength(43); // 32 random bytes, base64url
+        expect(second).not.toBe(first);
     });
 
     /**

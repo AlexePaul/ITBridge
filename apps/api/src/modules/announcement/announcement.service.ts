@@ -16,6 +16,7 @@ import { OutboxService } from 'src/modules/mail/outbox.service';
 import { officeAddress } from 'src/modules/mail/office-address';
 import { childNamesIn, composeAnnouncement, SAMPLE_FIRST_NAME, TEST_SUBJECT_PREFIX } from './announcement-text';
 import { SendAnnouncementDto } from './dto/sendAnnouncement.dto';
+import { SAMPLE_UNSUBSCRIBE_TOKEN, withUnsubscribeHtml, withUnsubscribeText } from 'src/modules/mail/unsubscribe-footer';
 
 /** One inbox the announcement resolves to, and everything that decides whether it can be written to. */
 interface Recipient {
@@ -26,6 +27,8 @@ interface Recipient {
     /** False only when there is an account whose confirmation link nobody has opened (E11/S2). */
     confirmed: boolean;
     marketingOptIn: boolean;
+    /** What builds the „nu mai vreau" link on a promotional announcement — E17/S4. */
+    unsubscribeToken: string;
 }
 
 /** How the audience breaks down before anything is sent. The numbers the confirm dialog shows. */
@@ -133,10 +136,12 @@ export class AnnouncementService {
         const kind = dto.kind ?? MessageKind.TRANSACTIONAL;
         const composed = composeAnnouncement(recipients[0]?.firstName ?? SAMPLE_FIRST_NAME, dto.subject, dto.body);
 
+        const previewed = this.withSampleUnsubscribe(composed, kind);
+
         return {
             audienceLabel: label,
             recipients: breakdown(recipients, kind),
-            ...composed,
+            ...previewed,
             warnings: await this.warningsFor(dto),
         };
     }
@@ -157,14 +162,40 @@ export class AnnouncementService {
         const to = profile?.email ?? officeAddress();
         const composed = composeAnnouncement(profile?.firstName ?? SAMPLE_FIRST_NAME, dto.subject, dto.body);
 
+        // The same sample footer the preview shows, for the same reason and then one more: a test
+        // send exists to be read as the thing that will go out, and a promotional message that will
+        // go out ends in the way out of promotional messages (E17/S4). Left off, the two
+        // check-before-you-send tools would disagree about the same message.
+        //
+        // A sample token rather than the admin's own, so that pressing „test" cannot quietly
+        // unsubscribe the person pressing it, and so no working link for a real family leaves in a
+        // message addressed to somebody else.
+        const tested = this.withSampleUnsubscribe(composed, dto.kind ?? MessageKind.TRANSACTIONAL);
+
         await this.outbox.queue({
             to,
-            subject: `${TEST_SUBJECT_PREFIX}${composed.subject}`,
-            bodyText: composed.bodyText,
-            bodyHtml: composed.bodyHtml,
+            subject: `${TEST_SUBJECT_PREFIX}${tested.subject}`,
+            bodyText: tested.bodyText,
+            bodyHtml: tested.bodyHtml,
         });
 
         return { to };
+    }
+
+    /**
+     * The composed message as an admin should see it before sending — E17/S4.
+     *
+     * Only a promotional one changes: it gains the footer `queueMarketing` will add, carrying an
+     * obviously-fake token. Both screens that let somebody check a message go through here, because
+     * two of them rendering it differently is how one of them becomes a lie about the other.
+     */
+    private withSampleUnsubscribe<T extends { bodyText: string; bodyHtml?: string | null }>(composed: T, kind: MessageKind): T {
+        if (kind !== MessageKind.MARKETING) return composed;
+        return {
+            ...composed,
+            bodyText: withUnsubscribeText(composed.bodyText, SAMPLE_UNSUBSCRIBE_TOKEN),
+            bodyHtml: composed.bodyHtml ? withUnsubscribeHtml(composed.bodyHtml, SAMPLE_UNSUBSCRIBE_TOKEN) : composed.bodyHtml,
+        };
     }
 
     /**
@@ -371,6 +402,10 @@ export class AnnouncementService {
             .innerJoin('group.room', 'room')
             .innerJoin('room.location', 'location')
             .innerJoinAndSelect('child.parent', 'parent')
+            // `select: false` on the column, so it has to be asked for by name — the same shape as
+            // `AuthService.login` and the password hash. This is the one query that needs it: a
+            // promotional announcement has to carry the way out of promotional announcements.
+            .addSelect('parent.unsubscribeToken')
             .leftJoinAndSelect('parent.user', 'user');
 
         let group: Group | undefined;
@@ -412,6 +447,7 @@ export class AnnouncementService {
                 // a phone call, and the address they gave is the one the school was told to use.
                 confirmed: !parent.user || parent.user.emailConfirmedAt !== null,
                 marketingOptIn: parent.marketingOptIn,
+                unsubscribeToken: parent.unsubscribeToken,
             });
         }
 

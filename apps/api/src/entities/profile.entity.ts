@@ -78,6 +78,38 @@ export class Profile {
     marketingOptIn: boolean;
 
     /**
+     * What the „nu mai vreau" link in a marketing e-mail carries — E17 S4.
+     *
+     * Legea 506/2004 art. 12 asks that every promotional message let the reader refuse from inside
+     * the message, and GDPR art. 7 alin. 3 that withdrawing be as easy as consenting. The toggle in
+     * the portal is not that: it is behind a login, on a device that is often not the one the
+     * e-mail was opened on. So each family carries a secret the link can be built from.
+     *
+     * **The link only ever turns marketing off.** That is what makes a stable, non-expiring token
+     * the right shape here rather than the expiring kind `EmailConfirmation` uses: a newsletter from
+     * eight months ago has to still work, and the worst a leaked link can do is stop a newsletter —
+     * whereas one that could switch consent *on* would be a way to sign a family up for it.
+     *
+     * Generated in the application, like `projects.publicId` and for the same reason: a
+     * `DEFAULT gen_random_uuid()` reads as drift to `check:schema` on every run, and a guard that
+     * fails on every pull request stops being read. 32 bytes of `randomBytes`, base64url — the
+     * length is not a guess, it is what makes guessing one pointless.
+     *
+     * By a **subscriber**, `ProfileTokenSubscriber`, not the `@BeforeInsert` this started as: an
+     * entity hook only fires when what is being saved is an instance of the class, and `register`
+     * writes `manager.save(Profile, { … })` with a plain literal. With the hook, registration died
+     * on this column's not-null constraint.
+     *
+     * **`select: false`, like `User.passwordHash`, and for the same reason.** `GET /profiles` reads
+     * whole entities through a query builder, so without this the admin listing would carry every
+     * family's token to a browser — a bearer secret in a payload nobody needs it in. The one reader
+     * asks for it by name: the announcement's audience query, on its way to `queueMarketing`.
+     * Inserts and `update()` still write it, because `select` governs reads.
+     */
+    @Column({ type: 'varchar', length: 64, unique: true, select: false })
+    unsubscribeToken: string;
+
+    /**
      * When the family asked for the account to be erased — E07 S4.
      *
      * A column rather than a table: a request is one fact about one family, it is either standing or

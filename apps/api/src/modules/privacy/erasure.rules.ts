@@ -1,8 +1,12 @@
+import { randomBytes } from 'crypto';
+
 /**
  * What an erased family looks like afterwards — E07 S4, the pure half.
  *
  * Kept out of the service so the shape of the shell can be read and tested without a database, the
- * way `arrears.rules.ts` and `absence-notice.rules.ts` are.
+ * way `arrears.rules.ts` and `absence-notice.rules.ts` are. Pure of the database, not of the clock
+ * or the random number generator: the erasure stamps a time and rotates a token, and both belong in
+ * the description of what the row becomes rather than scattered up the call.
  */
 
 /** What the name becomes. Not blank: a row with no name at all reads as one nobody filled in. */
@@ -33,6 +37,14 @@ export function erasedProfileFields(now: Date): Record<string, unknown> {
         emergencyContactPhone: null,
         // A consent nobody can any longer give is not a consent that stays ticked.
         marketingOptIn: false,
+        // Rotated rather than kept — E17/S4. The token is a credential that travelled in every
+        // promotional message the family ever got, and those messages outlive the account: leaving
+        // it in place would leave a live link into a row belonging to a family that asked to be
+        // gone. Rotated rather than blanked because the column is unique and `NOT NULL`, and two
+        // erased families would collide on any shared value — the same argument `email` and `phone`
+        // make one line above, reaching the opposite answer because those may be null and this may
+        // not. Nothing can be done with the new value: it is written here and read by nobody.
+        unsubscribeToken: randomBytes(32).toString('base64url'),
         erasedAt: now,
     };
 }
