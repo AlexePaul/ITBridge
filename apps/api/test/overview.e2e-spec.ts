@@ -145,7 +145,7 @@ describe('Overview (e2e)', () => {
             await dataSource.query('UPDATE "profiles" SET "email" = NULL WHERE "user_id" = $1', [silent.userId]);
             await request(app.getHttpServer()).post(`/users/${silent.userId}/approve`).set('Authorization', admin.auth).expect(200);
 
-            expect((await overview().expect(200)).body.undeliverableMessages).toBe(1);
+            expect((await overview().expect(200)).body.messagesNotDelivered).toMatchObject({ undeliverable: 1 });
         });
     });
 

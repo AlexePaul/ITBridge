@@ -28,8 +28,10 @@ import { EarlySignalsJob } from './early-signals.job';
  * sum what they are handed.
  */
 @Module({
-    // `MailModule` for the Monday digest of E21/S7 — the one thing this module writes, and it
-    // writes it through the outbox like every other message the backend sends.
+    // `MailModule` for two things. The Monday digest of E21/S7 — the one thing this module writes,
+    // and it writes it through the outbox like every other message the backend sends. And
+    // `DeliveryLogService`, which owns „câte mesaje n-au ajuns la o familie”: the overview asks for
+    // that number rather than counting statuses itself, which is this module's whole rule.
     imports: [EntitiesModule, JwtModule.register({}), ClassSessionModule, EnrollmentModule, InvoiceModule, ProjectModule, LeadModule, MailModule],
     controllers: [OverviewController, ReportsController],
     providers: [OverviewService, FinanceReportService, OccupancyReportService, EarlySignalsService, EarlySignalsJob, AuthGuard, RolesGuard],

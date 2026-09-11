@@ -36,6 +36,9 @@ import { AuditModule } from 'src/modules/audit/audit.module';
     imports: [EntitiesModule, StorageModule, JwtModule.register({}), AuditModule],
     controllers: [MailTemplateController, DeliveryLogController, UnsubscribeController],
     providers: [MailService, OutboxService, OutboxDispatcher, MailTemplateService, DeliveryLogService, UnsubscribeService, AuthGuard, RolesGuard],
-    exports: [MailService, OutboxService, MailTemplateService],
+    // `DeliveryLogService` is exported for the dashboard tile of E17/S5: the overview asks this
+    // module how many messages never reached a family rather than counting statuses itself, which
+    // is E21's rule and the reason that tile was wrong for as long as it counted its own.
+    exports: [MailService, OutboxService, MailTemplateService, DeliveryLogService],
 })
 export class MailModule {}

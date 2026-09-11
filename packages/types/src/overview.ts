@@ -60,8 +60,24 @@ export interface Overview {
     projectsAwaitingSendOldestDays: number | null;
     /** Families who registered and are waiting to be let in. */
     pendingApprovals: number;
-    /** Messages that had nowhere to go — a family not reached, who does not know it. */
-    undeliverableMessages: number;
+    /**
+     * Messages that have not reached a family — E17/S5.
+     *
+     * Three numbers, because a single one hid the worst of the three. The tile used to count only
+     * `undeliverable`, so a message the provider permanently refused read as zero, and a dispatcher
+     * that had stopped running read as zero twice over: those rows stay `pending`, which looks
+     * exactly like a message waiting out its backoff.
+     */
+    messagesNotDelivered: {
+        /** Given up on: the provider refused permanently, or the attempt budget ran out. */
+        failed: number;
+        /** Never attempted: no address on file, or one nobody has confirmed. */
+        undeliverable: number;
+        /** Due to go out and still sitting there. Not a status — a clock against `nextAttemptAt`. */
+        stuck: number;
+        /** The line `stuck` is drawn at, so the screen can name it instead of keeping a second copy. */
+        stuckAfterMinutes: number;
+    };
     /** Active enrolments with no signed contract on file — E07/S8. A child in a room nobody has the paper for. */
     enrollmentsWithoutContract: number;
 }

@@ -1120,6 +1120,29 @@ revendică niciodată, fiindcă niciun backoff nu face să apară o adresă. Nu 
 nimeni, iar „părintele n-a fost anunțat" arăta ca o coadă blocată. Adresa rămâne goală pe rândul
 nelivrabil — una inventată n-ar putea fi deosebită de una reală care a respins mesajul.
 
+**Iar „n-a ajuns" are trei feluri, nu unul — și tabloul de bord le numără pe toate.**
+`DeliveryLogService.health` (`apps/api/src/modules/mail/delivery-log.service.ts`) e proprietarul
+întrebării, iar `OverviewService` o cere, nu o recalculează — regula E21. Cele trei:
+
+- `failed` — furnizorul a refuzat definitiv, sau s-au consumat cele șapte încercări.
+- `undeliverable` — n-a avut unde să plece, de mai sus.
+- **`stuck` — și ăsta nu e o stare, e un ceas.** Un mesaj pe care dispecerul nu l-a revendicat
+  rămâne `pending`, adică arată exact ca unul care își așteaptă backoff-ul; singura diferență e
+  `nextAttemptAt`, care a trecut. Pragul e `STUCK_AFTER_MINUTES` din `outbox-health.rules.ts`:
+  cincisprezece minute, adică **treizeci de ticuri ratate** la `POLL_INTERVAL_MS` de 30 de secunde,
+  și pleacă pe sârmă ca să numească ecranul linia, nu s-o deseneze a doua oară.
+
+Tile-ul scria „Mesaje nelivrate" și număra doar al doilea fel, deci un mesaj refuzat de furnizor
+arăta zero, iar o coadă **oprită de tot** arăta tot zero — exact defecțiunea pe care epicul o
+descrie: „un mesaj care nu ajunge nu seamănă cu o eroare, seamănă cu liniște."
+
+**Interogarea restrânge pe `status`, și nu din eleganță.** Rândurile `sent` nu se șterg niciodată —
+scrie la `IDX_outbox_claim` pe entitate — deci ele _sunt_ tabela, iar tot ce vrea întrebarea asta e
+în cele câteva rânduri care nu sunt trimise. Măsurat pe 200.000 de rânduri: fără `WHERE`, scanare
+secvențială paralelă la **16,9 ms**; cu el, index-only scan la **0,1 ms**, pe un ecran pe care un
+admin îl deschide toată ziua. Dacă adaugi un al patrulea număr aici, ține-l în aceeași listă de
+stări.
+
 **Anunțul e singurul mesaj care pleacă la mai multe familii, deci singurul cu reguli proprii**
 (E17 S7). `apps/api/src/modules/announcement/` trimite către o grupă, o locație sau toată școala, iar
 audiența se citește din `Child.group` — familiile cu un copil într-o grupă din perimetru, probele

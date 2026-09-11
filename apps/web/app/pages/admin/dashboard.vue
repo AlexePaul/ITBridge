@@ -97,6 +97,7 @@
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useOverviewApi } from "~/composables/api/useOverviewApi";
 import { formatDateKey, formatLei } from "~/composables/useAdminFormat";
+import { notDeliveredNote, notDeliveredTotal } from "~/composables/useOutboxHealth";
 import type { Overview } from "~/types/overview.types";
 
 /**
@@ -137,6 +138,7 @@ function projectsWaitingNote(oldestDays: number | null): string {
 const tiles = computed(() => {
   const data = overview.value;
   if (!data) return [];
+  const notDelivered = notDeliveredTotal(data.messagesNotDelivered);
   return [
     {
       label: "Restanțe",
@@ -191,10 +193,15 @@ const tiles = computed(() => {
     {
       // A family that was never reached does not know it, so nobody complains — which is exactly
       // why it needs a number somebody sees.
+      //
+      // The label always said „nelivrate"; the number used to count only the messages that had
+      // nowhere to go. One the provider refused, and a queue that had stopped running entirely,
+      // both read as zero here. All three are counted now, and the note says which kind it is —
+      // the three need different people, and „coada stă" is not somebody's message to chase.
       label: "Mesaje nelivrate",
-      value: data.undeliverableMessages,
-      display: String(data.undeliverableMessages),
-      note: data.undeliverableMessages > 0 ? "familii neanunțate" : undefined,
+      value: notDelivered,
+      display: String(notDelivered),
+      note: notDeliveredNote(data.messagesNotDelivered),
       to: "/admin/livrari",
     },
   ];
