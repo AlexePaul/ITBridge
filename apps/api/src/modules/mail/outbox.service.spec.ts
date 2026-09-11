@@ -45,7 +45,7 @@ function makeMessage(overrides: Partial<OutboxMessage> = {}): OutboxMessage {
 describe('OutboxService', () => {
     let service: OutboxService;
     let outboxRepo: MockRepository;
-    let mailService: { send: jest.Mock };
+    let mailService: { send: jest.Mock; isConfigured: jest.Mock };
     let s3Service: { downloadFile: jest.Mock };
     let dataSource: { transaction: jest.Mock };
 
@@ -59,7 +59,7 @@ describe('OutboxService', () => {
 
     beforeEach(async () => {
         table = [];
-        mailService = { send: jest.fn().mockResolvedValue('msg_1') };
+        mailService = { send: jest.fn().mockResolvedValue('msg_1'), isConfigured: jest.fn().mockReturnValue(true) };
         outboxRepo = createMockRepository();
 
         /**
@@ -259,6 +259,51 @@ describe('OutboxService', () => {
 
             expect(table[0].status).toBe(OutboxStatus.PENDING);
             expect(table[0].lastError).toContain('MAIL_RESEND_API_KEY');
+        });
+
+        /**
+         * The half the case above does not reach. That one runs a single pass from a fresh row, so
+         * `attempts` never approaches the limit and the promise holds trivially. The promise is
+         * about the *deployment* that has not been finished yet — which lasts hours, not one pass —
+         * and `exhausted` is computed from the attempt count alone, without asking why the send
+         * failed. So a backend with no key used to bury its whole queue roughly two hours in, and
+         * the variable arriving after that rescued nothing: `claim` only ever takes `pending`.
+         */
+        it('does not give up on a queue that is only waiting for a key, however long it waits', async () => {
+            table.push(makeMessage({ attempts: MAX_ATTEMPTS - 1 }));
+            mailService.send.mockRejectedValue(new MailNotConfiguredError('MAIL_RESEND_API_KEY'));
+
+            await service.dispatchPending({ now, ...NO_PACING });
+
+            expect(table[0].status).toBe(OutboxStatus.PENDING);
+            expect(table[0].lastError).toContain('MAIL_RESEND_API_KEY');
+        });
+
+        /**
+         * And the attempt is not spent, because the provider was never asked — `send` throws before
+         * it reaches the network. Counting it would leave a message sitting at the limit, so the
+         * first genuine failure after the key arrived would be its last.
+         */
+        it('does not spend an attempt on a provider it never reached', async () => {
+            table.push(makeMessage({ attempts: 2 }));
+            mailService.send.mockRejectedValue(new MailNotConfiguredError('MAIL_RESEND_API_KEY'));
+
+            await service.dispatchPending({ now, ...NO_PACING });
+
+            expect(table[0].attempts).toBe(2);
+        });
+
+        /** The whole point of keeping them: the key arrives, and the backlog goes out. */
+        it('sends what was waiting once the key arrives', async () => {
+            table.push(makeMessage({ attempts: MAX_ATTEMPTS - 1 }));
+            mailService.send.mockRejectedValue(new MailNotConfiguredError('MAIL_RESEND_API_KEY'));
+            await service.dispatchPending({ now, ...NO_PACING });
+
+            mailService.send.mockResolvedValue('msg_1');
+            const later = await service.dispatchPending({ now: new Date(now.getTime() + 10 * MINUTE), ...NO_PACING });
+
+            expect(later).toEqual({ claimed: 1, sent: 1, failed: 0 });
+            expect(table[0].status).toBe(OutboxStatus.SENT);
         });
 
         it('comes back to a failed message once the backoff has elapsed', async () => {

@@ -957,7 +957,15 @@ formularul public și numai pentru el; nu unifica cele două direcții, în nici
 Cheia e `MAIL_RESEND_API_KEY`, **nu** `RESEND_API_KEY` — aia e a formularului public de contact, și
 E17 a decis două chei și doi expeditori tocmai ca o rafală pe ruta publică să nu consume cota
 mesajelor către părinți. Amândouă sunt opționale: fără ele aplicația pornește, iar mesajele rămân în
-`outbox` cu motivul scris în `lastError`. `MAIL_OUTBOX_ENABLED=false` oprește doar scheduler-ul;
+`outbox` cu motivul scris în `lastError`. **Și chiar rămân — un eșec de configurare nu consumă o
+încercare.** `attempts` e, prin definiția de pe entitate, de câte ori a fost întrebat furnizorul, iar
+un backend fără cheie nu întreabă pe nimeni: `send` aruncă înainte să atingă rețeaua. Cât timp
+`exhausted` se citea doar din numărul de încercări, fără să întrebe și de ce a picat, un deploy
+neterminat își îngropa singur coada — șapte treceri, cam două ore, și tot ce era scris ajungea
+`failed`, stare pe care `claim` n-o mai atinge niciodată —, deci cheia pusă după aceea nu mai salva
+nimic. Acum `recordFailure` dă încercarea înapoi, și odată cu ea și amânarea crescătoare: backoff-ul
+temperează furnizorul, iar ăsta n-a fost atins, deci coada reîncearcă pe cadența de bază și pleacă
+întreagă în clipa în care apare variabila. `MAIL_OUTBOX_ENABLED=false` oprește doar scheduler-ul;
 testele de integrare îl setează, ca o trecere de fundal să nu miște rândurile sub aserțiuni.
 
 **Rapoartele nu definesc nimic, doar adună** (E21). `apps/api/src/modules/dashboard/` cere fiecare
