@@ -3,24 +3,22 @@ import type { ISODate, ISODateTime, TimeOfDay } from './common';
 import type { Group } from './group';
 
 /**
- * What kind of session an attendance record belongs to.
+ * What kind of session an attendance record belongs to — `regular` is the child's own group,
+ * `make-up` a class they sat with another.
  *
- * A database enum now, so these are the only values the column accepts — the old varchar defaulted
- * to `'normal'`, which the service never wrote and the frontend could not render, so any row
- * created outside `createAttendance` showed up with an empty session type.
+ * A database enum on the API side, so these are the only values the column accepts: the old varchar
+ * defaulted to `'normal'`, which the service never wrote and the frontend could not render, so any
+ * row created outside `createAttendance` showed up with an empty session type.
+ *
+ * **A union of literals here, not an enum**, like `ClassSessionStatus` since E12/S2 and for the
+ * same reason: this package is CommonJS, Vite pre-bundles it, and an enum exported from here has
+ * arrived in the browser with its body dropped and its export line intact — `undefined`, silently,
+ * because the comparison throws inside a `computed` and Vue drops the subtree without a word. What
+ * compares against these values — the attendance calendar, the admin's per-child table and the
+ * parent's dashboard — gets `MarkType` from `apps/web/app/types/attendance.types.ts`, where the
+ * Romanian labels live too.
  */
-export enum AttendanceType {
-    /** The child's own group. */
-    REGULAR = 'regular',
-    /** A catch-up session, attended with a group that is not the child's own. */
-    MAKE_UP = 'make-up',
-}
-
-/** Romanian names — this is what a parent reads in the attendance table. */
-export const ATTENDANCE_TYPE_LABELS: Record<AttendanceType, string> = {
-    [AttendanceType.REGULAR]: 'Normală',
-    [AttendanceType.MAKE_UP]: 'Recuperare',
-};
+export type AttendanceType = 'regular' | 'make-up';
 
 export interface Attendance {
     id: number;
