@@ -47,6 +47,7 @@ export interface FamilyExport {
     /** No token, ever: what a family may want is that a session existed and from what device. */
     autentificari: { incepiuta: string | null; expiraLa: string | null; revocataLa: string | null; dispozitiv: string | null }[];
     confirmariDeEmail: { adresa: string; trimisLa: string | null; deschisLa: string | null }[];
+    resetariDeParola: { adresa: string; cerutLa: string | null; folositLa: string | null }[];
     documenteAcceptate: { document: string; versiune: string; acceptatLa: string | null }[];
 }
 

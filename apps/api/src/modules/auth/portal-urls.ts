@@ -20,6 +20,14 @@ export function emailConfirmationUrl(token: string): string {
     return `${siteBase()}/auth/confirm-email?token=${encodeURIComponent(token)}`;
 }
 
+/**
+ * The link mailed to a parent who cannot get in. Same shape as the confirmation link, and for the
+ * same reason: the page reads the token out of the query string, so nothing has to be typed.
+ */
+export function passwordResetUrl(token: string): string {
+    return `${siteBase()}/auth/reset-password?token=${encodeURIComponent(token)}`;
+}
+
 export function loginUrl(): string {
     return `${siteBase()}/auth/login`;
 }

@@ -7,12 +7,19 @@ import { LoginDto } from 'src/modules/auth/dto/login.dto';
 import { RefreshTokenDto } from 'src/modules/auth/dto/refreshToken.dto';
 import { AcceptDocumentsDto } from 'src/modules/auth/dto/accept-documents.dto';
 import { ConfirmEmailDto } from 'src/modules/auth/dto/confirm-email.dto';
+import { ForgotPasswordDto } from 'src/modules/auth/dto/forgotPassword.dto';
+import { ResetPasswordDto } from 'src/modules/auth/dto/resetPassword.dto';
+import { ChangePasswordDto } from 'src/modules/auth/dto/changePassword.dto';
+import { PasswordResetService } from './password-reset.service';
 import { AuthGuard } from 'src/guards/auth.guard';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('auth')
 export class AuthController {
-    constructor(private readonly authService: AuthService) {}
+    constructor(
+        private readonly authService: AuthService,
+        private readonly passwordResets: PasswordResetService,
+    ) {}
 
     @Throttle({ default: { ttl: 60_000, limit: 10 } })
     @Post('login')
@@ -69,6 +76,63 @@ export class AuthController {
     @ApiResponse({ status: 400, description: 'Already confirmed, or no address on file' })
     async resendConfirmation(@Request() req: AuthenticatedRequest) {
         return this.authService.resendConfirmation(req.user.sub);
+    }
+
+    /**
+     * "I forgot my password" — the address, and nothing else.
+     *
+     * Public by necessity: the whole point is that the parent cannot sign in. Three a minute, the
+     * same as `resend-confirmation` and for the same two reasons — a parent who did not get the
+     * first mail presses again, and anything past that is somebody using the school's sending quota
+     * to post mail at a third party.
+     *
+     * **Always 200, whatever was found.** The response says a link was sent if the address is known,
+     * because saying anything else turns the form into a way of asking "is ana@example.com a parent
+     * at this school", which is a question about a child. The service is silent for the same reason.
+     */
+    @Throttle({ default: { ttl: 60_000, limit: 3 } })
+    @Post('forgot-password')
+    @HttpCode(200)
+    @ApiResponse({ status: 200, description: 'If the address has an account, a reset link was queued' })
+    async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+        await this.passwordResets.request(forgotPasswordDto.email);
+        return { message: 'Dacă adresa are un cont, am trimis un link de resetare.' };
+    }
+
+    /**
+     * The link's token, and the new password.
+     *
+     * Public for the same reason `confirm-email` is: the token is the credential, and requiring the
+     * account it unlocks would be a circle. Throttled at ten a minute like that one — this is the
+     * other place in the app where a public route takes a bearer secret, so it is the other place
+     * guessing has a target.
+     */
+    @Throttle({ default: { ttl: 60_000, limit: 10 } })
+    @Post('reset-password')
+    @HttpCode(200)
+    @ApiResponse({ status: 200, description: 'The password was changed and every session revoked' })
+    @ApiResponse({ status: 400, description: 'Token unknown, expired, already used, or issued to an address the account no longer has' })
+    async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+        await this.passwordResets.reset(resetPasswordDto.token, resetPasswordDto.password);
+        return { message: 'Parola a fost schimbată. Autentifică-te cu parola nouă.' };
+    }
+
+    /**
+     * Changing the password from inside the account, current password required.
+     *
+     * Guarded, and still asks for the old password: `AuthGuard` checks a signature and nothing else,
+     * so a tab left open on a shared machine is enough to reach this. See `ChangePasswordDto`.
+     */
+    @Throttle({ default: { ttl: 60_000, limit: 5 } })
+    @Post('change-password')
+    @HttpCode(200)
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'The password was changed and every session revoked' })
+    @ApiResponse({ status: 400, description: 'The current password is wrong' })
+    async changePassword(@Request() req: AuthenticatedRequest, @Body() changePasswordDto: ChangePasswordDto) {
+        await this.passwordResets.change(req.user.sub, changePasswordDto.currentPassword, changePasswordDto.newPassword);
+        return { message: 'Parola a fost schimbată. Autentifică-te din nou.' };
     }
 
     @Throttle({ default: { ttl: 60_000, limit: 20 } })

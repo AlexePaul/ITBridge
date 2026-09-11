@@ -18,6 +18,7 @@ import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { Session } from 'src/entities/session.entity';
 import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
 import { EmailConfirmation } from 'src/entities/email-confirmation.entity';
+import { PasswordReset } from 'src/entities/password-reset.entity';
 import type { FamilyExport } from './export.types';
 
 /**
@@ -66,6 +67,7 @@ export class ExportService {
         @InjectRepository(Session) private readonly sessions: Repository<Session>,
         @InjectRepository(DocumentAcceptance) private readonly acceptances: Repository<DocumentAcceptance>,
         @InjectRepository(EmailConfirmation) private readonly confirmations: Repository<EmailConfirmation>,
+        @InjectRepository(PasswordReset) private readonly passwordResets: Repository<PasswordReset>,
     ) {}
 
     /** Which tables this service reads. `export.spec.ts` compares it with the inventory. */
@@ -89,6 +91,7 @@ export class ExportService {
         'OutboxMessage',
         'Session',
         'EmailConfirmation',
+        'PasswordReset',
         'DocumentAcceptance',
     ] as const;
 
@@ -148,13 +151,14 @@ export class ExportService {
         const messages = profile.email ? await this.outbox.find({ where: { to: profile.email }, order: { id: 'ASC' } }) : [];
 
         const userId = profile.user?.id;
-        const [sessions, acceptances, confirmations] = userId
+        const [sessions, acceptances, confirmations, resets] = userId
             ? await Promise.all([
                   this.sessions.find({ where: { user: { id: userId } }, order: { id: 'ASC' } }),
                   this.acceptances.find({ where: { user: { id: userId } }, order: { id: 'ASC' } }),
                   this.confirmations.find({ where: { user: { id: userId } }, order: { id: 'ASC' } }),
+                  this.passwordResets.find({ where: { user: { id: userId } }, order: { id: 'ASC' } }),
               ])
-            : [[], [], []];
+            : [[], [], [], []];
 
         return {
             generatedAt: new Date().toISOString(),
@@ -285,6 +289,15 @@ export class ExportService {
                 adresa: confirmation.email,
                 trimisLa: confirmation.createdAt?.toISOString() ?? null,
                 deschisLa: confirmation.consumedAt?.toISOString() ?? null,
+            })),
+            // The token itself is not here, and not because it is awkward to fetch: the row holds
+            // only a hash, and a link that has been used or has expired opens nothing anyway. What
+            // the family gets is the fact — somebody asked to reset this account on this day, to
+            // this address — which is the part they might not recognise.
+            resetariDeParola: resets.map((reset) => ({
+                adresa: reset.email,
+                cerutLa: reset.createdAt?.toISOString() ?? null,
+                folositLa: reset.consumedAt?.toISOString() ?? null,
             })),
             documenteAcceptate: acceptances.map((acceptance) => ({
                 document: acceptance.document,

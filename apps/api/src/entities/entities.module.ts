@@ -18,6 +18,7 @@ import { MailTemplate } from './mail-template.entity';
 import { AbsenceNotice } from './absence-notice.entity';
 import { SessionCountOverride } from './session-count-override.entity';
 import { EmailConfirmation } from './email-confirmation.entity';
+import { PasswordReset } from './password-reset.entity';
 import { Enrollment } from './enrollment.entity';
 import { WaitlistEntry } from './waitlist-entry.entity';
 import { NonTeachingPeriod } from './non-teaching-period.entity';
@@ -52,6 +53,7 @@ import { DocumentAcceptance } from './document-acceptance.entity';
             AbsenceNotice,
             SessionCountOverride,
             EmailConfirmation,
+            PasswordReset,
             Enrollment,
             WaitlistEntry,
             NonTeachingPeriod,
