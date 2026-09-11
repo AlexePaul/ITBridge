@@ -166,6 +166,15 @@
           </button>
         </form>
 
+        <!--
+          Only on the login form: somebody filling in the register form has no password to have
+          forgotten. It sits under the button rather than beside the field, because a parent looks
+          for it after the password has already failed.
+        -->
+        <p v-if="isLogin" class="colophon">
+          <NuxtLink to="/auth/forgot-password" class="link">Ți-ai uitat parola?</NuxtLink>
+        </p>
+
         <hr class="rule" />
         <p class="colophon">
           {{ copy.switchHint }}

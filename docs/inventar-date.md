@@ -26,9 +26,9 @@ Trei lucruri de citit înainte de tabele:
 
 ## Pe scurt
 
-- **30 tabele**, cu **234 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
-- **102 coloane sunt date personale**, în **22 tabele**.
-- Restul de **132** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
+- **31 tabele**, cu **240 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
+- **105 coloane sunt date personale**, în **23 tabele**.
+- Restul de **135** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
 
 ## Datele personale, câmp cu câmp
 
@@ -127,6 +127,9 @@ Trei lucruri de citit înainte de tabele:
 | `sessions.tokenHash` | Titularul contului | Credențiale | Recunoașterea tokenului la reîmprospătare. | Executarea contractului | Expiră singur | Nimeni (nu se citește înapoi) |
 | `sessions.revokedAt` | Titularul contului | Urme de utilizare | Când s-a încheiat sesiunea — logout sau semnal de furt. | Executarea contractului | Expiră singur | Admin |
 | `sessions.userAgent` | Titularul contului | Urme de utilizare | De pe ce dispozitiv s-a intrat, ca sesiunile să se poată deosebi într-o listă. | Interes legitim | Expiră singur | Admin, Familia respectivă |
+| `password_resets.tokenHash` | Titularul contului | Credențiale | Recunoașterea linkului de resetare. Nu se stochează tokenul, doar amprenta lui. | Executarea contractului | Expiră singur | Nimeni (nu se citește înapoi) |
+| `password_resets.email` | Titularul contului | Date de contact | Adresa la care a plecat linkul — înghețată la emitere, ca o adresă schimbată după aceea să oprească tokenul. | Executarea contractului | Expiră singur | Nimeni (nu se citește înapoi) |
+| `password_resets.consumedAt` | Titularul contului | Urme de utilizare | Când s-a folosit linkul și s-a schimbat parola. | Executarea contractului | Expiră singur | Admin |
 | `email_confirmations.tokenHash` | Titularul contului | Credențiale | Recunoașterea linkului de confirmare. | Executarea contractului | Expiră singur | Nimeni (nu se citește înapoi) |
 | `email_confirmations.email` | Titularul contului | Date de contact | Adresa care se confirmă — înghețată la emitere, ca o schimbare ulterioară să nu valideze altceva. | Executarea contractului | Expiră singur | Nimeni (nu se citește înapoi) |
 | `email_confirmations.consumedAt` | Titularul contului | Urme de utilizare | Când s-a deschis linkul. | Executarea contractului | Expiră singur | Admin |
@@ -164,6 +167,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 | `leads` | Părinte | `profile` | Tot ce e între „cineva a întrebat" și „s-a înscris" (E20). |
 | `outbox` | Părinte | **nu se poate ajunge prin relații** | Coada de mesaje: tot ce pleacă din backend trece pe aici. |
 | `sessions` | Titularul contului | `user.profile` | Un refresh token emis, ca să poată fi revocat. |
+| `password_resets` | Titularul contului | `user.profile` | Linkul prin care o familie își recapătă contul când nu mai știe parola. |
 | `email_confirmations` | Titularul contului | `user.profile` | Tokenul trimis la înregistrare, ca să se confirme adresa. |
 | `document_acceptances` | Titularul contului | `user.profile` | Ce versiune a cărui document a acceptat cine, și când (E22 S4). |
 | `audit_log` | Titularul contului | **nu se poate ajunge prin relații** | Cine a schimbat ce și când, pe drumurile banilor (E07 S3). |
@@ -173,12 +177,12 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 | Motiv | Câte | Coloane |
 | ----- | ---- | ------- |
 | configurația școlii | 18 | `locations.name`, `locations.slug`, `locations.street`, `locations.city`, `locations.district`, `locations.postalCode`, `locations.latitude`, `locations.longitude`, `locations.phone`, `locations.email`, `locations.openingHours`, `locations.isActive`, `rooms.name`, `rooms.isActive`, `groups.isActive`, `agent_status.agentName`, `agent_status.version`, `agent_status.watchedRoot` |
-| identificator surogat | 31 | `users.id`, `profiles.id`, `children.id`, `enrollments.id`, `waitlist_entries.id`, `attendances.id`, `absence_notices.id`, `session_count_overrides.id`, `invoices.id`, `payments.id`, `discounts.id`, `projects.id`, `projects.publicId`, `project_versions.id`, `project_files.id`, `project_links.id`, `unassigned_files.id`, `leads.id`, `outbox.id`, `announcements.id`, `mail_templates.id`, `sessions.id`, `email_confirmations.id`, `document_acceptances.id`, `audit_log.id`, `locations.id`, `rooms.id`, `groups.id`, `class_sessions.id`, `non_teaching_periods.id`, `agent_status.id` |
+| identificator surogat | 32 | `users.id`, `profiles.id`, `children.id`, `enrollments.id`, `waitlist_entries.id`, `attendances.id`, `absence_notices.id`, `session_count_overrides.id`, `invoices.id`, `payments.id`, `discounts.id`, `projects.id`, `projects.publicId`, `project_versions.id`, `project_files.id`, `project_links.id`, `unassigned_files.id`, `leads.id`, `outbox.id`, `announcements.id`, `mail_templates.id`, `sessions.id`, `password_resets.id`, `email_confirmations.id`, `document_acceptances.id`, `audit_log.id`, `locations.id`, `rooms.id`, `groups.id`, `class_sessions.id`, `non_teaching_periods.id`, `agent_status.id` |
 | mecanică internă | 17 | `projects.sentOutboxMessageId`, `project_files.contentType`, `project_files.sizeBytes`, `unassigned_files.sizeBytes`, `unassigned_files.reportKey`, `leads.bookingKey`, `outbox.attempts`, `outbox.nextAttemptAt`, `outbox.lastError`, `outbox.dedupeKey`, `outbox.attachments`, `announcements.dedupeKey`, `sessions.familyId`, `audit_log.entityType`, `audit_log.entityId`, `audit_log.note`, `agent_status.lastError` |
-| marcaj de timp al rândului | 23 | `users.createdAt`, `children.createdAt`, `enrollments.createdAt`, `waitlist_entries.createdAt`, `absence_notices.createdAt`, `session_count_overrides.createdAt`, `session_count_overrides.updatedAt`, `payments.createdAt`, `projects.createdAt`, `project_versions.createdAt`, `project_files.uploadedAt`, `project_files.createdAt`, `project_links.createdAt`, `unassigned_files.reportedAt`, `leads.createdAt`, `leads.updatedAt`, `outbox.createdAt`, `announcements.createdAt`, `mail_templates.updatedAt`, `sessions.createdAt`, `email_confirmations.createdAt`, `audit_log.occurredAt`, `non_teaching_periods.createdAt` |
+| marcaj de timp al rândului | 24 | `users.createdAt`, `children.createdAt`, `enrollments.createdAt`, `waitlist_entries.createdAt`, `absence_notices.createdAt`, `session_count_overrides.createdAt`, `session_count_overrides.updatedAt`, `payments.createdAt`, `projects.createdAt`, `project_versions.createdAt`, `project_files.uploadedAt`, `project_files.createdAt`, `project_links.createdAt`, `unassigned_files.reportedAt`, `leads.createdAt`, `leads.updatedAt`, `outbox.createdAt`, `announcements.createdAt`, `mail_templates.updatedAt`, `sessions.createdAt`, `password_resets.createdAt`, `email_confirmations.createdAt`, `audit_log.occurredAt`, `non_teaching_periods.createdAt` |
 | orar, sală, capacitate | 16 | `rooms.capacity`, `rooms.computers`, `rooms.hasProjector`, `rooms.hasWhiteboard`, `groups.name`, `groups.weekday`, `groups.startTime`, `groups.endTime`, `groups.capacity`, `groups.minAge`, `groups.maxAge`, `class_sessions.date`, `class_sessions.startTime`, `class_sessions.endTime`, `non_teaching_periods.startDate`, `non_teaching_periods.endDate` |
 | text scris de școală | 10 | `announcements.audience`, `announcements.kind`, `announcements.subject`, `announcements.bodyText`, `mail_templates.key`, `mail_templates.subject`, `mail_templates.bodyText`, `mail_templates.bodyHtml`, `class_sessions.notes`, `non_teaching_periods.name` |
-| starea rândului | 17 | `projects.hasThumbnail`, `project_versions.versionNumber`, `unassigned_files.reason`, `unassigned_files.resolvedAt`, `leads.noSeats`, `outbox.status`, `outbox.undeliverableReason`, `announcements.recipientCount`, `announcements.declinedCount`, `mail_templates.version`, `sessions.expiresAt`, `email_confirmations.expiresAt`, `audit_log.action`, `class_sessions.status`, `class_sessions.isVacation`, `agent_status.lastSeenAt`, `agent_status.pendingFiles` |
+| starea rândului | 18 | `projects.hasThumbnail`, `project_versions.versionNumber`, `unassigned_files.reason`, `unassigned_files.resolvedAt`, `leads.noSeats`, `outbox.status`, `outbox.undeliverableReason`, `announcements.recipientCount`, `announcements.declinedCount`, `mail_templates.version`, `sessions.expiresAt`, `password_resets.expiresAt`, `email_confirmations.expiresAt`, `audit_log.action`, `class_sessions.status`, `class_sessions.isVacation`, `agent_status.lastSeenAt`, `agent_status.pendingFiles` |
 
 ## Ce se ratează ușor
 

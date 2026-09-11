@@ -22,6 +22,14 @@ const PUBLIC_ALLOWLIST = new Set([
     // never signed in. Requiring the account it unlocks would be a circle; the token is the
     // credential, exactly as on `logout`.
     'AuthController.confirmEmail',
+    // Getting back in. Both are public because the parent cannot sign in — that is the whole
+    // premise — and a gate would be a circle, exactly as on `confirmEmail`. Neither reveals
+    // anything: `forgotPassword` answers the same sentence whether or not the address is known, so
+    // it cannot be used to ask whether a given family is at this school, and `resetPassword` gives
+    // one refusal for an unknown token, an expired one, a used one and a superseded one alike. The
+    // token is the credential. Both are throttled well below the global bucket.
+    'AuthController.forgotPassword',
+    'AuthController.resetPassword',
     // A liveness/readiness checker has no credentials, and neither endpoint reveals anything.
     'HealthController.health',
     'HealthController.ready',
@@ -157,6 +165,13 @@ describe('authorization matrix', () => {
             'AuthController.logout',
             'AuthController.logoutEverywhere', // revokes only the caller's own sessions
             'AuthController.confirmEmail', // public; the token in the body is the credential
+            // Public, and above; the token in the body is the credential.
+            'AuthController.forgotPassword',
+            'AuthController.resetPassword',
+            // Changes the password of the account in the token and nothing else. It takes no id,
+            // and it asks for the current password anyway, because `AuthGuard` checks a signature
+            // rather than a session and a borrowed tab would otherwise be enough.
+            'AuthController.changePassword',
             // Sends only to the address already on file, for the caller's own account — it takes no
             // address, so a session cannot be used to point a confirmation somewhere else.
             'AuthController.resendConfirmation',

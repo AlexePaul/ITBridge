@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { SessionService } from './session.service';
 import { EmailConfirmationService } from './email-confirmation.service';
+import { PasswordResetService } from './password-reset.service';
 import { EntitiesModule } from 'src/entities/entities.module';
 import { MailModule } from 'src/modules/mail/mail.module';
 
@@ -19,7 +20,7 @@ import { MailModule } from 'src/modules/mail/mail.module';
  */
 @Module({
     imports: [EntitiesModule, MailModule, JwtModule.register({})],
-    providers: [AuthService, SessionService, EmailConfirmationService, AuthGuard],
+    providers: [AuthService, SessionService, EmailConfirmationService, PasswordResetService, AuthGuard],
     controllers: [AuthController],
     exports: [EmailConfirmationService],
 })

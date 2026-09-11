@@ -107,6 +107,68 @@
       </section>
 
       <!--
+        Changing the password from inside the account.
+
+        The current password is asked for, and is not ceremony: an access token is honoured for
+        fifteen minutes without the server consulting `sessions`, so a tab left open on a shared
+        machine reaches this form. What only the owner knows is what keeps the change out of reach
+        of whoever merely has the screen open.
+
+        The repetition is checked here and nowhere else — the server has only one password to go
+        on, so a mistyped second field is a thing only this screen can catch, and it is the one that
+        would lock a parent out of their own account.
+      -->
+      <section class="portal-section">
+        <h2 class="portal-label">Parola</h2>
+
+        <p class="body-text">
+          După schimbare te deconectăm de pe toate dispozitivele, inclusiv de aici — te autentifici
+          din nou cu parola nouă.
+        </p>
+
+        <form class="form" @submit.prevent="onChangePassword">
+          <div class="field">
+            <label for="current-password">Parola actuală</label>
+            <input
+              id="current-password"
+              v-model="currentPassword"
+              class="input"
+              type="password"
+              autocomplete="current-password"
+            />
+          </div>
+          <div class="field">
+            <label for="new-password">Parola nouă</label>
+            <input
+              id="new-password"
+              v-model="newPassword"
+              class="input"
+              type="password"
+              autocomplete="new-password"
+              :placeholder="`Cel puțin ${MIN_PASSWORD_LENGTH} caractere`"
+            />
+          </div>
+          <div class="field">
+            <label for="new-password-confirm">Repetă parola nouă</label>
+            <input
+              id="new-password-confirm"
+              v-model="newPasswordConfirmation"
+              class="input"
+              type="password"
+              autocomplete="new-password"
+            />
+          </div>
+          <button
+            type="submit"
+            class="btn btn-secondary details-action"
+            :disabled="changingPassword"
+          >
+            {{ changingPassword ? "Se schimbă…" : "Schimbă parola" }}
+          </button>
+        </form>
+      </section>
+
+      <!--
         E07/S4. The right of access, as a button rather than as an email to the office.
 
         The file is built in the browser from the JSON the server returns, so nothing is written to
@@ -194,6 +256,11 @@ import { useProfileApi } from "~/composables/api/useProfileApi";
 import { usePrivacyApi } from "~/composables/api/usePrivacyApi";
 import { useProfileStore } from "~/stores/profileStore";
 import { useUserStore } from "~/stores/userStore";
+import { useAuthApi } from "~/composables/api/useAuthApi";
+import { useTokenStore } from "~/stores/tokenStore";
+import { useChildrenStore } from "~/stores/childrenStore";
+import { useAttendanceStore } from "~/stores/attendanceStore";
+import { useClassSessionStore } from "~/stores/classSessionStore";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { dayKey } from "~/composables/useUtils";
@@ -217,13 +284,25 @@ definePageMeta({
 });
 
 const profileApi = useProfileApi();
+const authApi = useAuthApi();
 const privacyApi = usePrivacyApi();
 const profileStore = useProfileStore();
 const userStore = useUserStore();
+const tokenStore = useTokenStore();
+const childrenStore = useChildrenStore();
+const attendanceStore = useAttendanceStore();
+const classSessionStore = useClassSessionStore();
 const { success, error: notifyError } = useNotifications();
 
 const saving = ref(false);
 const downloading = ref(false);
+const changingPassword = ref(false);
+const currentPassword = ref("");
+const newPassword = ref("");
+const newPasswordConfirmation = ref("");
+
+/** Mirrors `MIN_PASSWORD_LENGTH` on the server, which mirrors what registration accepts. */
+const MIN_PASSWORD_LENGTH = 6;
 const erasing = ref(false);
 /** First press arms, second one asks. Reset on success, on failure and on leaving the screen. */
 const confirmingErasure = ref(false);
@@ -326,6 +405,51 @@ const onWithdraw = async () => {
     notifyError("Nu am putut anula cererea", apiErrorMessage(err));
   } finally {
     erasing.value = false;
+  }
+};
+
+/**
+ * Sends the change, then leaves.
+ *
+ * The server revokes every session, this browser's included, so staying on the page would mean
+ * holding tokens that have already stopped meaning anything — the next request would 401 and the
+ * parent would read it as the change having failed. Logging out and going to the login form says
+ * what happened instead.
+ */
+const onChangePassword = async () => {
+  if (newPassword.value.length < MIN_PASSWORD_LENGTH) {
+    notifyError(
+      "Parola e prea scurtă",
+      `Alege o parolă de cel puțin ${MIN_PASSWORD_LENGTH} caractere.`
+    );
+    return;
+  }
+  if (newPassword.value !== newPasswordConfirmation.value) {
+    notifyError("Parolele nu sunt identice", "Repetă parola nouă exact cum ai scris-o mai sus.");
+    return;
+  }
+
+  changingPassword.value = true;
+  try {
+    await authApi.changePassword(currentPassword.value, newPassword.value);
+    currentPassword.value = "";
+    newPassword.value = "";
+    newPasswordConfirmation.value = "";
+    success("Parola a fost schimbată.", "Autentifică-te din nou cu parola nouă.");
+    // Not `useLogout()`: that one calls `POST /auth/logout` to revoke a refresh token the change
+    // has already revoked, and announces itself with a second toast. The caches go all the same —
+    // what is in them belongs to a session that no longer exists.
+    tokenStore.clearTokens();
+    userStore.logout();
+    profileStore.clearProfile();
+    childrenStore.clearChildren();
+    attendanceStore.clearAttendance();
+    classSessionStore.clearSessions();
+    await navigateTo("/auth/login");
+  } catch (err) {
+    notifyError("Nu am putut schimba parola", apiErrorMessage(err));
+  } finally {
+    changingPassword.value = false;
   }
 };
 

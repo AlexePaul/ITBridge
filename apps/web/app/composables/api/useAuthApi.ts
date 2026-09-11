@@ -113,6 +113,50 @@ export const useAuthApi = () => {
   };
 
   /**
+   * Asks for a reset link. Public, and unauthenticated by necessity: the whole premise is that the
+   * parent cannot sign in.
+   *
+   * **The answer is the same whether or not the address has an account**, so the caller has nothing
+   * to branch on and the screen must not invent a branch: a page that said „adresa nu există" would
+   * turn the form into a way of asking whether a given family is at this school.
+   */
+  const forgotPassword = async (email: string) => {
+    return api<{ message: string }>("/auth/forgot-password", {
+      method: "POST",
+      body: { email },
+    });
+  };
+
+  /**
+   * Spends the link and sets the new password. Public for the same reason `confirmEmail` is: the
+   * token is the whole credential, and a gate demanding the account it opens would be a circle.
+   *
+   * Every session is revoked server-side, this browser's included, so there is nothing to keep —
+   * the page sends the parent to the login form with the password they have just chosen.
+   */
+  const resetPassword = async (token: string, password: string) => {
+    return api<{ message: string }>("/auth/reset-password", {
+      method: "POST",
+      body: { token, password },
+    });
+  };
+
+  /**
+   * Changes the password from inside the account. The current one is required, and not as ceremony:
+   * an access token is honoured for fifteen minutes without the server consulting `sessions`, so a
+   * tab left open on a shared machine reaches this route.
+   *
+   * The server ends every session, this one included, so the caller signs out afterwards rather
+   * than carrying tokens that have stopped meaning anything.
+   */
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    return api<{ message: string }>("/auth/change-password", {
+      method: "POST",
+      body: { currentPassword, newPassword },
+    });
+  };
+
+  /**
    * Real logout: tells the server to revoke the refresh token, rather than only forgetting it here.
    *
    * Without this call E05/S7 was delivered on the backend and unused — the sessions row stayed
@@ -146,5 +190,15 @@ export const useAuthApi = () => {
     await useUserStore().fetchUser();
   };
 
-  return { login, register, confirmEmail, resendConfirmation, logout, acceptDocuments };
+  return {
+    login,
+    register,
+    confirmEmail,
+    resendConfirmation,
+    forgotPassword,
+    resetPassword,
+    changePassword,
+    logout,
+    acceptDocuments,
+  };
 };

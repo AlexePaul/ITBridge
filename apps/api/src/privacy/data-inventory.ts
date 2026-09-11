@@ -1171,6 +1171,45 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
         },
     },
 
+    PasswordReset: {
+        table: 'password_resets',
+        purpose: 'Linkul prin care o familie își recapătă contul când nu mai știe parola.',
+        subject: 'account-holder',
+        linkedVia: 'user.profile',
+        columns: {
+            id: { personal: false, why: 'identifier' },
+            tokenHash: {
+                personal: true,
+                about: 'account-holder',
+                category: 'credential',
+                purpose: 'Recunoașterea linkului de resetare. Nu se stochează tokenul, doar amprenta lui.',
+                basis: 'contract',
+                retention: 'self-expiring',
+                readableBy: ['nobody'],
+            },
+            email: {
+                personal: true,
+                about: 'account-holder',
+                category: 'contact',
+                purpose: 'Adresa la care a plecat linkul — înghețată la emitere, ca o adresă schimbată după aceea să oprească tokenul.',
+                basis: 'contract',
+                retention: 'self-expiring',
+                readableBy: ['nobody'],
+            },
+            createdAt: { personal: false, why: 'row-timestamp' },
+            expiresAt: { personal: false, why: 'state' },
+            consumedAt: {
+                personal: true,
+                about: 'account-holder',
+                category: 'behavioural',
+                purpose: 'Când s-a folosit linkul și s-a schimbat parola.',
+                basis: 'contract',
+                retention: 'self-expiring',
+                readableBy: ['admin'],
+            },
+        },
+    },
+
     EmailConfirmation: {
         table: 'email_confirmations',
         purpose: 'Tokenul trimis la înregistrare, ca să se confirme adresa.',
