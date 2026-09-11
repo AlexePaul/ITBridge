@@ -30,7 +30,7 @@ services:
   # exercised locally at all — it needs a bucket to upload the PDF to — and `pdf.service.ts` never
   # actually produces a PDF in any run you can verify.
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: itbridge_minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -53,7 +53,7 @@ services:
   # One-shot: creates the bucket and exits. `docker compose up -d` leaves it in state `exited (0)`,
   # which is expected — there is nothing for it to keep doing.
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     container_name: itbridge_minio_init
     depends_on:
       minio:
