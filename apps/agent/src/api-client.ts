@@ -27,6 +27,40 @@ export class ApiClient {
     private accessToken: string | null = null;
     private refreshToken: string | null = null;
 
+    /**
+     * The one re-authentication in flight, shared by everything waiting on it.
+     *
+     * **The agent races itself, on a schedule.** Three timers run independently over this one
+     * client — the scan every thirty seconds, the heartbeat every five minutes, the mirror every
+     * fifteen — and the access token lasts a quarter of an hour. Those numbers divide into each
+     * other, so the tick where the token has just expired is regularly a tick where two of them
+     * fire together: both get a 401, both reach for the same refresh token, and the server rotates
+     * for the winner and reads the loser as a replay. It revokes the whole family for that, by
+     * design, because two parties holding tokens from one chain is what theft looks like from the
+     * outside.
+     *
+     * So the office machine was raising the platform's theft signal several times an hour, every
+     * hour, for nothing — which is worse than the wasted logins: an alarm that cries wolf on a
+     * timetable is one nobody will believe on the day it is right.
+     *
+     * This is `useApi.ts`'s `refreshPromise`, one app over. The lesson was already written down
+     * there — two composables on one page refreshing with one token, and a parent logged out for it
+     * — and the agent simply never had the guard.
+     */
+    private authenticating: Promise<void> | null = null;
+
+    /**
+     * Bumped whenever a new access token arrives.
+     *
+     * A request that set off with the old token and comes back 401 *after* somebody else has
+     * already replaced it does not need a refresh of its own — it needs the token that now exists.
+     * The shared promise above does not cover that case: by then it has settled, so there is
+     * nothing left to join and the request would ask for a rotation of its own. No replay and no
+     * alarm — the token it would present is the current one — but a second session chain every
+     * quarter of an hour, for a token already sitting in the field next to it.
+     */
+    private tokenGeneration = 0;
+
     constructor(private readonly config: AgentConfig) {
         this.refreshToken = readState(config.statePath).refreshToken;
     }
@@ -34,10 +68,23 @@ export class ApiClient {
     /**
      * Makes sure there is a usable access token, refreshing or signing in as needed.
      *
+     * **Never runs twice at once.** Callers share whichever attempt is already in flight; see
+     * `authenticating` for what the second concurrent rotation costs.
+     */
+    async authenticate(): Promise<void> {
+        if (!this.authenticating) {
+            this.authenticating = this.authenticateOnce().finally(() => {
+                this.authenticating = null;
+            });
+        }
+        return this.authenticating;
+    }
+
+    /**
      * Signing in afresh is the fallback, not the plan: it is what happens on the very first run, and
      * after a refresh token has expired or been revoked. Everything else rides on the rotation.
      */
-    async authenticate(): Promise<void> {
+    private async authenticateOnce(): Promise<void> {
         if (this.refreshToken) {
             try {
                 await this.refresh();
@@ -60,7 +107,7 @@ export class ApiClient {
             skipAuth: true,
         })) as { accessToken: string; refreshToken: string };
 
-        this.accessToken = body.accessToken;
+        this.setAccessToken(body.accessToken);
         this.setRefreshToken(body.refreshToken);
     }
 
@@ -72,11 +119,16 @@ export class ApiClient {
             skipAuth: true,
         })) as { accessToken: string; refreshToken: string };
 
-        this.accessToken = body.accessToken;
+        this.setAccessToken(body.accessToken);
         // Written to disk before it is used for anything. A crash between "the server rotated it"
         // and "we wrote it down" would otherwise leave the agent holding a token the server has
         // already consumed, and the next attempt would look like a replay.
         this.setRefreshToken(body.refreshToken);
+    }
+
+    private setAccessToken(token: string): void {
+        this.accessToken = token;
+        this.tokenGeneration += 1;
     }
 
     private setRefreshToken(token: string): void {
@@ -175,6 +227,15 @@ export class ApiClient {
      * The retry is deliberately shallow: exactly one, and only for 401. Anything deeper turns a
      * server that is refusing us into a loop that hammers it, and the agent has nowhere to be — the
      * next pass is thirty seconds away and the file is still in the folder.
+     *
+     * The generation is read *before* the request goes out, so a 401 can be told apart from a 401
+     * that arrived after somebody else had already fixed the problem.
+     *
+     * **`skipAuth` is what keeps `authenticate` from awaiting itself.** Login and refresh are sent
+     * with it, so neither can reach the branch below — a call made from inside the shared promise
+     * would join that promise, which cannot settle until the call returns, and the agent would hang
+     * with no error and nothing in the log. If you add a request that the authentication flow makes,
+     * it has to carry the flag.
      */
     private async request(pathname: string, init: RequestInit & { skipAuth?: boolean }): Promise<unknown> {
         const { skipAuth, ...rest } = init;
@@ -191,10 +252,15 @@ export class ApiClient {
                 signal: AbortSignal.timeout(120_000),
             });
 
+        const generation = this.tokenGeneration;
         let response = await send();
 
         if (response.status === 401 && !skipAuth) {
-            await this.authenticate();
+            // Only if the token this request used is still the current one. When it is not, the
+            // 401 is about a token that has already been replaced, and the retry below carries the
+            // replacement — asking for another rotation there is how the agent used to make the
+            // server think it had been robbed.
+            if (this.tokenGeneration === generation) await this.authenticate();
             response = await send();
         }
 

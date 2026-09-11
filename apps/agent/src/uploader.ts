@@ -20,13 +20,23 @@ import { uploadedPath } from './paths';
  * appear on the group screen with the reason. Nothing is ever deleted from the share.
  */
 
-export interface UploadOutcome {
-    uploaded: number;
-    linked: number;
-    failed: number;
-}
+/**
+ * What became of one file.
+ *
+ * `failed` and `unusable` are the distinction worth keeping. `failed` means try again — the network
+ * was down, the server said 500, the file was locked — and the share is the queue, so the next pass
+ * picks it up. `unusable` means never: reading this file again tomorrow will produce the same
+ * answer, so it is reported and moved out of the way like anything else the agent refuses.
+ *
+ * There used to be only `failed`, and a `.url` with no address in it took that branch. The file
+ * stayed on the share, so the agent found it again thirty seconds later — a warning line every half
+ * minute, and the agent's health field on the group screen permanently reporting a fault nobody
+ * could clear. The code's own note about the heartbeat says why that is the expensive kind of
+ * wrong: an error that lingers after its cause is gone teaches an admin to ignore the field.
+ */
+export type UploadOutcome = 'uploaded' | 'linked' | 'failed' | 'unusable';
 
-export async function uploadFile(api: ApiClient, file: FoundFile): Promise<'uploaded' | 'linked' | 'failed'> {
+export async function uploadFile(api: ApiClient, file: FoundFile): Promise<UploadOutcome> {
     const extension = path.extname(file.fileName).toLowerCase();
     const capturedOn = dayOf(file.modifiedAt);
 
@@ -46,10 +56,10 @@ export async function uploadFile(api: ApiClient, file: FoundFile): Promise<'uplo
             }
             // A `.txt` with no URL in it is just a text file, and the whitelist accepts those. It
             // falls through to the ordinary upload rather than being refused for not being a link.
-            if (extension === '.url') {
-                log.warn(`A .url file carried no address: ${file.relativePath}`);
-                return 'failed';
-            }
+            //
+            // A `.url` cannot: it is on no whitelist except as a link, so there is nothing left to
+            // try. Refused rather than failed, so that it leaves the folder and stops coming back.
+            if (extension === '.url') return 'unusable';
         }
 
         const bytes = fs.readFileSync(file.absolutePath);
@@ -70,6 +80,24 @@ export async function uploadFile(api: ApiClient, file: FoundFile): Promise<'uplo
         log.warn(`Could not upload ${file.relativePath}: ${error instanceof Error ? error.message : String(error)}`);
         return 'failed';
     }
+}
+
+/**
+ * The refusal the scanner could not make, because it does not read files.
+ *
+ * Everything else in `RejectedFile` was decided from a directory entry; whether a shortcut carries
+ * a usable address needs the contents, so it is settled here and filed the same way.
+ */
+export function unusableLink(file: FoundFile): RejectedFile {
+    return {
+        absolutePath: file.absolutePath,
+        relativePath: file.relativePath,
+        fileName: file.fileName,
+        sizeBytes: file.sizeBytes,
+        reason: 'link_without_address',
+        groupId: file.groupId,
+        unassignedDir: file.unassignedDir,
+    };
 }
 
 /**

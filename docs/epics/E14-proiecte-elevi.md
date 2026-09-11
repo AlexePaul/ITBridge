@@ -221,10 +221,16 @@ pierde fișiere:
    să ghicească din care grupă face parte un fișier apărut sub un copil care apare în două locuri.
 
 **Nimic nu se pierde în tăcere.** Un fișier pe care agentul nu îl poate atribui — pus în rădăcina
-grupei, într-un folder necunoscut, cu extensie nepermisă sau prea mare — se mută în `_neatribuite` și
-apare pe ecranul grupei cu motivul, ca sarcină pentru admin. E aceeași disciplină ca la destinatarii
-fără adresă din [E17](E17-comunicare-notificari.md) S5: absența unei atribuiri e o informație, nu un
-rând de sărit.
+grupei, într-un folder necunoscut, cu extensie nepermisă, prea mare, sau o scurtătură fără nicio
+adresă în ea — se mută în `_neatribuite` și apare pe ecranul grupei cu motivul, ca sarcină pentru
+admin. E aceeași disciplină ca la destinatarii fără adresă din
+[E17](E17-comunicare-notificari.md) S5: absența unei atribuiri e o informație, nu un rând de sărit.
+
+Ultimul motiv a venit după livrare și merită citit ca regulă, nu ca listă: un `.url` gol era tratat
+ca **eșec**, adică „mai încearcă". Partajarea e coada, deci fișierul rămânea în folder și era găsit
+din nou la fiecare trecere — un avertisment la fiecare treizeci de secunde și câmpul de sănătate al
+agentului roșu pe un defect pe care nimeni nu-l putea repara. Un eșec care nu poate da alt răspuns
+la a doua încercare e un refuz.
 
 **Agentul se autentifică sub un cont dedicat, cu rol `ADMIN`**, fiindcă alt rol nu există — vezi
 [Decizii luate](#decizii-luate). Două lucruri de scris în cod de la început, nu de descoperit în

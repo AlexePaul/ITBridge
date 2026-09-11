@@ -353,6 +353,14 @@ să primească un singur email. Trei consecințe de ținut minte:
 - **Un părinte vede doar ce a fost trimis.** Restrângerea e în serviciu, ca peste tot, și adaugă
   `status = 'sent'` pe lângă restrângerea pe utilizator. Portalul nu are voie să fie portița prin
   care se vede ce n-a verificat încă nimeni.
+- **Un eșec care nu se poate repeta cu folos e un refuz, nu o eroare.** Agentul tratează eșecul ca
+  „mai încearcă" și lasă fișierul pe partajare — corect pentru o rețea picată, fiindcă partajarea
+  _e_ coada. Un `.url` fără nicio adresă în el nu mai avea însă ce să încerce: rămânea în folder,
+  era găsit din nou la fiecare trecere, scria un avertisment la fiecare treizeci de secunde și ținea
+  câmpul de sănătate al agentului roșu pe un defect pe care nimeni nu-l putea repara — exact ce
+  descrie comentariul din `Agent.pass` despre erorile care rămân după ce cauza lor a trecut. Are
+  acum motiv propriu, `link_without_address`, deci pleacă în `_neatribuite` ca orice alt refuz. Dacă
+  adaugi o cale nouă de eșec, prima întrebare e dacă a doua încercare poate da alt răspuns.
 
 **Locația nu e un câmp pe grupă, ci o consecință a sălii.** `Group.room` e obligatoriu, `Room.location`
 la fel, deci fiecare grupă știe unde se ține fără să poată contrazice sala. Ștergerile sunt
@@ -863,6 +871,23 @@ date la fiecare cerere. Dacă vine o cerință de revocare instantanee, ăsta e 
 **Clientul trebuie să salveze refresh tokenul întors de `/auth/refresh`.** Rotația îl consumă pe
 cel prezentat; dacă păstrezi tokenul vechi, a doua reîmprospătare arată ca un replay, iar serverul
 revocă tot lanțul. `useApi.ts` a avut exact bug-ul ăsta și deloga fiecare părinte la ~30 de minute.
+
+**Și trebuie să reîmprospăteze o singură dată deodată, oricâte cereri ar aștepta.** Două
+reîmprospătări pornite în paralel prezintă amândouă același token: serverul îl rotește pentru prima
+și o citește pe a doua ca replay — „clientul care se întrece cu el însuși" e scris chiar în
+`SessionService.rotate`, iar tratamentul e același ca pentru un furt, fiindcă din afară arată
+identic. În browser, poarta e `refreshPromise` la nivel de modul din `useApi.ts`. În
+`apps/agent`, care n-o avea, nu era o interleavare rară, ci **orarul**: trei cronometre
+independente peste un singur `ApiClient` — scanarea la 30s, heartbeat-ul la 5 minute, oglinda la 15
+—, iar access tokenul ține un sfert de oră, deci tick-ul în care tocmai a expirat e regulat un tick
+în care pornesc două. Calculatorul din birou ridica semnalul de furt al platformei de câteva ori pe
+oră, degeaba — ceea ce e mai rău decât autentificările irosite: o alarmă care strigă „lupul" după
+ceas e una în care nimeni n-o să creadă în ziua în care are dreptate. Al doilea capăt e un contor de
+generație: un 401 întors **după** ce altcineva a rotit deja n-are nevoie de o rotire proprie, ci de
+tokenul care există între timp. Amândouă capetele au test propriu, iar testul pornește un server HTTP
+adevărat: ce se verifică e ce se întâmplă când două cereri sunt în aer în același timp, iar un
+`fetch` înlocuit cu un răspuns gata făcut dă înapoi controlul prea devreme ca ele să se suprapună
+cu adevărat.
 
 **Un login ține șapte zile, cât refresh tokenul din spatele lui.** `useCookie("accessToken")` fără
 opțiuni scrie un cookie **de sesiune** — `CookieDefaults` din Nuxt pune `path`, `watch`, `decode`,
