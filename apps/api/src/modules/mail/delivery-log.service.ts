@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { OutboxStatus } from 'src/enum/outbox-status.enum';
+import { SCHOOL_TIME_ZONE } from 'src/common/school-clock';
 
 /** What the delivery screen filters on. Everything optional; absent means "no narrowing". */
 export interface DeliveryLogFilter {
@@ -44,8 +45,23 @@ export class DeliveryLogService {
         if (filter.status) qb.andWhere('message.status = :status', { status: filter.status });
         // `ILIKE` rather than equality: the admin remembers a name, not the exact address.
         if (filter.to) qb.andWhere('message.to ILIKE :to', { to: `%${filter.to}%` });
-        if (filter.from) qb.andWhere('message.createdAt >= :from', { from: `${filter.from}T00:00:00` });
-        if (filter.until) qb.andWhere('message.createdAt <= :until', { until: `${filter.until}T23:59:59.999` });
+        // **Both ends are the school's midnight, not Greenwich's.** `createdAt` is `timestamptz`, and
+        // a bound string with no offset is read in the session's zone — which is UTC on the server,
+        // as it is in CI. So `from`/`until`, which the screen builds from the day an admin is
+        // looking at, were compared against instants up to three hours off: everything queued
+        // between midnight and 03:00 in Bucharest landed under the *previous* day, and asking for
+        // today at 00:30 returned nothing at all. `AT TIME ZONE` moves the boundary onto the
+        // school's clock and gets the DST offset right on its own — +03:00 in summer, +02:00 in
+        // winter — which appending a fixed offset would not.
+        if (filter.from) {
+            qb.andWhere('message.createdAt >= (:from)::timestamp AT TIME ZONE :zone', { from: `${filter.from}T00:00:00`, zone: SCHOOL_TIME_ZONE });
+        }
+        if (filter.until) {
+            qb.andWhere('message.createdAt <= (:until)::timestamp AT TIME ZONE :zone', {
+                until: `${filter.until}T23:59:59.999`,
+                zone: SCHOOL_TIME_ZONE,
+            });
+        }
 
         return qb.getMany();
     }

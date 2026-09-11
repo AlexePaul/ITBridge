@@ -41,6 +41,25 @@ describe('DeliveryLogService', () => {
             expect(params.until).toBe('2026-09-30T23:59:59.999');
         });
 
+        /**
+         * The end-to-end case only fails between midnight and 03:00 in Bucharest, because that is
+         * the only window where the school's day and Greenwich's disagree about which day it is.
+         * CI ran there once and went red; on any other run the bug is invisible. So the rule is
+         * pinned here, where it does not depend on what time the suite happens to start.
+         */
+        it("puts both ends on the school's clock, not the server's", async () => {
+            await service.list({ from: '2026-09-01', until: '2026-09-30' });
+
+            const clauses = qb.andWhereCalls.map(([sql]) => sql);
+            expect(clauses).toEqual([
+                'message.createdAt >= (:from)::timestamp AT TIME ZONE :zone',
+                'message.createdAt <= (:until)::timestamp AT TIME ZONE :zone',
+            ]);
+
+            const params = Object.assign({}, ...qb.andWhereCalls.map(([, p]) => p ?? {})) as Record<string, string>;
+            expect(params.zone).toBe('Europe/Bucharest');
+        });
+
         it('caps the page, however large the caller asks for', async () => {
             await service.list({ limit: 100000 });
             expect(qb.take).toHaveBeenCalledWith(500);
