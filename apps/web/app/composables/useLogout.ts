@@ -22,7 +22,7 @@ export const useLogout = () => {
     // cookies alone left the session live for seven days.
     await authApi.logout();
 
-    info("Goodbye!", "You have been logged out successfully.");
+    info("Te-am deconectat.", "Sesiunea de pe acest dispozitiv s-a închis.");
     tokenStore.clearTokens();
     userStore.logout();
     attendanceStore.clearAttendance();
