@@ -280,8 +280,9 @@ nu-l ține în val 4.
 
 Ordinea asta s-a rupt deja, și nu în rău: E12 S1 a intrat înaintea lui E11, iar odată cu el bucăți
 din E17 S1 și S3 — vezi [Stare curentă](#stare-curentă). Ședința ca entitate nu avea nevoie de
-înscrieri ca să fie corectă, iar jobul zilnic a tras canalul după el. Ce rămâne din valul 3 e
-neatins: E09, E11, restul lui E12, E18 S5, E19, și S2 din E17.
+înscrieri ca să fie corectă, iar jobul zilnic a tras canalul după el. Din valul 3 au intrat de atunci
+E11 și tot E12; rămân **E09** (scos la scară mică — vezi mai jos), **E18 S5** și ce mai e în E19,
+care nu e cod.
 
 Varianta cealaltă e legitimă: E11 și E12 se pot livra fără partea de notificare. Atunci însă se
 scrie de la început că acele criterii de acceptanță rămân deschise până în val 4, ca revenirea la
@@ -331,24 +332,34 @@ Sălile au 10 locuri la ambele locații — capacitatea, numele și starea fiec�
 exact ce presupune migrarea; 10 locuri și o sală sunt de acum decizie, nu presupunere, iar a doua
 sală se adaugă din aceeași pagină în ziua în care apare.
 
-[E12](E12-prezenta-orar.md) e `în lucru`, cu S1 livrat într-o formă redusă: ședința e o entitate,
-prezența se leagă de ea, iar jobul zilnic despre prezența nemarcată pune mesajul în coadă. Fără
-legătură la modul sau lecție, fiindcă [E10](E10-curriculum-module.md) a ieșit din MVP. Restul —
-vacanțe (S2), absențe anunțate (S3), recuperări (S4), anulări și mutări cu ecran și notificare (S5),
-marcarea pe telefon (S6), notificările către părinți (S7) — e neînceput. Anularea cu notificare din
-S5 și tot S7 cer [E17](E17-comunicare-notificari.md) întreg, iar restul e în afara tăieturii de MVP
-agreate cu patronul.
+[E12](E12-prezenta-orar.md) e **livrat**, toate cele nouă story-uri.
+S1 (ședința ca entitate, cu jobul zilnic de prezență nemarcată) a rămas în forma redusă de la
+început, fără legătură la modul sau lecție, fiindcă [E10](E10-curriculum-module.md) a ieșit din MVP.
+Peste el: calendarul de vacanțe cu intervale care anulează, nu șterg (S2), absențele anunțate legate
+de ședință cu `inTime` înghețat la scriere (S3), recuperările — care **nu mai sunt un credit**, ci o
+mutare pe săptămâna pierdută, scrisă pe anunțul care a provocat-o (S4), anulările și mutările ca
+trei scrieri într-o tranzacție cu notificare către familii (S5), catalogul de pe telefon, fără poze
+(S6), mementoul de la minutul 15 și butonul de apel (S7), bifa de vacanță pe ședință (S8) și
+reprogramarea într-un singur act, cheiată pe grupă și zi (S9). Orizontul de opt săptămâni se rulează
+acum singur, prin `TimetableHorizonJob`. Ce a ținut S5 și S7 pe loc — [E17](E17-comunicare-notificari.md)
+— s-a livrat între timp.
 
-[E17](E17-comunicare-notificari.md) e `în lucru`, dar numai cât a cerut jobul de mai sus. Din S1
-există `MailService` în `apps/api`, cu cheia și expeditorul lui, separate de ale formularului
-public; din S3 există tabelul `outbox`, scrierea în tranzacția apelantului și scheduler-ul cu
+[E17](E17-comunicare-notificari.md) e livrat cât se poate fără o cheie de trimitere, cu un singur
+story rămas. Din S1 există `MailService` în `apps/api`, cu cheia și expeditorul lui, separate de ale
+formularului public; din S3, tabelul `outbox`, scrierea în tranzacția apelantului și scheduler-ul cu
 `FOR UPDATE SKIP LOCKED` și pauză crescătoare. **Scheduler-ul rulează de la
 [E01](E01-infrastructura-medii.md) S4, dar numai pe stage**, fixat pe un singur proces prin
-`instances: 1` și `exec_mode: 'fork'` în fișierul de ecosistem de pe instanță. Nu există șabloane
-(S2), preferințe și dezabonare (S4), evidența pe care o citește un admin (S5), rezumate (S6),
-anunțuri (S7) și trimitere pe grupă (S8). Singurul destinatar de până acum e adresa școlii:
-**niciun mesaj nu a plecat încă spre un părinte** — pe stage nu există cheie de trimitere,
-deliberat.
+`instances: 1` și `exec_mode: 'fork'` în fișierul de ecosistem de pe instanță.
+
+Peste ele s-au livrat: șabloanele (S2), cu implicitele în cod și editările în bază; preferința de
+marketing și calea de dezabonare din **fiecare** mesaj (S4), cu jetonul `select: false` și scrierea
+în spatele unui `POST`; evidența pe care o citește un admin (S5), la `/admin/livrari`; anunțurile
+către o grupă, o locație sau toată școala (S7), la `/admin/anunturi`; și trimiterea declanșată de
+admin (S8), venită odată cu [E14](E14-proiecte-elevi.md) S4. **Rămâne doar S6**, motorul de
+rezumate — singurul care cere o preferință de frecvență pe care n-o cere nimic altceva.
+
+Singurul destinatar de până acum e tot adresa școlii: **niciun mesaj nu a plecat încă spre un
+părinte** — pe stage nu există cheie de trimitere, deliberat.
 
 [E01](E01-infrastructura-medii.md) și [E04](E04-migrari-date.md) sunt `în lucru`. La E01, S4 e
 livrat pentru stage și rămâne producția — **care nu mai e o problemă de infrastructură**, ci faptul
@@ -357,24 +368,29 @@ S2 s-a închis odată cu deploy-ul, care rulează migrările între build și `p
 dump-urile zilnice, dar îi lipsește proba de restaurare, care e chiar acceptanța lui; S5 (retenția)
 așteaptă răspunsul contabilului despre cât se păstrează facturile.
 
-[E18](E18-frontend-portal.md) și [E19](E19-seo-geo.md) sunt `în lucru`, livrate amândouă pe partea
-publică și oprite amândouă în același punct:
+[E18](E18-frontend-portal.md) și [E19](E19-seo-geo.md) sunt `în lucru` cu puțin rămas în fiecare, iar
+ce a rămas nu seamănă: la E18 e cod, la E19 nu e:
 
-- La **E18** sunt gata S1 (sistemul de design) și S3 (cele șapte pagini publice); S2 e parțial —
-  imaginile sunt sub 200KB, dar `@nuxt/image` tot nu e instalat. Rămân S4 (portalul părintelui) și
-  S5 (zona de admin). **Deblocate de deploy-ul de stage**: paginile de după autentificare sunt
-  cablate la un API care rulează și se pot deschide pe `stage.itbridgeschool.com`, pe date de
-  seed — ce lipsește e verificarea, nu mediul. Plus S6
-  (verificarea de accesibilitate în CI) și S7 (interfața profesorului — care, fără rol separat, e o
-  vedere din zona de admin, nu o zonă a ei).
-- La **E19** sunt gata S1, S2, S3 și S7. S4 așteaptă [E10](E10-curriculum-module.md), S5 se face
-  odată cu S2 din E18, S6 e blocat de „cine scrie conținutul", iar S8 cere domeniul live.
+- La **E18** sunt gata S1 (sistemul de design), S2 (`@nuxt/image` e instalat și cele patru locuri cu
+  imagini trec prin `<NuxtPicture>`), S3 (cele șapte pagini publice), S4 (portalul părintelui, pe un
+  API care rulează pe `stage.itbridgeschool.com`), S6 (accesibilitatea în CI — două porți, una pe
+  paginile publice din sitemap și una pe cele 51 de ecrane din spatele autentificării) și S7
+  (interfața profesorului, care fără rol separat e o vedere din zona de admin, nu o zonă a ei).
+  **Rămâne S5**, uniformizarea zonei de admin, din care s-a livrat prima felie: nu mai sunt 25 de
+  ecrane, ci 42, iar fiecare epic livrat mai adaugă unul construit cu tiparele pe care le-a găsit.
+- La **E19** sunt gata S1, S2, S3, S5 (performanța, închisă odată cu S2 din E18) și S7. S4 așteaptă
+  [E10](E10-curriculum-module.md), S6 e blocat de „cine scrie conținutul", iar S8 cere domeniul live.
 - Lucrul cel mai valoros rămas în E19 **nu e cod**: două profiluri Google Business verificate, unul
   per adresă. Pentru căutările locale contează mai mult decât orice a rămas în repo.
 
 Ordinea firească era [E01](E01-infrastructura-medii.md) S4 înaintea verificării lui E18 S4 — un
-portal fără API nu se poate termina. Condiția e îndeplinită de la deploy-ul de stage, deci
-verificarea lui E18 S4 e prima muncă care se poate începe azi.
+portal fără API nu se poate termina. Condiția s-a îndeplinit odată cu deploy-ul de stage, iar S4 s-a
+închis după aceea. Ce a rămas nu mai e blocat de mediu: **E18 S5** (restul uniformizării de admin) și
+**E17 S6** (rezumatele) sunt singurele două story-uri care se pot începe fără să aștepte pe cineva —
+restul cerințelor deschise așteaptă un om, nu un commit: proba de restaurare din
+[E04](E04-migrari-date.md) S4, retenția facturilor din S5, profilurile Google Business din
+[E19](E19-seo-geo.md), și cheia de trimitere fără de care [E17](E17-comunicare-notificari.md) nu
+poate scrie niciunui părinte.
 
 [E10](E10-curriculum-module.md) rămâne `propus` și **iese din MVP**, respins de patron. Nu e anulat
 ca E22 de mai jos și fișierul rămâne unde e — decizia e despre moment, nu despre scop —, dar nu mai
