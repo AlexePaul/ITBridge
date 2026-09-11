@@ -1202,19 +1202,30 @@ tick. Fixarea e în `/srv/itbridge/ecosystem.config.js`, pe instanță: `instanc
 `exec_mode: 'fork'`. Fișierul **nu e în repo** — vezi „Infrastructură — stare reală". Dacă cineva
 trece vreodată aplicația pe `cluster`, asta e linia care se rupe prima, tăcut.
 
-**Orizontul de opt săptămâni nu se rulează singur.** Ședințele se scriu doar la cerere, prin
-`POST /class-sessions/generate` (admin); nu există niciun job care să le scrie. Ce e programat în
-backend — dispecerul de outbox și verificarea de la minutul 15 (`@Interval`), mementoul de la 10:00,
-cele două notificări către părinte din E12 S4, mementourile de restanță din E16 S7 și măturarea
-ofertelor de pe lista de așteptare din E11 S3 (`@Cron`), plus
-purjarea sesiunilor, care stă în continuare pe
-un `setInterval` propriu în `apps/api/src/modules/auth/session.service.ts` — **nu generează orar**,
-niciunul. Iar prezența se marchează pe
-`POST /attendance/session/:classSessionId`, deci fără ședință generată marcarea răspunde 404 și
-ecranul n-are ce afișa. Generarea e idempotentă pe `(group, date)` și lasă neatins ce există deja,
-indiferent de stare — se poate chema oricând și de oricâte ori, iar o a doua rulare nu învie o
-ședință anulată. Procesul care poate purta un cron există acum pe stage, dar **job-ul de generare
-tot nu există** — o cheamă cineva.
+**Orizontul de opt săptămâni se rulează acum singur, iar până de curând nu se rula.** Ședințele se
+scriu prin `POST /class-sessions/generate` (admin) **și** prin `TimetableHorizonJob`
+(`apps/api/src/modules/class-session/timetable-horizon.job.ts`), la 04:30 pe ceasul școlii, pentru
+toate grupele active. Butonul rămâne: jobul nu e altă cale, e aceeași cale chemată de un ceas —
+`topUp` deleagă lui `generateSessions`, fiindcă acolo stau deja calendarul școlar, idempotența și
+refuzul pe grupă inactivă, iar a doua implementare a lui „ce zile are grupa asta" e exact felul în
+care două răspunsuri încep să difere.
+
+**De ce e zilnic și nu săptămânal**: orizontul se măsoară din _ziua de azi_, deci o trecere
+săptămânală l-ar lăsa să respire între șapte și opt săptămâni. Zilnic ține promisiunea pe care o face
+constanta, și nu costă nimic — generarea e idempotentă pe `(group, date)` și lasă neatins ce există,
+indiferent de stare, deci o dimineață obișnuită nu scrie niciun rând și nu spune nimic în log.
+
+Ce se strica înainte merită ținut minte, fiindcă e forma pe care o iau lipsurile astea: orizontul nu
+se termina, se retrăgea. Prezența se marchează pe `POST /attendance/session/:classSessionId`, deci o
+oră fără rând nu se poate marca deloc — 404, și un ecran gol. Primul defect apărea la opt săptămâni
+după ultima apăsare și arăta ca un bug în catalog, nu ca un orar pe care nu-l scrisese nimeni; cine
+afla era profesorul din sală.
+
+Restul a ce e programat în backend — dispecerul de outbox și verificarea de la minutul 15
+(`@Interval`), mementoul de la 10:00, cele două notificări către părinte din E12 S4, mementourile de
+restanță din E16 S7 și măturarea ofertelor de pe lista de așteptare din E11 S3 (`@Cron`), plus
+purjarea sesiunilor, care stă în continuare pe un `setInterval` propriu în
+`apps/api/src/modules/auth/session.service.ts` — **nu generează orar**, niciunul.
 
 **Datele calendaristice se construiesc din componente locale, niciodată printr-un ocol prin UTC.**
 TypeORM scrie o coloană `date` citind componentele locale ale valorii, iar `new Date('2026-08-29')`

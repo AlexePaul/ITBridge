@@ -9,6 +9,7 @@ import { ClassSessionService } from './class-session.service';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { UnmarkedAttendanceJob } from './unmarked-attendance.job';
 import { LateRegisterJob } from './late-register.job';
+import { TimetableHorizonJob } from './timetable-horizon.job';
 import { ClassSessionNotifier } from './class-session-notifier';
 import { RescheduleService } from './reschedule.service';
 import { AttendanceModule } from 'src/modules/attendance/attendance.module';
@@ -32,6 +33,7 @@ import { AttendanceModule } from 'src/modules/attendance/attendance.module';
         RescheduleService,
         UnmarkedAttendanceJob,
         LateRegisterJob,
+        TimetableHorizonJob,
         AuthGuard,
         RolesGuard,
     ],
