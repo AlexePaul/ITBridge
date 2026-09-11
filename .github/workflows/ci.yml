@@ -239,17 +239,39 @@ jobs:
       # Started as a plain container rather than a service, because the official MinIO image needs
       # a command (`server /data`) and `services:` has nowhere to put one. The bucket is created by
       # `test/global-setup.ts`, not by the image.
+      #
+      # Pulled from quay.io, not Docker Hub: `minio/minio` there now answers an anonymous pull with
+      # `pull access denied ... may require 'docker login'`. When that started, this step failed in
+      # one second and the two steps after it — schema drift and the whole integration suite — were
+      # *skipped*, so the job went red having run no test at all. The check said "Integration
+      # tests" and meant "docker could not fetch an image", which is the worst kind of red: it
+      # looks like the code and reads like nothing.
       - name: Start MinIO
         run: |
+          set -euo pipefail
+          # Three tries: a registry blip should cost seconds, not a run. A genuine denial fails all
+          # three and says so below, rather than being read as a flaky test.
+          for attempt in 1 2 3; do
+            if docker pull quay.io/minio/minio:latest; then break; fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::Could not pull quay.io/minio/minio. This is the object-storage image the integration suite needs; no test has run."
+              exit 1
+            fi
+            sleep 5
+          done
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=itbridge \
             -e MINIO_ROOT_PASSWORD=dev_password \
-            minio/minio:latest server /data
+            quay.io/minio/minio:latest server /data
           for i in $(seq 1 30); do
             curl -sf http://localhost:9000/minio/health/live && break
             sleep 2
           done
-          curl -sf http://localhost:9000/minio/health/live
+          if ! curl -sf http://localhost:9000/minio/health/live; then
+            echo "::error::MinIO started but never became healthy; no test has run."
+            docker logs minio || true
+            exit 1
+          fi
 
       # Entities changed without a matching migration are invisible until production: everything
       # compiles and the tests pass against the old schema. This builds a throwaway database from
