@@ -21,11 +21,13 @@ export class CreatePaymentDto {
     amount: number;
 
     @ApiPropertyOptional({ enum: PaymentMethod, description: 'How the money arrived; defaults to cash' })
+    @EmptyToUndefined()
     @IsOptional()
     @IsEnum(PaymentMethod)
     method?: PaymentMethod;
 
     @ApiPropertyOptional({ enum: PaymentStatus, description: 'Defaults to succeeded — an admin records money that arrived' })
+    @EmptyToUndefined()
     @IsOptional()
     @IsEnum(PaymentStatus)
     status?: PaymentStatus;

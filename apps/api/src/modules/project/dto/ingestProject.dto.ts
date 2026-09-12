@@ -26,6 +26,7 @@ export class IngestProjectDto {
      * hashing and reading — must not be able to claim somebody else's key.
      */
     @ApiPropertyOptional({ example: 'a3f1…', description: 'SHA-256 the agent computed; verified against the bytes' })
+    @EmptyToUndefined()
     @IsOptional()
     @IsString()
     @Matches(/^[a-f0-9]{64}$/, { message: 'contentHash must be a lowercase hex SHA-256' })

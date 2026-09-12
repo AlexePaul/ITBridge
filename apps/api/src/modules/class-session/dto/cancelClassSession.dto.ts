@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, Length } from 'class-validator';
+import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 export class CancelClassSessionDto {
     /**
@@ -8,6 +9,7 @@ export class CancelClassSessionDto {
      * Three characters is enough to keep "x" and "-" out without demanding an essay.
      */
     @ApiProperty({ example: 'Profesor bolnav', description: 'Why the class is not happening. Shown in the timetable.' })
+    @EmptyToUndefined()
     @IsString()
     @Length(3, 500)
     reason: string;

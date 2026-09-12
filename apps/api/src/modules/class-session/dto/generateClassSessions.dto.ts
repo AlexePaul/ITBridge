@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 import { ISO_DATE_MESSAGE, ISO_DATE_PATTERN } from '../class-session.dates';
+import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 export class GenerateClassSessionsDto {
     @ApiPropertyOptional({ example: 1, description: 'Generate for this group only. Omit to cover every active group.' })
@@ -9,6 +10,7 @@ export class GenerateClassSessionsDto {
     groupId?: number;
 
     @ApiPropertyOptional({ example: '2026-09-01', description: 'First day of the horizon. Defaults to today.' })
+    @EmptyToUndefined()
     @IsOptional()
     @Matches(ISO_DATE_PATTERN, { message: `from ${ISO_DATE_MESSAGE}` })
     from?: string;

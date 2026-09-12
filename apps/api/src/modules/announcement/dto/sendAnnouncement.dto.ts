@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Length } from 'class-validator';
 import { AnnouncementAudience } from 'src/enum/announcement-audience.enum';
 import { MessageKind } from 'src/enum/message-kind.enum';
+import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 /**
  * What an admin writes on the announcement screen — E17/S7.
@@ -41,6 +42,7 @@ export class SendAnnouncementDto {
      * says nothing about itself keeps sending.
      */
     @ApiPropertyOptional({ enum: MessageKind, default: MessageKind.TRANSACTIONAL })
+    @EmptyToUndefined()
     @IsOptional()
     @IsEnum(MessageKind)
     kind?: MessageKind;

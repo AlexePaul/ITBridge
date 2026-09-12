@@ -12,17 +12,20 @@ export class UpdatePaymentDto {
     amount?: number;
 
     @ApiPropertyOptional({ enum: PaymentMethod })
+    @EmptyToUndefined()
     @IsOptional()
     @IsEnum(PaymentMethod)
     method?: PaymentMethod;
 
     /** The way a transfer that bounced, or a sum that went back, is recorded after the fact. */
     @ApiPropertyOptional({ enum: PaymentStatus })
+    @EmptyToUndefined()
     @IsOptional()
     @IsEnum(PaymentStatus)
     status?: PaymentStatus;
 
     @ApiPropertyOptional({ example: '2026-03-01' })
+    @EmptyToUndefined()
     @IsOptional()
     @IsDateString()
     date?: string;

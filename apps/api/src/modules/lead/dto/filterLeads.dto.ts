@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsEnum, IsInt, IsOptional } from 'class-validator';
 import { LeadStatus } from 'src/enum/lead-status.enum';
+import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 /**
  * What the leads screen filters on — E20/S1.
@@ -12,6 +13,7 @@ import { LeadStatus } from 'src/enum/lead-status.enum';
  */
 export class FilterLeadsDto {
     @ApiPropertyOptional({ enum: LeadStatus })
+    @EmptyToUndefined()
     @IsOptional()
     @IsEnum(LeadStatus)
     status?: LeadStatus;

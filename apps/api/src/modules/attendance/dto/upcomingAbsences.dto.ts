@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, Matches } from 'class-validator';
 import { ISO_DATE_MESSAGE, ISO_DATE_PATTERN } from 'src/modules/class-session/class-session.dates';
+import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 /**
  * Query for `GET /attendance/absences`.
@@ -14,6 +15,7 @@ import { ISO_DATE_MESSAGE, ISO_DATE_PATTERN } from 'src/modules/class-session/cl
  */
 export class UpcomingAbsencesQueryDto {
     @ApiPropertyOptional({ example: '2026-09-07', description: 'List from this day on, inclusive. Defaults to now.' })
+    @EmptyToUndefined()
     @IsOptional()
     @Matches(ISO_DATE_PATTERN, { message: `from ${ISO_DATE_MESSAGE}` })
     from?: string;

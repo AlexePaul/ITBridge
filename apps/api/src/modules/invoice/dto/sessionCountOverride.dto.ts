@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Length, Matches, Min } from 'class-validator';
+import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 /**
  * "Bill this many for this child this month, instead of what the registers say" — E15/S9.
@@ -26,6 +27,7 @@ export class SessionCountOverrideDto {
     sessions: number;
 
     @ApiPropertyOptional({ example: 'A venit doar la 3, restul le-am ținut pentru grupa mică', maxLength: 500 })
+    @EmptyToUndefined()
     @IsOptional()
     @IsString()
     @Length(1, 500)

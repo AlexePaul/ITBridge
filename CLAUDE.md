@@ -719,6 +719,18 @@ care formularul îl produce mereu. Pe câmpurile opționale de text pune `@Empty
 (`apps/api/src/common/empty-to-undefined.ts`) înaintea validatorilor. Din cauza asta ecranul de
 completare a profilului a devenit imposibil de trecut în clipa în care validarea a fost pornită.
 
+**Regula e „gol înseamnă lipsă", nu „nu mai da 400", și o ține un spec.** Patruzeci și opt de
+câmpuri rămăseseră fără ea, iar cele două feluri de greșit merită deosebite: majoritatea
+**refuzau** — un `@Length`, un `@Matches`, un `@IsEnum` sau un `@IsDateString` pe care o casetă
+golită n-are cum să le treacă —, dar câteva **acceptau**, ceea ce e mai rău. `PUT /children/:id`
+primea `firstName: ''` și îl scria: un câmp opțional fără limită de lungime e o cale prin care se
+golește numele unui copil dintr-o casetă ștearsă și un buton de salvare. Trei ecrane compensau deja
+cu `|| undefined` la ieșire, iar al patrulea urma să uite — de aia decizia stă pe API, nu în
+apelanți. `optional-text-is-never-empty.spec.ts` mătură DTO-urile și pică pe nume. Singura clasă
+exceptată e `PreviewMailTemplateDto`, cu motivul lângă ea: acolo `''` e o stare, nu o absență —
+editorul de șabloane previzualizează exact ce e în casete, deci un subiect șters trebuie să se vadă
+șters, nu cum e încă salvat pe server. Dacă mai apare una, se trece în listă cu propoziția ei.
+
 **`@IsPhoneNumber()` fără regiune cere format internațional.** Numerele se scriu `0712345678` în
 România, deci decoratorul e `@IsPhoneNumber('RO')`, care acceptă și `+40712345678`. Frontend-ul
 normalizează la `+40…` înainte să trimită (`normalizePhone` din `composables/useUtils.ts`), ca
