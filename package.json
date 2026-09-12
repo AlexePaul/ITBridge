@@ -23,7 +23,8 @@
     "test:links": "dotenv -e .env -- turbo run test:links",
     "test:a11y:auth": "dotenv -e .env -- turbo run test:a11y:auth",
     "seed": "dotenv -e .env -- pnpm --filter api seed",
-    "seed:stage": "dotenv -e .env.stage -v SEED_TARGET=stage -- pnpm --filter api seed"
+    "seed:stage": "dotenv -e .env.stage -v SEED_TARGET=stage -- pnpm --filter api seed",
+    "seed:scale": "dotenv -e .env -- pnpm --filter api seed:scale"
   },
   "devDependencies": {
     "husky": "^9.1.7",
