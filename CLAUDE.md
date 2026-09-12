@@ -353,6 +353,14 @@ să primească un singur email. Trei consecințe de ținut minte:
 - **Un părinte vede doar ce a fost trimis.** Restrângerea e în serviciu, ca peste tot, și adaugă
   `status = 'sent'` pe lângă restrângerea pe utilizator. Portalul nu are voie să fie portița prin
   care se vede ce n-a verificat încă nimeni.
+- **Un eșec care nu se poate repeta cu folos e un refuz, nu o eroare.** Agentul tratează eșecul ca
+  „mai încearcă" și lasă fișierul pe partajare — corect pentru o rețea picată, fiindcă partajarea
+  _e_ coada. Un `.url` fără nicio adresă în el nu mai avea însă ce să încerce: rămânea în folder,
+  era găsit din nou la fiecare trecere, scria un avertisment la fiecare treizeci de secunde și ținea
+  câmpul de sănătate al agentului roșu pe un defect pe care nimeni nu-l putea repara — exact ce
+  descrie comentariul din `Agent.pass` despre erorile care rămân după ce cauza lor a trecut. Are
+  acum motiv propriu, `link_without_address`, deci pleacă în `_neatribuite` ca orice alt refuz. Dacă
+  adaugi o cale nouă de eșec, prima întrebare e dacă a doua încercare poate da alt răspuns.
 - **O cheie de deduplicare are o durată, iar cea a fișierelor neatribuite e „cât stă deschis".**
   `unassigned_files.reportKey` e `{grupă}:{cale}` și avea un unic simplu — ceea ce se citește ca
   „raportează fiecare loc o dată", dar promite că un fișier apărut în rădăcina grupei în septembrie
@@ -775,6 +783,29 @@ entitățile au divergat.
 Când schimbi o entitate: `pnpm --filter api migration:generate src/migrations/<Nume>`, apoi citește
 SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD`.
 
+**O relație nouă are nevoie de index pe ea, fiindcă Postgres nu-l face.** Postgres indexează partea
+**referită** a unei chei străine, niciodată coloana de pe copil. Deci fiecare `ON DELETE CASCADE`,
+fiecare `RESTRICT` și fiecare interogare care filtrează pe relație era scanare secvențială —
+treizeci și patru de coloane erau așa, iar două dintre ele poartă interogări care rulează **în
+interiorul unui lacăt de rând**. Măsurat pe o școală de trei ani (250 de familii, 46.800 de marcaje
+de catalog, 9.000 de facturi, 8.250 de plăți):
+
+- `payments.invoice_id` — `recomputeInvoiceStatus` adună plățile reușite ale unei facturi **ținând
+  lacătul acelei facturi**, la fiecare plată scrisă sau editată: **0,791 ms → 0,100 ms**.
+- `attendances.class_session_id` — catalogul unei ore, adică fix ce deschide profesorul în sală:
+  **3,378 ms → 0,044 ms**.
+
+Costul l-am măsurat și pe el, fiindcă „mai pune un index" nu e gratis: douăzeci de mii de marcaje
+noi se inserează în 551 ms cu index și 567 ms fără — în zgomot. Deci regula e simplă și fără
+excepții de memorat: **pui un `@Index` pe fiecare `@ManyToOne` pe care îl adaugi.** Nu toate se vor
+vedea într-un plan azi — `leads` și `projects` sunt încă mici, iar pe o tabelă de 300 de rânduri
+Postgres alege oricum scanarea —; sunt acolo pentru ziua în care tabela crește, iar o schemă
+indexată pe jumătate e una despre care nimeni nu mai poate raționa.
+
+Ce **nu** rezolvă: rapoartele care citesc tot. Interogarea de restanțe atinge toate facturile
+neplătite și le împerechează cu toate plățile, iar acolo hash join peste scanare completă chiar e
+planul corect — a rămas la 2,3 ms și cu index, și fără. Un index ajută punctul, nu bilanțul.
+
 **Nu te chinui însă să păstrezi date: nu există niciunele.** Nici pe stage — baza de acolo e tot
 seed, refăcută dintr-o comandă —, n-a existat niciodată un utilizator real, iar în afara ei baza
 rulează doar pe mașinile de dezvoltare și în teste. Deci o migrare generată se ia ca atare, se
@@ -884,6 +915,23 @@ date la fiecare cerere. Dacă vine o cerință de revocare instantanee, ăsta e 
 **Clientul trebuie să salveze refresh tokenul întors de `/auth/refresh`.** Rotația îl consumă pe
 cel prezentat; dacă păstrezi tokenul vechi, a doua reîmprospătare arată ca un replay, iar serverul
 revocă tot lanțul. `useApi.ts` a avut exact bug-ul ăsta și deloga fiecare părinte la ~30 de minute.
+
+**Și trebuie să reîmprospăteze o singură dată deodată, oricâte cereri ar aștepta.** Două
+reîmprospătări pornite în paralel prezintă amândouă același token: serverul îl rotește pentru prima
+și o citește pe a doua ca replay — „clientul care se întrece cu el însuși" e scris chiar în
+`SessionService.rotate`, iar tratamentul e același ca pentru un furt, fiindcă din afară arată
+identic. În browser, poarta e `refreshPromise` la nivel de modul din `useApi.ts`. În
+`apps/agent`, care n-o avea, nu era o interleavare rară, ci **orarul**: trei cronometre
+independente peste un singur `ApiClient` — scanarea la 30s, heartbeat-ul la 5 minute, oglinda la 15
+—, iar access tokenul ține un sfert de oră, deci tick-ul în care tocmai a expirat e regulat un tick
+în care pornesc două. Calculatorul din birou ridica semnalul de furt al platformei de câteva ori pe
+oră, degeaba — ceea ce e mai rău decât autentificările irosite: o alarmă care strigă „lupul" după
+ceas e una în care nimeni n-o să creadă în ziua în care are dreptate. Al doilea capăt e un contor de
+generație: un 401 întors **după** ce altcineva a rotit deja n-are nevoie de o rotire proprie, ci de
+tokenul care există între timp. Amândouă capetele au test propriu, iar testul pornește un server HTTP
+adevărat: ce se verifică e ce se întâmplă când două cereri sunt în aer în același timp, iar un
+`fetch` înlocuit cu un răspuns gata făcut dă înapoi controlul prea devreme ca ele să se suprapună
+cu adevărat.
 
 **Un login ține șapte zile, cât refresh tokenul din spatele lui.** `useCookie("accessToken")` fără
 opțiuni scrie un cookie **de sesiune** — `CookieDefaults` din Nuxt pune `path`, `watch`, `decode`,

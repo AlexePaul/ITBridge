@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { Group } from './group.entity';
 import { Room } from './room.entity';
 import { Attendance } from './attendance.entity';
@@ -34,6 +34,7 @@ import { ClassSessionStatus } from '../enum/class-session-status.enum';
 // that ever becomes real — a make-up class for the whole group on a Saturday, say — the key grows
 // a `startTime`, and generation has to find another way to recognise what it already wrote.
 @Unique('UQ_class_sessions_group_date', ['group', 'date'])
+@Index('IDX_class_sessions_room_id', ['room'])
 export class ClassSession {
     @PrimaryGeneratedColumn('increment')
     id: number;

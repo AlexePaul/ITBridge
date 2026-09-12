@@ -14,6 +14,7 @@ import { User } from './user.entity';
  * clicks the first mail after asking for a second.
  */
 @Entity('email_confirmations')
+@Index('IDX_email_confirmations_user_id', ['user'])
 export class EmailConfirmation {
     @PrimaryGeneratedColumn('increment')
     id: number;

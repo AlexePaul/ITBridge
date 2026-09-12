@@ -375,6 +375,23 @@ describe('Student projects (e2e)', () => {
             expect(again[0].id).not.toBe((first.body as { id: number }).id);
         });
 
+        it('accepts a shortcut that carried no address, which is the one refusal only the agent can make', async () => {
+            // End to end because the unit tests cannot see it: the value has to exist in the DTO's
+            // enum, in the Postgres type the migration rebuilt, and on the way back out. A reason
+            // the database rejects would fail here as a 500 rather than as a compile error.
+            const shortcut = {
+                groupId,
+                relativePath: 'Drumul Taberei/Scratch Începători/Andrei Popescu (#1)/tinkercad.url',
+                fileName: 'tinkercad.url',
+                reason: 'link_without_address',
+            };
+
+            await request(app.getHttpServer()).post('/agent/unassigned').set('Authorization', admin.auth).send(shortcut).expect(201);
+
+            const waiting = await request(app.getHttpServer()).get('/agent/unassigned').set('Authorization', admin.auth).expect(200);
+            expect((waiting.body as { reason: string }[]).map((row) => row.reason)).toContain('link_without_address');
+        });
+
         it('names the children who have nothing yet, as a nudge and never as attendance', async () => {
             // A read, deliberately. E14 is explicit that attendance is not derived from files — a
             // document proves somebody saved a file, not that a child sat in a chair — but the

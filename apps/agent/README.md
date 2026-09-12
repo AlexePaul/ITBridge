@@ -26,6 +26,13 @@ din el.
 **Nimic nu se șterge de pe partajare.** Ce s-a urcat se mută în `_urcate`, ce nu s-a putut atribui se
 mută în `_neatribuite` și apare pe ecranul grupei cu motivul.
 
+**Un fișier care nu poate reuși niciodată e un refuz, nu o eroare.** Diferența costă: o eroare
+înseamnă „mai încearcă", iar partajarea e coada — un `.url` fără nicio adresă în el nu mai avea însă
+ce să încerce, deci rămânea în folder și era găsit din nou la fiecare trecere, cu o linie de avertisment
+la fiecare treizeci de secunde și cu câmpul de sănătate al agentului roșu pe un defect pe care nimeni
+nu-l putea repara. Acum pleacă în `_neatribuite` cu motivul „Scurtătură fără o adresă web validă",
+adică exact ce se vede pe ecran pentru orice alt fișier refuzat.
+
 **Dacă programul nu poate salva direct pe drive-ul mapat, se mută fișierul acolo.** Scratch în
 browser, de exemplu, descarcă în `Downloads` fără să întrebe. Agentul nu are de unde ști cum a ajuns
 fișierul în folder și nici nu-l interesează — tras cu mouse-ul e la fel de bun ca salvat direct. E

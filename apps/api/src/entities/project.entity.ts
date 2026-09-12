@@ -32,6 +32,9 @@ import { ProjectSource } from '../enum/project-source.enum';
 // The group screen asks for "everything for these children, newest first" and the parent portal for
 // "everything of mine that has been sent". Both start from the child.
 @Index('IDX_projects_child_captured', ['child', 'capturedOn'])
+@Index('IDX_projects_class_session_id', ['classSession'])
+@Index('IDX_projects_reassigned_by_user_id', ['reassignedBy'])
+@Index('IDX_projects_uploaded_by_user_id', ['uploadedBy'])
 export class Project {
     @PrimaryGeneratedColumn('increment')
     id: number;

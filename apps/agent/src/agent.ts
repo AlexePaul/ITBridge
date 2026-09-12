@@ -4,7 +4,7 @@ import { ApiClient } from './api-client';
 import type { AgentConfig } from './config';
 import { applyMirror } from './mirror';
 import { scan } from './scanner';
-import { handleRejected, uploadFile } from './uploader';
+import { handleRejected, unusableLink, uploadFile } from './uploader';
 import { log } from './log';
 
 /** Reported in the heartbeat, so an admin looking at a stale agent can tell which build it is. */
@@ -81,19 +81,24 @@ export class Agent {
 
             let uploaded = 0;
             let failed = 0;
+            // The refusals the scanner made, plus the one only reading a file can settle: a
+            // shortcut with no address in it. Both end up in `_neatribuite` with a reason, because
+            // neither will ever succeed by being tried again.
+            const refusals = [...result.rejected];
 
             for (const file of result.files) {
                 const outcome = await uploadFile(this.api, file);
                 if (outcome === 'failed') failed++;
+                else if (outcome === 'unusable') refusals.push(unusableLink(file));
                 else uploaded++;
             }
 
-            for (const rejected of result.rejected) {
-                await handleRejected(this.api, rejected);
+            for (const refusal of refusals) {
+                await handleRejected(this.api, refusal);
             }
 
-            if (uploaded > 0 || result.rejected.length > 0) {
-                log.info(`Pass: ${uploaded} uploaded, ${result.rejected.length} unassigned, ${failed} failed.`);
+            if (uploaded > 0 || refusals.length > 0) {
+                log.info(`Pass: ${uploaded} uploaded, ${refusals.length} unassigned, ${failed} failed.`);
             }
 
             this.pendingFiles = failed;

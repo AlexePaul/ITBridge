@@ -13,6 +13,7 @@ import { ProjectVersion } from './project-version.entity';
  * URLs and logs.
  */
 @Entity('project_files')
+@Index('IDX_project_files_version_id', ['version'])
 export class ProjectFile {
     @PrimaryGeneratedColumn('increment')
     id: number;

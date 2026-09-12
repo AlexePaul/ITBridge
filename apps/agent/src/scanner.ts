@@ -52,6 +52,14 @@ export interface FoundFile {
     modifiedAt: Date;
     /** The folder it was found in, so the uploader knows where `_urcate` goes. */
     childDir: string;
+    /**
+     * The group's `_neatribuite`, carried along for the one refusal the scanner cannot make.
+     *
+     * Whether a `.url` holds a usable address is only knowable by reading it, which this file
+     * deliberately does not do — so the uploader is the one that finds out, and it needs somewhere
+     * to put the file when the answer is no.
+     */
+    unassignedDir: string;
     childId: number;
     groupId: number;
 }
@@ -93,9 +101,17 @@ export function scan(root: string, mirror: AgentMirror, now: Date, quietPeriodMs
                 if (entry.isFile()) {
                     // Saved into the group folder rather than into a child's. The commonest mistake
                     // there is, and the one an admin can fix in ten seconds if they are told.
+                    //
+                    // Looked at on disk like anything else, and for both of the reasons the child
+                    // folders are: a file still being copied is not this pass's business — moving
+                    // it to `_neatribuite` mid-copy is how a truncated file gets filed as the whole
+                    // of somebody's work — and a refusal that reports "0 B" tells an admin the file
+                    // is empty when it is not.
+                    const rejection = describeOnDisk(root, entryPath, entry.name, now, quietPeriodMs);
+                    if (rejection === 'still-being-written') continue;
                     result.rejected.push({
-                        ...describe(root, entryPath, entry.name),
-                        reason: 'group_root',
+                        ...rejection.described,
+                        reason: rejection.readable ? 'group_root' : 'unreadable',
                         groupId: group.id,
                         unassignedDir: path.join(groupDir, UNASSIGNED_DIR),
                     });
@@ -109,9 +125,11 @@ export function scan(root: string, mirror: AgentMirror, now: Date, quietPeriodMs
                     // moved. Its contents are reported one by one rather than as "a folder", because
                     // what an admin has to decide is per file.
                     for (const file of filesIn(entryPath)) {
+                        const rejection = describeOnDisk(root, file.path, file.name, now, quietPeriodMs);
+                        if (rejection === 'still-being-written') continue;
                         result.rejected.push({
-                            ...describe(root, file.path, file.name),
-                            reason: 'unknown_folder',
+                            ...rejection.described,
+                            reason: rejection.readable ? 'unknown_folder' : 'unreadable',
                             groupId: group.id,
                             unassignedDir: path.join(groupDir, UNASSIGNED_DIR),
                         });
@@ -162,6 +180,7 @@ export function scan(root: string, mirror: AgentMirror, now: Date, quietPeriodMs
                         sizeBytes: stats.size,
                         modifiedAt: stats.mtime,
                         childDir: entryPath,
+                        unassignedDir: path.join(groupDir, UNASSIGNED_DIR),
                         childId,
                         groupId: group.id,
                     });
@@ -189,6 +208,31 @@ function filesIn(dir: string): { path: string; name: string }[] {
 
 function describe(root: string, absolutePath: string, fileName: string, sizeBytes = 0) {
     return { absolutePath, relativePath: path.relative(root, absolutePath), fileName, sizeBytes };
+}
+
+/**
+ * A file about to be refused, sized from disk and held back while it is still being written.
+ *
+ * The quiet period matters more here than it does for a file that will be uploaded. An upload that
+ * catches a half-written file leaves the original where it is and the next pass sends the whole
+ * thing; a refusal *moves* the file, so catching it halfway files a fragment in `_neatribuite` and
+ * a teacher's copy is gone from where they put it.
+ *
+ * A file that cannot be stat-ed at all is reported `unreadable` rather than for where it sat — the
+ * same answer the child-folder branch has always given, because "locked, or gone between the
+ * listing and the look" is the more useful of the two sentences.
+ */
+function describeOnDisk(
+    root: string,
+    absolutePath: string,
+    fileName: string,
+    now: Date,
+    quietPeriodMs: number,
+): 'still-being-written' | { described: ReturnType<typeof describe>; readable: boolean } {
+    const stats = statSafe(absolutePath);
+    if (!stats) return { described: describe(root, absolutePath, fileName), readable: false };
+    if (now.getTime() - stats.mtimeMs < quietPeriodMs) return 'still-being-written';
+    return { described: describe(root, absolutePath, fileName, stats.size), readable: true };
 }
 
 function statSafe(file: string): fs.Stats | null {

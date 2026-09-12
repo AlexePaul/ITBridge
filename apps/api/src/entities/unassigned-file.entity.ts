@@ -15,6 +15,7 @@ import { UnassignedFileReason } from '../enum/unassigned-file-reason.enum';
  * into the right folder, or it may simply not have been anybody's work.
  */
 @Entity('unassigned_files')
+@Index('IDX_unassigned_files_group_id', ['group'])
 // One *open* report per place, not one ever. A plain unique key here would have been a promise that
 // a file which turned up in the group folder in September can never turn up there again — and the
 // commonest of these is a teacher's habit, so it turns up again in October. The second time, the

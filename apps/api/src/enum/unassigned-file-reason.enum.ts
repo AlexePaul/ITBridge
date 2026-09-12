@@ -15,4 +15,14 @@ export enum UnassignedFileReason {
     TOO_LARGE = 'too_large',
     /** Locked by another program, or gone by the time the agent reached it. */
     UNREADABLE = 'unreadable',
+    /**
+     * A `.url` the agent read and could make nothing of — no address in it, or one that is not
+     * `http`/`https`.
+     *
+     * It has its own value because the repair is its own: the teacher saves the shortcut again, or
+     * pastes the address into a text file. Filing it as `unreadable` would send an admin to look
+     * for a lock that is not there, and leaving it out altogether is what it used to be — a file
+     * the agent retried every thirty seconds for as long as it sat on the share.
+     */
+    LINK_WITHOUT_ADDRESS = 'link_without_address',
 }
