@@ -8,7 +8,8 @@ import {
   todayKey,
 } from "~/composables/useAttendanceCalendar";
 import type { Attendance } from "~/types/attendance.types";
-import { AttendanceType } from "~/types/attendance.types";
+import { MarkType } from "~/types/attendance.types";
+import type { AttendanceType } from "~/types/attendance.types";
 import type { ClassSessionWithAttendance } from "~/types/class-session.types";
 import { SessionStatus } from "~/types/class-session.types";
 
@@ -41,7 +42,7 @@ const session = (
 const mark = (
   date: string,
   present: boolean,
-  type: AttendanceType = AttendanceType.REGULAR,
+  type: AttendanceType = MarkType.REGULAR,
   sessionOverrides: Partial<ClassSessionWithAttendance> = {}
 ): Attendance =>
   ({
@@ -107,19 +108,19 @@ describe("calendarDayState", () => {
 
   it("marks a catch-up the child turned up to, on a day their own group does not meet", () => {
     const date = "2026-08-19";
-    const catchUp = mark(date, true, AttendanceType.MAKE_UP, { group: { id: 20 } as never });
+    const catchUp = mark(date, true, MarkType.MAKE_UP, { group: { id: 20 } as never });
     expect(stateOn(date, [catchUp], [])).toBe("make-up");
   });
 
   it("marks a catch-up the child was booked for and missed as absent", () => {
     const date = "2026-08-19";
-    const catchUp = mark(date, false, AttendanceType.MAKE_UP, { group: { id: 20 } as never });
+    const catchUp = mark(date, false, MarkType.MAKE_UP, { group: { id: 20 } as never });
     expect(stateOn(date, [catchUp], [])).toBe("absent");
   });
 
   it("prefers the child's own class over a catch-up sat on the same day", () => {
     const date = "2026-08-17";
-    const catchUp = mark(date, true, AttendanceType.MAKE_UP, { group: { id: 20 } as never });
+    const catchUp = mark(date, true, MarkType.MAKE_UP, { group: { id: 20 } as never });
     const own = { ...mark(date, false), id: 101 };
     expect(stateOn(date, [catchUp, own], [session(date)])).toBe("absent");
   });
@@ -142,7 +143,7 @@ describe("calendarDayState", () => {
     // The record carries its own session, so it survives a group change; `sessions` only ever
     // holds the current group's timetable.
     const date = "2026-04-13";
-    const old = mark(date, true, AttendanceType.REGULAR, { group: { id: 99 } as never });
+    const old = mark(date, true, MarkType.REGULAR, { group: { id: 99 } as never });
     expect(stateOn(date, [old], [])).toBe("present");
   });
 

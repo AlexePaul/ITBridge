@@ -1,6 +1,6 @@
 import { dayKey } from "./useUtils";
 import type { Attendance } from "~/types/attendance.types";
-import { AttendanceType } from "~/types/attendance.types";
+import { MarkType } from "~/types/attendance.types";
 import type { ClassSession, ClassSessionWithAttendance } from "~/types/class-session.types";
 import { SessionStatus } from "~/types/class-session.types";
 
@@ -106,7 +106,7 @@ function countsAsClass(session: Pick<ClassSession, "status">): boolean {
  */
 function recordFor(attendance: Attendance[], date: string): Attendance | undefined {
   const onDay = attendance.filter((record) => record.classSession?.date === date);
-  return onDay.find((record) => record.type === AttendanceType.REGULAR) ?? onDay[0];
+  return onDay.find((record) => record.type === MarkType.REGULAR) ?? onDay[0];
 }
 
 /**
@@ -125,7 +125,7 @@ export function calendarDayState({
   const record = recordFor(attendance, date);
 
   if (record && countsAsClass(record.classSession)) {
-    if (record.type === AttendanceType.MAKE_UP) {
+    if (record.type === MarkType.MAKE_UP) {
       // A catch-up the child turned up to is its own thing, and yellow says so. One they were
       // booked for and missed is a real, recorded absence, so it is red like any other.
       return record.present ? "make-up" : "absent";

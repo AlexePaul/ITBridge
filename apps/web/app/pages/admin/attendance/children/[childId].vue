@@ -49,7 +49,8 @@ import { apiErrorMessage } from "~/composables/useApiError";
 import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import type { Child } from "~/types/child.types";
 import type { Attendance } from "~/types/attendance.types";
-import { AttendanceType, ATTENDANCE_TYPE_LABELS } from "~/types/attendance.types";
+import { ATTENDANCE_TYPE_LABELS, MarkType } from "~/types/attendance.types";
+import type { AttendanceType } from "~/types/attendance.types";
 import type { TableColumn } from "@nuxt/ui";
 import { formatTime } from "~/composables/useUtils";
 
@@ -106,8 +107,8 @@ const columns: TableColumn<Attendance>[] = [
       // here instead of a silently blank column. The labels come from the shared contract, which is
       // where the Romanian wording for them belongs.
       const color: Record<AttendanceType, "neutral" | "warning"> = {
-        [AttendanceType.REGULAR]: "neutral",
-        [AttendanceType.MAKE_UP]: "warning",
+        [MarkType.REGULAR]: "neutral",
+        [MarkType.MAKE_UP]: "warning",
       };
 
       return h(

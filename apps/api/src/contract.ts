@@ -144,10 +144,11 @@ type _AgentStatus = Check<Omit<Wire.AgentStatus, never>, Omit<Serialized<AgentSt
 // declarations of "ISO weekday" would otherwise be free to drift — one starting at 0, say.
 type _Weekday = Check<Wire.Weekday, Weekday>;
 type _WeekdayBack = Check<Weekday, Wire.Weekday>;
-type _AttendanceType = Check<Wire.AttendanceType, AttendanceType>;
-type _AttendanceTypeBack = Check<AttendanceType, Wire.AttendanceType>;
-// Through `${Enum}` for the same reason E14's three are, below: the contract side is a union of
-// literals now, and an enum is nominal, so neither direction of `extends` holds between them.
+// These two and the two below go through `${Enum}` for the same reason E14's three do, further
+// down: the contract side is a union of literals, and an enum is nominal, so neither direction of
+// `extends` holds between them however identical the values are.
+type _AttendanceType = Check<Wire.AttendanceType, `${AttendanceType}`>;
+type _AttendanceTypeBack = Check<`${AttendanceType}`, Wire.AttendanceType>;
 type _ClassSessionStatus = Check<Wire.ClassSessionStatus, `${ClassSessionStatus}`>;
 type _ClassSessionStatusBack = Check<`${ClassSessionStatus}`, Wire.ClassSessionStatus>;
 type _Role = Check<Wire.Role, Role>;

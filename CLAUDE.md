@@ -1419,10 +1419,20 @@ ecran gol.
 
 Etichetele în română stau lângă ecranele care le afișează (`apps/web/app/types/*.types.ts`), și e
 oricum locul lor: contractul descrie ce trece pe sârmă, iar pe sârmă trece `'TRIAL'`, nu `'Probă'`.
-`Weekday`, `Role` și `WEEKDAY_LABELS` sunt mai vechi și rămân; nimic nou nu li se alătură.
 `ClassSessionStatus` a fost convertit la o uniune de literali la E12 S2, iar etichetele lui au
 plecat în `apps/web/app/types/class-session.types.ts`, lângă `SessionStatus` — obiectul
-`as const satisfies` cu care se compară un ecran.
+`as const satisfies` cu care se compară un ecran. `AttendanceType` a făcut același drum mai târziu,
+și e cazul care arată de ce regula avea nevoie de un test: era încă `enum` acolo, iar cele trei
+locuri care îl compară includ tabloul de bord al **părintelui** — un subarbore abandonat acolo e o
+familie care nu află dacă i-a venit copilul la oră. Obiectul se cheamă acum `MarkType`, ca
+`SessionStatus`: un nume nu poate fi și tip reexportat, și `const` local, în același modul.
+
+**Ce mai e voie să rămână e o listă, iar lista e un test.** `contract-carries-no-surprises.spec.ts`
+citește sursele din `packages/types/src/` și pică pe nume la orice export de rulare nou, la orice
+`enum` în afară de `Weekday` și `Role`, și la orice intrare rămasă în listă după ce lucrul pe care
+îl scuza a plecat. Cele nouă rămase au fiecare o propoziție lângă ele: cele trei enumerate mai sus
+sunt importate **și** de `apps/api`, restul sunt tabele de etichete ca obiecte simple. Regula era
+scrisă de la E12 și era doar proză; între timp `AttendanceType` a trecut pe lângă ea.
 
 În `contract.ts`, o uniune de literali se compară cu enum-ul din API prin `` `${Enum}` ``: enum-ul e
 nominal, deci niciun sens al lui `extends` nu ține între cele două, oricât de identice ar fi

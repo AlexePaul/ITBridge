@@ -128,7 +128,7 @@ import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { useAttendanceStore } from "~/stores/attendanceStore";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useProfileStore } from "~/stores/profileStore";
-import { AttendanceType } from "~/types/attendance.types";
+import { MarkType } from "~/types/attendance.types";
 import type { AbsenceNotice } from "~/types/attendance.types";
 import type { Child } from "~/types/child.types";
 import type { ClassSession, ClassSessionWithAttendance } from "~/types/class-session.types";
@@ -312,7 +312,7 @@ const recentMarksFor = (child: Child): Mark[] =>
     .map((record) => ({
       id: record.id,
       date: record.classSession.date,
-      glyph: !record.present ? "A" : record.type === AttendanceType.MAKE_UP ? "R" : "✓",
+      glyph: !record.present ? "A" : record.type === MarkType.MAKE_UP ? "R" : "✓",
       quiet: !record.present,
     }));
 
