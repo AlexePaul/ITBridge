@@ -108,6 +108,13 @@ export class AgentService {
      * Idempotent on `reportKey`, because an agent restarted three times in an afternoon rescans the
      * same folder and would otherwise file the same stray three times. `ON CONFLICT DO NOTHING`
      * rather than a check first: two passes waking at the same second would both see nothing.
+     *
+     * **Only against the reports still open**, which is the whole of the index behind this. The
+     * de-duplication is for one file sitting there across several passes; it was lasting for the
+     * rest of the school year. Once an admin had dealt with the first `proiect.sb3` left in the
+     * group folder, the next one produced nothing — and the agent moved that file to
+     * `_neatribuite` just the same, so it left the folder with nothing on anybody's screen. The
+     * returned `null` still means "already known", and it now means it only while that is true.
      */
     async reportUnassigned(dto: ReportUnassignedFileDto): Promise<UnassignedFile | null> {
         const reportKey = `${dto.groupId ?? 'root'}:${dto.relativePath}`.slice(0, 1100);

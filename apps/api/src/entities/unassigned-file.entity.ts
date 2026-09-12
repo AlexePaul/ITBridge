@@ -16,6 +16,13 @@ import { UnassignedFileReason } from '../enum/unassigned-file-reason.enum';
  */
 @Entity('unassigned_files')
 @Index('IDX_unassigned_files_group_id', ['group'])
+// One *open* report per place, not one ever. A plain unique key here would have been a promise that
+// a file which turned up in the group folder in September can never turn up there again — and the
+// commonest of these is a teacher's habit, so it turns up again in October. The second time, the
+// insert was ignored, the agent moved the file to `_neatribuite` exactly as before, and nothing
+// anywhere said so: the file left the folder in silence, which is the one thing E14/S2 promises it
+// will not do. Partial, so history accumulates: the same idiom as `UQ_enrollments_one_in_force`.
+@Index('UQ_unassigned_files_one_open_per_path', ['reportKey'], { unique: true, where: '"resolvedAt" IS NULL' })
 export class UnassignedFile {
     @PrimaryGeneratedColumn('increment')
     id: number;
@@ -42,11 +49,13 @@ export class UnassignedFile {
     reason: UnassignedFileReason;
 
     /**
-     * Idempotency for a service that rescans. `{groupId|root}:{relativePath}`, unique, so an agent
-     * restarted three times in an afternoon reports the same stray file once. The same mechanism as
-     * the outbox's `dedupeKey`, for the same reason: a check-then-insert races with the next pass.
+     * Idempotency for a service that rescans. `{groupId|root}:{relativePath}`, unique **among the
+     * rows nobody has dealt with yet** — see the index above the class. An agent restarted three
+     * times in an afternoon reports the same stray file once; the same file next term is a second
+     * report, because it is a second thing that happened. The same mechanism as the outbox's
+     * `dedupeKey`, for the same reason: a check-then-insert races with the next pass.
      */
-    @Column({ type: 'varchar', length: 1100, unique: true })
+    @Column({ type: 'varchar', length: 1100 })
     reportKey: string;
 
     @CreateDateColumn({ type: 'timestamptz' })

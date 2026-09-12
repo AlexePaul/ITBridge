@@ -232,6 +232,12 @@ din nou la fiecare trecere — un avertisment la fiecare treizeci de secunde și
 agentului roșu pe un defect pe care nimeni nu-l putea repara. Un eșec care nu poate da alt răspuns
 la a doua încercare e un refuz.
 
+Raportarea e idempotentă pe `{grupă}:{cale}`, dar **numai cât raportul stă deschis**. Unicul simplu
+de la început promitea altceva: că un fișier apărut o dată în rădăcina grupei nu mai poate apărea
+acolo niciodată. După ce un admin rezolva primul `proiect.sb3`, al doilea nu mai producea niciun
+rând, în timp ce agentul îl muta în `_neatribuite` la fel ca înainte — deci fișierul pleca din
+folder fără ca nimic să spună asta. Indexul e parțial acum, ca la înscrieri: unic e ce e în vigoare.
+
 **Agentul se autentifică sub un cont dedicat, cu rol `ADMIN`**, fiindcă alt rol nu există — vezi
 [Decizii luate](#decizii-luate). Două lucruri de scris în cod de la început, nu de descoperit în
 producție:
