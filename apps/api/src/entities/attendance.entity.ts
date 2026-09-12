@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { Child } from './child.entity';
 import { Group } from './group.entity';
 import { ClassSession } from './class-session.entity';
@@ -9,6 +9,8 @@ import { AttendanceType } from '../enum/attendance-type.enum';
 // One mark per child per session is the same rule stated against the thing it is actually about,
 // and it no longer depends on two groups never starting at the same minute.
 @Unique('UQ_attendances_child_class_session', ['child', 'classSession'])
+@Index('IDX_attendances_class_session_id', ['classSession'])
+@Index('IDX_attendances_groupId', ['group'])
 export class Attendance {
     @PrimaryGeneratedColumn('increment')
     id: number;

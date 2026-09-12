@@ -1,9 +1,11 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Profile } from './profile.entity';
 import { Group } from './group.entity';
 import { Attendance } from './attendance.entity';
 
 @Entity('children')
+@Index('IDX_children_group_id', ['group'])
+@Index('IDX_children_parent_id', ['parent'])
 export class Child {
     @PrimaryGeneratedColumn('increment')
     id: number;

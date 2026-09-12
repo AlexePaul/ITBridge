@@ -38,6 +38,7 @@ export interface OutboxAttachment {
 // Without the index that is a sequential scan under a row lock, which is the one place a table
 // like this can go wrong quietly as it fills with sent rows nobody deletes.
 @Index('IDX_outbox_claim', ['status', 'nextAttemptAt'])
+@Index('IDX_outbox_announcement_id', ['announcement'])
 export class OutboxMessage {
     @PrimaryGeneratedColumn('increment')
     id: number;

@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Invoice } from './invoice.entity';
 import { User } from './user.entity';
 import { PaymentMethod } from '../enum/payment-method.enum';
@@ -15,6 +15,8 @@ import { decimalAsNumber } from './decimal.transformer';
  * by hand next to the row that justifies it.
  */
 @Entity('payments')
+@Index('IDX_payments_invoice_id', ['invoice'])
+@Index('IDX_payments_recorded_by_id', ['recordedBy'])
 export class Payment {
     @PrimaryGeneratedColumn('increment')
     id: number;

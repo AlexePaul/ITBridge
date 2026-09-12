@@ -20,6 +20,9 @@ import { User } from './user.entity';
  * `declinedCount` — see below.
  */
 @Entity('announcements')
+@Index('IDX_announcements_group_id', ['group'])
+@Index('IDX_announcements_location_id', ['location'])
+@Index('IDX_announcements_sent_by_id', ['sentBy'])
 export class Announcement {
     @PrimaryGeneratedColumn('increment')
     id: number;

@@ -763,6 +763,29 @@ entitățile au divergat.
 Când schimbi o entitate: `pnpm --filter api migration:generate src/migrations/<Nume>`, apoi citește
 SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD`.
 
+**O relație nouă are nevoie de index pe ea, fiindcă Postgres nu-l face.** Postgres indexează partea
+**referită** a unei chei străine, niciodată coloana de pe copil. Deci fiecare `ON DELETE CASCADE`,
+fiecare `RESTRICT` și fiecare interogare care filtrează pe relație era scanare secvențială —
+treizeci și patru de coloane erau așa, iar două dintre ele poartă interogări care rulează **în
+interiorul unui lacăt de rând**. Măsurat pe o școală de trei ani (250 de familii, 46.800 de marcaje
+de catalog, 9.000 de facturi, 8.250 de plăți):
+
+- `payments.invoice_id` — `recomputeInvoiceStatus` adună plățile reușite ale unei facturi **ținând
+  lacătul acelei facturi**, la fiecare plată scrisă sau editată: **0,791 ms → 0,100 ms**.
+- `attendances.class_session_id` — catalogul unei ore, adică fix ce deschide profesorul în sală:
+  **3,378 ms → 0,044 ms**.
+
+Costul l-am măsurat și pe el, fiindcă „mai pune un index" nu e gratis: douăzeci de mii de marcaje
+noi se inserează în 551 ms cu index și 567 ms fără — în zgomot. Deci regula e simplă și fără
+excepții de memorat: **pui un `@Index` pe fiecare `@ManyToOne` pe care îl adaugi.** Nu toate se vor
+vedea într-un plan azi — `leads` și `projects` sunt încă mici, iar pe o tabelă de 300 de rânduri
+Postgres alege oricum scanarea —; sunt acolo pentru ziua în care tabela crește, iar o schemă
+indexată pe jumătate e una despre care nimeni nu mai poate raționa.
+
+Ce **nu** rezolvă: rapoartele care citesc tot. Interogarea de restanțe atinge toate facturile
+neplătite și le împerechează cu toate plățile, iar acolo hash join peste scanare completă chiar e
+planul corect — a rămas la 2,3 ms și cu index, și fără. Un index ajută punctul, nu bilanțul.
+
 **Nu te chinui însă să păstrezi date: nu există niciunele.** Nici pe stage — baza de acolo e tot
 seed, refăcută dintr-o comandă —, n-a existat niciodată un utilizator real, iar în afara ei baza
 rulează doar pe mașinile de dezvoltare și în teste. Deci o migrare generată se ia ca atare, se

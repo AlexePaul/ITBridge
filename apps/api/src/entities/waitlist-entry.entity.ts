@@ -19,6 +19,7 @@ import { WaitlistStatus } from '../enum/waitlist-status.enum';
     unique: true,
     where: `status IN ('WAITING', 'OFFERED')`,
 })
+@Index('IDX_waitlist_entries_group_id', ['group'])
 export class WaitlistEntry {
     @PrimaryGeneratedColumn('increment')
     id: number;
