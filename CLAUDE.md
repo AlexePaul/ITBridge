@@ -759,14 +759,28 @@ Rulează-le de la rădăcină, cu `pnpm test:e2e`, nu cu `pnpm --filter api test
 pornește cu directorul de lucru în `apps/api`, unde nu există `.env`, deci nu vede portul MinIO din
 configurația ta.
 
-**Imaginea MinIO vine de pe `quay.io`, nu de pe Docker Hub.** `minio/minio` de pe Hub răspunde acum
-unui `docker pull` anonim cu `pull access denied ... may require 'docker login'`, deci și
-`docker compose up -d`, și job-ul de integrare din CI se opreau înainte să ruleze ceva. În CI arăta
-cel mai prost cu putință: pasul „Start MinIO" pica într-o secundă, iar cei doi de după el —
-`check:schema` și **toată** suita de integrare — erau _skipped_, deci checkul ieșea roșu cu numele
-„Integration tests" și cu zero teste rulate. Dacă vezi vreodată roșu acolo, uită-te întâi dacă a
-rulat vreun test: un pas de infrastructură care cade nu seamănă cu un test picat, dar checkul are
-aceeași culoare.
+**Imaginea MinIO vine de pe `quay.io`, registrul propriu al MinIO, nu de pe Docker Hub.** Mutarea
+n-a fost o reparație, și merită spus fiindcă mesajul de commit care a adus-o spune altceva:
+`minio/minio` de pe Hub răspundea în continuare unui `docker pull` anonim în ziua schimbării —
+aceeași imagine, același digest (`sha256:14cea493…`), verificat pe două rulări din aceeași noapte,
+una de pe fiecare registru, amândouă cu suita de integrare întreagă: 50 de suite, 614 teste. Nu
+presupune că Hub e închis; dacă vreodată chiar se închide, ăsta e paragraful de corectat, nu de
+citat.
+
+Ce s-a reparat e **felul în care pica pasul**. „Start MinIO" n-avea nici reîncercare, nici mesaj,
+iar un `docker pull` picat lăsa cei doi pași de după el — `check:schema` și **toată** suita de
+integrare — _skipped_: checkul ieșea roșu cu numele „Integration tests" și cu zero teste rulate,
+adică arăta exact ca un test picat. Acum sunt trei încercări și un `::error::` care spune în cuvinte
+că n-a rulat nimic.
+
+Regula care rămâne, și e cea care costă o după-amiază dacă o uiți: **dacă vezi roșu la „Integration
+tests", uită-te întâi dacă a rulat vreun test.** Un pas de infrastructură care cade nu seamănă cu un
+test picat, dar checkul are aceeași culoare.
+
+`docker-compose.yml` a fost mutat pe `quay.io` odată cu CI, și pentru `minio/minio`, și pentru
+`minio/mc`. Pe al doilea **nu-l atinge nicio rulare de CI** — îl folosește doar
+`docker compose up -d`, prin `minio-init` —, deci e singura bucată din mutare pe care n-a
+verificat-o nimic automat.
 
 **`scripts/` e exclus din `tsconfig.build.json`, intenționat.** Inclus, ar urca `rootDir` la
 rădăcina pachetului, iar `nest build` ar scrie `dist/src/main.js` în loc de `dist/main.js` — deci
