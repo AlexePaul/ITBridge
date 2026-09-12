@@ -35,7 +35,12 @@
     "TEST_DB_NAME",
     "RATE_LIMIT_ENABLED",
     "SEED_ALLOW_NON_LOCAL",
-    "SKIP_ENV_VALIDATION"
+    "SKIP_ENV_VALIDATION",
+    // The ports the two browser guards serve the built site on. Declared because `test:privacy`
+    // and `test:links` run through turbo: undeclared, the override was accepted by the shell and
+    // dropped before the script ever saw it, so the one knob for a port clash did nothing at all.
+    "LINK_CHECK_PORT",
+    "THIRD_PARTY_PORT"
   ],
 
   // The root `.env` feeds into the cache hash: a configuration change invalidates the builds

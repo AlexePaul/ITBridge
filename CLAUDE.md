@@ -122,6 +122,16 @@ mediu care se pierde tăcut e mai rău decât unul care lipsește.
 mod `strict`: un task vede doar ce e declarat acolo, iar restul lipsesc fără niciun mesaj. E cea
 mai probabilă cauză când ceva „nu vede” o variabilă pe care tocmai ai pus-o în `.env`.
 
+**Și acum o ține un spec, fiindcă nu era treaba nimănui s-o observe.** Două porturi rămăseseră
+nedeclarate — `THIRD_PARTY_PORT` și `LINK_CHECK_PORT` —, iar primul era singura ieșire dintr-o
+ciocnire: `check-third-party.mjs` și `check-a11y-auth.mjs` serveau amândouă pe 3124, deci a doua
+comandă rămânea fără server, iar butonul de scăpare nu ajungea niciodată la script fiindcă
+`pnpm test:privacy` trece prin turbo. Un buton care nu face nimic e mai rău decât niciun buton: îl
+trimite pe cel care-l apasă să caute în altă parte. `every-env-var-is-declared.spec.ts` compară
+fiecare `process.env.X` din surse cu `globalEnv` și pică pe nume; cele două excepții —
+`SEED_TODAY`, fiindcă `pnpm seed` nu trece prin turbo, și `TZ`, fiindcă e pus de scripturile jest
+înainte să pornească Node — au propoziția lor lângă ele.
+
 Swagger UI: `http://localhost:3000/api`. La fiecare boot, `apps/api/src/main.ts` scrie schema în
 `./swagger.json`, relativ la directorul din care rulează procesul. Fișierul e în `.gitignore`,
 deci nu există într-o clonă proaspătă — apare doar după prima pornire.
@@ -1563,7 +1573,9 @@ fiecare pagină din sitemap, **o derulează până jos** și pică la prima cere
 la primul cookie. Serverul de probă, citirea sitemap-ului și pornirea lui Chromium sunt împărțite cu
 verificarea de accesibilitate, în `scripts/preview-site.mjs` — de asta variabilele de mediu îi spun
 tot `A11Y_*`: sunt scrise mai sus și setate în shell-urile oamenilor, iar una necitită nu dă eroare,
-ci atârnă. Trei lucruri de știut:
+ci atârnă. Portul propriu e `THIRD_PARTY_PORT`, implicit **3126** — a fost 3124, adică fix cel al
+verificării autentificate, deci cele două comenzi nu se puteau rula împreună. Patru lucruri de
+știut:
 
 - **Derularea e tot rostul rulării.** Bug-ul pentru care există garda era `loading="lazy"` pe
   `<iframe>`-ul hărții: se citește ca reținere și se declanșează când cititorul derulează până la

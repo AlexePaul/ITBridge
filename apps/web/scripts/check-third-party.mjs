@@ -28,7 +28,10 @@ import { launchChromium, publicPaths, startPreviewServer } from "./preview-site.
  * to a reader who does not.
  */
 
-const PORT = Number(process.env.THIRD_PARTY_PORT ?? 3124);
+// 3126, not 3124: that one belongs to `check-a11y-auth.mjs`, and it is written into CI's
+// `CORS_ORIGINS` and into CLAUDE.md twice, so this is the one that moves. The two checks are
+// separate jobs in CI and never met there; locally they are two commands somebody runs together.
+const PORT = Number(process.env.THIRD_PARTY_PORT ?? 3126);
 
 /**
  * How far a page is scrolled, and how long anything lazy is given to fire.
