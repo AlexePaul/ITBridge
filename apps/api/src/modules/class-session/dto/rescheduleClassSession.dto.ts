@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString, Length, Matches } from 'class-validator';
 import { ISO_DATE_MESSAGE, ISO_DATE_PATTERN } from '../class-session.dates';
+import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 /**
  * A class that cannot be held, and where it goes instead — E12/S9.
@@ -27,11 +28,13 @@ export class RescheduleClassSessionDto {
     targetDate: string;
 
     @ApiPropertyOptional({ example: '17:00', description: 'The new start. Defaults to the class’s own.' })
+    @EmptyToUndefined()
     @IsOptional()
     @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'startTime must be HH:mm' })
     startTime?: string;
 
     @ApiPropertyOptional({ example: '18:30', description: 'The new end. Defaults to the class’s own.' })
+    @EmptyToUndefined()
     @IsOptional()
     @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'endTime must be HH:mm' })
     endTime?: string;

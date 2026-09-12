@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, Matches } from 'class-validator';
 import { BILLING_MONTH_MESSAGE, BILLING_MONTH_PATTERN } from '../reports.rules';
+import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 /**
  * The months the finance report covers, both ends included.
@@ -11,11 +12,13 @@ import { BILLING_MONTH_MESSAGE, BILLING_MONTH_PATTERN } from '../reports.rules';
  */
 export class FinanceReportQueryDto {
     @ApiPropertyOptional({ example: '2025-09', description: 'First billing month, YYYY-MM' })
+    @EmptyToUndefined()
     @IsOptional()
     @Matches(BILLING_MONTH_PATTERN, { message: `from ${BILLING_MONTH_MESSAGE}` })
     from?: string;
 
     @ApiPropertyOptional({ example: '2026-08', description: 'Last billing month, YYYY-MM' })
+    @EmptyToUndefined()
     @IsOptional()
     @Matches(BILLING_MONTH_PATTERN, { message: `to ${BILLING_MONTH_MESSAGE}` })
     to?: string;

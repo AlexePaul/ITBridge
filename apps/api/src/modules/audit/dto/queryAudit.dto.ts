@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 /**
  * What to look up in the trail — E07 S3.
@@ -12,6 +13,7 @@ import { IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 export class QueryAuditDto {
     /** `Payment`, `Invoice`, `Discount` — the class name, as the log stores it. */
     @ApiPropertyOptional({ example: 'Invoice' })
+    @EmptyToUndefined()
     @IsOptional()
     @IsString()
     @Length(1, 60)

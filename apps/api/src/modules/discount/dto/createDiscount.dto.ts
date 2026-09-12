@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNumber, IsInt, IsNotEmpty, IsOptional, IsEnum, Matches, Min } from 'class-validator';
 import { DiscountType } from 'src/enum/discount-type.enum';
+import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 export class CreateDiscountDto {
     @ApiProperty({ example: 1 })
@@ -9,6 +10,7 @@ export class CreateDiscountDto {
     parentId: number;
 
     @ApiPropertyOptional({ enum: DiscountType, description: 'Lei off, or per cent off. Defaults to lei.' })
+    @EmptyToUndefined()
     @IsOptional()
     @IsEnum(DiscountType)
     type?: DiscountType;
@@ -35,6 +37,7 @@ export class CreateDiscountDto {
     name: string;
 
     @ApiPropertyOptional({ example: 'A recomandat familia Ionescu' })
+    @EmptyToUndefined()
     @IsOptional()
     @IsString()
     description?: string;

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNumber, IsOptional, IsString, Length, Matches } from 'class-validator';
 import { ISO_DATE_MESSAGE, ISO_DATE_PATTERN } from '../class-session.dates';
+import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 /**
  * A moved class is one whose columns changed — E12/S5. There is no "moved" status on purpose (the
@@ -10,16 +11,19 @@ import { ISO_DATE_MESSAGE, ISO_DATE_PATTERN } from '../class-session.dates';
  */
 export class MoveClassSessionDto {
     @ApiPropertyOptional({ example: '2026-03-16', description: 'The new day' })
+    @EmptyToUndefined()
     @IsOptional()
     @Matches(ISO_DATE_PATTERN, { message: `date ${ISO_DATE_MESSAGE}` })
     date?: string;
 
     @ApiPropertyOptional({ example: '17:00', description: 'The new start' })
+    @EmptyToUndefined()
     @IsOptional()
     @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'startTime must be HH:mm' })
     startTime?: string;
 
     @ApiPropertyOptional({ example: '18:30', description: 'The new end' })
+    @EmptyToUndefined()
     @IsOptional()
     @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'endTime must be HH:mm' })
     endTime?: string;
