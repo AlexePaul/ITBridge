@@ -39,6 +39,18 @@ const TEXT_VALIDATORS = ['@IsString', '@IsEmail', '@Matches', '@IsPhoneNumber', 
  */
 const EMPTY_MEANS_SOMETHING = new Set(['PreviewMailTemplateDto']);
 
+/**
+ * The block as code only.
+ *
+ * Not fussiness: `CancelClassSessionDto.reason` explains in prose that it is **"Required, and not
+ * `@IsOptional()`"**, and the first version of this sweep read that sentence, decided the field was
+ * optional, and asked for a transform on a field that must never be absent. A guard that reads
+ * comments is a guard that answers to whoever wrote them.
+ */
+function withoutComments(block: string): string {
+    return block.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+}
+
 function dtoFiles(dir: string): string[] {
     return readdirSync(dir).flatMap((entry) => {
         const path = join(dir, entry);
@@ -63,7 +75,7 @@ export function offendersIn(source: string): string[] {
         // The decorator block is everything above it, back to the blank line that separates fields.
         let start = i;
         while (start > 0 && lines[start - 1].trim() && !/^export class|^\{/.test(lines[start - 1])) start--;
-        const block = lines.slice(start, i).join('\n');
+        const block = withoutComments(lines.slice(start, i).join('\n'));
 
         if (!block.includes('@IsOptional')) continue;
         if (block.includes('@EmptyToUndefined')) continue;
@@ -102,5 +114,22 @@ export class SomeDto {
 
         const fixed = offending.replace('    @IsOptional()', '    @EmptyToUndefined()\n    @IsOptional()');
         expect(offendersIn(fixed)).toEqual([]);
+    });
+
+    it('reads the decorators and not the prose above them', () => {
+        // The flaw this sweep shipped with for about ten minutes. A required field whose comment
+        // says why it is *not* optional was read as optional, and the transform went onto a field
+        // that must never be absent.
+        const required = [
+            'export class SomeDto {',
+            '    /** Required, and not `@IsOptional()`: the answer "not recorded" helps nobody. */',
+            '    @ApiProperty()',
+            '    @IsString()',
+            '    @Length(3, 500)',
+            '    reason: string;',
+            '}',
+        ].join('\n');
+
+        expect(offendersIn(required)).toEqual([]);
     });
 });
