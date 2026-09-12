@@ -19,6 +19,7 @@ import type { Child } from './entities/child.entity';
 import type { Group } from './entities/group.entity';
 import type { Enrollment } from './entities/enrollment.entity';
 import type { InvoiceWorksheetRow } from './modules/invoice/invoice.service';
+import type { Overview } from './modules/dashboard/overview.service';
 import type { FinanceReport } from './modules/dashboard/finance-report.service';
 import type { OccupancyReport } from './modules/dashboard/occupancy-report.service';
 import type { EarlySignals } from './modules/dashboard/early-signals.service';
@@ -209,6 +210,12 @@ type _DeliveryRecord = Check<
 // E21/S2 and S4. The reports are service-shaped rather than entity-shaped, so the check is on the
 // interfaces the services return: a field added to a month or a room on one side must appear on the
 // other, or the page that reads it types against a figure that never arrives.
+// E21/S1. The overview had no entry here at all until the „Mesaje nelivrate" tile of E17/S5 was
+// found counting one thing and labelled another: nothing was checking that the shape the server
+// builds is the shape the screen types against, so the two could drift in silence — which is the
+// single failure this whole file exists to make impossible.
+type _Overview = Check<Wire.Overview, Overview>;
+
 type _FinanceReport = Check<Wire.FinanceReport, FinanceReport>;
 type _OccupancyReport = Check<Wire.OccupancyReport, OccupancyReport>;
 type _EarlySignals = Check<Wire.EarlySignals, EarlySignals>;

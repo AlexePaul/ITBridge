@@ -3,14 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Group } from 'src/entities/group.entity';
 import { User } from 'src/entities/user.entity';
-import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
-import { OutboxStatus } from 'src/enum/outbox-status.enum';
 import { ProjectService } from 'src/modules/project/project.service';
 import { Role } from 'src/enum/role.enum';
 import { ClassSessionService } from 'src/modules/class-session/class-session.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { ArrearsService } from 'src/modules/invoice/arrears.service';
+import { DeliveryLogService } from 'src/modules/mail/delivery-log.service';
+import { OutboxHealth } from 'src/modules/mail/outbox-health.rules';
 import { addDays, toIsoDate } from 'src/modules/class-session/class-session.dates';
 
 /** One of today's classes, as the overview shows it. */
@@ -63,8 +63,14 @@ export interface Overview {
     projectsAwaitingSendOldestDays: number | null;
     /** Families who registered and are waiting to be let in. */
     pendingApprovals: number;
-    /** Messages that had nowhere to go — a family who was not reached and does not know it. */
-    undeliverableMessages: number;
+    /**
+     * Messages that have not reached a family — E17/S5.
+     *
+     * Three numbers rather than one, because they need three different people: `failed` and
+     * `undeliverable` are rows somebody has to look at, while `stuck` says the queue itself has
+     * stopped moving and is the only one of the three that is nobody's message in particular.
+     */
+    messagesNotDelivered: OutboxHealth;
     /** Active enrolments with no contract on file — E07/S8. Asked of `EnrollmentService.withoutContract`. */
     enrollmentsWithoutContract: number;
 }
@@ -87,18 +93,18 @@ export class OverviewService {
     constructor(
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
         @InjectRepository(User) private readonly userRepository: Repository<User>,
-        @InjectRepository(OutboxMessage) private readonly outboxRepository: Repository<OutboxMessage>,
         private readonly classSessions: ClassSessionService,
         private readonly enrollments: EnrollmentService,
         private readonly arrears: ArrearsService,
         private readonly projects: ProjectService,
+        private readonly deliveries: DeliveryLogService,
     ) {}
 
     async build(today: Date = new Date()): Promise<Overview> {
         const date = toIsoDate(today);
 
-        const [sessions, unmarked, arrearsRows, groupsNearlyFull, pendingProjects, pendingApprovals, undeliverableMessages, withoutContract] =
-            await Promise.all([
+        const [sessions, unmarked, arrearsRows, groupsNearlyFull, pendingProjects, pendingApprovals, messagesNotDelivered, withoutContract] = await Promise.all(
+            [
                 // The admin view of the day: `findSessions` narrows for a parent and not for an admin,
                 // and this endpoint is admin-only, so it sees the whole school.
                 this.classSessions.findSessions({ dateFrom: date, dateTo: date }, Role.ADMIN, 0),
@@ -112,11 +118,16 @@ export class OverviewService {
                 // from the group screen's — and this one now carries an age, which a `count` cannot.
                 this.projects.pendingSummary(today),
                 this.userRepository.count({ where: { role: Role.PARENT, approvalStatus: ApprovalStatus.PENDING } }),
-                this.outboxRepository.count({ where: { status: OutboxStatus.UNDELIVERABLE } }),
+                // Asked of the mail module, not counted here: E21's rule, and the reason this
+                // tile was wrong. It counted `undeliverable` alone, so a message the provider
+                // permanently refused — and a queue that had stopped running altogether — both
+                // showed as zero on a tile labelled „Mesaje nelivrate".
+                this.deliveries.health(today),
                 // E07/S8: the enrolments the office has no signed contract for. The list is the
                 // enrolment module's; the tile only counts what it is handed.
                 this.enrollments.withoutContract(),
-            ]);
+            ],
+        );
 
         const todaySessions: OverviewSession[] = sessions.map((session) => ({
             id: session.id,
@@ -144,7 +155,7 @@ export class OverviewService {
             projectsAwaitingSend: pendingProjects.total,
             projectsAwaitingSendOldestDays: pendingProjects.oldestDays,
             pendingApprovals,
-            undeliverableMessages,
+            messagesNotDelivered,
             enrollmentsWithoutContract: withoutContract.length,
         };
     }

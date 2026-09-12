@@ -2,13 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OverviewService } from './overview.service';
 import { Group } from 'src/entities/group.entity';
 import { User } from 'src/entities/user.entity';
-import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { ClassSessionService } from 'src/modules/class-session/class-session.service';
 import { ProjectService } from 'src/modules/project/project.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { ArrearsService } from 'src/modules/invoice/arrears.service';
 import { Role } from 'src/enum/role.enum';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
+import { DeliveryLogService } from 'src/modules/mail/delivery-log.service';
+import { STUCK_AFTER_MINUTES } from 'src/modules/mail/outbox-health.rules';
 
 /**
  * The overview — E21/S1.
@@ -22,7 +23,8 @@ describe('OverviewService', () => {
     let groupRepo: MockRepository;
     let projects: { pendingSummary: jest.Mock };
     let userRepo: MockRepository;
-    let outboxRepo: MockRepository;
+    /** The mail module owns how many messages never arrived; the overview only asks. */
+    let deliveries: { health: jest.Mock };
     let classSessions: { findSessions: jest.Mock; findUnmarkedSessions: jest.Mock };
     let enrollments: { occupancyOf: jest.Mock; withoutContract: jest.Mock };
     let arrears: { list: jest.Mock };
@@ -42,7 +44,9 @@ describe('OverviewService', () => {
         groupRepo = createMockRepository();
         projects = { pendingSummary: jest.fn() };
         userRepo = createMockRepository();
-        outboxRepo = createMockRepository();
+        deliveries = {
+            health: jest.fn().mockResolvedValue({ failed: 0, undeliverable: 0, stuck: 0, stuckAfterMinutes: STUCK_AFTER_MINUTES }),
+        };
         classSessions = { findSessions: jest.fn().mockResolvedValue([]), findUnmarkedSessions: jest.fn().mockResolvedValue([]) };
         enrollments = { occupancyOf: jest.fn(), withoutContract: jest.fn().mockResolvedValue([]) };
         arrears = { list: jest.fn().mockResolvedValue([]) };
@@ -50,17 +54,16 @@ describe('OverviewService', () => {
         groupRepo.find!.mockResolvedValue([]);
         projects.pendingSummary.mockResolvedValue({ total: 0, oldestDays: null, staleAfterDays: 2, byGroup: [] });
         userRepo.count!.mockResolvedValue(0);
-        outboxRepo.count!.mockResolvedValue(0);
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 OverviewService,
                 provideMockRepository(Group, groupRepo),
                 provideMockRepository(User, userRepo),
-                provideMockRepository(OutboxMessage, outboxRepo),
                 { provide: ClassSessionService, useValue: classSessions },
                 { provide: EnrollmentService, useValue: enrollments },
                 { provide: ArrearsService, useValue: arrears },
+                { provide: DeliveryLogService, useValue: deliveries },
                 { provide: ProjectService, useValue: projects },
             ],
         }).compile();
@@ -196,10 +199,27 @@ describe('OverviewService', () => {
             await expect(service.build(DAY)).resolves.toMatchObject({ projectsAwaitingSend: 0, projectsAwaitingSendOldestDays: null });
         });
 
-        it('counts messages that had nowhere to go', async () => {
-            outboxRepo.count!.mockResolvedValue(1);
-            // A family who was not reached and does not know it — E17/S5.
-            await expect(service.build(DAY)).resolves.toMatchObject({ undeliverableMessages: 1 });
+        it('asks the mail module what never arrived, rather than counting statuses itself', async () => {
+            deliveries.health.mockResolvedValue({ failed: 2, undeliverable: 1, stuck: 4, stuckAfterMinutes: STUCK_AFTER_MINUTES });
+
+            await expect(service.build(DAY)).resolves.toMatchObject({
+                messagesNotDelivered: { failed: 2, undeliverable: 1, stuck: 4, stuckAfterMinutes: STUCK_AFTER_MINUTES },
+            });
+            // E21's rule: a report gathers, it does not define. Counting `undeliverable` here was
+            // the second definition, and it was the one that was wrong.
+            expect(deliveries.health).toHaveBeenCalledTimes(1);
+        });
+
+        it('asks about the day it is reporting on, because stuck is measured against a clock', async () => {
+            await service.build(DAY);
+
+            expect(deliveries.health).toHaveBeenCalledWith(DAY);
+        });
+
+        it('carries a message the provider refused, which the old tile read as zero', async () => {
+            deliveries.health.mockResolvedValue({ failed: 3, undeliverable: 0, stuck: 0, stuckAfterMinutes: STUCK_AFTER_MINUTES });
+
+            await expect(service.build(DAY)).resolves.toMatchObject({ messagesNotDelivered: { failed: 3 } });
         });
     });
 });
