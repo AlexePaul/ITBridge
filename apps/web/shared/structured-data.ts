@@ -113,7 +113,9 @@ export const locationNode = (site: string, location: SchoolLocation): Node => ({
     latitude: location.geo.latitude,
     longitude: location.geo.longitude,
   },
-  hasMap: location.mapLink,
+  // The profile URL is a place; the search URL the page's button opens is a
+  // result list. Where the profile exists, the map link points at the place.
+  hasMap: location.googleBusinessProfile ?? location.mapLink,
   ...(location.googleBusinessProfile ? { sameAs: [location.googleBusinessProfile] } : {}),
   areaServed: location.areaServed.map((area) => ({ "@type": "Place", name: area })),
   openingHoursSpecification: openingHours(),

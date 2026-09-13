@@ -259,9 +259,9 @@ familie de căutări. `<h1>`-ul paginii principale poartă întrebarea părintel
 rescrie Google un titlu prea lung —, iar sloganul a rămas la aceeași mărime, ca `<p>`. Nodul
 organizației spune `areaServed` pe București și Ilfov și se descrie ca „școală de IT și programare",
 la fel ca `llms.txt` și subsolul; nodurile de locație se numesc exact ca profilul Google — brandul,
-fără cartier, fiindcă regulile profilului interzic sufixul — cu cartierul ca `alternateName`, și au
-un loc pregătit pentru adresa profilului, `googleBusinessProfile` în `school.ts`, din care iese
-`sameAs` abia când e completat. `Content-Language: ro-RO` pleacă din antete, `<UApp>` primește
+fără cartier, fiindcă regulile profilului interzic sufixul — cu cartierul ca `alternateName`, și
+poartă în `sameAs` și în `hasMap` adresa profilului Google al fiecărei săli
+(`googleBusinessProfile` în `school.ts`): legătura pe care S3 o lăsase biroului e făcută. `Content-Language: ro-RO` pleacă din antete, `<UApp>` primește
 locale-ul român ca pe stage, iar `CONTENT_UPDATED_ISO` e ziua acestei treceri, ca `lastmod` să
 spună adevărul despre paginile care chiar s-au schimbat.
 
@@ -274,9 +274,8 @@ pagină e exact tiparul pe care Google îl numește spam.
 **Ce rămâne al biroului, în Search Console**: „Inspectare URL → Solicită indexarea" pe cele cinci
 pagini fără expuneri, o dată, după ce ajung schimbările pe `release/prod`; și, pe cele două
 profiluri Google Business, categoria principală în română („Școală de informatică" sau „Centru de
-formare"), descrierea cu aceleași cuvinte ca site-ul și adresa URL a fiecărui profil pusă în
-`sameAs`-ul nodului de locație din `structured-data.ts` — sunt singurele adrese pe care repo-ul nu
-le are.
+formare"), descrierea cu aceleași cuvinte ca site-ul și site-ul fiecărui profil îndreptat spre
+pagina lui de locație, nu spre pagina principală.
 
 ### S9 · Legături rupte — livrat
 

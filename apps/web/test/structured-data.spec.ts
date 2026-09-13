@@ -89,6 +89,14 @@ describe("locationNode", () => {
     expect(node.alternateName).toBe(`${SCHOOL_NAME} ${location.neighbourhood}`);
   });
 
+  it("carries each room's profile URL as a bare place link, without a share parameter", () => {
+    for (const entry of SCHOOL_LOCATIONS) {
+      expect(entry.googleBusinessProfile).toMatch(/^https:\/\/maps\.app\.goo\.gl\/[A-Za-z0-9]+$/);
+      expect(locationNode(site, entry).sameAs).toEqual([entry.googleBusinessProfile]);
+      expect(locationNode(site, entry).hasMap).toBe(entry.googleBusinessProfile);
+    }
+  });
+
   it("links the profile only once the office has copied its URL", () => {
     // Stated, not read from the constant: the day the office pastes the URL
     // into school.ts is a data edit, and it must not turn this test red.

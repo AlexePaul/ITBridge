@@ -34,9 +34,10 @@ export interface SchoolLocation {
   mapLink: string;
   /**
    * The public Maps URL of this address's Google Business Profile — the link
-   * that says "this room is that listing". Absent until the office copies it
-   * from the profile (Share → copy link); the location node emits `sameAs`
-   * only when it is here, because an empty one is worse than none.
+   * that says "this room is that listing", copied from the profile's Share
+   * button without the `?g_st=` tracking parameter. Optional so that a third
+   * address can exist before its profile does; the location node emits
+   * `sameAs` only when it is here, because an empty one is worse than none.
    */
   googleBusinessProfile?: string;
   /** A photograph of this room, not of the other one. */
@@ -114,6 +115,7 @@ export const SCHOOL_LOCATIONS: SchoolLocation[] = [
       "https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d5699.683885857019!2d26.013984!3d44.415889!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x40b20041575f3945%3A0xfb045a6b8c5a127!2sStrada%20Valea%20Oltului%2073%2C%20Bucure%C8%99ti%2C%20Romania!5e0!3m2!1sen!2sus!4v1768175036715!5m2!1sen!2sus",
     mapLink:
       "https://www.google.com/maps/search/?api=1&query=Strada+Valea+Oltului+73%2C+Bucure%C8%99ti",
+    googleBusinessProfile: "https://maps.app.goo.gl/miQWCAhCcJ1nsESS7",
     image: "/images/clasa-02.jpg",
     imageAlt: "Sala de curs din Drumul Taberei, pe Strada Valea Oltului 73",
   },
@@ -141,6 +143,7 @@ export const SCHOOL_LOCATIONS: SchoolLocation[] = [
       "https://maps.google.com/maps?q=Soseaua%20Bucuresti-Targoviste%2019A%2C%20Bucuresti&z=16&hl=ro&output=embed",
     mapLink:
       "https://www.google.com/maps/search/?api=1&query=%C8%98oseaua+Bucure%C8%99ti-T%C3%A2rgovi%C8%99te+19A%2C+Bucure%C8%99ti",
+    googleBusinessProfile: "https://maps.app.goo.gl/CEe6pEuCd6BosDPPA",
     image: "/images/straulesti-01.jpg",
     imageAlt: "Sala de curs din Străulești, pe Șoseaua București-Târgoviște 19A",
   },
