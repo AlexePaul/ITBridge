@@ -1,11 +1,11 @@
 import { SCHOOL_EMAIL, SCHOOL_PHONE } from "./school";
-import { MODULE_WEEKS_MAX, MODULE_WEEKS_MIN, PRICE_ONE_CHILD, SESSION_HOURS } from "./courses";
-
-const sessionLength = String(SESSION_HOURS).replace(".", ",");
+import { MODULE_WEEKS_MAX, MODULE_WEEKS_MIN, PRICE_ONE_CHILD } from "./courses";
 
 /**
- * The day the facts on the fact-carrying pages were last checked. Update this
- * one line when a price, an address or a timetable changes.
+ * The day the facts on the fact-carrying pages were last checked, or the pages
+ * themselves last changed in a way a reader would notice. Update this one line
+ * when a price, an address or a timetable changes, and when titles, headings or
+ * descriptions are rewritten — `lastmod` in the sitemap reads it too.
  *
  * Machine-readable because `dateModified` in the structured data reads it, and
  * a date is how a model settles a contradiction between two sources: prices and
@@ -69,10 +69,12 @@ const STATIC_PAGES: PageSeo[] = [
     title: "Cursuri de programare pentru copii, 6–19 ani | IT Bridge School",
     // "Informatică" here and "IT" on the home page: the two pages used to open
     // with the same phrase and compete for it. Each now owns one.
+    // The price inside the first eighty characters: a snippet is cut at about
+    // 155 on a desktop and 120 on a phone, and the price is what gets the click.
     description:
-      "Cursuri de informatică și programare pentru copii, pe șase niveluri: de la primii pași " +
-      `pe calculator la C++ și BAC. Module de ${MODULE_WEEKS_MIN}–${MODULE_WEEKS_MAX} săptămâni, ` +
-      `${PRICE_ONE_CHILD} lei pe lună.`,
+      `Cursuri de informatică și programare pentru copii de 6–19 ani, ${PRICE_ONE_CHILD} lei pe lună. ` +
+      "Șase niveluri, de la primii pași pe calculator la C++ și BAC, în module de " +
+      `${MODULE_WEEKS_MIN}–${MODULE_WEEKS_MAX} săptămâni.`,
     summary:
       "Cele șase niveluri de curs pe vârste, cum decurge înscrierea, prețurile și întrebările frecvente.",
     priority: 0.9,
@@ -102,7 +104,7 @@ const LOCATIONS_INDEX: PageSeo = {
   // The hub is where a sector-level search should land — "cursuri it sector 6"
   // has no neighbourhood in it — so the sectors are in the title. No brand
   // suffix, as on the two location pages, for the same reason of length.
-  title: "Locații: cursuri IT pentru copii în Sector 6 și Sector 1",
+  title: "Locații: cursuri IT pentru copii în Sectorul 6 și Sectorul 1",
   // A hyphen in the street name, as in school.ts and in the PostalAddress on
   // the same page: a matcher reads an en dash as a different address.
   description:
@@ -119,7 +121,7 @@ const LOCATIONS_INDEX: PageSeo = {
 const LOCATION_PAGES: PageSeo[] = [
   {
     path: "/locatii/drumul-taberei",
-    // No brand suffix on the two location titles: with it they run to 72 and 68
+    // No brand suffix on the two location titles: with it they run to 70 and 66
     // characters and Google truncates it away anyway. The neighbourhood is the
     // whole point of the page, and the site name still reaches the SERP through
     // og:site_name and the WebSite node.

@@ -90,7 +90,10 @@ describe("locationNode", () => {
   });
 
   it("links the profile only once the office has copied its URL", () => {
-    expect(locationNode(site, location).sameAs).toBeUndefined();
+    // Stated, not read from the constant: the day the office pastes the URL
+    // into school.ts is a data edit, and it must not turn this test red.
+    const unlinked = { ...location, googleBusinessProfile: undefined };
+    expect(locationNode(site, unlinked).sameAs).toBeUndefined();
     const linked = locationNode(site, {
       ...location,
       googleBusinessProfile: "https://maps.app.goo.gl/x",

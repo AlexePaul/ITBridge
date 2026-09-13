@@ -14,7 +14,7 @@
       longer the heading.
     -->
     <section class="section-hero" data-intro>
-      <h1 class="kicker">Cursuri IT și programare pentru copii, în București</h1>
+      <h1 class="kicker">Cursuri IT și programare pentru copii în București</h1>
       <p class="display">
         <span><span>Copiii nu doar folosesc tehnologia. </span></span>
         <span><span>La noi învață să o creeze</span></span>
@@ -63,9 +63,9 @@
         side.
       -->
       <p class="body-text">
-        <NuxtLink to="/cursuri" class="link">
-          Toate cursurile de programare pentru copii, pe vârste, de la 6 la 19 ani →
-        </NuxtLink>
+        <NuxtLink to="/cursuri" class="link"
+          >Toate cursurile de programare pentru copii, 6–19 ani →</NuxtLink
+        >
       </p>
     </section>
 
@@ -129,7 +129,7 @@ definePageMeta({
 useReveal();
 
 const seo = pageSeo("/");
-useSeo({ ...seo, imageAlt: "IT Bridge School, cursuri de informatică pentru copii" });
+useSeo(seo);
 
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([...schoolGraph(site), webPageNode(site, seo)]);

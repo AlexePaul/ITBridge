@@ -62,7 +62,7 @@ export const organizationNode = (site: string): Node => ({
   logo: `${trimSlash(site)}/android-chrome-512x512.png`,
   image: `${trimSlash(site)}/images/og-default.jpg`,
   // The three names parents have for the thing — IT, programare, informatică
-  // — in the one sentence an assistant reads first; llms.txt opens with it too.
+  // — in the one sentence an assistant reads first; llms.txt opens the same way.
   description:
     "Școală de IT și programare pentru copii din București, cu cursuri de informatică de la " +
     "clasa 0 până la pregătirea pentru Bacalaureat și olimpiade, în grupe mici, la două locații.",
