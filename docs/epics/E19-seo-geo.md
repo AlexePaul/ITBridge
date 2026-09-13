@@ -224,6 +224,46 @@ n-are de unde porni fără o linie de bază:
 neindexarea e o chestiune de timp și autoritate, iar o schimbare de cod făcută ca să pară că se face
 ceva ar strica exact partea care merge.
 
+#### Starea măsurată, 13 septembrie 2026
+
+A doua citire, din raportul „Performanță în Căutare" exportat pe trei luni (până la 10 septembrie).
+Cifrele sunt mici, dar spun ceva precis: **site-ul apare aproape numai la interogări în engleză și
+fără legătură cu școala, și aproape deloc la cele în română pe care le tastează un părinte din
+București.**
+
+- **7 clicuri, 341 de expuneri, poziție medie 4,7**, toate pe pagina principală. `/despre-noi` are
+  12 expuneri, iar `/about` — slug-ul vechi, englezesc, redirecționat 301 de la rescriere — încă 26,
+  pe poziția 2,8: Google servește în continuare adresa veche. `/cursuri`, `/contact`, `/locatii` și
+  cele două pagini de locație au **zero** expuneri — sunt exact cele cinci „descoperite și
+  neaccesate" de la 1 septembrie, deci nu s-au mișcat.
+- **Interogările cu expuneri sunt în engleză**: „schools" (119, poziția 3,6), „trade it" (74, cu
+  variantele „traid it", „tradet it"), „bridge" (20), „training" (8), „trade school", „training
+  centre", „it training center". Niciuna nu descrie școala; toate se potrivesc pe cuvintele din
+  numele ei — _IT_, _Bridge_, _School_ — luate ca vorbe englezești, nu ca nume. Zero clicuri pe
+  toate la un loc, ceea ce e corect: cine caută „schools" nu vrea o școală de programare din
+  Drumul Taberei.
+- **O singură interogare românească relevantă: „cursuri it"**, 12 expuneri, poziția 4,8, zero
+  clicuri. Cuvântul _IT_ nu apărea în niciun titlu și în nicio descriere — paginile spuneau peste
+  tot „informatică" —, deci rezultatul arăta un titlu care nu repeta ce tastase părintele. E singura
+  cifră din raport pe care o poate mișca textul, și de la ea a pornit localizarea de mai jos.
+- **Telefon 169 de expuneri, desktop 176**, cu poziția mai bună pe telefon (3,8 față de 5,6); 339
+  din 345 de expuneri sunt din România.
+- **Ritmul zilnic**: 15–35 de expuneri pe zi din 28 august, cu o zi cu clicuri la fiecare 3–4 zile.
+  E linia de bază pentru citirea din octombrie, nu un rezultat.
+
+**Ce NU s-a schimbat**: numele școlii rămâne _IT Bridge School_ în titluri, în `WebSite.name` și în
+`og:site_name` — el aduce interogările englezești, dar e și ce tastează părinții care o știu („it
+bridge", „bridge school"), și un nume nu se optimizează. Nici pagini pe cartiere, nici site
+bilingv, nici cuvinte-cheie îndesate în text: „cursuri IT copii București" scris de trei ori pe o
+pagină e exact tiparul pe care Google îl numește spam.
+
+**Ce rămâne al biroului, în Search Console**: „Inspectare URL → Solicită indexarea" pe cele cinci
+pagini fără expuneri, o dată, după ce ajung schimbările pe `release/prod`; și, pe cele două
+profiluri Google Business, categoria principală în română („Școală de informatică" sau „Centru de
+formare"), descrierea cu aceleași cuvinte ca site-ul și adresa URL a fiecărui profil pusă în
+`sameAs`-ul nodului de locație din `structured-data.ts` — sunt singurele adrese pe care repo-ul nu
+le are.
+
 ### S9 · Legături rupte — livrat
 
 Un crawler peste paginile pe care le publică `sitemap.xml`, care cere fiecare link intern din ele și
