@@ -4,10 +4,10 @@
       <span class="kicker">Despre noi</span>
       <h1 class="page-title">Transformăm copiii în creatori de tehnologie</h1>
       <p class="lede justified">
-        IT Bridge School este o școală de informatică pentru copii, cu două locații în București.
-        Credem că fiecare copil merită șansa de a-și atinge potențialul în IT și că învățarea merge
-        cel mai bine prin practică: proiecte reale, grupe mici și profesori care ajung la fiecare
-        elev.
+        IT Bridge School este o școală de IT și programare pentru copii, cu două locații în
+        București. Credem că fiecare copil merită șansa de a-și atinge potențialul în IT și că
+        învățarea merge cel mai bine prin practică: proiecte reale, grupe mici și profesori care
+        ajung la fiecare elev.
       </p>
     </section>
 

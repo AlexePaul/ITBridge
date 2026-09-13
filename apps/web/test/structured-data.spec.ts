@@ -3,6 +3,7 @@ import {
   SCHOOL_ALTERNATE_NAMES,
   SCHOOL_EMAIL,
   SCHOOL_LOCATIONS,
+  SCHOOL_NAME,
   SCHOOL_PHONE_E164,
 } from "../shared/school";
 import { SUBJECTS_COVERED } from "../shared/courses";
@@ -10,6 +11,7 @@ import { pageSeo } from "../shared/seo";
 import {
   courseListNode,
   ids,
+  locationNode,
   organizationNode,
   schoolGraph,
   webPageNode,
@@ -62,12 +64,38 @@ describe("organizationNode", () => {
     expect(SUBJECTS_COVERED).toContain("C++");
   });
 
+  it("serves București and Ilfov as an entity, not only a country on its contact point", () => {
+    expect(organization.areaServed).toEqual([
+      { "@type": "City", name: "București" },
+      { "@type": "AdministrativeArea", name: "Ilfov" },
+    ]);
+  });
+
   it("has a contact point carrying the same phone and email as the node itself", () => {
     const contact = organization.contactPoint as Record<string, unknown>;
     expect(contact["@type"]).toBe("ContactPoint");
     expect(contact.telephone).toBe(SCHOOL_PHONE_E164);
     expect(contact.email).toBe(SCHOOL_EMAIL);
     expect(organization.telephone).toBe(SCHOOL_PHONE_E164);
+  });
+});
+
+describe("locationNode", () => {
+  const location = SCHOOL_LOCATIONS[0]!;
+
+  it("is named like its Business Profile — the brand alone — with the room as an alias", () => {
+    const node = locationNode(site, location);
+    expect(node.name).toBe(SCHOOL_NAME);
+    expect(node.alternateName).toBe(`${SCHOOL_NAME} ${location.neighbourhood}`);
+  });
+
+  it("links the profile only once the office has copied its URL", () => {
+    expect(locationNode(site, location).sameAs).toBeUndefined();
+    const linked = locationNode(site, {
+      ...location,
+      googleBusinessProfile: "https://maps.app.goo.gl/x",
+    });
+    expect(linked.sameAs).toEqual(["https://maps.app.goo.gl/x"]);
   });
 });
 

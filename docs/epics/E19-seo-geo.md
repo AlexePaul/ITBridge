@@ -251,6 +251,20 @@ București.**
 - **Ritmul zilnic**: 15–35 de expuneri pe zi din 28 august, cu o zi cu clicuri la fiecare 3–4 zile.
   E linia de bază pentru citirea din octombrie, nu un rezultat.
 
+**Ce s-a schimbat în cod, pornind de aici** — localizarea semnalelor, nu conținut nou (acela e S6
+și PR-ul cu paginile pe unealtă). Titlurile și descrierile spun „cursuri IT și programare pentru
+copii", cu orașul, cartierul sau sectorul în fiecare, iar pagina principală și `/cursuri` nu mai
+încep cu aceeași propoziție: prima are „IT", a doua „informatică", fiecare a rămas cu o singură
+familie de căutări. `<h1>`-ul paginii principale poartă întrebarea părintelui, nu sloganul — din el
+rescrie Google un titlu prea lung —, iar sloganul a rămas la aceeași mărime, ca `<p>`. Nodul
+organizației spune `areaServed` pe București și Ilfov și se descrie ca „școală de IT și programare",
+la fel ca `llms.txt` și subsolul; nodurile de locație se numesc exact ca profilul Google — brandul,
+fără cartier, fiindcă regulile profilului interzic sufixul — cu cartierul ca `alternateName`, și au
+un loc pregătit pentru adresa profilului, `googleBusinessProfile` în `school.ts`, din care iese
+`sameAs` abia când e completat. `Content-Language: ro-RO` pleacă din antete, `<UApp>` primește
+locale-ul român ca pe stage, iar `CONTENT_UPDATED_ISO` e ziua acestei treceri, ca `lastmod` să
+spună adevărul despre paginile care chiar s-au schimbat.
+
 **Ce NU s-a schimbat**: numele școlii rămâne _IT Bridge School_ în titluri, în `WebSite.name` și în
 `og:site_name` — el aduce interogările englezești, dar e și ce tastează părinții care o știu („it
 bridge", „bridge school"), și un nume nu se optimizează. Nici pagini pe cartiere, nici site

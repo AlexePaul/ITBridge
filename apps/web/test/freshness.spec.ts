@@ -9,7 +9,7 @@ describe("CONTENT_UPDATED", () => {
   });
 
   it("reads as a Romanian month, derived from the same constant", () => {
-    expect(CONTENT_UPDATED).toBe("august 2026");
+    expect(CONTENT_UPDATED).toBe("septembrie 2026");
   });
 
   it("never falls back to an undefined month, whatever the date says", () => {

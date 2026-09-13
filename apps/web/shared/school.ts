@@ -32,6 +32,13 @@ export interface SchoolLocation {
   areaServed: string[];
   mapEmbedUrl: string;
   mapLink: string;
+  /**
+   * The public Maps URL of this address's Google Business Profile — the link
+   * that says "this room is that listing". Absent until the office copies it
+   * from the profile (Share → copy link); the location node emits `sameAs`
+   * only when it is here, because an empty one is worse than none.
+   */
+  googleBusinessProfile?: string;
   /** A photograph of this room, not of the other one. */
   image: string;
   imageAlt: string;
@@ -46,6 +53,19 @@ export const SCHOOL_NAME = "IT Bridge School";
  * school ended up ranking for "trade school" in English.
  */
 export const SCHOOL_ALTERNATE_NAMES = ["IT Bridge", "Bridge School"];
+
+/**
+ * Where the school draws families from, as an entity: the city, and the
+ * county whose northern communes reach Străulești without entering it. The
+ * neighbourhoods stay on each address. Without this the organization node
+ * said "RO" on its contact point and nothing else — a country is not a
+ * catchment, and "cursuri programare copii bucurești" is matched against the
+ * organization, not against a street.
+ */
+export const SCHOOL_AREA_SERVED = [
+  { type: "City", name: "București" },
+  { type: "AdministrativeArea", name: "Ilfov" },
+] as const;
 export const SCHOOL_PHONE = "+40 732 273 347";
 export const SCHOOL_PHONE_E164 = "+40732273347";
 export const SCHOOL_PHONE_HREF = `tel:${SCHOOL_PHONE_E164}`;

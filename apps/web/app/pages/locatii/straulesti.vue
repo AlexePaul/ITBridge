@@ -4,10 +4,10 @@
       <span class="kicker">Locația Străulești</span>
       <h1 class="page-title">Cursuri de informatică pentru copii în Străulești</h1>
       <p class="lede">
-        A doua sală a IT Bridge School e în nordul Bucureștiului, pe {{ location.street }},
-        {{ location.district }}, în Străulești, la câteva minute de Bucureștii Noi. Aceleași șase
-        niveluri de programare ca la Drumul Taberei, de la clasa 0 până la pregătirea pentru
-        Bacalaureat, în grupe mici, cu o ședință de 1,5 ore pe săptămână.
+        În Străulești, în nordul Bucureștiului, IT Bridge School ține cursuri de IT și programare
+        pentru copii pe {{ location.street }}, {{ location.district }}, la câteva minute de
+        Bucureștii Noi. Aceleași șase niveluri de programare ca la Drumul Taberei, de la clasa 0
+        până la pregătirea pentru Bacalaureat, în grupe mici, cu o ședință de 1,5 ore pe săptămână.
       </p>
       <p class="note">Actualizat: {{ CONTENT_UPDATED }}</p>
       <div class="actions">
