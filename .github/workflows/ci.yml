@@ -108,12 +108,16 @@ jobs:
       # Started as a plain container rather than a service, because the official MinIO image needs
       # a command (`server /data`) and `services:` has nowhere to put one. The bucket is created by
       # `test/global-setup.ts`, not by the image.
+      #
+      # Pulled from quay.io, MinIO's own registry, not from Docker Hub: `minio/minio` disappeared
+      # from Docker Hub in September 2026 ("pull access denied … repository does not exist"), and
+      # this job failed on every PR until the image moved. docker-compose.yml pulls the same one.
       - name: Start MinIO
         run: |
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=itbridge \
             -e MINIO_ROOT_PASSWORD=dev_password \
-            minio/minio:latest server /data
+            quay.io/minio/minio:latest server /data
           for i in $(seq 1 30); do
             curl -sf http://localhost:9000/minio/health/live && break
             sleep 2

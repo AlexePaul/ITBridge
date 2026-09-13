@@ -1,5 +1,6 @@
 import {
   SCHOOL_ALTERNATE_NAMES,
+  SCHOOL_AREA_SERVED,
   SCHOOL_EMAIL,
   SCHOOL_LOCATIONS,
   SCHOOL_NAME,
@@ -60,9 +61,12 @@ export const organizationNode = (site: string): Node => ({
   url: `${trimSlash(site)}/`,
   logo: `${trimSlash(site)}/android-chrome-512x512.png`,
   image: `${trimSlash(site)}/images/og-default.jpg`,
+  // The three names parents have for the thing — IT, programare, informatică
+  // — in the one sentence an assistant reads first; llms.txt opens the same way.
   description:
-    "Școală de informatică pentru copii din București, cu cursuri de la clasa 0 până la " +
-    "pregătirea pentru Bacalaureat și olimpiade, în grupe mici, la două locații.",
+    "Școală de IT și programare pentru copii din București, cu cursuri de informatică de la " +
+    "clasa 0 până la pregătirea pentru Bacalaureat și olimpiade, în grupe mici, la două locații.",
+  areaServed: SCHOOL_AREA_SERVED.map((area) => ({ "@type": area.type, name: area.name })),
   // What the school is about, in the words the course pages already use. An
   // assistant deciding whether this is a place for "Scratch pentru copii"
   // reads this line before it reads six course descriptions.
@@ -90,7 +94,15 @@ export const organizationNode = (site: string): Node => ({
 export const locationNode = (site: string, location: SchoolLocation): Node => ({
   "@type": ["EducationalOrganization", "LocalBusiness"],
   "@id": ids.location(site, location.slug),
-  name: `${SCHOOL_NAME} — ${location.neighbourhood}`,
+  // Named exactly as its Business Profile is allowed to be: the brand, with no
+  // neighbourhood appended — Google's profile rules forbid the suffix, and a
+  // node that corroborates a listing has to spell the N in NAP the same way.
+  // The neighbourhood is an alias, so "IT Bridge School Drumul Taberei" still
+  // matches, and the description says which room this is.
+  name: SCHOOL_NAME,
+  alternateName: `${SCHOOL_NAME} ${location.neighbourhood}`,
+  branchCode: location.slug,
+  description: `Sala de curs ${SCHOOL_NAME} din ${location.neighbourhood}, ${location.district}, ${location.city}.`,
   parentOrganization: { "@id": ids.organization(site) },
   url: `${trimSlash(site)}/locatii/${location.slug}`,
   telephone: SCHOOL_PHONE_E164,
@@ -101,7 +113,10 @@ export const locationNode = (site: string, location: SchoolLocation): Node => ({
     latitude: location.geo.latitude,
     longitude: location.geo.longitude,
   },
-  hasMap: location.mapLink,
+  // The profile URL is a place; the search URL the page's button opens is a
+  // result list. Where the profile exists, the map link points at the place.
+  hasMap: location.googleBusinessProfile ?? location.mapLink,
+  ...(location.googleBusinessProfile ? { sameAs: [location.googleBusinessProfile] } : {}),
   areaServed: location.areaServed.map((area) => ({ "@type": "Place", name: area })),
   openingHoursSpecification: openingHours(),
   priceRange: `${PRICE_ONE_CHILD}–${PRICE_TWO_CHILDREN} RON`,

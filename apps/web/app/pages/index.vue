@@ -5,12 +5,20 @@
       fold on every device, so it has nothing to wait for an observer for. The
       inner span of each display line is what the line's mask slides — the
       outer one is the mask.
+
+      The heading and the slogan have swapped elements, not places. The <h1>
+      is the small line above: it says what the page is in the words a parent
+      searches, and it is what Google substitutes for a title it decides to
+      rewrite — the slogan, as an <h1>, would have been that substitute. The
+      slogan keeps the display size and the two-line mask; it is just no
+      longer the heading.
     -->
     <section class="section-hero" data-intro>
-      <h1 class="display">
+      <h1 class="kicker">Cursuri IT și programare pentru copii în București</h1>
+      <p class="display">
         <span><span>Copiii nu doar folosesc tehnologia. </span></span>
         <span><span>La noi învață să o creeze</span></span>
-      </h1>
+      </p>
       <p class="lede lede-loose">
         IT Bridge School este o școală de informatică pentru copii, cu două locații în București:
         <NuxtLink to="/locatii/drumul-taberei" class="link">Drumul Taberei</NuxtLink> și
@@ -47,6 +55,18 @@
           <p class="body-text justified">{{ subject.body }}</p>
         </div>
       </div>
+      <!--
+        The one page Google has indexed links the courses page from a button
+        that says "Vezi cursurile" and nothing else. A link whose text says
+        what is on the other side is what moves a never-fetched page up the
+        crawl queue, and "cursuri de programare pentru copii" is the other
+        side.
+      -->
+      <p class="body-text">
+        <NuxtLink to="/cursuri" class="link"
+          >Toate cursurile de programare pentru copii, 6–19 ani →</NuxtLink
+        >
+      </p>
     </section>
 
     <section class="section split split-even" data-reveal>
@@ -109,7 +129,7 @@ definePageMeta({
 useReveal();
 
 const seo = pageSeo("/");
-useSeo({ ...seo, imageAlt: "IT Bridge School, cursuri de informatică pentru copii" });
+useSeo(seo);
 
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([...schoolGraph(site), webPageNode(site, seo)]);

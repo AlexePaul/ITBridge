@@ -6,14 +6,14 @@
         <div>
           <p class="footer-title">IT Bridge School</p>
           <p class="footer-note">
-            Școală de informatică pentru copii, cu două locații în București. De la primii pași pe
-            calculator până la pregătirea pentru Bacalaureat și olimpiade.
+            Școală de IT și programare pentru copii, cu două locații în București. De la primii pași
+            pe calculator până la pregătirea pentru Bacalaureat și olimpiade.
           </p>
         </div>
         <div>
           <p class="kicker">Pagini</p>
           <div class="footer-links">
-            <NuxtLink to="/cursuri" class="footer-link">Cursuri și înscrieri</NuxtLink>
+            <NuxtLink to="/cursuri" class="footer-link">Cursuri IT și înscrieri</NuxtLink>
             <NuxtLink to="/despre-noi" class="footer-link">Despre noi</NuxtLink>
             <NuxtLink to="/contact" class="footer-link">Contact</NuxtLink>
           </div>
@@ -89,9 +89,23 @@ const svgWithCurrentColor = (svg: string) =>
   );
 
 const socialNetworks = [
-  { label: "Instagram", url: SCHOOL_SOCIAL.instagram, icon: svgWithCurrentColor(instagramSvg) },
-  { label: "Facebook", url: SCHOOL_SOCIAL.facebook, icon: svgWithCurrentColor(facebookSvg) },
-  { label: "TikTok", url: SCHOOL_SOCIAL.tiktok, icon: svgWithCurrentColor(tiktokSvg) },
+  // The label is the link's whole name — the icon is decorative — so it says
+  // whose profile opens, not only which network.
+  {
+    label: "IT Bridge School pe Instagram",
+    url: SCHOOL_SOCIAL.instagram,
+    icon: svgWithCurrentColor(instagramSvg),
+  },
+  {
+    label: "IT Bridge School pe Facebook",
+    url: SCHOOL_SOCIAL.facebook,
+    icon: svgWithCurrentColor(facebookSvg),
+  },
+  {
+    label: "IT Bridge School pe TikTok",
+    url: SCHOOL_SOCIAL.tiktok,
+    icon: svgWithCurrentColor(tiktokSvg),
+  },
 ];
 
 const locationLine = computed(() =>
