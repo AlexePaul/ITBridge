@@ -250,6 +250,16 @@ București.**
   din 345 de expuneri sunt din România.
 - **Ritmul zilnic**: 15–35 de expuneri pe zi din 28 august, cu o zi cu clicuri la fiecare 3–4 zile.
   E linia de bază pentru citirea din octombrie, nu un rezultat.
+- **Acoperirea, din raportul „Pagini" exportat în aceeași zi** (cu date până la 4 septembrie —
+  raportul de indexare rămâne cu o săptămână în urma celui de performanță): **3 pagini indexate,
+  9 neindexate**, neschimbat din 28 august. Cele 9 sunt cele 3 redirecționări de mai sus (starea
+  dorită), un singur 404 (din cele două de la 1 septembrie) și **aceleași 5 „descoperite – nu sunt
+  indexate"**: `/cursuri`, `/contact`, `/locatii` și paginile de locație. Pe 13 septembrie
+  validarea lor e **începută** din consolă, deci Google le-a pus la coadă și răspunde în până la
+  două săptămâni; „Solicită indexarea" pe fiecare URL, după deploy-ul localizării, e drumul mai
+  scurt și nu se exclud. Cele 3 indexate nu sunt numite în export; după raportul de performanță
+  sunt pagina principală, `/despre-noi` și, cel mai probabil, `/about` — slug-ul vechi, numărat ca
+  pagină indexată până la prima recitire, deși răspunde 301.
 
 **Ce s-a schimbat în cod, pornind de aici** — localizarea semnalelor, nu conținut nou (acela e S6
 și PR-ul cu paginile pe unealtă). Titlurile și descrierile spun „cursuri IT și programare pentru
