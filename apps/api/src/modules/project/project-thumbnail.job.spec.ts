@@ -37,7 +37,7 @@ describe('drain', () => {
     it('counts what it made and what simply has no picture in it', async () => {
         const { job } = jobWith([candidate(1), candidate(2, 'application/x.scratch.sb3')], ['made', 'none']);
 
-        expect(await job.drain()).toEqual({ claimed: 2, made: 1, none: 1, deferred: 0 });
+        expect(await job.drain()).toEqual({ attempted: 2, made: 1, none: 1, deferred: 0 });
     });
 
     it('stops at the first deferral, rather than asking a missing ffmpeg four more times', async () => {
@@ -46,7 +46,8 @@ describe('drain', () => {
         const result = await job.drain();
 
         expect(attempted).toEqual([1, 2]);
-        expect(result).toEqual({ claimed: 3, made: 1, none: 0, deferred: 1 });
+        // Two of the three: the third was never looked at, and the count says so.
+        expect(result).toEqual({ attempted: 2, made: 1, none: 0, deferred: 1 });
     });
 
     it('takes a small batch, because each one of them is a subprocess', async () => {
@@ -61,7 +62,7 @@ describe('drain', () => {
     it('does nothing at all when there is nothing waiting', async () => {
         const { job, service } = jobWith([], []);
 
-        expect(await job.drain()).toEqual({ claimed: 0, made: 0, none: 0, deferred: 0 });
+        expect(await job.drain()).toEqual({ attempted: 0, made: 0, none: 0, deferred: 0 });
         expect(service.makeDeferredThumbnail).not.toHaveBeenCalled();
     });
 
@@ -79,8 +80,8 @@ describe('drain', () => {
         const second = await job.drain();
         release();
 
-        expect(second).toEqual({ claimed: 0, made: 0, none: 0, deferred: 0 });
-        expect(await first).toEqual({ claimed: 1, made: 1, none: 0, deferred: 0 });
+        expect(second).toEqual({ attempted: 0, made: 0, none: 0, deferred: 0 });
+        expect(await first).toEqual({ attempted: 1, made: 1, none: 0, deferred: 0 });
     });
 });
 

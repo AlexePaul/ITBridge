@@ -38,8 +38,14 @@ export const EVERY_FIVE_MINUTES = '*/5 * * * *';
 export const BATCH_SIZE = 5;
 
 export interface ThumbnailDrainResult {
-    /** Projects looked at. */
-    claimed: number;
+    /**
+     * How many projects the pass actually took on — not how many were waiting.
+     *
+     * The two differ whenever a deferral ends the pass early, and the smaller number is the honest
+     * one: the projects behind the deferral were never looked at, and a log line that counted them
+     * would report work nobody did.
+     */
+    attempted: number;
     made: number;
     /** Asked and answered no: a video with no readable frame, a `.sb3` with an empty stage. */
     none: number;
@@ -72,16 +78,16 @@ export class ProjectThumbnailJob {
     }
 
     async drain(): Promise<ThumbnailDrainResult> {
-        const result: ThumbnailDrainResult = { claimed: 0, made: 0, none: 0, deferred: 0 };
+        const result: ThumbnailDrainResult = { attempted: 0, made: 0, none: 0, deferred: 0 };
         if (this.running) return result;
 
         this.running = true;
         try {
             const backlog = await this.projectService.thumbnailBacklog(BATCH_SIZE);
-            result.claimed = backlog.length;
 
             for (const candidate of backlog) {
                 const outcome: ThumbnailOutcome = await this.projectService.makeDeferredThumbnail(candidate);
+                result.attempted++;
                 if (outcome === 'made') result.made++;
                 else if (outcome === 'none') result.none++;
                 else result.deferred++;
@@ -94,7 +100,7 @@ export class ProjectThumbnailJob {
 
             // Silent when there was nothing to do, which is most ticks — a line every five minutes
             // saying "nothing happened" is how a log stops being read.
-            if (result.claimed > 0) {
+            if (result.attempted > 0) {
                 this.logger.log(`Thumbnails: ${result.made} made, ${result.none} without one, ${result.deferred} left for later.`);
             }
         } finally {
