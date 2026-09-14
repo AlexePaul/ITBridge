@@ -80,7 +80,7 @@ eșuează. În fluxul PM2 din [E01](E01-infrastructura-medii.md), asta înseamn�
 
 **Acceptanță:** un deploy cu migrare eșuată lasă versiunea veche în funcțiune.
 
-**Livrat parțial — partea care nu depinde de EC2.**
+**Livrat.**
 
 Comenzile există (`migration:run`, `migration:revert`, `migration:generate`), iar `migrationsRun`
 e oprit tocmai ca ele să fie rulate explicit, între `build` și `pm2 reload`. Cablarea s-a făcut la

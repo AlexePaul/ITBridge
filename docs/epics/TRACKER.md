@@ -67,7 +67,7 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 86 livrate, 19 parțiale, 4 blocate, 12 scoase din
+Din **150 de story-uri** în 22 de epicuri: 87 livrate, 18 parțiale, 4 blocate, 12 scoase din
 scop, 29 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
@@ -119,7 +119,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 ### E04 · Migrări și integritatea datelor — `în lucru`
 
 - [x] S1 · Migrarea de bază
-- [~] S2 · Migrările în deploy — comenzile și garda de CI există; cablarea în deploy nu, fiindcă nu există deploy
+- [x] S2 · Migrările în deploy — comenzile, `migrationsRun: false` ca ele să fie rulate explicit, garda de drift din CI, și **cablarea, care s-a făcut la E01 S4**: `deploy.sh` rulează `migration:run` între `build` și `pm2 reload`, deci o migrare care pică oprește deploy-ul. Linia de aici spunea încă „nu există deploy", deși tabelul din capul epicului îl marca livrat de atunci — al doilea loc care răspundea, și cel care rămăsese în urmă
 - [x] S3 · Seed pentru dezvoltare **și pentru staging** — **ancorat la ziua de azi**, nu la o constantă din martie: grupele acoperă luni–sâmbătă, deci „azi" are oră în șase zile din șapte. Lead-uri pe toate cele șase stări, outbox pe toate cele patru, anunțuri, absențe anunțate, credite de recuperare și șabloane — șase tabele care se deschideau goale. `pnpm seed:stage` populează staging-ul din `.env.stage`, dar numai dacă `SEED_ALLOW_NON_LOCAL` **numește baza** (nu `1`, care ar autoriza orice ar scrie `DB_NAME` luna viitoare) și `SEED_PASSWORD` e setată — `parola123` e în repo, iar staging-ul e la îndemâna oricui știe hostname-ul
 - [~] S4 · Backup și restaurare — `pg_dump` zilnic la 03:15 din cron pe instanță, în S3, cu ținte separate per mediu și retenție pe o regulă de lifecycle; un dump gol nu se urcă. **Proba de restaurare, cu durata măsurată, rămâne condiția de închidere** — și de acum se poate face
 - [!] S5 · Retenție — **decis**: ștergere logică pe contul familiei, aplicată de admin la retragere; facturile n-au nevoie de politică, stau în SmartBill. Blocat de termenii din E22, fiindcă „când dispar efectiv datele" cere un termen scris undeva unde familia l-a văzut
