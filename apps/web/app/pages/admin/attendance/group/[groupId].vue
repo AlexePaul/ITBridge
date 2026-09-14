@@ -10,7 +10,11 @@
     <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
 
     <template v-else>
-      <div class="w-1/3 mx-auto">
+      <!-- Full width on a phone, a readable column from `sm` up. It was `w-1/3` at every width:
+           on a 390px screen that is a 110px column, so every child's name broke into two lines and
+           the switch — the only control on the screen — sat half off the edge. The same mistake
+           `/admin/attendance` already carries a note about, on the screen one tap away. -->
+      <div class="mx-auto w-full sm:w-2/3 lg:w-1/2">
         <template v-for="child in children" :key="child.id">
           <UCard class="mb-4">
             <template #header>
@@ -125,7 +129,12 @@
         typecheck, no accessibility rule. Content that is absent has no contrast and no missing
         label. It took walking the screen the way a teacher does to see the button was not there.
       -->
-      <div class="flex items-end gap-4 w-1/2 mx-auto mt-4">
+      <!-- Same rule, and it matters more here: this row holds the hour selector and the button
+           that saves the register. Stacked under `sm`, because two controls side by side in 390px
+           leave the button too narrow to read. -->
+      <div
+        class="mx-auto mt-4 flex w-full flex-col items-stretch gap-4 sm:w-2/3 sm:flex-row sm:items-end lg:w-1/2"
+      >
         <div class="flex-1">
           <!-- The visible label is a bare `<label>` with no `for`, so it names nothing as far as
                the combobox is concerned; the accessible name has to be said outright. -->
