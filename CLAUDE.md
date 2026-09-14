@@ -404,6 +404,33 @@ să primească un singur email. Trei consecințe de ținut minte:
   cheiată pe o identitate care nu se schimbă niciodată. Dacă adaugi una, întreabă ce se întâmplă a
   doua oară când lucrul ăla se întâmplă din nou.
 
+**Miniatura are două drumuri, iar al doilea nu e o coadă nouă** (E14 S3b). O imagine primește poza
+în cererea care o încarcă, după commit; un video și un `.sb3` n-au cum — primul fiindcă octeții lui
+nu trec niciodată prin proces (drumul cu URL semnat există tocmai pentru asta), al doilea fiindcă e
+o arhivă plus un teanc de compoziții. Alea le face `ProjectThumbnailJob`, la cinci minute, cinci
+proiecte pe trecere. Patru lucruri:
+
+- **Coada e `hasThumbnail` plus `thumbnailAttemptedAt`, nu o tabelă.** „N-are poză și n-a încercat
+  nimeni" e deja o întrebare pe care o răspund două coloane; o tabelă de rânduri de procesat lângă
+  ele ar fi al doilea răspuns, care divergează prima dată când un proiect e șters. Și **nu prin
+  `outbox`**, cum cerea story-ul scris înaintea cozii: acolo un rând e un mesaj cu destinatar,
+  subiect și corp, iar un rând care n-ar fi un mesaj ar strica exact tabelul din care se citește ce
+  a primit o familie.
+- **Lipsa lui ffmpeg nu consumă încercarea.** `ThumbnailToolMissingError` e singura eroare care lasă
+  rândul nestampilat, iar prima amânare oprește trecerea — restul candidaților sunt pe cale să
+  întâlnească același host. E lecția plătită de `recordFailure` din outbox: un eșec de configurare
+  care consumă încercări îngroapă coada exact în deploy-ul în care unealta lipsește. Consecința: o
+  restanță de videouri se desenează singură la primul tick de după `apt install ffmpeg`.
+- **`.sb3` se desenează, și asta a fost un spike cu răspuns scris.** E un ZIP cu `project.json`
+  înăuntru; `sb3.ts` citește arhiva de mână — din același motiv pentru care `file-types.ts` își
+  scrie semnăturile de mână — și așază fiecare sprite din trei conversii: `bitmapResolution`
+  (editorul exportă bitmap-urile la dublu), `size` ca procent, și ancora pe **centrul de rotație**,
+  cu y în sus. Oricare dintre ele greșită dă o poză plauzibilă a unui proiect pe care nu l-a făcut
+  nimeni. Se desenează proiectul **așa cum a fost salvat**, nu cum arată după steagul verde.
+- **Un sprite se decupează la scenă înainte de compunere.** Scratch lasă sprite-urile să atârne pe
+  margine și copiii le parchează acolo tot timpul; sharp refuză un strat care nu încape în pânză,
+  deci fără decupare rezultatul nu e o poză strâmbă, e `null`.
+
 **Locația nu e un câmp pe grupă, ci o consecință a sălii.** `Group.room` e obligatoriu, `Room.location`
 la fel, deci fiecare grupă știe unde se ține fără să poată contrazice sala. Ștergerile sunt
 `RESTRICT` în ambele direcții, verificate întâi în serviciu, ca refuzul să ajungă la client ca 409 cu
@@ -1416,9 +1443,9 @@ afla era profesorul din sală.
 
 Restul a ce e programat în backend — dispecerul de outbox și verificarea de la minutul 15
 (`@Interval`), mementoul de la 10:00, cele două notificări către părinte din E12 S4, mementourile de
-restanță din E16 S7 și măturarea ofertelor de pe lista de așteptare din E11 S3 (`@Cron`), plus
-purjarea sesiunilor, care stă în continuare pe un `setInterval` propriu în
-`apps/api/src/modules/auth/session.service.ts` — **nu generează orar**, niciunul.
+restanță din E16 S7, măturarea ofertelor de pe lista de așteptare din E11 S3 și pasul de miniaturi
+din E14 S3b (`@Cron`), plus purjarea sesiunilor, care stă în continuare pe un `setInterval` propriu
+în `apps/api/src/modules/auth/session.service.ts` — **nu generează orar**, niciunul.
 
 **Datele calendaristice se construiesc din componente locale, niciodată printr-un ocol prin UTC.**
 TypeORM scrie o coloană `date` citind componentele locale ale valorii, iar `new Date('2026-08-29')`
