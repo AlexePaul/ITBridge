@@ -13,6 +13,7 @@ import { TransferEnrollmentDto } from './dto/transferEnrollment.dto';
 import { ResolveTrialDto } from './dto/resolveTrial.dto';
 import { RecordContractDto } from './dto/recordContract.dto';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
+import { actorFrom } from 'src/modules/audit/actor';
 
 /**
  * Enrolments and the waiting list — E11/S1 and S3.
@@ -74,7 +75,7 @@ export class EnrollmentController {
     @ApiResponse({ status: 201, description: 'Enrolled' })
     @ApiResponse({ status: 409, description: 'CHILD_ALREADY_ENROLLED, GROUP_FULL, GROUP_INACTIVE or PARENT_ACCOUNT_NOT_ACTIVE' })
     async enrol(@Body() createEnrollmentDto: CreateEnrollmentDto, @Request() req: AuthenticatedRequest) {
-        return this.enrollmentService.enrol(createEnrollmentDto, req.user.sub);
+        return this.enrollmentService.enrol(createEnrollmentDto, actorFrom(req));
     }
 
     @Put(':id/close')
@@ -104,7 +105,7 @@ export class EnrollmentController {
     @ApiResponse({ status: 201, description: 'Transferred' })
     @ApiResponse({ status: 409, description: 'NOTHING_TO_TRANSFER, ALREADY_IN_GROUP, GROUP_FULL or COMPATIBILITY_WARNINGS' })
     async transfer(@Body() transferEnrollmentDto: TransferEnrollmentDto, @Request() req: AuthenticatedRequest) {
-        return this.enrollmentService.transfer(transferEnrollmentDto, req.user.sub);
+        return this.enrollmentService.transfer(transferEnrollmentDto, actorFrom(req));
     }
 
     @Put(':id/resolve-trial')

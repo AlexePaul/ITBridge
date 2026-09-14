@@ -7,11 +7,13 @@ import { Child } from 'src/entities/child.entity';
 import { Group } from 'src/entities/group.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { EnrollmentStatus, IN_FORCE_STATUSES, isInForce } from 'src/enum/enrollment-status.enum';
+import { AuditAction } from 'src/enum/audit-action.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { isAccountActive } from 'src/entities/user.entity';
 import { isProfileComplete } from 'src/entities/profile.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
+import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { composeWaitlistOffer, composeWaitlistOfferExpired } from './waitlist-mail';
 import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 
@@ -82,6 +84,7 @@ export class EnrollmentService {
         @InjectRepository(AbsenceNotice) private readonly absenceNoticeRepository: Repository<AbsenceNotice>,
         private readonly outbox: OutboxService,
         private readonly leadProgress: LeadProgressService,
+        private readonly audit: AuditService,
         @InjectDataSource() private readonly dataSource: DataSource,
     ) {}
 
@@ -221,11 +224,16 @@ export class EnrollmentService {
      * unlike a child's age. So it cannot happen by accident, and when it does happen it is written
      * down.
      *
-     * **What an override leaves behind is still only a log line**, naming the group and the admin.
-     * The audit log S3 asks for exists now — E07/S3, `AuditService` — but nothing here writes to it,
-     * because `enrol` carries an `actingUserId` and the trail wants an `Actor` (id *and* the
-     * username copied at write time), and the one caller that has neither is the public trial form.
-     * Threading it is the work; saying it exists would be the lie.
+     * **An override leaves a row in the audit log**, on the group whose capacity it went past —
+     * E07/S3. The group is the subject on purpose: "who put an eleventh child in group 5" is the
+     * question somebody asks, and it is asked of the room, not of one enrolment. It is written with
+     * this transaction's manager, so the record and the seat it describes stand or fall together.
+     *
+     * The actor is an `Actor` rather than a user id because the trail stores the username as text —
+     * a row pointing at an account somebody later deleted is a row that lost the part anybody
+     * wanted to read. `null` is the public trial form of E20/S2, which has no signed-in user at
+     * all; it can never reach the override branch, because nothing public sends
+     * `allowOverCapacity`, and if it ever did the entry would say plainly that no account did it.
      */
     async enrol(
         input: {
@@ -237,10 +245,10 @@ export class EnrollmentService {
             allowOverCapacity?: boolean;
             acknowledgeWarnings?: boolean;
         },
-        // `null` when nothing signed in did this — the public trial form of E20/S2. It is used only
-        // to name somebody in the over-capacity warning, and a booking from the form can never take
-        // that branch, so the honest value is "nobody" rather than a placeholder id.
-        actingUserId: number | null,
+        // `null` when nothing signed in did this — the public trial form of E20/S2. Kept nullable
+        // rather than filled with `SYSTEM_ACTOR`: that one means "a job ran", and a parent pressing
+        // a button on a public page is a different fact about the same empty username column.
+        actor: Actor | null,
         // Passed when the caller is already in a transaction and the enrolment has to stand or fall
         // with the rest of it — booking a trial writes a profile, a child, this, and a message, and
         // a seat taken by a booking that then failed is a seat nobody can find their way back to.
@@ -254,9 +262,7 @@ export class EnrollmentService {
             });
         }
 
-        return manager
-            ? this.enrolWithin(manager, input, status, actingUserId)
-            : this.dataSource.transaction((tx) => this.enrolWithin(tx, input, status, actingUserId));
+        return manager ? this.enrolWithin(manager, input, status, actor) : this.dataSource.transaction((tx) => this.enrolWithin(tx, input, status, actor));
     }
 
     private async enrolWithin(
@@ -270,7 +276,7 @@ export class EnrollmentService {
             acknowledgeWarnings?: boolean;
         },
         status: EnrollmentStatus,
-        actingUserId: number | null,
+        actor: Actor | null,
     ): Promise<Enrollment> {
         const child = await manager.getRepository(Child).findOne({
             where: { id: input.childId },
@@ -295,7 +301,7 @@ export class EnrollmentService {
                 error: 'GROUP_INACTIVE',
             });
         }
-        await this.assertRoomForOneMore(group, manager, input.allowOverCapacity === true, actingUserId);
+        await this.assertRoomForOneMore(group, manager, input.allowOverCapacity === true, actor);
         this.assertCompatible(child, group, input.acknowledgeWarnings === true);
 
         const enrollment = await manager.save(Enrollment, {
@@ -413,7 +419,7 @@ export class EnrollmentService {
      */
     async transfer(
         input: { childId: number; toGroupId: number; reason?: string; allowOverCapacity?: boolean; acknowledgeWarnings?: boolean },
-        actingUserId: number,
+        actor: Actor,
     ): Promise<Enrollment> {
         return this.dataSource.transaction(async (manager) => {
             const current = await this.inForceFor(input.childId, manager);
@@ -440,7 +446,7 @@ export class EnrollmentService {
             if (!target.isActive) {
                 throw new ConflictException({ message: 'Grupa este inactivă și nu poate primi înscrieri noi', error: 'GROUP_INACTIVE' });
             }
-            await this.assertRoomForOneMore(target, manager, input.allowOverCapacity === true, actingUserId);
+            await this.assertRoomForOneMore(target, manager, input.allowOverCapacity === true, actor);
             this.assertCompatible(child, target, input.acknowledgeWarnings === true);
 
             const now = today();
@@ -937,8 +943,19 @@ export class EnrollmentService {
         }
     }
 
-    /** D7, counting trials. The message offers the list, because that is the next thing to do. */
-    private async assertRoomForOneMore(group: Group, manager: EntityManager, allowOverCapacity: boolean, actingUserId: number | null): Promise<void> {
+    /**
+     * D7, counting trials. The message offers the list, because that is the next thing to do.
+     *
+     * **The exception writes to the audit log, in this transaction** — E11/S3's last open clause.
+     * A seat is physical, so going past capacity is a decision a person makes about a room, and the
+     * trail is on the group for that reason: `GET /audit?entityType=Group&entityId=5` answers "who
+     * put an eleventh child in here, and when". `changes` carries the occupancy that moved and the
+     * note the capacity it moved past, because a count without the ceiling beside it says nothing.
+     *
+     * The log line stays as well. They are read by different people at different times: the warning
+     * is for whoever is watching a deploy, the row is for whoever asks in March.
+     */
+    private async assertRoomForOneMore(group: Group, manager: EntityManager, allowOverCapacity: boolean, actor: Actor | null): Promise<void> {
         const taken = await this.countInForce(group.id, manager);
         if (taken < group.capacity) {
             return;
@@ -946,7 +963,22 @@ export class EnrollmentService {
 
         if (allowOverCapacity) {
             this.logger.warn(
-                `${actingUserId === null ? 'The public trial form' : `User ${actingUserId}`} enrolled over capacity in group ${group.id}: ${taken + 1} children in ${group.capacity} seats. No audit record was written — see the note on \`enrol\`.`,
+                `${actor ? `User ${actor.userId}` : 'The public trial form'} enrolled over capacity in group ${group.id}: ${taken + 1} children in ${group.capacity} seats.`,
+            );
+            await this.audit.record(
+                {
+                    // `{ userId: null, username: null }` where nobody signed in. It is the shape
+                    // `SYSTEM_ACTOR` has and not the same statement: the note says which it was.
+                    actor: actor ?? { userId: null, username: null },
+                    action: AuditAction.UPDATED,
+                    entityType: 'Group',
+                    entityId: group.id,
+                    changes: { seatsTaken: { from: taken, to: taken + 1 } },
+                    // "într-un loc", not "în 1 locuri": an admin reads this, and a sentence that
+                    // cannot decline its own numbers reads like a machine wrote it for itself.
+                    note: `Înscriere peste capacitate: ${taken + 1} copii ${group.capacity === 1 ? 'într-un loc' : `în ${group.capacity} locuri`}${actor ? '' : ', din formularul public'}.`,
+                },
+                manager,
             );
             return;
         }
