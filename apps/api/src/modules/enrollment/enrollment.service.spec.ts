@@ -13,6 +13,8 @@ import { Role } from 'src/enum/role.enum';
 import { LessThan } from 'typeorm';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
+import { AuditService } from 'src/modules/audit/audit.service';
+import { AuditAction } from 'src/enum/audit-action.enum';
 import {
     createMockEntityManager,
     createMockQueryBuilder,
@@ -33,6 +35,7 @@ describe('EnrollmentService', () => {
     let outbox: Record<string, jest.Mock>;
     /** E20/S1: resolving a trial tells its lead. Asserted for real in the lead suites and the e2e. */
     let leadProgress: Record<string, jest.Mock>;
+    let audit: { record: jest.Mock };
     let manager: MockEntityManager;
 
     /** A family whose account passes both E11/S2 gates. */
@@ -93,6 +96,7 @@ describe('EnrollmentService', () => {
             ]),
         );
         manager.save.mockImplementation((_entity: unknown, data: Record<string, unknown>) => Promise.resolve({ id: 99, ...data }));
+        audit = { record: jest.fn() };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -108,6 +112,10 @@ describe('EnrollmentService', () => {
                 // E20/S1: resolving a trial tells its lead what happened. Mocked here because this
                 // suite is about seats; the real behaviour is asserted in the lead suites and e2e.
                 { provide: LeadProgressService, useValue: leadProgress },
+                // E11/S3: going past a group's capacity is the one decision here that leaves a row
+                // in the audit log. Mocked, because what this suite asserts is that it is written
+                // at all and with the seats in it — the writing itself is E07/S3's own suite.
+                { provide: AuditService, useValue: audit },
                 provideMockDataSource(manager),
             ],
         }).compile();
@@ -120,7 +128,7 @@ describe('EnrollmentService', () => {
 
     describe('enrol', () => {
         it('opens an ACTIVE enrolment by default, starting today', async () => {
-            await service.enrol({ childId: 1, groupId: 2 }, 42);
+            await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' });
 
             expect(manager.save).toHaveBeenCalledWith(
                 Enrollment,
@@ -131,7 +139,7 @@ describe('EnrollmentService', () => {
         it('writes Child.group in the same transaction, so the derived column cannot lag', async () => {
             enrollmentRepo.findOne!.mockResolvedValueOnce(null).mockResolvedValue({ id: 99, group: { id: 2 } });
 
-            await service.enrol({ childId: 1, groupId: 2 }, 42);
+            await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' });
 
             // Six queries still read this column, two of them security-relevant. It is derived, so
             // it has exactly one writer, and that writer runs inside the transaction that justifies
@@ -144,7 +152,7 @@ describe('EnrollmentService', () => {
 
             // D6: a child is in one group. The message names the other group, because "already
             // enrolled" without saying where is a message that sends an admin looking.
-            const error = await service.enrol({ childId: 1, groupId: 2 }, 42).catch((e: unknown) => e);
+            const error = await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' }).catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('CHILD_ALREADY_ENROLLED');
             expect(responseOf(error).message).toContain('Python Începători');
         });
@@ -154,29 +162,76 @@ describe('EnrollmentService', () => {
             // full. `countInForce` is what has to include trials, and this says so.
             enrollmentRepo.count!.mockResolvedValue(10);
 
-            const error = await service.enrol({ childId: 1, groupId: 2 }, 42).catch((e: unknown) => e);
+            const error = await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' }).catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('GROUP_FULL');
         });
 
         it('offers the waiting list in the refusal, because that is the next thing to do', async () => {
             enrollmentRepo.count!.mockResolvedValue(10);
 
-            const error = await service.enrol({ childId: 1, groupId: 2 }, 42).catch((e: unknown) => e);
+            const error = await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' }).catch((e: unknown) => e);
             expect(responseOf(error).message).toContain('lista de așteptare');
         });
 
         it('lets an admin over capacity only when they ask for it explicitly', async () => {
             enrollmentRepo.count!.mockResolvedValue(10);
 
-            await service.enrol({ childId: 1, groupId: 2, allowOverCapacity: true }, 42);
+            await service.enrol({ childId: 1, groupId: 2, allowOverCapacity: true }, { userId: 42, username: 'admin' });
 
             expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.anything());
+        });
+
+        it('writes the override into the audit log, on the group and in the same transaction', async () => {
+            // E11/S3's last open clause. The subject is the group because that is what the question
+            // is about — "who put an eleventh child in here" — and the manager is the transaction's,
+            // so a record of a seat that rolled back cannot survive the seat.
+            enrollmentRepo.count!.mockResolvedValue(10);
+
+            await service.enrol({ childId: 1, groupId: 2, allowOverCapacity: true }, { userId: 42, username: 'admin' });
+
+            expect(audit.record).toHaveBeenCalledWith(
+                {
+                    actor: { userId: 42, username: 'admin' },
+                    action: AuditAction.UPDATED,
+                    entityType: 'Group',
+                    entityId: 2,
+                    changes: { seatsTaken: { from: 10, to: 11 } },
+                    note: 'Înscriere peste capacitate: 11 copii în 10 locuri.',
+                },
+                manager,
+            );
+        });
+
+        it('says so when the override came from no account at all', async () => {
+            // Nothing public sends `allowOverCapacity`, so this branch is unreachable from the trial
+            // form today. The entry is written for the day somebody adds a second public road: an
+            // empty username is the shape a scheduled job leaves too, and only the note tells them
+            // apart.
+            enrollmentRepo.count!.mockResolvedValue(10);
+
+            await service.enrol({ childId: 1, groupId: 2, allowOverCapacity: true }, null);
+
+            expect(audit.record).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    actor: { userId: null, username: null },
+                    note: 'Înscriere peste capacitate: 11 copii în 10 locuri, din formularul public.',
+                }),
+                manager,
+            );
+        });
+
+        it('writes nothing to the audit log for an ordinary enrolment', async () => {
+            // The trail is for the exception. A row per enrolment would bury the eleven-in-ten one
+            // in the middle of every ordinary September.
+            await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' });
+
+            expect(audit.record).not.toHaveBeenCalled();
         });
 
         it('refuses a child whose family account is still waiting', async () => {
             childRepo.findOne!.mockResolvedValue({ ...child, parent: { ...child.parent, user: { ...activeParent, emailConfirmedAt: null } } });
 
-            const error = await service.enrol({ childId: 1, groupId: 2 }, 42).catch((e: unknown) => e);
+            const error = await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' }).catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('PARENT_ACCOUNT_NOT_ACTIVE');
         });
 
@@ -184,7 +239,7 @@ describe('EnrollmentService', () => {
             // The admin-typed-it-in-from-a-phone-call flow. Nothing to confirm, nobody to approve.
             childRepo.findOne!.mockResolvedValue({ ...child, parent: { id: 10, user: null } });
 
-            await service.enrol({ childId: 1, groupId: 2 }, 42);
+            await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' });
 
             expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.anything());
         });
@@ -194,7 +249,7 @@ describe('EnrollmentService', () => {
             // the school has no phone number and no emergency contact for them.
             childRepo.findOne!.mockResolvedValue({ ...child, parent: { ...child.parent, emergencyContactPhone: null } });
 
-            await expect(service.enrol({ childId: 1, groupId: 2 }, 1)).rejects.toMatchObject({
+            await expect(service.enrol({ childId: 1, groupId: 2 }, { userId: 1, username: 'admin' })).rejects.toMatchObject({
                 response: { error: 'PARENT_PROFILE_INCOMPLETE' },
             });
         });
@@ -202,7 +257,7 @@ describe('EnrollmentService', () => {
         it('says the profile is incomplete rather than that the account is inactive — they are repaired by different people', async () => {
             childRepo.findOne!.mockResolvedValue({ ...child, parent: { ...child.parent, phone: null } });
 
-            await expect(service.enrol({ childId: 1, groupId: 2 }, 1)).rejects.toMatchObject({
+            await expect(service.enrol({ childId: 1, groupId: 2 }, { userId: 1, username: 'admin' })).rejects.toMatchObject({
                 response: { error: 'PARENT_PROFILE_INCOMPLETE' },
             });
         });
@@ -221,16 +276,18 @@ describe('EnrollmentService', () => {
         it('refuses an inactive group', async () => {
             groupRepo.findOne!.mockResolvedValue(group({ isActive: false }));
 
-            const error = await service.enrol({ childId: 1, groupId: 2 }, 42).catch((e: unknown) => e);
+            const error = await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' }).catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('GROUP_INACTIVE');
         });
 
         it('refuses to open an enrolment in a closed status', async () => {
-            await expect(service.enrol({ childId: 1, groupId: 2, status: EnrollmentStatus.COMPLETED }, 42)).rejects.toThrow(BadRequestException);
+            await expect(service.enrol({ childId: 1, groupId: 2, status: EnrollmentStatus.COMPLETED }, { userId: 42, username: 'admin' })).rejects.toThrow(
+                BadRequestException,
+            );
         });
 
         it('settles any waitlist request the child had for that group', async () => {
-            await service.enrol({ childId: 1, groupId: 2 }, 42);
+            await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' });
 
             // Left open, the family would keep a place in a queue for a seat they are sitting in.
             expect(waitlistRepo.update).toHaveBeenCalledWith(expect.objectContaining({ child: { id: 1 } }), { status: WaitlistStatus.ACCEPTED });
@@ -238,12 +295,12 @@ describe('EnrollmentService', () => {
 
         it('404s on a child that does not exist', async () => {
             childRepo.findOne!.mockResolvedValue(null);
-            await expect(service.enrol({ childId: 99, groupId: 2 }, 42)).rejects.toThrow(NotFoundException);
+            await expect(service.enrol({ childId: 99, groupId: 2 }, { userId: 42, username: 'admin' })).rejects.toThrow(NotFoundException);
         });
 
         it('404s on a group that does not exist', async () => {
             groupRepo.findOne!.mockResolvedValue(null);
-            await expect(service.enrol({ childId: 1, groupId: 99 }, 42)).rejects.toThrow(NotFoundException);
+            await expect(service.enrol({ childId: 1, groupId: 99 }, { userId: 42, username: 'admin' })).rejects.toThrow(NotFoundException);
         });
     });
 
@@ -616,7 +673,7 @@ describe('EnrollmentService', () => {
         });
 
         it('closes the old enrolment and opens the new one, in one transaction', async () => {
-            await service.transfer({ childId: 1, toGroupId: 2 }, 42);
+            await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
 
             // Either way round without the transaction gives two live enrolments or a child with
             // none — and at capacity, a seat that frees before the transfer completes.
@@ -631,20 +688,20 @@ describe('EnrollmentService', () => {
         it('carries the status across, so a trial that moves is still a trial', async () => {
             enrollmentRepo.findOne!.mockResolvedValue({ ...current, status: EnrollmentStatus.TRIAL });
 
-            await service.transfer({ childId: 1, toGroupId: 2 }, 42);
+            await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
 
             // Promoting it here would enrol a family that has not decided yet.
             expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ status: EnrollmentStatus.TRIAL }));
         });
 
         it('carries the signed contract across, because it is the same enrolment continuing', async () => {
-            await service.transfer({ childId: 1, toGroupId: 2 }, 42);
+            await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
 
             expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ contractSignedAt: '2026-01-01' }));
         });
 
         it('names the destination in the exit reason when nobody gives one', async () => {
-            await service.transfer({ childId: 1, toGroupId: 2 }, 42);
+            await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
 
             const update = manager.update.mock.calls.find((call) => call[0] === Enrollment);
             expect((update?.[2] as { exitReason: string }).exitReason).toContain('Scratch Începători');
@@ -653,21 +710,21 @@ describe('EnrollmentService', () => {
         it('refuses when there is nothing to transfer from', async () => {
             enrollmentRepo.findOne!.mockResolvedValue(null);
 
-            const error = await service.transfer({ childId: 1, toGroupId: 2 }, 42).catch((e: unknown) => e);
+            const error = await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' }).catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('NOTHING_TO_TRANSFER');
         });
 
         it('refuses a transfer into the group the child is already in', async () => {
             enrollmentRepo.findOne!.mockResolvedValue({ ...current, group: { id: 2, name: 'Scratch Începători' } });
 
-            const error = await service.transfer({ childId: 1, toGroupId: 2 }, 42).catch((e: unknown) => e);
+            const error = await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' }).catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('ALREADY_IN_GROUP');
         });
 
         it('checks capacity on the destination', async () => {
             enrollmentRepo.count!.mockResolvedValue(10);
 
-            const error = await service.transfer({ childId: 1, toGroupId: 2 }, 42).catch((e: unknown) => e);
+            const error = await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' }).catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('GROUP_FULL');
         });
 
@@ -679,7 +736,7 @@ describe('EnrollmentService', () => {
                 group: { id: 3, name: 'Python' },
             });
 
-            await service.transfer({ childId: 1, toGroupId: 2 }, 42);
+            await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
 
             // The seat is not free: it is being handed to this child. The queue is asked only when
             // a seat genuinely leaves the group.
@@ -800,16 +857,16 @@ describe('EnrollmentService', () => {
 
             // A warning has to mean something: an admin enrolling a seven-year-old in an 11-14
             // group should have had to see that and say yes.
-            const error = await service.enrol({ childId: 1, groupId: 2 }, 42).catch((e: unknown) => e);
+            const error = await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' }).catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('COMPATIBILITY_WARNINGS');
             expect(responseOf(error).message).toContain('11-14');
 
-            await service.enrol({ childId: 1, groupId: 2, acknowledgeWarnings: true }, 42);
+            await service.enrol({ childId: 1, groupId: 2, acknowledgeWarnings: true }, { userId: 42, username: 'admin' });
             expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.anything());
         });
 
         it('says nothing when the age fits', async () => {
-            await service.enrol({ childId: 1, groupId: 2 }, 42);
+            await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' });
 
             expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.anything());
         });
@@ -822,7 +879,9 @@ describe('EnrollmentService', () => {
 
             // Capacity is checked first and refuses outright: acknowledging warnings must not be a
             // way past a full room, because an eleventh chair is not a judgement call.
-            const error = await service.enrol({ childId: 1, groupId: 2, acknowledgeWarnings: true }, 42).catch((e: unknown) => e);
+            const error = await service
+                .enrol({ childId: 1, groupId: 2, acknowledgeWarnings: true }, { userId: 42, username: 'admin' })
+                .catch((e: unknown) => e);
             expect(responseOf(error).error).toBe('GROUP_FULL');
         });
     });
