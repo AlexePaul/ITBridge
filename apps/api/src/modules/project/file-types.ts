@@ -43,7 +43,13 @@ interface AllowedType {
     signatures: string[];
     /** Video takes the signed-URL road and the larger ceiling. */
     isVideo?: boolean;
-    /** Whether a thumbnail can be made from it today. Video and `.sb3` cannot — that is E14/S3b. */
+    /**
+     * Whether the thumbnail can be made in the request that ingests, which only an image can.
+     *
+     * Video and `.sb3` get theirs from `ProjectThumbnailJob` afterwards (E14/S3b) — the first
+     * because its bytes never pass through this process, the second because a Scratch project costs
+     * a ZIP and a stack of composites.
+     */
     isImage?: boolean;
 }
 
@@ -67,6 +73,18 @@ const ALLOWED_TYPES: AllowedType[] = [
     // Source files a child writes. No signature exists for text, and that is the honest answer
     // rather than a check that pretends to be one.
     { extensions: ['.txt', '.py', '.js', '.html', '.css', '.json', '.md', '.csv'], contentType: 'text/plain', signatures: [] },
+];
+
+/**
+ * What a thumbnail can be made from *after* the upload rather than during it — E14/S3b.
+ *
+ * Derived from the list above rather than written out again: a second list would go on saying
+ * `.mov` is not thumbnailable long after somebody added it here, and the symptom would be videos
+ * arriving without a picture, which looks exactly like a decoder that could not read them.
+ */
+export const DEFERRED_THUMBNAIL_TYPES: string[] = [
+    ...ALLOWED_TYPES.filter((type) => type.isVideo).map((type) => type.contentType),
+    'application/x.scratch.sb3',
 ];
 
 export interface FileTypeVerdict {

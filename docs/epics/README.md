@@ -27,10 +27,10 @@ Frontend pe Vercel — `itbridgeschool.com` din `release/prod`, `stage.itbridges
 `release/prod` poartă API-ul de dinainte de E08, deci acolo nu e nimic de deployat încă.
 
 Pragul s-a mutat, deci: ce avea nevoie doar de „undeva unde rulează" se poate face acum, pe stage —
-[E18](E18-frontend-portal.md) S4 și S5, [E14](E14-proiecte-elevi.md) S3b (ffmpeg pe host) și S5
-(galeria părintelui). Ce mai cere domeniul real rămâne blocat: backupul restaurat din
-[E04](E04-migrari-date.md) S4, vitrina publică din E14 S6 și pagina `/proba` din
-[E20](E20-palnie-inscriere.md) S2. Agentul din E14 are de acum unde să se conecteze.
+[E18](E18-frontend-portal.md) S4 și S5, și [E14](E14-proiecte-elevi.md) S5, galeria părintelui; S3b
+de acolo e livrat și nu mai așteaptă decât pachetul ffmpeg pe instanță. Ce mai cere domeniul real
+rămâne blocat: backupul restaurat din [E04](E04-migrari-date.md) S4, vitrina publică din E14 S6 și
+pagina `/proba` din [E20](E20-palnie-inscriere.md) S2. Agentul din E14 are de acum unde să se conecteze.
 Locația e dimensiune de primă clasă din [E08](E08-multi-locatie.md).
 
 Curățenia de infrastructură din E01 a intrat: aplicația nu mai rulează în Docker, `docker-compose.yml`
@@ -120,11 +120,12 @@ prin el înainte ar fi fost servit înapoi ca PDF. Iar `outbox` a primit o coloa
 ține **chei, nu octeți**: miniatura pleacă atașată inline, fiindcă un URL semnat e o imagine ruptă
 când părintele deschide mailul a doua zi dimineața.
 
-Ce n-a intrat din E14 sunt exact cele două story-uri care depindeau de altcineva: miniaturile de
-video, care cer ffmpeg pe un host, și **vitrina publică, care cere consimțământul din
-[E07](E07-securitate-gdpr.md) S2**. A doua e vizibilă în model prin absență: nu există niciun câmp
-`isPublic` nicăieri, fiindcă un boolean pe `Project` ar fi fost al doilea loc în care se poate
-răspunde la aceeași întrebare, fără precedență între ele. Consecința pentru planificare e că E07 S2
+Din E14 a intrat între timp și S3b, ultimul story de cod al epicului: cadrul din video prin ffmpeg
+și — răspunsul spike-ului fiind da — scena unui `.sb3` desenată din arhiva lui, amândouă dintr-un
+ceas propriu. Ce n-a intrat e **vitrina publică, care cerea consimțământul din
+[E07](E07-securitate-gdpr.md) S2**, și a ieșit din MVP. E vizibilă în model prin absență: nu există
+niciun câmp `isPublic` nicăieri, fiindcă un boolean pe `Project` ar fi fost al doilea loc în care se
+poate răspunde la aceeași întrebare, fără precedență între ele. Consecința pentru planificare e că E07 S2
 și-a găsit primul consumator real: nu mai e o precauție, e ce ține pe loc materialul de marketing
 din [E19](E19-seo-geo.md).
 

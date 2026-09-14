@@ -122,6 +122,23 @@ export class Project {
     @Column({ type: 'boolean', default: false })
     hasThumbnail: boolean;
 
+    /**
+     * When the school last tried to make a picture of this, whatever came of it. E14/S3b.
+     *
+     * Together with `hasThumbnail` it is the whole queue: `ProjectThumbnailJob` looks for rows with
+     * no thumbnail that nobody has tried yet, so a stamp here means "asked and answered" — including
+     * answered *no*, which is a legitimate outcome for a video with no readable frame or a `.sb3`
+     * with nothing visible on its stage. A second column saying which of the two happened would be a
+     * second place that can disagree with the first.
+     *
+     * **A missing tool does not stamp it.** If ffmpeg is not on the host, nothing about the video has
+     * been decided, and leaving the column null is what makes the backlog drain by itself the first
+     * time the job runs somewhere ffmpeg exists — rather than each video quietly spending its one
+     * attempt on the deployment's gap, which is exactly how the outbox once buried its own queue.
+     */
+    @Column({ type: 'timestamptz', nullable: true })
+    thumbnailAttemptedAt: Date | null;
+
     /** When the emails were queued. Set by the send, together with `sentToEmail`. */
     @Column({ type: 'timestamptz', nullable: true })
     sentAt: Date | null;

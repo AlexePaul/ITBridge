@@ -3,7 +3,13 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 10 septembrie 2026, pe `release/stage`. **S-a închis E17 S4**, dezabonarea:
+**Ultima actualizare:** 14 septembrie 2026, pe `release/stage`. **S-a închis E14 S3b, și cu el
+E14**: spike-ul `.sb3` are răspuns — da, scena unui proiect Scratch se desenează din arhiva lui, cu
+`sharp`-ul care era deja acolo —, iar cadrul din video iese prin ffmpeg, amândouă dintr-un ceas
+propriu a cărui coadă e două coloane pe `projects`, nu o tabelă nouă. Lipsa uneltei pe host nu
+consumă încercarea niciunui proiect, deci restanța se golește singură la primul tick de după
+`apt install ffmpeg` — lecția pe care coada de mail a plătit-o scump în august. Mai devreme,
+**s-a închis E17 S4**, dezabonarea:
 fiecare mesaj promoțional poartă acum calea lui de oprire, cum cere Legea 506/2004 art. 12 și cum
 promiteau deja termenii §13 — un jeton per familie, o pagină care întreabă înainte să scrie, și un
 footer adăugat la singura ușă prin care trece marketingul, ca niciun expeditor să nu-l poată uita.
@@ -67,7 +73,7 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 86 livrate, 19 parțiale, 4 blocate, 12 scoase din
+Din **150 de story-uri** în 22 de epicuri: 87 livrate, 19 parțiale, 3 blocate, 12 scoase din
 scop, 29 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
@@ -240,12 +246,12 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > vin din E10, care e el însuși scos —, iar semnalul dintre înscriere și factură îl dă azi E14,
 > proiectul copilului. Se reia odată cu E10.
 
-### E14 · Proiectele elevilor — `în lucru`
+### E14 · Proiectele elevilor — `livrat pentru MVP`
 
 - [x] S1 · Modelul de proiect — fără instantaneu de consimțământ și fără `isPublic`; vin cu E07 S2
 - [x] S2 · Agentul local și folderul oglindit — `apps/agent`, fără dependențe de runtime. Vizibilitatea pulsului da, **alertarea nu**: canalul e E06 S3 și nu există
 - [x] S3a · Miniatură pentru imagini
-- [!] S3b · Miniaturi pentru video și `.sb3` — cere ffmpeg pe host, deci deploy
+- [x] S3b · Miniaturi pentru video și `.sb3` — **spike-ul are răspuns, și răspunsul e da**: un `.sb3` e un ZIP cu `project.json` în el, iar scena se desenează din fișier cu `sharp`-ul care era deja acolo, fără mașină virtuală Scratch și fără dependență nouă. Se desenează proiectul **așa cum a fost salvat**, nu cum arată după steagul verde — fără scripturi, fără rotire (doar oglindirea `left-right`), fără efecte. Cadrul din video iese prin ffmpeg, o secundă în clip și apoi chiar primul cadru pentru clipurile mai scurte; fișierul se scrie întâi pe disc, fiindcă drumul cu URL semnat există tocmai ca cele 200MB să nu treacă prin proces. Amândouă trec prin `ProjectThumbnailJob`, la cinci minute, cinci proiecte pe trecere, iar **coada lui e două coloane pe `projects`, nu o tabelă** — nu prin `outbox`, cum spunea story-ul scris înaintea cozii: acolo un rând e un mesaj cu destinatar și subiect. **Lipsa lui ffmpeg nu consumă încercarea niciunui proiect**, deci restanța se golește singură la primul tick de după instalare. Verificat pe ffmpeg adevărat. **Rămâne `apt install ffmpeg` pe instanță**, un pas de aprovizionare ca pinul PM2; `.sb3` merge fără el
 - [x] S4 · Trimiterea către părinte — părinții fără adresă apar în raportul trimiterii, nu în evidența din E17 S5, care nu există
 - [x] S5 · Galeria din portal — scrisă și testată; de la E01 S4 se poate și deschide, pe stage
 - ~~S6 · Vitrina publică~~ — **scos din MVP:** două-trei lucrări puse de mână în paginile publice, ca orice alt conținut, fără backend și fără `isPublic`. Vitrina automată cerea oricum consimțământul din E07 S2; regula „se publică lucrarea, nu copilul" rămâne, iar acordul se cere înainte, chiar dacă la telefon
@@ -365,12 +371,13 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
-| Cine           | Ce                                | Ce ține în loc                                                                                                                                                                                                                        |
-| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tu**         | Producția pe `release/prod`       | Ce mai cere **domeniul real**: pagina publică din E20 S2 și E04 S4 (proba de restaurare). Stage rulează, deci verificarea lui E18 S4, migrarea din S5, E14 S3b și scheduler-ul din E17 se pot face azi, pe `stage.itbridgeschool.com` |
-| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                                                                               |
-| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                                                                                         |
-| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                                                                                |
+| Cine           | Ce                                | Ce ține în loc                                                                                                                                                                                                               |
+| -------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tu**         | Producția pe `release/prod`       | Ce mai cere **domeniul real**: pagina publică din E20 S2 și E04 S4 (proba de restaurare). Stage rulează, deci verificarea lui E18 S4, migrarea din S5 și scheduler-ul din E17 se pot face azi, pe `stage.itbridgeschool.com` |
+| **Tu**         | `apt install ffmpeg` pe instanță  | Jumătatea de video din E14 S3b. Un pachet, ca pinul PM2 — codul e livrat și nu se schimbă, iar restanța de videouri se desenează singură la primul tick de după. `.sb3` nu așteaptă nimic                                    |
+| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                                                                      |
+| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                                                                                |
+| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                                                                       |
 
 ## Ce urmează
 
@@ -406,7 +413,8 @@ trei rânduri:**
 
 Restul deschis e polish cu proprietar clar: SPF/DKIM/DMARC din E17 S1 și conținutul de la E19 S6.
 **E18 S5b s-a închis** — bara de filtre și grila de carduri erau ultimele două, iar grila s-a
-dovedit un singur card desenat de opt ori. Niciunul nu blochează pe altcineva.
+dovedit un singur card desenat de opt ori. **Și E14 s-a închis**, cu S3b: din el nu mai rămâne cod,
+ci un pachet instalat pe instanță. Niciunul nu blochează pe altcineva.
 
 ### E22 · Termeni, confidențialitate și ciclul de viață al datelor — `în lucru`
 
