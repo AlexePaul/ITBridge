@@ -602,6 +602,18 @@ toată clauza, deci un `where` pus după restrângerea pe utilizator o șterge f
 așa a scăpat `PaymentService.findOne`: orice părinte putea citi plata oricărei alte familii, cu
 profilul complet atașat. Dacă ai nevoie de o primă condiție, pune-o tot cu `andWhere`.
 
+**Și acum o ține un spec, fiindcă nimic altceva n-o vede.** Nu e eroare de tip — amândouă metodele
+există și amândouă întorc builder-ul —, nu e finding de lint, iar `authorization.spec.ts` verifică
+gărzile handler-ului, nu ce face a douăzecea linie cu clauza pe care el a compus-o.
+`scoping-is-never-overwritten.spec.ts` citește sursele ca AST și pică pe fișier și linie, în
+amândouă formele în care a apărut greșeala: **înlănțuit** — `.andWhere(…).where(…)` într-o expresie
+— și **prin variabilă**, adică `qb.andWhere(…)` sub un `if` și `qb.where(…)` douăzeci de rânduri mai
+jos; a doua e cea care a ajuns în producție și cea peste care ochiul trece. Sub-interogările nu se
+numără, dinadins: `qb.subQuery()` deschide un builder nou, deci `where`-ul de după el e chiar prima
+lui condiție — așa citesc `ProjectService.childrenWithoutProjects` și `EnrollmentService`, și
+amândouă sunt corecte. Ordinea se judecă per funcție, ca o metodă care restrânge să nu acuze alta
+care chiar începe cu `where`.
+
 **Un slot care nu se potrivește cu nimic e aruncat în tăcere.** Ecranul de catalog a stat trei
 story-uri fără butonul de salvare: blocul cu selectorul de oră și cu **Salvează Prezența** e un
 `<template #footer>`, iar S5b a înlocuit `<UCard>`-ul care îl învelea cu `<AdminPage>`, care are doar
