@@ -36,9 +36,14 @@
     </div>
 
     <div v-else class="bg-white rounded-lg shadow-lg overflow-hidden">
+      <!-- The frame is the whole screen, so its name is what a screen reader announces on arrival.
+           Without one it says "frame", and there is nothing else on the page to say which invoice
+           this is. CI never saw it: that job has no object storage, so the PDF never loads there
+           and this element is never drawn. -->
       <iframe
         v-if="pdfUrl"
         :src="pdfUrl"
+        :title="`Factura ${invoiceId}, în format PDF`"
         class="w-full"
         style="height: 80vh"
         frameborder="0"

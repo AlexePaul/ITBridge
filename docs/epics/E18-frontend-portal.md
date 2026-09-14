@@ -588,8 +588,12 @@ deschisă, cu 2,61:1 și numele elementului. Cu el la loc, trece.
 
 **Zona autentificată, măsurată și trecută sub aceeași poartă.** S4 și S5 au rescris ecranele, deci
 verificarea nu mai cimentează nimic. `pnpm test:a11y:auth` — `apps/web/scripts/check-a11y-auth.mjs`,
-un job propriu în CI — se autentifică și trece axe peste **51 de ecrane** de admin și de portal, în
-ambele teme, pe aceleași etichete WCAG. Prima rulare a găsit **80 de încălcări**, și niciuna nu era
+un job propriu în CI — se autentifică și trece axe peste **toate ecranele** de admin și de portal
+(51 la livrare, 53 azi), în ambele teme, pe aceleași etichete WCAG. **De la septembrie 2026 pică și
+pe o eroare scrisă în consola browserului**, nu doar pe axe: e singurul lucru care deschide fiecare
+ecran într-un browser adevărat, pe un build adevărat, iar o a doua rulare a aceleiași liste doar ca
+să citească aceeași consolă ar dubla degeaba cel mai lent job din CI. Cererile picate sunt excluse —
+job-ul n-are stocare de obiecte, deci ecranul de PDF răspunde 500 acolo pentru totdeauna. Prima rulare a găsit **80 de încălcări**, și niciuna nu era
 a ecranului pe care apărea:
 
 - **Șase jetoane de culoare Nuxt UI stăteau pe 500-ul rampei lor.** `--ui-primary` fusese reparat la
