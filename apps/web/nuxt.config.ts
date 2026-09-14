@@ -134,6 +134,10 @@ export default defineNuxtConfig({
         "x-content-type-options": "nosniff",
         "referrer-policy": "strict-origin-when-cross-origin",
         "content-security-policy": "frame-ancestors 'none'",
+        // The one locale signal at the HTTP level. The markup says the same
+        // thing five times (html lang, og:locale, inLanguage…); this is the
+        // sixth, for anything that reads headers before it reads HTML.
+        "content-language": "ro-RO",
       },
     },
     // The legal pages are one Markdown file each, rendered once: prerendered so they are static

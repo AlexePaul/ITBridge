@@ -38,7 +38,10 @@ export const useSeo = (input: SeoInput) => {
     ogSiteName: SITE_NAME,
     ogLocale: "ro_RO",
     ogImage: image,
-    ogImageAlt: input.imageAlt ?? SITE_NAME,
+    // Six of seven pages take the default, and it used to be the bare brand —
+    // the one page-level string that read as English on every page.
+    ogImageAlt:
+      input.imageAlt ?? `${SITE_NAME}, cursuri IT și programare pentru copii în București`,
     // Facebook, LinkedIn and Slack commit to the large-card layout from these
     // three; without them the first share of a URL often renders a thumbnail.
     ogImageWidth: 1200,
