@@ -223,6 +223,14 @@ async function signIn(context, base) {
 
 async function violationsOn(context, base, path) {
   const page = await context.newPage();
+  // Collected from the moment the page exists, because the ones worth catching happen during
+  // hydration — before anything this function does afterwards could observe them.
+  const runtimeErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && isTheScreensOwn(message.text()))
+      runtimeErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => runtimeErrors.push(error.message));
   try {
     const response = await page.goto(`${base}${path}`, { waitUntil: "load" });
     if (!response || !response.ok()) {
@@ -267,10 +275,57 @@ async function violationsOn(context, base, path) {
       }));
     }, TAGS);
 
-    return [...violations, ...(await nameProblemsOn(page))];
+    return [...violations, ...(await nameProblemsOn(page)), ...runtimeProblems(runtimeErrors)];
   } finally {
     await page.close();
   }
+}
+
+/**
+ * Anything the screen wrote to the console while it was being looked at.
+ *
+ * Not an accessibility rule, and it lives here for one reason: this is the only thing that opens
+ * all fifty-one screens in a real browser on a real build, and a second run of the same set to
+ * read the same console would double the slowest job in CI for nothing.
+ *
+ * It was added after a pass that drove the screens by hand found two errors nobody could have read
+ * out of the source, both of which had been shipping for a while:
+ *
+ * - **A hydration mismatch on every screen behind the login.** Authentication is client-only, so
+ *   the server rendered the admin shell with the parent's menu and the browser hydrated the real
+ *   one over it. Vue patches the text and leaves the attributes, so the sidebar carried an entry
+ *   labelled "Rapoarte" whose `href` was `/` — a left click worked, ctrl-click and "open in new
+ *   tab" went to the public home page. Fixed by not rendering those routes on the server at all.
+ * - **A select item with an empty value**, which reka-ui refuses to render. The option was simply
+ *   missing from the menu, while the trigger still displayed its label: an admin who filtered the
+ *   leads list by one state had no way back to "Toate stările" short of reloading.
+ *
+ * Neither is visible to axe, neither shows up in a screenshot, and neither breaks a test that
+ * asserts on data. Both write to the console every single time.
+ */
+/**
+ * A request that failed is not this check's business.
+ *
+ * This job has no object storage — `seedInvoicePdfs` asks and skips — so the invoice PDF screen
+ * answers 500 here and will keep doing so, and a machine behind a proxy fails whatever it is not
+ * allowed to reach. Neither says anything about the code. What is left is the screen's own
+ * JavaScript: an exception, a Vue warning about hydration, a component refusing its props — the
+ * things that are true on every machine and only visible here.
+ *
+ * A screen left unusable by a failed request is already covered, by the loading check above.
+ */
+function isTheScreensOwn(text) {
+  return !/^Failed to load resource|net::ERR_/.test(text);
+}
+
+function runtimeProblems(messages) {
+  return [...new Set(messages)].map((text) => ({
+    id: "runtime-error",
+    impact: "serious",
+    help: "The screen wrote an error to the browser console",
+    nodes: [{ target: "console", summary: text.slice(0, 400) }],
+    total: 1,
+  }));
 }
 
 /**
