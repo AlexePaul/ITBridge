@@ -155,9 +155,11 @@ function routes(params) {
  * Signs the context in and leaves the tokens in its cookie jar, so every page after this one is
  * simply visited.
  *
- * The wait is for the cookie, not for a URL: login lands on `/`, which is where an unauthenticated
- * visitor lands too, so the address bar cannot tell the two apart. A wrong password would otherwise
- * scan every screen's login form and report them all clean.
+ * The wait is for the cookie, not for a URL. Login lands in the portal — `/admin/dashboard` for
+ * this account — but waiting on that address would tie this gate to wherever login decides to send
+ * people, and what has to be true before the next page is visited is that there are tokens, not
+ * that some particular screen drew. A wrong password would otherwise scan every screen's login
+ * form and report them all clean.
  *
  * **The three ways this fails look identical from here**, so the failure says which one it was.
  * A dead API, a rejected password and a blocked origin all end the same way — no cookie — and the
