@@ -629,6 +629,18 @@ toată clauza, deci un `where` pus după restrângerea pe utilizator o șterge f
 așa a scăpat `PaymentService.findOne`: orice părinte putea citi plata oricărei alte familii, cu
 profilul complet atașat. Dacă ai nevoie de o primă condiție, pune-o tot cu `andWhere`.
 
+**Și acum o ține un spec, fiindcă nimic altceva n-o vede.** Nu e eroare de tip — amândouă metodele
+există și amândouă întorc builder-ul —, nu e finding de lint, iar `authorization.spec.ts` verifică
+gărzile handler-ului, nu ce face a douăzecea linie cu clauza pe care el a compus-o.
+`scoping-is-never-overwritten.spec.ts` citește sursele ca AST și pică pe fișier și linie, în
+amândouă formele în care a apărut greșeala: **înlănțuit** — `.andWhere(…).where(…)` într-o expresie
+— și **prin variabilă**, adică `qb.andWhere(…)` sub un `if` și `qb.where(…)` douăzeci de rânduri mai
+jos; a doua e cea care a ajuns în producție și cea peste care ochiul trece. Sub-interogările nu se
+numără, dinadins: `qb.subQuery()` deschide un builder nou, deci `where`-ul de după el e chiar prima
+lui condiție — așa citesc `ProjectService.childrenWithoutProjects` și `EnrollmentService`, și
+amândouă sunt corecte. Ordinea se judecă per funcție, ca o metodă care restrânge să nu acuze alta
+care chiar începe cu `where`.
+
 **Un slot care nu se potrivește cu nimic e aruncat în tăcere.** Ecranul de catalog a stat trei
 story-uri fără butonul de salvare: blocul cu selectorul de oră și cu **Salvează Prezența** e un
 `<template #footer>`, iar S5b a înlocuit `<UCard>`-ul care îl învelea cu `<AdminPage>`, care are doar
@@ -645,7 +657,43 @@ refuzată de Vue — optsprezece avertismente pentru optsprezece rânduri — ș
 ordinea în care a venit de la API, prefăcându-se sortată. Ecranul de plăți a promis „cele mai noi
 întâi" fără să fie, de la început. Copiază înainte de sortare: `[...store.lista].sort(...)`.
 
+**Și pe asta o ține acum un spec**, fiindcă felul în care pică e felul în care a trecut de review:
+nu e nicio excepție și nicio linie roșie — vectorul se întoarce, șablonul îl randează, fiecare rând
+e corect —, greșită e doar **ordinea**, adică singurul lucru pe care cititorul nu-l poate verifica
+uitându-se la ecran. `sorting-copies-first.spec.ts` citește sursele ca AST, script-ul din `.vue`
+inclusiv, și pică pe fișier și linie. Linia trasată e **„citit de pe altceva"**: `store.items.sort()`
+sau `invoices.value.reverse()` — orice ajuns printr-un punct — are un proprietar în altă parte și se
+copiază întâi; un vector local (`rows.sort(...)`, construit cu câteva rânduri mai sus) e al funcției
+care îl sortează și e lăsat în pace, cum face `user/absente.vue`. Și `reverse` e acolo, nu doar
+`sort`: reordonează tot pe loc. Ce vine dintr-un `filter`, `map`, `slice` sau dintr-un spread e deja
+vector proaspăt — adică aproape toate sortările din aplicație.
+
 **Un buton de retry care nu șterge eroarea apasă degeaba.** `AdminError` cheamă `load()` din nou, dar dacă acel `load()` nu pune `loadError` pe gol **înainte** de cerere, a doua încercare reușește, datele vin, iar `v-else-if="loadError"` ține cardul de eroare deasupra lor: cererea pleacă, primește 200, și pe ecran nu se schimbă nimic. Cinci ecrane au fost livrate așa, și niciunul n-a fost găsit citind — butonul e acolo, e legat, cheamă funcția care trebuie, iar ce lipsește sunt două linii la începutul unei funcții aflate la douăzeci de rânduri distanță. Forma corectă e `loading.value = true;` plus golirea lui `loadError`, amândouă înaintea lui `try`; `retry-clears-error.spec.ts` mătură sursele după ordinea asta.
+
+**Nimic din spatele autentificării nu se randează pe server, și e o chestiune de corectitudine, nu
+de viteză.** Autentificarea e client-only prin construcție (`plugins/01.auth.client.ts`), deci când
+Nitro randa `/admin/...` n-avea niciun utilizator: shell-ul de admin ieșea cu meniul părintelui,
+portalul fără numele familiei, iar browserul hidrata pe deasupra ce trebuia. **Vue înlocuiește
+textul și lasă atributele** — o spune chiar el în avertisment —, așa că bara laterală a ajuns cu o
+intrare scrisă „Rapoarte" al cărei `href` era `/`: un clic stânga mergea, fiindcă router-ul
+folosește props-urile componentei, dar ctrl-clic, „deschide în tab nou" și „copiază adresa" duceau
+pe pagina publică. `routeRules` din `nuxt.config.ts` pune acum `ssr: false` pe `/admin/**` și
+`/user/**`. Un `<ClientOnly>` pe fiecare bucată care depinde de cine e logat ar fi reparat cele două
+găsite și l-ar fi lăsat pe al treilea să fie găsit la fel; ecranele astea sunt oricum `noindex`,
+n-au SEO și își cer datele la montare, deci randarea pe server nu cumpără nimic.
+
+**Un `value` gol într-un `USelect` nu e o opțiune, e o opțiune lipsă.** reka-ui refuză `SelectItem`
+cu `value=""`, fiindcă șirul gol e felul în care se golește un select — iar refuzul e o eroare în
+consolă, nu una pe ecran: declanșatorul afișează în continuare eticheta, deci nimic nu arată greșit
+până când cineva filtrează o dată și nu mai are cum să revină la „toate". Se scrie ca la
+`/admin/orar` și la comutatorul de locație: o valoare-santinelă (`"all"`), tradusă în `undefined`
+când pleacă spre API.
+
+**Poarta autentificată pică acum și pe o eroare scrisă în consola browserului**, nu doar pe axe —
+`check-a11y-auth.mjs`. Amândouă defectele de mai sus erau vizibile exact acolo și nicăieri altundeva:
+nu se văd într-o captură de ecran, nu pică niciun test pe date și nu le vede axe. Cererile picate
+sunt excluse dinadins: job-ul ăla n-are stocare de obiecte, deci ecranul de PDF răspunde 500 acolo
+pentru totdeauna, iar un ecran rămas fără date e deja prins de verificarea de „se încarcă".
 
 **Nu pune `@input` pe un câmp de text Nuxt UI.** Handler-ul rulează, dar **înainte** ca `v-model` să scrie caracterul tocmai tastat: Vue îmbină ascultătorul venit prin `$attrs` cu al componentei într-un vector și le cheamă în ordinea aia, al nostru primul. Deci orice citește din model e cu o tastă în urmă. Căutarea de copii din catalog a fost exact asta: `a` nu găsea nimic (filtra pe șirul gol), `aa` găsea unsprezece (filtra pe `a`), iar un nume întreg nu găsea niciodată nimic. Derivă din model — un `computed` nu poate fi decalat față de ce citește. `@change` și `@blur` sunt emit-uri declarate și se produc după actualizare, deci sunt în regulă. `no-input-listener.spec.ts` ține linia.
 
@@ -1104,6 +1152,11 @@ Patru lucruri de ținut minte dacă adaugi un scriitor nou lângă facturi, plă
 - **Derivările nu se consemnează.** `recomputeInvoiceStatus` mută starea facturii fiindcă s-au
   adunat plăți; e o consecință, nu o decizie a nimănui. Un jurnal în care fiecare derivare stă lângă
   deciziile oamenilor e un jurnal în care deciziile nu se mai găsesc.
+- **A patra ușă e capacitatea depășită**, lângă bani și date personale: `allowOverCapacity` e o
+  decizie a unui om despre o sală, deci `assertRoomForOneMore` scrie un rând **pe grupă**, nu pe
+  înscriere — întrebarea e „cine a pus al unsprezecelea copil în grupa 5", și se pune despre
+  cameră. De aici și `Actor` în loc de `actingUserId` pe `enrol` și `transfer`; `null` e formularul
+  public de probă, singurul apelant fără cont, iar nota spune care dintre cele două a fost.
 - **Actorul vine din token, prin `actorFrom(req)`**, și se stochează denormalizat — id plus numele
   copiat la scriere, fără relație către `User`. O urmă care arată către un rând ce poate fi șters
   pierde exact intrările care contează: cele despre un cont scos ulterior. Pentru munca programată
