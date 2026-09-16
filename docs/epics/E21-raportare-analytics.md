@@ -1,6 +1,6 @@
 # E21 · Raportare și analytics
 
-**Status:** în lucru — **S1, S2 și S4 livrate**, fiecare cu ce n-a intrat scris în dreptul lui · **Pistă:** Business · **Depinde de:** E12, E15, E16 · **Blochează:** —
+**Status:** în lucru — **S1, S2, S4, S5 și S7 livrate** (S5 prin [E20](E20-achizitie-lead.md) S4), fiecare cu ce n-a intrat scris în dreptul lui; **S3 și S6 scoase din scop** · **Pistă:** Business · **Depinde de:** E12, E15, E16 · **Blochează:** —
 
 ## Problemă
 
@@ -121,11 +121,11 @@ ecranului `/admin/restante`, împărțită pe cele patru benzi — regula din S1
 la cine deține deja întrebarea", ținută și aici. Testele de integrare verifică acordul, la leu, cu
 lista de plăți, cu lista de restanțe și cu lista de facturi.
 
-**Ce n-a intrat, și de ce.** *Pe modul*: modulele sunt E10, scos din MVP, iar factura n-are linii. *Pe
-locație*: o factură e a familiei, iar o familie poate avea copii la ambele adrese — același motiv
+**Ce n-a intrat, și de ce.** _Pe modul_: modulele sunt E10, scos din MVP, iar factura n-are linii. _Pe
+locație_: o factură e a familiei, iar o familie poate avea copii la ambele adrese — același motiv
 pentru care restanțele nu se grupează pe locație. Niciuna dintre axe nu se poate deriva din rândurile
 care există, iar una inventată ar fi exact raportul de care avertizează Riscurile: construit pe date
-care nu sunt acolo. *Potrivirea cu contabilul*, adică acceptanța, nu se poate bifa înainte de E01 S4:
+care nu sunt acolo. _Potrivirea cu contabilul_, adică acceptanța, nu se poate bifa înainte de E01 S4:
 nu există date reale de potrivit. Raportul spune pe ce s-a calculat — câte facturi, câte plăți, câte
 neincluse — tocmai ca prima potrivire să aibă de unde porni.
 
@@ -138,6 +138,18 @@ E cea mai importantă familie de indicatori din tot epicul. Într-o școală cu 
 determină totul: e mult mai ieftin să păstrezi o familie decât să aduci una nouă.
 
 **Acceptanță:** rata de reînscriere e vizibilă pe modul și pe profesor, cu evoluție în timp.
+
+**Scos din MVP prin decizie (septembrie 2026)**, și nu din dezacord cu paragraful de mai sus, care
+rămâne în picioare. Acceptanța cere **modulul** ([E10](E10-curriculum-module.md)) și
+**profesorul pe grupă** ([E09](E09-personal-roluri.md)), amândouă în afara MVP-ului, deci cele două
+axe pe care se citește rata nu există. Ce s-ar putea construi acum — „câți copii erau înscriși în
+septembrie și mai sunt în decembrie" — se numără din ecranul de grupe, iar un raport care spune
+același lucru cu un aer mai sigur nu adaugă nimic. Se reia odată cu E10.
+
+**Retenția de aici sunt copiii care nu se mai întorc**, nu retenția datelor din
+[E04](E04-migrari-date.md) S5 și [E22](E22-termeni-si-date.md) S3. Același cuvânt, două lucruri fără
+nicio legătură între ele — și singura confuzie care poate face pe cineva să creadă că story-ul ăsta e
+o obligație legală amânată.
 
 ### S4 · Ocupare
 
@@ -156,7 +168,7 @@ iar o numărare scrisă aici ar fi a doua definiție, liberă să uite probele �
 o sală plină mai are loc. Câteva interogări mici pe fiecare grupă, la o încărcare de pagină, e prețul unui singur răspuns.
 
 **Orele moarte se măsoară pe orarul școlii, nu pe ceas.** Nu există o grilă fixă de ore, deci singura
-definiție onestă a unei ore în care o sală *putea* ține curs e o oră în care altă sală a ținut. O sală
+definiție onestă a unei ore în care o sală _putea_ ține curs e o oră în care altă sală a ținut. O sală
 goală marți la 16:00 cât timp cealaltă adresă predă la ora aia e o oră moartă; o duminică dimineață în
 care nu predă nimeni nu e. Regula e `deadSlotsOf` din `apps/api/src/modules/dashboard/reports.rules.ts`.
 
@@ -176,11 +188,31 @@ cost de achiziție dacă există cheltuială de marketing.
 
 **Acceptanță:** se vede care canal aduce familii care rămân, nu doar familii.
 
+**Livrat, dar în celălalt epic:** fila „Pâlnia" din `/admin/rapoarte` a venit cu
+[E20](E20-achizitie-lead.md) S4, servită de `GET /reports/funnel` și numărată în
+`lead-funnel.service.ts` — modulul care deține lead-urile, exact regula epicului ăstuia. Story-ul
+rămâne aici ca să nu pară că întrebarea n-a primit răspuns; ce se citește pe ecran e scris acolo.
+
+Două jumătăți de acceptanță rămân deschise, amândouă din lipsă de intrare, nu de cod: **costul de
+achiziție** cere o cheltuială de marketing înregistrată undeva, iar nicăieri în platformă nu se
+scrie una; iar **„familii care rămân"** cere retenția din S3, care e scoasă din scop. Ce se vede azi
+e care canal aduce familii, nu care canal aduce familii care rămân.
+
 ### S6 · Export pentru contabil
 
 Un export lunar în formatul cerut, cu facturi, plăți și storno, care nu cere reformatare manuală.
 
 **Acceptanță:** contabilul confirmă că îl poate folosi direct.
+
+**Scos din scop prin decizie (septembrie 2026): contabilul își ia datele din SmartBill.** Odată ce
+facturile pleacă prin [E16](E16-plati-fiscal.md) S2, SmartBill e locul unde ele există oficial, cu
+seria, cu storno-urile și în formatul pe care contabilul îl folosește deja. Un export din baza
+noastră ar fi a doua versiune a acelorași cifre, întreținută de noi — exact ce refuză epicul ăsta la
+fiecare raport: cine deține întrebarea dă răspunsul.
+
+Condiția e explicită, ca să nu se piardă: **decizia stă pe premisa că facturile chiar ajung în
+SmartBill.** Dacă E16 S0 iese prost și emiterea rămâne la noi, întrebarea se întoarce aici, iar
+întrebarea deschisă de mai jos — în ce format îl vrea contabilul — redevine blocantă.
 
 ### S7 · Semnale timpurii
 
@@ -192,6 +224,47 @@ Intervenția devine posibilă cât mai e ceva de făcut.
 
 **Acceptanță:** o scădere de prezență generează alertă înainte de abandon, verificat retroactiv pe
 datele istorice.
+
+**Livrat**, pe `/admin/rapoarte`, fila „Semnale", din `GET /reports/signals`, plus **un mesaj către
+birou luni la 08:00** — fiindcă o listă pe o filă pe care n-o deschide nimeni e un raport, nu o
+alertă. Mesajul pleacă prin outbox, cu cheie de deduplicare pe zi, și **numai când există ceva de
+semnalat**: mementoul zilnic de prezență și rezumatul de lead-uri au ales la fel, din același motiv.
+
+Cele patru tipare din story, fiecare cerut de la cine deține definiția — regula epicului, ținută și
+aici:
+
+- **Copii care nu mai vin**: ultimele trei marcaje ale copilului sunt absențe, iar ultimul e recent
+  (sub trei săptămâni — altfel copilul a plecat, sau catalogul s-a oprit, și l-ar acoperi pe cel
+  care încă e pe listă). Se citește pe copil, peste grupe, ca un transfer la mijlocul seriei să
+  rămână o serie; se spune și câte dintre absențe fuseseră **anunțate** (E12/S3), fiindcă o serie
+  anunțată e altă discuție. Definiția e nouă, deci e a acestui story: `signals.rules.ts`, pură.
+- **Grupe cu prezența în scădere**: media ultimelor trei ședințe ținute față de media celor trei de
+  dinainte, cu o cădere de 20 de puncte sau mai mult. „Ținută" înseamnă cu catalog, regula din
+  [E15](E15-pricing-facturare.md) S9. O grupă fără două ferestre pline nu se judecă — trei săptămâni
+  față de nimic nu sunt o scădere — dar se numără în `basis`.
+- **Familii cu două facturi restante**: din `ArrearsService.list`, care derivă restanța din plățile
+  reușite; „restantă" e peste termenul de 14 zile, nu „încă în termen".
+- **Grupe sub prag**: rândurile pe care raportul de ocupare (S4) le marchează deja sub 60% — aceleași
+  rânduri, nu a doua numărare de locuri.
+
+**Pragurile sunt propuneri**, ca la S4: constante în `signals.rules.ts` — trei absențe, trei ședințe
+pe fereastră, 20 de puncte, două facturi, trei săptămâni de „viu" — trimise în răspuns, ca ecranul și
+emailul să numească linia pe care o trag, și schimbate dintr-o singură editare.
+
+**„Verificat retroactiv" e parametrul `asOf`.** Nu există istoric real de verificat — backend-ul nu
+rulează nicăieri până la [E01](E01-infrastructura-medii.md) S4 —, deci verificarea a fost făcută pe
+istorii scrise de mână, în teste: aceeași serie de marcaje, întrebată în două zile diferite,
+răspunde pe cea de după a treia absență și tace pe cea de dinainte. Ce rămâne pentru ziua în care
+există date e un câmp pe ecran: „la data de", care evaluează marcajele și facturile așa cum stăteau
+într-o luni din trecut, ca biroul să poată da înapoi pe săptămâni și să vadă dacă familiile care au
+plecat apoi erau pe listă din timp. Locurile nu se pot citi pentru o zi trecută — o înscriere e o
+perioadă, dar „ocupat" se întreabă live —, iar răspunsul o spune (`basis.occupancyAsOfToday`).
+Definition of done-ul epicului cere ca semnalele să fi prins măcar un caz real; ăla se închide cu
+primul trimestru de date, nu cu cod.
+
+Ce nu e aici, prin decizie: nicio acțiune automată. Un semnal e un motiv de telefon, nu o
+reducere, un transfer sau un mesaj către familie; pe listă apar telefonul și emailul părintelui,
+și atât.
 
 ## Dependențe
 
@@ -221,7 +294,9 @@ financiare se potrivesc cu contabilitatea. Semnalele timpurii au prins măcar un
 - Care sunt cele cinci cifre pe care le-ai vrea în fiecare luni dimineață? Restul e secundar. S1, S2
   și S4 au fost construite pe cifrele pe care le numește textul epicului; răspunsul poate schimba ce
   stă în față, nu ce există.
-- În ce format vrea contabilul exportul? **Blochează S6**, și numai S6.
+- ~~În ce format vrea contabilul exportul?~~ **Fără obiect** cât timp facturile pleacă prin
+  SmartBill: exportul (S6) e scos din scop, iar formatul e al lor. Se repune dacă emiterea rămâne la
+  noi — vezi S6.
 - ~~Se compară locațiile între ele în mod deschis?~~ **Fără obiect azi**: singurele roluri sunt
   `ADMIN` și `PARENT` (E09 e scos din MVP), deci orice cifră pe locație o văd doar proprietarii, nu o
   echipă. Raportul de ocupare le pune una lângă alta. Se repune în discuție la primul profesor care nu

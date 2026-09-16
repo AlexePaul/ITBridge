@@ -44,7 +44,7 @@ Există un mod repetabil de a obține o bază locală cu date realiste, în sub 
 ## În afara scopului
 
 - Schimbările de model cerute de multi-locație, curriculum sau facturare. Acest epic livrează
-  *mecanismul*; celelalte îl folosesc.
+  _mecanismul_; celelalte îl folosesc.
 
 ## Story-uri
 
@@ -57,8 +57,8 @@ verificată pe o bază goală și comparată cu un dump real.
 `synchronize`, verificat cu `typeorm schema:log`, care nu trebuie să raporteze nicio diferență.
 
 **Livrat, cu acceptanța verificată literal:** pe o bază goală, `migration:run` urmat de
-`schema:log` răspunde *„Your schema is up to date - there are no queries to be executed by schema
-synchronization."*
+`schema:log` răspunde _„Your schema is up to date - there are no queries to be executed by schema
+synchronization."_
 
 Configurația a fost scoasă din `app.module.ts` într-un `src/data-source.ts` citit și de aplicație,
 și de CLI-ul TypeORM. Dacă cele două ar avea surse diferite, o migrare generată local ar înceta să
@@ -80,11 +80,12 @@ eșuează. În fluxul PM2 din [E01](E01-infrastructura-medii.md), asta înseamn�
 
 **Acceptanță:** un deploy cu migrare eșuată lasă versiunea veche în funcțiune.
 
-**Livrat parțial — partea care nu depinde de EC2.**
+**Livrat.**
 
 Comenzile există (`migration:run`, `migration:revert`, `migration:generate`), iar `migrationsRun`
-e oprit tocmai ca ele să fie rulate explicit, între `build` și `pm2 reload`. Cablarea în workflow-ul
-de deploy așteaptă [E01](E01-infrastructura-medii.md), S4, care așteaptă instanța.
+e oprit tocmai ca ele să fie rulate explicit, între `build` și `pm2 reload`. Cablarea s-a făcut la
+[E01](E01-infrastructura-medii.md), S4: `deploy.sh` rulează `migration:run` exact acolo, deci o
+migrare care pică oprește deploy-ul în loc să lase procesul să se restarteze în buclă.
 
 **În schimb a intrat ceva ce epicul nu cerea, dar care s-a dovedit necesar:** `check:schema`, rulat
 în CI pe fiecare PR. Cât timp mergea `synchronize`, o entitate schimbată fără migrare se repara
@@ -104,9 +105,34 @@ Suficient cât ecranele de admin să arate ca în realitate, nu goale.
 
 **Acceptanță:** `pnpm seed` pe o bază curată, iar dashboard-ul de admin arată date plauzibile.
 
-**Livrat.** Un admin, șase grupe acoperind patru zile din săptămână pe două intervale, unsprezece
-părinți, paisprezece copii, 112 prezențe pe două luni în urmă, treizeci de facturi în toate cele
-trei stări, cu plăți pe cele achitate, plus reduceri.
+**Livrat.** Un admin, nouă grupe acoperind luni–sâmbătă, unsprezece părinți, paisprezece copii,
+prezențe pe două luni în urmă, treizeci de facturi în toate cele trei stări, cu plăți pe cele
+achitate, plus reduceri.
+
+**Ancorat la ziua de azi, nu la o constantă.** `SEED_TODAY` era `2026-03-16`, ceea ce făcea seed-ul
+reproductibil și școala moartă: tot ce scrie atârnă de ziua aia — cele opt săptămâni de prezență din
+urmă, orizontul de orar din față, lunile care au facturi. La șase luni după, o bază proaspăt
+populată se deschidea pe „Nicio oră azi", cea mai nouă factură era veche de jumătate de an, iar
+mementourile de restanță n-aveau ce aminti. Implicitul e acum ziua curentă;
+`SEED_TODAY=2026-03-16 pnpm seed` o fixează la loc pentru cine vrea două rulări identice, iar o
+valoare care nu e o dată e refuzată la pornire în loc să fie ignorată.
+
+Din același motiv grupele s-au întins pe **șase zile**, nu patru: cu program doar luni–joi, cine
+popula baza vineri, sâmbătă sau duminică vedea tabloul de bord gol, iar ecranul de catalog, raportul
+de ședințe nemarcate și mementoul de la 10:00 n-aveau pe ce lucra. Duminica rămâne liberă — o școală
+care predă șapte zile din șapte ar fi varianta neverosimilă.
+
+**Șase tabele care rămâneau goale sunt acum populate**, fiindcă șase ecrane se deschideau pe nimic
+și „nu s-a întâmplat nimic aici niciodată" se citește ca o defecțiune, nu ca o bază nouă: lead-uri
+**câte unul pe fiecare dintre cele șase stări** (patru dintre ele nu se scriu de la niciun ecran,
+deci un seed care punea doar `new` ascundea exact ce numără raportul de pâlnie), plus unul marcat
+`noSeats`; două anunțuri, unul tranzacțional și unul de marketing cu refuzuri numărate pe anunț;
+outbox în **toate cele patru stări**, inclusiv rândul `undeliverable` fără adresă — ecranul de
+livrări există ca să arate că un părinte n-a fost sărit tăcut, iar un seed doar cu succese l-ar fi
+arătat făcând treaba, niciodată treaba pentru care există; două anunțuri de absență, unul în termen
+și unul după termen; trei absențe anunțate care acoperă cele trei citiri ale ecranului — una în
+termen și mutată la altă grupă, una în termen și încă neplasată (adică lista de luni a biroului), una
+anunțată prea târziu; și două șabloane de email editate, ca editorul să aibă cu ce compara.
 
 Câteva alegeri deliberate, ca ecranele să arate ca realitatea și nu ca un caz fericit:
 
@@ -116,9 +142,28 @@ Câteva alegeri deliberate, ca ecranele să arate ca realitatea și nu ca un caz
 - **O familie are trei copii**, ca bug-ul de preț documentat în [E03](E03-testare-ci.md) să fie
   reproductibil de mână, nu doar într-un test.
 
-Data de referință e fixă, nu `new Date()`, deci două rulări dau aceeași bază. Seed-ul golește tot
-înainte — e idempotent — și **refuză să pornească pe altceva decât localhost** fără
-`SEED_ALLOW_NON_LOCAL=1`, fiindcă altfel e o comandă care șterge o bază de producție.
+Seed-ul golește tot înainte, deci e idempotent. (Propoziția care stătea aici spunea că data de
+referință e fixă și că două rulări dau aceeași bază — rămăsese din varianta dinainte de ancorarea la
+ziua curentă, două paragrafe mai sus, și se contrazicea cu ea.)
+
+**Aceeași comandă populează și staging-ul: `pnpm seed:stage`, care citește `.env.stage`.** Nu e
+aceeași treabă, iar `checkSeedTarget` din `apps/api/src/seed/seed-target.ts` e tot ce le desparte.
+Pe orice host care nu e localhost, două condiții, amândouă refuzuri:
+
+- **`SEED_ALLOW_NON_LOCAL` numește baza de date**, nu spune „da". Era `=1`, ceea ce ajungea cât timp
+  singura țintă non-locală era ipotetică. Pe un runner de staging variabila trăiește permanent
+  într-un fișier de mediu, iar de acolo încolo un „da" autorizează orice scrie `DB_NAME` — inclusiv
+  o bază de producție nimerită dintr-o greșeală de tastare. Numele bazei nu poate autoriza decât
+  baza pe care a numit-o cineva, oricât ar sta acolo.
+- **`SEED_PASSWORD` e obligatorie.** `parola123` e în repo și în README, iar staging-ul e la
+  îndemâna oricui știe hostname-ul: a semăna cu ea acolo înseamnă un cont de admin publicat. Nu are
+  implicit — unul generat s-ar pierde până când ar vrea cineva să se autentifice —, deci seed-ul
+  refuză și spune ce variabilă lipsește. Și **nu o tipărește la final**, spre deosebire de cea
+  locală: ar ajunge în logul care a capturat rularea.
+
+Regula e o funcție pură, cu spec propriu (13 cazuri), fiindcă fiecare dintre ele e un moment în care
+comanda face ceva ireversibil unei baze de date. Fără S3 configurat pe staging, facturile rămân fără
+PDF și seed-ul consemnează ce a sărit — restul intră normal.
 
 Verificat capăt-la-capăt: bază goală → migrări → seed → aplicația pornită din `dist` → login ca
 admin → `GET /children` întoarce 14, `GET /invoices` întoarce 30 cu
@@ -135,10 +180,26 @@ restaurare e scrisă și **executată o dată**, cu durata măsurată și notat�
 **Acceptanță:** există un document cu pașii de restaurare și data ultimei probe reale. Dacă data e
 mai veche de șase luni, se repetă.
 
-**Neînceput, și blocat pe infrastructură.** Backup-ul cere instanța EC2 și bucket-ul S3 din
-[E01](E01-infrastructura-medii.md), S4. Mai important, acceptanța cere o **probă reală de
-restaurare, cu durata măsurată** — un document scris fără ea ar fi exact genul de siguranță
-imaginară pe care epicul o respinge. Se face când există ce restaura, pe ce restaura.
+**Livrat pe jumătate — jumătatea care nu închide story-ul.** Odată cu
+[E01](E01-infrastructura-medii.md) S4 există instanța, bucket-ul și `pg_dump`-ul zilnic:
+`/srv/itbridge/backup.sh`, rulat de cron la 03:15, cu ținte separate pentru cele două medii. Un dump
+gol nu se urcă și nu oprește rularea celuilalt mediu — o bază neseedată nu are voie nici să
+suprascrie un backup bun, nici să blocheze backup-ul care contează.
+
+**Ce lipsește e exact acceptanța: proba de restaurare, cu durata măsurată,** și documentul care o
+datează. Un backup care n-a fost restaurat niciodată e o presupunere, nu o siguranță — iar acum
+există și ce restaura, și pe ce. Story-ul rămâne deschis până se face.
+
+**Forma e însă decisă (septembrie 2026): `pg_dump` zilnic, urcat în același bucket S3** în care stau
+facturile și proiectele. Nu snapshot-uri de volum, nu un serviciu gestionat, nu replicare — o
+comandă și o linie de cron pe instanța din [E01](E01-infrastructura-medii.md) S4, cu cele 30 de zile
+de retenție lăsate pe o regulă de lifecycle a bucket-ului, ca ștergerea să nu depindă de scriptul
+care scrie. Baza e mică și intră înapoi într-un singur `pg_restore`; orice altceva ar fi apărare
+pentru un risc pe care școala nu-l are.
+
+Ce nu schimbă decizia e acceptanța: un backup din care n-a restaurat nimeni niciodată nu e un
+backup, e un fișier în S3. Proba rămâne, cu durata măsurată, și rămâne motivul pentru care story-ul
+nu se închide înainte să existe instanța.
 
 ### S5 · Retenție
 
@@ -152,7 +213,7 @@ păstrare), proiecte ale copiilor, conturi inactive. Implementată ca job progra
 
 **Decizia școlii: documentul fiscal stă în SmartBill, nu la noi.** Platforma nu păstrează PDF-ul
 facturii ca arhivă — SmartBill e cel care are obligația de păstrare și instrumentele pentru ea. Ce
-ține platforma e *evidența*: rândul din `invoices`, cu suma, luna, starea și plata, care e ce
+ține platforma e _evidența_: rândul din `invoices`, cu suma, luna, starea și plata, care e ce
 răspunde la „ce a plătit familia asta în martie" fără să fie un document fiscal.
 
 Consecința pentru retenție e că întrebarea grea a dispărut. Nu mai trebuie să știm câți ani se
@@ -278,19 +339,18 @@ Prima factură emisă cap-coadă din istoria proiectului, de altfel.
 
 ## Ce rămâne
 
-| Story | Stare | Blocat de |
-|---|---|---|
-| S1 · Migrarea de bază | ✅ livrat | — |
-| S2 · Migrările în deploy | ✅ cât se poate | — |
-| S3 · Seed | ✅ livrat | — |
-| S4 · Backup și restaurare | amânat | instanța EC2 și bucket-ul S3 |
-| S5 · Retenție | amânat deliberat | se reia la final, vezi mai jos |
+| Story                     | Stare              | Blocat de                      |
+| ------------------------- | ------------------ | ------------------------------ |
+| S1 · Migrarea de bază     | ✅ livrat          | —                              |
+| S2 · Migrările în deploy  | ✅ livrat          | —                              |
+| S3 · Seed                 | ✅ livrat          | —                              |
+| S4 · Backup și restaurare | ~ dump-uri zilnice | proba de restaurare, datată    |
+| S5 · Retenție             | amânat deliberat   | se reia la final, vezi mai jos |
 
-**S2 se închide aici.** Nu a existat niciodată vreun deploy, deci nu există un pipeline în care să
-se cableze migrările. Ce ține de repo e livrat: comenzile, `migrationsRun: false` ca ele să fie
-rulate explicit, și garda de CI care prinde entitățile divergente. Pasul de `migration:run` între
-`build` și `pm2 reload` se scrie odată cu pipeline-ul însuși, în [E01](E01-infrastructura-medii.md),
-S4 — ca o linie, nu ca un story.
+**S2 e închis.** Ce ținea de repo era livrat de mult: comenzile, `migrationsRun: false` ca ele să
+fie rulate explicit, și garda de CI care prinde entitățile divergente. Pasul de `migration:run` între
+`build` și `pm2 reload` s-a scris odată cu pipeline-ul însuși, în
+[E01](E01-infrastructura-medii.md), S4 — ca o linie în `deploy.sh`, exact cât s-a estimat.
 
 **S5 e amânat deliberat, nu blocat din neglijență.** Retenția facturilor cere răspunsul
 contabilului, iar politica atinge oricum [E07](E07-securitate-gdpr.md). Se reia la finalul valului

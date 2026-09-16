@@ -101,9 +101,9 @@ builder-ul, fără să execute SQL.
 
 **Bug-uri găsite și documentate, nu cimentate**, conform secțiunii „Riscuri":
 
-- **Calculul de preț la trei sau mai mulți copii** întoarce 0, iar cu reduceri devine negativ.
-  Două teste `it.failing` descriu comportamentul dorit; un al treilea consemnează comportamentul
-  actual, ca schimbarea să fie vizibilă când vine E15.
+- **Calculul de preț la trei sau mai mulți copii** întorcea 0, iar cu reduceri devenea negativ.
+  Două teste `it.failing` descriau comportamentul dorit; E15 a reparat regula, iar testele sunt
+  acum teste de regresie — exact tranziția pentru care există convenția.
 - **`findPayments` adaugă restrângerea pe utilizator de două ori**, deci același
   `leftJoin('parent.user', 'user')` apare dublu. TypeORM refuză un alias duplicat la execuție.
 
@@ -179,7 +179,7 @@ navigarea pe rută fără niciun alt semnal.
 ### S6 · Workflow CI
 
 `.github/workflows/ci.yml` rulează pe fiecare pull request: install, lint, typecheck, test, build,
-prin Turborepo, cu cache. Branch protection pe `main` cere CI verde.
+prin Turborepo, cu cache. Branch protection pe `release/prod` cere CI verde.
 
 **Acceptanță:** un PR cu un test stricat nu poate fi merge-uit. CI pe o schimbare doar de frontend
 nu reface build-ul de backend.
@@ -188,8 +188,9 @@ nu reface build-ul de backend.
 typecheck, test, build, cu cache Turborepo restaurat din `actions/cache` — și `e2e`, cu Postgres ca
 serviciu. Sunt exact comenzile pe care le rulează un dezvoltator local.
 
-**Ce lipsește:** branch protection pe `main`, cu `verify` și `e2e` ca verificări obligatorii. Se
-activează din Settings → Branches, nu din repo. Până atunci CI raportează, dar nu blochează.
+**Ce lipsește:** branch protection pe `release/prod`, cu `verify` și `e2e` ca verificări
+obligatorii. Se activează din Settings → Branches, nu din repo. Până atunci CI raportează, dar nu
+blochează.
 
 ## Dependențe
 
@@ -203,8 +204,8 @@ eșuând, nu pe cel actual.
 
 ## Definition of done
 
-CI verde obligatoriu pe `main`. Peste 80% acoperire pe modulele de bani și autorizare. Niciun test
-dezactivat fără comentariu care explică de ce și până când.
+CI verde obligatoriu pe `release/prod`. Peste 80% acoperire pe modulele de bani și autorizare.
+Niciun test dezactivat fără comentariu care explică de ce și până când.
 
 ## Întrebări deschise
 
@@ -224,12 +225,12 @@ Prima formă a acestui epic trecea familia eslint `no-unsafe-*` de la `error` la
 lint` să nu fie roșu din prima zi. Compromisul a picat: s-a dovedit că datoria era concentrată, nu
 răspândită, deci se putea plăti direct.
 
-| Sursă | Avertismente | Cauză |
-|---|---|---|
-| `pdf.service.ts` | 129 | `pdfkit` fără tipuri, plus `invoice: any` și metode private netipate |
-| controllere | ~59 | `@Request() req` netipat, deci `req.user.role` era acces pe `any` |
-| `discount.service.ts` | 22 | repository-ul injectat n-avea deloc tip |
-| restul | ~59 | cast-uri `as any` izolate, plus teste |
+| Sursă                 | Avertismente | Cauză                                                                |
+| --------------------- | ------------ | -------------------------------------------------------------------- |
+| `pdf.service.ts`      | 129          | `pdfkit` fără tipuri, plus `invoice: any` și metode private netipate |
+| controllere           | ~59          | `@Request() req` netipat, deci `req.user.role` era acces pe `any`    |
+| `discount.service.ts` | 22           | repository-ul injectat n-avea deloc tip                              |
+| restul                | ~59          | cast-uri `as any` izolate, plus teste                                |
 
 Reparațiile: `@types/pdfkit`, un tip `AuthenticatedRequest` cu payload-ul JWT, tipuri pe
 repository-uri și DTO-uri, și eliminarea cast-urilor `as any` din servicii.

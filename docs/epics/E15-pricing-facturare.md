@@ -1,6 +1,6 @@
 # E15 · Pricing și facturare v2
 
-**Status:** în lucru — **prețul pe ședință e livrat** · **Pistă:** Bani · **Depinde de:** E10, E11 · **Blochează:** E16, E21
+**Status:** în lucru — **prețul pe ședință e livrat**; S1, S2 și S3 sunt **scoase**, fiind scrise pe modelul pe modul · **Pistă:** Bani · **Depinde de:** E10, E11, E12 · **Blochează:** E16, E21
 
 > ## Ce s-a decis, și ce s-a livrat
 >
@@ -24,14 +24,36 @@
 > validare că fiecare câmp are un răspuns, sumele calculate în timp real, total jos, un buton.
 > Emiterea creează o factură pe familie, cu tariful întreg pe copilul cu cele mai multe ședințe.
 >
+> **Oricum s-ar calcula suma, reducerile se scad la final, din tabelul `discounts`.** Regula nu ține
+> de unitatea de preț și supraviețuiește oricărei schimbări de model: rândurile familiei pe luna
+> care se emite intră prin `discountTotal`, iar rezultatul e ce se facturează. Cazul care o face
+> obligatorie e recomandarea de −50% din [E20](E20-achizitie-lead.md) S5, dată acum dintr-un buton;
+> acolo e scrisă pe larg, cu ce trebuie verificat.
+>
 > **Zero e un răspuns, nu un câmp gol.** O lună fără plată — copilul n-a putut veni, sau școala a
 > decis să nu taxeze — se scrie în baza de date ca factură `waived`, de 0 lei, fără PDF. Rândul
 > există tocmai fiindcă n-are bani în el: o familie fără nicio factură pe octombrie arată la fel cu
 > o familie a cărei lună a uitat-o cineva, și doar a doua trebuie căutată.
 >
-> **Nelivrat din story-urile de mai jos:** catalogul de prețuri (S1), factura cu linii (S2),
-> planurile de plată (S3), tipurile de reducere (S5), PDF-ul din SmartBill (S7). Facturarea pe modul
-> nu mai e obiectiv.
+> **Al doilea drum de emitere a fost șters** (septembrie 2026, în E18/S5b): `/admin/invoices/new` și
+> `/admin/invoices/preview/:month` emiteau aceeași lună prin `POST /invoices/preview` plus
+> `POST /invoices` — pe numere calculate de server, nu văzute de un om, adică exact ce ecranul de mai
+> sus a fost construit să înlocuiască. Previzualizarea lui arăta pe deasupra o coloană „Număr Copii"
+> numărând toți copiii familiei, deși factura numără doar înscrierile `ACTIVE` de la E11/S4: două
+> răspunsuri la aceeași întrebare, iar cel de pe ecran era cel greșit. Cele două rute de server au
+> rămas, testate; nimic din interfață nu le mai cheamă.
+>
+> **Ce urmează: numărul nu se mai tastează.** Ecranul de emitere a scos calculul din cap, dar a
+> lăsat o valoare de introdus pentru fiecare copil. **S9** o scoate și pe aia: ședințele lunii se
+> numără din cataloage. O oră fără catalog nu s-a ținut și n-o plătește nimeni; una ținută o
+> plătește toată grupa, prezent sau absent; iar una bifată „vacanță" ([E12](E12-prezenta-orar.md)
+> S8) doar copiii care au venit la ea. Ecranul rămâne, fiindcă verificarea înainte de emitere
+> rămâne — se schimbă cine calculează, nu cine se uită.
+>
+> **Ce s-a ales cu story-urile de mai jos:** catalogul de prețuri (S1), factura cu linii (S2) și
+> planurile de plată (S3) sunt **scoase** — sunt scrise integral pe modelul pe modul, care nu mai e
+> obiectiv, la fel ca S8. Rămân deschise S5 (tipurile de reducere, livrate pe jumătate) și S6/S7,
+> amândouă în așteptarea SmartBill.
 
 ## Problemă
 
@@ -42,7 +64,8 @@ Modelul de facturare actual e lunar, cu prețuri hardcodate, și are un bug care
 ```ts
 let totalAmount = 0;
 if (profile.children.length === 1) totalAmount = 350;
-else if (profile.children.length === 2) totalAmount = 250 * profile.children.length;
+else if (profile.children.length === 2)
+  totalAmount = 250 * profile.children.length;
 ```
 
 **Nu există ramură pentru trei sau mai mulți copii.** `totalAmount` rămâne `0`, iar reducerile
@@ -64,7 +87,8 @@ Restul modelului e la fel de rigid:
 - Reducerile din `Discount` au doar `value`, fără tip. Nu se știe dacă e sumă fixă sau procent.
 - ~~Lunile cu vacanță se ajustau cu regula de trei simplă, manual.~~ **Rezolvat:** ecranul de
   emitere cere numărul de ședințe per copil și înmulțește. Calculul manual a dispărut; ce a rămas e
-  o valoare de tastat, verificată de o pereche de ochi înainte să plece ceva.
+  o valoare de tastat, verificată de o pereche de ochi înainte să plece ceva — iar S9 scoate și
+  tastarea, numărând ședințele din cataloagele lunii.
 
 ~~Direcția nouă — **700 de lei pe modul**, plătibili integral sau în două tranșe — nu încape în acest
 model.~~ **Direcția aceea a fost analizată și abandonată** — vezi caseta de sus. Unitatea rămâne
@@ -77,21 +101,28 @@ presupună.
 
 ## Rezultat
 
-Prețurile sunt configurabile. Unitatea de facturare e modulul. O factură are linii care explică din
-ce se compune. Planurile de plată în tranșe sunt de primă clasă. Un părinte cu trei copii primește
-suma corectă.
+**Rezultatul de mai jos e cel scris la începutul epicului, pe modelul pe modul.** Cel în vigoare, din
+caseta de sus: unitatea de facturare e **luna**, prețul e pe **ședință**, iar o lună scurtă costă mai
+puțin fără ca nimeni să calculeze nimic. Un părinte cu trei copii primește suma corectă — asta a
+rămas, și era jumătate din motivul epicului.
+
+~~Prețurile sunt configurabile. Unitatea de facturare e modulul. O factură are linii care explică din
+ce se compune. Planurile de plată în tranșe sunt de primă clasă.~~
 
 ## În scop
 
-- Catalog de prețuri configurabil, versionat.
-- Facturare pe modul, cu linii detaliate.
-- Planuri de plată: integral sau în tranșe.
-- Reguli pentru mai mulți copii, corecte la orice număr.
-- Înscrierea la mijlocul unui modul, cu plată proporțională.
-- Reduceri cu tip și regulă.
+- ~~Catalog de prețuri configurabil, versionat~~ — S1, scos.
+- ~~Facturare pe modul, cu linii detaliate~~ — S2, scos.
+- ~~Planuri de plată: integral sau în tranșe~~ — S3, scos.
+- Reguli pentru mai mulți copii, corecte la orice număr. **Livrat**, S4.
+- ~~Înscrierea la mijlocul unui modul, cu plată proporțională~~ — S8: iese singură din prețul pe
+  ședință.
+- Reduceri cu tip și regulă. **Tipul livrat**, S5.
 - Regenerarea PDF-ului.
 - Previzualizare înainte de emitere.
 - Trecerea prețului de pe site-ul public de pe lună pe modul, odată cu catalogul.
+- Numărarea ședințelor facturabile din cataloagele lunii, cu o singură valoare care mai intră de
+  mână: corectura pe copil, consemnată.
 
 ## În afara scopului
 
@@ -99,7 +130,22 @@ suma corectă.
 
 ## Story-uri
 
-### S1 · Catalogul de prețuri
+### S1 · Catalogul de prețuri — **scos, ca S8: descrie modelul pe modul**
+
+**Story-ul își contrazice acum propria interdicție.** Textul de mai jos spune, în litere, că
+„catalogul nu capătă niciodată o coloană de preț pe ședință — dacă apare una, e semn că s-a
+strecurat presupunerea greșită". Prețul pe ședință e, din S0, întregul model: 87,50 și 62,50, în
+`apps/api/src/modules/invoice/pricing.ts`. Iar cheia catalogului e modulul din
+[E10](E10-curriculum-module.md), care e scos din MVP — deci nici măcar rândurile n-ar avea de ce să
+se agațe.
+
+**Ce rămâne adevărat din el, și nu se rezolvă aici:** cele două tarife sunt tot constante în cod,
+deci o schimbare de preț e un deploy. Dacă vreodată devine o problemă, story-ul care o rezolvă e un
+catalog **pe ședință**, editabil din interfață — adică exact ce interzice ăsta. Se scrie de la zero,
+nu se reînvie. Și n-ar rezolva oricum a doua copie: `apps/web/shared/courses.ts` alimentează site-ul
+public, care nu vede baza de date.
+
+**Textul original**, păstrat ca urmă a deciziei:
 
 `Price`: modul din [E10](E10-curriculum-module.md), locație (opțional, dacă tarifele diferă),
 valabil de la, valabil până la, sumă, monedă. Versionat, ca o schimbare de tarif să nu rescrie
@@ -115,7 +161,19 @@ Constantele `350` și `250` dispar din cod.
 **Acceptanță:** o schimbare de preț se face din interfață și nu afectează facturile emise anterior.
 Două module de durate diferite din același curs produc aceeași sumă.
 
-### S2 · Factura pe modul, cu linii
+### S2 · Factura pe modul, cu linii — **scos, ca S8: descrie modelul pe modul**
+
+**Există numai fiindcă S3 produce două facturi dintr-o notă de plată.** Cu S3 scos, nivelul
+`Billing` de deasupra facturii n-are ce ține: o lună e o factură, iar `@Unique(['parent',
+'monthIssued'])` rămâne exact constrângerea corectă. Facturarea pe modul a fost analizată și
+abandonată la S0.
+
+**Ce rămâne adevărat din el:** factura e azi o singură sumă, fără detaliere, deci un părinte nu vede
+ce a costat fiecare copil. Liniile de factură sunt o idee bună și **n-au nicio legătură cu
+modulele** — se pot pune peste modelul pe ședință, cu o linie per copil și numărul lui de ședințe.
+Când se face, e story nou; ăsta cară cu el o entitate de care nu e nevoie.
+
+**Textul original**, păstrat ca urmă a deciziei:
 
 Fiindcă plata în tranșe produce **două facturi** (vezi S3), factura nu mai poate fi unitatea de
 calcul — e rezultatul lui. Apare un nivel deasupra: `Billing`, nota de plată a unei familii pentru
@@ -140,7 +198,19 @@ calculul reducerilor într-un loc mai greu de verificat.
 modul 2 · 700 lei" și „Maria · Robotică · modul 1 · reducere frați −25% · 525 lei", total 1225.
 Totalul se verifică prin adunare, iar suma facturilor emise din ea e exact 1225.
 
-### S3 · Planuri de plată
+### S3 · Planuri de plată — **scos, ca S8: descrie modelul pe modul**
+
+**Facturarea lunară e deja plata în tranșe.** Story-ul împarte 700 de lei pe modul în două tranșe,
+la înscriere și la mijloc; în modelul de azi familia primește oricum o factură pe lună, pentru
+ședințele lunii aceleia. Nu mai există o sumă mare de rupt în bucăți, deci nici planul care s-o
+rupă, nici jobul care emite a doua tranșă, nici regula de rotunjire pentru ca cele două să adune
+exact totalul.
+
+Consecința pentru cine citește în aval: **trimiterile către „a doua tranșă" din
+[E16](E16-plati-fiscal.md) și [E17](E17-comunicare-notificari.md) nu descriu nimic din ce se
+construiește.** Sunt marcate acolo.
+
+**Textul original**, păstrat ca urmă a deciziei:
 
 Părintele alege la înscriere, iar alegerea determină **câte facturi se emit**:
 
@@ -264,7 +334,7 @@ pe recomandare**: familiei care a adus, la factura următoare, și celei nou-ven
 lucrul care lipsește ca „50%" să fie o regulă a platformei, nu o socoteală a celui care emite.
 
 Până atunci reducerea se dă ca valoare absolută — ecranul de emitere arată totalul, iar jumătatea se
-tastează. Merge; ce se pierde e că nimic nu mai știe *de ce* suma aia, deci nici nu o poate reface
+tastează. Merge; ce se pierde e că nimic nu mai știe _de ce_ suma aia, deci nici nu o poate reface
 luna următoare sau verifica dacă e corectă.
 
 Două note pentru când se construiește tipul: procentul se aplică pe **totalul familiei**, nu pe
@@ -317,6 +387,11 @@ absență nu ieftinește luna și recuperarea din [E12](E12-prezenta-orar.md) S4
 și e bine așa cât timp numără o singură persoană — dar dacă vreodată numără mai multe, asta e
 întrebarea care trebuie să primească un răspuns scris, fiindcă cele două practici dau facturi
 diferite pentru aceeași lună.
+
+**Răspunsul e scris acum, la S9:** se numără ședințele **grupei**, nu prezența copilului. O absență
+nu ieftinește luna, iar recuperarea din [E12](E12-prezenta-orar.md) S4 rămâne instrumentul — exact
+ca în story-ul original. Singura excepție e ședința de vacanță, unde prezența chiar decide, și e o
+excepție bifată explicit de cineva, nu o practică de numărat.
 
 **Ce s-a livrat efectiv aici e o îmbunătățire de folosire:** ecranul de emitere listează familiile
 **pe grupe**, nu alfabetic, cu un titlu acolo unde începe fiecare grupă. Motivul e fluxul real —
@@ -376,11 +451,218 @@ același copil, într-un modul de 6, primește 233. O familie cu un copil înscr
 intrat la mijloc plătește 700 pentru primul și pro-rata minus 25% pentru al doilea, iar totalul e
 suma liniilor, la leu. Nicio notă de plată pro-rata nu generează a doua tranșă.
 
+### S9 · Ședințele facturabile se numără din catalog
+
+S0 a scos calculul din cap și l-a pus pe ecran: cine emite scrie numărul de ședințe al fiecărui
+copil, iar serverul înmulțește. Story-ul ăsta scoate și tastarea. **Numărul nu se mai scrie, se
+citește** — din cataloagele lunii, care există deja și pe care profesorul le completează oricum, la
+fiecare oră.
+
+Regula, întreagă:
+
+- **O ședință s-a ținut dacă are catalog.** Un singur marcaj — prezent **sau absent** — e semnalul.
+  O ședință fără nicio prezență înregistrată n-a avut loc, deci **n-o plătește nimeni**.
+- **O ședință ținută se facturează întregii grupe**, nu doar copiilor care au venit. Cine a lipsit
+  o dată plătește luna la fel ca cine a venit de fiecare dată: locul a fost ținut, profesorul a
+  fost în sală. Ce primește familia în schimb e recuperarea din
+  [E12](E12-prezenta-orar.md) S4, nu o factură mai mică.
+- **O ședință de vacanță se facturează doar celor care au venit.** Bifa e pe ședință
+  ([E12](E12-prezenta-orar.md) S8), pusă de cine face catalogul. Școala ține ora pentru cine vrea
+  să vină, iar cine n-a venit nu plătește o oră pe care, în vacanță, nu i-a cerut-o nimeni.
+
+Deci, per copil:
+
+```
+ședințe facturate = ședințe ținute, fără bifă, cât timp înscrierea lui era în vigoare
+                  + ședințe ținute, cu bifă, la care a fost marcat prezent
+```
+
+Restul rămâne exact cum e: numărul intră în `amountForSessions` din
+`apps/api/src/modules/invoice/pricing.ts`, tariful întreg merge la copilul cu cele mai multe
+ședințe, iar procentele se aplică pe prețul de listă. Se schimbă de unde vine numărul, nu ce se
+face cu el.
+
+**Septembrie, grupa de luni la 17:00.** Patru zile de luni în lună, dar în prima nu s-a ținut nimic
+și nu există catalog. Trei ședințe ținute, deci **fiecare copil din grupă are trei** — inclusiv cel
+care a fost doar la două. 3 × 87,50 pentru primul copil al familiei, 3 × 62,50 pentru fratele lui.
+
+**Decembrie, aceeași grupă, cinci copii înscriși.** Patru ședințe: două obișnuite, două bifate
+vacanță. La prima vin doi copii, la a doua patru, iar la cele două din vacanță vin Andrei și Maria.
+Toți cinci sunt facturați **două** ședințe, inclusiv cei trei care au lipsit la una dintre ele.
+Andrei și Maria sunt facturați **patru**: cele două ale grupei, plus cele două la care au venit. Un
+copil care ar fi prins o singură oră din vacanță ar avea trei — bifa se numără **pe ședință**, nu
+pe vacanță.
+
+**Luna facturată începe luni, nu pe 1.** O săptămână aparține lunii în care cade **lunea ei**,
+întreagă: săptămâna care se deschide luni, 31 august, e o săptămână de august, iar vinerea ei — 4
+septembrie — se facturează tot la august. Regula e în `billing-period.rules.ts`, cu inversa ei:
+`teachingMonthOf` spune cărei luni îi aparține o ședință, `teachingMonthRange` dă zilele pe care le
+acoperă o lună.
+
+Motivul e că școala predă în săptămâni și facturează ce a predat. Tăiată la 1 ale lunii, o
+săptămână ar pune două ședințe ale unei grupe pe o factură și trei pe următoarea, dintr-un motiv
+care n-are nicio legătură cu copilul, cu grupa sau cu orarul. Săptămâna e deja unitatea în restul
+platformei — termenul de anunțare din [E12](E12-prezenta-orar.md) S3, fereastra de mutare a unui
+copil din S4 și fereastra de reprogramare a unei ore din S9 sunt scrise toate în ea — iar asta e
+aceeași unitate ajungând la bani. Ultima are regula asta drept motiv: o oră de sărbătoare mutată în
+propria săptămână rămâne în aceeași lună facturată, orice ar spune calendarul; mutată peste
+săptămână, ar schimba luna în care se plătește.
+
+Ce iese din regulă, și e proprietatea pe care se sprijină: **lunile consecutive nu se suprapun și nu
+lasă goluri**, fiindcă fiecare săptămână e revendicată de exact o luni. Primele zile ale unei luni
+pot aparține celei dinainte — 1 august e o zi de iulie când august începe la mijloc de săptămână —
+și ăsta e chiar mecanismul, nu un caz-limită.
+
+**Nu e `billingMonthOf` din modulul de rapoarte, și cele două nu se unesc.** Aceea răspunde la altă
+întrebare: în ce lună calendaristică a _intrat un ban_. Banii nu se predau într-o săptămână, ci se
+mișcă într-o zi, deci un transfer pe 3 septembrie e încasare de septembrie, indiferent în ce
+săptămână stătea ora pe care o plătește. O singură funcție cu ambele înțelesuri ar muta venit
+între luni într-un raport pe care nimeni nu s-ar gândi să-l reverifice.
+
+**Perioada de înscriere delimitează numărătoarea, nu `Child.group`.** Un copil intrat pe 20 nu
+plătește ședințele de dinainte, iar unul transferat la mijlocul lunii plătește în fiecare grupă ce
+s-a ținut cât timp a fost în ea. Coloana de pe `Child` nu poate răspunde la asta — n-are timp în
+ea, și de aceea din [E11](E11-inscrieri-capacitate.md) S1 e derivată, cu un singur scriitor.
+„În ce grupă era copilul X pe 15 octombrie" e acceptanța lui `Enrollment`, literal.
+
+**Proba nu plătește, iar prezența nu e o portiță.** Se numără doar înscrierile `ACTIVE` — regula e
+din [E11](E11-inscrieri-capacitate.md) S4 și nu se schimbă aici. Bifa de vacanță **adaugă** peste o
+înscriere care se facturează oricum; nu poate factura pe cineva care altfel n-ar fi fost facturat.
+Fără regula asta, un copil la probă care trece pe la o oră de vacanță ar primi prima lui factură
+pentru ea.
+
+**Un catalog în care toți sunt absenți se facturează, la fel ca oricare altul.** Nu e o scăpare a
+regulii, e chiar ea: semnalul e catalogul, nu numărul de prezenți. Cineva a fost în sală și a
+răspuns la întrebarea „cine a venit" — răspunsul „nimeni" e un răspuns, iar ora s-a ținut. Ce apără
+regula în forma asta e singurul lucru pe care nu-l poate face nicio numărătoare: să deosebească o
+oră la care n-a venit nimeni de una pe care n-a marcat-o nimeni. Dacă pragul ar fi „cel puțin un
+copil prezent", cele două ar arăta identic în bază — și atunci un catalog uitat ar trece drept o zi
+proastă, tăcut, exact pe ecranul unde se decid banii. O oră care chiar nu s-a ținut se anulează, iar
+ședința anulată nu are catalog și nu se facturează; asta e ușa, și e explicită.
+
+**O recuperare nu se facturează niciodată.** Un copil pe care biroul l-a mutat pentru o săptămână
+la altă grupă poartă `AttendanceType.MAKE_UP` ([E12](E12-prezenta-orar.md) S4) și stă acolo în locul
+unei ore deja plătite în grupa lui. La numărătoarea de vacanță intră doar marcajele `regular`, altfel
+un copil mutat într-o zi de vacanță ar fi taxat a doua oară.
+
+**O ședință anulată nu are catalog, deci nu se facturează** — și nici nu poate căpăta unul: API-ul
+refuză să anuleze o ședință care are prezențe ([E12](E12-prezenta-orar.md) S5). Asta e regula care a
+făcut de prisos bifa „dă-le dreptul la o recuperare" de pe ecranul de anulare: familia nu plătește
+ora oricum, deci nu era nimic de reparat cu un credit. Ce mai poate face școala — dacă săptămâna are
+o oră potrivită — e să mute copilul acolo, iar aia e o plasare, nu o decizie de preț.
+
+**Catalogul devine purtător de bani, și e schimbarea cea mai mare din story.** O oră nemarcată nu
+mai e o gaură în evidență, e o oră neîncasată — 87,50 lei de fiecare copil din grupă. Cele două
+mementouri din [E12](E12-prezenta-orar.md) S7, cel de la minutul 15 și raportul de la 10:00,
+încetează să fie igienă și devin lucrul care apără venitul; iar `GET /class-sessions/unmarked`
+capătă în sfârșit un motiv să aibă și ecran.
+
+**Există o corectură pe copil, și e o decizie consemnată, nu un câmp de tastat.** Story-ul a fost
+livrat întâi fără nicio suprascriere, cu argumentul că un număr tastat ar repara factura și ar lăsa
+istoricul spunând altceva — peste trei luni, întrebat de ce a plătit familia aia trei ședințe din
+patru, răspunsul ar fi fost „așa a tastat cineva". Școala a răsturnat argumentul cu un fapt pe care
+îl scăpa din vedere: **factura poartă o singură linie de produs** — „Taxă lunară pentru cursuri", o
+sumă — niciodată zilele, deci documentul nu poate contrazice catalogul, orice număr ar intra în el.
+Ce apăra argumentul era evidența școlii, și exact asta e corectura: un rând `SessionCountOverride`
+per copil și lună, cu **cât** se facturează în locul numărului numărat, **de ce** (opțional), **cine**
+și **când**. Răspunsul la întrebarea de peste trei luni e pe rând, nu în capul cuiva.
+
+Cum se poartă:
+
+- **Ecranul arată amândouă numerele** — „3, corectat din 4" — iar factura ia numărul decis.
+  Corectura se aplică în fișă (`GET /invoices/worksheet`), nu la emitere, deci fișa și factura rămân
+  același număr calculat o singură dată.
+- **Se pune înainte, nu odată cu emiterea.** `PUT /invoices/overrides` scrie decizia, `DELETE
+/invoices/overrides/:luna/:copil` o scoate, moment în care catalogul vorbește din nou. `POST
+/invoices/issue` rămâne fără numere — un client care i-ar trimite primește 400, ca și până acum.
+- **Un rând per copil și lună.** A doua decizie o înlocuiește pe prima; „facturează trei" e ce a
+  vrut omul să spună, orice ar zice catalogul săptămâna următoare.
+- **Zero e o decizie** — „luna asta nu" — și duce la un rând `WAIVED`, ca orice lună care vine la
+  zero.
+- **Îngheață odată cu factura**, ca bifa de vacanță din [E12](E12-prezenta-orar.md) S8: după ce
+  familia are factură pe lună, corectura nici nu se pune, nici nu se scoate — `409
+MONTH_ALREADY_INVOICED`. Ar schimba ce s-a facturat deja.
+
+Ce rămâne adevărat din argumentul inițial: dacă numărul e greșit fiindcă **lipsește un catalog**,
+catalogul e lucrul de reparat — `PUT /attendance/session/:id/child/:childId` e un upsert idempotent,
+deci o oră uitată se marchează și în ianuarie —, iar o oră care nu s-a ținut se anulează, și ședința
+anulată e tot un răspuns. Corectura e pentru cazul în care catalogul e corect și numărul de plătit
+totuși nu e ăla: o înțelegere cu familia, o lună iertată, un copil venit doar la trei din motive pe
+care școala le-a acceptat. Semnul că se folosește prea des e că ar trebui să fie o regulă.
+
+**Verificarea rămâne, și e tot rostul ecranului.** `/admin/invoices/emitere` își păstrează forma —
+arbore familie → copii, total jos, un buton — dar valoarea e citită, nu tastată, și se poate
+desface: ce zile, care dintre ele sunt de vacanță, cine a fost prezent la acelea. Lângă numărul
+citit stă câmpul corecturii, umplut cu ce se va factura; ce se tastează acolo se salvează pe loc,
+pe copil, și fișa se reîncarcă cu totalul serverului. Deasupra listei stă lucrul pe care omul
+trebuie să-l vadă înainte să apese: **ședințele lunii fără catalog**, cu grupa și ziua fiecăreia,
+fiindcă ăia sunt banii care nu se cer. „Fără facturare manuală" nu înseamnă „fără ochi"; înseamnă că
+ochii se uită la ce s-a întâmplat, iar dacă decid altceva, decizia rămâne scrisă.
+
+**Consecință de operare:** luna se poate factura abia după ce ultima ei ședință are catalog, deci
+emiterea se mută pe primele zile ale lunii următoare. Termenul de 14 zile din
+[E16](E16-plati-fiscal.md) S7 curge de la `dateIssued`, deci restanțele nu se schimbă.
+
+**Un singur loc numără.** Regula pură — ședințe, marcaje și înscrieri la intrare, un număr per copil
+la ieșire — stă în `apps/api/src/modules/invoice/billable-sessions.rules.ts`, lângă `pricing.ts`,
+iar interogarea care o hrănește e o singură metodă, servind și previzualizarea, și emiterea, și
+rapoartele din [E21](E21-raportare-analytics.md). A doua numărătoare e cea care divergează, iar cea
+greșită ar fi mereu aia pe care n-o citește nimeni.
+
+Odată cu story-ul se schimbă și propoziția din `CLAUDE.md` care spune azi că „serverul facturează
+numerele de pe ecran, nu și le recalculează". De atunci încolo și le calculează, iar ecranul le
+arată — inversul exact, deci se rescrie acolo, pe ambele branch-uri.
+
+**Acceptanță:** o grupă cu patru ședințe în lună, una fără catalog, produce trei ședințe pentru
+fiecare copil înscris activ, indiferent de prezența lui. Aceeași grupă cu două ședințe bifate
+vacanță produce două pentru toți și patru pentru copiii marcați prezenți la amândouă. Un copil
+înscris pe 20 primește doar ședințele de după. Un copil la probă primește zero. O ședință al cărei
+catalog e făcut integral pe absențe se numără ca ținută, la fel ca oricare alta. Nicio cerere de
+emitere nu mai poate trimite de la client numărul de ședințe. O corectură pusă pe un copil schimbă
+suma facturii lui, rămâne consemnată cu cine, când și de ce, se vede pe fișă lângă numărul citit, și
+nu se mai poate pune sau scoate după ce familia are factura lunii.
+
+**Livrat, punct cu punct.** Regula pură e `billable-sessions.rules.ts` — ședințe, marcaje și
+înscrieri la intrare, un număr per copil la ieșire, cu fiecare caz din acceptanță ca test —, iar
+interogarea care o hrănește e una singură, `BillableSessionsService.countForMonth`, pe luna de
+predare din `teachingMonthRange`. Fișa (`GET /invoices/worksheet`) și emiterea (`POST
+/invoices/issue`) o cheamă amândouă, deci nu există un al doilea număr cu care ecranul și factura
+să nu fie de acord. `POST /invoices/issue` primește doar luna și data de emitere; `families` a fost
+scos din DTO, nu ignorat, deci un client care încă îl trimite primește 400.
+
+Două precizări pe care textul de mai sus le lasă ambigue, decise la livrare:
+
+- **„Doar înscrierile `ACTIVE`" înseamnă „nu proba".** Un copil retras pe 15 e `WITHDRAWN`, nu
+  `ACTIVE`, și datorează totuși ședințele ținute înainte de 15 — „cât timp înscrierea lui era în
+  vigoare" e regula pe perioadă, iar regula pe stare există ca să țină proba afară, nu ca să ierte o
+  familie că a plecat. Codul numără orice înscriere care nu e `TRIAL`, între `startDate` și
+  `endDate`.
+- **Un catalog făcut doar de un copil mutat temporar nu face ședința ținută.** Semnalul e marcajul
+  `regular`; un vizitator (`make-up`) nu-l dă, ca să nu poată nici factura grupa-gazdă pentru o oră
+  pe care n-a marcat-o nimeni dintre ai ei, nici să fie facturat el a doua oară.
+
+**Corectura pe copil a venit a doua zi**, după ce școala a văzut fișa și a cerut să poată îndrepta
+un număr înainte să plece factura. Tabela `session_count_overrides` (unică pe copil și lună),
+`PUT`/`DELETE /invoices/overrides`, câmpul de pe fișă și înghețul la facturare sunt livrate și
+testate cap-coadă: fișa arată amândouă numerele, factura poartă numărul decis, zero devine `WAIVED`,
+ștergerea readuce numărul din catalog, iar după emitere ambele rute răspund 409.
+
+Ce **nu** s-a livrat de aici: rapoartele din [E21](E21-raportare-analytics.md) nu numără încă
+ședințe, deci a treia gură a interogării stă goală, dar e aceeași metodă când vor. Și propoziția din
+`CLAUDE.md` a fost rescrisă odată cu story-ul, cum cerea el.
+
 ## Dependențe
 
 [E10](E10-curriculum-module.md) pentru ce e un modul, [E11](E11-inscrieri-capacitate.md) pentru cine
 a fost înscris când. **[E03](E03-testare-ci.md) e obligatoriu** — e epicul unde o greșeală se
 traduce direct în bani ceruți greșit.
+
+**[E12](E12-prezenta-orar.md) a devenit dependență adevărată odată cu S9.** Până acolo, prezența și
+facturarea erau două evidențe paralele care nu se atingeau: cine emitea tasta un număr, iar
+catalogul rămânea o chestiune de operare. De la S9, catalogul **este** baza de calcul, deci E15
+depinde de ședința ca entitate (E12 S1), de marcarea de pe telefon (S6) și de bifa de vacanță (S8).
+Consecința practică pentru planificare: S9 nu se poate începe înaintea lui E12 S8, care e mic, iar
+acceptanța lui se verifică pe cataloage reale, nu pe fixture-uri.
 
 ## Riscuri
 
@@ -389,6 +671,16 @@ citibile, marcate ca model vechi. Nu se recalculează retroactiv.
 
 **Trecerea de la lună la modul schimbă fluxul de numerar.** Dacă modulele mai multor grupe încep în
 aceeași săptămână, încasările se concentrează. Merită simulat înainte.
+
+**Un catalog necompletat nu mai e o scăpare administrativă, e venit pierdut.** Din S9, o ședință
+fără nicio prezență înregistrată nu se facturează nimănui — ceea ce e regula corectă, fiindcă
+alternativa e să ceri bani pentru o oră despre care nimic nu spune că s-a ținut, dar mută o
+categorie întreagă de greșeli din „evidență incompletă" în „bani neceruți". Ce ține riscul în frâu
+sunt cele două mementouri din [E12](E12-prezenta-orar.md) S7 plus lista de ședințe fără catalog
+afișată pe ecranul de emitere; ce **nu** îl ține în frâu e vreo verificare la emitere, fiindcă
+nimic nu poate distinge o oră neținută de una nemarcată în afară de omul care a fost acolo. Riscul
+ăsta apare abia când coada și cron-urile chiar rulează, adică la [E01](E01-infrastructura-medii.md)
+S4 — până atunci mementourile se scriu și nu pleacă.
 
 **Formularea facturii poate transforma recuperările în datorie.**
 [E12](E12-prezenta-orar.md) a decis că recuperarea e un instrument de retenție, nu o datorie
@@ -401,7 +693,9 @@ scriu în unități de modul, inclusiv la pro-rata (S8). Cele două epicuri treb
 
 Niciun preț în cod. Fiecare factură are linii care se adună la total. Planurile în tranșe
 funcționează. O înscriere la mijlocul unui modul produce o sumă proporțională, rotunjită la leu.
-Nicio combinație de copii, reduceri și proporționări nu produce o sumă absurdă.
+Nicio combinație de copii, reduceri și proporționări nu produce o sumă absurdă. Nicio sumă de pe o
+factură nu vine dintr-un câmp completat de mână: fiecare număr de ședințe se poate urmări până la
+ședințele și marcajele din care a ieșit.
 
 ## Decizii luate
 
@@ -413,6 +707,16 @@ Nicio combinație de copii, reduceri și proporționări nu produce o sumă absu
 | Reducere frați       | **−25% de la al doilea copil în jos**, primul întreg                                  |
 | Înscriere la mijloc  | **Pro-rata pe ședințele rămase**, rotunjit la leu, o singură factură — vezi S8        |
 | Abandon la mijloc    | Fără returnare; a doua factură nu se mai emite                                        |
+| Ce se facturează     | **Ședințele cu catalog**, întregii grupe; cele fără catalog, nimănui — S9             |
+| Toți absenți         | **Se facturează.** Semnalul e catalogul, nu numărul de copii prezenți                 |
+| Ședința de vacanță   | Bifă pe ședință (E12 S8); se facturează **doar** copiilor marcați prezenți la ea      |
+| Numărul de ședințe   | **Calculat, nu tastat.** Ecranul de emitere verifică și arată din ce e făcut          |
+| Corectura            | **Pe copil și lună, consemnată** — cât, de ce, cine, când; îngheață cu factura — S9   |
+
+**Ultimele cinci rânduri sunt din septembrie 2026 și înlocuiesc numărătoarea manuală din S0**, nu
+prețul: unitatea rămâne luna, tariful rămâne pe ședință, iar `pricing.ts` nu se atinge. Se schimbă
+doar sursa numărului — catalogul în locul tastaturii, cu o corectură care se scrie, nu se tastează
+în gol. Regula completă, cu exemplele lucrate pe septembrie și pe decembrie, e la S9.
 
 **Prețul fix pe durată variabilă e o decizie conștientă**, nu o scăpare. Ședința costă efectiv
 117 lei într-un modul de 6 săptămâni și 87 într-unul de 8. Peste un an școlar se echilibrează —
@@ -455,7 +759,7 @@ Condiția în care se repune întrebarea, scrisă ca să fie recunoscută la tim
 o înscriere care se finalizează online, sau o încasare de la o familie fără contract pe hârtie.**
 Ambele mută încheierea contractului în afara sediului, deci readuc termenul de 14 zile și, odată cu
 el, un caz real de stornat. Ziua în care una dintre ele se propune, întrebarea se pune înainte de
-implementare, nu după — și înainte ca [E07](E07-securitate-gdpr.md) S5 să publice termenii, fiindcă
+implementare, nu după — și înainte ca [E22](E22-termeni-si-date.md) S2 să publice termenii, fiindcă
 acolo regula devine text publicat.
 
 ## Întrebări deschise
@@ -464,6 +768,9 @@ acolo regula devine text publicat.
   contractul se semnează fizic, deci nu există contract încheiat la distanță. Motivul complet și
   condiția în care întrebarea revine, la [Decizii luate](#decizii-luate).
 - Prețul e același în ambele locații?
+- ~~O ședință cu catalog făcut, dar la care n-a venit nimeni: se facturează?~~ **Da**, decis de
+  patron. Semnalul e catalogul, nu numărul de prezenți: dacă cineva a marcat, ora s-a ținut.
+  Regula și motivul sunt la S9.
 - ~~Un copil înscris la mijlocul unui modul plătește integral, sau proporțional cu ședințele
   rămase?~~ **Proporțional**, pe ședințele rămase din modul, rotunjit la leu, într-o singură
   factură. Regula, exemplele și motivul pentru care asta nu contrazice prețul fix pe modul sunt la

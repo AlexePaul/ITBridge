@@ -105,7 +105,6 @@ grupă plină pune cererea pe listă în loc să o piardă.
 > coloana derivată ar contrazice tabelul din prima dimineață. Istoric mai vechi nu se reconstruiește
 > — D9.
 
-
 `Enrollment`: copil, grupă, modul, dată de început, dată de sfârșit, stare (`probă`, `activă`,
 `încheiată`, `abandonată`, `transferată`), motiv la ieșire. Înlocuiește legătura directă
 `Child.group` (`apps/api/src/entities/child.entity.ts`, `ManyToOne` nullable către `Group`), care
@@ -147,6 +146,42 @@ interogarea de mai sus se verifică pe ele. Un `POST` de înscriere cu token de 
 > ca flux propriu, cu ședință și fără factură), S5 (transferuri), S6 (verificări de compatibilitate)
 > și S7 (formarea grupelor).
 
+> **Revizuire livrată: înregistrarea se împarte în doi pași.** Nu e o întoarcere la
+> starea de dinainte de story, și distincția e tot ce contează aici.
+>
+> Ce a reparat S2 a fost un al doilea ecran **opțional**: `CreateProfileDto` cerea doar numele, iar
+> emailul, telefonul și adresa erau `@IsOptional()`, deci o familie putea trăi la nesfârșit fără
+> date de contact. Soluția aleasă atunci — mută tot în `register` — a rezolvat asta, dar a produs un
+> formular de **zece câmpuri obligatorii** ca prim ecran, exact la momentul în care
+> [E20](E20-achizitie-lead.md) cheltuiește un epic întreg coborând bariere. Un părinte care abandonează
+> la câmpul opt nu e o familie cu date incomplete, e o familie pe care școala n-a văzut-o niciodată.
+>
+> Se împarte astfel: **`register` cere doar ce e nevoie ca să existe un cont** — nume, email,
+> parolă —, iar restul se cere imediat după, pe `/user/profile-setup`, **la fel de obligatoriu ca
+> azi**. Cele două lucruri care fac diferența față de starea de dinainte de S2:
+>
+> - **Al doilea pas nu se poate sări.** Middleware-ul îl impune, iar câmpurile de acolo rămân
+>   obligatorii — inclusiv contactul de urgență, pe care ecranul de setup nu-l cere azi deloc. Aia e
+>   și o inconsecvență vie: cele două uși către un `Profile` cer azi zece câmpuri și cinci.
+> - **Condiția din middleware se schimbă din „n-are profil" în „profilul e incomplet".** Azi
+>   `useProfileInitialization` ridică steagul doar când nu există niciun rând de `Profile`; cu
+>   `register` scriind o coajă, aia n-ar mai fi niciodată adevărată și pasul doi n-ar porni nimănui.
+>
+> „Complet" se **derivă**, nu se stochează — aceeași regulă ca „activ" de mai sus, și din același
+> motiv: o a treia coloană de stare ar fi liberă să contrazică rândul pe care îl descrie. Iar
+> repartizarea unui copil cere de acum două lucruri, nu unul: contul activ (`PARENT_ACCOUNT_NOT_ACTIVE`)
+> **și** profilul complet (`PARENT_PROFILE_INCOMPLETE`), fiindcă o școală nu ia un copil în sală fără
+> un contact de urgență. Sunt două refuzuri diferite fiindcă se repară în două locuri diferite: unul
+> așteaptă un admin, celălalt așteaptă părintele.
+>
+> Unicitatea se mută odată cu câmpurile: `assertContactDetailsAreFree` verifică azi emailul **și**
+> telefonul la înregistrare; telefonul se verifică de acum la pasul doi, unde e tastat. E aceeași
+> formă ca profilul-coajă scris de programarea la probă în [E20](E20-achizitie-lead.md) S2, care nu
+> scrie nici email, nici telefon tocmai fiindcă acele coloane sunt unice.
+>
+> **Ce rămâne neatins:** cele două porți, `isAccountActive`, migrarea `AccountGates` și drumul
+> adminului care introduce o familie de la telefon. Completarea profilului nu e o a treia poartă —
+> e aceeași cerință de date pe care S2 a impus-o, cerută în două ecrane în loc de unul.
 
 Până la acest story `register` cerea `username` și `password`, atât — `RegisterDto` avea exact cele
 două câmpuri, cu `@Length(1, 30)` și `@MinLength(6)`. Datele de contact se cereau abia după
@@ -219,9 +254,20 @@ odată cu el; sunt în [În afara scopului](#în-afara-scopului), explicit, ca s
 > integrare pune o grupă de două locuri cu un copil înscris și o probă și verifică refuzul, fiindcă
 > ăsta e cazul care se pierde cel mai ușor.
 >
-> Excepția pentru admin există, dar cere un câmp explicit (`allowOverCapacity`) și lasă un
-> `warn` în log cu cine a făcut-o. **Jurnalul de audit pe care îl cere story-ul nu există** — e E06.
-> Până atunci asta e jumătatea onestă a promisiunii, nu promisiunea întreagă.
+> Excepția pentru admin există, cere un câmp explicit (`allowOverCapacity`) și **lasă un rând în
+> jurnalul de audit**, pe grupa a cărei capacitate a fost depășită: „cine a pus al unsprezecelea
+> copil în grupa 5, și când" se întreabă despre sală, nu despre o înscriere, iar răspunsul e un
+> `GET /audit?entityType=Group&entityId=5`. `changes` poartă ocuparea care s-a mișcat, nota —
+> capacitatea peste care a trecut, fiindcă un număr fără plafonul lângă el nu spune nimic. Rândul se
+> scrie **în tranzacția înscrierii**, deci o urmă nu poate supraviețui unui loc care s-a dat înapoi.
+>
+> De aici a venit și schimbarea de semnătură pe care story-ul o amâna: `enrol` și `transfer` primesc
+> acum un `Actor` — id **plus** numele copiat la scriere, fiindcă jurnalul nu are relație către
+> `users` și o urmă care arată spre un cont șters pierde exact partea pe care o citește cineva —, iar
+> `null` rămâne formularul public de probă, care n-are niciun cont în spate. Acela nu poate ajunge la
+> excepție, fiindcă nimic public nu trimite `allowOverCapacity`; dacă vreodată va putea, nota o va
+> spune. `warn`-ul din log rămâne și el: îl citește cine se uită la un deploy, rândul îl citește cine
+> întreabă în martie.
 >
 > Lista de așteptare: `WaitlistEntry`, ordonată după momentul cererii, cu index parțial care
 > împiedică o a doua cerere deschisă pentru același copil și aceeași grupă. Închiderea unei
@@ -233,10 +279,29 @@ odată cu el; sunt în [În afara scopului](#în-afara-scopului), explicit, ca s
 > [Întrebări deschise](#întrebări-deschise). E constantă în cod, nu setare, ca să fie o modificare
 > despre care se discută.
 >
-> **Ce nu s-a construit:** nimic nu mătură automat ofertele expirate. Locul se re-oferă când se mai
-> eliberează unul sau când un admin scoate cererea de pe listă. Un job de măturat e o sarcină
-> programată și își are locul lângă celelalte în ziua în care rulează ceva (E01/S4).
-
+> **Ofertele expirate se mătură acum**, prin `EnrollmentService.expireLapsedOffers`, chemat din
+> oră în oră de `waitlist-expiry.job.ts`. Lipsa lui nu era o rafinare amânată, era un defect care nu
+> se vedea de pe niciun ecran: `offerFreedSeat` se uită **numai** la cererile `WAITING`, deci o
+> ofertă la care nu răspundea nimeni rămânea `OFFERED` la capul cozii și ținea scaunul la nesfârșit
+> — grupa apărea plină, iar familia următoare nu era întrebată niciodată. Se repara doar din
+> întâmplare: când se mai elibera un loc în aceeași grupă, sau când un admin scotea cererea de mână.
+>
+> Trei alegeri în măturare:
+>
+> - **Familia căreia i-a expirat oferta primește un mesaj.** Ultimul lucru pe care i l-a spus școala
+>   a fost „ai un loc, confirmă până joi", iar asta a încetat să fie adevărat — aceeași socoteală
+>   pentru care o oră reactivată are mesaj propriu la E12/S5. Nu ceartă pe nimeni și nu închide ușa:
+>   cine era primul pe listă acum o oră e exact cine merită invitat să ceară din nou.
+> - **O tranzacție per cerere**, nu una pe toată măturarea. Două locuri în două grupe sunt două
+>   treburi fără legătură, iar o eroare la a doua n-are voie să anuleze ce i s-a spus deja primei
+>   familii. Ce chiar merge împreună — expirarea și oferta către următorul — stă în aceeași
+>   tranzacție.
+> - **Din oră în oră, nu din minut în minut.** Fereastra e de 48 de ore; o ofertă care expiră la
+>   14:03 și e măturată la 15:00 costă familia următoare cincizeci și șapte de minute dintr-un
+>   termen de două zile.
+>
+> Ca toate job-urile de aici, nu se declanșează până nu rulează ceva (E01/S4) — dar e scris și
+> testat, ceea ce e tot ce-l deosebește de un defect încă deschis.
 
 Capacitatea grupei există deja și e plafonată de sală — [E08](E08-multi-locatie.md) S3. Ce lipsește e
 **aplicarea ei la înscriere**: depășirea se blochează, cu excepție explicită pentru admin, care lasă
@@ -286,7 +351,6 @@ nu e o limită separată.
 > el. Dacă școala vrea totuși să factureze o familie al cărei copil e între grupe o lună, aia e o
 > decizie de preț și e a [E15](E15-pricing-facturare.md), nu o numărare tăcută de rânduri.
 
-
 O înscriere în starea `probă`, cu o singură ședință, care nu se facturează. La final, se transformă
 în înscriere activă sau se închide, cu motiv înregistrat.
 
@@ -323,7 +387,6 @@ generează factură. Numărul de locuri afișat pentru acea grupă scade cu unu 
 > ziua în care [E15](E15-pricing-facturare.md) aduce prețul pe modul, aici e locul unde apare
 > calculul.
 
-
 Mutarea unui copil în altă grupă, eventual în altă locație, închide înscrierea veche cu motivul
 `transfer` și o deschide pe cea nouă, păstrând legătura. Efectul asupra facturii curente e calculat
 și afișat înainte de confirmare.
@@ -356,7 +419,6 @@ schimbarea.
 > e la S3 și e tare. Story-ul nu mai e „parțial fiindcă e neterminat", ci „parțial fiindcă a doua
 > jumătate aparține unui epic scos din MVP".
 
-
 La înscriere se verifică vârsta față de intervalul grupei (`minAge` / `maxAge`, azi `int` pe
 `Group`) și cerințele prealabile ale modulului din [E10](E10-curriculum-module.md). Avertismente, nu
 blocaje — adminul poate trece peste, motivat.
@@ -383,7 +445,6 @@ sală de zece nu e.
 > `TEACHER`, deci nu există disponibilitate de citit. Sălile libere se văd pe `/admin/locations` și
 > nu se dublează aici.
 
-
 Un ecran care arată cererile neasignate — de pe lista de așteptare și din
 [E20](E20-achizitie-lead.md) — grupate pe vârstă, nivel și locație, ca să se vadă când s-au adunat
 destui copii pentru o grupă nouă. Ține cont de disponibilitatea profesorilor din
@@ -391,6 +452,36 @@ destui copii pentru o grupă nouă. Ține cont de disponibilitatea profesorilor 
 
 **Acceptanță:** răspunde la "am destui copii pentru o grupă nouă de Scratch la Titan?" fără muncă
 manuală.
+
+### S8 · Parola uitată și parola schimbată — **LIVRAT**
+
+Story-ul ăsta n-a existat în plan, și lipsa lui era chiar defectul: S2 a construit cele două porți
+prin care un cont devine folosibil și n-a construit niciodată drumul înapoi pentru cine își uită
+parola. Singura cale era biroul, la telefon, în program — pentru o platformă la care familiile intră
+seara.
+
+> **Ce s-a construit.** Trei rute: `POST /auth/forgot-password` și `POST /auth/reset-password`,
+> amândouă publice fiindcă premisa e un părinte care **nu** se poate autentifica, iar o poartă ar fi
+> un cerc; și `POST /auth/change-password`, după autentificare, care cere totuși parola actuală —
+> `AuthGuard` onorează un token un sfert de oră fără să atingă `sessions`, deci un tab uitat deschis
+> pe un calculator împărțit ajunge până acolo. În frontend: `/auth/forgot-password`,
+> `/auth/reset-password`, linkul de sub butonul de autentificare și formularul din profilul de
+> portal.
+>
+> Tabela `password_resets` e a treia din familia `sessions` / `email_confirmations` și se poartă la
+> fel: **tokenul nu se stochează niciodată**, doar un SHA-256. Ce diferă față de linkul de
+> confirmare — o oră în loc de patruzeci și opt, a doua cerere o omoară pe prima, niciun răspuns nu
+> spune dacă adresa are cont, adresa e înghețată la emitere și recitită la folosire, porțile contului
+> nu se consultă, iar toate sesiunile se revocă — e scris cu motivele în [CLAUDE.md](../../CLAUDE.md),
+> lângă regulile porților din S2. Aici nu se repetă: o a doua copie a unei reguli e copia care
+> divergează.
+>
+> **Ce n-are**: nicio întrebare de securitate, niciun cod pe SMS, nicio politică de complexitate
+> peste lungimea minimă pe care o cere deja înregistrarea. Prima e o parolă mai slabă cu alt nume, a
+> doua cere un al doilea furnizor, iar a treia mută costul pe familie fără să mute riscul.
+
+**Acceptanță:** un părinte încuiat afară intră la loc în cont fără să sune la școală, iar linkul pe
+care l-a folosit nu mai deschide nimic după aceea.
 
 ## Dependențe
 
@@ -547,10 +638,10 @@ factura B2C are nevoie de el — are răspuns și se închide acolo.
   și nu atât cât să lase următoarea familie să aștepte după cineva care s-a răzgândit. Rămâne
   deschisă până o confirmă școala; e `WAITLIST_RESPONSE_HOURS` în
   `apps/api/src/modules/enrollment/enrollment.service.ts`.
-**Închisă la implementarea S2: un cont neconfirmat sau neaprobat *se poate* autentifica.** Portalul
-îi arată o notificare cu ce mai lipsește, iar dacă adresa nu e confirmată, butonul de retrimitere a
-linkului. Un login care refuză fără să explice ar lăsa o familie care așteaptă să nu poată distinge
-„încă nu v-am aprobat" de „site-ul e stricat" — și, mai practic, retrimiterea linkului n-ar mai avea
-de unde să fie cerută. Contul nu poate face nimic: singura operațiune pe care o deblochează
-aprobarea, repartizarea într-o grupă, e oricum a adminului, iar restul portalului e gol prin
-construcție, fiindcă familia n-are încă nici grupă, nici factură.
+  **Închisă la implementarea S2: un cont neconfirmat sau neaprobat _se poate_ autentifica.** Portalul
+  îi arată o notificare cu ce mai lipsește, iar dacă adresa nu e confirmată, butonul de retrimitere a
+  linkului. Un login care refuză fără să explice ar lăsa o familie care așteaptă să nu poată distinge
+  „încă nu v-am aprobat" de „site-ul e stricat" — și, mai practic, retrimiterea linkului n-ar mai avea
+  de unde să fie cerută. Contul nu poate face nimic: singura operațiune pe care o deblochează
+  aprobarea, repartizarea într-o grupă, e oricum a adminului, iar restul portalului e gol prin
+  construcție, fiindcă familia n-are încă nici grupă, nici factură.

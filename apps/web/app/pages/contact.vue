@@ -170,7 +170,7 @@
           <p class="body-text">
             {{ location.street }}, {{ location.district }}, {{ location.city }} ·
             <NuxtLink :to="`/locatii/${location.slug}`" class="link"
-              >detalii despre locație</NuxtLink
+              >cum ajungi la sala din {{ location.neighbourhood }}</NuxtLink
             >
           </p>
         </div>

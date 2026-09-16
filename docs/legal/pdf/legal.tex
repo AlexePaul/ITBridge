@@ -1,0 +1,84 @@
+% Preamble additions for the PDF edition of the legal documents — E22 S2.
+%
+% Loaded by build.sh through pandoc's --include-in-header, after a small meta.tex that defines
+% \docshort, \docversion and \docdate for the document being built. Everything visual lives here;
+% the text stays in the Markdown next door, so the PDF can never say something the page does not.
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{titlesec}
+\usepackage{microtype}
+
+% The site's palette: warm ink, a bronze accent tuned for text rather than for chrome.
+\definecolor{ink}{HTML}{201F1D}
+\definecolor{accent}{HTML}{B68235}
+\definecolor{accentink}{HTML}{8A5F22}
+\definecolor{muted}{HTML}{6B6764}
+\definecolor{rule}{HTML}{D8D5D2}
+\definecolor{notebg}{HTML}{F3F0EA}
+\definecolor{draft}{HTML}{A3341F}
+
+\color{ink}
+% pandoc loads hyperref after these includes, so its setup waits for the document to begin.
+\AtBeginDocument{\hypersetup{linkcolor=accentink, urlcolor=accentink, citecolor=accentink}\urlstyle{same}}
+
+% Contents two levels deep, emitted by filters.lua after the draft notice; babel names it „Cuprins".
+\setcounter{tocdepth}{2}
+
+% A long placeholder or an address can be a little wider than the line; better a looser line
+% than a word in the margin.
+\setlength{\emergencystretch}{3em}
+
+% Headings carry their own numbers in the text („4. Contul de părinte"), so LaTeX adds none.
+\titleformat{\section}{\Large\bfseries}{}{0pt}{}
+\titleformat{\subsection}{\large\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{22pt plus 4pt minus 2pt}{8pt}
+\titlespacing*{\subsection}{0pt}{16pt plus 3pt minus 2pt}{6pt}
+
+% Running footer: which document, which version, where you are in it.
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0.4pt}
+\fancyfoot[L]{\footnotesize\color{muted}IT Bridge School~·~\docshort~·~versiunea \docversion}
+\fancyfoot[R]{\footnotesize\color{muted}pagina \thepage\ din \pageref{LastPage}}
+\fancypagestyle{plain}{\fancyhf{}\renewcommand{\headrulewidth}{0pt}\renewcommand{\footrulewidth}{0pt}}
+
+% A fact the code does not know, or a decision still to be taken — kept loud on purpose, so a
+% draft cannot be mistaken for a document.
+% \textcolor, not \color: the latter in vertical mode — first thing in a table cell — opens
+% an empty line before the text.
+\newcommand{\placeholder}[1]{\textcolor{draft}{\bfseries [[#1]]}}
+
+% The notice at the top of every draft: version, date, what it is not yet.
+\newsavebox{\draftbox}
+\newenvironment{draftnotice}
+  {\par\noindent\begin{lrbox}{\draftbox}\begin{minipage}{\dimexpr\linewidth-2\fboxsep\relax}\small}
+  {\end{minipage}\end{lrbox}\setlength{\fboxsep}{9pt}\colorbox{notebg}{\usebox{\draftbox}}\par\medskip}
+
+% The title block: the school in small caps, the title, then version and date on one line.
+\makeatletter
+\renewcommand{\maketitle}{%
+  \thispagestyle{plain}%
+  \begin{flushleft}
+    {\small\scshape\color{accentink}IT Bridge School\par}
+    \vspace{10pt}
+    {\LARGE\bfseries\@title\par}
+    \vspace{10pt}
+    {\small\color{muted}Versiunea \docversion~·~\docdate\par}
+    \vspace{6pt}
+    {\color{rule}\rule{\linewidth}{0.6pt}\par}
+  \end{flushleft}
+  \vspace{4pt}
+}
+\makeatother
+
+% Tables: a hairline under the header, breathing room in the cells.
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.25}
+% longtable is loaded by pandoc only when the document has a table, and only after this file.
+\AtBeginDocument{\ifdefined\LTpre\setlength{\LTpre}{8pt}\setlength{\LTpost}{12pt}\fi}
+
+% Slightly looser paragraphs than LaTeX's default, which reads too dense at 11pt on A4.
+\setlength{\parskip}{5pt plus 1pt}
+\setlength{\parindent}{0pt}

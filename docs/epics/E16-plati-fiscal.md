@@ -11,8 +11,10 @@ cu `Invoice` e unu-la-unu.
 
 Consecințele:
 
-- **Plata parțială e imposibilă de reprezentat.** Planul în două tranșe din
-  [E15](E15-pricing-facturare.md) nu are unde să existe.
+- **Plata parțială e imposibilă de reprezentat.** Un părinte care aduce 300 din 350 nu are unde să
+  fie consemnat. (Motivul scris inițial aici — planul în două tranșe din
+  [E15](E15-pricing-facturare.md) — a dispărut odată cu S3; consecința nu, fiindcă numerarul o
+  produce oricum.)
 - **Nu se poate verifica nimic.** O plată nu poate fi confruntată cu un extras bancar, pentru că nu
   are nici sumă, nici referință.
 - **Metoda e text liber, fără sumă în spate.** `method` e `varchar(100)` cu implicit `'cash'`.
@@ -36,7 +38,7 @@ Platforma **nu emite facturi**. Calculează ce se datorează și cere SmartBill 
 |                                         | Platforma | SmartBill |
 | --------------------------------------- | --------- | --------- |
 | Ce se datorează, cui, pentru ce modul   | ✓         |           |
-| Planuri de plată, tranșe, scadențe      | ✓         |           |
+| Scadențe și starea plății               | ✓         |           |
 | Afișare pentru părinte, istoric, portal | ✓         |           |
 | Serie și număr de factură               |           | ✓         |
 | PDF-ul fiscal                           |           | ✓         |
@@ -72,9 +74,10 @@ Verificat în [documentația lor](https://api.smartbill.ro/) și în
 
 ## Decizii luate
 
-**Plata în tranșe produce două facturi, nu o factură cu două încasări.** Alegerea părintelui la
-înscriere determină câte documente fiscale se emit: unul de 700, sau două — vezi
-[E15](E15-pricing-facturare.md) S3.
+~~**Plata în tranșe produce două facturi, nu o factură cu două încasări.**~~ **Fără obiect:**
+[E15](E15-pricing-facturare.md) S3 e scos, fiindcă factura lunară e deja plata în tranșe. Nu există
+suma de 700 pe modul care să se rupă în două, deci nici alegerea părintelui la înscriere, nici al
+doilea document fiscal. Ce urmează rămâne adevărat pentru **factura lunii**, care e una singură.
 
 Consecințe pentru integrare:
 
@@ -112,8 +115,9 @@ Consecințe, în ordinea în care lovesc:
 - **Numerarul face posibilă fizic o plată parțială**: un părinte poate aduce 300 din 350. Modelul
   refăcut la S1 o suportă — `Payment` primește sumă, relația devine mulți-la-unu, iar starea
   facturii se va deriva din suma plăților — dar rămâne o excepție tratată, nu un plan oferit.
-  Împărțirea sumei se face prin planul în tranșe din [E15](E15-pricing-facturare.md) S3, care
-  produce două facturi, nu prin încasări fracționate pe una singură.
+  Împărțirea sumei **nu** se mai face prin planul în tranșe: [E15](E15-pricing-facturare.md) S3 e
+  scos, iar factura lunară e deja bucata mică. O plată parțială rămâne exact ce spune rândul de mai
+  sus — o excepție tratată de model, nu un plan oferit.
 
 **Datele de facturare cerute de SmartBill sunt numele și adresa. Fără CNP.** Răspunsul închide
 jumătatea care aștepta contabilul, iar consecințele merg în patru direcții:
@@ -264,8 +268,9 @@ niciun câmp care să nu aibă rost și pentru transfer sau numerar.
 
 **Condiția în care se repune întrebarea**, scrisă ca să fie recunoscută la timp: când numărul de
 familii face din bifatul fiecărei încasări o corvoadă zilnică vizibilă, când părinții cer plata cu
-cardul de la ei, sau când apare dorința de încasare automată pentru tranșa a doua din
-[E15](E15-pricing-facturare.md) S3 — singurul lucru care chiar cere card salvat, nu doar comoditate.
+cardul de la ei. Al treilea motiv de pe listă — încasarea automată a tranșei a doua din
+[E15](E15-pricing-facturare.md) S3 — **a dispărut odată cu S3**; ce ar mai putea cere card salvat e
+încasarea recurentă a facturii lunare, și aia nu e cerută de nimeni.
 
 **Acceptanță:** niciuna. Story-ul e amânat, nu în lucru. Dacă apare o acceptanță aici, înseamnă că
 decizia s-a schimbat și se scrie ca decizie, cu data ei.
@@ -320,6 +325,48 @@ SmartBill emite documentul; platforma trimite confirmarea către părinte prin
 SmartBill, dar prin E17 rămâne evidența livrării într-un singur loc.
 
 **Acceptanță:** părintele primește confirmarea în aceeași zi, fără intervenție.
+
+> **Livrat: confirmarea. Documentul nu — îl blochează S0, ca și pe S5.**
+>
+> Story-ul are două jumătăți și doar una atârna de SmartBill. Cealaltă era o tăcere: până acum,
+> înregistrarea unei încasări schimba factura, scotea familia de pe lista de restanțe și oprea
+> mementourile — și **nu-i spunea nimic celui care tocmai plătise**. `PaymentModule` nici măcar nu
+> importa coada. O familie care dă un transfer bancar și nu aude nimic înapoi n-are cum să
+> deosebească „a ajuns" de „s-a pierdut", iar următorul lucru pe care îl primește e factura lunii
+> următoare.
+>
+> **Chitanța se datorează în clipa în care o plată _devine_ `succeeded`, nu când se scrie un rând
+> în `payments`.** Distincția e toată regula: un admin care trece un transfer ca `initiated` cât
+> timp extrasul e provizoriu n-a primit încă nimic, iar „am primit plata" în acel moment e o
+> promisiune despre banii altcuiva. Deci `createPayment` trimite dacă plata intră direct
+> `succeeded`, iar `updatePayment` trimite dacă tocmai a devenit — o editare pe o plată deja
+> reușită nu retrimite nimic, fiindcă nu a devenit adevărat nimic.
+>
+> **Cât a rămas de plată vine din recalculare, nu dintr-o a doua scădere.**
+> `recomputeInvoiceStatus` returnează acum `{ paid, outstanding, status }`: suma plăților reușite se
+> face acolo oricum, iar un `amount - plăți` scris încă o dată în compozitor ar fi a doua definiție
+> a lui „rest", liberă să se depărteze de cea care tocmai a stabilit starea facturii. Aceeași regulă
+> pe care o respectă S5 și S7, aplicată cu un nivel mai jos.
+>
+> **Două șabloane, nu unul cu `if`:** `payment-received` când factura e acoperită și
+> `payment-received-partial` când mai rămâne ceva, ca `payment-due-soon` și `payment-overdue`. Al
+> doilea spune cifra rămasă, ca familia să n-o afle din următorul memento.
+>
+> **Cheia de deduplicare e `receipt:<id-ul plății>`**, fără ziua din ea — spre deosebire de
+> mementourile din S7, care se repetă prin design și pe care ziua le separă. O plată se confirmă o
+> singură dată. Costul, spus pe față: dacă suma unei plăți e corectată în sus după ce chitanța a
+> plecat, familia rămâne cu o cifră care nu mai e bună — aia e un telefon, nu un al doilea email.
+> La fel, ștergerea unei plăți nu trimite nicio dezmințire.
+>
+> Mesajul se pune în coadă **în tranzacția care înregistrează banii**, cu managerul dat mai departe:
+> chitanța și plata care o justifică se scriu împreună sau deloc. Și trece prin `queueOrRecord`, nu
+> prin `queue`, deci o familie fără adresă lasă un rând `undeliverable` cu motiv, nu o tăcere
+> (E17/S5) — iar `queueMarketing` n-are ce căuta aici: o chitanță e executarea contractului, nu
+> reclamă, deci niciun comutator nu o poate opri.
+>
+> Ce rămâne din story e exact partea blocată: documentul fiscal emis de SmartBill și linkul către
+> PDF-ul lui. Când vine S2, chitanța capătă un link; propoziția pe care o citește familia nu se
+> schimbă.
 
 ### S7 · Restanțe
 
@@ -403,8 +450,7 @@ S0-S5 se fac fără să plece niciun email.
 
 Tot din E17 vine și mecanismul de fundal. **Coada temperată la 3 apeluri pe secundă din S3 nu e o
 coadă proprie**: folosește mecanismul decis în [E17](E17-comunicare-notificari.md) S3, cu limitarea
-de rată ca politică peste el. La fel jobul care emite tranșa a doua la mijlocul modulului și cel de
-restanțe din S7. Miza e că `apps/api` nu are azi niciun scheduler și niciun broker în dependențe,
+de rată ca politică peste el. La fel jobul de restanțe din S7. Miza e că `apps/api` nu are azi niciun scheduler și niciun broker în dependențe,
 deci prima implementare fixează alegerea pentru toate celelalte; două mecanisme paralele pe aceeași
 instanță ar însemna două comportamente la reîncercare și două locuri de căutat când un job nu a
 rulat.
