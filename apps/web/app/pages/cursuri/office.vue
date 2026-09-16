@@ -34,7 +34,7 @@
           <p class="body-text">
             O prezentare pe care o ține în fața grupei: un diapozitiv de titlu, câteva idei pe
             pagină, o imagine pe fiecare, o tranziție. E lucrarea pe care copiii o arată cel mai
-            des, și cea din care sunt exemplele de mai jos.
+            des.
           </p>
         </div>
         <div>

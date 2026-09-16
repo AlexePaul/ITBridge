@@ -754,8 +754,8 @@ accesibilitate — S6 o amână deliberat până se rescrie portalul în S4/S5 �
 manuală, iar cifrele de referință sunt în E18 S7.
 
 **Partea publică nu atinge backend-ul, cu două excepții declarate.** Cele șapte pagini publice
-vechi, formularul de contact, `robots.txt`, `sitemap.xml`, `llms.txt` și datele structurate
-funcționează fără `API_BASE` — de aceea site-ul stă în producție pe Vercel deși backend-ul de
+vechi, cele șase de sub `/cursuri/`, formularul de contact, `robots.txt`, `sitemap.xml`, `llms.txt`
+și datele structurate funcționează fără `API_BASE` — de aceea site-ul stă în producție pe Vercel deși backend-ul de
 producție nu e deployat. Prima excepție e `/proba`, formularul de programare la lecția de probă
 (E20/S2): el chiar are nevoie de API, fiindcă scrie un rând. E scris să pice moale — orele se cer
 doar din client, iar fără răspuns formularul tot se trimite și cititorul primește numărul de
@@ -768,9 +768,10 @@ pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts` (nivelurile �
 `subjects.ts` (uneltele și examenul, câte o pagină sub `/cursuri/`; nivelurile la care se predă o
 unealtă se **derivă** din `teaches`, nu se listează, iar lucrările copiilor intră tot acolo, în
 `projects`, când există — până atunci pagina nu desenează nicio galerie), `teachers.ts`, `seo.ts`
-(titlul și descrierea fiecărei pagini; `PUBLIC_PAGES` de acolo e lista din care ies sitemap-ul,
-`llms.txt` și prerandarea, iar `pageSeo` aruncă pentru un drum care nu e în ea), `structured-data.ts`
-(constructorii de JSON-LD). Aceleași constante alimentează pagina, graful JSON-LD, sitemap-ul și `llms.txt` —
+(titlul și descrierea fiecărei pagini; `PUBLIC_PAGES` de acolo e lista din care ies sitemap-ul și
+`llms.txt`, iar `pageSeo` aruncă pentru un drum care nu e în ea), `structured-data.ts`
+(constructorii de JSON-LD). Aceleași constante alimentează pagina, graful JSON-LD, sitemap-ul și
+`llms.txt` —
 **dacă schimbi un preț sau o adresă, schimbi acolo, într-un singur loc.** Un număr scris de mână
 într-o pagină e un bug, nu o scurtătură: NAP inconsecvent e cea mai frecventă cauză de poziționare
 locală slabă.

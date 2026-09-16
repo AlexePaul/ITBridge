@@ -13,7 +13,7 @@ import { MODULE_WEEKS_MAX, MODULE_WEEKS_MIN, PRICE_ONE_CHILD } from "./courses";
  * memory of assistants trained a year ago, and an undated page loses that
  * argument to a confident older one.
  */
-export const CONTENT_UPDATED_ISO = "2026-09-13";
+export const CONTENT_UPDATED_ISO = "2026-09-16";
 
 const MONTHS_RO = [
   "ianuarie",
@@ -151,7 +151,7 @@ const LOCATION_PAGES: PageSeo[] = [
 ];
 
 // One per subject, written out like the locations: the title is the phrase a
-// parent types, and a template would give five pages one sentence with the
+// parent types, and a template would give six pages one sentence with the
 // tool's name swapped. The paths have to match SUBJECTS in subjects.ts —
 // a test holds the two lists together.
 const SUBJECT_PAGES: PageSeo[] = [

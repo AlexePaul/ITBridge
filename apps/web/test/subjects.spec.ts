@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { COURSE_LEVELS, SUBJECTS_COVERED } from "../shared/courses";
 import { PUBLIC_PAGES } from "../shared/seo";
@@ -64,9 +66,16 @@ describe("SUBJECTS", () => {
   });
 
   it("points every project at an image the site serves, with a description", () => {
+    // The path is checked against the disk as well as against its shape: the
+    // work is added as data, without a build in between, and a picture that
+    // is not there would only be found by a parent.
+    const publicDir = fileURLToPath(new URL("../public", import.meta.url));
     for (const subject of SUBJECTS) {
       for (const project of subject.projects) {
-        expect(project.image).toMatch(/^\/images\/lucrari\/[a-z]+\/[a-z0-9-]+\.(jpe?g|png)$/);
+        expect(project.image).toMatch(
+          new RegExp(`^/images/lucrari/${subject.slug}/[a-z0-9-]+\\.(jpe?g|png)$`)
+        );
+        expect(existsSync(`${publicDir}${project.image}`)).toBe(true);
         expect(project.alt.length).toBeGreaterThan(10);
         expect(project.caption.length).toBeGreaterThan(0);
       }
