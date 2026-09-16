@@ -4,6 +4,7 @@ import { useSeo } from "~/composables/useSeo";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { useProfileInitialization } from "~/composables/useProfileInitialization";
+import { useUserStore } from "~/stores/userStore";
 
 definePageMeta({
   layout: "default",
@@ -20,6 +21,7 @@ useSeo({
 const { login } = useAuthApi();
 const { success } = useNotifications();
 const profileInitialization = useProfileInitialization();
+const userStore = useUserStore();
 
 const isLoading = ref(false);
 const errorMessage = ref<string | null>(null);
@@ -39,7 +41,13 @@ async function onSubmit(payload: { username: string; password: string }) {
     // failures, so awaiting cannot make the login fail.
     await profileInitialization.initializeProfile();
 
-    await navigateTo("/");
+    // Into the portal, not onto the public home page. The guards this comment relies on are
+    // `01.auth.global` and `02.profile-setup.global`, and both return early on a route that is not
+    // protected — `protectedPrefixes` is `/admin` and `/user`. So `navigateTo("/")` was the one
+    // destination where neither could run: the family arrived logged in, cookies set, looking at
+    // the visitor site, and the form step two exists to force was never reached. Registration has
+    // always landed in the portal; this is login catching up.
+    await navigateTo(userStore.user?.role === "ADMIN" ? "/admin/dashboard" : "/user/dashboard");
   } catch (error) {
     console.error("Login failed:", error);
     errorMessage.value = "Utilizator sau parolă incorectă. Te rugăm să încerci din nou.";
