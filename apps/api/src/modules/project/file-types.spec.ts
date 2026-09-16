@@ -26,8 +26,8 @@ describe('inspectFile', () => {
 
         expect(verdict.ok).toBe(true);
         expect(verdict.contentType).toBe('application/x.scratch.sb3');
-        // No thumbnail from it today: whether a `.sb3` can even give up a stage image is an open
-        // question with an answer of its own to write down (E14/S3b).
+        // Not an image, so the request that ingests it makes no picture. It gets one afterwards,
+        // from `ProjectThumbnailJob`, by drawing the stage out of the archive itself (E14/S3b).
         expect(verdict.isImage).toBe(false);
     });
 

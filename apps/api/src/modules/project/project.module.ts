@@ -12,6 +12,7 @@ import { ProjectDeliveryService } from './project-delivery.service';
 import { ProjectArchiveService } from './project-archive.service';
 import { AgentService } from './agent.service';
 import { ThumbnailService } from './thumbnail.service';
+import { ProjectThumbnailJob } from './project-thumbnail.job';
 
 /**
  * E14: a child's work, from a folder on a network share to that child's parent.
@@ -24,11 +25,14 @@ import { ThumbnailService } from './thumbnail.service';
  * transaction and never calls the provider. `StorageModule` for the bucket. The dependencies point
  * this way round on purpose — projects know they have something to say, and neither mail nor storage
  * has ever heard of a project.
+ *
+ * `ProjectThumbnailJob` is a fifth provider but not a fifth service: it holds a cron and nothing
+ * else, and every decision it makes is `ProjectService`'s — E14/S3b.
  */
 @Module({
     imports: [EntitiesModule, JwtModule.register({}), MailModule, StorageModule],
     controllers: [ProjectController, AgentController],
-    providers: [ProjectService, ProjectDeliveryService, ProjectArchiveService, AgentService, ThumbnailService, AuthGuard, RolesGuard],
+    providers: [ProjectService, ProjectDeliveryService, ProjectArchiveService, AgentService, ThumbnailService, ProjectThumbnailJob, AuthGuard, RolesGuard],
     exports: [ProjectService],
 })
 export class ProjectModule {}

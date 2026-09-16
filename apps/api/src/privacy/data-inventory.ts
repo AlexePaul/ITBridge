@@ -712,6 +712,7 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
                 readableBy: ['admin'],
             },
             hasThumbnail: { personal: false, why: 'state' },
+            thumbnailAttemptedAt: { personal: false, why: 'state' },
             sentAt: {
                 personal: true,
                 about: 'child',

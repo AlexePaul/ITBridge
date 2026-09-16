@@ -1,6 +1,6 @@
 # E14 · Proiectele elevilor
 
-**Status:** în lucru — **S1, S2, S3a, S4, S5 și S7 livrate** · **Pistă:** Operațiuni · **Depinde de:** E07, E08, E10, E12, E17 · **Blochează:** E19
+**Status:** în lucru — **S1, S2, S3a, S3b, S4, S5 și S7 livrate** · **Pistă:** Operațiuni · **Depinde de:** E07, E08, E10, E12, E17 · **Blochează:** E19
 
 **Fluxul de încărcare s-a schimbat, și cu el jumătate din epic.** Nu mai există aplicație web de
 încărcat, nici uploader autentificat cu contul profesorului, nici email automat de seară. În locul
@@ -15,8 +15,8 @@ E09, iar motivul e în [Decizii luate](#decizii-luate).
 
 ## Ce s-a livrat
 
-Șase story-uri din opt. Fluxul merge cap la cap: profesorul salvează în folderul copilului, agentul
-urcă, adminul se uită pe grupă și apasă, părintele deschide în portal.
+Șapte story-uri din opt, iar al optulea e scos din MVP. Fluxul merge cap la cap: profesorul salvează
+în folderul copilului, agentul urcă, adminul se uită pe grupă și apasă, părintele deschide în portal.
 
 - **S1** — `projects`, `project_versions`, `project_files`, `project_links`, plus
   `unassigned_files` și `agent_status`. Cheia de obiect e `projects/{projectId}/{versionId}/{fileId}`
@@ -31,6 +31,10 @@ urcă, adminul se uită pe grupă și apasă, părintele deschide în portal.
   cu index unic — o reîncercare după o conexiune căzută nu produce al doilea proiect.
 - **S3a** — miniaturi prin `sharp`, cu timeout, plafon la intrare și scară de calitate până sub
   100KB. Eșecul nu blochează încărcarea, niciodată.
+- **S3b** — miniatură și pentru ce nu se poate face în cerere: un cadru din video prin ffmpeg, și
+  **scena unui `.sb3` desenată din arhiva lui** — spike-ul cerut de story are răspuns, iar
+  răspunsul e da. Amândouă printr-un ceas propriu, `ProjectThumbnailJob`, a cărui coadă e două
+  coloane pe `projects`, nu o tabelă nouă.
 - **S4** — butonul de pe grupă. Un click produce N mesaje, fiecare cu **exact un destinatar și exact
   documentele copilului lui**; un părinte cu doi copii primește unul singur. A doua apăsare nu
   trimite nimic. Miniatura pleacă **atașată inline (CID)**, deci `outbox` a primit o coloană
@@ -42,8 +46,9 @@ urcă, adminul se uită pe grupă și apasă, părintele deschide în portal.
   singura scriere pe care o poate face un părinte aici, și e un mesaj către birou, nu o schimbare pe
   document.
 
-**Ce nu s-a livrat, și de ce:** S3b are nevoie de ffmpeg pe un host care nu există
-([E01](E01-infrastructura-medii.md) S4), iar **S6 a ieșit din MVP**: vitrina se publică de mână, cu
+**Ce nu s-a livrat, și de ce:** din S3b rămâne un `apt install ffmpeg` pe instanță — codul e scris
+și verificat pe ffmpeg adevărat, iar `.sb3` primește miniatură fără el —, iar **S6 a ieșit din
+MVP**: vitrina se publică de mână, cu
 două-trei lucrări puse în paginile publice, fiindcă mecanismul automat cerea oricum consimțământul
 din [E07](E07-securitate-gdpr.md) S2, care nu e construit. Consecința e scrisă în cod: nu există
 niciun câmp `isPublic` nicăieri. Un boolean pe `Project` ar fi fost al doilea loc în care se poate
@@ -279,8 +284,8 @@ ecran, cu motiv. Un agent care nu mai raportează e vizibil în interfață și 
   acceptabil fiindcă cifra se vede din interfață, nu fiindcă sună ceva.
 - **Drumul pentru fișiere mari există în API, dar agentul nu îl folosește încă.** `POST
 /projects/uploads/register` întoarce un URL semnat și `POST /projects/files/:id/complete` confirmă
-  că obiectul chiar a ajuns; agentul refuză deocamdată extensiile video la scanare. Video-ul oricum
-  n-are ce face fără S3b.
+  că obiectul chiar a ajuns; agentul refuză deocamdată extensiile video la scanare. Miniatura lui
+  există de la S3b, deci ce mai lipsește e partea de agent.
 
 ### S3a · Miniatură pentru imagini
 
@@ -305,10 +310,12 @@ primit, deci un poliglot valid și ca imagine și ca altceva nu supraviețuieșt
 
 ### S3b · Miniaturi pentru video și `.sb3`
 
-Cadrul din video cere ffmpeg pe host, iar host-ul nu există încă — intră prin
-[E01](E01-infrastructura-medii.md) S4, altfel nu are unde rula. Extragerea se face **într-un job
-separat, din aceeași coadă ca emailurile** din [E17](E17-comunicare-notificari.md) S3, nu în
-procesul care servește cereri: o extragere sincronă ar bloca event loop-ul la fiecare încărcare.
+Cadrul din video cere ffmpeg pe host, iar host-ul a apărut cu
+[E01](E01-infrastructura-medii.md) S4. Extragerea se face **într-un job separat**, nu în procesul
+care servește cereri: o extragere sincronă ar bloca event loop-ul la fiecare încărcare. Nu prin
+coada din [E17](E17-comunicare-notificari.md) S3, cum spunea story-ul scris înainte ca acea coadă să
+existe — `outbox` e un mesaj cu destinatar, subiect și corp, iar un rând de-al lui care n-ar fi un
+mesaj ar strica exact tabelul din care se citește ce a primit o familie.
 
 Pentru `.sb3` nu se știe încă dacă se poate — e un ZIP cu `project.json` și resurse, iar imaginea de
 scenă nu e garantat exportabilă. **E un spike cu rezultat propriu**, nu o promisiune de livrare, și
@@ -318,11 +325,58 @@ miniatura vine dintr-o captură salvată de profesor în același folder, lâng�
 **Acceptanță:** un video încărcat primește miniatură fără să întârzie ingestia. Spike-ul `.sb3` are
 un răspuns scris, da sau nu, înainte să se construiască ceva pe el.
 
-**Nelivrat**, blocat de [E01](E01-infrastructura-medii.md) S4: ffmpeg are nevoie de un host, iar
-host-ul nu există. Ce s-a livrat în avans e locul unde intră — `ThumbnailService` are o singură
-metodă, `fromImage`, iar un `fromVideo` alături de ea nu atinge nimic din ingestie. Spike-ul `.sb3`
-n-a fost făcut și nu trebuie făcut înainte de ffmpeg: dacă răspunsul e „nu", varianta de rezervă e o
-captură salvată de profesor lângă `.sb3`, iar aia merge deja azi.
+**Spike-ul `.sb3`: se poate.** Un `.sb3` e un ZIP obișnuit cu `project.json` înăuntru și cu
+resursele lui alături, fiecare numită după hash-ul propriilor octeți. `project.json` ține scena
+(480×360 unități), fundalul și, pentru fiecare sprite, cele trei numere care așază costumul — `x`,
+`y` și `size` — lângă centrul de rotație al costumului însuși. Atât înseamnă o imagine, compusă cu
+`sharp`-ul pe care miniaturile de imagine îl foloseau deja; nu e nevoie de nicio mașină virtuală
+Scratch și de nicio dependență nouă. Regula e în `apps/api/src/modules/project/sb3.ts`, iar
+citirea arhivei e scrisă de mână din același motiv pentru care e scrisă de mână și verificarea de
+tip din `file-types.ts`: pachetele evidente sunt ESM-only și mor în ts-jest.
+
+Trei lucruri **nu** se desenează, și fiecare e o decizie:
+
+- **Nu se execută scripturile.** Se desenează proiectul așa cum a fost salvat — costumul curent al
+  fiecărui sprite vizibil, acolo unde l-a lăsat editorul —, nu cum arată după steagul verde. Primul
+  e un fapt din fișier, al doilea ar cere VM-ul.
+- **Nu se rotește.** `rotationStyle: 'left-right'` se oglindește, fiindcă o oglindire e gratuită și
+  o pisică întoarsă cu spatele la propriul labirint se vede. Un unghi adevărat ar însemna rotirea
+  bitmap-ului și apoi rederivarea ancorei din dreptunghiul crescut, pentru o poză la care nu se
+  uită nimeni de două ori.
+- **Fără efecte grafice, fără clone, fără stratul de creion.** Toate trei sunt stare de rulare.
+
+Ce nu se acoperă deloc e `.sb2`: tot ZIP, dar cu resurse numerotate și cu `baseLayerID` în loc de
+`md5ext` — alt cititor, pentru un format pe care școala nu-l produce, deci e refuzat, nu susținut pe
+jumătate.
+
+**Livrat.** Cadrul din video iese prin ffmpeg (`-ss` înaintea lui `-i`, o secundă, apoi chiar primul
+cadru dacă ăla depășește clipul — deschiderile sunt negre destul de des cât „primul cadru" să fie un
+implicit prost), iar fișierul se scrie întâi pe disc, fiindcă ffmpeg trebuie să poată căuta în el și
+fiindcă drumul cu URL semnat există tocmai ca cele 200MB să nu treacă prin proces. Amândouă ies pe
+`fromImage`, deci o singură scară de calitate, un singur plafon și aceeași reîncodare.
+
+**Coada e `ProjectThumbnailJob`, iar coada nu e o tabelă**: „n-are miniatură și n-a încercat nimeni"
+e deja o întrebare pe care o răspund două coloane de pe `projects` — `hasThumbnail` și
+`thumbnailAttemptedAt` —, iar o tabelă de rânduri de procesat lângă ele ar fi al doilea răspuns la
+aceeași întrebare. Cinci proiecte pe trecere, la cinci minute: fiecare e un subproces sau un teanc
+de compoziții, iar procesul care le face e și cel care servește ecranul de grupe.
+
+**Lipsa lui ffmpeg nu consumă încercarea.** E distincția pe care coada de mail a plătit-o scump: un
+deploy fără cheie își îngropase singur mesajele, fiindcă fiecare eșec de configurare arăta ca un
+eșec al mesajului. Aici, `ThumbnailToolMissingError` e singura eroare care lasă rândul nestampilat
+— și prima amânare oprește trecerea, fiindcă restul candidaților sunt pe cale să întâlnească același
+host —, deci restanța se golește singură la primul tick de după instalarea uneltei.
+
+**Verificat pe ffmpeg adevărat**, nu pe un dublu: un clip de 4 secunde dă un JPEG de 480px, unul de
+0,4 secunde trece prin varianta de rezervă, iar un fișier care nu e video întoarce `null` cu motivul
+în log. Pentru `.sb3`, un proiect cu fundal, trei sprite-uri vizibile, unul ascuns și unul pe
+marginea scenei se desenează corect — sprite-ul de pe margine **se decupează** la scenă, fiindcă
+sharp refuză un strat care nu încape în pânză, deci fără decupare n-ar ieși o poză strâmbă, n-ar ieși
+nicio poză.
+
+**Ce rămâne în afara repo-ului:** `apt install ffmpeg` pe instanța de stage, un pas de aprovizionare
+ca și pinul PM2 din `/srv/itbridge/ecosystem.config.js`. Până atunci, `.sb3` primește miniatură
+oricum — el n-are nevoie de nimic instalat —, iar videourile așteaptă nestampilate.
 
 ### S4 · Trimiterea către părinte
 
@@ -539,11 +593,13 @@ trimis. Nu e blocantă, și e important că nu e: E10 a ieșit din MVP, iar E14 
 acolo. Prezența nu mai ordonează nicio listă și nu se deduce din nimic — vezi
 [Decizii luate](#decizii-luate).
 
-[E17](E17-comunicare-notificari.md) pentru livrare, pentru butonul de trimitere pe grupă din S9,
-pentru coada în care rulează S3b și pentru evidența de livrări din S5, unde apar părinții fără adresă.
+[E17](E17-comunicare-notificari.md) pentru livrare, pentru butonul de trimitere pe grupă din S9 și
+pentru evidența de livrări din S5, unde apar părinții fără adresă. **Nu și pentru S3b**: acela își
+are ceasul lui, fiindcă `outbox` ține mesaje, nu sarcini.
 
-[E01](E01-infrastructura-medii.md) S4 pentru S3b: ffmpeg pe host. S6 nu mai cere nimic de aici —
-vitrina de MVP e conținut static pe `release/prod`, pus de mână.
+[E01](E01-infrastructura-medii.md) S4 pentru S3b: ffmpeg pe host — instanța există, pachetul se
+instalează pe ea. S6 nu mai cere nimic de aici — vitrina de MVP e conținut static pe
+`release/prod`, pus de mână.
 
 [E02](E02-monorepo-tooling.md) a anticipat deja o a treia aplicație în monorepo, „un uploader pentru
 E14". Aia e agentul, și îi stă bine ca workspace lângă `apps/api` și `apps/web`: consumă același

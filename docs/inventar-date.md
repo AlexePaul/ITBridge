@@ -26,9 +26,9 @@ Trei lucruri de citit înainte de tabele:
 
 ## Pe scurt
 
-- **31 tabele**, cu **240 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
+- **31 tabele**, cu **241 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
 - **105 coloane sunt date personale**, în **23 tabele**.
-- Restul de **135** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
+- Restul de **136** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
 
 ## Datele personale, câmp cu câmp
 
@@ -182,7 +182,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 | marcaj de timp al rândului | 24 | `users.createdAt`, `children.createdAt`, `enrollments.createdAt`, `waitlist_entries.createdAt`, `absence_notices.createdAt`, `session_count_overrides.createdAt`, `session_count_overrides.updatedAt`, `payments.createdAt`, `projects.createdAt`, `project_versions.createdAt`, `project_files.uploadedAt`, `project_files.createdAt`, `project_links.createdAt`, `unassigned_files.reportedAt`, `leads.createdAt`, `leads.updatedAt`, `outbox.createdAt`, `announcements.createdAt`, `mail_templates.updatedAt`, `sessions.createdAt`, `password_resets.createdAt`, `email_confirmations.createdAt`, `audit_log.occurredAt`, `non_teaching_periods.createdAt` |
 | orar, sală, capacitate | 16 | `rooms.capacity`, `rooms.computers`, `rooms.hasProjector`, `rooms.hasWhiteboard`, `groups.name`, `groups.weekday`, `groups.startTime`, `groups.endTime`, `groups.capacity`, `groups.minAge`, `groups.maxAge`, `class_sessions.date`, `class_sessions.startTime`, `class_sessions.endTime`, `non_teaching_periods.startDate`, `non_teaching_periods.endDate` |
 | text scris de școală | 10 | `announcements.audience`, `announcements.kind`, `announcements.subject`, `announcements.bodyText`, `mail_templates.key`, `mail_templates.subject`, `mail_templates.bodyText`, `mail_templates.bodyHtml`, `class_sessions.notes`, `non_teaching_periods.name` |
-| starea rândului | 18 | `projects.hasThumbnail`, `project_versions.versionNumber`, `unassigned_files.reason`, `unassigned_files.resolvedAt`, `leads.noSeats`, `outbox.status`, `outbox.undeliverableReason`, `announcements.recipientCount`, `announcements.declinedCount`, `mail_templates.version`, `sessions.expiresAt`, `password_resets.expiresAt`, `email_confirmations.expiresAt`, `audit_log.action`, `class_sessions.status`, `class_sessions.isVacation`, `agent_status.lastSeenAt`, `agent_status.pendingFiles` |
+| starea rândului | 19 | `projects.hasThumbnail`, `projects.thumbnailAttemptedAt`, `project_versions.versionNumber`, `unassigned_files.reason`, `unassigned_files.resolvedAt`, `leads.noSeats`, `outbox.status`, `outbox.undeliverableReason`, `announcements.recipientCount`, `announcements.declinedCount`, `mail_templates.version`, `sessions.expiresAt`, `password_resets.expiresAt`, `email_confirmations.expiresAt`, `audit_log.action`, `class_sessions.status`, `class_sessions.isVacation`, `agent_status.lastSeenAt`, `agent_status.pendingFiles` |
 
 ## Ce se ratează ușor
 
