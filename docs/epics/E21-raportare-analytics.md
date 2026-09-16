@@ -121,11 +121,11 @@ ecranului `/admin/restante`, împărțită pe cele patru benzi — regula din S1
 la cine deține deja întrebarea", ținută și aici. Testele de integrare verifică acordul, la leu, cu
 lista de plăți, cu lista de restanțe și cu lista de facturi.
 
-**Ce n-a intrat, și de ce.** _Pe modul_: modulele sunt E10, scos din MVP, iar factura n-are linii. _Pe
-locație_: o factură e a familiei, iar o familie poate avea copii la ambele adrese — același motiv
+**Ce n-a intrat, și de ce.** *Pe modul*: modulele sunt E10, scos din MVP, iar factura n-are linii. *Pe
+locație*: o factură e a familiei, iar o familie poate avea copii la ambele adrese — același motiv
 pentru care restanțele nu se grupează pe locație. Niciuna dintre axe nu se poate deriva din rândurile
 care există, iar una inventată ar fi exact raportul de care avertizează Riscurile: construit pe date
-care nu sunt acolo. _Potrivirea cu contabilul_, adică acceptanța, nu se poate bifa înainte de E01 S4:
+care nu sunt acolo. *Potrivirea cu contabilul*, adică acceptanța, nu se poate bifa înainte de E01 S4:
 nu există date reale de potrivit. Raportul spune pe ce s-a calculat — câte facturi, câte plăți, câte
 neincluse — tocmai ca prima potrivire să aibă de unde porni.
 
@@ -168,7 +168,7 @@ iar o numărare scrisă aici ar fi a doua definiție, liberă să uite probele �
 o sală plină mai are loc. Câteva interogări mici pe fiecare grupă, la o încărcare de pagină, e prețul unui singur răspuns.
 
 **Orele moarte se măsoară pe orarul școlii, nu pe ceas.** Nu există o grilă fixă de ore, deci singura
-definiție onestă a unei ore în care o sală _putea_ ține curs e o oră în care altă sală a ținut. O sală
+definiție onestă a unei ore în care o sală *putea* ține curs e o oră în care altă sală a ținut. O sală
 goală marți la 16:00 cât timp cealaltă adresă predă la ora aia e o oră moartă; o duminică dimineață în
 care nu predă nimeni nu e. Regula e `deadSlotsOf` din `apps/api/src/modules/dashboard/reports.rules.ts`.
 

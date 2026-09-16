@@ -161,7 +161,7 @@ const SUBJECT_PAGES: PageSeo[] = [
     description:
       "Afișe, felicitări și colaje făcute de copii de 6–9 ani, la primul nivel de curs. Text, " +
       "imagine și culoare pe o pagină, cu un rezultat pe care îl arată acasă.",
-    summary: "Ce fac copiii de 6–9 ani în Canva, la ce nivel se predă și lucrări ale copiilor.",
+    summary: "Ce fac copiii de 6–9 ani în Canva și la ce nivel se predă.",
     priority: 0.8,
   },
   {

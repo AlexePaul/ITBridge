@@ -49,8 +49,7 @@
       <h2 class="kicker" id="unelte">Uneltele și examenul, pe rând</h2>
       <p class="body-text measure-wide">
         Fiecare nivel lucrează cu una sau două unelte, iar ultimele două pregătesc un examen.
-        Fiecare are pagina ei: ce face copilul acolo, la ce vârstă și, unde există, lucrări ale
-        copiilor care au trecut pe acolo.
+        Fiecare are pagina ei: ce face copilul acolo și la ce vârstă.
       </p>
       <div class="cols-3" data-reveal-children>
         <div v-for="subject in SUBJECTS" :key="subject.slug" class="card card-lg">

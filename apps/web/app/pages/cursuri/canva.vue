@@ -48,12 +48,19 @@
       <SubjectLevels :subject="subject" />
     </section>
 
-    <section class="section" data-reveal>
-      <h2 class="kicker">Lucrări ale copiilor</h2>
-      <SubjectGallery :subject="subject" />
-    </section>
+    <!--
+      Only once there is work to show. The page shipped before the first
+      pictures were exported, and an empty heading — or a sentence promising
+      them — is what a page published before it was ready looks like.
+    -->
+    <template v-if="subject.projects.length">
+      <section class="section" data-reveal>
+        <h2 class="kicker">Lucrări ale copiilor</h2>
+        <SubjectGallery :subject="subject" />
+      </section>
 
-    <hr class="rule" />
+      <hr class="rule" />
+    </template>
 
     <section class="section" data-reveal>
       <h2 class="kicker">Ce ne întreabă părinții despre Canva</h2>
