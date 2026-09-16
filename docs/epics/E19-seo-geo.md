@@ -266,10 +266,11 @@ după localizare. Consemnate aici, nu într-o secțiune nouă, fiindcă sunt ace
   3 redirecționări și un 404 — starea dorită, nu o problemă. Deci indexarea a venit din validarea
   cerută la 1 septembrie și din prerandarea din 2 septembrie, **înaintea** localizării din 13.
 - **Fiecare dintre cele cinci are acum expuneri**: `/cursuri` 12 (poziția 16, un clic),
-  `/locatii/drumul-taberei` 13 (poziția 9,4), `/locatii` 2, `/locatii/straulesti` 1, `/contact`
-  1. Pagina principală a urcat la 375 de expuneri și 12 clicuri; `/about`, slug-ul vechi, încă 35
-     de expuneri pe poziția 2,7 — Google n-a recitit redirecționarea, deci „Solicită indexarea" pe el
-     rămâne de făcut.
+  `/locatii/drumul-taberei` 13 (poziția 9,4), `/locatii` 2, iar `/locatii/straulesti` și
+  `/contact` câte una. Pagina principală a urcat la 375 de expuneri și 12 clicuri; `/about`,
+  slug-ul vechi, încă 35 de expuneri pe poziția 2,7 — Google nu recitise redirecționarea.
+  „Solicită indexarea" s-a cerut pe 16 septembrie, pentru el și pentru cele cinci, deci în raport
+  intră abia după 14.
 - **Primele interogări românești dincolo de „cursuri it"** (13, poziția 4,8): „cursuri
   programare" (poziția 7), „cursuri de informatica" (11), „curs c++" (11), „cursuri c++" (20),
   „cursuri informatica" (22), „cursuri informatica elevi" (56), „cursuri informatica copii" (57) —
