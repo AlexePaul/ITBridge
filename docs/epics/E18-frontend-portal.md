@@ -665,6 +665,15 @@ se proiectează cu restul zonei de admin, nu după regulile de telefon de mai su
 — **Îndeplinită**, măsurată la 390×844 (iPhone 12), în ambele teme: nicio pagină din drumul
 profesorului nu depășește lățimea ecranului, deci nu există pinch și nu există derulare laterală.
 
+**Un ecran a scăpat, și l-a găsit o a doua trecere la 390px, în septembrie 2026**: catalogul pe
+grupă, `/admin/attendance/group/[groupId]`. Lista de copii stătea într-un `w-1/3 mx-auto` **fără
+breakpoint**, deci pe 390px era o coloană de ~110px: fiecare nume se rupea în două rânduri, iar
+comutatorul — singurul control de pe ecran — ieșea pe sub marginea dreaptă. Rândul de dedesubt, cu
+selectorul de oră și cu **Salvează Prezența**, era `w-1/2`, adică 165px pentru două controale
+alăturate. Nu e drumul din E12 S6 — acela e `/admin/attendance/azi` și e curat —, dar e la o
+atingere de el, din `/admin/attendance`. Aceeași greșeală era deja notată pe ecranul vecin, cu
+aceeași cauză: o fracțiune de lățime scrisă o dată, pentru un singur ecran, pe un desktop.
+
 Ecranul în sine exista din E12 S6, cu butoanele lui mari și coada lui locală, iar story-ul ăsta
 părea să fie despre retușuri. Măsurat pe un telefon adevărat, patru dintre cele cinci lucruri
 găsite erau **în afara ecranului** — în cadru, în jetoane, în pipeline —, ceea ce e și explicația
