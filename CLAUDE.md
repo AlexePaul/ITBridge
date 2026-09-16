@@ -657,6 +657,17 @@ refuzată de Vue — optsprezece avertismente pentru optsprezece rânduri — ș
 ordinea în care a venit de la API, prefăcându-se sortată. Ecranul de plăți a promis „cele mai noi
 întâi" fără să fie, de la început. Copiază înainte de sortare: `[...store.lista].sort(...)`.
 
+**Și pe asta o ține acum un spec**, fiindcă felul în care pică e felul în care a trecut de review:
+nu e nicio excepție și nicio linie roșie — vectorul se întoarce, șablonul îl randează, fiecare rând
+e corect —, greșită e doar **ordinea**, adică singurul lucru pe care cititorul nu-l poate verifica
+uitându-se la ecran. `sorting-copies-first.spec.ts` citește sursele ca AST, script-ul din `.vue`
+inclusiv, și pică pe fișier și linie. Linia trasată e **„citit de pe altceva"**: `store.items.sort()`
+sau `invoices.value.reverse()` — orice ajuns printr-un punct — are un proprietar în altă parte și se
+copiază întâi; un vector local (`rows.sort(...)`, construit cu câteva rânduri mai sus) e al funcției
+care îl sortează și e lăsat în pace, cum face `user/absente.vue`. Și `reverse` e acolo, nu doar
+`sort`: reordonează tot pe loc. Ce vine dintr-un `filter`, `map`, `slice` sau dintr-un spread e deja
+vector proaspăt — adică aproape toate sortările din aplicație.
+
 **Un buton de retry care nu șterge eroarea apasă degeaba.** `AdminError` cheamă `load()` din nou, dar dacă acel `load()` nu pune `loadError` pe gol **înainte** de cerere, a doua încercare reușește, datele vin, iar `v-else-if="loadError"` ține cardul de eroare deasupra lor: cererea pleacă, primește 200, și pe ecran nu se schimbă nimic. Cinci ecrane au fost livrate așa, și niciunul n-a fost găsit citind — butonul e acolo, e legat, cheamă funcția care trebuie, iar ce lipsește sunt două linii la începutul unei funcții aflate la douăzeci de rânduri distanță. Forma corectă e `loading.value = true;` plus golirea lui `loadError`, amândouă înaintea lui `try`; `retry-clears-error.spec.ts` mătură sursele după ordinea asta.
 
 **Nu pune `@input` pe un câmp de text Nuxt UI.** Handler-ul rulează, dar **înainte** ca `v-model` să scrie caracterul tocmai tastat: Vue îmbină ascultătorul venit prin `$attrs` cu al componentei într-un vector și le cheamă în ordinea aia, al nostru primul. Deci orice citește din model e cu o tastă în urmă. Căutarea de copii din catalog a fost exact asta: `a` nu găsea nimic (filtra pe șirul gol), `aa` găsea unsprezece (filtra pe `a`), iar un nume întreg nu găsea niciodată nimic. Derivă din model — un `computed` nu poate fi decalat față de ce citește. `@change` și `@blur` sunt emit-uri declarate și se produc după actualizare, deci sunt în regulă. `no-input-listener.spec.ts` ține linia.
