@@ -19,6 +19,9 @@ import {
     provideMockRepository,
 } from 'src/testing/repository.mock';
 
+/** The admin the audit log would store: the id, and the username copied at write time. */
+const ADMIN = { userId: 42, username: 'admin' };
+
 describe('ChildService', () => {
     /** E07/S3. Field names reach the trail; values never do. */
     let audit: { recordPersonalDataChange: jest.Mock };
@@ -264,18 +267,18 @@ describe('ChildService', () => {
         // `Child.group`. What is worth asserting here is that nothing writes the column behind its
         // back — which is the whole reason the delegation exists.
         it('assigns by opening an enrolment, not by writing the column', async () => {
-            await service.assignChildToGroup(1, 2, 42);
+            await service.assignChildToGroup(1, 2, ADMIN);
 
             // `acknowledgeWarnings` defaults to false: the S6 age check refuses once and asks, and
             // this route answers only when the screen passes the confirmation through.
-            expect(enrollments.enrol).toHaveBeenCalledWith({ childId: 1, groupId: 2, acknowledgeWarnings: false }, 42);
+            expect(enrollments.enrol).toHaveBeenCalledWith({ childId: 1, groupId: 2, acknowledgeWarnings: false }, ADMIN);
             expect(manager.save).not.toHaveBeenCalled();
         });
 
         it('passes the S6 confirmation through when the screen sends one', async () => {
-            await service.assignChildToGroup(1, 2, 42, true);
+            await service.assignChildToGroup(1, 2, ADMIN, true);
 
-            expect(enrollments.enrol).toHaveBeenCalledWith({ childId: 1, groupId: 2, acknowledgeWarnings: true }, 42);
+            expect(enrollments.enrol).toHaveBeenCalledWith({ childId: 1, groupId: 2, acknowledgeWarnings: true }, ADMIN);
         });
 
         it('removes by closing the enrolment in force, so the seat is actually freed', async () => {

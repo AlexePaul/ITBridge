@@ -1104,6 +1104,11 @@ Patru lucruri de ținut minte dacă adaugi un scriitor nou lângă facturi, plă
 - **Derivările nu se consemnează.** `recomputeInvoiceStatus` mută starea facturii fiindcă s-au
   adunat plăți; e o consecință, nu o decizie a nimănui. Un jurnal în care fiecare derivare stă lângă
   deciziile oamenilor e un jurnal în care deciziile nu se mai găsesc.
+- **A patra ușă e capacitatea depășită**, lângă bani și date personale: `allowOverCapacity` e o
+  decizie a unui om despre o sală, deci `assertRoomForOneMore` scrie un rând **pe grupă**, nu pe
+  înscriere — întrebarea e „cine a pus al unsprezecelea copil în grupa 5", și se pune despre
+  cameră. De aici și `Actor` în loc de `actingUserId` pe `enrol` și `transfer`; `null` e formularul
+  public de probă, singurul apelant fără cont, iar nota spune care dintre cele două a fost.
 - **Actorul vine din token, prin `actorFrom(req)`**, și se stochează denormalizat — id plus numele
   copiat la scriere, fără relație către `User`. O urmă care arată către un rând ce poate fi șters
   pierde exact intrările care contează: cele despre un cont scos ulterior. Pentru munca programată

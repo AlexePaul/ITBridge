@@ -254,6 +254,48 @@ describe('Enrolments and capacity (e2e)', () => {
                 .expect(201);
         });
 
+        it('leaves the override in the audit log, answerable by group', async () => {
+            // S3's acceptance, end to end: "who put a second child in a room with one chair, and
+            // when". Asked of the group, because the exception is about the room.
+            const groupId = await makeGroup({ capacity: 1 });
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId })
+                .expect(201);
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId, allowOverCapacity: true })
+                .expect(201);
+
+            const trail = await request(app.getHttpServer()).get(`/audit?entityType=Group&entityId=${groupId}`).set('Authorization', admin.auth).expect(200);
+
+            expect(trail.body).toHaveLength(1);
+            expect(trail.body[0]).toMatchObject({
+                entityType: 'Group',
+                entityId: groupId,
+                changes: { seatsTaken: { from: 1, to: 2 } },
+                note: 'Înscriere peste capacitate: 2 copii într-un loc.',
+            });
+            // The name is copied in at write time, so the trail stays readable after the account is
+            // gone — the whole reason the actor is denormalised.
+            expect(trail.body[0].actorUsername).toBe(admin.username);
+        });
+
+        it('writes nothing to the trail for an enrolment that fits', async () => {
+            const groupId = await makeGroup({ capacity: 2 });
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId })
+                .expect(201);
+
+            const trail = await request(app.getHttpServer()).get(`/audit?entityType=Group&entityId=${groupId}`).set('Authorization', admin.auth).expect(200);
+
+            expect(trail.body).toHaveLength(0);
+        });
+
         it('frees the seat when an enrolment closes', async () => {
             const groupId = await makeGroup({ capacity: 1 });
             const childId = await makeChild();

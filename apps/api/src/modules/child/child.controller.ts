@@ -72,9 +72,10 @@ export class ChildController {
         @Body() assignToGroupDto: AssignToGroupDto,
         @Request() req: AuthenticatedRequest,
     ) {
-        // The acting user is passed on because an over-capacity enrolment names whoever made it in
-        // the log. This route never allows one, but the service takes the same argument either way.
-        return this.childService.assignChildToGroup(childId, groupId, req.user.sub, assignToGroupDto.acknowledgeWarnings === true);
+        // The actor is passed on because an over-capacity enrolment is written into the audit log
+        // under whoever made it. This route never allows one, but the service takes the same
+        // argument either way, and a name copied at write time is what the trail keeps.
+        return this.childService.assignChildToGroup(childId, groupId, actorFrom(req), assignToGroupDto.acknowledgeWarnings === true);
     }
 
     @Delete('/:childId/groups/:groupId')
