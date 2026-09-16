@@ -588,8 +588,12 @@ deschisă, cu 2,61:1 și numele elementului. Cu el la loc, trece.
 
 **Zona autentificată, măsurată și trecută sub aceeași poartă.** S4 și S5 au rescris ecranele, deci
 verificarea nu mai cimentează nimic. `pnpm test:a11y:auth` — `apps/web/scripts/check-a11y-auth.mjs`,
-un job propriu în CI — se autentifică și trece axe peste **51 de ecrane** de admin și de portal, în
-ambele teme, pe aceleași etichete WCAG. Prima rulare a găsit **80 de încălcări**, și niciuna nu era
+un job propriu în CI — se autentifică și trece axe peste **toate ecranele** de admin și de portal
+(51 la livrare, 53 azi), în ambele teme, pe aceleași etichete WCAG. **De la septembrie 2026 pică și
+pe o eroare scrisă în consola browserului**, nu doar pe axe: e singurul lucru care deschide fiecare
+ecran într-un browser adevărat, pe un build adevărat, iar o a doua rulare a aceleiași liste doar ca
+să citească aceeași consolă ar dubla degeaba cel mai lent job din CI. Cererile picate sunt excluse —
+job-ul n-are stocare de obiecte, deci ecranul de PDF răspunde 500 acolo pentru totdeauna. Prima rulare a găsit **80 de încălcări**, și niciuna nu era
 a ecranului pe care apărea:
 
 - **Șase jetoane de culoare Nuxt UI stăteau pe 500-ul rampei lor.** `--ui-primary` fusese reparat la
@@ -660,6 +664,15 @@ se proiectează cu restul zonei de admin, nu după regulile de telefon de mai su
 **Acceptanță:** un profesor marchează prezența unei grupe de pe telefon, fără să mărească pagina.
 — **Îndeplinită**, măsurată la 390×844 (iPhone 12), în ambele teme: nicio pagină din drumul
 profesorului nu depășește lățimea ecranului, deci nu există pinch și nu există derulare laterală.
+
+**Un ecran a scăpat, și l-a găsit o a doua trecere la 390px, în septembrie 2026**: catalogul pe
+grupă, `/admin/attendance/group/[groupId]`. Lista de copii stătea într-un `w-1/3 mx-auto` **fără
+breakpoint**, deci pe 390px era o coloană de ~110px: fiecare nume se rupea în două rânduri, iar
+comutatorul — singurul control de pe ecran — ieșea pe sub marginea dreaptă. Rândul de dedesubt, cu
+selectorul de oră și cu **Salvează Prezența**, era `w-1/2`, adică 165px pentru două controale
+alăturate. Nu e drumul din E12 S6 — acela e `/admin/attendance/azi` și e curat —, dar e la o
+atingere de el, din `/admin/attendance`. Aceeași greșeală era deja notată pe ecranul vecin, cu
+aceeași cauză: o fracțiune de lățime scrisă o dată, pentru un singur ecran, pe un desktop.
 
 Ecranul în sine exista din E12 S6, cu butoanele lui mari și coada lui locală, iar story-ul ăsta
 părea să fie despre retușuri. Măsurat pe un telefon adevărat, patru dintre cele cinci lucruri

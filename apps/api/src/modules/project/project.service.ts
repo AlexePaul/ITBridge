@@ -9,7 +9,7 @@ import {
     UnsupportedMediaTypeException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Not, Repository } from 'typeorm';
 import { Project } from 'src/entities/project.entity';
 import { ProjectVersion } from 'src/entities/project-version.entity';
 import { ProjectFile } from 'src/entities/project-file.entity';
@@ -19,12 +19,12 @@ import { ClassSession } from 'src/entities/class-session.entity';
 import { Role } from 'src/enum/role.enum';
 import { ProjectSource } from 'src/enum/project-source.enum';
 import { ProjectStatus } from 'src/enum/project-status.enum';
-import { S3Service } from 'src/modules/storage/s3.service';
+import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
 import { parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { hashContent, ingestionKey, projectFileKey, projectThumbnailKey } from './project.keys';
-import { inspectFile, isVideoName, MAX_VIDEO_BYTES, sizeLimitFor } from './file-types';
+import { DEFERRED_THUMBNAIL_TYPES, inspectFile, isVideoName, MAX_VIDEO_BYTES, sizeLimitFor } from './file-types';
 import { daysWaiting, STALE_PENDING_DAYS } from './pending.rules';
-import { ThumbnailService } from './thumbnail.service';
+import { ThumbnailService, ThumbnailToolMissingError } from './thumbnail.service';
 import { CreateProjectDto } from './dto/createProject.dto';
 import { FilterProjectDto } from './dto/filterProject.dto';
 import { IngestProjectDto } from './dto/ingestProject.dto';
@@ -57,6 +57,25 @@ export interface PendingSummary {
     /** Oldest-first: the group that has been waiting longest is the one to open. */
     byGroup: { groupId: number; count: number; oldestDays: number }[];
 }
+
+/** One project still without a picture, and the file a picture can be made from. E14/S3b. */
+export interface ThumbnailCandidate {
+    projectId: number;
+    versionId: number;
+    fileId: number;
+    contentType: string;
+    /** As the bucket reported it at `completeUpload`, not as the client announced it beforehand. */
+    sizeBytes: number;
+}
+
+/**
+ * What came of one attempt.
+ *
+ * `deferred` is the one that matters: nothing about the project was decided, because the host has no
+ * ffmpeg. It is the difference between a backlog that drains when the tool arrives and one that has
+ * already spent every project's single attempt on the tool's absence.
+ */
+export type ThumbnailOutcome = 'made' | 'none' | 'deferred';
 
 @Injectable()
 export class ProjectService {
@@ -652,13 +671,135 @@ export class ProjectService {
         return this.classSessionRepository.findOne({ where: { group: { id: child.group.id }, date: parseIsoDate(capturedOn) } });
     }
 
+    /**
+     * Projects with no picture that nobody has tried to make one for yet, oldest first. E14/S3b.
+     *
+     * **The queue is the two columns, not a table.** "No thumbnail and no attempt" is already the
+     * question, `ProjectThumbnailJob` asks it on a timer, and a rows-waiting-to-be-processed table
+     * next to it would be a second answer to the same thing — with its own drift when a project is
+     * deleted underneath it.
+     *
+     * Only the types that cannot be done in the request: a video never passes through this process,
+     * and a `.sb3` costs a ZIP and up to two dozen composites. An image is already finished by the
+     * time `ingestFile` returns, so it is never in here.
+     */
+    async thumbnailBacklog(limit: number): Promise<ThumbnailCandidate[]> {
+        const rows = await this.projectRepository
+            .createQueryBuilder('project')
+            .select('project.id', 'projectId')
+            .innerJoin('project.versions', 'version')
+            .innerJoin('version.files', 'file')
+            .where('project.hasThumbnail = false')
+            .andWhere('project.thumbnailAttemptedAt IS NULL')
+            .andWhere('file.uploadedAt IS NOT NULL')
+            .andWhere('file.contentType IN (:...types)', { types: DEFERRED_THUMBNAIL_TYPES })
+            .groupBy('project.id')
+            .orderBy('project.id', 'ASC')
+            .limit(limit)
+            .getRawMany<{ projectId: number }>();
+
+        const projectIds = rows.map((row) => Number(row.projectId));
+        if (projectIds.length === 0) return [];
+
+        // The newest version of each, because a child who came back to improve the work should be
+        // seen improved. Two queries rather than one: a join that carried every file of every
+        // version would have to be de-duplicated after the limit had already cut it in the wrong
+        // place.
+        const files = await this.fileRepository.find({
+            where: {
+                version: { project: { id: In(projectIds) } },
+                contentType: In(DEFERRED_THUMBNAIL_TYPES),
+                uploadedAt: Not(IsNull()),
+            },
+            relations: ['version', 'version.project'],
+            order: { version: { versionNumber: 'ASC' }, id: 'ASC' },
+        });
+
+        const newest = new Map<number, ThumbnailCandidate>();
+        for (const file of files) {
+            newest.set(file.version.project.id, {
+                projectId: file.version.project.id,
+                versionId: file.version.id,
+                fileId: file.id,
+                contentType: file.contentType,
+                sizeBytes: file.sizeBytes,
+            });
+        }
+
+        return projectIds.map((id) => newest.get(id)).filter((candidate): candidate is ThumbnailCandidate => candidate !== undefined);
+    }
+
+    /**
+     * Makes the picture for one of them, and records that it tried. E14/S3b.
+     *
+     * The stamp is the point: success and "there was no frame in this file" both close the project's
+     * question, so neither comes back on the next tick. A missing ffmpeg closes nothing and stamps
+     * nothing.
+     */
+    async makeDeferredThumbnail(candidate: ThumbnailCandidate): Promise<ThumbnailOutcome> {
+        const key = projectFileKey(candidate.projectId, candidate.versionId, candidate.fileId);
+
+        // A signed upload URL does not enforce a size, so the ceiling is checked here against what
+        // the bucket actually reported rather than against what was announced at registration. The
+        // file stays; only the picture is refused, and refused for good.
+        if (candidate.sizeBytes > MAX_VIDEO_BYTES) {
+            this.logger.warn(`${key} is ${candidate.sizeBytes} bytes, past the thumbnailing ceiling; the project keeps its file and gets no picture.`);
+            await this.projectRepository.update(candidate.projectId, { thumbnailAttemptedAt: new Date() });
+            return 'none';
+        }
+
+        let thumbnail: Buffer | null = null;
+        try {
+            if (candidate.contentType === 'application/x.scratch.sb3') {
+                thumbnail = await this.thumbnailService.fromScratchProject(await this.s3Service.downloadFile(key));
+            } else {
+                thumbnail = await this.thumbnailService.fromVideoStream(await this.s3Service.downloadStream(key));
+            }
+        } catch (error: unknown) {
+            if (error instanceof ThumbnailToolMissingError) return 'deferred';
+            if (error instanceof ObjectNotFoundError) {
+                // Permanent, and the difference matters more than it looks: left as a deferral, one
+                // project whose object has gone would stop every pass at the same row and nothing
+                // behind it would ever get a picture. There is no file to draw, so that is the
+                // answer.
+                this.logger.warn(`${key} is not in the bucket; the project cannot have a picture made.`);
+                await this.projectRepository.update(candidate.projectId, { thumbnailAttemptedAt: new Date() });
+                return 'none';
+            }
+            // Anything else — the bucket is unreachable, the connection died — is this attempt's
+            // failure and not this project's answer, so it is left unstamped to be tried again.
+            this.logger.warn(`Could not read ${key} to make a thumbnail: ${error instanceof Error ? error.message : String(error)}`);
+            return 'deferred';
+        }
+
+        if (!thumbnail) {
+            await this.projectRepository.update(candidate.projectId, { thumbnailAttemptedAt: new Date() });
+            return 'none';
+        }
+
+        try {
+            await this.s3Service.putObject({ key: projectThumbnailKey(candidate.projectId), body: thumbnail, contentType: 'image/jpeg' });
+        } catch (error: unknown) {
+            this.logger.warn(`Thumbnail for project ${candidate.projectId} could not be stored: ${error instanceof Error ? error.message : String(error)}`);
+            return 'deferred';
+        }
+
+        await this.projectRepository.update(candidate.projectId, { hasThumbnail: true, thumbnailAttemptedAt: new Date() });
+        return 'made';
+    }
+
     private async attachThumbnail(projectId: number, bytes: Buffer): Promise<void> {
         const thumbnail = await this.thumbnailService.fromImage(bytes);
-        if (!thumbnail) return;
+        // Stamped either way: an image that sharp could not read has been answered, and the answer is
+        // no. The column says when the school last tried, not when it last succeeded.
+        if (!thumbnail) {
+            await this.projectRepository.update(projectId, { thumbnailAttemptedAt: new Date() });
+            return;
+        }
 
         try {
             await this.s3Service.putObject({ key: projectThumbnailKey(projectId), body: thumbnail, contentType: 'image/jpeg' });
-            await this.projectRepository.update(projectId, { hasThumbnail: true });
+            await this.projectRepository.update(projectId, { hasThumbnail: true, thumbnailAttemptedAt: new Date() });
         } catch (error: unknown) {
             this.logger.warn(`Project ${projectId} uploaded, but its thumbnail did not: ${error instanceof Error ? error.message : String(error)}`);
         }

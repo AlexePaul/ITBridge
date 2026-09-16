@@ -40,7 +40,12 @@
     // and `test:links` run through turbo: undeclared, the override was accepted by the shell and
     // dropped before the script ever saw it, so the one knob for a port clash did nothing at all.
     "LINK_CHECK_PORT",
-    "THIRD_PARTY_PORT"
+    "THIRD_PARTY_PORT",
+    // Where ffmpeg is, for the video thumbnails of E14/S3b. Unset means "on PATH", which is the
+    // answer on the instance and in CI; it is declared because turbo's strict mode drops an
+    // undeclared variable without a word, and the failure that produces is a host where ffmpeg is
+    // installed somewhere else and every video quietly keeps arriving without a picture.
+    "FFMPEG_PATH"
   ],
 
   // The root `.env` feeds into the cache hash: a configuration change invalidates the builds

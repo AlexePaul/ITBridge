@@ -6,7 +6,7 @@ import { Project } from 'src/entities/project.entity';
 import { ProjectFile } from 'src/entities/project-file.entity';
 import { ProjectStatus } from 'src/enum/project-status.enum';
 import { Role } from 'src/enum/role.enum';
-import { S3Service } from 'src/modules/storage/s3.service';
+import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
 import {
     createMockEntityManager,
     createMockInsertBuilder,
@@ -19,7 +19,7 @@ import {
     provideMockRepository,
 } from 'src/testing/repository.mock';
 import { ProjectService } from './project.service';
-import { ThumbnailService } from './thumbnail.service';
+import { ThumbnailService, ThumbnailToolMissingError } from './thumbnail.service';
 import { hashContent, ingestionKey } from './project.keys';
 
 const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
@@ -31,8 +31,15 @@ describe('ProjectService', () => {
     let fileRepo: MockRepository;
     let childRepo: MockRepository;
     let sessionRepo: MockRepository;
-    let s3: { putObject: jest.Mock; downloadFile: jest.Mock; presignedDownloadUrl: jest.Mock; deleteObject: jest.Mock; headObject: jest.Mock };
-    let thumbnails: { fromImage: jest.Mock };
+    let s3: {
+        putObject: jest.Mock;
+        downloadFile: jest.Mock;
+        downloadStream: jest.Mock;
+        presignedDownloadUrl: jest.Mock;
+        deleteObject: jest.Mock;
+        headObject: jest.Mock;
+    };
+    let thumbnails: { fromImage: jest.Mock; fromScratchProject: jest.Mock; fromVideoStream: jest.Mock };
     let manager: MockEntityManager;
 
     const child = { id: 12, firstName: 'Andrei', lastName: 'Popescu', parent: { id: 3, user: { id: 99 } }, group: { id: 5 } };
@@ -65,11 +72,16 @@ describe('ProjectService', () => {
         s3 = {
             putObject: jest.fn(),
             downloadFile: jest.fn(),
+            downloadStream: jest.fn(),
             presignedDownloadUrl: jest.fn().mockResolvedValue('https://signed.example/x'),
             deleteObject: jest.fn(),
             headObject: jest.fn(),
         };
-        thumbnails = { fromImage: jest.fn().mockResolvedValue(null) };
+        thumbnails = {
+            fromImage: jest.fn().mockResolvedValue(null),
+            fromScratchProject: jest.fn().mockResolvedValue(null),
+            fromVideoStream: jest.fn().mockResolvedValue(null),
+        };
         manager = createMockEntityManager();
 
         // The real `save` returns the persisted row, ids and all, and the ingestion path depends on
@@ -157,7 +169,7 @@ describe('ProjectService', () => {
             // The key embeds the ids, so each row has to exist before its own upload — the same
             // ordering the invoice PDF learned, and the one E04 recorded failing the other way round.
             expect(s3.putObject).toHaveBeenCalledWith(expect.objectContaining({ key: 'projects/1/2/92', contentType: 'image/png' }));
-            expect(projectRepo.update).toHaveBeenCalledWith(1, { hasThumbnail: true });
+            expect(projectRepo.update).toHaveBeenCalledWith(1, { hasThumbnail: true, thumbnailAttemptedAt: expect.any(Date) });
         });
 
         it('still stores the file when a thumbnail cannot be made', async () => {
@@ -169,7 +181,10 @@ describe('ProjectService', () => {
             await service.ingestFile({ childId: 12, capturedOn: '2026-09-14' }, upload, 7);
 
             expect(s3.putObject).toHaveBeenCalledTimes(1);
-            expect(projectRepo.update).not.toHaveBeenCalled();
+            // Stamped anyway: the question was asked and the answer was no. Without the stamp the
+            // backfill pass from E14/S3b would pick the project up every five minutes forever, to
+            // hand the same unreadable bytes to the same decoder.
+            expect(projectRepo.update).toHaveBeenCalledWith(1, { thumbnailAttemptedAt: expect.any(Date) });
         });
 
         it('hands back the winner when another pass inserted the same content first', async () => {
@@ -212,6 +227,129 @@ describe('ProjectService', () => {
                     1,
                 ),
             ).rejects.toBeInstanceOf(PayloadTooLargeException);
+        });
+    });
+
+    describe('thumbnailBacklog', () => {
+        /** The projects query answers ids; the file query answers which file each picture comes from. */
+        function backlogOf(ids: number[], files: unknown[]) {
+            const qb = createMockQueryBuilder({});
+            qb.getRawMany = jest.fn().mockResolvedValue(ids.map((id) => ({ projectId: id })));
+            projectRepo.createQueryBuilder!.mockReturnValue(qb);
+            fileRepo.find!.mockResolvedValue(files);
+            return qb;
+        }
+
+        it('asks only for projects with no picture that nobody has tried', async () => {
+            const qb = backlogOf([], []);
+
+            await service.thumbnailBacklog(5);
+
+            expect(qb.andWhereCalls.map(([condition]) => condition)).toEqual(
+                expect.arrayContaining(['project.thumbnailAttemptedAt IS NULL', 'file.uploadedAt IS NOT NULL']),
+            );
+        });
+
+        it('asks only for the types a request could not have done itself', async () => {
+            const qb = backlogOf([], []);
+
+            await service.thumbnailBacklog(5);
+
+            const types = qb.andWhereCalls.find(([condition]) => condition.includes('contentType'))?.[1];
+            expect(types).toEqual({ types: ['video/mp4', 'video/webm', 'application/x.scratch.sb3'] });
+        });
+
+        it('takes the newest version of each, so a child who improved the work is seen improved', async () => {
+            backlogOf(
+                [41],
+                [
+                    { id: 5, contentType: 'video/mp4', sizeBytes: 10, version: { id: 1, versionNumber: 1, project: { id: 41 } } },
+                    { id: 9, contentType: 'video/mp4', sizeBytes: 20, version: { id: 2, versionNumber: 2, project: { id: 41 } } },
+                ],
+            );
+
+            expect(await service.thumbnailBacklog(5)).toEqual([{ projectId: 41, versionId: 2, fileId: 9, contentType: 'video/mp4', sizeBytes: 20 }]);
+        });
+
+        it('does not go looking for files when nothing is waiting', async () => {
+            backlogOf([], []);
+
+            expect(await service.thumbnailBacklog(5)).toEqual([]);
+            expect(fileRepo.find).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('makeDeferredThumbnail', () => {
+        const video = { projectId: 41, versionId: 2, fileId: 9, contentType: 'video/mp4', sizeBytes: 4_000_000 };
+        const scratch = { projectId: 41, versionId: 2, fileId: 9, contentType: 'application/x.scratch.sb3', sizeBytes: 900_000 };
+
+        it('stores the picture under the derived key and closes the question', async () => {
+            s3.downloadStream.mockResolvedValue('a stream');
+            thumbnails.fromVideoStream.mockResolvedValue(Buffer.from('jpeg'));
+
+            expect(await service.makeDeferredThumbnail(video)).toBe('made');
+            expect(s3.putObject).toHaveBeenCalledWith({ key: 'projects/41/thumb.jpg', body: expect.any(Buffer), contentType: 'image/jpeg' });
+            expect(projectRepo.update).toHaveBeenCalledWith(41, { hasThumbnail: true, thumbnailAttemptedAt: expect.any(Date) });
+        });
+
+        it('reads a Scratch file whole, and a video as a stream it never holds', async () => {
+            s3.downloadFile.mockResolvedValue(Buffer.from('sb3'));
+
+            await service.makeDeferredThumbnail(scratch);
+
+            expect(thumbnails.fromScratchProject).toHaveBeenCalled();
+            expect(s3.downloadStream).not.toHaveBeenCalled();
+        });
+
+        it('stamps the attempt when the file simply has no picture in it', async () => {
+            s3.downloadStream.mockResolvedValue('a stream');
+            thumbnails.fromVideoStream.mockResolvedValue(null);
+
+            expect(await service.makeDeferredThumbnail(video)).toBe('none');
+            expect(s3.putObject).not.toHaveBeenCalled();
+            expect(projectRepo.update).toHaveBeenCalledWith(41, { thumbnailAttemptedAt: expect.any(Date) });
+        });
+
+        it('leaves the project alone when the host has no ffmpeg', async () => {
+            // The whole point of the column: a deployment without ffmpeg must not spend every
+            // video's one attempt on a failure no video could have avoided. The outbox learned this
+            // the expensive way, and buried two hours of its own queue doing it.
+            s3.downloadStream.mockResolvedValue('a stream');
+            thumbnails.fromVideoStream.mockRejectedValue(new ThumbnailToolMissingError('ffmpeg'));
+
+            expect(await service.makeDeferredThumbnail(video)).toBe('deferred');
+            expect(projectRepo.update).not.toHaveBeenCalled();
+        });
+
+        it('leaves it alone when the object cannot be read either', async () => {
+            s3.downloadStream.mockRejectedValue(new Error('the bucket is not there'));
+
+            expect(await service.makeDeferredThumbnail(video)).toBe('deferred');
+            expect(projectRepo.update).not.toHaveBeenCalled();
+        });
+
+        it('answers no, once and for all, when the object is not in the bucket', async () => {
+            // Left as a deferral this would stop every pass at the same row, and nothing behind it
+            // would ever get a picture. There is no file to draw: that is an answer, not an outage.
+            s3.downloadStream.mockRejectedValue(new ObjectNotFoundError('projects/41/2/9'));
+
+            expect(await service.makeDeferredThumbnail(video)).toBe('none');
+            expect(projectRepo.update).toHaveBeenCalledWith(41, { thumbnailAttemptedAt: expect.any(Date) });
+        });
+
+        it('refuses a file past the ceiling without reading it, because a signed URL enforces no size', async () => {
+            expect(await service.makeDeferredThumbnail({ ...video, sizeBytes: 300 * 1024 * 1024 })).toBe('none');
+            expect(s3.downloadStream).not.toHaveBeenCalled();
+            expect(projectRepo.update).toHaveBeenCalledWith(41, { thumbnailAttemptedAt: expect.any(Date) });
+        });
+
+        it('does not claim a picture that could not be stored', async () => {
+            s3.downloadStream.mockResolvedValue('a stream');
+            thumbnails.fromVideoStream.mockResolvedValue(Buffer.from('jpeg'));
+            s3.putObject.mockRejectedValue(new Error('the bucket is not there'));
+
+            expect(await service.makeDeferredThumbnail(video)).toBe('deferred');
+            expect(projectRepo.update).not.toHaveBeenCalled();
         });
     });
 

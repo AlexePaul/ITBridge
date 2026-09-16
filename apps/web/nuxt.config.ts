@@ -134,8 +134,30 @@ export default defineNuxtConfig({
         "x-content-type-options": "nosniff",
         "referrer-policy": "strict-origin-when-cross-origin",
         "content-security-policy": "frame-ancestors 'none'",
+        // The one locale signal at the HTTP level. The markup says the same
+        // thing five times (html lang, og:locale, inLanguage…); this is the
+        // sixth, for anything that reads headers before it reads HTML.
+        "content-language": "ro-RO",
       },
     },
+    /*
+     * **Behind the login, nothing is rendered on the server.**
+     *
+     * Not a performance choice — a correctness one. Authentication is client-only by design
+     * (`plugins/01.auth.client.ts`), so when Nitro renders `/admin/...` it has no user: the admin
+     * shell comes out with the parent's menu, the portal comes out without the family's name, and
+     * the browser then hydrates the real thing over the top. Vue patches the text and **leaves the
+     * attributes alone** — its own warning says so — which is how the sidebar ended up with an
+     * entry labelled "Rapoarte" whose `href` was `/`: a left click worked, because the router uses
+     * the component's props, while ctrl-click, "open in new tab" and "copy link address" all went
+     * to the public home page.
+     *
+     * The alternative was a `<ClientOnly>` around each user-dependent fragment, which fixes the two
+     * we found and leaves the next one to be found the same way. These screens are `noindex`, carry
+     * no SEO and fetch everything on mount, so server-rendering them buys nothing to trade against.
+     */
+    "/admin/**": { ssr: false },
+    "/user/**": { ssr: false },
     // The legal pages are one Markdown file each, rendered once: prerendered so they are static
     // on Vercel and in the a11y run, and reach the reader without a function in between.
     "/termeni": { prerender: true },
