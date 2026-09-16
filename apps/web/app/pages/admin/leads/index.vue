@@ -161,12 +161,22 @@ const loading = ref(true);
 const listLoading = ref(false);
 const error = ref<string | null>(null);
 
-const statusFilter = ref<LeadStatus | "">("");
+/**
+ * "Every state" as a value of its own, not as the empty string.
+ *
+ * An empty value is reserved: reka-ui's `SelectItem` throws on one, because `""` is how a select
+ * is cleared. The item was simply dropped from the menu — and the trigger still read "Toate
+ * stările", so nothing looked wrong until somebody filtered once and found no way back to the full
+ * list. `/admin/orar` already spells this the same way.
+ */
+const ALL_STATES = "all";
+
+const statusFilter = ref<LeadStatus | typeof ALL_STATES>(ALL_STATES);
 const onlyUnassigned = ref(false);
 const includeSettled = ref(false);
 
 const statusItems = computed(() => [
-  { label: "Toate stările", value: "" },
+  { label: "Toate stările", value: ALL_STATES },
   ...Object.entries(LEAD_STATUS_LABELS).map(([value, label]) => ({ label, value })),
 ]);
 
@@ -228,7 +238,7 @@ const loadList = async () => {
   listLoading.value = true;
   try {
     leads.value = await fetchLeads({
-      status: statusFilter.value || undefined,
+      status: statusFilter.value === ALL_STATES ? undefined : statusFilter.value,
       unassigned: onlyUnassigned.value || undefined,
       includeSettled: includeSettled.value || undefined,
     });

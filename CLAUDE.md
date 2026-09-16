@@ -670,6 +670,31 @@ vector proaspăt — adică aproape toate sortările din aplicație.
 
 **Un buton de retry care nu șterge eroarea apasă degeaba.** `AdminError` cheamă `load()` din nou, dar dacă acel `load()` nu pune `loadError` pe gol **înainte** de cerere, a doua încercare reușește, datele vin, iar `v-else-if="loadError"` ține cardul de eroare deasupra lor: cererea pleacă, primește 200, și pe ecran nu se schimbă nimic. Cinci ecrane au fost livrate așa, și niciunul n-a fost găsit citind — butonul e acolo, e legat, cheamă funcția care trebuie, iar ce lipsește sunt două linii la începutul unei funcții aflate la douăzeci de rânduri distanță. Forma corectă e `loading.value = true;` plus golirea lui `loadError`, amândouă înaintea lui `try`; `retry-clears-error.spec.ts` mătură sursele după ordinea asta.
 
+**Nimic din spatele autentificării nu se randează pe server, și e o chestiune de corectitudine, nu
+de viteză.** Autentificarea e client-only prin construcție (`plugins/01.auth.client.ts`), deci când
+Nitro randa `/admin/...` n-avea niciun utilizator: shell-ul de admin ieșea cu meniul părintelui,
+portalul fără numele familiei, iar browserul hidrata pe deasupra ce trebuia. **Vue înlocuiește
+textul și lasă atributele** — o spune chiar el în avertisment —, așa că bara laterală a ajuns cu o
+intrare scrisă „Rapoarte" al cărei `href` era `/`: un clic stânga mergea, fiindcă router-ul
+folosește props-urile componentei, dar ctrl-clic, „deschide în tab nou" și „copiază adresa" duceau
+pe pagina publică. `routeRules` din `nuxt.config.ts` pune acum `ssr: false` pe `/admin/**` și
+`/user/**`. Un `<ClientOnly>` pe fiecare bucată care depinde de cine e logat ar fi reparat cele două
+găsite și l-ar fi lăsat pe al treilea să fie găsit la fel; ecranele astea sunt oricum `noindex`,
+n-au SEO și își cer datele la montare, deci randarea pe server nu cumpără nimic.
+
+**Un `value` gol într-un `USelect` nu e o opțiune, e o opțiune lipsă.** reka-ui refuză `SelectItem`
+cu `value=""`, fiindcă șirul gol e felul în care se golește un select — iar refuzul e o eroare în
+consolă, nu una pe ecran: declanșatorul afișează în continuare eticheta, deci nimic nu arată greșit
+până când cineva filtrează o dată și nu mai are cum să revină la „toate". Se scrie ca la
+`/admin/orar` și la comutatorul de locație: o valoare-santinelă (`"all"`), tradusă în `undefined`
+când pleacă spre API.
+
+**Poarta autentificată pică acum și pe o eroare scrisă în consola browserului**, nu doar pe axe —
+`check-a11y-auth.mjs`. Amândouă defectele de mai sus erau vizibile exact acolo și nicăieri altundeva:
+nu se văd într-o captură de ecran, nu pică niciun test pe date și nu le vede axe. Cererile picate
+sunt excluse dinadins: job-ul ăla n-are stocare de obiecte, deci ecranul de PDF răspunde 500 acolo
+pentru totdeauna, iar un ecran rămas fără date e deja prins de verificarea de „se încarcă".
+
 **Nu pune `@input` pe un câmp de text Nuxt UI.** Handler-ul rulează, dar **înainte** ca `v-model` să scrie caracterul tocmai tastat: Vue îmbină ascultătorul venit prin `$attrs` cu al componentei într-un vector și le cheamă în ordinea aia, al nostru primul. Deci orice citește din model e cu o tastă în urmă. Căutarea de copii din catalog a fost exact asta: `a` nu găsea nimic (filtra pe șirul gol), `aa` găsea unsprezece (filtra pe `a`), iar un nume întreg nu găsea niciodată nimic. Derivă din model — un `computed` nu poate fi decalat față de ce citește. `@change` și `@blur` sunt emit-uri declarate și se produc după actualizare, deci sunt în regulă. `no-input-listener.spec.ts` ține linia.
 
 **Frontend** — lanțul de autentificare are o ordine care contează:
