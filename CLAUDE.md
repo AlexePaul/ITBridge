@@ -765,8 +765,12 @@ e să spună că n-a mers și să dea adresa biroului. Niciuna **nu se aduce pe 
 rulează un backend acolo; pe `release/stage` funcționează amândouă, pe
 `api-stage.itbridgeschool.com`. Faptele despre școală stau în `apps/web/shared/`, nu în
 pagini: `school.ts` (nume, telefon, adrese, program), `courses.ts` (nivelurile și prețurile),
-`teachers.ts`, `seo.ts` (titlul și descrierea fiecărei pagini), `structured-data.ts` (constructorii
-de JSON-LD). Aceleași constante alimentează pagina, graful JSON-LD, sitemap-ul și `llms.txt` —
+`subjects.ts` (uneltele și examenul, câte o pagină sub `/cursuri/`; nivelurile la care se predă o
+unealtă se **derivă** din `teaches`, nu se listează, iar lucrările copiilor intră tot acolo, în
+`projects`, când există — până atunci pagina nu desenează nicio galerie), `teachers.ts`, `seo.ts`
+(titlul și descrierea fiecărei pagini; `PUBLIC_PAGES` de acolo e lista din care ies sitemap-ul,
+`llms.txt` și prerandarea, iar `pageSeo` aruncă pentru un drum care nu e în ea), `structured-data.ts`
+(constructorii de JSON-LD). Aceleași constante alimentează pagina, graful JSON-LD, sitemap-ul și `llms.txt` —
 **dacă schimbi un preț sau o adresă, schimbi acolo, într-un singur loc.** Un număr scris de mână
 într-o pagină e un bug, nu o scurtătură: NAP inconsecvent e cea mai frecventă cauză de poziționare
 locală slabă.
