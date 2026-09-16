@@ -1536,6 +1536,12 @@ textarea.input {
   margin-top: var(--rhythm-2);
 }
 
+/* A paragraph that follows a column grid — the link out of a set of columns. */
+.cols-2 + .body-text,
+.cols-3 + .body-text {
+  margin-top: var(--rhythm-2);
+}
+
 /* A caption under a piece of contact detail. */
 .note {
   font-size: 13.5px;

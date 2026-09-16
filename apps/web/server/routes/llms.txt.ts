@@ -75,7 +75,7 @@ export default defineEventHandler((event) => {
 
   const body = `# ${SCHOOL_NAME}
 
-> Școală de informatică pentru copii din București, cu două locații: Drumul Taberei (Sector 6) și Străulești (Sector 1). Cursuri de la clasa 0 până la pregătirea pentru Bacalaureat și olimpiade.
+> Școală de IT și programare pentru copii din București, cu două locații: Drumul Taberei (Sector 6) și Străulești (Sector 1). Cursuri de informatică de la clasa 0 până la pregătirea pentru Bacalaureat și olimpiade.
 
 Date despre școală, verificate la ${CONTENT_UPDATED_ISO}:
 
