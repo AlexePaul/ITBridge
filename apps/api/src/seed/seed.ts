@@ -99,8 +99,13 @@ const LAST_NAMES = ['Popescu', 'Ionescu', 'Dumitrescu', 'Georgescu', 'Stan', 'Ma
 const CHILD_NAMES = ['Maria', 'Andrei', 'Sofia', 'Matei', 'Ilinca', 'Luca', 'Daria', 'Vlad', 'Ruxandra', 'Tudor'];
 
 /**
- * The two real addresses, kept in step with `apps/web/shared/school.ts` and with the migration
- * that inserts the same two rows into a database built from scratch.
+ * The two real addresses, kept in step with `apps/web/shared/school.ts`.
+ *
+ * `1787909549491-LocationsAndRooms` inserts the same two rows into a database built from scratch
+ * and still carries the old Drumul Taberei postal code, deliberately: it has already run, and a
+ * migration is the record of what it did, not a place to keep current. It does not matter in
+ * practice — this seed wipes and rewrites the table, so it is what any database anybody looks at
+ * actually holds — but if you build one from migrations alone, that row is the stale copy.
  */
 const LOCATIONS = [
     {
@@ -109,7 +114,10 @@ const LOCATIONS = [
         street: 'Strada Valea Oltului 73',
         city: 'București',
         district: 'Sector 6',
-        postalCode: '061971',
+        // 061972, not 061971: Valea Oltului is split across three codes by street number, and 73
+        // falls in the 57-75 band. The reasoning lives once, next to the value the public site
+        // reads, in `apps/web/shared/school.ts` — this row is the copy kept in step with it.
+        postalCode: '061972',
         latitude: 44.415847,
         longitude: 26.013556,
     },
