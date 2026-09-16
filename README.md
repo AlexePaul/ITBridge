@@ -134,7 +134,8 @@ Scripturile de pe instanță (`ecosystem.config.js`, `deploy.sh`, `fetch-env.sh`
 `/srv/itbridge/`, nu în repo.
 
 Consecința pentru site: **partea publică funcționează întreagă și fără backend.** Cele șapte pagini
-publice, formularul de contact (care merge prin Resend, dintr-o rută Nitro de pe Vercel), `robots.txt`,
+publice vechi, cele șase de sub `/cursuri/`, formularul de contact (care merge prin Resend, dintr-o
+rută Nitro de pe Vercel), `robots.txt`,
 `sitemap.xml`, `llms.txt` și datele structurate nu ating `API_BASE`. De asta `itbridgeschool.com` stă
 în producție deși API-ul de producție nu există. Ce depinde de backend — portalul părintelui și zona
 de admin — se verifică pe `stage.itbridgeschool.com`. Vezi „Stare cunoscută” mai jos.

@@ -1,17 +1,17 @@
 import { CONTENT_UPDATED_ISO, PUBLIC_PAGES } from "#shared/seo";
 
 /**
- * Written by hand rather than by a module: seven pages, one source of truth,
- * no dependency.
+ * Written by hand rather than by a module: one entry per public page, one
+ * source of truth, no dependency.
  *
  * <lastmod> is CONTENT_UPDATED_ISO — the hand-maintained day the facts were
  * last checked — not the build time and not the request time. A date that moves
  * on its own is one a search engine learns to discount; one that moves only
  * when a page actually changed is what it reads to decide which URLs to fetch
  * first. That decision is the whole problem on a new domain: Search Console
- * lists five of these seven pages as "discovered, currently not indexed", with
- * no crawl date at all, and a sitemap that cannot say "this changed last week"
- * gives the scheduler no reason to move them up.
+ * listed five of the first seven pages as "discovered, currently not indexed",
+ * with no crawl date at all, and a sitemap that cannot say "this changed last
+ * week" gives the scheduler no reason to move them up.
  *
  * There is no <changefreq>: Google ignores it, and "monthly" next to a lastmod
  * from a few days ago would read as a contradiction anyway.
