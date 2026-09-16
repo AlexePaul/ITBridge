@@ -75,6 +75,7 @@ docker compose up -d              # Postgres + MinIO; aplicația rulează pe Nod
 pnpm --filter api migration:run   # schema; synchronize e oprit
 pnpm seed                         # date de dezvoltare; admin / parola123
 SEED_TODAY=2026-03-16 pnpm seed   # aceleași date, dar ancorate la o zi fixă
+pnpm seed:scale                   # o școală de trei ani, ca să se poată măsura o interogare
 pnpm dev                          # api + web, hot reload
 
 pnpm build          # turbo, în ordinea dependențelor
@@ -102,6 +103,25 @@ implicitul e ziua curentă, iar `SEED_TODAY=2026-03-16` o fixează la loc dacă 
 identice. Grupele acoperă luni–sâmbătă tocmai ca „azi" să aibă o oră în șase zile din șapte.
 `pnpm seed` nu trece prin turbo, deci variabila **nu** se declară în `globalEnv`.
 
+**`pnpm seed:scale` e a doua volumetrie, nu a treia țintă.** Seed-ul obișnuit are ~120 de ședințe
+și ~80 de marcaje, iar la dimensiunea aia Postgres alege scanarea secvențială orice index i-ai pune
+— deci o interogare care scanează toată tabela și una care folosește un index dau **același plan și
+același timp**. Două defecte au stat fix în golul ăla până în septembrie 2026, printre ele un `SUM`
+peste plățile unei facturi care rula neindexat **ținând lacătul acelei facturi**.
+
+Comanda umple baza cu o școală de trei ani — implicit 250 de familii, 300 de copii, 30 de grupe,
+3.510 ședințe, 35.100 de marcaje, 9.000 de facturi, 54.000 de rânduri în coadă — în vreo două
+secunde, fiindcă scrie prin `generate_series`, nu prin TypeORM. Dimensiunea se schimbă din
+`SCALE_YEARS` și `SCALE_FAMILIES`; forma stă în `scale.rules.ts` și are spec propriu, fiindcă e
+partea care poate fi tăcut greșită: un copil înmulțit cu **toate** ședințele școlii, în loc cu cele
+ale grupei lui, dă 936.000 de rânduri în loc de 35.100, iar scriptul rulează la fel de vesel.
+
+**Nu e o bază în care se dă clic**: n-are conturi de părinte, toate familiile se cheamă `Familia 37`
+și **golește tot** înainte, deci trece prin acelaşi `checkSeedTarget`. Când ai terminat de măsurat,
+`pnpm seed` îți dă înapoi baza folosibilă. Ce tipărește la final sunt numerele **citite din bază**,
+nu cele prezise — prima versiune tipărea predicția și era greșită cu treizeci de rânduri la plăți,
+iar un rezumat care contrazice tabela e mai rău decât niciun rezumat.
+
 **Seed-ul are două ținte, iar `seed-target.ts` e tot ce le desparte.** `pnpm seed` merge pe baza
 locală; `pnpm seed:stage` citește `.env.stage` și merge pe staging. Pe orice host care nu e
 localhost, `checkSeedTarget` cere două lucruri și le **refuză**, nu le avertizează:
@@ -121,6 +141,16 @@ mediu care se pierde tăcut e mai rău decât unul care lipsește.
 **O variabilă de mediu nouă trebuie declarată în `turbo.json`, la `globalEnv`.** Turbo rulează în
 mod `strict`: un task vede doar ce e declarat acolo, iar restul lipsesc fără niciun mesaj. E cea
 mai probabilă cauză când ceva „nu vede” o variabilă pe care tocmai ai pus-o în `.env`.
+
+**Și acum o ține un spec, fiindcă nu era treaba nimănui s-o observe.** Două porturi rămăseseră
+nedeclarate — `THIRD_PARTY_PORT` și `LINK_CHECK_PORT` —, iar primul era singura ieșire dintr-o
+ciocnire: `check-third-party.mjs` și `check-a11y-auth.mjs` serveau amândouă pe 3124, deci a doua
+comandă rămânea fără server, iar butonul de scăpare nu ajungea niciodată la script fiindcă
+`pnpm test:privacy` trece prin turbo. Un buton care nu face nimic e mai rău decât niciun buton: îl
+trimite pe cel care-l apasă să caute în altă parte. `every-env-var-is-declared.spec.ts` compară
+fiecare `process.env.X` din surse cu `globalEnv` și pică pe nume; cele două excepții —
+`SEED_TODAY`, fiindcă `pnpm seed` nu trece prin turbo, și `TZ`, fiindcă e pus de scripturile jest
+înainte să pornească Node — au propoziția lor lângă ele.
 
 Swagger UI: `http://localhost:3000/api`. La fiecare boot, `apps/api/src/main.ts` scrie schema în
 `./swagger.json`, relativ la directorul din care rulează procesul. Fișierul e în `.gitignore`,
@@ -353,6 +383,53 @@ să primească un singur email. Trei consecințe de ținut minte:
 - **Un părinte vede doar ce a fost trimis.** Restrângerea e în serviciu, ca peste tot, și adaugă
   `status = 'sent'` pe lângă restrângerea pe utilizator. Portalul nu are voie să fie portița prin
   care se vede ce n-a verificat încă nimeni.
+- **Un eșec care nu se poate repeta cu folos e un refuz, nu o eroare.** Agentul tratează eșecul ca
+  „mai încearcă" și lasă fișierul pe partajare — corect pentru o rețea picată, fiindcă partajarea
+  _e_ coada. Un `.url` fără nicio adresă în el nu mai avea însă ce să încerce: rămânea în folder,
+  era găsit din nou la fiecare trecere, scria un avertisment la fiecare treizeci de secunde și ținea
+  câmpul de sănătate al agentului roșu pe un defect pe care nimeni nu-l putea repara — exact ce
+  descrie comentariul din `Agent.pass` despre erorile care rămân după ce cauza lor a trecut. Are
+  acum motiv propriu, `link_without_address`, deci pleacă în `_neatribuite` ca orice alt refuz. Dacă
+  adaugi o cale nouă de eșec, prima întrebare e dacă a doua încercare poate da alt răspuns.
+- **O cheie de deduplicare are o durată, iar cea a fișierelor neatribuite e „cât stă deschis".**
+  `unassigned_files.reportKey` e `{grupă}:{cale}` și avea un unic simplu — ceea ce se citește ca
+  „raportează fiecare loc o dată", dar promite că un fișier apărut în rădăcina grupei în septembrie
+  nu mai poate apărea acolo niciodată. Cea mai frecventă cauză a lor e obiceiul unui profesor, deci
+  reapare în octombrie: a doua oară inserarea era ignorată, agentul muta fișierul în
+  `_neatribuite` exact ca prima dată, iar pe ecran nu apărea nimic — fișierul pleca din folder în
+  tăcere, adică fix ce promite S2 că nu se întâmplă. Acum indexul e **parțial**,
+  `WHERE "resolvedAt" IS NULL`, ca `UQ_enrollments_one_in_force`: unic e ce e în vigoare, nu ce a
+  fost vreodată. Restul cheilor din repo aveau deja discriminatorul în ele — ziua școlii la anunțuri
+  și la mementouri, a câta anunțare la o ședință, id-ul plății la chitanță —, deci asta era singura
+  cheiată pe o identitate care nu se schimbă niciodată. Dacă adaugi una, întreabă ce se întâmplă a
+  doua oară când lucrul ăla se întâmplă din nou.
+
+**Miniatura are două drumuri, iar al doilea nu e o coadă nouă** (E14 S3b). O imagine primește poza
+în cererea care o încarcă, după commit; un video și un `.sb3` n-au cum — primul fiindcă octeții lui
+nu trec niciodată prin proces (drumul cu URL semnat există tocmai pentru asta), al doilea fiindcă e
+o arhivă plus un teanc de compoziții. Alea le face `ProjectThumbnailJob`, la cinci minute, cinci
+proiecte pe trecere. Patru lucruri:
+
+- **Coada e `hasThumbnail` plus `thumbnailAttemptedAt`, nu o tabelă.** „N-are poză și n-a încercat
+  nimeni" e deja o întrebare pe care o răspund două coloane; o tabelă de rânduri de procesat lângă
+  ele ar fi al doilea răspuns, care divergează prima dată când un proiect e șters. Și **nu prin
+  `outbox`**, cum cerea story-ul scris înaintea cozii: acolo un rând e un mesaj cu destinatar,
+  subiect și corp, iar un rând care n-ar fi un mesaj ar strica exact tabelul din care se citește ce
+  a primit o familie.
+- **Lipsa lui ffmpeg nu consumă încercarea.** `ThumbnailToolMissingError` e singura eroare care lasă
+  rândul nestampilat, iar prima amânare oprește trecerea — restul candidaților sunt pe cale să
+  întâlnească același host. E lecția plătită de `recordFailure` din outbox: un eșec de configurare
+  care consumă încercări îngroapă coada exact în deploy-ul în care unealta lipsește. Consecința: o
+  restanță de videouri se desenează singură la primul tick de după `apt install ffmpeg`.
+- **`.sb3` se desenează, și asta a fost un spike cu răspuns scris.** E un ZIP cu `project.json`
+  înăuntru; `sb3.ts` citește arhiva de mână — din același motiv pentru care `file-types.ts` își
+  scrie semnăturile de mână — și așază fiecare sprite din trei conversii: `bitmapResolution`
+  (editorul exportă bitmap-urile la dublu), `size` ca procent, și ancora pe **centrul de rotație**,
+  cu y în sus. Oricare dintre ele greșită dă o poză plauzibilă a unui proiect pe care nu l-a făcut
+  nimeni. Se desenează proiectul **așa cum a fost salvat**, nu cum arată după steagul verde.
+- **Un sprite se decupează la scenă înainte de compunere.** Scratch lasă sprite-urile să atârne pe
+  margine și copiii le parchează acolo tot timpul; sharp refuză un strat care nu încape în pânză,
+  deci fără decupare rezultatul nu e o poză strâmbă, e `null`.
 
 **Locația nu e un câmp pe grupă, ci o consecință a sălii.** `Group.room` e obligatoriu, `Room.location`
 la fel, deci fiecare grupă știe unde se ține fără să poată contrazice sala. Ștergerile sunt
@@ -552,6 +629,18 @@ toată clauza, deci un `where` pus după restrângerea pe utilizator o șterge f
 așa a scăpat `PaymentService.findOne`: orice părinte putea citi plata oricărei alte familii, cu
 profilul complet atașat. Dacă ai nevoie de o primă condiție, pune-o tot cu `andWhere`.
 
+**Și acum o ține un spec, fiindcă nimic altceva n-o vede.** Nu e eroare de tip — amândouă metodele
+există și amândouă întorc builder-ul —, nu e finding de lint, iar `authorization.spec.ts` verifică
+gărzile handler-ului, nu ce face a douăzecea linie cu clauza pe care el a compus-o.
+`scoping-is-never-overwritten.spec.ts` citește sursele ca AST și pică pe fișier și linie, în
+amândouă formele în care a apărut greșeala: **înlănțuit** — `.andWhere(…).where(…)` într-o expresie
+— și **prin variabilă**, adică `qb.andWhere(…)` sub un `if` și `qb.where(…)` douăzeci de rânduri mai
+jos; a doua e cea care a ajuns în producție și cea peste care ochiul trece. Sub-interogările nu se
+numără, dinadins: `qb.subQuery()` deschide un builder nou, deci `where`-ul de după el e chiar prima
+lui condiție — așa citesc `ProjectService.childrenWithoutProjects` și `EnrollmentService`, și
+amândouă sunt corecte. Ordinea se judecă per funcție, ca o metodă care restrânge să nu acuze alta
+care chiar începe cu `where`.
+
 **Un slot care nu se potrivește cu nimic e aruncat în tăcere.** Ecranul de catalog a stat trei
 story-uri fără butonul de salvare: blocul cu selectorul de oră și cu **Salvează Prezența** e un
 `<template #footer>`, iar S5b a înlocuit `<UCard>`-ul care îl învelea cu `<AdminPage>`, care are doar
@@ -568,7 +657,43 @@ refuzată de Vue — optsprezece avertismente pentru optsprezece rânduri — ș
 ordinea în care a venit de la API, prefăcându-se sortată. Ecranul de plăți a promis „cele mai noi
 întâi" fără să fie, de la început. Copiază înainte de sortare: `[...store.lista].sort(...)`.
 
+**Și pe asta o ține acum un spec**, fiindcă felul în care pică e felul în care a trecut de review:
+nu e nicio excepție și nicio linie roșie — vectorul se întoarce, șablonul îl randează, fiecare rând
+e corect —, greșită e doar **ordinea**, adică singurul lucru pe care cititorul nu-l poate verifica
+uitându-se la ecran. `sorting-copies-first.spec.ts` citește sursele ca AST, script-ul din `.vue`
+inclusiv, și pică pe fișier și linie. Linia trasată e **„citit de pe altceva"**: `store.items.sort()`
+sau `invoices.value.reverse()` — orice ajuns printr-un punct — are un proprietar în altă parte și se
+copiază întâi; un vector local (`rows.sort(...)`, construit cu câteva rânduri mai sus) e al funcției
+care îl sortează și e lăsat în pace, cum face `user/absente.vue`. Și `reverse` e acolo, nu doar
+`sort`: reordonează tot pe loc. Ce vine dintr-un `filter`, `map`, `slice` sau dintr-un spread e deja
+vector proaspăt — adică aproape toate sortările din aplicație.
+
 **Un buton de retry care nu șterge eroarea apasă degeaba.** `AdminError` cheamă `load()` din nou, dar dacă acel `load()` nu pune `loadError` pe gol **înainte** de cerere, a doua încercare reușește, datele vin, iar `v-else-if="loadError"` ține cardul de eroare deasupra lor: cererea pleacă, primește 200, și pe ecran nu se schimbă nimic. Cinci ecrane au fost livrate așa, și niciunul n-a fost găsit citind — butonul e acolo, e legat, cheamă funcția care trebuie, iar ce lipsește sunt două linii la începutul unei funcții aflate la douăzeci de rânduri distanță. Forma corectă e `loading.value = true;` plus golirea lui `loadError`, amândouă înaintea lui `try`; `retry-clears-error.spec.ts` mătură sursele după ordinea asta.
+
+**Nimic din spatele autentificării nu se randează pe server, și e o chestiune de corectitudine, nu
+de viteză.** Autentificarea e client-only prin construcție (`plugins/01.auth.client.ts`), deci când
+Nitro randa `/admin/...` n-avea niciun utilizator: shell-ul de admin ieșea cu meniul părintelui,
+portalul fără numele familiei, iar browserul hidrata pe deasupra ce trebuia. **Vue înlocuiește
+textul și lasă atributele** — o spune chiar el în avertisment —, așa că bara laterală a ajuns cu o
+intrare scrisă „Rapoarte" al cărei `href` era `/`: un clic stânga mergea, fiindcă router-ul
+folosește props-urile componentei, dar ctrl-clic, „deschide în tab nou" și „copiază adresa" duceau
+pe pagina publică. `routeRules` din `nuxt.config.ts` pune acum `ssr: false` pe `/admin/**` și
+`/user/**`. Un `<ClientOnly>` pe fiecare bucată care depinde de cine e logat ar fi reparat cele două
+găsite și l-ar fi lăsat pe al treilea să fie găsit la fel; ecranele astea sunt oricum `noindex`,
+n-au SEO și își cer datele la montare, deci randarea pe server nu cumpără nimic.
+
+**Un `value` gol într-un `USelect` nu e o opțiune, e o opțiune lipsă.** reka-ui refuză `SelectItem`
+cu `value=""`, fiindcă șirul gol e felul în care se golește un select — iar refuzul e o eroare în
+consolă, nu una pe ecran: declanșatorul afișează în continuare eticheta, deci nimic nu arată greșit
+până când cineva filtrează o dată și nu mai are cum să revină la „toate". Se scrie ca la
+`/admin/orar` și la comutatorul de locație: o valoare-santinelă (`"all"`), tradusă în `undefined`
+când pleacă spre API.
+
+**Poarta autentificată pică acum și pe o eroare scrisă în consola browserului**, nu doar pe axe —
+`check-a11y-auth.mjs`. Amândouă defectele de mai sus erau vizibile exact acolo și nicăieri altundeva:
+nu se văd într-o captură de ecran, nu pică niciun test pe date și nu le vede axe. Cererile picate
+sunt excluse dinadins: job-ul ăla n-are stocare de obiecte, deci ecranul de PDF răspunde 500 acolo
+pentru totdeauna, iar un ecran rămas fără date e deja prins de verificarea de „se încarcă".
 
 **Nu pune `@input` pe un câmp de text Nuxt UI.** Handler-ul rulează, dar **înainte** ca `v-model` să scrie caracterul tocmai tastat: Vue îmbină ascultătorul venit prin `$attrs` cu al componentei într-un vector și le cheamă în ordinea aia, al nostru primul. Deci orice citește din model e cu o tastă în urmă. Căutarea de copii din catalog a fost exact asta: `a` nu găsea nimic (filtra pe șirul gol), `aa` găsea unsprezece (filtra pe `a`), iar un nume întreg nu găsea niciodată nimic. Derivă din model — un `computed` nu poate fi decalat față de ce citește. `@change` și `@blur` sunt emit-uri declarate și se produc după actualizare, deci sunt în regulă. `no-input-listener.spec.ts` ține linia.
 
@@ -709,6 +834,29 @@ Rulează-le de la rădăcină, cu `pnpm test:e2e`, nu cu `pnpm --filter api test
 pornește cu directorul de lucru în `apps/api`, unde nu există `.env`, deci nu vede portul MinIO din
 configurația ta.
 
+**Imaginea MinIO vine de pe `quay.io`, registrul propriu al MinIO, nu de pe Docker Hub.** Mutarea
+n-a fost o reparație, și merită spus fiindcă mesajul de commit care a adus-o spune altceva:
+`minio/minio` de pe Hub răspundea în continuare unui `docker pull` anonim în ziua schimbării —
+aceeași imagine, același digest (`sha256:14cea493…`), verificat pe două rulări din aceeași noapte,
+una de pe fiecare registru, amândouă cu suita de integrare întreagă: 50 de suite, 614 teste. Nu
+presupune că Hub e închis; dacă vreodată chiar se închide, ăsta e paragraful de corectat, nu de
+citat.
+
+Ce s-a reparat e **felul în care pica pasul**. „Start MinIO" n-avea nici reîncercare, nici mesaj,
+iar un `docker pull` picat lăsa cei doi pași de după el — `check:schema` și **toată** suita de
+integrare — _skipped_: checkul ieșea roșu cu numele „Integration tests" și cu zero teste rulate,
+adică arăta exact ca un test picat. Acum sunt trei încercări și un `::error::` care spune în cuvinte
+că n-a rulat nimic.
+
+Regula care rămâne, și e cea care costă o după-amiază dacă o uiți: **dacă vezi roșu la „Integration
+tests", uită-te întâi dacă a rulat vreun test.** Un pas de infrastructură care cade nu seamănă cu un
+test picat, dar checkul are aceeași culoare.
+
+`docker-compose.yml` a fost mutat pe `quay.io` odată cu CI, și pentru `minio/minio`, și pentru
+`minio/mc`. Pe al doilea **nu-l atinge nicio rulare de CI** — îl folosește doar
+`docker compose up -d`, prin `minio-init` —, deci e singura bucată din mutare pe care n-a
+verificat-o nimic automat.
+
 **`scripts/` e exclus din `tsconfig.build.json`, intenționat.** Inclus, ar urca `rootDir` la
 rădăcina pachetului, iar `nest build` ar scrie `dist/src/main.js` în loc de `dist/main.js` — deci
 `start:prod` și deploy-ul s-ar rupe în tăcere. Scripturile rulează oricum prin ts-node.
@@ -718,6 +866,18 @@ netastat se trimite ca string gol, deci `@IsOptional() @Length(1, 255)` respinge
 care formularul îl produce mereu. Pe câmpurile opționale de text pune `@EmptyToUndefined()`
 (`apps/api/src/common/empty-to-undefined.ts`) înaintea validatorilor. Din cauza asta ecranul de
 completare a profilului a devenit imposibil de trecut în clipa în care validarea a fost pornită.
+
+**Regula e „gol înseamnă lipsă", nu „nu mai da 400", și o ține un spec.** Patruzeci și opt de
+câmpuri rămăseseră fără ea, iar cele două feluri de greșit merită deosebite: majoritatea
+**refuzau** — un `@Length`, un `@Matches`, un `@IsEnum` sau un `@IsDateString` pe care o casetă
+golită n-are cum să le treacă —, dar câteva **acceptau**, ceea ce e mai rău. `PUT /children/:id`
+primea `firstName: ''` și îl scria: un câmp opțional fără limită de lungime e o cale prin care se
+golește numele unui copil dintr-o casetă ștearsă și un buton de salvare. Trei ecrane compensau deja
+cu `|| undefined` la ieșire, iar al patrulea urma să uite — de aia decizia stă pe API, nu în
+apelanți. `optional-text-is-never-empty.spec.ts` mătură DTO-urile și pică pe nume. Singura clasă
+exceptată e `PreviewMailTemplateDto`, cu motivul lângă ea: acolo `''` e o stare, nu o absență —
+editorul de șabloane previzualizează exact ce e în casete, deci un subiect șters trebuie să se vadă
+șters, nu cum e încă salvat pe server. Dacă mai apare una, se trece în listă cu propoziția ei.
 
 **`@IsPhoneNumber()` fără regiune cere format internațional.** Numerele se scriu `0712345678` în
 România, deci decoratorul e `@IsPhoneNumber('RO')`, care acceptă și `+40712345678`. Frontend-ul
@@ -753,6 +913,29 @@ entitățile au divergat.
 
 Când schimbi o entitate: `pnpm --filter api migration:generate src/migrations/<Nume>`, apoi citește
 SQL-ul generat înainte de commit. O redenumire de coloană îi apare ca `DROP` plus `ADD`.
+
+**O relație nouă are nevoie de index pe ea, fiindcă Postgres nu-l face.** Postgres indexează partea
+**referită** a unei chei străine, niciodată coloana de pe copil. Deci fiecare `ON DELETE CASCADE`,
+fiecare `RESTRICT` și fiecare interogare care filtrează pe relație era scanare secvențială —
+treizeci și patru de coloane erau așa, iar două dintre ele poartă interogări care rulează **în
+interiorul unui lacăt de rând**. Măsurat pe o școală de trei ani (250 de familii, 46.800 de marcaje
+de catalog, 9.000 de facturi, 8.250 de plăți):
+
+- `payments.invoice_id` — `recomputeInvoiceStatus` adună plățile reușite ale unei facturi **ținând
+  lacătul acelei facturi**, la fiecare plată scrisă sau editată: **0,791 ms → 0,100 ms**.
+- `attendances.class_session_id` — catalogul unei ore, adică fix ce deschide profesorul în sală:
+  **3,378 ms → 0,044 ms**.
+
+Costul l-am măsurat și pe el, fiindcă „mai pune un index" nu e gratis: douăzeci de mii de marcaje
+noi se inserează în 551 ms cu index și 567 ms fără — în zgomot. Deci regula e simplă și fără
+excepții de memorat: **pui un `@Index` pe fiecare `@ManyToOne` pe care îl adaugi.** Nu toate se vor
+vedea într-un plan azi — `leads` și `projects` sunt încă mici, iar pe o tabelă de 300 de rânduri
+Postgres alege oricum scanarea —; sunt acolo pentru ziua în care tabela crește, iar o schemă
+indexată pe jumătate e una despre care nimeni nu mai poate raționa.
+
+Ce **nu** rezolvă: rapoartele care citesc tot. Interogarea de restanțe atinge toate facturile
+neplătite și le împerechează cu toate plățile, iar acolo hash join peste scanare completă chiar e
+planul corect — a rămas la 2,3 ms și cu index, și fără. Un index ajută punctul, nu bilanțul.
 
 **Nu te chinui însă să păstrezi date: nu există niciunele.** Nici pe stage — baza de acolo e tot
 seed, refăcută dintr-o comandă —, n-a existat niciodată un utilizator real, iar în afara ei baza
@@ -864,6 +1047,23 @@ date la fiecare cerere. Dacă vine o cerință de revocare instantanee, ăsta e 
 cel prezentat; dacă păstrezi tokenul vechi, a doua reîmprospătare arată ca un replay, iar serverul
 revocă tot lanțul. `useApi.ts` a avut exact bug-ul ăsta și deloga fiecare părinte la ~30 de minute.
 
+**Și trebuie să reîmprospăteze o singură dată deodată, oricâte cereri ar aștepta.** Două
+reîmprospătări pornite în paralel prezintă amândouă același token: serverul îl rotește pentru prima
+și o citește pe a doua ca replay — „clientul care se întrece cu el însuși" e scris chiar în
+`SessionService.rotate`, iar tratamentul e același ca pentru un furt, fiindcă din afară arată
+identic. În browser, poarta e `refreshPromise` la nivel de modul din `useApi.ts`. În
+`apps/agent`, care n-o avea, nu era o interleavare rară, ci **orarul**: trei cronometre
+independente peste un singur `ApiClient` — scanarea la 30s, heartbeat-ul la 5 minute, oglinda la 15
+—, iar access tokenul ține un sfert de oră, deci tick-ul în care tocmai a expirat e regulat un tick
+în care pornesc două. Calculatorul din birou ridica semnalul de furt al platformei de câteva ori pe
+oră, degeaba — ceea ce e mai rău decât autentificările irosite: o alarmă care strigă „lupul" după
+ceas e una în care nimeni n-o să creadă în ziua în care are dreptate. Al doilea capăt e un contor de
+generație: un 401 întors **după** ce altcineva a rotit deja n-are nevoie de o rotire proprie, ci de
+tokenul care există între timp. Amândouă capetele au test propriu, iar testul pornește un server HTTP
+adevărat: ce se verifică e ce se întâmplă când două cereri sunt în aer în același timp, iar un
+`fetch` înlocuit cu un răspuns gata făcut dă înapoi controlul prea devreme ca ele să se suprapună
+cu adevărat.
+
 **Un login ține șapte zile, cât refresh tokenul din spatele lui.** `useCookie("accessToken")` fără
 opțiuni scrie un cookie **de sesiune** — `CookieDefaults` din Nuxt pune `path`, `watch`, `decode`,
 `encode` și `refresh`, și nimic altceva, deci nici `maxAge` și nici `expires` —, așa că amândouă
@@ -952,6 +1152,11 @@ Patru lucruri de ținut minte dacă adaugi un scriitor nou lângă facturi, plă
 - **Derivările nu se consemnează.** `recomputeInvoiceStatus` mută starea facturii fiindcă s-au
   adunat plăți; e o consecință, nu o decizie a nimănui. Un jurnal în care fiecare derivare stă lângă
   deciziile oamenilor e un jurnal în care deciziile nu se mai găsesc.
+- **A patra ușă e capacitatea depășită**, lângă bani și date personale: `allowOverCapacity` e o
+  decizie a unui om despre o sală, deci `assertRoomForOneMore` scrie un rând **pe grupă**, nu pe
+  înscriere — întrebarea e „cine a pus al unsprezecelea copil în grupa 5", și se pune despre
+  cameră. De aici și `Actor` în loc de `actingUserId` pe `enrol` și `transfer`; `null` e formularul
+  public de probă, singurul apelant fără cont, iar nota spune care dintre cele două a fost.
 - **Actorul vine din token, prin `actorFrom(req)`**, și se stochează denormalizat — id plus numele
   copiat la scriere, fără relație către `User`. O urmă care arată către un rând ce poate fi șters
   pierde exact intrările care contează: cele despre un cont scos ulterior. Pentru munca programată
@@ -1120,6 +1325,29 @@ revendică niciodată, fiindcă niciun backoff nu face să apară o adresă. Nu 
 nimeni, iar „părintele n-a fost anunțat" arăta ca o coadă blocată. Adresa rămâne goală pe rândul
 nelivrabil — una inventată n-ar putea fi deosebită de una reală care a respins mesajul.
 
+**Iar „n-a ajuns" are trei feluri, nu unul — și tabloul de bord le numără pe toate.**
+`DeliveryLogService.health` (`apps/api/src/modules/mail/delivery-log.service.ts`) e proprietarul
+întrebării, iar `OverviewService` o cere, nu o recalculează — regula E21. Cele trei:
+
+- `failed` — furnizorul a refuzat definitiv, sau s-au consumat cele șapte încercări.
+- `undeliverable` — n-a avut unde să plece, de mai sus.
+- **`stuck` — și ăsta nu e o stare, e un ceas.** Un mesaj pe care dispecerul nu l-a revendicat
+  rămâne `pending`, adică arată exact ca unul care își așteaptă backoff-ul; singura diferență e
+  `nextAttemptAt`, care a trecut. Pragul e `STUCK_AFTER_MINUTES` din `outbox-health.rules.ts`:
+  cincisprezece minute, adică **treizeci de ticuri ratate** la `POLL_INTERVAL_MS` de 30 de secunde,
+  și pleacă pe sârmă ca să numească ecranul linia, nu s-o deseneze a doua oară.
+
+Tile-ul scria „Mesaje nelivrate" și număra doar al doilea fel, deci un mesaj refuzat de furnizor
+arăta zero, iar o coadă **oprită de tot** arăta tot zero — exact defecțiunea pe care epicul o
+descrie: „un mesaj care nu ajunge nu seamănă cu o eroare, seamănă cu liniște."
+
+**Interogarea restrânge pe `status`, și nu din eleganță.** Rândurile `sent` nu se șterg niciodată —
+scrie la `IDX_outbox_claim` pe entitate — deci ele _sunt_ tabela, iar tot ce vrea întrebarea asta e
+în cele câteva rânduri care nu sunt trimise. Măsurat pe 200.000 de rânduri: fără `WHERE`, scanare
+secvențială paralelă la **16,9 ms**; cu el, index-only scan la **0,1 ms**, pe un ecran pe care un
+admin îl deschide toată ziua. Dacă adaugi un al patrulea număr aici, ține-l în aceeași listă de
+stări.
+
 **Anunțul e singurul mesaj care pleacă la mai multe familii, deci singurul cu reguli proprii**
 (E17 S7). `apps/api/src/modules/announcement/` trimite către o grupă, o locație sau toată școala, iar
 audiența se citește din `Child.group` — familiile cu un copil într-o grupă din perimetru, probele
@@ -1268,9 +1496,9 @@ afla era profesorul din sală.
 
 Restul a ce e programat în backend — dispecerul de outbox și verificarea de la minutul 15
 (`@Interval`), mementoul de la 10:00, cele două notificări către părinte din E12 S4, mementourile de
-restanță din E16 S7 și măturarea ofertelor de pe lista de așteptare din E11 S3 (`@Cron`), plus
-purjarea sesiunilor, care stă în continuare pe un `setInterval` propriu în
-`apps/api/src/modules/auth/session.service.ts` — **nu generează orar**, niciunul.
+restanță din E16 S7, măturarea ofertelor de pe lista de așteptare din E11 S3 și pasul de miniaturi
+din E14 S3b (`@Cron`), plus purjarea sesiunilor, care stă în continuare pe un `setInterval` propriu
+în `apps/api/src/modules/auth/session.service.ts` — **nu generează orar**, niciunul.
 
 **Datele calendaristice se construiesc din componente locale, niciodată printr-un ocol prin UTC.**
 TypeORM scrie o coloană `date` citind componentele locale ale valorii, iar `new Date('2026-08-29')`
@@ -1339,10 +1567,20 @@ ecran gol.
 
 Etichetele în română stau lângă ecranele care le afișează (`apps/web/app/types/*.types.ts`), și e
 oricum locul lor: contractul descrie ce trece pe sârmă, iar pe sârmă trece `'TRIAL'`, nu `'Probă'`.
-`Weekday`, `Role` și `WEEKDAY_LABELS` sunt mai vechi și rămân; nimic nou nu li se alătură.
 `ClassSessionStatus` a fost convertit la o uniune de literali la E12 S2, iar etichetele lui au
 plecat în `apps/web/app/types/class-session.types.ts`, lângă `SessionStatus` — obiectul
-`as const satisfies` cu care se compară un ecran.
+`as const satisfies` cu care se compară un ecran. `AttendanceType` a făcut același drum mai târziu,
+și e cazul care arată de ce regula avea nevoie de un test: era încă `enum` acolo, iar cele trei
+locuri care îl compară includ tabloul de bord al **părintelui** — un subarbore abandonat acolo e o
+familie care nu află dacă i-a venit copilul la oră. Obiectul se cheamă acum `MarkType`, ca
+`SessionStatus`: un nume nu poate fi și tip reexportat, și `const` local, în același modul.
+
+**Ce mai e voie să rămână e o listă, iar lista e un test.** `contract-carries-no-surprises.spec.ts`
+citește sursele din `packages/types/src/` și pică pe nume la orice export de rulare nou, la orice
+`enum` în afară de `Weekday` și `Role`, și la orice intrare rămasă în listă după ce lucrul pe care
+îl scuza a plecat. Cele nouă rămase au fiecare o propoziție lângă ele: cele trei enumerate mai sus
+sunt importate **și** de `apps/api`, restul sunt tabele de etichete ca obiecte simple. Regula era
+scrisă de la E12 și era doar proză; între timp `AttendanceType` a trecut pe lângă ea.
 
 În `contract.ts`, o uniune de literali se compară cu enum-ul din API prin `` `${Enum}` ``: enum-ul e
 nominal, deci niciun sens al lui `extends` nu ține între cele două, oricât de identice ar fi
@@ -1563,7 +1801,9 @@ fiecare pagină din sitemap, **o derulează până jos** și pică la prima cere
 la primul cookie. Serverul de probă, citirea sitemap-ului și pornirea lui Chromium sunt împărțite cu
 verificarea de accesibilitate, în `scripts/preview-site.mjs` — de asta variabilele de mediu îi spun
 tot `A11Y_*`: sunt scrise mai sus și setate în shell-urile oamenilor, iar una necitită nu dă eroare,
-ci atârnă. Trei lucruri de știut:
+ci atârnă. Portul propriu e `THIRD_PARTY_PORT`, implicit **3126** — a fost 3124, adică fix cel al
+verificării autentificate, deci cele două comenzi nu se puteau rula împreună. Patru lucruri de
+știut:
 
 - **Derularea e tot rostul rulării.** Bug-ul pentru care există garda era `loading="lazy"` pe
   `<iframe>`-ul hărții: se citește ca reținere și se declanșează când cititorul derulează până la

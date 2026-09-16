@@ -27,10 +27,10 @@ Frontend pe Vercel — `itbridgeschool.com` din `release/prod`, `stage.itbridges
 `release/prod` poartă API-ul de dinainte de E08, deci acolo nu e nimic de deployat încă.
 
 Pragul s-a mutat, deci: ce avea nevoie doar de „undeva unde rulează" se poate face acum, pe stage —
-[E18](E18-frontend-portal.md) S4 și S5, [E14](E14-proiecte-elevi.md) S3b (ffmpeg pe host) și S5
-(galeria părintelui). Ce mai cere domeniul real rămâne blocat: backupul restaurat din
-[E04](E04-migrari-date.md) S4, vitrina publică din E14 S6 și pagina `/proba` din
-[E20](E20-palnie-inscriere.md) S2. Agentul din E14 are de acum unde să se conecteze.
+[E18](E18-frontend-portal.md) S4 și S5, și [E14](E14-proiecte-elevi.md) S5, galeria părintelui; S3b
+de acolo e livrat și nu mai așteaptă decât pachetul ffmpeg pe instanță. Ce mai cere domeniul real
+rămâne blocat: backupul restaurat din [E04](E04-migrari-date.md) S4, vitrina publică din E14 S6 și
+pagina `/proba` din [E20](E20-palnie-inscriere.md) S2. Agentul din E14 are de acum unde să se conecteze.
 Locația e dimensiune de primă clasă din [E08](E08-multi-locatie.md).
 
 Curățenia de infrastructură din E01 a intrat: aplicația nu mai rulează în Docker, `docker-compose.yml`
@@ -120,11 +120,12 @@ prin el înainte ar fi fost servit înapoi ca PDF. Iar `outbox` a primit o coloa
 ține **chei, nu octeți**: miniatura pleacă atașată inline, fiindcă un URL semnat e o imagine ruptă
 când părintele deschide mailul a doua zi dimineața.
 
-Ce n-a intrat din E14 sunt exact cele două story-uri care depindeau de altcineva: miniaturile de
-video, care cer ffmpeg pe un host, și **vitrina publică, care cere consimțământul din
-[E07](E07-securitate-gdpr.md) S2**. A doua e vizibilă în model prin absență: nu există niciun câmp
-`isPublic` nicăieri, fiindcă un boolean pe `Project` ar fi fost al doilea loc în care se poate
-răspunde la aceeași întrebare, fără precedență între ele. Consecința pentru planificare e că E07 S2
+Din E14 a intrat între timp și S3b, ultimul story de cod al epicului: cadrul din video prin ffmpeg
+și — răspunsul spike-ului fiind da — scena unui `.sb3` desenată din arhiva lui, amândouă dintr-un
+ceas propriu. Ce n-a intrat e **vitrina publică, care cerea consimțământul din
+[E07](E07-securitate-gdpr.md) S2**, și a ieșit din MVP. E vizibilă în model prin absență: nu există
+niciun câmp `isPublic` nicăieri, fiindcă un boolean pe `Project` ar fi fost al doilea loc în care se
+poate răspunde la aceeași întrebare, fără precedență între ele. Consecința pentru planificare e că E07 S2
 și-a găsit primul consumator real: nu mai e o precauție, e ce ține pe loc materialul de marketing
 din [E19](E19-seo-geo.md).
 
@@ -355,8 +356,13 @@ Peste ele s-au livrat: șabloanele (S2), cu implicitele în cod și editările �
 marketing și calea de dezabonare din **fiecare** mesaj (S4), cu jetonul `select: false` și scrierea
 în spatele unui `POST`; evidența pe care o citește un admin (S5), la `/admin/livrari`; anunțurile
 către o grupă, o locație sau toată școala (S7), la `/admin/anunturi`; și trimiterea declanșată de
-admin (S8), venită odată cu [E14](E14-proiecte-elevi.md) S4. **Rămâne doar S6**, motorul de
-rezumate — singurul care cere o preferință de frecvență pe care n-o cere nimic altceva.
+admin (S8), venită odată cu [E14](E14-proiecte-elevi.md) S4. **Rămâne S6**, motorul de rezumate —
+și rămâne _prin decizie, nu prin coadă_: a fost construit, a trecut testele și a fost **revenit**,
+fiindcă adunarea între feluri de mesaje face invariantul „ce e în coadă e ce pleacă" condiționat și
+dă fiecărui mesaj o stare în care nu a plecat și nu a eșuat. Verdictul patronului e că un părinte nu
+se supără de trei emailuri într-o zi. Gruparea care conta — **un mesaj per părinte, nu per copil** —
+există deja peste tot. Pragul la care se redeschide e scris în epic: când o familie primește de
+obicei mai mult de un mesaj pe zi. **Nu e muncă disponibilă; e o ușă închisă cu motiv.**
 
 Singurul destinatar de până acum e tot adresa școlii: **niciun mesaj nu a plecat încă spre un
 părinte** — pe stage nu există cheie de trimitere, deliberat.
@@ -385,12 +391,14 @@ ce a rămas nu seamănă: la E18 e cod, la E19 nu e:
 
 Ordinea firească era [E01](E01-infrastructura-medii.md) S4 înaintea verificării lui E18 S4 — un
 portal fără API nu se poate termina. Condiția s-a îndeplinit odată cu deploy-ul de stage, iar S4 s-a
-închis după aceea. Ce a rămas nu mai e blocat de mediu: **E18 S5** (restul uniformizării de admin) și
-**E17 S6** (rezumatele) sunt singurele două story-uri care se pot începe fără să aștepte pe cineva —
-restul cerințelor deschise așteaptă un om, nu un commit: proba de restaurare din
+închis după aceea. Din story-urile rămase, **singurul care e muncă de scris azi e E18 S5** — restul
+uniformizării de admin. Restul așteaptă un om sau o hotărâre, nu un commit: proba de restaurare din
 [E04](E04-migrari-date.md) S4, retenția facturilor din S5, profilurile Google Business din
-[E19](E19-seo-geo.md), și cheia de trimitere fără de care [E17](E17-comunicare-notificari.md) nu
-poate scrie niciunui părinte.
+[E19](E19-seo-geo.md), cheia de trimitere fără de care [E17](E17-comunicare-notificari.md) nu poate
+scrie niciunui părinte, și **E17 S6, care nu e nefăcut ci retras** — vezi mai sus.
+
+Ceea ce **nu** înseamnă că nu e nimic de făcut: ce nu e story rămâne oricând deschis — bug-uri,
+teste, întărire, curățenie. Harta asta ține story-urile, nu munca.
 
 [E10](E10-curriculum-module.md) rămâne `propus` și **iese din MVP**, respins de patron. Nu e anulat
 ca E22 de mai jos și fișierul rămâne unde e — decizia e despre moment, nu despre scop —, dar nu mai

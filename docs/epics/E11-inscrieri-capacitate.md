@@ -254,12 +254,20 @@ odată cu el; sunt în [În afara scopului](#în-afara-scopului), explicit, ca s
 > integrare pune o grupă de două locuri cu un copil înscris și o probă și verifică refuzul, fiindcă
 > ăsta e cazul care se pierde cel mai ușor.
 >
-> Excepția pentru admin există, dar cere un câmp explicit (`allowOverCapacity`) și lasă un
-> `warn` în log cu cine a făcut-o. **Jurnalul de audit pe care îl cere story-ul există de la E07 S3,
-> dar nimic de aici nu scrie în el**: `enrol` primește un `actingUserId`, iar urma cere un `Actor` —
-> id plus numele copiat la scriere — și unul dintre apelanți e formularul public de probă, care n-are
-> niciunul. Până se trece prin toți trei, asta e jumătatea onestă a promisiunii, nu promisiunea
-> întreagă.
+> Excepția pentru admin există, cere un câmp explicit (`allowOverCapacity`) și **lasă un rând în
+> jurnalul de audit**, pe grupa a cărei capacitate a fost depășită: „cine a pus al unsprezecelea
+> copil în grupa 5, și când" se întreabă despre sală, nu despre o înscriere, iar răspunsul e un
+> `GET /audit?entityType=Group&entityId=5`. `changes` poartă ocuparea care s-a mișcat, nota —
+> capacitatea peste care a trecut, fiindcă un număr fără plafonul lângă el nu spune nimic. Rândul se
+> scrie **în tranzacția înscrierii**, deci o urmă nu poate supraviețui unui loc care s-a dat înapoi.
+>
+> De aici a venit și schimbarea de semnătură pe care story-ul o amâna: `enrol` și `transfer` primesc
+> acum un `Actor` — id **plus** numele copiat la scriere, fiindcă jurnalul nu are relație către
+> `users` și o urmă care arată spre un cont șters pierde exact partea pe care o citește cineva —, iar
+> `null` rămâne formularul public de probă, care n-are niciun cont în spate. Acela nu poate ajunge la
+> excepție, fiindcă nimic public nu trimite `allowOverCapacity`; dacă vreodată va putea, nota o va
+> spune. `warn`-ul din log rămâne și el: îl citește cine se uită la un deploy, rândul îl citește cine
+> întreabă în martie.
 >
 > Lista de așteptare: `WaitlistEntry`, ordonată după momentul cererii, cu index parțial care
 > împiedică o a doua cerere deschisă pentru același copil și aceeași grupă. Închiderea unei
