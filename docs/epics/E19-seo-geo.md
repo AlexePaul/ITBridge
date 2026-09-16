@@ -252,14 +252,37 @@ București.**
   E linia de bază pentru citirea din octombrie, nu un rezultat.
 - **Acoperirea, din raportul „Pagini" exportat în aceeași zi** (cu date până la 4 septembrie —
   raportul de indexare rămâne cu o săptămână în urma celui de performanță): **3 pagini indexate,
-  9 neindexate**, neschimbat din 28 august. Cele 9 sunt cele 3 redirecționări de mai sus (starea
-  dorită), un singur 404 (din cele două de la 1 septembrie) și **aceleași 5 „descoperite – nu sunt
-  indexate"**: `/cursuri`, `/contact`, `/locatii` și paginile de locație. Pe 13 septembrie
-  validarea lor e **începută** din consolă, deci Google le-a pus la coadă și răspunde în până la
-  două săptămâni; „Solicită indexarea" pe fiecare URL, după deploy-ul localizării, e drumul mai
-  scurt și nu se exclud. Cele 3 indexate nu sunt numite în export; după raportul de performanță
-  sunt pagina principală, `/despre-noi` și, cel mai probabil, `/about` — slug-ul vechi, numărat ca
-  pagină indexată până la prima recitire, deși răspunde 301.
+  9 neindexate**, neschimbat din 28 august — cele 3 redirecționări de mai sus, un 404 și cele 5
+  „descoperite – nu sunt indexate", cu validarea începută din consolă în aceeași zi.
+
+#### Trei zile mai târziu, 16 septembrie
+
+Exporturile din 16 septembrie (date până la 14) corectează citirea de mai sus și dau primul semn
+după localizare. Consemnate aici, nu într-o secțiune nouă, fiindcă sunt aceeași lună:
+
+- **Cele cinci pagini erau indexate din 5 septembrie**, nu „la coadă": raportul de acoperire, cu
+  o săptămână întârziere, arată saltul de la 3/9 la **8 indexate, 4 neindexate** în ziua aceea,
+  iar „Descoperită – nu este indexată" e acum **zero, cu validarea reușită**. Cele 4 rămase sunt cele
+  3 redirecționări și un 404 — starea dorită, nu o problemă. Deci indexarea a venit din validarea
+  cerută la 1 septembrie și din prerandarea din 2 septembrie, **înaintea** localizării din 13.
+- **Fiecare dintre cele cinci are acum expuneri**: `/cursuri` 12 (poziția 16, un clic),
+  `/locatii/drumul-taberei` 13 (poziția 9,4), `/locatii` 2, `/locatii/straulesti` 1, `/contact`
+  1. Pagina principală a urcat la 375 de expuneri și 12 clicuri; `/about`, slug-ul vechi, încă 35
+     de expuneri pe poziția 2,7 — Google n-a recitit redirecționarea, deci „Solicită indexarea" pe el
+     rămâne de făcut.
+- **Primele interogări românești dincolo de „cursuri it"** (13, poziția 4,8): „cursuri
+  programare" (poziția 7), „cursuri de informatica" (11), „curs c++" (11), „cursuri c++" (20),
+  „cursuri informatica" (22), „cursuri informatica elevi" (56), „cursuri informatica copii" (57) —
+  câte una sau două expuneri fiecare. Pozițiile spun că paginile sunt **eligibile**, nu că se
+  poziționează; până la 13 septembrie nu erau nici atât. Cele două cu „c++" sunt exact cererea pe
+  care o așteaptă pagina `/cursuri/cpp` din PR-ul cu paginile pe unealtă, încă neîmbinat.
+- **Englezescul n-a scăzut**: „schools" 128, „trade it" 75, „it school" 4 — e categoria de pe
+  profil, care se schimbă în săptămâni după ce e schimbată, nu în zile.
+- **11–14 septembrie: 6 clicuri din 56 de expuneri**, adică 11% față de 2% pe toată perioada de
+  dinainte. Cifre prea mici ca să fie o concluzie, dar direcția e cea așteptată de la un titlu care
+  repetă ce a tastat părintele. Localizarea a ajuns la Google cel mai devreme pe 13, deci citirea
+  care contează e cea din octombrie, pe filtrul de interogări cu „copii", „programare",
+  „informatică", „meditații" — nu totalul de expuneri, care va scădea când dispar cele englezești.
 
 **Ce s-a schimbat în cod, pornind de aici** — localizarea semnalelor, nu conținut nou (acela e S6
 și PR-ul cu paginile pe unealtă). Titlurile și descrierile spun „cursuri IT și programare pentru
