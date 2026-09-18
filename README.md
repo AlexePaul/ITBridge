@@ -220,10 +220,10 @@ nu o plasă de siguranță.
 
 ## Stare cunoscută
 
-**Frontend-ul e livrat pe jumătate, și jumătatea contează.** Partea publică — design, cele șapte
-pagini, fotografiile, SEO și datele structurate — e făcută și poate sta în producție așa cum e
-([E18](docs/epics/E18-frontend-portal.md) S1 și S3, [E19](docs/epics/E19-seo-geo.md) S1, S2, S3 și
-S7). Ce **nu** e făcut, și e explicit muncă viitoare:
+**Frontend-ul e livrat pe jumătate, și jumătatea contează.** Partea publică — design, paginile
+declarate în `PUBLIC_PAGES`, fotografiile, SEO și datele structurate — e făcută și poate sta în
+producție așa cum e ([E18](docs/epics/E18-frontend-portal.md) S1 și S3,
+[E19](docs/epics/E19-seo-geo.md) S1, S2, S3 și S7). Ce **nu** e făcut, și e explicit muncă viitoare:
 
 - **Cablarea la backend, în producție.** Pe stage e cablată: `stage.itbridgeschool.com` vorbește cu
   `api-stage.itbridgeschool.com`, pe date de seed. Pe `itbridgeschool.com` nu, fiindcă acolo nu
