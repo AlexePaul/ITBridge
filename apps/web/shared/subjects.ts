@@ -37,8 +37,45 @@ export interface Subject {
 
 /** In the order a child meets them: the youngest level first. */
 export const SUBJECTS: Subject[] = [
-  { slug: "canva", name: "Canva", teaches: ["Canva"], projects: [] },
-  { slug: "tinkercad", name: "Tinkercad", teaches: ["Modelare 3D cu Tinkercad"], projects: [] },
+  {
+    slug: "canva",
+    name: "Canva",
+    teaches: ["Canva"],
+    projects: [
+      {
+        image: "/images/lucrari/canva/siguranta-pe-internet-coperta.jpg",
+        alt: "Afiș pe fundal roz și galben, cu titlul „Siguranța pe internet” și desenul unui laptop pe al cărui ecran stă o siluetă cu glugă",
+        caption: "Postare despre siguranța pe internet",
+      },
+      {
+        image: "/images/lucrari/canva/siguranta-pe-internet-reguli.jpg",
+        alt: "A doua pagină a aceluiași afiș, cu titlul „Reguli” și trei reguli scrise mare: nu spunem parola nimănui, nu vorbim cu străini, punem o parolă puternică",
+        caption: "Regulile, din aceeași postare",
+      },
+    ],
+  },
+  {
+    slug: "tinkercad",
+    name: "Tinkercad",
+    teaches: ["Modelare 3D cu Tinkercad"],
+    projects: [
+      {
+        image: "/images/lucrari/tinkercad/oras-cu-turnuri.jpg",
+        alt: "Machetă 3D cu două turnuri violet, două turnulețe cu acoperiș galben și un rând de copaci și flori între ele",
+        caption: "Oraș cu turnuri și grădină",
+      },
+      {
+        image: "/images/lucrari/tinkercad/personaj-si-fortareata.jpg",
+        alt: "Machetă 3D cu un personaj negru cu coif roșu deasupra unei clădiri galbene cu ferestre și un personaj verde cu sabie lângă ea",
+        caption: "Personaj și fortăreață",
+      },
+      {
+        image: "/images/lucrari/tinkercad/scena-cu-personaje.jpg",
+        alt: "Machetă 3D cu o platformă roșie pe care stau mai multe personaje mici, sub un bloc roșu suspendat",
+        caption: "Scenă cu personaje",
+      },
+    ],
+  },
   {
     slug: "office",
     name: "Office",
