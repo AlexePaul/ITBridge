@@ -311,6 +311,54 @@ profiluri Google Business, categoria principală în română („Școală de in
 formare"), descrierea cu aceleași cuvinte ca site-ul și site-ul fiecărui profil îndreptat spre
 pagina lui de locație, nu spre pagina principală.
 
+#### Patru zile după paginile pe unealtă, 20 septembrie
+
+Exporturile din 20 septembrie. Prima constatare e o absență, și merită scrisă tocmai fiindcă nu se
+vede: **raportul de acoperire nu s-a mișcat.** Datele lui se opresc tot la 14 septembrie, exact ca
+acum patru zile, cu aceleași cifre — 8 indexate, 4 neindexate, „Descoperită" zero cu validarea
+reușită, cele 4 fiind cele 3 redirecționări și 404-ul. Deci nici cele șase pagini pe unealtă
+(îmbinate pe 16), nici galeriile (18) nu au ajuns încă în el. Citirea de acoperire care contează
+e următoarea; asta nu spune nimic despre ele, nici bine nici rău.
+
+Raportul de performanță, pe ultimele 28 de zile, are în schimb primele semne de după îmbinare.
+România: **17 clicuri din 496 de expuneri, CTR 3,4%, poziția medie 5,7** — 17 din 17 clicuri și
+496 din ~505 expuneri sunt de la noi, deci țintirea geografică e corectă și n-are ce i se face.
+
+- **Două din cele șase pagini pe unealtă au deja expuneri**, la patru zile după îmbinare:
+  `/cursuri/office` 3 (poziția 10) și `/cursuri/canva` 2 (poziția 8). E mai repede decât a durat
+  pentru cele cinci din septembrie.
+- **`/cursuri/cpp` n-are niciuna, iar cererea există**: „curs c++" stă pe poziția 11 și „cursuri
+  c++" pe 20, servite de altceva. E pagina scrisă exact pentru interogările alea, deci e prima pe
+  care merită cerută indexarea, nu ultima.
+- **Grupul „copii" a apărut, și e audiența școlii**: patru interogări unde pe 16 septembrie era
+  una — „cursuri de it pentru copii" (19), „cursuri informatica copii" (**42, de la 57**),
+  „cursuri de programare pentru copii" (54), „programare pentru copii" (57). Singura mișcare
+  destul de mare ca să nu fie zgomot e prima; restul sunt intrări noi.
+- **Prima interogare comercială cu oraș în ea**: „cursuri programare c bucuresti", poziția 21.
+  Până acum interogările românești erau fără loc.
+- **Primul semn pentru jumătatea GEO a epicului**: „ce cursuri de programare it recomandate pentru
+  avansați există?", poziția 13. O expunere, deci nu e un rezultat — dar e o întrebare întreagă,
+  tastată ca unui asistent, nu două cuvinte. Forma asta e ce măsoară S7, și până acum nu apăruse.
+- **Mobilul aduce clicurile, desktopul expunerile**: 13 clicuri din 256 de expuneri (5,1%) față de
+  4 din 250 (1,6%), la expuneri aproape egale. De trei ori CTR-ul, pe jumătatea traficului pentru
+  care E18 S7 a făcut verificarea la 390px.
+- **Englezescul tot n-a scăzut**: „schools" 152 (de la 128), „trade it" 77 (de la 75). Crește, nu
+  scade. Categoria de pe profilul Google a fost prezisă ca schimbându-se „în săptămâni"; patru zile
+  nu sunt.
+- **`/about` tot n-a fost recitit**: 42 de expuneri pe poziția 2,7, peste `/despre-noi` (20,
+  poziția 3,5). Indexarea s-a cerut pe 16 septembrie. Redirecționarea e corectă și pusă de mult
+  (`nuxt.config.ts`, 301 spre `/despre-noi`); ce lipsește e ca Google s-o recitească, și asta nu se
+  grăbește din cod.
+
+**Ce nu justifică datele astea: nicio schimbare de cod.** Tentația citind pozițiile 42–57 e să se
+îndese „informatică" în titluri — dar cuvântul e deja în `seo.ts` de șapte ori, împărțit dinadins
+pe pagini („IT" pe prima, „informatică" pe `/cursuri`), iar pozițiile alea sunt vârsta unui site
+indexat de două săptămâni, nu un cuvânt lipsă. Ar fi exact îndesarea pe care secțiunea de mai sus o
+refuză pe nume.
+
+**Ce rămâne al biroului**: „Solicită indexarea" pe cele șase pagini de sub `/cursuri/`, cu
+`/cursuri/cpp` prima.
+
 ### S9 · Legături rupte — livrat
 
 Un crawler peste paginile pe care le publică `sitemap.xml`, care cere fiecare link intern din ele și
