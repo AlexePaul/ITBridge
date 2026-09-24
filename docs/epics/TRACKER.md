@@ -3,7 +3,18 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 14 septembrie 2026, pe `release/stage`. **S-a închis E14 S3b, și cu el
+**Ultima actualizare:** 24 septembrie 2026, pe `release/stage`. **SmartBill s-a deblocat — contul
+există —, iar E16 a trecut de la hârtie la cod.** Faptul care a dat forma lucrului e al lor:
+**SmartBill nu are sandbox**, deci orice factură de test ar fi fost una reală. S0 se ține fără
+niciun document fiscal: `pnpm smartbill:check` doar citește cotele TVA și seriile, iar cu `--draft`
+trimite o singură ciornă, fără număr, de privit și șters. S2 și S3 sunt construite și testate pe un
+SmartBill fals care vorbește HTTP: facturile pleacă dintr-o coadă, câte una, sub limita de 30 de
+apeluri la 10 secunde, iar un răspuns pierdut nu devine niciodată o a doua factură — seria decide
+dacă s-a emis ceva, iar un om confirmă numărul când s-a mișcat. Implicitul e `SMARTBILL_MODE=off`,
+care nu trimite nimic; `live` pornește doar lângă baza pe care o numește. Cu el, **jumătate din
+E15 S7**: în `live`, PDF-ul e al SmartBill. Plata cu cardul rămâne amânată, cu un răspuns nou la
+„Netopia sau EuPlătesc?": niciunul în platformă — SmartBill le are deja integrate. Cu zece zile
+înainte, **s-a închis E14 S3b, și cu el
 E14**: spike-ul `.sb3` are răspuns — da, scena unui proiect Scratch se desenează din arhiva lui, cu
 `sharp`-ul care era deja acolo —, iar cadrul din video iese prin ffmpeg, amândouă dintr-un ceas
 propriu a cărui coadă e două coloane pe `projects`, nu o tabelă nouă. Lipsa uneltei pe host nu
@@ -73,8 +84,8 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 88 livrate, 18 parțiale, 3 blocate, 12 scoase din
-scop, 29 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **150 de story-uri** în 22 de epicuri: 88 livrate, 22 parțiale, 3 blocate, 12 scoase din
+scop, 25 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
 **Cifrele s-au recitit din rânduri, și cinci din șase erau greșite** — 75/19/6/36 pentru
@@ -85,7 +96,7 @@ coloana întâi cu `- [x]`, `- [~]`, `- [!]`, `- [ ]` sau `- ~~`, **numărate do
 `### E`** — altfel intră în total și rândul din legendă care arată cum se scrie un story tăiat, iar
 numărul iese cu unul peste, ceea ce e greu de observat tocmai fiindcă e aproape.
 
-Cele 29 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+Cele 25 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
 E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
 mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
@@ -273,7 +284,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S4 · Regula pentru mai mulți copii — 350 + 250 pe frate, într-un singur loc; ambele bug-uri reparate. Din E11/S4, suma numără doar copiii înscriși activ
 - [~] S5 · Reduceri cu tip — **tipul livrat** (`fixed`/`percent`, plafon 100%, ecranul `/admin/reduceri`); scopul, condițiile și valabilitatea nu s-au construit, fiindcă n-au niciun client
 - [ ] S6 · Previzualizare și emitere în masă
-- [ ] S7 · PDF-ul nu se mai generează local
+- [~] S7 · PDF-ul nu se mai generează local — **în `live`, nu se mai generează** (livrat cu E16 S2): după emitere, PDF-ul fiscal se ia de la SmartBill și se pune la aceeași cheie din bucket, deci portalul, exportul și ștergerea îl citesc fără să știe cine l-a făcut. În `off` și `draft` rămâne PDF-ul local. Rămâne potrivirea la leu cu documentul SmartBill pe date reale, adică prima factură emisă live
 - [x] S8 · Înscrierea la mijlocul unui modul — **rezolvat de modelul pe ședință**, nu de cod: cine intră pe 15 are mai puține ședințe în lună. Livrat aici: ecranul de emitere sortează familiile pe grupe, cum se și numără
 - [x] S9 · Ședințele facturabile se numără din catalog — `billable-sessions.rules.ts` (regula pură) + `BillableSessionsService` (singura interogare, pe luna de predare din `teachingMonthRange`): ședință fără catalog = neținută, nefacturată; ținută = facturată întregii grupe, pe perioada înscrierii; de vacanță = doar celor marcați prezenți; proba și marcajele `make-up` niciodată. `POST /invoices/issue` nu mai primește numere de la client; `/admin/invoices/emitere` arată numărul citit, desfacerea lui și ședințele lunii fără catalog deasupra. **Corectura pe copil** (`SessionCountOverride`, `PUT|DELETE /invoices/overrides`): o decizie consemnată — cât, de ce, cine, când —, un rând per copil și lună, arătată pe fișă lângă numărul citit, zero = `WAIVED`, refuzată cu 409 după ce familia are factura lunii
 
@@ -285,13 +296,13 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 ### E16 · Încasări și facturare prin SmartBill — `în lucru`
 
-- [ ] S0 · Verificarea premisei — abonamentul Facturare Platinum, înainte de orice cod
-- [x] S1 · Modelul de plată refăcut — sumă, metodă închisă, stare, referință de extras, cine a înregistrat-o; mulți-la-unu cu factura, starea facturii derivată din plățile reușite. **Fără câmpurile SmartBill de pe factură** — alea așteaptă S0
-- [ ] S2 · Emiterea prin SmartBill
-- [ ] S3 · Emiterea în masă, temperată — 3 apeluri pe secundă
-- ~~S4 · Plata cu cardul în portal~~ — amânată; se încasează prin transfer sau numerar
-- [~] S5 · Încasările: numerar și transfer bancar — **jumătatea de ecran**: încasarea se începe din rândul de restanță, precompletată cu restul de plată, iar `/admin/payments/new` e lista facturilor care mai au ceva de plată, nu un formular gol. Propagarea în SmartBill așteaptă S0
-- [~] S6 · Chitanțe și confirmări — **confirmarea livrată**, documentul fiscal nu (îl blochează S0). Înregistrarea unei încasări nu mai e tăcută: chitanța se pune în coadă în aceeași tranzacție, cu două șabloane după cum factura e acoperită sau nu, iar restul de plată vine din recalculare, nu dintr-o a doua scădere. Se datorează când o plată **devine** `succeeded` — deci și la confirmarea unui transfer intrat ca `initiated` —, o singură dată pe plată
+- [~] S0 · Verificarea premisei — **contul există; SmartBill n-are sandbox, deci verificarea se face fără nicio factură**: `pnpm smartbill:check` citește doar cotele TVA și seriile (token, CIF, serie, numărul pe care l-ar lua prima factură), iar `--draft` trimite o singură ciornă — fără număr, nu e document fiscal — de privit în SmartBill Cloud și șters. **Rămâne rularea ei pe contul real**, cu seria nouă a platformei și cota TVA stabilită cu contabilul
+- [x] S1 · Modelul de plată refăcut — sumă, metodă închisă, stare, referință de extras, cine a înregistrat-o; mulți-la-unu cu factura, starea facturii derivată din plățile reușite. Câmpurile SmartBill de pe factură au venit cu S2, unde le-a cerut integrarea
+- [~] S2 · Emiterea prin SmartBill — **construit și testat pe un SmartBill fals, neatins pe contul real.** Trei moduri (`off` implicit, `draft` = ciorne, `live` = facturi; `live` pornește doar dacă `SMARTBILL_LIVE_DB` numește baza). Emiterea din platformă pune factura în coadă (`fiscalStatus`), iar documentul îl face un ceas, nu cererea. Fără cheie de idempotență la SmartBill, **proba e seria**: `nextNumber` scris pe rând înaintea cererii; un răspuns pierdut se judecă după serie — n-a mișcat, se retrimite; a mișcat, confirmă un om numărul, niciodată platforma singură. O factură emisă nu se mai șterge și nu-și schimbă suma din platformă; corectura e o stornare. A ieșit la iveală și defectul care ar fi produs documentul dublu: `updateInvoice` salva tot rândul, citit înaintea tranzacției
+- [~] S3 · Emiterea în masă, temperată — **odată cu S2, pe aceleași rânduri**: cel puțin 400 ms între apeluri (limita reală e 30 la 10 secunde, nu 3 pe secundă), 20 de facturi pe trecere, câte una; la blocare nu se mai sună SmartBill deloc zece minute și nu se consumă încercări. Progresul — modul, stările, blocarea, eroarea pe rând — pe `/admin/invoices/[luna]`. Rămâne văzut pe o lună reală
+- ~~S4 · Plata cu cardul în portal~~ — amânată; se încasează prin transfer sau numerar. **Dacă se reia, fără procesator integrat în platformă**: SmartBill are deja Netopia, EuPlătesc și Stripe, cu link de plată pe factură și încasare înregistrată singură acolo — condiția e ca starea plății să fie adusă înapoi din SmartBill (S8) înaintea linkului, altfel mementourile de restanță scriu unei familii care a plătit
+- [~] S5 · Încasările: numerar și transfer bancar — **jumătatea de ecran**: încasarea se începe din rândul de restanță, precompletată cu restul de plată, iar `/admin/payments/new` e lista facturilor care mai au ceva de plată, nu un formular gol. Propagarea în SmartBill (`POST /payment`) e următorul pas, acum că S0 e deblocat
+- [~] S6 · Chitanțe și confirmări — **confirmarea livrată**, documentul fiscal nu — chitanța SmartBill vine cu propagarea din S5. Înregistrarea unei încasări nu mai e tăcută: chitanța se pune în coadă în aceeași tranzacție, cu două șabloane după cum factura e acoperită sau nu, iar restul de plată vine din recalculare, nu dintr-o a doua scădere. Se datorează când o plată **devine** `succeeded` — deci și la confirmarea unui transfer intrat ca `initiated` —, o singură dată pe plată
 - [x] S7 · Restanțe — ecranul `/admin/restante` cu vechime, job zilnic care marchează și scrie (3 zile înainte, apoi săptămânal, tăcere după 60), termen de 14 zile derivat din data emiterii. Fără grupare pe locație: o familie poate avea copii la ambele adrese
 - [ ] S8 · Reconciliere și verificare
 
@@ -371,13 +382,14 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 
-| Cine           | Ce                                | Ce ține în loc                                                                                                                                                                                                               |
-| -------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tu**         | Producția pe `release/prod`       | Ce mai cere **domeniul real**: pagina publică din E20 S2 și E04 S4 (proba de restaurare). Stage rulează, deci verificarea lui E18 S4, migrarea din S5 și scheduler-ul din E17 se pot face azi, pe `stage.itbridgeschool.com` |
-| **Tu**         | `apt install ffmpeg` pe instanță  | Jumătatea de video din E14 S3b. Un pachet, ca pinul PM2 — codul e livrat și nu se schimbă, iar restanța de videouri se desenează singură la primul tick de după. `.sb3` nu așteaptă nimic                                    |
-| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                                                                      |
-| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                                                                                |
-| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                                                                       |
+| Cine           | Ce                                | Ce ține în loc                                                                                                                                                                                                                                                       |
+| -------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tu**         | Producția pe `release/prod`       | Ce mai cere **domeniul real**: pagina publică din E20 S2 și E04 S4 (proba de restaurare). Stage rulează, deci verificarea lui E18 S4, migrarea din S5 și scheduler-ul din E17 se pot face azi, pe `stage.itbridgeschool.com`                                         |
+| **Tu**         | `apt install ffmpeg` pe instanță  | Jumătatea de video din E14 S3b. Un pachet, ca pinul PM2 — codul e livrat și nu se schimbă, iar restanța de videouri se desenează singură la primul tick de după. `.sb3` nu așteaptă nimic                                                                            |
+| **Tu**         | SmartBill: token, serie, TVA      | Rularea lui E16 S0 pe contul real: `pnpm smartbill:check` cu tokenul în `.env`, o serie de facturi doar a platformei, cota TVA stabilită cu contabilul și o ciornă privită și ștearsă (`--draft`). Codul e gata și nu trimite nimic până atunci — implicitul e `off` |
+| **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                                                                                                              |
+| **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                                                                                                                        |
+| **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                                                                                                               |
 
 ## Ce urmează
 
@@ -392,9 +404,10 @@ deblochează cu infrastructură: `release/prod` poartă API-ul de dinainte de E0
 
 **În paralel:** jumătatea de componente din E18 S5 e făcută, iar bucla banilor e închisă cât se poate
 fără SmartBill — se emite (E15 S0), se vede cine n-a plătit (E16 S7) și se încasează de acolo
-(E16 S5). Ce rămâne nedependent de deploy e restul lui E16, care așteaptă verificarea abonamentului
-din S0. **E17 nu mai are story-uri deschise:** S7 și S8 sunt livrate, iar S6 a fost construit și
-scos prin decizie.
+(E16 S5). **E16 a trecut la cod** odată cu deblocarea contului: S0 ca unealtă fără niciun document
+fiscal, S2 și S3 ca o coadă care nu emite de două ori. Ce rămâne din el e propagarea încasărilor
+(S5, S6) și reconcilierea (S8). **E17 nu mai are story-uri deschise:** S7 și S8 sunt livrate, iar S6
+a fost construit și scos prin decizie.
 
 E11 e închis. Ce a rămas parțial din el — cerințele prealabile de modul la S6, disponibilitatea
 profesorilor la S7 — depinde de E10 și E09, nu de E11.
@@ -406,8 +419,10 @@ trei rânduri:**
    lipsește e decizia și munca de a duce platforma pe branch-ul de producție, fiindcă acolo stă încă
    API-ul de dinainte de E08. Verificările care aveau nevoie doar de „undeva unde rulează" se pot
    face de acum pe stage.
-2. **SmartBill** — E16, începând cu verificarea abonamentului din S0. Până la ea nu se scrie cod, iar
-   după ea se închid S2, S3, S6 și S8, plus S7 din E15, fiindcă PDF-ul nu se mai generează local.
+2. **SmartBill** — E16. Contul există, iar emiterea e construită și așteaptă contul real: întâi
+   `pnpm smartbill:check` (doar citiri), o serie nouă doar a platformei, cota TVA de la contabil și o
+   ciornă privită și ștearsă — apoi `SMARTBILL_MODE=live` pe producție. Rămân de scris S5, S6 și S8:
+   încasările propagate, chitanța fiscală, reconcilierea.
 3. **Termenii, E22 S2** — condiția de ieșire, și singura care nu se poate cumpăra cu timp de
    programare: fără ei nu se deschide accesul familiilor.
 

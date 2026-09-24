@@ -76,6 +76,7 @@ pnpm --filter api migration:run   # schema; synchronize e oprit
 pnpm seed                         # date de dezvoltare; admin / parola123
 SEED_TODAY=2026-03-16 pnpm seed   # aceleași date, dar ancorate la o zi fixă
 pnpm seed:scale                   # o școală de trei ani, ca să se poată măsura o interogare
+pnpm smartbill:check              # SmartBill: doar citiri (TVA, serii); --draft trimite o ciornă
 pnpm dev                          # api + web, hot reload
 
 pnpm build          # turbo, în ordinea dependențelor
@@ -168,11 +169,12 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — douăzeci de module în `apps/api/src/modules/`, cincisprezece după același tipar
+**Backend** — douăzeci și unu de module în `apps/api/src/modules/`, cincisprezece după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
 `room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, `announcement`,
 `lead`.
-Cinci ies din tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
+Șase ies din tipar: `storage` și `smartbill` n-au controller, fiindcă nimic din ele nu e expus pe HTTP — ce
+se cere SmartBill-ului decide modulul care deține rândul —, `mail` are unul singur
 și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
 decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
 (agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
@@ -1290,6 +1292,55 @@ restanță: alea se repetă prin design, o plată se confirmă o dată. Mesajul 
 tranzacția care înregistrează banii — dă-i `EntityManager`-ul —, iar dacă adaugi un al doilea loc de
 unde se încasează, cheamă și de acolo aceeași ușă: o încasare tăcută arată pentru familie exact ca
 una pierdută.
+
+**Factura fiscală e a SmartBill, iar SmartBill n-are sandbox** (E16 S0–S3). Orice factură emisă
+prin API-ul lor e un document fiscal real: ia următorul număr din serie și, cu e-Factura activă,
+pleacă în SPV. De aici toată forma integrării, din `apps/api/src/modules/smartbill/` (clientul și
+regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
+
+- **`SMARTBILL_MODE` e singura plasă, iar implicitul e `off`**, care nu trimite nimic și emite ca
+  înainte, cu PDF-ul local. `draft` trimite fiecare factură drept **ciornă** — fără număr, nu e
+  document fiscal, nu ajunge în SPV: sandbox-ul pe care nu-l au. `live` emite de-adevăratelea și
+  **refuză să pornească** dacă `SMARTBILL_LIVE_DB` nu e chiar `DB_NAME` — regula lui
+  `SEED_ALLOW_NON_LOCAL`, pentru că baza de pe stage e seed. Sub jest, clientul refuză oricum
+  host-ul de producție; testele îl îndreaptă spre `test/fake-smartbill.ts`. Verificarea contului se
+  face cu `pnpm smartbill:check`, care doar citește, sau cu `--draft`, care trimite o ciornă.
+- **Emiterea nu așteaptă după SmartBill.** `POST /invoices/issue` scrie factura cu
+  `fiscalStatus = pending`, iar documentul îl face `FiscalIssuingJob`, la 30 de secunde, prin
+  `FiscalIssuingService`. Coada sunt coloanele `fiscal*` de pe `invoices` — nu `outbox`, unde un rând
+  e un mesaj, și nu o tabelă alăturată; aceeași judecată ca la miniaturi.
+- **SmartBill n-are cheie de idempotență, deci proba e seria.** `nextNumber` se scrie pe rând
+  (`fiscalExpectedNumber`) **înaintea** cererii, iar rândul trece în `uncertain` tot înainte, deci un
+  proces mort la jumătate lasă exact adevărul. Un răspuns pierdut se judecă după ce expiră
+  împrumutul de două minute, recitind seria: n-a mișcat → se retrimite; a mișcat → `review`, și un
+  om confirmă numărul (`POST /invoices/:id/fiscal/confirm`) sau spune că nu e acolo (`…/retry`).
+  **Platforma nu adoptă niciodată un număr fiscal pe care nu l-a văzut venind înapoi.** Cât timp
+  un rând e în aer nu pleacă nimic altceva, fiindcă seria s-ar mișca sub judecata lui — și de aceea
+  seria configurată în `SMARTBILL_INVOICE_SERIES` trebuie să fie **doar a platformei**.
+- **Felul eșecului decide pasul următor**, în `classifyFailure`: un refuz (`errorText` completat,
+  **chiar și pe un 200** — „errorText este sursa de adevar") așteaptă un om; un 401 sau un 403 de
+  drepturi și blocarea pentru rată (429, sau 403 cu „limita maxima de requesturi", cum se vede de
+  fapt) **nu consumă încercarea**; doar tăcerea și un 5xx rămân deschise, fiindcă numai ele pot
+  însemna o factură pe care n-a văzut-o nimeni. Limita e 30 de apeluri la 10 secunde per token;
+  clientul lasă 400 ms între apeluri și, după o blocare, nu mai sună deloc zece minute.
+- **O factură emisă nu se mai corectează din platformă.** `updateInvoice` refuză suma și data, iar
+  `deleteInvoice` ștergerea, cu `INVOICE_HAS_FISCAL_DOCUMENT`, pentru `issued`, `uncertain` și
+  `review` — corectura e o stornare în SmartBill. Verificarea se face sub lacătul rândului, fiindcă
+  și coada revendică cu `FOR UPDATE SKIP LOCKED`. Și **nu salva o factură întreagă citită înaintea
+  tranzacției**: `save` din TypeORM scrie înapoi fiecare coloană care diferă, deci coloanele fiscale
+  s-ar întoarce cum erau la citire — o factură emisă între timp ar reintra în coadă și s-ar emite a
+  doua oară. Exact asta făcea `updateInvoice`; acum scrie doar câmpurile trimise.
+- **În `live`, PDF-ul e al lor, la aceeași cheie** (`invoicePdfKey`, mutată în `invoice-pdf-key.ts`
+  ca să nu facă ciclu): nu se mai generează nimic cu PDFKit, iar descărcarea, exportul și ștergerea
+  îl citesc fără să știe cine l-a făcut. Documentul poartă **o singură linie, la suma calculată de
+  platformă**, cu reducerile în mențiuni — liniile de reducere ale SmartBill au capcane (o valoare
+  pozitivă _crește_ totalul, o linie fără `numberOfItems` e ignorată cu 200), iar potrivirea la leu
+  e promisiunea din E15 S7. Din familie pleacă numele și adresa, atât, iar `sendEmail` e fals:
+  familia aude de la platformă, prin coadă.
+- **Plata cu cardul, dacă vine, vine prin SmartBill**, nu printr-un procesator integrat aici: ei au
+  deja Netopia, EuPlătesc și Stripe, cu link pe factură și încasare înregistrată singură acolo. Dar
+  **starea plății trebuie adusă înapoi din SmartBill înaintea linkului** (E16 S8), altfel mementoul
+  de restanță scrie unei familii care a plătit ieri.
 
 **Numai marketingul stă pe o bifă** (E17 S4). `Profile.marketingOptIn` e implicit `false` — un
 consimțământ pe care nu l-a dat nimeni nu e consimțământ — și gatează exclusiv `queueMarketing`.

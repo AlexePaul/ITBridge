@@ -371,6 +371,15 @@ aceleași sume, aceleași scadențe. Divergența dintre ele e exact ce urmăreș
 **Acceptanță:** nicio factură nu mai e generată cu PDFKit. Factura din portal se potrivește la leu
 cu documentul SmartBill.
 
+**Livrat în `live`, odată cu [E16](E16-plati-fiscal.md) S2.** Cu `SMARTBILL_MODE=live`, emiterea nu
+mai atinge PDFKit: după ce SmartBill emite, PDF-ul lor se pune **la aceeași cheie** din bucket
+(`invoicePdfKey`), deci descărcarea din portal, exportul din E07 S4 și ștergerea îl găsesc fără să
+știe cine l-a făcut; unul care n-a putut fi preluat imediat se cere la prima descărcare. În `off` și
+`draft` rămâne PDF-ul local — o ciornă nu e factură, iar familia tot are nevoie de ceva de citit.
+Potrivirea la leu e ținută prin construcție: documentul SmartBill are **o singură linie, la suma
+calculată de platformă**, iar reducerile stau în mențiuni, în cuvinte. Rămâne văzută pe prima
+factură reală. `pdf.service.ts` rămâne, pentru `off` și pentru documentele nefiscale.
+
 ### S8 · Înscrierea la mijlocul unui modul — **rezolvat de model, nu de cod**
 
 **Story-ul e scris integral în termenii unei lumi care nu există**: modulul din E10, scos din MVP, și

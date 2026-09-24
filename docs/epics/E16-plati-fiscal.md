@@ -1,6 +1,6 @@
 # E16 · Încasări și facturare prin SmartBill
 
-**Status:** propus · **Pistă:** Bani · **Depinde de:** E15 · **Blochează:** E21
+**Status:** în lucru — S1 și S7 livrate; S0, S2 și S3 construite și testate pe un SmartBill fals, fără contact încă cu contul real; S5 și S6 parțiale · **Pistă:** Bani · **Depinde de:** E15 · **Blochează:** E21
 
 ## Problemă
 
@@ -56,21 +56,36 @@ TVA, integrarea directă cu ANAF, și generarea PDF-ului de factură. Toate sunt
 ## Ce trebuie știut despre API
 
 Verificat în [documentația lor](https://api.smartbill.ro/) și în
-[ghidul de integrare](https://ajutor.smartbill.ro/article/196-integrare-api):
+[ghidul de integrare](https://ajutor.smartbill.ro/article/196-integrare-api) — iar din septembrie
+2026 **în specificația OpenAPI pe care o publică SmartBill** (actualizată pe 17 septembrie 2026),
+pe care s-a construit S2. Unde spec-ul și ce e scris mai jos se contrazic, spec-ul are dreptate:
 
 - **Cere abonament Facturare Platinum.** E o constrângere comercială, nu tehnică, și trebuie
   confirmată **înainte** de orice altceva din acest epic.
-- **REST, JSON, HTTP Basic Auth** cu email plus token. Endpoint de forma `/SBORO/api/invoice`.
-  V1 pentru facturare curentă, V3 pentru funcții mai noi.
-- **Limită de 3 apeluri pe secundă.** Depășirea blochează accesul 10 minute. Determină direct
-  designul emiterii în masă — vezi S3.
+- **REST, JSON, HTTP Basic Auth** cu email plus token. V1, la `https://ws.smartbill.ro/SBORO/api`,
+  pentru facturare și încasări; V3 are doar nomenclatoare (clienți, produse, cote TVA), cu token
+  Bearer, deci nimic din epicul ăsta nu-l folosește.
+- **Limită de 30 de apeluri la 10 secunde, per token.** Depășirea blochează accesul 10 minute.
+  Spec-ul spune 429; o bibliotecă care rulează contra API-ului real consemnează că blocarea vine ca
+  **403** cu `errorText` „Ai depasit limita maxima de requesturi", iar platforma le recunoaște pe
+  amândouă. Determină direct designul emiterii în masă — vezi S3.
+- **`errorText` e adevărul, nu codul HTTP.** Gol înseamnă reușită; completat înseamnă refuz, chiar
+  și pe un 200. Poate conține HTML — `<b>` în jurul numelui, `<br/>` înaintea unui sfat.
+- **Nu există sandbox.** Orice factură emisă prin API e un document fiscal real. Ce există e
+  **ciorna** (`isDraft: true`): „fara numar alocat pana la finalizarea manuala" — nu consumă
+  numărul seriei, nu pleacă în SPV. Pe ea stă S0.
+- **Nu există cheie de idempotență.** O cerere al cărei răspuns s-a pierdut nu poate fi întrebată
+  dacă a devenit factură; seria, în schimb, poate — `nextNumber` din `GET /series`. Pe asta stă S2.
+- `documentViewUrl` din răspuns e un link public către PDF, „il trimiti clientului final fara sa
+  necesite autentificare". PDF-ul prin API se cere cu `Accept: application/octet-stream`:
+  `application/pdf` e singura valoare care răspunde 406, iar o factură inexistentă e un 502 cu
+  pagină nginx, nu o eroare citibilă.
 - Operații disponibile: emitere de facturi, ștergere și anulare, acces la PDF, proforme
   convertibile în facturi, **încasări pe o factură** (deci plata parțială e suportată nativ),
   trimitere de documente pe email, gestiunea clienților și produselor.
 - **e-Factura:** cu modulul activ, SmartBill trimite XML-ul în SPV după emitere. Nu gestionăm
   nici XML, nici semnături, nici termene.
-- Suportul pentru API se face **doar pe email**, la `vreauapi@smartbill.ro`. Merită luat în calcul
-  la estimare: o întrebare de integrare nu se rezolvă în cinci minute.
+- Suportul pentru API se face **doar pe email** — `api@smartbill.ro`, după spec-ul din septembrie 2026. Merită luat în calcul la estimare: o întrebare de integrare nu se rezolvă în cinci minute.
 
 ## Decizii luate
 
@@ -165,6 +180,37 @@ intră în decizie acum, nu după ce s-a construit integrarea.
 **Acceptanță:** o factură de test emisă prin API apare în contul SmartBill, cu serie și număr
 corecte.
 
+**Stare: deblocat, cu unealta livrată.** Contul SmartBill există (septembrie 2026). Ce a schimbat
+planul e un fapt al lor, nu al nostru: **SmartBill nu are sandbox**, deci „o factură de test emisă
+prin API" ar fi o factură reală — ar lua următorul număr din serie, ar pleca în SPV cu e-Factura
+activă și ar trebui stornată. Acceptanța se ține altfel, cu aceleași trei răspunsuri și fără
+niciun document fiscal:
+
+- **`pnpm smartbill:check`** doar citește: cotele de TVA (`GET /tax`) și seriile (`GET /series`).
+  Un token care merge, un CIF pe care tokenul îl vede și o serie care există — cu numărul pe care
+  l-ar primi prima factură — sunt tot ce voia să afle testul, iar niciunul nu cere o factură. Pică
+  pe o serie lipsă sau pe o cotă TVA configurată care nu există în cont.
+- **`pnpm smartbill:check --draft`** trimite **o singură ciornă**, pentru o familie inventată; cu
+  `--invoice 412`, ciorna poartă exact cererea pe care coada ar trimite-o pentru factura 412. O
+  ciornă n-are număr și nu e document fiscal: se deschide din linkul tipărit, se verifică denumirea,
+  suma, TVA-ul și mențiunile, apoi se șterge din SmartBill Cloud. E privirea pe care ar fi dat-o
+  sandbox-ul.
+- **Numărul e verificat de serie, nu de o factură.** Unealta tipărește `nextNumber`, iar prima
+  factură reală se emite pe el — o familie reală, o lună reală, cu cineva care se uită.
+
+Ce mai e de făcut **nu e cod** și e al patronului, în ordinea asta: tokenul (Contul Meu > Integrări
+
+> API) și CIF-ul în `.env` local, apoi `pnpm smartbill:check`; **o serie nouă de facturi, doar a
+> platformei** — de ce, la S2; cota de TVA stabilită cu contabilul, scrisă ca `SMARTBILL_TAX_NAME`
+> și `SMARTBILL_TAX_PERCENTAGE`, sau nimic pentru o școală neplătitoare de TVA; o ciornă cu
+> `--draft --invoice`, privită și ștearsă.
+
+**Rămâne neverificat de nimic automat: e-Factura.** O ciornă nu pleacă în SPV, deci ce acceptă SPV
+pentru o persoană fizică se vede abia la prima factură reală. Adresa trimisă e `Profile.address`,
+un singur text liber — fără județ și localitate separate. Dacă SPV o respinge pentru asta,
+întrebarea din [Decizii luate](#decizii-luate) („despărțirea se face la S2, în platformă") se
+redeschide exact acolo: două câmpuri noi pe profil, nu o ghicire în text.
+
 ### S1 · Modelul de plată refăcut
 
 `Payment` devine: factură, **sumă**, dată, metodă, referință externă, referință SmartBill a
@@ -230,6 +276,64 @@ Deci fiecare emitere are cheie de idempotență proprie și stare de sincronizar
 **Acceptanță:** o eroare de rețea la mijlocul emiterii nu produce nici factură fantomă în
 platformă, nici document dublu în SmartBill.
 
+**Construit și testat pe un SmartBill fals; neatins încă pe contul real.** Factura se scrie în
+platformă ca până acum, dintr-o singură apăsare pe `/admin/invoices/emitere`, iar în aceeași
+tranzacție primește `fiscalStatus = pending`. Documentul fiscal îl face după aceea
+`FiscalIssuingService`, dintr-un ceas de 30 de secunde, **nu din cererea care emite**: apăsarea nu
+așteaptă după SmartBill, iar un SmartBill picat nu desface luna. Cinci decizii:
+
+- **Trei moduri, iar implicitul nu trimite nimic.** `SMARTBILL_MODE=off` emite exact ca înainte, cu
+  PDF-ul local; `draft` trimite fiecare factură drept ciornă — sandbox-ul pe care SmartBill nu-l
+  are, cu contul adevărat și fără nimic de stornat —; `live` emite facturi reale. **`live` nu
+  pornește decât dacă `SMARTBILL_LIVE_DB` e numele bazei** (`DB_NAME`), regula lui
+  `SEED_ALLOW_NON_LOCAL`: un „da" rămas într-un fișier de mediu autorizează orice bază lângă care e
+  copiat, iar baza de pe stage e seed, cu familii care ar primi fiecare câte o factură fiscală.
+- **Cheia de idempotență pe care o cerea story-ul nu există la SmartBill, deci proba e seria.**
+  Înainte de cerere, `nextNumber` e scris pe rând (`fiscalExpectedNumber`); rândul trece în
+  `uncertain` **înainte** de apel, deci un proces mort la jumătate lasă exact starea asta. Un răspuns
+  pierdut se judecă după ce expiră un „împrumut" de două minute, recitind seria: **seria n-a mișcat
+  → nu s-a emis nimic → se retrimite; seria a mișcat → o decide un om.** Platforma nu adoptă
+  niciodată un număr fiscal pe care nu l-a văzut venind înapoi: starea `review` spune „probabil
+  numărul 41", iar adminul confirmă numărul din SmartBill sau spune că nu e acolo, dintr-un buton pe
+  `/admin/invoices/[luna]`. Ambele uși sunt consemnate în jurnalul de audit.
+- **O singură cerere în aer, iar nimic nu pleacă peste una fără răspuns.** Altfel seria s-ar mișca
+  sub rândul care așteaptă să fie judecat după ea. De aici și cerința pentru patron: **seria e a
+  platformei.** O factură tastată de mână pe aceeași serie mișcă numărul și transformă o cerere care
+  n-a ajuns niciodată într-o întrebare pentru un om — sigur, dar inutil.
+- **Un refuz nu se reîncearcă singur.** SmartBill a înțeles și a zis nu — o serie lipsă, o cotă TVA
+  pe care contul n-o are —, deci aceeași cerere primește același nu. Rândul intră în `failed` cu
+  propoziția lor, curățată de HTML; cineva repară cauza și apasă „Retrimite". Un token greșit sau un
+  drept lipsă pe serie **nu consumă încercarea**, lecția pe care coada de mail a plătit-o: un eșec de
+  configurare care arde încercări își îngroapă singur coada înainte să ajungă reparația.
+- **O linie, la suma calculată de platformă.** Nu prețul de listă cu linii de reducere dedesubt,
+  deși SmartBill le are: un `discountValue` pozitiv _crește_ totalul, o linie fără `numberOfItems`
+  e ignorată cu 200, iar cu prețul cu TVA inclus aritmetica ar fi a lor. Promisiunea din
+  [E15](E15-pricing-facturare.md) S7 e că portalul și SmartBill se potrivesc la leu, iar o linie la
+  `amount` o face adevărată prin construcție. Reducerea rămâne pe document, în mențiuni, în cuvinte.
+  Din familie pleacă **numele și adresa, nimic altceva** — nici email, nici telefon —, iar
+  `sendEmail` e fals: familia aude de la platformă, prin coadă, nu pe un al doilea canal pe care
+  `/admin/livrari` nu-l vede.
+
+**Ce s-a schimbat în jurul facturii.** Una emisă în SmartBill — sau care poate fi — nu mai poate fi
+ștearsă și nu-și mai schimbă suma sau data din platformă (`INVOICE_HAS_FISCAL_DOCUMENT`): corectura
+e o stornare în SmartBill. Starea rămâne editabilă, fiindcă e a platformei. Și a ieșit la iveală un
+defect care ar fi produs exact documentul dublu: `updateInvoice` salva **tot rândul**, citit înaintea
+tranzacției, iar `save` din TypeORM scrie înapoi fiecare coloană care diferă — deci o factură emisă
+între citire și salvare s-ar fi întors în coadă și ar fi fost emisă a doua oară. Acum scrie doar
+câmpurile trimise.
+
+**PDF-ul, în `live`, e al lor** — jumătatea din [E15](E15-pricing-facturare.md) S7: platforma nu mai
+generează nimic cu PDFKit, iar după emitere ia PDF-ul fiscal de la SmartBill și îl pune **la aceeași
+cheie** din bucket, `invoicePdfKey`. Descărcarea din portal, exportul din E07 S4 și ștergerea îl
+citesc de acolo fără să știe cine l-a făcut. Dacă preluarea pică, se reîncearcă la prima descărcare.
+În `off` și `draft` rămâne PDF-ul local: o ciornă nu e factură.
+
+**Acceptanța, ținută de `smartbill-issuing.e2e-spec.ts`**, pe bază reală și pe un SmartBill fals
+care vorbește HTTP — fiindcă un `fetch` înlocuit nu poate pierde un răspuns după ce a scris
+factura: răspuns pierdut după emitere → `review`, un singur document; răspuns pierdut înainte →
+retrimis o dată; serie mișcată de altcineva → niciun număr ghicit; refuz → `failed`, apoi emisă la
+retrimitere; blocare → nimic trimis zece minute, nicio încercare consumată.
+
 ### S3 · Emiterea în masă, temperată
 
 Cu 3 apeluri pe secundă și blocare de 10 minute la depășire, emiterea pentru ~100 de familii **nu
@@ -244,6 +348,26 @@ Coada nu se construiește aici: e cea din [E17](E17-comunicare-notificari.md) S3
 
 **Acceptanță:** emiterea pentru 100 de familii se termină fără blocare de acces și raportează
 individual ce a eșuat.
+
+**Construit odată cu S2, pe aceleași rânduri.** Limita reală e de 30 de apeluri la 10 secunde, nu 3
+pe secundă; clientul lasă **cel puțin 400 ms între două apeluri**, oricine le face — ceasul și un
+admin care deschide un PDF împart același token —, adică cel mult 25 în zece secunde. O trecere ia
+cel mult 20 de facturi, câte una: o citire a seriei, o cerere pe factură, un PDF pe factură emisă —
+vreo 16 secunde. **O sută de familii înseamnă cinci treceri, două minute și jumătate, și nu
+așteaptă nimeni după ele.** La blocare, procesul nu mai sună SmartBill deloc zece minute — nici o
+citire —, iar factura întoarsă își păstrează încercarea.
+
+**Coada nu e cea din [E17](E17-comunicare-notificari.md) S3**, cum spunea textul de mai sus, scris
+înaintea ei. E mecanismul ei — revendicare cu `FOR UPDATE SKIP LOCKED`, un singur proces, pauză
+crescătoare — dar nu tabela: acolo un rând e un mesaj cu destinatar, subiect și corp, iar un rând
+care n-ar fi mesaj ar strica exact tabelul din care se citește ce a primit o familie. Aceeași
+judecată ca la miniaturile din [E14](E14-proiecte-elevi.md) S3b: **coada e o coloană pe rândul
+care se procesează** — `fiscalStatus` plus `fiscalNextAttemptAt`, cu index —, nu o tabelă alăturată
+care diverge prima dată când se șterge o factură.
+
+**Progresul se vede pe `/admin/invoices/[luna]`**: modul SmartBill scris în cuvinte, câte facturi
+sunt în fiecare stare, blocarea dacă e una, și pe fiecare rând starea, numărul fiscal, linkul în
+SmartBill și propoziția lor când au refuzat. „Raportează individual ce a eșuat" e rândul însuși.
 
 ### S4 · Plata cu cardul în portal — amânată
 
@@ -274,6 +398,24 @@ cardul de la ei. Al treilea motiv de pe listă — încasarea automată a tranș
 
 **Acceptanță:** niciuna. Story-ul e amânat, nu în lucru. Dacă apare o acceptanță aici, înseamnă că
 decizia s-a schimbat și se scrie ca decizie, cu data ei.
+
+**Septembrie 2026 — dacă se reia, procesatorul nu se integrează în platformă deloc.** SmartBill are
+deja integrarea cu Netopia, EuPlătesc și Stripe: cu procesatorul conectat în SmartBill Cloud
+(Configurare > Integrări), o factură emisă cu `paymentUrl: "Generate URL"` poartă butonul „Plătește
+cu cardul", iar încasarea se înregistrează **singură** în SmartBill. Deci lista de mai sus se
+scurtează: fără webhook, fără date de card, fără al treilea sistem cu stările lui. Rămân două
+lucruri, și al doilea e condiția:
+
+- platforma cere linkul la emitere și îl arată familiei — o linie în `invoicePayload`, un câmp pe
+  factură;
+- **starea plății trebuie adusă înapoi din SmartBill înainte ca linkul să existe.** O plată cu
+  cardul se înregistrează acolo, nu aici, iar fără sincronizare mementoul de restanță din S7 ar
+  scrie unei familii care a plătit ieri — exact riscul din [Riscuri](#riscuri). Sincronizarea e
+  jumătatea de divergență din S8 (`GET /invoice/paymentstatus`), deci ordinea e S8, apoi linkul.
+
+Până atunci decizia nu se schimbă: transfer și numerar. Munca de reconciliere contează mai mult
+decât o metodă în plus, iar portalul cere deja familiei să treacă numărul fiscal al facturii în
+detaliile transferului — referința după care S8 va potrivi extrasul.
 
 ### S5 · Încasările: numerar și transfer bancar
 
@@ -489,7 +631,8 @@ facturi în portal se derivă din plăți, nu se scrie de mână. Divergențele 
 
 ## Întrebări deschise
 
-- **Abonamentul actual permite acces API?** Prima verificare, blochează tot restul.
+- ~~**Abonamentul actual permite acces API?**~~ **Contul există** (septembrie 2026); răspunsul
+  definitiv îl dă `pnpm smartbill:check`, doar prin citiri, fără niciun document — vezi S0.
 - ~~Ce date de facturare cere SmartBill pentru un document emis către o persoană fizică? E nevoie de
   CNP?~~ **Nume și adresă. Fără CNP.** Lista din [E11](E11-inscrieri-capacitate.md) S2 e deci
   suficientă și formularul de înregistrare nu se schimbă. Consecințele complete, la
@@ -499,6 +642,10 @@ facturi în portal se derivă din plăți, nu se scrie de mână. Divergențele 
   colectează nimic în plus pe baza lui — dar primul document respins la transmitere redeschide
   întrebarea, și atunci se pune contabilului, nu se ghicește.
 - Care e forma juridică a școlii și regimul de TVA? Se configurează în SmartBill, dar trebuie știut.
+  **Jumătate de răspuns vine acum din cont**: `pnpm smartbill:check` listează cotele configurate.
+  Care dintre ele e cea corectă pentru cursurile școlii — normală, scutită (`SFDD`) sau niciuna,
+  pentru un neplătitor — e o întrebare pentru contabil, iar răspunsul se scrie în
+  `SMARTBILL_TAX_NAME` și `SMARTBILL_TAX_PERCENTAGE`.
 - ~~Ce procesator de plăți? Plățile recurente sunt de dorit pentru tranșa a doua?~~ **Nu se pun
   acum.** Plata cu cardul e amânată, iar tranșa a doua se încasează la fel ca prima: factură,
   transfer sau numerar, bifat manual. Amândouă întrebările revin odată cu S4, dacă revine.
