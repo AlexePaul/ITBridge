@@ -180,9 +180,10 @@ destinatar, subiect, text, starea livrării (trimis, în așteptare, eșuat, fă
 unui eșec. Anunțurile școlii — către o grupă, o locație sau toată școala — sunt ținute cu textul,
 audiența și numărul de destinatari. Trimiterea o face un furnizor de email (§5).
 
-**Mesajele de serviciu** — confirmări de cont, factura, mementourile de plată, confirmarea plății,
-ore anulate sau mutate, recuperarea, lista de așteptare, lucrarea trimisă, anunțurile de
-organizare — pleacă fiindcă ai cont și copil înscris; nu depind de nicio bifă.
+**Mesajele de serviciu** — confirmări de cont și ale documentelor acceptate, factura, mementourile
+de plată, confirmarea plății, ore anulate sau mutate, recuperarea, lista de așteptare, lucrarea
+trimisă, anunțurile de organizare — pleacă fiindcă ai cont și copil înscris; nu depind de nicio
+bifă.
 
 **Mesajele de marketing** pleacă numai cu **bifa ta**, care e implicit oprită și pe care o schimbi
 din „Profil"; fiecare astfel de mesaj spune la final cum îl oprești. Un anunț promoțional către o grupă sare peste familiile fără bifă; refuzul nu lasă

@@ -142,6 +142,51 @@ describe('Authentication (e2e)', () => {
             ]);
         });
 
+        // Terms §4.7: "primești și un email de confirmare".
+        it('confirms the agreement by email, naming the versions accepted, to the address being confirmed', async () => {
+            await registerUser(app, 'ana', 'parola123', { active: false });
+
+            const messages = await dataSource.query<{ to: string; subject: string; bodyText: string; status: string; dedupeKey: string }[]>(
+                `SELECT "to", subject, "bodyText", status, "dedupeKey" FROM outbox WHERE "dedupeKey" LIKE 'legal-acceptance:%'`,
+            );
+
+            expect(messages).toHaveLength(1);
+            // Pending, not undeliverable: the address is unconfirmed by definition at this point,
+            // and this is the one message registration promises regardless.
+            expect(messages[0]).toMatchObject({ to: 'ana@example.com', subject: 'Ai acceptat termenii IT Bridge School', status: 'pending' });
+            expect(messages[0].bodyText).toContain(`Termenii și condițiile, versiunea ${LEGAL_DOCUMENT_VERSIONS.terms}`);
+            expect(messages[0].bodyText).toContain('§14, §15 și §18');
+            expect(messages[0].bodyText).toContain(`Politica de confidențialitate, versiunea ${LEGAL_DOCUMENT_VERSIONS.privacy}`);
+            expect(messages[0].bodyText).toContain('/user/profile');
+        });
+
+        // Terms §4.7: "rămâne înregistrată pe cont și o poți reciti oricând din portal".
+        it('reads the record back to the family: every version accepted, the day, and what is in force', async () => {
+            const user = await registerUser(app, 'ana');
+
+            const res = await request(app.getHttpServer()).get('/auth/documents').set('Authorization', user.auth).expect(200);
+
+            expect(res.body.inForce).toEqual([
+                { document: 'terms', version: LEGAL_DOCUMENT_VERSIONS.terms },
+                { document: 'privacy', version: LEGAL_DOCUMENT_VERSIONS.privacy },
+                { document: 'unusual_clauses', version: LEGAL_DOCUMENT_VERSIONS.unusual_clauses },
+            ]);
+            expect(res.body.accepted).toHaveLength(3);
+            for (const row of res.body.accepted as { acceptedAt: string }[]) {
+                expect(Number.isNaN(Date.parse(row.acceptedAt))).toBe(false);
+            }
+        });
+
+        it('reads only the record of the account in the token, and refuses without one', async () => {
+            const ana = await registerUser(app, 'ana');
+            await registerUser(app, 'bogdan');
+
+            const res = await request(app.getHttpServer()).get('/auth/documents').set('Authorization', ana.auth).expect(200);
+            expect(res.body.accepted).toHaveLength(3);
+
+            await request(app.getHttpServer()).get('/auth/documents').expect(401);
+        });
+
         it('refuses a registration that accepted the document but not the clauses inside it', async () => {
             // Cod civil art. 1203: §14, §15 and §18 produce no effect on a tick that covered the
             // whole document, so the general checkbox on its own is not enough to create an account.
@@ -250,6 +295,36 @@ describe('Authentication (e2e)', () => {
                 [LEGAL_DOCUMENT_VERSIONS.terms],
             );
             expect(rows[0].count).toBe('1');
+        });
+
+        it('confirms a new version by email, once, naming only what was accepted this time', async () => {
+            const user = await registerUser(app, 'ana');
+            await staleAcceptance('ana', 'privacy');
+
+            const accept = () =>
+                request(app.getHttpServer())
+                    .post('/auth/accept-documents')
+                    .set('Authorization', user.auth)
+                    .send({ documents: ['privacy'] });
+            // The double-click again: the second submit wrote nothing, so it confirms nothing.
+            await Promise.all([accept(), accept()]);
+
+            const messages = await dataSource.query<{ bodyText: string; status: string }[]>(
+                `SELECT "bodyText", status FROM outbox WHERE "dedupeKey" LIKE 'legal-acceptance:%' ORDER BY id`,
+            );
+            // One from the registration, one from this acceptance.
+            expect(messages).toHaveLength(2);
+            const [, reaccepted] = messages;
+            // The address was confirmed by then (`registerUser` opens both gates), so it goes.
+            expect(reaccepted.status).toBe('pending');
+            const acceptedLine = reaccepted.bodyText.split('\n').find((line) => line.startsWith('Îți confirmăm'));
+            expect(acceptedLine).toContain(`Politica de confidențialitate, versiunea ${LEGAL_DOCUMENT_VERSIONS.privacy}`);
+            // The terms were accepted at registration, not today.
+            expect(acceptedLine).not.toContain('Termenii');
+
+            const record = await request(app.getHttpServer()).get('/auth/documents').set('Authorization', user.auth).expect(200);
+            const privacy = (record.body.accepted as { document: string; version: string }[]).filter((row) => row.document === 'privacy');
+            expect(privacy.map((row) => row.version)).toEqual(['0.0', LEGAL_DOCUMENT_VERSIONS.privacy]);
         });
 
         it('refuses a list that leaves something outstanding, and writes nothing', async () => {

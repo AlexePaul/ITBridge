@@ -2,7 +2,7 @@ import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
 import type { ConfirmEmailResponse, LoginResponse } from "~/types/auth.types";
-import type { LegalDocumentKey } from "~/types/legal.types";
+import type { LegalDocumentKey, LegalRecord } from "~/types/legal.types";
 
 /**
  * What `POST /auth/register` requires. Mirrors `RegisterDto`.
@@ -190,6 +190,13 @@ export const useAuthApi = () => {
     await useUserStore().fetchUser();
   };
 
+  /**
+   * The family's own acceptance record — terms §4.7: every version accepted, with its day, and the
+   * versions in force beside them. Read from the ledger each time, never kept: it is short, and a
+   * copy in a store would be the second place that says what this family agreed to.
+   */
+  const fetchLegalRecord = () => api<LegalRecord>("/auth/documents");
+
   return {
     login,
     register,
@@ -200,5 +207,6 @@ export const useAuthApi = () => {
     changePassword,
     logout,
     acceptDocuments,
+    fetchLegalRecord,
   };
 };

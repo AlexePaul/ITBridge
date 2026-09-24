@@ -1,4 +1,4 @@
-export type { LegalDocumentKey } from "@itbridge/types";
+export type { LegalDocumentKey, LegalRecord } from "@itbridge/types";
 
 import type { LegalDocumentKey } from "@itbridge/types";
 
@@ -26,3 +26,13 @@ export const LEGAL_DOCUMENT_LINKS = {
   privacy: "/confidentialitate",
   unusual_clauses: "/termeni#14-reguli-de-utilizare",
 } as const satisfies Record<LegalDocumentKey, string>;
+
+/**
+ * The order the documents are read in on the profile page — the clauses right after the terms
+ * they are part of, not where the ledger happens to put them.
+ */
+export const LEGAL_READING_ORDER = [
+  "terms",
+  "unusual_clauses",
+  "privacy",
+] as const satisfies readonly LegalDocumentKey[];

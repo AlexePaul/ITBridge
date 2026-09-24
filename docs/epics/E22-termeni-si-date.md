@@ -170,8 +170,31 @@ nouă n-are voie să încuie afară singurii oameni care ar putea repara ceva.
 
 Ce a rămas dinadins nefăcut: **nimic din API nu refuză o cerere** fiindcă familia n-a acceptat încă.
 §18 promite că portalul cere, nu că platforma se închide, iar un refuz pe fiecare rută ar fi o
-decizie de produs pe care n-a luat-o nimeni. Și e-mailul de confirmare din §4.7 nu se trimite încă —
-E17 are coada, dar șablonul e o propoziție de scris, nu o piesă de infrastructură.
+decizie de produs pe care n-a luat-o nimeni.
+
+**Și §4.7, care promite două lucruri pe care nu le făcea nimic.** „Versiunea pe care ai acceptat-o,
+cu ziua acceptării, rămâne înregistrată pe cont și o poți reciti oricând din portal": evidența se
+citește acum prin `GET /auth/documents` — toate rândurile contului, cu ziua lor, plus versiunile în
+vigoare — și stă în Profil, sub „Documentele acceptate", unde o versiune înlocuită rămâne pe listă
+cu mențiunea asta. „Primești și un email de confirmare": șablonul `legal-acceptance` pleacă prin
+coadă, în tranzacția care scrie rândurile, la înregistrare și la fiecare versiune nouă acceptată.
+Trei lucruri pe care le face dinadins:
+
+- **Numește ce s-a acceptat în actul acela, nu tot ce e în vigoare.** O politică nouă acceptată în
+  martie nu înseamnă termenii acceptați din nou în martie, iar o confirmare care ar spune asta ar
+  greși exact lucrul pe care îl confirmă. Lista vine din rândurile scrise (`RETURNING`), nu din cele
+  cerute: un submit concurent poate să fi scris o parte primul. Regula e `acceptedInWords`, lângă
+  `outstandingDocuments`.
+- **Cheia de deduplicare e contul plus id-urile rândurilor.** Al doilea clic dintr-un dublu-clic
+  n-a scris nimic, deci nu confirmă nimic; fiecare acceptare care a scris ceva e confirmată o dată.
+- **La înregistrare nu se uită la confirmarea adresei**, deși restul mesajelor către familie o
+  fac: adresa e nedovedită prin definiție în clipa aia, iar mesajul pleacă odată cu linkul care o
+  dovedește. Legat de poartă, singurul mesaj promis la înregistrare ar ajunge `undeliverable`. La
+  re-acceptare, adresa e cea de pe fișă și trece prin `queueOrRecord` ca oricare alta.
+
+Textul versiunilor înlocuite nu e încă de citit nicăieri — azi fiecare document are o singură
+versiune, deci pagina publică _este_ textul acceptat. Devine obligatoriu la prima versiune nouă de
+după publicare, și e trecut ca atare în lista din `docs/legal/README.md`.
 
 ## Dependențe
 

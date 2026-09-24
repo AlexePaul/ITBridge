@@ -73,6 +73,19 @@ export interface CurrentUser extends User {
     pendingLegalDocuments: LegalDocumentKey[];
 }
 
+/**
+ * The caller's own acceptance record — `GET /auth/documents`, terms §4.7: "versiunea pe care ai
+ * acceptat-o, cu ziua acceptării, rămâne înregistrată pe cont și o poți reciti oricând din portal".
+ *
+ * `accepted` is the whole ledger, oldest first — every version ever accepted, since the rows are
+ * never updated. `inForce` is what the platform asks for today, so a screen can tell the version in
+ * force from one a newer text replaced without keeping a copy of the version numbers.
+ */
+export interface LegalRecord {
+    inForce: { document: LegalDocumentKey; version: string }[];
+    accepted: { document: LegalDocumentKey; version: string; acceptedAt: ISODateTime }[];
+}
+
 /** One row of the admin approvals queue, `GET /users/pending`. */
 export interface PendingAccount {
     userId: number;

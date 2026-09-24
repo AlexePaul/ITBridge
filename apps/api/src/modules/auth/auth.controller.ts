@@ -161,6 +161,19 @@ export class AuthController {
         return this.authService.acceptDocuments(req.user.sub, acceptDocumentsDto);
     }
 
+    /**
+     * The caller's own acceptance record — terms §4.7: which versions this account accepted, and
+     * on which day, with what is in force beside them. No id: the ledger read is the one in the token.
+     */
+    @Get('documents')
+    @HttpCode(200)
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'Every version this account accepted, oldest first, and the versions in force' })
+    async legalRecord(@Request() req: AuthenticatedRequest) {
+        return this.authService.legalRecord(req.user.sub);
+    }
+
     @Get('me')
     @HttpCode(200)
     @ApiResponse({

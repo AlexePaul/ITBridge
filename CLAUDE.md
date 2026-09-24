@@ -627,6 +627,18 @@ lucruri de ținut minte:
   — două middleware-uri globale care redirecționează amândouă sunt o buclă fără eroare și fără log,
   iar precedența e scrisă în fișierul care a venit al doilea.
 
+**Fiecare acceptare e confirmată pe email, cu ce s-a acceptat _atunci_** (termenii §4.7). Șablonul
+`legal-acceptance` se pune în coadă în tranzacția care scrie rândurile, la înregistrare și în
+`acceptDocuments`, iar lista din el vine din rândurile **scrise** (`RETURNING id, document`), nu din
+cele cerute: o politică nouă acceptată în martie nu e termenii acceptați din nou în martie, iar un
+submit concurent poate să fi scris o parte primul. Cheia e `legal-acceptance:<cont>:<id-urile
+rândurilor>`, deci al doilea clic, care n-a scris nimic, nu confirmă nimic. La înregistrare mesajul
+**nu** trece prin poarta adresei confirmate — adresa e nedovedită prin definiție atunci, iar legat de
+ea singurul mesaj promis ar ajunge `undeliverable`. Evidența se recitește din Profil, prin
+`GET /auth/documents`. Textul unei versiuni înlocuite nu se servește încă nicăieri: azi fiecare
+document are o singură versiune, iar la prima schimbare de după publicare trebuie păstrat înainte —
+procedura din `legal-documents.ts` îl numește.
+
 Protecția se compune per-handler, nu global:
 
 ```ts

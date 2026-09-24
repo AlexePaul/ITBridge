@@ -103,8 +103,10 @@ describe('AuthService', () => {
             findLiveFor: jest.fn().mockResolvedValue([]),
         };
 
-        outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }) };
-        manager = createMockEntityManager();
+        outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }), queueOrRecord: jest.fn().mockResolvedValue({ id: 2 }) };
+        // The acceptance ledger is written through the transaction's manager (terms §4.7 queues its
+        // confirmation in the same transaction), so the manager hands back the same double.
+        manager = createMockEntityManager(new Map([[DocumentAcceptance, acceptanceRepo]]));
 
         sessions = {
             startSession: jest.fn(),
@@ -142,7 +144,13 @@ describe('AuthService', () => {
         /** Registration writes through the transaction manager, so the user comes back with an id. */
         const registrationSucceeds = () => {
             userRepo.findOne!.mockResolvedValue(null);
-            manager.save.mockImplementation((entity: unknown, data: Record<string, unknown>) => Promise.resolve(entity === User ? { id: 7, ...data } : data));
+            manager.save.mockImplementation((entity: unknown, data: Record<string, unknown> | Record<string, unknown>[]) => {
+                if (entity === User) return Promise.resolve({ id: 7, ...data });
+                // The ledger rows come back with their ids, as TypeORM hands them back after an
+                // insert: the confirmation of the agreement is keyed on them.
+                if (entity === DocumentAcceptance && Array.isArray(data)) return Promise.resolve(data.map((row, index) => ({ id: 11 + index, ...row })));
+                return Promise.resolve(data);
+            });
         };
 
         it('records the version of each document the parent accepted, in the same transaction as the account', async () => {
@@ -232,6 +240,26 @@ describe('AuthService', () => {
             for (const call of outbox.queue.mock.calls) {
                 expect(call[1]).toBe(manager);
             }
+        });
+
+        // Terms §4.7: "primești și un email de confirmare" — the agreement just concluded, confirmed.
+        it('confirms the agreement by email, to the address being confirmed, in the same transaction', async () => {
+            registrationSucceeds();
+
+            await service.register(REGISTRATION);
+
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith(
+                // No `confirmed` flag: the address is the one the confirmation link goes to, and
+                // gating on the confirmation would record the promised message as undeliverable.
+                { email: 'ana@example.com', confirmed: undefined },
+                expect.objectContaining({
+                    subject: 'Ai acceptat termenii IT Bridge School',
+                    bodyText: expect.stringContaining(`Termenii și condițiile, versiunea ${LEGAL_DOCUMENT_VERSIONS.terms}`),
+                    // One message per acceptance written: the key is the account and the ledger rows.
+                    dedupeKey: 'legal-acceptance:7:11-12-13',
+                }),
+                manager,
+            );
         });
 
         it('tells the office that somebody is waiting for approval', async () => {
@@ -541,6 +569,65 @@ describe('AuthService', () => {
             // `ON CONFLICT DO NOTHING` against the unique constraint: the second submit of a
             // double-click is not an error to show a family who did accept.
             expect(insertBuilder.orIgnore).toHaveBeenCalled();
+        });
+
+        it('confirms a newly accepted version by email, keyed on the rows it confirms', async () => {
+            userRepo.findOne!.mockResolvedValue(parent);
+            acceptanceRepo.find!.mockResolvedValue([]);
+            insertBuilder = createMockInsertBuilder([
+                { id: 12, document: LegalDocument.PRIVACY },
+                { id: 11, document: LegalDocument.TERMS },
+                { id: 13, document: LegalDocument.UNUSUAL_CLAUSES },
+            ]);
+            acceptanceRepo.createQueryBuilder!.mockReturnValue(insertBuilder);
+            manager.findOne = jest.fn((entity: unknown) =>
+                Promise.resolve(entity === User ? { id: 3, emailConfirmedAt: new Date() } : { firstName: 'Ana', email: 'ana@example.com' }),
+            );
+
+            await service.acceptDocuments(3, { documents: [LegalDocument.TERMS, LegalDocument.PRIVACY, LegalDocument.UNUSUAL_CLAUSES] });
+
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith(
+                // Gated on the confirmation like every other message to a family: re-acceptance
+                // happens after registration, so an address nobody proved is recorded, not written to.
+                { email: 'ana@example.com', confirmed: true },
+                expect.objectContaining({ subject: 'Ai acceptat termenii IT Bridge School', dedupeKey: 'legal-acceptance:3:11-12-13' }),
+                manager,
+            );
+        });
+
+        it('names only what this submit wrote, not what it asked for', async () => {
+            userRepo.findOne!.mockResolvedValue(parent);
+            // A new privacy notice: the terms and the clauses stand as accepted earlier.
+            acceptanceRepo.find!.mockResolvedValue([
+                { document: LegalDocument.TERMS, version: LEGAL_DOCUMENT_VERSIONS.terms },
+                { document: LegalDocument.UNUSUAL_CLAUSES, version: LEGAL_DOCUMENT_VERSIONS.unusual_clauses },
+            ]);
+            insertBuilder = createMockInsertBuilder([{ id: 21, document: LegalDocument.PRIVACY }]);
+            acceptanceRepo.createQueryBuilder!.mockReturnValue(insertBuilder);
+            manager.findOne = jest.fn((entity: unknown) =>
+                Promise.resolve(entity === User ? { id: 3, emailConfirmedAt: new Date() } : { firstName: 'Ana', email: 'ana@example.com' }),
+            );
+
+            await service.acceptDocuments(3, { documents: [LegalDocument.TERMS, LegalDocument.PRIVACY, LegalDocument.UNUSUAL_CLAUSES] });
+
+            const [, message] = outbox.queueOrRecord.mock.calls[0] as [unknown, { bodyText: string; dedupeKey: string }];
+            // The terms were accepted on another day; saying they were accepted today would be the
+            // one thing a confirmation of an agreement must not get wrong.
+            const acceptedLine = message.bodyText.split('\n').find((line) => line.startsWith('Îți confirmăm'));
+            expect(acceptedLine).toContain(`Politica de confidențialitate, versiunea ${LEGAL_DOCUMENT_VERSIONS.privacy}`);
+            expect(acceptedLine).not.toContain('Termenii');
+            expect(message.dedupeKey).toBe('legal-acceptance:3:21');
+        });
+
+        // The second click of a double-click wrote nothing, and its family already has the message.
+        it('sends nothing when the insert wrote nothing', async () => {
+            userRepo.findOne!.mockResolvedValue(parent);
+            acceptanceRepo.find!.mockResolvedValue([]);
+
+            await service.acceptDocuments(3, { documents: [LegalDocument.TERMS, LegalDocument.PRIVACY, LegalDocument.UNUSUAL_CLAUSES] });
+
+            expect(insertBuilder.execute).toHaveBeenCalled();
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
         });
 
         it('refuses a list that leaves the unusual clauses unaccepted', async () => {

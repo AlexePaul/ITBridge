@@ -75,6 +75,7 @@ import type { OutboxMessage } from './entities/outbox-message.entity';
 import type { OutboxStatus } from './enum/outbox-status.enum';
 import type { DeliveryFailureReason } from './enum/delivery-failure-reason.enum';
 import type { LegalDocument } from './enum/legal-document.enum';
+import type { AuthService } from './modules/auth/auth.service';
 
 /** Fails compilation when `Actual` does not satisfy `Expected` on the shared fields. */
 type Covers<Expected, Actual> = Actual extends Expected ? true : { missingOrMismatched: Expected };
@@ -213,6 +214,19 @@ type _StatementImportResult = Check<Wire.StatementImportResult, Serialized<State
 type _StatementLinesPage = Check<Wire.StatementLinesPage, Serialized<StatementLinesPage>>;
 type _MatchConfidence = Check<Wire.MatchConfidence, MatchConfidence>;
 type _MatchConfidenceBack = Check<MatchConfidence, Wire.MatchConfidence>;
+// Terms §4.7: the account's own acceptance record. The document enum is nominal, so both sides are
+// compared with the key as the literal string it is on the wire.
+type LegalRecordRow = Serialized<Awaited<ReturnType<AuthService['legalRecord']>>>;
+type LegalRecordRowWire = {
+    inForce: { document: `${LegalRecordRow['inForce'][number]['document']}`; version: LegalRecordRow['inForce'][number]['version'] }[];
+    accepted: {
+        document: `${LegalRecordRow['accepted'][number]['document']}`;
+        version: LegalRecordRow['accepted'][number]['version'];
+        acceptedAt: LegalRecordRow['accepted'][number]['acceptedAt'];
+    }[];
+};
+type _LegalRecord = Check<Wire.LegalRecord, LegalRecordRowWire>;
+type _LegalRecordBack = Check<LegalRecordRowWire, Wire.LegalRecord>;
 // E22/S3: the retention term, as the office's list and the family page read it.
 type _RetentionSchedule = Check<Wire.RetentionSchedule, Serialized<RetentionSchedule>>;
 type _FamilyRetention = Check<Wire.FamilyRetention, Serialized<FamilyRetention>>;

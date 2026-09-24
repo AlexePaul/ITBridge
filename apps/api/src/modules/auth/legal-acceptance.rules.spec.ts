@@ -1,4 +1,4 @@
-import { outstandingDocuments } from './legal-acceptance.rules';
+import { acceptedInWords, outstandingDocuments } from './legal-acceptance.rules';
 import { LEGAL_DOCUMENT_VERSIONS } from './legal-documents';
 import { LegalDocument } from 'src/enum/legal-document.enum';
 
@@ -48,5 +48,21 @@ describe('outstandingDocuments', () => {
         const accepted = [...allCurrent(), ...allCurrent().map((row) => ({ ...row, version: '0.9' }))];
 
         expect(outstandingDocuments(accepted)).toEqual([]);
+    });
+});
+
+describe('acceptedInWords', () => {
+    it('names everything a registration accepts, the clauses right after the terms they belong to', () => {
+        // Ledger order is terms, privacy, clauses; the sentence reads terms, clauses, privacy.
+        expect(acceptedInWords([LegalDocument.TERMS, LegalDocument.PRIVACY, LegalDocument.UNUSUAL_CLAUSES])).toBe(
+            `Termenii și condițiile, versiunea ${LEGAL_DOCUMENT_VERSIONS.terms}; ` +
+                'separat, clauzele de la §14, §15 și §18 din termeni — suspendarea, limitarea răspunderii și modificarea termenilor; ' +
+                `Politica de confidențialitate, versiunea ${LEGAL_DOCUMENT_VERSIONS.privacy}`,
+        );
+    });
+
+    it('names only what this acceptance wrote', () => {
+        // A new privacy notice accepted in March is not the terms accepted again in March.
+        expect(acceptedInWords([LegalDocument.PRIVACY])).toBe(`Politica de confidențialitate, versiunea ${LEGAL_DOCUMENT_VERSIONS.privacy}`);
     });
 });

@@ -5,10 +5,10 @@ import { User, isAccountActive } from 'src/entities/user.entity';
 import { Profile, isProfileComplete } from 'src/entities/profile.entity';
 import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
 import { ACCEPTED_AT_REGISTRATION, LEGAL_DOCUMENT_VERSIONS } from './legal-documents';
-import { outstandingDocuments } from './legal-acceptance.rules';
+import { acceptedInWords, outstandingDocuments } from './legal-acceptance.rules';
 import { AcceptDocumentsDto } from 'src/modules/auth/dto/accept-documents.dto';
 import { LegalDocument } from 'src/enum/legal-document.enum';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { LoginDto } from 'src/modules/auth/dto/login.dto';
@@ -22,7 +22,9 @@ import { EmailConfirmationService } from './email-confirmation.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { officeAddress } from 'src/modules/mail/office-address';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
-import { approvalsUrl } from './portal-urls';
+import { approvalsUrl, privacyUrl, profileUrl, termsUrl } from './portal-urls';
+import { romanianDay } from 'src/modules/invoice/money-words';
+import { schoolDay } from 'src/common/school-clock';
 
 @Injectable()
 export class AuthService {
@@ -116,7 +118,7 @@ export class AuthService {
             // a row when it is accepted again, and "which version did this family agree to" keeps
             // its answer. Same transaction as the account: no account without them, no rows without
             // an account.
-            await manager.save(
+            const accepted = await manager.save(
                 DocumentAcceptance,
                 ACCEPTED_AT_REGISTRATION.map((document) => ({ user: created, document, version: LEGAL_DOCUMENT_VERSIONS[document] })),
             );
@@ -131,6 +133,19 @@ export class AuthService {
             });
 
             await this.emailConfirmationService.issueAndSend(created, { firstName: registerDto.firstName, email: registerDto.email }, now, manager);
+
+            // Terms §4.7: "primești și un email de confirmare" of the agreement just concluded — what
+            // was accepted, which versions, which day. To the address the link above goes to, which
+            // nobody has confirmed yet by definition: no `confirmed` flag, so it is not gated on the
+            // confirmation it is sent alongside — gated, it would be recorded as undeliverable, and
+            // the one message a family is promised at registration would never go.
+            await this.queueAcceptanceConfirmation(
+                created.id,
+                accepted.map(({ id, document }) => ({ id, document })),
+                { firstName: registerDto.firstName, email: registerDto.email },
+                now,
+                manager,
+            );
 
             // The visible signal E11 asks for under "two gates before the first class". Without it,
             // an admin who does not think to open the approvals screen turns a registration into
@@ -402,20 +417,101 @@ export class AuthService {
         }
 
         if (outstanding.length > 0) {
-            // `ON CONFLICT DO NOTHING` against `UQ_document_acceptance_user_document_version`,
-            // rather than trusting the read above: two submits in the same second both see the same
-            // thing outstanding, and the second one is not an error to report — the family did
-            // accept, and the row saying so is already there with the day it happened on it.
-            await this.acceptanceRepository
-                .createQueryBuilder()
-                .insert()
-                .values(outstanding.map((document) => ({ user: { id: userId }, document, version: LEGAL_DOCUMENT_VERSIONS[document] })))
-                .orIgnore()
-                .execute();
+            await this.dataSource.transaction(async (manager) => {
+                // `ON CONFLICT DO NOTHING` against `UQ_document_acceptance_user_document_version`,
+                // rather than trusting the read above: two submits in the same second both see the
+                // same thing outstanding, and the second one is not an error to report — the family
+                // did accept, and the row saying so is already there with the day it happened on it.
+                const inserted = await manager
+                    .getRepository(DocumentAcceptance)
+                    .createQueryBuilder()
+                    .insert()
+                    .values(outstanding.map((document) => ({ user: { id: userId }, document, version: LEGAL_DOCUMENT_VERSIONS[document] })))
+                    .orIgnore()
+                    .returning(['id', 'document'])
+                    .execute();
+                // What this submit wrote, not what it asked for: a concurrent submit may have
+                // written some of the rows first, and the confirmation says what happened here.
+                const written = inserted.raw as { id: number; document: LegalDocument }[];
+                if (written.length === 0) return;
+
+                // Terms §4.7 again: a new version accepted is an agreement concluded again, and it is
+                // confirmed the same way. Only by the submit that wrote the rows — the second click
+                // of a double-click wrote nothing, and its family already has the message.
+                const account = await manager.findOne(User, { where: { id: userId }, select: { id: true, emailConfirmedAt: true } });
+                const profile = await manager.findOne(Profile, { where: { user: { id: userId } } });
+                if (profile) {
+                    await this.queueAcceptanceConfirmation(
+                        userId,
+                        written,
+                        { firstName: profile.firstName, email: profile.email ?? null, confirmed: Boolean(account?.emailConfirmedAt) },
+                        new Date(),
+                        manager,
+                    );
+                }
+            });
             this.logger.log(`User ${userId} accepted ${outstanding.join(', ')}.`);
         }
 
         return { pendingLegalDocuments: [] as LegalDocument[] };
+    }
+
+    /**
+     * The caller's own acceptance record — terms §4.7: the version accepted, with its day, stays on
+     * the account and can be read again from the portal. The whole ledger, oldest first, and what
+     * is in force today beside it.
+     */
+    async legalRecord(userId: number): Promise<{
+        inForce: { document: LegalDocument; version: string }[];
+        accepted: { document: LegalDocument; version: string; acceptedAt: Date }[];
+    }> {
+        const rows = await this.acceptanceRepository.find({ where: { user: { id: userId } }, order: { acceptedAt: 'ASC', id: 'ASC' } });
+        return {
+            inForce: (Object.keys(LEGAL_DOCUMENT_VERSIONS) as LegalDocument[]).map((document) => ({ document, version: LEGAL_DOCUMENT_VERSIONS[document] })),
+            accepted: rows.map((row) => ({ document: row.document, version: row.version, acceptedAt: row.acceptedAt })),
+        };
+    }
+
+    /**
+     * The confirmation terms §4.7 promises — one message per acceptance written.
+     *
+     * Keyed on the ledger rows it confirms: the rows are unique per account, document and version,
+     * so a double-click that wrote nothing the second time sends nothing, and every acceptance that
+     * did write something is confirmed exactly once. Says what was accepted *in this act* — a new
+     * privacy notice accepted in March is not the terms accepted again — and, beside it, the
+     * versions in force, which after an acceptance are exactly what the family has agreed to.
+     */
+    private async queueAcceptanceConfirmation(
+        userId: number,
+        rows: { id: number; document: LegalDocument }[],
+        recipient: { firstName: string; email: string | null; confirmed?: boolean },
+        now: Date,
+        manager: EntityManager,
+    ): Promise<void> {
+        const day = schoolDay(now);
+        const mail = await this.mailTemplates.render('legal-acceptance', {
+            firstName: recipient.firstName,
+            acceptedOn: `${romanianDay(day)} ${day.slice(0, 4)}`,
+            accepted: acceptedInWords(rows.map((row) => row.document)),
+            termsVersion: LEGAL_DOCUMENT_VERSIONS[LegalDocument.TERMS],
+            privacyVersion: LEGAL_DOCUMENT_VERSIONS[LegalDocument.PRIVACY],
+            termsUrl: termsUrl(),
+            privacyUrl: privacyUrl(),
+            profileUrl: profileUrl(),
+        });
+        await this.outbox.queueOrRecord(
+            { email: recipient.email, confirmed: recipient.confirmed },
+            {
+                subject: mail.subject,
+                bodyText: mail.bodyText,
+                bodyHtml: mail.bodyHtml ?? undefined,
+                dedupeKey: `legal-acceptance:${userId}:${rows
+                    .map((row) => row.id)
+                    .sort((a, b) => a - b)
+                    .join('-')}`,
+            },
+            manager,
+        );
     }
 
     private generateTokens(userId: number, username: string, role: string) {

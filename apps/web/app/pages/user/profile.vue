@@ -169,6 +169,54 @@
       </section>
 
       <!--
+        Terms §4.7: "Versiunea pe care ai acceptat-o, cu ziua acceptării, rămâne înregistrată pe
+        cont și o poți reciti oricând din portal." The ledger read back as it is — every version,
+        with its day, newest first — and a version a newer text replaced stays on the list, because
+        "what did this family agree to, and when" has an answer for every version, not only the
+        last. What is still outstanding comes from the server (`pendingLegalDocuments`), like
+        everywhere else: this screen does not compare versions of its own.
+      -->
+      <section class="portal-section">
+        <h2 class="portal-label">Documentele acceptate</h2>
+
+        <p v-if="legalError" class="portal-empty">
+          Nu am putut încărca documentele acceptate.
+          <button type="button" class="link link-button" @click="loadLegalRecord">
+            Încearcă din nou
+          </button>
+        </p>
+
+        <p v-else-if="legalRecord && legalRows.length === 0" class="body-text">
+          Pe contul ăsta nu e acceptat niciun document.
+        </p>
+
+        <template v-else-if="legalRecord">
+          <dl class="portal-dl details">
+            <div v-for="row in legalRows" :key="row.document" class="portal-dl-row">
+              <dt>{{ LEGAL_DOCUMENT_LABELS[row.document] }}</dt>
+              <dd>
+                <p v-if="row.pending" class="legal-entry">
+                  Versiunea {{ row.inForce }} așteaptă acceptarea ta —
+                  <NuxtLink to="/user/termeni-noi" class="link">citește și acceptă</NuxtLink>.
+                </p>
+                <p v-for="entry in row.entries" :key="entry.key" class="legal-entry">
+                  versiunea {{ entry.version }}, acceptată pe {{ entry.day }}
+                  <template v-if="!entry.inForce"> — înlocuită între timp</template>
+                </p>
+              </dd>
+            </div>
+          </dl>
+
+          <p class="note">
+            Le poți reciti oricând:
+            <NuxtLink to="/termeni" class="link">Termenii și condițiile</NuxtLink> și
+            <NuxtLink to="/confidentialitate" class="link">Politica de confidențialitate</NuxtLink>.
+            Fiecare acceptare ți-o confirmăm și pe email.
+          </p>
+        </template>
+      </section>
+
+      <!--
         E07/S4. The right of access, as a button rather than as an email to the office.
 
         The file is built in the browser from the JSON the server returns, so nothing is written to
@@ -267,6 +315,8 @@ import { dayKey } from "~/composables/useUtils";
 import { formatDateKey } from "~/composables/useAdminFormat";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
+import { LEGAL_DOCUMENT_LABELS, LEGAL_READING_ORDER } from "~/types/legal.types";
+import type { LegalDocumentKey, LegalRecord } from "~/types/legal.types";
 
 /**
  * Profil — E18/S4, screen 5.
@@ -333,9 +383,72 @@ const loadProfile = async () => {
   }
 };
 
+/**
+ * The acceptance record, read fresh on every visit — terms §4.7.
+ *
+ * Its own failure, not the profile's: a record that did not load says so beside its heading and
+ * offers the retry there, rather than taking the contact details down with it. Cleared before the
+ * request, so the retry that succeeds is seen to.
+ */
+const legalRecord = ref<LegalRecord | null>(null);
+const legalError = ref<string | null>(null);
+
+const loadLegalRecord = async () => {
+  legalError.value = null;
+  try {
+    legalRecord.value = await authApi.fetchLegalRecord();
+  } catch (err) {
+    legalError.value = apiErrorMessage(err);
+  }
+};
+
+interface LegalRow {
+  document: LegalDocumentKey;
+  /** The version in force today, for the line that asks when it has not been accepted yet. */
+  inForce: string | null;
+  pending: boolean;
+  entries: { key: string; version: string; day: string; inForce: boolean }[];
+}
+
+/**
+ * One row per document the account has anything to say about, in reading order.
+ *
+ * The day is the one the family was living in when they ticked the box: `dayKey` reads the
+ * instant's local components, where `acceptedAt.slice(0, 10)` would be the UTC day — the day
+ * before, for anything accepted between midnight and three in the morning.
+ */
+const legalRows = computed<LegalRow[]>(() => {
+  const record = legalRecord.value;
+  if (!record) return [];
+  const pending = new Set(userStore.user?.pendingLegalDocuments ?? []);
+
+  return LEGAL_READING_ORDER.flatMap((document): LegalRow[] => {
+    // Oldest first on the wire; newest first on screen. `filter` hands back a fresh array, so
+    // reversing it touches nothing anybody else holds.
+    const accepted = record.accepted.filter((row) => row.document === document).reverse();
+    const inForce = record.inForce.find((row) => row.document === document)?.version ?? null;
+    if (accepted.length === 0 && !pending.has(document)) return [];
+
+    return [
+      {
+        document,
+        inForce,
+        pending: pending.has(document),
+        entries: accepted.map((row) => ({
+          key: `${row.version}@${row.acceptedAt}`,
+          version: row.version,
+          day: formatDateKey(dayKey(new Date(row.acceptedAt))),
+          inForce: row.version === inForce,
+        })),
+      },
+    ];
+  });
+});
+
 onMounted(async () => {
   // The layout fetches it once, for the header. Only ask again if that did not land.
   if (!profileStore.profile) await loadProfile();
+  await loadLegalRecord();
 });
 
 /**
@@ -530,6 +643,10 @@ const onToggle = async (event: Event) => {
 
 .opt-in-note {
   margin-top: var(--space-2);
+}
+
+.legal-entry + .legal-entry {
+  margin-top: 4px;
 }
 
 /* The retry inside a sentence is a button, and reads as the link it looks like. */

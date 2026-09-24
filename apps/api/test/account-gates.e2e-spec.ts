@@ -97,12 +97,13 @@ describe('Account gates (e2e)', () => {
             await request(app.getHttpServer()).post('/auth/login').send({ username: 'ana', password: 'parola123' }).expect(200);
         });
 
-        it('queues the confirmation link and the office notice in the same transaction', async () => {
+        it('queues the confirmation link, the agreement confirmation and the office notice in the same transaction', async () => {
             await registerUser(app, 'ana', 'parola123', { active: false });
 
             const messages = await dataSource.query('SELECT * FROM outbox ORDER BY id');
-            expect(messages).toHaveLength(2);
-            expect(messages.map((m: { to: string }) => m.to)).toContain('ana@example.com');
+            // The link, the confirmation of what was accepted (terms §4.7) and the office notice.
+            expect(messages).toHaveLength(3);
+            expect(messages.filter((m: { to: string }) => m.to === 'ana@example.com')).toHaveLength(2);
         });
 
         it('refuses a second registration on the same email address, naming the field', async () => {

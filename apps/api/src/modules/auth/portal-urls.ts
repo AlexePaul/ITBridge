@@ -32,6 +32,20 @@ export function loginUrl(): string {
     return `${siteBase()}/auth/login`;
 }
 
+/** The public pages the legal documents are rendered on — the same files as `docs/legal/`. */
+export function termsUrl(): string {
+    return `${siteBase()}/termeni`;
+}
+
+export function privacyUrl(): string {
+    return `${siteBase()}/confidentialitate`;
+}
+
+/** The family's own profile page, where the acceptance record can be read again (terms §4.7). */
+export function profileUrl(): string {
+    return `${siteBase()}/user/profile`;
+}
+
 /** Where a parent goes to announce an absence or book a make-up. E12/S3 and S4. */
 export function absencesUrl(): string {
     return `${siteBase()}/user/absente`;
