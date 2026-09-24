@@ -1,4 +1,4 @@
-import { InvoiceFiscalStatus } from 'src/entities/invoice.entity';
+import { FISCAL_DOCUMENT_MAY_EXIST, InvoiceFiscalStatus } from 'src/entities/invoice.entity';
 import type { SmartBillMode } from 'src/modules/smartbill/smartbill.config';
 
 /**
@@ -64,12 +64,20 @@ export function fiscalStateAtIssue(
 }
 
 /**
- * Whether the platform still writes its own PDF for an invoice issued in this mode.
+ * Whether an invoice's document is the platform's own PDF, drawn from the row — E15/S6.
  *
- * Not in `live`: the fiscal PDF is SmartBill's (E15/S7), and a second document for the same month —
- * with no series and no number — is exactly the "document that is not an invoice" E16 opens with.
- * In `draft` it is: a draft is not an invoice, and the family still needs something to read.
+ * Asked at download time, not at issue: the PDF is drawn on the first download and kept, so issuing
+ * a month is database work only. The answer follows what issuing used to decide once and for all:
+ *
+ *  - no fiscal state, or a draft — the platform's document, since there is no other;
+ *  - issued, or possibly issued (`uncertain`, `review`) — SmartBill's, and never a second one with no
+ *    series and no number beside it: that is the "document that is not an invoice" E16 opens with;
+ *  - still on its way (`pending`, `failed`) — the platform's, unless the backend is `live`, where
+ *    what is coming is a fiscal document and the family waits for it. In `draft` the family had a
+ *    PDF from the moment of issue before this story, and still does.
  */
-export function writesLocalPdf(mode: SmartBillMode): boolean {
+export function servesLocalPdf(fiscalStatus: InvoiceFiscalStatus | null, mode: SmartBillMode): boolean {
+    if (fiscalStatus === null || fiscalStatus === InvoiceFiscalStatus.DRAFT) return true;
+    if (FISCAL_DOCUMENT_MAY_EXIST.includes(fiscalStatus)) return false;
     return mode !== 'live';
 }

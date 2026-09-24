@@ -5,8 +5,12 @@ import path from 'path';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Discount } from 'src/entities/discount.entity';
 import { Invoice } from 'src/entities/invoice.entity';
+import { describeDiscount } from 'src/modules/smartbill/smartbill.rules';
+import { toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { PAYMENT_TERM_DAYS, dueDateFor } from './arrears.rules';
+import { romanianMonth } from './money-words';
 
-/** One line on the invoice table: the service fee itself, plus one line per discount. */
+/** One line on the invoice table. There is one: the month, at the amount the family owes. */
 interface InvoiceLine {
     item: string;
     description: string;
@@ -19,23 +23,33 @@ import { Repository } from 'typeorm/repository/Repository';
 export class PdfService {
     constructor(@InjectRepository(Discount) private discountRepository: Repository<Discount>) {}
 
+    /**
+     * The platform's own invoice document — drawn on its first download since E15/S6, so everything
+     * printed comes from the row and never from the moment of drawing.
+     *
+     * **Shaped like SmartBill's**, the document it stands in for until `live` (E15/S7): one line, at
+     * the amount the platform computed, and the month's discounts in words beneath it, through the
+     * same `describeDiscount`. It used to list each discount as a line in lei, adding the values back
+     * onto the amount — right for a `fixed` 50, and a 50% discount printed as "−50 lei" on a line
+     * that did not add up. Reading them at download time is safe because a discount on an invoiced
+     * month is frozen (`DISCOUNT_MONTH_INVOICED`): what is read is what the amount was computed from.
+     */
     async generateInvoicePdf(invoice: Invoice): Promise<Buffer> {
-        const discounts = await this.discountRepository.find({ where: { parent: { id: invoice.parent.id }, monthIssued: invoice.monthIssued } });
-        const discountValue = discounts.reduce((sum, discount) => sum + Number(discount.value), 0);
+        const discounts = await this.discountRepository.find({
+            where: { parent: { id: invoice.parent.id }, monthIssued: invoice.monthIssued },
+            order: { id: 'ASC' },
+        });
+        const mentions = discounts.map((discount) => describeDiscount({ name: discount.name, type: discount.type, value: discount.value }));
 
+        const issuedOn = printedDay(invoice.dateIssued);
+        const dueOn = printedDay(toIsoDate(dueDateFor(invoice.dateIssued)));
         const items: InvoiceLine[] = [
             {
                 item: 'Servicii educaționale',
-                description: 'Taxă lunară pentru cursuri',
-                amount: invoice.amount + discountValue,
+                description: `Cursuri, ${romanianMonth(invoice.monthIssued)} ${invoice.monthIssued.slice(0, 4)}`,
+                amount: invoice.amount,
                 quantity: 1,
             },
-            ...discounts.map((discount) => ({
-                item: `${discount.name}`,
-                description: `${discount.description}`,
-                amount: -discount.value,
-                quantity: 1,
-            })),
         ];
         const total = invoice.amount;
         return new Promise((resolve, reject) => {
@@ -81,10 +95,14 @@ export class PdfService {
                 .font('Roboto-Bold')
                 .text(String(invoice.id), 150, customerInformationTop)
                 .font('Roboto')
-                .text('Data:', 50, customerInformationTop + 15)
-                .text(this.formatDate(new Date()), 150, customerInformationTop + 15)
+                // The day on the row, not the day of drawing: since E15/S6 the drawing can happen
+                // weeks after the invoice was issued, on whichever day the family first opens it.
+                .text('Data emiterii:', 50, customerInformationTop + 15)
+                .text(issuedOn, 150, customerInformationTop + 15)
                 .text('Total de plata:', 50, customerInformationTop + 30)
                 .text(this.formatCurrency(total), 150, customerInformationTop + 30)
+                .text('Scadenta:', 50, customerInformationTop + 45)
+                .text(dueOn, 150, customerInformationTop + 45)
                 .font('Roboto-Bold')
                 .text(invoice.parent?.firstName + ' ' + invoice.parent?.lastName, 300, customerInformationTop)
                 .font('Roboto')
@@ -119,8 +137,17 @@ export class PdfService {
             this.generateTableRow(doc, subtotalPosition, '', '', 'Total', '', this.formatCurrency(total));
             doc.font('Roboto');
 
-            // Footer
-            doc.fontSize(10).text('Plata este datorata in 30 zile. Va multumim!', 50, 780, { align: 'center', width: 500 });
+            // Why the month cost less, in words — the amount above already has it taken off.
+            mentions.forEach((mention, index) => {
+                doc.fontSize(10).text(mention, 50, subtotalPosition + 40 + index * 15, { width: 500 });
+            });
+
+            // The term the school's terms promise (§11.3) and the arrears screen counts from, not a
+            // number of its own: the footer said 30 days while every reminder counted 14.
+            doc.fontSize(10).text(`Plata se face in ${PAYMENT_TERM_DAYS} zile de la emitere, pana la ${dueOn}. Va multumim!`, 50, 780, {
+                align: 'center',
+                width: 500,
+            });
 
             doc.end();
         });
@@ -143,12 +170,16 @@ export class PdfService {
         const value = typeof amount === 'number' ? amount : Number(amount) || 0;
         return value.toLocaleString('ro-RO', { style: 'currency', currency: 'RON' });
     }
+}
 
-    private formatDate(date: Date | string): string {
-        const d = new Date(date);
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
-    }
+/**
+ * A `date` column as the day printed on the document, `DD.MM.YYYY`.
+ *
+ * From the calendar components, never through `new Date(text)`: that reads `'2026-11-01'` as
+ * midnight UTC, which is the day before anywhere west of Greenwich — the one-day trap CLAUDE.md
+ * warns about. TypeORM hands a `date` column back as text on one path and as a `Date` on another.
+ */
+function printedDay(value: Date | string): string {
+    const [year, month, day] = (typeof value === 'string' ? value.slice(0, 10) : toIsoDate(value)).split('-');
+    return `${day}.${month}.${year}`;
 }

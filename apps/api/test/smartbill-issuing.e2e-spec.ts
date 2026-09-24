@@ -121,6 +121,10 @@ describe('Issuing invoices through SmartBill (e2e)', () => {
             expect(invoice.fiscalStatus).toBeNull();
             expect(result.stoppedBy).toBe('off');
             expect(fake.requests).toHaveLength(0);
+            // E15/S6: drawn on the first download, not while issuing.
+            expect(pdf.generateInvoicePdf).not.toHaveBeenCalled();
+            s3.downloadFile.mockRejectedValueOnce(new ObjectNotFoundError(`invoices/2026-10/${invoice.id}.pdf`));
+            await request(app.getHttpServer()).get(`/invoices/${invoice.id}/pdf`).set('Authorization', admin.auth).expect(200);
             expect(pdf.generateInvoicePdf).toHaveBeenCalledTimes(1);
         });
     });
@@ -189,7 +193,10 @@ describe('Issuing invoices through SmartBill (e2e)', () => {
             expect(await reload(invoice.id)).toMatchObject({ fiscalStatus: InvoiceFiscalStatus.DRAFT, fiscalNumber: null });
             expect(fake.documents).toEqual([expect.objectContaining({ isDraft: true, number: null })]);
             expect(fake.series.get('ITB')?.nextNumber).toBe(41);
-            // A draft is not an invoice: the family still reads the platform's own PDF.
+            // A draft is not an invoice: the family still reads the platform's own PDF, drawn on the
+            // first download (E15/S6).
+            s3.downloadFile.mockRejectedValueOnce(new ObjectNotFoundError(`invoices/2026-10/${invoice.id}.pdf`));
+            await request(app.getHttpServer()).get(`/invoices/${invoice.id}/pdf`).set('Authorization', admin.auth).expect(200);
             expect(pdf.generateInvoicePdf).toHaveBeenCalledTimes(1);
         });
     });

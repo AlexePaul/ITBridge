@@ -3,6 +3,8 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { createTestApp, enrolInNewGroup, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
+import { S3Service } from 'src/modules/storage/s3.service';
+import { PdfService } from 'src/modules/invoice/pdf.service';
 
 /**
  * The one suite that does **not** stub S3 or the PDF generator.
@@ -59,10 +61,68 @@ describe('Invoice PDF, against real object storage (e2e)', () => {
         return res.body[0] as { id: number; amount: number };
     };
 
-    it('issues an invoice and stores its PDF', async () => {
-        const invoice = await issue('2026-03');
+    const download = (id: number) => request(app.getHttpServer()).get(`/invoices/${id}/pdf`).set('Authorization', admin.auth);
+    const keyOf = (id: number, month = '2026-03') => `invoices/${month}/${id}.pdf`;
+    const kept = (id: number, month = '2026-03') => app.get(S3Service).headObject(keyOf(id, month));
 
-        expect(invoice.amount).toBe(350);
+    /**
+     * An invoice with a clean slate in the bucket. The bucket outlives `truncateAll` and invoice ids
+     * start again at 1, so a drawing kept by an earlier run can sit at exactly this key — and would
+     * make "the first download drew it" pass without anything having been drawn.
+     */
+    const issueFresh = async (monthIssued: string) => {
+        const invoice = await issue(monthIssued);
+        await app.get(S3Service).deleteObject(keyOf(invoice.id, monthIssued));
+        return invoice;
+    };
+
+    // E15/S6: issuing is database work only. The PDF is drawn from the row on its first download.
+    it('issues an invoice without drawing anything yet', async () => {
+        const draw = jest.spyOn(app.get(PdfService), 'generateInvoicePdf');
+        try {
+            const invoice = await issue('2026-03');
+
+            expect(invoice.amount).toBe(350);
+            expect(draw).not.toHaveBeenCalled();
+        } finally {
+            draw.mockRestore();
+        }
+    });
+
+    it('draws the PDF on the first download and keeps it for the next', async () => {
+        const invoice = await issueFresh('2026-03');
+        const draw = jest.spyOn(app.get(PdfService), 'generateInvoicePdf');
+        try {
+            const first = await download(invoice.id).expect(200);
+            const stored = await kept(invoice.id);
+            const second = await download(invoice.id).expect(200);
+
+            expect(draw).toHaveBeenCalledTimes(1);
+            expect(stored).toMatchObject({ contentType: 'application/pdf' });
+            expect(Buffer.compare(first.body as Buffer, second.body as Buffer)).toBe(0);
+        } finally {
+            draw.mockRestore();
+        }
+    });
+
+    it('drops the kept drawing when the amount changes, and draws the current row next time', async () => {
+        const invoice = await issueFresh('2026-03');
+        await download(invoice.id).expect(200);
+
+        await request(app.getHttpServer()).put(`/invoices/${invoice.id}`).set('Authorization', admin.auth).send({ amount: 300 }).expect(200);
+
+        expect(await kept(invoice.id)).toBeNull();
+        await download(invoice.id).expect(200);
+        expect(await kept(invoice.id)).not.toBeNull();
+    });
+
+    it('takes the kept drawing with a deleted invoice', async () => {
+        const invoice = await issueFresh('2026-03');
+        await download(invoice.id).expect(200);
+
+        await request(app.getHttpServer()).delete(`/invoices/${invoice.id}`).set('Authorization', admin.auth).expect(204);
+
+        expect(await kept(invoice.id)).toBeNull();
     });
 
     it('serves back a real PDF, not an empty file', async () => {
@@ -97,31 +157,20 @@ describe('Invoice PDF, against real object storage (e2e)', () => {
         expect((res.body as Buffer).toString('binary')).toContain('BaseFont');
     });
 
-    it('leaves no invoice behind when the upload fails', async () => {
-        // Point the bucket at one that does not exist: the upload fails, and the transaction in
-        // `createInvoice` has to take the row with it. Before that transaction existed, the row
-        // survived and the retry hit @Unique(['parent', 'monthIssued']).
+    // Storage used to decide whether a month existed: a failed upload rolled the whole batch back.
+    // Since E15/S6 issuing never reaches it, and the document is drawn once storage answers again.
+    it('issues a month while storage is down, and draws its PDF once storage is back', async () => {
         const bucket = process.env.AWS_S3_BUCKET;
         process.env.AWS_S3_BUCKET = 'bucket-that-does-not-exist';
-
+        let invoice: { id: number; amount: number };
         try {
-            await expect(issue('2026-04')).rejects.toThrow();
-
-            const rows = await dataSource.query<{ count: string }[]>(`SELECT count(*) FROM invoices WHERE "monthIssued" = '2026-04'`);
-            expect(rows[0].count).toBe('0');
+            invoice = await issue('2026-04');
         } finally {
             process.env.AWS_S3_BUCKET = bucket;
         }
-    });
 
-    it('issues the same month again after a failed attempt', async () => {
-        const bucket = process.env.AWS_S3_BUCKET;
-        process.env.AWS_S3_BUCKET = 'bucket-that-does-not-exist';
-        await expect(issue('2026-05')).rejects.toThrow();
-        process.env.AWS_S3_BUCKET = bucket;
-
-        // The whole point of rolling back: the retry must not collide with a half-written row.
-        const invoice = await issue('2026-05');
         expect(invoice.amount).toBe(350);
+        const res = await download(invoice.id).expect(200);
+        expect((res.body as Buffer).subarray(0, 5).toString()).toBe('%PDF-');
     });
 });

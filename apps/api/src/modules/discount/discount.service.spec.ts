@@ -3,6 +3,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { DiscountService } from './discount.service';
 import { Discount } from 'src/entities/discount.entity';
 import { Profile } from 'src/entities/profile.entity';
+import { Invoice } from 'src/entities/invoice.entity';
 import {
     createMockEntityManager,
     createMockRepository,
@@ -21,12 +22,16 @@ describe('DiscountService', () => {
     let service: DiscountService;
     let discountRepo: MockRepository;
     let profileRepo: MockRepository;
+    let invoiceRepo: MockRepository;
     let manager: MockEntityManager;
     let audit: { record: jest.Mock; recordUpdate: jest.Mock };
 
     beforeEach(async () => {
         discountRepo = createMockRepository();
         profileRepo = createMockRepository();
+        invoiceRepo = createMockRepository();
+        // No invoice for any month unless a test says so: E15/S6's freeze is its own tests.
+        invoiceRepo.exists!.mockResolvedValue(false);
         manager = createMockEntityManager();
         audit = { record: jest.fn(() => Promise.resolve()), recordUpdate: jest.fn(() => Promise.resolve()) };
         const module: TestingModule = await Test.createTestingModule({
@@ -34,6 +39,7 @@ describe('DiscountService', () => {
                 DiscountService,
                 provideMockRepository(Discount, discountRepo),
                 provideMockRepository(Profile, profileRepo),
+                provideMockRepository(Invoice, invoiceRepo),
                 provideMockDataSource(manager),
                 { provide: AuditService, useValue: audit },
             ],
@@ -133,6 +139,63 @@ describe('DiscountService', () => {
             expect(audit.record).not.toHaveBeenCalled();
         });
     });
+
+    /**
+     * E15/S6. The invoice was computed from the month's discounts when it was issued and never
+     * again, so a change afterwards would reach nothing — and the PDF, drawn on its first download,
+     * would describe discounts the amount was not computed from.
+     */
+    describe('on a month already invoiced', () => {
+        const invoicedMonth = (month: string) =>
+            invoiceRepo.exists!.mockImplementation((options: { where: { monthIssued: string } }) => Promise.resolve(options.where.monthIssued === month));
+
+        const refusal = expect.objectContaining({ response: expect.objectContaining({ error: 'DISCOUNT_MONTH_INVOICED' }) });
+
+        it('refuses a new discount', async () => {
+            invoicedMonth('2026-03');
+
+            await expect(service.createDiscount({ name: 'Frate', value: 50, monthIssued: '2026-03', parentId: 7 }, ACTOR)).rejects.toEqual(refusal);
+            expect(manager.save).not.toHaveBeenCalled();
+            expect(invoiceRepo.exists).toHaveBeenCalledWith({ where: { parent: { id: 7 }, monthIssued: '2026-03' } });
+        });
+
+        it('refuses to edit one the invoice was computed from', async () => {
+            invoicedMonth('2026-03');
+            discountRepo.findOne!.mockImplementation((options: { select?: unknown }) =>
+                Promise.resolve(options.select ? { id: 1, parent: { id: 7 } } : { id: 1, name: 'Frate', type: 'fixed', value: 50, monthIssued: '2026-03' }),
+            );
+
+            await expect(service.updateDiscount(1, { value: 75 }, ACTOR)).rejects.toEqual(refusal);
+            expect(manager.save).not.toHaveBeenCalled();
+        });
+
+        it('refuses to move one onto an invoiced month', async () => {
+            invoicedMonth('2026-03');
+            discountRepo.findOne!.mockImplementation((options: { select?: unknown }) =>
+                Promise.resolve(options.select ? { id: 1, parent: { id: 7 } } : { id: 1, name: 'Frate', type: 'fixed', value: 50, monthIssued: '2026-04' }),
+            );
+
+            await expect(service.updateDiscount(1, { monthIssued: '2026-03' }, ACTOR)).rejects.toEqual(refusal);
+        });
+
+        it('refuses to delete one', async () => {
+            invoicedMonth('2026-03');
+            discountRepo.findOne!.mockResolvedValue({ id: 1, name: 'Frate', type: 'fixed', value: 50, monthIssued: '2026-03', parent: { id: 7 } });
+
+            await expect(service.deleteDiscount(1, ACTOR)).rejects.toEqual(refusal);
+            expect(manager.delete).not.toHaveBeenCalled();
+        });
+
+        it('leaves the months not invoiced yet alone', async () => {
+            invoicedMonth('2026-03');
+            discountRepo.create!.mockImplementation((d: unknown) => ({ ...(d as object) }));
+            manager.save.mockImplementation((_entity: unknown, d: unknown) => Promise.resolve(d));
+
+            await expect(service.createDiscount({ name: 'Frate', value: 50, monthIssued: '2026-04', parentId: 7 }, ACTOR)).resolves.toMatchObject({
+                monthIssued: '2026-04',
+            });
+        });
+    });
 });
 
 /**
@@ -146,6 +209,7 @@ describe('DiscountService referral reward', () => {
     let service: DiscountService;
     let discountRepo: MockRepository;
     let profileRepo: MockRepository;
+    let invoiceRepo: MockRepository;
 
     /** The rows the fake repository holds, so a grant and the next read agree with each other. */
     let rows: Array<{ id: number; name: string; type: string; value: number; monthIssued: string }>;
@@ -157,6 +221,9 @@ describe('DiscountService referral reward', () => {
     beforeEach(async () => {
         discountRepo = createMockRepository();
         profileRepo = createMockRepository();
+        invoiceRepo = createMockRepository();
+        // No invoice for any month unless a test says so: E15/S6's freeze is its own tests.
+        invoiceRepo.exists!.mockResolvedValue(false);
         manager = createMockEntityManager();
         audit = { record: jest.fn(() => Promise.resolve()), recordUpdate: jest.fn(() => Promise.resolve()) };
         const module: TestingModule = await Test.createTestingModule({
@@ -164,6 +231,7 @@ describe('DiscountService referral reward', () => {
                 DiscountService,
                 provideMockRepository(Discount, discountRepo),
                 provideMockRepository(Profile, profileRepo),
+                provideMockRepository(Invoice, invoiceRepo),
                 provideMockDataSource(manager),
                 { provide: AuditService, useValue: audit },
             ],
@@ -194,6 +262,14 @@ describe('DiscountService referral reward', () => {
 
         expect(reward).toEqual({ parentId: 7, months: ['2026-04'] });
         expect(rows[0]).toMatchObject({ name: 'Recomandare', type: 'percent', value: 50, monthIssued: '2026-04' });
+    });
+
+    // E15/S6: next month is normally not billed yet, but a month issued early is frozen like any other.
+    it('refuses a press that would land on a month already invoiced', async () => {
+        invoiceRepo.exists!.mockImplementation((options: { where: { monthIssued: string } }) => Promise.resolve(options.where.monthIssued === '2026-04'));
+
+        await expect(service.grantReferralMonth(7, ACTOR, march)).rejects.toMatchObject({ response: { error: 'DISCOUNT_MONTH_INVOICED' } });
+        expect(rows).toEqual([]);
     });
 
     it('puts each further press on the month after the last, not on the same one twice', async () => {

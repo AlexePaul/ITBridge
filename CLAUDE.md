@@ -1724,6 +1724,24 @@ poarte același număr pe care l-a arătat ecranul, și înghețată odată ce f
 Factura poartă o singură linie de produs, deci corectura nu contrazice niciodată catalogul; ce
 apără rândul e evidența școlii.
 
+**Emiterea nu desenează nimic; PDF-ul platformei se desenează la prima descărcare** (E15 S6). În
+`off` și `draft`, fiecare familie era un PDF desenat cu PDFKit și urcat în bucket cu tranzacția
+deschisă — 100 de familii în 8,2 s, iar o stocare picată dădea înapoi toată luna; acum emiterea e
+numai scriere în bază (0,38 s), iar `getInvoicePdf` desenează din rând și păstrează la aceeași cheie.
+Cine primește desen o spune `servesLocalPdf` din `fiscal-issuing.rules.ts`, la descărcare, nu la
+emitere. Trei lucruri de ținut minte:
+
+- **Tot ce se tipărește vine din rând**, fiindcă desenul poate veni la săptămâni după emitere: data e
+  `dateIssued`, niciodată `new Date()` — vechiul PDF tipărea ziua desenării —, iar scadența vine din
+  `dueDateFor`, aceeași din care numără restanțele.
+- **O editare a sumei sau a datei aruncă desenul păstrat, iar ștergerea îl ia cu ea**, după commit și
+  fără ca un eșec de stocare să strice ceva: rândul e evidența, PDF-ul doar un desen al lui.
+- **Reducerile se citesc la desenare, și e sigur fiindcă o reducere pe o lună facturată e
+  înghețată** (`DISCOUNT_MONTH_INVOICED`, în `DiscountService`). Suma facturii s-a calculat o singură
+  dată, la emitere; o reducere schimbată după aceea nu mai ajungea nicăieri. Pe PDF stau ca pe
+  documentul SmartBill: o linie la suma facturii, iar reducerile în cuvinte, prin `describeDiscount`
+  — nu adunate înapoi în lei, cum făcea înainte cu o reducere de 50%.
+
 Al doilea drum a fost **șters** (E18/S5b): `/admin/invoices/new` și `/admin/invoices/preview/:month`
 emiteau aceeași lună prin `POST /invoices/preview` plus `POST /invoices`, adică pe numere calculate
 de server, nu văzute de om. Ecranul lui arăta „Număr Copii" numărând toți copiii familiei, deși

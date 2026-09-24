@@ -90,8 +90,8 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 88 livrate, 23 parțiale, 3 blocate, 12 scoase din
-scop, 24 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **150 de story-uri** în 22 de epicuri: 89 livrate, 23 parțiale, 3 blocate, 12 scoase din
+scop, 23 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
 **Cifrele s-au recitit din rânduri, și cinci din șase erau greșite** — 75/19/6/36 pentru
@@ -102,7 +102,7 @@ coloana întâi cu `- [x]`, `- [~]`, `- [!]`, `- [ ]` sau `- ~~`, **numărate do
 `### E`** — altfel intră în total și rândul din legendă care arată cum se scrie un story tăiat, iar
 numărul iese cu unul peste, ceea ce e greu de observat tocmai fiindcă e aproape.
 
-Cele 24 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+Cele 23 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
 E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
 mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
@@ -289,7 +289,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - ~~S3 · Planuri de plată~~ — **scos:** factura lunară e deja plata în tranșe; nu mai există suma de 700 pe modul care să se rupă în două
 - [x] S4 · Regula pentru mai mulți copii — 350 + 250 pe frate, într-un singur loc; ambele bug-uri reparate. Din E11/S4, suma numără doar copiii înscriși activ
 - [~] S5 · Reduceri cu tip — **tipul livrat** (`fixed`/`percent`, plafon 100%, ecranul `/admin/reduceri`); scopul, condițiile și valabilitatea nu s-au construit, fiindcă n-au niciun client
-- [ ] S6 · Previzualizare și emitere în masă
+- [x] S6 · Previzualizare și emitere în masă — previzualizarea e fișa din S0/S9, limita și raportarea pe factură sunt coada din E16 S3; ce lipsea era desenul: în `off` și `draft` fiecare familie era un PDF desenat și urcat cu tranzacția deschisă — **100 de familii în 8,2 s, acum în 0,38 s**. PDF-ul se desenează din rând la prima descărcare și se păstrează; poartă data emiterii (nu pe cea a desenării), scadența de 14 zile și reducerile în cuvinte, ca documentul SmartBill. O reducere pe o lună deja facturată e înghețată (`DISCOUNT_MONTH_INVOICED`): nu mai ajungea nicăieri, tăcut
 - [~] S7 · PDF-ul nu se mai generează local — **în `live`, nu se mai generează** (livrat cu E16 S2): după emitere, PDF-ul fiscal se ia de la SmartBill și se pune la aceeași cheie din bucket, deci portalul, exportul și ștergerea îl citesc fără să știe cine l-a făcut. În `off` și `draft` rămâne PDF-ul local. Rămâne potrivirea la leu cu documentul SmartBill pe date reale, adică prima factură emisă live
 - [x] S8 · Înscrierea la mijlocul unui modul — **rezolvat de modelul pe ședință**, nu de cod: cine intră pe 15 are mai puține ședințe în lună. Livrat aici: ecranul de emitere sortează familiile pe grupe, cum se și numără
 - [x] S9 · Ședințele facturabile se numără din catalog — `billable-sessions.rules.ts` (regula pură) + `BillableSessionsService` (singura interogare, pe luna de predare din `teachingMonthRange`): ședință fără catalog = neținută, nefacturată; ținută = facturată întregii grupe, pe perioada înscrierii; de vacanță = doar celor marcați prezenți; proba și marcajele `make-up` niciodată. `POST /invoices/issue` nu mai primește numere de la client; `/admin/invoices/emitere` arată numărul citit, desfacerea lui și ședințele lunii fără catalog deasupra. **Corectura pe copil** (`SessionCountOverride`, `PUT|DELETE /invoices/overrides`): o decizie consemnată — cât, de ce, cine, când —, un rând per copil și lună, arătată pe fișă lângă numărul citit, zero = `WAIVED`, refuzată cu 409 după ce familia are factura lunii

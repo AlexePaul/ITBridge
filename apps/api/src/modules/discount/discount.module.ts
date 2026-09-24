@@ -4,6 +4,7 @@ import { DiscountController } from './discount.controller';
 import { DiscountService } from './discount.service';
 import { Discount } from 'src/entities/discount.entity';
 import { Profile } from 'src/entities/profile.entity';
+import { Invoice } from 'src/entities/invoice.entity';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { RolesGuard } from 'src/guards/role.guard';
 import { JwtModule } from '@nestjs/jwt/dist/jwt.module';
@@ -12,7 +13,8 @@ import { AuditModule } from 'src/modules/audit/audit.module';
 @Module({
     // `AuditModule` because a discount is money given away, and the referral button makes it easy
     // to give twice by accident — E07/S3 writes down who, what and for which month.
-    imports: [TypeOrmModule.forFeature([Discount, Profile]), JwtModule.register({}), AuditModule],
+    // `Invoice` to know which months are already billed, and so frozen for discounts (E15/S6).
+    imports: [TypeOrmModule.forFeature([Discount, Profile, Invoice]), JwtModule.register({}), AuditModule],
     controllers: [DiscountController],
     providers: [DiscountService, AuthGuard, RolesGuard],
 })

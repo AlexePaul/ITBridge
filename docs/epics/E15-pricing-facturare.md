@@ -1,6 +1,6 @@
 # E15 · Pricing și facturare v2
 
-**Status:** în lucru — **prețul pe ședință e livrat**; S1, S2 și S3 sunt **scoase**, fiind scrise pe modelul pe modul · **Pistă:** Bani · **Depinde de:** E10, E11, E12 · **Blochează:** E16, E21
+**Status:** în lucru — **prețul pe ședință e livrat**, iar emiterea în masă (S6) nu mai desenează nimic în cerere; S1, S2 și S3 sunt **scoase**, fiind scrise pe modelul pe modul · **Pistă:** Bani · **Depinde de:** E10, E11, E12 · **Blochează:** E16, E21
 
 > ## Ce s-a decis, și ce s-a livrat
 >
@@ -354,6 +354,40 @@ SmartBill de 3 apeluri pe secundă face bucla imposibilă oricum.
 
 **Acceptanță:** emiterea pentru 100 de familii nu blochează interfața, respectă limita de apeluri
 și raportează individual ce a eșuat.
+
+**Livrat (septembrie 2026), în trei bucăți, dintre care două existau deja.** Previzualizarea e
+fișa din S0/S9, `/admin/invoices/emitere`: toate familiile lunii, cu valoarea pe copil, desfacerea
+ei și totalul, iar butonul emite ce arată fișa. Limita de apeluri și raportarea pe factură sunt coada
+din [E16](E16-plati-fiscal.md) S2/S3: emiterea scrie rândurile, iar SmartBill primește câte o
+factură, sub limită, cu starea și eroarea pe fiecare rând, pe `/admin/invoices/[luna]`. Ce lipsea era
+exact propoziția de mai sus despre `createInvoice`: **în `off` și `draft`, fiecare familie însemna un
+PDF desenat cu PDFKit și urcat în bucket, cu tranzacția deschisă.** Măsurat pe stocare reală (MinIO),
+100 de familii: **8,2 s** într-o singură cerere, cu tranzacția ținută tot timpul; iar o stocare
+picată dădea înapoi toată luna.
+
+Acum **emiterea e numai scriere în bază** — aceleași 100 de familii în **0,38 s** —, iar PDF-ul
+platformei se desenează din rând **la prima descărcare** și se păstrează la aceeași cheie
+(`invoicePdfKey`), deci a doua descărcare îl citește. Trei consecințe, fiecare cu testul ei:
+
+- **Documentul se desenează din rând, nu din clipa desenării.** Pe hârtie apărea data de _azi_ ca
+  dată a facturii — nevăzut cât timp desenarea se întâmpla în ziua emiterii. Acum e `dateIssued`,
+  plus scadența la 14 zile (§11.3 din termeni, aceeași constantă din care numără restanțele); subsolul
+  spunea „30 de zile" cât timp fiecare memento număra 14.
+- **Aceeași formă ca documentul SmartBill**: o singură linie, la suma calculată de platformă, iar
+  reducerile în cuvinte dedesubt, prin același `describeDiscount`. Vechiul PDF adăuga înapoi fiecare
+  reducere în lei — corect pentru 50 de lei, greșit pentru 50%, tipărită „−50 lei" pe o linie care nu
+  se aduna.
+- **O reducere pe o lună deja facturată e înghețată** (`DISCOUNT_MONTH_INVOICED`), ca corectura pe
+  copil și bifa de vacanță. Suma facturii s-a calculat din reducerile lunii o singură dată, la
+  emitere, deci o reducere adăugată, schimbată sau ștearsă după aceea nu mai ajungea nicăieri —
+  tăcut, ceea ce se citește ca opusul. Tot ea face sigură citirea reducerilor la desenare: ce citește
+  PDF-ul e exact ce a folosit suma. O lună care are nevoie de altă reducere are nevoie de factura
+  corectată, sau ștearsă și emisă din nou — iar una fiscală, de o stornare în SmartBill.
+
+O editare a sumei sau a datei aruncă desenul păstrat, iar ștergerea facturii îl ia cu ea — după
+commit, și fără ca un eșec de stocare să strice editarea: rândul e evidența, PDF-ul doar un desen al
+lui. În `live` nimic din toate astea nu se aplică: documentul e al SmartBill (S7), iar o factură încă
+în coadă răspunde „nu e emisă încă", ca înainte.
 
 ### S7 · PDF-ul nu se mai generează local
 

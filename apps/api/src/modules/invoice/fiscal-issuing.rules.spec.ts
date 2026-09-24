@@ -1,5 +1,5 @@
 import { InvoiceFiscalStatus } from 'src/entities/invoice.entity';
-import { fiscalBackoffFrom, fiscalStateAtIssue, writesLocalPdf } from './fiscal-issuing.rules';
+import { fiscalBackoffFrom, fiscalStateAtIssue, servesLocalPdf } from './fiscal-issuing.rules';
 
 describe('fiscal issuing rules', () => {
     const now = new Date('2026-11-01T09:00:00Z');
@@ -20,12 +20,30 @@ describe('fiscal issuing rules', () => {
         });
     });
 
-    describe('writesLocalPdf', () => {
-        // E15/S7: in live the PDF is SmartBill's, and a second one with no series is not an invoice.
-        it("stops only in 'live'", () => {
-            expect(writesLocalPdf('off')).toBe(true);
-            expect(writesLocalPdf('draft')).toBe(true);
-            expect(writesLocalPdf('live')).toBe(false);
+    describe('servesLocalPdf', () => {
+        it('draws the document for an invoice nothing fiscal exists for, in any mode', () => {
+            for (const mode of ['off', 'draft', 'live'] as const) {
+                expect(servesLocalPdf(null, mode)).toBe(true);
+                expect(servesLocalPdf(InvoiceFiscalStatus.DRAFT, mode)).toBe(true);
+            }
+        });
+
+        // E15/S7: the PDF is SmartBill's, and a second one with no series is not an invoice.
+        it('never draws one beside a fiscal document that exists, or may', () => {
+            for (const status of [InvoiceFiscalStatus.ISSUED, InvoiceFiscalStatus.UNCERTAIN, InvoiceFiscalStatus.REVIEW]) {
+                expect(servesLocalPdf(status, 'draft')).toBe(false);
+                expect(servesLocalPdf(status, 'live')).toBe(false);
+            }
+        });
+
+        // What is still on its way becomes a draft in `draft` — the family had its PDF from the
+        // moment of issue before E15/S6 — and a fiscal document in `live`, which is worth waiting for.
+        it("draws one for an invoice on its way, except in 'live'", () => {
+            for (const status of [InvoiceFiscalStatus.PENDING, InvoiceFiscalStatus.FAILED]) {
+                expect(servesLocalPdf(status, 'off')).toBe(true);
+                expect(servesLocalPdf(status, 'draft')).toBe(true);
+                expect(servesLocalPdf(status, 'live')).toBe(false);
+            }
         });
     });
 

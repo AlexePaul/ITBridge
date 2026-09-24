@@ -114,10 +114,12 @@ describe('Audit log (e2e)', () => {
     });
 
     it('records a discount given and taken back', async () => {
+        // April, not March: March is invoiced in `beforeEach`, and a discount on an invoiced month
+        // is frozen (E15/S6) — it would reach nothing.
         const created = await request(app.getHttpServer())
             .post('/discounts')
             .set('Authorization', admin.auth)
-            .send({ name: 'Frate', value: 50, monthIssued: '2026-03', parentId: profileId })
+            .send({ name: 'Frate', value: 50, monthIssued: '2026-04', parentId: profileId })
             .expect(201);
         const discountId = created.body.id as number;
 
