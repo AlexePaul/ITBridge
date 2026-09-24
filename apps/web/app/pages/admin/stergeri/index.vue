@@ -62,6 +62,44 @@
       <NuxtLink to="/admin/proiecte" class="underline">fișierele neatribuite</NuxtLink> nu se poate
       lega de nicio familie, deci se curăță de acolo, de mână.
     </p>
+
+    <!--
+      E22/S3 — the other road to the same erasure: the calendar. Nothing here needs a press; the
+      list exists so the office can see what goes and when, and why a family whose day has come is
+      still on file.
+    -->
+    <section aria-labelledby="term-heading" class="flex flex-col gap-4 mt-8">
+      <div>
+        <h2 id="term-heading" class="text-xl font-semibold">La termen</h2>
+        <p v-if="schedule" class="text-sm text-muted max-w-3xl">
+          Familiile retrase se șterg singure la {{ schedule.terms.familyMonths }} luni de la
+          retragere, în fiecare noapte, cu aceeași ștergere ca mai sus. Tot atunci pleacă cererile
+          de probă fără înscriere, după {{ schedule.terms.enquiryMonths }} luni de liniște, și
+          copiile mesajelor trimise, după {{ schedule.terms.messageMonths }} luni. Retragerea se
+          consemnează și se anulează din pagina familiei.
+        </p>
+      </div>
+
+      <AdminError v-if="scheduleError" :message="scheduleError" @retry="loadSchedule" />
+      <AdminLoading v-else-if="scheduleLoading" />
+      <p v-else-if="schedule && schedule.rows.length === 0" class="text-muted">
+        Nicio familie retrasă.
+      </p>
+      <AdminTable
+        v-else-if="schedule"
+        :rows="schedule.rows"
+        :columns="scheduleColumns"
+        :to="familyUrl"
+      >
+        <template #status-cell="{ row }">
+          <span v-if="row.original.hold" class="text-warning">
+            {{ RETENTION_HOLD_LABELS[row.original.hold] }}
+          </span>
+          <span v-else-if="row.original.due">Se șterge la noapte.</span>
+          <span v-else class="text-muted">În termen.</span>
+        </template>
+      </AdminTable>
+    </section>
   </AdminPage>
 </template>
 
@@ -72,6 +110,9 @@ import { useNotifications } from "~/composables/useNotifications";
 import { formatDateKey } from "~/composables/useAdminFormat";
 import { daysSince } from "~/composables/useUtils";
 import type { ProfileSummary } from "~/types/profile.types";
+import { RETENTION_HOLD_LABELS } from "~/types/retention.types";
+import type { RetentionRow, RetentionSchedule } from "~/types/retention.types";
+import type { AdminTableColumn } from "~/types/admin-ui.types";
 
 /**
  * The office's side of E07/S4: the queue, and the one button that carries an erasure out.
@@ -88,7 +129,7 @@ definePageMeta({
   title: "Cereri de ștergere",
 });
 
-const { fetchPendingErasures, eraseProfile } = usePrivacyApi();
+const { fetchPendingErasures, eraseProfile, fetchRetention } = usePrivacyApi();
 const { success, error: notifyError } = useNotifications();
 
 const rows = ref<ProfileSummary[]>([]);
@@ -114,6 +155,32 @@ const eraseLabel = (row: ProfileSummary) =>
 const daysWaiting = (row: ProfileSummary) => {
   const requested = row.erasureRequestedAt;
   return daysSince(requested);
+};
+
+/** E22/S3: the withdrawn families, soonest due first — the server's list and its terms. */
+const schedule = ref<RetentionSchedule | null>(null);
+const scheduleLoading = ref(true);
+const scheduleError = ref("");
+
+const scheduleColumns: AdminTableColumn<RetentionRow>[] = [
+  { key: "family", label: "Familia", accessor: (row) => `${row.firstName} ${row.lastName}` },
+  { key: "withdrawnAt", label: "Retrasă din", type: "date" },
+  { key: "dueOn", label: "Se șterge pe", type: "date" },
+  { key: "status", label: "Stare" },
+];
+
+const familyUrl = (row: RetentionRow) => `/admin/profiles/${row.profileId}`;
+
+const loadSchedule = async () => {
+  scheduleLoading.value = true;
+  scheduleError.value = "";
+  try {
+    schedule.value = await fetchRetention();
+  } catch (err: unknown) {
+    scheduleError.value = apiErrorMessage(err, "Nu am putut încărca familiile retrase.");
+  } finally {
+    scheduleLoading.value = false;
+  }
 };
 
 const load = async () => {
@@ -150,5 +217,8 @@ const confirm = async (row: ProfileSummary) => {
   }
 };
 
-onMounted(load);
+onMounted(() => {
+  void load();
+  void loadSchedule();
+});
 </script>

@@ -26,8 +26,8 @@ Trei lucruri de citit înainte de tabele:
 
 ## Pe scurt
 
-- **32 tabele**, cu **272 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
-- **118 coloane sunt date personale**, în **24 tabele**.
+- **32 tabele**, cu **273 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
+- **119 coloane sunt date personale**, în **24 tabele**.
 - Restul de **154** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
 
 ## Datele personale, câmp cu câmp
@@ -53,6 +53,7 @@ Trei lucruri de citit înainte de tabele:
 | `profiles.unsubscribeToken` | Părinte | Credențiale | Recunoaște familia în linkul de dezabonare dintr-un mesaj promoțional (E17 S4). | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin |
 | `profiles.erasureRequestedAt` | Părinte | Urme de utilizare | Ziua în care familia a cerut ștergerea contului; de la ea curge termenul de 30 de zile. | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `profiles.erasedAt` | Părinte | Urme de utilizare | Ziua în care s-a făcut ștergerea. | Obligație legală | Termenul contabil legal | Admin |
+| `profiles.withdrawnAt` | Părinte | Urme de utilizare | Ziua în care școala a consemnat plecarea familiei; de la ea curge termenul de păstrare (E22 S3). | Obligație legală | Termenul contabil legal | Admin |
 | `children.firstName` | Copil | Identitate | Catalogul, orarul și fișa copilului. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `children.lastName` | Copil | Identitate | Catalogul, orarul și fișa copilului. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `children.birthDate` | Copil | Identitate | Potrivirea cu banda de vârstă a grupei. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
@@ -207,6 +208,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 - **`profiles.unsubscribeToken`** — Singura coloană de tip `credential` ținută în clar, și dinadins: linkul trimis prin e-mail trebuie să funcționeze peste luni, deci nu poate fi comparat cu un hash al unui secret pe care nu-l mai are nimeni. Ce face acceptabil compromisul e cât de puțin poate: oprește marketingul, niciodată nu-l pornește, și nu deschide nimic altceva. Nu apare în export și pe niciun ecran, iar ștergerea contului îl **rotește** (E07 S4) — altfel un link dintr-un mesaj de acum un an ar rămâne viu către rândul unei familii care a cerut să dispară.
 - **`profiles.erasureRequestedAt`** — O a doua cerere înainte ca prima să fie servită e aceeași cerere făcută de două ori: ziua dintâi rămâne.
 - **`profiles.erasedAt`** — Rândul supraviețuiește ștergerii fiindcă facturile atârnă de el (`Invoice.parent` e `CASCADE`). Coloana asta e ce spune ecranelor că e o coajă, nu o familie pe care n-a completat-o nimeni.
+- **`profiles.withdrawnAt`** — Consemnată de un admin, niciodată dedusă din inactivitate (E04 S5). Rămâne pe coajă după ștergere, ca `erasedAt`: e motivul pentru care rândul e gol.
 - **`children.birthDate`** — Data nașterii unui minor. Verificarea de vârstă din E11 S6 e singurul lucru care o citește ca regulă.
 - **`enrollments.exitReason`** — Text liber scris de birou despre o familie.
 - **`enrollments.contractSignedAt`** — Doar faptul și ziua. Textul contractului nu e în platformă.

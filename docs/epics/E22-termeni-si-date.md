@@ -96,6 +96,38 @@ contabilității.
 **Acceptanță:** termenul e scris în document, implementat ca job, și verificabil — se poate arăta
 că o familie retrasă acum N luni nu mai are date personale în platformă.
 
+**Livrat (septembrie 2026), cu numărul încă propunere.** Termenul e cel din nota de
+confidențialitate §7 — **12 luni de la retragere**, marcat `[[PROPUNERE]]` până îl confirmă școala —
+și stă într-un singur loc, `FAMILY_RETENTION_MONTHS` din
+`apps/api/src/modules/privacy/retention.rules.ts`, de unde îl primesc și ecranele: ziua în care
+școala decide, se mută o linie. Patru lucruri:
+
+- **Retragerea e o zi consemnată, nu o deducție** — jumătatea din [E04](E04-migrari-date.md) S5:
+  `Profile.withdrawnAt`, pusă de un admin din pagina familiei, cu ziua ei, anulabilă până la termen.
+  E refuzată cât timp un copil e înscris (`FAMILY_HAS_ENROLMENTS_IN_FORCE`) sau pe o listă de
+  așteptare (`FAMILY_ON_WAITLIST`): acelea se închid pe ușile lor, care eliberează locul și îl oferă
+  listei. Iar o înscriere nouă a unui copil din familie anulează singură retragerea, în aceeași
+  tranzacție — o familie cu un copil în grupă n-a plecat.
+- **Ștergerea la termen e ștergerea din [E07](E07-securitate-gdpr.md) S4**, chemată de un job de
+  noapte (03:45, ceasul școlii) cu actorul sistemului și cu motivul în jurnal („ștergere la termen,
+  după retragerea familiei"). Nu există a doua implementare a lui „ce pleacă și ce rămâne": facturile
+  rămân, rândul familiei rămâne golit, restul dispare.
+- **O familie care datorează bani nu se șterge la termen** (`owes_money`), cu restanța citită din
+  `ArrearsService`, aceeași definiție ca pe ecranul de restanțe: golind rândul, școala ar rămâne cu o
+  datorie pe care n-o mai poate cere nimănui. Temeiul e art. 17 alin. 3 lit. e din GDPR, iar nota îl
+  spune ca propunere. Termenul se reia în noaptea în care familia iese de pe lista de restanțe.
+- **Aceeași trecere ține celelalte promisiuni din §7**: cererile de probă fără înscriere, după 12
+  luni de liniște, cu tot cu profilul-coajă pe care l-a scris programarea; copiile mesajelor trimise,
+  după 12 luni (niciodată unul încă în așteptare); linkurile de confirmare și de resetare, la 30 de
+  zile după ce au expirat. O cerere fără legătură, dar cu adresa unei familii din evidență, e a acelei
+  familii și pleacă odată cu ea — aceeași regulă ca `leadsOfFamily`.
+
+**Verificabil, cum cere acceptanța**, de două ori: `/admin/stergeri` are acum o secțiune „La termen",
+cu fiecare familie retrasă, ziua în care se șterge și ce o mai ține; iar
+`apps/api/test/retention.e2e-spec.ts` retrage o familie acum 13 luni, rulează trecerea și verifică
+că n-a rămas nimic personal — rândul golit, copiii, contul și mesajele șterse, jurnalul spunând că a
+fost calendarul, fără niciun nume — în timp ce familia retrasă acum 11 luni e neatinsă.
+
 ### S4 · Evidența acceptărilor
 
 Cine a acceptat ce versiune și când. Versionat, fiindcă un document care se schimbă fără istoric

@@ -460,6 +460,27 @@ refuzul pe ea ar închide singura folosință rămasă rutei — un copil adăug
 greșeală. Ștergerea din E07 S4 nu trece pe aici: `ErasureService` șterge rândurile prin tranzacția
 lui, după ce citește cheile.
 
+**Retragerea e o zi consemnată, iar ștergerea la termen e aceeași ștergere** (E04 S5, E22 S3).
+`Profile.withdrawnAt` e ziua în care școala a notat că familia a plecat — pusă de un admin din pagina
+familiei, prin `POST /privacy/retention/:profileId`, și anulabilă până la termen —, iar
+`RetentionJob` (03:45, ceasul școlii) șterge familiile retrase de peste `FAMILY_RETENTION_MONTHS`
+chemând `ErasureService.erase` cu `SYSTEM_ACTOR` și cu motivul pentru jurnal. Patru reguli:
+
+- **Nu deduce retragerea din tăcere.** Nici din ultima autentificare, nici din ultima factură, nici
+  din ultima înscriere închisă: familia care ia o pauză de o vacanță e exact cea pe care ar șterge-o
+  o deducție. Retragerea e un act al cuiva, cu o zi pe el.
+- **E refuzată cât timp ceva e încă deschis** (`FAMILY_HAS_ENROLMENTS_IN_FORCE`,
+  `FAMILY_ON_WAITLIST`), fără să închidă ea nimic: o înscriere se încheie prin `EnrollmentService`,
+  care eliberează locul și îl oferă listei. Invers, `enrol` anulează singur o retragere, în aceeași
+  tranzacție — o familie cu un copil în grupă n-a plecat.
+- **O familie care datorează bani nu se șterge la termen**: restanța vine din `ArrearsService`, iar
+  ecranul `/admin/stergeri` spune de ce a rămas. Golit, rândul ar lăsa școala cu o datorie pe care
+  n-o mai poate cere nimănui.
+- **Numerele sunt propuneri și stau într-un singur loc**, `retention.rules.ts`, de unde pleacă și pe
+  sârmă: 12 luni pentru familie, pentru cererile de probă fără înscriere și pentru copiile mesajelor,
+  30 de zile după expirare pentru linkurile de confirmare și de resetare. Nota de confidențialitate
+  §7 le promite; dacă schimbi unul, schimbi și nota.
+
 **Auth** — două roluri, `ADMIN` și `PARENT` (`apps/api/src/enum/role.enum.ts`). `register` creează
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
 access (15 min) / refresh (7 zile), cu secrete distincte în `apps/api/src/constants/jwtConstants.ts`.
@@ -1446,9 +1467,9 @@ Tile-ul scria „Mesaje nelivrate" și număra doar al doilea fel, deci un mesaj
 arăta zero, iar o coadă **oprită de tot** arăta tot zero — exact defecțiunea pe care epicul o
 descrie: „un mesaj care nu ajunge nu seamănă cu o eroare, seamănă cu liniște."
 
-**Interogarea restrânge pe `status`, și nu din eleganță.** Rândurile `sent` nu se șterg niciodată —
-scrie la `IDX_outbox_claim` pe entitate — deci ele _sunt_ tabela, iar tot ce vrea întrebarea asta e
-în cele câteva rânduri care nu sunt trimise. Măsurat pe 200.000 de rânduri: fără `WHERE`, scanare
+**Interogarea restrânge pe `status`, și nu din eleganță.** Rândurile `sent` se șterg abia după 12
+luni (E22 S3) — scrie la `IDX_outbox_claim` pe entitate —, deci ele _sunt_ tabela, iar tot ce vrea
+întrebarea asta e în cele câteva rânduri care nu sunt trimise. Măsurat pe 200.000 de rânduri: fără `WHERE`, scanare
 secvențială paralelă la **16,9 ms**; cu el, index-only scan la **0,1 ms**, pe un ecran pe care un
 admin îl deschide toată ziua. Dacă adaugi un al patrulea număr aici, ține-l în aceeași listă de
 stări.

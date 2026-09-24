@@ -36,7 +36,8 @@ export interface OutboxAttachment {
 @Entity('outbox')
 // The claim query is `WHERE status = 'pending' AND nextAttemptAt <= now() ORDER BY nextAttemptAt`.
 // Without the index that is a sequential scan under a row lock, which is the one place a table
-// like this can go wrong quietly as it fills with sent rows nobody deletes.
+// like this can go wrong quietly as it fills with sent rows — kept a year since E22/S3, which at a
+// school's volume is still tens of thousands of rows beside the handful the claim wants.
 @Index('IDX_outbox_claim', ['status', 'nextAttemptAt'])
 @Index('IDX_outbox_announcement_id', ['announcement'])
 export class OutboxMessage {

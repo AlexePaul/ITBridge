@@ -47,6 +47,8 @@ import type { FiscalDivergenceReport } from './modules/invoice/fiscal-divergence
 import type { DivergenceReason } from './modules/invoice/fiscal-divergence.rules';
 import type { StatementImportResult, StatementLinesPage } from './modules/reconciliation/reconciliation.service';
 import type { MatchConfidence } from './modules/reconciliation/statement-matching.rules';
+import type { FamilyRetention, RetentionSchedule } from './modules/privacy/retention.service';
+import type { RetentionHold } from './modules/privacy/retention.rules';
 import type { Payment, PaymentFiscalStatus } from './entities/payment.entity';
 import type { PaymentFiscalQueueStatus } from './modules/payment/payment-fiscal.service';
 import type { PaymentMethod } from './enum/payment-method.enum';
@@ -87,6 +89,8 @@ type _ApprovalStatus = Check<Wire.ApprovalStatus, ApprovalStatus>;
 type _LegalDocument = Check<Wire.LegalDocumentKey, `${LegalDocument}`>;
 type _LegalDocumentBack = Check<`${LegalDocument}`, Wire.LegalDocumentKey>;
 type _Profile = Check<Pick<Wire.ProfileSummary, 'id' | 'firstName' | 'lastName'>, Pick<Serialized<Profile>, 'id' | 'firstName' | 'lastName'>>;
+// E04/S5: the withdrawal day travels as the `date` column's text, `YYYY-MM-DD`.
+type _ProfileWithdrawal = Check<Required<Pick<Wire.ProfileSummary, 'withdrawnAt'>>, Pick<Serialized<Profile>, 'withdrawnAt'>>;
 type _ProfileEmergency = Check<
     Pick<Wire.ProfileSummary, 'emergencyContactName' | 'emergencyContactRelation' | 'emergencyContactPhone'>,
     Pick<Serialized<Profile>, 'emergencyContactName' | 'emergencyContactRelation' | 'emergencyContactPhone'>
@@ -209,6 +213,11 @@ type _StatementImportResult = Check<Wire.StatementImportResult, Serialized<State
 type _StatementLinesPage = Check<Wire.StatementLinesPage, Serialized<StatementLinesPage>>;
 type _MatchConfidence = Check<Wire.MatchConfidence, MatchConfidence>;
 type _MatchConfidenceBack = Check<MatchConfidence, Wire.MatchConfidence>;
+// E22/S3: the retention term, as the office's list and the family page read it.
+type _RetentionSchedule = Check<Wire.RetentionSchedule, Serialized<RetentionSchedule>>;
+type _FamilyRetention = Check<Wire.FamilyRetention, Serialized<FamilyRetention>>;
+type _RetentionHold = Check<Wire.RetentionHold, RetentionHold>;
+type _RetentionHoldBack = Check<RetentionHold, Wire.RetentionHold>;
 type _Payment = Check<
     Pick<Wire.Payment, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'notes' | 'createdAt'>,
     Pick<Serialized<Payment>, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'notes' | 'createdAt'>

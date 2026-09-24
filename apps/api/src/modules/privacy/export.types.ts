@@ -15,6 +15,7 @@ export interface FamilyExport {
         adresa: string | null;
         contactDeUrgenta: { nume: string; relatie: string | null; telefon: string | null } | null;
         acceptaComunicariComerciale: boolean;
+        retrasaLa: string | null;
     };
     cont: {
         utilizator: string;

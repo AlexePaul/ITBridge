@@ -69,6 +69,7 @@ import type { AdminTableColumn } from "~/types/admin-ui.types";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import type { Profile } from "~/types/profile.types";
+import { formatDateKey } from "~/composables/useAdminFormat";
 import { computed } from "vue";
 
 const profileApi = useProfileApi();
@@ -174,6 +175,15 @@ const columns: AdminTableColumn<Profile>[] = [
     type: "badge",
     accessor: (profile) => String(profile.children?.length ?? 0),
     badgeColor: () => "secondary",
+  },
+  // E04/S5: a family the school recorded as gone stays on the list until its term runs out
+  // (E22/S3) — said on the row, so it is not mistaken for one still coming.
+  {
+    key: "withdrawnAt",
+    label: "Retragere",
+    icon: "i-lucide-door-open",
+    accessor: (profile) =>
+      profile.withdrawnAt ? `Retrasă din ${formatDateKey(profile.withdrawnAt)}` : "",
   },
 ];
 

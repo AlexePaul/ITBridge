@@ -184,6 +184,9 @@ export class ExportService {
                       }
                     : null,
                 acceptaComunicariComerciale: profile.marketingOptIn,
+                // E04/S5: the day the school recorded that the family left, from which its data's
+                // term runs (E22/S3) — a fact about the family the family is entitled to see.
+                retrasaLa: profile.withdrawnAt ? String(profile.withdrawnAt).slice(0, 10) : null,
             },
             cont: profile.user
                 ? {

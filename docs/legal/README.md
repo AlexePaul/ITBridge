@@ -61,10 +61,14 @@ Lista, ca să se poată bifa:
 
 **Decizii ale școlii** — cifrele din documente sunt propuneri, marcate `[[PROPUNERE: …]]`:
 
-- **termenul de păstrare după retragere** — propus 12 luni. E numărul din E22 S3, cel pe care îl
-  implementează E07 S4 și E04 S5; odată publicat, devine promisiune;
-- cererile de probă care nu duc la înscriere — propus 12 luni de la ultima activitate;
-- copiile mesajelor din `outbox` — propus 12 luni; azi nu se șterg niciodată;
+- **termenul de păstrare după retragere** — propus 12 luni. E numărul din E22 S3 și e acum cod: un
+  job de noapte șterge familia la termen, prin ștergerea din E07 S4; numărul stă într-o singură
+  constantă, `FAMILY_RETENTION_MONTHS`. Odată publicat, devine promisiune;
+- **familia care datorează bani nu se șterge la termen** — propunere nouă, E22 S3: datele rămân până
+  la achitare (GDPR art. 17 alin. 3 lit. e), iar ecranul de ștergeri spune de ce;
+- cererile de probă care nu duc la înscriere — propus 12 luni de la ultima activitate; implementat;
+- copiile mesajelor din `outbox` — propus 12 luni; implementat (până la E22 S3 nu se ștergeau
+  niciodată);
 - logurile serverului — propus 30 de zile; depinde de rotația de loguri din `ecosystem.config.js`,
   care stă pe instanță, nu în repo;
 - mesajele din formularul de contact — propus 24 de luni; trăiesc în căsuța de email, nu în
@@ -96,8 +100,11 @@ Lista, ca să se poată bifa:
    vigoare, portalul duce familia la `/user/termeni-noi` și `POST /auth/accept-documents` scrie
    numai ce lipsește. Rămâne din §4.7 **e-mailul de confirmare a acceptării**, care nu se trimite
    încă.
-4. **E22 S3** — jobul care șterge la termen. Politica §7 promite un număr; fără job, e o minciună
-   întreținută.
+4. ~~**E22 S3** — jobul care șterge la termen. Politica §7 promite un număr; fără job, e o minciună
+   întreținută.~~ **Livrat.** Retragerea se consemnează din pagina familiei (E04 S5), iar în fiecare
+   noapte familiile retrase de peste 12 luni se șterg prin ștergerea din E07 S4 — mai puțin cele care
+   datorează bani, care rămân până la achitare. Tot atunci pleacă cererile de probă fără înscriere,
+   copiile mesajelor și linkurile expirate. Numerele rămân propuneri până le confirmă școala.
 5. **E01 S4 pentru producție** — pe stage e livrat, deci regiunea și backup-ul zilnic sunt fapte; la
    producție se confirmă că rămân aceleași, plus rotația logurilor și retenția de 30 de zile a
    backup-urilor (E04 S4).

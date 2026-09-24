@@ -18,6 +18,19 @@ import { projectFileKey, projectThumbnailKey } from 'src/modules/project/project
 import { ERASED_STATEMENT_TEXT, erasedProfileFields, isErased } from './erasure.rules';
 import { leadsOfFamily } from './family-rows';
 
+/**
+ * Who the erasure is for, as the trail tells it afterwards — the one sentence a reader of "profile
+ * 412 was erased" needs. The family asking (E07/S4) and the calendar (E22/S3) run the same erasure;
+ * only the reason differs, and the reason is what somebody will want to know.
+ */
+export type ErasureReason = 'request' | 'withdrawal_term' | 'enquiry_term';
+
+const ERASURE_NOTES: Record<ErasureReason, string> = {
+    request: 'ștergere la cererea familiei',
+    withdrawal_term: 'ștergere la termen, după retragerea familiei',
+    enquiry_term: 'ștergere la termen: cerere de probă fără înscriere',
+};
+
 export interface ErasureReport {
     profileId: number;
     childrenRemoved: number;
@@ -164,7 +177,7 @@ export class ErasureService {
      * (E07 S3). "Who erased profile 412 and when" has to remain answerable precisely *because*
      * everything else is gone.
      */
-    async erase(profileId: number, actor: Actor): Promise<ErasureReport> {
+    async erase(profileId: number, actor: Actor, reason: ErasureReason = 'request'): Promise<ErasureReport> {
         const profile = await this.profiles.findOne({ where: { id: profileId }, relations: { user: true } });
         if (!profile) throw new NotFoundException('Profile not found');
         if (isErased(profile)) throw new ConflictException({ message: 'Contul e deja șters.', error: 'ALREADY_ERASED' });
@@ -238,7 +251,7 @@ export class ErasureService {
                         childrenRemoved: { from: null, to: childIds.length },
                         invoicesKept: { from: null, to: invoiceIds.length },
                     },
-                    note: 'ștergere la cererea familiei',
+                    note: ERASURE_NOTES[reason],
                 },
                 manager,
             );

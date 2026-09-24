@@ -10,10 +10,11 @@ import { EnrollmentStatus, IN_FORCE_STATUSES, isInForce } from 'src/enum/enrollm
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { isAccountActive } from 'src/entities/user.entity';
-import { isProfileComplete } from 'src/entities/profile.entity';
+import { Profile, isProfileComplete } from 'src/entities/profile.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
+import { SYSTEM_ACTOR } from 'src/modules/audit/actor';
 import { composeWaitlistOffer, composeWaitlistOfferExpired } from './waitlist-mail';
 import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 
@@ -315,6 +316,25 @@ export class EnrollmentService {
         });
 
         await this.syncDerivedGroup(input.childId, manager);
+
+        // E04/S5: a family with a child in a group has not left. A withdrawal recorded earlier would
+        // keep counting towards an erasure nobody means any more (E22/S3), so it goes in the same
+        // transaction as the enrolment that contradicts it — and the trail says why.
+        const withdrawnAt = child.parent?.withdrawnAt;
+        if (child.parent && withdrawnAt) {
+            await manager.update(Profile, child.parent.id, { withdrawnAt: null });
+            await this.audit.record(
+                {
+                    actor: actor ?? SYSTEM_ACTOR,
+                    action: AuditAction.UPDATED,
+                    entityType: 'Profile',
+                    entityId: child.parent.id,
+                    changes: { withdrawnAt: { from: String(withdrawnAt).slice(0, 10), to: null } },
+                    note: `retragere anulată: copilul ${input.childId} înscris`,
+                },
+                manager,
+            );
+        }
 
         // Being enrolled settles any request this child had for this group. Left open, the
         // family would keep a place in a queue for a seat they are already sitting in.

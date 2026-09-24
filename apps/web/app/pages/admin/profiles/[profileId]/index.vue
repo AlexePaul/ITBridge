@@ -222,6 +222,69 @@
         </div>
       </UCard>
 
+      <!--
+        E04/S5 and E22/S3 — the family's departure, and the day its data goes.
+
+        A day somebody records, never one the platform infers: a family taking a term off is the one
+        a guess would erase. The due day and the hold are the server's answer, like everything this
+        page shows about money and terms.
+      -->
+      <UCard v-if="retentionTerms" class="border rounded-lg" variant="subtle">
+        <template #header>
+          <div class="flex items-center gap-3">
+            <UIcon name="i-lucide-door-open" class="text-2xl text-primary" />
+            <h2 class="text-2xl font-semibold">Retragere</h2>
+          </div>
+        </template>
+
+        <div v-if="retention" class="space-y-3">
+          <p>
+            Retrasă din <strong>{{ formatDateKey(retention.withdrawnAt) }}</strong
+            >. Datele familiei se șterg singure pe
+            <strong>{{ formatDateKey(retention.dueOn) }}</strong
+            >; facturile rămân.
+          </p>
+          <UAlert
+            v-if="retention.hold"
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-triangle-alert"
+            :title="RETENTION_HOLD_LABELS[retention.hold]"
+          />
+          <UButton
+            color="neutral"
+            variant="subtle"
+            class="min-h-11"
+            :loading="withdrawalBusy"
+            @click="reinstate"
+          >
+            Anulează retragerea
+          </UButton>
+        </div>
+
+        <div v-else class="space-y-4">
+          <p class="text-muted max-w-2xl">
+            Consemnează ziua în care familia a plecat. După
+            {{ retentionTerms.familyMonths }} luni de la ea, datele familiei se șterg singure —
+            facturile rămân. Până atunci, retragerea se poate anula.
+          </p>
+          <div class="flex flex-wrap items-end gap-4">
+            <UFormField name="withdrawnOn" label="Ziua retragerii">
+              <AdminDateField v-model="withdrawnOn" :max="today" label="ziua retragerii" />
+            </UFormField>
+            <UButton
+              color="warning"
+              class="min-h-11"
+              :loading="withdrawalBusy"
+              :disabled="!withdrawnOn"
+              @click="withdraw"
+            >
+              Consemnează retragerea
+            </UButton>
+          </div>
+        </div>
+      </UCard>
+
       <UButton
         class="mt-4 mx-auto block justify-center text-center"
         variant="outline"
@@ -235,16 +298,21 @@
 </template>
 <script setup lang="ts">
 import { useDiscountsApi } from "~/composables/api/useDiscountsApi";
+import { usePrivacyApi } from "~/composables/api/usePrivacyApi";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useNotifications } from "~/composables/useNotifications";
-import { formatMonth } from "~/composables/useAdminFormat";
+import { formatDateKey, formatMonth } from "~/composables/useAdminFormat";
+import { todayKey } from "~/composables/useAttendanceCalendar";
+import { RETENTION_HOLD_LABELS } from "~/types/retention.types";
+import type { RetentionRow, RetentionTerms } from "~/types/retention.types";
 import type { Profile } from "~/types/profile.types";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 
 const route = useRoute();
 const profileApi = useProfileApi();
 const discountsApi = useDiscountsApi();
+const privacyApi = usePrivacyApi();
 const { success, error } = useNotifications();
 const profile: Ref<Profile | null> = ref(null);
 const loading = ref(true);
@@ -290,6 +358,47 @@ const bumpReferral = async (direction: 1 | -1) => {
 };
 
 /**
+ * The withdrawal — E04/S5, with the term from E22/S3.
+ *
+ * Both the row and the terms come from the server: the due day is its arithmetic, and a second copy
+ * of "twelve months" on this page would be free to disagree with the job that actually erases.
+ */
+const today = todayKey();
+const retention = ref<RetentionRow | null>(null);
+const retentionTerms = ref<RetentionTerms | null>(null);
+const withdrawnOn = ref<string>(today);
+const withdrawalBusy = ref(false);
+
+const withdraw = async () => {
+  if (!profile.value || withdrawalBusy.value) return;
+  withdrawalBusy.value = true;
+  try {
+    const answer = await privacyApi.withdrawFamily(profile.value.id, withdrawnOn.value);
+    retention.value = answer.row;
+    success("Retragerea a fost consemnată.");
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut consemna retragerea."));
+  } finally {
+    withdrawalBusy.value = false;
+  }
+};
+
+const reinstate = async () => {
+  if (!profile.value || withdrawalBusy.value) return;
+  withdrawalBusy.value = true;
+  try {
+    await privacyApi.reinstateFamily(profile.value.id);
+    retention.value = null;
+    withdrawnOn.value = today;
+    success("Retragerea a fost anulată.");
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut anula retragerea."));
+  } finally {
+    withdrawalBusy.value = false;
+  }
+};
+
+/**
  * The family, and the two ways it can fail to arrive.
  *
  * The fetch used to have no `catch` and the template no `v-else`, so a failed request left the
@@ -315,6 +424,15 @@ const load = async () => {
     // The reward is a detail on a page about a family; failing to read it leaves the control at
     // zero rather than replacing the profile with an error.
     referralMonths.value = [];
+  }
+  try {
+    const answer = await privacyApi.fetchFamilyRetention(profile.value.id);
+    retention.value = answer.row;
+    retentionTerms.value = answer.terms;
+  } catch {
+    // Same judgement as the reward: without the answer the card is left out, rather than offering
+    // a withdrawal on a page that could not say whether one is already recorded.
+    retentionTerms.value = null;
   }
 };
 

@@ -3,7 +3,15 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 24 septembrie 2026, pe `release/stage`. **SmartBill s-a deblocat — contul
+**Ultima actualizare:** 24 septembrie 2026, pe `release/stage`. **Termenul de păstrare a devenit
+cod** — E04 S5 și E22 S3, perechea pe care nota de confidențialitate o promitea fără nimic în spate:
+retragerea unei familii e o zi pe care o consemnează biroul din pagina familiei, iar la 12 luni după
+ea un job de noapte o șterge prin aceeași ștergere pe care o poate cere familia, mai puțin dacă mai
+datorează bani. Tot atunci pleacă cererile de probă fără înscriere, copiile mesajelor de peste un an
+și linkurile expirate. Numărul rămâne propunere până îl confirmă școala, într-o singură constantă. Cu
+câteva ore înainte, **E15 S6**: emiterea lunii nu mai desenează câte un PDF per familie cu tranzacția
+deschisă — 100 de familii în 0,38 s, față de 8,2 s —, iar PDF-ul se desenează la prima descărcare, cu
+data emiterii și reducerile în cuvinte. În aceeași zi, **SmartBill s-a deblocat — contul
 există —, iar E16 e construit întreg, cât se poate fără contul real.** Faptul care a dat forma
 lucrului e al lor: **SmartBill nu are sandbox**, deci orice factură de test ar fi fost una reală. S0
 se ține fără niciun document fiscal: `pnpm smartbill:check` doar citește cotele TVA și seriile, iar
@@ -90,8 +98,8 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 89 livrate, 23 parțiale, 3 blocate, 12 scoase din
-scop, 23 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **150 de story-uri** în 22 de epicuri: 91 livrate, 23 parțiale, 2 blocate, 12 scoase din
+scop, 22 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
 **Cifrele s-au recitit din rânduri, și cinci din șase erau greșite** — 75/19/6/36 pentru
@@ -102,7 +110,7 @@ coloana întâi cu `- [x]`, `- [~]`, `- [!]`, `- [ ]` sau `- ~~`, **numărate do
 `### E`** — altfel intră în total și rândul din legendă care arată cum se scrie un story tăiat, iar
 numărul iese cu unul peste, ceea ce e greu de observat tocmai fiindcă e aproape.
 
-Cele 23 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+Cele 22 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
 E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
 mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
@@ -145,7 +153,7 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S2 · Migrările în deploy — comenzile, `migrationsRun: false` ca ele să fie rulate explicit, garda de drift din CI, și **cablarea, care s-a făcut la E01 S4**: `deploy.sh` rulează `migration:run` între `build` și `pm2 reload`, deci o migrare care pică oprește deploy-ul. Linia de aici spunea încă „nu există deploy", deși tabelul din capul epicului îl marca livrat de atunci — al doilea loc care răspundea, și cel care rămăsese în urmă
 - [x] S3 · Seed pentru dezvoltare **și pentru staging** — **ancorat la ziua de azi**, nu la o constantă din martie: grupele acoperă luni–sâmbătă, deci „azi" are oră în șase zile din șapte. Lead-uri pe toate cele șase stări, outbox pe toate cele patru, anunțuri, absențe anunțate, credite de recuperare și șabloane — șase tabele care se deschideau goale. `pnpm seed:stage` populează staging-ul din `.env.stage`, dar numai dacă `SEED_ALLOW_NON_LOCAL` **numește baza** (nu `1`, care ar autoriza orice ar scrie `DB_NAME` luna viitoare) și `SEED_PASSWORD` e setată — `parola123` e în repo, iar staging-ul e la îndemâna oricui știe hostname-ul
 - [~] S4 · Backup și restaurare — `pg_dump` zilnic la 03:15 din cron pe instanță, în S3, cu ținte separate per mediu și retenție pe o regulă de lifecycle; un dump gol nu se urcă. **Proba de restaurare, cu durata măsurată, rămâne condiția de închidere** — și de acum se poate face
-- [!] S5 · Retenție — **decis**: ștergere logică pe contul familiei, aplicată de admin la retragere; facturile n-au nevoie de politică, stau în SmartBill. Blocat de termenii din E22, fiindcă „când dispar efectiv datele" cere un termen scris undeva unde familia l-a văzut
+- [x] S5 · Retenție — **retragerea e o zi pe familie** (`Profile.withdrawnAt`), consemnată de admin din pagina familiei și anulabilă până la termen; refuzată cât timp un copil e înscris sau pe o listă de așteptare, anulată singură de o înscriere nouă. Termenul și ștergerea sunt ale E22 S3; facturile n-au nevoie de politică, stau în SmartBill
 
 ### E05 · Robustețe backend — `livrat`
 
@@ -395,6 +403,7 @@ Niciun blocaj nu e de cod. În ordinea a cât deblochează:
 | **Tu**         | SmartBill: token, serii, TVA      | Rularea lui E16 S0 pe contul real: `pnpm smartbill:check` cu tokenul în `.env`, o serie de facturi și una de chitanțe doar ale platformei, cota TVA stabilită cu contabilul și o ciornă privită și ștearsă (`--draft`, plus `--draft --receipt`). Apoi un extras al băncii exportat ca CSV, pentru rata de potrivire din S8. Codul e gata și nu trimite nimic până atunci — implicitul e `off` |
 | **Tu**         | Datele anului școlar din ordin    | Nimic. Ecranul E12 S2 există; intervalele se tastează în `/admin/calendar` o dată pe an                                                                                                                                                                                                                                                                                                        |
 | **Școala**     | Programa și calendarul vacanțelor | E19 S4. **Nu mai blochează facturarea** — prețul e pe ședință, numărate lunar                                                                                                                                                                                                                                                                                                                  |
+| **Școala**     | Termenele de păstrare din nota §7 | Nimic nu stă: jobul din E22 S3 rulează cu propunerea de 12 luni. Ce se cere e confirmarea numerelor înainte ca nota să fie publicată — și a regulii noi: o familie care datorează bani nu se șterge la termen                                                                                                                                                                                  |
 | **Cine scrie** | Conținutul paginilor              | E19 S6                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ## Ce urmează
@@ -433,7 +442,8 @@ trei rânduri:**
    `draft`). Nu mai e nimic de scris: rămân prima lună emisă live, potrivită la leu cu documentul
    lor, și primul extras real, pentru rata de potrivire din S8.
 3. **Termenii, E22 S2** — condiția de ieșire, și singura care nu se poate cumpăra cu timp de
-   programare: fără ei nu se deschide accesul familiilor.
+   programare: fără ei nu se deschide accesul familiilor. Termenele de păstrare din §7 sunt de acum
+   cod (E22 S3), deci ce rămâne din ele e confirmarea numerelor, nu munca.
 
 Restul deschis e polish cu proprietar clar: SPF/DKIM/DMARC din E17 S1 și conținutul de la E19 S6.
 **E18 S5b s-a închis** — bara de filtre și grila de carduri erau ultimele două, iar grila s-a
@@ -444,7 +454,7 @@ ci un pachet instalat pe instanță. Niciunul nu blochează pe altcineva.
 
 - ~~S1 · Inventarul a ce se stochează~~ — **mutat la E07 S1.** Era același tabel scris de două ori; cel care ajunge sub ochii unei familii ar fi fost tocmai cel rămas în urmă
 - [~] S2 · Termenii contului și nota de confidențialitate — **condiția de ieșire a platformei**: fără ei nu se deschide accesul familiilor. Absoarbe și textele de vizitator — confidențialitate, cookie-uri — din fostul E07 S5. **Ciornă 0.1 în `docs/legal/`**: cele trei texte plus README-ul cu sursa fiecărui fapt; scrise din entități și verificate clauză cu clauză contra legii (tabelul e în README); neverificate de avocat, cu faptele lipsă și deciziile propuse marcate `[[…]]`. **Pagini pe stage**: `/termeni`, `/confidentialitate`, `/cookies`, randate din aceleași fișiere
-- [ ] S3 · Termenul de păstrare, și ștergerea care chiar șterge — perechea ștergerii logice din E04 S5; numărul se scrie aici, îl execută E07 S4
+- [x] S3 · Termenul de păstrare, și ștergerea care chiar șterge — **12 luni de la retragere**, propunere din nota §7 până o confirmă școala, într-o singură constantă. Un job de noapte șterge familiile ajunse la termen prin ștergerea din E07 S4 (jurnalul spune că a fost calendarul), mai puțin cele care datorează bani; tot atunci pleacă cererile de probă fără înscriere (cu profilul-coajă), copiile mesajelor de peste un an și linkurile expirate de peste o lună. `/admin/stergeri` arată cine urmează și ce îl ține; un e2e arată că o familie retrasă acum 13 luni nu mai are nimic personal în platformă
 - [x] S4 · Evidența acceptărilor — **ambele jumătăți**. Bifa la înregistrare (`acceptedTerms`, refuzată fără), un rând per document în `document_acceptances` cu versiunea, spec care ține constanta egală cu capul fișierului. Plus **a doua bifă**, separată, pentru clauzele pe care Codul civil art. 1203 le numește neuzuale — §14, §15, §18 — cu rând propriu care poartă versiunea termenilor, și cu titlurile documentelor legate prin id-uri, ca bifa să ducă la textul pe care îl acceptă. Plus **re-acceptarea la versiune nouă**, pe care termenii §18 o promit: `GET /auth/me` spune ce lipsește (derivat pe server, ca `profileComplete`), portalul duce la `/user/termeni-noi`, iar `POST /auth/accept-documents` scrie numai ce lipsește și refuză o listă incompletă. Nicio rută nu refuză o cerere pentru asta, dinadins: §18 promite că portalul cere, nu că platforma se închide
 
 > Ultimul prin decizie: termenii descriu ce face platforma, deci se scriu după ce platforma nu-și

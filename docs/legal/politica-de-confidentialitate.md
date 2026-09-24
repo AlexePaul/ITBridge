@@ -295,11 +295,15 @@ dispare.
 | Facturile și plățile                                                                                  | **5 ani** de la 1 iulie a anului următor exercițiului financiar în care au fost emise (Legea contabilității nr. 82/1991, art. 25), la noi și la SmartBill; la termenul de mai sus rămân fără datele de contact ale familiei |
 | Copiile mesajelor trimise                                                                             | [[PROPUNERE: 12 luni]] de la trimitere                                                                                                                                                                                      |
 | Sesiunile de autentificare                                                                            | cel mult 7 zile; cele expirate se șterg automat                                                                                                                                                                             |
-| Linkurile de confirmare a emailului                                                                   | 48 de ore                                                                                                                                                                                                                   |
+| Linkurile de confirmare a emailului și de resetare a parolei                                          | valabile 48 de ore, respectiv o oră; rândul care le ține se șterge la 30 de zile după ce au expirat                                                                                                                         |
 | Logurile tehnice ale serverului                                                                       | [[PROPUNERE: 30 de zile]]                                                                                                                                                                                                   |
 | Copiile de siguranță ale bazei de date                                                                | zilnice, păstrate **30 de zile** în aceeași stocare; ce ștergem dispare și din ele în cel mult 30 de zile [[DE CONFIRMAT: regula de lifecycle din E04 S4]]                                                                  |
 | Mesajele din formularul de contact                                                                    | în căsuța noastră de email, cât e nevoie ca să răspundem, cel mult [[PROPUNERE: 24 de luni]]                                                                                                                                |
 | Cookie-urile                                                                                          | vezi politica de cookie-uri                                                                                                                                                                                                 |
+
+[[PROPUNERE: Cât timp familia are o factură neachitată, datele ei de contact nu se șterg la termen,
+ci rămân până la achitare — sunt necesare ca școala să-și poată cere banii (GDPR art. 17 alin. 3
+lit. e). Termenul se reia din ziua în care nu mai datorează nimic.]]
 
 Ștergerea la cerere (§8) taie prin termenele de mai sus: ce nu suntem obligați legal să păstrăm se
 șterge la cerere, nu la termen.

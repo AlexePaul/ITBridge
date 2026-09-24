@@ -231,6 +231,16 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
                 readableBy: ['admin'],
                 note: 'Rândul supraviețuiește ștergerii fiindcă facturile atârnă de el (`Invoice.parent` e `CASCADE`). Coloana asta e ce spune ecranelor că e o coajă, nu o familie pe care n-a completat-o nimeni.',
             },
+            withdrawnAt: {
+                personal: true,
+                about: 'parent',
+                category: 'behavioural',
+                purpose: 'Ziua în care școala a consemnat plecarea familiei; de la ea curge termenul de păstrare (E22 S3).',
+                basis: 'legal_obligation',
+                retention: 'accounting',
+                readableBy: ['admin'],
+                note: 'Consemnată de un admin, niciodată dedusă din inactivitate (E04 S5). Rămâne pe coajă după ștergere, ca `erasedAt`: e motivul pentru care rândul e gol.',
+            },
         },
     },
 

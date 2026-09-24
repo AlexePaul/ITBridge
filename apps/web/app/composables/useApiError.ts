@@ -58,6 +58,15 @@ const MESSAGES: Record<string, string> = {
     "Pe luna aceea stă deja o reducere procentuală dată din formular. Încă una s-ar aduna cu ea și ar face luna gratuită — dacă asta vrei, dă-o tot din formular.",
   REFERRAL_NOTHING_TO_REVOKE: "Familia nu are nicio lună de recomandare de scos.",
 
+  // E04/S5 and E22/S3. A withdrawal starts the clock on a family's data, so it is refused while
+  // something still ties the family to the school — and each refusal names what to close first.
+  FAMILY_HAS_ENROLMENTS_IN_FORCE:
+    "Familia are încă un copil înscris. Încheie întâi înscrierea — așa se eliberează și locul, pentru lista de așteptare.",
+  FAMILY_ON_WAITLIST:
+    "Familia e încă pe o listă de așteptare. Scoate-o întâi de acolo, apoi consemnează retragerea.",
+  WITHDRAWAL_IN_FUTURE: "Retragerea se consemnează cu o zi care a trecut deja, sau cu ziua de azi.",
+  ALREADY_ERASED: "Datele familiei au fost deja șterse.",
+
   // E07/S4. The two refusals that stop a profile delete from taking the school's records with it.
   // Both name the door that does the thing the admin probably meant.
   PROFILE_HAS_INVOICES:

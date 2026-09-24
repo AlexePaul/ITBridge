@@ -1,4 +1,4 @@
-import { Controller, Delete, ForbiddenException, Get, HttpCode, NotFoundException, Param, ParseIntPipe, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, HttpCode, NotFoundException, Param, ParseIntPipe, Post, Request, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -10,6 +10,8 @@ import { Profile } from 'src/entities/profile.entity';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 import { ExportService } from './export.service';
 import { ErasureService } from './erasure.service';
+import { RetentionService } from './retention.service';
+import { WithdrawFamilyDto } from './dto/withdrawFamily.dto';
 import { actorFrom } from 'src/modules/audit/actor';
 
 /**
@@ -24,6 +26,7 @@ export class PrivacyController {
     constructor(
         private readonly exportService: ExportService,
         private readonly erasureService: ErasureService,
+        private readonly retentionService: RetentionService,
         @InjectRepository(Profile) private readonly profiles: Repository<Profile>,
     ) {}
 
@@ -135,6 +138,62 @@ export class PrivacyController {
     @ApiResponse({ status: 409, description: 'ALREADY_ERASED' })
     async erase(@Param('profileId', ParseIntPipe) profileId: number, @Request() req: AuthenticatedRequest) {
         return this.erasureService.erase(profileId, actorFrom(req));
+    }
+
+    /**
+     * The withdrawn families, soonest due first, with the terms they are counted by — E22/S3.
+     *
+     * The office reads it and presses nothing: the nightly pass erases each family on its day. The
+     * list is there so that what goes, and why a family whose day has come is still on file, can be
+     * seen rather than trusted.
+     */
+    @Get('/retention')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Familiile retrase, ziua în care se șterg și ce le mai ține' })
+    @ApiResponse({ status: 200, description: 'The retention schedule and its terms' })
+    async retention() {
+        return this.retentionService.overview();
+    }
+
+    /** One family's row — `null` while it is not withdrawn — for the family page. */
+    @Get('/retention/:profileId')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Retragerea unei familii și ziua în care i se șterg datele' })
+    @ApiResponse({ status: 200, description: 'The family row, or null, with the terms' })
+    async familyRetention(@Param('profileId', ParseIntPipe) profileId: number) {
+        return this.retentionService.forFamily(profileId);
+    }
+
+    /**
+     * Records that the family left — E04/S5. Refused while a child is still enrolled or waiting:
+     * those end through their own doors, which carry the consequences this one would skip.
+     */
+    @Post('/retention/:profileId')
+    @HttpCode(200)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Consemnează retragerea familiei, cu ziua ei' })
+    @ApiResponse({ status: 200, description: 'The family row with the day its data goes' })
+    @ApiResponse({ status: 409, description: 'FAMILY_HAS_ENROLMENTS_IN_FORCE, FAMILY_ON_WAITLIST or ALREADY_ERASED' })
+    async withdraw(@Param('profileId', ParseIntPipe) profileId: number, @Body() dto: WithdrawFamilyDto, @Request() req: AuthenticatedRequest) {
+        return this.retentionService.withdraw(profileId, dto.withdrawnOn, actorFrom(req));
+    }
+
+    /** Takes a withdrawal back: the family came back, or it was never gone. */
+    @Delete('/retention/:profileId')
+    @HttpCode(204)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Anulează retragerea familiei' })
+    @ApiResponse({ status: 204, description: 'The withdrawal is taken back' })
+    async reinstate(@Param('profileId', ParseIntPipe) profileId: number, @Request() req: AuthenticatedRequest) {
+        await this.retentionService.reinstate(profileId, actorFrom(req));
     }
 
     /** The caller's own profile, or a 404 — the one lookup three handlers above share. */
