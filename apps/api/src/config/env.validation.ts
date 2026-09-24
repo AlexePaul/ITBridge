@@ -164,6 +164,15 @@ export class EnvironmentVariables {
     @IsString()
     SMARTBILL_INVOICE_SERIES?: string;
 
+    /**
+     * The platform's own receipt series, for cash — E16/S5. Required in `live`: a cash payment is
+     * recorded in SmartBill as a numbered `Chitanta`, and without a series there is nothing to
+     * number it on. Like the invoice series, nothing else may issue on it.
+     */
+    @IsOptional()
+    @IsString()
+    SMARTBILL_RECEIPT_SERIES?: string;
+
     /** The unit on the invoice line, spelled as in the account. Defaults to `buc`. */
     @IsOptional()
     @IsString()
@@ -268,6 +277,9 @@ export function smartBillProblems(raw: Record<string, unknown>): string[] {
     }
 
     if (mode === 'live') {
+        if (text('SMARTBILL_RECEIPT_SERIES') === '') {
+            problems.push('SMARTBILL_MODE=live needs SMARTBILL_RECEIPT_SERIES: a cash payment is recorded in SmartBill as a numbered receipt');
+        }
         if (!mayIssueFiscalDocuments(raw)) {
             problems.push(
                 `SMARTBILL_MODE=live issues real fiscal invoices, which only a production backend may do (NODE_ENV=${text('NODE_ENV') || '(unset)'} here); stage and development send drafts: SMARTBILL_MODE=draft`,

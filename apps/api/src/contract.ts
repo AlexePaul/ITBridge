@@ -43,7 +43,8 @@ import type { RescheduleWindowsResult } from './modules/class-session/reschedule
 import type { Invoice, InvoiceFiscalStatus } from './entities/invoice.entity';
 import type { SmartBillMode } from './modules/smartbill/smartbill.config';
 import type { FiscalQueueStatus } from './modules/invoice/fiscal-issuing.service';
-import type { Payment } from './entities/payment.entity';
+import type { Payment, PaymentFiscalStatus } from './entities/payment.entity';
+import type { PaymentFiscalQueueStatus } from './modules/payment/payment-fiscal.service';
 import type { PaymentMethod } from './enum/payment-method.enum';
 import type { PaymentStatus } from './enum/payment-status.enum';
 import type { Discount } from './entities/discount.entity';
@@ -187,9 +188,19 @@ type _SmartBillMode = Check<Wire.SmartBillMode, SmartBillMode>;
 type _SmartBillModeBack = Check<SmartBillMode, Wire.SmartBillMode>;
 type _FiscalQueueStatus = Check<Wire.FiscalQueueStatus, Serialized<FiscalQueueStatus>>;
 type _Payment = Check<
-    Pick<Wire.Payment, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'smartbillReference' | 'notes' | 'createdAt'>,
-    Pick<Serialized<Payment>, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'smartbillReference' | 'notes' | 'createdAt'>
+    Pick<Wire.Payment, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'notes' | 'createdAt'>,
+    Pick<Serialized<Payment>, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'notes' | 'createdAt'>
 >;
+// E16/S5: where the payment stands with SmartBill, both ways — a field the screen reads and the row
+// does not carry, or the other way round, is the divergence this file exists to catch.
+type PaymentFiscalWireFields = 'fiscalStatus' | 'fiscalReceiptSeries' | 'fiscalReceiptNumber' | 'fiscalRecordedAt' | 'fiscalLastError' | 'fiscalExpectedNumber';
+type PaymentFiscalWire = Omit<Pick<Wire.Payment, PaymentFiscalWireFields>, 'fiscalStatus'> & { fiscalStatus: `${PaymentFiscalStatus}` | null };
+type PaymentFiscalRow = Omit<Pick<Serialized<Payment>, PaymentFiscalWireFields>, 'fiscalStatus'> & { fiscalStatus: `${PaymentFiscalStatus}` | null };
+type _PaymentFiscal = Check<PaymentFiscalWire, PaymentFiscalRow>;
+type _PaymentFiscalBack = Check<PaymentFiscalRow, PaymentFiscalWire>;
+type _PaymentFiscalStatus = Check<Wire.PaymentFiscalStatus, `${PaymentFiscalStatus}`>;
+type _PaymentFiscalStatusBack = Check<`${PaymentFiscalStatus}`, Wire.PaymentFiscalStatus>;
+type _PaymentFiscalQueueStatus = Check<Wire.PaymentFiscalQueueStatus, Serialized<PaymentFiscalQueueStatus>>;
 // `recordedBy` is deliberately not compared field-for-field: the entity holds a `User` relation,
 // but the service selects only `id` and `username` onto the wire — never the credentials row — and
 // the contract describes the wire.

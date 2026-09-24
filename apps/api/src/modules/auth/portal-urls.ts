@@ -37,6 +37,14 @@ export function absencesUrl(): string {
     return `${siteBase()}/user/absente`;
 }
 
+/**
+ * Where a family finds its invoices and payments — the fiscal invoice's link and, for cash, the
+ * receipt SmartBill numbered. E16/S6: the confirmation of a payment points here.
+ */
+export function paymentsUrl(): string {
+    return `${siteBase()}/user/payments`;
+}
+
 /** The admin screen the internal "somebody is waiting" mail points at. */
 export function approvalsUrl(): string {
     return `${siteBase()}/admin/approvals`;

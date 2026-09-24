@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
-import { Payment } from 'src/entities/payment.entity';
+import { Payment, PAYMENT_RECORD_MAY_EXIST, PaymentFiscalStatus } from 'src/entities/payment.entity';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { User } from 'src/entities/user.entity';
 import { PaymentMethod } from 'src/enum/payment-method.enum';
@@ -17,8 +17,11 @@ import { OutboxService } from 'src/modules/mail/outbox.service';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { officeAddress } from 'src/modules/mail/office-address';
 import { formatLeiRo, romanianDay, romanianMonth } from 'src/modules/invoice/money-words';
-import { toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { smartBillMode } from 'src/modules/smartbill/smartbill.config';
+import { paymentsUrl } from 'src/modules/auth/portal-urls';
 import { owesReceipt, receiptDedupeKey, receiptTemplate } from './payment-receipt.rules';
+import { editTouchesSmartBillRecord, nextPaymentFiscalState, owesSmartBillRecord } from './payment-fiscal.rules';
 
 /** What the invoice looks like once a payment has been counted — the single computation of it. */
 export interface InvoiceBalance {
@@ -86,6 +89,12 @@ export class PaymentService {
 
         return this.dataSource.transaction(async (manager) => {
             const status = dto.status ?? PaymentStatus.SUCCEEDED;
+            // E16/S5: money recorded against an invoice SmartBill numbers is owed to SmartBill too,
+            // and the queue sends it from here — the admin types it once.
+            const fiscalStatus = nextPaymentFiscalState(
+                null,
+                owesSmartBillRecord({ mode: smartBillMode(), paymentStatus: status, invoiceFiscalStatus: invoice.fiscalStatus }),
+            );
             const payment = await manager.save(
                 Payment,
                 manager.create(Payment, {
@@ -93,10 +102,14 @@ export class PaymentService {
                     amount: dto.amount,
                     method: dto.method ?? PaymentMethod.CASH,
                     status,
-                    date: new Date(dto.date),
+                    // From the components, never through UTC: `new Date('2026-03-01')` is midnight UTC,
+                    // which is the day before anywhere west of Greenwich.
+                    date: parseIsoDate(dto.date.slice(0, 10)),
                     externalReference: dto.externalReference ?? null,
                     notes: dto.notes ?? null,
                     recordedBy: recordedByUserId ? ({ id: recordedByUserId } as User) : null,
+                    fiscalStatus,
+                    fiscalNextAttemptAt: fiscalStatus === PaymentFiscalStatus.PENDING ? new Date() : null,
                 }),
             );
             await this.audit.record(
@@ -194,6 +207,9 @@ export class PaymentService {
             paidOn: romanianDay(toIsoDate(payment.date)),
             outstanding: formatLeiRo(balance.outstanding),
             officeEmail: this.office,
+            // The confirmation goes the minute the money is entered; the fiscal documents follow in
+            // SmartBill's own time. The portal is where both are, whenever they arrive — E16/S6.
+            portalUrl: paymentsUrl(),
         });
 
         await this.outbox.queueOrRecord(
@@ -250,36 +266,88 @@ export class PaymentService {
         return payment;
     }
 
+    /**
+     * Edits a payment and rederives the invoice, in one transaction, under the payment's row lock.
+     *
+     * **Only the fields sent are written** — never the whole row read beforehand. Since E16/S5 the
+     * row also carries the fiscal queue's state, and a whole-entity `save` of a row read before the
+     * queue moved it would write the old state back: a payment the queue had just recorded in
+     * SmartBill would return to `pending` and be recorded a second time. Same trap `updateInvoice`
+     * fell into, and the same fix.
+     *
+     * A payment whose collection exists in SmartBill, or may, keeps its sum, day and method: SmartBill
+     * would hold a record the platform no longer has. Its status stays editable, which is how a
+     * transfer that bounced is recorded — see `editTouchesSmartBillRecord`.
+     */
     async updatePayment(id: number, dto: UpdatePaymentDto, actor: Actor) {
-        // `invoice.parent` because a payment that becomes succeeded here earns a receipt, and the
-        // receipt is addressed to the family — E16/S6.
-        const payment = await this.paymentRepo.findOne({ where: { id }, relations: { invoice: { parent: true } } });
-        if (!payment) throw new NotFoundException('Payment not found');
-
-        // Read before the edit overwrites it: the receipt hinges on the *transition* into succeeded,
-        // and after the assignments below there is nothing left to compare against.
-        const previousStatus = payment.status;
-
-        // A copy of the fields the log cares about, taken before the assignments below overwrite
-        // them. Read after, `before` and `after` would be the same object and every diff empty.
-        const before = auditableFields(payment);
-
-        if (dto.amount !== undefined) payment.amount = dto.amount;
-        if (dto.method !== undefined) payment.method = dto.method;
-        if (dto.status !== undefined) payment.status = dto.status;
-        if (dto.date) payment.date = new Date(dto.date);
-        if (dto.externalReference !== undefined) payment.externalReference = dto.externalReference;
-        if (dto.notes !== undefined) payment.notes = dto.notes;
-
-        // Amount and status both feed the derivation, so any edit rederives.
         return this.dataSource.transaction(async (manager) => {
-            const saved = await manager.save(Payment, payment);
-            const balance = await this.recomputeInvoiceStatus(payment.invoice.id, manager);
+            // The lock first, on the payment alone — `FOR UPDATE` cannot sit on the nullable side of
+            // the joins the relations below need. The queue claims with `SKIP LOCKED`, so while this
+            // holds the row, no pass can take it.
+            const locked = await manager.findOne(Payment, { where: { id }, lock: { mode: 'pessimistic_write' } });
+            if (!locked) throw new NotFoundException('Payment not found');
+            // `invoice.parent` because a payment that becomes succeeded here earns a receipt, and the
+            // receipt is addressed to the family — E16/S6.
+            const payment = await manager.findOneOrFail(Payment, { where: { id }, relations: { invoice: { parent: true } } });
+
+            const date = dto.date ? dto.date.slice(0, 10) : undefined;
+            if (
+                editTouchesSmartBillRecord(
+                    { fiscalStatus: payment.fiscalStatus, amount: payment.amount, method: payment.method, date: toIsoDate(payment.date) },
+                    { amount: dto.amount, method: dto.method, date },
+                )
+            ) {
+                throw new ConflictException({
+                    message:
+                        'Încasarea e înregistrată în SmartBill: suma, data și metoda nu se mai schimbă aici. Stornează plata și înregistreaz-o din nou, iar în SmartBill șterge încasarea veche.',
+                    error: 'PAYMENT_RECORDED_IN_SMARTBILL',
+                });
+            }
+
+            // Read before the edit: the receipt hinges on the *transition* into succeeded, and the log
+            // compares against what the row held.
+            const previousStatus = payment.status;
+            const before = auditableFields(payment);
+
+            const changes: Partial<Payment> = {};
+            if (dto.amount !== undefined) changes.amount = dto.amount;
+            if (dto.method !== undefined) changes.method = dto.method;
+            if (dto.status !== undefined) changes.status = dto.status;
+            if (date) changes.date = parseIsoDate(date);
+            if (dto.externalReference !== undefined) changes.externalReference = dto.externalReference;
+            if (dto.notes !== undefined) changes.notes = dto.notes;
+
+            // What the payment owes SmartBill after the edit. A refused one that was corrected goes
+            // back in the queue; one that stopped being money leaves it before it was ever sent; one
+            // already there stays there.
+            const owes = owesSmartBillRecord({
+                mode: smartBillMode(),
+                paymentStatus: changes.status ?? payment.status,
+                invoiceFiscalStatus: payment.invoice.fiscalStatus,
+            });
+            const fiscalStatus = nextPaymentFiscalState(payment.fiscalStatus, owes);
+            const requeue = fiscalStatus === PaymentFiscalStatus.PENDING && payment.fiscalStatus !== PaymentFiscalStatus.PENDING;
+            if (fiscalStatus !== payment.fiscalStatus || requeue) {
+                Object.assign(changes, {
+                    fiscalStatus,
+                    fiscalNextAttemptAt: fiscalStatus === PaymentFiscalStatus.PENDING ? new Date() : null,
+                    fiscalAttempts: 0,
+                    fiscalExpectedPaid: null,
+                    fiscalExpectedNumber: null,
+                    fiscalLastError: null,
+                });
+            }
+
+            if (Object.keys(changes).length > 0) await manager.update(Payment, id, changes);
+            const saved = await manager.findOneOrFail(Payment, { where: { id }, relations: { invoice: { parent: true } } });
+
+            // Amount and status both feed the derivation, so any edit rederives.
+            const balance = await this.recomputeInvoiceStatus(saved.invoice.id, manager);
             // A transfer recorded as `initiated` while the statement was provisional becomes real here,
             // and this is the moment the family can honestly be told. An edit to a payment that was
             // already succeeded sends nothing: nothing became true.
             if (owesReceipt(saved.status, previousStatus)) {
-                await this.sendReceipt(payment.invoice, saved, balance, manager);
+                await this.sendReceipt(saved.invoice, saved, balance, manager);
             }
             // Inside the transaction, with the manager: a record of a change that rolled back is a
             // lie, and one lost when the change succeeded is a gap. E07/S3.
@@ -299,12 +367,22 @@ export class PaymentService {
     }
 
     async deletePayment(id: number, actor: Actor) {
-        const payment = await this.paymentRepo.findOne({ where: { id }, relations: { invoice: true } });
-        if (!payment) throw new NotFoundException('Payment not found');
-
         // Deleting money that arrived should be rare — a typo'd row, a duplicate. The invoice's
         // state must follow the remaining payments, in the same transaction as the removal.
         return this.dataSource.transaction(async (manager) => {
+            const locked = await manager.findOne(Payment, { where: { id }, lock: { mode: 'pessimistic_write' } });
+            if (!locked) throw new NotFoundException('Payment not found');
+            const payment = await manager.findOneOrFail(Payment, { where: { id }, relations: { invoice: true } });
+
+            // E16/S5: a collection that exists in SmartBill, or may, is not deleted here — SmartBill
+            // would keep a record of money the platform no longer has. It is reversed instead.
+            if (payment.fiscalStatus !== null && PAYMENT_RECORD_MAY_EXIST.includes(payment.fiscalStatus)) {
+                throw new ConflictException({
+                    message: 'Încasarea e înregistrată în SmartBill și nu se șterge de aici. Stornează plata, iar în SmartBill șterge încasarea.',
+                    error: 'PAYMENT_RECORDED_IN_SMARTBILL',
+                });
+            }
+
             await manager.delete(Payment, id);
             await this.recomputeInvoiceStatus(payment.invoice.id, manager);
             // What the row held is kept, because after the delete there is nothing left to look at:

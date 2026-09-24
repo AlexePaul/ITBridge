@@ -268,6 +268,10 @@ export class ExportService {
                         stare: payment.status,
                         data: toDay(payment.date),
                         referinta: payment.externalReference ?? null,
+                        // E16/S5: the receipt SmartBill numbered for a cash payment — a document the
+                        // family was handed, so theirs to have back.
+                        chitantaFiscala:
+                            payment.fiscalReceiptSeries && payment.fiscalReceiptNumber ? `${payment.fiscalReceiptSeries} ${payment.fiscalReceiptNumber}` : null,
                     })),
             })),
             reduceri: discounts.map((discount) => ({

@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PaymentService } from './payment.service';
-import { Payment } from 'src/entities/payment.entity';
-import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
+import { Payment, PaymentFiscalStatus } from 'src/entities/payment.entity';
+import { Invoice, InvoiceFiscalStatus, InvoiceStatus } from 'src/entities/invoice.entity';
 import { PaymentMethod } from 'src/enum/payment-method.enum';
 import { PaymentStatus } from 'src/enum/payment-status.enum';
 import { Role } from 'src/enum/role.enum';
@@ -45,23 +45,39 @@ describe('PaymentService', () => {
         amount: number;
         status: InvoiceStatus;
         monthIssued: string;
+        fiscalStatus: InvoiceFiscalStatus | null;
         parent: { id: number; firstName: string; email: string | null };
     };
+    /**
+     * The payment an edit or a delete finds, locked and then read with its relations. The update
+     * double writes into it, so what the service reads back after its targeted `update` is what the
+     * row would hold — the way `updatePayment` has to work since E16/S5.
+     */
+    let paymentInDb: Record<string, unknown> | null;
 
     beforeEach(async () => {
         paymentRepo = createMockRepository();
         invoiceRepo = createMockRepository();
         manager = createMockEntityManager();
         paidSum = null;
+        paymentInDb = null;
         invoiceInDb = {
             id: 5,
             amount: 350,
             status: InvoiceStatus.PENDING,
             monthIssued: '2026-03',
+            fiscalStatus: null,
             parent: { id: 3, firstName: 'Ana', email: 'ana@example.com' },
         };
 
-        manager.findOne = jest.fn(() => Promise.resolve(invoiceInDb)) as never;
+        manager.findOne = jest.fn((entity: unknown) => Promise.resolve(entity === Payment ? paymentInDb : invoiceInDb)) as never;
+        (manager as unknown as { findOneOrFail: jest.Mock }).findOneOrFail = jest.fn((entity: unknown) =>
+            entity === Payment ? (paymentInDb ? Promise.resolve(paymentInDb) : Promise.reject(new Error('EntityNotFound'))) : Promise.resolve(invoiceInDb),
+        );
+        manager.update.mockImplementation((entity: unknown, _id: unknown, changes: Record<string, unknown>) => {
+            if (entity === Payment && paymentInDb) Object.assign(paymentInDb, changes);
+            return Promise.resolve({ affected: 1 });
+        });
         manager.createQueryBuilder = jest.fn(() => {
             const qb: Record<string, jest.Mock> = {};
             for (const method of ['select', 'where', 'andWhere']) qb[method] = jest.fn(() => qb);
@@ -278,21 +294,45 @@ describe('PaymentService', () => {
     });
 
     describe('updatePayment', () => {
-        it('changes only the fields that were sent, and rederives', async () => {
-            const payment = { id: 1, amount: 350, method: PaymentMethod.CASH, date: new Date('2026-03-01'), invoice: { id: 5 } };
-            paymentRepo.findOne!.mockResolvedValue(payment);
+        it('writes only the fields that were sent, and rederives', async () => {
+            paymentInDb = {
+                id: 1,
+                amount: 350,
+                method: PaymentMethod.CASH,
+                status: PaymentStatus.SUCCEEDED,
+                date: new Date(2026, 2, 1),
+                fiscalStatus: null,
+                invoice: invoiceInDb,
+            };
             paidSum = '350';
 
             await service.updatePayment(1, { method: PaymentMethod.BANK_TRANSFER }, ACTOR);
 
-            expect(payment.method).toBe(PaymentMethod.BANK_TRANSFER);
-            expect(payment.date).toEqual(new Date('2026-03-01'));
+            // A targeted update, never a save of the row read beforehand: since E16/S5 the row carries
+            // the fiscal queue's state, and a stale whole-row save would write it back.
+            expect(manager.update).toHaveBeenCalledWith(Payment, 1, { method: PaymentMethod.BANK_TRANSFER });
+            expect(manager.save).not.toHaveBeenCalled();
             expect(manager.update).toHaveBeenCalledWith(Invoice, 5, { status: InvoiceStatus.PAID });
         });
 
+        it('locks the payment before it reads it', async () => {
+            paymentInDb = {
+                id: 1,
+                amount: 350,
+                method: PaymentMethod.CASH,
+                status: PaymentStatus.SUCCEEDED,
+                date: new Date(2026, 2, 1),
+                fiscalStatus: null,
+                invoice: invoiceInDb,
+            };
+
+            await service.updatePayment(1, { notes: 'corectat' }, ACTOR);
+
+            expect(manager.findOne).toHaveBeenCalledWith(Payment, { where: { id: 1 }, lock: { mode: 'pessimistic_write' } });
+        });
+
         it('marking a payment reversed takes the invoice back off paid', async () => {
-            const payment = { id: 1, amount: 350, status: PaymentStatus.SUCCEEDED, invoice: { id: 5 } };
-            paymentRepo.findOne!.mockResolvedValue(payment);
+            paymentInDb = { id: 1, amount: 350, status: PaymentStatus.SUCCEEDED, date: new Date(2026, 2, 1), fiscalStatus: null, invoice: invoiceInDb };
             invoiceInDb.status = InvoiceStatus.PAID;
             paidSum = null;
 
@@ -301,15 +341,23 @@ describe('PaymentService', () => {
             expect(manager.update).toHaveBeenCalledWith(Invoice, 5, { status: InvoiceStatus.PENDING });
         });
 
+        it('writes a changed day from its components, never through UTC', async () => {
+            paymentInDb = { id: 1, amount: 350, status: PaymentStatus.SUCCEEDED, date: new Date(2026, 2, 1), fiscalStatus: null, invoice: invoiceInDb };
+
+            await service.updatePayment(1, { date: '2026-03-10' }, ACTOR);
+
+            expect(manager.update).toHaveBeenCalledWith(Payment, 1, { date: new Date(2026, 2, 10) });
+        });
+
         it('rejects a payment that does not exist', async () => {
-            paymentRepo.findOne!.mockResolvedValue(null);
+            paymentInDb = null;
             await expect(service.updatePayment(99, { method: PaymentMethod.CASH }, ACTOR)).rejects.toThrow(NotFoundException);
         });
     });
 
     describe('deletePayment', () => {
         it('rederives the invoice state from what remains', async () => {
-            paymentRepo.findOne!.mockResolvedValue({ id: 11, invoice: { id: 5 } });
+            paymentInDb = { id: 11, fiscalStatus: null, invoice: { id: 5 } };
             invoiceInDb.status = InvoiceStatus.PAID;
             paidSum = null;
 
@@ -320,8 +368,125 @@ describe('PaymentService', () => {
         });
 
         it('rejects a payment that does not exist', async () => {
-            paymentRepo.findOne!.mockResolvedValue(null);
+            paymentInDb = null;
             await expect(service.deletePayment(99, ACTOR)).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    /**
+     * SmartBill — E16/S5. The rule of which payments owe a collection is in
+     * `payment-fiscal.rules.spec.ts`; what is checked here is that the service writes it where the
+     * queue reads it, and refuses the edits that would leave SmartBill holding a record the platform
+     * no longer has.
+     */
+    describe('SmartBill', () => {
+        afterEach(() => {
+            delete process.env.SMARTBILL_MODE;
+        });
+
+        it('queues money recorded in live against an invoice SmartBill numbers', async () => {
+            process.env.SMARTBILL_MODE = 'live';
+            invoiceInDb.fiscalStatus = InvoiceFiscalStatus.ISSUED;
+
+            await create();
+
+            expect(manager.save).toHaveBeenCalledWith(
+                Payment,
+                expect.objectContaining({ fiscalStatus: PaymentFiscalStatus.PENDING, fiscalNextAttemptAt: expect.any(Date) }),
+            );
+        });
+
+        it('waits with the invoice while SmartBill has not numbered it yet', async () => {
+            process.env.SMARTBILL_MODE = 'live';
+            invoiceInDb.fiscalStatus = InvoiceFiscalStatus.PENDING;
+
+            await create();
+
+            expect(manager.save).toHaveBeenCalledWith(Payment, expect.objectContaining({ fiscalStatus: PaymentFiscalStatus.PENDING }));
+        });
+
+        it("owes nothing in 'off', nor on a draft invoice, nor while the money is only announced", async () => {
+            invoiceInDb.fiscalStatus = InvoiceFiscalStatus.ISSUED;
+            await create();
+            expect(manager.save).toHaveBeenLastCalledWith(Payment, expect.objectContaining({ fiscalStatus: null }));
+
+            process.env.SMARTBILL_MODE = 'live';
+            invoiceInDb.fiscalStatus = InvoiceFiscalStatus.DRAFT;
+            await create();
+            expect(manager.save).toHaveBeenLastCalledWith(Payment, expect.objectContaining({ fiscalStatus: null }));
+
+            invoiceInDb.fiscalStatus = InvoiceFiscalStatus.ISSUED;
+            await create({ status: PaymentStatus.INITIATED });
+            expect(manager.save).toHaveBeenLastCalledWith(Payment, expect.objectContaining({ fiscalStatus: null }));
+        });
+
+        const recorded = () => ({
+            id: 11,
+            amount: 350,
+            method: PaymentMethod.CASH,
+            status: PaymentStatus.SUCCEEDED,
+            date: new Date(2026, 2, 10),
+            externalReference: null,
+            notes: null,
+            fiscalStatus: PaymentFiscalStatus.RECORDED,
+            invoice: invoiceInDb,
+        });
+
+        it('keeps the sum, the day and the method of a payment SmartBill holds', async () => {
+            process.env.SMARTBILL_MODE = 'live';
+            invoiceInDb.fiscalStatus = InvoiceFiscalStatus.ISSUED;
+
+            for (const edit of [{ amount: 300 }, { date: '2026-03-11' }, { method: PaymentMethod.BANK_TRANSFER }]) {
+                paymentInDb = recorded();
+                const error = await service.updatePayment(11, edit, ACTOR).catch((e: unknown) => e);
+                expect(error).toBeInstanceOf(ConflictException);
+                expect((error as ConflictException).getResponse()).toMatchObject({ error: 'PAYMENT_RECORDED_IN_SMARTBILL' });
+            }
+            expect(manager.update).not.toHaveBeenCalledWith(Payment, 11, expect.anything());
+        });
+
+        it('lets it be reversed, and leaves its SmartBill state alone — the divergence report takes it from there', async () => {
+            process.env.SMARTBILL_MODE = 'live';
+            invoiceInDb.fiscalStatus = InvoiceFiscalStatus.ISSUED;
+            paymentInDb = recorded();
+
+            await service.updatePayment(11, { status: PaymentStatus.REVERSED, amount: 350 }, ACTOR);
+
+            expect(manager.update).toHaveBeenCalledWith(Payment, 11, { amount: 350, status: PaymentStatus.REVERSED });
+            expect(paymentInDb.fiscalStatus).toBe(PaymentFiscalStatus.RECORDED);
+        });
+
+        it('queues a refused payment again once it has been corrected', async () => {
+            process.env.SMARTBILL_MODE = 'live';
+            invoiceInDb.fiscalStatus = InvoiceFiscalStatus.ISSUED;
+            paymentInDb = { ...recorded(), fiscalStatus: PaymentFiscalStatus.FAILED, fiscalAttempts: 1, fiscalLastError: 'Refuzat' };
+
+            await service.updatePayment(11, { amount: 300 }, ACTOR);
+
+            expect(manager.update).toHaveBeenCalledWith(
+                Payment,
+                11,
+                expect.objectContaining({ amount: 300, fiscalStatus: PaymentFiscalStatus.PENDING, fiscalAttempts: 0, fiscalLastError: null }),
+            );
+        });
+
+        it('takes a payment out of the queue when it stops being money before it was sent', async () => {
+            process.env.SMARTBILL_MODE = 'live';
+            invoiceInDb.fiscalStatus = InvoiceFiscalStatus.ISSUED;
+            paymentInDb = { ...recorded(), fiscalStatus: PaymentFiscalStatus.PENDING };
+
+            await service.updatePayment(11, { status: PaymentStatus.FAILED }, ACTOR);
+
+            expect(manager.update).toHaveBeenCalledWith(Payment, 11, expect.objectContaining({ status: PaymentStatus.FAILED, fiscalStatus: null }));
+        });
+
+        it('refuses to delete a payment SmartBill holds, or may', async () => {
+            for (const fiscalStatus of [PaymentFiscalStatus.RECORDED, PaymentFiscalStatus.UNCERTAIN, PaymentFiscalStatus.REVIEW]) {
+                paymentInDb = { ...recorded(), fiscalStatus };
+                const error = await service.deletePayment(11, ACTOR).catch((e: unknown) => e);
+                expect((error as ConflictException).getResponse()).toMatchObject({ error: 'PAYMENT_RECORDED_IN_SMARTBILL' });
+            }
+            expect(manager.delete).not.toHaveBeenCalled();
         });
     });
 
@@ -350,6 +515,16 @@ describe('PaymentService', () => {
                 // The caller's manager, so the receipt and the payment commit together.
                 manager,
             );
+        });
+
+        // E16/S6: the confirmation leaves the minute the money is entered; the fiscal documents follow
+        // in SmartBill's time, and the portal is where both are whenever they arrive.
+        it('points the family at the portal, where the fiscal invoice and the receipt are', async () => {
+            paidSum = '350';
+
+            await create();
+
+            expect(rendered().portalUrl).toMatch(/\/user\/payments$/);
         });
 
         it('names what is left when the payment did not cover the invoice', async () => {
@@ -382,13 +557,14 @@ describe('PaymentService', () => {
         });
 
         it('confirms an initiated payment at the moment it is marked succeeded', async () => {
-            paymentRepo.findOne!.mockResolvedValue({
+            paymentInDb = {
                 id: 11,
                 amount: 350,
                 status: PaymentStatus.INITIATED,
-                date: new Date('2026-03-10'),
+                date: new Date(2026, 2, 10),
+                fiscalStatus: null,
                 invoice: invoiceInDb,
-            });
+            };
             paidSum = '350';
 
             await service.updatePayment(11, { status: PaymentStatus.SUCCEEDED }, ACTOR);
@@ -397,13 +573,14 @@ describe('PaymentService', () => {
         });
 
         it('does not confirm again when an already-succeeded payment is edited', async () => {
-            paymentRepo.findOne!.mockResolvedValue({
+            paymentInDb = {
                 id: 11,
                 amount: 350,
                 status: PaymentStatus.SUCCEEDED,
-                date: new Date('2026-03-10'),
+                date: new Date(2026, 2, 10),
+                fiscalStatus: null,
                 invoice: invoiceInDb,
-            });
+            };
             paidSum = '350';
 
             await service.updatePayment(11, { externalReference: 'OP 4242' }, ACTOR);
@@ -414,7 +591,7 @@ describe('PaymentService', () => {
         it('says nothing when a payment is deleted', async () => {
             // A row removed by mistake is a correction, and an automated "actually we did not get
             // your money" is worse than the phone call it would replace.
-            paymentRepo.findOne!.mockResolvedValue({ id: 11, invoice: invoiceInDb });
+            paymentInDb = { id: 11, fiscalStatus: null, invoice: invoiceInDb };
             paidSum = null;
 
             await service.deletePayment(11, ACTOR);
@@ -448,16 +625,17 @@ describe('PaymentService', () => {
         });
 
         it('records an edit as the fields that moved, read before the assignment', async () => {
-            paymentRepo.findOne!.mockResolvedValue({
+            paymentInDb = {
                 id: 11,
                 amount: 350,
                 method: PaymentMethod.CASH,
                 status: PaymentStatus.SUCCEEDED,
-                date: new Date('2026-03-10'),
+                date: new Date(2026, 2, 10),
                 externalReference: null,
                 notes: null,
+                fiscalStatus: null,
                 invoice: invoiceInDb,
-            });
+            };
             paidSum = '150';
 
             await service.updatePayment(11, { amount: 150 }, ACTOR);
@@ -475,7 +653,7 @@ describe('PaymentService', () => {
         });
 
         it('keeps what a deleted row held, because nothing is left to look at afterwards', async () => {
-            paymentRepo.findOne!.mockResolvedValue({
+            paymentInDb = {
                 id: 11,
                 amount: 350,
                 method: PaymentMethod.CASH,
@@ -483,8 +661,9 @@ describe('PaymentService', () => {
                 date: new Date('2026-03-10T00:00:00.000Z'),
                 externalReference: null,
                 notes: null,
+                fiscalStatus: null,
                 invoice: invoiceInDb,
-            });
+            };
             paidSum = null;
 
             await service.deletePayment(11, ACTOR);

@@ -191,6 +191,15 @@ const MESSAGES: Record<string, string> = {
   FISCAL_PDF_UNAVAILABLE:
     "SmartBill nu a trimis încă PDF-ul facturii. Încearcă din nou peste puțin timp.",
 
+  // E16/S5. A payment SmartBill holds keeps its sum; the way out is a reversal, not a delete.
+  PAYMENT_RECORDED_IN_SMARTBILL:
+    "Încasarea e înregistrată în SmartBill: suma, data și metoda nu se mai schimbă, iar plata nu se șterge. Stornează plata aici și șterge încasarea din SmartBill.",
+  PAYMENT_FISCAL_NOT_RETRYABLE:
+    "Plata nu e refuzată și nici în verificare, deci nu are ce retrimite în SmartBill.",
+  PAYMENT_FISCAL_NOT_UNDER_REVIEW: "Plata nu mai e în verificare — reîncarcă pagina.",
+  RECEIPT_NUMBER_REQUIRED:
+    "O plată în numerar e o chitanță în SmartBill: scrie numărul chitanței, așa cum apare acolo.",
+
   // E12/S2. `PERIOD_OVERLAPS` and `PERIOD_ENDS_BEFORE_IT_STARTS` are deliberately absent: both
   // arrive already in Romanian, and the first names the period it collided with and its dates —
   // which is the whole answer. A generic line here would replace „se suprapune cu «Vacanța de

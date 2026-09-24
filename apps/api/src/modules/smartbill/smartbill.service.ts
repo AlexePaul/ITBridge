@@ -11,6 +11,13 @@ import {
     type SmartBillInvoiceRequest,
     type TaxEntry,
 } from './smartbill.rules';
+import {
+    readPaymentStatus,
+    readRecordedPayment,
+    type InvoicePaymentStatus,
+    type RecordedPayment,
+    type SmartBillPaymentRequest,
+} from './smartbill-payment.rules';
 
 /**
  * The only place `apps/api` talks to SmartBill — E16/S0 and S2.
@@ -138,6 +145,58 @@ export class SmartBillService implements OnModuleInit {
         }
         const body = await this.call(config, 'POST', '/invoice/v2', payload, ISSUE_TIMEOUT_MS);
         return readIssuedDocument(body);
+    }
+
+    /**
+     * The next number of the platform's receipt series — E16/S5. The same question as
+     * `nextInvoiceNumber`, for the other numbered document the platform asks SmartBill for.
+     */
+    async nextReceiptNumber(): Promise<number> {
+        const config = this.readyConfig();
+        if (!config.receiptSeries) {
+            throw new SmartBillError('configuration', 'SMARTBILL_RECEIPT_SERIES is not set; a cash payment has no series to be numbered on. Nothing was sent.');
+        }
+        const entry = (await this.series('c')).find((series) => series.name === config.receiptSeries);
+        if (!entry) {
+            throw new SmartBillError('configuration', `Seria de chitanțe „${config.receiptSeries}” nu există în contul SmartBill.`);
+        }
+        return entry.nextNumber;
+    }
+
+    /**
+     * `GET /invoice/paymentstatus`: how much of a numbered invoice SmartBill counts as collected.
+     * Read-only — and the proof a lost payment request is settled by, since the answer to one
+     * carries no identifier. An answer without the figures is an unanswered read, never a zero.
+     */
+    async invoicePaymentStatus(series: string, number: string): Promise<InvoicePaymentStatus> {
+        const config = this.readyConfig();
+        const query = `cif=${encodeURIComponent(config.cif)}&seriesname=${encodeURIComponent(series)}&number=${encodeURIComponent(number)}`;
+        const body = await this.call(config, 'GET', `/invoice/paymentstatus?${query}`, undefined, READ_TIMEOUT_MS);
+        const status = readPaymentStatus(body);
+        if (!status) {
+            throw new SmartBillError('ambiguous', `SmartBill answered without the paid amount of ${series} ${number}.`);
+        }
+        return status;
+    }
+
+    /**
+     * `POST /payment` — a collection on an invoice. Returns the receipt's number for a `Chitanta`,
+     * nothing for a transfer, which SmartBill records without a document.
+     *
+     * The same last door as `issueInvoice`: outside production anything but a draft is refused
+     * before it leaves. A collection is not a document for a transfer, but it is a line in the
+     * school's accounts either way.
+     */
+    async recordPayment(payload: SmartBillPaymentRequest): Promise<RecordedPayment> {
+        const config = this.readyConfig();
+        if (payload.isDraft !== true && !mayIssueFiscalDocuments()) {
+            throw new SmartBillError(
+                'configuration',
+                `Only a production backend records payments in SmartBill; NODE_ENV=${process.env.NODE_ENV ?? '(unset)'} sends drafts. Nothing was sent.`,
+            );
+        }
+        const body = await this.call(config, 'POST', '/payment', payload, ISSUE_TIMEOUT_MS);
+        return readRecordedPayment(body);
     }
 
     /**

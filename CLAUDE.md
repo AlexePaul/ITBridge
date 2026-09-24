@@ -1342,6 +1342,19 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   tranzacției**: `save` din TypeORM scrie înapoi fiecare coloană care diferă, deci coloanele fiscale
   s-ar întoarce cum erau la citire — o factură emisă între timp ar reintra în coadă și s-ar emite a
   doua oară. Exact asta făcea `updateInvoice`; acum scrie doar câmpurile trimise.
+- **Plățile ajung și ele singure, iar proba lor e suma încasată pe factură** (E16 S5).
+  `PaymentFiscalService` (`apps/api/src/modules/payment/`) trimite fiecare plată reușită de pe o
+  factură `issued` ca încasare, `POST /payment`: numerarul ca `Chitanta` numerotată pe
+  `SMARTBILL_RECEIPT_SERIES` (obligatorie în `live`, și tot a platformei), transferul ca
+  `Ordin plata`, fără document și **fără niciun identificator în răspuns**. Deci un răspuns pierdut
+  nu se judecă după serie, ci după `paidAmount` din `GET /invoice/paymentstatus`, citit înainte
+  (`fiscalExpectedPaid`) și recitit după: neschimbat se retrimite, mișcat cu exact plata merge la un
+  om. O plată pe care SmartBill o ține nu-și mai schimbă suma, data sau metoda și nu se șterge
+  (`PAYMENT_RECORDED_IN_SMARTBILL`) — se stornează aici și se șterge de mână acolo. `updatePayment`
+  scrie și el doar câmpurile trimise, sub lacătul rândului, din motivul de la `updateInvoice`. În
+  `draft` plățile nu pleacă deloc — o ciornă de factură n-are număr, iar dintre încasări doar
+  chitanța are ciornă —, iar o chitanță de probă se vede cu
+  `pnpm smartbill:check --draft --receipt`.
 - **În `live`, PDF-ul e al lor, la aceeași cheie** (`invoicePdfKey`, mutată în `invoice-pdf-key.ts`
   ca să nu facă ciclu): nu se mai generează nimic cu PDFKit, iar descărcarea, exportul și ștergerea
   îl citesc fără să știe cine l-a făcut. Documentul poartă **o singură linie, la suma calculată de

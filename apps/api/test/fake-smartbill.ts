@@ -20,6 +20,16 @@ export interface FakeDocument {
     payload: Record<string, unknown>;
 }
 
+/** A collection on an invoice — E16/S5. `receipt` is set for a `Chitanta`, with no number while a draft. */
+export interface FakeCollection {
+    type: string;
+    value: number;
+    isDraft: boolean;
+    invoice: { series: string; number: string } | null;
+    receipt: { series: string; number: string | null } | null;
+    payload: Record<string, unknown>;
+}
+
 export interface FakeRequest {
     method: string;
     path: string;
@@ -45,6 +55,7 @@ export const FAKE_CREDENTIALS = { username: 'office@itbridgeschool.test', token:
 
 export class FakeSmartBill {
     readonly documents: FakeDocument[] = [];
+    readonly collections: FakeCollection[] = [];
     readonly requests: FakeRequest[] = [];
     readonly series = new Map<string, { nextNumber: number; type: 'f' | 'p' | 'c' }>([
         ['ITB', { nextNumber: 41, type: 'f' }],
@@ -57,12 +68,30 @@ export class FakeSmartBill {
     ];
 
     private failures: FakeFailure[] = [];
+    private paymentFailures: FakeFailure[] = [];
     private nextDocumentId = 20_000;
     private server: Server | null = null;
 
     /** Queues failures for the next invoice requests, in order. */
     failNext(...failures: FakeFailure[]): void {
         this.failures.push(...failures);
+    }
+
+    /** Queues failures for the next `POST /payment` requests, in order. */
+    failNextPayment(...failures: FakeFailure[]): void {
+        this.paymentFailures.push(...failures);
+    }
+
+    /** Somebody recording money by hand in SmartBill Cloud on one of the platform's invoices. */
+    collectByHand(series: string, number: string, value: number): void {
+        this.collections.push({ type: 'Ordin plata', value, isDraft: false, invoice: { series, number }, receipt: null, payload: {} });
+    }
+
+    /** What SmartBill counts as collected on a numbered invoice. */
+    paidOn(series: string, number: string): number {
+        return this.collections
+            .filter((collection) => !collection.isDraft && collection.invoice?.series === series && collection.invoice.number === number)
+            .reduce((sum, collection) => sum + collection.value, 0);
     }
 
     /** Somebody issuing by hand on the platform's series — what the dedicated-series rule forbids. */
@@ -88,10 +117,13 @@ export class FakeSmartBill {
 
     reset(): void {
         this.documents.length = 0;
+        this.collections.length = 0;
         this.requests.length = 0;
         this.failures = [];
+        this.paymentFailures = [];
         this.series.set('ITB', { nextNumber: 41, type: 'f' });
         this.series.set('FCT', { nextNumber: 900, type: 'f' });
+        this.series.set('CH', { nextNumber: 7, type: 'c' });
     }
 
     private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -118,6 +150,18 @@ export class FakeSmartBill {
         }
         if (req.method === 'POST' && path === '/invoice/v2') {
             return this.issue(req, res, body as Record<string, unknown>);
+        }
+        if (req.method === 'POST' && path === '/payment') {
+            return this.collect(req, res, body as Record<string, unknown>);
+        }
+        if (req.method === 'GET' && path === '/invoice/paymentstatus') {
+            const found = this.invoiceDocument(url.searchParams.get('seriesname') ?? '', url.searchParams.get('number') ?? '');
+            if (!found) {
+                return json(res, 400, { errorText: 'Factura nu a fost gasita', message: '', number: '', series: '', url: '', paid: false });
+            }
+            const total = totalOf(found.payload);
+            const paid = this.paidOn(found.series, found.number ?? '');
+            return json(res, 200, { errorText: '', invoiceTotalAmount: total, paidAmount: paid, unpaidAmount: Math.max(0, total - paid), paid: paid >= total });
         }
         if (req.method === 'GET' && path === '/invoice/pdf') {
             if (req.headers.accept === 'application/pdf') {
@@ -183,6 +227,76 @@ export class FakeSmartBill {
             documentViewUrl: isDraft ? '' : `https://cloud.smartbill.ro/documente/extern/pf/factura/hash${documentId}?srvid=2`,
         });
     }
+
+    private invoiceDocument(series: string, number: string): FakeDocument | undefined {
+        return this.documents.find((document) => !document.isDraft && document.series === series && document.number === number);
+    }
+
+    /** `POST /payment`, as the spec describes it: a receipt is numbered, anything else has no document. */
+    private collect(req: IncomingMessage, res: ServerResponse, payload: Record<string, unknown>): void {
+        const failure = this.paymentFailures.shift();
+        if (failure === 'unauthorised') {
+            return json(res, 401, { successfully: false, errorText: 'Autentificare esuata. Va rugam verificati datele si incercati din nou.' });
+        }
+        if (failure === 'lockout') {
+            return json(res, 403, { errorText: 'Ai depasit limita maxima de requesturi admisa. Vei putea executa alte requesturi dupa 10 min' });
+        }
+        if (failure === 'refuse') {
+            return json(res, 400, { errorText: 'Factura este incasata sau stornata in totalitate.', message: '', number: '', series: '', url: '' });
+        }
+        if (failure === 'drop-before-issue') {
+            req.socket.destroy();
+            return;
+        }
+
+        const type = typeof payload.type === 'string' ? payload.type : '';
+        const isDraft = payload.isDraft === true;
+        const listed = Array.isArray(payload.invoicesList) ? (payload.invoicesList as { seriesName: string; number: string }[]) : [];
+        const invoice = listed[0] ? { series: listed[0].seriesName, number: listed[0].number } : null;
+        const document = invoice ? this.invoiceDocument(invoice.series, invoice.number) : undefined;
+        if (invoice && !document) {
+            return json(res, 400, { errorText: 'Factura nu a fost gasita!', message: '', number: '', series: '', url: '' });
+        }
+        if (document && invoice && this.paidOn(invoice.series, invoice.number) >= totalOf(document.payload)) {
+            return json(res, 400, { errorText: 'Factura este incasata sau stornata in totalitate.', message: '', number: '', series: '', url: '' });
+        }
+
+        let receipt: FakeCollection['receipt'] = null;
+        if (type.toLowerCase() === 'chitanta') {
+            const series = this.series.get(String(payload.seriesName));
+            if (!series || series.type !== 'c') {
+                return json(res, 400, {
+                    errorText: 'Seria nu a fost gasita! Folositi o serie creata in contul de cloud.',
+                    message: '',
+                    number: '',
+                    series: '',
+                    url: '',
+                });
+            }
+            const number = isDraft ? null : String(series.nextNumber).padStart(4, '0');
+            if (!isDraft) series.nextNumber += 1;
+            receipt = { series: String(payload.seriesName), number };
+        }
+
+        const value =
+            typeof payload.value === 'number'
+                ? payload.value
+                : document
+                  ? totalOf(document.payload) - this.paidOn(invoice?.series ?? '', invoice?.number ?? '')
+                  : 0;
+        this.collections.push({ type, value, isDraft, invoice, receipt, payload });
+
+        if (failure === 'drop-after-issue') {
+            req.socket.destroy();
+            return;
+        }
+        return json(res, 200, { errorText: '', message: '', number: receipt?.number ?? '', series: receipt && !isDraft ? receipt.series : '', url: '' });
+    }
+}
+
+function totalOf(payload: Record<string, unknown>): number {
+    const products = Array.isArray(payload.products) ? (payload.products as Record<string, unknown>[]) : [];
+    return products.reduce((sum, product) => sum + Number(product.price ?? 0) * Number(product.quantity ?? 1), 0);
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {

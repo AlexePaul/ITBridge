@@ -11,6 +11,8 @@ describe('smartBillProblems', () => {
         SMARTBILL_CIF: 'RO12345678',
         SMARTBILL_INVOICE_SERIES: 'ITB',
     };
+    /** What `live` needs beyond the credentials `draft` needs: a series to number cash receipts on. */
+    const liveOnly = { SMARTBILL_RECEIPT_SERIES: 'CH' };
 
     it('asks nothing of a backend that sends nothing', () => {
         expect(smartBillProblems({})).toEqual([]);
@@ -27,7 +29,7 @@ describe('smartBillProblems', () => {
     // The rule `SEED_ALLOW_NON_LOCAL` follows: a bare "yes" authorises whatever database it is
     // copied next to, and stage's database is seed data whose families would each get an invoice.
     it('refuses live unless SMARTBILL_LIVE_DB names this very database', () => {
-        const live = { SMARTBILL_MODE: 'live', NODE_ENV: 'production', DB_NAME: 'itbridge_prod', ...credentials };
+        const live = { SMARTBILL_MODE: 'live', NODE_ENV: 'production', DB_NAME: 'itbridge_prod', ...credentials, ...liveOnly };
 
         expect(smartBillProblems(live)).toHaveLength(1);
         expect(smartBillProblems({ ...live, SMARTBILL_LIVE_DB: 'true' })).toHaveLength(1);
@@ -38,7 +40,7 @@ describe('smartBillProblems', () => {
     // The check above passes a stage file that says `live` and names stage's own database — two
     // SmartBill settings typed on the same afternoon. The backend has to be production as well.
     it('refuses live anywhere but a production backend', () => {
-        const live = { SMARTBILL_MODE: 'live', DB_NAME: 'itbridge_stage', SMARTBILL_LIVE_DB: 'itbridge_stage', ...credentials };
+        const live = { SMARTBILL_MODE: 'live', DB_NAME: 'itbridge_stage', SMARTBILL_LIVE_DB: 'itbridge_stage', ...credentials, ...liveOnly };
 
         for (const nodeEnv of ['stage', 'development', undefined]) {
             const problems = smartBillProblems({ ...live, NODE_ENV: nodeEnv });
@@ -46,6 +48,16 @@ describe('smartBillProblems', () => {
             expect(problems[0]).toContain('only a production backend');
         }
         expect(smartBillProblems({ ...live, NODE_ENV: 'production' })).toEqual([]);
+    });
+
+    // E16/S5: a cash payment is recorded as a numbered receipt, so `live` without a series for them
+    // would issue invoices and then leave every cash payment waiting on a setting.
+    it('refuses live without a receipt series, and asks nothing of the sort in draft', () => {
+        const live = { SMARTBILL_MODE: 'live', NODE_ENV: 'production', DB_NAME: 'itbridge_prod', SMARTBILL_LIVE_DB: 'itbridge_prod', ...credentials };
+
+        expect(smartBillProblems(live)).toEqual([expect.stringContaining('SMARTBILL_RECEIPT_SERIES')]);
+        expect(smartBillProblems({ ...live, ...liveOnly })).toEqual([]);
+        expect(smartBillProblems({ SMARTBILL_MODE: 'draft', ...credentials })).toEqual([]);
     });
 
     it('lets stage send drafts', () => {

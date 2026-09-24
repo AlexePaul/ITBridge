@@ -58,6 +58,13 @@ export interface SmartBillConfig {
      * answer into a question only a person can settle.
      */
     invoiceSeries: string | undefined;
+    /**
+     * The receipt series a cash payment is recorded on — E16/S5 and S6. A `Chitanta` is a numbered
+     * fiscal document of its own, so **this one must be the platform's too**: a lost answer is
+     * settled by reading the series, exactly as for invoices. A bank transfer needs no series; it is
+     * recorded on the invoice without a document.
+     */
+    receiptSeries: string | undefined;
     measuringUnit: string;
     /** Only when the account has "Foloseste cod produs" on; SmartBill then refuses a line without one. */
     productCode: string | undefined;
@@ -109,6 +116,7 @@ export function smartBillConfig(env: NodeJS.ProcessEnv = process.env): SmartBill
         token: trimmed(env.SMARTBILL_TOKEN),
         cif: trimmed(env.SMARTBILL_CIF),
         invoiceSeries: trimmed(env.SMARTBILL_INVOICE_SERIES),
+        receiptSeries: trimmed(env.SMARTBILL_RECEIPT_SERIES),
         measuringUnit: trimmed(env.SMARTBILL_MEASURING_UNIT) ?? DEFAULT_MEASURING_UNIT,
         productCode: trimmed(env.SMARTBILL_PRODUCT_CODE),
         // Both or neither — `env.validation.ts` refuses one without the other, so a half-set pair

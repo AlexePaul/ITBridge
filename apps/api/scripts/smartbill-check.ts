@@ -7,6 +7,7 @@ import { smartBillProblems } from '../src/config/env.validation';
 import { mayIssueFiscalDocuments, missingSmartBillSettings, smartBillConfig } from '../src/modules/smartbill/smartbill.config';
 import { SmartBillService } from '../src/modules/smartbill/smartbill.service';
 import { invoicePayload, type FiscalInvoiceInput } from '../src/modules/smartbill/smartbill.rules';
+import { draftReceiptPayload } from '../src/modules/smartbill/smartbill-payment.rules';
 import { dueDateFor } from '../src/modules/invoice/arrears.rules';
 import { toIsoDate } from '../src/modules/class-session/class-session.dates';
 
@@ -17,6 +18,7 @@ import { toIsoDate } from '../src/modules/class-session/class-session.dates';
  *     pnpm smartbill:check                       # reads only — no document of any kind
  *     pnpm smartbill:check --draft               # plus ONE draft, for a made-up family
  *     pnpm smartbill:check --draft --invoice 412 # plus ONE draft of what invoice 412 would send
+ *     pnpm smartbill:check --draft --receipt     # plus ONE draft receipt, on the receipt series
  *
  * **Without `--draft` it only reads**: the VAT rates (`GET /tax`) and the document series
  * (`GET /series`). A token that works, a CIF the token can see and a series that exists are three
@@ -87,6 +89,7 @@ async function main(): Promise<number> {
     console.log(`  token            ${config.token ? '(setat, nu se afișează)' : '(nesetat)'}`);
     console.log(`  CIF              ${config.cif ?? '(nesetat)'}`);
     console.log(`  seria facturilor ${config.invoiceSeries ?? '(nesetată)'}`);
+    console.log(`  seria chitanțelor ${config.receiptSeries ?? '(nesetată)'}`);
     console.log(`  unitate          ${config.measuringUnit}`);
     console.log(`  TVA              ${config.tax ? `${config.tax.name} ${config.tax.percentage}%` : 'fără (neplătitor de TVA)'}\n`);
 
@@ -134,6 +137,18 @@ async function main(): Promise<number> {
             console.log(`  ✗ Seria „${config.invoiceSeries}” nu există — se creează în SmartBill Cloud > Configurare > Serii.`);
             failures++;
         }
+        // E16/S5: a cash payment becomes a numbered receipt on the platform's own receipt series.
+        if (config.receiptSeries) {
+            const receipts = receiptSeries.find((series) => series.name === config.receiptSeries);
+            if (receipts) {
+                console.log(`  ✓ Seria de chitanțe a platformei, ${receipts.name}: prima chitanță ar primi numărul ${receipts.nextNumber}.`);
+            } else {
+                console.log(`  ✗ Seria de chitanțe „${config.receiptSeries}” nu există — se creează în SmartBill Cloud > Configurare > Serii.`);
+                failures++;
+            }
+        } else {
+            console.log('    Nicio serie de chitanțe configurată: în live, plățile în numerar n-ar avea pe ce să fie numerotate.');
+        }
     } catch (error: unknown) {
         console.log(`  ✗ ${error instanceof Error ? error.message : String(error)}`);
         return 1;
@@ -147,6 +162,27 @@ async function main(): Promise<number> {
     if (failures > 0) {
         console.log('\nCiorna nu se trimite cât timp verificările de mai sus pică.');
         return 1;
+    }
+
+    if (argument('--receipt') !== undefined) {
+        if (!config.receiptSeries) {
+            console.log('\n  ✗ --receipt cere SMARTBILL_RECEIPT_SERIES.');
+            return 1;
+        }
+        // Always a draft, like the invoice below: "Chitanta ciorna", no number until finalised by hand.
+        const receipt = draftReceiptPayload(
+            { amount: 175, date: toIsoDate(new Date()), client: { name: 'TEST ITBridge — ciornă de verificare, se șterge', address: 'Adresă de test' } },
+            config,
+        );
+        try {
+            await smartBill.recordPayment(receipt);
+            console.log(`\n  ✓ Chitanță ciornă creată pe seria ${config.receiptSeries} — fără număr, nu e document fiscal.`);
+            console.log('    E în SmartBill Cloud la Încasări, la ciorne. Verifică textul și seria, apoi șterge-o.');
+        } catch (error: unknown) {
+            console.log(`\n  ✗ SmartBill a refuzat chitanța ciornă: ${error instanceof Error ? error.message : String(error)}`);
+            return 1;
+        }
+        return 0;
     }
 
     const invoiceArgument = argument('--invoice');

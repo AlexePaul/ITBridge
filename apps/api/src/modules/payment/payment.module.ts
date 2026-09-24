@@ -9,6 +9,9 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { JwtModule } from '@nestjs/jwt/dist/jwt.module';
 import { MailModule } from 'src/modules/mail/mail.module';
 import { AuditModule } from 'src/modules/audit/audit.module';
+import { SmartBillModule } from 'src/modules/smartbill/smartbill.module';
+import { PaymentFiscalService } from './payment-fiscal.service';
+import { PaymentFiscalJob } from './payment-fiscal.job';
 
 @Module({
     // `MailModule` because a recorded payment now confirms itself to the family — E16/S6. What is
@@ -18,8 +21,11 @@ import { AuditModule } from 'src/modules/audit/audit.module';
     // `AuditModule` because money entered, corrected or removed is the first thing anybody asks
     // about after the fact — E07/S3. The record is written inside the same transaction as the
     // change, so it cannot outlive a rollback or be lost by one.
-    imports: [TypeOrmModule.forFeature([Payment, Invoice]), JwtModule.register({}), MailModule, AuditModule],
+    //
+    // `SmartBillModule` because money entered here is recorded there too — E16/S5 — by the payments'
+    // side of the fiscal queue, off the request that entered it.
+    imports: [TypeOrmModule.forFeature([Payment, Invoice]), JwtModule.register({}), MailModule, AuditModule, SmartBillModule],
     controllers: [PaymentController],
-    providers: [PaymentService, AuthGuard, RolesGuard],
+    providers: [PaymentService, PaymentFiscalService, PaymentFiscalJob, AuthGuard, RolesGuard],
 })
 export class PaymentModule {}

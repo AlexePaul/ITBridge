@@ -113,6 +113,40 @@ describe('SmartBillService', () => {
         expect(fetchMock).not.toHaveBeenCalled();
     });
 
+    describe('payments — E16/S5', () => {
+        it('reads what SmartBill counts as collected on an invoice', async () => {
+            fetchMock.mockResolvedValue(respond(200, { errorText: '', invoiceTotalAmount: 350, paidAmount: 200, unpaidAmount: 150, paid: false }));
+
+            await expect(service.invoicePaymentStatus('ITB', '0041')).resolves.toEqual({ total: 350, paid: 200, unpaid: 150, isPaid: false });
+            expect(fetchMock.mock.calls[0][0]).toBe('http://smartbill.test/SBORO/api/invoice/paymentstatus?cif=RO12345678&seriesname=ITB&number=0041');
+        });
+
+        // A missing figure read as zero would make every lost answer look like nothing happened.
+        it('treats an answer without the paid amount as unanswered, never as zero', async () => {
+            fetchMock.mockResolvedValue(respond(200, { errorText: '', invoiceTotalAmount: 350 }));
+
+            await expect(service.invoicePaymentStatus('ITB', '0041')).rejects.toMatchObject({ kind: 'ambiguous' });
+        });
+
+        it('posts a collection to /payment and keeps the receipt number it answers with', async () => {
+            fetchMock.mockResolvedValue(respond(200, { errorText: '', message: '', number: '0007', series: 'CH', url: '' }));
+
+            await expect(service.recordPayment({ type: 'Chitanta' } as never)).resolves.toEqual({ series: 'CH', number: '0007' });
+            const [url, init] = fetchMock.mock.calls[0];
+            expect(url).toBe('http://smartbill.test/SBORO/api/payment');
+            expect(init.method).toBe('POST');
+        });
+
+        it("reads the receipt series' next number, and fails early without one", async () => {
+            process.env.SMARTBILL_RECEIPT_SERIES = 'CH';
+            fetchMock.mockResolvedValue(respond(200, { errorText: '', list: [{ name: 'CH', nextNumber: 7, type: 'c' }] }));
+            await expect(service.nextReceiptNumber()).resolves.toBe(7);
+
+            delete process.env.SMARTBILL_RECEIPT_SERIES;
+            await expect(service.nextReceiptNumber()).rejects.toMatchObject({ kind: 'configuration' });
+        });
+    });
+
     // The door every request passes: a stage backend issues nothing fiscal, whatever the mode says.
     describe('outside production', () => {
         beforeEach(() => {
@@ -126,6 +160,11 @@ describe('SmartBillService', () => {
         it('refuses anything but a draft, before a request leaves', async () => {
             await expect(service.issueInvoice({ isDraft: false } as never)).rejects.toMatchObject({ kind: 'configuration' });
             await expect(service.issueInvoice({} as never)).rejects.toMatchObject({ kind: 'configuration' });
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it('records no collection either — it is a line in the school accounts', async () => {
+            await expect(service.recordPayment({ type: 'Ordin plata' } as never)).rejects.toMatchObject({ kind: 'configuration' });
             expect(fetchMock).not.toHaveBeenCalled();
         });
 

@@ -1,6 +1,6 @@
 # E16 · Încasări și facturare prin SmartBill
 
-**Status:** în lucru — S1 și S7 livrate; S0, S2 și S3 construite și testate pe un SmartBill fals, fără contact încă cu contul real; S5 și S6 parțiale · **Pistă:** Bani · **Depinde de:** E15 · **Blochează:** E21
+**Status:** în lucru — S1 și S7 livrate; S0, S2, S3, S5 și S6 construite și testate pe un SmartBill fals, fără contact încă cu contul real · **Pistă:** Bani · **Depinde de:** E15 · **Blochează:** E21
 
 ## Problemă
 
@@ -444,7 +444,7 @@ cu starea de sincronizare vizibilă și reîncercare, fiindcă adevărul e la ba
 rețea la propagare nu pierde încasarea și nu o dublează la reîncercare. Factura plătită iese din
 lista de restanțe și oprește memento-urile din S7 în aceeași clipă.
 
-> **Livrat: jumătatea de ecran. Propagarea în SmartBill nu — o blochează S0.**
+> **Livrat întâi: jumătatea de ecran.** Propagarea a venit după, mai jos.
 >
 > Încasarea se începe acum de la rândul de restanță: butonul „Încasează" din `/admin/restante`
 > deschide formularul deja completat cu familia, factura și **restul de plată**, nu cu totalul
@@ -467,6 +467,43 @@ lista de restanțe și oprește memento-urile din S7 în aceeași clipă.
 > singură din S7: lista se derivă din plățile reușite, iar `arrears.e2e-spec.ts` o verifică pe
 > ambele jumătăți, plata parțială și plata integrală. Ecranul reîncarcă lista după fiecare încasare,
 > deci rândul dispare acolo unde a fost apăsat butonul.
+
+**Propagarea e construită (septembrie 2026) — testată pe un SmartBill fals, neatinsă pe contul
+real**, pe drumul facturilor din S2 și cu aceleași reguli. Fiecare plată reușită pe o factură pe care
+SmartBill o numerotează ajunge singură acolo ca încasare pe factură (`POST /payment`, cu
+`useInvoiceDetails` și `invoicesList`), trimisă de `PaymentFiscalService` la 30 de secunde, nu de
+cererea care a înregistrat-o. Adminul tastează o dată, în platformă — „un singur loc de introducere".
+
+- **Numerarul devine chitanță, transferul nu devine nimic.** O plată în numerar e o `Chitanta`
+  numerotată pe seria platformei, `SMARTBILL_RECEIPT_SERIES` — obligatorie în `live` și tot a
+  platformei, ca seria de facturi. Un transfer e un `Ordin plata`: SmartBill îl ține pe factură fără
+  document, iar răspunsul nu poartă nici număr, nici serie, nici vreun identificator.
+- **Proba e suma încasată pe factură.** Fără cheie de idempotență și, la transfer, fără nimic după
+  care să cauți, singurul lucru pe care îl schimbă o cerere e `paidAmount` din
+  `GET /invoice/paymentstatus`. Se citește înainte de cerere și se scrie pe rând
+  (`fiscalExpectedPaid`), iar după un răspuns pierdut se recitește: **neschimbată → nu s-a înregistrat
+  nimic și se retrimite** — acceptanța, „nu o dublează la reîncercare" —; **mișcată exact cu plata →
+  un om confirmă**, la numerar cu numărul chitanței, sugerat din seria care a mișcat cu unu;
+  **mișcată altfel → un om, fără sugestie**. Aceeași bară ca la facturi: platforma nu marchează
+  înregistrat ce n-a văzut venind înapoi. Și de aceea pe facturile platformei nu se înregistrează
+  încasări de mână în SmartBill Cloud — ar mișca proba sub o cerere care așteaptă să fie judecată.
+- **Plata așteaptă factura.** Una înregistrată înainte ca SmartBill să numeroteze factura stă în
+  coadă, iar ecranul spune „Așteaptă factura"; pleacă la prima trecere de după emitere. Una pe o
+  factură refuzată așteaptă la fel, până o retrimite cineva.
+- **Numai în `live`.** În `draft` factura e ciornă, fără număr pe care să se înregistreze o
+  încasare, iar dintre încasări doar chitanța are formă de ciornă — un ordin de plată trimis de pe
+  stage ar fi un rând în contabilitatea școlii. Deci în `draft` plățile nu pleacă deloc, iar chitanța
+  se vede din `pnpm smartbill:check --draft --receipt`: o ciornă de sine stătătoare, de privit și
+  șters.
+- **O plată pe care SmartBill o ține nu se mai corectează aici, se stornează.** Suma, data și metoda
+  se refuză (`PAYMENT_RECORDED_IN_SMARTBILL`), iar ștergerea la fel; starea rămâne editabilă, deci un
+  transfer întors se trece `reversed`, iar încasarea din SmartBill se șterge de mână. Nu se șterge
+  automat, dinadins: ruta lor găsește o încasare după factură și tip — ambiguu când pe factură sunt
+  două de același fel —, iar o chitanță se poate șterge numai dacă e ultima din serie. Până se șterge,
+  divergența o arată S8.
+- **`updatePayment` scrie acum numai câmpurile trimise, sub lacătul rândului** — capcana din S2 cu
+  `save` pe o factură citită înainte, a doua oară: rândul poartă starea cozii, iar o salvare veche ar
+  fi pus înapoi `pending` peste o plată abia înregistrată, care ar fi plecat a doua oară.
 
 ### S6 · Chitanțe și confirmări
 
@@ -517,6 +554,13 @@ SmartBill, dar prin E17 rămâne evidența livrării într-un singur loc.
 > Ce rămâne din story e exact partea blocată: documentul fiscal emis de SmartBill și linkul către
 > PDF-ul lui. Când vine S2, chitanța capătă un link; propoziția pe care o citește familia nu se
 > schimbă.
+
+**Documentul a venit cu propagarea din S5 (septembrie 2026).** O plată în numerar primește chitanța
+SmartBill, iar numărul ei stă pe plată și în portal, la „Plățile înregistrate" din
+`/user/payments`. Confirmarea către familie pleacă tot în clipa înregistrării — „în aceeași zi, fără
+intervenție" nu atârnă de SmartBill — și duce acum la pagina aia, unde sunt factura fiscală și, pentru
+numerar, chitanța, oricând ar ajunge. **Linkul e al portalului, nu al unui PDF de chitanță**, fiindcă
+API-ul SmartBill nu dă PDF decât pentru facturi și proforme; al facturii e deja acolo.
 
 ### S7 · Restanțe
 

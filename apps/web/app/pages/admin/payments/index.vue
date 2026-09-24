@@ -24,21 +24,69 @@
 
     <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
 
-    <!--
-      The empty state belongs to `AdminTable` now. Until E18/S6 measured it, this screen had no
-      `catch` at all: a dead API left `payments` empty and the table drew its own untranslated
-      "no rows" — a sentence about money, on the screen somebody opens to check whether a family
-      has paid.
-    -->
-    <AdminTable
-      v-else
-      :rows="payments"
-      :columns="columns"
-      :actions="rowActions"
-      empty-icon="i-lucide-banknote"
-      empty-text="Nicio plată înregistrată."
-      empty-description="Încasările apar aici pe măsură ce sunt înregistrate."
-    />
+    <template v-else>
+      <!--
+        E16/S5: where the payments stand with SmartBill, said once above the table. Only in `live`
+        do payments go there at all — a draft invoice has no number to record a collection on — so
+        outside it the line says exactly that instead of showing a queue that never moves.
+      -->
+      <div v-if="fiscalQueue" class="mb-4 text-sm text-muted" role="status">
+        <p v-if="fiscalQueue.mode !== 'live'">
+          <strong>SmartBill:</strong> plățile nu se trimit în modul „{{
+            fiscalQueue.mode === "draft" ? "ciorne" : "oprit"
+          }}” — se înregistrează doar aici.
+        </p>
+        <p v-else>
+          <strong>SmartBill:</strong> fiecare plată ajunge singură pe factura ei — numerarul ca
+          chitanță pe seria {{ fiscalQueue.receiptSeries ?? "—" }}, transferul fără document.
+          <template v-if="fiscalSummary"> Acum: {{ fiscalSummary }}.</template>
+        </p>
+        <p v-if="fiscalQueue.missing.length" class="text-error">
+          Lipsesc setările {{ fiscalQueue.missing.join(", ") }} — plățile așteaptă în coadă.
+        </p>
+        <p v-if="fiscalQueue.lockedUntil" class="text-warning">
+          SmartBill a blocat temporar accesul pentru prea multe cereri; coada reia singură după
+          {{ formatTime(fiscalQueue.lockedUntil) }}.
+        </p>
+      </div>
+
+      <!--
+        The empty state belongs to `AdminTable` now. Until E18/S6 measured it, this screen had no
+        `catch` at all: a dead API left `payments` empty and the table drew its own untranslated
+        "no rows" — a sentence about money, on the screen somebody opens to check whether a family
+        has paid.
+      -->
+      <AdminTable
+        :rows="payments"
+        :columns="columns"
+        :actions="rowActions"
+        empty-icon="i-lucide-banknote"
+        empty-text="Nicio plată înregistrată."
+        empty-description="Încasările apar aici pe măsură ce sunt înregistrate."
+      >
+        <template #fiscal-cell="{ row }">
+          <span v-if="!row.original.fiscalStatus" class="text-muted">—</span>
+          <div v-else class="flex flex-col gap-1">
+            <UBadge
+              :color="PAYMENT_FISCAL_STATUS_COLORS[row.original.fiscalStatus]"
+              variant="subtle"
+              class="self-start"
+            >
+              {{ fiscalLabel(row.original) }}
+              <template v-if="row.original.fiscalReceiptNumber">
+                &nbsp;{{ row.original.fiscalReceiptSeries }} {{ row.original.fiscalReceiptNumber }}
+              </template>
+            </UBadge>
+            <span
+              v-if="row.original.fiscalLastError && row.original.fiscalStatus !== 'recorded'"
+              class="text-xs text-muted max-w-xs whitespace-normal"
+            >
+              {{ row.original.fiscalLastError }}
+            </span>
+          </div>
+        </template>
+      </AdminTable>
+    </template>
 
     <AdminConfirmModal
       v-model:open="deleteOpen"
@@ -55,6 +103,49 @@
         </p>
       </template>
     </AdminConfirmModal>
+
+    <AdminConfirmModal
+      v-model:open="reverseOpen"
+      title="Stornezi plata?"
+      confirm-label="Stornează"
+      danger
+      :loading="reversing"
+      @confirm="confirmReverse"
+    >
+      <template #body>
+        <p class="text-sm">
+          Plata rămâne în evidență ca stornată, iar factura se recalculează fără ea — cum se
+          consemnează un transfer întors sau o sumă înregistrată greșit.
+        </p>
+        <p v-if="reverseTarget?.fiscalStatus" class="text-sm mt-2">
+          <strong>În SmartBill încasarea rămâne</strong> până o ștergi de acolo; raportul de
+          divergențe o arată până atunci.
+        </p>
+      </template>
+    </AdminConfirmModal>
+
+    <AdminConfirmModal
+      v-model:open="confirmOpen"
+      title="Încasarea e în SmartBill?"
+      confirm-label="E acolo"
+      :loading="confirming"
+      @confirm="confirmRecorded"
+    >
+      <template #body>
+        <p class="text-sm">
+          Răspunsul SmartBill s-a pierdut, iar pe factură suma încasată s-a schimbat. Verifică în
+          SmartBill Cloud încasările facturii și confirmă doar ce vezi acolo.
+        </p>
+        <UFormField
+          v-if="confirmTarget?.method === 'cash'"
+          label="Numărul chitanței, așa cum apare în SmartBill"
+          class="mt-4"
+        >
+          <UInput v-model="receiptNumber" inputmode="numeric" placeholder="0007" />
+        </UFormField>
+        <p v-if="confirmError" class="text-sm text-error mt-2" role="alert">{{ confirmError }}</p>
+      </template>
+    </AdminConfirmModal>
   </AdminPage>
 </template>
 
@@ -64,10 +155,13 @@ import type { AdminTableColumn } from "~/types/admin-ui.types";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useNotifications } from "~/composables/useNotifications";
 import { usePaymentsApi } from "~/composables/api/usePaymentsApi";
-import type { Payment } from "~/types/payment.types";
+import type { Payment, PaymentFiscalQueueStatus } from "~/types/payment.types";
 import { usePaymentsStore } from "~/stores/paymentsStore";
 import {
+  PAYMENT_FISCAL_STATUS_COLORS,
+  PAYMENT_FISCAL_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
+  PAYMENT_RECORD_MAY_EXIST,
   PAYMENT_STATUS_COLORS,
   PAYMENT_STATUS_LABELS,
 } from "~/types/payment.types";
@@ -77,6 +171,7 @@ const paymentsStore = usePaymentsStore();
 const { success, error } = useNotifications();
 
 const payments: Ref<Payment[]> = ref([]);
+const fiscalQueue = ref<PaymentFiscalQueueStatus | null>(null);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 
@@ -90,7 +185,13 @@ const load = async () => {
   loading.value = true;
   loadError.value = null;
   try {
-    await paymentsApi.fetchPayments();
+    const [, queue] = await Promise.all([
+      paymentsApi.fetchPayments(),
+      // The queue line is a courtesy: a screen about money must not fail because SmartBill's
+      // summary could not be read.
+      paymentsApi.fetchFiscalQueue().catch(() => null),
+    ]);
+    fiscalQueue.value = queue;
     // A copy before sorting. `paymentsStore.payments` is `readonly(...)` and `Array.sort` reorders
     // in place, so every swap is a write Vue refuses — eighteen warnings deep — and what comes back
     // is the list in its original order, pretending to be sorted. The screen has always claimed
@@ -106,6 +207,34 @@ const load = async () => {
 };
 
 onMounted(load);
+
+/** "3 în coadă, 1 de verificat" — only the states somebody might want to act on or wait for. */
+const fiscalSummary = computed(() => {
+  const queue = fiscalQueue.value;
+  if (!queue) return "";
+  const parts: string[] = [];
+  const pending = queue.counts.pending + queue.counts.uncertain;
+  if (pending) parts.push(`${pending} în coadă`);
+  if (queue.waitingForInvoice) parts.push(`${queue.waitingForInvoice} așteaptă factura fiscală`);
+  if (queue.counts.review) parts.push(`${queue.counts.review} de verificat`);
+  if (queue.counts.failed) parts.push(`${queue.counts.failed} refuzate`);
+  return parts.join(", ");
+});
+
+/**
+ * A pending payment whose invoice SmartBill has not numbered yet is waiting on the invoice, not on
+ * the queue — worth saying, since the fix (if any) is on the invoice's row.
+ */
+const fiscalLabel = (payment: Payment) => {
+  if (!payment.fiscalStatus) return "";
+  if (payment.fiscalStatus === "pending" && payment.invoice?.fiscalStatus !== "issued") {
+    return "Așteaptă factura";
+  }
+  return PAYMENT_FISCAL_STATUS_LABELS[payment.fiscalStatus];
+};
+
+const formatTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" });
 
 /**
  * The columns, as config rather than sixty lines of `h()` — E18/S5b, last of the seven dialects.
@@ -150,16 +279,49 @@ const columns: AdminTableColumn<Payment>[] = [
   // difference (an instalment) is exactly what this column exists to show.
   { key: "amount", label: "Sumă", type: "money" },
   { key: "externalReference", label: "Referință" },
+  // Drawn by the `#fiscal-cell` slot: a badge, the receipt number and SmartBill's own sentence.
+  { key: "fiscal", label: "SmartBill" },
 ];
 
-const rowActions = (payment: Payment): DropdownMenuItem[] => [
-  {
-    label: "Șterge plata",
-    icon: "i-lucide-trash",
-    color: "error",
-    onSelect: () => askDelete(payment),
-  },
-];
+const holdsRecord = (payment: Payment) =>
+  payment.fiscalStatus !== null && PAYMENT_RECORD_MAY_EXIST.includes(payment.fiscalStatus);
+
+const rowActions = (payment: Payment): DropdownMenuItem[] => {
+  const items: DropdownMenuItem[] = [];
+  if (payment.fiscalStatus === "review") {
+    items.push({
+      label: "Confirmă în SmartBill",
+      icon: "i-lucide-badge-check",
+      onSelect: () => askConfirm(payment),
+    });
+  }
+  if (payment.fiscalStatus === "failed" || payment.fiscalStatus === "review") {
+    items.push({
+      label: "Retrimite în SmartBill",
+      icon: "i-lucide-refresh-cw",
+      onSelect: () => retry(payment),
+    });
+  }
+  if (payment.status === "succeeded") {
+    items.push({
+      label: "Stornează plata",
+      icon: "i-lucide-undo-2",
+      color: "error",
+      onSelect: () => askReverse(payment),
+    });
+  }
+  // E16/S5: a collection SmartBill holds is reversed, never deleted — SmartBill would keep a
+  // record of money the platform no longer has.
+  if (!holdsRecord(payment)) {
+    items.push({
+      label: "Șterge plata",
+      icon: "i-lucide-trash",
+      color: "error",
+      onSelect: () => askDelete(payment),
+    });
+  }
+  return items;
+};
 
 /**
  * Deleting a payment asks first, and waits for the answer.
@@ -191,6 +353,81 @@ const confirmDelete = async () => {
     error(apiErrorMessage(err, "Eroare la ștergerea plății"));
   } finally {
     deleting.value = false;
+  }
+};
+
+const reverseTarget = ref<Payment | null>(null);
+const reverseOpen = ref(false);
+const reversing = ref(false);
+
+const askReverse = (payment: Payment) => {
+  reverseTarget.value = payment;
+  reverseOpen.value = true;
+};
+
+const confirmReverse = async () => {
+  const payment = reverseTarget.value;
+  if (!payment) return;
+  reversing.value = true;
+  try {
+    await paymentsApi.updatePayment(payment.id, { status: "reversed" });
+    reverseOpen.value = false;
+    success("Plată stornată");
+    await load();
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Eroare la stornarea plății"));
+  } finally {
+    reversing.value = false;
+  }
+};
+
+const retry = async (payment: Payment) => {
+  try {
+    await paymentsApi.retryFiscal(payment.id);
+    success("Plata pleacă din nou spre SmartBill");
+    await load();
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut retrimite plata"));
+  }
+};
+
+/**
+ * "It is there" — the way out of a lost answer. A cash payment needs the receipt's number as the
+ * person reads it in SmartBill; the probable one is offered, never assumed.
+ */
+const confirmTarget = ref<Payment | null>(null);
+const confirmOpen = ref(false);
+const confirming = ref(false);
+const confirmError = ref<string | null>(null);
+const receiptNumber = ref("");
+
+const askConfirm = (payment: Payment) => {
+  confirmTarget.value = payment;
+  confirmError.value = null;
+  receiptNumber.value =
+    payment.method === "cash" && payment.fiscalExpectedNumber !== null
+      ? String(payment.fiscalExpectedNumber).padStart(4, "0")
+      : "";
+  confirmOpen.value = true;
+};
+
+const confirmRecorded = async () => {
+  const payment = confirmTarget.value;
+  if (!payment) return;
+  confirming.value = true;
+  confirmError.value = null;
+  try {
+    await paymentsApi.confirmFiscal(
+      payment.id,
+      payment.method === "cash" ? { number: receiptNumber.value.trim() } : {}
+    );
+    confirmOpen.value = false;
+    success("Încasarea e confirmată în SmartBill");
+    await load();
+  } catch (err: unknown) {
+    confirmError.value = apiErrorMessage(err, "Nu am putut confirma încasarea");
+  } finally {
+    confirming.value = false;
   }
 };
 </script>
