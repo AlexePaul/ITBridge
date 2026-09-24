@@ -87,6 +87,18 @@ export class FakeSmartBill {
         this.collections.push({ type: 'Ordin plata', value, isDraft: false, invoice: { series, number }, receipt: null, payload: {} });
     }
 
+    /** Somebody deleting one of the platform's invoices by hand in SmartBill Cloud. */
+    forgetInvoice(series: string, number: string): void {
+        const index = this.documents.findIndex((document) => !document.isDraft && document.series === series && document.number === number);
+        if (index !== -1) this.documents.splice(index, 1);
+    }
+
+    /** Somebody editing an invoice's line by hand in SmartBill Cloud, so its total moves. */
+    retotalInvoice(series: string, number: string, total: number): void {
+        const document = this.documents.find((candidate) => !candidate.isDraft && candidate.series === series && candidate.number === number);
+        if (document) document.payload = { ...document.payload, products: [{ price: total, quantity: 1 }] };
+    }
+
     /** What SmartBill counts as collected on a numbered invoice. */
     paidOn(series: string, number: string): number {
         return this.collections

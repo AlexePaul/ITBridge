@@ -169,10 +169,10 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — douăzeci și unu de module în `apps/api/src/modules/`, cincisprezece după același tipar
+**Backend** — douăzeci și două de module în `apps/api/src/modules/`, șaisprezece după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
 `room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, `announcement`,
-`lead`.
+`lead`, `reconciliation`.
 Șase ies din tipar: `storage` și `smartbill` n-au controller, fiindcă nimic din ele nu e expus pe HTTP — ce
 se cere SmartBill-ului decide modulul care deține rândul —, `mail` are unul singur
 și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
@@ -1355,6 +1355,12 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   `draft` plățile nu pleacă deloc — o ciornă de factură n-are număr, iar dintre încasări doar
   chitanța are ciornă —, iar o chitanță de probă se vede cu
   `pnpm smartbill:check --draft --receipt`.
+- **Divergența cu SmartBill se derivă; pe factură stă doar ce a spus SmartBill** (E16 S8).
+  `fiscalPaidAmount`, `fiscalTotalAmount` și `fiscalCheckedAt` sunt citirea lor, reîmprospătată o
+  dată pe zi de `FiscalDivergenceJob`; verdictul e `divergenceOf`, calculat când se citește
+  raportul (`GET /invoices/fiscal-divergences`), față de plățile de atunci. O încasare înregistrată
+  golește `fiscalCheckedAt`, iar o factură necitită nu se judecă — altfel o cifră veche ar fi o
+  alarmă falsă. Dacă adaugi un drum care schimbă partea SmartBill a unei facturi, golește-l și acolo.
 - **În `live`, PDF-ul e al lor, la aceeași cheie** (`invoicePdfKey`, mutată în `invoice-pdf-key.ts`
   ca să nu facă ciclu): nu se mai generează nimic cu PDFKit, iar descărcarea, exportul și ștergerea
   îl citesc fără să știe cine l-a făcut. Documentul poartă **o singură linie, la suma calculată de
@@ -1362,6 +1368,24 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   pozitivă _crește_ totalul, o linie fără `numberOfItems` e ignorată cu 200), iar potrivirea la leu
   e promisiunea din E15 S7. Din familie pleacă numele și adresa, atât, iar `sendEmail` e fals:
   familia aude de la platformă, prin coadă.
+- **Extrasul bancar se potrivește cu propuneri, niciodată singur** (E16 S8,
+  `apps/api/src/modules/reconciliation/`). CSV-ul băncii se citește după cuvintele din capul de
+  tabel, nu după o bancă anume — preambul, `;` sau `,`, credit și debit sau o sumă cu semn,
+  `1.234,56` sau `1,234.56` —, iar un rând care nu se citește se raportează cu numărul lui, nu se
+  sare. Se păstrează doar intrările, iar amprenta liniei (conținutul plus locul printre liniile
+  identice) e unică, deci un extras importat de două ori nu adaugă nimic. Propunerile sunt două:
+  **după numărul fiscal al facturii** din detalii — sigure, se confirmă toate dintr-o apăsare — și
+  **după numele plătitorului și suma rămasă exact** — doar propunere, câte una. „Ce mai datorează o
+  factură" vine din `ArrearsService.list`, nu dintr-o interogare nouă. O linie confirmată devine plată
+  prin `PaymentService.createPayment`, în tranzacția liniei — `createPayment` primește acum
+  `EntityManager`-ul apelantului —, deci familia primește confirmarea și plata pleacă spre SmartBill
+  ca oricare alta. Starea liniei se derivă (are plată, e pusă deoparte, sau așteaptă); o plată
+  ștearsă o pune singură la loc în coadă, prin `SET NULL`. **O linie devenită plată e a familiei**:
+  intră în exportul ei (E07 S4), iar la ștergere pierde plătitorul și detaliile — familiile scriu
+  acolo numele copilului la fel de des ca numărul facturii —, și păstrează cifrele, referința băncii
+  și amprenta. Amprenta trebuie să rămână: fără ea, același extras importat din nou ar aduce numele
+  înapoi ca linie nouă. Din același motiv, plata primește ca referință doar referința băncii, nu
+  detaliile — referința supraviețuiește ștergerii, nota nu.
 - **Plata cu cardul, dacă vine, vine prin SmartBill**, nu printr-un procesator integrat aici: ei au
   deja Netopia, EuPlătesc și Stripe, cu link pe factură și încasare înregistrată singură acolo. Dar
   **starea plății trebuie adusă înapoi din SmartBill înaintea linkului** (E16 S8), altfel mementoul

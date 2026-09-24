@@ -197,6 +197,11 @@ const MESSAGES: Record<string, string> = {
   PAYMENT_FISCAL_NOT_RETRYABLE:
     "Plata nu e refuzată și nici în verificare, deci nu are ce retrimite în SmartBill.",
   PAYMENT_FISCAL_NOT_UNDER_REVIEW: "Plata nu mai e în verificare — reîncarcă pagina.",
+  // E16/S8. The statement reader names what it looked for; a line becomes a payment once.
+  STATEMENT_UNREADABLE:
+    "Nu am găsit în fișier capul de tabel al extrasului — o coloană de dată și una de sumă (sau credit). Exportă extrasul din bancă în CSV.",
+  STATEMENT_LINE_ALREADY_MATCHED:
+    "Linia din extras e deja înregistrată ca plată — reîncarcă pagina.",
   RECEIPT_NUMBER_REQUIRED:
     "O plată în numerar e o chitanță în SmartBill: scrie numărul chitanței, așa cum apare acolo.",
 

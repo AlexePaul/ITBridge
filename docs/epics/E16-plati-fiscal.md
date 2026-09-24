@@ -1,6 +1,6 @@
 # E16 · Încasări și facturare prin SmartBill
 
-**Status:** în lucru — S1 și S7 livrate; S0, S2, S3, S5 și S6 construite și testate pe un SmartBill fals, fără contact încă cu contul real · **Pistă:** Bani · **Depinde de:** E15 · **Blochează:** E21
+**Status:** construit — S1 și S7 livrate; S0, S2, S3, S5, S6 și S8 construite și testate pe un SmartBill fals și pe extrase de probă, fără contact încă cu contul real și cu banca; S4 amânat prin decizie · **Pistă:** Bani · **Depinde de:** E15 · **Blochează:** E21
 
 ## Problemă
 
@@ -420,6 +420,11 @@ lucruri, și al doilea e condiția:
   cardul se înregistrează acolo, nu aici, iar fără sincronizare mementoul de restanță din S7 ar
   scrie unei familii care a plătit ieri — exact riscul din [Riscuri](#riscuri). Sincronizarea e
   jumătatea de divergență din S8 (`GET /invoice/paymentstatus`), deci ordinea e S8, apoi linkul.
+  **S8 e construit, dar citirea lui raportează, nu înregistrează**: o plată cu cardul ar apărea a
+  doua zi ca `changed_in_smartbill`, iar un om ar trece-o în platformă. Cât timp singura metodă e
+  transferul, asta e exact ce trebuie; pentru link mai trebuie ca mementoul de restanță să nu scrie
+  despre o factură pe care SmartBill o vede încasată — un pas mic, de scris odată cu linkul, nu
+  înainte.
 
 Până atunci decizia nu se schimbă: transfer și numerar. Munca de reconciliere contează mai mult
 decât o metodă în plus, iar portalul cere deja familiei să treacă numărul fiscal al facturii în
@@ -631,6 +636,68 @@ important e să fie vizibilă.
 **Acceptanță:** peste 80% dintre transferuri se potrivesc automat. Divergențele dintre sisteme apar
 într-un raport, nu într-o surpriză la finalul lunii.
 
+**Importul de extras e construit (septembrie 2026)**, pe `/admin/reconciliere`, secțiunea de sus —
+testat pe extrase de forma celor românești, **nu pe unul real**: banca școlii nu e scrisă nicăieri în
+repo, deci primul extras exportat de ea e testul adevărat, iar forma lui se trece atunci în spec.
+
+- **Cititorul caută capul de tabel după cuvinte, nu după bancă.** CSV-urile diferă exact în ce
+  contează: un preambul cu datele contului deasupra, `;` acolo unde virgula e zecimală, credit și
+  debit în coloane separate sau o sumă cu semn sau cu o coloană D/C, `1.234,56` sau `1,234.56`,
+  `05.11.2026` sau `2026-11-05`. `statement-parser.ts` găsește rândul care numește o dată și o sumă —
+  în română sau engleză, cu sau fără diacritice —, citește cifrele după formă și păstrează doar
+  intrările. **Un rând necitit se raportează cu numărul lui**, nu se sare: un extras care pierde o
+  încasare pe drum e mai rău decât unul care refuză să se încarce. Ecranul spune și din ce coloane a
+  citit, ca o alegere greșită să se vadă.
+- **Același extras de două ori nu adaugă nimic.** Fiecare linie are o amprentă — conținutul, plus
+  locul printre liniile identice din același fișier, fiindcă două transferuri de 350 de la același
+  părinte în aceeași zi sunt două plăți —, iar amprenta e unică. Extrasele care se suprapun se pot
+  importa liniștit.
+- **Două reguli de potrivire, și niciuna nu înregistrează singură.** Prima e **numărul fiscal al
+  facturii în detaliile transferului** — `ITB 0041`, `ITB0041`, `itb-41` sunt același lucru, `ITB 410`
+  nu —, pe care portalul îl cere familiei; o linie care numește exact o factură deschisă o plătește,
+  oricine a trimis banii. A doua e **numele plătitorului plus suma rămasă exact**, pe o singură
+  factură a familiei; mai slabă — un bunic plătește sub alt nume —, deci doar propunere. Două
+  referințe într-o linie, un nume care se potrivește la două familii sau o sumă care nu se potrivește
+  nicăieri rămân la un om. „Ce mai datorează o factură" vine din lista de restanțe, definiția din S5,
+  nu dintr-o interogare nouă.
+- **Confirmarea e o plată ca oricare alta.** Propunerile după referință se confirmă toate dintr-o
+  apăsare, celelalte câte una, iar „Alege factura" deschide lista de restanțe. O linie confirmată
+  devine transfer bancar prin `PaymentService.createPayment`, în aceeași tranzacție cu legătura
+  liniei: factura se recalculează, familia primește confirmarea, iar plata pleacă spre SmartBill din
+  S5. Ce nu e o familie care plătește — o chirie restituită, un grant — se pune deoparte, reversibil.
+- **O linie devenită plată e a familiei, în export și la ștergere** (E07 S4). Exportul o arată lângă
+  plata ei, cum a scris-o banca. Ștergerea familiei îi ia plătitorul și detaliile — acolo scriu
+  familiile numele copilului la fel de des ca numărul facturii — și îi lasă cifrele, referința băncii
+  și amprenta; fără amprentă, același extras importat din nou ar aduce numele înapoi ca linie nouă.
+  Evidența contabilă e extrasul băncii, nu copia asta. Tot de aceea plata primește ca referință doar
+  referința băncii: detaliile stau în notă, pe care ștergerea o golește.
+- **Rata de potrivire se vede la fiecare import**: câte din liniile noi au o propunere și câte după
+  referință. E cifra acceptanței, „peste 80% dintre transferuri", măsurată pe extrasul real, nu
+  promisă aici — și atârnă de cât de des scriu familiile numărul facturii.
+
+**Verificarea de divergență e construită (septembrie 2026) — testată pe un SmartBill fals.** Pe
+`/admin/reconciliere`, secțiunea SmartBill. Trei decizii:
+
+- **Se stochează doar partea SmartBill; verdictul se derivă.** Pe factură stau trei coloane —
+  `fiscalPaidAmount`, `fiscalTotalAmount` și `fiscalCheckedAt`, ce a spus SmartBill ultima dată prin
+  `GET /invoice/paymentstatus` și când —, iar „divergentă" e `divergenceOf`
+  (`fiscal-divergence.rules.ts`), calculată la citirea raportului, față de plățile cum sunt atunci.
+  Un verdict stocat ar fi al doilea răspuns la întrebare, greșit exact cât timp nu l-a recalculat
+  nimeni — aceeași judecată ca la cozi.
+- **Cinci motive, fiecare cu alt om și alt loc de reparat:** SmartBill nu mai are factura (ștearsă
+  sau anulată acolo); totalul diferă (E15 S7 promitea potrivirea la leu); suma încasată în SmartBill
+  diferă de ce a înregistrat platforma acolo — o încasare adăugată sau ștearsă de mână; o plată
+  stornată aici e încă încasare acolo; o plată primită aici n-a ajuns acolo (refuzată, sau cu
+  răspunsul pierdut și în așteptarea unui om). O plată încă în drum spre SmartBill nu e divergență —
+  e treaba cozii din S5.
+- **O factură se citește o dată pe zi, iar una schimbată între timp nu se judecă.** `FiscalDivergenceJob`
+  citește 20 de facturi pe minut, niciodată-citite întâi, apoi cele mai vechi, prin același client
+  temperat ca restul apelurilor. Înregistrarea unei încasări golește `fiscalCheckedAt` al facturii,
+  fiindcă o cifră citită înaintea ei ar fi o alarmă falsă; până e recitită, factura apare la
+  „necitite", nu în tabel. „Recitește toate facturile" nu citește nimic în cerere — le face pe toate
+  scadente, iar trecerile le citesc în minutele următoare. Numai în `live`: `off` promite că nu pleacă
+  nimic, iar în `draft` nu există facturi numerotate de citit.
+
 ## Dependențe
 
 [E15](E15-pricing-facturare.md). Nu se poate emite corect ce nu e calculat corect.
@@ -681,6 +748,14 @@ transfer — se introduce o singură dată, în platformă, și ajunge singură 
 facturi în portal se derivă din plăți, nu se scrie de mână. Divergențele între sisteme sunt vizibile
 înainte să devină problemă contabilă.
 
+**Septembrie 2026: toate patru sunt ținute de cod și de teste, pe un SmartBill fals.** Ce rămâne nu
+se mai scrie, se rulează, și e al școlii, în ordinea asta: `pnpm smartbill:check` pe contul real
+(doar citiri), seriile de factură și de chitanță ale platformei, cota TVA de la contabil, o ciornă de
+factură și una de chitanță privite și șterse, apoi `SMARTBILL_MODE=live` **numai pe producție**
+(`NODE_ENV=production`; stage rămâne pe ciorne) — și primul extras al băncii importat, ca să se vadă
+dacă îl citește și cât potrivește. Primele facturi reale se urmăresc una câte una: acolo se văd
+e-Factura (adresa ca un singur text) și potrivirea la leu cu documentul lor.
+
 ## Întrebări deschise
 
 - ~~**Abonamentul actual permite acces API?**~~ **Contul există** (septembrie 2026); răspunsul
@@ -689,6 +764,9 @@ facturi în portal se derivă din plăți, nu se scrie de mână. Divergențele 
   CNP?~~ **Nume și adresă. Fără CNP.** Lista din [E11](E11-inscrieri-capacitate.md) S2 e deci
   suficientă și formularul de înregistrare nu se schimbă. Consecințele complete, la
   [Decizii luate](#decizii-luate).
+- **Ce CSV exportă banca școlii?** Cititorul de extras e scris după forma exporturilor românești,
+  nu după una anume. Primul extras real spune dacă o citește — coloanele alese apar pe ecran — și
+  ce rată de potrivire dă; forma lui se trece atunci în `statement-parser.spec.ts`.
 - **Ce cere e-Factura la transmiterea în SPV rămâne neverificat.** Răspunsul de mai sus e despre
   pragul SmartBill; al doilea prag îl trece SmartBill în locul nostru și nu se vede de aici. Nu se
   colectează nimic în plus pe baza lui — dar primul document respins la transmitere redeschide

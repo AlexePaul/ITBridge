@@ -24,6 +24,8 @@ import { AuditModule } from 'src/modules/audit/audit.module';
 import { SmartBillModule } from 'src/modules/smartbill/smartbill.module';
 import { FiscalIssuingService } from './fiscal-issuing.service';
 import { FiscalIssuingJob } from './fiscal-issuing.job';
+import { FiscalDivergenceService } from './fiscal-divergence.service';
+import { FiscalDivergenceJob } from './fiscal-divergence.job';
 
 @Module({
     // `Enrollment` because the amount counts children *actively enrolled*, not children on file:
@@ -50,7 +52,20 @@ import { FiscalIssuingJob } from './fiscal-issuing.job';
         SmartBillModule,
     ],
     controllers: [InvoiceController],
-    providers: [InvoiceService, BillableSessionsService, PdfService, ArrearsService, ArrearsJob, FiscalIssuingService, FiscalIssuingJob, AuthGuard, RolesGuard],
+    providers: [
+        InvoiceService,
+        BillableSessionsService,
+        PdfService,
+        ArrearsService,
+        ArrearsJob,
+        FiscalIssuingService,
+        FiscalIssuingJob,
+        // E16/S8: SmartBill's side of every issued invoice, read a day apart, against the platform's.
+        FiscalDivergenceService,
+        FiscalDivergenceJob,
+        AuthGuard,
+        RolesGuard,
+    ],
     // The overview screen asks the arrears question rather than re-deriving it — one definition.
     exports: [ArrearsService],
 })

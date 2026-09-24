@@ -1,6 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { Profile } from './profile.entity';
 import { Payment } from './payment.entity';
+import { decimalAsNumber } from './decimal.transformer';
 
 export enum InvoiceStatus {
     PENDING = 'pending',
@@ -62,6 +63,8 @@ export const FISCAL_DOCUMENT_MAY_EXIST: readonly InvoiceFiscalStatus[] = [
 @Unique(['parent', 'monthIssued'])
 // The fiscal queue's claim, the same shape as `IDX_outbox_claim`: due rows by state and time.
 @Index('IDX_invoices_fiscal_queue', ['fiscalStatus', 'fiscalNextAttemptAt'])
+// The divergence check's pick: issued invoices by how long ago SmartBill was last read — E16/S8.
+@Index('IDX_invoices_fiscal_check', ['fiscalStatus', 'fiscalCheckedAt'])
 export class Invoice {
     @PrimaryGeneratedColumn('increment')
     id: number;
@@ -147,4 +150,23 @@ export class Invoice {
     /** SmartBill's words when it refused, or why the queue is waiting. Cleared on success. */
     @Column({ type: 'varchar', length: 1000, nullable: true })
     fiscalLastError: string | null;
+
+    /**
+     * SmartBill's side of the invoice as last read — E16/S8: what it counts as collected and what it
+     * says the total is, from `GET /invoice/paymentstatus`, and when. **Only SmartBill's half is
+     * stored**; whether it agrees with the platform is derived when the report is read, against the
+     * payments as they stand then — a stored verdict would be a second answer to the question.
+     *
+     * Checked but both figures empty means SmartBill no longer knows the number: deleted or cancelled
+     * there. Never checked (`fiscalCheckedAt` null) is not a verdict of any kind, and a payment
+     * recorded in SmartBill clears it, so the next pass reads the invoice afresh.
+     */
+    @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, transformer: decimalAsNumber })
+    fiscalPaidAmount: number | null;
+
+    @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, transformer: decimalAsNumber })
+    fiscalTotalAmount: number | null;
+
+    @Column({ type: 'timestamptz', nullable: true })
+    fiscalCheckedAt: Date | null;
 }

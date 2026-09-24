@@ -73,7 +73,7 @@ export class PaymentService {
      * recomputation is exactly the bug the old model had, where `status = PAID` was set by hand next
      * to the row that justified it and nothing kept the two in step afterwards.
      */
-    async createPayment(dto: CreatePaymentDto, recordedByUserId: number | undefined, actor: Actor) {
+    async createPayment(dto: CreatePaymentDto, recordedByUserId: number | undefined, actor: Actor, outer?: EntityManager) {
         const invoice = await this.invoiceRepo.findOne({ where: { id: dto.invoiceId }, relations: { parent: true } });
         if (!invoice) throw new NotFoundException('Invoice not found');
 
@@ -87,7 +87,9 @@ export class PaymentService {
             });
         }
 
-        return this.dataSource.transaction(async (manager) => {
+        // Inside the caller's transaction when it has one — E16/S8: a statement line and the payment
+        // it becomes commit together, or neither does.
+        const record = async (manager: EntityManager) => {
             const status = dto.status ?? PaymentStatus.SUCCEEDED;
             // E16/S5: money recorded against an invoice SmartBill numbers is owed to SmartBill too,
             // and the queue sends it from here — the admin types it once.
@@ -127,7 +129,8 @@ export class PaymentService {
                 await this.sendReceipt(invoice, payment, balance, manager);
             }
             return payment;
-        });
+        };
+        return outer ? record(outer) : this.dataSource.transaction(record);
     }
 
     /**

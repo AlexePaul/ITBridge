@@ -43,6 +43,10 @@ import type { RescheduleWindowsResult } from './modules/class-session/reschedule
 import type { Invoice, InvoiceFiscalStatus } from './entities/invoice.entity';
 import type { SmartBillMode } from './modules/smartbill/smartbill.config';
 import type { FiscalQueueStatus } from './modules/invoice/fiscal-issuing.service';
+import type { FiscalDivergenceReport } from './modules/invoice/fiscal-divergence.service';
+import type { DivergenceReason } from './modules/invoice/fiscal-divergence.rules';
+import type { StatementImportResult, StatementLinesPage } from './modules/reconciliation/reconciliation.service';
+import type { MatchConfidence } from './modules/reconciliation/statement-matching.rules';
 import type { Payment, PaymentFiscalStatus } from './entities/payment.entity';
 import type { PaymentFiscalQueueStatus } from './modules/payment/payment-fiscal.service';
 import type { PaymentMethod } from './enum/payment-method.enum';
@@ -181,12 +185,30 @@ type _InvoiceFiscal = Check<
     Omit<Pick<Serialized<Invoice>, InvoiceFiscalWireFields>, 'fiscalStatus'> & { fiscalStatus: `${InvoiceFiscalStatus}` | null }
 >;
 type InvoiceFiscalWireFields =
-    'fiscalStatus' | 'fiscalSeries' | 'fiscalNumber' | 'fiscalDocumentUrl' | 'fiscalViewUrl' | 'fiscalIssuedAt' | 'fiscalLastError' | 'fiscalExpectedNumber';
+    | 'fiscalStatus'
+    | 'fiscalSeries'
+    | 'fiscalNumber'
+    | 'fiscalDocumentUrl'
+    | 'fiscalViewUrl'
+    | 'fiscalIssuedAt'
+    | 'fiscalLastError'
+    | 'fiscalExpectedNumber'
+    | 'fiscalPaidAmount'
+    | 'fiscalTotalAmount'
+    | 'fiscalCheckedAt';
 type _InvoiceFiscalStatus = Check<Wire.InvoiceFiscalStatus, `${InvoiceFiscalStatus}`>;
 type _InvoiceFiscalStatusBack = Check<`${InvoiceFiscalStatus}`, Wire.InvoiceFiscalStatus>;
 type _SmartBillMode = Check<Wire.SmartBillMode, SmartBillMode>;
 type _SmartBillModeBack = Check<SmartBillMode, Wire.SmartBillMode>;
 type _FiscalQueueStatus = Check<Wire.FiscalQueueStatus, Serialized<FiscalQueueStatus>>;
+type _DivergenceReason = Check<Wire.DivergenceReason, DivergenceReason>;
+type _DivergenceReasonBack = Check<DivergenceReason, Wire.DivergenceReason>;
+type _FiscalDivergenceReport = Check<Wire.FiscalDivergenceReport, Serialized<FiscalDivergenceReport>>;
+// E16/S8: the bank statement's side of reconciliation.
+type _StatementImportResult = Check<Wire.StatementImportResult, Serialized<StatementImportResult>>;
+type _StatementLinesPage = Check<Wire.StatementLinesPage, Serialized<StatementLinesPage>>;
+type _MatchConfidence = Check<Wire.MatchConfidence, MatchConfidence>;
+type _MatchConfidenceBack = Check<MatchConfidence, Wire.MatchConfidence>;
 type _Payment = Check<
     Pick<Wire.Payment, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'notes' | 'createdAt'>,
     Pick<Serialized<Payment>, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'notes' | 'createdAt'>

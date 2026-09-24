@@ -31,6 +31,7 @@ import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { AnnouncementModule } from './modules/announcement/announcement.module';
 import { LeadModule } from './modules/lead/lead.module';
+import { ReconciliationModule } from './modules/reconciliation/reconciliation.module';
 
 @Module({
     imports: [
@@ -67,6 +68,7 @@ import { LeadModule } from './modules/lead/lead.module';
         DashboardModule,
         AnnouncementModule,
         LeadModule,
+        ReconciliationModule,
     ],
     providers: [
         {

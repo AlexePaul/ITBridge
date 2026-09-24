@@ -278,6 +278,38 @@ describe('Privacy erasure (e2e)', () => {
         });
 
         /**
+         * E16/S8. The line stays, like the payment it became — but with the payer's name and the
+         * transfer's text on it, an emptied profile would be one join away from its name again.
+         */
+        it('blanks the bank line a payment came from, keeps its figures, and does not let it come back', async () => {
+            const invoices = await request(app.getHttpServer()).get('/invoices').query({ parentId: anaProfileId }).set('Authorization', admin.auth).expect(200);
+            const statement = 'Data;Nume platitor;Detalii;Referinta;Credit\n05.03.2026;POP ELENA;plata martie Maria Pop;RB2026030501;100,00';
+            const importStatement = () =>
+                request(app.getHttpServer()).post('/reconciliation/statements').set('Authorization', admin.auth).send({ content: statement }).expect(200);
+            await importStatement();
+            const [line] = await dataSource.query('SELECT id FROM bank_statement_lines');
+            await request(app.getHttpServer())
+                .post(`/reconciliation/lines/${line.id as number}/match`)
+                .set('Authorization', admin.auth)
+                .send({ invoiceId: invoices.body[0].id as number })
+                .expect(200);
+
+            await erase(anaProfileId).expect(201);
+
+            const rows = await dataSource.query('SELECT amount, "bookedOn", counterparty, description, "bankReference", payment_id FROM bank_statement_lines');
+            expect(rows).toHaveLength(1);
+            expect(rows[0]).toMatchObject({ counterparty: null, description: 'Șters la cererea familiei', bankReference: 'RB2026030501' });
+            expect(Number(rows[0].amount)).toBe(100);
+            expect(rows[0].payment_id).not.toBeNull();
+            const [payment] = await dataSource.query('SELECT "externalReference", notes FROM payments WHERE id = $1', [rows[0].payment_id]);
+            expect(payment).toEqual({ externalReference: 'RB2026030501', notes: null });
+            // The same statement again is a duplicate, not a fresh line carrying the name back in.
+            const again = await importStatement();
+            expect(again.body).toMatchObject({ imported: 0, duplicates: 1 });
+            expect(await countRows('SELECT count(*) FROM bank_statement_lines')).toBe(1);
+        });
+
+        /**
          * The trail has to survive the family, and safely: it stores identifiers rather than names
          * (E07 S3), so "who erased profile 412 and when" stays answerable precisely because
          * everything else is gone.

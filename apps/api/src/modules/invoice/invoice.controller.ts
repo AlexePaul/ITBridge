@@ -15,6 +15,7 @@ import { ArrearsService } from './arrears.service';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 import { actorFrom } from 'src/modules/audit/actor';
 import { FiscalIssuingService } from './fiscal-issuing.service';
+import { FiscalDivergenceService } from './fiscal-divergence.service';
 import { ConfirmFiscalNumberDto } from './dto/confirmFiscalNumber.dto';
 
 @Controller('invoices')
@@ -23,6 +24,7 @@ export class InvoiceController {
         private readonly invoiceService: InvoiceService,
         private readonly arrearsService: ArrearsService,
         private readonly fiscal: FiscalIssuingService,
+        private readonly divergence: FiscalDivergenceService,
     ) {}
 
     @Post()
@@ -97,6 +99,35 @@ export class InvoiceController {
     @ApiResponse({ status: 200, description: 'Mode, missing settings, lock-out and counts per fiscal state' })
     async fiscalQueue(@Query('monthIssued') monthIssued?: string) {
         return this.fiscal.status(monthIssued || undefined);
+    }
+
+    /**
+     * Where the platform and SmartBill disagree — E16/S8. SmartBill's side as last read (a day
+     * apart at most), judged against the platform's side as it is now. Above `/:id`.
+     */
+    @Get('/fiscal-divergences')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Raportul de divergențe dintre platformă și SmartBill',
+        description:
+            'Facturile emise în SmartBill la care suma încasată, totalul sau existența documentului diferă între cele două sisteme, cu motivul fiecăreia. Partea SmartBill e cea citită ultima dată; nu se citește nimic în cerere.',
+    })
+    @ApiResponse({ status: 200, description: 'Counts, staleness and the divergent invoices with their reasons' })
+    async fiscalDivergences() {
+        return this.divergence.report();
+    }
+
+    /** "Verifică acum": every issued invoice is re-read over the next minutes, at the usual pace. */
+    @Post('/fiscal-divergences/refresh')
+    @HttpCode(200)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: 'How many invoices were marked due for a read' })
+    async refreshFiscalDivergences() {
+        return this.divergence.markAllDue();
     }
 
     /**

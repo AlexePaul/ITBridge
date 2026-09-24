@@ -6,6 +6,7 @@ import { createClassSession, createRoom, createTestApp, groupBody, ownProfileId,
 import { FAKE_CREDENTIALS, FakeSmartBill } from './fake-smartbill';
 import { FiscalIssuingService } from 'src/modules/invoice/fiscal-issuing.service';
 import { PaymentFiscalService } from 'src/modules/payment/payment-fiscal.service';
+import { FiscalDivergenceService } from 'src/modules/invoice/fiscal-divergence.service';
 import { SmartBillService } from 'src/modules/smartbill/smartbill.service';
 import { S3Service } from 'src/modules/storage/s3.service';
 import { Invoice, InvoiceFiscalStatus } from 'src/entities/invoice.entity';
@@ -26,6 +27,7 @@ describe('Recording payments in SmartBill (e2e)', () => {
     let parent: TestUser;
     let issuing: FiscalIssuingService;
     let payments: PaymentFiscalService;
+    let divergence: FiscalDivergenceService;
     let smartBill: SmartBillService;
     let s3: { putObject: jest.Mock; downloadFile: jest.Mock };
     const fake = new FakeSmartBill();
@@ -98,6 +100,7 @@ describe('Recording payments in SmartBill (e2e)', () => {
         ({ app, dataSource } = await createTestApp());
         issuing = app.get(FiscalIssuingService);
         payments = app.get(PaymentFiscalService);
+        divergence = app.get(FiscalDivergenceService);
         smartBill = app.get(SmartBillService);
         s3 = app.get(S3Service);
     });
@@ -362,6 +365,90 @@ describe('Recording payments in SmartBill (e2e)', () => {
                 status: 'pending',
                 fiscalStatus: InvoiceFiscalStatus.ISSUED,
             });
+        });
+    });
+
+    /**
+     * E16/S8's second half: "divergențele dintre sisteme apar într-un raport, nu într-o surpriză la
+     * finalul lunii". SmartBill's side is read into the invoice; the verdict is made when the report
+     * is read, against the payments as they are then.
+     */
+    describe('the divergence report', () => {
+        const report = async () => (await request(app.getHttpServer()).get('/invoices/fiscal-divergences').set('Authorization', admin.auth).expect(200)).body;
+
+        it('stays empty while both sides tell the same story', async () => {
+            const invoice = await issuedOctober();
+            await pay(invoice);
+            await payments.drain();
+
+            expect(await divergence.refresh()).toMatchObject({ checked: 1, stoppedBy: null });
+            expect(await report()).toMatchObject({ mode: 'live', issued: 1, unchecked: 0, rows: [] });
+        });
+
+        it('catches money entered by hand in SmartBill', async () => {
+            await issuedOctober();
+            fake.collectByHand('ITB', '0041', 100);
+
+            await divergence.refresh();
+
+            expect((await report()).rows).toEqual([
+                expect.objectContaining({ fiscalNumber: '0041', smartbillPaid: 100, recordedPaid: 0, platformPaid: 0, reasons: ['changed_in_smartbill'] }),
+            ]);
+        });
+
+        it('points at a payment reversed here that is still a collection there', async () => {
+            const invoice = await issuedOctober();
+            const payment = await pay(invoice);
+            await payments.drain();
+            await request(app.getHttpServer()).put(`/payments/${payment.id}`).set('Authorization', admin.auth).send({ status: 'reversed' }).expect(200);
+
+            await divergence.refresh();
+
+            expect((await report()).rows).toEqual([expect.objectContaining({ platformPaid: 0, smartbillPaid: 350, reasons: ['reversed_still_recorded'] })]);
+        });
+
+        it('names money SmartBill refused', async () => {
+            const invoice = await issuedOctober();
+            await pay(invoice);
+            fake.failNextPayment('refuse');
+            await payments.drain();
+
+            await divergence.refresh();
+
+            expect((await report()).rows).toEqual([expect.objectContaining({ platformPaid: 350, smartbillPaid: 0, reasons: ['not_recorded'] })]);
+        });
+
+        it('says when SmartBill no longer has the invoice, or has another total', async () => {
+            await issuedOctober();
+            fake.retotalInvoice('ITB', '0041', 300);
+            await divergence.refresh();
+            expect((await report()).rows).toEqual([expect.objectContaining({ smartbillTotal: 300, reasons: ['total_differs'] })]);
+
+            fake.forgetInvoice('ITB', '0041');
+            await request(app.getHttpServer()).post('/invoices/fiscal-divergences/refresh').set('Authorization', admin.auth).expect(200);
+            await divergence.refresh();
+            expect((await report()).rows).toEqual([expect.objectContaining({ smartbillTotal: null, reasons: ['missing_in_smartbill'] })]);
+        });
+
+        // A figure read before a payment went through would be a false alarm, so recording one clears
+        // the invoice's check and it is not judged until it is read again.
+        it('does not judge an invoice whose SmartBill side changed since it was read', async () => {
+            const invoice = await issuedOctober();
+            await divergence.refresh();
+            await pay(invoice);
+            await payments.drain();
+
+            expect(await report()).toMatchObject({ issued: 1, unchecked: 1, rows: [] });
+
+            await divergence.refresh();
+            expect(await report()).toMatchObject({ unchecked: 0, rows: [] });
+        });
+
+        it("reads nothing outside 'live'", async () => {
+            await issuedOctober();
+            process.env.SMARTBILL_MODE = 'off';
+
+            expect(await divergence.refresh()).toMatchObject({ checked: 0, stoppedBy: 'off' });
         });
     });
 });

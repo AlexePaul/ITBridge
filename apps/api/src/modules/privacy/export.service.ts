@@ -19,7 +19,8 @@ import { Session } from 'src/entities/session.entity';
 import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
 import { EmailConfirmation } from 'src/entities/email-confirmation.entity';
 import { PasswordReset } from 'src/entities/password-reset.entity';
-import type { FamilyExport } from './export.types';
+import { BankStatementLine } from 'src/entities/bank-statement-line.entity';
+import type { ExportedPayment, FamilyExport } from './export.types';
 
 /**
  * Everything the school holds about one family, in one document — E07 S4, the access right.
@@ -68,6 +69,7 @@ export class ExportService {
         @InjectRepository(DocumentAcceptance) private readonly acceptances: Repository<DocumentAcceptance>,
         @InjectRepository(EmailConfirmation) private readonly confirmations: Repository<EmailConfirmation>,
         @InjectRepository(PasswordReset) private readonly passwordResets: Repository<PasswordReset>,
+        @InjectRepository(BankStatementLine) private readonly statementLines: Repository<BankStatementLine>,
     ) {}
 
     /** Which tables this service reads. `export.spec.ts` compares it with the inventory. */
@@ -82,6 +84,7 @@ export class ExportService {
         'SessionCountOverride',
         'Invoice',
         'Payment',
+        'BankStatementLine',
         'Discount',
         'Project',
         'ProjectVersion',
@@ -139,6 +142,12 @@ export class ExportService {
         const invoiceIds = invoices.map((invoice) => invoice.id);
         const payments = invoiceIds.length
             ? await this.payments.find({ where: { invoice: { id: In(invoiceIds) } }, relations: { invoice: true }, order: { id: 'ASC' } })
+            : [];
+        // E16/S8: a line of the school's bank statement reaches a family only through the payment it
+        // became — the inventory's `linkedVia`. A line nobody matched belongs to no family yet.
+        const paymentIds = payments.map((payment) => payment.id);
+        const statementLines = paymentIds.length
+            ? await this.statementLines.find({ where: { payment: { id: In(paymentIds) } }, relations: { payment: true }, order: { id: 'ASC' } })
             : [];
         const discounts = await this.discounts.find({ where: { parent: { id: profileId } }, order: { id: 'ASC' } });
         // Not `{ profile: { id } }` alone: a lead an admin typed in from a phone call has no link
@@ -272,6 +281,7 @@ export class ExportService {
                         // family was handed, so theirs to have back.
                         chitantaFiscala:
                             payment.fiscalReceiptSeries && payment.fiscalReceiptNumber ? `${payment.fiscalReceiptSeries} ${payment.fiscalReceiptNumber}` : null,
+                        dinExtras: fromStatement(statementLines.find((line) => line.payment?.id === payment.id)),
                     })),
             })),
             reduceri: discounts.map((discount) => ({
@@ -337,4 +347,16 @@ function toDay(value: Date | string | null | undefined): string | null {
     const month = String(value.getMonth() + 1).padStart(2, '0');
     const day = String(value.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+
+/** The statement line a payment was recorded from, as the bank wrote it; `null` when there is none. */
+function fromStatement(line: BankStatementLine | undefined): ExportedPayment['dinExtras'] {
+    if (!line) return null;
+    return {
+        data: toDay(line.bookedOn),
+        suma: line.amount,
+        platitor: line.counterparty,
+        detalii: line.description,
+        referintaBanca: line.bankReference,
+    };
 }

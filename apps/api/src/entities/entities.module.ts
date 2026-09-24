@@ -31,6 +31,7 @@ import { AgentStatus } from './agent-status.entity';
 import { Announcement } from './announcement.entity';
 import { Lead } from './lead.entity';
 import { DocumentAcceptance } from './document-acceptance.entity';
+import { BankStatementLine } from './bank-statement-line.entity';
 
 @Module({
     imports: [
@@ -66,6 +67,7 @@ import { DocumentAcceptance } from './document-acceptance.entity';
             Announcement,
             Lead,
             DocumentAcceptance,
+            BankStatementLine,
         ]),
     ],
     exports: [TypeOrmModule],

@@ -257,8 +257,8 @@ periodic. Trei locuri, trei treburi diferite, un singur număr — al E22.
 
 **Livrat: exportul.** `GET /privacy/export` întoarce tot ce ține școala despre familia care cere —
 datele de contact, contul, copiii cu înscrierile, prezențele, absențele anunțate și proiectele lor,
-facturile cu plățile, reducerile, solicitările de probă, mesajele primite, sesiunile și documentele
-acceptate. Butonul e pe `/user/profile`, iar fișierul se construiește în browser din JSON-ul
+facturile cu plățile (și, lângă o plată venită din extras, linia băncii din care a venit — E16 S8),
+reducerile, solicitările de probă, mesajele primite, sesiunile și documentele acceptate. Butonul e pe `/user/profile`, iar fișierul se construiește în browser din JSON-ul
 serverului. Adminul poate produce același document pentru o familie care a sunat, prin
 `GET /privacy/export/:profileId` — rută separată, nu un parametru opțional pe prima: un endpoint a
 cărui audiență depinde de un query string e la un refactor distanță de a o servi pe cealaltă.
@@ -317,7 +317,7 @@ respinge mesajele — același argument ca la rândul nelivrabil din E17 S5.
 **Cascadele fac cea mai mare parte, și ăsta e tot ideea.** Ștergerea unui `Child` ia cu ea
 înscrierile, prezențele, absențele anunțate, cererile din listă, corecturile de ședințe și
 proiectele; ștergerea `User`-ului ia sesiunile, confirmările de email și acceptările de documente.
-Ce **rămâne pe dinafară** e exact ce serviciul trebuie să spună cu voce tare, și sunt patru lucruri:
+Ce **rămâne pe dinafară** e exact ce serviciul trebuie să spună cu voce tare, și sunt cinci lucruri:
 
 - **Lead-urile își țin propriile copii ale numelor.** `Lead.child` e `SET NULL`, iar rândul poartă
   `childFirstName`, `childLastName` și `childBirthDate`. Ștergerea copilului le-ar lăsa pe toate
@@ -333,6 +333,11 @@ Ce **rămâne pe dinafară** e exact ce serviciul trebuie să spună cu voce tar
   rândurile se caută după adresă, exact cum spune inventarul din S1 că va trebui.
 - **`Payment.notes` e text liber scris de un admin despre o familie**, pe un rând care se păstrează.
   Cifrele rămân, fiindcă sunt evidența contabilă; propoziția nu.
+- **O linie din extrasul bancar devenită plata familiei** (E16 S8) își pierde plătitorul și
+  detaliile transferului — acolo scriu familiile numele copilului la fel de des ca numărul facturii
+  — și își păstrează cifrele, referința băncii și amprenta. Amprenta rămâne dinadins: e ce face din
+  același extras importat din nou un duplicat, nu o linie nouă care aduce numele înapoi. Evidența
+  contabilă e extrasul băncii, nu copia din platformă.
 - **Reducerile pleacă.** Epicul păstrează facturile și nimic altceva, iar un rând de reducere
   numește motivul pentru care o anumită familie a plătit mai puțin. Factura poartă deja numărul.
 

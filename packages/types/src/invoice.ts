@@ -45,6 +45,13 @@ export interface Invoice {
     fiscalLastError: string | null;
     /** The series' next number when a lost answer was sent — the likely number of an invoice under review. */
     fiscalExpectedNumber: number | null;
+    /**
+     * SmartBill's side as last read — E16/S8: what it counts as collected, its total, and when.
+     * Checked with both figures empty means SmartBill no longer knows the number.
+     */
+    fiscalPaidAmount: number | null;
+    fiscalTotalAmount: number | null;
+    fiscalCheckedAt: ISODateTime | null;
 }
 
 /**
@@ -186,4 +193,39 @@ export interface ArrearsRow {
     outstanding: number;
     daysOverdue: number;
     bucket: ArrearsBucket;
+}
+
+/**
+ * Why the platform and SmartBill disagree about an invoice — E16/S8. Mirrors `DivergenceReason` in
+ * `apps/api/src/modules/invoice/fiscal-divergence.rules.ts`.
+ */
+export type DivergenceReason =
+    'missing_in_smartbill' | 'total_differs' | 'changed_in_smartbill' | 'reversed_still_recorded' | 'not_recorded';
+
+export interface FiscalDivergenceRow {
+    invoiceId: number;
+    monthIssued: string;
+    familyName: string;
+    fiscalSeries: string | null;
+    fiscalNumber: string | null;
+    amount: number;
+    smartbillTotal: number | null;
+    /** Money the platform counts as received. */
+    platformPaid: number;
+    /** What the platform recorded in SmartBill. */
+    recordedPaid: number;
+    smartbillPaid: number | null;
+    checkedAt: ISODateTime;
+    reasons: DivergenceReason[];
+}
+
+/** `GET /invoices/fiscal-divergences`. */
+export interface FiscalDivergenceReport {
+    mode: SmartBillMode;
+    missing: string[];
+    lockedUntil: ISODateTime | null;
+    issued: number;
+    unchecked: number;
+    oldestCheckAt: ISODateTime | null;
+    rows: FiscalDivergenceRow[];
 }

@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger, NotFoundExc
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
 import { Payment, PaymentFiscalStatus } from 'src/entities/payment.entity';
-import { InvoiceFiscalStatus } from 'src/entities/invoice.entity';
+import { Invoice, InvoiceFiscalStatus } from 'src/entities/invoice.entity';
 import { PaymentMethod } from 'src/enum/payment-method.enum';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
@@ -318,6 +318,9 @@ export class PaymentFiscalService {
             fiscalNextAttemptAt: null,
             fiscalLastError: null,
         });
+        // SmartBill's side of the invoice just changed: what was last read of it is out of date, and
+        // the divergence check (E16/S8) must not judge it until it has read it again.
+        await this.dataSource.getRepository(Invoice).update(payment.invoice.id, { fiscalCheckedAt: null });
         result.recorded++;
         this.logger.log(
             `Payment ${payment.id} recorded in SmartBill on ${series} ${number}${recorded.number ? `, receipt ${recorded.series ?? '?'} ${recorded.number}` : ''}.`,
@@ -446,8 +449,9 @@ export class PaymentFiscalService {
      */
     async confirmRecorded(paymentId: number, receiptNumber: string | undefined, actor: Actor): Promise<Payment> {
         return this.dataSource.transaction(async (manager) => {
-            const payment = await manager.findOne(Payment, { where: { id: paymentId }, lock: { mode: 'pessimistic_write' } });
-            if (!payment) throw new NotFoundException('Payment not found');
+            const locked = await manager.findOne(Payment, { where: { id: paymentId }, lock: { mode: 'pessimistic_write' } });
+            if (!locked) throw new NotFoundException('Payment not found');
+            const payment = await manager.findOneOrFail(Payment, { where: { id: paymentId }, relations: { invoice: true } });
             if (payment.fiscalStatus !== PaymentFiscalStatus.REVIEW) {
                 throw new ConflictException({
                     message: `Payment ${paymentId} is ${payment.fiscalStatus ?? 'not queued for SmartBill'}; only one under review can be confirmed.`,
@@ -472,6 +476,8 @@ export class PaymentFiscalService {
                 fiscalNextAttemptAt: null,
                 fiscalLastError: null,
             });
+            // As after any recorded collection: SmartBill's side of the invoice is re-read before it is judged.
+            await manager.update(Invoice, payment.invoice.id, { fiscalCheckedAt: null });
             await this.audit.record(
                 {
                     actor,

@@ -4,6 +4,7 @@ import { buildController, requestOf } from 'src/testing/controller.spec-helpers'
 import { ArrearsService } from './arrears.service';
 import { Role } from 'src/enum/role.enum';
 import { FiscalIssuingService } from './fiscal-issuing.service';
+import { FiscalDivergenceService } from './fiscal-divergence.service';
 
 describe('InvoiceController', () => {
     const build = () =>
@@ -22,6 +23,7 @@ describe('InvoiceController', () => {
             [
                 { provide: ArrearsService, useValue: arrears },
                 { provide: FiscalIssuingService, useValue: fiscal },
+                { provide: FiscalDivergenceService, useValue: divergence },
             ],
         );
 
@@ -30,6 +32,9 @@ describe('InvoiceController', () => {
 
     /** E16/S2's queue, likewise: status, retry and confirm are forwarded as they come. */
     const fiscal = { status: jest.fn(), retry: jest.fn(), confirmIssued: jest.fn() };
+
+    /** E16/S8's divergence check: the report and "check now", forwarded as they come. */
+    const divergence = { report: jest.fn(), markAllDue: jest.fn() };
 
     it('passes the role and user id from the token to findInvoices', async () => {
         const { controller, service } = await build();
@@ -75,5 +80,15 @@ describe('InvoiceController', () => {
 
         expect(fiscal.retry).toHaveBeenCalledWith(7, expect.objectContaining({ userId: 42 }));
         expect(fiscal.confirmIssued).toHaveBeenCalledWith(7, '0041', expect.objectContaining({ userId: 42 }));
+    });
+
+    it('forwards the divergence report and the request to check again', async () => {
+        const { controller } = await build();
+
+        await controller.fiscalDivergences();
+        await controller.refreshFiscalDivergences();
+
+        expect(divergence.report).toHaveBeenCalledWith();
+        expect(divergence.markAllDue).toHaveBeenCalledWith();
     });
 });

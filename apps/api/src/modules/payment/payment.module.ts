@@ -27,5 +27,7 @@ import { PaymentFiscalJob } from './payment-fiscal.job';
     imports: [TypeOrmModule.forFeature([Payment, Invoice]), JwtModule.register({}), MailModule, AuditModule, SmartBillModule],
     controllers: [PaymentController],
     providers: [PaymentService, PaymentFiscalService, PaymentFiscalJob, AuthGuard, RolesGuard],
+    // E16/S8: a confirmed line of the bank statement comes in by the same door as a typed payment.
+    exports: [PaymentService],
 })
 export class PaymentModule {}

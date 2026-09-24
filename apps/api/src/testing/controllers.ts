@@ -23,6 +23,7 @@ import { AnnouncementController } from 'src/modules/announcement/announcement.co
 import { LeadController } from 'src/modules/lead/lead.controller';
 import { TrialController } from 'src/modules/lead/trial.controller';
 import { AuditController } from 'src/modules/audit/audit.controller';
+import { ReconciliationController } from 'src/modules/reconciliation/reconciliation.controller';
 import { PrivacyController } from 'src/modules/privacy/privacy.controller';
 
 /**
@@ -65,4 +66,5 @@ export const CONTROLLERS = [
     TrialController,
     AuditController,
     PrivacyController,
+    ReconciliationController,
 ];
