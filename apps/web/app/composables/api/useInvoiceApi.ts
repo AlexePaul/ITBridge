@@ -1,5 +1,6 @@
 import type { ArrearsRow } from "~/types/arrears.types";
 import type {
+  FiscalQueueStatus,
   Invoice,
   InvoiceWorksheet,
   IssueInvoicesResult,
@@ -76,7 +77,35 @@ export const useInvoiceApi = () => {
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
+  /**
+   * Where the SmartBill queue stands — E16/S3 — with the mode beside the counts, because "în
+   * coadă" means one thing when the platform is sending and another when it is switched off.
+   */
+  const fetchFiscalQueue = async (monthIssued?: string) =>
+    api<FiscalQueueStatus>(
+      `/invoices/fiscal-queue${monthIssued ? `?monthIssued=${monthIssued}` : ""}`,
+      { headers: { Authorization: `Bearer ${tokenStore.accessToken}` } }
+    );
+
+  /** Sends a refused invoice again, or one under review that somebody found missing in SmartBill. */
+  const retryFiscal = async (invoiceId: number) =>
+    api<Invoice>(`/invoices/${invoiceId}/fiscal/retry`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** "SmartBill did issue it, with this number" — the way out of review. Digits, as SmartBill prints them. */
+  const confirmFiscal = async (invoiceId: number, number: string) =>
+    api<Invoice>(`/invoices/${invoiceId}/fiscal/confirm`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: { number },
+    });
+
   return {
+    fetchFiscalQueue,
+    retryFiscal,
+    confirmFiscal,
     fetchArrears,
     fetchWorksheet,
     issueInvoices,

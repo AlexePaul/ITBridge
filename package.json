@@ -24,7 +24,8 @@
     "test:a11y:auth": "dotenv -e .env -- turbo run test:a11y:auth",
     "seed": "dotenv -e .env -- pnpm --filter api seed",
     "seed:stage": "dotenv -e .env.stage -v SEED_TARGET=stage -- pnpm --filter api seed",
-    "seed:scale": "dotenv -e .env -- pnpm --filter api seed:scale"
+    "seed:scale": "dotenv -e .env -- pnpm --filter api seed:scale",
+    "smartbill:check": "dotenv -e .env -- pnpm --filter api smartbill:check"
   },
   "devDependencies": {
     "husky": "^9.1.7",

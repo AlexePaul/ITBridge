@@ -1,7 +1,7 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
-import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
+import { FISCAL_DOCUMENT_MAY_EXIST, Invoice, InvoiceFiscalStatus, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Child } from 'src/entities/child.entity';
 import { SessionCountOverride } from 'src/entities/session-count-override.entity';
@@ -26,6 +26,10 @@ import { amountAfterDiscounts, sessionAmountAfterDiscounts } from './pricing';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { snapshotFields } from 'src/modules/audit/audit.rules';
 import { AuditAction } from 'src/enum/audit-action.enum';
+import { invoicePdfKey } from './invoice-pdf-key';
+import { FiscalIssuingService } from './fiscal-issuing.service';
+import { fiscalStateAtIssue, writesLocalPdf } from './fiscal-issuing.rules';
+import { smartBillMode } from 'src/modules/smartbill/smartbill.config';
 
 /** One family's row on the issuing screen, with the children whose sessions have to be counted. */
 export interface InvoiceWorksheetRow {
@@ -63,9 +67,8 @@ export interface InvoiceWorksheet {
     families: InvoiceWorksheetRow[];
 }
 
-export function invoicePdfKey(monthIssued: string, invoiceId: number): string {
-    return `invoices/${monthIssued}/${invoiceId}.pdf`;
-}
+// Re-exported: the seed and older callers import it from here.
+export { invoicePdfKey };
 
 @Injectable()
 export class InvoiceService {
@@ -83,6 +86,7 @@ export class InvoiceService {
         private readonly billable: BillableSessionsService,
         private readonly dataSource: DataSource,
         private readonly audit: AuditService,
+        private readonly fiscal: FiscalIssuingService,
     ) {}
 
     /**
@@ -131,6 +135,10 @@ export class InvoiceService {
             }),
         );
 
+        // Read once for the whole batch: a month is issued under one mode, not half and half.
+        const mode = smartBillMode();
+        const now = new Date();
+
         return this.dataSource.transaction(async (manager) => {
             const invoicesCreated: Invoice[] = [];
 
@@ -141,14 +149,17 @@ export class InvoiceService {
                 invoice.monthIssued = createInvoiceDto.monthIssued;
                 invoice.status = InvoiceStatus.PENDING;
                 invoice.parent = parent;
+                Object.assign(invoice, fiscalStateAtIssue(amount, mode, now));
 
                 const persisted = await manager.save(invoice);
 
                 await this.recordInvoice(persisted, AuditAction.CREATED, actor, manager);
 
-                const pdfBuffer = await this.pdfService.generateInvoicePdf(persisted);
-                const fileName = invoicePdfKey(persisted.monthIssued, persisted.id);
-                await this.s3Service.putObject({ key: fileName, body: pdfBuffer, contentType: 'application/pdf' });
+                if (writesLocalPdf(mode)) {
+                    const pdfBuffer = await this.pdfService.generateInvoicePdf(persisted);
+                    const fileName = invoicePdfKey(persisted.monthIssued, persisted.id);
+                    await this.s3Service.putObject({ key: fileName, body: pdfBuffer, contentType: 'application/pdf' });
+                }
 
                 invoicesCreated.push(persisted);
             }
@@ -191,26 +202,40 @@ export class InvoiceService {
         // compare against and every diff would be empty.
         const before = InvoiceService.auditableInvoice(invoice);
 
-        if (dto.amount) invoice.amount = dto.amount;
-        if (dto.dateIssued) invoice.dateIssued = new Date(dto.dateIssued);
-        if (dto.status) invoice.status = dto.status;
+        const changes: Partial<Pick<Invoice, 'amount' | 'dateIssued' | 'status'>> = {};
+        if (dto.amount) changes.amount = dto.amount;
+        if (dto.dateIssued) changes.dateIssued = new Date(dto.dateIssued);
+        if (dto.status) changes.status = dto.status;
+        Object.assign(invoice, changes);
 
         // The save and its record in one transaction: a trail entry that survives a rolled-back
         // edit says something happened that did not — E07/S3.
         return this.dataSource.transaction(async (manager) => {
-            const saved = await manager.save(Invoice, invoice);
+            // The amount and the date are printed on the fiscal document; once one exists in
+            // SmartBill, or may, changing them here would leave the platform's row describing an
+            // invoice nobody issued. The status is the platform's own and stays editable.
+            if (changes.amount !== undefined || changes.dateIssued !== undefined) {
+                await this.assertNoFiscalDocument(id, manager, 'change the amount or the date of');
+            }
+            // Only the fields that were sent. A whole-entity `save` of a row read before this
+            // transaction writes back every column that differs from the database — the fiscal ones
+            // included — so an invoice the queue had issued in between would be put back in the
+            // queue as it was when read, and issued a second time (E16/S2).
+            if (Object.keys(changes).length > 0) {
+                await manager.update(Invoice, id, changes);
+            }
             await this.audit.recordUpdate(
                 {
                     actor,
                     entityType: 'Invoice',
-                    entityId: saved.id,
+                    entityId: invoice.id,
                     before,
-                    after: InvoiceService.auditableInvoice(saved),
+                    after: InvoiceService.auditableInvoice(invoice),
                     fields: InvoiceService.AUDITED_INVOICE_FIELDS,
                 },
                 manager,
             );
-            return saved;
+            return invoice;
         });
     }
 
@@ -222,9 +247,28 @@ export class InvoiceService {
         // What the row held is kept, because after the delete there is nothing left to look at:
         // "who removed the family's March invoice" has no answer otherwise.
         await this.dataSource.transaction(async (manager) => {
+            await this.assertNoFiscalDocument(id, manager, 'delete');
             await manager.delete(Invoice, id);
             await this.recordInvoice(invoice, AuditAction.DELETED, actor, manager);
         });
+    }
+
+    /**
+     * Refuses to touch an invoice whose fiscal document exists in SmartBill, or may — E16/S2.
+     *
+     * Under the row lock, because the fiscal queue claims rows with `FOR UPDATE SKIP LOCKED`: holding
+     * it here means the queue cannot start sending this invoice halfway through the edit, and an
+     * invoice it already started on is seen in the air and refused. The way to correct an issued
+     * invoice is a storno in SmartBill; a draft is not a fiscal document and does not block anything.
+     */
+    private async assertNoFiscalDocument(id: number, manager: EntityManager, act: string): Promise<void> {
+        const locked = await manager.findOne(Invoice, { where: { id }, lock: { mode: 'pessimistic_write' } });
+        if (locked?.fiscalStatus && FISCAL_DOCUMENT_MAY_EXIST.includes(locked.fiscalStatus)) {
+            throw new ConflictException({
+                message: `Invoice ${id} has a fiscal document in SmartBill (${locked.fiscalStatus}); cannot ${act} it here — issue a storno in SmartBill instead.`,
+                error: 'INVOICE_HAS_FISCAL_DOCUMENT',
+            });
+        }
     }
 
     /**
@@ -261,15 +305,34 @@ export class InvoiceService {
         try {
             return await this.s3Service.downloadFile(invoicePdfKey(invoice.monthIssued, invoice.id));
         } catch (error: unknown) {
+            if (!(error instanceof ObjectNotFoundError)) throw error;
+
+            // Issued in SmartBill and not kept yet — the fetch right after issuing is best effort.
+            // Fetched now, kept, and handed over: the family's download is the fiscal document.
+            if (invoice.fiscalStatus === InvoiceFiscalStatus.ISSUED && invoice.fiscalSeries && invoice.fiscalNumber) {
+                const pdf = await this.fiscal.storeFiscalPdf(invoice, invoice.fiscalSeries, invoice.fiscalNumber);
+                if (pdf) return pdf;
+                throw new ServiceUnavailableException({
+                    message: `SmartBill did not hand over the PDF of ${invoice.fiscalSeries} ${invoice.fiscalNumber}; try again shortly.`,
+                    error: 'FISCAL_PDF_UNAVAILABLE',
+                });
+            }
+
+            // Queued for SmartBill with no local PDF: in `live` there is no document until SmartBill
+            // issues one, and saying so beats a generic "not generated".
+            if (invoice.fiscalStatus !== null && invoice.fiscalStatus !== InvoiceFiscalStatus.DRAFT) {
+                throw new NotFoundException({
+                    message: 'The fiscal invoice has not been issued in SmartBill yet',
+                    error: 'FISCAL_INVOICE_NOT_ISSUED_YET',
+                });
+            }
+
             // A stored invoice whose PDF is missing is a 404 with a message that says so, not a
             // 500 claiming the server broke. It happens for every invoice written straight to the
             // database rather than issued through this service — every row `pnpm seed` creates,
             // for one, which made the download button on the admin invoice screen fail on a
             // freshly seeded database.
-            if (error instanceof ObjectNotFoundError) {
-                throw new NotFoundException('The PDF for this invoice has not been generated');
-            }
-            throw error;
+            throw new NotFoundException('The PDF for this invoice has not been generated');
         }
     }
 
@@ -420,6 +483,12 @@ export class InvoiceService {
             prepared.push({ parent, amount: family.amount });
         }
 
+        // One mode for the whole month, read once: E16/S2. The fiscal documents themselves are made
+        // afterwards by `FiscalIssuingService`, off this request — pressing "emite" never waits on
+        // SmartBill, and SmartBill being down never undoes the month.
+        const mode = smartBillMode();
+        const now = new Date();
+
         const { issued, waived } = await this.dataSource.transaction(async (manager) => {
             const created: Invoice[] = [];
             const nil: Invoice[] = [];
@@ -434,19 +503,25 @@ export class InvoiceService {
                 // whose October nobody got round to — and only one of those needs chasing.
                 invoice.status = amount > 0 ? InvoiceStatus.PENDING : InvoiceStatus.WAIVED;
                 invoice.parent = parent;
+                Object.assign(invoice, fiscalStateAtIssue(amount, mode, now));
 
                 const persisted = await manager.save(invoice);
                 await this.recordInvoice(persisted, AuditAction.CREATED, actor, manager);
 
                 if (amount > 0) {
-                    const pdfBuffer = await this.pdfService.generateInvoicePdf(persisted);
-                    // `putObject`, not `uploadFile`: E14 generalised the client when project files
-                    // started going through it, and the content type is no longer assumed to be PDF.
-                    await this.s3Service.putObject({
-                        key: invoicePdfKey(persisted.monthIssued, persisted.id),
-                        body: pdfBuffer,
-                        contentType: 'application/pdf',
-                    });
+                    // In `live` the PDF is SmartBill's, fetched once the invoice is issued there
+                    // (E15/S7): a second document for the same month, with no series and no number,
+                    // is the "not an invoice" E16 opens with.
+                    if (writesLocalPdf(mode)) {
+                        const pdfBuffer = await this.pdfService.generateInvoicePdf(persisted);
+                        // `putObject`, not `uploadFile`: E14 generalised the client when project files
+                        // started going through it, and the content type is no longer assumed to be PDF.
+                        await this.s3Service.putObject({
+                            key: invoicePdfKey(persisted.monthIssued, persisted.id),
+                            body: pdfBuffer,
+                            contentType: 'application/pdf',
+                        });
+                    }
                     created.push(persisted);
                 } else {
                     // No PDF: there is nothing to print, nobody to ask for money, and an empty

@@ -125,6 +125,68 @@ export class EnvironmentVariables {
     @IsIn(['true', 'false'])
     RATE_LIMIT_ENABLED?: string;
 
+    /**
+     * What the platform does with SmartBill — E16/S2. `off` (the default) sends nothing; `draft`
+     * sends every invoice as a SmartBill draft, which gets no number and is not a fiscal document;
+     * `live` issues real invoices. See `smartbill.config.ts`: SmartBill has no sandbox, so this
+     * switch is the whole of the safety story.
+     */
+    @IsOptional()
+    @IsIn(['off', 'draft', 'live'])
+    SMARTBILL_MODE?: string;
+
+    /** The e-mail the API token belongs to — Contul Meu > Integrari > API, in SmartBill Cloud. */
+    @IsOptional()
+    @IsString()
+    SMARTBILL_USERNAME?: string;
+
+    @IsOptional()
+    @IsString()
+    SMARTBILL_TOKEN?: string;
+
+    /** The school's CIF, exactly as SmartBill Cloud has it — sent as `companyVatCode`. */
+    @IsOptional()
+    @IsString()
+    SMARTBILL_CIF?: string;
+
+    /** The platform's own invoice series. Nothing else may issue on it; see `reconcile`. */
+    @IsOptional()
+    @IsString()
+    SMARTBILL_INVOICE_SERIES?: string;
+
+    /** The unit on the invoice line, spelled as in the account. Defaults to `buc`. */
+    @IsOptional()
+    @IsString()
+    SMARTBILL_MEASURING_UNIT?: string;
+
+    /** Only when the account has "Foloseste cod produs" on. */
+    @IsOptional()
+    @IsString()
+    SMARTBILL_PRODUCT_CODE?: string;
+
+    /** A VAT rate as `GET /tax` names it. Both or neither with the percentage; neither means "not a VAT payer". */
+    @IsOptional()
+    @IsString()
+    SMARTBILL_TAX_NAME?: string;
+
+    @IsOptional()
+    @IsString()
+    SMARTBILL_TAX_PERCENTAGE?: string;
+
+    /**
+     * The name of the one database whose invoices are real. `SMARTBILL_MODE=live` refuses to start
+     * without it matching `DB_NAME` — the rule `SEED_ALLOW_NON_LOCAL` follows, for the same reason:
+     * a bare "yes" in an environment file authorises whatever database it is copied next to.
+     */
+    @IsOptional()
+    @IsString()
+    SMARTBILL_LIVE_DB?: string;
+
+    /** Where the V1 API is. Unset in every real environment; the test suites point it at a fake. */
+    @IsOptional()
+    @IsString()
+    SMARTBILL_BASE_URL?: string;
+
     /** Set only by the schema tooling, which needs the database settings and nothing else. */
     @IsOptional()
     @IsIn(['true', 'false'])
@@ -152,9 +214,58 @@ export function validateEnv(raw: Record<string, unknown>): EnvironmentVariables 
         problems.push('JWT_ACCESS_TOKEN_SECRET and JWT_REFRESH_TOKEN_SECRET must differ');
     }
 
+    problems.push(...smartBillProblems(raw));
+
     if (problems.length > 0) {
         throw new Error(['Invalid environment configuration. The application will not start.', '', ...problems.map((p) => `  - ${p}`), ''].join('\n'));
     }
 
     return config;
+}
+
+/**
+ * The SmartBill settings that have to agree with each other — E16/S2.
+ *
+ * A mode that cannot work is refused at boot rather than left to fail on the first invoice: the
+ * variable is somebody's explicit choice, and a deploy that refuses to start keeps the previous
+ * version serving, which beats one that starts and quietly queues a month nobody will send.
+ */
+export function smartBillProblems(raw: Record<string, unknown>): string[] {
+    const text = (key: string) => {
+        const value = raw[key];
+        return typeof value === 'string' ? value.trim() : '';
+    };
+    const mode = text('SMARTBILL_MODE') || 'off';
+    const problems: string[] = [];
+
+    if (text('SMARTBILL_TAX_NAME') !== '' && text('SMARTBILL_TAX_PERCENTAGE') === '') {
+        problems.push('SMARTBILL_TAX_NAME is set without SMARTBILL_TAX_PERCENTAGE; set both, or neither for a school that is not a VAT payer');
+    }
+    if (text('SMARTBILL_TAX_PERCENTAGE') !== '') {
+        const percentage = Number(text('SMARTBILL_TAX_PERCENTAGE'));
+        if (text('SMARTBILL_TAX_NAME') === '') {
+            problems.push('SMARTBILL_TAX_PERCENTAGE is set without SMARTBILL_TAX_NAME; SmartBill picks "Taxare inversa" for an unnamed 0% rate');
+        } else if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+            problems.push('SMARTBILL_TAX_PERCENTAGE must be a number between 0 and 100');
+        }
+    }
+
+    if (mode === 'off') return problems;
+
+    const missing = ['SMARTBILL_USERNAME', 'SMARTBILL_TOKEN', 'SMARTBILL_CIF', 'SMARTBILL_INVOICE_SERIES'].filter((key) => text(key) === '');
+    if (missing.length > 0) {
+        problems.push(`SMARTBILL_MODE=${mode} needs ${missing.join(', ')}`);
+    }
+
+    if (mode === 'live') {
+        const liveDb = text('SMARTBILL_LIVE_DB');
+        const dbName = text('DB_NAME');
+        if (liveDb === '' || liveDb !== dbName) {
+            problems.push(
+                `SMARTBILL_MODE=live issues real fiscal invoices; set SMARTBILL_LIVE_DB to this database's name (DB_NAME=${dbName || '(unset)'}) to confirm these are the families to invoice`,
+            );
+        }
+    }
+
+    return problems;
 }

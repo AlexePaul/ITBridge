@@ -40,7 +40,9 @@ import type { Room } from './entities/room.entity';
 import type { Attendance } from './entities/attendance.entity';
 import type { ClassSession } from './entities/class-session.entity';
 import type { RescheduleWindowsResult } from './modules/class-session/reschedule.service';
-import type { Invoice } from './entities/invoice.entity';
+import type { Invoice, InvoiceFiscalStatus } from './entities/invoice.entity';
+import type { SmartBillMode } from './modules/smartbill/smartbill.config';
+import type { FiscalQueueStatus } from './modules/invoice/fiscal-issuing.service';
 import type { Payment } from './entities/payment.entity';
 import type { PaymentMethod } from './enum/payment-method.enum';
 import type { PaymentStatus } from './enum/payment-status.enum';
@@ -171,6 +173,19 @@ type _Invoice = Check<
     Pick<Wire.Invoice, 'id' | 'amount' | 'dateIssued' | 'monthIssued' | 'status'>,
     Pick<Serialized<Invoice>, 'id' | 'amount' | 'dateIssued' | 'monthIssued' | 'status'>
 >;
+// E16/S2. The fiscal status is a union on the wire and an enum here, compared through the template
+// literal like every other pair; the reference fields are compared as they serialise.
+type _InvoiceFiscal = Check<
+    Omit<Pick<Wire.Invoice, InvoiceFiscalWireFields>, 'fiscalStatus'> & { fiscalStatus: `${InvoiceFiscalStatus}` | null },
+    Omit<Pick<Serialized<Invoice>, InvoiceFiscalWireFields>, 'fiscalStatus'> & { fiscalStatus: `${InvoiceFiscalStatus}` | null }
+>;
+type InvoiceFiscalWireFields =
+    'fiscalStatus' | 'fiscalSeries' | 'fiscalNumber' | 'fiscalDocumentUrl' | 'fiscalViewUrl' | 'fiscalIssuedAt' | 'fiscalLastError' | 'fiscalExpectedNumber';
+type _InvoiceFiscalStatus = Check<Wire.InvoiceFiscalStatus, `${InvoiceFiscalStatus}`>;
+type _InvoiceFiscalStatusBack = Check<`${InvoiceFiscalStatus}`, Wire.InvoiceFiscalStatus>;
+type _SmartBillMode = Check<Wire.SmartBillMode, SmartBillMode>;
+type _SmartBillModeBack = Check<SmartBillMode, Wire.SmartBillMode>;
+type _FiscalQueueStatus = Check<Wire.FiscalQueueStatus, Serialized<FiscalQueueStatus>>;
 type _Payment = Check<
     Pick<Wire.Payment, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'smartbillReference' | 'notes' | 'createdAt'>,
     Pick<Serialized<Payment>, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'smartbillReference' | 'notes' | 'createdAt'>

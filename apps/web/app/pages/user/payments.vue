@@ -36,6 +36,12 @@
           <p class="portal-card-figure">{{ formatMonth(invoice.monthIssued) }}</p>
           <p class="portal-card-figure tnum">{{ formatLei(invoice.amount) }}</p>
         </div>
+        <!-- E16/S2: the fiscal number is the reference a transfer is matched by. -->
+        <p v-if="invoice.fiscalNumber" class="body-text measure-wide">
+          Factura fiscală
+          <span class="tnum">{{ invoice.fiscalSeries }} {{ invoice.fiscalNumber }}</span>
+          — la transfer, trece-o în detaliile plății.
+        </p>
         <p class="body-text measure-wide">
           Dacă ai plătit deja sau ți se pare o greșeală, scrie-ne sau sună la
           <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
@@ -63,6 +69,11 @@
           <p class="portal-card-figure tnum">{{ formatLei(invoice.amount) }}</p>
         </div>
         <p class="body-text">Emisă pe {{ formatDateKey(invoice.dateIssued) }}.</p>
+        <p v-if="invoice.fiscalNumber" class="body-text measure-wide">
+          Factura fiscală
+          <span class="tnum">{{ invoice.fiscalSeries }} {{ invoice.fiscalNumber }}</span>
+          — la transfer, trece-o în detaliile plății.
+        </p>
         <button
           type="button"
           class="btn btn-primary invoice-action"

@@ -1,4 +1,4 @@
-import type { BillingMonth, ISODate, TimeOfDay } from './common';
+import type { BillingMonth, ISODate, ISODateTime, TimeOfDay } from './common';
 import type { ProfileSummary } from './profile';
 
 /**
@@ -10,6 +10,19 @@ import type { ProfileSummary } from './profile';
  */
 export type InvoiceStatus = 'pending' | 'paid' | 'overdue' | 'waived';
 
+/**
+ * Where an invoice stands with SmartBill, the school's fiscal system — E16/S2. Mirrors
+ * `InvoiceFiscalStatus` in `apps/api/src/entities/invoice.entity.ts`; `null` on the invoice means it
+ * was never meant for SmartBill (issued in mode `off`, before the integration, or a waived month).
+ *
+ * `uncertain` is a request in the air or one whose answer was lost; `review` is one a person has to
+ * settle, because SmartBill's series moved while the answer was missing.
+ */
+export type InvoiceFiscalStatus = 'pending' | 'uncertain' | 'review' | 'draft' | 'issued' | 'failed';
+
+/** What `SMARTBILL_MODE` is set to. `off` sends nothing; `draft` sends drafts only; `live` issues. */
+export type SmartBillMode = 'off' | 'draft' | 'live';
+
 export interface Invoice {
     id: number;
     /** `decimal` in Postgres, exposed as a `number` through a transformer on the column. */
@@ -19,6 +32,32 @@ export interface Invoice {
     status: InvoiceStatus;
     /** Present only when the query joins the parent. */
     parent?: ProfileSummary;
+    fiscalStatus: InvoiceFiscalStatus | null;
+    /** Set once SmartBill issued it: the series and number the family and the accountant read. */
+    fiscalSeries: string | null;
+    fiscalNumber: string | null;
+    /** The document in SmartBill Cloud — opens only with a SmartBill login, so it is for the office. */
+    fiscalDocumentUrl: string | null;
+    /** SmartBill's public link to the fiscal PDF, meant for the family. */
+    fiscalViewUrl: string | null;
+    fiscalIssuedAt: ISODateTime | null;
+    /** SmartBill's own words when it refused, or why the queue is waiting. */
+    fiscalLastError: string | null;
+    /** The series' next number when a lost answer was sent — the likely number of an invoice under review. */
+    fiscalExpectedNumber: number | null;
+}
+
+/**
+ * `GET /invoices/fiscal-queue` — E16/S3's progress, with the mode beside it: "în coadă" means one
+ * thing when the timer is sending and another when nothing is.
+ */
+export interface FiscalQueueStatus {
+    mode: SmartBillMode;
+    /** Settings the mode cannot work without; empty when complete. */
+    missing: string[];
+    series: string | null;
+    lockedUntil: ISODateTime | null;
+    counts: Record<InvoiceFiscalStatus, number>;
 }
 
 /**

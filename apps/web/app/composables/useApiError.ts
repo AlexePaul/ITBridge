@@ -180,6 +180,17 @@ const MESSAGES: Record<string, string> = {
   // E16/S1. Money against a month the school chose not to charge for — the row picked is wrong.
   INVOICE_WAIVED: "Factura este anulată (0 lei) — nu se pot înregistra plăți pe ea.",
 
+  // E16/S2. SmartBill holds the fiscal document; the platform's row cannot drift from it.
+  INVOICE_HAS_FISCAL_DOCUMENT:
+    "Factura e emisă în SmartBill — suma, data sau ștergerea se corectează acolo, printr-o stornare.",
+  FISCAL_NOT_RETRYABLE: "Factura nu e refuzată și nici în verificare, deci nu are ce retrimite.",
+  FISCAL_NOT_UNDER_REVIEW: "Factura nu mai e în verificare — reîncarcă pagina.",
+  FISCAL_NOT_CONFIGURED: "Seria de facturi SmartBill nu e configurată pe server.",
+  FISCAL_INVOICE_NOT_ISSUED_YET:
+    "Factura fiscală nu a fost emisă încă în SmartBill. Revino în câteva minute.",
+  FISCAL_PDF_UNAVAILABLE:
+    "SmartBill nu a trimis încă PDF-ul facturii. Încearcă din nou peste puțin timp.",
+
   // E12/S2. `PERIOD_OVERLAPS` and `PERIOD_ENDS_BEFORE_IT_STARTS` are deliberately absent: both
   // arrive already in Romanian, and the first names the period it collided with and its dates —
   // which is the whole answer. A generic line here would replace „se suprapune cu «Vacanța de

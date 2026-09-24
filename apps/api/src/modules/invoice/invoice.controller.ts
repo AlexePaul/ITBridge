@@ -14,12 +14,15 @@ import { SessionCountOverrideDto } from './dto/sessionCountOverride.dto';
 import { ArrearsService } from './arrears.service';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 import { actorFrom } from 'src/modules/audit/actor';
+import { FiscalIssuingService } from './fiscal-issuing.service';
+import { ConfirmFiscalNumberDto } from './dto/confirmFiscalNumber.dto';
 
 @Controller('invoices')
 export class InvoiceController {
     constructor(
         private readonly invoiceService: InvoiceService,
         private readonly arrearsService: ArrearsService,
+        private readonly fiscal: FiscalIssuingService,
     ) {}
 
     @Post()
@@ -78,6 +81,25 @@ export class InvoiceController {
     }
 
     /**
+     * Where the fiscal queue stands — E16/S3's progress, one month or all of them.
+     *
+     * Above `/:id`, like every named path here. Carries the mode: "în coadă" means one thing when
+     * the timer is sending and another when `SMARTBILL_MODE` is `off`.
+     */
+    @Get('/fiscal-queue')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Starea cozii fiscale: modul SmartBill și câte facturi sunt în fiecare stare',
+        description: 'Numără facturile după `fiscalStatus`, pe luna cerută sau pe toate. `mode` spune dacă platforma trimite (`draft`, `live`) sau nu (`off`).',
+    })
+    @ApiResponse({ status: 200, description: 'Mode, missing settings, lock-out and counts per fiscal state' })
+    async fiscalQueue(@Query('monthIssued') monthIssued?: string) {
+        return this.fiscal.status(monthIssued || undefined);
+    }
+
+    /**
      * The one number that still enters by hand — E15/S9's override, per child and month. Both
      * routes sit above `/:id` for the usual reason.
      */
@@ -133,6 +155,45 @@ export class InvoiceController {
     @ApiResponse({ status: 204, description: 'Invoice deleted' })
     async remove(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
         await this.invoiceService.deleteInvoice(id, actorFrom(req));
+    }
+
+    /**
+     * Sends a refused invoice again once its cause is fixed, or one under review once somebody has
+     * looked in SmartBill and found nothing issued — E16/S2. Audited: it is a person deciding.
+     */
+    @Post('/:id/fiscal/retry')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @HttpCode(200)
+    @ApiOperation({
+        summary: 'Retrimite factura în SmartBill',
+        description: 'Doar din `failed` (refuzată) sau `review` (după ce cineva a verificat în SmartBill că nu a fost emisă).',
+    })
+    @ApiResponse({ status: 200, description: 'Queued again' })
+    @ApiResponse({ status: 409, description: 'FISCAL_NOT_RETRYABLE' })
+    async retryFiscal(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
+        return this.fiscal.retry(id, actorFrom(req));
+    }
+
+    /**
+     * Records the number SmartBill gave an invoice whose answer was lost — E16/S2. The platform does
+     * not adopt a fiscal number it did not see come back; a person reads it in SmartBill and says so.
+     */
+    @Post('/:id/fiscal/confirm')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @HttpCode(200)
+    @ApiOperation({
+        summary: 'Confirmă numărul fiscal al unei facturi în verificare',
+        description:
+            'Doar din `review`: răspunsul SmartBill s-a pierdut, iar seria s-a mișcat. Seria e a platformei; se trimite numai numărul, așa cum îl arată SmartBill.',
+    })
+    @ApiResponse({ status: 200, description: 'Marked issued with that number' })
+    @ApiResponse({ status: 409, description: 'FISCAL_NOT_UNDER_REVIEW' })
+    async confirmFiscal(@Param('id', ParseIntPipe) id: number, @Body() dto: ConfirmFiscalNumberDto, @Request() req: AuthenticatedRequest) {
+        return this.fiscal.confirmIssued(id, dto.number, actorFrom(req));
     }
 
     @Post('/issue')

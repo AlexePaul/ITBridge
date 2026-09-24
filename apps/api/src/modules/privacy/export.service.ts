@@ -249,6 +249,17 @@ export class ExportService {
                 suma: invoice.amount,
                 emisaLa: toDay(invoice.dateIssued),
                 stare: invoice.status,
+                // E16/S2: the fiscal document SmartBill issued for it, when there is one. The public
+                // link is the family's own invoice — it opens without a login, so it is theirs to have.
+                facturaFiscala:
+                    invoice.fiscalSeries && invoice.fiscalNumber
+                        ? {
+                              serie: invoice.fiscalSeries,
+                              numar: invoice.fiscalNumber,
+                              emisaLa: invoice.fiscalIssuedAt?.toISOString() ?? null,
+                              pdf: invoice.fiscalViewUrl ?? null,
+                          }
+                        : null,
                 plati: payments
                     .filter((payment) => payment.invoice?.id === invoice.id)
                     .map((payment) => ({

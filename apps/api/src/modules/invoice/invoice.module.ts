@@ -21,6 +21,9 @@ import { BillableSessionsService } from './billable-sessions.service';
 import { Child } from 'src/entities/child.entity';
 import { SessionCountOverride } from 'src/entities/session-count-override.entity';
 import { AuditModule } from 'src/modules/audit/audit.module';
+import { SmartBillModule } from 'src/modules/smartbill/smartbill.module';
+import { FiscalIssuingService } from './fiscal-issuing.service';
+import { FiscalIssuingJob } from './fiscal-issuing.job';
 
 @Module({
     // `Enrollment` because the amount counts children *actively enrolled*, not children on file:
@@ -42,9 +45,12 @@ import { AuditModule } from 'src/modules/audit/audit.module';
         // E07/S3: an invoice's amount, date and status, and the one hand-typed session count, are
         // written down with whoever changed them — inside the transaction that changed them.
         AuditModule,
+        // E16/S2: the fiscal document is SmartBill's. Issued afterwards, off the request, by the
+        // fiscal queue — see `FiscalIssuingService`.
+        SmartBillModule,
     ],
     controllers: [InvoiceController],
-    providers: [InvoiceService, BillableSessionsService, PdfService, ArrearsService, ArrearsJob, AuthGuard, RolesGuard],
+    providers: [InvoiceService, BillableSessionsService, PdfService, ArrearsService, ArrearsJob, FiscalIssuingService, FiscalIssuingJob, AuthGuard, RolesGuard],
     // The overview screen asks the arrears question rather than re-deriving it — one definition.
     exports: [ArrearsService],
 })

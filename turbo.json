@@ -45,7 +45,11 @@
     // answer on the instance and in CI; it is declared because turbo's strict mode drops an
     // undeclared variable without a word, and the failure that produces is a host where ffmpeg is
     // installed somewhere else and every video quietly keeps arriving without a picture.
-    "FFMPEG_PATH"
+    "FFMPEG_PATH",
+    // SmartBill, the fiscal system (E16/S2): the mode, the credentials, the series and the live
+    // guard. A wildcard like `MAIL_*`, because an undeclared one is dropped without a word — and the
+    // variable most likely to go missing that way is `SMARTBILL_MODE`, whose absence means `off`.
+    "SMARTBILL_*"
   ],
 
   // The root `.env` feeds into the cache hash: a configuration change invalidates the builds
