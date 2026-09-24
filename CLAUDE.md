@@ -88,6 +88,7 @@ pnpm test:a11y      # axe-core pe paginile publice, într-un Chromium adevărat;
 pnpm test:a11y:auth # același lucru pe ecranele din spatele autentificării; cere API pornit și seed
 pnpm test:privacy   # aceleași pagini: nicio cerere în afara originii, niciun cookie
 pnpm test:links     # aceleași pagini: fiecare link intern răspunde 200, fragmente incluse
+pnpm secrets        # nicio cheie, niciun token în ce urmărește git; rulează și în CI
 
 pnpm --filter api <script>   # o comandă într-un singur workspace
 ```
@@ -1872,6 +1873,13 @@ face din stage, pentru regula asta, o producție. Jurnalul de pornire spune ce a
 
 `docker-compose.yml` conține Postgres și MinIO — infrastructura, și numai ea. Aplicația rulează
 direct pe Node, local și în producție. Nu adăuga servicii de aplicație acolo.
+
+**Secretele stau în afara repo-ului, iar `pnpm secrets` o verifică la fiecare PR** (E07 S6). Scanarea
+e secretlint peste tot ce urmărește git — arborele, nu istoricul, din motivul paragrafului de mai
+jos. Unde stă fiecare secret și ce se întâmplă când se schimbă e în [`docs/secrete.md`](docs/secrete.md);
+pe scurt: stage-ul le citește din Parameter Store, site-ul din Vercel, iar pe EC2 nu există cheie
+AWS — o pereche statică fără `AWS_S3_ENDPOINT` scrie un avertisment la pornire. Dacă adaugi un secret
+nou, adaugă-i și rândul în document.
 
 **Cheie Let's Encrypt compromisă, în istoric.** Un `privkey.pem` real, valid până în ianuarie
 2027, a fost comitat la `58e2634` și a rămas în repo până la curățenia din E01. Fișierele au fost

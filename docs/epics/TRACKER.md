@@ -3,8 +3,10 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 24 septembrie 2026, pe `release/stage`. **Termenul de păstrare a devenit
-cod** — E04 S5 și E22 S3, perechea pe care nota de confidențialitate o promitea fără nimic în spate:
+**Ultima actualizare:** 24 septembrie 2026, pe `release/stage`. **E07 S6, secretele**: `pnpm
+secrets` caută chei și tokenuri în tot ce urmărește git, și rulează în CI; unde stă fiecare secret și
+cum se rotește e scris în `docs/secrete.md`; o cheie AWS statică pe stage s-ar vedea în logul de
+pornire. Înainte, **termenul de păstrare a devenit cod** — E04 S5 și E22 S3, perechea pe care nota de confidențialitate o promitea fără nimic în spate:
 retragerea unei familii e o zi pe care o consemnează biroul din pagina familiei, iar la 12 luni după
 ea un job de noapte o șterge prin aceeași ștergere pe care o poate cere familia, mai puțin dacă mai
 datorează bani. Tot atunci pleacă cererile de probă fără înscriere, copiile mesajelor de peste un an
@@ -98,8 +100,8 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 91 livrate, 23 parțiale, 2 blocate, 12 scoase din
-scop, 22 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **150 de story-uri** în 22 de epicuri: 91 livrate, 24 parțiale, 2 blocate, 12 scoase din
+scop, 21 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
 **Cifrele s-au recitit din rânduri, și cinci din șase erau greșite** — 75/19/6/36 pentru
@@ -110,7 +112,7 @@ coloana întâi cu `- [x]`, `- [~]`, `- [!]`, `- [ ]` sau `- ~~`, **numărate do
 `### E`** — altfel intră în total și rândul din legendă care arată cum se scrie un story tăiat, iar
 numărul iese cu unul peste, ceea ce e greu de observat tocmai fiindcă e aproape.
 
-Cele 22 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+Cele 21 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
 E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
 mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
@@ -182,14 +184,14 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
 > află de la părintele care sună.
 
-### E07 · Securitate, GDPR și consimțământ — `în lucru; S1, S3, S4, S5 și S8 livrate, restul propus`
+### E07 · Securitate, GDPR și consimțământ — `în lucru; S1, S3, S4, S5 și S8 livrate, S6 construit, restul propus`
 
 - [x] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface. Toate cele **231 de coloane** din cele 30 de tabele sunt clasificate, nu doar cele personale: fiecare e ori dată personală cu cele cinci răspunsuri, ori nu e, cu un motiv numit — **99 sunt date personale**, în 22 de tabele. Sursa e `apps/api/src/privacy/data-inventory.ts`, documentul [`docs/inventar-date.md`](../inventar-date.md) e randat din ea, iar `data-inventory.spec.ts` citește metadatele lui TypeORM și pică pe o coloană neclasificată, pe un rând învechit, pe un scop gol, pe document rămas în urmă și pe un `linkedVia` care nu duce la `Profile` — drumul pe care îl va parcurge S4. Termenele rămân ale E22 S3, dar acum sunt cinci reguli de numerotat, nu 231 de câmpuri
 - [ ] S2 · Consimțământ parental — granularitate `(părinte, copil, scop)`, decisă
 - [x] S3 · Audit log — **ambele jumătăți**. Banii: `audit_log` plus `apps/api/src/modules/audit/`, legat în facturi, plăți și reduceri, cu rândul scris în tranzacția schimbării pe care o descrie și fără nicio cale de a-l edita sau șterge; acceptanța rulează capăt-la-capăt, `GET /audit?entityType=Invoice&entityId=412` spune cine a schimbat suma și când. Datele personale: crearea, editarea și ștergerea unui `Profile` sau a unui `Child` lasă **numele câmpurilor care s-au mișcat, niciodată valorile lor** — nu din prudență, ci fiindcă inventarul din S1 le dă retenția `account`, care pleacă odată cu familia, în timp ce jurnalul are retenția `audit` și îi supraviețuiește prin construcție, neavând relație către profil. Deci „cine a schimbat adresa copilului 87, și când" are răspuns, iar „care era adresa dinainte" n-are, și asta e alegerea
 - [x] S4 · Export și ștergere — **ambele fluxuri**. Exportul: `GET /privacy/export` întoarce tot ce ține școala despre familia care cere, cu buton pe `/user/profile`; fără `:id` pe ruta părintelui (profilul vine din token), fără niciun hash întors, fără nimic despre altă familie. Ștergerea: familia cere din portal, biroul o duce la capăt din `/admin/stergeri`, în cel mult 30 de zile; dispar copiii cu tot ce atârnă de ei, lead-urile, reducerile, mesajele și contul, iar rândul familiei rămâne golit fiindcă facturile atârnă de el. **Nu e ștergerea logică din E04 S5** — aceea e o stare reversibilă pusă de admin; asta taie prin ea. Urma din audit log supraviețuiește, și trebuie: ține identificatori, nu nume
 - [x] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2. Inventarul n-a găsit niciun script neesențial și un singur terț: harta Google, care pleca singură pe `loading="lazy"`. Deci poarta e la terț, nu peste tot — `MapEmbed.vue` ține `<iframe>`-ul în afara DOM-ului până apasă cititorul, iar `consentStore` ține alegerea în memorie, fără cookie. Fără banner pe site cât nu e nimic de refuzat; primul scop nou (analiza din E19 S8) îl aduce. Acceptanța rulează în CI: `pnpm test:privacy` pică dacă vreo pagină publică iese din origine sau pune un cookie
-- [ ] S6 · Managementul secretelor
+- [~] S6 · Managementul secretelor — **`pnpm secrets` rulează în CI** (secretlint, setul recomandat, peste tot ce urmărește git; nu găsește nimic, iar cheile plantate de probă le-a găsit pe toate), **rotația e scrisă** în `docs/secrete.md` — secret cu secret, unde stă și ce se strică la schimbare —, iar o cheie AWS statică îndreptată spre AWS scrie un avertisment la pornire. Rămâne confirmarea, din logul primului deploy, că stage-ul n-are nicio cheie statică
 - [ ] S7 · Contracte de prelucrare
 - [x] S8 · Evidența contractului de înscriere — contractul se semnează fizic; platforma reține doar că există și din ce zi. Coloana și completarea la înscriere/la confirmarea probei veniseră cu E11 S1; aici s-a livrat acceptanța: `PUT /enrollments/:id/contract` consemnează după (proba e refuzată, n-are contract), `GET /enrollments/without-contract` e lista înscrierilor active fără nimic pe fișă, `/admin/contracte` o arată cu un câmp de dată pe rând, fișa copilului și pagina grupei poartă „Fără contract", tabloul de bord numără. Fără versiune de text: contractul n-are încă a doua versiune
 
