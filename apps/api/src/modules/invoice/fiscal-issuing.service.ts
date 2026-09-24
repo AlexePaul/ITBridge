@@ -4,7 +4,13 @@ import { DataSource, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
 import { Invoice, InvoiceFiscalStatus } from 'src/entities/invoice.entity';
 import { Discount } from 'src/entities/discount.entity';
 import { SmartBillService } from 'src/modules/smartbill/smartbill.service';
-import { missingSmartBillSettings, smartBillConfig, type SmartBillMode } from 'src/modules/smartbill/smartbill.config';
+import {
+    mayIssueFiscalDocuments,
+    missingSmartBillSettings,
+    smartBillConfig,
+    type SmartBillConfig,
+    type SmartBillMode,
+} from 'src/modules/smartbill/smartbill.config';
 import { invoicePayload, nextExpectedAfter, reconcile, SmartBillError, type IssuedDocument, type Reconciliation } from 'src/modules/smartbill/smartbill.rules';
 import { S3Service } from 'src/modules/storage/s3.service';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
@@ -35,7 +41,10 @@ export interface FiscalDrainResult {
  */
 export interface FiscalQueueStatus {
     mode: SmartBillMode;
-    /** Settings the mode cannot work without. Empty when complete, and always empty in `off`. */
+    /**
+     * Settings the mode cannot work without — the credentials, and for `live` on a backend that is
+     * not production, `NODE_ENV=production`. Empty when complete, and always empty in `off`.
+     */
     missing: string[];
     series: string | null;
     /** When SmartBill's rate-limit lock-out ends, if this process is waiting one out. */
@@ -94,7 +103,7 @@ export class FiscalIssuingService {
 
         return {
             mode: config.mode,
-            missing: config.mode === 'off' ? [] : missingSmartBillSettings(config),
+            missing: blockersOf(config),
             series: config.invoiceSeries ?? null,
             lockedUntil: this.smartBill.lockedOutUntil(now)?.toISOString() ?? null,
             counts,
@@ -116,7 +125,9 @@ export class FiscalIssuingService {
             result.stoppedBy = 'off';
             return result;
         }
-        if (missingSmartBillSettings(config).length > 0) {
+        // Before anything is claimed: a row taken only to be given back is a write for nothing, and
+        // in `live` it would cost a read of the series too.
+        if (blockersOf(config).length > 0) {
             result.stoppedBy = 'configuration';
             return result;
         }
@@ -541,4 +552,16 @@ export class FiscalIssuingService {
 
 function messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * What keeps the queue from moving in the configured mode: the settings it lacks and, for `live`
+ * on a backend that is not production, `NODE_ENV=production`. One list for the screen and for
+ * `drain`, so the office reads the same reason the timer stopped on.
+ */
+function blockersOf(config: SmartBillConfig): string[] {
+    if (config.mode === 'off') return [];
+    const blockers = missingSmartBillSettings(config);
+    if (config.mode === 'live' && !mayIssueFiscalDocuments()) blockers.push('NODE_ENV=production');
+    return blockers;
 }

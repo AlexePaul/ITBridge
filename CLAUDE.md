@@ -800,7 +800,11 @@ despre cod și despre git, nu despre proza de proiect.
 - Backend: 4 spații, ghilimele simple, print width 120 (`.prettierrc`). Frontend: 2 spații,
   ghilimele duble. Nu amesteca.
 - Backend importă cu path absolut de la rădăcină: `from 'src/entities/child.entity'`
-  (rezolvat prin `baseUrl`). Frontend folosește alias-ul Nuxt `~/`.
+  (rezolvat prin `baseUrl`). Frontend folosește alias-ul Nuxt `~/`. **Excepția e lanțul lui
+  `load-env.ts`**: `config/env.validation.ts` și ce importă el se importă relativ, fiindcă CLI-ul
+  TypeORM (`migration:run`) le încarcă fără `tsconfig-paths` — un `src/…` acolo pică migrarea, și
+  odată cu ea deploy-ul. `pnpm typecheck` și testele trec fără să observe; îl prinde doar pasul
+  „Migrate" din jobul „Accessibility (authenticated)" din CI.
 - Sumele monetare: `decimal` în Postgres, expuse ca `number` în aplicație printr-un
   `transformer` pe coloană (vezi `apps/api/src/entities/invoice.entity.ts`).
 - Lunile de facturare sunt string-uri `'YYYY-MM'` (`monthIssued`), cu constrângere
@@ -1298,13 +1302,21 @@ prin API-ul lor e un document fiscal real: ia următorul număr din serie și, c
 pleacă în SPV. De aici toată forma integrării, din `apps/api/src/modules/smartbill/` (clientul și
 regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
 
-- **`SMARTBILL_MODE` e singura plasă, iar implicitul e `off`**, care nu trimite nimic și emite ca
-  înainte, cu PDF-ul local. `draft` trimite fiecare factură drept **ciornă** — fără număr, nu e
-  document fiscal, nu ajunge în SPV: sandbox-ul pe care nu-l au. `live` emite de-adevăratelea și
-  **refuză să pornească** dacă `SMARTBILL_LIVE_DB` nu e chiar `DB_NAME` — regula lui
-  `SEED_ALLOW_NON_LOCAL`, pentru că baza de pe stage e seed. Sub jest, clientul refuză oricum
-  host-ul de producție; testele îl îndreaptă spre `test/fake-smartbill.ts`. Verificarea contului se
-  face cu `pnpm smartbill:check`, care doar citește, sau cu `--draft`, care trimite o ciornă.
+- **Implicitul lui `SMARTBILL_MODE` e `off`**, care nu trimite nimic și emite ca înainte, cu PDF-ul
+  local. `draft` trimite fiecare factură drept **ciornă** — fără număr, nu e document fiscal, nu
+  ajunge în SPV: sandbox-ul pe care nu-l au. `live` emite de-adevăratelea și **refuză să pornească**
+  fără două lucruri: `SMARTBILL_LIVE_DB` egal cu `DB_NAME` — regula lui `SEED_ALLOW_NON_LOCAL`,
+  pentru că baza de pe stage e seed — **și `NODE_ENV=production`**, spus explicit: un `NODE_ENV`
+  nesetat e un laptop. Prima singură nu ținea stage-ul departe — un fișier de stage cu `live` și
+  numele propriei baze trece de ea, iar amândouă sunt setări SmartBill, tastate în aceeași
+  după-amiază de cine încearcă SmartBill. `NODE_ENV` spune ce e tot backend-ul, deci **stage
+  rulează cu `NODE_ENV=stage` și trimite cel mult ciorne.** Regula e una, `mayIssueFiscalDocuments`
+  din `smartbill.config.ts`, verificată de trei ori: la pornire, de coadă înainte să revendice un
+  rând, și în `SmartBillService.issueInvoice`, ușa pe care trece orice cerere — acolo orice nu e
+  ciornă e refuzat în afara producției, pe orice drum ar veni. `test` trece de regulă fiindcă sub
+  jest clientul refuză oricum host-ul de producție; testele îl îndreaptă spre
+  `test/fake-smartbill.ts`. Verificarea contului se face cu `pnpm smartbill:check`, care doar
+  citește, sau cu `--draft`, care trimite o ciornă.
 - **Emiterea nu așteaptă după SmartBill.** `POST /invoices/issue` scrie factura cu
   `fiscalStatus = pending`, iar documentul îl face `FiscalIssuingJob`, la 30 de secunde, prin
   `FiscalIssuingService`. Coada sunt coloanele `fiscal*` de pe `invoices` — nu `outbox`, unde un rând
@@ -1770,6 +1782,13 @@ porni pe un commit roșu — și apoi:
 ca `/etc/itbridge/<env>.env` (640, `root:deploy`), regenerat la fiecare deploy. O variabilă nouă se
 scrie acolo — dacă aplicația n-o vede după un deploy, ori n-a fost pusă în Parameter Store, ori
 lipsește din lista lui `fetch-env.sh`.
+
+**`NODE_ENV` pe stage trebuie să fie `stage`, nu `production`.** Nu mai e o etichetă: e singurul
+lucru care oprește stage-ul să emită facturi fiscale reale prin SmartBill, care n-are sandbox (E16
+S2). Ce e setat acolo azi nu se vede din repo; se pune în Parameter Store ca orice altă variabilă,
+iar `ecosystem.config.js` n-are voie să-l suprascrie cu un `env: { NODE_ENV: 'production' }` — ar
+face din stage, pentru regula asta, o producție. Jurnalul de pornire spune ce a citit:
+`Mode draft under NODE_ENV=stage`.
 
 **`ecosystem.config.js`, `deploy.sh`, `fetch-env.sh` și `backup.sh` nu sunt în repo.** Stau în
 `/srv/itbridge/` pe instanță. Dacă le cauți aici și nu le găsești, acolo sunt. Backup-ul e un

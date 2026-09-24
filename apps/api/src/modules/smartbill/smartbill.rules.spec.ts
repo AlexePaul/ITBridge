@@ -1,4 +1,4 @@
-import { smartBillConfig, type SmartBillConfig } from './smartbill.config';
+import { mayIssueFiscalDocuments, smartBillConfig, type SmartBillConfig } from './smartbill.config';
 import {
     classifyFailure,
     describeDiscount,
@@ -246,5 +246,30 @@ describe('smartBillConfig', () => {
     it('reads a VAT rate only as a pair', () => {
         expect(smartBillConfig({ SMARTBILL_TAX_NAME: 'Normala', SMARTBILL_TAX_PERCENTAGE: '21' }).tax).toEqual({ name: 'Normala', percentage: 21 });
         expect(smartBillConfig({ SMARTBILL_TAX_NAME: 'Normala' }).tax).toBeNull();
+    });
+});
+
+// SmartBill has no sandbox, so stage cannot have one either: the most it may send is a draft.
+describe('mayIssueFiscalDocuments', () => {
+    it('lets a production backend issue', () => {
+        expect(mayIssueFiscalDocuments({ NODE_ENV: 'production' })).toBe(true);
+    });
+
+    it('keeps stage and a laptop to drafts', () => {
+        expect(mayIssueFiscalDocuments({ NODE_ENV: 'stage' })).toBe(false);
+        expect(mayIssueFiscalDocuments({ NODE_ENV: 'development' })).toBe(false);
+    });
+
+    // Production is declared, never inferred — an unset environment is a laptop.
+    it('reads an unset or misspelt environment as not production', () => {
+        expect(mayIssueFiscalDocuments({})).toBe(false);
+        expect(mayIssueFiscalDocuments({ NODE_ENV: '' })).toBe(false);
+        expect(mayIssueFiscalDocuments({ NODE_ENV: 'Production' })).toBe(false);
+        expect(mayIssueFiscalDocuments({ NODE_ENV: 'prod' })).toBe(false);
+    });
+
+    // Under jest the production host is refused outright, so `live` only ever reaches a fake.
+    it('lets the suites exercise live against their fake', () => {
+        expect(mayIssueFiscalDocuments({ NODE_ENV: 'test' })).toBe(true);
     });
 });

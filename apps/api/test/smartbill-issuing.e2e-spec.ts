@@ -6,6 +6,7 @@ import { createClassSession, createRoom, createTestApp, groupBody, ownProfileId,
 import { FAKE_CREDENTIALS, FakeSmartBill } from './fake-smartbill';
 import { FiscalIssuingService } from 'src/modules/invoice/fiscal-issuing.service';
 import { SmartBillService } from 'src/modules/smartbill/smartbill.service';
+import * as smartBillSettings from 'src/modules/smartbill/smartbill.config';
 import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
 import { PdfService } from 'src/modules/invoice/pdf.service';
 import { Invoice, InvoiceFiscalStatus } from 'src/entities/invoice.entity';
@@ -197,6 +198,45 @@ describe('Issuing invoices through SmartBill (e2e)', () => {
      * The acceptance of E16/S2: "o eroare de rețea la mijlocul emiterii nu produce nici factură
      * fantomă în platformă, nici document dublu în SmartBill".
      */
+    // Boot refuses `live` outside production; this is a backend that got there anyway. The rule is
+    // stubbed rather than `NODE_ENV` flipped: under any other value every timer that is off under
+    // jest would wake mid-suite.
+    describe('a backend that is not production', () => {
+        let notProduction: jest.SpyInstance;
+
+        beforeEach(() => {
+            notProduction = jest.spyOn(smartBillSettings, 'mayIssueFiscalDocuments').mockReturnValue(false);
+        });
+
+        afterEach(() => notProduction.mockRestore());
+
+        it("claims nothing in 'live', and tells the office why", async () => {
+            const [invoice] = await issueOctober();
+
+            const result = await fiscal.drain();
+
+            expect(result.stoppedBy).toBe('configuration');
+            expect(fake.requests).toHaveLength(0);
+            expect(await reload(invoice.id)).toMatchObject({ fiscalStatus: InvoiceFiscalStatus.PENDING, fiscalAttempts: 0 });
+            const queue = await request(app.getHttpServer()).get('/invoices/fiscal-queue').set('Authorization', admin.auth).expect(200);
+            expect(queue.body.missing).toEqual(['NODE_ENV=production']);
+        });
+
+        it("still sends drafts in 'draft'", async () => {
+            process.env.SMARTBILL_MODE = 'draft';
+            const [invoice] = await issueOctober();
+
+            const result = await fiscal.drain();
+
+            expect(result).toMatchObject({ drafts: 1, stoppedBy: null });
+            expect(fake.documents).toHaveLength(1);
+            expect(fake.issued).toHaveLength(0);
+            expect((await reload(invoice.id)).fiscalStatus).toBe(InvoiceFiscalStatus.DRAFT);
+            const queue = await request(app.getHttpServer()).get('/invoices/fiscal-queue').set('Authorization', admin.auth).expect(200);
+            expect(queue.body.missing).toEqual([]);
+        });
+    });
+
     describe('an answer that never came back', () => {
         it('never becomes a second invoice when SmartBill had issued it — a person confirms the number', async () => {
             const [invoice] = await issueOctober();

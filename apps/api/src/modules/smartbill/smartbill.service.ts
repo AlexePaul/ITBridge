@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { missingSmartBillSettings, SMARTBILL_DEFAULT_BASE_URL, smartBillConfig, type SmartBillConfig } from './smartbill.config';
+import { mayIssueFiscalDocuments, missingSmartBillSettings, SMARTBILL_DEFAULT_BASE_URL, smartBillConfig, type SmartBillConfig } from './smartbill.config';
 import {
     classifyFailure,
     describeFailure,
@@ -75,7 +75,7 @@ export class SmartBillService implements OnModuleInit {
             return;
         }
         const what = config.mode === 'live' ? 'REAL fiscal invoices' : 'drafts only, no fiscal documents';
-        this.logger.log(`Mode ${config.mode}: ${what}, series ${config.invoiceSeries}, CIF ${config.cif}.`);
+        this.logger.log(`Mode ${config.mode} under NODE_ENV=${process.env.NODE_ENV ?? '(unset)'}: ${what}, series ${config.invoiceSeries}, CIF ${config.cif}.`);
     }
 
     /** When the lock-out ends, or `null` when there is none. */
@@ -122,9 +122,20 @@ export class SmartBillService implements OnModuleInit {
      * `POST /invoice/v2`. Returns the document, or throws `SmartBillError` whose `kind` says what may
      * be done next — see `SmartBillFailureKind`. Never retries by itself: that is the queue's call,
      * and for an invoice it is a decision with a fiscal consequence.
+     *
+     * **Anything but a draft is refused outside production**, whatever `SMARTBILL_MODE` says. Boot
+     * already refuses `live` there; this is the door every request passes, so a stage backend
+     * cannot issue a fiscal document by any road — the queue, the check script, or one not written
+     * yet. `configuration`, because nothing was sent and a setting is what would change the answer.
      */
     async issueInvoice(payload: SmartBillInvoiceRequest): Promise<IssuedDocument> {
         const config = this.readyConfig();
+        if (payload.isDraft !== true && !mayIssueFiscalDocuments()) {
+            throw new SmartBillError(
+                'configuration',
+                `Only a production backend issues fiscal invoices; NODE_ENV=${process.env.NODE_ENV ?? '(unset)'} sends drafts. Nothing was sent.`,
+            );
+        }
         const body = await this.call(config, 'POST', '/invoice/v2', payload, ISSUE_TIMEOUT_MS);
         return readIssuedDocument(body);
     }

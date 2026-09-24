@@ -53,7 +53,7 @@ export interface Invoice {
  */
 export interface FiscalQueueStatus {
     mode: SmartBillMode;
-    /** Settings the mode cannot work without; empty when complete. */
+    /** Settings the mode cannot work without — `NODE_ENV=production` among them for `live` outside production; empty when complete. */
     missing: string[];
     series: string | null;
     lockedUntil: ISODateTime | null;

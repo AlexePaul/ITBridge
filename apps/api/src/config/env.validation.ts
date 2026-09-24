@@ -4,6 +4,10 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MinLength, validateSync } from 'class-validator';
+// Relative, unlike the rest of the backend: this file is loaded through `load-env` by the TypeORM
+// CLI, which runs without `tsconfig-paths` — a `src/…` import here fails `migration:run`, and with
+// it the deploy.
+import { mayIssueFiscalDocuments } from '../modules/smartbill/smartbill.config';
 
 /**
  * The environment, validated once at startup. The application refuses to boot when it is
@@ -14,9 +18,15 @@ import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MinLength, validateSync 
  * could forge, and nothing anywhere would say so.
  */
 export class EnvironmentVariables {
+    /**
+     * `stage` is the staging backend's own value, and since E16 it carries weight: SmartBill has no
+     * sandbox, and `SMARTBILL_MODE=live` is refused anywhere but `production` — see
+     * `mayIssueFiscalDocuments`. Stage and production run the same build on the same kind of host,
+     * so this is the one setting that can tell them apart, and stage has to say what it is.
+     */
     @IsOptional()
-    @IsIn(['development', 'test', 'production'])
-    NODE_ENV?: 'development' | 'test' | 'production';
+    @IsIn(['development', 'test', 'stage', 'production'])
+    NODE_ENV?: 'development' | 'test' | 'stage' | 'production';
 
     @IsOptional()
     @IsInt()
@@ -258,6 +268,11 @@ export function smartBillProblems(raw: Record<string, unknown>): string[] {
     }
 
     if (mode === 'live') {
+        if (!mayIssueFiscalDocuments(raw)) {
+            problems.push(
+                `SMARTBILL_MODE=live issues real fiscal invoices, which only a production backend may do (NODE_ENV=${text('NODE_ENV') || '(unset)'} here); stage and development send drafts: SMARTBILL_MODE=draft`,
+            );
+        }
         const liveDb = text('SMARTBILL_LIVE_DB');
         const dbName = text('DB_NAME');
         if (liveDb === '' || liveDb !== dbName) {

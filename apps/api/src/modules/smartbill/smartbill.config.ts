@@ -12,10 +12,12 @@
  *    draft gets **no number** and stays a draft until somebody finalises it by hand in SmartBill
  *    Cloud, so it is not a fiscal document and never reaches SPV. This is the sandbox SmartBill
  *    does not have: the real account, the real payload, the real answers, and nothing to storno.
- *  - `live` — real invoices. Refused at boot unless `SMARTBILL_LIVE_DB` names this database (see
- *    `env.validation.ts`), for the reason `SEED_ALLOW_NON_LOCAL` has to name one: a "yes" left in
- *    an environment file would otherwise authorise whatever database it is copied next to — and
- *    stage's database is seed data, whose families would each get a real invoice.
+ *  - `live` — real invoices, and only from a production backend. Refused at boot unless
+ *    `NODE_ENV=production` (see `mayIssueFiscalDocuments`) **and** `SMARTBILL_LIVE_DB` names this
+ *    database (see `env.validation.ts`), for the reason `SEED_ALLOW_NON_LOCAL` has to name one: a
+ *    "yes" left in an environment file would otherwise authorise whatever database it is copied
+ *    next to — and stage's database is seed data, whose families would each get a real invoice.
+ *    Stage runs as `NODE_ENV=stage`, so the most it can ever send is a draft.
  *
  * Read at call time rather than cached at construction, like `MailService`: a test switches the
  * mode per case, and nothing has to be reasoned about in terms of module load order.
@@ -70,6 +72,25 @@ export interface SmartBillConfig {
 function trimmed(value: string | undefined): string | undefined {
     const text = value?.trim();
     return text ? text : undefined;
+}
+
+/**
+ * Whether this backend may ask SmartBill for a real fiscal invoice: **production, and nowhere
+ * else.** Stage and a laptop get as far as `draft`.
+ *
+ * `SMARTBILL_LIVE_DB` alone does not draw that line. Stage has no SmartBill of its own to point at —
+ * there is no sandbox — only the school's, and a stage environment file with `live` and its own
+ * database's name in it would pass that check: two SmartBill settings, typed by the same person on
+ * the same afternoon, while trying SmartBill out. `NODE_ENV` is not a SmartBill setting; it says
+ * what the whole backend is. For stage to issue, somebody would have to declare stage production.
+ *
+ * Spelled out, never inferred: an unset `NODE_ENV` is a laptop, not a production.
+ *
+ * `test` passes too, and that is not a hole: under jest `SmartBillService` refuses the production
+ * host outright, so the suites exercise `live` against a fake and against nothing else.
+ */
+export function mayIssueFiscalDocuments(env: Record<string, unknown> = process.env): boolean {
+    return env.NODE_ENV === 'production' || env.NODE_ENV === 'test';
 }
 
 export function smartBillMode(env: NodeJS.ProcessEnv = process.env): SmartBillMode {

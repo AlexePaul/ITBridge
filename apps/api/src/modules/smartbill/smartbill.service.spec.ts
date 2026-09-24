@@ -113,6 +113,30 @@ describe('SmartBillService', () => {
         expect(fetchMock).not.toHaveBeenCalled();
     });
 
+    // The door every request passes: a stage backend issues nothing fiscal, whatever the mode says.
+    describe('outside production', () => {
+        beforeEach(() => {
+            jest.replaceProperty(process.env, 'NODE_ENV', 'stage');
+        });
+
+        afterEach(() => {
+            jest.restoreAllMocks();
+        });
+
+        it('refuses anything but a draft, before a request leaves', async () => {
+            await expect(service.issueInvoice({ isDraft: false } as never)).rejects.toMatchObject({ kind: 'configuration' });
+            await expect(service.issueInvoice({} as never)).rejects.toMatchObject({ kind: 'configuration' });
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it('still sends a draft', async () => {
+            fetchMock.mockResolvedValue(respond(200, { errorText: '', number: '', series: '', documentId: 8, documentUrl: 'u', documentViewUrl: '' }));
+
+            await expect(service.issueInvoice({ isDraft: true } as never)).resolves.toMatchObject({ documentId: 8 });
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+    });
+
     // The guard that keeps any test from ever issuing a real fiscal document.
     it('refuses the production host under jest, whatever the mode says', async () => {
         delete process.env.SMARTBILL_BASE_URL;

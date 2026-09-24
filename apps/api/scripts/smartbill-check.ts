@@ -4,7 +4,7 @@ import { dataSourceOptions } from '../src/data-source';
 import { Invoice } from '../src/entities/invoice.entity';
 import { Discount } from '../src/entities/discount.entity';
 import { smartBillProblems } from '../src/config/env.validation';
-import { missingSmartBillSettings, smartBillConfig } from '../src/modules/smartbill/smartbill.config';
+import { mayIssueFiscalDocuments, missingSmartBillSettings, smartBillConfig } from '../src/modules/smartbill/smartbill.config';
 import { SmartBillService } from '../src/modules/smartbill/smartbill.service';
 import { invoicePayload, type FiscalInvoiceInput } from '../src/modules/smartbill/smartbill.rules';
 import { dueDateFor } from '../src/modules/invoice/arrears.rules';
@@ -79,6 +79,9 @@ async function main(): Promise<number> {
 
     console.log('SmartBill — verificare fără documente fiscale (E16 S0)\n');
     console.log(`  mod configurat   ${config.mode}`);
+    console.log(
+        `  mediu            NODE_ENV=${process.env.NODE_ENV ?? '(nesetat)'} — ${mayIssueFiscalDocuments() ? 'poate emite facturi fiscale' : 'doar ciorne: facturile fiscale se emit numai din production'}`,
+    );
     console.log(`  API              ${config.baseUrl}`);
     console.log(`  utilizator       ${config.username ?? '(nesetat)'}`);
     console.log(`  token            ${config.token ? '(setat, nu se afișează)' : '(nesetat)'}`);

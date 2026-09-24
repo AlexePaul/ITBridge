@@ -198,12 +198,13 @@ niciun document fiscal:
 - **Numărul e verificat de serie, nu de o factură.** Unealta tipărește `nextNumber`, iar prima
   factură reală se emite pe el — o familie reală, o lună reală, cu cineva care se uită.
 
-Ce mai e de făcut **nu e cod** și e al patronului, în ordinea asta: tokenul (Contul Meu > Integrări
-
-> API) și CIF-ul în `.env` local, apoi `pnpm smartbill:check`; **o serie nouă de facturi, doar a
-> platformei** — de ce, la S2; cota de TVA stabilită cu contabilul, scrisă ca `SMARTBILL_TAX_NAME`
-> și `SMARTBILL_TAX_PERCENTAGE`, sau nimic pentru o școală neplătitoare de TVA; o ciornă cu
-> `--draft --invoice`, privită și ștearsă.
+Ce mai e de făcut **nu e cod** și e al patronului, în ordinea asta: tokenul (din SmartBill Cloud,
+`Contul Meu > Integrări > API`) și CIF-ul în `.env` local, apoi `pnpm smartbill:check`; **o serie
+nouă de facturi, doar a platformei** — de ce, la S2; cota de TVA stabilită cu contabilul, scrisă ca
+`SMARTBILL_TAX_NAME` și `SMARTBILL_TAX_PERCENTAGE`, sau nimic pentru o școală neplătitoare de TVA;
+o ciornă cu `--draft --invoice`, privită și ștearsă. Pe stage, aceleași credențiale merg în
+Parameter Store, lângă `SMARTBILL_MODE=draft` și `NODE_ENV=stage`: stage n-are voie la mai mult de
+ciorne (S2).
 
 **Rămâne neverificat de nimic automat: e-Factura.** O ciornă nu pleacă în SPV, deci ce acceptă SPV
 pentru o persoană fizică se vede abia la prima factură reală. Adresa trimisă e `Profile.address`,
@@ -285,9 +286,16 @@ așteaptă după SmartBill, iar un SmartBill picat nu desface luna. Cinci decizi
 - **Trei moduri, iar implicitul nu trimite nimic.** `SMARTBILL_MODE=off` emite exact ca înainte, cu
   PDF-ul local; `draft` trimite fiecare factură drept ciornă — sandbox-ul pe care SmartBill nu-l
   are, cu contul adevărat și fără nimic de stornat —; `live` emite facturi reale. **`live` nu
-  pornește decât dacă `SMARTBILL_LIVE_DB` e numele bazei** (`DB_NAME`), regula lui
+  pornește decât dintr-un backend de producție și pe baza lui**: cere `NODE_ENV=production` și
+  `SMARTBILL_LIVE_DB` egal cu numele bazei (`DB_NAME`). A doua condiție e regula lui
   `SEED_ALLOW_NON_LOCAL`: un „da" rămas într-un fișier de mediu autorizează orice bază lângă care e
   copiat, iar baza de pe stage e seed, cu familii care ar primi fiecare câte o factură fiscală.
+  Prima a venit după, la cererea patronului (septembrie 2026), fiindcă a doua singură nu ține
+  stage-ul departe: un fișier de stage cu `live` și numele propriei baze trece de ea — două setări
+  SmartBill, tastate în aceeași după-amiază de cine încearcă SmartBill. `NODE_ENV` descrie tot
+  backend-ul, nu SmartBill-ul, deci **stage rulează cu `NODE_ENV=stage` și trimite cel mult
+  ciorne**. Regula e una, `mayIssueFiscalDocuments`, verificată la pornire, de coadă înainte să
+  revendice un rând și la ușa prin care trece orice cerere, `SmartBillService.issueInvoice`.
 - **Cheia de idempotență pe care o cerea story-ul nu există la SmartBill, deci proba e seria.**
   Înainte de cerere, `nextNumber` e scris pe rând (`fiscalExpectedNumber`); rândul trece în
   `uncertain` **înainte** de apel, deci un proces mort la jumătate lasă exact starea asta. Un răspuns
