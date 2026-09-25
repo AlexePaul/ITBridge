@@ -1464,6 +1464,28 @@ marketing fără cale de oprire e **imposibil de trimis**, nu doar descurajat. P
   face unul scurs e să oprească un buletin. Un răspuns care ar distinge „oprit" de „nu există" ar fi
   un oracol pentru ghicit jetoane.
 
+**Al doilea consimțământ din platformă e pe copil, nu pe familie** (E07 S2). `publication_consents`
+spune dacă lucrările unui copil pot apărea în materialele școlii, iar un părinte cu doi copii poate
+răspunde diferit pentru fiecare. Un rând e un acord de la dat la retras: retragerea ștampilează
+`revokedAt`, nu șterge, iar un acord dat din nou e rând nou; `UQ_publication_consents_one_in_force`
+ține unul singur în vigoare, iar serviciul scrie cu `ON CONFLICT DO NOTHING`, deci a doua apăsare e
+același fapt. Patru lucruri:
+
+- **Nu-l îmbina cu `marketingOptIn`.** Ăla e pe familie fiindcă mesajul pleacă într-o cutie, o dată
+  per familie; ăsta e pe copil fiindcă lucrarea e a copilului. Scopul e unul singur azi, `promotion`
+  — vitrina din E14 S6 ar fi a doua valoare a enum-ului, nu un `isPublic` pe `Project`.
+- **Versiunea e a textului din `docs/legal/acord-lucrari.md`**, copiată pe rând din
+  `PUBLICATION_CONSENT_VERSIONS`, pe care `publication-consent.texts.spec.ts` o ține egală cu capul
+  fișierului — aceeași procedură ca `LEGAL_DOCUMENT_VERSIONS`.
+- **Două uși, o singură coloană între ele.** Părintele dă și retrage din „Profil"; biroul consemnează
+  din pagina familiei un acord semnat pe hârtie. `grantedVia`/`revokedVia` spun care, jurnalul spune
+  cine, iar familia primește confirmarea **de fiecare dată** — e singura cale prin care observă un
+  acord consemnat pe copilul greșit.
+- **Retragerea anunță biroul în aceeași tranzacție**, fiindcă platforma nu publică nimic: site-ul e
+  static și nu citește din ea, iar rețelele sociale sunt în afara ei. Verificarea „în momentul
+  afișării" e deci `/admin/acorduri`, citită înainte să plece o lucrare spre site. Când revine vitrina
+  automată, interogarea ei citește aceeași tabelă — nu un instantaneu pus lângă.
+
 **Un mesaj care n-are unde să plece lasă un rând, nu o linie de log** (E17 S5). `queueOrRecord` din
 `OutboxService` primește destinatarul oricare ar fi el și scrie `undeliverable` cu motiv tipizat
 (`no_address` / `unconfirmed_address`) când n-are adresă — starea e terminală și dispecerul n-o

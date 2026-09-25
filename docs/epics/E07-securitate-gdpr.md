@@ -1,6 +1,6 @@
 # E07 · Securitate, GDPR și consimțământ
 
-**Status:** în lucru — **S1, S3, S4, S5 și S8 livrate**, S6 construit, restul propus · **Pistă:** Fundație · **Depinde de:**
+**Status:** în lucru — **S1, S2, S3, S4, S5 și S8 livrate**, S6 construit, S7 propus · **Pistă:** Fundație · **Depinde de:**
 E04, E05 · **Blochează:** E14, E19; E09 doar odată cu reluarea lui S2
 
 > **Granița cu [E22](E22-termeni-si-date.md), fiindcă se confundă ușor: aici e mecanica, acolo e ce
@@ -125,7 +125,7 @@ obligația contabilă, operațional, expiră singur, evidență —, iar număru
 regulă e al [E22](E22-termeni-si-date.md) S3. Așa, S3 pune cinci numere, nu două sute treizeci și
 unu.
 
-### S2 · Consimțământ parental
+### S2 · Consimțământ parental — livrat
 
 Entitate de consimțământ pe tripleta **`(Profile, Child, scop)`**: părintele consimte, dar subiectul
 datelor e copilul. Fiecare înregistrare are dată, versiune de text acceptat și revocare.
@@ -175,6 +175,69 @@ copil și acel scop în momentul afișării.
 **Acceptanță:** [E14](E14-proiecte-elevi.md) nu poate publica un proiect fără consimțământ activ
 pentru copilul acela și scopul acela. Revocarea îl retrage în sub un minut. Un părinte cu doi copii
 poate accepta pentru unul și refuza pentru celălalt, iar vitrina arată exact asta.
+
+#### Ce s-a construit, și ce s-a schimbat față de textul de mai sus
+
+**Un rând e un acord, de la dat la retras.** `publication_consents` e cheiat pe copil și scop;
+retragerea ștampilează `revokedAt` pe rândul în vigoare și nu șterge nimic, iar un acord dat din nou
+e un rând nou. Deci „era permis în ziua în care am folosit-o?" are răspuns din rânduri, citite în
+ordine. Un index unic parțial, `UQ_publication_consents_one_in_force`, ține un singur acord în
+vigoare per copil și scop — aceeași formă ca `UQ_enrollments_one_in_force` —, iar a doua apăsare e
+același fapt, nu un rând în plus și nu o zi mutată. Fiecare rând poartă versiunea textului citit,
+luată din capul lui [`docs/legal/acord-lucrari.md`](../legal/acord-lucrari.md) și ținută egală de un
+spec, ca la termeni.
+
+**Părintele e `child.parent`, nu o coloană.** Tripleta rămâne `(Profile, Child, scop)`, dar
+familia se citește din copil: un copil are o singură familie, iar o a doua coloană care o numește
+ar fi liberă să spună altceva.
+
+**Un singur scop azi, și asta e decizia, nu o omisiune.** Din cele trei de mai sus:
+
+- **vitrina din [E14](E14-proiecte-elevi.md) S6 a ieșit din MVP**, deci un scop pentru ea ar fi o
+  bifă cerută, stocată și verificată fără ca răspunsul să schimbe ceva — exact argumentul cu care a
+  plecat fotografierea copilului. Revine ca a doua valoare a enum-ului în ziua în care revine
+  vitrina; tabela e deja cheiată pe scop, deci e un `ALTER TYPE … ADD VALUE`, nu o migrare de rânduri;
+- **comunicările comerciale sunt `Profile.marketingOptIn`** ([E17](E17-comunicare-notificari.md) S4)
+  și acolo le e locul: mesajul pleacă în cutia părintelui, o dată per familie, deci un răspuns pe
+  copil — da pentru cel mare, nu pentru cel mic — ar fi o întrebare pe care n-o poate executa nimeni;
+- rămâne **scopul 2, materialele de promovare ale școlii**: site-ul, paginile școlii din rețelele
+  sociale, prezentările. E consumatorul real al acordului de când vitrina se face de mână (E14 S6:
+  „acordul părintelui se cere înainte, chiar dacă e cerut la telefon și consemnat pe hârtie").
+
+**Două uși, care diferă printr-o coloană.** Părintele dă și retrage din „Profil", câte o bifă pe
+copil. Biroul consemnează din pagina familiei un acord semnat pe hârtie, sau o retragere cerută la
+telefon — singura cale pentru o familie fără cont. Rândul spune care (`grantedVia`, `revokedVia`,
+`portal` sau `office`), jurnalul din S3 spune cine, cu numele câmpurilor și fără valori. **Familia
+primește confirmarea pe email de fiecare dată**, inclusiv când a apăsat biroul: e singura șansă să
+observe un acord consemnat pe copilul greșit, iar un „da" greșit aici e lucrarea unui copil pe o
+pagină publică.
+
+**„Revocarea îl retrage în sub un minut" s-a schimbat odată cu vitrina.** Platforma nu publică
+nimic: site-ul public e static și nu citește din ea, iar paginile din rețelele sociale sunt în afara
+ei. Deci retragerea nu poate fi o interogare care încetează să întoarcă un rând. Ce face în loc:
+**biroul primește un email în aceeași tranzacție cu retragerea**, prin outbox, cu ce trebuie scos —
+galeria de pe site, postările, prezentările netipărite —, iar dispecerul îl trimite la următorul
+tick. Scoaterea însăși e manuală și are termen propus în text (`[[DE DECIS]]`, trei zile lucrătoare).
+Iar „în momentul afișării" devine momentul alegerii: `/admin/acorduri` e lista copiilor ale căror
+lucrări se pot folosi azi, cu linia gata de pus lângă lucrare („Ana P., 9 ani" — cât permite textul,
+nimic mai mult), și e locul de verificat înainte ca o lucrare să plece spre site. Când revine
+vitrina automată, verificarea trece în interogarea ei, cu aceeași tabelă ca sursă.
+
+**Acceptanța, citită pe ce există:** un părinte cu doi copii acceptă pentru unul și refuză pentru
+celălalt, iar `/admin/acorduri` arată exact asta — `publication-consent.e2e-spec.ts`, primul test.
+Tot acolo: a doua apăsare nu schimbă nimic, două apăsări simultane lasă un singur acord în vigoare,
+un părinte nu poate decide pentru copilul altei familii, retragerea anunță biroul o singură dată,
+exportul poartă și acordurile retrase, iar ștergerea copilului le ia cu el.
+
+**Ce pleacă odată cu familia:** rândurile sunt `CASCADE` pe copil, deci ștergerea din S4 le ia fără
+cod în plus. Un copil șters n-are ce lucrare să mai publice, iar „copilul al cărui nume l-am șters a
+fost de acord odată" ar fi ultima urmă a lui. Exportul din S4 le arată pe toate, inclusiv pe cele
+retrase, sub `acorduriPentruLucrari`.
+
+**Ce rămâne:** textul acordului e ciornă, ca restul din `docs/legal/`, și trece pe la avocat odată
+cu el ([E22](E22-termeni-si-date.md) S2) — cu o întrebare proprie, marcată în text: lucrarea e operă
+a copilului în sensul Legii 8/1996, iar dacă bifa ajunge ca permisiune de folosire sau trebuie formă
+scrisă nu e o întrebare de cod.
 
 ### S3 · Audit log — livrat
 
