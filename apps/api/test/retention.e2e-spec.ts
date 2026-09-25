@@ -199,10 +199,7 @@ describe('Retention (e2e)', () => {
                 .set('Authorization', admin.auth)
                 .send({ parentIds: [anaProfileId], monthIssued: '2026-03', dateIssued: '2026-04-01' })
                 .expect(201);
-            const [invoice] = (await dataSource.query('SELECT id, amount FROM invoices WHERE parent_id = $1', [anaProfileId])) as {
-                id: number;
-                amount: string;
-            }[];
+            const [invoice] = await dataSource.query<{ id: number; amount: string }[]>('SELECT id, amount FROM invoices WHERE parent_id = $1', [anaProfileId]);
             await request(app.getHttpServer())
                 .post('/payments')
                 .set('Authorization', admin.auth)
