@@ -1,4 +1,4 @@
-import { IsOptional, IsNumber, IsDateString, IsEnum } from 'class-validator';
+import { IsOptional, IsNumber, IsDateString, IsEnum, Min } from 'class-validator';
 import { InvoiceStatus } from '../../../entities/invoice.entity';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
@@ -7,6 +7,9 @@ export class UpdateInvoiceDto {
     @ApiPropertyOptional({ example: 350, description: 'Updated amount' })
     @IsOptional()
     @IsNumber()
+    // Zero is a month without charge (`waived`); below it is a credit note, which a correction here
+    // is not — and on an invoice still queued for SmartBill it went out as a negative price.
+    @Min(0)
     amount?: number;
 
     @ApiPropertyOptional({ example: '2024-07-01', description: 'Updated issue date' })

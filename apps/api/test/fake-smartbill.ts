@@ -46,10 +46,12 @@ export interface FakeRequest {
  *  - `drop-after-issue` — the invoice is written, then the connection is cut: the case where a
  *    fiscal document exists that the platform never heard about.
  *  - `drop-before-issue` — the connection is cut and nothing is written.
+ *  - `empty-after-issue` — the invoice is written, and the answer is a 200 whose body never
+ *    arrives: headers, then nothing. What a timeout firing mid-body looks like from the client.
  *  - `unauthorised` — the 401 of a wrong token.
  *  - `none` — answers normally; a placeholder, so a failure can be aimed at the second request.
  */
-export type FakeFailure = 'none' | 'refuse' | 'lockout' | 'drop-after-issue' | 'drop-before-issue' | 'unauthorised';
+export type FakeFailure = 'none' | 'refuse' | 'lockout' | 'drop-after-issue' | 'drop-before-issue' | 'empty-after-issue' | 'unauthorised';
 
 export const FAKE_CREDENTIALS = { username: 'office@itbridgeschool.test', token: 'fake-token-123', cif: 'RO12345678' };
 
@@ -69,6 +71,9 @@ export class FakeSmartBill {
 
     private failures: FakeFailure[] = [];
     private paymentFailures: FakeFailure[] = [];
+    private pdfFailures: FakeFailure[] = [];
+    private issueDelayMs = 0;
+    private hooks = new Map<string, () => Promise<void>>();
     private nextDocumentId = 20_000;
     private server: Server | null = null;
 
@@ -80,6 +85,24 @@ export class FakeSmartBill {
     /** Queues failures for the next `POST /payment` requests, in order. */
     failNextPayment(...failures: FakeFailure[]): void {
         this.paymentFailures.push(...failures);
+    }
+
+    /** Queues failures for the next `GET /invoice/pdf` requests; only `lockout` means anything there. */
+    failNextPdf(...failures: FakeFailure[]): void {
+        this.pdfFailures.push(...failures);
+    }
+
+    /** A SmartBill that takes its time over every `POST /invoice/v2`, so a batch runs long. */
+    delayIssues(ms: number): void {
+        this.issueDelayMs = ms;
+    }
+
+    /**
+     * Runs `hook` when the next request for `path` arrives, before it is answered — somebody else
+     * acting while a request is in the air. Once, then forgotten.
+     */
+    onNextRequest(path: string, hook: () => Promise<void>): void {
+        this.hooks.set(path, hook);
     }
 
     /** Somebody recording money by hand in SmartBill Cloud on one of the platform's invoices. */
@@ -133,6 +156,9 @@ export class FakeSmartBill {
         this.requests.length = 0;
         this.failures = [];
         this.paymentFailures = [];
+        this.pdfFailures = [];
+        this.issueDelayMs = 0;
+        this.hooks.clear();
         this.series.set('ITB', { nextNumber: 41, type: 'f' });
         this.series.set('FCT', { nextNumber: 900, type: 'f' });
         this.series.set('CH', { nextNumber: 7, type: 'c' });
@@ -144,6 +170,11 @@ export class FakeSmartBill {
         const body: unknown = raw ? JSON.parse(raw) : undefined;
         const path = url.pathname.replace(/^\/SBORO\/api/, '');
         this.requests.push({ method: req.method ?? '', path, query: url.searchParams, headers: req.headers, body });
+        const hook = this.hooks.get(path);
+        if (hook) {
+            this.hooks.delete(path);
+            await hook();
+        }
 
         const expected = `Basic ${Buffer.from(`${FAKE_CREDENTIALS.username}:${FAKE_CREDENTIALS.token}`).toString('base64')}`;
         if (req.headers.authorization !== expected) {
@@ -161,6 +192,7 @@ export class FakeSmartBill {
             return json(res, 200, { errorText: '', message: '', list });
         }
         if (req.method === 'POST' && path === '/invoice/v2') {
+            if (this.issueDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, this.issueDelayMs));
             return this.issue(req, res, body as Record<string, unknown>);
         }
         if (req.method === 'POST' && path === '/payment') {
@@ -176,6 +208,9 @@ export class FakeSmartBill {
             return json(res, 200, { errorText: '', invoiceTotalAmount: total, paidAmount: paid, unpaidAmount: Math.max(0, total - paid), paid: paid >= total });
         }
         if (req.method === 'GET' && path === '/invoice/pdf') {
+            if (this.pdfFailures.shift() === 'lockout') {
+                return json(res, 403, { errorText: 'Ai depasit limita maxima de requesturi admisa. Vei putea executa alte requesturi dupa 10 min' });
+            }
             if (req.headers.accept === 'application/pdf') {
                 return json(res, 406, { status: 406, type: 'invalid_request_error', errors: [{ code: 'invalid_accept_header' }] });
             }
@@ -225,6 +260,11 @@ export class FakeSmartBill {
 
         if (failure === 'drop-after-issue') {
             req.socket.destroy();
+            return;
+        }
+        if (failure === 'empty-after-issue') {
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.end();
             return;
         }
 
@@ -300,6 +340,11 @@ export class FakeSmartBill {
 
         if (failure === 'drop-after-issue') {
             req.socket.destroy();
+            return;
+        }
+        if (failure === 'empty-after-issue') {
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.end();
             return;
         }
         return json(res, 200, { errorText: '', message: '', number: receipt?.number ?? '', series: receipt && !isDraft ? receipt.series : '', url: '' });

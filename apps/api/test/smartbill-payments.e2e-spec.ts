@@ -451,4 +451,92 @@ describe('Recording payments in SmartBill (e2e)', () => {
             expect(await divergence.refresh()).toMatchObject({ checked: 0, stoppedBy: 'off' });
         });
     });
+    describe('a payment that stopped being money while its answer was out', () => {
+        it('is not sent again once the lost answer is settled', async () => {
+            const invoice = await issuedOctober();
+            const payment = await pay(invoice);
+            fake.failNextPayment('drop-before-issue');
+            await payments.drain();
+            expect((await reload(payment.id)).fiscalStatus).toBe(PaymentFiscalStatus.UNCERTAIN);
+
+            // The transfer bounced, and the office says so while the answer is still out.
+            await request(app.getHttpServer()).put(`/payments/${payment.id}`).set('Authorization', admin.auth).send({ status: 'reversed' }).expect(200);
+            await payments.drain({ now: minutesFromNow(3) });
+            await payments.drain({ now: minutesFromNow(30) });
+
+            expect((await reload(payment.id)).fiscalStatus).toBeNull();
+            expect(fake.collections).toHaveLength(0);
+        });
+
+        it('leaves the queue when a person sends it again from review, instead of being recorded', async () => {
+            const invoice = await issuedOctober();
+            const payment = await pay(invoice, { amount: 100 });
+            fake.failNextPayment('drop-before-issue');
+            await payments.drain();
+            // Somebody records money by hand in SmartBill meanwhile, so the paid amount moved: the lost
+            // answer goes to a person rather than being judged.
+            fake.collectByHand(invoice.fiscalSeries as string, invoice.fiscalNumber as string, 50);
+            await payments.drain({ now: minutesFromNow(3) });
+            expect((await reload(payment.id)).fiscalStatus).toBe(PaymentFiscalStatus.REVIEW);
+
+            // The transfer bounced. The person finds nothing of it in SmartBill and presses "send again".
+            await request(app.getHttpServer()).put(`/payments/${payment.id}`).set('Authorization', admin.auth).send({ status: 'reversed' }).expect(200);
+            await request(app.getHttpServer()).post(`/payments/${payment.id}/fiscal/retry`).set('Authorization', admin.auth).expect(200);
+            await payments.drain({ now: minutesFromNow(30) });
+
+            expect((await reload(payment.id)).fiscalStatus).toBeNull();
+            expect(paymentRequests()).toHaveLength(1);
+        });
+    });
+
+    describe('an invoice SmartBill no longer knows, while an answer is out', () => {
+        it('hands that payment to a person, and the queue goes on with the rest', async () => {
+            const invoice = await issuedOctober();
+            const first = await pay(invoice, { amount: 100 });
+            fake.failNextPayment('drop-before-issue');
+            await payments.drain();
+            const second = await pay(invoice, { amount: 100 });
+            // Deleted by hand in SmartBill Cloud before the lost answer was settled.
+            fake.forgetInvoice(invoice.fiscalSeries as string, invoice.fiscalNumber as string);
+
+            const result = await payments.drain({ now: minutesFromNow(3) });
+
+            expect(result.review).toBe(1);
+            expect((await reload(first.id)).fiscalStatus).toBe(PaymentFiscalStatus.REVIEW);
+            // Before, the pass stopped at the first one, on every tick, and this one never moved.
+            expect((await reload(second.id)).fiscalStatus).toBe(PaymentFiscalStatus.FAILED);
+        });
+    });
+
+    describe('an answer whose body never arrives', () => {
+        it('is not a recorded receipt: the paid amount decides, and a person confirms the number', async () => {
+            const invoice = await issuedOctober();
+            const payment = await pay(invoice);
+            fake.failNextPayment('empty-after-issue');
+
+            await payments.drain();
+            expect(await reload(payment.id)).toMatchObject({ fiscalStatus: PaymentFiscalStatus.UNCERTAIN, fiscalReceiptNumber: null });
+
+            await payments.drain({ now: minutesFromNow(3) });
+
+            expect((await reload(payment.id)).fiscalStatus).toBe(PaymentFiscalStatus.REVIEW);
+            expect(fake.collections).toHaveLength(1);
+        });
+    });
+
+    describe('the divergence check, racing a payment', () => {
+        it('does not put back a check the payment cleared, with the figure from before it', async () => {
+            const invoice = await issuedOctober();
+            const payment = await pay(invoice);
+            // The read is in the air when the payment queue records the collection and clears the check.
+            fake.onNextRequest('/invoice/paymentstatus', async () => {
+                await dataSource.getRepository(Payment).update(payment.id, { fiscalRecordedAt: new Date() });
+                await dataSource.getRepository(Invoice).update(invoice.id, { fiscalCheckedAt: null });
+            });
+
+            await divergence.refresh();
+
+            expect((await dataSource.getRepository(Invoice).findOneByOrFail({ id: invoice.id })).fiscalCheckedAt).toBeNull();
+        });
+    });
 });

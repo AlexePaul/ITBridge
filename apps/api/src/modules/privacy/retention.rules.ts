@@ -72,13 +72,23 @@ export function keptSince(today: string, months: number): string {
  *  - `owes_money` — an invoice is still unpaid. Emptying the row would leave the school a debt it can
  *    no longer ask anybody about; GDPR art. 17(3)(e) keeps what is needed for a legal claim, and the
  *    note says so. The term resumes the day the arrears list stops naming the family.
+ *  - `fiscal_in_progress` — an invoice is still on its way to SmartBill (`FISCAL_WORK_OUTSTANDING`).
+ *    Its fiscal document is written from the family's name when it is sent, so erased first, it
+ *    would go to SPV in the name of an emptied row. Paid or not, the office issues it or withdraws
+ *    it, and the term resumes then.
  */
-export type RetentionHold = 'enrolment_in_force' | 'on_waitlist' | 'owes_money';
+export type RetentionHold = 'enrolment_in_force' | 'on_waitlist' | 'owes_money' | 'fiscal_in_progress';
 
-export function holdOf(family: { enrolmentsInForce: number; openWaitlistEntries: number; outstanding: number }): RetentionHold | null {
+export function holdOf(family: {
+    enrolmentsInForce: number;
+    openWaitlistEntries: number;
+    outstanding: number;
+    invoicesOnTheirWayToSmartBill: number;
+}): RetentionHold | null {
     if (family.enrolmentsInForce > 0) return 'enrolment_in_force';
     if (family.openWaitlistEntries > 0) return 'on_waitlist';
     if (family.outstanding > 0) return 'owes_money';
+    if (family.invoicesOnTheirWayToSmartBill > 0) return 'fiscal_in_progress';
     return null;
 }
 

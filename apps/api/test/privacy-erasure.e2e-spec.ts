@@ -396,6 +396,20 @@ describe('Privacy erasure (e2e)', () => {
             expect(wholeTrail).not.toContain('Maria');
         });
 
+        it('waits while an invoice of theirs is still on its way to SmartBill', async () => {
+            // SmartBill's document is written from the family's name when it is sent: erased first,
+            // it would go to SPV in the name of an emptied row.
+            await dataSource.query(`UPDATE invoices SET "fiscalStatus" = 'pending' WHERE parent_id = $1`, [anaProfileId]);
+
+            const refused = await erase(anaProfileId).expect(409);
+
+            expect(refused.body.code).toBe('FAMILY_HAS_FISCAL_WORK');
+            expect(await countRows('SELECT COUNT(*) FROM children WHERE parent_id = $1', [anaProfileId])).toBe(1);
+
+            await dataSource.query(`UPDATE invoices SET "fiscalStatus" = 'issued' WHERE parent_id = $1`, [anaProfileId]);
+            await erase(anaProfileId).expect(201);
+        });
+
         it('refuses to do it twice', async () => {
             await erase(anaProfileId).expect(201);
             const res = await erase(anaProfileId).expect(409);

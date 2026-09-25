@@ -1,4 +1,4 @@
-import { namesInvoice, normalizeText, suggestMatch, type OpenInvoice } from './statement-matching.rules';
+import { namesInvoice, normalizeText, suggestMatch, withRunningRemainder, type MatchSuggestion, type OpenInvoice } from './statement-matching.rules';
 
 /** Which invoice a statement line pays — E16/S8. A proposal, never a decision. */
 describe('statement matching', () => {
@@ -72,6 +72,87 @@ describe('statement matching', () => {
         it('reads names without diacritics as the bank writes them', () => {
             const open = [invoice({ family: { firstName: 'Ștefan', lastName: 'Țăranu' } })];
             expect(suggestMatch({ amount: 350, description: '', counterparty: 'TARANU STEFAN' }, open)).toMatchObject({ confidence: 'name' });
+        });
+    });
+    describe('withRunningRemainder', () => {
+        const open = [invoice({ invoiceId: 41, outstanding: 350 })];
+        const sure = (overpays = false): MatchSuggestion => ({ invoiceId: 41, confidence: 'reference', overpays });
+
+        it('lets the first of two lines citing one invoice through, and leaves the second to a person', () => {
+            const lines = [
+                { id: 2, bookedOn: '2026-11-05', amount: 350 },
+                { id: 1, bookedOn: '2026-11-03', amount: 350 },
+            ];
+            const judged = withRunningRemainder(
+                lines,
+                new Map([
+                    [1, sure()],
+                    [2, sure()],
+                ]),
+                open,
+            );
+
+            expect(judged.get(1)?.overpays).toBe(false);
+            expect(judged.get(2)?.overpays).toBe(true);
+        });
+
+        it('lets two partial payments through while together they fit, and stops the one that does not', () => {
+            const lines = [
+                { id: 1, bookedOn: '2026-11-03', amount: 200 },
+                { id: 2, bookedOn: '2026-11-04', amount: 150 },
+                { id: 3, bookedOn: '2026-11-05', amount: 0.01 },
+            ];
+            const judged = withRunningRemainder(
+                lines,
+                new Map([
+                    [1, sure()],
+                    [2, sure()],
+                    [3, sure()],
+                ]),
+                open,
+            );
+
+            expect([1, 2, 3].map((id) => judged.get(id)?.overpays)).toEqual([false, false, true]);
+        });
+
+        it('orders by the day the money arrived, then by line, whatever order the page shows', () => {
+            const lines = [
+                { id: 9, bookedOn: '2026-11-03', amount: 350 },
+                { id: 4, bookedOn: '2026-11-03', amount: 350 },
+            ];
+            const judged = withRunningRemainder(
+                lines,
+                new Map([
+                    [9, sure()],
+                    [4, sure()],
+                ]),
+                open,
+            );
+
+            expect(judged.get(4)?.overpays).toBe(false);
+            expect(judged.get(9)?.overpays).toBe(true);
+        });
+
+        it('leaves name suggestions, lines without one, and a line that already overpays as they were', () => {
+            const byName: MatchSuggestion = { invoiceId: 41, confidence: 'name', overpays: false };
+            const lines = [
+                { id: 1, bookedOn: '2026-11-03', amount: 500 },
+                { id: 2, bookedOn: '2026-11-04', amount: 350 },
+                { id: 3, bookedOn: '2026-11-05', amount: 350 },
+            ];
+            const judged = withRunningRemainder(
+                lines,
+                new Map([
+                    [1, sure(true)],
+                    [2, byName],
+                    [3, null],
+                ]),
+                open,
+            );
+
+            expect(judged.get(1)).toEqual(sure(true));
+            expect(judged.get(2)).toEqual(byName);
+            expect(judged.get(3)).toBeNull();
         });
     });
 });

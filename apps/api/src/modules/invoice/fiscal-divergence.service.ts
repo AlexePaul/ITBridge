@@ -67,6 +67,32 @@ export class FiscalDivergenceService {
         private readonly smartBill: SmartBillService,
     ) {}
 
+    /**
+     * Writes what SmartBill said, unless a payment on the invoice was recorded there after the read
+     * began.
+     *
+     * The payment queue clears `fiscalCheckedAt` as soon as it records a collection, so the report
+     * does not judge the invoice on a figure from before it. A read that started before that and
+     * came back after it carried the older figure — and writing it put the check back, with a paid
+     * amount already out of date, and the report said the money had been edited by hand in
+     * SmartBill for a day. Skipped, the invoice stays unread and is read again on the next pass.
+     */
+    private async writeReading(
+        invoiceId: number,
+        reading: Pick<Invoice, 'fiscalPaidAmount' | 'fiscalTotalAmount' | 'fiscalCheckedAt'>,
+        readStartedAt: Date,
+    ): Promise<void> {
+        await this.invoiceRepository
+            .createQueryBuilder()
+            .update(Invoice)
+            .set(reading)
+            .andWhere('id = :id', { id: invoiceId })
+            .andWhere('NOT EXISTS (SELECT 1 FROM payments recorded WHERE recorded.invoice_id = :id AND recorded."fiscalRecordedAt" >= :readStartedAt)', {
+                readStartedAt,
+            })
+            .execute();
+    }
+
     /** One pass: read the invoices due a check, oldest read first, never-read before all. */
     async refresh(options: { now?: Date; batchSize?: number } = {}): Promise<DivergenceRefreshResult> {
         const now = options.now ?? new Date();
@@ -88,13 +114,15 @@ export class FiscalDivergenceService {
 
         let checked = 0;
         for (const invoice of due) {
+            // On the wall clock, which is what the payment queue stamps `fiscalRecordedAt` with.
+            const readStartedAt = new Date();
             try {
                 const status = await this.smartBill.invoicePaymentStatus(invoice.fiscalSeries ?? '', invoice.fiscalNumber ?? '');
-                await this.invoiceRepository.update(invoice.id, { fiscalPaidAmount: status.paid, fiscalTotalAmount: status.total, fiscalCheckedAt: now });
+                await this.writeReading(invoice.id, { fiscalPaidAmount: status.paid, fiscalTotalAmount: status.total, fiscalCheckedAt: now }, readStartedAt);
             } catch (error: unknown) {
                 if (error instanceof SmartBillError && error.kind === 'refused') {
                     // "Factura nu a fost gasita": read, and the answer is that it is gone.
-                    await this.invoiceRepository.update(invoice.id, { fiscalPaidAmount: null, fiscalTotalAmount: null, fiscalCheckedAt: now });
+                    await this.writeReading(invoice.id, { fiscalPaidAmount: null, fiscalTotalAmount: null, fiscalCheckedAt: now }, readStartedAt);
                 } else {
                     const stoppedBy =
                         error instanceof SmartBillError && error.kind === 'throttled'

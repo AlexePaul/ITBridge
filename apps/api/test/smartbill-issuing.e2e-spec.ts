@@ -10,6 +10,7 @@ import * as smartBillSettings from 'src/modules/smartbill/smartbill.config';
 import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
 import { PdfService } from 'src/modules/invoice/pdf.service';
 import { Invoice, InvoiceFiscalStatus } from 'src/entities/invoice.entity';
+import { FISCAL_LEASE_MS } from 'src/modules/invoice/fiscal-issuing.rules';
 
 /**
  * Issuing through SmartBill — E16/S2 and S3 — against a real database and a fake SmartBill that
@@ -424,6 +425,77 @@ describe('Issuing invoices through SmartBill (e2e)', () => {
             expect(rows.map((row) => row.fiscalNumber)).toEqual(['0041', null, '0042']);
             // One series read for the pass, one request per invoice, one PDF per issued one.
             expect(fake.requests.filter((req) => req.path === '/series')).toHaveLength(1);
+        });
+    });
+    describe('an answer whose body never arrives', () => {
+        it('is not an issued invoice: the series decides, and a person confirms the number', async () => {
+            const [invoice] = await issueOctober();
+            fake.failNext('empty-after-issue');
+
+            const first = await fiscal.drain();
+
+            // The 200 came, the body did not: an invoice may exist under a number nobody saw.
+            expect(first.stoppedBy).toBe('unanswered');
+            expect(await reload(invoice.id)).toMatchObject({ fiscalStatus: InvoiceFiscalStatus.UNCERTAIN, fiscalNumber: null });
+
+            const later = await fiscal.drain({ now: minutesFromNow(3) });
+
+            expect(later.review).toBe(1);
+            expect(await reload(invoice.id)).toMatchObject({ fiscalStatus: InvoiceFiscalStatus.REVIEW });
+            expect(fake.issued).toHaveLength(1);
+        });
+    });
+
+    describe('the lease', () => {
+        it('counts from when the request goes out, not from when the pass began', async () => {
+            await issueOctober(3);
+            fake.delayIssues(700);
+            fake.failNext('none', 'none', 'drop-before-issue');
+            const passStartedAt = Date.now();
+
+            await fiscal.drain();
+
+            const [, , third] = await dataSource.getRepository(Invoice).find({ order: { id: 'ASC' } });
+            expect(third.fiscalStatus).toBe(InvoiceFiscalStatus.UNCERTAIN);
+            // Two slow requests went up before this one. Stamped from the start of the pass, its
+            // lease would have ended two minutes after that, with those seconds already spent.
+            expect((third.fiscalNextAttemptAt as Date).getTime()).toBeGreaterThanOrEqual(passStartedAt + FISCAL_LEASE_MS + 1_400);
+        });
+
+        it('sends nothing for a row that changed hands before it went up', async () => {
+            const [invoice] = await issueOctober();
+            // While this pass reads the series, somebody else settles the row and takes it again.
+            fake.onNextRequest('/series', async () => {
+                await dataSource.getRepository(Invoice).increment({ id: invoice.id }, 'fiscalAttempts', 1);
+            });
+
+            const result = await fiscal.drain();
+
+            expect(result.stoppedBy).toBe('in_flight');
+            expect(invoiceRequests()).toHaveLength(0);
+            expect(fake.issued).toHaveLength(0);
+        });
+    });
+
+    describe('a correction below zero', () => {
+        it('is refused before it could go to SmartBill as a negative price', async () => {
+            const [invoice] = await issueOctober();
+
+            await request(app.getHttpServer()).put(`/invoices/${invoice.id}`).set('Authorization', admin.auth).send({ amount: -350 }).expect(400);
+
+            expect((await reload(invoice.id)).amount).toBe(350);
+        });
+    });
+
+    describe('the rate limit, on a PDF', () => {
+        it('is recorded, so nothing calls SmartBill through the ten minutes', async () => {
+            const [invoice] = await issueOctober();
+            await fiscal.drain();
+            const issued = await reload(invoice.id);
+            fake.failNextPdf('lockout');
+
+            await expect(smartBill.invoicePdf(issued.fiscalSeries as string, issued.fiscalNumber as string)).rejects.toMatchObject({ kind: 'throttled' });
+            expect(smartBill.lockedOutUntil(new Date())).not.toBeNull();
         });
     });
 });

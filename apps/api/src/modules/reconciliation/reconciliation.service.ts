@@ -10,7 +10,7 @@ import { PaymentService } from 'src/modules/payment/payment.service';
 import type { Actor } from 'src/modules/audit/audit.service';
 import { parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { fingerprintLines, parseStatement, StatementFormatError, type StatementParse } from './statement-parser';
-import { suggestMatch, type MatchConfidence, type OpenInvoice } from './statement-matching.rules';
+import { suggestMatch, withRunningRemainder, type MatchConfidence, type MatchSuggestion, type OpenInvoice } from './statement-matching.rules';
 
 export interface StatementImportResult {
     /** Incoming lines the file holds. */
@@ -155,10 +155,20 @@ export class ReconciliationService {
 
         const open = state === 'waiting' ? await this.openInvoices() : [];
         const openById = new Map(open.map((invoice) => [invoice.invoiceId, invoice]));
+        // Judged together, not one by one: two waiting lines that cite the same invoice must not
+        // both count as sure, or one press records the invoice paid twice. See `withRunningRemainder`.
+        const suggestions =
+            state === 'waiting'
+                ? withRunningRemainder(
+                      lines.map((line) => ({ id: line.id, bookedOn: toIsoDate(line.bookedOn), amount: line.amount })),
+                      new Map(lines.map((line) => [line.id, suggestMatch(line, open)])),
+                      open,
+                  )
+                : new Map<number, MatchSuggestion | null>();
         let sureCount = 0;
 
         const views = lines.map((line): StatementLineView => {
-            const suggestion = state === 'waiting' ? suggestMatch(line, open) : null;
+            const suggestion = suggestions.get(line.id) ?? null;
             const target = suggestion ? openById.get(suggestion.invoiceId) : undefined;
             if (suggestion?.confidence === 'reference' && !suggestion.overpays) sureCount++;
             return {
@@ -245,7 +255,10 @@ export class ReconciliationService {
         const page = await this.lines('waiting');
         let confirmed = 0;
         let failed = 0;
-        for (const line of page.lines) {
+        // Oldest first — the order the sure ones were judged in, each against what the ones before
+        // it left. The page lists newest first.
+        const oldestFirst = [...page.lines].sort((a, b) => a.bookedOn.localeCompare(b.bookedOn) || a.id - b.id);
+        for (const line of oldestFirst) {
             const suggestion = line.suggestion;
             if (!suggestion || suggestion.confidence !== 'reference' || suggestion.overpays) continue;
             try {

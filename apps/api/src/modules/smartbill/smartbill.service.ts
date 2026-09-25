@@ -144,7 +144,15 @@ export class SmartBillService implements OnModuleInit {
             );
         }
         const body = await this.call(config, 'POST', '/invoice/v2', payload, ISSUE_TIMEOUT_MS);
-        return readIssuedDocument(body);
+        const document = readIssuedDocument(body);
+        // A fiscal invoice is its number. An answer that says "done" without one is an invoice that
+        // may exist under a number nobody saw — the series decides, as for a lost answer. Taken as a
+        // success, it became an `issued` row with no number, which nothing could retry, confirm,
+        // edit or delete, and whose PDF was a 404 for good.
+        if (payload.isDraft !== true && (!document.series || !document.number)) {
+            throw new SmartBillError('ambiguous', 'SmartBill confirmed the invoice without its series and number; the series decides whether it exists.');
+        }
+        return document;
     }
 
     /**
@@ -196,7 +204,12 @@ export class SmartBillService implements OnModuleInit {
             );
         }
         const body = await this.call(config, 'POST', '/payment', payload, ISSUE_TIMEOUT_MS);
-        return readRecordedPayment(body);
+        const recorded = readRecordedPayment(body);
+        // The same rule as an invoice's number, for the one collection that is a numbered document.
+        if (payload.isDraft !== true && payload.type === 'Chitanta' && !recorded.number) {
+            throw new SmartBillError('ambiguous', 'SmartBill confirmed the receipt without its number; the paid amount decides whether it exists.');
+        }
+        return recorded;
     }
 
     /**
@@ -211,11 +224,13 @@ export class SmartBillService implements OnModuleInit {
         const query = `cif=${encodeURIComponent(config.cif)}&seriesname=${encodeURIComponent(series)}&number=${encodeURIComponent(number)}`;
         const response = await this.send(config, 'GET', `/invoice/pdf?${query}`, undefined, READ_TIMEOUT_MS, 'application/octet-stream');
         if (!response.ok) {
-            throw new SmartBillError(
-                classifyFailure(response.status, null),
-                `SmartBill answered HTTP ${response.status} for the PDF of ${series} ${number}`,
-                response.status,
-            );
+            // The body is read for its `errorText`: the rate limit answers 403 with it, and without it
+            // that 403 read as a wrong token — so the lock-out was never recorded, and every family
+            // opening an invoice went on calling SmartBill through the ten minutes.
+            const body: unknown = await response.json().catch(() => null);
+            const kind = classifyFailure(response.status, body);
+            if (kind === 'throttled') this.lockOut();
+            throw new SmartBillError(kind, `SmartBill answered HTTP ${response.status} for the PDF of ${series} ${number}`, response.status);
         }
         return Buffer.from(await response.arrayBuffer());
     }
@@ -239,18 +254,34 @@ export class SmartBillService implements OnModuleInit {
     /** One JSON call: success envelope back, anything else as a classified `SmartBillError`. */
     private async call(config: SmartBillConfig, method: 'GET' | 'POST', path: string, payload: unknown, timeoutMs: number): Promise<unknown> {
         const response = await this.send(config, method, path, payload, timeoutMs, 'application/json');
-        const body: unknown = await response.json().catch(() => null);
+        let body: unknown = null;
+        let readable = true;
+        try {
+            body = await response.json();
+        } catch {
+            readable = false;
+        }
+
+        // A 2xx whose body never arrived whole: the connection dropped after the headers, or the
+        // timeout fired while it was being read. `null` used to pass `isSuccess` — no `errorText` in
+        // it — so a lost answer to `POST /invoice/v2` became a success with nothing in it. For an
+        // issue request that is exactly an invoice nobody saw, and for a read, a failed read.
+        if (response.ok && !readable) {
+            throw new SmartBillError('ambiguous', `SmartBill answered HTTP ${response.status}, but its body could not be read.`, response.status);
+        }
 
         if (isSuccess(response.status, body)) {
             return body;
         }
 
         const kind = classifyFailure(response.status, body);
-        if (kind === 'throttled') {
-            this.lockedUntil = Date.now() + LOCKOUT_MS;
-            this.logger.error(`Rate limit hit; not calling SmartBill again before ${new Date(this.lockedUntil).toISOString()}.`);
-        }
+        if (kind === 'throttled') this.lockOut();
         throw new SmartBillError(kind, describeFailure(response.status, body), response.status);
+    }
+
+    private lockOut(): void {
+        this.lockedUntil = Date.now() + LOCKOUT_MS;
+        this.logger.error(`Rate limit hit; not calling SmartBill again before ${new Date(this.lockedUntil).toISOString()}.`);
     }
 
     private async send(config: SmartBillConfig, method: 'GET' | 'POST', path: string, payload: unknown, timeoutMs: number, accept: string): Promise<Response> {
@@ -259,6 +290,11 @@ export class SmartBillService implements OnModuleInit {
         }
 
         await this.takeSlot();
+        // Again after the wait: a caller queued behind the one that hit the limit would otherwise go
+        // out anyway, on the heels of the answer that said to stop.
+        if (this.lockedUntil > Date.now()) {
+            throw new SmartBillError('throttled', `SmartBill is locked out until ${new Date(this.lockedUntil).toISOString()}; nothing was sent.`);
+        }
 
         // Basic auth from the e-mail and the API token. Neither is ever logged, nor is the header —
         // the spec says as much, and the token can issue invoices in the school's name.

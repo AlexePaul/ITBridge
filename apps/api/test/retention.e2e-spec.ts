@@ -193,6 +193,33 @@ describe('Retention (e2e)', () => {
             expect(family.body.row).toMatchObject({ due: true, hold: 'owes_money' });
         });
 
+        it('holds a family whose paid invoice is still on its way to SmartBill', async () => {
+            await request(app.getHttpServer())
+                .post('/invoices')
+                .set('Authorization', admin.auth)
+                .send({ parentIds: [anaProfileId], monthIssued: '2026-03', dateIssued: '2026-04-01' })
+                .expect(201);
+            const [invoice] = (await dataSource.query('SELECT id, amount FROM invoices WHERE parent_id = $1', [anaProfileId])) as {
+                id: number;
+                amount: string;
+            }[];
+            await request(app.getHttpServer())
+                .post('/payments')
+                .set('Authorization', admin.auth)
+                .send({ invoiceId: invoice.id, amount: Number(invoice.amount), method: 'cash', date: '2026-04-02' })
+                .expect(201);
+            // Paid, and not issued yet: SmartBill refused it and it waits for somebody to fix it.
+            await dataSource.query(`UPDATE invoices SET "fiscalStatus" = 'failed' WHERE id = $1`, [invoice.id]);
+            await endEnrolments(anaChildId);
+            await withdraw(anaProfileId, monthsAgo(13)).expect(200);
+
+            const report = await retention.run(today);
+
+            expect(report).toMatchObject({ familiesErased: 0, familiesHeld: 1 });
+            const family = await request(app.getHttpServer()).get(`/privacy/retention/${anaProfileId}`).set('Authorization', admin.auth).expect(200);
+            expect(family.body.row).toMatchObject({ due: true, hold: 'fiscal_in_progress' });
+        });
+
         it('removes an enquiry nobody has touched for a year — and only that one', async () => {
             const leads = dataSource.getRepository(Lead);
             const enquiry = (parentName: string, months: number, extra: Partial<Lead> = {}) =>

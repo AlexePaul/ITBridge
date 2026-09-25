@@ -32,7 +32,7 @@ describe('retention rules', () => {
     });
 
     describe('holdOf', () => {
-        const clear = { enrolmentsInForce: 0, openWaitlistEntries: 0, outstanding: 0 };
+        const clear = { enrolmentsInForce: 0, openWaitlistEntries: 0, outstanding: 0, invoicesOnTheirWayToSmartBill: 0 };
 
         it('holds nothing for a family that is gone and owes nothing', () => {
             expect(holdOf(clear)).toBeNull();
@@ -42,6 +42,11 @@ describe('retention rules', () => {
             expect(holdOf({ ...clear, enrolmentsInForce: 1, outstanding: 350 })).toBe('enrolment_in_force');
             expect(holdOf({ ...clear, openWaitlistEntries: 1 })).toBe('on_waitlist');
             expect(holdOf({ ...clear, outstanding: 0.01 })).toBe('owes_money');
+        });
+
+        it('holds a family whose invoice is still on its way to SmartBill, paid or not', () => {
+            expect(holdOf({ ...clear, invoicesOnTheirWayToSmartBill: 1 })).toBe('fiscal_in_progress');
+            expect(holdOf({ ...clear, outstanding: 350, invoicesOnTheirWayToSmartBill: 1 })).toBe('owes_money');
         });
     });
 });
