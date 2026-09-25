@@ -13,6 +13,7 @@ import {
     provideMockRepository,
 } from 'src/testing/repository.mock';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
+import { ClassSessionService } from 'src/modules/class-session/class-session.service';
 
 describe('GroupService', () => {
     let service: GroupService;
@@ -20,6 +21,7 @@ describe('GroupService', () => {
     let roomRepo: MockRepository;
     let manager: MockEntityManager;
     let enrollments: { offerFreeSeatsIn: jest.Mock };
+    let classSessions: { followGroup: jest.Mock };
 
     /**
      * The group an edit starts from. `findOne` answers two questions in this service — "load the
@@ -27,7 +29,8 @@ describe('GroupService', () => {
      */
     const editing = (group: Record<string, unknown>) =>
         groupRepo.findOne!.mockImplementation(({ where }: { where: Record<string, unknown> }) =>
-            Promise.resolve(where.weekday === undefined && where.id === group.id ? group : null),
+            // Every stored group has an end time; the fixtures below name it only when it matters.
+            Promise.resolve(where.weekday === undefined && where.id === group.id ? { endTime: '18:30:00', ...group } : null),
         );
 
     const room = { id: 1, name: 'Sala 1', capacity: 10, isActive: true, location: { id: 1, name: 'Drumul Taberei', isActive: true } };
@@ -38,6 +41,7 @@ describe('GroupService', () => {
         roomRepo = createMockRepository();
         manager = createMockEntityManager();
         enrollments = { offerFreeSeatsIn: jest.fn().mockResolvedValue(undefined) };
+        classSessions = { followGroup: jest.fn().mockResolvedValue({ moved: 0, kept: 0, created: 0 }) };
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 GroupService,
@@ -45,6 +49,7 @@ describe('GroupService', () => {
                 provideMockRepository(Room, roomRepo),
                 provideMockDataSource(manager),
                 { provide: EnrollmentService, useValue: enrollments },
+                { provide: ClassSessionService, useValue: classSessions },
             ],
         }).compile();
         service = module.get(GroupService);
@@ -172,6 +177,30 @@ describe('GroupService', () => {
         expect(groupRepo.findOne).toHaveBeenCalledWith({ where: { id: 1 }, relations: { room: { location: true } } });
         const [, saved] = manager.save.mock.calls[0] as [unknown, Record<string, unknown>];
         expect(saved).not.toHaveProperty('children');
+    });
+
+    /**
+     * A group moved to another day takes its coming classes with it, in the edit's transaction.
+     * Before, the old day's classes stayed and the next generation wrote the new day's beside them.
+     */
+    it('updateGroup takes the coming classes along when the day, hour or room moves', async () => {
+        editing({ id: 1, weekday: 2, startTime: '17:00:00', endTime: '18:30:00', capacity: 10, room });
+
+        await service.updateGroup(1, { weekday: 4 });
+
+        expect(classSessions.followGroup).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 1, weekday: 4 }),
+            { weekday: 2, startTime: '17:00:00', endTime: '18:30:00', room },
+            manager,
+        );
+    });
+
+    it('updateGroup leaves the classes alone when the slot did not move', async () => {
+        editing({ id: 1, weekday: 2, startTime: '17:00:00', endTime: '18:30:00', capacity: 10, room });
+
+        await service.updateGroup(1, { name: 'Scratch Avansați', startTime: '17:00', endTime: '18:30' });
+
+        expect(classSessions.followGroup).not.toHaveBeenCalled();
     });
 
     /** A capacity raised is seats a waiting family can have, asked in the same transaction. */

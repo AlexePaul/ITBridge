@@ -4,6 +4,7 @@ import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
 import { DataSource, Not, Repository } from 'typeorm';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
+import { ClassSessionService } from 'src/modules/class-session/class-session.service';
 import { createGroupDto } from './dto/createGroup.dto';
 import { updateGroupDto } from './dto/updateGroup.dto';
 import { applyDefined } from 'src/common/apply-defined';
@@ -15,6 +16,7 @@ export class GroupService {
         @InjectRepository(Room) private readonly roomRepository: Repository<Room>,
         @InjectDataSource() private readonly dataSource: DataSource,
         private readonly enrollments: EnrollmentService,
+        private readonly classSessions: ClassSessionService,
     ) {}
 
     async createGroup(createGroupDto: createGroupDto): Promise<Group> {
@@ -86,12 +88,23 @@ export class GroupService {
         if (room.id !== group.room.id || weekday !== group.weekday || startTime !== normalizeTime(group.startTime)) {
             await this.assertSlotIsFree(room.id, weekday, startTime, id);
         }
+        // Where the group met until now — its coming classes are found by it, and told from it.
+        const before = { weekday: group.weekday, startTime: group.startTime, endTime: group.endTime, room: group.room };
         group.room = room;
 
         const { roomId: _roomId, ...fields } = updateGroupDto;
         applyDefined(group, fields);
+        const slotMoved =
+            group.weekday !== before.weekday ||
+            normalizeTime(group.startTime) !== normalizeTime(before.startTime) ||
+            normalizeTime(group.endTime) !== normalizeTime(before.endTime) ||
+            group.room.id !== before.room.id;
         await this.dataSource.transaction(async (manager) => {
             await manager.save(Group, group);
+            // The coming classes follow the group to its new day, hour or room, and the families
+            // hear once — see `followGroup`. Without it the edit left the old day's classes standing
+            // and the next generation wrote the new day's beside them.
+            if (slotMoved) await this.classSessions.followGroup(group, before, manager);
             // A capacity raised, or a group made active again, is seats a waiting family can have.
             // Asked in the same transaction, the way every release is; a no-op when nothing is free
             // or nobody waits.

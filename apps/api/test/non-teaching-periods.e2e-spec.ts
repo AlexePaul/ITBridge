@@ -70,6 +70,57 @@ describe('Non-teaching periods (e2e)', () => {
             expect((await statusOf(outside)).status).toBe('scheduled');
         });
 
+        /**
+         * A child the office moved into a class for the week is released when the calendar cancels
+         * that class, as when an admin cancels it by hand — the review of 25 September 2026. Before,
+         * the placement kept pointing at a class that was off, and the child never came back among
+         * the ones to place. Still nobody is written to: a holiday is not news (S2).
+         */
+        it('releases the children placed in the classes it cancels, and writes to nobody', async () => {
+            const inside = await createClassSession(dataSource, groupId, { date: FIRST_MONDAY });
+            const profileId = (await dataSource.query<{ id: number }[]>('SELECT id FROM profiles WHERE user_id = $1', [parent.userId]))[0].id;
+            const child = await request(app.getHttpServer())
+                .post('/children')
+                .set('Authorization', parent.auth)
+                .send({ firstName: 'Maria', lastName: 'Calendar', birthDate: '2016-04-02', parentId: profileId })
+                .expect(201);
+            await request(app.getHttpServer())
+                .post(`/children/${child.body.id as number}/groups/${groupId}`)
+                .set('Authorization', admin.auth)
+                .expect(201);
+            const visitor = await request(app.getHttpServer())
+                .post('/children')
+                .set('Authorization', parent.auth)
+                .send({ firstName: 'Radu', lastName: 'Calendar', birthDate: '2016-04-02', parentId: profileId })
+                .expect(201);
+            const missed = await createClassSession(dataSource, groupId, { date: '2027-02-22' });
+            await dataSource.query(
+                `INSERT INTO absence_notices (child_id, class_session_id, reason, "inTime", replacement_session_id) VALUES ($1, $2, 'Răcit', true, $3)`,
+                [visitor.body.id as number, missed, inside],
+            );
+            await dataSource.query('DELETE FROM outbox');
+
+            await addPeriod({ name: 'Vacanța de primăvară', startDate: FIRST_MONDAY, endDate: '2027-03-05' }).expect(201);
+
+            expect(await dataSource.query('SELECT 1 FROM outbox')).toEqual([]);
+            const [{ replacement_session_id: placement }] = await dataSource.query<{ replacement_session_id: number | null }[]>(
+                'SELECT replacement_session_id FROM absence_notices WHERE child_id = $1',
+                [visitor.body.id as number],
+            );
+            expect(placement).toBeNull();
+        });
+
+        /** A class with marks happened; the calendar changing its mind about the day does not undo it. */
+        it('leaves a class that already has marks off the list it cancels', async () => {
+            const taught = await createClassSession(dataSource, groupId, { date: FIRST_MONDAY });
+            await dataSource.query(`INSERT INTO attendances ("groupId", class_session_id, present) VALUES ($1, $2, true)`, [groupId, taught]);
+
+            const res = await addPeriod({ name: 'Vacanța de primăvară', startDate: FIRST_MONDAY, endDate: '2027-03-05' }).expect(201);
+
+            expect(res.body.cancelled).toBe(0);
+            expect((await statusOf(taught)).status).toBe('scheduled');
+        });
+
         it('names the period in the cancelled class, so the reason survives in the timetable', async () => {
             const inside = await createClassSession(dataSource, groupId, { date: FIRST_MONDAY });
 

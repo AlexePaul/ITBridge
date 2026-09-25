@@ -34,6 +34,7 @@ import { ClassSessionStatus } from '../enum/class-session-status.enum';
 // that ever becomes real — a make-up class for the whole group on a Saturday, say — the key grows
 // a `startTime`, and generation has to find another way to recognise what it already wrote.
 @Unique('UQ_class_sessions_group_date', ['group', 'date'])
+@Index('UQ_class_sessions_group_slot', ['group', 'scheduledFor'], { unique: true, where: '"scheduledFor" IS NOT NULL' })
 @Index('IDX_class_sessions_room_id', ['room'])
 export class ClassSession {
     @PrimaryGeneratedColumn('increment')
@@ -48,6 +49,20 @@ export class ClassSession {
 
     @Column({ type: 'date' })
     date: Date;
+
+    /**
+     * The day the generator wrote this class for — its slot in the group's week, which a move does
+     * not change. `null` on a row the generator did not write.
+     *
+     * Generation used to be idempotent on `date` alone, and that was the whole check: a class moved
+     * from Friday to Saturday left Friday free, and the next morning's run wrote a new Friday — two
+     * classes that week, the phantom sold on `/proba`, offered for replacements, reported unmarked and
+     * shown on the invoicing screen. The slot is what generation asks about now, so a class moved
+     * anywhere — the same week or another — is still the class for its slot, and the slot stays
+     * taken. `UQ_class_sessions_group_slot` holds it for two generations racing each other.
+     */
+    @Column({ type: 'date', nullable: true })
+    scheduledFor: Date | null;
 
     @Column({ type: 'time' })
     startTime: string;

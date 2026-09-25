@@ -255,7 +255,9 @@ export class RescheduleService {
         // cancellation note kept, its status put back — and a missing one is written. Never a
         // cancelled row *plus* a new one: the unmarked report would see a lost hour and the month's
         // count would see two classes, one of them unpaid.
-        const row = source ?? this.classSessionRepository.create({ group, notes: null, isVacation: false });
+        // A row written here is the class of the week it recovers, so its slot is that week's day —
+        // the one the generator would have written it for, had the calendar not closed it.
+        const row = source ?? this.classSessionRepository.create({ group, notes: null, isVacation: false, scheduledFor: parseIsoDate(missedDate) });
         row.notes = row.notes === null || row.notes.trim() === '' ? note : `${row.notes}\n\n${note}`;
         row.date = targetDay;
         row.startTime = `${targetStart}:00`;

@@ -262,8 +262,29 @@ cale de acces peste capacitate — aia se verifică prima și refuză oricum. Da
 înscrie, dă-i și câmpul: un avertisment fără cale de răspuns e un blocaj cu numele greșit.
 
 **Prezența se leagă de ședință, nu de o dată și o oră.** `ClassSession` (tabelul `class_sessions`)
-e ședința din orar, generată din programul grupei pe un orizont rulant de opt săptămâni, idempotent
-pe `(group, date)`. Numele are prefix fiindcă `Session` e deja luat de tabelul de refresh tokenuri.
+e ședința din orar, generată din programul grupei pe un orizont rulant de opt săptămâni. Numele are
+prefix fiindcă `Session` e deja luat de tabelul de refresh tokenuri.
+
+**Generarea e idempotentă pe loc, nu pe zi** (revizuirea din 25 septembrie 2026).
+`ClassSession.scheduledFor` e ziua pentru care a scris-o generatorul, iar o mutare n-o schimbă. O zi e
+ocupată de două ori: o oră stă pe ea, sau o oră **a fost generată pentru ea** și s-a mutat în altă
+parte. Cât timp se întreba doar de zi, o oră mutată de vineri pe sâmbătă lăsa vinerea liberă, iar
+rularea de a doua zi o scria din nou: două ore în săptămâna aia, iar cea fantomă era vândută pe
+`/proba`, oferită la mutări și raportată nemarcată. De ce nu „o oră pe săptămână": o oră mutată **în
+altă săptămână** lasă săptămâna aia cu ora ei proprie, iar regula pe săptămână ar fi șters-o.
+`UQ_class_sessions_group_slot` ține linia pentru două generări deodată; `scheduledFor` e `null` pe un
+rând pe care nu l-a scris generatorul, iar o recuperare (E12 S9) scrisă pe o zi goală primește ca loc
+ziua pe care o recuperează.
+
+**O grupă mutată pe altă zi, oră sau sală își ia orele viitoare cu ea** — `followGroup`, chemat din
+`updateGroup` în aceeași tranzacție. Editarea schimba grupa și atât: opt săptămâni de ore rămâneau pe
+ziua veche, iar generarea de a doua zi scria opt pe cea nouă. Acum fiecare oră încă acolo unde a pus-o
+generatorul (pe locul ei, la ora și în sala vechi, neținută, neanulată) se mută **în săptămâna ei** pe
+ziua nouă — luna în care se facturează e a lunii în care cade lunea (E15 S9). Rămân pe loc ora mutată
+de birou dinadins, ora ținută sau anulată, și ora a cărei zi nouă a trecut, e închisă de calendar
+sau are deja o oră a grupei; toate dau totuși locul săptămânii zilei noi, ca generarea să nu scrie
+una lângă ele. **Familiile află o dată**, prin șablonul `group-schedule-changed`, nu o dată pe oră:
+opt ore care urmează grupa sunt o singură schimbare.
 
 **Orarul ascultă de calendarul școlar, iar calendarul anulează, nu șterge.** `NonTeachingPeriod`
 (E12 S2) e un **interval**, nu o zi: o vacanță de două săptămâni e un rând, o sărbătoare legală e un
@@ -277,7 +298,11 @@ rând cu aceleași date la ambele capete. `location` gol înseamnă „toată ș
   oricum populată.
 - Adăugarea unui interval trece ședințele din el în `CANCELLED` și le scrie numele intervalului în
   `notes`. Ștergerea intervalului **nu** le reactivează — o ședință anulată de vacanță și una anulată
-  fiindcă profesorul a fost bolnav arată la fel după aceea. Reactivarea e per ședință.
+  fiindcă profesorul a fost bolnav arată la fel după aceea. Reactivarea e per ședință. **O ședință cu
+  prezențe nu se anulează** — s-a ținut, iar anulată ar ieși din numărătoarea lunii (E15 S9) cu
+  copiii marcați în ea —, iar **un copil mutat de birou într-o ședință anulată e eliberat**
+  (`clearOn`), ca la anularea de mână, și reapare printre cei de mutat. Nu se scrie nimănui, dinadins:
+  o vacanță nu e o veste.
 - Suprapunerile sunt refuzate simetric, indiferent de locație (`PERIOD_OVERLAPS`). Regula mai îngustă
   ar face acceptarea să depindă de ordinea în care au fost tastate cele două intervale.
 
@@ -1762,8 +1787,9 @@ care două răspunsuri încep să difere.
 
 **De ce e zilnic și nu săptămânal**: orizontul se măsoară din _ziua de azi_, deci o trecere
 săptămânală l-ar lăsa să respire între șapte și opt săptămâni. Zilnic ține promisiunea pe care o face
-constanta, și nu costă nimic — generarea e idempotentă pe `(group, date)` și lasă neatins ce există,
-indiferent de stare, deci o dimineață obișnuită nu scrie niciun rând și nu spune nimic în log.
+constanta, și nu costă nimic — generarea e idempotentă pe loc (`scheduledFor`, mai sus) și lasă
+neatins ce există, indiferent de stare, deci o dimineață obișnuită nu scrie niciun rând și nu spune
+nimic în log.
 
 Ce se strica înainte merită ținut minte, fiindcă e forma pe care o iau lipsurile astea: orizontul nu
 se termina, se retrăgea. Prezența se marchează pe `POST /attendance/session/:classSessionId`, deci o

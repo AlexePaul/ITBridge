@@ -749,6 +749,52 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
             ].join('\n'),
         ),
     },
+    {
+        key: 'group-schedule-changed',
+        name: 'Grupa își schimbă programul',
+        description:
+            'Pleacă o singură dată către fiecare familie a grupei, atunci când grupa se mută pe altă zi, altă oră sau în altă sală și orele ei viitoare se mută odată cu ea.',
+        variables: [
+            { name: 'firstName', description: 'Prenumele părintelui' },
+            { name: 'groupName', description: 'Numele grupei' },
+            { name: 'fromSlot', description: 'Ziua, ora și sala de până acum' },
+            { name: 'toSlot', description: 'Ziua, ora și sala de acum încolo' },
+            { name: 'firstDate', description: 'Prima oră ținută după programul nou, în cuvinte' },
+            { name: 'portalUrl', description: 'Adresa portalului' },
+        ],
+        sampleData: {
+            firstName: 'Ana',
+            groupName: 'Scratch începători',
+            fromSlot: 'luni, 16:00–17:30, Sala 1 — Sediul Titan',
+            toSlot: 'miercuri, 17:00–18:30, Sala 2 — Sediul Titan',
+            firstDate: '14 octombrie',
+            portalUrl: 'https://itbridgeschool.com/user/dashboard',
+        },
+        subject: 'Grupa {{groupName}} își schimbă programul',
+        bodyText: [
+            'Bună, {{firstName}}!',
+            '',
+            'Grupa {{groupName}} își schimbă programul.',
+            '',
+            'Era: {{fromSlot}}',
+            'Devine: {{toSlot}}',
+            '',
+            'Prima oră după programul nou e pe {{firstDate}}. Orarul actualizat e în portal:',
+            '',
+            '{{portalUrl}}',
+            '',
+            SIGNATURE,
+        ].join('\n'),
+        bodyHtml: htmlFrame(
+            [
+                paragraph('Bună, {{firstName}}!'),
+                paragraph('Grupa <strong>{{groupName}}</strong> își schimbă programul.'),
+                paragraph('Era: {{fromSlot}}<br>Devine: <strong>{{toSlot}}</strong>'),
+                paragraph('Prima oră după programul nou e pe {{firstDate}}. Orarul actualizat e în portal:'),
+                linkBlock('portalUrl'),
+            ].join('\n'),
+        ),
+    },
 ];
 
 export const TEMPLATE_KEYS = TEMPLATE_DEFAULTS.map((template) => template.key);

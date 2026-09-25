@@ -1642,6 +1642,7 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
         columns: {
             id: { personal: false, why: 'identifier' },
             date: { personal: false, why: 'schedule' },
+            scheduledFor: { personal: false, why: 'schedule', note: 'Ziua pentru care a scris-o generatorul; o mutare nu o schimbă.' },
             startTime: { personal: false, why: 'schedule' },
             endTime: { personal: false, why: 'schedule' },
             status: { personal: false, why: 'state' },
