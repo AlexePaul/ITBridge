@@ -31,6 +31,7 @@ const enrolled = (childId: number, overrides: Partial<BillableEnrollment> = {}):
     status: EnrollmentStatus.ACTIVE,
     startDate: '2026-09-01',
     endDate: null,
+    trialUntil: null,
     ...overrides,
 });
 
@@ -181,6 +182,117 @@ describe('billableSessionsFor', () => {
 
         it('an enrolled child with nothing held is still listed, at zero', () => {
             expect(billableSessionsFor(MONDAYS, [], [enrolled(1)]).get(1)).toEqual({ sessions: 0, lines: [] });
+        });
+    });
+
+    /**
+     * The review of 25 September 2026. A row written today says nothing about which side of this
+     * evening's class the change fell on, so on the first and the last day the register decides.
+     * Ana (1) is marked at every Monday throughout, so each of them is held.
+     */
+    describe('the days an enrolment starts and ends', () => {
+        const everyMonday = MONDAYS.map((s) => mark(s.id, 1, true));
+
+        it('a family who withdrew on the morning of a class day is not billed for that class', () => {
+            const counts = billableSessionsFor(MONDAYS, everyMonday, [enrolled(1), enrolled(2, { status: EnrollmentStatus.WITHDRAWN, endDate: '2026-09-14' })]);
+
+            expect(counts.get(2)?.lines.map((line) => line.date)).toEqual(['2026-09-07']);
+            expect(counts.get(2)?.sessions).toBe(1);
+        });
+
+        it('a family who said at pickup that it was the last class is billed for it', () => {
+            // Radu is on the 14th's register: it was taken while he was still in the group.
+            const marks = [...everyMonday, mark(2, 2, true)];
+
+            const counts = billableSessionsFor(MONDAYS, marks, [enrolled(1), enrolled(2, { status: EnrollmentStatus.WITHDRAWN, endDate: '2026-09-14' })]);
+
+            expect(counts.get(2)?.sessions).toBe(2);
+        });
+
+        it('a child enrolled after a class, on its day, is not billed for it', () => {
+            const counts = billableSessionsFor(MONDAYS, everyMonday, [enrolled(1), enrolled(2, { startDate: '2026-09-14' })]);
+
+            expect(counts.get(2)?.lines.map((line) => line.date)).toEqual(['2026-09-21', '2026-09-28']);
+        });
+
+        it('a child enrolled before a class, on its day, is billed for it — present or absent', () => {
+            const marks = [...everyMonday, mark(2, 2, false)];
+
+            const counts = billableSessionsFor(MONDAYS, marks, [enrolled(1), enrolled(2, { startDate: '2026-09-14' })]);
+
+            expect(counts.get(2)?.sessions).toBe(3);
+        });
+
+        it('a child taken out of a group and put back the same day is billed once for that class', () => {
+            const marks = [...everyMonday, ...MONDAYS.map((s) => mark(s.id, 2, true))];
+
+            const counts = billableSessionsFor(MONDAYS, marks, [
+                enrolled(1),
+                enrolled(2, { status: EnrollmentStatus.WITHDRAWN, endDate: '2026-09-14' }),
+                enrolled(2, { startDate: '2026-09-14' }),
+            ]);
+
+            expect(counts.get(2)?.sessions).toBe(4);
+            expect(counts.get(2)?.lines.map((line) => line.date)).toEqual(['2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28']);
+        });
+
+        it('a child moved between two classes of the same day is billed for neither', () => {
+            // Moved on Monday the 14th, after Python's morning class and before Scratch's evening one:
+            // on neither register, so neither group's class of that day is theirs. Read as the last
+            // day and the first, both were billed.
+            const python = [session(23, '2026-09-14', { groupId: 20 }), session(24, '2026-09-23', { groupId: 20 })];
+            const marks = [...everyMonday, mark(1, 2, true), mark(23, 9, true), mark(24, 9, true), mark(24, 2, true)];
+
+            const counts = billableSessionsFor([...MONDAYS, ...python], marks, [
+                enrolled(1),
+                enrolled(2, { status: EnrollmentStatus.TRANSFERRED, endDate: '2026-09-14' }),
+                enrolled(2, { groupId: 20, startDate: '2026-09-14' }),
+            ]);
+
+            expect(counts.get(2)?.lines.map((line) => line.date)).toEqual(['2026-09-07', '2026-09-23']);
+        });
+    });
+
+    /**
+     * The review of 25 September 2026: the trial's own class was billed the moment the office
+     * decided, because the rule read the status and the status stopped saying "trial".
+     */
+    describe('a trial that has been decided', () => {
+        it('accepted on the same row, is not billed for the trial class', () => {
+            const marks = MONDAYS.map((s) => mark(s.id, 3, true));
+
+            const counts = billableSessionsFor(MONDAYS, marks, [enrolled(3, { startDate: '2026-09-05', trialUntil: '2026-09-08' })]);
+
+            expect(counts.get(3)?.lines.map((line) => line.date)).toEqual(['2026-09-14', '2026-09-21', '2026-09-28']);
+        });
+
+        it('declined, is not billed at all', () => {
+            const marks = [mark(1, 3, true)];
+
+            const counts = billableSessionsFor(MONDAYS, marks, [
+                enrolled(3, { status: EnrollmentStatus.WITHDRAWN, startDate: '2026-09-05', endDate: '2026-09-08', trialUntil: '2026-09-08' }),
+            ]);
+
+            expect(counts.get(3)?.sessions ?? 0).toBe(0);
+        });
+
+        it('moved to another group, is not billed in the group it left', () => {
+            const marks = [mark(1, 3, true)];
+
+            const counts = billableSessionsFor(MONDAYS, marks, [
+                enrolled(3, { status: EnrollmentStatus.TRANSFERRED, startDate: '2026-09-05', endDate: '2026-09-08', trialUntil: '2026-09-08' }),
+            ]);
+
+            expect(counts.get(3)?.sessions ?? 0).toBe(0);
+        });
+
+        it('is free for the whole day of the decision, even when the office decided before its class', () => {
+            // Charging a class the family was promised free is the worse of the two mistakes.
+            const marks = MONDAYS.map((s) => mark(s.id, 3, true));
+
+            const counts = billableSessionsFor(MONDAYS, marks, [enrolled(3, { startDate: '2026-09-05', trialUntil: '2026-09-14' })]);
+
+            expect(counts.get(3)?.sessions).toBe(2);
         });
     });
 

@@ -123,14 +123,19 @@ export class EnrollmentService {
         });
     }
 
-    /** Who was in a group on a given day — enrolments whose period covers that date. */
+    /**
+     * Who was in a group on a given day — enrolments whose period covers that date.
+     *
+     * The day a row ended is not one of them: `close` takes the child off the register at once, so a
+     * child withdrawn this morning is not in this evening's group, and the roster said they were.
+     */
     async membersOn(groupId: number, date: string): Promise<Enrollment[]> {
         return this.enrollmentRepository
             .createQueryBuilder('enrollment')
             .leftJoinAndSelect('enrollment.child', 'child')
             .where('enrollment.group_id = :groupId', { groupId })
             .andWhere('enrollment.startDate <= :date', { date })
-            .andWhere('(enrollment.endDate IS NULL OR enrollment.endDate >= :date)', { date })
+            .andWhere('(enrollment.endDate IS NULL OR enrollment.endDate > :date)', { date })
             .orderBy('child.lastName', 'ASC')
             .addOrderBy('child.firstName', 'ASC')
             .getMany();
@@ -484,11 +489,16 @@ export class EnrollmentService {
             // then the row — written only while it is still in force. Two presses of "close" used to
             // both read it open, both write it and both release the seat: two offers for one chair.
             await this.lockGroup(manager, enrollment.group.id);
-            const closed = await manager.update(
-                Enrollment,
-                { id: enrollmentId, status: In([...IN_FORCE_STATUSES]) },
-                { status: input.status, endDate: input.endDate ?? today(), exitReason: input.exitReason ?? null },
-            );
+            // A trial and an active row are written apart, each only while it still is one: a trial
+            // records the day it stopped (`trialUntil`), which is what keeps its class off the bill
+            // once the status no longer says "trial". Which write hit also says what the row was
+            // under the lock — the read above may have been a trial accepted since.
+            const endDate = input.endDate ?? today();
+            const closing = { status: input.status, endDate, exitReason: input.exitReason ?? null };
+            const closedTrial = await manager.update(Enrollment, { id: enrollmentId, status: EnrollmentStatus.TRIAL }, { ...closing, trialUntil: endDate });
+            const closed = closedTrial.affected
+                ? closedTrial
+                : await manager.update(Enrollment, { id: enrollmentId, status: EnrollmentStatus.ACTIVE }, closing);
             if (!closed.affected) {
                 throw alreadyClosed();
             }
@@ -496,7 +506,7 @@ export class EnrollmentService {
             // A trial closed here, rather than through `resolveTrial`, came to nothing all the same,
             // and its lead has to say so — the review of 25 September 2026 found it left on the
             // follow-up list for ever. Only an open lead moves, so one already decided stays decided.
-            if (enrollment.status === EnrollmentStatus.TRIAL) {
+            if (closedTrial.affected) {
                 await this.leadProgress.settleForEnrollment(enrollmentId, { enrolled: false, reason: input.exitReason ?? null }, new Date(), manager);
             }
 
@@ -559,22 +569,23 @@ export class EnrollmentService {
 
             const now = today();
             // Only while it is still in force: it was read before the locks, and a close in between
-            // would otherwise be overwritten as a transfer.
-            const moved = await manager.update(
-                Enrollment,
-                { id: current.id, status: In([...IN_FORCE_STATUSES]) },
-                { status: EnrollmentStatus.TRANSFERRED, endDate: now, exitReason: input.reason ?? `Transfer în grupa ${target.name}` },
-            );
+            // would otherwise be overwritten as a transfer. A trial and an active row are written
+            // apart, as in `close`, so the trial records the day it stopped being one here — the new
+            // row is a trial of its own, and the old one's class must not reach the bill.
+            const closing = { status: EnrollmentStatus.TRANSFERRED, endDate: now, exitReason: input.reason ?? `Transfer în grupa ${target.name}` };
+            const movedTrial = await manager.update(Enrollment, { id: current.id, status: EnrollmentStatus.TRIAL }, { ...closing, trialUntil: now });
+            const moved = movedTrial.affected ? movedTrial : await manager.update(Enrollment, { id: current.id, status: EnrollmentStatus.ACTIVE }, closing);
             if (!moved.affected) {
                 throw new ConflictException({ message: 'Înscrierea este deja închisă', error: 'ENROLLMENT_ALREADY_CLOSED' });
             }
+            const wasTrial = Boolean(movedTrial.affected);
 
             const opened = await manager.save(Enrollment, {
                 child: { id: input.childId } as Child,
                 group: { id: input.toGroupId } as Group,
                 // A transfer carries the status across: a trial that moves group is still a trial,
                 // and promoting it to active here would enrol a family that has not decided yet.
-                status: current.status,
+                status: wasTrial ? EnrollmentStatus.TRIAL : EnrollmentStatus.ACTIVE,
                 startDate: now,
                 endDate: null,
                 exitReason: null,
@@ -593,7 +604,7 @@ export class EnrollmentService {
                 );
 
             // A trial's lead hangs off the enrolment E11 will decide on, and that is now the new row.
-            if (current.status === EnrollmentStatus.TRIAL) {
+            if (wasTrial) {
                 await this.leadProgress.followTransfer(current.id, { enrollmentId: opened.id, groupId: input.toGroupId }, new Date(), manager);
             }
 
@@ -636,7 +647,9 @@ export class EnrollmentService {
                 const accepted = await manager.update(
                     Enrollment,
                     { id: enrollmentId, status: EnrollmentStatus.TRIAL },
-                    { status: EnrollmentStatus.ACTIVE, contractSignedAt: input.contractSignedAt ?? trial.contractSignedAt },
+                    // The same row goes on, so the day the trial stopped is the only thing that keeps
+                    // its own class — already held, often in this same month — off the bill.
+                    { status: EnrollmentStatus.ACTIVE, trialUntil: today(), contractSignedAt: input.contractSignedAt ?? trial.contractSignedAt },
                 );
                 if (!accepted.affected) throw notATrial();
                 this.logger.log(`Trial ${enrollmentId} became an active enrolment.`);
@@ -647,7 +660,12 @@ export class EnrollmentService {
                 const closed = await manager.update(
                     Enrollment,
                     { id: enrollmentId, status: EnrollmentStatus.TRIAL },
-                    { status: EnrollmentStatus.WITHDRAWN, endDate: today(), exitReason: input.reason ?? 'Proba nu s-a transformat în înscriere' },
+                    {
+                        status: EnrollmentStatus.WITHDRAWN,
+                        endDate: today(),
+                        trialUntil: today(),
+                        exitReason: input.reason ?? 'Proba nu s-a transformat în înscriere',
+                    },
                 );
                 if (!closed.affected) throw notATrial();
                 await this.syncDerivedGroup(trial.child.id, manager);

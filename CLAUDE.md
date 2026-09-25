@@ -250,6 +250,7 @@ văzută.
 **Factura numără înscrierile `ACTIVE`, nu copiii din familie.** Din E11/S4: proba e gratuită, iar un
 copil care nu e în nicio grupă nu vine, deci nu plătește. Al doilea caz era greșit dinainte să existe
 probele. Dacă schimbi asta, e o decizie de preț și e a E15 — nu o numărare de rânduri în `children`.
+Proba rămâne gratuită și după ce e decisă, prin `Enrollment.trialUntil` — vezi emiterea, mai jos.
 
 **Un copil își schimbă grupa doar prin transfer**, `POST /enrollments/transfer`: închide vechea
 înscriere și o deschide pe cea nouă într-o singură tranzacție. **Locul lăsat în urmă se oferă listei
@@ -1962,6 +1963,23 @@ poarte același număr pe care l-a arătat ecranul, și înghețată odată ce f
 Factura poartă o singură linie de produs, deci corectura nu contrazice niciodată catalogul; ce
 apără rândul e evidența școlii.
 
+**O probă decisă rămâne gratuită, iar prima și ultima zi a unei înscrieri le decide catalogul**
+(revizuirea din 25 septembrie 2026). Regula citea statusul: `TRIAL` nu se factura, dar în clipa în
+care biroul decidea — acceptată pe același rând, refuzată, închisă sau mutată în altă grupă —
+statusul nu mai spunea „probă", iar ora de probă intra pe factură. `Enrollment.trialUntil` e ziua
+deciziei, scrisă de fiecare ieșire din `TRIAL` (`close`, `transfer`, `resolveTrial`), și nimic până
+la ea inclusiv nu se facturează — ziua deciziei întreagă, chiar dacă biroul a decis înaintea orei ei:
+o oră promisă gratuit și facturată e greșeala mai rea dintre cele două. Un rând care n-a fost decât
+probă nu apare deloc pe fișă, altfel familia primea o factură de 0 lei fără să se fi înscris vreodată.
+Cealaltă jumătate e ziua: `enrol`, `transfer` și `close` scriu azi, iar copilul era în grupă
+dimineață și nu mai e seara — nimic de pe rând nu spune de care parte a orei a căzut schimbarea. Așa
+că o oră din prima sau din ultima zi se facturează **numai dacă copilul e în catalogul ei**, marcat
+prezent sau absent: catalogul listează grupa așa cum era când a fost luat. Familia care a retras
+copilul luni dimineață nu plătește ora de luni seara; cea care a spus la plecare că a fost ultima,
+da. Zilele dintre capete se facturează ca până acum, cu sau fără catalog, iar o oră atinsă de două
+rânduri — copil scos și pus la loc în aceeași zi — se facturează o dată. `membersOn` citește ziua de
+final ca plecată, ca registrul.
+
 **Emiterea nu desenează nimic; PDF-ul platformei se desenează la prima descărcare** (E15 S6). În
 `off` și `draft`, fiecare familie era un PDF desenat cu PDFKit și urcat în bucket cu tranzacția
 deschisă — 100 de familii în 8,2 s, iar o stocare picată dădea înapoi toată luna; acum emiterea e
@@ -2031,6 +2049,16 @@ buton, deci nu mai e rar.
 **Zero e un răspuns, nu un câmp gol.** O lună fără plată se scrie ca factură `waived`, de 0 lei,
 fără PDF. Rândul există fiindcă n-are bani în el: fără el, o familie fără factură pe octombrie arată
 la fel cu una a cărei lună a uitat-o cineva. `GET /invoices/:id/pdf` răspunde 404 pe ele, explicit.
+
+**Starea unei facturi nu se tastează, iar o factură cu plăți nu se șterge** (revizuirea din 25
+septembrie 2026). `PUT /invoices/:id` primea `status`, iar un `paid` pus de mână spunea „plătit" pe
+portal lângă o restanță pe `/admin/restante`, care numără plățile. Acum DTO-ul nu-l mai are (400),
+iar o sumă schimbată re-derivă starea în aceeași tranzacție, prin `recomputeInvoiceStatus`: la zero
+luna devine `waived` și iese din coada fiscală, ca la emitere — refuzat cu `INVOICE_HAS_PAYMENTS`
+cât timp are bani pe ea —, de la zero redevine datorată și intră în coadă, altfel decid plățile. Tot
+acolo `if (dto.amount)` înghițea zero fără niciun semn. Iar `DELETE /invoices/:id` refuză cu același
+cod o factură cu orice plată, de orice stare: `payments.invoice_id` e `CASCADE`, deci ștergerea lua
+banii cu ea, și nimic nu mai spunea că au existat.
 
 `apps/web/shared/courses.ts` ține cifrele pentru site și **încă spune „350 lei pe lună"** — adică
 prețul unei luni pline, nu regula. Dacă atingi prețul, potrivește-le pe amândouă.

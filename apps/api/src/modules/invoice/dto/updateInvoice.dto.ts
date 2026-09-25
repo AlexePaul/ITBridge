@@ -1,5 +1,4 @@
-import { IsOptional, IsNumber, IsDateString, IsEnum, Min } from 'class-validator';
-import { InvoiceStatus } from '../../../entities/invoice.entity';
+import { IsOptional, IsNumber, IsDateString, Min } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
@@ -18,11 +17,8 @@ export class UpdateInvoiceDto {
     @IsDateString()
     dateIssued?: string;
 
-    @ApiPropertyOptional({ example: InvoiceStatus.PAID, description: 'Updated status', enum: InvoiceStatus })
-    @EmptyToUndefined()
-    @IsOptional()
-    // Had no type decorator at all, so `status: "definitely-paid"` was written straight to an enum
-    // column and surfaced as a database error rather than a 400 naming the field.
-    @IsEnum(InvoiceStatus)
-    status?: InvoiceStatus;
+    // No `status`, on purpose — the review of 25 September 2026. It is derived: `paid` from the
+    // succeeded payments, `waived` from a zero amount, `overdue` from the calendar. Typed by hand it
+    // said `paid` on the portal beside a debt on the arrears screen, which counts the payments; a
+    // request that still sends it gets a 400 from `forbidNonWhitelisted`, not a silent success.
 }

@@ -110,6 +110,21 @@ describe('Enrolments and capacity (e2e)', () => {
             expect(history.body.map((row: { status: string }) => row.status)).toEqual(['ACTIVE', 'TRANSFERRED']);
         });
 
+        /**
+         * The review of 25 September 2026: the day a row ended is not a day in the group. `close`
+         * takes the child off the register at once, and the roster went on listing them until
+         * midnight — beside the register that no longer did.
+         */
+        it('does not count a child withdrawn today among today’s members', async () => {
+            const childId = await makeChild();
+            const groupId = await makeGroup();
+            await request(app.getHttpServer()).post(`/children/${childId}/groups/${groupId}`).set('Authorization', admin.auth).expect(201);
+            await request(app.getHttpServer()).delete(`/children/${childId}/groups/${groupId}`).set('Authorization', admin.auth).expect(204);
+
+            const today = await request(app.getHttpServer()).get(`/enrollments/group/${groupId}/members`).set('Authorization', admin.auth).expect(200);
+            expect(today.body).toHaveLength(0);
+        });
+
         it('keeps the closed row when a child leaves, rather than forgetting where they were', async () => {
             const childId = await makeChild();
             const groupId = await makeGroup();

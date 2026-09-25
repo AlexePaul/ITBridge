@@ -121,8 +121,8 @@ type _NonTeachingPeriod = Check<
 type _EnrollmentStatus = Check<Wire.EnrollmentStatus, EnrollmentStatus>;
 type _WaitlistStatus = Check<Wire.WaitlistStatus, WaitlistStatus>;
 type _Enrollment = Check<
-    Pick<Wire.Enrollment, 'id' | 'status' | 'startDate' | 'endDate' | 'exitReason' | 'contractSignedAt'>,
-    Pick<Serialized<Enrollment>, 'id' | 'status' | 'startDate' | 'endDate' | 'exitReason' | 'contractSignedAt'>
+    Pick<Wire.Enrollment, 'id' | 'status' | 'startDate' | 'endDate' | 'trialUntil' | 'exitReason' | 'contractSignedAt'>,
+    Pick<Serialized<Enrollment>, 'id' | 'status' | 'startDate' | 'endDate' | 'trialUntil' | 'exitReason' | 'contractSignedAt'>
 >;
 type _WaitlistEntry = Check<
     Pick<Wire.WaitlistEntry, 'id' | 'status' | 'createdAt' | 'offeredAt' | 'respondBy' | 'note'>,

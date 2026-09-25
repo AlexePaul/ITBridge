@@ -125,7 +125,7 @@ describe('Row-level authorization (e2e)', () => {
         });
 
         it('a parent cannot update an invoice, not even their own', async () => {
-            await request(app.getHttpServer()).put(`/invoices/${anaInvoiceId}`).set('Authorization', ana.auth).send({ status: 'paid' }).expect(403);
+            await request(app.getHttpServer()).put(`/invoices/${anaInvoiceId}`).set('Authorization', ana.auth).send({ amount: 1 }).expect(403);
         });
 
         it('a parent cannot delete an invoice', async () => {
