@@ -286,10 +286,21 @@ describe('PaymentService', () => {
 
             await service.findPayments({}, Role.ADMIN, 42);
 
-            // `User.passwordHash` has no `select: false`, so a leftJoinAndSelect here would put the
-            // hash on the wire. The join must stay a bare join plus a named addSelect.
+            // A leftJoinAndSelect here would put the whole account on the wire — `select: false` on
+            // `passwordHash` is the second line of defence, not the first. The join must stay a bare
+            // join plus a named addSelect.
             expect(qb.leftJoinCalls).toContain('payment.recordedBy');
             expect(qb.addSelect).toHaveBeenCalledWith(['recordedBy.id', 'recordedBy.username']);
+        });
+
+        it('does not join the recording admin at all for a parent', async () => {
+            const qb = createMockQueryBuilder({ many: [] });
+            paymentRepo.createQueryBuilder!.mockReturnValue(qb);
+
+            await service.findPayments({}, Role.PARENT, 42);
+
+            expect(qb.leftJoinCalls).not.toContain('payment.recordedBy');
+            expect(qb.addSelect).not.toHaveBeenCalled();
         });
     });
 

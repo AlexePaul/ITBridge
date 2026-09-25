@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 import { Payment, PAYMENT_RECORD_MAY_EXIST, PaymentFiscalStatus } from 'src/entities/payment.entity';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { User } from 'src/entities/user.entity';
@@ -51,6 +51,19 @@ function auditableFields(payment: Payment): Record<string, unknown> {
         externalReference: payment.externalReference,
         notes: payment.notes,
     };
+}
+
+/**
+ * Who recorded the payment — for the office, and for nobody else.
+ *
+ * Only the id and the name, never the whole row: `User` carries `passwordHash`, and this entity
+ * serializes straight onto the wire. And only for an admin: the name is the admin's *login*, the
+ * login route is throttled per address rather than per account, and no parent screen shows who
+ * took the money — so on a parent's payment it was half of a credential, handed to every family.
+ */
+function withRecorder(qb: SelectQueryBuilder<Payment>, role: Role): void {
+    if (role !== Role.ADMIN) return;
+    qb.leftJoin('payment.recordedBy', 'recordedBy').addSelect(['recordedBy.id', 'recordedBy.username']);
 }
 
 @Injectable()
@@ -228,14 +241,8 @@ export class PaymentService {
     }
 
     async findPayments(filter: FilterPaymentDto, role: Role, userId: number) {
-        const qb = this.paymentRepo
-            .createQueryBuilder('payment')
-            .leftJoinAndSelect('payment.invoice', 'invoice')
-            .leftJoinAndSelect('invoice.parent', 'parent')
-            // Only the name, never the whole row: `User` carries `passwordHash`, and this entity
-            // serializes straight onto the wire.
-            .leftJoin('payment.recordedBy', 'recordedBy')
-            .addSelect(['recordedBy.id', 'recordedBy.username']);
+        const qb = this.paymentRepo.createQueryBuilder('payment').leftJoinAndSelect('payment.invoice', 'invoice').leftJoinAndSelect('invoice.parent', 'parent');
+        withRecorder(qb, role);
         if (role !== Role.ADMIN) {
             qb.leftJoin('parent.user', 'user').andWhere('user.id = :userId', { userId });
         }
@@ -247,12 +254,8 @@ export class PaymentService {
     }
 
     async findOne(id: number, role: Role, userId: number) {
-        const qb = this.paymentRepo
-            .createQueryBuilder('payment')
-            .leftJoinAndSelect('payment.invoice', 'invoice')
-            .leftJoinAndSelect('invoice.parent', 'parent')
-            .leftJoin('payment.recordedBy', 'recordedBy')
-            .addSelect(['recordedBy.id', 'recordedBy.username']);
+        const qb = this.paymentRepo.createQueryBuilder('payment').leftJoinAndSelect('payment.invoice', 'invoice').leftJoinAndSelect('invoice.parent', 'parent');
+        withRecorder(qb, role);
 
         // `andWhere` throughout, never `where`. A `where()` call *replaces* the whole clause, so the
         // narrowing below used to be wiped out by the id filter that followed it — and every parent
