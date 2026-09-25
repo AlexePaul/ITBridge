@@ -67,7 +67,7 @@ plecat:
   3:1), există legătură „Sari la conținut”, erorile de formular sunt legate prin `aria-describedby`
   și carusel are rol și etichete — iar din S6 **verificarea automată rulează în CI**, cu axe-core
   într-un Chromium adevărat, pe fiecare pagină din sitemap și în ambele teme. Zona autentificată a
-  intrat sub aceeași poartă: `pnpm test:a11y:auth`, un job propriu, 51 de ecrane, ambele teme.
+  intrat sub aceeași poartă: `pnpm test:a11y:auth`, un job propriu, toate ecranele de admin și de portal, ambele teme.
 - **Fără stări de încărcare și eroare coerente.** `NotificationContainer` există; nu e clar că e
   folosit consecvent. Nerezolvat în zona autentificată.
 - ~~**Fără mod întunecat**, deși @nuxt/ui îl suportă din start.~~ Paleta întunecată e definită în
@@ -589,7 +589,7 @@ deschisă, cu 2,61:1 și numele elementului. Cu el la loc, trece.
 **Zona autentificată, măsurată și trecută sub aceeași poartă.** S4 și S5 au rescris ecranele, deci
 verificarea nu mai cimentează nimic. `pnpm test:a11y:auth` — `apps/web/scripts/check-a11y-auth.mjs`,
 un job propriu în CI — se autentifică și trece axe peste **toate ecranele** de admin și de portal
-(51 la livrare, 53 azi), în ambele teme, pe aceleași etichete WCAG. **De la septembrie 2026 pică și
+(51 la livrare, 55 la 25 septembrie 2026), în ambele teme, pe aceleași etichete WCAG. **De la septembrie 2026 pică și
 pe o eroare scrisă în consola browserului**, nu doar pe axe: e singurul lucru care deschide fiecare
 ecran într-un browser adevărat, pe un build adevărat, iar o a doua rulare a aceleiași liste doar ca
 să citească aceeași consolă ar dubla degeaba cel mai lent job din CI. Cererile picate sunt excluse —
@@ -642,10 +642,19 @@ cererile și luaseră cu ele reîmprospătarea tokenului, deci aplicația decide
 mergea la login; predicatul fusese văzut doar întorcând `false`. O gardă văzută numai nedeclanșându-se
 nu e gardă.
 
-**Ce rămâne:** ecranele care primesc un parametru — nu se pot vizita fără un id care există,
-iar unul inventat ar verifica pagina de eroare. Scriptul le tipărește la final, cu număr, ca golul
-să fie o cifră citibilă, nu o tăcere. Și restul acceptanței de tastatură: axe verifică ce e în DOM,
-nu ce se întâmplă când cineva apasă Tab de douăzeci de ori.
+**Din 25 septembrie 2026 citește autentificat și fiecare pagină publică din sitemap**, dar numai
+consola, fiindcă axe le măsoară deja jobul public. Celelalte trei gărzi publice vizitează anonim,
+deci nimeni nu citea site-ul așa. Rulată pe build-ul de dinainte de reparație, verificarea a picat pe
+toate cele douăsprezece pagini: pentru un părinte autentificat, bara de navigare scria „Contul meu"
+cu `href`-ul lui „Programează o probă". Hidratarea înlocuiește textul și păstrează atributele, deci
+un clic stânga mergea, prin router, iar „deschide în tab nou" ducea la formularul de probă. Bara ține
+acum ramura vizitatorului până la montare; regula e în CLAUDE.md.
+
+**Ce rămâne:** restul acceptanței de tastatură, fiindcă axe verifică ce e în DOM, nu ce se întâmplă
+când cineva apasă Tab de douăzeci de ori. Ecranele cu parametru nu mai sunt aici: se vizitează cu
+primul rând al fiecărei colecții. Unul al cărui parametru n-are valoare — o bază goală, sau un
+`[param]` pe care `PARAM_SOURCES` nu-l știe — e tipărit la final, cu număr, ca golul să fie o cifră,
+nu o tăcere.
 
 ### S7 · Interfața profesorului — livrat
 

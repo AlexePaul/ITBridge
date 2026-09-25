@@ -382,7 +382,7 @@ ce a rămas nu seamănă: la E18 e cod, la E19 nu e:
 - La **E18** sunt gata S1 (sistemul de design), S2 (`@nuxt/image` e instalat și cele patru locuri cu
   imagini trec prin `<NuxtPicture>`), S3 (cele șapte pagini publice), S4 (portalul părintelui, pe un
   API care rulează pe `stage.itbridgeschool.com`), S6 (accesibilitatea în CI — două porți, una pe
-  paginile publice din sitemap și una pe cele 51 de ecrane din spatele autentificării) și S7
+  paginile publice din sitemap și una pe toate ecranele din spatele autentificării) și S7
   (interfața profesorului, care fără rol separat e o vedere din zona de admin, nu o zonă a ei).
   **Rămâne S5**, uniformizarea zonei de admin, din care s-a livrat prima felie: nu mai sunt 25 de
   ecrane, ci 42, iar fiecare epic livrat mai adaugă unul construit cu tiparele pe care le-a găsit.
