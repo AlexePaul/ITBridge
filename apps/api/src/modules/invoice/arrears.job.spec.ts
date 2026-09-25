@@ -33,6 +33,7 @@ describe('ArrearsJob', () => {
         amount: 350,
         paid: 0,
         outstanding: 350,
+        announced: 0,
         daysOverdue: 5,
         bucket: 'overdue',
         ...overrides,
@@ -129,6 +130,31 @@ describe('ArrearsJob', () => {
             arrears.list.mockResolvedValue([row({ daysOverdue: 7 })]);
             await job.runFor(DAY);
             expect(message().subject).toContain('martie');
+        });
+    });
+
+    // E16/S6: a transfer the office recorded as announced is money it has seen coming. Reminding the
+    // family then is writing "you are late" to somebody who paid yesterday.
+    describe('a transfer on its way', () => {
+        it('says nothing while an announced transfer covers what is left', async () => {
+            arrears.list.mockResolvedValue([
+                row({ daysOverdue: 7, paid: 200, outstanding: 150, announced: 150 }),
+                row({ invoiceId: 8, daysOverdue: 0, announced: 350 }),
+            ]);
+
+            await job.runFor(DAY);
+            await job.runFor(new Date(2026, 2, 15 - NOTICE_DAYS_BEFORE));
+
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
+        });
+
+        it('still asks for the part no transfer covers', async () => {
+            arrears.list.mockResolvedValue([row({ daysOverdue: 7, outstanding: 350, announced: 200 })]);
+
+            await job.runFor(DAY);
+
+            expect(outbox.queueOrRecord).toHaveBeenCalledTimes(1);
+            expect(message().bodyText).toContain('350 lei');
         });
     });
 

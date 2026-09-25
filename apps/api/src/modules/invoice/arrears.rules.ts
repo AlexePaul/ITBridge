@@ -24,6 +24,20 @@ export function outstandingOf(amount: number, paid: number): number {
     return Math.max(0, Math.round((amount - paid) * 100) / 100);
 }
 
+/**
+ * Whether what is left of an invoice is already on its way — E16/S6.
+ *
+ * A transfer the office saw on a provisional statement is recorded as `initiated`: announced, not
+ * received. It settles nothing, so the invoice stays on the arrears list with the transfer beside
+ * it. But once it covers the rest, the reminders say nothing: the family has paid and the school
+ * has recorded that it knows, and "your invoice is overdue" to them is the complaint E16/S8 names —
+ * a reminder to a family who paid yesterday. A transfer that never arrives is marked failed, and
+ * the reminders pick up where they would have been. Compared in bani.
+ */
+export function restIsAnnounced(outstanding: number, announced: number): boolean {
+    return announced > 0 && Math.round(announced * 100) >= Math.round(outstanding * 100);
+}
+
 /** The last day a family can pay without being late. Inclusive. */
 export function dueDateFor(dateIssued: Date | string): Date {
     return addDays(typeof dateIssued === 'string' ? parseIsoDate(dateIssued.slice(0, 10)) : dateIssued, PAYMENT_TERM_DAYS);

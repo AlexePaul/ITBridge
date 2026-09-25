@@ -198,6 +198,11 @@ export interface ArrearsRow {
     /** What has been received. A partial payment is the interesting middle case. */
     paid: number;
     outstanding: number;
+    /**
+     * Transfers the office recorded as announced (`initiated`) and has not yet confirmed: money on
+     * its way, not received, so it is not in `paid`. Shown so nobody records it a second time.
+     */
+    announced: number;
     daysOverdue: number;
     bucket: ArrearsBucket;
 }

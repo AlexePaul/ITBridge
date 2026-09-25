@@ -136,4 +136,51 @@ describe('Arrears (e2e)', () => {
             expect((await job.runFor(new Date(2026, 2, 21))).notified).toBe(0);
         });
     });
+
+    /**
+     * E16/S6, from the screens: the office saw the transfer on a provisional statement and recorded
+     * it as announced. It is money on its way — not received, so the invoice stays owed; not
+     * something to chase, so the reminders keep quiet — until it is confirmed or marked as never
+     * arrived.
+     */
+    describe('a transfer announced before it arrives', () => {
+        const announce = () =>
+            request(app.getHttpServer())
+                .post('/payments')
+                .set('Authorization', admin.auth)
+                .send({ invoiceId, amount: 350, method: 'bank_transfer', status: 'initiated', date: '2026-03-20' })
+                .expect(201)
+                .then((res) => res.body.id as number);
+        const setStatus = (paymentId: number, body: Record<string, unknown>) =>
+            request(app.getHttpServer()).put(`/payments/${paymentId}`).set('Authorization', admin.auth).send(body).expect(200);
+        const receiptsFor = async (paymentId: number) =>
+            (await dataSource.query<{ n: number }[]>('SELECT count(*)::int AS n FROM "outbox" WHERE "dedupeKey" = $1', [`receipt:${paymentId}`]))[0].n;
+
+        it('stays owed with the transfer beside it, and nobody is reminded of it', async () => {
+            const paymentId = await announce();
+
+            expect((await arrears().expect(200)).body[0]).toMatchObject({ paid: 0, outstanding: 350, announced: 350 });
+            // 22 March is a reminder day: the family paid, and the school has recorded that it knows.
+            expect((await job.runFor(new Date(2026, 2, 22))).notified).toBe(0);
+            expect(await receiptsFor(paymentId)).toBe(0);
+        });
+
+        it('settles the invoice once confirmed, and tells the family then', async () => {
+            const paymentId = await announce();
+
+            await setStatus(paymentId, { status: 'succeeded', date: '2026-03-23' });
+
+            await expect(arrears().expect(200)).resolves.toMatchObject({ body: [] });
+            expect(await receiptsFor(paymentId)).toBe(1);
+        });
+
+        it('goes back to reminding once it is marked as never arrived', async () => {
+            const paymentId = await announce();
+
+            await setStatus(paymentId, { status: 'failed' });
+
+            expect((await arrears().expect(200)).body[0]).toMatchObject({ outstanding: 350, announced: 0 });
+            expect((await job.runFor(new Date(2026, 2, 22))).notified).toBe(1);
+        });
+    });
 });

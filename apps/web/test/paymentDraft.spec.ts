@@ -14,6 +14,7 @@ const row = (over: Partial<ArrearsRow> = {}): ArrearsRow => ({
   amount: 350,
   paid: 0,
   outstanding: 350,
+  announced: 0,
   daysOverdue: 0,
   bucket: "due_soon",
   ...over,

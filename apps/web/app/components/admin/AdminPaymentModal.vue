@@ -21,6 +21,14 @@
           </p>
         </div>
 
+        <!-- The one way this screen records money twice: a transfer already announced, arriving. -->
+        <p v-if="row.announced > 0" class="text-sm" role="note">
+          Pe factura asta e deja un transfer anunțat de {{ formatLei(row.announced) }}, neconfirmat.
+          Dacă banii ăștia sunt acel transfer, confirmă-l din
+          <NuxtLink to="/admin/payments" class="underline">Plăți</NuxtLink> în loc să-l înregistrezi
+          a doua oară.
+        </p>
+
         <UFormField label="Suma încasată (lei)" name="amount" required>
           <UInput v-model.number="amount" type="number" min="0.01" step="0.01" class="w-full" />
         </UFormField>
@@ -37,6 +45,19 @@
         >
           <UInput v-model="externalReference" placeholder="OP 1234" class="w-full" />
         </UFormField>
+
+        <!--
+          E16/S6: a transfer seen on a provisional statement is money on its way, not money in. Recorded
+          as announced, it settles nothing and tells the family nothing until somebody confirms it
+          from /admin/payments — and the reminders stay quiet for it meanwhile.
+        -->
+        <UCheckbox
+          v-if="method === 'bank_transfer'"
+          v-model="announcedOnly"
+          name="announcedOnly"
+          label="Doar anunțat — apare pe extrasul provizoriu, banii n-au intrat încă"
+          description="Factura rămâne de plată și familia nu primește încă confirmarea. Îl confirmi din Plăți când apare pe extras."
+        />
 
         <UFormField label="Data plății" name="date" required>
           <UInput v-model="date" type="date" class="w-full" />
@@ -93,6 +114,7 @@ const method = ref<PaymentMethod>("cash");
 const date = ref(todayKey());
 const externalReference = ref("");
 const notes = ref("");
+const announcedOnly = ref(false);
 
 const methodItems = (Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((value) => ({
   value,
@@ -113,6 +135,7 @@ watch(
     date.value = draft.date;
     externalReference.value = draft.externalReference;
     notes.value = draft.notes;
+    announcedOnly.value = false;
   },
   { immediate: true }
 );
@@ -121,17 +144,24 @@ const submit = async () => {
   const row = props.row;
   if (!row || typeof amount.value !== "number" || amount.value <= 0 || !date.value) return;
 
+  // Only a transfer can be on its way; cash is in the drawer the moment it is recorded.
+  const announced = method.value === "bank_transfer" && announcedOnly.value;
+
   saving.value = true;
   try {
     await paymentsApi.createPayment({
       invoiceId: row.invoiceId,
       amount: amount.value,
       method: method.value,
+      status: announced ? "initiated" : undefined,
       date: date.value,
       externalReference: externalReference.value || undefined,
       notes: notes.value || undefined,
     });
-    success("Încasare înregistrată", `${formatLei(amount.value)} de la ${row.parentName}`);
+    success(
+      announced ? "Transfer anunțat consemnat" : "Încasare înregistrată",
+      `${formatLei(amount.value)} de la ${row.parentName}`
+    );
     open.value = false;
     emit("recorded");
   } catch (err) {

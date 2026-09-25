@@ -178,6 +178,36 @@ describe('Reconciling a bank statement (e2e)', () => {
         expect(await dataSource.getRepository(Payment).count()).toBe(1);
     });
 
+    // E16/S6: the office saw Ana's transfer on the provisional statement and recorded it as announced.
+    // The final statement is the same money arriving, not a second payment.
+    it('confirms a transfer the office had announced instead of recording it a second time', async () => {
+        const announced = await request(app.getHttpServer())
+            .post('/payments')
+            .set('Authorization', admin.auth)
+            .send({
+                invoiceId: invoiceAna.id,
+                amount: 350,
+                method: 'bank_transfer',
+                status: 'initiated',
+                date: '2026-11-04',
+                notes: 'Văzut pe extrasul provizoriu',
+            })
+            .expect(201);
+        await importStatement().expect(200);
+
+        await request(app.getHttpServer()).post('/reconciliation/lines/confirm-suggested').set('Authorization', admin.auth).expect(200);
+
+        const recorded = await dataSource.getRepository(Payment).find();
+        expect(recorded).toHaveLength(1);
+        // The same row, now money that arrived — on the statement's day, with the office's note kept.
+        expect(recorded[0]).toMatchObject({ id: announced.body.id, status: 'succeeded', notes: 'Văzut pe extrasul provizoriu' });
+        expect(toIsoDate(recorded[0].date)).toBe('2026-11-05');
+        expect(await dataSource.getRepository(Invoice).findOneByOrFail({ id: invoiceAna.id })).toMatchObject({ status: 'paid' });
+        expect(await dataSource.getRepository(OutboxMessage).findOneBy({ dedupeKey: `receipt:${announced.body.id as number}` })).not.toBeNull();
+        expect(await lineAbout('ITB 0041')).toBeUndefined();
+        expect((await waiting()).counts).toEqual({ waiting: 2, matched: 1, ignored: 0 });
+    });
+
     it('sets aside what is not a family paying, and brings it back', async () => {
         await importStatement().expect(200);
         const line = await lineAbout('chirie');

@@ -284,9 +284,12 @@ export class PaymentService {
      * A payment whose collection exists in SmartBill, or may, keeps its sum, day and method: SmartBill
      * would hold a record the platform no longer has. Its status stays editable, which is how a
      * transfer that bounced is recorded — see `editTouchesSmartBillRecord`.
+     *
+     * Inside the caller's transaction when it has one, like `createPayment`: a statement line that
+     * confirms an announced transfer and the confirmation commit together (E16/S8).
      */
-    async updatePayment(id: number, dto: UpdatePaymentDto, actor: Actor) {
-        return this.dataSource.transaction(async (manager) => {
+    async updatePayment(id: number, dto: UpdatePaymentDto, actor: Actor, outer?: EntityManager) {
+        const edit = async (manager: EntityManager) => {
             // The lock first, on the payment alone — `FOR UPDATE` cannot sit on the nullable side of
             // the joins the relations below need. The queue claims with `SKIP LOCKED`, so while this
             // holds the row, no pass can take it.
@@ -369,7 +372,8 @@ export class PaymentService {
                 manager,
             );
             return saved;
-        });
+        };
+        return outer ? edit(outer) : this.dataSource.transaction(edit);
     }
 
     async deletePayment(id: number, actor: Actor) {

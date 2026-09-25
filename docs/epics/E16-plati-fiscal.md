@@ -567,6 +567,15 @@ intervenție" nu atârnă de SmartBill — și duce acum la pagina aia, unde sun
 numerar, chitanța, oricând ar ajunge. **Linkul e al portalului, nu al unui PDF de chitanță**, fiindcă
 API-ul SmartBill nu dă PDF decât pentru facturi și proforme; al facturii e deja acolo.
 
+**Transferul anunțat are acum ecran (testarea din 25 septembrie 2026).** Regula de mai sus —
+`initiated` cât extrasul e provizoriu, chitanța la trecerea în `succeeded` — era scrisă și testată pe
+API, dar niciun ecran nu putea trece o plată altfel decât `succeeded`, și niciunul nu putea confirma
+una mai târziu. Acum formularul de încasare are, pentru transfer, bifa „doar anunțat", iar
+`/admin/payments` are pe rândul anunțat „au intrat" (cu ziua din extras) și „n-a venit" (`failed`).
+Cât stă anunțat, transferul apare lângă factură pe lista de restanțe și în formular, ca nimeni să nu-l
+mai înregistreze o dată, iar mementourile din S7 tac dacă acoperă restul. O linie de extras din S8
+potrivită pe factură confirmă transferul anunțat de aceeași sumă în loc să scrie o plată nouă.
+
 ### S7 · Restanțe
 
 Un job marchează facturile depășite ca restante și trimite memento-uri după un calendar

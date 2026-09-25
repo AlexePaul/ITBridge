@@ -5,7 +5,7 @@ import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { officeAddress } from 'src/modules/mail/office-address';
 import { toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { ArrearsService } from './arrears.service';
-import { daysUntilDue } from './arrears.rules';
+import { daysUntilDue, restIsAnnounced } from './arrears.rules';
 import { formatLeiRo, romanianMonth, romanianDay } from './money-words';
 
 /**
@@ -78,6 +78,8 @@ export class ArrearsJob {
 
         let notified = 0;
         for (const row of rows) {
+            // The rest is on its way, and the school knows it: nothing to remind anybody of.
+            if (restIsAnnounced(row.outstanding, row.announced)) continue;
             const until = daysUntilDue(row.dateIssued, day);
             const kind = this.dueToday(until, row.daysOverdue);
             if (!kind) continue;

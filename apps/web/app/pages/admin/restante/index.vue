@@ -42,6 +42,10 @@
               <UBadge :color="ARREARS_BUCKET_COLORS[row.bucket]" variant="subtle" size="sm">
                 {{ ARREARS_BUCKET_LABELS[row.bucket] }}
               </UBadge>
+              <!-- Money on its way (E16/S6): still owed, but not somebody to chase. -->
+              <UBadge v-if="row.announced > 0" color="info" variant="subtle" size="sm">
+                Transfer anunțat {{ formatLei(row.announced) }}
+              </UBadge>
             </div>
             <p class="text-muted text-sm mt-0.5 tabular-nums">
               {{ formatMonth(row.monthIssued) }} · termen {{ formatDateKey(row.dueOn) }}

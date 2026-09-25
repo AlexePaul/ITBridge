@@ -48,6 +48,9 @@
               <template v-if="row.paid > 0">
                 · a plătit {{ formatLei(row.paid) }} din {{ formatLei(row.amount) }}
               </template>
+              <template v-if="row.announced > 0">
+                · transfer anunțat {{ formatLei(row.announced) }}, neconfirmat
+              </template>
             </p>
           </div>
           <div class="flex items-center gap-3 shrink-0">
