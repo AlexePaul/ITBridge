@@ -62,6 +62,9 @@
                 {{ formatTime(row.next.startTime) }}–{{ formatTime(row.next.endTime) }}
               </p>
               <p class="portal-where">{{ placeOf(row.next) }}</p>
+              <p v-if="row.movedTo" class="portal-where">
+                Mutat în săptămâna asta la grupa {{ row.movedTo }}.
+              </p>
             </template>
             <p v-else-if="!row.child.group" class="portal-empty">
               {{ row.child.firstName }} nu e încă într-o grupă, deci nu are ore în orar.
@@ -206,12 +209,16 @@ const unpaid = computed(() =>
  * weeks of timetable a dozen times for one repaint. A computed caches until its sources change.
  */
 const childRows = computed(() =>
-  children.value.map((child) => ({
-    child,
-    next: nextSessionFor(child),
-    marks: recentMarksFor(child),
-    todos: todosFor(child),
-  }))
+  children.value.map((child) => {
+    const next = nextClassFor(child);
+    return {
+      child,
+      next: next?.session ?? null,
+      movedTo: next?.movedTo ?? null,
+      marks: recentMarksFor(child),
+      todos: todosFor(child),
+    };
+  })
 );
 
 onMounted(async () => {
@@ -251,19 +258,34 @@ const loadSessions = async (mine: Child[]) => {
 };
 
 /**
- * The next class that is actually going to happen.
+ * The next class the child is expected at — `movedTo` names the group when it is somebody else's.
  *
  * Cancelled ones are skipped rather than shown greyed out: this column has room for one class, and
- * the useful one is the next class the child is expected at.
+ * the useful one is the next class the child is expected at. So is a class the family announced
+ * the child will miss, and the class the office moved them to that week takes its place (the
+ * review of 25 September 2026): reading only the group's own timetable, this showed Monday's usual
+ * class to a family whose child was going to Saturday's, in another group, the day before.
  */
-const nextSessionFor = (child: Child): ClassSessionWithAttendance | null => {
-  if (!child.group) return null;
-  const sessions = sessionsByGroup.value[child.group.id] ?? [];
+const nextClassFor = (child: Child): { session: ClassSession; movedTo: string | null } | null => {
+  const mine = notices.value.filter((notice) => notice.child.id === child.id);
+  const missed = new Set(mine.map((notice) => notice.classSession.id));
+  const own: { session: ClassSession; movedTo: string | null }[] = (
+    child.group ? (sessionsByGroup.value[child.group.id] ?? []) : []
+  )
+    .filter((session: ClassSessionWithAttendance) => !missed.has(session.id))
+    .map((session: ClassSessionWithAttendance) => ({ session, movedTo: null }));
+  const moves = mine
+    .map((notice) => notice.replacementSession)
+    .filter((session): session is ClassSession => Boolean(session))
+    .map((session) => ({ session, movedTo: session.group?.name ?? "alta" }));
   return (
-    sessions
-      .filter((session) => session.date >= today && session.status !== SessionStatus.CANCELLED)
-      .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))[0] ??
-    null
+    [...own, ...moves]
+      .filter(({ session }) => session.date >= today && session.status !== SessionStatus.CANCELLED)
+      .sort(
+        (a, b) =>
+          a.session.date.localeCompare(b.session.date) ||
+          a.session.startTime.localeCompare(b.session.startTime)
+      )[0] ?? null
   );
 };
 
@@ -333,9 +355,12 @@ const todosFor = (child: Child): Todo[] => {
 
   // A move the office has made is the one thing on this screen a parent has to *do* something
   // about: the child goes somewhere else that week, and nobody remembers a room from an email.
+  // Only a move still ahead: one whose class has been held is done, and the list of moves now
+  // keeps them until then (the review of 25 September 2026).
   for (const notice of notices.value) {
     if (notice.child.id !== child.id || !notice.replacementSession) continue;
     const to = notice.replacementSession;
+    if (to.date < today) continue;
     items.push({
       key: `mutare-${notice.id}`,
       text: `L-am mutat la grupa ${to.group?.name ?? "alta"}, ${weekdayNameOf(to.date)} ${formatDateKey(to.date)}, ora ${formatTime(to.startTime)}.`,

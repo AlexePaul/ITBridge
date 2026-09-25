@@ -375,6 +375,12 @@ ar fi judecat ca fiind ziua dinainte. Regula însăși („luni la 12:00 din să
 coloana spune când a tastat el, nu când a sunat familia, deci un buton „Mută" ascuns pe „după
 termen" ar fi ținut de cod o regulă pe care S3 a lăsat-o dinadins biroului. Cifra celor de mutat stă
 în meniu, prin `unplacedAbsencesStore`, din același motiv ca restanța de documente din E17 S8.
+**Iar familia vede mutarea cât timp ora în care a fost mutat copilul e încă în față** (revizuirea din
+25 septembrie 2026): `GET /attendance/absences` ține un anunț cât timp ora lui **sau** ora mutării
+sunt azi ori mai încolo, pe ziua școlii. Cheiată doar pe ora pierdută, lista familiei pierdea
+mutarea de luni pe sâmbătă a doua zi după luni, iar portalul spunea „nicio mutare" despre singurul
+lucru pe care familia mai avea de făcut. Pe tabloul de bord, „următoarea oră" sare peste ora pe care
+copilul o pierde și arată ora în care a fost mutat, cu grupa ei.
 
 **`User.passwordHash` e `select: false`: nu iese din bază decât cerut pe nume.** Până în septembrie
 2026 nu era, și singurul lucru dintre hash-ul unei familii și un browser era forma fiecărei

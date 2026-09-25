@@ -12,7 +12,8 @@ import { AbsenceNoticeService } from './absence-notice.service';
 import { ReplacementService } from './replacement.service';
 import { PlaceReplacementDto } from './dto/placeReplacement.dto';
 import { UpcomingAbsencesQueryDto } from './dto/upcomingAbsences.dto';
-import { parseIsoDate } from 'src/modules/class-session/class-session.dates';
+import { parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { schoolDay } from 'src/common/school-clock';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 @Controller('attendance')
@@ -110,10 +111,15 @@ export class AttendanceController {
     @Get('absences')
     @ApiBearerAuth()
     @UseGuards(AuthGuard)
-    @ApiResponse({ status: 200, description: 'Announced absences from `from` (default: now) on, soonest first' })
+    @ApiResponse({
+        status: 200,
+        description: 'Announced absences whose class, or whose move, is on or after `from` (default: the school’s today), soonest first',
+    })
     @ApiResponse({ status: 400, description: '`from` is not a YYYY-MM-DD date' })
     async upcomingAbsences(@Query() query: UpcomingAbsencesQueryDto, @Request() req: AuthenticatedRequest) {
-        const from = query.from ? parseIsoDate(query.from) : new Date();
+        // The school's day, as a date: the list is about days, and the server's clock is not the
+        // school's.
+        const from = query.from ? toIsoDate(parseIsoDate(query.from)) : schoolDay(new Date());
         return this.absenceNoticeService.upcoming(req.user.role, req.user.sub, from);
     }
 

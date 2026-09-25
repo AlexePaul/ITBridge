@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { createClassSession, createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { schoolDay } from 'src/common/school-clock';
 
 /**
  * Announced absences, against a real database — E12/S3.
@@ -207,6 +208,33 @@ describe('Absence notices (e2e)', () => {
             expect(sinceJanuary.body.map((row: { classSession: { id: number } }) => row.classSession.id)).toEqual([pastSessionId, sessionId]);
 
             await request(app.getHttpServer()).get('/attendance/absences').query({ from: 'luni' }).set('Authorization', admin.auth).expect(400);
+        });
+
+        /**
+         * The review of 25 September 2026: keyed on the missed class alone, the family's list lost
+         * a move the day after the missed class, while the class it moved the child to was still
+         * ahead — and the portal said "nicio mutare" about the one thing left to do.
+         */
+        it('keeps a move on the family’s list while the class it moved the child to is ahead', async () => {
+            const missed = await createClassSession(dataSource, groupId, { date: '2026-01-05' });
+            const movedTo = await createClassSession(dataSource, groupId, { date: '2027-06-10' });
+            const notice = await announce(admin, { classSessionId: missed }).expect(201);
+            await dataSource.query('UPDATE "absence_notices" SET "replacement_session_id" = $1 WHERE "id" = $2', [movedTo, notice.body.id]);
+
+            const mine = await request(app.getHttpServer()).get('/attendance/absences').set('Authorization', ana.auth).expect(200);
+
+            expect(mine.body).toHaveLength(1);
+            expect(mine.body[0]).toMatchObject({ classSession: { id: missed }, replacementSession: { id: movedTo } });
+        });
+
+        it('counts a class later today as still to come', async () => {
+            const today = schoolDay(new Date());
+            const later = await createClassSession(dataSource, groupId, { date: today });
+            await announce(admin, { classSessionId: later }).expect(201);
+
+            const mine = await request(app.getHttpServer()).get('/attendance/absences').set('Authorization', ana.auth).expect(200);
+
+            expect(mine.body.map((row: { classSession: { id: number } }) => row.classSession.id)).toEqual([later]);
         });
     });
 });
