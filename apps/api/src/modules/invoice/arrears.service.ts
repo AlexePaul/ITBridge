@@ -5,7 +5,7 @@ import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Payment } from 'src/entities/payment.entity';
 import { PaymentStatus } from 'src/enum/payment-status.enum';
 import { toIsoDate } from 'src/modules/class-session/class-session.dates';
-import { ArrearsBucket, bucketFor, daysOverdue, daysUntilDue, dueDateFor } from './arrears.rules';
+import { ArrearsBucket, bucketFor, daysOverdue, daysUntilDue, dueDateFor, outstandingOf } from './arrears.rules';
 
 /** One family's unpaid invoice, as the arrears screen reads it. */
 export interface ArrearsRow {
@@ -23,6 +23,12 @@ export interface ArrearsRow {
     outstanding: number;
     daysOverdue: number;
     bucket: ArrearsBucket;
+}
+
+/** What arrived against an invoice, and what is left — attached to every invoice the API hands out. */
+export interface InvoiceBalance {
+    paid: number;
+    outstanding: number;
 }
 
 /**
@@ -84,7 +90,7 @@ export class ArrearsService {
                         dueOn: toIsoDate(dueDateFor(invoice.dateIssued)),
                         amount: invoice.amount,
                         paid,
-                        outstanding: Math.max(0, Math.round((invoice.amount - paid) * 100) / 100),
+                        outstanding: outstandingOf(invoice.amount, paid),
                         daysOverdue: overdue,
                         bucket: bucketFor(overdue, daysUntilDue(invoice.dateIssued, today)),
                     };
@@ -95,6 +101,22 @@ export class ArrearsService {
                 .filter((row) => row.outstanding > 0)
                 .sort((a, b) => b.daysOverdue - a.daysOverdue || a.parentName.localeCompare(b.parentName))
         );
+    }
+
+    /**
+     * The invoices as the API hands them out, each with what arrived against it and what is left —
+     * the review of 25 September 2026. The portal showed a family that had paid 100 of 350 the
+     * whole 350 as still to pay, and a family that pays what the screen says pays twice. The same
+     * sum and the same subtraction as `list`, so the two cannot disagree about one invoice. A
+     * waived month owes nothing and can receive nothing (`INVOICE_WAIVED`).
+     */
+    async withBalances<T extends Invoice>(invoices: T[]): Promise<(T & InvoiceBalance)[]> {
+        const paidByInvoice = invoices.length === 0 ? new Map<number, number>() : await this.paidPerInvoice(invoices.map((invoice) => invoice.id));
+        return invoices.map((invoice) => {
+            if (invoice.status === InvoiceStatus.WAIVED) return { ...invoice, paid: 0, outstanding: 0 };
+            const paid = paidByInvoice.get(invoice.id) ?? 0;
+            return { ...invoice, paid, outstanding: outstandingOf(invoice.amount, paid) };
+        });
     }
 
     /**

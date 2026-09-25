@@ -34,8 +34,12 @@
         <span class="portal-label">Restantă — scadența a trecut</span>
         <div class="figure-line">
           <p class="portal-card-figure">{{ formatMonth(invoice.monthIssued) }}</p>
-          <p class="portal-card-figure tnum">{{ formatLei(invoice.amount) }}</p>
+          <p class="portal-card-figure tnum">{{ formatLei(leftToPay(invoice)) }}</p>
         </div>
+        <p v-if="invoice.paid" class="body-text">
+          Ai plătit deja {{ formatLei(invoice.paid) }} din {{ formatLei(invoice.amount) }}; mai
+          rămân {{ formatLei(leftToPay(invoice)) }}.
+        </p>
         <!-- E16/S2: the fiscal number is the reference a transfer is matched by. -->
         <p v-if="invoice.fiscalNumber" class="body-text measure-wide">
           Factura fiscală
@@ -63,11 +67,15 @@
         :key="invoice.id"
         class="portal-card portal-card-accent portal-notice"
       >
-        <span class="portal-label">Neplătită</span>
+        <span class="portal-label">{{ statusLabel(invoice) }}</span>
         <div class="figure-line">
           <p class="portal-card-figure">{{ formatMonth(invoice.monthIssued) }}</p>
-          <p class="portal-card-figure tnum">{{ formatLei(invoice.amount) }}</p>
+          <p class="portal-card-figure tnum">{{ formatLei(leftToPay(invoice)) }}</p>
         </div>
+        <p v-if="invoice.paid" class="body-text">
+          Ai plătit deja {{ formatLei(invoice.paid) }} din {{ formatLei(invoice.amount) }}; mai
+          rămân {{ formatLei(leftToPay(invoice)) }}.
+        </p>
         <p class="body-text">Emisă pe {{ formatDateKey(invoice.dateIssued) }}.</p>
         <p v-if="invoice.fiscalNumber" class="body-text measure-wide">
           Factura fiscală
@@ -106,7 +114,7 @@
               {{ invoice.status === "waived" ? "Fără plată" : formatLei(invoice.amount) }}
             </p>
 
-            <p class="status">{{ STATUS_LABELS[invoice.status] }}</p>
+            <p class="status">{{ statusLabel(invoice) }}</p>
 
             <button
               v-if="invoice.status !== 'waived'"
@@ -169,7 +177,7 @@ import { usePDFApi } from "~/composables/api/usePDFApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { formatDateKey, formatLei, formatMonth } from "~/composables/useAdminFormat";
-import type { Invoice, InvoiceStatus } from "~/types/invoice.types";
+import { leftToPay, type Invoice, type InvoiceStatus } from "~/types/invoice.types";
 import { FIRST_CHILD_PER_SESSION, SIBLING_PER_SESSION } from "#shared/courses";
 import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 
@@ -211,6 +219,10 @@ const STATUS_LABELS: Record<InvoiceStatus, string> = {
   overdue: "Restantă",
   waived: "Fără plată",
 };
+
+/** A pending invoice with money already on it is partly paid, not unpaid — the family sent something. */
+const statusLabel = (invoice: Invoice): string =>
+  invoice.status === "pending" && invoice.paid ? "Plătită parțial" : STATUS_LABELS[invoice.status];
 
 const byMonthDesc = (a: Invoice, b: Invoice) => b.monthIssued.localeCompare(a.monthIssued);
 

@@ -27,8 +27,11 @@ describe('InvoiceController', () => {
             ],
         );
 
-    /** E16/S7's service — the controller only forwards to it. */
-    const arrears = { list: jest.fn().mockResolvedValue([]) };
+    /** E16/S7's service — the controller only forwards to it, and hands it the invoices it lists to attach what is left to pay. */
+    const arrears = {
+        list: jest.fn().mockResolvedValue([]),
+        withBalances: jest.fn((invoices: { id: number }[]) => Promise.resolve(invoices.map((invoice) => ({ ...invoice, paid: 0, outstanding: 0 })))),
+    };
 
     /** E16/S2's queue, likewise: status, retry and confirm are forwarded as they come. */
     const fiscal = { status: jest.fn(), retry: jest.fn(), confirmIssued: jest.fn() };

@@ -40,7 +40,9 @@ export class InvoiceController {
     @UseGuards(AuthGuard)
     @ApiBearerAuth()
     async findInvoices(@Query() filter: FilterInvoiceDto, @Request() req: AuthenticatedRequest) {
-        return this.invoiceService.findInvoices(filter, req.user.role, req.user.sub);
+        // With what arrived against each and what is left: the portal's "de plătit" is that figure,
+        // not the invoice's total.
+        return this.arrearsService.withBalances(await this.invoiceService.findInvoices(filter, req.user.role, req.user.sub));
     }
 
     /**
@@ -167,7 +169,8 @@ export class InvoiceController {
     @UseGuards(AuthGuard)
     @ApiBearerAuth()
     async findOne(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
-        return this.invoiceService.findOne(id, req.user.role, req.user.sub);
+        const [invoice] = await this.arrearsService.withBalances([await this.invoiceService.findOne(id, req.user.role, req.user.sub)]);
+        return invoice;
     }
 
     @Put('/:id')
