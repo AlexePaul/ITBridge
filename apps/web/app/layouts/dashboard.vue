@@ -231,6 +231,9 @@ const navigationItems = computed(() => {
             }
           : {}),
       },
+      // E07/S2: the children whose work may appear in the school's materials. Next to the projects,
+      // because this is what somebody reads before one of those goes on the site.
+      { label: "Acorduri pentru lucrări", to: "/admin/acorduri", icon: "i-lucide-image" },
       { label: "Anunțuri", to: "/admin/anunturi", icon: "i-lucide-megaphone" },
       { label: "Livrări", to: "/admin/livrari", icon: "i-lucide-send" },
       { label: "Șabloane de email", to: "/admin/emailuri", icon: "i-lucide-mail" },

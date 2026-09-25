@@ -15,6 +15,7 @@ import { officeAddress } from 'src/modules/mail/office-address';
 import { adminFamilyUrl, consentTextUrl, profileUrl } from 'src/modules/auth/portal-urls';
 import { romanianDay } from 'src/modules/invoice/money-words';
 import { schoolDay } from 'src/common/school-clock';
+import { toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { PUBLICATION_CONSENT_VERSIONS } from './publication-consent.texts';
 import { consentsByPurpose, recordedByForOffice, recordedByInWords } from './publication-consent.rules';
 
@@ -160,7 +161,9 @@ export class PublicationConsentService {
                     id: row.child.id,
                     firstName: row.child.firstName,
                     lastName: row.child.lastName,
-                    birthDate: String(row.child.birthDate).slice(0, 10),
+                    // TypeORM hands a `date` column back as `YYYY-MM-DD` text although the entity says
+                    // `Date`; `toIsoDate` takes either, so the answer does not hang on which one arrives.
+                    birthDate: toIsoDate(row.child.birthDate),
                 },
                 family: { id: row.child.parent.id, firstName: row.child.parent.firstName, lastName: row.child.parent.lastName },
                 group: row.child.group ? { id: row.child.group.id, name: row.child.group.name } : null,

@@ -527,6 +527,10 @@ interogare la afișare — deci nici blocajul de infrastructură de mai sus nu s
 Ce **nu** cade odată cu mecanismul e regula: se publică lucrarea, nu copilul, iar acordul părintelui
 se cere înainte, chiar dacă e cerut la telefon și consemnat pe hârtie, nu printr-o bifă. Un proiect
 pus de mână pe site fără să fi întrebat cineva e exact aceeași încălcare ca unul pus de un job.
+**Acordul există acum în platformă** ([E07](E07-securitate-gdpr.md) S2): familia îl dă din
+„Profil", biroul îl consemnează de pe hârtie, iar `/admin/acorduri` e lista de citit înainte ca o
+lucrare să plece spre site — cu linia care poate sta lângă ea, și cu un email către birou când un
+acord se retrage.
 
 Story-ul rămâne scris, fiindcă pragul lui rămâne adevărat: în ziua în care vitrina merită să fie
 automată, condiția e tot [E07](E07-securitate-gdpr.md) S2, nu efortul de randare.

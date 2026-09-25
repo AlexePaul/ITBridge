@@ -3,7 +3,12 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 24 septembrie 2026, pe `release/stage`. **Termenii §4.7 sunt adevărați
+**Ultima actualizare:** 25 septembrie 2026, pe `release/stage`. **E07 S2, acordul pentru lucrările
+copiilor**, ultimul story neînceput din E07 care era cod: un părinte cu doi copii poate da voie
+pentru unul și nu pentru celălalt, din „Profil", iar biroul poate consemna un acord semnat pe
+hârtie; `/admin/acorduri` e lista copiilor ale căror lucrări se pot folosi azi, cu linia gata de pus
+lângă lucrare. Retragerea anunță biroul în aceeași tranzacție, fiindcă site-ul nu citește din
+platformă și ce e publicat se scoate de mână. Înainte, **termenii §4.7 au devenit adevărați
 întregi**: familia își recitește din Profil ce versiune a acceptat din fiecare document și în ce zi,
 iar fiecare acceptare — la înregistrare și la fiecare versiune nouă — îi aduce un email care
 confirmă exact ce a acceptat atunci. Înainte, **E07 S6, secretele**: `pnpm
@@ -103,8 +108,8 @@ E17 S7, E21 S1, E16 S5, E12 S7, E21 S2/S4 și E12 S5.
 - `[ ]` neînceput
 - ~~tăiat~~ scos din scop prin decizie
 
-Din **150 de story-uri** în 22 de epicuri: 91 livrate, 24 parțiale, 2 blocate, 12 scoase din
-scop, 21 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
+Din **150 de story-uri** în 22 de epicuri: 92 livrate, 24 parțiale, 2 blocate, 12 scoase din
+scop, 20 neîncepute — a se citi cu legenda de mai sus, fiindcă „parțial" înseamnă adesea „construit,
 dar n-a fost văzut pe date reale".
 
 **Cifrele s-au recitit din rânduri, și cinci din șase erau greșite** — 75/19/6/36 pentru
@@ -115,9 +120,10 @@ coloana întâi cu `- [x]`, `- [~]`, `- [!]`, `- [ ]` sau `- ~~`, **numărate do
 `### E`** — altfel intră în total și rândul din legendă care arată cum se scrie un story tăiat, iar
 numărul iese cu unul peste, ceea ce e greu de observat tocmai fiindcă e aproape.
 
-Cele 21 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
-E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Ce a
-mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
+Cele 20 neîncepute se citesc și ele cu grijă: **19 dintre ele stau în epicuri scoase din MVP** — E06,
+E09, E10 și E13 — deci nu sunt lucru amânat de pe o săptămână pe alta, ci lucru scos din val. Al
+douăzecilea e E07 S7, acordurile de prelucrare cu furnizorii: hârtie de acceptat în conturile lor,
+nu cod. Ce a mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 
 ---
 
@@ -187,10 +193,10 @@ mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
 > află de la părintele care sună.
 
-### E07 · Securitate, GDPR și consimțământ — `în lucru; S1, S3, S4, S5 și S8 livrate, S6 construit, restul propus`
+### E07 · Securitate, GDPR și consimțământ — `în lucru; S1, S2, S3, S4, S5 și S8 livrate, S6 construit, S7 propus`
 
 - [x] S1 · Inventar și clasificare — **singurul inventar**; E22 S2 îl citește, nu îl reface. Toate cele **231 de coloane** din cele 30 de tabele sunt clasificate, nu doar cele personale: fiecare e ori dată personală cu cele cinci răspunsuri, ori nu e, cu un motiv numit — **99 sunt date personale**, în 22 de tabele. Sursa e `apps/api/src/privacy/data-inventory.ts`, documentul [`docs/inventar-date.md`](../inventar-date.md) e randat din ea, iar `data-inventory.spec.ts` citește metadatele lui TypeORM și pică pe o coloană neclasificată, pe un rând învechit, pe un scop gol, pe document rămas în urmă și pe un `linkedVia` care nu duce la `Profile` — drumul pe care îl va parcurge S4. Termenele rămân ale E22 S3, dar acum sunt cinci reguli de numerotat, nu 231 de câmpuri
-- [ ] S2 · Consimțământ parental — granularitate `(părinte, copil, scop)`, decisă
+- [x] S2 · Consimțământ parental — **pe copil, nu pe familie**: un părinte acceptă pentru cel mare și refuză pentru cel mic, iar `/admin/acorduri` arată exact asta. Un rând per acord, de la dat la retras, cu versiunea textului din [`docs/legal/acord-lucrari.md`](../legal/acord-lucrari.md) și ziua; un index parțial ține unul singur în vigoare. Se dă și se retrage din „Profil”, câte o bifă pe copil, sau îl consemnează biroul din pagina familiei după formularul semnat — rândul spune care, jurnalul spune cine, familia primește confirmarea pe email de fiecare dată. **Un singur scop**, materialele de promovare ale școlii: vitrina din E14 S6 a ieșit din MVP, iar mesajele comerciale rămân pe `marketingOptIn`. Retragerea nu poate scoate singură ce e publicat — site-ul nu citește din platformă —, deci **anunță biroul în aceeași tranzacție**, cu ce trebuie scos. Exportul poartă acordurile, ștergerea copilului le ia. Textul e ciornă, cu restul din `docs/legal/`
 - [x] S3 · Audit log — **ambele jumătăți**. Banii: `audit_log` plus `apps/api/src/modules/audit/`, legat în facturi, plăți și reduceri, cu rândul scris în tranzacția schimbării pe care o descrie și fără nicio cale de a-l edita sau șterge; acceptanța rulează capăt-la-capăt, `GET /audit?entityType=Invoice&entityId=412` spune cine a schimbat suma și când. Datele personale: crearea, editarea și ștergerea unui `Profile` sau a unui `Child` lasă **numele câmpurilor care s-au mișcat, niciodată valorile lor** — nu din prudență, ci fiindcă inventarul din S1 le dă retenția `account`, care pleacă odată cu familia, în timp ce jurnalul are retenția `audit` și îi supraviețuiește prin construcție, neavând relație către profil. Deci „cine a schimbat adresa copilului 87, și când" are răspuns, iar „care era adresa dinainte" n-are, și asta e alegerea
 - [x] S4 · Export și ștergere — **ambele fluxuri**. Exportul: `GET /privacy/export` întoarce tot ce ține școala despre familia care cere, cu buton pe `/user/profile`; fără `:id` pe ruta părintelui (profilul vine din token), fără niciun hash întors, fără nimic despre altă familie. Ștergerea: familia cere din portal, biroul o duce la capăt din `/admin/stergeri`, în cel mult 30 de zile; dispar copiii cu tot ce atârnă de ei, lead-urile, reducerile, mesajele și contul, iar rândul familiei rămâne golit fiindcă facturile atârnă de el. **Nu e ștergerea logică din E04 S5** — aceea e o stare reversibilă pusă de admin; asta taie prin ea. Urma din audit log supraviețuiește, și trebuie: ține identificatori, nu nume
 - [x] S5 · Bannerul de cookie-uri și blocarea scripturilor — **numai mecanica**; textele au plecat la E22 S2. Inventarul n-a găsit niciun script neesențial și un singur terț: harta Google, care pleca singură pe `loading="lazy"`. Deci poarta e la terț, nu peste tot — `MapEmbed.vue` ține `<iframe>`-ul în afara DOM-ului până apasă cititorul, iar `consentStore` ține alegerea în memorie, fără cookie. Fără banner pe site cât nu e nimic de refuzat; primul scop nou (analiza din E19 S8) îl aduce. Acceptanța rulează în CI: `pnpm test:privacy` pică dacă vreo pagină publică iese din origine sau pune un cookie
@@ -458,7 +464,7 @@ ci un pachet instalat pe instanță. Niciunul nu blochează pe altcineva.
 ### E22 · Termeni, confidențialitate și ciclul de viață al datelor — `în lucru`
 
 - ~~S1 · Inventarul a ce se stochează~~ — **mutat la E07 S1.** Era același tabel scris de două ori; cel care ajunge sub ochii unei familii ar fi fost tocmai cel rămas în urmă
-- [~] S2 · Termenii contului și nota de confidențialitate — **condiția de ieșire a platformei**: fără ei nu se deschide accesul familiilor. Absoarbe și textele de vizitator — confidențialitate, cookie-uri — din fostul E07 S5. **Ciornă 0.1 în `docs/legal/`**: cele trei texte plus README-ul cu sursa fiecărui fapt; scrise din entități și verificate clauză cu clauză contra legii (tabelul e în README); neverificate de avocat, cu faptele lipsă și deciziile propuse marcate `[[…]]`. **Pagini pe stage**: `/termeni`, `/confidentialitate`, `/cookies`, randate din aceleași fișiere
+- [~] S2 · Termenii contului și nota de confidențialitate — **condiția de ieșire a platformei**: fără ei nu se deschide accesul familiilor. Absoarbe și textele de vizitator — confidențialitate, cookie-uri — din fostul E07 S5. **Ciornă 0.1 în `docs/legal/`**: cele trei texte plus README-ul cu sursa fiecărui fapt; scrise din entități și verificate clauză cu clauză contra legii (tabelul e în README); neverificate de avocat, cu faptele lipsă și deciziile propuse marcate `[[…]]`. Al patrulea, acordul pentru lucrările copilului, a venit cu E07 S2 și trece pe la avocat odată cu ele. **Pagini pe stage**: `/termeni`, `/confidentialitate`, `/cookies`, `/acord-lucrari`, randate din aceleași fișiere
 - [x] S3 · Termenul de păstrare, și ștergerea care chiar șterge — **12 luni de la retragere**, propunere din nota §7 până o confirmă școala, într-o singură constantă. Un job de noapte șterge familiile ajunse la termen prin ștergerea din E07 S4 (jurnalul spune că a fost calendarul), mai puțin cele care datorează bani; tot atunci pleacă cererile de probă fără înscriere (cu profilul-coajă), copiile mesajelor de peste un an și linkurile expirate de peste o lună. `/admin/stergeri` arată cine urmează și ce îl ține; un e2e arată că o familie retrasă acum 13 luni nu mai are nimic personal în platformă
 - [x] S4 · Evidența acceptărilor — **ambele jumătăți**. Bifa la înregistrare (`acceptedTerms`, refuzată fără), un rând per document în `document_acceptances` cu versiunea, spec care ține constanta egală cu capul fișierului. Plus **a doua bifă**, separată, pentru clauzele pe care Codul civil art. 1203 le numește neuzuale — §14, §15, §18 — cu rând propriu care poartă versiunea termenilor, și cu titlurile documentelor legate prin id-uri, ca bifa să ducă la textul pe care îl acceptă. Plus **re-acceptarea la versiune nouă**, pe care termenii §18 o promit: `GET /auth/me` spune ce lipsește (derivat pe server, ca `profileComplete`), portalul duce la `/user/termeni-noi`, iar `POST /auth/accept-documents` scrie numai ce lipsește și refuză o listă incompletă. Nicio rută nu refuză o cerere pentru asta, dinadins: §18 promite că portalul cere, nu că platforma se închide. Plus **§4.7**: evidența se recitește din Profil (`GET /auth/documents`), iar fiecare acceptare primește un email de confirmare care numește ce s-a acceptat în actul acela, o singură dată. Textul unei versiuni înlocuite devine de făcut la prima versiune nouă de după publicare
 

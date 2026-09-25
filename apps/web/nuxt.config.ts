@@ -163,6 +163,7 @@ export default defineNuxtConfig({
     "/termeni": { prerender: true },
     "/confidentialitate": { prerender: true },
     "/cookies": { prerender: true },
+    "/acord-lucrari": { prerender: true },
     "/courses": { redirect: { to: "/cursuri", statusCode: 301 } },
     "/about": { redirect: { to: "/despre-noi", statusCode: 301 } },
     // The other set of stray links: paths from the WordPress site that used to

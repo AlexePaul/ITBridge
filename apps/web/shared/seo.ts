@@ -193,6 +193,15 @@ const LEGAL_PAGES: PageSeo[] = [
     summary: "Cookie-urile site-ului și ale portalului, și singurul terț.",
     priority: 0.2,
   },
+  {
+    path: "/acord-lucrari",
+    title: "Acordul pentru lucrările copilului | IT Bridge School",
+    description:
+      "Ce înseamnă să ne dai voie să folosim lucrările copilului în materialele școlii: unde apar, " +
+      "ce nu apare niciodată lângă ele și cum retragi acordul.",
+    summary: "Textul acordului pe care îl dă un părinte, copil cu copil, din portal.",
+    priority: 0.2,
+  },
 ];
 
 export const PUBLIC_PAGES: PageSeo[] = [

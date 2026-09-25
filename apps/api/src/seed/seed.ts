@@ -6,6 +6,10 @@ import { User } from '../entities/user.entity';
 import { DocumentAcceptance } from '../entities/document-acceptance.entity';
 import { LegalDocument } from '../enum/legal-document.enum';
 import { ACCEPTED_AT_REGISTRATION, LEGAL_DOCUMENT_VERSIONS } from '../modules/auth/legal-documents';
+import { PublicationConsent } from '../entities/publication-consent.entity';
+import { PublicationPurpose } from '../enum/publication-purpose.enum';
+import { ConsentChannel } from '../enum/consent-channel.enum';
+import { PUBLICATION_CONSENT_VERSIONS } from '../modules/privacy/publication-consent.texts';
 import { Profile } from '../entities/profile.entity';
 import { Child } from '../entities/child.entity';
 import { Group } from '../entities/group.entity';
@@ -447,6 +451,33 @@ export async function seed(dataSource: DataSource): Promise<void> {
             ),
         );
     }
+
+    // --- Consent to use a child's work (E07 S2) -------------------------------------------------
+    // The three-child family carries all three states, so the portal and the family page show each
+    // on a fresh seed: the eldest agreed from the portal, Ștefan's paper form was recorded by the
+    // office and later withdrawn from the portal, and Irina was never asked about. The office list,
+    // `/admin/acorduri`, has exactly one row — which is the acceptance criterion, readable by eye.
+    const [firstOfBigFamily, stefan] = children.filter((child) => child.parent.id === bigFamily.id);
+    const consents = dataSource.getRepository(PublicationConsent);
+    const daysBeforeSeed = (days: number) => new Date(SEED_TODAY.getTime() - days * 24 * 60 * 60 * 1000);
+    await consents.save([
+        consents.create({
+            child: firstOfBigFamily,
+            purpose: PublicationPurpose.PROMOTION,
+            textVersion: PUBLICATION_CONSENT_VERSIONS[PublicationPurpose.PROMOTION],
+            grantedAt: daysBeforeSeed(40),
+            grantedVia: ConsentChannel.PORTAL,
+        }),
+        consents.create({
+            child: stefan,
+            purpose: PublicationPurpose.PROMOTION,
+            textVersion: PUBLICATION_CONSENT_VERSIONS[PublicationPurpose.PROMOTION],
+            grantedAt: daysBeforeSeed(30),
+            grantedVia: ConsentChannel.OFFICE,
+            revokedAt: daysBeforeSeed(3),
+            revokedVia: ConsentChannel.PORTAL,
+        }),
+    ]);
 
     // --- Enrolments and the waiting list ------------------------------------------------------
     // `Child.group` is derived (E11/S1), so every child with a group needs the enrolment that

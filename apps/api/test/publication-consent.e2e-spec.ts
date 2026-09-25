@@ -70,7 +70,7 @@ describe('Publication consent (e2e)', () => {
 
     const inForce = async () =>
         (await request(app.getHttpServer()).get('/privacy/consents/in-force').set('Authorization', admin.auth).expect(200)).body as {
-            child: { id: number; firstName: string };
+            child: { id: number; firstName: string; birthDate: string };
             family: { id: number };
             grantedVia: string;
             textVersion: string;
@@ -93,6 +93,8 @@ describe('Publication consent (e2e)', () => {
             const list = await inForce();
             expect(list.map((row) => row.child.id)).toEqual([elder]);
             expect(list[0]).toMatchObject({ family: { id: profileId }, grantedVia: 'portal', textVersion: '0.1' });
+            // The day of birth, as a day: the office prints the age next to the work from it.
+            expect(list[0].child.birthDate).toBe('2016-05-01');
 
             // And the family's own page tells the two apart: the younger was never asked about.
             const family = (await request(app.getHttpServer()).get('/privacy/consents').set('Authorization', parent.auth).expect(200)).body as {
