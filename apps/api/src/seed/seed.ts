@@ -202,15 +202,20 @@ async function truncateAll(dataSource: DataSource): Promise<void> {
  *
  * Two accounts are deliberately left waiting, and for different reasons, so that `/admin/approvals`
  * is not an empty screen on a fresh database and so that both rows an admin can meet are there: a
- * family who confirmed their address and needs a decision, and one who registered and never opened
- * the mail. Everybody else is grandfathered in, as the migration does for real accounts.
+ * family who confirmed their address and needs a decision — this one, the last family, whose only
+ * child is on the waiting list — and one who registered and never opened the mail, the
+ * half-registered family below. Everybody else is grandfathered in, as the migration does for real
+ * accounts.
+ *
+ * **Both are families with no child in a group**, and that is the point of choosing them: an
+ * account waiting on the school cannot have a child placed (`PARENT_ACCOUNT_NOT_ACTIVE`). Until the
+ * end-to-end testing of 25 September 2026 the two waiting accounts were families with a child
+ * enrolled for months and billed for it, so their portal said enrolment was unavailable beside a
+ * child already enrolled — a state no screen can produce.
  */
 function accountGatesFor(index: number): { emailConfirmedAt: Date | null; approvalStatus: ApprovalStatus; approvalDecidedAt: Date | null } {
-    if (index === 1) {
+    if (index === FIRST_NAMES.length - 1) {
         return { emailConfirmedAt: daysAgo(2), approvalStatus: ApprovalStatus.PENDING, approvalDecidedAt: null };
-    }
-    if (index === 4) {
-        return { emailConfirmedAt: null, approvalStatus: ApprovalStatus.PENDING, approvalDecidedAt: null };
     }
     return { emailConfirmedAt: daysAgo(30), approvalStatus: ApprovalStatus.APPROVED, approvalDecidedAt: daysAgo(30) };
 }
@@ -297,9 +302,9 @@ export async function seed(dataSource: DataSource): Promise<void> {
         // and the later linking exist for, and it should be visible in the admin screens.
         const hasAccount = i % 3 !== 2;
 
-        // The E11/S2 gates, spread across the accounts that do exist, so the approvals screen has
-        // every case in it on a fresh seed rather than being empty until someone registers by hand:
-        // one waiting with the address confirmed, one waiting without, and everybody else active.
+        // The E11/S2 gates: one family waiting with the address confirmed, everybody else active —
+        // the other waiting row is the half-registered family below. `accountGatesFor` says why
+        // those two.
         const gates = accountGatesFor(i);
 
         const user = hasAccount
@@ -334,15 +339,17 @@ export async function seed(dataSource: DataSource): Promise<void> {
     // the shell, they never finished, so `isProfileComplete` says no and a child of theirs cannot be
     // placed in a group (`PARENT_PROFILE_INCOMPLETE`). Seeded because the state is invisible
     // otherwise: every other profile here is complete, and a developer would only meet this one by
-    // registering by hand. Deliberately childless — they never got as far as bringing one.
+    // registering by hand. Deliberately childless — they never got as far as bringing one. And the
+    // confirmation mail was never opened, so this is also the approvals screen's second row: an
+    // account that registered and went quiet, which is what an abandoned registration looks like.
     const halfRegistered = await dataSource.getRepository(User).save(
         dataSource.getRepository(User).create({
             username: 'diana.moldovan',
             passwordHash,
             role: Role.PARENT,
-            emailConfirmedAt: daysAgo(2),
-            approvalStatus: ApprovalStatus.APPROVED,
-            approvalDecidedAt: daysAgo(1),
+            emailConfirmedAt: null,
+            approvalStatus: ApprovalStatus.PENDING,
+            approvalDecidedAt: null,
         }),
     );
     await dataSource.getRepository(Profile).save(

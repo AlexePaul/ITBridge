@@ -43,7 +43,7 @@
             <tr class="border-b border-primary">
               <th class="text-left py-3 px-4 font-semibold">ID</th>
               <th class="text-left py-3 px-4 font-semibold">Nume</th>
-              <th class="text-left py-3 px-4 font-semibold">Suma (RON)</th>
+              <th class="text-left py-3 px-4 font-semibold">Suma</th>
               <th class="text-left py-3 px-4 font-semibold">Data Emiterii</th>
               <th class="text-left py-3 px-4 font-semibold">Stare</th>
               <th class="text-left py-3 px-4 font-semibold">SmartBill</th>
@@ -60,7 +60,7 @@
               <td class="py-3 px-4">
                 {{ invoice.parent?.firstName }} {{ invoice.parent?.lastName }}
               </td>
-              <td class="py-3 px-4">{{ formatCurrency(invoice.amount) }}</td>
+              <td class="py-3 px-4">{{ formatLei(invoice.amount) }}</td>
               <td class="py-3 px-4">{{ formatDate(invoice.dateIssued) }}</td>
               <td class="py-3 px-4">
                 <UBadge :color="getStatusColor(invoice.status)" variant="outline">
@@ -166,7 +166,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatMonth } from "~/composables/useAdminFormat";
+import { formatLei, formatMonth } from "~/composables/useAdminFormat";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { apiErrorMessage } from "~/composables/useApiError";
 import type { FiscalQueueStatus, Invoice } from "~/types/invoice.types";
@@ -208,10 +208,6 @@ const formatDate = (date: string) => {
     month: "2-digit",
     day: "2-digit",
   });
-};
-
-const formatCurrency = (amount: number) => {
-  return amount.toLocaleString("ro-RO", { style: "currency", currency: "RON" });
 };
 
 const formatStatus = (status: string) => {
