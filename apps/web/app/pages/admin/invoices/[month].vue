@@ -145,9 +145,17 @@
                 </div>
               </td>
               <td class="py-3 px-4 text-center">
-                <UButton size="sm" variant="outline" @click="() => visualisePDF(invoice.id)">
+                <!-- A free month is a 0-lei row with nothing to print (E15/S6): no button that
+                     can only lead to "there is no invoice". -->
+                <UButton
+                  v-if="invoice.status !== 'waived'"
+                  size="sm"
+                  variant="outline"
+                  @click="() => visualisePDF(invoice.id)"
+                >
                   Vizualizează PDF
                 </UButton>
+                <span v-else class="text-sm text-muted">Fără factură</span>
               </td>
             </tr>
           </tbody>

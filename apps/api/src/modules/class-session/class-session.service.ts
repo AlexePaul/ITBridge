@@ -13,7 +13,7 @@ import { GenerateClassSessionsDto } from './dto/generateClassSessions.dto';
 import { UnmarkedClassSessionsDto } from './dto/unmarkedClassSessions.dto';
 import { addDays, isoWeekday, occurrencesOf, parseIsoDate, startOfIsoWeek, startOfToday, toIsoDate } from './class-session.dates';
 import { schoolDay } from 'src/common/school-clock';
-import { romanianWeekdayName } from 'src/modules/mail/romanian-date';
+import { romanianDayAndDate, romanianWeekdayName } from 'src/modules/mail/romanian-date';
 import { Weekday } from 'src/enum/weekday.enum';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { ClassSessionNotifier } from './class-session-notifier';
@@ -345,7 +345,7 @@ export class ClassSessionService {
         const closed = await this.nonTeachingPeriodService.datesIn(targetDay, addDays(targetDay, 1), targetRoom.location?.id ?? null);
         if (closed.has(targetDate)) {
             throw new ConflictException({
-                message: `Pe ${targetDate} nu se ține curs — ziua e în calendarul școlar.`,
+                message: `Pe ${romanianDayAndDate(targetDate)} nu se ține curs — ziua e în calendarul școlar.`,
                 error: 'MOVED_ONTO_NON_TEACHING_DAY',
             });
         }
@@ -356,7 +356,7 @@ export class ClassSessionService {
             });
             if (sameDay) {
                 throw new ConflictException({
-                    message: `Grupa are deja o ședință pe ${targetDate}.`,
+                    message: `Grupa are deja o ședință pe ${romanianDayAndDate(targetDate)}.`,
                     error: 'GROUP_ALREADY_HAS_SESSION_THAT_DAY',
                 });
             }
@@ -390,7 +390,7 @@ export class ClassSessionService {
         };
 
         // The note keeps where the class used to be, because that is the question a parent asks.
-        const note = `Mutată (de pe ${toIsoDate(session.date)} ${session.startTime.slice(0, 5)}): ${dto.reason}`;
+        const note = `Mutată (de pe ${romanianDayAndDate(session.date)}, ${session.startTime.slice(0, 5)}): ${dto.reason}`;
         session.notes = session.notes === null || session.notes.trim() === '' ? note : `${session.notes}\n\n${note}`;
         session.date = targetDay;
         session.startTime = `${targetStart}:00`;

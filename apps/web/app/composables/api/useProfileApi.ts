@@ -81,7 +81,16 @@ export const useProfileApi = () => {
         },
         body: profileData,
       });
-      profileStore.setProfile(updatedProfile);
+      // A PUT answers with the row, not its relations. Stored whole, it dropped the children the
+      // page had loaded, and /user/profile then told the family it had none — and hid the consent
+      // controls with them — after one tick of the marketing box (end-to-end testing, 25 September
+      // 2026). What the answer carries replaces; what it does not carry, stays.
+      const current = profileStore.profile;
+      profileStore.setProfile(
+        current && current.id === updatedProfile.id
+          ? ({ ...current, ...updatedProfile } as Profile)
+          : updatedProfile
+      );
       return updatedProfile;
     } catch (err: any) {
       const errorMessage = err.message || "Failed to update profile";

@@ -363,8 +363,10 @@ export class InvoiceService {
         // A waived month has no document by design — nothing to print, nobody to ask for money.
         // Said outright rather than left to the storage lookup missing: "this month has no invoice"
         // is a fact about the month, while "the file is not there" reads as something broken.
+        // Its own code, so the screens can say it: under the generic 404 the portal and the office
+        // both read "Nu am găsit ce ai cerut" about a month that is simply free.
         if (invoice.status === InvoiceStatus.WAIVED) {
-            throw new NotFoundException('Luna aceasta a fost consemnată fără plată, deci nu are factură');
+            throw new NotFoundException({ message: 'Luna aceasta a fost consemnată fără plată, deci nu are factură', error: 'INVOICE_WAIVED_HAS_NO_PDF' });
         }
 
         try {

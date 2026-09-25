@@ -164,7 +164,7 @@ describe('AbsenceNoticeService', () => {
             const qb = createMockQueryBuilder({ many: [] });
             noticeRepo.createQueryBuilder!.mockReturnValue(qb);
 
-            await service.upcoming(Role.ADMIN, 42);
+            await service.upcoming(Role.ADMIN, 42, '2026-09-21');
 
             expect(isScopedToUser(qb, 42)).toBe(false);
         });
@@ -173,7 +173,7 @@ describe('AbsenceNoticeService', () => {
             const qb = createMockQueryBuilder({ many: [] });
             noticeRepo.createQueryBuilder!.mockReturnValue(qb);
 
-            await service.upcoming(Role.PARENT, 42);
+            await service.upcoming(Role.PARENT, 42, '2026-09-21');
 
             expect(qb.andWhereCalls.some(([c, p]) => c.includes('user.id') && p?.userId === 42)).toBe(true);
         });
@@ -182,9 +182,23 @@ describe('AbsenceNoticeService', () => {
             const qb = createMockQueryBuilder({ many: [] });
             noticeRepo.createQueryBuilder!.mockReturnValue(qb);
 
-            await service.upcoming(Role.ADMIN, 42);
+            await service.upcoming(Role.ADMIN, 42, '2026-09-21');
 
             expect(qb.andWhereCalls.some(([c]) => c.includes('session.date >='))).toBe(true);
+        });
+
+        /**
+         * The review of 25 September 2026: keyed on the missed class alone, a move to Saturday left
+         * the portal the day after Monday's missed class — "nicio mutare" about the one thing the
+         * family still had to do. A notice stays while its move is ahead too.
+         */
+        it('keeps a notice whose move is still ahead, compared as days', async () => {
+            const qb = createMockQueryBuilder({ many: [] });
+            noticeRepo.createQueryBuilder!.mockReturnValue(qb);
+
+            await service.upcoming(Role.PARENT, 42, '2026-09-22');
+
+            expect(qb.andWhereCalls).toContainEqual(['(session.date >= :from OR replacement.date >= :from)', { from: '2026-09-22' }]);
         });
     });
 

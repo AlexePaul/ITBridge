@@ -475,8 +475,10 @@ describe('Issuing invoices from the registers (e2e)', () => {
             await makeChild();
             const waived = await issue().expect(201);
 
-            // Nothing to print, nobody to ask for money. The download is a 404, not an empty page.
-            await request(app.getHttpServer()).get(`/invoices/${waived.body.waived[0].id}/pdf`).set('Authorization', admin.auth).expect(404);
+            // Nothing to print, nobody to ask for money. The download is a 404, not an empty page — with
+            // its own code, so the screen can say the month was free rather than "not found".
+            const res = await request(app.getHttpServer()).get(`/invoices/${waived.body.waived[0].id}/pdf`).set('Authorization', admin.auth).expect(404);
+            expect(res.body.code).toBe('INVOICE_WAIVED_HAS_NO_PDF');
         });
 
         it('still blocks a second invoice for that month', async () => {

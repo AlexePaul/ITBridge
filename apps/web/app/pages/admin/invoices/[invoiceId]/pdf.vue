@@ -3,10 +3,10 @@
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-3xl font-bold">Factura PDF - {{ invoiceId }}</h1>
-        <p class="text-muted mt-1">Previzualizare facturii</p>
+        <p class="text-muted mt-1">Previzualizarea facturii</p>
       </div>
       <div class="flex gap-2">
-        <UButton @click="downloadPdf" :loading="isLoading" icon="i-heroicons-arrow-down-tray">
+        <UButton @click="downloadPdf" :loading="isLoading" icon="i-lucide-download">
           Descarcă
         </UButton>
         <UButton @click="navigateTo('/admin/invoices')" variant="outline"> Înapoi </UButton>

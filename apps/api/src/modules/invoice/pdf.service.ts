@@ -9,6 +9,7 @@ import { describeDiscount } from 'src/modules/smartbill/smartbill.rules';
 import { toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { PAYMENT_TERM_DAYS, dueDateFor } from './arrears.rules';
 import { romanianMonth } from './money-words';
+import { officeAddress } from 'src/modules/mail/office-address';
 
 /** One line on the invoice table. There is one: the month, at the amount the family owes. */
 interface InvoiceLine {
@@ -82,16 +83,20 @@ export class PdfService {
                 .text('IT Bridge School', 110, 57)
                 .fontSize(10)
                 .text('IT Bridge School', 200, 50, { align: 'right' })
-                .text('Strada Exemplu 123', 200, 65, { align: 'right' })
-                .text('București, Romania', 200, 80, { align: 'right' })
+                // What the platform knows for certain. The header said "Strada Exemplu 123" — a
+                // made-up street on a document a family keeps — while the school's legal name,
+                // seat and CUI are still to be supplied (docs/legal/README.md); SmartBill's own
+                // document carries them in `live`, from the account.
+                .text(officeAddress(), 200, 65, { align: 'right' })
+                .text('București', 200, 80, { align: 'right' })
                 .moveDown();
 
             // Customer Information
-            doc.fillColor('#444444').fontSize(20).text('Factura', 50, 160);
+            doc.fillColor('#444444').fontSize(20).text('Factură', 50, 160);
             this.generateHr(doc, 185);
             const customerInformationTop = 200;
             doc.fontSize(10)
-                .text('Numar Factura:', 50, customerInformationTop)
+                .text('Număr factură:', 50, customerInformationTop)
                 .font('Roboto-Bold')
                 .text(String(invoice.id), 150, customerInformationTop)
                 .font('Roboto')
@@ -99,21 +104,23 @@ export class PdfService {
                 // weeks after the invoice was issued, on whichever day the family first opens it.
                 .text('Data emiterii:', 50, customerInformationTop + 15)
                 .text(issuedOn, 150, customerInformationTop + 15)
-                .text('Total de plata:', 50, customerInformationTop + 30)
+                .text('Total de plată:', 50, customerInformationTop + 30)
                 .text(this.formatCurrency(total), 150, customerInformationTop + 30)
-                .text('Scadenta:', 50, customerInformationTop + 45)
+                .text('Scadență:', 50, customerInformationTop + 45)
                 .text(dueOn, 150, customerInformationTop + 45)
                 .font('Roboto-Bold')
                 .text(invoice.parent?.firstName + ' ' + invoice.parent?.lastName, 300, customerInformationTop)
                 .font('Roboto')
                 .text(invoice.parent?.email ?? '', 300, customerInformationTop + 15)
                 .moveDown();
-            this.generateHr(doc, 252);
+            // Below the fourth row. It sat at 252, sized for three: when the due date was added it
+            // ran straight through it, and the date read as struck out.
+            this.generateHr(doc, customerInformationTop + 65);
 
             // Invoice Table
             const invoiceTableTop = 330;
             doc.font('Roboto-Bold');
-            this.generateTableRow(doc, invoiceTableTop, 'Item', 'Descriere', 'Pret unitar', 'Cantitate', 'Total');
+            this.generateTableRow(doc, invoiceTableTop, 'Serviciu', 'Descriere', 'Preț unitar', 'Cantitate', 'Total');
             this.generateHr(doc, invoiceTableTop + 20);
             doc.font('Roboto');
             if (items && Array.isArray(items)) {
@@ -144,7 +151,7 @@ export class PdfService {
 
             // The term the school's terms promise (§11.3) and the arrears screen counts from, not a
             // number of its own: the footer said 30 days while every reminder counted 14.
-            doc.fontSize(10).text(`Plata se face in ${PAYMENT_TERM_DAYS} zile de la emitere, pana la ${dueOn}. Va multumim!`, 50, 780, {
+            doc.fontSize(10).text(`Plata se face în ${PAYMENT_TERM_DAYS} zile de la emitere, până la ${dueOn}. Vă mulțumim!`, 50, 780, {
                 align: 'center',
                 width: 500,
             });

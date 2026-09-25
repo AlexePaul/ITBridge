@@ -181,14 +181,18 @@ export class AbsenceNoticeService {
     }
 
     /**
-     * Everything announced for classes that have not happened yet, soonest first.
+     * Everything still ahead, soonest first: a notice whose class is on or after `from`, **or whose
+     * move is** — the review of 25 September 2026.
      *
      * An admin gets the school; a parent gets their own children — narrowed here, in the service,
      * because a guard cannot express "the rows that are yours". Past notices are left out on
      * purpose: this list answers "who is missing this week", and a notice from October is history,
-     * which the register already holds.
+     * which the register already holds. But a move is not past while the class it moved the child
+     * to is ahead: keyed on the missed class alone, the portal dropped Monday's move to Saturday the
+     * day after Monday, and the family read "nicio mutare" about the one thing they still had to do.
+     * Compared as days (`YYYY-MM-DD`): a class later today is still ahead.
      */
-    async upcoming(role: Role, userId: number, from: Date = new Date()): Promise<AbsenceNotice[]> {
+    async upcoming(role: Role, userId: number, from: string): Promise<AbsenceNotice[]> {
         const qb = this.noticeRepository
             .createQueryBuilder('notice')
             .leftJoinAndSelect('notice.child', 'child')
@@ -202,7 +206,7 @@ export class AbsenceNoticeService {
             .leftJoinAndSelect('replacement.group', 'replacementGroup')
             .leftJoinAndSelect('replacement.room', 'replacementRoom')
             .leftJoinAndSelect('replacementRoom.location', 'replacementLocation')
-            .andWhere('session.date >= :from', { from: from })
+            .andWhere('(session.date >= :from OR replacement.date >= :from)', { from })
             .orderBy('session.date', 'ASC')
             .addOrderBy('session.startTime', 'ASC');
 

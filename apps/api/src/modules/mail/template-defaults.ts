@@ -612,24 +612,30 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
     {
         key: 'class-cancelled',
         name: 'Ora a fost anulată',
-        description: 'Pleacă în clipa în care un admin anulează o ședință, către părinții tuturor copiilor din grupă.',
+        description: 'Pleacă în clipa în care un admin anulează o ședință, către părinții copiilor din grupă și ai celor mutați acolo pentru săptămâna aceea.',
         variables: [
             { name: 'firstName', description: 'Prenumele părintelui' },
             { name: 'groupName', description: 'Numele grupei' },
             { name: 'date', description: 'Ziua orei anulate, în cuvinte' },
             { name: 'time', description: 'Ora la care ar fi început' },
             { name: 'reason', description: 'Motivul, așa cum l-a scris adminul' },
-            { name: 'makeUpNote', description: 'Ce urmează: dreptul de recuperare acordat, ora nefacturată, sau recuperarea programată aici și eliberată' },
-            { name: 'portalUrl', description: 'Adresa portalului' },
+            {
+                name: 'makeUpNote',
+                description: 'Ce urmează: pentru grupă, că ora nu se facturează; pentru un copil mutat aici pe o săptămână, că școala îi caută altă oră',
+            },
+            { name: 'portalUrl', description: 'Adresa portalului; pentru un copil mutat aici, pagina cu absențele' },
         ],
+        // What the group reads. The recovery credit this sample used to promise — "programează din
+        // portal în următoarele 30 de zile" — was retired in E12/S4, and the editor's preview is the
+        // one place an admin reads this message before a family does.
         sampleData: {
             firstName: 'Ana',
             groupName: 'Scratch începători',
             date: '12 martie',
             time: '16:00',
             reason: 'profesorul este bolnav',
-            makeUpNote: 'Copilul tău are dreptul la o oră de recuperare, pe care o poți programa din portal în următoarele 30 de zile.',
-            portalUrl: 'https://itbridgeschool.com/user/absente',
+            makeUpNote: 'Ora nu se facturează — plata e pe ședință ținută, deci luna aceasta va fi cu o ședință mai mică.',
+            portalUrl: 'https://itbridgeschool.com/auth/login',
         },
         subject: 'Ora din {{date}} a fost anulată — {{groupName}}',
         bodyText: [

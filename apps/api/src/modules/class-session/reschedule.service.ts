@@ -6,7 +6,7 @@ import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { schoolLocalStamp } from 'src/common/school-clock';
-import { romanianWeekdayName } from 'src/modules/mail/romanian-date';
+import { romanianDayAndDate, romanianWeekdayName } from 'src/modules/mail/romanian-date';
 import { addDays, isoWeekday, isoWeekOf, parseIsoDate, toIsoDate } from './class-session.dates';
 import { ClassSessionNotifier, SessionPlacement } from './class-session-notifier';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
@@ -223,7 +223,7 @@ export class RescheduleService {
         const closed = await this.nonTeachingPeriodService.datesIn(targetDay, addDays(targetDay, 1), targetRoom.location?.id ?? null);
         if (closed.has(targetDate)) {
             throw new ConflictException({
-                message: `Pe ${targetDate} nu se ține curs — ziua e în calendarul școlar.`,
+                message: `Pe ${romanianDayAndDate(targetDate)} nu se ține curs — ziua e în calendarul școlar.`,
                 error: 'MOVED_ONTO_NON_TEACHING_DAY',
             });
         }
@@ -231,7 +231,7 @@ export class RescheduleService {
         const sameDay = inWeek.find((session) => session.id !== source?.id && toIsoDate(session.date) === targetDate);
         if (sameDay) {
             throw new ConflictException({
-                message: `Grupa are deja o ședință pe ${targetDate}.`,
+                message: `Grupa are deja o ședință pe ${romanianDayAndDate(targetDate)}.`,
                 error: 'GROUP_ALREADY_HAS_SESSION_THAT_DAY',
             });
         }
@@ -252,7 +252,7 @@ export class RescheduleService {
             roomName: usualRoom.name,
             locationName: usualRoom.location?.name ?? '',
         };
-        const note = `Recuperată (de pe ${missedDate} ${usualStart}): ${dto.reason}`;
+        const note = `Recuperată (de pe ${romanianDayAndDate(missedDate)}, ${usualStart}): ${dto.reason}`;
 
         // One row for the week, whichever state it started in: the existing row is edited — its
         // cancellation note kept, its status put back — and a missing one is written. Never a
@@ -313,14 +313,14 @@ export class RescheduleService {
         if (isoWeekday(missed) !== group.weekday) {
             return {
                 code: 'CLASS_SESSION_NOT_FOUND',
-                message: `Grupa nu are oră pe ${toIsoDate(missed)} — ține cursul ${romanianWeekdayName(group.weekday)}.`,
+                message: `Grupa nu are oră pe ${romanianDayAndDate(missed)} — ține cursul ${romanianWeekdayName(group.weekday)}.`,
             };
         }
         const elsewhere = inWeek[0];
         if (elsewhere !== undefined) {
             return {
                 code: 'GROUP_ALREADY_HAS_SESSION_THAT_WEEK',
-                message: `Grupa are deja o ședință în săptămâna aceea, pe ${toIsoDate(elsewhere.date)} — pornește de la ea.`,
+                message: `Grupa are deja o ședință în săptămâna aceea, pe ${romanianDayAndDate(elsewhere.date)} — pornește de la ea.`,
             };
         }
         return null;

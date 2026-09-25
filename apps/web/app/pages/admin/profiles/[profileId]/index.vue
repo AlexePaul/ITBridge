@@ -283,7 +283,7 @@
               aria-label="Scoate ultima lună"
               :loading="referralBusy === 'down'"
               :disabled="Boolean(referralBusy) || referralMonths.length === 0"
-              @click="bumpReferral(-1)"
+              @click="(event: MouseEvent) => bumpReferral(-1, event)"
             />
             <span class="min-w-14 text-center text-lg font-semibold tabular-nums">
               {{ referralMonths.length }}
@@ -297,7 +297,7 @@
               aria-label="Mai adaugă o lună"
               :loading="referralBusy === 'up'"
               :disabled="Boolean(referralBusy)"
-              @click="bumpReferral(1)"
+              @click="(event: MouseEvent) => bumpReferral(1, event)"
             />
           </div>
         </div>
@@ -418,7 +418,12 @@ const referralSummary = computed(() =>
     : `50% pe ${referralMonths.value.map((month) => formatMonth(month)).join(", ")}`
 );
 
-const bumpReferral = async (direction: 1 | -1) => {
+const bumpReferral = async (direction: 1 | -1, event?: MouseEvent) => {
+  // The second click of a double-click is not a second press. Each press is a month, so on a fast
+  // connection — the first request answered before the second click landed, the button enabled
+  // again — a double-click gave the family two (end-to-end testing, 25 September 2026). A click's
+  // `detail` counts the clicks in a row; a deliberate second press, a moment later, starts at 1.
+  if ((event?.detail ?? 1) > 1) return;
   if (!profile.value || referralBusy.value) return;
   referralBusy.value = direction === 1 ? "up" : "down";
   const before = referralMonths.value.length;
@@ -582,7 +587,7 @@ onMounted(load);
 definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
-  title: "Profile Details",
+  title: "Profil",
 });
 
 function formatDate(dateString: string): string {
