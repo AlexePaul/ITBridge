@@ -270,7 +270,7 @@ procent cere cititorului să știe baza și să facă el scăderea. „−25%" �
 
 **Trecerea site-ului public pe prețul de modul face parte din livrarea acestui epic** — niciun alt
 story nu o acoperă, iar catalogul din S1 fără ea lasă școala cu două prețuri publicate simultan.
-Sumele stau azi în `apps/web/shared/courses.ts:119-120`, ca `PRICE_ONE_CHILD = 350` și
+Sumele stau azi în `apps/web/shared/courses.ts`, ca `PRICE_ONE_CHILD = 350` și
 `PRICE_TWO_CHILDREN = 600`, și sunt citite din șase locuri: pagina `cursuri.vue`, cele două pagini
 de locație, `shared/seo.ts` (descrierile meta), `shared/structured-data.ts` (`priceRange` și nodul
 `Offer`) și `server/routes/llms.txt.ts`. Nu e de ajuns să se schimbe cele două numere: unitatea e
