@@ -124,6 +124,49 @@
       </template>
     </AdminConfirmModal>
 
+    <!--
+      E16/S6: an announced transfer, arriving. This is the moment the family can honestly be told —
+      the receipt goes out from here, and the invoice counts the money from here.
+    -->
+    <AdminConfirmModal
+      v-model:open="arrivalOpen"
+      title="Au intrat banii?"
+      confirm-label="Au intrat"
+      :loading="arriving"
+      @confirm="confirmArrival"
+    >
+      <template #body>
+        <p class="text-sm">
+          Transferul de {{ arrivalTarget ? formatLei(arrivalTarget.amount) : "" }} de la
+          {{ arrivalTarget ? familyOf(arrivalTarget) : "" }} devine încasat: factura îl numără de
+          acum, iar familia primește confirmarea pe email.
+        </p>
+        <UFormField label="Ziua în care au intrat banii" class="mt-4" required>
+          <AdminDateField
+            v-model="arrivalDate"
+            :max="todayKey()"
+            label="ziua în care au intrat banii"
+          />
+        </UFormField>
+      </template>
+    </AdminConfirmModal>
+
+    <AdminConfirmModal
+      v-model:open="notArrivedOpen"
+      title="Transferul n-a mai venit?"
+      confirm-label="N-a venit"
+      danger
+      :loading="markingNotArrived"
+      @confirm="confirmNotArrived"
+    >
+      <template #body>
+        <p class="text-sm">
+          Plata rămâne în registru ca eșuată, iar factura rămâne de plată — mementourile către
+          familie se reiau de la următoarea zi din calendarul lor.
+        </p>
+      </template>
+    </AdminConfirmModal>
+
     <AdminConfirmModal
       v-model:open="confirmOpen"
       title="Încasarea e în SmartBill?"
@@ -157,6 +200,8 @@ import { useNotifications } from "~/composables/useNotifications";
 import { usePaymentsApi } from "~/composables/api/usePaymentsApi";
 import type { Payment, PaymentFiscalQueueStatus } from "~/types/payment.types";
 import { usePaymentsStore } from "~/stores/paymentsStore";
+import { formatLei } from "~/composables/useAdminFormat";
+import { todayKey } from "~/composables/useAttendanceCalendar";
 import {
   PAYMENT_FISCAL_STATUS_COLORS,
   PAYMENT_FISCAL_STATUS_LABELS,
@@ -288,6 +333,21 @@ const holdsRecord = (payment: Payment) =>
 
 const rowActions = (payment: Payment): DropdownMenuItem[] => {
   const items: DropdownMenuItem[] = [];
+  // E16/S6: the two ways an announced transfer ends. Until tester 5 of 25 September 2026 found it,
+  // no screen could record one or confirm it — the flow existed only on the API.
+  if (payment.status === "initiated") {
+    items.push({
+      label: "Confirmă că banii au intrat",
+      icon: "i-lucide-circle-check",
+      onSelect: () => askArrival(payment),
+    });
+    items.push({
+      label: "Transferul n-a venit",
+      icon: "i-lucide-circle-x",
+      color: "error",
+      onSelect: () => askNotArrived(payment),
+    });
+  }
   if (payment.fiscalStatus === "review") {
     items.push({
       label: "Confirmă în SmartBill",
@@ -378,6 +438,63 @@ const confirmReverse = async () => {
     error(apiErrorMessage(err, "Eroare la stornarea plății"));
   } finally {
     reversing.value = false;
+  }
+};
+
+const familyOf = (payment: Payment) =>
+  `${payment.invoice?.parent?.firstName ?? ""} ${payment.invoice?.parent?.lastName ?? ""}`.trim();
+
+const arrivalTarget = ref<Payment | null>(null);
+const arrivalOpen = ref(false);
+const arriving = ref(false);
+const arrivalDate = ref<string | undefined>(undefined);
+
+const askArrival = (payment: Payment) => {
+  arrivalTarget.value = payment;
+  // The day it was announced, which is usually the day it lands; the statement says otherwise
+  // often enough that the field is there to correct it.
+  arrivalDate.value = String(payment.date).slice(0, 10);
+  arrivalOpen.value = true;
+};
+
+const confirmArrival = async () => {
+  const payment = arrivalTarget.value;
+  if (!payment || !arrivalDate.value) return;
+  arriving.value = true;
+  try {
+    await paymentsApi.updatePayment(payment.id, { status: "succeeded", date: arrivalDate.value });
+    arrivalOpen.value = false;
+    success("Plată încasată", `${formatLei(payment.amount)} de la ${familyOf(payment)}`);
+    await load();
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut confirma plata"));
+  } finally {
+    arriving.value = false;
+  }
+};
+
+const notArrivedTarget = ref<Payment | null>(null);
+const notArrivedOpen = ref(false);
+const markingNotArrived = ref(false);
+
+const askNotArrived = (payment: Payment) => {
+  notArrivedTarget.value = payment;
+  notArrivedOpen.value = true;
+};
+
+const confirmNotArrived = async () => {
+  const payment = notArrivedTarget.value;
+  if (!payment) return;
+  markingNotArrived.value = true;
+  try {
+    await paymentsApi.updatePayment(payment.id, { status: "failed" });
+    notArrivedOpen.value = false;
+    success("Transferul e marcat ca nevenit");
+    await load();
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut marca transferul"));
+  } finally {
+    markingNotArrived.value = false;
   }
 };
 

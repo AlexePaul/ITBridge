@@ -3,6 +3,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
 import { BankStatementLine } from 'src/entities/bank-statement-line.entity';
 import { Invoice } from 'src/entities/invoice.entity';
+import { Payment } from 'src/entities/payment.entity';
 import { PaymentMethod } from 'src/enum/payment-method.enum';
 import { PaymentStatus } from 'src/enum/payment-status.enum';
 import { ArrearsService } from 'src/modules/invoice/arrears.service';
@@ -224,23 +225,46 @@ export class ReconciliationService {
             }
 
             const bookedOn = toIsoDate(line.bookedOn);
-            const payment = await this.payments.createPayment(
-                {
-                    invoiceId,
-                    amount: line.amount,
-                    method: PaymentMethod.BANK_TRANSFER,
-                    status: PaymentStatus.SUCCEEDED,
-                    date: bookedOn,
-                    // The bank's own reference and nothing else: the transfer's text goes in the
-                    // note, which an erasure clears, and not here, where it would outlive the family
-                    // with their child's name in it — families write names there as often as numbers.
-                    externalReference: line.bankReference?.slice(0, 100) || undefined,
-                    notes: `Din extrasul bancar, ${bookedOn}: ${line.description}`.slice(0, 500),
-                },
-                userId,
-                actor,
-                manager,
-            );
+            // The bank's own reference and nothing else: the transfer's text goes in the note, which
+            // an erasure clears, and not in the reference, where it would outlive the family with
+            // their child's name in it — families write names there as often as numbers.
+            const reference = line.bankReference?.slice(0, 100) || undefined;
+            const note = `Din extrasul bancar, ${bookedOn}: ${line.description}`.slice(0, 500);
+
+            // A transfer the office already recorded as announced, for exactly this sum, is this money
+            // arriving: it is confirmed, not recorded a second time beside it — E16/S6. Recorded
+            // again, the invoice would read paid twice over while the announced row sat in the
+            // register forever, waiting for money that had come.
+            const announced = await manager.findOne(Payment, {
+                where: { invoice: { id: invoiceId }, status: PaymentStatus.INITIATED, method: PaymentMethod.BANK_TRANSFER, amount: line.amount },
+                order: { id: 'ASC' },
+            });
+            const payment = announced
+                ? await this.payments.updatePayment(
+                      announced.id,
+                      {
+                          status: PaymentStatus.SUCCEEDED,
+                          date: bookedOn,
+                          externalReference: announced.externalReference ? undefined : reference,
+                          notes: announced.notes ? undefined : note,
+                      },
+                      actor,
+                      manager,
+                  )
+                : await this.payments.createPayment(
+                      {
+                          invoiceId,
+                          amount: line.amount,
+                          method: PaymentMethod.BANK_TRANSFER,
+                          status: PaymentStatus.SUCCEEDED,
+                          date: bookedOn,
+                          externalReference: reference,
+                          notes: note,
+                      },
+                      userId,
+                      actor,
+                      manager,
+                  );
             await manager.update(BankStatementLine, line.id, { payment: { id: payment.id }, ignoredAt: null });
         });
         return this.view(lineId);

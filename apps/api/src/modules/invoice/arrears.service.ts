@@ -21,9 +21,19 @@ export interface ArrearsRow {
     /** What has been received against it. A partial payment is the interesting middle case. */
     paid: number;
     outstanding: number;
+    /** Transfers recorded as announced (`initiated`), not yet confirmed — not in `paid`. */
+    announced: number;
     daysOverdue: number;
     bucket: ArrearsBucket;
 }
+
+/** What arrived against one invoice, and what is on its way. */
+interface Received {
+    paid: number;
+    announced: number;
+}
+
+const NOTHING_RECEIVED: Received = { paid: 0, announced: 0 };
 
 /** What arrived against an invoice, and what is left — attached to every invoice the API hands out. */
 export interface InvoiceBalance {
@@ -70,12 +80,12 @@ export class ArrearsService {
         });
         if (invoices.length === 0) return [];
 
-        const paidByInvoice = await this.paidPerInvoice(invoices.map((invoice) => invoice.id));
+        const receivedByInvoice = await this.receivedPerInvoice(invoices.map((invoice) => invoice.id));
 
         return (
             invoices
                 .map((invoice) => {
-                    const paid = paidByInvoice.get(invoice.id) ?? 0;
+                    const { paid, announced } = receivedByInvoice.get(invoice.id) ?? NOTHING_RECEIVED;
                     const overdue = daysOverdue(invoice.dateIssued, today);
                     return {
                         invoiceId: invoice.id,
@@ -91,6 +101,7 @@ export class ArrearsService {
                         amount: invoice.amount,
                         paid,
                         outstanding: outstandingOf(invoice.amount, paid),
+                        announced,
                         daysOverdue: overdue,
                         bucket: bucketFor(overdue, daysUntilDue(invoice.dateIssued, today)),
                     };
@@ -111,10 +122,10 @@ export class ArrearsService {
      * waived month owes nothing and can receive nothing (`INVOICE_WAIVED`).
      */
     async withBalances<T extends Invoice>(invoices: T[]): Promise<(T & InvoiceBalance)[]> {
-        const paidByInvoice = invoices.length === 0 ? new Map<number, number>() : await this.paidPerInvoice(invoices.map((invoice) => invoice.id));
+        const receivedByInvoice = invoices.length === 0 ? new Map<number, Received>() : await this.receivedPerInvoice(invoices.map((invoice) => invoice.id));
         return invoices.map((invoice) => {
             if (invoice.status === InvoiceStatus.WAIVED) return { ...invoice, paid: 0, outstanding: 0 };
-            const paid = paidByInvoice.get(invoice.id) ?? 0;
+            const { paid } = receivedByInvoice.get(invoice.id) ?? NOTHING_RECEIVED;
             return { ...invoice, paid, outstanding: outstandingOf(invoice.amount, paid) };
         });
     }
@@ -142,17 +153,22 @@ export class ArrearsService {
         return count;
     }
 
-    /** Succeeded payments per invoice. Only succeeded: an announced transfer has not arrived. */
-    private async paidPerInvoice(invoiceIds: number[]): Promise<Map<number, number>> {
+    /**
+     * Per invoice, what arrived and what is announced. Only succeeded payments are `paid`: an
+     * announced transfer has not arrived, so it settles nothing — it is counted apart, for the
+     * screens that must not record it twice and the reminders that must not chase it (E16/S6).
+     */
+    private async receivedPerInvoice(invoiceIds: number[]): Promise<Map<number, Received>> {
         const rows = await this.paymentRepository
             .createQueryBuilder('payment')
             .select('payment.invoice_id', 'invoiceId')
-            .addSelect('SUM(payment.amount)', 'paid')
+            .addSelect('COALESCE(SUM(payment.amount) FILTER (WHERE payment.status = :succeeded), 0)', 'paid')
+            .addSelect('COALESCE(SUM(payment.amount) FILTER (WHERE payment.status = :initiated), 0)', 'announced')
             .where('payment.invoice_id IN (:...invoiceIds)', { invoiceIds })
-            .andWhere('payment.status = :status', { status: PaymentStatus.SUCCEEDED })
+            .andWhere('payment.status IN (:succeeded, :initiated)', { succeeded: PaymentStatus.SUCCEEDED, initiated: PaymentStatus.INITIATED })
             .groupBy('payment.invoice_id')
-            .getRawMany<{ invoiceId: number; paid: string }>();
+            .getRawMany<{ invoiceId: number; paid: string; announced: string }>();
 
-        return new Map(rows.map((row) => [Number(row.invoiceId), Number(row.paid)]));
+        return new Map(rows.map((row) => [Number(row.invoiceId), { paid: Number(row.paid), announced: Number(row.announced) }]));
     }
 }

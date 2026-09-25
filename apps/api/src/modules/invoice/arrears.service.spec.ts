@@ -51,7 +51,7 @@ describe('ArrearsService', () => {
 
         it('reports the outstanding amount, not the invoice total', async () => {
             invoiceRepo.find!.mockResolvedValue([invoice()]);
-            qb.getRawMany = jest.fn().mockResolvedValue([{ invoiceId: 7, paid: '200' }]);
+            qb.getRawMany = jest.fn().mockResolvedValue([{ invoiceId: 7, paid: '200', announced: '0' }]);
 
             const [row] = await service.list(DAY);
 
@@ -62,17 +62,24 @@ describe('ArrearsService', () => {
 
         it('leaves out an invoice already covered, whatever its status column says', async () => {
             invoiceRepo.find!.mockResolvedValue([invoice()]);
-            qb.getRawMany = jest.fn().mockResolvedValue([{ invoiceId: 7, paid: '350' }]);
+            qb.getRawMany = jest.fn().mockResolvedValue([{ invoiceId: 7, paid: '350', announced: '0' }]);
 
             // A family who has paid must never appear on a chasing list, even if something
             // upstream failed to move the status.
             await expect(service.list(DAY)).resolves.toEqual([]);
         });
 
-        it('counts only succeeded payments — an announced transfer has not arrived', async () => {
+        it('counts an announced transfer apart — it has not arrived, so the family still owes it', async () => {
             invoiceRepo.find!.mockResolvedValue([invoice()]);
-            await service.list(DAY);
-            expect(qb.andWhereCalls.some(([c, p]) => c.includes('payment.status') && p?.status === 'succeeded')).toBe(true);
+            qb.getRawMany = jest.fn().mockResolvedValue([{ invoiceId: 7, paid: '0', announced: '350' }]);
+
+            const [row] = await service.list(DAY);
+
+            expect(row).toMatchObject({ paid: 0, outstanding: 350, announced: 350 });
+            // The sums are split by status in the query itself, succeeded apart from initiated.
+            expect(qb.andWhereCalls.some(([c, p]) => c.includes('payment.status IN') && p?.succeeded === 'succeeded' && p?.initiated === 'initiated')).toBe(
+                true,
+            );
         });
 
         it('ages the debt and sorts the oldest first', async () => {
@@ -110,16 +117,16 @@ describe('ArrearsService', () => {
      */
     describe('the balance on every invoice', () => {
         it('attaches what arrived and what is left, from succeeded payments only', async () => {
-            qb.getRawMany = jest.fn().mockResolvedValue([{ invoiceId: 7, paid: '100' }]);
+            // 250 announced on top: a transfer on its way is not money a family has paid.
+            qb.getRawMany = jest.fn().mockResolvedValue([{ invoiceId: 7, paid: '100', announced: '250' }]);
 
             const [withBalance] = await service.withBalances([invoice() as unknown as Invoice]);
 
             expect(withBalance).toMatchObject({ id: 7, amount: 350, paid: 100, outstanding: 250 });
-            expect(qb.andWhere).toHaveBeenCalledWith('payment.status = :status', { status: 'succeeded' });
         });
 
         it('says nothing is left on a paid invoice, and never a negative figure on an overpaid one', async () => {
-            qb.getRawMany = jest.fn().mockResolvedValue([{ invoiceId: 7, paid: '400' }]);
+            qb.getRawMany = jest.fn().mockResolvedValue([{ invoiceId: 7, paid: '400', announced: '0' }]);
 
             const [withBalance] = await service.withBalances([invoice({ status: InvoiceStatus.PAID }) as unknown as Invoice]);
 

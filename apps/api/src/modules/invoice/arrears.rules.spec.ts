@@ -1,4 +1,4 @@
-import { bucketFor, daysOverdue, daysUntilDue, dueDateFor, PAYMENT_TERM_DAYS } from './arrears.rules';
+import { bucketFor, daysOverdue, daysUntilDue, dueDateFor, PAYMENT_TERM_DAYS, restIsAnnounced } from './arrears.rules';
 import { toIsoDate } from 'src/modules/class-session/class-session.dates';
 
 describe('dueDateFor', () => {
@@ -58,5 +58,21 @@ describe('bucketFor', () => {
     it('puts the boundaries where the words say they are', () => {
         expect(bucketFor(30, -30)).toBe('overdue');
         expect(bucketFor(60, -60)).toBe('over_30');
+    });
+});
+
+describe('restIsAnnounced', () => {
+    it('is true when the announced transfers cover what is left, or more', () => {
+        expect(restIsAnnounced(150, 150)).toBe(true);
+        expect(restIsAnnounced(150, 350)).toBe(true);
+    });
+
+    it('is false for a transfer that covers only part of it, and when nothing is announced', () => {
+        expect(restIsAnnounced(350, 200)).toBe(false);
+        expect(restIsAnnounced(350, 0)).toBe(false);
+    });
+
+    it('compares in bani, so float arithmetic cannot leave a family one fraction of a leu short', () => {
+        expect(restIsAnnounced(0.1 + 0.2, 0.3)).toBe(true);
     });
 });
