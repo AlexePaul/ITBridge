@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { keyboardProblemsOn } from "./keyboard.mjs";
 import { launchChromium, publicPaths, startPreviewServer } from "./preview-site.mjs";
 
 /**
@@ -24,8 +25,11 @@ import { launchChromium, publicPaths, startPreviewServer } from "./preview-site.
  * already feeds the sitemap, so reading it back means a page added there is checked without anybody
  * remembering to add it twice — and it means what is checked is exactly what the site advertises.
  *
- * Only the public pages. The authenticated area is unchecked and stays that way until E18/S4 and S5,
- * which is written down in the epic rather than left to be discovered here.
+ * Only the public pages; `check-a11y-auth.mjs` does the same behind the login.
+ *
+ * **The keyboard too**, in the light pass. `keyboard.mjs` walks every page with Tab and asks whether
+ * whatever listens for a click can be reached without a mouse. That is the half of the story axe
+ * cannot see, because it never presses a key.
  *
  * Booting the built site and launching the browser live in `preview-site.mjs`, shared with
  * `check-third-party.mjs`.
@@ -46,7 +50,7 @@ const PORT = Number(process.env.A11Y_PORT ?? 3123);
 const require = createRequire(import.meta.url);
 const AXE_SOURCE = readFileSync(join(dirname(require.resolve("axe-core")), "axe.min.js"), "utf8");
 
-async function violationsOn(context, base, path) {
+async function violationsOn(context, base, path, { keyboard = false } = {}) {
   const page = await context.newPage();
   try {
     const response = await page.goto(`${base}${path}`, { waitUntil: "load" });
@@ -56,7 +60,7 @@ async function violationsOn(context, base, path) {
     await page.addScriptTag({ content: AXE_SOURCE });
     // Serialised out of the page: axe's result carries DOM nodes, and only the readable parts
     // survive the boundary anyway.
-    return await page.evaluate(async (tags) => {
+    const violations = await page.evaluate(async (tags) => {
       const result = await window.axe.run(document, { runOnly: { type: "tag", values: tags } });
       return result.violations.map((violation) => ({
         id: violation.id,
@@ -68,6 +72,7 @@ async function violationsOn(context, base, path) {
         total: violation.nodes.length,
       }));
     }, TAGS);
+    return keyboard ? [...violations, ...(await keyboardProblemsOn(page))] : violations;
   } finally {
     await page.close();
   }
@@ -96,7 +101,10 @@ async function main() {
         reducedMotion: "reduce",
       });
       for (const path of paths) {
-        const violations = await violationsOn(context, base, path);
+        // The keyboard once, in the light pass: Tab order and focus do not change with the palette.
+        const violations = await violationsOn(context, base, path, {
+          keyboard: colorScheme === "light",
+        });
         const label = `${path} (${colorScheme})`;
         if (violations.length === 0) {
           console.log(`  ok  ${label}`);
@@ -130,7 +138,9 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log("\nNo accessibility violations on the public pages, in either colour scheme.");
+  console.log(
+    "\nNo accessibility violations on the public pages, in either colour scheme, and every one walked with Tab."
+  );
 }
 
 await main();

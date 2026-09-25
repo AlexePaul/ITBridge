@@ -2010,6 +2010,20 @@ cel public:
   De aici și regula: dacă un ecran desenează **mai mult de un** `AdminDateField`, dă-i `label` —
   butonul lui arată o iconiță și nimic altceva, deci numele e tot ce primește cititorul.
 
+**Amândouă porțile apasă și tastele** (`apps/web/scripts/keyboard.mjs`, E18 S6), în trecerea cu
+tema deschisă. Fiecare pagină e parcursă cu Tab de sus până jos: fiecare oprire se vede, arată
+altfel cât are focus, iar parcurgerea ajunge la capăt. Tot ce ascultă de un clic și arată a control
+trebuie să se poată atinge din tastatură. Poarta autentificată intră și iese din cont doar cu
+tastatura. Trei lucruri de știut:
+
+- **Verificarea așteaptă hidratarea**, prin `isHydrating` al lui Nuxt, și pică dacă nu-l găsește.
+  Vue atașează `@click`-urile la hidratare, deci o pagină citită înainte n-are niciun ascultător și
+  trece.
+- **Citește doar ce se desenează.** Regula globală de `:focus-visible` pune `outline-offset`, iar un
+  element fără contur „se schimba" mutându-l. Un `outline: none` plantat trecea așa.
+- **Butonul de calendar al unui câmp nativ de dată e sărit.** Acolo inputul nu mai potrivește nici
+  măcar `:focus`, iar inelul îl desenează browserul, în afara stilurilor paginii.
+
 **A doua gardă rulează în același browser: nicio pagină publică nu iese din origine și nu pune
 niciun cookie.** `pnpm test:privacy` (`apps/web/scripts/check-third-party.mjs`, E07 S5) încarcă
 fiecare pagină din sitemap, **o derulează până jos** și pică la prima cerere către alt domeniu sau

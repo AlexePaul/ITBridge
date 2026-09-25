@@ -650,11 +650,52 @@ cu `href`-ul lui „Programează o probă". Hidratarea înlocuiește textul și 
 un clic stânga mergea, prin router, iar „deschide în tab nou" ducea la formularul de probă. Bara ține
 acum ramura vizitatorului până la montare; regula e în CLAUDE.md.
 
-**Ce rămâne:** restul acceptanței de tastatură, fiindcă axe verifică ce e în DOM, nu ce se întâmplă
-când cineva apasă Tab de douăzeci de ori. Ecranele cu parametru nu mai sunt aici: se vizitează cu
-primul rând al fiecărei colecții. Unul al cărui parametru n-are valoare — o bază goală, sau un
-`[param]` pe care `PARAM_SOURCES` nu-l știe — e tipărit la final, cu număr, ca golul să fie o cifră,
-nu o tăcere.
+**Jumătatea de tastatură a acceptanței se verifică și ea, la fiecare rulare** (25 septembrie 2026,
+`apps/web/scripts/keyboard.mjs`, folosit de ambele porți în trecerea cu tema deschisă). axe citește
+DOM-ul și nu apasă nicio tastă, deci toate trei verificările de mai jos îi lipseau:
+
+- **Autentificarea se face doar din tastatură**, cum cere acceptanța. Poarta autentificată nu mai
+  completează formularul: apasă Tab până la utilizator, tastează, Tab la parolă, tastează, Enter. La
+  final iese din cont tot cu Tab și Enter. Dacă intrarea pică, raportează și intră pe calea
+  obișnuită, ca un formular stricat să nu ascundă restul ecranelor.
+- **Fiecare pagină e parcursă cu Tab, de sus până jos.** Fiecare oprire trebuie să se vadă și să
+  arate altfel cât are focus. Comparația e cu pagina fără niciun focus, nu cu oprirea dinainte:
+  altfel inelul vecinului trece drept indicatorul unui control care n-are. Parcurgerea trebuie să
+  ajungă la capăt, iar una care nu ajunge e o capcană.
+- **Tot ce ascultă de un clic și arată a control trebuie să se poată folosi din tastatură.**
+  Ascultătorii vin din protocolul DevTools, fiindcă Vue pune `@click` direct pe element și nimic din
+  DOM nu spune asta. Un `role="button"` pe ceva ce nu e buton trebuie să asculte și de taste.
+
+Prima rulare a găsit două defecte reale:
+
+- **Pe `/admin/reconciliere`, inputul de fișier ascuns** din spatele butonului „Importă un extras"
+  era o a doua oprire, invizibilă, imediat după buton, și un al doilea control citit cu voce pentru
+  același act. Acum e `tabindex="-1"` și `aria-hidden`.
+- **Rândul apăsabil din `AdminListRow`** răspundea la Enter, dar nu la Space. Iar Enter pe un buton
+  din coloana de acțiuni deschidea și rândul, fiindcă `@click.stop` oprește clicurile, nu tastele.
+  Acum răspunde la amândouă tastele, și doar pe rândul însuși (`.self`).
+
+**Verificarea a fost verificată, și a trebuit reparată de două ori înainte să merite încredere.** Pe
+o pagină reală s-a plantat câte un defect de fiecare fel: un link fără stil de focus, un buton scos
+din ecran, un `div` cu `@click`, un `role="button"` fără taste și o capcană de focus. Fiecare trebuie
+să aprindă verificarea lui.
+
+- **Prima dată n-a aprins niciunul.** Plantele intrau înainte de hidratare, iar hidratarea le ștergea
+  ca noduri pe care serverul nu le randase. De aceea verificarea așteaptă acum semnalul `isHydrating`
+  al lui Nuxt și pică dacă nu-l găsește: o pagină nehidratată n-are niciun `@click` atașat, deci ar
+  trece.
+- **A doua oară, linkul fără contur trecea.** Regula globală de `:focus-visible` pune
+  `outline-offset: 2px`, deci elementul „se schimba" mutând un contur pe care nu-l avea. Citirea ia
+  acum doar ce se desenează. Cu asta, toate cinci aprind, iar pagina neatinsă rămâne curată.
+
+**Un câmp nativ de dată are o oprire în plus: butonul de calendar din interiorul lui.** Acolo inputul
+nu mai potrivește nici `:focus`, nici `:focus-visible`, iar inelul îl desenează browserul, fără ca
+stilurile paginii să-l poată atinge sau citi. Inelul se vede, subțire, în jurul iconiței, deci
+oprirea e sărită, nu judecată.
+
+**Ce rămâne:** nimic automatizat. Ecranele cu parametru se vizitează cu primul rând al fiecărei
+colecții. Unul al cărui parametru n-are valoare — o bază goală, sau un `[param]` pe care
+`PARAM_SOURCES` nu-l știe — e tipărit la final, cu număr, ca golul să fie o cifră, nu o tăcere.
 
 ### S7 · Interfața profesorului — livrat
 

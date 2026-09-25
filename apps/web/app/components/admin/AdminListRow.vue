@@ -7,7 +7,8 @@
     ]"
     v-bind="clickable ? { role: 'button', tabindex: 0 } : {}"
     @click="clickable && emit('click')"
-    @keydown.enter="clickable && emit('click')"
+    @keydown.enter.self="clickable && emit('click')"
+    @keydown.space.self.prevent="clickable && emit('click')"
   >
     <div class="min-w-0">
       <div class="flex items-center gap-2 flex-wrap">
@@ -33,6 +34,10 @@
  * tokens. `#badges` sits inline after the title (states: Probă, Trecut, Inactivă); `#actions` is
  * the right-hand column and swallows its clicks so a delete button inside a clickable row does not
  * also navigate; the default slot is for extra body lines.
+ *
+ * A clickable row is `role="button"`, so it answers to Enter and Space, as a button does — Space
+ * was missing. Both only when the row itself has focus (`.self`): `@click.stop` on the actions
+ * column stops clicks, not keys, so Enter on a button in that column also opened the row.
  */
 withDefaults(
   defineProps<{

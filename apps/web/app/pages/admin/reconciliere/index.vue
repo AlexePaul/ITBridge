@@ -39,12 +39,16 @@
             >
               Importă un extras (CSV)
             </UButton>
+            <!-- Out of the Tab order and the accessibility tree: the button above is how anyone
+                 reaches it. In both, it was a second stop right after the button, invisible and
+                 unindicated, and a second control a screen reader read out for the same act. -->
             <input
               ref="fileInput"
               type="file"
               accept=".csv,.txt,text/csv"
               class="sr-only"
-              aria-label="Fișierul extrasului, în format CSV"
+              tabindex="-1"
+              aria-hidden="true"
               @change="onFile"
             />
           </div>
