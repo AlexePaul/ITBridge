@@ -44,7 +44,13 @@
         </div>
 
         <form v-else class="form" novalidate @submit.prevent="onSubmit">
-          <div v-if="errorMessage" class="card card-lg card-accent" role="alert">
+          <div
+            v-if="errorMessage"
+            ref="alertCard"
+            class="card card-lg card-accent"
+            role="alert"
+            tabindex="-1"
+          >
             <p class="body-text">{{ errorMessage }}</p>
           </div>
 
@@ -183,9 +189,18 @@
                 type="email"
                 autocomplete="email"
                 placeholder="ex. ioana@exemplu.ro"
-                :aria-invalid="Boolean(errors.contact)"
-                :aria-describedby="errors.contact ? 'trial-contact-error' : 'trial-contact-help'"
+                :aria-invalid="Boolean(errors.contact || errors.parentEmail)"
+                :aria-describedby="
+                  errors.parentEmail
+                    ? 'trial-email-error'
+                    : errors.contact
+                      ? 'trial-contact-error'
+                      : 'trial-contact-help'
+                "
               />
+              <p v-if="errors.parentEmail" id="trial-email-error" class="field-error">
+                {{ errors.parentEmail }}
+              </p>
             </div>
             <div class="field">
               <label for="trial-phone">Telefon</label>
@@ -196,9 +211,18 @@
                 type="tel"
                 autocomplete="tel"
                 placeholder="ex. 07xx xxx xxx"
-                :aria-invalid="Boolean(errors.contact)"
-                :aria-describedby="errors.contact ? 'trial-contact-error' : 'trial-contact-help'"
+                :aria-invalid="Boolean(errors.contact || errors.parentPhone)"
+                :aria-describedby="
+                  errors.parentPhone
+                    ? 'trial-phone-error'
+                    : errors.contact
+                      ? 'trial-contact-error'
+                      : 'trial-contact-help'
+                "
               />
+              <p v-if="errors.parentPhone" id="trial-phone-error" class="field-error">
+                {{ errors.parentPhone }}
+              </p>
             </div>
           </div>
           <p id="trial-contact-help" class="field-hint">
@@ -293,7 +317,8 @@ import { schoolGraph, breadcrumbNode, webPageNode } from "#shared/structured-dat
 import { useRuntimeConfig } from "#imports";
 import { SCHOOL_EMAIL, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 import { useLeadsApi } from "~/composables/api/useLeadsApi";
-import { dayKey } from "~/composables/useUtils";
+import { dayKey, looksLikeEmail, looksLikePhone } from "~/composables/useUtils";
+import { apiErrorBody, apiErrorMessage } from "~/composables/useApiError";
 import { LEAD_CHANNEL_LABELS, WEEKDAY_NAMES } from "~/types/lead.types";
 import type { LeadChannel, TrialSlot } from "~/types/lead.types";
 
@@ -354,6 +379,7 @@ const loadingSlots = ref(false);
 const slotsFailed = ref(false);
 const loading = ref(false);
 const errorMessage = ref<string | null>(null);
+const alertCard = ref<HTMLElement | null>(null);
 const booked = ref<{
   date: string;
   startTime: string;
@@ -405,6 +431,12 @@ const validate = (): boolean => {
   if (form.parentName.trim().length < 2) errors.parentName = "Scrie-ne numele tău";
   if (!form.parentEmail.trim() && !form.parentPhone.trim())
     errors.contact = "Lasă un email sau un telefon, ca să te putem contacta";
+  // The shape only, and loosely: the server has the last word, and a check here stricter than its
+  // own would refuse a number it takes. What this catches is the typo, before a round trip.
+  if (form.parentEmail.trim() && !looksLikeEmail(form.parentEmail))
+    errors.parentEmail = "Adresa de email nu pare validă. Verific-o, sau lasă doar telefonul.";
+  if (form.parentPhone.trim() && !looksLikePhone(form.parentPhone))
+    errors.parentPhone = "Numărul de telefon nu pare valid. Verifică-l, sau lasă doar emailul.";
   return Object.keys(errors).length === 0;
 };
 
@@ -413,6 +445,9 @@ const focusFirstError = async () => {
   await nextTick();
   document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
 };
+
+const SEND_FAILED =
+  "Nu am putut trimite cererea. Încearcă din nou sau sună-ne — te programăm la telefon.";
 
 const onSubmit = async () => {
   if (loading.value) return;
@@ -448,9 +483,16 @@ const onSubmit = async () => {
       return;
     }
     kept.value = true;
-  } catch {
-    errorMessage.value =
-      "Nu am putut trimite cererea. Încearcă din nou sau sună-ne — te programăm la telefon.";
+  } catch (err) {
+    // When the server answered, its sentence is the answer — every refusal a parent can cause on
+    // this form is worded for them (`BookTrialDto`). It used to be swallowed: „Adresa de email nu
+    // pare validă" came back and the page said „încearcă din nou sau sună-ne", which reads as the
+    // school's failure and sends the family to the phone over a typo they could fix in a second.
+    // With no answer at all — the network, the server down — there is nothing to fix, and the
+    // phone is the way forward.
+    errorMessage.value = apiErrorBody(err).code ? apiErrorMessage(err, SEND_FAILED) : SEND_FAILED;
+    await nextTick();
+    alertCard.value?.focus();
   } finally {
     loading.value = false;
   }

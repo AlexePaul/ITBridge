@@ -93,6 +93,27 @@ describe("useApi", () => {
     expect(result.header).toBe("Bearer acces-nou");
   });
 
+  /**
+   * The visitor who opens the school's email about their child's work on a device with no session:
+   * nothing to refresh with, and the attempt used to be made anyway, with `refreshToken: null`. Its
+   * 400 — the validator's English, „refreshToken should not be empty" — replaced the 401 the page
+   * could have explained (end-to-end testing, 25 September 2026).
+   */
+  it("hands back the 401 untouched when there is no refresh token to try", async () => {
+    tokenStore.accessToken = null;
+    tokenStore.refreshToken = null;
+    const calls: string[] = [];
+    handler = (url) => {
+      calls.push(url);
+      return Promise.reject(httpError(401));
+    };
+
+    const api = await loadUseApi();
+    await expect(api("/projects/link/abc")).rejects.toMatchObject({ status: 401 });
+
+    expect(calls).toEqual(["/projects/link/abc"]);
+  });
+
   it("does not refresh for status codes other than 401", async () => {
     const calls: string[] = [];
     handler = (url) => {
@@ -212,7 +233,10 @@ describe("useApi — rotating refresh tokens", () => {
         issued += 1;
         tokenStore.refreshToken = `refresh-${issued}`;
         unauthorized = false;
-        return Promise.resolve({ accessToken: `acces-${issued}`, refreshToken: `refresh-${issued}` });
+        return Promise.resolve({
+          accessToken: `acces-${issued}`,
+          refreshToken: `refresh-${issued}`,
+        });
       }
       if (unauthorized) return Promise.reject(httpError(401));
       return Promise.resolve({ ok: true });

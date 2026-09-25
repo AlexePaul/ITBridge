@@ -60,6 +60,25 @@ export function isRomanianPhone(raw: string): boolean {
 }
 
 /**
+ * The shape of an address, loosely — for a public form that checks before a round trip.
+ *
+ * Deliberately no stricter than the server: a page that refuses what the API would take has
+ * turned a typo check into a door that stays shut. Something before an `@`, a dot after it.
+ */
+export function looksLikeEmail(raw: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw.trim());
+}
+
+/**
+ * Digits enough to be a telephone number, once the separators are gone — mobile or landline,
+ * Romanian or not. `isRomanianPhone` is the strict one, for the portal's own form; the booking form
+ * takes whatever `@IsPhoneNumber('RO')` takes, which includes a number abroad.
+ */
+export function looksLikePhone(raw: string): boolean {
+  return /^\+?\d{9,15}$/.test(raw.replace(/[\s.\-()]/g, ""));
+}
+
+/**
  * The calendar day an instant falls on, `YYYY-MM-DD`, read from local components.
  *
  * Never `toISOString().slice(0, 10)`. That is the **UTC** day, and Romania is ahead of UTC all

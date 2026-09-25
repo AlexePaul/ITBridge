@@ -422,6 +422,18 @@ se oferă de aceea doar cât ea și fiecare oră de după ea a grupei mai au un 
 orele din față, nu doar cele trei săptămâni oferite —, altfel ar fi oferit o zi la care programarea
 răspundea „nu mai sunt locuri".
 
+### Testarea din 25 septembrie 2026: formularul ascundea greșelile de tastare
+
+`/proba` răspundea la orice eșec cu aceeași propoziție — „nu am putut trimite cererea, încearcă din
+nou sau sună-ne" —, deși serverul întorcea deja motivul în română: un email fără `@` arăta ca o
+defecțiune a școlii, iar a doua încercare pica la fel, la nesfârșit. Acum formularul verifică forma
+emailului și a telefonului sub câmp, înainte de trimitere, **fără să fie mai strict decât serverul**
+(un număr din străinătate trece, fiindcă `@IsPhoneNumber('RO')` îl ia), iar când serverul refuză,
+pagina arată propoziția lui. Fiecare câmp pe care îl poate greși un părinte are acum mesajul lui în
+`BookTrialDto`; doar eșecul fără niciun răspuns — rețeaua, serverul căzut — mai trimite la telefon.
+Telefonul se stochează și aici în forma `+40…`, ca peste tot (`@NormalizePhone()`), altfel un lead
+tastat `0722…` nu era găsit pentru familia scrisă `+40722…`.
+
 ## Dependențe
 
 [E17](E17-comunicare-notificari.md) pentru confirmări și memento-uri,

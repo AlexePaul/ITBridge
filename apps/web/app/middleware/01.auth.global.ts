@@ -6,8 +6,13 @@ import { authInitialized } from "~/plugins/01.auth.client";
  * The gate names what is private, not what is public. With an allow-list of
  * public paths, every new page on the public site was one forgotten line away
  * from redirecting visitors — and search engines — to the login form.
+ *
+ * `/files` is the link in the email that announces a child's work (E14/S5), and it
+ * was missing: a parent opening it on a device with no session got the portal's
+ * chrome, a working "Ieși din cont" and an English validator message, instead of
+ * the login form. The page requires a login by decision — see its own comment.
  */
-export const protectedPrefixes = ["/admin", "/user"];
+export const protectedPrefixes = ["/admin", "/user", "/files"];
 
 export const isProtectedRoute = (path: string) =>
   protectedPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
@@ -36,9 +41,11 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   // outlives the browser closing, while the access token does not — so testing the access token
   // alone would bounce a returning parent whose session is still perfectly valid.
   if (!tokenStore.accessToken && !tokenStore.refreshToken) {
-    // Redirect to login if trying to access protected pages
+    // The login form is handed the address it interrupted (`inapoi`), so the parent who followed
+    // the school's email lands on the work it announced, not on the dashboard with the link to
+    // find all over again.
     if (isProtectedRoute(to.path)) {
-      return navigateTo("/auth/login");
+      return navigateTo({ path: "/auth/login", query: { inapoi: to.fullPath } });
     }
     return;
   }

@@ -3,7 +3,7 @@ import { ref } from "vue";
 import { useSeo } from "~/composables/useSeo";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
-import { useProfileInitialization } from "~/composables/useProfileInitialization";
+import { safeReturnPath } from "~/composables/useReturnPath";
 import { useUserStore } from "~/stores/userStore";
 
 definePageMeta({
@@ -20,8 +20,8 @@ useSeo({
 
 const { login } = useAuthApi();
 const { success } = useNotifications();
-const profileInitialization = useProfileInitialization();
 const userStore = useUserStore();
+const route = useRoute();
 
 const isLoading = ref(false);
 const errorMessage = ref<string | null>(null);
@@ -34,12 +34,16 @@ async function onSubmit(payload: { username: string; password: string }) {
 
     success("Bine te-am găsit!", "Autentificare reușită");
 
-    // Awaited, because the middleware that follows reads what it sets. `initializeProfile` fetches
-    // the profile before assigning `ProfileSetup`, so unawaited the flag is still `false` when
-    // `navigateTo` runs its guards — and a family that has not finished step two lands on the
-    // dashboard instead of the form, then gets bounced on their next click. It swallows its own
-    // failures, so awaiting cannot make the login fail.
-    await profileInitialization.initializeProfile();
+    // `login` has already read the profile-setup gate — it used to be read here, and the register
+    // page, which had no such line, sent every new family past step two.
+
+    // Back where the login interrupted them, if it did: the parent who opened the school's email
+    // about their child's work on a device with no session wants that work, not the dashboard.
+    const returnPath = safeReturnPath(route.query.inapoi);
+    if (returnPath) {
+      await navigateTo(returnPath);
+      return;
+    }
 
     // Into the portal, not onto the public home page. The guards this comment relies on are
     // `01.auth.global` and `02.profile-setup.global`, and both return early on a route that is not

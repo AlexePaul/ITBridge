@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsEmail, IsOptional, IsPhoneNumber, IsString, Length } from 'class-validator';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
+import { NormalizePhone } from 'src/common/romanian-phone';
 
 export class UpdateProfileDto {
     @ApiProperty({ example: 'user@example.com', required: false })
@@ -12,6 +13,7 @@ export class UpdateProfileDto {
     /** `'RO'`, so the local `07xxxxxxxx` form is accepted alongside `+407xxxxxxxx`. */
     @ApiProperty({ example: '0712345678', required: false })
     @EmptyToUndefined()
+    @NormalizePhone()
     @IsOptional()
     @IsString()
     @IsPhoneNumber('RO')
@@ -80,6 +82,7 @@ export class UpdateProfileDto {
 
     @ApiProperty({ example: '0723456789', required: false })
     @EmptyToUndefined()
+    @NormalizePhone()
     @IsOptional()
     @IsString()
     @IsPhoneNumber('RO')

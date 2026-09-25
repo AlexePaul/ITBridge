@@ -2,6 +2,7 @@ import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, Length
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
+import { NormalizePhone } from 'src/common/romanian-phone';
 
 export class CreateProfileDto {
     @ApiProperty({ example: 'user@example.com', required: false })
@@ -15,6 +16,7 @@ export class CreateProfileDto {
     // form enforces — was a 400. With the region, both that and `+40712345678` are accepted.
     @ApiProperty({ example: '0712345678', required: false, description: 'Accepts 07xxxxxxxx or +407xxxxxxxx' })
     @EmptyToUndefined()
+    @NormalizePhone()
     @IsOptional()
     @IsString()
     @IsPhoneNumber('RO')
@@ -63,6 +65,7 @@ export class CreateProfileDto {
 
     @ApiProperty({ example: '0723456789', required: false })
     @EmptyToUndefined()
+    @NormalizePhone()
     @IsOptional()
     @IsString()
     @IsPhoneNumber('RO')

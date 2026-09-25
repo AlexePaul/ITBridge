@@ -41,13 +41,16 @@ export class ProfileService {
         // condition and degenerates into "find any profile", so a profile with no contact details
         // used to collide with the first row in the table. Contact fields are nullable by design —
         // an admin creates a profile with just a name and links an account later.
+        //
+        // Each refusal names its field, so the form can say which of the two belongs to another
+        // family: the generic `CONFLICT` left the office's screens nothing to say but a raw error.
         if (createProfileDto.email && (await this.emailTakenByAnother(createProfileDto.email))) {
-            throw new ConflictException('Email is already in use');
+            throw new ConflictException({ message: 'Email is already in use', error: 'PROFILE_EMAIL_TAKEN' });
         }
         if (createProfileDto.phone) {
             const existingPhone = await this.profileRepository.findOne({ where: { phone: createProfileDto.phone } });
             if (existingPhone) {
-                throw new ConflictException('Phone number is already in use');
+                throw new ConflictException({ message: 'Phone number is already in use', error: 'PROFILE_PHONE_TAKEN' });
             }
         }
         const profile = this.profileRepository.create({
@@ -135,13 +138,13 @@ export class ProfileService {
         }
 
         if (updateProfileDto.email && (await this.emailTakenByAnother(updateProfileDto.email, profileId))) {
-            throw new ConflictException('Email is already in use');
+            throw new ConflictException({ message: 'Email is already in use', error: 'PROFILE_EMAIL_TAKEN' });
         }
 
         if (updateProfileDto.phone && updateProfileDto.phone !== profile.phone) {
             const existingPhone = await this.profileRepository.findOne({ where: { phone: updateProfileDto.phone } });
             if (existingPhone) {
-                throw new ConflictException('Phone number is already in use');
+                throw new ConflictException({ message: 'Phone number is already in use', error: 'PROFILE_PHONE_TAKEN' });
             }
         }
 

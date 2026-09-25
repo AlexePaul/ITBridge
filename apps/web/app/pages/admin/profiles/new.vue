@@ -67,6 +67,7 @@
 </template>
 
 <script setup lang="ts">
+import { apiErrorMessage } from "~/composables/useApiError";
 import * as z from "zod";
 import type { FormSubmitEvent, SelectMenuItem } from "@nuxt/ui";
 import { useUserApi } from "~/composables/api/useUserApi";
@@ -105,7 +106,7 @@ onMounted(async () => {
     userOptions.value = [{ id: null, label: "Fără utilizator" }, ...mappedOptions];
   } catch (e: any) {
     console.error("Error fetching users:", e);
-    error(e?.message || "Nu am putut încărca utilizatorii fără profil");
+    error(apiErrorMessage(e, "Nu am putut încărca utilizatorii fără profil"));
   }
 });
 
@@ -146,7 +147,7 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
       await navigateTo("/admin/profiles");
     }
   } catch (e: any) {
-    error(e?.message || "Eroare la crearea profilului");
+    error(apiErrorMessage(e, "Eroare la crearea profilului"));
   }
 }
 </script>
