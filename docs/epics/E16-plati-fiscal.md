@@ -698,6 +698,41 @@ repo, deci primul extras exportat de ea e testul adevărat, iar forma lui se tre
   scadente, iar trecerile le citesc în minutele următoare. Numai în `live`: `off` promite că nu pleacă
   nimic, iar în `draft` nu există facturi numerotate de citit.
 
+### Revizuirea din 25 septembrie 2026
+
+Înainte ca epicul să atingă un cont real, codul lui a fost recitit de la capăt, cu o singură
+întrebare: ce stare, ce ordine a evenimentelor ar da o factură fiscală în plus, bani înregistrați de
+două ori sau un rând din care nu mai iese nimeni. Au ieșit zece defecte, toate reparate. Fiecare are
+acum un test care pică pe codul de dinainte: 13 teste noi de integrare, toate roșii fără reparații,
+iar cele 81 vechi verzi.
+
+- **Împrumutul curgea de la începutul trecerii, nu de la cerere.** Într-o serie lentă, ultimele
+  rânduri plecau cu un împrumut deja expirat, iar un răspuns pierdut se judeca la câteva secunde după
+  expirare. Dacă SmartBill termina de scris după citirea seriei, rândul se retrimitea: o a doua
+  factură fiscală, pentru aceeași familie și aceeași lună. Același lucru la plăți, cu suma încasată.
+  Acum împrumutul se reînnoiește chiar înaintea cererii, iar o scriere care nu mai găsește rândul nu
+  trimite nimic.
+- **Un 200 fără corp era un succes.** Conexiunea căzută după antete, sau timpul expirat în mijlocul
+  corpului, dădea o factură `issued` fără serie și fără număr. N-o mai putea retrimite, confirma,
+  edita sau șterge nimic, iar PDF-ul ei răspundea 404 pentru totdeauna. Acum e tăcere, ca un răspuns
+  pierdut, și seria decide.
+- **O plată inversată cât răspunsul ei era pierdut se retrimitea.** Coada o punea înapoi în așteptare
+  fără să întrebe dacă mai e bani, iar numerarul primea chitanță numerotată pentru o încasare pe care
+  platforma spune că n-o are. Acum iese din coadă; tot așa „retrimite" de la revizie.
+- **O factură ștearsă în SmartBill oprea toată coada de plăți**, la fiecare trecere, pentru totdeauna.
+  Acum doar plata ei merge la un om.
+- **Confirmarea potrivirilor sigure judeca fiecare linie singură.** Două linii care citau aceeași
+  factură treceau amândouă, iar o apăsare o înregistra plătită de două ori. Numărul de pe buton
+  număra la fel. Acum se judecă împreună, cea mai veche întâi.
+- **Ștergerea unei familii cu o factură încă în drum spre SmartBill** ar fi trimis documentul fiscal
+  pe numele unui rând golit. Acum ștergerea așteaptă, cu `FAMILY_HAS_FISCAL_WORK`, iar păstrarea la
+  termen ține familia, cu `fiscal_in_progress`.
+- **Verificarea de divergență putea pune la loc o citire veche** peste una pe care o plată tocmai o
+  golise, iar raportul striga „modificat de mână în SmartBill" o zi întreagă. Acum citirea se scrie
+  doar dacă nicio plată nu s-a înregistrat după ce a început.
+- **Și trei mărunte.** O blocare pentru rată venită pe un PDF nu se consemna. Corectura unei facturi
+  primea o sumă negativă. Iar trecerea în `overdue` putea întoarce o factură tocmai plătită.
+
 ## Dependențe
 
 [E15](E15-pricing-facturare.md). Nu se poate emite corect ce nu e calculat corect.
