@@ -150,7 +150,7 @@ import type { LeadFollowUp, LeadStatus, LeadSummary } from "~/types/lead.types";
  * screen declare a family enrolled that nobody enrolled — and that is the number the funnel report
  * is built on.
  */
-definePageMeta({ layout: "dashboard", middleware: "admin-check" });
+definePageMeta({ layout: "dashboard", middleware: "admin-check", title: "Cereri și probe" });
 
 const { fetchFollowUp, fetchLeads, updateLead, markLost } = useLeadsApi();
 const userStore = useUserStore();

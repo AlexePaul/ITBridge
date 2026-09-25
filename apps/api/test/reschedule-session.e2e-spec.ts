@@ -98,7 +98,7 @@ describe('Recovering a class that cannot be held (e2e)', () => {
         const rows = await weekRows();
         expect(rows).toHaveLength(1);
         expect(rows[0]).toMatchObject({ id: sessionId, date: TUESDAY, status: 'scheduled' });
-        expect(rows[0].notes).toContain('Recuperată (de pe 2027-04-05 16:00): Luni e zi liberă legală');
+        expect(rows[0].notes).toContain('Recuperată (de pe luni, 5 aprilie, 16:00): Luni e zi liberă legală');
 
         const messages = await queued();
         expect(messages).toHaveLength(1);
@@ -131,7 +131,7 @@ describe('Recovering a class that cannot be held (e2e)', () => {
         expect(rows).toHaveLength(1);
         expect(rows[0]).toMatchObject({ id: sessionId, date: TUESDAY, status: 'scheduled' });
         expect(rows[0].notes).toContain('Anulată automat: Paște');
-        expect(rows[0].notes).toContain('Recuperată (de pe 2027-04-05 16:00)');
+        expect(rows[0].notes).toContain('Recuperată (de pe luni, 5 aprilie, 16:00)');
 
         // The calendar cancels without writing to anybody (S2 — a holiday is not news), so the
         // recovery's message is the only one, and it is a move, not a reinstatement.
@@ -160,7 +160,7 @@ describe('Recovering a class that cannot be held (e2e)', () => {
         const rows = await weekRows();
         expect(rows).toHaveLength(1);
         expect(rows[0]).toMatchObject({ id: res.body.id as number, date: TUESDAY, status: 'scheduled' });
-        expect(rows[0].notes).toBe('Recuperată (de pe 2027-04-05 16:00): Luni e zi liberă legală');
+        expect(rows[0].notes).toBe('Recuperată (de pe luni, 5 aprilie, 16:00): Luni e zi liberă legală');
 
         const messages = await queued();
         expect(messages).toHaveLength(1);

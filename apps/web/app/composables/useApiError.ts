@@ -201,6 +201,9 @@ const MESSAGES: Record<string, string> = {
 
   // E16/S1. Money against a month the school chose not to charge for — the row picked is wrong.
   INVOICE_WAIVED: "Factura este anulată (0 lei) — nu se pot înregistra plăți pe ea.",
+  // A free month is recorded as a 0-lei row with nothing to print (E15/S6).
+  INVOICE_WAIVED_HAS_NO_PDF:
+    "Luna aceasta a fost consemnată fără plată (0 lei), deci nu are factură de descărcat.",
 
   // The review of 25 September 2026: an invoice's payments are not deleted along with it, and a
   // month made free cannot keep money against it.

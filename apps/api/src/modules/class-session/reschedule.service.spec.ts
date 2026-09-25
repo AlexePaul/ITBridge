@@ -235,7 +235,7 @@ describe('RescheduleService', () => {
             const result = await service.windowsFor({ groupId: 7, date: MONDAY }, now);
 
             expect(result.blocked).toMatchObject({ code: 'GROUP_ALREADY_HAS_SESSION_THAT_WEEK' });
-            expect(result.blocked?.message).toContain(TUESDAY);
+            expect(result.blocked?.message).toContain('marți, 6 aprilie');
         });
 
         it('404s on a group that does not exist', async () => {
@@ -254,7 +254,7 @@ describe('RescheduleService', () => {
             expect(saved.id).toBe(3);
             expect(toIsoDate(saved.date)).toBe(TUESDAY);
             expect(saved.status).toBe(ClassSessionStatus.SCHEDULED);
-            expect(saved.notes).toBe('Recuperată (de pe 2027-04-05 16:00): Luni e zi liberă');
+            expect(saved.notes).toBe('Recuperată (de pe luni, 5 aprilie, 16:00): Luni e zi liberă');
             expect(sessionRepo.create).not.toHaveBeenCalled();
         });
 
@@ -265,7 +265,7 @@ describe('RescheduleService', () => {
 
             expect(saved.id).toBe(3);
             expect(saved.status).toBe(ClassSessionStatus.SCHEDULED);
-            expect(saved.notes).toBe('Anulată automat: Paște\n\nRecuperată (de pe 2027-04-05 16:00): Luni e zi liberă');
+            expect(saved.notes).toBe('Anulată automat: Paște\n\nRecuperată (de pe luni, 5 aprilie, 16:00): Luni e zi liberă');
             expect(toIsoDate(saved.date)).toBe(TUESDAY);
         });
 
@@ -281,7 +281,7 @@ describe('RescheduleService', () => {
             expect(saved.endTime).toBe('17:30:00');
             expect(saved.room).toMatchObject({ id: 1 });
             expect(saved.status).toBe(ClassSessionStatus.SCHEDULED);
-            expect(saved.notes).toBe('Recuperată (de pe 2027-04-05 16:00): Luni e zi liberă');
+            expect(saved.notes).toBe('Recuperată (de pe luni, 5 aprilie, 16:00): Luni e zi liberă');
         });
 
         it('defaults the hour and the room to the class’s own, and takes what is named', async () => {

@@ -39,7 +39,7 @@
       <div v-if="months.length > 0" class="cal-nav-bar" role="group" aria-label="Luna afișată">
         <button
           type="button"
-          class="btn btn-secondary btn-icon"
+          class="btn btn-secondary btn-icon cal-nav"
           aria-label="Luna anterioară"
           @click="shiftMonth(-1)"
         >
@@ -48,7 +48,7 @@
         <p class="cal-nav-month" aria-live="polite">{{ monthLabel }}</p>
         <button
           type="button"
-          class="btn btn-secondary btn-icon"
+          class="btn btn-secondary btn-icon cal-nav"
           aria-label="Luna următoare"
           @click="shiftMonth(1)"
         >
@@ -317,6 +317,8 @@ const loadSessions = async (mine: Child[]) => {
   margin-top: var(--rhythm-2);
 }
 
+/* The 44px the portal promises a thumb (E18/S7). The rule was here with no element wearing it, so
+   the arrows drew at the shared icon button's 36px. */
 .cal-nav {
   width: 44px;
   height: 44px;

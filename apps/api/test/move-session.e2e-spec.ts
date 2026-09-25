@@ -55,7 +55,7 @@ describe('Moving a class session (e2e)', () => {
             sessionId,
         ]);
         expect(rows[0].date).toBe('2027-04-06');
-        expect(rows[0].notes).toContain('Mutată (de pe 2027-04-05 16:00)');
+        expect(rows[0].notes).toContain('Mutată (de pe luni, 5 aprilie, 16:00)');
     });
 
     it('the school calendar blocks the target day — the move has no side door around S2', async () => {

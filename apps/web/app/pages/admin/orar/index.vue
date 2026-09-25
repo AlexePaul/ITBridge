@@ -73,7 +73,10 @@
           </p>
         </div>
 
-        <div class="flex items-center gap-2 shrink-0">
+        <!-- Wraps on a phone: four buttons do not fit in 390px, and unwrapped the last one ran
+             past the screen's edge with nothing to show it was there (end-to-end testing, 25
+             September 2026). -->
+        <div class="flex flex-wrap items-center gap-2 sm:shrink-0">
           <template v-if="session.status === SessionStatus.CANCELLED">
             <UButton
               color="primary"

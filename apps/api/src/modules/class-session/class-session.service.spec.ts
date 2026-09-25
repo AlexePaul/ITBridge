@@ -411,7 +411,7 @@ describe('ClassSessionService', () => {
 
             expect(toIsoDate(moved.date)).toBe('2026-09-08');
             // The question a parent asks is "when was it supposed to be?".
-            expect(moved.notes).toContain('Mutată (de pe 2026-09-07 16:00): Sala ocupată');
+            expect(moved.notes).toContain('Mutată (de pe luni, 7 septembrie, 16:00): Sala ocupată');
         });
 
         it('keeps what was not named: an hour-only move leaves the day alone', async () => {
