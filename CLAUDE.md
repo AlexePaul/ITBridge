@@ -300,7 +300,10 @@ rularea de a doua zi o scria din nou: două ore în săptămâna aia, iar cea fa
 altă săptămână** lasă săptămâna aia cu ora ei proprie, iar regula pe săptămână ar fi șters-o.
 `UQ_class_sessions_group_slot` ține linia pentru două generări deodată; `scheduledFor` e `null` pe un
 rând pe care nu l-a scris generatorul, iar o recuperare (E12 S9) scrisă pe o zi goală primește ca loc
-ziua pe care o recuperează.
+ziua pe care o recuperează. **Seed-ul îl scrie și el**, fiindcă orele lui sunt ce ar fi scris
+generatorul — până la testarea din 25 septembrie 2026 nu-l scria, deci pe o bază populată, adică pe
+stage, fiecare oră arăta ca una pusă de mână, iar o grupă mutată pe altă zi își lăsa toate orele în
+urmă și căpăta câte una nouă lângă fiecare. O bază populată înainte de reparație se repopulează.
 
 **O grupă mutată pe altă zi, oră sau sală își ia orele viitoare cu ea** — `followGroup`, chemat din
 `updateGroup` în aceeași tranzacție. Editarea schimba grupa și atât: opt săptămâni de ore rămâneau pe
@@ -420,7 +423,10 @@ anunțul care a provocat-o: `AbsenceNotice.replacementSession`, scrisă de `Repl
   anunț, iar biroul care tastează marți ce a sunat luni n-are de ce să coste familia săptămâna.
 - **Marcarea nu mai consumă nimic.** `AttendanceType.MAKE_UP` se scrie în continuare singur pentru
   orice copil marcat în afara grupei lui, dar e o observație despre unde a stat, nu decontarea unui
-  drept.
+  drept. **Iar catalogul orei-gazdă îl listează de la mutare, nu de la primul marcaj**
+  (`AbsenceNoticeService.placedIn`), cu grupa de unde vine (`visitingFrom`): ecranul de telefon nu
+  poate adăuga pe nimeni, deci până la testarea din 25 septembrie 2026 un copil mutat era un copil pe
+  care nu-l putea marca nimeni.
 - **Locul liber se numără pe ședință**: un copil mutat temporar ocupă un scaun ca o probă (D7), deci
   înscrieri în vigoare plus copiii mutați în acea ședință — nu `occupancyOf`, care e despre grupă.
   Numărătoarea stă în `EnrollmentService.freeSeatsAt` / `freeSeatsAtSessions`, lângă `occupancyOf`:
@@ -1991,7 +1997,9 @@ e **corectura pe copil** (`SessionCountOverride`, `PUT|DELETE /invoices/override
 consemnată — cât, de ce, cine, când —, un rând per copil și lună, aplicată în fișă ca factura să
 poarte același număr pe care l-a arătat ecranul, și înghețată odată ce familia are factura lunii.
 Factura poartă o singură linie de produs, deci corectura nu contrazice niciodată catalogul; ce
-apără rândul e evidența școlii.
+apără rândul e evidența școlii. **Catalogul, în schimb, nu stă sub lacătul lunii** — e al
+profesorului —, deci o oră marcată după emitere mută fișa, nu factura: rândul unei familii facturate
+arată suma de pe factură (`invoicedAmount`) și, când diferă, ce ar da cataloagele de acum.
 
 **O probă decisă rămâne gratuită, iar prima și ultima zi a unei înscrieri le decide catalogul**
 (revizuirea din 25 septembrie 2026). Regula citea statusul: `TRIAL` nu se factura, dar în clipa în

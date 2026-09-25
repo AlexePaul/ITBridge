@@ -563,6 +563,14 @@ cum scria aici: un copil mutat temporar se marchează în catalogul obișnuit al
 `MAKE_UP` se scrie singur fiindcă nu e din grupa aia. N-a existat niciodată un al doilea drum de
 marcare, și cu atât mai puțin acum.
 
+**Doar că până la testarea din 25 septembrie 2026 copilul mutat nu apărea în catalogul ăla.**
+`GET /attendance/session/:id/register` lista un vizitator numai după ce avea deja un marcaj, iar
+ecranul de telefon n-are niciun buton de adăugat pe cineva — deci profesorul n-avea pe cine apăsa, și
+nimic de pe ecran nu spunea că vine cineva. Catalogul citește acum și mutările făcute în ora aceea
+(`AbsenceNoticeService.placedIn`), le listează ca `make-up`, cum se va scrie marcajul, și spune de la
+ce grupă vine copilul (`visitingFrom`). Ecranul de desktop îi adaugă singur la alegerea orei, iar
+căutarea lui manuală găsește acum un copil după numele întreg, cum îl tastează biroul.
+
 ### S7 · Notificări
 
 Recuperare expirând în curând — memento către părinte. Absență neanunțată — notificare către
