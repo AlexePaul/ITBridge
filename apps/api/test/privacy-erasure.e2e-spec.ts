@@ -265,6 +265,32 @@ describe('Privacy erasure (e2e)', () => {
          * A number a family typed into its own profile names nobody — nothing in the platform ever
          * checks one. Matched by it, this erasure would delete another family's enquiry.
          */
+        /**
+         * An erased child's seat is a freed seat. The cascade that takes the enrolment asks nobody,
+         * so the family waiting for this group was never told — and the group's own occupancy
+         * showed the seat free beside them.
+         */
+        it('hands the seats the erased children held to the waiting list', async () => {
+            await request(app.getHttpServer()).put(`/groups/${groupId}`).set('Authorization', admin.auth).send({ capacity: 2 }).expect(200);
+            const waiting = await request(app.getHttpServer())
+                .post('/children')
+                .set('Authorization', bogdan.auth)
+                .send({ firstName: 'Ilinca', lastName: 'Ionescu', birthDate: '2016-02-02', parentId: bogdanProfileId })
+                .expect(201);
+            await request(app.getHttpServer())
+                .post('/enrollments/waitlist')
+                .set('Authorization', admin.auth)
+                .send({ childId: waiting.body.id as number, groupId })
+                .expect(201);
+
+            await erase(anaProfileId).expect(201);
+
+            const [{ status }] = await dataSource.query<{ status: string }[]>('SELECT status FROM waitlist_entries WHERE child_id = $1', [
+                waiting.body.id as number,
+            ]);
+            expect(status).toBe('OFFERED');
+        });
+
         it('leaves an enquiry alone when all that matches it is a phone number the family typed', async () => {
             await request(app.getHttpServer())
                 .post('/leads')

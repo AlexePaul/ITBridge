@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional } from 'class-validator';
-import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
+import { IsIn, IsOptional } from 'class-validator';
+import { WAITLIST_CLOSING_STATUSES, WaitlistStatus, type WaitlistClosingStatus } from 'src/enum/waitlist-status.enum';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
 export class RemoveWaitlistEntryDto {
@@ -9,11 +9,11 @@ export class RemoveWaitlistEntryDto {
      * history later: the family said no, the family never answered, or the school took them off.
      */
     @ApiPropertyOptional({
-        enum: [WaitlistStatus.DECLINED, WaitlistStatus.EXPIRED, WaitlistStatus.CANCELLED],
+        enum: WAITLIST_CLOSING_STATUSES,
         default: WaitlistStatus.CANCELLED,
     })
     @EmptyToUndefined()
     @IsOptional()
-    @IsEnum(WaitlistStatus)
-    status?: WaitlistStatus;
+    @IsIn(WAITLIST_CLOSING_STATUSES)
+    status?: WaitlistClosingStatus;
 }

@@ -138,6 +138,10 @@ const MESSAGES: Record<string, string> = {
   ENROLLMENT_STATUS_NOT_OPENABLE: "O înscriere nouă poate fi doar activă sau de probă.",
   ENROLLMENT_STATUS_NOT_CLOSING: "O înscriere se închide ca încheiată, abandonată sau transferată.",
   ALREADY_ON_WAITLIST: "Copilul este deja pe lista de așteptare a acestei grupe.",
+  // The entry left the list between the screen loading and the press — the family answered, or the
+  // offer expired. Reloading shows what happened to it.
+  WAITLIST_ENTRY_CLOSED:
+    "Cererea nu mai este pe listă. Reîncarcă pagina ca să vezi ce s-a întâmplat cu ea.",
   NOTHING_TO_TRANSFER: "Copilul nu are o înscriere în vigoare. Înscrie-l direct, nu prin transfer.",
   ALREADY_IN_GROUP: "Copilul este deja în această grupă.",
   NOT_A_TRIAL: "Doar o probă poate fi confirmată sau închisă astfel.",

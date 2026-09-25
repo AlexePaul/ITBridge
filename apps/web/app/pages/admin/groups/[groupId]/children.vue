@@ -27,6 +27,18 @@
                 <template v-if="occupancy.taken !== childrenInGroup.length">
                   · include {{ occupancy.taken - childrenInGroup.length }} probă/probe programate
                 </template>
+                <!--
+                  A seat offered to the list is not free until the family answers, so `free`
+                  already leaves it out; saying so is what keeps "N din M" and "X libere" adding up.
+                -->
+                <template v-if="occupancy.held > 0">
+                  ·
+                  {{
+                    occupancy.held === 1
+                      ? "un loc oferit listei, în așteptarea răspunsului"
+                      : `${occupancy.held} locuri oferite listei, în așteptarea răspunsului`
+                  }}
+                </template>
               </p>
             </div>
           </div>

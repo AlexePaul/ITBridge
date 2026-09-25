@@ -53,6 +53,11 @@ export interface GroupOccupancy {
     groupId: number;
     capacity: number;
     taken: number;
+    /**
+     * Seats offered to the waiting list and not yet answered. Promised, so not free: `free` is what
+     * is left after `taken` and these both.
+     */
+    held: number;
     free: number;
     /** How many families are queueing for this group, offered or waiting. */
     waiting: number;

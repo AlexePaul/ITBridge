@@ -14,6 +14,7 @@ import { User } from 'src/entities/user.entity';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { S3Service } from 'src/modules/storage/s3.service';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { projectFileKey, projectThumbnailKey } from 'src/modules/project/project.keys';
 import { ERASED_STATEMENT_TEXT, erasedProfileFields, isErased } from './erasure.rules';
 import { leadsOfFamily, messagesOfFamily } from './family-rows';
@@ -108,6 +109,7 @@ export class ErasureService {
         @InjectDataSource() private readonly dataSource: DataSource,
         private readonly audit: AuditService,
         private readonly storage: S3Service,
+        private readonly enrollments: EnrollmentService,
     ) {}
 
     /** The family asks. Nothing is deleted here — the office has to look first. */
@@ -223,8 +225,12 @@ export class ErasureService {
             if (leadIds.length) await manager.delete(Lead, leadIds);
 
             // One delete, and the cascades take enrolments, attendance, announced absences, waitlist
-            // entries, session-count overrides and projects with them.
+            // entries, session-count overrides and projects with them. The seats those children held
+            // — enrolled, on trial, offered from a list — are taken first and handed on after: the
+            // cascade frees them without telling anybody waiting.
+            const seatsHeldIn = await this.enrollments.lockSeatsHeldBy(childIds, manager);
             if (childIds.length) await manager.delete(Child, childIds);
+            await this.enrollments.offerFreeSeatsIn(seatsHeldIn, manager);
 
             const discounts = await manager.delete(Discount, { parent: { id: profileId } });
 

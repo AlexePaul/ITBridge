@@ -1,8 +1,9 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
-import { Not, Repository } from 'typeorm';
+import { DataSource, Not, Repository } from 'typeorm';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { createGroupDto } from './dto/createGroup.dto';
 import { updateGroupDto } from './dto/updateGroup.dto';
 import { applyDefined } from 'src/common/apply-defined';
@@ -12,6 +13,8 @@ export class GroupService {
     constructor(
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
         @InjectRepository(Room) private readonly roomRepository: Repository<Room>,
+        @InjectDataSource() private readonly dataSource: DataSource,
+        private readonly enrollments: EnrollmentService,
     ) {}
 
     async createGroup(createGroupDto: createGroupDto): Promise<Group> {
@@ -53,7 +56,15 @@ export class GroupService {
     }
 
     async updateGroup(id: number, updateGroupDto: updateGroupDto): Promise<Group> {
-        const group = await this.getGroupById(id);
+        // **Without `children`.** `save` on a group loaded with them treats the list as the truth
+        // and rewrites `children.group_id` to match it — so an enrolment committed between this
+        // read and the write below came out with no group while it was in force, and a transfer in
+        // the same window was pointed back at the old one. `Child.group` has one writer,
+        // `EnrollmentService`, and an edit of a group's name is not it.
+        const group = await this.groupRepository.findOne({ where: { id }, relations: { room: { location: true } } });
+        if (!group) {
+            throw new NotFoundException('Group not found');
+        }
 
         // Whatever the request leaves out keeps its current value — including in the collision
         // check below, which has to run against the slot the group is about to occupy rather than
@@ -79,7 +90,14 @@ export class GroupService {
 
         const { roomId: _roomId, ...fields } = updateGroupDto;
         applyDefined(group, fields);
-        return this.groupRepository.save(group);
+        await this.dataSource.transaction(async (manager) => {
+            await manager.save(Group, group);
+            // A capacity raised, or a group made active again, is seats a waiting family can have.
+            // Asked in the same transaction, the way every release is; a no-op when nothing is free
+            // or nobody waits.
+            await this.enrollments.offerFreeSeatsIn([id], manager);
+        });
+        return this.getGroupById(id);
     }
 
     async deleteGroup(id: number): Promise<void> {

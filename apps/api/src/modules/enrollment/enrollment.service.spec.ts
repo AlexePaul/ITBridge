@@ -6,11 +6,11 @@ import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Child } from 'src/entities/child.entity';
 import { Group } from 'src/entities/group.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
-import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
+import { EnrollmentStatus, IN_FORCE_STATUSES } from 'src/enum/enrollment-status.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
 import { Role } from 'src/enum/role.enum';
-import { LessThan } from 'typeorm';
+import { In, LessThan } from 'typeorm';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
 import { AuditService } from 'src/modules/audit/audit.service';
@@ -86,6 +86,9 @@ describe('EnrollmentService', () => {
         enrollmentRepo.count!.mockResolvedValue(0);
         waitlistRepo.count!.mockResolvedValue(0);
         waitlistRepo.findOne!.mockResolvedValue(null);
+        // Nobody waiting unless a test says so: `offerFreeSeats` reads the head of the list with
+        // `find`, and an unstubbed one would hand it `undefined` to loop over.
+        waitlistRepo.find!.mockResolvedValue([]);
 
         manager = createMockEntityManager(
             new Map<unknown, MockRepository>([
@@ -317,9 +320,20 @@ describe('EnrollmentService', () => {
 
             expect(manager.update).toHaveBeenCalledWith(
                 Enrollment,
-                { id: 9 },
+                // Only while it is still in force: two presses must not both release the seat.
+                { id: 9, status: In([...IN_FORCE_STATUSES]) },
                 expect.objectContaining({ status: EnrollmentStatus.WITHDRAWN, exitReason: 'S-a mutat din oraș', endDate: expect.any(String) }),
             );
+        });
+
+        /** The second press of "close", arriving while the first held the group. */
+        it('refuses when the enrolment closed between the read and the write', async () => {
+            manager.update.mockImplementation((entity: unknown) => Promise.resolve({ affected: entity === Enrollment ? 0 : 1 }));
+
+            const error = await service.close(9, { status: EnrollmentStatus.WITHDRAWN }).catch((e: unknown) => e);
+
+            expect(responseOf(error).error).toBe('ENROLLMENT_ALREADY_CLOSED');
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
         });
 
         it('refuses to close into a status that is still in force', async () => {
@@ -335,11 +349,13 @@ describe('EnrollmentService', () => {
 
         it('offers the freed seat to the first family waiting, and mails them', async () => {
             enrollmentRepo.count!.mockResolvedValue(9);
-            waitlistRepo.findOne!.mockResolvedValue({
-                id: 4,
-                child: { firstName: 'Vlad', parent: { email: 'parinte@example.com' } },
-                group: { id: 2, name: 'Scratch Începători' },
-            });
+            waitlistRepo.find!.mockResolvedValue([
+                {
+                    id: 4,
+                    child: { firstName: 'Vlad', parent: { email: 'parinte@example.com' } },
+                    group: { id: 2, name: 'Scratch Începători' },
+                },
+            ]);
 
             await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
 
@@ -350,20 +366,35 @@ describe('EnrollmentService', () => {
             );
             // In the same transaction as the release: an offer that survives the process dying
             // between the two writes is the only version of "within a minute" that holds.
-            expect(outbox.queue).toHaveBeenCalledWith(expect.objectContaining({ to: 'parinte@example.com' }), manager);
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith(
+                { email: 'parinte@example.com' },
+                expect.objectContaining({ subject: expect.any(String) }),
+                manager,
+            );
+        });
+
+        /** Every free seat, one family each — the list asked for as many as there are seats. */
+        it('asks the list for as many families as there are free seats', async () => {
+            enrollmentRepo.count!.mockResolvedValue(7);
+
+            await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
+
+            expect(waitlistRepo.find).toHaveBeenCalledWith(expect.objectContaining({ where: { group: { id: 2 }, status: WaitlistStatus.WAITING }, take: 3 }));
         });
 
         it('puts the group and a real deadline in the offer, because the list is a promise', async () => {
             enrollmentRepo.count!.mockResolvedValue(9);
-            waitlistRepo.findOne!.mockResolvedValue({
-                id: 4,
-                child: { firstName: 'Vlad', parent: { email: 'parinte@example.com' } },
-                group: { id: 2, name: 'Scratch Începători' },
-            });
+            waitlistRepo.find!.mockResolvedValue([
+                {
+                    id: 4,
+                    child: { firstName: 'Vlad', parent: { email: 'parinte@example.com' } },
+                    group: { id: 2, name: 'Scratch Începători' },
+                },
+            ]);
 
             await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
 
-            const [[offer]] = outbox.queue.mock.calls as [[{ bodyText: string }]];
+            const [[, offer]] = outbox.queueOrRecord.mock.calls as [[unknown, { bodyText: string }]];
             expect(offer.bodyText).toContain('Scratch Începători');
 
             const update = manager.update.mock.calls.find((call) => call[0] === WaitlistEntry);
@@ -376,32 +407,64 @@ describe('EnrollmentService', () => {
 
             await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
 
-            expect(outbox.queue).not.toHaveBeenCalled();
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
+        });
+
+        /** A seat offered to somebody else is not free, so it is not offered twice. */
+        it('offers nothing while the only free seat is already offered to a family', async () => {
+            enrollmentRepo.count!.mockResolvedValue(9);
+            waitlistRepo.count!.mockImplementation(({ where }: { where: { status: unknown } }) =>
+                Promise.resolve(where.status === WaitlistStatus.OFFERED ? 1 : 2),
+            );
+
+            await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
+
+            expect(waitlistRepo.find).not.toHaveBeenCalled();
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
         });
 
         it('offers nothing when nobody is waiting', async () => {
             enrollmentRepo.count!.mockResolvedValue(5);
-            waitlistRepo.findOne!.mockResolvedValue(null);
 
             await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
 
-            expect(outbox.queue).not.toHaveBeenCalled();
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
         });
 
-        it('still offers the seat when the family has no email, rather than skipping them', async () => {
+        /** An inactive group refuses the enrolment the offer would lead to (`GROUP_INACTIVE`). */
+        it('offers nothing in an inactive group', async () => {
+            groupRepo.findOne!.mockResolvedValue(group({ isActive: false }));
+            enrollmentRepo.count!.mockResolvedValue(5);
+            waitlistRepo.find!.mockResolvedValue([
+                {
+                    id: 4,
+                    child: { firstName: 'Vlad', parent: { email: 'parinte@example.com' } },
+                    group: { id: 2, name: 'Scratch Începători' },
+                },
+            ]);
+
+            await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
+
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
+        });
+
+        it('still offers the seat when the family has no email, and records that the offer went nowhere', async () => {
             enrollmentRepo.count!.mockResolvedValue(9);
-            waitlistRepo.findOne!.mockResolvedValue({
-                id: 4,
-                child: { firstName: 'Vlad', parent: { email: null } },
-                group: { id: 2, name: 'Scratch Începători' },
-            });
+            waitlistRepo.find!.mockResolvedValue([
+                {
+                    id: 4,
+                    child: { firstName: 'Vlad', parent: { email: null } },
+                    group: { id: 2, name: 'Scratch Începători' },
+                },
+            ]);
 
             await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
 
             // The seat is theirs and the clock runs; somebody has to phone. Skipping to the next
-            // family would quietly punish the one the school entered from a phone call.
+            // family would quietly punish the one the school entered from a phone call — and the
+            // row `queueOrRecord` leaves is what tells the office to (E17/S5).
             expect(manager.update).toHaveBeenCalledWith(WaitlistEntry, { id: 4 }, expect.objectContaining({ status: WaitlistStatus.OFFERED }));
-            expect(outbox.queue).not.toHaveBeenCalled();
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null }, expect.objectContaining({ subject: expect.any(String) }), manager);
         });
 
         /**
@@ -423,17 +486,21 @@ describe('EnrollmentService', () => {
             });
             jest.spyOn(service, 'occupancyOf').mockImplementation((groupId) => {
                 order.push('count');
-                return Promise.resolve({ groupId, capacity: 10, taken: 9, free: 1, waiting: 1 });
+                return Promise.resolve({ groupId, capacity: 10, taken: 9, held: 0, free: 1, waiting: 1 });
             });
-            waitlistRepo.findOne!.mockResolvedValue({
-                id: 4,
-                child: { firstName: 'Vlad', parent: { email: 'parinte@example.com' } },
-                group: { id: 2, name: 'Scratch Începători' },
-            });
+            waitlistRepo.find!.mockResolvedValue([
+                {
+                    id: 4,
+                    child: { firstName: 'Vlad', parent: { email: 'parinte@example.com' } },
+                    group: { id: 2, name: 'Scratch Începători' },
+                },
+            ]);
 
             await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
 
-            expect(order).toEqual(['lock', 'count']);
+            // Twice: `close` takes it before writing the enrolment, `offerFreeSeats` again beside the
+            // count it protects — a no-op the second time in one transaction.
+            expect(order).toEqual(['lock', 'lock', 'count']);
             expect(lockGroup).toHaveBeenCalledWith(manager, 2);
         });
 
@@ -447,11 +514,13 @@ describe('EnrollmentService', () => {
     });
 
     describe('occupancyOf', () => {
-        it('reports free seats as capacity minus everything in force', async () => {
+        it('reports free seats as capacity minus everything in force and every seat offered', async () => {
             enrollmentRepo.count!.mockResolvedValue(7);
-            waitlistRepo.count!.mockResolvedValue(3);
+            waitlistRepo.count!.mockImplementation(({ where }: { where: { status: unknown } }) =>
+                Promise.resolve(where.status === WaitlistStatus.OFFERED ? 1 : 3),
+            );
 
-            await expect(service.occupancyOf(2)).resolves.toEqual({ groupId: 2, capacity: 10, taken: 7, free: 3, waiting: 3 });
+            await expect(service.occupancyOf(2)).resolves.toEqual({ groupId: 2, capacity: 10, taken: 7, held: 1, free: 2, waiting: 3 });
         });
 
         it('never reports negative free seats, even after an over-capacity enrolment', async () => {
@@ -481,22 +550,46 @@ describe('EnrollmentService', () => {
         });
 
         it('hands the seat on to the next family when an offer is declined', async () => {
-            waitlistRepo
-                .findOne! // The entry being removed, then the next one in the queue — `removeFromWaitlist`
-                // re-runs the offer, which is the whole point of declining.
-                .mockResolvedValueOnce({ id: 4, status: WaitlistStatus.OFFERED, group: { id: 2 } })
-                .mockResolvedValue({
+            // The entry being removed; then the next one in the queue — `removeFromWaitlist` re-runs
+            // the offer, which is the whole point of declining.
+            waitlistRepo.findOne!.mockResolvedValue({ id: 4, status: WaitlistStatus.OFFERED, group: { id: 2 } });
+            waitlistRepo.find!.mockResolvedValue([
+                {
                     id: 5,
                     child: { firstName: 'Ioana', parent: { email: 'urmatorul@example.com' } },
                     group: { id: 2, name: 'Scratch Începători' },
-                });
+                },
+            ]);
             enrollmentRepo.count!.mockResolvedValue(9);
 
             await service.removeFromWaitlist(4, WaitlistStatus.DECLINED);
 
-            expect(manager.update).toHaveBeenCalledWith(WaitlistEntry, { id: 4 }, { status: WaitlistStatus.DECLINED });
+            // Only while it is still on the list: the sweep may have moved it first.
+            expect(manager.update).toHaveBeenCalledWith(
+                WaitlistEntry,
+                { id: 4, status: In([WaitlistStatus.WAITING, WaitlistStatus.OFFERED]) },
+                { status: WaitlistStatus.DECLINED },
+            );
             expect(manager.update).toHaveBeenCalledWith(WaitlistEntry, { id: 5 }, expect.objectContaining({ status: WaitlistStatus.OFFERED }));
-            expect(outbox.queue).toHaveBeenCalledWith(expect.objectContaining({ to: 'urmatorul@example.com' }), manager);
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith(
+                { email: 'urmatorul@example.com' },
+                expect.objectContaining({ subject: expect.any(String) }),
+                manager,
+            );
+        });
+
+        /**
+         * The decline and the sweep, together. Whichever writes second finds the row already
+         * settled and must change nothing — not the status the family gave, not a second offer.
+         */
+        it('refuses an entry that left the list before this write, and hands nothing on', async () => {
+            waitlistRepo.findOne!.mockResolvedValue({ id: 4, status: WaitlistStatus.OFFERED, group: { id: 2 } });
+            manager.update.mockResolvedValue({ affected: 0 });
+
+            const error = await service.removeFromWaitlist(4, WaitlistStatus.DECLINED).catch((e: unknown) => e);
+
+            expect(responseOf(error).error).toBe('WAITLIST_ENTRY_CLOSED');
+            expect(waitlistRepo.find).not.toHaveBeenCalled();
         });
 
         /**
@@ -523,18 +616,18 @@ describe('EnrollmentService', () => {
 
             await service.removeFromWaitlist(4, WaitlistStatus.DECLINED);
 
-            // A third entry follows — `offerFreedSeat` re-taking the same lock, a no-op here.
+            // A third entry follows — `offerFreeSeats` re-taking the same lock, a no-op here.
             expect(order.slice(0, 2)).toEqual(['lock', 'decline']);
         });
 
-        it('does not re-run the queue when the entry was merely waiting', async () => {
+        it('offers nothing when the entry was merely waiting and the group is full', async () => {
             waitlistRepo.findOne!.mockResolvedValue({ id: 4, status: WaitlistStatus.WAITING, group: { id: 2 } });
+            enrollmentRepo.count!.mockResolvedValue(10);
 
             await service.removeFromWaitlist(4);
 
-            // Nothing was released, so there is no seat to hand on. Re-running would offer a seat
-            // that is not free.
-            expect(outbox.queue).not.toHaveBeenCalled();
+            // Nothing was released, so there is no seat to hand on: the count finds none free.
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
         });
 
         it('404s on an entry that does not exist', async () => {
@@ -572,30 +665,53 @@ describe('EnrollmentService', () => {
         });
 
         it('expires the entry, tells the family, and hands the seat to the next one', async () => {
-            waitlistRepo.find!.mockResolvedValue([lapsed]);
+            // The lapsed offers first, then the head of the list — `find` answers both questions.
+            waitlistRepo.find!.mockResolvedValueOnce([lapsed]).mockResolvedValue([
+                {
+                    id: 5,
+                    child: { firstName: 'Ana', parent: { email: 'urmatorul@example.com' } },
+                    group: { id: 2, name: 'Scratch Începători' },
+                },
+            ]);
             // A seat is free once the lapsed entry stops holding it, and somebody is next in line.
             enrollmentRepo.count!.mockResolvedValue(9);
-            waitlistRepo.findOne!.mockResolvedValue({
-                id: 5,
-                child: { firstName: 'Ana', parent: { email: 'urmatorul@example.com' } },
-                group: { id: 2, name: 'Scratch Începători' },
-            });
+            const now = new Date('2026-03-02T09:00:00Z');
 
-            const result = await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
+            const result = await service.expireLapsedOffers(now);
 
             expect(result).toEqual({ expired: 1 });
-            expect(manager.update).toHaveBeenCalledWith(WaitlistEntry, { id: 4 }, { status: WaitlistStatus.EXPIRED });
+            // Only while it is still the unanswered offer the list read.
+            expect(manager.update).toHaveBeenCalledWith(
+                WaitlistEntry,
+                { id: 4, status: WaitlistStatus.OFFERED, respondBy: LessThan(now) },
+                { status: WaitlistStatus.EXPIRED },
+            );
             // The family whose offer lapsed: the last thing the school told them was that they had
             // a seat until Thursday, and that has stopped being true.
             expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'parinte@example.com' }, expect.any(Object), manager);
             // And the next family, through the same door a decline goes through.
-            expect(outbox.queue).toHaveBeenCalledWith(expect.objectContaining({ to: 'urmatorul@example.com' }), manager);
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'urmatorul@example.com' }, expect.any(Object), manager);
+        });
+
+        /**
+         * The family answered between the sweep's list and its write. Their "no" used to be
+         * overwritten as "expired", they were mailed that they had missed the seat, and the seat
+         * was offered a second time.
+         */
+        it('leaves an offer alone that was answered after the list was read', async () => {
+            waitlistRepo.find!.mockResolvedValueOnce([lapsed]);
+            enrollmentRepo.count!.mockResolvedValue(9);
+            manager.update.mockImplementation((entity: unknown) => Promise.resolve({ affected: entity === WaitlistEntry ? 0 : 1 }));
+
+            const result = await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
+
+            expect(result).toEqual({ expired: 0 });
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
         });
 
         it('leaves a record rather than skipping a family with no address', async () => {
-            waitlistRepo.find!.mockResolvedValue([{ ...lapsed, child: { firstName: 'Vlad', parent: { email: null } } }]);
+            waitlistRepo.find!.mockResolvedValueOnce([{ ...lapsed, child: { firstName: 'Vlad', parent: { email: null } } }]);
             enrollmentRepo.count!.mockResolvedValue(10);
-            waitlistRepo.findOne!.mockResolvedValue(null);
 
             await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
 
@@ -604,16 +720,20 @@ describe('EnrollmentService', () => {
         });
 
         it('still expires the entry when nobody is waiting behind it', async () => {
-            waitlistRepo.find!.mockResolvedValue([lapsed]);
+            waitlistRepo.find!.mockResolvedValueOnce([lapsed]);
             enrollmentRepo.count!.mockResolvedValue(9);
-            waitlistRepo.findOne!.mockResolvedValue(null);
+            const now = new Date('2026-03-02T09:00:00Z');
 
-            const result = await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
+            const result = await service.expireLapsedOffers(now);
 
             // The seat going back to the group is the point; an empty queue does not make the stale
             // offer worth keeping.
             expect(result).toEqual({ expired: 1 });
-            expect(manager.update).toHaveBeenCalledWith(WaitlistEntry, { id: 4 }, { status: WaitlistStatus.EXPIRED });
+            expect(manager.update).toHaveBeenCalledWith(
+                WaitlistEntry,
+                { id: 4, status: WaitlistStatus.OFFERED, respondBy: LessThan(now) },
+                { status: WaitlistStatus.EXPIRED },
+            );
         });
 
         /**
@@ -626,9 +746,8 @@ describe('EnrollmentService', () => {
          * Same lock, same order, no cycle.
          */
         it('locks the group before it touches the entry', async () => {
-            waitlistRepo.find!.mockResolvedValue([lapsed]);
+            waitlistRepo.find!.mockResolvedValueOnce([lapsed]);
             enrollmentRepo.count!.mockResolvedValue(9);
-            waitlistRepo.findOne!.mockResolvedValue(null);
 
             const order: string[] = [];
             jest.spyOn(service, 'lockGroup').mockImplementation((_manager, groupId) => {
@@ -642,7 +761,7 @@ describe('EnrollmentService', () => {
 
             await service.expireLapsedOffers(new Date('2026-03-02T09:00:00Z'));
 
-            // The third entry is `offerFreedSeat` taking the same lock again, a no-op in this
+            // The third entry is `offerFreeSeats` taking the same lock again, a no-op in this
             // transaction. What this pins is the first two.
             expect(order.slice(0, 2)).toEqual(['lock', 'expire']);
         });
@@ -679,10 +798,53 @@ describe('EnrollmentService', () => {
             // none — and at capacity, a seat that frees before the transfer completes.
             expect(manager.update).toHaveBeenCalledWith(
                 Enrollment,
-                { id: 9 },
+                // Only while it is still in force: it was read before the locks.
+                { id: 9, status: In([...IN_FORCE_STATUSES]) },
                 expect.objectContaining({ status: EnrollmentStatus.TRANSFERRED, endDate: expect.any(String) }),
             );
             expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ group: { id: 2 }, endDate: null }));
+        });
+
+        /**
+         * The one transaction that holds two groups. Two transfers in opposite directions each
+         * locking the group they join first would each hold what the other waits for.
+         */
+        it('locks both groups, the lower id first, before it writes anything', async () => {
+            const order: string[] = [];
+            jest.spyOn(service, 'lockGroup').mockImplementation((_manager, groupId) => {
+                order.push(`lock ${groupId}`);
+                return Promise.resolve(group({ id: groupId }) as Group);
+            });
+            manager.update.mockImplementation((entity: unknown) => {
+                if (entity === Enrollment) order.push('close');
+                return Promise.resolve({ affected: 1 });
+            });
+
+            await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
+
+            expect(order.slice(0, 3)).toEqual(['lock 2', 'lock 3', 'close']);
+        });
+
+        /** Enrolled into the group, the child's own request for it is settled — as in `enrol`. */
+        it('settles the request the child had for the group it moves into', async () => {
+            await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
+
+            expect(waitlistRepo.update).toHaveBeenCalledWith(
+                { child: { id: 1 }, group: { id: 2 }, status: In([WaitlistStatus.WAITING, WaitlistStatus.OFFERED]) },
+                { status: WaitlistStatus.ACCEPTED },
+            );
+        });
+
+        /** Their own offer is the seat they take, not a seat in their way. */
+        it('does not count the child’s own offer in the destination against them', async () => {
+            enrollmentRepo.count!.mockResolvedValue(9);
+            waitlistRepo.count!.mockResolvedValue(0);
+
+            await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
+
+            expect(waitlistRepo.count).toHaveBeenCalledWith({
+                where: { group: { id: 2 }, status: WaitlistStatus.OFFERED, child: { id: expect.anything() } },
+            });
         });
 
         it('carries the status across, so a trial that moves is still a trial', async () => {
@@ -728,19 +890,25 @@ describe('EnrollmentService', () => {
             expect(responseOf(error).error).toBe('GROUP_FULL');
         });
 
-        it('does not offer the freed seat to the queue', async () => {
+        /**
+         * The seat the child leaves is free — they sit in the other group now. This used to say it
+         * was "handed to this child", which is true of no seat, and the old group's list was never
+         * told.
+         */
+        it('offers the seat it leaves behind to that group’s queue', async () => {
             enrollmentRepo.count!.mockResolvedValue(5);
-            waitlistRepo.findOne!.mockResolvedValue({
-                id: 4,
-                child: { firstName: 'Vlad', parent: { email: 'x@example.com' } },
-                group: { id: 3, name: 'Python' },
-            });
+            waitlistRepo.find!.mockResolvedValue([
+                {
+                    id: 4,
+                    child: { firstName: 'Vlad', parent: { email: 'x@example.com' } },
+                    group: { id: 3, name: 'Python' },
+                },
+            ]);
 
             await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
 
-            // The seat is not free: it is being handed to this child. The queue is asked only when
-            // a seat genuinely leaves the group.
-            expect(outbox.queue).not.toHaveBeenCalled();
+            expect(waitlistRepo.find).toHaveBeenCalledWith(expect.objectContaining({ where: { group: { id: 3 }, status: WaitlistStatus.WAITING } }));
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'x@example.com' }, expect.objectContaining({ subject: expect.any(String) }), manager);
         });
     });
 
@@ -755,26 +923,43 @@ describe('EnrollmentService', () => {
         it('keeps the same row when the family stays, so the history reads as one period', async () => {
             await service.resolveTrial(9, { accepted: true });
 
-            expect(manager.update).toHaveBeenCalledWith(Enrollment, { id: 9 }, expect.objectContaining({ status: EnrollmentStatus.ACTIVE }));
+            // Only while it is still a trial: a decision made twice at once must not count twice.
+            expect(manager.update).toHaveBeenCalledWith(
+                Enrollment,
+                { id: 9, status: EnrollmentStatus.TRIAL },
+                expect.objectContaining({ status: EnrollmentStatus.ACTIVE }),
+            );
             expect(manager.save).not.toHaveBeenCalled();
         });
 
         it('frees the seat and runs the queue when the family does not continue', async () => {
             enrollmentRepo.count!.mockResolvedValue(5);
-            waitlistRepo.findOne!.mockResolvedValue({
-                id: 4,
-                child: { firstName: 'Vlad', parent: { email: 'x@example.com' } },
-                group: { id: 2, name: 'Scratch Începători' },
-            });
+            waitlistRepo.find!.mockResolvedValue([
+                {
+                    id: 4,
+                    child: { firstName: 'Vlad', parent: { email: 'x@example.com' } },
+                    group: { id: 2, name: 'Scratch Începători' },
+                },
+            ]);
 
             await service.resolveTrial(9, { accepted: false, reason: 'Nu s-a potrivit programul' });
 
             expect(manager.update).toHaveBeenCalledWith(
                 Enrollment,
-                { id: 9 },
+                { id: 9, status: EnrollmentStatus.TRIAL },
                 expect.objectContaining({ status: EnrollmentStatus.WITHDRAWN, exitReason: 'Nu s-a potrivit programul' }),
             );
-            expect(outbox.queue).toHaveBeenCalled();
+            expect(outbox.queueOrRecord).toHaveBeenCalled();
+        });
+
+        it('refuses a trial decided by somebody else between the read and the write', async () => {
+            manager.update.mockImplementation((entity: unknown) => Promise.resolve({ affected: entity === Enrollment ? 0 : 1 }));
+
+            const error = await service.resolveTrial(9, { accepted: false }).catch((e: unknown) => e);
+
+            expect(responseOf(error).error).toBe('NOT_A_TRIAL');
+            expect(outbox.queueOrRecord).not.toHaveBeenCalled();
+            expect(leadProgress.settleForEnrollment).not.toHaveBeenCalled();
         });
 
         it('refuses to resolve something that is not a trial', async () => {

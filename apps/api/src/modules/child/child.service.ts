@@ -194,7 +194,12 @@ export class ChildService {
         // The removal and its trail commit together: once the row is gone the trail is the only
         // thing that can say who removed it.
         await this.dataSource.transaction(async (manager) => {
+            // A child with no marks can still hold a seat — enrolled, on trial, or offered one from
+            // the list — and the cascade frees it without asking anybody. So the groups are taken
+            // before the delete and their lists asked after it, as any other release would.
+            const heldIn = await this.enrollmentService.lockSeatsHeldBy([childId], manager);
             await manager.delete(Child, childId);
+            await this.enrollmentService.offerFreeSeatsIn(heldIn, manager);
             // The act, not the contents: a deleted child leaving a copy of their name in the trail
             // is the failure this half exists to avoid.
             await this.audit.recordPersonalDataChange(

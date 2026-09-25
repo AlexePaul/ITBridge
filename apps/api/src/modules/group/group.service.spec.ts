@@ -3,12 +3,32 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { GroupService } from './group.service';
 import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
-import { createMockQueryBuilder, createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
+import {
+    createMockEntityManager,
+    createMockQueryBuilder,
+    createMockRepository,
+    MockEntityManager,
+    MockRepository,
+    provideMockDataSource,
+    provideMockRepository,
+} from 'src/testing/repository.mock';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 
 describe('GroupService', () => {
     let service: GroupService;
     let groupRepo: MockRepository;
     let roomRepo: MockRepository;
+    let manager: MockEntityManager;
+    let enrollments: { offerFreeSeatsIn: jest.Mock };
+
+    /**
+     * The group an edit starts from. `findOne` answers two questions in this service — "load the
+     * group" and, with a weekday in the where, "is the slot taken" — so only the first gets a row.
+     */
+    const editing = (group: Record<string, unknown>) =>
+        groupRepo.findOne!.mockImplementation(({ where }: { where: Record<string, unknown> }) =>
+            Promise.resolve(where.weekday === undefined && where.id === group.id ? group : null),
+        );
 
     const room = { id: 1, name: 'Sala 1', capacity: 10, isActive: true, location: { id: 1, name: 'Drumul Taberei', isActive: true } };
     const dto = { name: 'Scratch Începători', weekday: 2 as const, startTime: '17:00', endTime: '18:30', roomId: 1, capacity: 10, minAge: 7, maxAge: 10 };
@@ -16,8 +36,16 @@ describe('GroupService', () => {
     beforeEach(async () => {
         groupRepo = createMockRepository();
         roomRepo = createMockRepository();
+        manager = createMockEntityManager();
+        enrollments = { offerFreeSeatsIn: jest.fn().mockResolvedValue(undefined) };
         const module: TestingModule = await Test.createTestingModule({
-            providers: [GroupService, provideMockRepository(Group, groupRepo), provideMockRepository(Room, roomRepo)],
+            providers: [
+                GroupService,
+                provideMockRepository(Group, groupRepo),
+                provideMockRepository(Room, roomRepo),
+                provideMockDataSource(manager),
+                { provide: EnrollmentService, useValue: enrollments },
+            ],
         }).compile();
         service = module.get(GroupService);
 
@@ -25,6 +53,8 @@ describe('GroupService', () => {
         groupRepo.findOne!.mockResolvedValue(null);
         groupRepo.create!.mockImplementation((d: unknown) => ({ ...(d as object) }));
         groupRepo.save!.mockImplementation((g: unknown) => Promise.resolve(g));
+        // What an edit hands back: the group read again, members and all.
+        groupRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: { id: 1 } }));
     });
 
     it('creates the group as active by default, in the room it was given', async () => {
@@ -109,45 +139,65 @@ describe('GroupService', () => {
     });
 
     it('updateGroup rejects a non-existent group before saving', async () => {
-        groupRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: null }));
-
         await expect(service.updateGroup(99, { weekday: 2 })).rejects.toThrow(NotFoundException);
-        expect(groupRepo.save).not.toHaveBeenCalled();
+        expect(manager.save).not.toHaveBeenCalled();
     });
 
     it('updateGroup leaves the slot check alone when nothing about the slot changed', async () => {
-        groupRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: { id: 1, weekday: 2, startTime: '17:00:00', capacity: 10, room } }));
+        editing({ id: 1, weekday: 2, startTime: '17:00:00', capacity: 10, room });
 
         await service.updateGroup(1, { name: 'Scratch Avansați' });
 
-        expect(groupRepo.findOne).not.toHaveBeenCalled();
+        expect(groupRepo.findOne).not.toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ weekday: expect.anything() }) }));
     });
 
     it('updateGroup checks the slot it is moving into, not the one it is leaving', async () => {
-        groupRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: { id: 1, weekday: 2, startTime: '17:00:00', capacity: 10, room } }));
+        editing({ id: 1, weekday: 2, startTime: '17:00:00', capacity: 10, room });
 
         await service.updateGroup(1, { weekday: 3 });
 
         expect(groupRepo.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ weekday: 3 }) }));
     });
 
+    /**
+     * `save` on a group loaded with its members rewrites `children.group_id` to match the list —
+     * so an enrolment committed between the read and the write came out with no group. The
+     * members are not loaded for an edit, and not handed to `save`.
+     */
+    it('updateGroup neither loads the members nor saves them', async () => {
+        editing({ id: 1, weekday: 2, startTime: '17:00:00', capacity: 10, room });
+
+        await service.updateGroup(1, { name: 'Scratch Avansați' });
+
+        expect(groupRepo.findOne).toHaveBeenCalledWith({ where: { id: 1 }, relations: { room: { location: true } } });
+        const [, saved] = manager.save.mock.calls[0] as [unknown, Record<string, unknown>];
+        expect(saved).not.toHaveProperty('children');
+    });
+
+    /** A capacity raised is seats a waiting family can have, asked in the same transaction. */
+    it('updateGroup hands whatever seats it freed to the waiting list', async () => {
+        editing({ id: 1, weekday: 2, startTime: '17:00:00', capacity: 8, room });
+
+        await service.updateGroup(1, { capacity: 10 });
+
+        expect(enrollments.offerFreeSeatsIn).toHaveBeenCalledWith([1], manager);
+    });
+
     // A room closed after the fact must not freeze the groups already in it: renaming one, or
     // moving it out, is exactly what an admin does next.
     it('still allows editing a group that sits in a room which has since closed', async () => {
         const closed = { ...room, isActive: false };
-        groupRepo.createQueryBuilder!.mockReturnValue(
-            createMockQueryBuilder({ one: { id: 1, weekday: 2, startTime: '17:00:00', capacity: 10, room: closed } }),
-        );
+        editing({ id: 1, weekday: 2, startTime: '17:00:00', capacity: 10, room: closed });
 
         await expect(service.updateGroup(1, { name: 'Scratch Avansați' })).resolves.toBeDefined();
     });
 
     it('refuses to move a group into a closed room', async () => {
-        groupRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: { id: 1, weekday: 2, startTime: '17:00:00', capacity: 10, room } }));
+        editing({ id: 1, weekday: 2, startTime: '17:00:00', capacity: 10, room });
         roomRepo.findOne!.mockResolvedValue({ id: 2, name: 'Sala 2', capacity: 10, isActive: false, location: room.location });
 
         await expect(service.updateGroup(1, { roomId: 2 })).rejects.toThrow(ConflictException);
-        expect(groupRepo.save).not.toHaveBeenCalled();
+        expect(manager.save).not.toHaveBeenCalled();
     });
 
     it('deleteGroup rejects a group that does not exist', async () => {
