@@ -106,7 +106,7 @@ identice. Grupele acoperă luni–sâmbătă tocmai ca „azi" să aibă o oră 
 `pnpm seed` nu trece prin turbo, deci variabila **nu** se declară în `globalEnv`.
 
 **`pnpm seed:scale` e a doua volumetrie, nu a treia țintă.** Seed-ul obișnuit are ~120 de ședințe
-și ~80 de marcaje, iar la dimensiunea aia Postgres alege scanarea secvențială orice index i-ai pune
+și ~70 de marcaje, iar la dimensiunea aia Postgres alege scanarea secvențială orice index i-ai pune
 — deci o interogare care scanează toată tabela și una care folosește un index dau **același plan și
 același timp**. Două defecte au stat fix în golul ăla până în septembrie 2026, printre ele un `SUM`
 peste plățile unei facturi care rula neindexat **ținând lacătul acelei facturi**.

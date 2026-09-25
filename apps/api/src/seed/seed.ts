@@ -48,7 +48,8 @@ import { DiscountType } from '../enum/discount-type.enum';
 import { DEFAULT_HORIZON_WEEKS } from '../modules/class-session/class-session.service';
 import { addDays, occurrencesOf, toIsoDate } from '../modules/class-session/class-session.dates';
 import { replacementWeekFor } from '../modules/attendance/replacement.rules';
-import { monthlyAmountFor } from '../modules/invoice/pricing';
+import { sessionAmountAfterDiscounts } from '../modules/invoice/pricing';
+import { nextBillingMonthAt } from '../modules/discount/discount.rules';
 import { Lead } from '../entities/lead.entity';
 import { LeadStatus } from '../enum/lead-status.enum';
 import { LeadSource, LeadChannel } from '../enum/lead-source.enum';
@@ -60,6 +61,7 @@ import { OutboxStatus } from '../enum/outbox-status.enum';
 import { DeliveryFailureReason } from '../enum/delivery-failure-reason.enum';
 import { AbsenceNotice } from '../entities/absence-notice.entity';
 import { MailTemplate } from '../entities/mail-template.entity';
+import { SEEDED_TEMPLATE_EDITS } from './seed-templates';
 
 /**
  * Fills a database with data that looks like the real thing, so the screens are not empty — E04/S3.
@@ -486,10 +488,17 @@ export async function seed(dataSource: DataSource): Promise<void> {
     // group with more people wanting in than it has seats.
     const enrollmentRepo = dataSource.getRepository(Enrollment);
 
+    // Who is enrolled, and since when: the invoices bill only the first kind (E11/S4 — the trial is
+    // free, a child in no group does not come), and the register marks nobody before their first day.
+    const activeChildIds = new Set<number>();
+    const inForceSince = new Map<number, string>();
+
     let enrolled = 0;
     for (const child of children) {
         if (!child.group) continue;
         enrolled += 1;
+        activeChildIds.add(child.id);
+        inForceSince.set(child.id, toIsoDate(daysAgo(120)));
         await enrollmentRepo.save(
             enrollmentRepo.create({
                 child,
@@ -540,6 +549,7 @@ export async function seed(dataSource: DataSource): Promise<void> {
         );
         await dataSource.getRepository(Child).update({ id: trialChild.id }, { group: trialGroup });
         trialChild.group = trialGroup;
+        inForceSince.set(trialChild.id, toIsoDate(daysAgo(-3)));
     }
 
     // And a queue on the busiest group, so the waiting-list screen is not empty and the "offer the
@@ -667,6 +677,11 @@ export async function seed(dataSource: DataSource): Promise<void> {
     for (const session of sessions) {
         if (session.status !== ClassSessionStatus.HELD) continue;
         for (const child of childrenByGroup.get(session.group.id) ?? []) {
+            // Nobody is on a register before their enrolment began. The trial child sits in the
+            // group from the day of the trial, three days ahead, and until 25 September 2026 had
+            // eight weeks of marks behind it: a register the family was never at.
+            const since = inForceSince.get(child.id);
+            if (!since || toIsoDate(session.date) < since) continue;
             records.push(
                 attendanceRepo.create({
                     child,
@@ -681,26 +696,81 @@ export async function seed(dataSource: DataSource): Promise<void> {
     }
     await attendanceRepo.save(records);
 
+    // --- Discounts, before the invoices that take them off ------------------------------------
+    const discountRepo = dataSource.getRepository(Discount);
+    const nextMonth = nextBillingMonthAt(SEED_TODAY);
+    const discounts = await discountRepo.save([
+        // A whole referral, both halves of it — E20/S5. Seeded as a pair on purpose: giving only
+        // one is the mistake the screen warns about, and a fresh database should show the shape of
+        // the thing done right. On next month, where the one-press control on the family page reads
+        // it: the reward is a promise about invoices not yet issued. Seeded on the month already
+        // invoiced, as it was until 25 September 2026, the control said "0 luni", the rows sat frozen
+        // (`DISCOUNT_MONTH_INVOICED`), and the invoice beside them had never taken them off.
+        discountRepo.create({
+            parent: profiles[1],
+            name: 'Recomandare',
+            description: 'A recomandat familia care începe luna viitoare',
+            type: DiscountType.PERCENT,
+            value: 50,
+            monthIssued: nextMonth,
+        }),
+        discountRepo.create({
+            parent: profiles[2],
+            name: 'Recomandare',
+            description: 'A venit prin recomandare — prima lună la jumătate',
+            type: DiscountType.PERCENT,
+            value: 50,
+            monthIssued: nextMonth,
+        }),
+        // And one fixed amount on the month already invoiced, so both kinds are on screen and one
+        // invoice shows a discount taken off: a goodwill adjustment is still lei.
+        discountRepo.create({
+            parent: profiles[3],
+            name: 'Ajustare',
+            description: 'Reducere convenită la telefon',
+            type: DiscountType.FIXED,
+            value: 100,
+            monthIssued: monthsAgo(0),
+        }),
+    ]);
+
     // --- Invoices in every state, plus payments ---------------------------------------------
+    // Billed the way issuing bills, not by counting a family's children: only a child with an
+    // ACTIVE enrolment is on the invoice (E11/S4), each at the session rate, and the month's
+    // discounts come off last (E15/S5) — the same `pricing.ts` issuing calls, not a copy of it. The
+    // count itself cannot be read from registers the way issuing reads it (E15/S9): the seed's
+    // history is eight weeks, and the oldest invoice is three months back. So every seeded month is
+    // the four-session month the school quotes. Until the end-to-end testing of 25 September 2026
+    // this billed every child in the family: the two families whose only child waits on the list
+    // were charged 350 a month for a seat they did not have, and the discounts above were printed
+    // under totals that had not taken them off.
+    const SESSIONS_IN_A_SEEDED_MONTH = 4;
     const invoiceRepo = dataSource.getRepository(Invoice);
     const paymentRepo = dataSource.getRepository(Payment);
 
     for (let i = 0; i < profiles.length; i++) {
         const parent = profiles[i];
-        const childCount = children.filter((c) => c.parent.id === parent.id).length;
-        // Same rule the invoice service uses, not a second copy of it — the copy is what let the
-        // seed and the service disagree, both wrongly, for as long as they did.
-        const amount = monthlyAmountFor(childCount);
+        const sessionsPerChild = children
+            .filter((child) => child.parent.id === parent.id && activeChildIds.has(child.id))
+            .map(() => SESSIONS_IN_A_SEEDED_MONTH);
+        // Nobody enrolled, nothing issued — the issuing screen does not list the family either.
+        if (sessionsPerChild.length === 0) continue;
 
         // `@Unique(['parent', 'monthIssued'])` means one invoice per parent per month.
         for (let back = 0; back < 3; back++) {
             const monthIssued = monthsAgo(back);
             const dateIssued = daysAgo(back * 30 + 5);
+            const amount = sessionAmountAfterDiscounts(
+                sessionsPerChild,
+                discounts.filter((discount) => discount.parent.id === parent.id && discount.monthIssued === monthIssued),
+            );
 
-            // Oldest months paid, the middle one mixed, the current one still pending.
+            // Oldest months paid, the middle one mixed, the current one still pending — and a month
+            // that comes to nothing is `waived`, as issuing writes it.
             let status = InvoiceStatus.PENDING;
             if (back === 2) status = InvoiceStatus.PAID;
             else if (back === 1) status = i % 3 === 0 ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID;
+            if (amount === 0) status = InvoiceStatus.WAIVED;
 
             const invoice = await invoiceRepo.save(invoiceRepo.create({ parent, amount, dateIssued, monthIssued, status }));
 
@@ -740,39 +810,6 @@ export async function seed(dataSource: DataSource): Promise<void> {
         }
     }
 
-    // --- Discounts --------------------------------------------------------------------------
-    const discountRepo = dataSource.getRepository(Discount);
-    await discountRepo.save([
-        // A whole referral, both halves of it — E20/S5. Seeded as a pair on purpose: giving only
-        // one is the mistake the screen warns about, and a fresh database should show the shape of
-        // the thing done right.
-        discountRepo.create({
-            parent: profiles[1],
-            name: 'Recomandare',
-            description: 'A recomandat familia care începe luna asta',
-            type: DiscountType.PERCENT,
-            value: 50,
-            monthIssued: monthsAgo(0),
-        }),
-        discountRepo.create({
-            parent: profiles[2],
-            name: 'Recomandare',
-            description: 'A venit prin recomandare — prima lună la jumătate',
-            type: DiscountType.PERCENT,
-            value: 50,
-            monthIssued: monthsAgo(0),
-        }),
-        // And one fixed amount, so both kinds are on screen: a goodwill adjustment is still lei.
-        discountRepo.create({
-            parent: profiles[3],
-            name: 'Ajustare',
-            description: 'Reducere convenită la telefon',
-            type: DiscountType.FIXED,
-            value: 100,
-            monthIssued: monthsAgo(0),
-        }),
-    ]);
-
     // --- Communication, and the funnel in front of it ------------------------------------------
     // Six tables the seed never touched, so six screens opened empty on a fresh database and read
     // as "nothing has ever happened here" rather than "no data yet". Each row below exists to put
@@ -797,23 +834,9 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
     const upcoming = sessions.filter((session) => toIsoDate(session.date) > today).sort((a, b) => toIsoDate(a.date).localeCompare(toIsoDate(b.date)));
 
     // --- Mail templates: two edited, so the editor has a draft to diff against the default -------
-    await dataSource.getRepository(MailTemplate).save([
-        {
-            key: 'invoice-issued',
-            subject: 'Factura pentru {{luna}} — IT Bridge School',
-            bodyText: 'Bună, {{parinte}},\n\nFactura pentru {{luna}} este atașată. Suma: {{suma}} lei.\n\nMulțumim,\nIT Bridge School',
-            bodyHtml: null,
-            version: 2,
-        },
-        {
-            key: 'class-cancelled',
-            subject: 'Ora de {{grupa}} din {{data}} nu se ține',
-            bodyText:
-                'Bună, {{parinte}},\n\nOra de {{grupa}} programată pe {{data}} a fost anulată. Vă anunțăm de îndată ce se reprogramează.\n\nIT Bridge School',
-            bodyHtml: null,
-            version: 3,
-        },
-    ]);
+    // Live wording on stage, not decoration — `seed-templates.ts` says why, and its spec keeps each
+    // edit to the variables its sender actually fills.
+    await dataSource.getRepository(MailTemplate).save(SEEDED_TEMPLATE_EDITS.map((edit) => ({ ...edit })));
 
     // --- Leads: one per status, because four of the six are never written by a screen ------------
     // E20/S1 — `trial_scheduled` comes from the booking form, `trial_held` from the register, and
@@ -1096,6 +1119,8 @@ export async function seedInvoicePdfs(dataSource: DataSource): Promise<{ uploade
 
     let uploaded = 0;
     for (const invoice of invoices) {
+        // A waived month has no document by design, and `GET /invoices/:id/pdf` says so.
+        if (invoice.status === InvoiceStatus.WAIVED) continue;
         const buffer = await pdfService.generateInvoicePdf(invoice);
         await s3.putObject({ key: invoicePdfKey(invoice.monthIssued, invoice.id), body: buffer, contentType: 'application/pdf' });
         uploaded++;
