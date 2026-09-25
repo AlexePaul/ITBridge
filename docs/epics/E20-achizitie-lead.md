@@ -393,6 +393,35 @@ familia nou-venită, prima ei factură, care e oricum de după acel moment.
 Momentul de declanșare e deci același pentru amândouă — începutul efectiv — și e o presupunere
 scrisă aici ca să fie contrazisă dacă e greșită, nu o regulă venită de la patron.
 
+### Revizuirea din 25 septembrie 2026: proba după ce a fost programată
+
+O revizuire a contabilității locurilor a găsit patru defecte pe drumul unei probe, reproduse pe o
+bază reală și reparate fiecare cu testul lui, care pică pe codul dinainte.
+
+- **`/proba` oferea orele de azi care începuseră deja.** Filtrul era pe zi, iar părinții programează
+  seara: ora de la 16:00 era încă pe listă la 20:00, iar o programare în ea ținea un loc pentru o
+  probă la care nu mai putea veni nimeni, până când recontactarea îi spunea familiei că a lipsit.
+  Acum lista și programarea compară începutul orei cu ceasul școlii, ca text.
+- **O oră mutată într-o sală mai mică se vindea cu locurile grupei.** Lista și programarea numără
+  acum locurile sălii în care e ora, și le recitesc sub lacăt, cu rândul orei blocat: o anulare sau o
+  mutare venită între fotografie și buton se vede.
+- **O probă transferată în altă grupă își pierdea lead-ul.** Transferul închide înscrierea de probă
+  și deschide alta, iar lead-ul rămânea legat de cea închisă: confirmarea sau închiderea probei nu-l
+  mai decontau, iar mementoul și recontactarea vorbeau despre ora grupei vechi — după ce catalogul ei
+  se marca fără copil, familiei i se scria că a lipsit de la o oră de pe care fusese mutată. Acum
+  lead-ul trece pe înscrierea și grupa noi, iar o probă încă în față primește ca oră următoarea oră
+  neîncepută a grupei noi. Ce s-a stabilit la telefon platforma nu știe, iar lead-ul n-are câmp de oră
+  pe care să-l corecteze biroul: următoarea oră e ce ar oferi și formularul. Cheile mementoului și ale
+  recontactării poartă acum și ora, altfel cea pentru ora nouă s-ar fi pierdut ca duplicat.
+- **O probă închisă prin `close` în loc de `resolveTrial` lăsa lead-ul deschis**, pe lista de urmărit
+  pentru totdeauna. Acum îl trece pe pierdut, cu motivul închiderii.
+
+Un al cincilea punct nu e un defect găsit, ci ce i-a cerut listei reparația din E11: proba ține
+scaunul până e decisă, deci stă și în orele de după ea, iar înscrierea întreabă acum și de ele. O oră
+se oferă de aceea doar cât ea și fiecare oră de după ea a grupei mai au un loc — lista citește toate
+orele din față, nu doar cele trei săptămâni oferite —, altfel ar fi oferit o zi la care programarea
+răspundea „nu mai sunt locuri".
+
 ## Dependențe
 
 [E17](E17-comunicare-notificari.md) pentru confirmări și memento-uri,
