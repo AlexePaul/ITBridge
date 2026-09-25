@@ -1,6 +1,7 @@
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import type { ProfileSummary } from "~/types/profile.types";
+import type { FamilyRetention, RetentionSchedule } from "~/types/retention.types";
 
 /** A family waiting, as the office queue lists it. */
 export type ErasurePending = ProfileSummary;
@@ -65,5 +66,47 @@ export const usePrivacyApi = () => {
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
-  return { fetchOwnExport, requestErasure, withdrawErasure, fetchPendingErasures, eraseProfile };
+  /** Withdrawn families and when each goes — E22/S3. ADMIN. */
+  const fetchRetention = async (): Promise<RetentionSchedule> =>
+    api<RetentionSchedule>("/privacy/retention", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** One family's row — `null` while it is not withdrawn — with the terms. ADMIN. */
+  const fetchFamilyRetention = async (profileId: number): Promise<FamilyRetention> =>
+    api<FamilyRetention>(`/privacy/retention/${profileId}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** Records that the family left, on `withdrawnOn` or today — E04/S5. ADMIN. */
+  const withdrawFamily = async (
+    profileId: number,
+    withdrawnOn?: string
+  ): Promise<FamilyRetention> =>
+    api<FamilyRetention>(`/privacy/retention/${profileId}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: withdrawnOn ? { withdrawnOn } : {},
+    });
+
+  /** Takes a withdrawal back: the family came back, or it was a mistake. ADMIN. */
+  const reinstateFamily = async (profileId: number): Promise<void> =>
+    api<void>(`/privacy/retention/${profileId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  return {
+    fetchOwnExport,
+    requestErasure,
+    withdrawErasure,
+    fetchPendingErasures,
+    eraseProfile,
+    fetchRetention,
+    fetchFamilyRetention,
+    withdrawFamily,
+    reinstateFamily,
+  };
 };

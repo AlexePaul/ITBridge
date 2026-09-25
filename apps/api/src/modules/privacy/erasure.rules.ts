@@ -13,6 +13,13 @@ import { randomBytes } from 'crypto';
 export const ERASED_NAME = { firstName: 'Familie', lastName: 'ștearsă' } as const;
 
 /**
+ * What a kept bank statement line's text becomes — E16/S8. Not blank, for the reason the name is
+ * not: an empty line reads as one the bank sent empty. The payer's name goes to `null` instead,
+ * because an invented one would read as somebody who paid.
+ */
+export const ERASED_STATEMENT_TEXT = 'Șters la cererea familiei';
+
+/**
  * The profile as it survives its own erasure.
  *
  * It survives at all because the invoices point at it and `Invoice.parent` is `CASCADE`: deleting

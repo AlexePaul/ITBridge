@@ -19,7 +19,8 @@ import { Session } from 'src/entities/session.entity';
 import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
 import { EmailConfirmation } from 'src/entities/email-confirmation.entity';
 import { PasswordReset } from 'src/entities/password-reset.entity';
-import type { FamilyExport } from './export.types';
+import { BankStatementLine } from 'src/entities/bank-statement-line.entity';
+import type { ExportedPayment, FamilyExport } from './export.types';
 
 /**
  * Everything the school holds about one family, in one document — E07 S4, the access right.
@@ -68,6 +69,7 @@ export class ExportService {
         @InjectRepository(DocumentAcceptance) private readonly acceptances: Repository<DocumentAcceptance>,
         @InjectRepository(EmailConfirmation) private readonly confirmations: Repository<EmailConfirmation>,
         @InjectRepository(PasswordReset) private readonly passwordResets: Repository<PasswordReset>,
+        @InjectRepository(BankStatementLine) private readonly statementLines: Repository<BankStatementLine>,
     ) {}
 
     /** Which tables this service reads. `export.spec.ts` compares it with the inventory. */
@@ -82,6 +84,7 @@ export class ExportService {
         'SessionCountOverride',
         'Invoice',
         'Payment',
+        'BankStatementLine',
         'Discount',
         'Project',
         'ProjectVersion',
@@ -140,6 +143,12 @@ export class ExportService {
         const payments = invoiceIds.length
             ? await this.payments.find({ where: { invoice: { id: In(invoiceIds) } }, relations: { invoice: true }, order: { id: 'ASC' } })
             : [];
+        // E16/S8: a line of the school's bank statement reaches a family only through the payment it
+        // became — the inventory's `linkedVia`. A line nobody matched belongs to no family yet.
+        const paymentIds = payments.map((payment) => payment.id);
+        const statementLines = paymentIds.length
+            ? await this.statementLines.find({ where: { payment: { id: In(paymentIds) } }, relations: { payment: true }, order: { id: 'ASC' } })
+            : [];
         const discounts = await this.discounts.find({ where: { parent: { id: profileId } }, order: { id: 'ASC' } });
         // Not `{ profile: { id } }` alone: a lead an admin typed in from a phone call has no link
         // to either the family or the child, so the family's first contact with the school would be
@@ -175,6 +184,9 @@ export class ExportService {
                       }
                     : null,
                 acceptaComunicariComerciale: profile.marketingOptIn,
+                // E04/S5: the day the school recorded that the family left, from which its data's
+                // term runs (E22/S3) — a fact about the family the family is entitled to see.
+                retrasaLa: profile.withdrawnAt ? String(profile.withdrawnAt).slice(0, 10) : null,
             },
             cont: profile.user
                 ? {
@@ -249,6 +261,17 @@ export class ExportService {
                 suma: invoice.amount,
                 emisaLa: toDay(invoice.dateIssued),
                 stare: invoice.status,
+                // E16/S2: the fiscal document SmartBill issued for it, when there is one. The public
+                // link is the family's own invoice — it opens without a login, so it is theirs to have.
+                facturaFiscala:
+                    invoice.fiscalSeries && invoice.fiscalNumber
+                        ? {
+                              serie: invoice.fiscalSeries,
+                              numar: invoice.fiscalNumber,
+                              emisaLa: invoice.fiscalIssuedAt?.toISOString() ?? null,
+                              pdf: invoice.fiscalViewUrl ?? null,
+                          }
+                        : null,
                 plati: payments
                     .filter((payment) => payment.invoice?.id === invoice.id)
                     .map((payment) => ({
@@ -257,6 +280,11 @@ export class ExportService {
                         stare: payment.status,
                         data: toDay(payment.date),
                         referinta: payment.externalReference ?? null,
+                        // E16/S5: the receipt SmartBill numbered for a cash payment — a document the
+                        // family was handed, so theirs to have back.
+                        chitantaFiscala:
+                            payment.fiscalReceiptSeries && payment.fiscalReceiptNumber ? `${payment.fiscalReceiptSeries} ${payment.fiscalReceiptNumber}` : null,
+                        dinExtras: fromStatement(statementLines.find((line) => line.payment?.id === payment.id)),
                     })),
             })),
             reduceri: discounts.map((discount) => ({
@@ -322,4 +350,16 @@ function toDay(value: Date | string | null | undefined): string | null {
     const month = String(value.getMonth() + 1).padStart(2, '0');
     const day = String(value.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+
+/** The statement line a payment was recorded from, as the bank wrote it; `null` when there is none. */
+function fromStatement(line: BankStatementLine | undefined): ExportedPayment['dinExtras'] {
+    if (!line) return null;
+    return {
+        data: toDay(line.bookedOn),
+        suma: line.amount,
+        platitor: line.counterparty,
+        detalii: line.description,
+        referintaBanca: line.bankReference,
+    };
 }

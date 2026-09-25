@@ -508,12 +508,14 @@ const send = async () => {
 
     const issued = result?.issued?.length ?? 0;
     const waived = result?.waived?.length ?? 0;
-    success(
-      `${issued} ${issued === 1 ? "factură emisă" : "facturi emise"}`,
-      waived > 0
-        ? `${formatLei(grandTotal.value)} · ${waived} luni consemnate fără plată`
-        : formatLei(grandTotal.value)
-    );
+    // E16/S2: the fiscal documents are made afterwards, off this request. Said here, so "emise"
+    // is not read as "already in SmartBill" — the month's page shows each one's state.
+    const queued =
+      result?.issued?.filter((invoice) => invoice.fiscalStatus === "pending").length ?? 0;
+    const details = [formatLei(grandTotal.value)];
+    if (waived > 0) details.push(`${waived} luni consemnate fără plată`);
+    if (queued > 0) details.push(`${queued} pleacă în SmartBill în minutele următoare`);
+    success(`${issued} ${issued === 1 ? "factură emisă" : "facturi emise"}`, details.join(" · "));
     // Reloaded rather than adjusted by hand: everything just issued comes back marked, which is
     // also what makes a second pass safe after a family enrols mid-month.
     await load();

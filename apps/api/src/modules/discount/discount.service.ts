@@ -3,6 +3,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Discount } from 'src/entities/discount.entity';
 import { Profile } from 'src/entities/profile.entity';
+import { Invoice } from 'src/entities/invoice.entity';
 import { CreateDiscountDto } from './dto/createDiscount.dto';
 import { UpdateDiscountDto } from './dto/updateDiscount.dto';
 import { applyDefined } from 'src/common/apply-defined';
@@ -30,6 +31,7 @@ export class DiscountService {
     constructor(
         @InjectRepository(Discount) private discountRepository: Repository<Discount>,
         @InjectRepository(Profile) private profileRepository: Repository<Profile>,
+        @InjectRepository(Invoice) private invoiceRepository: Repository<Invoice>,
         @InjectDataSource() private readonly dataSource: DataSource,
         private readonly audit: AuditService,
     ) {}
@@ -55,6 +57,7 @@ export class DiscountService {
 
     async createDiscount(createDiscountDto: CreateDiscountDto, actor: Actor): Promise<Discount> {
         this.assertWithinBounds(createDiscountDto.type ?? DiscountType.FIXED, createDiscountDto.value);
+        await this.assertMonthNotInvoiced(createDiscountDto.parentId, createDiscountDto.monthIssued);
 
         const discount = this.discountRepository.create(createDiscountDto);
         // Only the id is set: TypeORM writes the foreign key without loading the whole profile.
@@ -130,6 +133,7 @@ export class DiscountService {
                 error: 'DISCOUNT_ALREADY_GRANTED',
             });
         }
+        await this.assertMonthNotInvoiced(parentId, monthIssued);
 
         await this.dataSource.transaction(async (manager) => {
             const saved = await manager.save(
@@ -174,6 +178,7 @@ export class DiscountService {
                 error: 'REFERRAL_NOTHING_TO_REVOKE',
             });
         }
+        await this.assertMonthNotInvoiced(parentId, last);
 
         const row = await this.discountRepository.findOne({
             where: {
@@ -227,6 +232,19 @@ export class DiscountService {
             throw new NotFoundException('Discount not found');
         }
 
+        // The family's id only, in a read of its own, for the reason the load above leaves the
+        // relation out. A discount already counted in an invoice stays as it was, and one cannot
+        // be moved onto a month that is invoiced either: in both cases the edit would change a row
+        // no invoice will ever read again.
+        const owner = await this.discountRepository.findOne({ where: { id }, relations: { parent: true }, select: { id: true, parent: { id: true } } });
+        const parentId = owner?.parent?.id;
+        if (parentId !== undefined) {
+            await this.assertMonthNotInvoiced(parentId, discount.monthIssued);
+            if (updateDiscountDto.monthIssued !== undefined && updateDiscountDto.monthIssued !== discount.monthIssued) {
+                await this.assertMonthNotInvoiced(parentId, updateDiscountDto.monthIssued);
+            }
+        }
+
         // Read before the merge overwrites it — after `applyDefined` there is nothing left to
         // compare against and every diff would come out empty.
         const before = auditableDiscount(discount);
@@ -260,11 +278,33 @@ export class DiscountService {
         // Nothing on file is not an act. `delete` on a missing id has always answered without
         // complaint, and an entry for it would claim somebody withdrew a discount that never was.
         if (!discount) return;
+        if (discount.parent) await this.assertMonthNotInvoiced(discount.parent.id, discount.monthIssued);
 
         await this.dataSource.transaction(async (manager) => {
             await manager.delete(Discount, id);
             await this.recordDiscount(discount, discount.parent?.id ?? null, AuditAction.DELETED, actor, manager);
         });
+    }
+
+    /**
+     * A discount on a month the family already has an invoice for is frozen — E15/S6.
+     *
+     * The invoice's amount was computed from the month's discounts when it was issued and never
+     * again, so a discount added, edited or deleted afterwards changed nothing the family would be
+     * charged — silently, which reads as the opposite. The same freeze as the per-child correction
+     * (`assertMonthOpenFor`) and the vacation tick (E12/S8), and for the same reason. It is also what
+     * lets the platform's PDF read the discounts when it is drawn, on the first download: what it
+     * reads is what the amount was computed from. A month that needs a different discount needs its
+     * invoice corrected, or deleted and issued again — or, once it is fiscal, a storno in SmartBill.
+     */
+    private async assertMonthNotInvoiced(parentId: number, monthIssued: string): Promise<void> {
+        const invoiced = await this.invoiceRepository.exists({ where: { parent: { id: parentId }, monthIssued } });
+        if (invoiced) {
+            throw new ConflictException({
+                message: `Family ${parentId} already has an invoice for ${monthIssued}; a discount on that month would not reach it.`,
+                error: 'DISCOUNT_MONTH_INVOICED',
+            });
+        }
     }
 
     /**

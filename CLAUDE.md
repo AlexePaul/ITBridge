@@ -76,6 +76,7 @@ pnpm --filter api migration:run   # schema; synchronize e oprit
 pnpm seed                         # date de dezvoltare; admin / parola123
 SEED_TODAY=2026-03-16 pnpm seed   # aceleași date, dar ancorate la o zi fixă
 pnpm seed:scale                   # o școală de trei ani, ca să se poată măsura o interogare
+pnpm smartbill:check              # SmartBill: doar citiri (TVA, serii); --draft trimite o ciornă
 pnpm dev                          # api + web, hot reload
 
 pnpm build          # turbo, în ordinea dependențelor
@@ -87,6 +88,7 @@ pnpm test:a11y      # axe-core pe paginile publice, într-un Chromium adevărat;
 pnpm test:a11y:auth # același lucru pe ecranele din spatele autentificării; cere API pornit și seed
 pnpm test:privacy   # aceleași pagini: nicio cerere în afara originii, niciun cookie
 pnpm test:links     # aceleași pagini: fiecare link intern răspunde 200, fragmente incluse
+pnpm secrets        # nicio cheie, niciun token în ce urmărește git; rulează și în CI
 
 pnpm --filter api <script>   # o comandă într-un singur workspace
 ```
@@ -168,11 +170,12 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — douăzeci de module în `apps/api/src/modules/`, cincisprezece după același tipar
+**Backend** — douăzeci și două de module în `apps/api/src/modules/`, șaisprezece după același tipar
 `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
 `room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, `announcement`,
-`lead`.
-Cinci ies din tipar: `storage` n-are controller, fiindcă nimic din el nu e expus pe HTTP, `mail` are unul singur
+`lead`, `reconciliation`.
+Șase ies din tipar: `storage` și `smartbill` n-au controller, fiindcă nimic din ele nu e expus pe HTTP — ce
+se cere SmartBill-ului decide modulul care deține rândul —, `mail` are unul singur
 și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
 decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
 (agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
@@ -458,6 +461,27 @@ refuzul pe ea ar închide singura folosință rămasă rutei — un copil adăug
 greșeală. Ștergerea din E07 S4 nu trece pe aici: `ErasureService` șterge rândurile prin tranzacția
 lui, după ce citește cheile.
 
+**Retragerea e o zi consemnată, iar ștergerea la termen e aceeași ștergere** (E04 S5, E22 S3).
+`Profile.withdrawnAt` e ziua în care școala a notat că familia a plecat — pusă de un admin din pagina
+familiei, prin `POST /privacy/retention/:profileId`, și anulabilă până la termen —, iar
+`RetentionJob` (03:45, ceasul școlii) șterge familiile retrase de peste `FAMILY_RETENTION_MONTHS`
+chemând `ErasureService.erase` cu `SYSTEM_ACTOR` și cu motivul pentru jurnal. Patru reguli:
+
+- **Nu deduce retragerea din tăcere.** Nici din ultima autentificare, nici din ultima factură, nici
+  din ultima înscriere închisă: familia care ia o pauză de o vacanță e exact cea pe care ar șterge-o
+  o deducție. Retragerea e un act al cuiva, cu o zi pe el.
+- **E refuzată cât timp ceva e încă deschis** (`FAMILY_HAS_ENROLMENTS_IN_FORCE`,
+  `FAMILY_ON_WAITLIST`), fără să închidă ea nimic: o înscriere se încheie prin `EnrollmentService`,
+  care eliberează locul și îl oferă listei. Invers, `enrol` anulează singur o retragere, în aceeași
+  tranzacție — o familie cu un copil în grupă n-a plecat.
+- **O familie care datorează bani nu se șterge la termen**: restanța vine din `ArrearsService`, iar
+  ecranul `/admin/stergeri` spune de ce a rămas. Golit, rândul ar lăsa școala cu o datorie pe care
+  n-o mai poate cere nimănui.
+- **Numerele sunt propuneri și stau într-un singur loc**, `retention.rules.ts`, de unde pleacă și pe
+  sârmă: 12 luni pentru familie, pentru cererile de probă fără înscriere și pentru copiile mesajelor,
+  30 de zile după expirare pentru linkurile de confirmare și de resetare. Nota de confidențialitate
+  §7 le promite; dacă schimbi unul, schimbi și nota.
+
 **Auth** — două roluri, `ADMIN` și `PARENT` (`apps/api/src/enum/role.enum.ts`). `register` creează
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
 access (15 min) / refresh (7 zile), cu secrete distincte în `apps/api/src/constants/jwtConstants.ts`.
@@ -602,6 +626,18 @@ lucruri de ținut minte:
   închide; poarta e `03.legal-acceptance.global.ts`, care **cedează cât timp ține poarta de profil**
   — două middleware-uri globale care redirecționează amândouă sunt o buclă fără eroare și fără log,
   iar precedența e scrisă în fișierul care a venit al doilea.
+
+**Fiecare acceptare e confirmată pe email, cu ce s-a acceptat _atunci_** (termenii §4.7). Șablonul
+`legal-acceptance` se pune în coadă în tranzacția care scrie rândurile, la înregistrare și în
+`acceptDocuments`, iar lista din el vine din rândurile **scrise** (`RETURNING id, document`), nu din
+cele cerute: o politică nouă acceptată în martie nu e termenii acceptați din nou în martie, iar un
+submit concurent poate să fi scris o parte primul. Cheia e `legal-acceptance:<cont>:<id-urile
+rândurilor>`, deci al doilea clic, care n-a scris nimic, nu confirmă nimic. La înregistrare mesajul
+**nu** trece prin poarta adresei confirmate — adresa e nedovedită prin definiție atunci, iar legat de
+ea singurul mesaj promis ar ajunge `undeliverable`. Evidența se recitește din Profil, prin
+`GET /auth/documents`. Textul unei versiuni înlocuite nu se servește încă nicăieri: azi fiecare
+document are o singură versiune, iar la prima schimbare de după publicare trebuie păstrat înainte —
+procedura din `legal-documents.ts` îl numește.
 
 Protecția se compune per-handler, nu global:
 
@@ -798,7 +834,11 @@ despre cod și despre git, nu despre proza de proiect.
 - Backend: 4 spații, ghilimele simple, print width 120 (`.prettierrc`). Frontend: 2 spații,
   ghilimele duble. Nu amesteca.
 - Backend importă cu path absolut de la rădăcină: `from 'src/entities/child.entity'`
-  (rezolvat prin `baseUrl`). Frontend folosește alias-ul Nuxt `~/`.
+  (rezolvat prin `baseUrl`). Frontend folosește alias-ul Nuxt `~/`. **Excepția e lanțul lui
+  `load-env.ts`**: `config/env.validation.ts` și ce importă el se importă relativ, fiindcă CLI-ul
+  TypeORM (`migration:run`) le încarcă fără `tsconfig-paths` — un `src/…` acolo pică migrarea, și
+  odată cu ea deploy-ul. `pnpm typecheck` și testele trec fără să observe; îl prinde doar pasul
+  „Migrate" din jobul „Accessibility (authenticated)" din CI.
 - Sumele monetare: `decimal` în Postgres, expuse ca `number` în aplicație printr-un
   `transformer` pe coloană (vezi `apps/api/src/entities/invoice.entity.ts`).
 - Lunile de facturare sunt string-uri `'YYYY-MM'` (`monthIssued`), cu constrângere
@@ -1299,6 +1339,100 @@ tranzacția care înregistrează banii — dă-i `EntityManager`-ul —, iar dac
 unde se încasează, cheamă și de acolo aceeași ușă: o încasare tăcută arată pentru familie exact ca
 una pierdută.
 
+**Factura fiscală e a SmartBill, iar SmartBill n-are sandbox** (E16 S0–S3). Orice factură emisă
+prin API-ul lor e un document fiscal real: ia următorul număr din serie și, cu e-Factura activă,
+pleacă în SPV. De aici toată forma integrării, din `apps/api/src/modules/smartbill/` (clientul și
+regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
+
+- **Implicitul lui `SMARTBILL_MODE` e `off`**, care nu trimite nimic și emite ca înainte, cu PDF-ul
+  local. `draft` trimite fiecare factură drept **ciornă** — fără număr, nu e document fiscal, nu
+  ajunge în SPV: sandbox-ul pe care nu-l au. `live` emite de-adevăratelea și **refuză să pornească**
+  fără două lucruri: `SMARTBILL_LIVE_DB` egal cu `DB_NAME` — regula lui `SEED_ALLOW_NON_LOCAL`,
+  pentru că baza de pe stage e seed — **și `NODE_ENV=production`**, spus explicit: un `NODE_ENV`
+  nesetat e un laptop. Prima singură nu ținea stage-ul departe — un fișier de stage cu `live` și
+  numele propriei baze trece de ea, iar amândouă sunt setări SmartBill, tastate în aceeași
+  după-amiază de cine încearcă SmartBill. `NODE_ENV` spune ce e tot backend-ul, deci **stage
+  rulează cu `NODE_ENV=stage` și trimite cel mult ciorne.** Regula e una, `mayIssueFiscalDocuments`
+  din `smartbill.config.ts`, verificată de trei ori: la pornire, de coadă înainte să revendice un
+  rând, și în `SmartBillService.issueInvoice`, ușa pe care trece orice cerere — acolo orice nu e
+  ciornă e refuzat în afara producției, pe orice drum ar veni. `test` trece de regulă fiindcă sub
+  jest clientul refuză oricum host-ul de producție; testele îl îndreaptă spre
+  `test/fake-smartbill.ts`. Verificarea contului se face cu `pnpm smartbill:check`, care doar
+  citește, sau cu `--draft`, care trimite o ciornă.
+- **Emiterea nu așteaptă după SmartBill.** `POST /invoices/issue` scrie factura cu
+  `fiscalStatus = pending`, iar documentul îl face `FiscalIssuingJob`, la 30 de secunde, prin
+  `FiscalIssuingService`. Coada sunt coloanele `fiscal*` de pe `invoices` — nu `outbox`, unde un rând
+  e un mesaj, și nu o tabelă alăturată; aceeași judecată ca la miniaturi.
+- **SmartBill n-are cheie de idempotență, deci proba e seria.** `nextNumber` se scrie pe rând
+  (`fiscalExpectedNumber`) **înaintea** cererii, iar rândul trece în `uncertain` tot înainte, deci un
+  proces mort la jumătate lasă exact adevărul. Un răspuns pierdut se judecă după ce expiră
+  împrumutul de două minute, recitind seria: n-a mișcat → se retrimite; a mișcat → `review`, și un
+  om confirmă numărul (`POST /invoices/:id/fiscal/confirm`) sau spune că nu e acolo (`…/retry`).
+  **Platforma nu adoptă niciodată un număr fiscal pe care nu l-a văzut venind înapoi.** Cât timp
+  un rând e în aer nu pleacă nimic altceva, fiindcă seria s-ar mișca sub judecata lui — și de aceea
+  seria configurată în `SMARTBILL_INVOICE_SERIES` trebuie să fie **doar a platformei**.
+- **Felul eșecului decide pasul următor**, în `classifyFailure`: un refuz (`errorText` completat,
+  **chiar și pe un 200** — „errorText este sursa de adevar") așteaptă un om; un 401 sau un 403 de
+  drepturi și blocarea pentru rată (429, sau 403 cu „limita maxima de requesturi", cum se vede de
+  fapt) **nu consumă încercarea**; doar tăcerea și un 5xx rămân deschise, fiindcă numai ele pot
+  însemna o factură pe care n-a văzut-o nimeni. Limita e 30 de apeluri la 10 secunde per token;
+  clientul lasă 400 ms între apeluri și, după o blocare, nu mai sună deloc zece minute.
+- **O factură emisă nu se mai corectează din platformă.** `updateInvoice` refuză suma și data, iar
+  `deleteInvoice` ștergerea, cu `INVOICE_HAS_FISCAL_DOCUMENT`, pentru `issued`, `uncertain` și
+  `review` — corectura e o stornare în SmartBill. Verificarea se face sub lacătul rândului, fiindcă
+  și coada revendică cu `FOR UPDATE SKIP LOCKED`. Și **nu salva o factură întreagă citită înaintea
+  tranzacției**: `save` din TypeORM scrie înapoi fiecare coloană care diferă, deci coloanele fiscale
+  s-ar întoarce cum erau la citire — o factură emisă între timp ar reintra în coadă și s-ar emite a
+  doua oară. Exact asta făcea `updateInvoice`; acum scrie doar câmpurile trimise.
+- **Plățile ajung și ele singure, iar proba lor e suma încasată pe factură** (E16 S5).
+  `PaymentFiscalService` (`apps/api/src/modules/payment/`) trimite fiecare plată reușită de pe o
+  factură `issued` ca încasare, `POST /payment`: numerarul ca `Chitanta` numerotată pe
+  `SMARTBILL_RECEIPT_SERIES` (obligatorie în `live`, și tot a platformei), transferul ca
+  `Ordin plata`, fără document și **fără niciun identificator în răspuns**. Deci un răspuns pierdut
+  nu se judecă după serie, ci după `paidAmount` din `GET /invoice/paymentstatus`, citit înainte
+  (`fiscalExpectedPaid`) și recitit după: neschimbat se retrimite, mișcat cu exact plata merge la un
+  om. O plată pe care SmartBill o ține nu-și mai schimbă suma, data sau metoda și nu se șterge
+  (`PAYMENT_RECORDED_IN_SMARTBILL`) — se stornează aici și se șterge de mână acolo. `updatePayment`
+  scrie și el doar câmpurile trimise, sub lacătul rândului, din motivul de la `updateInvoice`. În
+  `draft` plățile nu pleacă deloc — o ciornă de factură n-are număr, iar dintre încasări doar
+  chitanța are ciornă —, iar o chitanță de probă se vede cu
+  `pnpm smartbill:check --draft --receipt`.
+- **Divergența cu SmartBill se derivă; pe factură stă doar ce a spus SmartBill** (E16 S8).
+  `fiscalPaidAmount`, `fiscalTotalAmount` și `fiscalCheckedAt` sunt citirea lor, reîmprospătată o
+  dată pe zi de `FiscalDivergenceJob`; verdictul e `divergenceOf`, calculat când se citește
+  raportul (`GET /invoices/fiscal-divergences`), față de plățile de atunci. O încasare înregistrată
+  golește `fiscalCheckedAt`, iar o factură necitită nu se judecă — altfel o cifră veche ar fi o
+  alarmă falsă. Dacă adaugi un drum care schimbă partea SmartBill a unei facturi, golește-l și acolo.
+- **În `live`, PDF-ul e al lor, la aceeași cheie** (`invoicePdfKey`, mutată în `invoice-pdf-key.ts`
+  ca să nu facă ciclu): nu se mai generează nimic cu PDFKit, iar descărcarea, exportul și ștergerea
+  îl citesc fără să știe cine l-a făcut. Documentul poartă **o singură linie, la suma calculată de
+  platformă**, cu reducerile în mențiuni — liniile de reducere ale SmartBill au capcane (o valoare
+  pozitivă _crește_ totalul, o linie fără `numberOfItems` e ignorată cu 200), iar potrivirea la leu
+  e promisiunea din E15 S7. Din familie pleacă numele și adresa, atât, iar `sendEmail` e fals:
+  familia aude de la platformă, prin coadă.
+- **Extrasul bancar se potrivește cu propuneri, niciodată singur** (E16 S8,
+  `apps/api/src/modules/reconciliation/`). CSV-ul băncii se citește după cuvintele din capul de
+  tabel, nu după o bancă anume — preambul, `;` sau `,`, credit și debit sau o sumă cu semn,
+  `1.234,56` sau `1,234.56` —, iar un rând care nu se citește se raportează cu numărul lui, nu se
+  sare. Se păstrează doar intrările, iar amprenta liniei (conținutul plus locul printre liniile
+  identice) e unică, deci un extras importat de două ori nu adaugă nimic. Propunerile sunt două:
+  **după numărul fiscal al facturii** din detalii — sigure, se confirmă toate dintr-o apăsare — și
+  **după numele plătitorului și suma rămasă exact** — doar propunere, câte una. „Ce mai datorează o
+  factură" vine din `ArrearsService.list`, nu dintr-o interogare nouă. O linie confirmată devine plată
+  prin `PaymentService.createPayment`, în tranzacția liniei — `createPayment` primește acum
+  `EntityManager`-ul apelantului —, deci familia primește confirmarea și plata pleacă spre SmartBill
+  ca oricare alta. Starea liniei se derivă (are plată, e pusă deoparte, sau așteaptă); o plată
+  ștearsă o pune singură la loc în coadă, prin `SET NULL`. **O linie devenită plată e a familiei**:
+  intră în exportul ei (E07 S4), iar la ștergere pierde plătitorul și detaliile — familiile scriu
+  acolo numele copilului la fel de des ca numărul facturii —, și păstrează cifrele, referința băncii
+  și amprenta. Amprenta trebuie să rămână: fără ea, același extras importat din nou ar aduce numele
+  înapoi ca linie nouă. Din același motiv, plata primește ca referință doar referința băncii, nu
+  detaliile — referința supraviețuiește ștergerii, nota nu.
+- **Plata cu cardul, dacă vine, vine prin SmartBill**, nu printr-un procesator integrat aici: ei au
+  deja Netopia, EuPlătesc și Stripe, cu link pe factură și încasare înregistrată singură acolo. Dar
+  **starea plății trebuie adusă înapoi din SmartBill înaintea linkului** (E16 S8), altfel mementoul
+  de restanță scrie unei familii care a plătit ieri.
+
 **Numai marketingul stă pe o bifă** (E17 S4). `Profile.marketingOptIn` e implicit `false` — un
 consimțământ pe care nu l-a dat nimeni nu e consimțământ — și gatează exclusiv `queueMarketing`.
 `queue` și `queueOrRecord` **nu primesc deloc preferința**, deci nu există argument prin care cineva
@@ -1354,9 +1488,9 @@ Tile-ul scria „Mesaje nelivrate" și număra doar al doilea fel, deci un mesaj
 arăta zero, iar o coadă **oprită de tot** arăta tot zero — exact defecțiunea pe care epicul o
 descrie: „un mesaj care nu ajunge nu seamănă cu o eroare, seamănă cu liniște."
 
-**Interogarea restrânge pe `status`, și nu din eleganță.** Rândurile `sent` nu se șterg niciodată —
-scrie la `IDX_outbox_claim` pe entitate — deci ele _sunt_ tabela, iar tot ce vrea întrebarea asta e
-în cele câteva rânduri care nu sunt trimise. Măsurat pe 200.000 de rânduri: fără `WHERE`, scanare
+**Interogarea restrânge pe `status`, și nu din eleganță.** Rândurile `sent` se șterg abia după 12
+luni (E22 S3) — scrie la `IDX_outbox_claim` pe entitate —, deci ele _sunt_ tabela, iar tot ce vrea
+întrebarea asta e în cele câteva rânduri care nu sunt trimise. Măsurat pe 200.000 de rânduri: fără `WHERE`, scanare
 secvențială paralelă la **16,9 ms**; cu el, index-only scan la **0,1 ms**, pe un ecran pe care un
 admin îl deschide toată ziua. Dacă adaugi un al patrulea număr aici, ține-l în aceeași listă de
 stări.
@@ -1632,6 +1766,24 @@ poarte același număr pe care l-a arătat ecranul, și înghețată odată ce f
 Factura poartă o singură linie de produs, deci corectura nu contrazice niciodată catalogul; ce
 apără rândul e evidența școlii.
 
+**Emiterea nu desenează nimic; PDF-ul platformei se desenează la prima descărcare** (E15 S6). În
+`off` și `draft`, fiecare familie era un PDF desenat cu PDFKit și urcat în bucket cu tranzacția
+deschisă — 100 de familii în 8,2 s, iar o stocare picată dădea înapoi toată luna; acum emiterea e
+numai scriere în bază (0,38 s), iar `getInvoicePdf` desenează din rând și păstrează la aceeași cheie.
+Cine primește desen o spune `servesLocalPdf` din `fiscal-issuing.rules.ts`, la descărcare, nu la
+emitere. Trei lucruri de ținut minte:
+
+- **Tot ce se tipărește vine din rând**, fiindcă desenul poate veni la săptămâni după emitere: data e
+  `dateIssued`, niciodată `new Date()` — vechiul PDF tipărea ziua desenării —, iar scadența vine din
+  `dueDateFor`, aceeași din care numără restanțele.
+- **O editare a sumei sau a datei aruncă desenul păstrat, iar ștergerea îl ia cu ea**, după commit și
+  fără ca un eșec de stocare să strice ceva: rândul e evidența, PDF-ul doar un desen al lui.
+- **Reducerile se citesc la desenare, și e sigur fiindcă o reducere pe o lună facturată e
+  înghețată** (`DISCOUNT_MONTH_INVOICED`, în `DiscountService`). Suma facturii s-a calculat o singură
+  dată, la emitere; o reducere schimbată după aceea nu mai ajungea nicăieri. Pe PDF stau ca pe
+  documentul SmartBill: o linie la suma facturii, iar reducerile în cuvinte, prin `describeDiscount`
+  — nu adunate înapoi în lei, cum făcea înainte cu o reducere de 50%.
+
 Al doilea drum a fost **șters** (E18/S5b): `/admin/invoices/new` și `/admin/invoices/preview/:month`
 emiteau aceeași lună prin `POST /invoices/preview` plus `POST /invoices`, adică pe numere calculate
 de server, nu văzute de om. Ecranul lui arăta „Număr Copii" numărând toți copiii familiei, deși
@@ -1728,12 +1880,26 @@ ca `/etc/itbridge/<env>.env` (640, `root:deploy`), regenerat la fiecare deploy. 
 scrie acolo — dacă aplicația n-o vede după un deploy, ori n-a fost pusă în Parameter Store, ori
 lipsește din lista lui `fetch-env.sh`.
 
+**`NODE_ENV` pe stage trebuie să fie `stage`, nu `production`.** Nu mai e o etichetă: e singurul
+lucru care oprește stage-ul să emită facturi fiscale reale prin SmartBill, care n-are sandbox (E16
+S2). Ce e setat acolo azi nu se vede din repo; se pune în Parameter Store ca orice altă variabilă,
+iar `ecosystem.config.js` n-are voie să-l suprascrie cu un `env: { NODE_ENV: 'production' }` — ar
+face din stage, pentru regula asta, o producție. Jurnalul de pornire spune ce a citit:
+`Mode draft under NODE_ENV=stage`.
+
 **`ecosystem.config.js`, `deploy.sh`, `fetch-env.sh` și `backup.sh` nu sunt în repo.** Stau în
 `/srv/itbridge/` pe instanță. Dacă le cauți aici și nu le găsești, acolo sunt. Backup-ul e un
 `pg_dump` zilnic la 03:15 către S3, cu ținte separate pentru cele două medii.
 
 `docker-compose.yml` conține Postgres și MinIO — infrastructura, și numai ea. Aplicația rulează
 direct pe Node, local și în producție. Nu adăuga servicii de aplicație acolo.
+
+**Secretele stau în afara repo-ului, iar `pnpm secrets` o verifică la fiecare PR** (E07 S6). Scanarea
+e secretlint peste tot ce urmărește git — arborele, nu istoricul, din motivul paragrafului de mai
+jos. Unde stă fiecare secret și ce se întâmplă când se schimbă e în [`docs/secrete.md`](docs/secrete.md);
+pe scurt: stage-ul le citește din Parameter Store, site-ul din Vercel, iar pe EC2 nu există cheie
+AWS — o pereche statică fără `AWS_S3_ENDPOINT` scrie un avertisment la pornire. Dacă adaugi un secret
+nou, adaugă-i și rândul în document.
 
 **Cheie Let's Encrypt compromisă, în istoric.** Un `privkey.pem` real, valid până în ianuarie
 2027, a fost comitat la `58e2634` și a rămas în repo până la curățenia din E01. Fișierele au fost

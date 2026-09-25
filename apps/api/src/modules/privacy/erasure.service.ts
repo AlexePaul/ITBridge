@@ -6,6 +6,7 @@ import { Child } from 'src/entities/child.entity';
 import { Discount } from 'src/entities/discount.entity';
 import { Invoice } from 'src/entities/invoice.entity';
 import { Payment } from 'src/entities/payment.entity';
+import { BankStatementLine } from 'src/entities/bank-statement-line.entity';
 import { Lead } from 'src/entities/lead.entity';
 import { Project } from 'src/entities/project.entity';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
@@ -14,8 +15,21 @@ import { AuditAction } from 'src/enum/audit-action.enum';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { S3Service } from 'src/modules/storage/s3.service';
 import { projectFileKey, projectThumbnailKey } from 'src/modules/project/project.keys';
-import { erasedProfileFields, isErased } from './erasure.rules';
+import { ERASED_STATEMENT_TEXT, erasedProfileFields, isErased } from './erasure.rules';
 import { leadsOfFamily } from './family-rows';
+
+/**
+ * Who the erasure is for, as the trail tells it afterwards — the one sentence a reader of "profile
+ * 412 was erased" needs. The family asking (E07/S4) and the calendar (E22/S3) run the same erasure;
+ * only the reason differs, and the reason is what somebody will want to know.
+ */
+export type ErasureReason = 'request' | 'withdrawal_term' | 'enquiry_term';
+
+const ERASURE_NOTES: Record<ErasureReason, string> = {
+    request: 'ștergere la cererea familiei',
+    withdrawal_term: 'ștergere la termen, după retragerea familiei',
+    enquiry_term: 'ștergere la termen: cerere de probă fără înscriere',
+};
 
 export interface ErasureReport {
     profileId: number;
@@ -46,7 +60,7 @@ export interface ErasureReport {
  * enrolments, attendance, announced absences, waitlist entries, session-count overrides and projects
  * with it, because every one of those declares `onDelete: 'CASCADE'` on the child. Deleting the
  * `User` takes the sessions, the e-mail confirmations and the document acceptances. What is left
- * over is exactly what this service has to say out loud, and there are four such things:
+ * over is exactly what this service has to say out loud, and there are five such things:
  *
  * - **Leads keep their own copies of the names.** `Lead.child` is `SET NULL`, and the row carries
  *   `childFirstName`, `childLastName` and `childBirthDate` written from a public form. Deleting the
@@ -58,6 +72,14 @@ export interface ErasureReport {
  *   its rows are found by address — which is what the data inventory says E07 S4 would have to do.
  * - **A payment's `notes` is free text an admin wrote about a family**, on a row that is kept. The
  *   figures stay because they are the accounting record; the sentence does not.
+ * - **A bank statement line keeps the payer's name and the transfer's text** (E16/S8), on a row
+ *   that is kept for the same reason the payment is. Both go: the name, because it would put a
+ *   name back on an emptied profile one join away; the text, because families write their child's
+ *   name there as often as the invoice number. The figures and the bank's own reference stay —
+ *   the reference is how the accountant finds the line in the bank's statement, which is the
+ *   accounting record this copy was only ever a working copy of. So does the fingerprint, and it
+ *   has to: it is what makes the same statement imported again a duplicate, and without it the
+ *   next import would bring the name back as a fresh line waiting to be matched.
  * - **Discounts go.** The epic keeps invoices and nothing else, and a discount row names the reason
  *   a particular family was charged less. The invoice already carries the number.
  *
@@ -155,7 +177,7 @@ export class ErasureService {
      * (E07 S3). "Who erased profile 412 and when" has to remain answerable precisely *because*
      * everything else is gone.
      */
-    async erase(profileId: number, actor: Actor): Promise<ErasureReport> {
+    async erase(profileId: number, actor: Actor, reason: ErasureReason = 'request'): Promise<ErasureReport> {
         const profile = await this.profiles.findOne({ where: { id: profileId }, relations: { user: true } });
         if (!profile) throw new NotFoundException('Profile not found');
         if (isErased(profile)) throw new ConflictException({ message: 'Contul e deja șters.', error: 'ALREADY_ERASED' });
@@ -200,6 +222,16 @@ export class ErasureService {
             // The figures stay — they are the accounting record — but the sentence an admin wrote
             // about the family on the same row does not.
             if (invoiceIds.length) await manager.update(Payment, { invoice: { id: In(invoiceIds) } }, { notes: null });
+            // Two steps: an `UPDATE` cannot join, and the line reaches the family through the
+            // payment and then the invoice.
+            const payments = invoiceIds.length ? await manager.find(Payment, { where: { invoice: { id: In(invoiceIds) } }, select: { id: true } }) : [];
+            if (payments.length) {
+                await manager.update(
+                    BankStatementLine,
+                    { payment: { id: In(payments.map((payment) => payment.id)) } },
+                    { counterparty: null, description: ERASED_STATEMENT_TEXT },
+                );
+            }
 
             // Cascades to sessions, e-mail confirmations and document acceptances, and sets
             // `Profile.user` to null on the way out.
@@ -219,7 +251,7 @@ export class ErasureService {
                         childrenRemoved: { from: null, to: childIds.length },
                         invoicesKept: { from: null, to: invoiceIds.length },
                     },
-                    note: 'ștergere la cererea familiei',
+                    note: ERASURE_NOTES[reason],
                 },
                 manager,
             );

@@ -208,6 +208,8 @@ const navigationItems = computed(() => {
       { label: "Facturi", to: "/admin/invoices", icon: "i-lucide-notebook-pen" },
       { label: "Plăți", to: "/admin/payments", icon: "i-lucide-wallet" },
       { label: "Restanțe", to: "/admin/restante", icon: "i-lucide-alert-circle" },
+      // E16/S8: the bank statement and SmartBill, each held against the platform's own records.
+      { label: "Reconciliere", to: "/admin/reconciliere", icon: "i-lucide-scale" },
       { label: "Reduceri", to: "/admin/reduceri", icon: "i-lucide-percent" },
     ],
     [

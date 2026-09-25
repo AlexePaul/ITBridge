@@ -60,6 +60,25 @@ describe('Privacy export (e2e)', () => {
 
     const exportOwn = (user: TestUser) => request(app.getHttpServer()).get('/privacy/export').set('Authorization', user.auth);
 
+    /**
+     * A line of the school's bank statement, recorded as a payment on the family's invoice through
+     * the reconciliation screen (E16/S8) — the only way such a line comes to belong to a family.
+     */
+    const payFromStatement = async (profileId: number, line: string): Promise<void> => {
+        const invoices = await request(app.getHttpServer()).get('/invoices').query({ parentId: profileId }).set('Authorization', admin.auth).expect(200);
+        await request(app.getHttpServer())
+            .post('/reconciliation/statements')
+            .set('Authorization', admin.auth)
+            .send({ content: `Data;Nume platitor;Detalii;Referinta;Credit\n${line}` })
+            .expect(200);
+        const waiting = await request(app.getHttpServer()).get('/reconciliation/lines').set('Authorization', admin.auth).expect(200);
+        await request(app.getHttpServer())
+            .post(`/reconciliation/lines/${waiting.body.lines[0].id as number}/match`)
+            .set('Authorization', admin.auth)
+            .send({ invoiceId: invoices.body[0].id as number })
+            .expect(200);
+    };
+
     it('gives a family its own record, with the children in it', async () => {
         const res = await exportOwn(ana).expect(200);
 
@@ -74,6 +93,22 @@ describe('Privacy export (e2e)', () => {
         expect(res.body.facturi).toHaveLength(1);
         expect(res.body.facturi[0].luna).toBe('2026-03');
         expect(Date.parse(res.body.generatedAt as string)).not.toBeNaN();
+    });
+
+    it('carries the bank line a payment was recorded from, as the bank wrote it', async () => {
+        await payFromStatement(anaProfileId, '05.03.2026;POP ELENA;plata martie Maria Pop;RB2026030501;350,00');
+
+        const res = await exportOwn(ana).expect(200);
+
+        expect(res.body.facturi[0].plati).toHaveLength(1);
+        expect(res.body.facturi[0].plati[0]).toMatchObject({
+            suma: 350,
+            metoda: 'bank_transfer',
+            referinta: 'RB2026030501',
+            dinExtras: { data: '2026-03-05', suma: 350, platitor: 'POP ELENA', detalii: 'plata martie Maria Pop', referintaBanca: 'RB2026030501' },
+        });
+        // Whoever paid, it reached Ana's invoice — so it is Ana's, and nobody else's.
+        expect(JSON.stringify((await exportOwn(bogdan).expect(200)).body)).not.toContain('POP ELENA');
     });
 
     /** The whole reason this suite runs against Postgres rather than a mock. */

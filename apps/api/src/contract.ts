@@ -40,8 +40,17 @@ import type { Room } from './entities/room.entity';
 import type { Attendance } from './entities/attendance.entity';
 import type { ClassSession } from './entities/class-session.entity';
 import type { RescheduleWindowsResult } from './modules/class-session/reschedule.service';
-import type { Invoice } from './entities/invoice.entity';
-import type { Payment } from './entities/payment.entity';
+import type { Invoice, InvoiceFiscalStatus } from './entities/invoice.entity';
+import type { SmartBillMode } from './modules/smartbill/smartbill.config';
+import type { FiscalQueueStatus } from './modules/invoice/fiscal-issuing.service';
+import type { FiscalDivergenceReport } from './modules/invoice/fiscal-divergence.service';
+import type { DivergenceReason } from './modules/invoice/fiscal-divergence.rules';
+import type { StatementImportResult, StatementLinesPage } from './modules/reconciliation/reconciliation.service';
+import type { MatchConfidence } from './modules/reconciliation/statement-matching.rules';
+import type { FamilyRetention, RetentionSchedule } from './modules/privacy/retention.service';
+import type { RetentionHold } from './modules/privacy/retention.rules';
+import type { Payment, PaymentFiscalStatus } from './entities/payment.entity';
+import type { PaymentFiscalQueueStatus } from './modules/payment/payment-fiscal.service';
 import type { PaymentMethod } from './enum/payment-method.enum';
 import type { PaymentStatus } from './enum/payment-status.enum';
 import type { Discount } from './entities/discount.entity';
@@ -66,6 +75,7 @@ import type { OutboxMessage } from './entities/outbox-message.entity';
 import type { OutboxStatus } from './enum/outbox-status.enum';
 import type { DeliveryFailureReason } from './enum/delivery-failure-reason.enum';
 import type { LegalDocument } from './enum/legal-document.enum';
+import type { AuthService } from './modules/auth/auth.service';
 
 /** Fails compilation when `Actual` does not satisfy `Expected` on the shared fields. */
 type Covers<Expected, Actual> = Actual extends Expected ? true : { missingOrMismatched: Expected };
@@ -80,6 +90,8 @@ type _ApprovalStatus = Check<Wire.ApprovalStatus, ApprovalStatus>;
 type _LegalDocument = Check<Wire.LegalDocumentKey, `${LegalDocument}`>;
 type _LegalDocumentBack = Check<`${LegalDocument}`, Wire.LegalDocumentKey>;
 type _Profile = Check<Pick<Wire.ProfileSummary, 'id' | 'firstName' | 'lastName'>, Pick<Serialized<Profile>, 'id' | 'firstName' | 'lastName'>>;
+// E04/S5: the withdrawal day travels as the `date` column's text, `YYYY-MM-DD`.
+type _ProfileWithdrawal = Check<Required<Pick<Wire.ProfileSummary, 'withdrawnAt'>>, Pick<Serialized<Profile>, 'withdrawnAt'>>;
 type _ProfileEmergency = Check<
     Pick<Wire.ProfileSummary, 'emergencyContactName' | 'emergencyContactRelation' | 'emergencyContactPhone'>,
     Pick<Serialized<Profile>, 'emergencyContactName' | 'emergencyContactRelation' | 'emergencyContactPhone'>
@@ -171,10 +183,69 @@ type _Invoice = Check<
     Pick<Wire.Invoice, 'id' | 'amount' | 'dateIssued' | 'monthIssued' | 'status'>,
     Pick<Serialized<Invoice>, 'id' | 'amount' | 'dateIssued' | 'monthIssued' | 'status'>
 >;
-type _Payment = Check<
-    Pick<Wire.Payment, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'smartbillReference' | 'notes' | 'createdAt'>,
-    Pick<Serialized<Payment>, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'smartbillReference' | 'notes' | 'createdAt'>
+// E16/S2. The fiscal status is a union on the wire and an enum here, compared through the template
+// literal like every other pair; the reference fields are compared as they serialise.
+type _InvoiceFiscal = Check<
+    Omit<Pick<Wire.Invoice, InvoiceFiscalWireFields>, 'fiscalStatus'> & { fiscalStatus: `${InvoiceFiscalStatus}` | null },
+    Omit<Pick<Serialized<Invoice>, InvoiceFiscalWireFields>, 'fiscalStatus'> & { fiscalStatus: `${InvoiceFiscalStatus}` | null }
 >;
+type InvoiceFiscalWireFields =
+    | 'fiscalStatus'
+    | 'fiscalSeries'
+    | 'fiscalNumber'
+    | 'fiscalDocumentUrl'
+    | 'fiscalViewUrl'
+    | 'fiscalIssuedAt'
+    | 'fiscalLastError'
+    | 'fiscalExpectedNumber'
+    | 'fiscalPaidAmount'
+    | 'fiscalTotalAmount'
+    | 'fiscalCheckedAt';
+type _InvoiceFiscalStatus = Check<Wire.InvoiceFiscalStatus, `${InvoiceFiscalStatus}`>;
+type _InvoiceFiscalStatusBack = Check<`${InvoiceFiscalStatus}`, Wire.InvoiceFiscalStatus>;
+type _SmartBillMode = Check<Wire.SmartBillMode, SmartBillMode>;
+type _SmartBillModeBack = Check<SmartBillMode, Wire.SmartBillMode>;
+type _FiscalQueueStatus = Check<Wire.FiscalQueueStatus, Serialized<FiscalQueueStatus>>;
+type _DivergenceReason = Check<Wire.DivergenceReason, DivergenceReason>;
+type _DivergenceReasonBack = Check<DivergenceReason, Wire.DivergenceReason>;
+type _FiscalDivergenceReport = Check<Wire.FiscalDivergenceReport, Serialized<FiscalDivergenceReport>>;
+// E16/S8: the bank statement's side of reconciliation.
+type _StatementImportResult = Check<Wire.StatementImportResult, Serialized<StatementImportResult>>;
+type _StatementLinesPage = Check<Wire.StatementLinesPage, Serialized<StatementLinesPage>>;
+type _MatchConfidence = Check<Wire.MatchConfidence, MatchConfidence>;
+type _MatchConfidenceBack = Check<MatchConfidence, Wire.MatchConfidence>;
+// Terms §4.7: the account's own acceptance record. The document enum is nominal, so both sides are
+// compared with the key as the literal string it is on the wire.
+type LegalRecordRow = Serialized<Awaited<ReturnType<AuthService['legalRecord']>>>;
+type LegalRecordRowWire = {
+    inForce: { document: `${LegalRecordRow['inForce'][number]['document']}`; version: LegalRecordRow['inForce'][number]['version'] }[];
+    accepted: {
+        document: `${LegalRecordRow['accepted'][number]['document']}`;
+        version: LegalRecordRow['accepted'][number]['version'];
+        acceptedAt: LegalRecordRow['accepted'][number]['acceptedAt'];
+    }[];
+};
+type _LegalRecord = Check<Wire.LegalRecord, LegalRecordRowWire>;
+type _LegalRecordBack = Check<LegalRecordRowWire, Wire.LegalRecord>;
+// E22/S3: the retention term, as the office's list and the family page read it.
+type _RetentionSchedule = Check<Wire.RetentionSchedule, Serialized<RetentionSchedule>>;
+type _FamilyRetention = Check<Wire.FamilyRetention, Serialized<FamilyRetention>>;
+type _RetentionHold = Check<Wire.RetentionHold, RetentionHold>;
+type _RetentionHoldBack = Check<RetentionHold, Wire.RetentionHold>;
+type _Payment = Check<
+    Pick<Wire.Payment, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'notes' | 'createdAt'>,
+    Pick<Serialized<Payment>, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'notes' | 'createdAt'>
+>;
+// E16/S5: where the payment stands with SmartBill, both ways — a field the screen reads and the row
+// does not carry, or the other way round, is the divergence this file exists to catch.
+type PaymentFiscalWireFields = 'fiscalStatus' | 'fiscalReceiptSeries' | 'fiscalReceiptNumber' | 'fiscalRecordedAt' | 'fiscalLastError' | 'fiscalExpectedNumber';
+type PaymentFiscalWire = Omit<Pick<Wire.Payment, PaymentFiscalWireFields>, 'fiscalStatus'> & { fiscalStatus: `${PaymentFiscalStatus}` | null };
+type PaymentFiscalRow = Omit<Pick<Serialized<Payment>, PaymentFiscalWireFields>, 'fiscalStatus'> & { fiscalStatus: `${PaymentFiscalStatus}` | null };
+type _PaymentFiscal = Check<PaymentFiscalWire, PaymentFiscalRow>;
+type _PaymentFiscalBack = Check<PaymentFiscalRow, PaymentFiscalWire>;
+type _PaymentFiscalStatus = Check<Wire.PaymentFiscalStatus, `${PaymentFiscalStatus}`>;
+type _PaymentFiscalStatusBack = Check<`${PaymentFiscalStatus}`, Wire.PaymentFiscalStatus>;
+type _PaymentFiscalQueueStatus = Check<Wire.PaymentFiscalQueueStatus, Serialized<PaymentFiscalQueueStatus>>;
 // `recordedBy` is deliberately not compared field-for-field: the entity holds a `User` relation,
 // but the service selects only `id` and `username` onto the wire — never the credentials row — and
 // the contract describes the wire.

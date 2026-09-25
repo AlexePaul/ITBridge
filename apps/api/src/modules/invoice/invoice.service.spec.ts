@@ -5,7 +5,7 @@ import { InvoiceService } from './invoice.service';
 import { Child } from 'src/entities/child.entity';
 import { SessionCountOverride } from 'src/entities/session-count-override.entity';
 import { PdfService } from './pdf.service';
-import { S3Service } from 'src/modules/storage/s3.service';
+import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
@@ -16,6 +16,8 @@ import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { Role } from 'src/enum/role.enum';
 import { createMockQueryBuilder, createMockRepository, isScopedToUser, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 import { BillableSessionsService, MonthCount } from './billable-sessions.service';
+import { FiscalIssuingService } from './fiscal-issuing.service';
+import { InvoiceFiscalStatus } from 'src/entities/invoice.entity';
 
 describe('InvoiceService', () => {
     /** E07/S3. What reached the trail, and with which manager. */
@@ -27,10 +29,12 @@ describe('InvoiceService', () => {
     let enrollmentRepo: MockRepository;
     let childRepo: MockRepository;
     let overrideRepo: MockRepository;
-    let s3: { putObject: jest.Mock; downloadFile: jest.Mock };
-    let transactionManager: { save: jest.Mock; delete: jest.Mock };
+    let s3: { putObject: jest.Mock; downloadFile: jest.Mock; deleteObject: jest.Mock };
+    let transactionManager: { save: jest.Mock; delete: jest.Mock; update: jest.Mock; findOne: jest.Mock };
     /** E15/S9's one query, mute: what it counts is its own suite's business. */
     let billable: { countForMonth: jest.Mock };
+    /** E16/S2's queue: only the PDF fetch is reached from here. */
+    let fiscal: { storeFiscalPdf: jest.Mock };
 
     const aProfile = (id = 1) => ({ id, firstName: 'Ana', lastName: 'Pop' });
 
@@ -52,13 +56,14 @@ describe('InvoiceService', () => {
         enrollmentRepo = createMockRepository();
         childRepo = createMockRepository();
         overrideRepo = createMockRepository();
-        s3 = { putObject: jest.fn(), downloadFile: jest.fn() };
+        s3 = { putObject: jest.fn(), downloadFile: jest.fn(), deleteObject: jest.fn() };
         billable = { countForMonth: jest.fn() };
+        fiscal = { storeFiscalPdf: jest.fn() };
 
         // `createInvoice` writes the row and uploads the PDF inside one transaction. The fake runs
         // the callback with a manager whose `save` behaves like the repository's, so a rejected
         // upload propagates exactly as it would in production.
-        transactionManager = { save: jest.fn(), delete: jest.fn() };
+        transactionManager = { save: jest.fn(), delete: jest.fn(), update: jest.fn(), findOne: jest.fn() };
 
         audit = { record: jest.fn(() => Promise.resolve()), recordUpdate: jest.fn(() => Promise.resolve()) };
 
@@ -81,6 +86,7 @@ describe('InvoiceService', () => {
                     },
                 },
                 { provide: AuditService, useValue: audit },
+                { provide: FiscalIssuingService, useValue: fiscal },
             ],
         }).compile();
 
@@ -240,18 +246,16 @@ describe('InvoiceService', () => {
             expect((transactionManager.save.mock.calls[0][0] as { status: InvoiceStatus }).status).toBe(InvoiceStatus.PENDING);
         });
 
-        it('uploads a PDF to S3 under a predictable path, keyed by billing month', async () => {
+        // E15/S6: a hundred parents used to be a hundred renders and uploads inside one open
+        // transaction. The document is drawn on its first download instead.
+        it('draws no PDF and touches no storage while issuing', async () => {
             setUpHappyPath();
+            const pdf = (service as unknown as { pdfService: { generateInvoicePdf: jest.Mock } }).pdfService;
 
             await service.createInvoice({ parentIds: [10], monthIssued: '2026-03', dateIssued: '2026-03-01' }, ACTOR);
 
-            // The type is now an argument rather than a constant inside the client, so the assertion
-            // covers it: an invoice stored as anything other than a PDF would be served back wrong.
-            expect(s3.putObject).toHaveBeenCalledWith({
-                key: expect.stringMatching(/^invoices\/2026-03\/.*\.pdf$/),
-                body: expect.any(Buffer),
-                contentType: 'application/pdf',
-            });
+            expect(pdf.generateInvoicePdf).not.toHaveBeenCalled();
+            expect(s3.putObject).not.toHaveBeenCalled();
         });
 
         it('processes several parents in a single request', async () => {
@@ -638,6 +642,206 @@ describe('InvoiceService', () => {
             childRepo.findOne!.mockResolvedValue(null);
 
             await expect(service.setSessionCountOverride(decision, 42, ACTOR)).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    /**
+     * E16/S2 — what issuing does in each SmartBill mode, and the guards that keep the platform's row
+     * from drifting away from a fiscal document it cannot touch.
+     */
+    describe('SmartBill', () => {
+        const october = { monthIssued: '2026-10', dateIssued: '2026-11-01' };
+        let pdf: { generateInvoicePdf: jest.Mock };
+
+        beforeEach(() => {
+            pdf = (service as unknown as { pdfService: { generateInvoicePdf: jest.Mock } }).pdfService;
+            billable.countForMonth.mockResolvedValue(aMonth());
+            invoiceRepo.find!.mockResolvedValue([]);
+            profileRepo.find!.mockResolvedValue([{ id: 1, firstName: 'Ana', lastName: 'Pop', email: null }]);
+            profileRepo.findOne!.mockImplementation(({ where }: { where: { id: number } }) => Promise.resolve(aProfile(where.id)));
+            discountRepo.find!.mockResolvedValue([]);
+            overrideRepo.find!.mockResolvedValue([]);
+            transactionManager.save.mockImplementation((invoice: object) => Promise.resolve({ ...invoice, id: 55 }));
+        });
+
+        afterEach(() => {
+            delete process.env.SMARTBILL_MODE;
+        });
+
+        // E15/S6: issuing is database work only, in every mode. The platform's PDF is drawn on its
+        // first download; SmartBill's document is the queue's.
+        it("queues nothing in 'off', and draws nothing while issuing", async () => {
+            const result = await service.issueFromSessions(october, ACTOR);
+
+            expect(result.issued[0].fiscalStatus).toBeNull();
+            expect(pdf.generateInvoicePdf).not.toHaveBeenCalled();
+            expect(s3.putObject).not.toHaveBeenCalled();
+        });
+
+        it("queues the invoice in 'draft', drawing nothing yet — the first download does", async () => {
+            process.env.SMARTBILL_MODE = 'draft';
+
+            const result = await service.issueFromSessions(october, ACTOR);
+
+            expect(result.issued[0].fiscalStatus).toBe(InvoiceFiscalStatus.PENDING);
+            expect(pdf.generateInvoicePdf).not.toHaveBeenCalled();
+            expect(s3.putObject).not.toHaveBeenCalled();
+        });
+
+        // E15/S7: in live the PDF is SmartBill's. A second document for the month, with no series
+        // and no number, is the "not an invoice" E16 opens with.
+        it("queues the invoice in 'live' and writes no PDF of its own", async () => {
+            process.env.SMARTBILL_MODE = 'live';
+
+            const result = await service.issueFromSessions(october, ACTOR);
+
+            expect(result.issued[0].fiscalStatus).toBe(InvoiceFiscalStatus.PENDING);
+            expect(pdf.generateInvoicePdf).not.toHaveBeenCalled();
+            expect(s3.putObject).not.toHaveBeenCalled();
+        });
+
+        it('queues nothing for a waived month, in any mode', async () => {
+            process.env.SMARTBILL_MODE = 'live';
+            billable.countForMonth.mockResolvedValue(aMonth({ counts: new Map([[5, { sessions: 0, lines: [] }]]) }));
+
+            const result = await service.issueFromSessions(october, ACTOR);
+
+            expect(result.waived[0].fiscalStatus).toBeNull();
+        });
+
+        const issuedInvoice = { id: 1, amount: 350, status: InvoiceStatus.PENDING, dateIssued: new Date('2026-11-01'), monthIssued: '2026-10' };
+
+        it('refuses to change the amount of an invoice issued in SmartBill', async () => {
+            invoiceRepo.findOne!.mockResolvedValue({ ...issuedInvoice });
+            transactionManager.findOne.mockResolvedValue({ id: 1, fiscalStatus: InvoiceFiscalStatus.ISSUED });
+
+            await expect(service.updateInvoice(1, { amount: 150 }, ACTOR)).rejects.toThrow(ConflictException);
+            expect(transactionManager.update).not.toHaveBeenCalled();
+        });
+
+        // The race this rewrite closed: a whole-entity `save` of a row read before the transaction
+        // would put the fiscal columns back as they were read — an issued invoice back in the queue.
+        it('writes only the field that was sent, never the fiscal columns it read earlier', async () => {
+            invoiceRepo.findOne!.mockResolvedValue({ ...issuedInvoice, fiscalStatus: InvoiceFiscalStatus.PENDING });
+            transactionManager.findOne.mockResolvedValue({ id: 1, fiscalStatus: InvoiceFiscalStatus.ISSUED });
+
+            await service.updateInvoice(1, { status: InvoiceStatus.PAID }, ACTOR);
+
+            expect(transactionManager.update).toHaveBeenCalledWith(Invoice, 1, { status: InvoiceStatus.PAID });
+            expect(transactionManager.save).not.toHaveBeenCalled();
+        });
+
+        it('refuses to delete an invoice whose fiscal document exists, or may', async () => {
+            invoiceRepo.findOne!.mockResolvedValue({ ...issuedInvoice });
+            for (const fiscalStatus of [InvoiceFiscalStatus.ISSUED, InvoiceFiscalStatus.UNCERTAIN, InvoiceFiscalStatus.REVIEW]) {
+                transactionManager.findOne.mockResolvedValue({ id: 1, fiscalStatus });
+                await expect(service.deleteInvoice(1, ACTOR)).rejects.toThrow(ConflictException);
+            }
+            expect(transactionManager.delete).not.toHaveBeenCalled();
+        });
+
+        it('lets a draft go: it is not a fiscal document', async () => {
+            invoiceRepo.findOne!.mockResolvedValue({ ...issuedInvoice });
+            transactionManager.findOne.mockResolvedValue({ id: 1, fiscalStatus: InvoiceFiscalStatus.DRAFT });
+
+            await service.deleteInvoice(1, ACTOR);
+
+            expect(transactionManager.delete).toHaveBeenCalledWith(Invoice, 1);
+            // E15/S6: the kept drawing goes with its row.
+            expect(s3.deleteObject).toHaveBeenCalledWith('invoices/2026-10/1.pdf');
+        });
+
+        it("hands over SmartBill's PDF when it was not kept yet", async () => {
+            const qb = createMockQueryBuilder({
+                one: { ...issuedInvoice, fiscalStatus: InvoiceFiscalStatus.ISSUED, fiscalSeries: 'ITB', fiscalNumber: '0041' },
+            });
+            invoiceRepo.createQueryBuilder!.mockReturnValue(qb);
+            s3.downloadFile.mockRejectedValue(new ObjectNotFoundError('invoices/2026-10/1.pdf'));
+            fiscal.storeFiscalPdf.mockResolvedValue(Buffer.from('%PDF fiscal'));
+
+            await expect(service.getInvoicePdf(1, Role.ADMIN, 42)).resolves.toEqual(Buffer.from('%PDF fiscal'));
+            expect(fiscal.storeFiscalPdf).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), 'ITB', '0041');
+        });
+
+        it("says the fiscal invoice is not issued yet in 'live', rather than drawing one of its own", async () => {
+            process.env.SMARTBILL_MODE = 'live';
+            const qb = createMockQueryBuilder({ one: { ...issuedInvoice, fiscalStatus: InvoiceFiscalStatus.PENDING } });
+            invoiceRepo.createQueryBuilder!.mockReturnValue(qb);
+            s3.downloadFile.mockRejectedValue(new ObjectNotFoundError('invoices/2026-10/1.pdf'));
+
+            await expect(service.getInvoicePdf(1, Role.ADMIN, 42)).rejects.toMatchObject({
+                response: expect.objectContaining({ error: 'FISCAL_INVOICE_NOT_ISSUED_YET' }),
+            });
+            expect(pdf.generateInvoicePdf).not.toHaveBeenCalled();
+        });
+    });
+
+    /**
+     * E15/S6 — the platform's PDF is drawn from the row on its first download and kept, and a kept
+     * drawing of figures the row no longer holds is dropped.
+     */
+    describe('the platform PDF, drawn on first download', () => {
+        const invoice = { id: 1, amount: 350, status: InvoiceStatus.PENDING, dateIssued: '2026-11-01', monthIssued: '2026-10', fiscalStatus: null };
+        let pdf: { generateInvoicePdf: jest.Mock };
+
+        beforeEach(() => {
+            pdf = (service as unknown as { pdfService: { generateInvoicePdf: jest.Mock } }).pdfService;
+            pdf.generateInvoicePdf.mockResolvedValue(Buffer.from('%PDF drawn'));
+            s3.downloadFile.mockRejectedValue(new ObjectNotFoundError('invoices/2026-10/1.pdf'));
+        });
+
+        afterEach(() => {
+            delete process.env.SMARTBILL_MODE;
+        });
+
+        it('draws it, keeps it, and hands it over', async () => {
+            invoiceRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: { ...invoice } }));
+
+            await expect(service.getInvoicePdf(1, Role.ADMIN, 42)).resolves.toEqual(Buffer.from('%PDF drawn'));
+            expect(pdf.generateInvoicePdf).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+            expect(s3.putObject).toHaveBeenCalledWith({ key: 'invoices/2026-10/1.pdf', body: Buffer.from('%PDF drawn'), contentType: 'application/pdf' });
+        });
+
+        it('hands over the drawing even when keeping it fails — the row is the record', async () => {
+            invoiceRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: { ...invoice } }));
+            s3.putObject.mockRejectedValue(new Error('storage down'));
+
+            await expect(service.getInvoicePdf(1, Role.ADMIN, 42)).resolves.toEqual(Buffer.from('%PDF drawn'));
+        });
+
+        it('serves the kept one without drawing again', async () => {
+            invoiceRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: { ...invoice } }));
+            s3.downloadFile.mockResolvedValue(Buffer.from('%PDF kept'));
+
+            await expect(service.getInvoicePdf(1, Role.ADMIN, 42)).resolves.toEqual(Buffer.from('%PDF kept'));
+            expect(pdf.generateInvoicePdf).not.toHaveBeenCalled();
+        });
+
+        // Before E15/S6 the family had a PDF from the moment of issue in `draft`; it still does.
+        it("draws one for an invoice still on its way to SmartBill in 'draft'", async () => {
+            process.env.SMARTBILL_MODE = 'draft';
+            invoiceRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: { ...invoice, fiscalStatus: InvoiceFiscalStatus.PENDING } }));
+
+            await expect(service.getInvoicePdf(1, Role.ADMIN, 42)).resolves.toEqual(Buffer.from('%PDF drawn'));
+        });
+
+        it('drops the kept drawing when the amount or the date changes', async () => {
+            invoiceRepo.findOne!.mockResolvedValue({ ...invoice });
+            transactionManager.findOne.mockResolvedValue({ id: 1, fiscalStatus: null });
+
+            await service.updateInvoice(1, { amount: 300 }, ACTOR);
+            await service.updateInvoice(1, { dateIssued: '2026-11-03' }, ACTOR);
+
+            expect(s3.deleteObject).toHaveBeenCalledTimes(2);
+            expect(s3.deleteObject).toHaveBeenCalledWith('invoices/2026-10/1.pdf');
+        });
+
+        it('keeps it when only the status moves — the status is not printed', async () => {
+            invoiceRepo.findOne!.mockResolvedValue({ ...invoice });
+
+            await service.updateInvoice(1, { status: InvoiceStatus.PAID }, ACTOR);
+
+            expect(s3.deleteObject).not.toHaveBeenCalled();
         });
     });
 

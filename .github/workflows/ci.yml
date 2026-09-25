@@ -57,6 +57,13 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # E07/S6: no secret in what the repository tracks — keys, tokens, private keys, credentials
+      # in URLs. The tree, not the history: the Let's Encrypt key committed at 58e2634 is still in
+      # the history and is treated as compromised (CLAUDE.md), and a scan that fails on every run
+      # for a known, dead key is a scan nobody reads. What a push can still add is in the tree.
+      - name: Secrets
+        run: pnpm secrets
+
       - name: Typecheck
         run: pnpm typecheck
 

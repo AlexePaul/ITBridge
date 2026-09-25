@@ -26,9 +26,9 @@ Trei lucruri de citit înainte de tabele:
 
 ## Pe scurt
 
-- **31 tabele**, cu **241 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
-- **105 coloane sunt date personale**, în **23 tabele**.
-- Restul de **136** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
+- **32 tabele**, cu **273 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
+- **119 coloane sunt date personale**, în **24 tabele**.
+- Restul de **154** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
 
 ## Datele personale, câmp cu câmp
 
@@ -53,6 +53,7 @@ Trei lucruri de citit înainte de tabele:
 | `profiles.unsubscribeToken` | Părinte | Credențiale | Recunoaște familia în linkul de dezabonare dintr-un mesaj promoțional (E17 S4). | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin |
 | `profiles.erasureRequestedAt` | Părinte | Urme de utilizare | Ziua în care familia a cerut ștergerea contului; de la ea curge termenul de 30 de zile. | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `profiles.erasedAt` | Părinte | Urme de utilizare | Ziua în care s-a făcut ștergerea. | Obligație legală | Termenul contabil legal | Admin |
+| `profiles.withdrawnAt` | Părinte | Urme de utilizare | Ziua în care școala a consemnat plecarea familiei; de la ea curge termenul de păstrare (E22 S3). | Obligație legală | Termenul contabil legal | Admin |
 | `children.firstName` | Copil | Identitate | Catalogul, orarul și fișa copilului. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `children.lastName` | Copil | Identitate | Catalogul, orarul și fișa copilului. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `children.birthDate` | Copil | Identitate | Potrivirea cu banda de vârstă a grupei. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
@@ -76,12 +77,20 @@ Trei lucruri de citit înainte de tabele:
 | `invoices.dateIssued` | Părinte | Financiar | Data emiterii; de la ea curg cele 14 zile de termen. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
 | `invoices.monthIssued` | Părinte | Financiar | Luna de curs facturată. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
 | `invoices.status` | Părinte | Financiar | Dacă factura e neplătită, restantă, plătită sau anulată. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
+| `invoices.fiscalSeries` | Părinte | Financiar | Seria facturii fiscale emise în SmartBill. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
+| `invoices.fiscalNumber` | Părinte | Financiar | Numărul facturii fiscale din SmartBill — după el o găsesc familia, contabilul și extrasul. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
+| `invoices.fiscalViewUrl` | Părinte | Financiar | Linkul public SmartBill către PDF-ul facturii fiscale, pentru familie. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
+| `invoices.fiscalIssuedAt` | Părinte | Financiar | Când a emis SmartBill factura fiscală. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
+| `invoices.fiscalPaidAmount` | Părinte | Financiar | Cât consideră SmartBill încasat pe factură, citit pentru raportul de divergențe (E16 S8). | Obligație legală | Termenul contabil legal | Admin |
+| `invoices.fiscalTotalAmount` | Părinte | Financiar | Totalul facturii așa cum îl are SmartBill, citit pentru raportul de divergențe (E16 S8). | Obligație legală | Termenul contabil legal | Admin |
 | `payments.amount` | Părinte | Financiar | Cât a plătit familia. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
 | `payments.method` | Părinte | Financiar | Cum a venit banul — numerar, transfer. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
 | `payments.status` | Părinte | Financiar | Dacă plata e inițiată, reușită, eșuată sau stornată. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
 | `payments.date` | Părinte | Financiar | Ziua plății. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
 | `payments.externalReference` | Părinte | Financiar | Referința din extrasul de cont, ca să se poată potrivi cu banca. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
-| `payments.smartbillReference` | Părinte | Financiar | Numărul documentului din SmartBill, când integrarea va exista. | Obligație legală | Termenul contabil legal | Admin |
+| `payments.fiscalReceiptSeries` | Părinte | Financiar | Seria chitanței fiscale emise în SmartBill pentru o plată în numerar. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
+| `payments.fiscalReceiptNumber` | Părinte | Financiar | Numărul chitanței fiscale emise în SmartBill pentru o plată în numerar. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
+| `payments.fiscalRecordedAt` | Părinte | Financiar | Când a ajuns încasarea în SmartBill. | Obligație legală | Termenul contabil legal | Admin, Familia respectivă |
 | `payments.notes` | Părinte | Conținut | Nota biroului pe încasare. | Interes legitim | Termenul contabil legal | Admin |
 | `discounts.name` | Părinte | Financiar | Cum se numește reducerea pe factură — „Frate", „Recomandare". | Executarea contractului | Termenul contabil legal | Admin, Familia respectivă |
 | `discounts.description` | Părinte | Conținut | Explicația scrisă de birou lângă reducere. | Interes legitim | Termenul contabil legal | Admin |
@@ -101,6 +110,11 @@ Trei lucruri de citit înainte de tabele:
 | `project_files.ingestionKey` | Copil | Conținut | Cheia de idempotență la încărcare: copilul plus hash-ul conținutului. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Nimeni (nu se citește înapoi) |
 | `project_links.label` | Copil | Conținut | Cum se numește legătura. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `project_links.url` | Copil | Conținut | Unde duce — de obicei proiectul copilului pe un site terț. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
+| `bank_statement_lines.bookedOn` | Părinte | Financiar | Ziua în care a intrat banul — ziua plății înregistrate din linie. | Obligație legală | Termenul contabil legal | Admin |
+| `bank_statement_lines.amount` | Părinte | Financiar | Cât a intrat în cont. | Obligație legală | Termenul contabil legal | Admin |
+| `bank_statement_lines.description` | Părinte | Financiar | Detaliile transferului, unde familia scrie numărul facturii. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin |
+| `bank_statement_lines.counterparty` | Părinte | Identitate | Cine a trimis banii, cum îl scrie banca. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin |
+| `bank_statement_lines.bankReference` | Părinte | Financiar | Referința tranzacției la bancă. | Obligație legală | Termenul contabil legal | Admin |
 | `unassigned_files.relativePath` | Copil | Conținut | Unde stătea fișierul pe partajare, ca adminul să se ducă să se uite. | Interes legitim | Cât e nevoie operațional | Admin |
 | `unassigned_files.fileName` | Copil | Conținut | Numele fișierului rătăcit. | Interes legitim | Cât e nevoie operațional | Admin |
 | `leads.status` | Părinte | Participare | Unde a ajuns familia în pâlnie. | Interes legitim | Cât e nevoie operațional | Admin |
@@ -163,6 +177,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 | `project_versions` | Copil | `project.child.parent` | O versiune a lucrării — copilul a salvat din nou. |
 | `project_files` | Copil | `version.project.child.parent` | Un fișier al lucrării, urcat în bucket. |
 | `project_links` | Copil | `project.child.parent` | O legătură pusă lângă lucrare — Scratch, un site. |
+| `bank_statement_lines` | Părinte | `payment.invoice.parent` | O încasare din extrasul bancar al școlii, adusă pentru potrivirea cu facturile (E16 S8). |
 | `unassigned_files` | Copil | **nu se poate ajunge prin relații** | Un fișier pe care agentul nu l-a putut atribui unui copil (E14 S2). |
 | `leads` | Părinte | `profile` | Tot ce e între „cineva a întrebat" și „s-a înscris" (E20). |
 | `outbox` | Părinte | **nu se poate ajunge prin relații** | Coada de mesaje: tot ce pleacă din backend trece pe aici. |
@@ -177,12 +192,12 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 | Motiv | Câte | Coloane |
 | ----- | ---- | ------- |
 | configurația școlii | 18 | `locations.name`, `locations.slug`, `locations.street`, `locations.city`, `locations.district`, `locations.postalCode`, `locations.latitude`, `locations.longitude`, `locations.phone`, `locations.email`, `locations.openingHours`, `locations.isActive`, `rooms.name`, `rooms.isActive`, `groups.isActive`, `agent_status.agentName`, `agent_status.version`, `agent_status.watchedRoot` |
-| identificator surogat | 32 | `users.id`, `profiles.id`, `children.id`, `enrollments.id`, `waitlist_entries.id`, `attendances.id`, `absence_notices.id`, `session_count_overrides.id`, `invoices.id`, `payments.id`, `discounts.id`, `projects.id`, `projects.publicId`, `project_versions.id`, `project_files.id`, `project_links.id`, `unassigned_files.id`, `leads.id`, `outbox.id`, `announcements.id`, `mail_templates.id`, `sessions.id`, `password_resets.id`, `email_confirmations.id`, `document_acceptances.id`, `audit_log.id`, `locations.id`, `rooms.id`, `groups.id`, `class_sessions.id`, `non_teaching_periods.id`, `agent_status.id` |
-| mecanică internă | 17 | `projects.sentOutboxMessageId`, `project_files.contentType`, `project_files.sizeBytes`, `unassigned_files.sizeBytes`, `unassigned_files.reportKey`, `leads.bookingKey`, `outbox.attempts`, `outbox.nextAttemptAt`, `outbox.lastError`, `outbox.dedupeKey`, `outbox.attachments`, `announcements.dedupeKey`, `sessions.familyId`, `audit_log.entityType`, `audit_log.entityId`, `audit_log.note`, `agent_status.lastError` |
-| marcaj de timp al rândului | 24 | `users.createdAt`, `children.createdAt`, `enrollments.createdAt`, `waitlist_entries.createdAt`, `absence_notices.createdAt`, `session_count_overrides.createdAt`, `session_count_overrides.updatedAt`, `payments.createdAt`, `projects.createdAt`, `project_versions.createdAt`, `project_files.uploadedAt`, `project_files.createdAt`, `project_links.createdAt`, `unassigned_files.reportedAt`, `leads.createdAt`, `leads.updatedAt`, `outbox.createdAt`, `announcements.createdAt`, `mail_templates.updatedAt`, `sessions.createdAt`, `password_resets.createdAt`, `email_confirmations.createdAt`, `audit_log.occurredAt`, `non_teaching_periods.createdAt` |
+| identificator surogat | 34 | `users.id`, `profiles.id`, `children.id`, `enrollments.id`, `waitlist_entries.id`, `attendances.id`, `absence_notices.id`, `session_count_overrides.id`, `invoices.id`, `invoices.fiscalDocumentId`, `payments.id`, `discounts.id`, `projects.id`, `projects.publicId`, `project_versions.id`, `project_files.id`, `project_links.id`, `bank_statement_lines.id`, `unassigned_files.id`, `leads.id`, `outbox.id`, `announcements.id`, `mail_templates.id`, `sessions.id`, `password_resets.id`, `email_confirmations.id`, `document_acceptances.id`, `audit_log.id`, `locations.id`, `rooms.id`, `groups.id`, `class_sessions.id`, `non_teaching_periods.id`, `agent_status.id` |
+| mecanică internă | 29 | `invoices.fiscalDocumentUrl`, `invoices.fiscalAttempts`, `invoices.fiscalNextAttemptAt`, `invoices.fiscalExpectedNumber`, `invoices.fiscalLastError`, `invoices.fiscalCheckedAt`, `payments.fiscalAttempts`, `payments.fiscalNextAttemptAt`, `payments.fiscalExpectedPaid`, `payments.fiscalExpectedNumber`, `payments.fiscalLastError`, `projects.sentOutboxMessageId`, `project_files.contentType`, `project_files.sizeBytes`, `bank_statement_lines.fingerprint`, `unassigned_files.sizeBytes`, `unassigned_files.reportKey`, `leads.bookingKey`, `outbox.attempts`, `outbox.nextAttemptAt`, `outbox.lastError`, `outbox.dedupeKey`, `outbox.attachments`, `announcements.dedupeKey`, `sessions.familyId`, `audit_log.entityType`, `audit_log.entityId`, `audit_log.note`, `agent_status.lastError` |
+| marcaj de timp al rândului | 25 | `users.createdAt`, `children.createdAt`, `enrollments.createdAt`, `waitlist_entries.createdAt`, `absence_notices.createdAt`, `session_count_overrides.createdAt`, `session_count_overrides.updatedAt`, `payments.createdAt`, `projects.createdAt`, `project_versions.createdAt`, `project_files.uploadedAt`, `project_files.createdAt`, `project_links.createdAt`, `bank_statement_lines.importedAt`, `unassigned_files.reportedAt`, `leads.createdAt`, `leads.updatedAt`, `outbox.createdAt`, `announcements.createdAt`, `mail_templates.updatedAt`, `sessions.createdAt`, `password_resets.createdAt`, `email_confirmations.createdAt`, `audit_log.occurredAt`, `non_teaching_periods.createdAt` |
 | orar, sală, capacitate | 16 | `rooms.capacity`, `rooms.computers`, `rooms.hasProjector`, `rooms.hasWhiteboard`, `groups.name`, `groups.weekday`, `groups.startTime`, `groups.endTime`, `groups.capacity`, `groups.minAge`, `groups.maxAge`, `class_sessions.date`, `class_sessions.startTime`, `class_sessions.endTime`, `non_teaching_periods.startDate`, `non_teaching_periods.endDate` |
 | text scris de școală | 10 | `announcements.audience`, `announcements.kind`, `announcements.subject`, `announcements.bodyText`, `mail_templates.key`, `mail_templates.subject`, `mail_templates.bodyText`, `mail_templates.bodyHtml`, `class_sessions.notes`, `non_teaching_periods.name` |
-| starea rândului | 19 | `projects.hasThumbnail`, `projects.thumbnailAttemptedAt`, `project_versions.versionNumber`, `unassigned_files.reason`, `unassigned_files.resolvedAt`, `leads.noSeats`, `outbox.status`, `outbox.undeliverableReason`, `announcements.recipientCount`, `announcements.declinedCount`, `mail_templates.version`, `sessions.expiresAt`, `password_resets.expiresAt`, `email_confirmations.expiresAt`, `audit_log.action`, `class_sessions.status`, `class_sessions.isVacation`, `agent_status.lastSeenAt`, `agent_status.pendingFiles` |
+| starea rândului | 22 | `invoices.fiscalStatus`, `payments.fiscalStatus`, `projects.hasThumbnail`, `projects.thumbnailAttemptedAt`, `project_versions.versionNumber`, `bank_statement_lines.ignoredAt`, `unassigned_files.reason`, `unassigned_files.resolvedAt`, `leads.noSeats`, `outbox.status`, `outbox.undeliverableReason`, `announcements.recipientCount`, `announcements.declinedCount`, `mail_templates.version`, `sessions.expiresAt`, `password_resets.expiresAt`, `email_confirmations.expiresAt`, `audit_log.action`, `class_sessions.status`, `class_sessions.isVacation`, `agent_status.lastSeenAt`, `agent_status.pendingFiles` |
 
 ## Ce se ratează ușor
 
@@ -193,11 +208,23 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 - **`profiles.unsubscribeToken`** — Singura coloană de tip `credential` ținută în clar, și dinadins: linkul trimis prin e-mail trebuie să funcționeze peste luni, deci nu poate fi comparat cu un hash al unui secret pe care nu-l mai are nimeni. Ce face acceptabil compromisul e cât de puțin poate: oprește marketingul, niciodată nu-l pornește, și nu deschide nimic altceva. Nu apare în export și pe niciun ecran, iar ștergerea contului îl **rotește** (E07 S4) — altfel un link dintr-un mesaj de acum un an ar rămâne viu către rândul unei familii care a cerut să dispară.
 - **`profiles.erasureRequestedAt`** — O a doua cerere înainte ca prima să fie servită e aceeași cerere făcută de două ori: ziua dintâi rămâne.
 - **`profiles.erasedAt`** — Rândul supraviețuiește ștergerii fiindcă facturile atârnă de el (`Invoice.parent` e `CASCADE`). Coloana asta e ce spune ecranelor că e o coajă, nu o familie pe care n-a completat-o nimeni.
+- **`profiles.withdrawnAt`** — Consemnată de un admin, niciodată dedusă din inactivitate (E04 S5). Rămâne pe coajă după ștergere, ca `erasedAt`: e motivul pentru care rândul e gol.
 - **`children.birthDate`** — Data nașterii unui minor. Verificarea de vârstă din E11 S6 e singurul lucru care o citește ca regulă.
 - **`enrollments.exitReason`** — Text liber scris de birou despre o familie.
 - **`enrollments.contractSignedAt`** — Doar faptul și ziua. Textul contractului nu e în platformă.
 - **`absence_notices.reason`** — **De semnalat avocatului.** Școala nu cere date de sănătate, dar câmpul e liber și părinții scriu „răcit", „varicelă" — deci poate primi date din art. 9 GDPR fără ca cineva să le fi cerut. Ce se face cu asta se decide în E22 S2; aici se consemnează doar că se poate întâmpla.
 - **`invoices.status`** — O memorie, nu adevărul: restanța se derivă din plățile reușite (E16 S7).
+- **`invoices.fiscalStatus`** — Unde e factura cu SmartBill: în coadă, trimisă, emisă, refuzată (E16 S2).
+- **`invoices.fiscalDocumentId`** — Id-ul documentului în SmartBill; singur nu spune nimic despre familie.
+- **`invoices.fiscalDocumentUrl`** — Pagina documentului în SmartBill Cloud, construită din id; nu se deschide fără un cont SmartBill.
+- **`invoices.fiscalViewUrl`** — Se deschide fără cont, deci e tratat ca documentul însuși: numele și adresa familiei sunt pe el.
+- **`invoices.fiscalExpectedNumber`** — Următorul număr al seriei, citit înainte de cerere: dovada că cererea a plecat (E16 S2).
+- **`invoices.fiscalLastError`** — Mesajul SmartBill despre factura asta. Poate numi chiar clientul ei, niciodată pe altcineva.
+- **`invoices.fiscalCheckedAt`** — Când a fost citită ultima dată factura din SmartBill.
+- **`payments.fiscalStatus`** — Unde e încasarea față de SmartBill (E16 S5).
+- **`payments.fiscalExpectedPaid`** — Suma încasată pe factură în SmartBill, citită înainte de cerere: dovada că încasarea a plecat (E16 S5).
+- **`payments.fiscalExpectedNumber`** — Următorul număr al seriei de chitanțe, citit înainte de cerere.
+- **`payments.fiscalLastError`** — Mesajul SmartBill despre plata asta. Poate numi factura familiei, niciodată pe altcineva.
 - **`projects.publicId`** — UUID pentru linkul de partajare; nu conține nimic despre copil.
 - **`projects.status`** — Portalul arată doar `sent`: părintele nu vede ce n-a verificat încă nimeni.
 - **`projects.sentToEmail`** — O a doua copie a adresei părintelui, înghețată la momentul trimiterii. E07 S4 trebuie să o găsească și pe ea.
@@ -205,6 +232,10 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 - **`project_files.originalName`** — Copiii își pun numele în numele fișierului. De asta cheile de obiect se derivă din identificatori, nu din el.
 - **`project_files.ingestionKey`** — `{childId}:{sha256}` — conține id-ul copilului, deci e legată de el, chiar dacă nu se citește înapoi nicăieri.
 - **`project_links.url`** — Poate conține numele de utilizator al copilului pe acel site.
+- **`bank_statement_lines.fingerprint`** — Conținutul liniei, hash-uit, ca un extras importat de două ori să nu adauge nimic.
+- **`bank_statement_lines.description`** — Scrise de plătitor, deci pot conține orice nume, al copilului inclusiv. La ștergerea familiei (E07 S4) se înlocuiesc cu „Șters la cererea familiei" pe liniile devenite plățile ei; cifrele, ziua și referința băncii rămân, cu plata. Evidența contabilă e extrasul băncii, nu copia asta.
+- **`bank_statement_lines.counterparty`** — Adesea părintele, uneori un bunic sau o firmă. Golit la ștergerea familiei, ca detaliile. O linie nepotrivită nu se leagă de nicio familie, deci `linkedVia` n-o găsește pornind de la familie — rămâne cât extrasul din care a venit.
+- **`bank_statement_lines.ignoredAt`** — Pusă deoparte: nu e o familie care plătește o factură.
 - **`unassigned_files.relativePath`** — Calea trece prin folderele copiilor, deci **poate conține numele unui copil** — și nu se poate lega de un rând `Child`, fiindcă tocmai asta a eșuat. De aceea `linkedVia` e `null`: E07 S4 nu poate găsi rândul pornind de la familie.
 - **`unassigned_files.reportKey`** — Grup plus cale, hash-uit pentru idempotență.
 - **`leads.parentName`** — Scris de un formular public, înainte să existe vreun cont.

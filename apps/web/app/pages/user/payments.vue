@@ -36,6 +36,12 @@
           <p class="portal-card-figure">{{ formatMonth(invoice.monthIssued) }}</p>
           <p class="portal-card-figure tnum">{{ formatLei(invoice.amount) }}</p>
         </div>
+        <!-- E16/S2: the fiscal number is the reference a transfer is matched by. -->
+        <p v-if="invoice.fiscalNumber" class="body-text measure-wide">
+          Factura fiscală
+          <span class="tnum">{{ invoice.fiscalSeries }} {{ invoice.fiscalNumber }}</span>
+          — la transfer, trece-o în detaliile plății.
+        </p>
         <p class="body-text measure-wide">
           Dacă ai plătit deja sau ți se pare o greșeală, scrie-ne sau sună la
           <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
@@ -63,6 +69,11 @@
           <p class="portal-card-figure tnum">{{ formatLei(invoice.amount) }}</p>
         </div>
         <p class="body-text">Emisă pe {{ formatDateKey(invoice.dateIssued) }}.</p>
+        <p v-if="invoice.fiscalNumber" class="body-text measure-wide">
+          Factura fiscală
+          <span class="tnum">{{ invoice.fiscalSeries }} {{ invoice.fiscalNumber }}</span>
+          — la transfer, trece-o în detaliile plății.
+        </p>
         <button
           type="button"
           class="btn btn-primary invoice-action"
@@ -111,6 +122,31 @@
         </div>
       </section>
 
+      <!--
+        E16/S5 and S6: what the school recorded as received, with the receipt SmartBill numbered for
+        cash — the document the confirmation email points here for. A transfer has no document of
+        its own: SmartBill records it on the invoice.
+      -->
+      <section v-if="received.length" class="portal-section">
+        <h2 class="portal-label">Plățile înregistrate</h2>
+
+        <div class="rows">
+          <div v-for="payment in received" :key="payment.id" class="portal-row portal-row-baseline">
+            <p class="portal-when month">{{ formatDateKey(payment.date) }}</p>
+            <p class="amount tnum">{{ formatLei(payment.amount) }}</p>
+            <p class="status">
+              {{ PAYMENT_METHOD_LABELS[payment.method] }}
+              <template v-if="payment.fiscalReceiptNumber">
+                · chitanța
+                <span class="tnum"
+                  >{{ payment.fiscalReceiptSeries }} {{ payment.fiscalReceiptNumber }}</span
+                >
+              </template>
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section class="portal-section">
         <h2 class="portal-label">Cum se plătește</h2>
         <p class="portal-empty">
@@ -127,6 +163,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
+import { usePaymentsApi } from "~/composables/api/usePaymentsApi";
+import { PAYMENT_METHOD_LABELS, type Payment } from "~/types/payment.types";
 import { usePDFApi } from "~/composables/api/usePDFApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
@@ -157,12 +195,14 @@ definePageMeta({
 });
 
 const invoiceApi = useInvoiceApi();
+const paymentsApi = usePaymentsApi();
 const { fetchInvoicePdf } = usePDFApi();
 const notifications = useNotifications();
 
 const loading = ref(true);
 const loadError = ref("");
 const invoices = ref<Invoice[]>([]);
+const payments = ref<Payment[]>([]);
 const downloading = ref<number | null>(null);
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -185,10 +225,20 @@ const pending = computed(() =>
 /** Everything, newest first — the unpaid ones included, so the ledger is complete. */
 const history = computed(() => [...invoices.value].sort(byMonthDesc));
 
+/** Money the school counts as received, newest first. An announced or reversed sum is not. */
+const received = computed(() =>
+  payments.value
+    .filter((payment) => payment.status === "succeeded")
+    .sort((a, b) => b.date.localeCompare(a.date))
+);
+
 onMounted(async () => {
   try {
     await invoiceApi.fetchInvoices();
     invoices.value = invoiceApi.getInvoices();
+    // The payments are a second list under the invoices; one that cannot be read leaves the
+    // invoices on the screen rather than taking them with it.
+    payments.value = await paymentsApi.fetchPayments().catch(() => []);
   } catch (err: unknown) {
     loadError.value = apiErrorMessage(err, "Nu am putut încărca facturile.");
   } finally {

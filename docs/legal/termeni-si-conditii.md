@@ -224,12 +224,12 @@ biroul e anunțat imediat.
 
 ## 13. Mesajele pe care le trimitem
 
-**Mesaje de serviciu**, pe care le primești oricând ai cont, fiindcă fără ele nu putem să ne
-ținem partea de contract: confirmarea contului, aprobarea sau respingerea lui, factura lunii,
-mementourile de plată, confirmarea plății, ora anulată, mutată sau pusă la loc, ora de recuperare a
-copilului, oferta de pe lista de așteptare, lucrarea trimisă, și anunțurile școlii către grupă sau
-către toată școala (schimbări de program, ce trebuie adus la oră). Nu se pot dezactiva altfel decât
-prin închiderea contului.
+**Mesaje de serviciu**, pe care le primești oricând ai cont, fiindcă fără ele nu putem să ne ținem
+partea de contract: confirmarea contului și a documentelor acceptate, aprobarea sau respingerea
+contului, factura lunii, mementourile de plată, confirmarea plății, ora anulată, mutată sau pusă la
+loc, ora de recuperare a copilului, oferta de pe lista de așteptare, lucrarea trimisă, și anunțurile
+școlii către grupă sau către toată școala (schimbări de program, ce trebuie adus la oră). Nu se pot
+dezactiva altfel decât prin închiderea contului.
 
 **Mesaje de marketing** — oferte, cursuri noi, evenimente — le primești **numai dacă ai bifat** în
 portal că le vrei. Bifa e implicit oprită și o poți opri oricând, din „Profil", iar fiecare mesaj

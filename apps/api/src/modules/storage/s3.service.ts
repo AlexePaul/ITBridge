@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
     S3Client,
     PutObjectCommand,
@@ -12,6 +12,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Readable } from 'stream';
+import { usesStaticAwsKeys } from './aws-credentials.rules';
 
 /**
  * The only place the application talks to object storage.
@@ -70,6 +71,7 @@ export const DEFAULT_SIGNED_URL_TTL_SECONDS = 15 * 60;
 
 @Injectable()
 export class S3Service implements OnModuleInit {
+    private readonly logger = new Logger('Storage');
     private s3Client: S3Client;
 
     onModuleInit() {
@@ -94,6 +96,12 @@ export class S3Service implements OnModuleInit {
             // production means the IAM instance role.
             ...(accessKeyId && secretAccessKey ? { credentials: { accessKeyId, secretAccessKey } } : {}),
         });
+
+        if (usesStaticAwsKeys({ accessKeyId, endpoint })) {
+            this.logger.warn(
+                'A static AWS key pair is configured against AWS itself. On EC2 the instance role is the credential; remove AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (E07/S6).',
+            );
+        }
     }
 
     /**

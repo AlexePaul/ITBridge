@@ -1,6 +1,6 @@
 # E07 · Securitate, GDPR și consimțământ
 
-**Status:** în lucru — **S1, S3, S4, S5 și S8 livrate**, restul propus · **Pistă:** Fundație · **Depinde de:**
+**Status:** în lucru — **S1, S3, S4, S5 și S8 livrate**, S6 construit, restul propus · **Pistă:** Fundație · **Depinde de:**
 E04, E05 · **Blochează:** E14, E19; E09 doar odată cu reluarea lui S2
 
 > **Granița cu [E22](E22-termeni-si-date.md), fiindcă se confundă ușor: aici e mecanica, acolo e ce
@@ -257,8 +257,8 @@ periodic. Trei locuri, trei treburi diferite, un singur număr — al E22.
 
 **Livrat: exportul.** `GET /privacy/export` întoarce tot ce ține școala despre familia care cere —
 datele de contact, contul, copiii cu înscrierile, prezențele, absențele anunțate și proiectele lor,
-facturile cu plățile, reducerile, solicitările de probă, mesajele primite, sesiunile și documentele
-acceptate. Butonul e pe `/user/profile`, iar fișierul se construiește în browser din JSON-ul
+facturile cu plățile (și, lângă o plată venită din extras, linia băncii din care a venit — E16 S8),
+reducerile, solicitările de probă, mesajele primite, sesiunile și documentele acceptate. Butonul e pe `/user/profile`, iar fișierul se construiește în browser din JSON-ul
 serverului. Adminul poate produce același document pentru o familie care a sunat, prin
 `GET /privacy/export/:profileId` — rută separată, nu un parametru opțional pe prima: un endpoint a
 cărui audiență depinde de un query string e la un refactor distanță de a o servi pe cealaltă.
@@ -317,7 +317,7 @@ respinge mesajele — același argument ca la rândul nelivrabil din E17 S5.
 **Cascadele fac cea mai mare parte, și ăsta e tot ideea.** Ștergerea unui `Child` ia cu ea
 înscrierile, prezențele, absențele anunțate, cererile din listă, corecturile de ședințe și
 proiectele; ștergerea `User`-ului ia sesiunile, confirmările de email și acceptările de documente.
-Ce **rămâne pe dinafară** e exact ce serviciul trebuie să spună cu voce tare, și sunt patru lucruri:
+Ce **rămâne pe dinafară** e exact ce serviciul trebuie să spună cu voce tare, și sunt cinci lucruri:
 
 - **Lead-urile își țin propriile copii ale numelor.** `Lead.child` e `SET NULL`, iar rândul poartă
   `childFirstName`, `childLastName` și `childBirthDate`. Ștergerea copilului le-ar lăsa pe toate
@@ -333,6 +333,11 @@ Ce **rămâne pe dinafară** e exact ce serviciul trebuie să spună cu voce tar
   rândurile se caută după adresă, exact cum spune inventarul din S1 că va trebui.
 - **`Payment.notes` e text liber scris de un admin despre o familie**, pe un rând care se păstrează.
   Cifrele rămân, fiindcă sunt evidența contabilă; propoziția nu.
+- **O linie din extrasul bancar devenită plata familiei** (E16 S8) își pierde plătitorul și
+  detaliile transferului — acolo scriu familiile numele copilului la fel de des ca numărul facturii
+  — și își păstrează cifrele, referința băncii și amprenta. Amprenta rămâne dinadins: e ce face din
+  același extras importat din nou un duplicat, nu o linie nouă care aduce numele înapoi. Evidența
+  contabilă e extrasul băncii, nu copia din platformă.
 - **Reducerile pleacă.** Epicul păstrează facturile și nimic altceva, iar un rând de reducere
   numește motivul pentru care o anumită familie a plătit mai puțin. Factura poartă deja numărul.
 
@@ -447,6 +452,27 @@ din tot epicul: elimină o clasă întreagă de secrete în loc să le gestionez
 
 **Acceptanță:** o căutare de secrete în repo, cu o unealtă automată, nu găsește nimic. Scanarea
 rulează în CI. Nicio cheie AWS statică nu există în vreun mediu.
+
+**Construit (septembrie 2026); rămâne o confirmare pe stage.** Trei bucăți:
+
+- **Căutarea**: `pnpm secrets` rulează [secretlint](https://github.com/secretlint/secretlint) cu
+  setul recomandat — chei private, chei AWS, GCP, tokenuri Slack, npm, GitHub, parole în URL-uri —
+  peste tot ce urmărește git, și citește `.gitignore`, deci un `.env` local nu e niciodată scanat.
+  Nu găsește nimic azi; o cheie privată și o pereche AWS plantate de probă au fost găsite amândouă,
+  inclusiv sub `.github/`. **Rulează în CI**, în jobul de verificare, imediat după lint. Scanează
+  arborele, nu istoricul: cheia Let's Encrypt de la `58e2634` e acolo și e tratată ca publică, iar o
+  verificare care pică la fiecare rulare pe o cheie moartă și știută e o verificare pe care n-o mai
+  citește nimeni.
+- **Rotația**, scrisă: [`docs/secrete.md`](../secrete.md) spune pentru fiecare secret unde stă, ce
+  deschide și ce se întâmplă în clipa schimbării — secretul tokenurilor de acces se rotește fără ca
+  cineva să observe, cel de reîmprospătare deloghează pe toată lumea, iar cheile de email și de
+  SmartBill pot lipsi o vreme fără să piardă nimic, fiindcă cozile lor nu consumă încercări pe un
+  eșec de configurare.
+- **Cheia AWS statică se vede la pornire.** Pe EC2 accesul e rolul instanței; o pereche statică
+  îndreptată spre AWS (fără `AWS_S3_ENDPOINT`) scrie un avertisment în logul de pornire. Mediul nu e
+  al repo-ului să-l vadă — stă în Parameter Store —, deci **confirmarea că stage-ul n-are nicio
+  cheie** e a cui citește logul primului deploy de după. `.env.example` n-are nicio valoare de
+  secret, în afara credențialelor de unică folosință ale Postgres-ului și MinIO-ului locale.
 
 ### S7 · Contracte de prelucrare
 

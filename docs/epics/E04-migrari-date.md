@@ -209,7 +209,15 @@ păstrare), proiecte ale copiilor, conturi inactive. Implementată ca job progra
 
 **Acceptanță:** politica e documentată, implementată și verificabilă.
 
-**Neînceput, dar nu mai e blocat pe contabil.**
+**Livrat (septembrie 2026), împreună cu termenul din [E22](E22-termeni-si-date.md) S3.** Starea
+„retras" e o zi pe familie, `Profile.withdrawnAt`, consemnată de un admin din pagina familiei și
+anulabilă de acolo; lista de familii o arată pe rând, iar `/admin/stergeri` arată când se șterge
+fiecare. Nu e o stare pe fiecare rând, cum propunea textul de mai jos: copiii, prezențele și
+proiectele n-au nevoie de o coloană proprie cât timp familia e încă în evidență, fiindcă nimeni nu le
+mai scrie, iar la termen pleacă toate deodată, prin ștergerea din E07 S4. Detaliile — refuzul cât
+timp ceva e încă deschis, anularea la o înscriere nouă, familiile care datorează bani — sunt în E22.
+
+**Neînceput, dar nu mai e blocat pe contabil.** _(Starea de dinainte, păstrată pentru istoric.)_
 
 **Decizia școlii: documentul fiscal stă în SmartBill, nu la noi.** Platforma nu păstrează PDF-ul
 facturii ca arhivă — SmartBill e cel care are obligația de păstrare și instrumentele pentru ea. Ce
@@ -339,25 +347,27 @@ Prima factură emisă cap-coadă din istoria proiectului, de altfel.
 
 ## Ce rămâne
 
-| Story                     | Stare              | Blocat de                      |
-| ------------------------- | ------------------ | ------------------------------ |
-| S1 · Migrarea de bază     | ✅ livrat          | —                              |
-| S2 · Migrările în deploy  | ✅ livrat          | —                              |
-| S3 · Seed                 | ✅ livrat          | —                              |
-| S4 · Backup și restaurare | ~ dump-uri zilnice | proba de restaurare, datată    |
-| S5 · Retenție             | amânat deliberat   | se reia la final, vezi mai jos |
+| Story                     | Stare              | Blocat de                   |
+| ------------------------- | ------------------ | --------------------------- |
+| S1 · Migrarea de bază     | ✅ livrat          | —                           |
+| S2 · Migrările în deploy  | ✅ livrat          | —                           |
+| S3 · Seed                 | ✅ livrat          | —                           |
+| S4 · Backup și restaurare | ~ dump-uri zilnice | proba de restaurare, datată |
+| S5 · Retenție             | ✅ livrat          | —                           |
 
 **S2 e închis.** Ce ținea de repo era livrat de mult: comenzile, `migrationsRun: false` ca ele să
 fie rulate explicit, și garda de CI care prinde entitățile divergente. Pasul de `migration:run` între
 `build` și `pm2 reload` s-a scris odată cu pipeline-ul însuși, în
 [E01](E01-infrastructura-medii.md), S4 — ca o linie în `deploy.sh`, exact cât s-a estimat.
 
-**S5 e amânat deliberat, nu blocat din neglijență.** Retenția facturilor cere răspunsul
-contabilului, iar politica atinge oricum [E07](E07-securitate-gdpr.md). Se reia la finalul valului
-de fundație, când există și restul contextului de GDPR.
+**S5 e închis**, odată cu termenul din [E22](E22-termeni-si-date.md) S3: retragerea e o zi pe
+familie, iar la 12 luni după ea familia se șterge prin ștergerea din [E07](E07-securitate-gdpr.md)
+S4. Fusese amânat deliberat — retenția facturilor cerea răspunsul contabilului —, iar întrebarea aia
+a dispărut când documentul fiscal a devenit al SmartBill.
 
 ## Întrebări deschise
 
-- Cât păstrăm facturile? Obligația contabilă în România e de regulă zece ani — de confirmat cu
-  contabilul, pentru că intră în conflict direct cu dreptul la ștergere din GDPR. **Blochează S5**,
-  și nu e o întrebare la care pot răspunde eu.
+- ~~Cât păstrăm facturile?~~ **Nu mai e întrebarea platformei:** documentul fiscal stă în SmartBill,
+  cu obligația de păstrare a lor (5 ani, Legea 82/1991 art. 25, cum scrie nota de confidențialitate
+  §7), iar platforma păstrează rândurile de factură ca evidență, fără datele de contact ale familiei
+  după ștergere.

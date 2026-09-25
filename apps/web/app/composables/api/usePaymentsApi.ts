@@ -3,6 +3,8 @@ import type {
   CreatePaymentDto,
   UpdatePaymentDto,
   FilterPaymentDto,
+  PaymentFiscalQueueStatus,
+  ConfirmPaymentRecordDto,
 } from "~/types/payment.types";
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
@@ -81,6 +83,31 @@ export const usePaymentsApi = () => {
     }
   };
 
+  /** Where the payments stand with SmartBill — E16/S5. */
+  const fetchFiscalQueue = async () =>
+    api<PaymentFiscalQueueStatus>("/payments/fiscal-queue", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** Sends a refused payment, or one under review that SmartBill does not have, again. */
+  const retryFiscal = async (id: number) =>
+    api<Payment>(`/payments/${id}/fiscal/retry`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** "It is there": a payment under review, confirmed with its receipt number for cash. */
+  const confirmFiscal = async (id: number, dto: ConfirmPaymentRecordDto) =>
+    api<Payment>(`/payments/${id}/fiscal/confirm`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tokenStore.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(dto),
+    });
+
   const deletePayment = async (id: number) => {
     try {
       await api<void>(`/payments/${id}`, {
@@ -101,5 +128,8 @@ export const usePaymentsApi = () => {
     createPayment,
     updatePayment,
     deletePayment,
+    fetchFiscalQueue,
+    retryFiscal,
+    confirmFiscal,
   };
 };

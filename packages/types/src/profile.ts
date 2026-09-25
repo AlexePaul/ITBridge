@@ -38,6 +38,12 @@ export interface ProfileSummary {
      */
     erasureRequestedAt?: string | null;
     erasedAt?: string | null;
+    /**
+     * The day the school recorded that the family left — E04/S5. `YYYY-MM-DD`, a day and not an
+     * instant: it is the day the retention term of E22/S3 is counted from, and a calendar is what
+     * anybody checks it against. `null` for every family still here.
+     */
+    withdrawnAt?: string | null;
 }
 
 export interface Profile extends ProfileSummary {

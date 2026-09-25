@@ -130,6 +130,22 @@ export class Profile {
      */
     @Column({ type: 'timestamptz', nullable: true })
     erasedAt: Date | null;
+
+    /**
+     * The day the school recorded that the family left — E04/S5, the first half of the road E22/S3
+     * finishes.
+     *
+     * **Recorded, never inferred.** A job deciding "inactive for N months" on its own would erase
+     * exactly the family that took a term off, which is why this is an admin's act with a day on it,
+     * taken back until the term runs out. `RetentionService` counts the term from it and erases the
+     * family when it has run, through the same erasure a family can ask for (E07/S4).
+     *
+     * A `date`, not a timestamp: the term is counted in calendar days on the school's clock, and a
+     * calendar is what anybody checks "twelve months after" against. It survives the erasure, like
+     * `erasedAt`: the shell keeps the reason it is a shell.
+     */
+    @Column({ type: 'date', nullable: true })
+    withdrawnAt: string | null;
 }
 
 /**

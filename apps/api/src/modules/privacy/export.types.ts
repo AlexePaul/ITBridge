@@ -15,6 +15,7 @@ export interface FamilyExport {
         adresa: string | null;
         contactDeUrgenta: { nume: string; relatie: string | null; telefon: string | null } | null;
         acceptaComunicariComerciale: boolean;
+        retrasaLa: string | null;
     };
     cont: {
         utilizator: string;
@@ -30,7 +31,8 @@ export interface FamilyExport {
         suma: number;
         emisaLa: string | null;
         stare: string;
-        plati: { suma: number; metoda: string; stare: string; data: string | null; referinta: string | null }[];
+        facturaFiscala: { serie: string; numar: string; emisaLa: string | null; pdf: string | null } | null;
+        plati: ExportedPayment[];
     }[];
     reduceri: { nume: string; tip: string; valoare: number; luna: string }[];
     solicitari: {
@@ -49,6 +51,20 @@ export interface FamilyExport {
     confirmariDeEmail: { adresa: string; trimisLa: string | null; deschisLa: string | null }[];
     resetariDeParola: { adresa: string; cerutLa: string | null; folositLa: string | null }[];
     documenteAcceptate: { document: string; versiune: string; acceptatLa: string | null }[];
+}
+
+export interface ExportedPayment {
+    suma: number;
+    metoda: string;
+    stare: string;
+    data: string | null;
+    referinta: string | null;
+    chitantaFiscala: string | null;
+    /**
+     * The line of the school's bank statement the payment was recorded from — E16/S8 — as the bank
+     * wrote it: who sent the money and what they wrote with it. `null` for a payment typed in by hand.
+     */
+    dinExtras: { data: string | null; suma: number; platitor: string | null; detalii: string; referintaBanca: string | null } | null;
 }
 
 export interface ExportedChild {

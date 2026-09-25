@@ -58,6 +58,15 @@ const MESSAGES: Record<string, string> = {
     "Pe luna aceea stă deja o reducere procentuală dată din formular. Încă una s-ar aduna cu ea și ar face luna gratuită — dacă asta vrei, dă-o tot din formular.",
   REFERRAL_NOTHING_TO_REVOKE: "Familia nu are nicio lună de recomandare de scos.",
 
+  // E04/S5 and E22/S3. A withdrawal starts the clock on a family's data, so it is refused while
+  // something still ties the family to the school — and each refusal names what to close first.
+  FAMILY_HAS_ENROLMENTS_IN_FORCE:
+    "Familia are încă un copil înscris. Încheie întâi înscrierea — așa se eliberează și locul, pentru lista de așteptare.",
+  FAMILY_ON_WAITLIST:
+    "Familia e încă pe o listă de așteptare. Scoate-o întâi de acolo, apoi consemnează retragerea.",
+  WITHDRAWAL_IN_FUTURE: "Retragerea se consemnează cu o zi care a trecut deja, sau cu ziua de azi.",
+  ALREADY_ERASED: "Datele familiei au fost deja șterse.",
+
   // E07/S4. The two refusals that stop a profile delete from taking the school's records with it.
   // Both name the door that does the thing the admin probably meant.
   PROFILE_HAS_INVOICES:
@@ -176,9 +185,37 @@ const MESSAGES: Record<string, string> = {
   // E15/S5. A percentage past 100 would take the invoice below zero, where the floor in pricing.ts
   // silently clamps it — so the only visible symptom would be a month that cost nothing.
   DISCOUNT_PERCENT_OVER_100: "O reducere procentuală nu poate depăși 100%.",
+  // E15/S6. The invoice was computed from the month's discounts when it was issued, never again.
+  DISCOUNT_MONTH_INVOICED:
+    "Familia are deja factura pe luna aceea, iar suma ei nu se mai recalculează — reducerea n-ar ajunge pe ea. Corectează factura sau șterge-o și emite luna din nou; o factură fiscală se stornează în SmartBill.",
 
   // E16/S1. Money against a month the school chose not to charge for — the row picked is wrong.
   INVOICE_WAIVED: "Factura este anulată (0 lei) — nu se pot înregistra plăți pe ea.",
+
+  // E16/S2. SmartBill holds the fiscal document; the platform's row cannot drift from it.
+  INVOICE_HAS_FISCAL_DOCUMENT:
+    "Factura e emisă în SmartBill — suma, data sau ștergerea se corectează acolo, printr-o stornare.",
+  FISCAL_NOT_RETRYABLE: "Factura nu e refuzată și nici în verificare, deci nu are ce retrimite.",
+  FISCAL_NOT_UNDER_REVIEW: "Factura nu mai e în verificare — reîncarcă pagina.",
+  FISCAL_NOT_CONFIGURED: "Seria de facturi SmartBill nu e configurată pe server.",
+  FISCAL_INVOICE_NOT_ISSUED_YET:
+    "Factura fiscală nu a fost emisă încă în SmartBill. Revino în câteva minute.",
+  FISCAL_PDF_UNAVAILABLE:
+    "SmartBill nu a trimis încă PDF-ul facturii. Încearcă din nou peste puțin timp.",
+
+  // E16/S5. A payment SmartBill holds keeps its sum; the way out is a reversal, not a delete.
+  PAYMENT_RECORDED_IN_SMARTBILL:
+    "Încasarea e înregistrată în SmartBill: suma, data și metoda nu se mai schimbă, iar plata nu se șterge. Stornează plata aici și șterge încasarea din SmartBill.",
+  PAYMENT_FISCAL_NOT_RETRYABLE:
+    "Plata nu e refuzată și nici în verificare, deci nu are ce retrimite în SmartBill.",
+  PAYMENT_FISCAL_NOT_UNDER_REVIEW: "Plata nu mai e în verificare — reîncarcă pagina.",
+  // E16/S8. The statement reader names what it looked for; a line becomes a payment once.
+  STATEMENT_UNREADABLE:
+    "Nu am găsit în fișier capul de tabel al extrasului — o coloană de dată și una de sumă (sau credit). Exportă extrasul din bancă în CSV.",
+  STATEMENT_LINE_ALREADY_MATCHED:
+    "Linia din extras e deja înregistrată ca plată — reîncarcă pagina.",
+  RECEIPT_NUMBER_REQUIRED:
+    "O plată în numerar e o chitanță în SmartBill: scrie numărul chitanței, așa cum apare acolo.",
 
   // E12/S2. `PERIOD_OVERLAPS` and `PERIOD_ENDS_BEFORE_IT_STARTS` are deliberately absent: both
   // arrive already in Romanian, and the first names the period it collided with and its dates —

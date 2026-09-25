@@ -1,5 +1,5 @@
 import type { ISODate, ISODateTime } from './common';
-import type { Invoice } from './invoice';
+import type { Invoice, SmartBillMode } from './invoice';
 
 /**
  * How money reaches the school — E16/S1. Mirrors `PaymentMethod` in
@@ -18,6 +18,13 @@ export type PaymentMethod = 'cash' | 'bank_transfer';
 export type PaymentStatus = 'initiated' | 'succeeded' | 'failed' | 'reversed';
 
 /**
+ * Where a payment stands with SmartBill — E16/S5. Mirrors `PaymentFiscalStatus` in
+ * `apps/api/src/entities/payment.entity.ts`; `null` on the payment means it never goes there.
+ * `review` is a lost answer after which the invoice's paid amount moved: a person confirms.
+ */
+export type PaymentFiscalStatus = 'pending' | 'uncertain' | 'review' | 'recorded' | 'failed';
+
+/**
  * One sum of money, received once.
  *
  * Many per invoice: instalments are normal life. Whether the invoice is paid is derived on the
@@ -34,9 +41,16 @@ export interface Payment {
     date: ISODate;
     /** Payment-order or cash-receipt number — what a bank statement can be joined on. */
     externalReference: string | null;
-    /** The receipt's id in SmartBill, once E16 S2 pushes them there. Empty until then. */
-    smartbillReference: string | null;
     notes: string | null;
+    fiscalStatus: PaymentFiscalStatus | null;
+    /** The receipt SmartBill numbered for a cash payment. Empty for a transfer, which has no document. */
+    fiscalReceiptSeries: string | null;
+    fiscalReceiptNumber: string | null;
+    fiscalRecordedAt: ISODateTime | null;
+    /** SmartBill's sentence for a refusal, or what went wrong with the last attempt. */
+    fiscalLastError: string | null;
+    /** Under review for a cash payment: the receipt number it probably took. */
+    fiscalExpectedNumber: number | null;
     /** Only id and username come over the wire — never the credentials row. */
     recordedBy?: { id: number; username: string } | null;
     createdAt: ISODateTime;
@@ -68,4 +82,21 @@ export interface FilterPaymentDto {
     invoiceId?: number;
     dateFrom?: ISODate;
     dateTo?: ISODate;
+}
+
+/** The payments' side of the fiscal queue, for the admin screen — `GET /payments/fiscal-queue`. */
+export interface PaymentFiscalQueueStatus {
+    mode: SmartBillMode;
+    /** What keeps the queue from moving. Always empty outside `live`, where payments do not go. */
+    missing: string[];
+    receiptSeries: string | null;
+    lockedUntil: ISODateTime | null;
+    /** Pending payments whose invoice SmartBill has not numbered yet. */
+    waitingForInvoice: number;
+    counts: Record<PaymentFiscalStatus, number>;
+}
+
+export interface ConfirmPaymentRecordDto {
+    /** The receipt's number, as read in SmartBill. Required for cash. */
+    number?: string;
 }

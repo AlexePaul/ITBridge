@@ -7,7 +7,11 @@ import { LegalDocument } from 'src/enum/legal-document.enum';
  * first bold line; the public pages render that same file, so the reader sees the version this
  * constant names. The backend cannot read the file at runtime — `dist/` ships without `docs/` —
  * so the number is copied here, and `legal-documents.spec.ts` fails the moment the two disagree.
- * Bump the document, run the tests, bump this: that is the whole procedure.
+ * Bump the document, run the tests, bump this: that is the whole procedure — with one step before
+ * it once a version has been published. Terms §4.7 promises the family can re-read the version
+ * they accepted from the portal, and today that holds only because each document has one version,
+ * so the public page *is* the accepted text. The text being replaced has to stay readable first
+ * (`docs/legal/README.md`, item 10).
  */
 export const LEGAL_DOCUMENT_VERSIONS: Record<LegalDocument, string> = {
     [LegalDocument.TERMS]: '0.1',
