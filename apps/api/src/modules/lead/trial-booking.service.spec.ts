@@ -76,7 +76,11 @@ describe('TrialBookingService', () => {
         leadRepo = createMockRepository<Lead>();
         groupRepo = createMockRepository<Group>();
         sessionRepo = createMockRepository<ClassSession>();
-        manager = createMockEntityManager();
+        // The class is read a second time inside the transaction, behind the group's lock, so the
+        // manager hands back the same repository the service reads it from before.
+        manager = createMockEntityManager(new Map([[ClassSession, sessionRepo]]));
+        // The class row's share lock, taken before it is read again.
+        manager.query = jest.fn().mockResolvedValue([]);
         manager.save = jest.fn((_entity: unknown, data?: unknown) => Promise.resolve({ id: 7, ...(data ?? {}) }));
         enrollments = {
             enrol: jest.fn().mockResolvedValue({ id: 11 }),
@@ -136,6 +140,38 @@ describe('TrialBookingService', () => {
             expect(slots[0].sessions.map((entry) => entry.date)).toEqual(['2026-03-24']);
         });
 
+        /**
+         * The review of 25 September 2026: a trial holds its seat until it is decided, so a booking
+         * sits in every later class of the group too, and `enrol` refuses one a later class has no
+         * room for. The list must not offer what the booking will refuse.
+         */
+        it('leaves out a class that a later class of the group has no seat for', async () => {
+            groupRepo.find?.mockResolvedValue([group()]);
+            sessionRepo.find?.mockResolvedValue([session(), session({ id: 43, date: '2026-03-24' })]);
+            enrollments.freeSeatsAtSessions.mockResolvedValue(
+                new Map([
+                    [42, 3],
+                    [43, 0],
+                ]),
+            );
+
+            expect(await service.slots({ birthDate: '2017-05-05' }, now)).toEqual([]);
+        });
+
+        it('reads every class ahead, not only the ones about to be offered', async () => {
+            groupRepo.find?.mockResolvedValue([group()]);
+            sessionRepo.find?.mockResolvedValue([session(), session({ id: 43, date: '2026-06-02' })]);
+            enrollments.freeSeatsAtSessions.mockResolvedValue(
+                new Map([
+                    [42, 3],
+                    [43, 0],
+                ]),
+            );
+
+            // The class in June is past the three weeks on offer, and still decides March.
+            expect(await service.slots({ birthDate: '2017-05-05' }, now)).toEqual([]);
+        });
+
         it('leaves out a group with room but no classes in the horizon', async () => {
             groupRepo.find?.mockResolvedValue([group()]);
             sessionRepo.find?.mockResolvedValue([]);
@@ -152,6 +188,33 @@ describe('TrialBookingService', () => {
             expect(slots).toHaveLength(1);
             expect(slots[0]).toMatchObject({ groupId: 5, groupName: 'Scratch Începători', locationName: 'Titan', address: 'Strada Rotundă 12, București' });
             expect(slots[0].sessions.map((entry) => entry.date)).toEqual(['2026-03-17', '2026-03-24']);
+        });
+
+        /**
+         * The review of 25 September 2026: parents book in the evening, and the afternoon's class
+         * was still on the list after it had ended.
+         */
+        it('offers a class later today, and not one that has already started', async () => {
+            groupRepo.find?.mockResolvedValue([group()]);
+            sessionRepo.find?.mockResolvedValue([
+                session({ id: 41, date: '2026-03-10', startTime: '10:00:00' }),
+                session({ id: 42, date: '2026-03-10', startTime: '17:00:00' }),
+            ]);
+
+            // 09:00 UTC is 11:00 in Bucharest: the 10:00 class is under way, the 17:00 one is not.
+            const slots = await service.slots({ birthDate: '2017-05-05' }, now);
+
+            expect(slots[0].sessions.map((entry) => entry.id)).toEqual([42]);
+        });
+
+        it('counts a class by the room it is in, which a move can make smaller than the group', async () => {
+            groupRepo.find?.mockResolvedValue([group()]);
+            sessionRepo.find?.mockResolvedValue([session({ room: { id: 3, capacity: 2 } })]);
+
+            await service.slots({ birthDate: '2017-05-05' }, now);
+
+            expect(enrollments.freeSeatsAtSessions).toHaveBeenCalledWith([expect.objectContaining({ id: 42, room: { id: 3, capacity: 2 } })]);
+            expect(sessionRepo.find).toHaveBeenCalledWith(expect.objectContaining({ relations: { group: true, room: true } }));
         });
 
         it('counts seats through the enrolment service rather than counting rows itself', async () => {
@@ -211,10 +274,15 @@ describe('TrialBookingService', () => {
                 order.push('count');
                 return Promise.resolve(3);
             });
+            manager.query!.mockImplementation((sql: string) => {
+                order.push(sql.includes('FOR SHARE') ? 'class' : 'other');
+                return Promise.resolve([]);
+            });
 
             await service.book(booking, now);
 
-            expect(order).toEqual(['lock', 'count']);
+            // The group, then the class row, then the number: a cancellation takes no group lock.
+            expect(order).toEqual(['lock', 'class', 'count']);
             expect(enrollments.lockGroup).toHaveBeenCalledWith(manager, 5);
         });
 
@@ -260,6 +328,33 @@ describe('TrialBookingService', () => {
             sessionRepo.findOne?.mockResolvedValue(session({ status: ClassSessionStatus.CANCELLED }));
 
             await expect(service.book(booking, now)).rejects.toMatchObject({ response: { error: 'TRIAL_SESSION_UNAVAILABLE' } });
+        });
+
+        it('refuses a class that has already started today', async () => {
+            sessionRepo.findOne?.mockResolvedValue(session({ date: '2026-03-10', startTime: '10:00:00' }));
+
+            await expect(service.book(booking, now)).rejects.toMatchObject({ response: { error: 'TRIAL_SESSION_UNAVAILABLE' } });
+            expect(enrollments.enrol).not.toHaveBeenCalled();
+        });
+
+        /**
+         * The review of 25 September 2026: the first read is a photograph. Between it and the lock
+         * the office can cancel the class, move it into a smaller room, or change the group.
+         */
+        it('reads the class again behind the lock, and refuses one cancelled in between', async () => {
+            sessionRepo.findOne?.mockResolvedValueOnce(session()).mockResolvedValue(session({ status: ClassSessionStatus.CANCELLED }));
+
+            await expect(service.book(booking, now)).rejects.toMatchObject({ response: { error: 'TRIAL_SESSION_UNAVAILABLE' } });
+            expect(enrollments.enrol).not.toHaveBeenCalled();
+        });
+
+        it('counts the seats against the group and the room as they stand behind the lock', async () => {
+            enrollments.lockGroup.mockResolvedValue({ id: 5, capacity: 6 });
+            sessionRepo.findOne?.mockResolvedValueOnce(session()).mockResolvedValue(session({ room: { id: 3, capacity: 2 } }));
+
+            await service.book(booking, now);
+
+            expect(enrollments.freeSeatsAt).toHaveBeenCalledWith({ id: 42, group: { id: 5, capacity: 6 }, room: { id: 3, capacity: 2 } }, manager);
         });
 
         it('answers a second press of the same form with the first booking, not a second child', async () => {

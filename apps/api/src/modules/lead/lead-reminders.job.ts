@@ -36,6 +36,11 @@ export const REMINDERS_AT_SIX = '0 18 * * *';
 export const SCHOOL_TIME_ZONE = 'Europe/Bucharest';
 
 export const DIGEST_PREFIX = 'lead-follow-up:';
+/**
+ * The trial's two messages are keyed on the lead **and the class**. A lead's class changes when the
+ * office moves the trial to another group (`LeadProgressService.followTransfer`), and a key on the
+ * lead alone would have swallowed the reminder for the new class once the old one had its own.
+ */
 export const TRIAL_REMINDER_PREFIX = 'trial-reminder:';
 export const NO_SHOW_PREFIX = 'trial-no-show:';
 
@@ -115,7 +120,7 @@ export class LeadRemindersJob {
 
             await this.outbox.queueOrRecord(
                 { email: lead.parentEmail },
-                { ...composeTrialReminder(detailsOf(lead)), dedupeKey: `${TRIAL_REMINDER_PREFIX}${lead.id}` },
+                { ...composeTrialReminder(detailsOf(lead)), dedupeKey: `${TRIAL_REMINDER_PREFIX}${lead.id}:${session.id}` },
             );
             queued += 1;
         }
@@ -151,7 +156,7 @@ export class LeadRemindersJob {
 
             await this.outbox.queueOrRecord(
                 { email: lead.parentEmail },
-                { ...composeNoShowFollowUp(detailsOf(lead)), dedupeKey: `${NO_SHOW_PREFIX}${lead.id}` },
+                { ...composeNoShowFollowUp(detailsOf(lead)), dedupeKey: `${NO_SHOW_PREFIX}${lead.id}:${session.id}` },
             );
             queued += 1;
         }

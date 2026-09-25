@@ -248,6 +248,33 @@ describe('Recovering a class that cannot be held (e2e)', () => {
         await recover({ roomId: second.body.id as number }).expect(200);
     });
 
+    /** The review of 25 September 2026: a recovery could be sent into a room the class does not fit in. */
+    it('neither offers nor accepts a room too small for the children coming', async () => {
+        await createClassSession(dataSource, groupId, { date: MONDAY });
+        // A second child, so the class needs two chairs.
+        const second = await request(app.getHttpServer())
+            .post('/children')
+            .set('Authorization', parent.auth)
+            .send({ firstName: 'Radu', lastName: 'Pop', birthDate: '2016-01-01', parentId: await ownProfileId(app, parent) })
+            .expect(201);
+        await request(app.getHttpServer())
+            .post(`/children/${second.body.id as number}/groups/${groupId}`)
+            .set('Authorization', admin.auth)
+            .expect(201);
+        const small = await request(app.getHttpServer())
+            .post('/rooms')
+            .set('Authorization', admin.auth)
+            .send({ name: 'Sala mică', locationId, capacity: 1 })
+            .expect(201);
+
+        const res = await windows().expect(200);
+        expect((res.body.windows as { roomId: number }[]).some((window) => window.roomId === (small.body.id as number))).toBe(false);
+
+        const refused = await recover({ roomId: small.body.id as number }).expect(409);
+        expect(refused.body.code).toBe('ROOM_TOO_SMALL');
+        expect(await queued()).toEqual([]);
+    });
+
     it('refuses a class that was taught, and says so before listing windows', async () => {
         const sessionId = await createClassSession(dataSource, groupId, { date: MONDAY });
         const childId = (await dataSource.query<{ id: number }[]>('SELECT "id" FROM "children" LIMIT 1'))[0].id;

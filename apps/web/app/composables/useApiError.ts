@@ -137,6 +137,8 @@ const MESSAGES: Record<string, string> = {
   ENROLLMENT_ALREADY_CLOSED: "Înscrierea este deja închisă.",
   ENROLLMENT_STATUS_NOT_OPENABLE: "O înscriere nouă poate fi doar activă sau de probă.",
   ENROLLMENT_STATUS_NOT_CLOSING: "O înscriere se închide ca încheiată, abandonată sau transferată.",
+  ENROLLMENT_END_IN_FUTURE:
+    "O înscriere se închide în ziua în care pleacă copilul, nu dinainte: închiderea eliberează locul pe loc.",
   ALREADY_ON_WAITLIST: "Copilul este deja pe lista de așteptare a acestei grupe.",
   // The entry left the list between the screen loading and the press — the family answered, or the
   // offer expired. Reloading shows what happened to it.
@@ -181,6 +183,8 @@ const MESSAGES: Record<string, string> = {
   // E12/S5. The timetable screen can hit these when two admins act on the same class, or when the
   // list is stale; each is a different thing to do next.
   CLASS_SESSION_ALREADY_CANCELLED: "Ora e deja anulată.",
+  // `ROOM_TOO_SMALL` and `ROOM_SMALLER_THAN_GROUP` are absent on purpose, like `GROUP_FULL`: both
+  // arrive with the room and the numbers in their own sentence.
   // E12/S8 and E15/S9. The vacation tick and the session-count override are billing facts, and
   // both freeze with the invoice.
   MONTH_ALREADY_INVOICED: "Luna e deja facturată — ce a intrat pe factură nu se mai poate schimba.",

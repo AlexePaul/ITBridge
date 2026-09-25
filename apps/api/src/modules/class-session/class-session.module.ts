@@ -13,6 +13,7 @@ import { TimetableHorizonJob } from './timetable-horizon.job';
 import { ClassSessionNotifier } from './class-session-notifier';
 import { RescheduleService } from './reschedule.service';
 import { AttendanceModule } from 'src/modules/attendance/attendance.module';
+import { EnrollmentModule } from 'src/modules/enrollment/enrollment.module';
 
 @Module({
     // `MailModule` for the two reminders' `OutboxService` — the daily report and the fifteen-minute
@@ -22,7 +23,8 @@ import { AttendanceModule } from 'src/modules/attendance/attendance.module';
     // `AttendanceModule` for `MakeUpCreditService`: cancelling a class can give the hour back, and
     // the credit ledger has one writer. The dependency points this way and cannot point back —
     // attendance reaches sessions through their repository, not through this module.
-    imports: [EntitiesModule, JwtModule.register({}), MailModule, AttendanceModule],
+    // `EnrollmentModule` because a class moved into a smaller room has to fit the children coming to it.
+    imports: [EntitiesModule, JwtModule.register({}), MailModule, AttendanceModule, EnrollmentModule],
     controllers: [ClassSessionController],
     // `RescheduleService` is the one act E12/S9 adds — recovering a class that cannot be held —
     // kept out of `ClassSessionService` because it starts from a class that may not be a row.

@@ -47,6 +47,7 @@ export class RoomController {
     @Roles(Role.ADMIN)
     @ApiResponse({ status: 200, description: 'Room updated successfully' })
     @ApiResponse({ status: 404, description: 'Room not found' })
+    @ApiResponse({ status: 409, description: 'ROOM_NAME_TAKEN or ROOM_SMALLER_THAN_GROUP' })
     async updateRoom(@Param('id', ParseIntPipe) id: number, @Body() updateRoomDto: UpdateRoomDto) {
         return this.roomService.updateRoom(id, updateRoomDto);
     }

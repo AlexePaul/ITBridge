@@ -180,6 +180,8 @@ export interface MockEntityManager {
      * a bug there. The test that needs it says which one it means.
      */
     createQueryBuilder?: jest.Mock;
+    /** A raw `query`, installed by the suites whose transaction reads rows with SQL. */
+    query?: jest.Mock;
 }
 
 export function createMockEntityManager(repositories: Map<unknown, MockRepository> = new Map()): MockEntityManager {
