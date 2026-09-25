@@ -39,6 +39,8 @@ describe('ProfileService', () => {
         // deletes, and a bare mock returning `undefined` would read as "there are invoices".
         childRepo.exists!.mockResolvedValue(false);
         invoiceRepo.exists!.mockResolvedValue(false);
+        // Nobody else holds the address unless a test says so — the lookup `emailTakenByAnother` asks.
+        profileRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ exists: false }));
 
         audit = { recordPersonalDataChange: jest.fn(() => Promise.resolve()) };
         confirmations = { issueAndSend: jest.fn(() => Promise.resolve()) };
@@ -115,13 +117,24 @@ describe('ProfileService', () => {
         });
 
         it('rejects an email that is already taken', async () => {
-            profileRepo
-                .findOne!.mockResolvedValueOnce(null) // no profile on the account
-                .mockResolvedValueOnce({ id: 2 }); // email taken
+            profileRepo.findOne!.mockResolvedValue(null); // no profile on the account
+            profileRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ exists: true })); // email taken
 
             await expect(service.createProfile({ firstName: 'A', lastName: 'B', email: 'a@b.c', userId: 5 }, Role.ADMIN, undefined, ACTOR)).rejects.toThrow(
                 ConflictException,
             );
+        });
+
+        /** The same mailbox in other capitals — what `forgot-password` and registration read. */
+        it('compares the address the way every lookup reads it, ignoring capitals', async () => {
+            const qb = createMockQueryBuilder({ exists: false });
+            profileRepo.createQueryBuilder!.mockReturnValue(qb);
+            profileRepo.findOne!.mockResolvedValue(null);
+            profileRepo.create!.mockImplementation((d: unknown) => d);
+
+            await service.createProfile({ firstName: 'A', lastName: 'B', email: 'Ana@Example.com' }, Role.ADMIN, undefined, ACTOR);
+
+            expect(qb.andWhereCalls).toContainEqual(['lower(profile.email) = lower(:email)', { email: 'Ana@Example.com' }]);
         });
     });
 
@@ -236,6 +249,27 @@ describe('ProfileService', () => {
 
             expect(manager.update).not.toHaveBeenCalled();
             expect(confirmations.issueAndSend).not.toHaveBeenCalled();
+        });
+
+        /**
+         * Ignoring capitals makes the family's own row a match, so it is left out by id — changing
+         * `ana@example.com` to `Ana@Example.com` is not a conflict with oneself.
+         */
+        it('looks for the address on another family, ignoring capitals and leaving its own row out', async () => {
+            const qb = createMockQueryBuilder({ exists: false });
+            profileRepo.createQueryBuilder!.mockReturnValue(qb);
+
+            await service.updateProfile({ email: 'Ana@Example.com' }, 1, Role.PARENT, 42, ACTOR);
+
+            expect(qb.andWhereCalls).toContainEqual(['lower(profile.email) = lower(:email)', { email: 'Ana@Example.com' }]);
+            expect(qb.andWhereCalls).toContainEqual(['profile.id <> :ownProfileId', { ownProfileId: 1 }]);
+        });
+
+        it('refuses an address another family holds in different capitals', async () => {
+            profileRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ exists: true }));
+
+            await expect(service.updateProfile({ email: 'Bogdan@Example.com' }, 1, Role.PARENT, 42, ACTOR)).rejects.toThrow(ConflictException);
+            expect(manager.save).not.toHaveBeenCalled();
         });
 
         /** The family an admin typed in from a phone call. There is no account to de-confirm. */

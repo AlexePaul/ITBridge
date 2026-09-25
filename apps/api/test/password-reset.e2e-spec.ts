@@ -97,6 +97,57 @@ describe('Password reset (e2e)', () => {
             expect(await dataSource.getRepository(PasswordReset).count()).toBe(0);
         });
 
+        /**
+         * The lookup reads `lower(email)`, so the address has to be one family's whatever its
+         * capitals. A profile edit used to compare exactly: a second family could store
+         * `Ana@Example.com` beside `ana@example.com` — one mailbox — and this route then met two
+         * rows and took whichever came first, issuing the link for the other account.
+         */
+        it('never meets two accounts for one mailbox, because no second family can take it in other capitals', async () => {
+            await registerUser(app, 'ana');
+            const bogdan = await registerUser(app, 'bogdan');
+            const admin = await promoteToAdmin(app, dataSource, await registerUser(app, 'admin'));
+            const mine = await request(app.getHttpServer()).get('/profiles').set('Authorization', bogdan.auth).expect(200);
+            const bogdanProfileId = (mine.body as { id: number }[])[0].id;
+
+            const edit = await request(app.getHttpServer())
+                .put(`/profiles/${bogdanProfileId}`)
+                .set('Authorization', bogdan.auth)
+                .send({ email: 'Ana@Example.com' })
+                .expect(409);
+            expect(edit.body.message).toBe('Email is already in use');
+            await request(app.getHttpServer())
+                .post('/profiles')
+                .set('Authorization', admin.auth)
+                .send({ firstName: 'Ana', lastName: 'Dublura', email: 'ANA@EXAMPLE.COM' })
+                .expect(409);
+
+            const holders = await dataSource.query<{ count: string }[]>(`SELECT COUNT(*) AS count FROM profiles WHERE lower(email) = 'ana@example.com'`);
+            expect(Number(holders[0].count)).toBe(1);
+        });
+
+        it('lets a family change only the capitals of its own address', async () => {
+            const ana = await registerUser(app, 'ana');
+            const mine = await request(app.getHttpServer()).get('/profiles').set('Authorization', ana.auth).expect(200);
+
+            await request(app.getHttpServer())
+                .put(`/profiles/${(mine.body as { id: number }[])[0].id}`)
+                .set('Authorization', ana.auth)
+                .send({ email: 'Ana@Example.com' })
+                .expect(200);
+        });
+
+        /** The line the services draw, held by the database for two requests that pass it together. */
+        it('is held by the database too, not only by the check before the write', async () => {
+            await registerUser(app, 'ana');
+
+            await expect(
+                dataSource.query(
+                    `INSERT INTO profiles ("firstName", "lastName", email, "unsubscribeToken") VALUES ('Ana', 'Dublura', 'ANA@example.com', 'jeton-de-test')`,
+                ),
+            ).rejects.toThrow(/UQ_profiles_email_lower/);
+        });
+
         it('kills the previous link when a second one is asked for', async () => {
             await registerUser(app, 'ana');
 

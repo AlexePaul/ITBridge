@@ -57,7 +57,12 @@ export interface MockQueryBuilder<T extends ObjectLiteral = ObjectLiteral> exten
     leftJoinCalls: string[];
 }
 
-export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(result: { many?: T[]; one?: T | null; count?: number }): MockQueryBuilder<T> {
+export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(result: {
+    many?: T[];
+    one?: T | null;
+    count?: number;
+    exists?: boolean;
+}): MockQueryBuilder<T> {
     const andWhereCalls: [string, Record<string, unknown> | undefined][] = [];
     const leftJoinCalls: string[] = [];
 
@@ -69,6 +74,7 @@ export function createMockQueryBuilder<T extends ObjectLiteral = ObjectLiteral>(
         // `getCount` rather than `count`: a service asking "how many rows match" through the
         // builder needs the same double as one asking for the rows themselves.
         getCount: jest.fn().mockResolvedValue(result.count ?? 0),
+        getExists: jest.fn().mockResolvedValue(result.exists ?? false),
         // Grouped aggregates come back raw. Defaults to empty, so a service that reduces over it
         // gets the "nothing yet" shape rather than undefined.
         getRawMany: jest.fn().mockResolvedValue([]),

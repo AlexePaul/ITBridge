@@ -13,8 +13,9 @@ import { createTestApp, enrolInNewGroup, ownProfileId, promoteToAdmin, registerU
  * in is the username and nothing else. The last one is the reason this suite exists: it was
  * written when `User` had no `select: false` on `passwordHash` and one careless
  * `leftJoinAndSelect` would have published every admin's hash to every parent with a payment. The
- * column is guarded now; the check stays, because `{ id, username }` is still all a parent should
- * learn about the admin who took their money.
+ * column is guarded now; the check stays, because `{ id, username }` is still all the office should
+ * see of the admin who took the money — and a parent now sees none of it: a login name is half of
+ * an admin's credential, and no screen of theirs shows it.
  */
 describe('Payments (e2e)', () => {
     let app: INestApplication<App>;
@@ -116,10 +117,10 @@ describe('Payments (e2e)', () => {
     });
 
     describe('what the wire carries', () => {
-        it('the recording admin appears as id and username, and never the credentials row', async () => {
+        it('the recording admin appears to the office as id and username, and never the credentials row', async () => {
             await pay({ amount: 350 }).expect(201);
 
-            const list = await request(app.getHttpServer()).get('/payments').set('Authorization', parent.auth).expect(200);
+            const list = await request(app.getHttpServer()).get('/payments').set('Authorization', admin.auth).expect(200);
 
             expect(list.body).toHaveLength(1);
             const recordedBy = list.body[0].recordedBy as Record<string, unknown>;
@@ -127,6 +128,26 @@ describe('Payments (e2e)', () => {
             // The query shape is the first line; `select: false` on the column is the second.
             expect(recordedBy.passwordHash).toBeUndefined();
             expect(Object.keys(recordedBy).sort()).toEqual(['id', 'username']);
+        });
+
+        /**
+         * The username is how an admin signs in, and the login route is throttled per address, not
+         * per account — so handing it to every family with a payment is handing out half of the
+         * credential that opens every family's record. No parent screen shows who recorded a payment.
+         */
+        it('does not tell a parent the login name of the admin who recorded their payment', async () => {
+            const payment = await pay({ amount: 350 }).expect(201);
+
+            const list = await request(app.getHttpServer()).get('/payments').set('Authorization', parent.auth).expect(200);
+            const one = await request(app.getHttpServer())
+                .get(`/payments/${payment.body.id as number}`)
+                .set('Authorization', parent.auth)
+                .expect(200);
+
+            expect(list.body).toHaveLength(1);
+            expect(list.body[0].recordedBy).toBeUndefined();
+            expect(one.body.recordedBy).toBeUndefined();
+            expect(JSON.stringify([list.body, one.body])).not.toContain('admin.payments');
         });
 
         it('a parent sees their own payments and not the figures of another family', async () => {

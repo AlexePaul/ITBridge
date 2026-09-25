@@ -71,13 +71,32 @@ describe('SessionService', () => {
     });
 
     describe('revokeAllForUser', () => {
+        function fakeTransaction() {
+            const manager = { query: jest.fn().mockResolvedValue([]), update: jest.fn().mockResolvedValue({ affected: 3 }) };
+            dataSource.transaction.mockImplementation((cb: (m: typeof manager) => unknown) => cb(manager));
+            return manager;
+        }
+
         it('touches only that user, and only live sessions', async () => {
-            sessionRepo.update!.mockResolvedValue({ affected: 3 });
+            const manager = fakeTransaction();
 
             await service.revokeAllForUser(7);
 
-            const [criteria] = sessionRepo.update!.mock.calls[0] as [Record<string, unknown>];
+            const [entity, criteria] = manager.update.mock.calls[0] as [unknown, Record<string, unknown>];
+            expect(entity).toBe(Session);
             expect(criteria).toMatchObject({ user: { id: 7 }, revokedAt: IsNull() });
+        });
+
+        /** The half of the handshake with `rotate` that makes a refresh in flight wait its turn. */
+        it('holds the account row exclusively before it sweeps', async () => {
+            const manager = fakeTransaction();
+
+            await service.revokeAllForUser(7);
+
+            const [sql, params] = manager.query.mock.calls[0] as [string, unknown[]];
+            expect(sql).toMatch(/FROM users WHERE id = \$1 FOR UPDATE/);
+            expect(params).toEqual([7]);
+            expect(manager.query.mock.invocationCallOrder[0]).toBeLessThan(manager.update.mock.invocationCallOrder[0]);
         });
     });
 
@@ -168,10 +187,30 @@ describe('SessionService', () => {
 
             await service.rotate('vechi', 'nou', new Date(Date.now() + 60_000));
 
-            const [sql] = manager.query.mock.calls[0] as [string];
+            const statements = (manager.query.mock.calls as [string][]).map(([sql]) => sql);
             // Without FOR UPDATE two concurrent refreshes both read `revokedAt IS NULL` and the
             // family mechanism stops detecting anything.
-            expect(sql).toContain('FOR UPDATE');
+            expect(statements.some((sql) => sql.includes('FROM sessions') && sql.includes('FOR UPDATE'))).toBe(true);
+            expect(manager.update).toHaveBeenCalled();
+            expect(manager.query.mock.invocationCallOrder.at(-1)).toBeLessThan(manager.update.mock.invocationCallOrder[0]);
+        });
+
+        /**
+         * The other half of the handshake with `revokeAllForUser`: the account shared, then the
+         * session. The reverse order against a sweep that holds the account and wants the sessions
+         * is two transactions each holding what the other waits for.
+         */
+        it("holds the owner's account row shared before it locks the session", async () => {
+            const manager = fakeTransaction(liveRow);
+
+            await service.rotate('vechi', 'nou', new Date(Date.now() + 60_000));
+
+            const statements = (manager.query.mock.calls as [string, unknown[]][]).map(([sql, params]) => ({ sql, params }));
+            const account = statements.findIndex(({ sql }) => /FROM users WHERE id = \$1 FOR SHARE/.test(sql));
+            const session = statements.findIndex(({ sql }) => sql.includes('FROM sessions') && sql.includes('FOR UPDATE'));
+            expect(account).toBeGreaterThanOrEqual(0);
+            expect(statements[account].params).toEqual([9]);
+            expect(account).toBeLessThan(session);
         });
 
         it('consumes the presented token and issues a successor in the same family', async () => {

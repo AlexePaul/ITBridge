@@ -20,6 +20,7 @@ import { ArrearsService } from 'src/modules/invoice/arrears.service';
 import { SCHOOL_TIME_ZONE, schoolDay } from 'src/common/school-clock';
 import { ErasureService } from './erasure.service';
 import { isErased } from './erasure.rules';
+import { claimsLead } from './family-rows';
 import {
     EXPIRED_LINK_RETENTION_DAYS,
     FAMILY_RETENTION_MONTHS,
@@ -367,14 +368,22 @@ export class RetentionService {
         return !invoiced && (inForce.get(profileId) ?? 0) === 0 && (waiting.get(profileId) ?? 0) === 0;
     }
 
-    /** Whether a family on file is reachable at the lead's address — then the lead is theirs. */
+    /**
+     * Whether a family on file vouches for the lead's address — then the lead is theirs.
+     *
+     * The query only finds the candidates; `claimsLead` decides, so this pass and the erasure that
+     * would later take the lead cannot disagree about whose it is. A family that merely typed the
+     * number would otherwise keep somebody else's enquiry past its term, and then — since the
+     * erasure does not count it as theirs either — keep it for good.
+     */
     private async answersToAFamily(lead: Lead): Promise<boolean> {
         const clauses = [
             ...(lead.parentEmail ? [{ email: lead.parentEmail, erasedAt: IsNull() }] : []),
             ...(lead.parentPhone ? [{ phone: lead.parentPhone, erasedAt: IsNull() }] : []),
         ];
         if (clauses.length === 0) return false;
-        return this.profiles.exists({ where: clauses });
+        const candidates = await this.profiles.find({ where: clauses, relations: { user: true } });
+        return candidates.some((family) => claimsLead(family, lead));
     }
 
     /** Enrolments in force per family, for the families asked about. */

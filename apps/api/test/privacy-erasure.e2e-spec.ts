@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { createClassSession, createTestApp, enrolInNewGroup, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
 import { S3Service } from 'src/modules/storage/s3.service';
+import { officeAddress } from 'src/modules/mail/office-address';
 
 /**
  * Erasure on request, against a real database — E07 S4.
@@ -258,6 +259,49 @@ describe('Privacy erasure (e2e)', () => {
             expect(report.body.leadsRemoved).toBe(0);
             const rows = await dataSource.query('SELECT "parentEmail" FROM leads');
             expect(rows).toEqual([{ parentEmail: 'bogdan.stergere@example.com' }]);
+        });
+
+        /**
+         * A number a family typed into its own profile names nobody — nothing in the platform ever
+         * checks one. Matched by it, this erasure would delete another family's enquiry.
+         */
+        it('leaves an enquiry alone when all that matches it is a phone number the family typed', async () => {
+            await request(app.getHttpServer())
+                .post('/leads')
+                .set('Authorization', admin.auth)
+                .send({
+                    parentName: 'Elena Vasile',
+                    parentPhone: '0722000111',
+                    childFirstName: 'Ioana',
+                    childLastName: 'Vasile',
+                    childBirthDate: '2017-05-06',
+                    source: 'phone',
+                })
+                .expect(201);
+            await request(app.getHttpServer()).put(`/profiles/${anaProfileId}`).set('Authorization', ana.auth).send({ phone: '0722000111' }).expect(200);
+
+            const report = await erase(anaProfileId).expect(201);
+
+            expect(report.body.leadsRemoved).toBe(0);
+            expect(await countRows('SELECT COUNT(*) FROM leads')).toBe(1);
+        });
+
+        /**
+         * The office's address, typed into a profile, would otherwise take the office's copy of
+         * every registration notice and digest down with the family: the queue is searched by
+         * address, and that one is not theirs until they have opened a link sent to it.
+         */
+        it("leaves the office's mail alone when the family typed the office's address", async () => {
+            const office = officeAddress();
+            await request(app.getHttpServer()).put(`/profiles/${anaProfileId}`).set('Authorization', ana.auth).send({ email: office }).expect(200);
+            // Counted after the edit, which sent its own confirmation link to that address.
+            const toOffice = await countRows('SELECT COUNT(*) FROM outbox WHERE "to" = $1', [office]);
+            expect(toOffice).toBeGreaterThan(0);
+
+            const report = await erase(anaProfileId).expect(201);
+
+            expect(report.body.messagesRemoved).toBe(0);
+            expect(await countRows('SELECT COUNT(*) FROM outbox WHERE "to" = $1', [office])).toBe(toOffice);
         });
 
         it('clears the note an admin wrote on a payment, and keeps the figures', async () => {

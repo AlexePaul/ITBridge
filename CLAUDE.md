@@ -489,6 +489,28 @@ chemând `ErasureService.erase` cu `SYSTEM_ACTOR` și cu motivul pentru jurnal. 
   30 de zile după expirare pentru linkurile de confirmare și de resetare. Nota de confidențialitate
   §7 le promite; dacă schimbi unul, schimbi și nota.
 
+**Un rând fără drum către familie se revendică doar printr-o adresă pe care o garantează cineva**
+(E07 S4, revizuirea din 25 septembrie 2026). `outbox` și lead-urile tastate de birou n-au relație
+către `Profile`, deci exportul, ștergerea și retenția le caută după adresă — iar adresa de pe un
+profil e ce a tastat cineva în el. `PUT /profiles/:id` verifică doar că n-o mai ține alt _profil_:
+adresa biroului trece, numărul unei familii care a sunat și nu s-a înregistrat trece. Potrivit așa,
+`GET /privacy/export` îi dădea oricui își făcea cont copilul altei familii — nume, data nașterii,
+proba — și subiectul fiecărui mesaj al biroului, iar ștergerea le lua cu ea. Regula e
+`vouchedAddresses` din `apps/api/src/modules/privacy/family-rows.ts`, citită de toate trei:
+
+- **un cont: e-mailul, după confirmare** — linkul deschis e singura dovadă că familia citește adresa,
+  iar orice editare a adresei golește ștampila;
+- **o familie fără cont: amândouă, cum le-a tastat biroul** — nimeni altcineva nu poate edita rândul;
+  e linia pe care o trage `announcement.service.ts` pentru „confirmat";
+- **telefonul unui cont: niciodată** — nimic din platformă nu dovedește un număr. Prețul e un lead cu
+  telefon și fără e-mail, pe care niciun flux nu-l mai găsește pentru o familie cu cont; pleacă la
+  termenul lui.
+
+`user` trebuie încărcat: `null` e „fără cont", `undefined` e „n-a cerut nimeni relația" și nu
+revendică nimic — citit invers, un apelant care uită join-ul ar da fiecărei adrese tastate
+încrederea biroului. Dacă adaugi a patra căutare după adresă, trece prin aceeași funcție:
+unicitatea printre profiluri nu face o adresă a familiei care a tastat-o.
+
 **Auth** — două roluri, `ADMIN` și `PARENT` (`apps/api/src/enum/role.enum.ts`). `register` creează
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
 access (15 min) / refresh (7 zile), cu secrete distincte în `apps/api/src/constants/jwtConstants.ts`.
@@ -564,6 +586,15 @@ dintre ele sunt diferențe față de linkul de confirmare, nu asemănări:
   cele ale persoanei de care se teme. `AuthGuard` nu atinge `sessions`, deci un access token emis
   înainte mai merge până la cincisprezece minute — compromisul deja documentat, și locul de schimbat
   dacă vine vreodată o cerință de revocare instantanee.
+
+**O cutie poștală e a unei singure familii, oricum ar fi scrisă.** Înregistrarea și
+`forgot-password` caută adresa după `lower(email)`, dar cele două editări de profil comparau exact,
+deci o a doua familie putea ține `Ana@Example.com` lângă `ana@example.com`, iar `forgot-password`
+găsea două rânduri și îl lua pe primul venit: linkul putea pleca pentru contul celuilalt. Acum
+editările compară ca restul (`emailTakenByAnother` din `ProfileService`, cu rândul propriu scos, ca
+o familie să-și poată schimba doar majusculele), iar indexul unic `UQ_profiles_email_lower` ține
+linia și pentru două cereri deodată. E un index pe expresie, scris de migrare: TypeORM nu-l
+poate descrie, deci nu stă pe entitate — și nici nu-l atinge, deci `check:schema` nu-l vede ca drift.
 
 `POST /auth/change-password` **cere parola actuală**, și nu e ceremonie: un access token ține un
 sfert de oră și e onorat fără să se atingă `sessions`, deci un telefon împrumutat sau un tab uitat
@@ -1108,6 +1139,23 @@ date de care e nevoie o dată; iar un obiect care lipsește nu oprește mesajul 
 **Refresh tokenurile sunt urmăribile și revocabile.** Tabelul `sessions` ține un SHA-256 al
 fiecăruia, niciodată tokenul. Refresh-ul rotește, iar refolosirea unuia consumat revocă tot lanțul —
 semnalul de furt. `POST /auth/logout` nu cere access token, fiindcă acela e adesea deja expirat.
+
+**„Închide toate sesiunile" așteaptă o rotație în curs, prin rândul contului.** `revokeAllForUser`
+era un singur `UPDATE`: sub READ COMMITTED aștepta rândul pe care îl blocase rotația, îl sărea
+fiindcă venea înapoi revocat și nu vedea succesorul, scris după instantaneul lui. Deci un refresh
+prins la jumătatea unei resetări de parolă păstra un token nou șapte zile — exact în clipa în care
+cineva încearcă să închidă ușa unui hoț. Acum rotația ține rândul din `users` **partajat**
+(`FOR SHARE`) înaintea sesiunii, iar măturarea îl ia **exclusiv** (`FOR UPDATE`) înainte să revoce.
+Ordinea e cont, apoi sesiune, peste tot — și `DELETE`-ul ștergerii cascadează la fel —, altfel două
+tranzacții țin fiecare câte una și o așteaptă pe cealaltă. Iar `revokeAllForUser` nu se cheamă
+dintr-o tranzacție care ține deja rândul contului: s-ar aștepta pe ea însăși, fără ca Postgres să
+vadă vreun ciclu. Testul forțează interleavarea — o a doua conexiune ține rândul contului, care
+oprește rotația exact între revocarea rândului vechi și scrierea celui nou.
+
+**Numele de utilizator al unui admin nu pleacă spre un părinte.** E jumătate din credențial, iar
+login-ul e limitat pe adresă, nu pe cont. `GET /payments` îl punea pe fiecare plată a fiecărei
+familii (`recordedBy`), deși niciun ecran de părinte nu-l arată; acum îl primește doar biroul —
+`withRecorder` din `payment.service.ts`.
 
 **Revocarea acționează doar pe refresh, nu și pe access.** `AuthGuard` verifică semnătura JWT și
 atât — nu atinge tabelul `sessions`. Deci după `logout` sau `logout-all`, un access token deja emis
