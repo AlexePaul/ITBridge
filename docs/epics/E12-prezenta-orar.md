@@ -952,6 +952,14 @@ poate schimba odată cu săptămâna.
   `FOR SHARE`, deci o anulare încă în zbor fie s-a comis și se vede (`CLASS_SESSION_CANCELLED`), fie
   așteaptă mutarea și îi eliberează plasarea, ca oricărei alteia.
 
+**Ce vede familia după o mutare (S4)**, găsit la testarea cap-coadă din aceeași zi: portalul pierdea
+mutarea a doua zi după ora pierdută, deși ora în care fusese mutat copilul era încă în față. Lista
+anunțurilor era cheiată doar pe ora pierdută, deci o mutare de luni pe sâmbătă dispărea marți, iar
+pagina de absențe și tabloul de bord spuneau „nicio mutare" — exact lucrul pe care îl promite
+mailul („detaliile sunt și în contul tău"). Acum un anunț rămâne pe listă cât timp ora lui sau ora
+mutării sunt încă în față, iar „următoarea oră" de pe tabloul de bord sare peste ora pierdută și
+arată ora mutării, cu grupa în care e.
+
 ## Dependențe
 
 [E11](E11-inscrieri-capacitate.md) pentru cine e înscris când.
