@@ -389,11 +389,13 @@ Ce **rămâne pe dinafară** e exact ce serviciul trebuie să spună cu voce tar
   are un rând cu numele ei, adresa, telefonul și numele copilului la care nu arată nimic. Regula e
   în `apps/api/src/modules/privacy/family-rows.ts` și o citesc **amândouă** fluxurile — altfel
   exportul și ștergerea ar ajunge să răspundă diferit la aceeași întrebare, „care rânduri sunt ale
-  familiei ăsteia". E sigur fiindcă `Profile.email` și `Profile.phone` sunt unice, deci o adresă
-  identifică o singură familie sau niciuna; și poate găsi doar **mai multe** rânduri, niciodată mai
-  puține.
+  familiei ăsteia". **Numai o adresă garantată de cineva** (`vouchedAddresses`, revizuirea de mai
+  jos): paragraful de aici spunea că potrivirea e sigură fiindcă `Profile.email` și `Profile.phone`
+  sunt unice, și era greșit — unicitatea printre profiluri nu face o adresă a familiei care a
+  tastat-o.
 - **Outbox-ul n-are relație către profil** — coada e partajată și scrie și către birou —, deci
-  rândurile se caută după adresă, exact cum spune inventarul din S1 că va trebui.
+  rândurile se caută după adresă, exact cum spune inventarul din S1 că va trebui. Tot numai după una
+  garantată.
 - **`Payment.notes` e text liber scris de un admin despre o familie**, pe un rând care se păstrează.
   Cifrele rămân, fiindcă sunt evidența contabilă; propoziția nu.
 - **O linie din extrasul bancar devenită plata familiei** (E16 S8) își pierde plătitorul și
@@ -426,6 +428,39 @@ mână, din ecranul care le listează, iar nota de pe `/admin/stergeri` spune as
 aceeași tranzacție, iar „cine a șters familia 412 și când" rămâne de răspuns **tocmai fiindcă** tot
 restul a dispărut. E sigur fiindcă jurnalul ține identificatori, nu nume (E07 S3) — verificat în
 test: după ștergere, nici prenumele copilului, nici adresa familiei nu apar în el.
+
+#### Revizuirea din 25 septembrie 2026: adresa tastată nu e a familiei
+
+O revizuire a autentificării și a conturilor a găsit că **exportul dădea oricui își făcea cont datele
+altei familii.** Cele două tabele fără relație către profil — lead-urile tastate de birou și coada de
+mesaje — se căutau după adresa de pe profil, așa cum era tastată. Iar `PUT /profiles/:id` verifică
+doar că adresa n-o mai ține alt _profil_: numărul unei familii care a sunat și nu s-a înregistrat
+trece, adresa biroului trece. Reprodus pe o bază reală, fiecare cu testul lui:
+
+- un părinte abia înregistrat își trece în profil numărul altei familii și primește în export lead-ul
+  ei — numele copilului, data nașterii, proba;
+- își trece adresa biroului și primește subiectul fiecărui mesaj trimis acolo, începând cu „Cont nou
+  de părinte: …" pentru fiecare înregistrare;
+- ștergerea aceleiași familii lua lead-ul celeilalte și toată copia mesajelor biroului.
+
+Regula e acum `vouchedAddresses` din `apps/api/src/modules/privacy/family-rows.ts`, citită de export,
+de ștergere și de trecerea de retenție, ca toate trei să spună același lucru despre ale cui sunt
+rândurile. O adresă revendică un rând numai dacă o garantează cineva în care școala are încredere:
+
+- **un cont: e-mailul, după confirmare.** Linkul deschis e singura dovadă a platformei că familia
+  citește adresa, iar orice editare a adresei golește ștampila (E11 S2). E aceeași întrebare pe care
+  o pune coada înainte să scrie la o adresă.
+- **o familie fără cont: amândouă, cum le-a tastat biroul.** Rândul nu-l poate edita decât un admin,
+  deci biroul a scris adresa de ambele părți — la familie și la lead-ul din același telefon. E linia
+  pe care o trage deja `announcement.service.ts` pentru „confirmat".
+- **telefonul unui cont: niciodată.** Nimic din platformă nu dovedește un număr.
+
+**Prețul, scris aici în loc să fie descoperit:** un lead cu telefon și fără e-mail nu-l mai găsește
+niciun flux pentru o familie cu cont, iar un e-mail neconfirmat nu revendică nimic până la confirmare.
+Lead-ul pleacă atunci la termenul lui, după anul de liniște din E22 S3. Iar mesajele trimise la o
+adresă neconfirmată — linkul de confirmare, confirmarea acceptării termenilor — nu intră în exportul
+familiei până nu confirmă. Ambele sunt mai puțin decât „tot ce ține școala", dar un rând lipsă din
+export se cere la birou, pe când un rând în plus e copilul altcuiva.
 
 ### S5 · Bannerul de cookie-uri și blocarea scripturilor — livrat
 
