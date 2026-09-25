@@ -839,28 +839,36 @@ Rulează-le de la rădăcină, cu `pnpm test:e2e`, nu cu `pnpm --filter api test
 pornește cu directorul de lucru în `apps/api`, unde nu există `.env`, deci nu vede portul MinIO din
 configurația ta.
 
-**Imaginea MinIO vine de pe `quay.io`, registrul propriu al MinIO, nu de pe Docker Hub.** Mutarea
-n-a fost o reparație, și merită spus fiindcă mesajul de commit care a adus-o spune altceva:
-`minio/minio` de pe Hub răspundea în continuare unui `docker pull` anonim în ziua schimbării —
-aceeași imagine, același digest (`sha256:14cea493…`), verificat pe două rulări din aceeași noapte,
-una de pe fiecare registru, amândouă cu suita de integrare întreagă: 50 de suite, 614 teste. Nu
-presupune că Hub e închis; dacă vreodată chiar se închide, ăsta e paragraful de corectat, nu de
-citat.
+**Imaginea MinIO e a Chainguard, `chainguard/minio`, fiindcă MinIO nu mai publică imagini.** Pe 25
+septembrie 2026 `minio/minio` și `minio/mc` nu mai existau pe Docker Hub, iar `quay.io` răspundea
+unui `docker pull` anonim cu `unauthorized`, de trei ori din trei — deci jobul „Integration tests"
+pica la „Start MinIO" fără niciun test rulat. Paragraful de dinainte spunea că Hub nu era închis și
+că, dacă se închide, ăsta e locul de corectat; s-au închis amândouă registrele. `chainguard/minio` e
+MinIO construit din sursă și publicat pe Docker Hub de Chainguard. Are în el și `mc`, și un shell,
+deci îl folosește și `minio-init` — `chainguard/minio-client` n-are shell pentru comanda lui. Două
+diferențe față de imaginea veche, amândouă măsurate, nu presupuse:
 
-Ce s-a reparat e **felul în care pica pasul**. „Start MinIO" n-avea nici reîncercare, nici mesaj,
-iar un `docker pull` picat lăsa cei doi pași de după el — `check:schema` și **toată** suita de
-integrare — _skipped_: checkul ieșea roșu cu numele „Integration tests" și cu zero teste rulate,
-adică arăta exact ca un test picat. Acum sunt trei încercări și un `::error::` care spune în cuvinte
-că n-a rulat nimic.
+- **Vine cu un `/data/.minio.sys` gata făcut în stratul imaginii**, iar pe sistemul de fișiere
+  overlay al containerului MinIO nu-l poate redenumi („Rename across devices not allowed"). De aceea
+  în CI `/data` e un `--tmpfs`: un director proaspăt, în memorie, în care poate scrie utilizatorul
+  non-root al imaginii. În `docker-compose.yml` datele stau pe volum, deci problema nu apare acolo.
+- **Rulează ca non-root, iar imaginea veche rula ca root.** Un volum `minio_data` scris de cea veche
+  e al lui root, iar serverul non-root se oprește pe el cu „file access denied" — de aceea în
+  `docker-compose.yml` rulează cu `user: "0:0"`, ca volumele existente să meargă mai departe.
+
+Ce s-a reparat la mutarea de dinainte, și rămâne, e **felul în care pică pasul**. „Start MinIO"
+n-avea nici reîncercare, nici mesaj, iar un `docker pull` picat lăsa cei doi pași de după el —
+`check:schema` și **toată** suita de integrare — _skipped_: checkul ieșea roșu cu numele
+„Integration tests" și cu zero teste rulate, adică arăta exact ca un test picat. Acum sunt trei
+încercări și un `::error::` care spune în cuvinte că n-a rulat nimic.
 
 Regula care rămâne, și e cea care costă o după-amiază dacă o uiți: **dacă vezi roșu la „Integration
 tests", uită-te întâi dacă a rulat vreun test.** Un pas de infrastructură care cade nu seamănă cu un
 test picat, dar checkul are aceeași culoare.
 
-`docker-compose.yml` a fost mutat pe `quay.io` odată cu CI, și pentru `minio/minio`, și pentru
-`minio/mc`. Pe al doilea **nu-l atinge nicio rulare de CI** — îl folosește doar
-`docker compose up -d`, prin `minio-init` —, deci e singura bucată din mutare pe care n-a
-verificat-o nimic automat.
+Din `docker-compose.yml`, **nicio rulare de CI nu atinge** nici serverul, nici `minio-init` — le
+folosește doar `docker compose up -d` —, deci partea aia a mutării a fost verificată de mână:
+serverul ajunge `healthy` prin `mc ready local`, iar `minio-init` iese cu 0 și creează bucket-ul.
 
 **`scripts/` e exclus din `tsconfig.build.json`, intenționat.** Inclus, ar urca `rootDir` la
 rădăcina pachetului, iar `nest build` ar scrie `dist/src/main.js` în loc de `dist/main.js` — deci
