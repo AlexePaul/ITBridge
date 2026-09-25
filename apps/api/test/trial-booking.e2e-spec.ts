@@ -268,6 +268,44 @@ describe('Trial booking, public (e2e)', () => {
             expect(after.body[0].sessions.map((entry: { id: number }) => entry.id)).toEqual([secondSession]);
         });
 
+        /**
+         * A seat offered to the waiting list is promised for as long as the family has to answer.
+         * The form counted it free and sold it as a trial, and the family who then said yes met a
+         * full group.
+         */
+        it('does not sell a seat that is offered to the waiting list', async () => {
+            const { groupId } = await schoolWithAClass({ capacity: 1 });
+            const parent = await registerUser(app, 'parinte.lista');
+            const profileId = await ownProfileId(app, parent);
+            const child = async (firstName: string) =>
+                (
+                    await request(app.getHttpServer())
+                        .post('/children')
+                        .set('Authorization', admin.auth)
+                        .send({ firstName, lastName: 'Ionescu', birthDate: '2016-01-01', parentId: profileId })
+                        .expect(201)
+                ).body.id as number;
+            const sitting = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await child('Ana'), groupId })
+                .expect(201);
+            await request(app.getHttpServer())
+                .post('/enrollments/waitlist')
+                .set('Authorization', admin.auth)
+                .send({ childId: await child('Radu'), groupId })
+                .expect(201);
+            await request(app.getHttpServer())
+                .put(`/enrollments/${sitting.body.id as number}/close`)
+                .set('Authorization', admin.auth)
+                .send({ status: 'WITHDRAWN' })
+                .expect(200);
+
+            const slots = await request(app.getHttpServer()).get('/trial/slots').query({ birthDate: '2016-04-04' }).expect(200);
+
+            expect(slots.body).toEqual([]);
+        });
+
         it('keeps the family that found no hour at all, marked as such', async () => {
             const res = await request(app.getHttpServer()).post('/trial/bookings').send(bookingBody()).expect(201);
 

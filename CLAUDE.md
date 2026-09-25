@@ -225,14 +225,26 @@ indexul e acolo pentru doi admini care apasă în aceeași secundă.
 sală (D7). Numără-le prin `EnrollmentService.occupancyOf`, nu din lungimea listei de copii afișate:
 lista nu conține probele, deci un număr calculat din ea spune că o grupă plină mai are loc.
 
+**Iar un loc oferit listei de așteptare nu e liber** (revizuirea din 25 septembrie 2026). Cele 48 de
+ore în care familia are de răspuns, niciun număr nu-l vedea: formularul public îl vindea ca probă,
+un admin înscria alt copil în el, iar familia care spunea da găsea `GROUP_FULL` — exact rezultatul
+pentru care există lista. `occupancyOf` întoarce acum și `held` (ofertele fără răspuns), iar `free`
+e ce rămâne după `taken` și `held`; `freeSeatsAtSessions` și verificarea de capacitate numără la fel.
+**Singura excepție e copilul care ține oferta**: oferta lui e scaunul în care se așază, nu un scaun
+din calea lui. `taken` rămâne înscrierile, ca un ecran să poată deosebi o probă de o promisiune.
+
 **Factura numără înscrierile `ACTIVE`, nu copiii din familie.** Din E11/S4: proba e gratuită, iar un
 copil care nu e în nicio grupă nu vine, deci nu plătește. Al doilea caz era greșit dinainte să existe
 probele. Dacă schimbi asta, e o decizie de preț și e a E15 — nu o numărare de rânduri în `children`.
 
 **Un copil își schimbă grupa doar prin transfer**, `POST /enrollments/transfer`: închide vechea
-înscriere și o deschide pe cea nouă într-o singură tranzacție. Locul eliberat de un transfer **nu**
-se oferă listei de așteptare — nu e liber, se dă acestui copil. Coada e întrebată doar când un loc
-chiar pleacă din grupă.
+înscriere și o deschide pe cea nouă într-o singură tranzacție. **Locul lăsat în urmă se oferă listei
+grupei vechi**, ca orice loc eliberat. Paragraful de aici spunea invers — că locul „nu e liber, se dă
+acestui copil" —, ceea ce nu e adevărat despre niciun scaun: copilul stă acum în _cealaltă_ grupă,
+iar ecranul grupei vechi arăta `free: 1` lângă o listă pe care n-o anunțase nimeni. De aceea
+transferul e singura tranzacție care ține **două** grupe, și le ia în ordinea id-ului, cea mai mică
+prima — altfel două transferuri în sensuri opuse țin fiecare câte una și o așteaptă pe cealaltă. Și
+decontează, ca `enrol`, cererea pe care copilul o avea pentru grupa nouă.
 
 **Contractul de înscriere e pe hârtie; platforma ține faptul și ziua, nimic altceva** (E07 S8).
 `Enrollment.contractSignedAt` se completează la înscriere, la confirmarea probei sau după, prin
@@ -366,11 +378,25 @@ anunțul care a provocat-o: `AbsenceNotice.replacementSession`, scrisă de `Repl
   așază, ci cel care așteaptă. `offerFreedSeat` număra fără lacăt, deci un `enrol` care lua ultimul
   scaun se comitea nevăzut, iar familia din capul listei era anunțată că are locul 48 de ore pentru
   un scaun deja ocupat — exact rezultatul pentru care există lista. Lacătul stă acum **în**
-  `offerFreedSeat`, lângă numărul pe care îl apără, nu în cei patru apelanți, ca a cincea cale care
-  eliberează un loc să-l moștenească în loc să și-l amintească. Iar cele două căi care scriu un
-  `WaitlistEntry` înainte să ajungă acolo — `expireLapsedOffers` și `removeFromWaitlist` — îl iau
-  înaintea rândului ăluia: `enrol` ia grupa și _apoi_ decontează lista, deci ordinea inversă e
-  singurul ciclu de deadlock din zonă.
+  `offerFreeSeats`, lângă numărul pe care îl apără, nu în apelanți, ca o cale nouă care eliberează
+  un loc să-l moștenească în loc să și-l amintească. Iar căile care scriu un rând — o înscriere
+  închisă, o probă decisă, un `WaitlistEntry` — îl iau **înaintea** rândului: `enrol` ia grupa și
+  _apoi_ decontează lista, deci ordinea inversă e singurul ciclu de deadlock din zonă.
+- **A cincea oară, scrierea însăși** (revizuirea din 25 septembrie 2026). Lacătul serializa, dar
+  fiecare cale scria rândul pe care îl citise _înainte_ de lacăt, fără să întrebe dacă mai e în
+  starea aia: două apăsări pe „închide" eliberau locul de două ori, iar măturarea ofertelor expirate
+  suprascria ca „expirat" un „nu" dat între timp și îi trimitea familiei mailul greșit. Acum `close`,
+  `resolveTrial`, `transfer`, `expireLapsedOffers` și `removeFromWaitlist` scriu **condiționat** —
+  numai dacă rândul e încă în vigoare, încă probă, încă ofertă — și nu fac nimic mai departe când
+  n-au mișcat nimic.
+- **Fiecare loc liber se oferă, nu unul pe apel.** `offerFreeSeats` oferea exact un loc, pe teoria
+  că două locuri eliberate înseamnă două apeluri — dar jumătate din ușile care eliberează un loc nu
+  chemau deloc: transferul, un copil șters, o familie ștearsă, o capacitate mărită. Acum dă câte un
+  loc fiecărei familii din capul listei, cât sunt locuri libere, iar numărul e sigur de folosit
+  întreg fiindcă e luat sub lacăt și scade deja ofertele date (`held`). Ștergerile trec prin
+  `lockSeatsHeldBy` înainte de `DELETE` și prin `offerFreeSeatsIn` după el, fiindcă o cascadă nu
+  întreabă pe nimeni. **O grupă inactivă nu primește oferte** (`GROUP_INACTIVE` ar refuza-o la
+  ușă), iar o familie fără adresă lasă un rând `undeliverable`, nu o linie de log (E17/S5).
 
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin

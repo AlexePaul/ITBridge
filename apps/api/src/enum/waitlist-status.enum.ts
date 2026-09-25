@@ -13,3 +13,14 @@ export enum WaitlistStatus {
     /** Taken off the list by the school or by the family, before any offer. */
     CANCELLED = 'CANCELLED',
 }
+
+/**
+ * The ways an entry leaves the list by somebody's hand — `DELETE /enrollments/waitlist/:id`.
+ *
+ * A list rather than the whole enum: the route took any status, so `OFFERED` sent to it made an
+ * offer with no `respondBy`, which the sweep (`respondBy < now`) could never expire — a seat held
+ * for good. `WAITING` and `ACCEPTED` are not answers a family gives either; the first is the list
+ * itself, the second is being enrolled.
+ */
+export const WAITLIST_CLOSING_STATUSES = [WaitlistStatus.DECLINED, WaitlistStatus.EXPIRED, WaitlistStatus.CANCELLED] as const;
+export type WaitlistClosingStatus = (typeof WAITLIST_CLOSING_STATUSES)[number];

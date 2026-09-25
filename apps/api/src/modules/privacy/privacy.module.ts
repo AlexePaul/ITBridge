@@ -15,6 +15,7 @@ import { RetentionJob } from './retention.job';
 import { ConsentController } from './consent.controller';
 import { PublicationConsentService } from './publication-consent.service';
 import { MailModule } from 'src/modules/mail/mail.module';
+import { EnrollmentModule } from 'src/modules/enrollment/enrollment.module';
 
 /**
  * E07 S4. `EntitiesModule` rather than a `forFeature` list, because the export reads sixteen tables
@@ -33,9 +34,12 @@ import { MailModule } from 'src/modules/mail/mail.module';
  *
  * `MailModule` for E07/S2: a consent given or withdrawn is confirmed to the family, and a withdrawal
  * is a notice to the office, both through the outbox in the transaction that records it.
+ *
+ * `EnrollmentModule` because an erased child's seat is a freed seat, and the waiting list for it is
+ * told through the one door every release goes through.
  */
 @Module({
-    imports: [EntitiesModule, TypeOrmModule.forFeature([]), JwtModule.register({}), AuditModule, StorageModule, InvoiceModule, MailModule],
+    imports: [EntitiesModule, TypeOrmModule.forFeature([]), JwtModule.register({}), AuditModule, StorageModule, InvoiceModule, MailModule, EnrollmentModule],
     controllers: [PrivacyController, ConsentController],
     providers: [ExportService, ErasureService, RetentionService, RetentionJob, PublicationConsentService, AuthGuard, RolesGuard],
     exports: [ExportService, ErasureService],

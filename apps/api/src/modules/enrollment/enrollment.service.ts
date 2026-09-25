@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, IsNull, LessThan, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, LessThan, Not, Repository } from 'typeorm';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Child } from 'src/entities/child.entity';
@@ -8,7 +8,7 @@ import { Group } from 'src/entities/group.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { EnrollmentStatus, IN_FORCE_STATUSES, isInForce } from 'src/enum/enrollment-status.enum';
 import { AuditAction } from 'src/enum/audit-action.enum';
-import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
+import { WaitlistStatus, type WaitlistClosingStatus } from 'src/enum/waitlist-status.enum';
 import { isAccountActive } from 'src/entities/user.entity';
 import { Profile, isProfileComplete } from 'src/entities/profile.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
@@ -69,6 +69,8 @@ export interface GroupOccupancy {
     capacity: number;
     /** Enrolments in force — active plus trials booked. Never just the first. */
     taken: number;
+    /** Seats offered to the waiting list and not yet answered: promised, so not free. */
+    held: number;
     free: number;
     waiting: number;
 }
@@ -134,6 +136,12 @@ export class EnrollmentService {
      * which is active plus trials booked and not yet resolved — never just the active ones. A group
      * of ten with nine enrolled and one trial is full, and offering an eleventh seat because the
      * trial "is not a real enrolment" is how a child ends up standing.
+     *
+     * **And a seat offered to the waiting list is not free either** (`held`). For the 48 hours the
+     * family has to answer, every count here left it out: the public form sold it as a trial, an
+     * admin enrolled another child into it, and the family that said yes met `GROUP_FULL` — the one
+     * outcome the list exists to prevent. `taken` stays the enrolments, so a screen can still tell a
+     * trial from a promise; `free` is what is left after both.
      */
     async occupancyOf(groupId: number, manager?: EntityManager): Promise<GroupOccupancy> {
         const repository = manager ? manager.getRepository(Group) : this.groupRepository;
@@ -143,11 +151,12 @@ export class EnrollmentService {
         }
 
         const taken = await this.countInForce(groupId, manager);
+        const held = await this.countHeld(groupId, manager);
         const waiting = await (manager ? manager.getRepository(WaitlistEntry) : this.waitlistRepository).count({
             where: { group: { id: groupId }, status: In([WaitlistStatus.WAITING, WaitlistStatus.OFFERED]) },
         });
 
-        return { groupId, capacity: group.capacity, taken, free: Math.max(0, group.capacity - taken), waiting };
+        return { groupId, capacity: group.capacity, taken, held, free: Math.max(0, group.capacity - taken - held), waiting };
     }
 
     /**
@@ -194,11 +203,23 @@ export class EnrollmentService {
             .groupBy('notice.replacement_session_id')
             .getRawMany<{ sessionId: number; count: number }>();
 
+        // A seat offered to the waiting list is promised for the whole week the family may start in
+        // — see `occupancyOf`. Selling it as a trial or a week's visit is selling it twice.
+        const heldRows = await (manager ? manager.getRepository(WaitlistEntry) : this.waitlistRepository)
+            .createQueryBuilder('entry')
+            .select('entry.group_id', 'groupId')
+            .addSelect('COUNT(*)::int', 'count')
+            .where('entry.group_id IN (:...groupIds)', { groupIds })
+            .andWhere('entry.status = :offered', { offered: WaitlistStatus.OFFERED })
+            .groupBy('entry.group_id')
+            .getRawMany<{ groupId: number; count: number }>();
+
         const enrolled = new Map(enrolledRows.map((row) => [Number(row.groupId), row.count]));
         const visiting = new Map(visitingRows.map((row) => [Number(row.sessionId), row.count]));
+        const held = new Map(heldRows.map((row) => [Number(row.groupId), row.count]));
 
         for (const session of sessions) {
-            const taken = (enrolled.get(session.group.id) ?? 0) + (visiting.get(session.id) ?? 0);
+            const taken = (enrolled.get(session.group.id) ?? 0) + (held.get(session.group.id) ?? 0) + (visiting.get(session.id) ?? 0);
             free.set(session.id, Math.max(0, session.group.capacity - taken));
         }
         return free;
@@ -212,6 +233,23 @@ export class EnrollmentService {
     private async countInForce(groupId: number, manager?: EntityManager): Promise<number> {
         const repository = manager ? manager.getRepository(Enrollment) : this.enrollmentRepository;
         return repository.count({ where: { group: { id: groupId }, status: In([...IN_FORCE_STATUSES]) } });
+    }
+
+    /**
+     * Seats offered to the waiting list and not yet answered — promised, so not free.
+     *
+     * `exceptChildId` is the child who holds one of them and is now taking it: their own offer is the
+     * seat they sit down in, not a seat in their way.
+     */
+    private async countHeld(groupId: number, manager?: EntityManager, exceptChildId?: number): Promise<number> {
+        const repository = manager ? manager.getRepository(WaitlistEntry) : this.waitlistRepository;
+        return repository.count({
+            where: {
+                group: { id: groupId },
+                status: WaitlistStatus.OFFERED,
+                ...(exceptChildId !== undefined ? { child: { id: Not(exceptChildId) } } : {}),
+            },
+        });
     }
 
     // ---- writing ---------------------------------------------------------------------------
@@ -302,7 +340,7 @@ export class EnrollmentService {
                 error: 'GROUP_INACTIVE',
             });
         }
-        await this.assertRoomForOneMore(group, manager, input.allowOverCapacity === true, actor);
+        await this.assertRoomForOneMore(group, manager, input.allowOverCapacity === true, actor, input.childId);
         this.assertCompatible(child, group, input.acknowledgeWarnings === true);
 
         const enrollment = await manager.save(Enrollment, {
@@ -370,7 +408,7 @@ export class EnrollmentService {
      * change a class's occupancy is a writer against that group.
      *
      * **And a writer that *frees* a seat is one of them**, which took a fourth pass to notice: the
-     * releasing paths all end in `offerFreedSeat`, which counted the seats without holding this.
+     * releasing paths all end in `offerFreeSeats`, which counted the seats without holding this.
      * Everything above is about two people wanting the same chair; that was one person leaving it
      * while another sat down, and the waiting list being promised the chair anyway.
      */
@@ -405,21 +443,26 @@ export class EnrollmentService {
             if (!enrollment) {
                 throw new NotFoundException('Enrollment not found');
             }
+            const alreadyClosed = () => new ConflictException({ message: 'Înscrierea este deja închisă', error: 'ENROLLMENT_ALREADY_CLOSED' });
             if (!isInForce(enrollment.status)) {
-                throw new ConflictException({
-                    message: 'Înscrierea este deja închisă',
-                    error: 'ENROLLMENT_ALREADY_CLOSED',
-                });
+                throw alreadyClosed();
             }
 
-            await manager.update(
+            // The group first, as every seat-touching transaction takes it (`lockGroup`), and only
+            // then the row — written only while it is still in force. Two presses of "close" used to
+            // both read it open, both write it and both release the seat: two offers for one chair.
+            await this.lockGroup(manager, enrollment.group.id);
+            const closed = await manager.update(
                 Enrollment,
-                { id: enrollmentId },
+                { id: enrollmentId, status: In([...IN_FORCE_STATUSES]) },
                 { status: input.status, endDate: input.endDate ?? today(), exitReason: input.exitReason ?? null },
             );
+            if (!closed.affected) {
+                throw alreadyClosed();
+            }
 
             await this.syncDerivedGroup(enrollment.child.id, manager);
-            await this.offerFreedSeat(enrollment.group.id, manager);
+            await this.offerFreeSeats(enrollment.group.id, manager);
 
             this.logger.log(`Enrollment ${enrollmentId} closed as ${input.status}; seat in group ${enrollment.group.id} released.`);
             return manager.getRepository(Enrollment).findOneOrFail({ where: { id: enrollmentId }, relations: { group: true } });
@@ -434,8 +477,12 @@ export class EnrollmentService {
      * you two live enrolments or a child with none, and at capacity it gives you a seat that frees
      * before the transfer completes — long enough for somebody on the waiting list to be offered it.
      *
-     * The freed seat is deliberately **not** offered to the queue here. It is not free: it is being
-     * handed to this child, and the queue is asked only when a seat genuinely leaves the group.
+     * **The seat left behind is offered to the old group's queue**, like any other release. This
+     * used to say it was "not free, but handed to this child" — which is true of no seat at all: the
+     * child sits in the *other* group now. The group's own screen said `free: 1` beside a waiting
+     * list nobody told. So this is the one transaction that holds two groups, and it takes them in
+     * ascending id order, which is what keeps two transfers in opposite directions from each
+     * holding one and waiting on the other.
      */
     async transfer(
         input: { childId: number; toGroupId: number; reason?: string; allowOverCapacity?: boolean; acknowledgeWarnings?: boolean },
@@ -460,21 +507,28 @@ export class EnrollmentService {
             if (!child) {
                 throw new NotFoundException('Child not found');
             }
+            if (current.group.id < input.toGroupId) await this.lockGroup(manager, current.group.id);
             const target = await this.lockGroup(manager, input.toGroupId);
+            if (current.group.id > input.toGroupId) await this.lockGroup(manager, current.group.id);
 
             this.assertParentAccountActive(child);
             if (!target.isActive) {
                 throw new ConflictException({ message: 'Grupa este inactivă și nu poate primi înscrieri noi', error: 'GROUP_INACTIVE' });
             }
-            await this.assertRoomForOneMore(target, manager, input.allowOverCapacity === true, actor);
+            await this.assertRoomForOneMore(target, manager, input.allowOverCapacity === true, actor, input.childId);
             this.assertCompatible(child, target, input.acknowledgeWarnings === true);
 
             const now = today();
-            await manager.update(
+            // Only while it is still in force: it was read before the locks, and a close in between
+            // would otherwise be overwritten as a transfer.
+            const moved = await manager.update(
                 Enrollment,
-                { id: current.id },
+                { id: current.id, status: In([...IN_FORCE_STATUSES]) },
                 { status: EnrollmentStatus.TRANSFERRED, endDate: now, exitReason: input.reason ?? `Transfer în grupa ${target.name}` },
             );
+            if (!moved.affected) {
+                throw new ConflictException({ message: 'Înscrierea este deja închisă', error: 'ENROLLMENT_ALREADY_CLOSED' });
+            }
 
             const opened = await manager.save(Enrollment, {
                 child: { id: input.childId } as Child,
@@ -488,7 +542,19 @@ export class EnrollmentService {
                 contractSignedAt: current.contractSignedAt,
             });
 
+            // Being in the group settles any request this child had for it, exactly as in `enrol`. An
+            // offer left open expired two days later and told a family already sitting in the group
+            // that its seat had gone to the next one; a waiting entry would be offered the next seat
+            // that freed, a turn taken from whoever really was next.
+            await manager
+                .getRepository(WaitlistEntry)
+                .update(
+                    { child: { id: input.childId }, group: { id: input.toGroupId }, status: In([WaitlistStatus.WAITING, WaitlistStatus.OFFERED]) },
+                    { status: WaitlistStatus.ACCEPTED },
+                );
+
             await this.syncDerivedGroup(input.childId, manager);
+            await this.offerFreeSeats(current.group.id, manager);
 
             this.logger.log(`Child ${input.childId} transferred from group ${current.group.id} to ${input.toGroupId}.`);
             return opened;
@@ -509,32 +575,40 @@ export class EnrollmentService {
             if (!trial) {
                 throw new NotFoundException('Enrollment not found');
             }
-            if (trial.status !== EnrollmentStatus.TRIAL) {
-                throw new ConflictException({
+            const notATrial = () =>
+                new ConflictException({
                     message: 'Doar o înscriere de probă poate fi confirmată sau închisă în felul acesta',
                     error: 'NOT_A_TRIAL',
                 });
+            if (trial.status !== EnrollmentStatus.TRIAL) {
+                throw notATrial();
             }
 
+            // As in `close`: the group, then the row, and the row only while it is still a trial —
+            // a decision made twice at the same second would otherwise release the seat twice.
+            await this.lockGroup(manager, trial.group.id);
+
             if (input.accepted) {
-                await manager.update(
+                const accepted = await manager.update(
                     Enrollment,
-                    { id: enrollmentId },
+                    { id: enrollmentId, status: EnrollmentStatus.TRIAL },
                     { status: EnrollmentStatus.ACTIVE, contractSignedAt: input.contractSignedAt ?? trial.contractSignedAt },
                 );
+                if (!accepted.affected) throw notATrial();
                 this.logger.log(`Trial ${enrollmentId} became an active enrolment.`);
                 // In the same transaction: the lead records the decision E11 just made, and one of
                 // the two happening without the other is exactly what S4's numbers cannot survive.
                 await this.leadProgress.settleForEnrollment(enrollmentId, { enrolled: true }, new Date(), manager);
             } else {
-                await manager.update(
+                const closed = await manager.update(
                     Enrollment,
-                    { id: enrollmentId },
+                    { id: enrollmentId, status: EnrollmentStatus.TRIAL },
                     { status: EnrollmentStatus.WITHDRAWN, endDate: today(), exitReason: input.reason ?? 'Proba nu s-a transformat în înscriere' },
                 );
+                if (!closed.affected) throw notATrial();
                 await this.syncDerivedGroup(trial.child.id, manager);
                 // Only here is the seat genuinely leaving the group, so only here is the queue asked.
-                await this.offerFreedSeat(trial.group.id, manager);
+                await this.offerFreeSeats(trial.group.id, manager);
                 await this.leadProgress.settleForEnrollment(enrollmentId, { enrolled: false, reason: input.reason ?? null }, new Date(), manager);
                 this.logger.log(`Trial ${enrollmentId} closed; seat in group ${trial.group.id} released.`);
             }
@@ -782,7 +856,7 @@ export class EnrollmentService {
     /**
      * Hands on every seat whose offer ran out of time — E11/S3, the piece that was missing.
      *
-     * **An unanswered offer used to hold its seat forever.** `offerFreedSeat` only ever looks at
+     * **An unanswered offer used to hold its seat forever.** `offerFreeSeats` only ever looks at
      * `WAITING` entries, so an `OFFERED` one past its `respondBy` sat at the head of the queue
      * holding a chair nobody was in: the next family was never told, and the group showed as full
      * to every screen that counts occupancy. Nothing noticed until an admin happened to release
@@ -810,13 +884,21 @@ export class EnrollmentService {
 
         let expired = 0;
         for (const entry of lapsed) {
-            await this.dataSource.transaction(async (manager) => {
+            const lapsedNow = await this.dataSource.transaction(async (manager) => {
                 // Before the entry is touched, not just before the count below: `enrol` takes the
                 // group and *then* settles this child's waitlist rows, so a sweep that grabbed the
                 // row first and asked for the group second could sit head-to-head with an enrolment
                 // holding the group and waiting on the row. Same lock, same order, no cycle.
                 await this.lockGroup(manager, entry.group.id);
-                await manager.update(WaitlistEntry, { id: entry.id }, { status: WaitlistStatus.EXPIRED });
+                // Only if it is still the unanswered offer the list above read. A family that
+                // declined in the meantime had its answer overwritten as "expired", was mailed that
+                // it had missed the seat, and the seat was offered a second time.
+                const moved = await manager.update(
+                    WaitlistEntry,
+                    { id: entry.id, status: WaitlistStatus.OFFERED, respondBy: LessThan(now) },
+                    { status: WaitlistStatus.EXPIRED },
+                );
+                if (!moved.affected) return false;
 
                 const mail = composeWaitlistOfferExpired(entry.child.firstName, entry.group.name);
                 // `queueOrRecord`, so a family with no address leaves a row saying so rather than
@@ -824,9 +906,10 @@ export class EnrollmentService {
                 await this.outbox.queueOrRecord({ email: entry.child.parent?.email }, { subject: mail.subject, bodyText: mail.bodyText }, manager);
 
                 // The seat is free again only now, and this is the same door a decline goes through.
-                await this.offerFreedSeat(entry.group.id, manager);
+                await this.offerFreeSeats(entry.group.id, manager);
+                return true;
             });
-            expired += 1;
+            if (lapsedNow) expired += 1;
         }
 
         if (expired > 0) {
@@ -835,38 +918,44 @@ export class EnrollmentService {
         return { expired };
     }
 
-    /** Takes an entry off the list, whatever state it was in. */
-    async removeFromWaitlist(entryId: number, status: WaitlistStatus = WaitlistStatus.CANCELLED): Promise<{ message: string }> {
-        const entry = await this.waitlistRepository.findOne({ where: { id: entryId }, relations: { group: true } });
-        if (!entry) {
-            throw new NotFoundException('Waitlist entry not found');
-        }
-
-        // Only an offer holds a seat, so only an offer releases one — and only then is there a
-        // group to lock. Taken before the row is written, for the reason in `expireLapsedOffers`.
-        const releasesSeat = entry.status === WaitlistStatus.OFFERED;
-
+    /**
+     * Takes an entry off the list while it is still on it — waiting, or offered and unanswered.
+     *
+     * Decided inside the transaction, under the group's lock, rather than from a read before it: the
+     * sweep in `expireLapsedOffers` can move the same row, and a decision taken on the old state
+     * released a seat twice. An entry already settled is history, and is not rewritten.
+     */
+    async removeFromWaitlist(entryId: number, status: WaitlistClosingStatus = WaitlistStatus.CANCELLED): Promise<{ message: string }> {
         await this.dataSource.transaction(async (manager) => {
-            if (releasesSeat) {
-                await this.lockGroup(manager, entry.group.id);
+            const entry = await manager.getRepository(WaitlistEntry).findOne({ where: { id: entryId }, relations: { group: true } });
+            if (!entry) {
+                throw new NotFoundException('Waitlist entry not found');
             }
-            await manager.update(WaitlistEntry, { id: entryId }, { status });
+            // Before the row is written, for the reason in `expireLapsedOffers`.
+            await this.lockGroup(manager, entry.group.id);
+            const moved = await manager.update(WaitlistEntry, { id: entryId, status: In([WaitlistStatus.WAITING, WaitlistStatus.OFFERED]) }, { status });
+            if (!moved.affected) {
+                throw new ConflictException({ message: 'Cererea nu mai este pe listă.', error: 'WAITLIST_ENTRY_CLOSED' });
+            }
             // A declined or expired offer hands the seat straight to the next family, rather than
-            // leaving it held by nobody until an admin notices.
-            if (releasesSeat) {
-                await this.offerFreedSeat(entry.group.id, manager);
-            }
+            // leaving it held by nobody until an admin notices. Nothing to hand on when the entry
+            // was only waiting: the count finds no seat that was not free before.
+            await this.offerFreeSeats(entry.group.id, manager);
         });
 
         return { message: 'Cererea a fost scoasă de pe listă' };
     }
 
     /**
-     * Offers a free seat to the first family waiting, if there is one of each.
+     * Offers every free seat to the families waiting longest, one seat each, while there are both.
      *
      * Called from inside the transaction that freed the seat, so the offer and the release commit
-     * together. Offers exactly one seat per call: two seats freed means two calls, and a loop here
-     * would be a promise made to a second family on the strength of a number read once.
+     * together. **Every free seat, not one per call.** It used to offer exactly one, on the theory
+     * that two seats freed would mean two calls — but half the doors that free a seat never called
+     * at all (a transfer out, a child deleted, a family erased, a capacity raised), so free seats
+     * piled up beside a list nobody told, and the next release offered one of them. The count is
+     * safe to act on in full because it is taken under the group's lock and already leaves out the
+     * seats offered before (`held`): each offer made here is a seat nobody else can be promised.
      *
      * **The lock comes before the count**, for the fourth time in this codebase and the same reason
      * every time. `enrol` locks the group and then counts; this counted without locking, so an
@@ -882,38 +971,66 @@ export class EnrollmentService {
      * row is the first lock every seat-touching transaction holds; a second take inside the same
      * transaction is a no-op, which is why `enrol` and `transfer` need no change.
      */
-    private async offerFreedSeat(groupId: number, manager: EntityManager): Promise<void> {
-        await this.lockGroup(manager, groupId);
+    private async offerFreeSeats(groupId: number, manager: EntityManager): Promise<void> {
+        const group = await this.lockGroup(manager, groupId);
+        // An inactive group takes no enrolments (`GROUP_INACTIVE`), so an offer would be a seat the
+        // family is told is theirs and then refused at the door — down the whole list, one expiry
+        // at a time.
+        if (!group.isActive) {
+            return;
+        }
         const occupancy = await this.occupancyOf(groupId, manager);
         if (occupancy.free <= 0) {
             return;
         }
 
-        const next = await manager.getRepository(WaitlistEntry).findOne({
+        const next = await manager.getRepository(WaitlistEntry).find({
             where: { group: { id: groupId }, status: WaitlistStatus.WAITING },
             relations: { child: { parent: true }, group: true },
             order: { createdAt: 'ASC', id: 'ASC' },
+            take: occupancy.free,
         });
-        if (!next) {
-            return;
-        }
 
         const now = new Date();
         const respondBy = new Date(now.getTime() + WAITLIST_RESPONSE_HOURS * 60 * 60 * 1000);
-        await manager.update(WaitlistEntry, { id: next.id }, { status: WaitlistStatus.OFFERED, offeredAt: now, respondBy });
+        for (const entry of next) {
+            await manager.update(WaitlistEntry, { id: entry.id }, { status: WaitlistStatus.OFFERED, offeredAt: now, respondBy });
 
-        const email = next.child.parent?.email;
-        if (!email) {
-            // The seat is still offered and the clock still runs; somebody has to phone. Logged
-            // rather than silent, because "the family was never told" is otherwise
-            // indistinguishable from a queue that is stuck.
-            this.logger.warn(`Offered a seat in group ${groupId} to waitlist entry ${next.id}, which has no email address on file.`);
-            return;
+            // `queueOrRecord`, as the expiry already did: a family with no address on file leaves a
+            // row saying the offer went nowhere (E17/S5), where a warning in a log left "never told"
+            // looking exactly like a queue that is stuck. The seat stays offered and the clock runs;
+            // the row is what tells the office to phone.
+            const mail = composeWaitlistOffer(entry.child.firstName, entry.group.name, respondBy);
+            await this.outbox.queueOrRecord({ email: entry.child.parent?.email }, { subject: mail.subject, bodyText: mail.bodyText }, manager);
+            this.logger.log(`Offered a free seat in group ${groupId} to waitlist entry ${entry.id}.`);
         }
+    }
 
-        const mail = composeWaitlistOffer(next.child.firstName, next.group.name, respondBy);
-        await this.outbox.queue({ to: email, subject: mail.subject, bodyText: mail.bodyText }, manager);
-        this.logger.log(`Offered the freed seat in group ${groupId} to waitlist entry ${next.id}.`);
+    /**
+     * The groups where these children hold a seat — enrolled, on trial, or offered one from the
+     * list — each locked, lowest id first, for a caller about to delete them.
+     *
+     * A deleted child takes its enrolment and its waiting-list rows with it by cascade, and a
+     * cascade asks nobody: the seat was free and the list was never told. So the caller takes the
+     * groups here, before the delete, and hands them to `offerFreeSeatsIn` after it — the locks
+     * first, as every seat-touching transaction takes them.
+     */
+    async lockSeatsHeldBy(childIds: number[], manager: EntityManager): Promise<number[]> {
+        if (childIds.length === 0) return [];
+        const enrolled = await manager
+            .getRepository(Enrollment)
+            .find({ where: { child: { id: In(childIds) }, status: In([...IN_FORCE_STATUSES]) }, relations: { group: true } });
+        const offered = await manager
+            .getRepository(WaitlistEntry)
+            .find({ where: { child: { id: In(childIds) }, status: WaitlistStatus.OFFERED }, relations: { group: true } });
+        const groupIds = [...new Set([...enrolled, ...offered].map((row) => row.group.id))].sort((a, b) => a - b);
+        for (const groupId of groupIds) await this.lockGroup(manager, groupId);
+        return groupIds;
+    }
+
+    /** Hands the seats freed in these groups to their lists — see `lockSeatsHeldBy`, and `offerFreeSeats`. */
+    async offerFreeSeatsIn(groupIds: number[], manager: EntityManager): Promise<void> {
+        for (const groupId of [...groupIds].sort((a, b) => a - b)) await this.offerFreeSeats(groupId, manager);
     }
 
     // ---- the three rules -------------------------------------------------------------------
@@ -975,15 +1092,19 @@ export class EnrollmentService {
      * The log line stays as well. They are read by different people at different times: the warning
      * is for whoever is watching a deploy, the row is for whoever asks in March.
      */
-    private async assertRoomForOneMore(group: Group, manager: EntityManager, allowOverCapacity: boolean, actor: Actor | null): Promise<void> {
-        const taken = await this.countInForce(group.id, manager);
+    private async assertRoomForOneMore(group: Group, manager: EntityManager, allowOverCapacity: boolean, actor: Actor | null, childId: number): Promise<void> {
+        // A seat offered to somebody else on the list is theirs until they answer — `occupancyOf`.
+        // This child's own offer is not: it is the seat they are sitting down in.
+        const held = await this.countHeld(group.id, manager, childId);
+        const enrolled = await this.countInForce(group.id, manager);
+        const taken = enrolled + held;
         if (taken < group.capacity) {
             return;
         }
 
         if (allowOverCapacity) {
             this.logger.warn(
-                `${actor ? `User ${actor.userId}` : 'The public trial form'} enrolled over capacity in group ${group.id}: ${taken + 1} children in ${group.capacity} seats.`,
+                `${actor ? `User ${actor.userId}` : 'The public trial form'} enrolled over capacity in group ${group.id}: ${enrolled + 1} children and ${held} offered seat(s) in ${group.capacity} seats.`,
             );
             await this.audit.record(
                 {
@@ -996,7 +1117,10 @@ export class EnrollmentService {
                     changes: { seatsTaken: { from: taken, to: taken + 1 } },
                     // "într-un loc", not "în 1 locuri": an admin reads this, and a sentence that
                     // cannot decline its own numbers reads like a machine wrote it for itself.
-                    note: `Înscriere peste capacitate: ${taken + 1} copii ${group.capacity === 1 ? 'într-un loc' : `în ${group.capacity} locuri`}${actor ? '' : ', din formularul public'}.`,
+                    note:
+                        `Înscriere peste capacitate: ${enrolled === 0 ? 'un copil' : `${enrolled + 1} copii`} ${group.capacity === 1 ? 'într-un loc' : `în ${group.capacity} locuri`}` +
+                        `${held === 0 ? '' : held === 1 ? ', plus un loc oferit listei de așteptare' : `, plus ${held} locuri oferite listei de așteptare`}` +
+                        `${actor ? '' : ', din formularul public'}.`,
                 },
                 manager,
             );
@@ -1004,7 +1128,10 @@ export class EnrollmentService {
         }
 
         throw new ConflictException({
-            message: `Grupa este plină: ${taken} din ${group.capacity} locuri, inclusiv probele programate. Poți pune copilul pe lista de așteptare.`,
+            message:
+                `Grupa este plină: ${taken} din ${group.capacity} locuri, inclusiv probele programate` +
+                `${held === 0 ? '' : held === 1 ? ' și un loc oferit listei de așteptare' : ` și ${held} locuri oferite listei de așteptare`}.` +
+                ' Poți pune copilul pe lista de așteptare.',
             error: 'GROUP_FULL',
         });
     }

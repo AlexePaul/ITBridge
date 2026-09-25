@@ -59,6 +59,9 @@ describe('ChildService', () => {
             enrol: jest.fn().mockResolvedValue({ id: 9 }),
             close: jest.fn().mockResolvedValue({ id: 9 }),
             inForceFor: jest.fn().mockResolvedValue(null),
+            // A deleted child's seats: taken before the delete, handed on after it.
+            lockSeatsHeldBy: jest.fn().mockResolvedValue([]),
+            offerFreeSeatsIn: jest.fn().mockResolvedValue(undefined),
         };
 
         audit = { recordPersonalDataChange: jest.fn(() => Promise.resolve()) };
@@ -225,6 +228,35 @@ describe('ChildService', () => {
 
             await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).resolves.toMatchObject({ message: expect.any(String) });
             expect(manager.delete).toHaveBeenCalledWith(Child, 1);
+        });
+
+        /**
+         * A child with no marks can still hold a seat — enrolled, on trial, or offered one — and the
+         * cascade frees it without telling the list. The groups are locked before the delete and
+         * their lists asked after it, in the delete's transaction.
+         */
+        it('hands the seats the child held to the waiting lists, around the delete', async () => {
+            childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
+            enrollments.lockSeatsHeldBy.mockResolvedValue([2, 7]);
+            const order: string[] = [];
+            enrollments.lockSeatsHeldBy.mockImplementation(() => {
+                order.push('lock');
+                return Promise.resolve([2, 7]);
+            });
+            manager.delete.mockImplementation(() => {
+                order.push('delete');
+                return Promise.resolve({ affected: 1 });
+            });
+            enrollments.offerFreeSeatsIn.mockImplementation(() => {
+                order.push('offer');
+                return Promise.resolve();
+            });
+
+            await service.deleteChild(1, Role.PARENT, 5, ACTOR);
+
+            expect(order).toEqual(['lock', 'delete', 'offer']);
+            expect(enrollments.lockSeatsHeldBy).toHaveBeenCalledWith([1], manager);
+            expect(enrollments.offerFreeSeatsIn).toHaveBeenCalledWith([2, 7], manager);
         });
 
         /**

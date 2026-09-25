@@ -36,6 +36,16 @@ describe('Enrolments and capacity (e2e)', () => {
         return res.body.id as number;
     };
 
+    /** Until `count` statements are queued on a lock — how a test knows an interleaving is set up. */
+    const waitingOnLocks = async (count: number): Promise<void> => {
+        for (let attempt = 0; attempt < 200; attempt++) {
+            const [{ waiting }] = await dataSource.query<{ waiting: string }[]>('SELECT COUNT(*) AS waiting FROM pg_locks WHERE NOT granted');
+            if (Number(waiting) >= count) return;
+            await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        throw new Error(`Expected ${count} statement(s) waiting on a lock`);
+    };
+
     /** What `Child.group` says right now, straight from the database. */
     const derivedGroupOf = async (childId: number): Promise<number | null> => {
         const rows = await dataSource.query('SELECT group_id FROM children WHERE id = $1', [childId]);
@@ -414,6 +424,165 @@ describe('Enrolments and capacity (e2e)', () => {
         });
     });
 
+    /**
+     * The seats a waiting list is promised, and the doors that free one — the review of 25
+     * September 2026. Each of these found a way for a family to be told a seat was theirs while it
+     * was not, or never to be told about one that was.
+     */
+    describe('seats offered to the list', () => {
+        /** A group of one, full, with `waiting` children queued behind it. Returns the enrolment. */
+        const fullGroupWithQueue = async (waiting: number, overrides: Record<string, unknown> = {}) => {
+            const groupId = await makeGroup({ capacity: 1, ...overrides });
+            const opened = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId })
+                .expect(201);
+            const queued: number[] = [];
+            for (let i = 0; i < waiting; i++) {
+                const childId = await makeChild();
+                await request(app.getHttpServer()).post('/enrollments/waitlist').set('Authorization', admin.auth).send({ childId, groupId }).expect(201);
+                queued.push(childId);
+            }
+            return { groupId, enrollmentId: opened.body.id as number, queued };
+        };
+        const statuses = async (groupId: number): Promise<string[]> =>
+            (await dataSource.query<{ status: string }[]>('SELECT status FROM waitlist_entries WHERE group_id = $1 ORDER BY id', [groupId])).map(
+                (row) => row.status,
+            );
+        const close = (enrollmentId: number) =>
+            request(app.getHttpServer()).put(`/enrollments/${enrollmentId}/close`).set('Authorization', admin.auth).send({ status: 'WITHDRAWN' });
+
+        /**
+         * For 48 hours the offered family has the seat. Every count left it out, so an admin (or the
+         * public form) could take it, and the family who said yes met a full group.
+         */
+        it('holds the offered seat for the family it was offered to', async () => {
+            const { groupId, enrollmentId, queued } = await fullGroupWithQueue(1);
+            await close(enrollmentId).expect(200);
+
+            const other = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId })
+                .expect(409);
+            expect(other.body.code).toBe('GROUP_FULL');
+            expect(other.body.message).toContain('un loc oferit listei de așteptare');
+
+            const occupancy = await request(app.getHttpServer()).get(`/enrollments/group/${groupId}/occupancy`).set('Authorization', admin.auth).expect(200);
+            expect(occupancy.body).toMatchObject({ taken: 0, held: 1, free: 0 });
+
+            await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId: queued[0], groupId }).expect(201);
+        });
+
+        /**
+         * Two presses of "close" used to both read the enrolment open, both write it and both
+         * release the seat: two families offered one chair. Forced, not hoped for: a second
+         * connection holds the group, both requests queue behind it, and it is let go.
+         */
+        it('releases a seat once, however many times it is closed at the same moment', async () => {
+            const { groupId, enrollmentId } = await fullGroupWithQueue(2);
+            const holder = dataSource.createQueryRunner();
+            await holder.connect();
+            await holder.startTransaction();
+            let answers: number[] = [];
+            try {
+                await holder.query('SELECT 1 FROM groups WHERE id = $1 FOR UPDATE', [groupId]);
+                const first = close(enrollmentId).then((res) => res.status);
+                const second = close(enrollmentId).then((res) => res.status);
+                await waitingOnLocks(2);
+                await holder.commitTransaction();
+                answers = await Promise.all([first, second]);
+            } finally {
+                if (holder.isTransactionActive) await holder.rollbackTransaction();
+                await holder.release();
+            }
+
+            expect([...answers].sort()).toEqual([200, 409]);
+            expect(await statuses(groupId)).toEqual(['OFFERED', 'WAITING']);
+        });
+
+        it('offers every seat a capacity raise frees, one family each', async () => {
+            const { groupId } = await fullGroupWithQueue(3);
+
+            await request(app.getHttpServer()).put(`/groups/${groupId}`).set('Authorization', admin.auth).send({ capacity: 3 }).expect(200);
+
+            expect(await statuses(groupId)).toEqual(['OFFERED', 'OFFERED', 'WAITING']);
+        });
+
+        /** Accepting would meet `GROUP_INACTIVE` — an offer that is a door closed in the family's face. */
+        it('offers nothing in a group that takes no enrolments', async () => {
+            const { groupId, enrollmentId } = await fullGroupWithQueue(1);
+            await request(app.getHttpServer()).put(`/groups/${groupId}`).set('Authorization', admin.auth).send({ isActive: false }).expect(200);
+
+            await close(enrollmentId).expect(200);
+
+            expect(await statuses(groupId)).toEqual(['WAITING']);
+        });
+
+        /** A cascade frees the seat without asking anybody; the delete asks for it. */
+        it('hands the seat of a deleted child to the list', async () => {
+            const groupId = await makeGroup({ capacity: 1 });
+            const childId = await makeChild();
+            await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId, groupId }).expect(201);
+            await request(app.getHttpServer())
+                .post('/enrollments/waitlist')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId })
+                .expect(201);
+
+            await request(app.getHttpServer()).delete(`/children/${childId}`).set('Authorization', parent.auth).expect(200);
+
+            expect(await statuses(groupId)).toEqual(['OFFERED']);
+        });
+
+        /**
+         * A family the office typed in from a phone call may have no address. The offer stands and
+         * the clock runs; what changed is that the queue now says so (E17/S5), where a warning in a
+         * log looked exactly like a family that had been told.
+         */
+        it('records an offer that had nowhere to go, rather than logging it', async () => {
+            const groupId = await makeGroup({ capacity: 1 });
+            const opened = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId })
+                .expect(201);
+            const family = await request(app.getHttpServer())
+                .post('/profiles')
+                .set('Authorization', admin.auth)
+                .send({ firstName: 'Fără', lastName: 'Adresă' })
+                .expect(201);
+            const child = await request(app.getHttpServer())
+                .post('/children')
+                .set('Authorization', admin.auth)
+                .send({ parentId: family.body.id as number, firstName: 'Tudor', lastName: 'Adresă', birthDate: '2016-05-04' })
+                .expect(201);
+            await request(app.getHttpServer())
+                .post('/enrollments/waitlist')
+                .set('Authorization', admin.auth)
+                .send({ childId: child.body.id as number, groupId })
+                .expect(201);
+            await dataSource.query('DELETE FROM outbox');
+
+            await close(opened.body.id as number).expect(200);
+
+            expect(await statuses(groupId)).toEqual(['OFFERED']);
+            const rows = await dataSource.query<{ status: string; undeliverableReason: string }[]>('SELECT status, "undeliverableReason" FROM outbox');
+            expect(rows).toEqual([{ status: 'undeliverable', undeliverableReason: 'no_address' }]);
+        });
+
+        /** An offer made by hand has no `respondBy`, so the sweep could never expire it. */
+        it('does not let an entry be set to "offered" by hand', async () => {
+            const { groupId } = await fullGroupWithQueue(1);
+            const [{ id }] = await dataSource.query<{ id: number }[]>('SELECT id FROM waitlist_entries WHERE group_id = $1', [groupId]);
+
+            await request(app.getHttpServer()).delete(`/enrollments/waitlist/${id}`).set('Authorization', admin.auth).send({ status: 'OFFERED' }).expect(400);
+
+            expect(await statuses(groupId)).toEqual(['WAITING']);
+        });
+    });
+
     describe('Child.group stays derived', () => {
         it('is set by enrolling and cleared by closing', async () => {
             const childId = await makeChild();
@@ -505,7 +674,12 @@ describe('Enrolments and capacity (e2e)', () => {
             expect(newSeats.body).toMatchObject({ taken: 1, free: 0 });
         });
 
-        it('does not hand the vacated seat to the waiting list', async () => {
+        /**
+         * This used to assert the opposite — "the seat is not free, it is being handed to this
+         * child" — which is true of no seat: the child sits in the other group now, and this group's
+         * own occupancy said `free: 1` beside a list nobody told.
+         */
+        it('hands the vacated seat to the old group’s waiting list', async () => {
             const childId = await makeChild();
             const from = await makeGroup({ name: 'Scratch', startTime: '16:00', endTime: '17:30', capacity: 1 });
             const to = await makeGroup({ name: 'Python', startTime: '18:00', endTime: '19:30' });
@@ -515,14 +689,42 @@ describe('Enrolments and capacity (e2e)', () => {
                 .set('Authorization', admin.auth)
                 .send({ childId: await makeChild(), groupId: from })
                 .expect(201);
-            await dataSource.query('DELETE FROM outbox');
 
             await request(app.getHttpServer()).post('/enrollments/transfer').set('Authorization', admin.auth).send({ childId, toGroupId: to }).expect(201);
 
-            // The seat is not free — it is being handed to this child. A transfer that offered it
-            // away mid-flight would promise the same chair to two families.
             const queue = await request(app.getHttpServer()).get(`/enrollments/waitlist/group/${from}`).set('Authorization', admin.auth).expect(200);
-            expect(queue.body[0].status).toBe('WAITING');
+            expect(queue.body[0].status).toBe('OFFERED');
+        });
+
+        /**
+         * A child offered a seat in another group moves there by transfer — `enrol` refuses a
+         * second enrolment. The offer is the seat they take, and being in the group settles it; left
+         * open, it expired two days later and mailed a family already sitting in the room that its
+         * seat had gone to the next one.
+         */
+        it('takes the seat offered to the child, and settles the offer', async () => {
+            const childId = await makeChild();
+            const from = await makeGroup({ name: 'Scratch', startTime: '16:00', endTime: '17:30' });
+            const to = await makeGroup({ name: 'Python', startTime: '18:00', endTime: '19:30', capacity: 1 });
+            await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId, groupId: from }).expect(201);
+            const sitting = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId: to })
+                .expect(201);
+            await request(app.getHttpServer()).post('/enrollments/waitlist').set('Authorization', admin.auth).send({ childId, groupId: to }).expect(201);
+            await request(app.getHttpServer())
+                .put(`/enrollments/${sitting.body.id}/close`)
+                .set('Authorization', admin.auth)
+                .send({ status: 'WITHDRAWN' })
+                .expect(200);
+
+            await request(app.getHttpServer()).post('/enrollments/transfer').set('Authorization', admin.auth).send({ childId, toGroupId: to }).expect(201);
+
+            const queue = await request(app.getHttpServer()).get(`/enrollments/waitlist/group/${to}`).set('Authorization', admin.auth).expect(200);
+            expect(queue.body).toEqual([]);
+            const [{ status }] = await dataSource.query<{ status: string }[]>('SELECT status FROM waitlist_entries WHERE child_id = $1', [childId]);
+            expect(status).toBe('ACCEPTED');
         });
 
         it('refuses when the child has nothing to transfer from', async () => {
