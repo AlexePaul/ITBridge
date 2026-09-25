@@ -378,9 +378,13 @@ generează factură. Numărul de locuri afișat pentru acea grupă scade cu unu 
 > rămâne probă, fiindcă altfel am înscrie o familie care încă nu s-a hotărât — și data contractului
 > la fel, fiindcă e aceeași înscriere care continuă.
 >
-> **Locul eliberat nu se oferă cozii.** Nu e liber: se dă acestui copil. Coada e întrebată doar când
-> un loc chiar pleacă din grupă. Fără regula asta, un transfer ar promite același scaun la două
-> familii pentru câteva milisecunde — și la capacitate exact atât trebuie.
+> **Locul eliberat se oferă cozii grupei vechi** — corectat la revizuirea din 25 septembrie 2026.
+> Regula de aici spunea invers: „nu e liber, se dă acestui copil". Nu e adevărat despre niciun
+> scaun: copilul stă acum în _cealaltă_ grupă, iar ecranul grupei vechi arăta `free: 1` lângă o
+> listă pe care n-o anunța nimeni. Transferul ține acum ambele grupe, cea cu id-ul mai mic prima, și
+> întreabă coada grupei vechi în aceeași tranzacție. Și decontează cererea pe care copilul o avea
+> pentru grupa nouă: lăsată deschisă, o ofertă expira după două zile și îi scria unei familii care
+> stătea deja în sală că locul ei a plecat la următoarea.
 >
 > **Efectul asupra facturii curente nu se afișează, fiindcă nu există.** Prețul e lunar și pe
 > familie, nu pe grupă (vezi `pricing.ts`), deci un transfer între grupe nu schimbă suma cu nimic. În
@@ -482,6 +486,32 @@ seara.
 
 **Acceptanță:** un părinte încuiat afară intră la loc în cont fără să sune la școală, iar linkul pe
 care l-a folosit nu mai deschide nimic după aceea.
+
+### Revizuirea din 25 septembrie 2026: locurile oferite listei
+
+O revizuire a contabilității locurilor a pus o singură întrebare: pe ce drum ajunge o familie să
+creadă că are un loc pe care nu-l are, sau să nu afle de unul pe care îl are? A găsit unsprezece
+defecte, toate reproduse pe o bază reală. Cele despre listă sunt reparate aici, fiecare cu testul lui
+care pică pe codul dinainte; orarul și probele vin separat.
+
+- **Un loc oferit nu era ținut.** Toate numărătorile scădeau înscrierile în vigoare și atât, deci cele
+  48 de ore ale ofertei locul părea liber: formularul public îl vindea ca probă, un admin înscria alt
+  copil în el, iar familia care spunea da găsea `GROUP_FULL`. Acum `occupancyOf` întoarce `held`, iar
+  `free`, capacitatea și locurile pe ședință scad ofertele fără răspuns — mai puțin oferta copilului
+  care se înscrie, care e chiar scaunul lui. Ecranul grupei spune câte locuri sunt oferite.
+- **Același loc se oferea de două ori.** Două „închide" apăsate deodată citeau amândouă înscrierea în
+  vigoare și eliberau amândouă locul; măturarea ofertelor expirate suprascria ca „expirat" un „nu"
+  dat între timp. Scrierile sunt acum condiționate de starea citită, sub lacătul grupei, și nu fac
+  nimic mai departe când n-au mișcat nimic.
+- **Locuri eliberate pe care nu le oferea nimeni**: la transfer, la ștergerea unui copil, la
+  ștergerea unei familii, la mărirea capacității. Iar o eliberare oferea un singur loc, oricâte erau
+  libere. Acum fiecare ușă întreabă lista, iar lista primește câte un loc pentru fiecare scaun liber.
+- **O grupă inactivă nu mai primește oferte** — acceptarea ar fi dat de `GROUP_INACTIVE` —, iar o
+  familie fără adresă lasă un rând `undeliverable` în coadă, nu o linie de log.
+- **`updateGroup` nu mai salvează lista de copii** a grupei: `save` pe o grupă încărcată cu ei rescria
+  `children.group_id` după listă, deci o înscriere venită între citire și scriere rămânea fără grupă.
+- **Ruta care scoate o cerere de pe listă primește doar `DECLINED`, `EXPIRED` sau `CANCELLED`.** Un
+  `OFFERED` trimis de mână făcea o ofertă fără termen, pe care măturarea n-o expira niciodată.
 
 ## Dependențe
 
