@@ -126,7 +126,11 @@ confidențialitate §7 — **12 luni de la retragere**, marcat `[[PROPUNERE]]` p
   luni de liniște, cu tot cu profilul-coajă pe care l-a scris programarea; copiile mesajelor trimise,
   după 12 luni (niciodată unul încă în așteptare); linkurile de confirmare și de resetare, la 30 de
   zile după ce au expirat. O cerere fără legătură, dar cu adresa unei familii din evidență, e a acelei
-  familii și pleacă odată cu ea — aceeași regulă ca `leadsOfFamily`.
+  familii și pleacă odată cu ea — aceeași regulă ca `leadsOfFamily`, deci **numai o adresă pe care
+  familia o garantează**: e-mailul confirmat al unui cont, sau ce a tastat biroul la o familie fără
+  cont (`vouchedAddresses`, E07 S4). Un număr tastat de un părinte nu ține pe nimeni în evidență:
+  altfel cererea altei familii ar rămâne peste termen, iar ștergerea — care nici ea nu o socotește
+  a lui — n-ar mai lua-o niciodată.
 
 **Verificabil, cum cere acceptanța**, de două ori: `/admin/stergeri` are acum o secțiune „La termen",
 cu fiecare familie retrasă, ziua în care se șterge și ce o mai ține; iar
