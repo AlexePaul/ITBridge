@@ -59,6 +59,20 @@ export const FISCAL_DOCUMENT_MAY_EXIST: readonly InvoiceFiscalStatus[] = [
     InvoiceFiscalStatus.ISSUED,
 ];
 
+/**
+ * The fiscal states of an invoice still on its way to SmartBill: queued, in the air, waiting for a
+ * person to say what happened, or refused and waiting for a fix. SmartBill's document is written
+ * from the family's name and address *when it is sent*, so a family is not erased — on request or at
+ * term — while one of its invoices is in any of them: the fiscal invoice would go out in the name of
+ * an emptied profile, to SPV. The accounting is finished first; the erasure waits for it.
+ */
+export const FISCAL_WORK_OUTSTANDING: readonly InvoiceFiscalStatus[] = [
+    InvoiceFiscalStatus.PENDING,
+    InvoiceFiscalStatus.UNCERTAIN,
+    InvoiceFiscalStatus.REVIEW,
+    InvoiceFiscalStatus.FAILED,
+];
+
 @Entity('invoices')
 @Unique(['parent', 'monthIssued'])
 // The fiscal queue's claim, the same shape as `IDX_outbox_claim`: due rows by state and time.

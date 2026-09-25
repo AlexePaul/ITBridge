@@ -109,9 +109,15 @@ export class ArrearsService {
         const late = pending.filter((invoice) => daysOverdue(invoice.dateIssued, today) > 0);
         if (late.length === 0) return 0;
 
-        await this.invoiceRepository.update({ id: In(late.map((invoice) => invoice.id)) }, { status: InvoiceStatus.OVERDUE });
-        this.logger.log(`Marked ${late.length} invoice(s) overdue as of ${toIsoDate(today)}.`);
-        return late.length;
+        // Still `pending` in the WHERE, not only in the read above: a payment committed between the
+        // two would otherwise see its invoice, just paid, turned back to `overdue`.
+        const moved = await this.invoiceRepository.update(
+            { id: In(late.map((invoice) => invoice.id)), status: InvoiceStatus.PENDING },
+            { status: InvoiceStatus.OVERDUE },
+        );
+        const count = moved.affected ?? late.length;
+        this.logger.log(`Marked ${count} invoice(s) overdue as of ${toIsoDate(today)}.`);
+        return count;
     }
 
     /** Succeeded payments per invoice. Only succeeded: an announced transfer has not arrived. */

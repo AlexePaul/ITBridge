@@ -7,7 +7,7 @@
  */
 
 /** Why a family whose term has come is not erased yet — each waits on a different person. */
-export type RetentionHold = 'enrolment_in_force' | 'on_waitlist' | 'owes_money';
+export type RetentionHold = 'enrolment_in_force' | 'on_waitlist' | 'owes_money' | 'fiscal_in_progress';
 
 /** One withdrawn family: when it left, when it goes, and what keeps it. Days are `YYYY-MM-DD`. */
 export interface RetentionRow {

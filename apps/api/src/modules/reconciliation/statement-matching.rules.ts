@@ -98,6 +98,40 @@ function families(open: OpenInvoice[]): OpenInvoice['family'][] {
     return [...byParent.values()];
 }
 
+/**
+ * The sure matches judged together, in the order the money arrived.
+ *
+ * `suggestMatch` judges one line against what its invoice has left, so two lines that cite the same
+ * invoice — a family that paid twice, 200 and 200 on 350, or one transfer imported twice after its
+ * text drifted — each fitted on its own, and one press of "confirm the sure matches" recorded both:
+ * 700 or 400 on an invoice of 350, and in `live` the second collection went to SmartBill too. Here
+ * each line counts against what the lines before it left, oldest first, and one that no longer fits
+ * is an overpayment — which a person decides, as any other is.
+ *
+ * Only `reference` suggestions take part: they are the ones confirmed in bulk. A `name` suggestion
+ * is confirmed one at a time, and the page is read again after each.
+ */
+export function withRunningRemainder(
+    lines: { id: number; bookedOn: string; amount: number }[],
+    suggestions: Map<number, MatchSuggestion | null>,
+    open: OpenInvoice[],
+): Map<number, MatchSuggestion | null> {
+    const left = new Map(open.map((invoice) => [invoice.invoiceId, bani(invoice.outstanding)]));
+    const judged = new Map(suggestions);
+    const oldestFirst = [...lines].sort((a, b) => a.bookedOn.localeCompare(b.bookedOn) || a.id - b.id);
+    for (const line of oldestFirst) {
+        const suggestion = suggestions.get(line.id);
+        if (!suggestion || suggestion.confidence !== 'reference' || suggestion.overpays) continue;
+        const remaining = left.get(suggestion.invoiceId) ?? 0;
+        if (bani(line.amount) > remaining) {
+            judged.set(line.id, { ...suggestion, overpays: true });
+        } else {
+            left.set(suggestion.invoiceId, remaining - bani(line.amount));
+        }
+    }
+    return judged;
+}
+
 function bani(lei: number): number {
     return Math.round(lei * 100);
 }

@@ -4,6 +4,7 @@ import { DataSource, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
 import { Payment, PaymentFiscalStatus } from 'src/entities/payment.entity';
 import { Invoice, InvoiceFiscalStatus } from 'src/entities/invoice.entity';
 import { PaymentMethod } from 'src/enum/payment-method.enum';
+import { PaymentStatus } from 'src/enum/payment-status.enum';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { SmartBillService } from 'src/modules/smartbill/smartbill.service';
@@ -113,6 +114,9 @@ export class PaymentFiscalService {
     /** One pass: settle what went unanswered, then send what is due, in that order. */
     async drain(options: { now?: Date; batchSize?: number } = {}): Promise<PaymentFiscalDrainResult> {
         const now = options.now ?? new Date();
+        // Leases start when the request does, not when the pass did — see `FiscalIssuingService.drain`.
+        const startedAt = Date.now();
+        const clock = () => new Date(now.getTime() + (Date.now() - startedAt));
         const batchSize = options.batchSize ?? FISCAL_BATCH_SIZE;
         const result: PaymentFiscalDrainResult = { reconciled: 0, sent: 0, recorded: 0, refused: 0, review: 0, stoppedBy: null };
 
@@ -140,12 +144,12 @@ export class PaymentFiscalService {
             return result;
         }
 
-        if (!(await this.reconcileUnanswered(now, result))) return result;
+        if (!(await this.reconcileUnanswered(now, config, result))) return result;
 
         for (let sent = 0; sent < batchSize; sent++) {
-            const payment = await this.claimNext(now);
+            const payment = await this.claimNext(clock());
             if (!payment) break;
-            if (await this.send(payment, config, now, result)) return result;
+            if (await this.send(payment, config, clock, result)) return result;
         }
         return result;
     }
@@ -155,7 +159,7 @@ export class PaymentFiscalService {
      * because the evidence could not be read — sending anything then could move it under a row that
      * is waiting to be judged by it.
      */
-    private async reconcileUnanswered(now: Date, result: PaymentFiscalDrainResult): Promise<boolean> {
+    private async reconcileUnanswered(now: Date, config: SmartBillConfig, result: PaymentFiscalDrainResult): Promise<boolean> {
         const stale = await this.paymentRepository.find({
             where: { fiscalStatus: PaymentFiscalStatus.UNCERTAIN, fiscalNextAttemptAt: LessThanOrEqual(now) },
             relations: { invoice: true },
@@ -178,10 +182,45 @@ export class PaymentFiscalService {
                         nextNumberNow,
                     });
                 } catch (error: unknown) {
+                    if (error instanceof SmartBillError && error.kind === 'refused') {
+                        // SmartBill does not know the invoice any more — deleted or cancelled there
+                        // while the answer was out. Asking again gets the same 4xx, and stopping the
+                        // pass for it stopped every payment behind it, for good: nothing but a database
+                        // edit took an `uncertain` row out. A person looks at this one; the rest go on.
+                        await this.settle(payment, {
+                            fiscalStatus: PaymentFiscalStatus.REVIEW,
+                            fiscalNextAttemptAt: null,
+                            fiscalLastError: `Răspuns pierdut, iar SmartBill nu mai găsește factura: ${messageOf(error)}`.slice(0, MAX_ERROR_LENGTH),
+                        });
+                        result.review++;
+                        result.reconciled++;
+                        this.logger.error(`Payment ${payment.id}: answer lost and SmartBill no longer finds its invoice; handed to a person.`);
+                        continue;
+                    }
                     result.stoppedBy = stopReasonFor(error);
                     this.logger.warn(`Could not read SmartBill to settle payment ${payment.id}: ${messageOf(error)}`);
                     return false;
                 }
+            }
+
+            // Nothing was recorded, and the payment may have stopped being money while its answer was
+            // out — an admin marked it `reversed` because the transfer bounced. Such a row owes
+            // SmartBill nothing; sent again, it would become a collection, and for cash a numbered
+            // receipt, for money the platform says it does not have.
+            if (
+                decision.outcome !== 'needs_review' &&
+                !owesSmartBillRecord({ mode: config.mode, paymentStatus: payment.status, invoiceFiscalStatus: payment.invoice.fiscalStatus })
+            ) {
+                await this.settle(payment, {
+                    fiscalStatus: null,
+                    fiscalNextAttemptAt: null,
+                    fiscalExpectedPaid: null,
+                    fiscalExpectedNumber: null,
+                    fiscalLastError: null,
+                });
+                result.reconciled++;
+                this.logger.log(`Payment ${payment.id} is no longer money (${payment.status}) and was not recorded; it leaves the queue.`);
+                continue;
             }
 
             if (decision.outcome === 'needs_review') {
@@ -230,6 +269,8 @@ export class PaymentFiscalService {
                 .setOnLocked('skip_locked')
                 .andWhere('payment.fiscalStatus = :status', { status: PaymentFiscalStatus.PENDING })
                 .andWhere('payment.fiscalNextAttemptAt <= :now', { now })
+                // Money only, whatever the queue says: the rule every write keeps, held here too.
+                .andWhere('payment.status = :succeeded', { succeeded: PaymentStatus.SUCCEEDED })
                 .andWhere('invoice.fiscalStatus = :issued', { issued: InvoiceFiscalStatus.ISSUED })
                 .orderBy('payment.fiscalNextAttemptAt', 'ASC')
                 .addOrderBy('payment.id', 'ASC')
@@ -254,7 +295,7 @@ export class PaymentFiscalService {
     }
 
     /** Sends one claimed payment and writes down what came back. True when the pass must stop. */
-    private async send(payment: Payment, config: SmartBillConfig, now: Date, result: PaymentFiscalDrainResult): Promise<boolean> {
+    private async send(payment: Payment, config: SmartBillConfig, clock: () => Date, result: PaymentFiscalDrainResult): Promise<boolean> {
         const series = payment.invoice.fiscalSeries;
         const number = payment.invoice.fiscalNumber;
         if (!series || !number) {
@@ -287,13 +328,24 @@ export class PaymentFiscalService {
                 result.refused++;
                 return false;
             }
-            await this.giveBack(payment, now, error, result);
+            await this.giveBack(payment, clock(), error, result);
             return true;
         }
 
         // Written before the request goes out: from here on, a crash leaves a row that says "sent,
-        // answer unknown", with the paid amount it will be judged by.
-        await this.settle(payment, { fiscalExpectedPaid: before.paid, fiscalExpectedNumber: expectedNumber });
+        // answer unknown", with the paid amount it will be judged by and a lease that counts from
+        // this request. Conditional on the claimed attempt: if it matched nothing, the row is
+        // somebody else's now, and nothing goes up.
+        const leased = await this.settle(payment, {
+            fiscalExpectedPaid: before.paid,
+            fiscalExpectedNumber: expectedNumber,
+            fiscalNextAttemptAt: new Date(clock().getTime() + FISCAL_LEASE_MS),
+        });
+        if (leased === 0) {
+            result.stoppedBy = 'in_flight';
+            this.logger.warn(`Payment ${payment.id} changed hands before it was sent; nothing went up, and the pass stops.`);
+            return true;
+        }
         payment.fiscalExpectedPaid = before.paid;
         payment.fiscalExpectedNumber = expectedNumber;
 
@@ -307,7 +359,7 @@ export class PaymentFiscalService {
         try {
             recorded = await this.smartBill.recordPayment(payload);
         } catch (error: unknown) {
-            return this.recordFailure(payment, error, now, result);
+            return this.recordFailure(payment, error, clock(), result);
         }
 
         await this.settle(payment, {
@@ -379,8 +431,8 @@ export class PaymentFiscalService {
     }
 
     /** One conditional write, keyed on the attempt count the row was claimed with. */
-    private async settle(payment: Payment, changes: Partial<Payment>): Promise<void> {
-        await this.paymentRepository
+    private async settle(payment: Payment, changes: Partial<Payment>): Promise<number> {
+        const outcome = await this.paymentRepository
             .createQueryBuilder()
             .update(Payment)
             .set(changes)
@@ -388,6 +440,7 @@ export class PaymentFiscalService {
             .andWhere('"fiscalAttempts" = :attempts', { attempts: payment.fiscalAttempts })
             .execute();
         if (changes.fiscalAttempts !== undefined) payment.fiscalAttempts = changes.fiscalAttempts;
+        return outcome.affected ?? 0;
     }
 
     /**
@@ -402,16 +455,44 @@ export class PaymentFiscalService {
             const payment = await manager.findOneOrFail(Payment, { where: { id: paymentId }, relations: { invoice: true } });
 
             const before = payment.fiscalStatus;
-            const retryable =
-                before === PaymentFiscalStatus.FAILED ||
-                before === PaymentFiscalStatus.REVIEW ||
-                (before === null &&
-                    owesSmartBillRecord({ mode: smartBillConfig().mode, paymentStatus: payment.status, invoiceFiscalStatus: payment.invoice.fiscalStatus }));
+            const owes = owesSmartBillRecord({
+                mode: smartBillConfig().mode,
+                paymentStatus: payment.status,
+                invoiceFiscalStatus: payment.invoice.fiscalStatus,
+            });
+            const retryable = before === PaymentFiscalStatus.FAILED || before === PaymentFiscalStatus.REVIEW || (before === null && owes);
             if (!retryable) {
                 throw new ConflictException({
                     message: `Payment ${paymentId} is ${before ?? 'not owed to SmartBill'}; only a refused payment, one under review, or one that owes a record can be sent again.`,
                     error: 'PAYMENT_FISCAL_NOT_RETRYABLE',
                 });
+            }
+
+            // Refused, or under review and found not to be in SmartBill — but no longer money: the
+            // transfer bounced and the payment was marked `reversed` meanwhile. Sending it would record
+            // a collection the platform says it does not have, so "send again" takes it out of the
+            // queue instead, and says so in the trail.
+            if (!owes) {
+                await manager.update(Payment, payment.id, {
+                    fiscalStatus: null,
+                    fiscalNextAttemptAt: null,
+                    fiscalAttempts: 0,
+                    fiscalExpectedPaid: null,
+                    fiscalExpectedNumber: null,
+                    fiscalLastError: null,
+                });
+                await this.audit.record(
+                    {
+                        actor,
+                        action: AuditAction.UPDATED,
+                        entityType: 'Payment',
+                        entityId: payment.id,
+                        changes: { fiscalStatus: { from: before, to: null } },
+                        note: 'Scoasă din coada SmartBill: plata nu mai e o încasare, deci nu are ce înregistra acolo.',
+                    },
+                    manager,
+                );
+                return manager.findOneOrFail(Payment, { where: { id: payment.id } });
             }
 
             await manager.update(Payment, payment.id, {

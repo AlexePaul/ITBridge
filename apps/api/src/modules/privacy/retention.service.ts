@@ -5,7 +5,7 @@ import { Profile } from 'src/entities/profile.entity';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Lead } from 'src/entities/lead.entity';
-import { Invoice } from 'src/entities/invoice.entity';
+import { FISCAL_WORK_OUTSTANDING, Invoice } from 'src/entities/invoice.entity';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { EmailConfirmation } from 'src/entities/email-confirmation.entity';
 import { PasswordReset } from 'src/entities/password-reset.entity';
@@ -227,7 +227,12 @@ export class RetentionService {
         if (withdrawn.length === 0) return [];
 
         const ids = withdrawn.map((profile) => profile.id);
-        const [inForce, waiting, arrears] = await Promise.all([this.enrolmentsInForce(ids), this.openWaitlist(ids), this.arrears.list()]);
+        const [inForce, waiting, arrears, fiscal] = await Promise.all([
+            this.enrolmentsInForce(ids),
+            this.openWaitlist(ids),
+            this.arrears.list(),
+            this.invoicesOnTheirWayToSmartBill(ids),
+        ]);
         const owed = new Map<number, number>();
         for (const row of arrears) owed.set(row.parentId, (owed.get(row.parentId) ?? 0) + row.outstanding);
 
@@ -245,6 +250,7 @@ export class RetentionService {
                     enrolmentsInForce: inForce.get(profile.id) ?? 0,
                     openWaitlistEntries: waiting.get(profile.id) ?? 0,
                     outstanding: owed.get(profile.id) ?? 0,
+                    invoicesOnTheirWayToSmartBill: fiscal.get(profile.id) ?? 0,
                 }),
             };
         });
@@ -381,6 +387,19 @@ export class RetentionService {
             .andWhere('child.parent_id IN (:...profileIds)', { profileIds })
             .andWhere('enrollment.status IN (:...inForce)', { inForce: [...IN_FORCE_STATUSES] })
             .groupBy('child.parent_id')
+            .getRawMany<{ parentId: number; count: string }>();
+        return new Map(rows.map((row) => [Number(row.parentId), Number(row.count)]));
+    }
+
+    /** Invoices per family still on their way to SmartBill — the `fiscal_in_progress` hold. */
+    private async invoicesOnTheirWayToSmartBill(profileIds: number[]): Promise<Map<number, number>> {
+        const rows = await this.invoices
+            .createQueryBuilder('invoice')
+            .select('invoice.parent_id', 'parentId')
+            .addSelect('COUNT(*)', 'count')
+            .andWhere('invoice.parent_id IN (:...profileIds)', { profileIds })
+            .andWhere('invoice.fiscalStatus IN (:...outstanding)', { outstanding: [...FISCAL_WORK_OUTSTANDING] })
+            .groupBy('invoice.parent_id')
             .getRawMany<{ parentId: number; count: string }>();
         return new Map(rows.map((row) => [Number(row.parentId), Number(row.count)]));
     }

@@ -16,4 +16,6 @@ export const RETENTION_HOLD_LABELS: Record<RetentionHold, string> = {
   enrolment_in_force: "Are încă un copil înscris — încheie înscrierea sau anulează retragerea.",
   on_waitlist: "E încă pe o listă de așteptare — scoate-o de acolo sau anulează retragerea.",
   owes_money: "Are o factură neplătită — datele rămân până e achitată.",
+  fiscal_in_progress:
+    "Are o factură încă în drum spre SmartBill — datele rămân până e emisă sau retrasă.",
 };

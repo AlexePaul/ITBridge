@@ -467,7 +467,7 @@ lui, după ce citește cheile.
 `Profile.withdrawnAt` e ziua în care școala a notat că familia a plecat — pusă de un admin din pagina
 familiei, prin `POST /privacy/retention/:profileId`, și anulabilă până la termen —, iar
 `RetentionJob` (03:45, ceasul școlii) șterge familiile retrase de peste `FAMILY_RETENTION_MONTHS`
-chemând `ErasureService.erase` cu `SYSTEM_ACTOR` și cu motivul pentru jurnal. Patru reguli:
+chemând `ErasureService.erase` cu `SYSTEM_ACTOR` și cu motivul pentru jurnal. Cinci reguli:
 
 - **Nu deduce retragerea din tăcere.** Nici din ultima autentificare, nici din ultima factură, nici
   din ultima înscriere închisă: familia care ia o pauză de o vacanță e exact cea pe care ar șterge-o
@@ -479,6 +479,11 @@ chemând `ErasureService.erase` cu `SYSTEM_ACTOR` și cu motivul pentru jurnal. 
 - **O familie care datorează bani nu se șterge la termen**: restanța vine din `ArrearsService`, iar
   ecranul `/admin/stergeri` spune de ce a rămas. Golit, rândul ar lăsa școala cu o datorie pe care
   n-o mai poate cere nimănui.
+- **Nici una cu o factură încă în drum spre SmartBill**, plătită sau nu (`FISCAL_WORK_OUTSTANDING`:
+  în coadă, în aer, la revizie sau refuzată). Documentul fiscal se scrie din numele familiei **când
+  pleacă**, deci ștearsă înainte, factura ar ajunge în SPV pe numele unui rând golit.
+  `ErasureService.erase` refuză la fel, cu `FAMILY_HAS_FISCAL_WORK`: contabilitatea se termină
+  întâi.
 - **Numerele sunt propuneri și stau într-un singur loc**, `retention.rules.ts`, de unde pleacă și pe
   sârmă: 12 luni pentru familie, pentru cererile de probă fără înscriere și pentru copiile mesajelor,
   30 de zile după expirare pentru linkurile de confirmare și de resetare. Nota de confidențialitate
@@ -1384,6 +1389,13 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   **Platforma nu adoptă niciodată un număr fiscal pe care nu l-a văzut venind înapoi.** Cât timp
   un rând e în aer nu pleacă nimic altceva, fiindcă seria s-ar mișca sub judecata lui — și de aceea
   seria configurată în `SMARTBILL_INVOICE_SERIES` trebuie să fie **doar a platformei**.
+  **Împrumutul curge de la cerere, nu de la începutul trecerii**: se reînnoiește chiar înaintea ei,
+  odată cu numărul așteptat. Ștampilat de la începutul trecerii, o serie lentă le dădea ultimelor
+  rânduri un împrumut deja expirat, iar trecerea următoare citea seria înainte ca SmartBill să
+  termine de scris — adică o a doua factură. Dacă scrierea de dinaintea cererii nu mai găsește rândul,
+  l-a luat altcineva, și nu pleacă nimic. **Și un 2xx al cărui corp nu se citește e tăcere, nu
+  succes** (`call`), la fel ca o factură sau o chitanță confirmată fără număr: altfel devenea o
+  factură `issued` fără număr, pe care nimic n-o mai putea retrimite, confirma sau șterge.
 - **Felul eșecului decide pasul următor**, în `classifyFailure`: un refuz (`errorText` completat,
   **chiar și pe un 200** — „errorText este sursa de adevar") așteaptă un om; un 401 sau un 403 de
   drepturi și blocarea pentru rată (429, sau 403 cu „limita maxima de requesturi", cum se vede de
@@ -1409,13 +1421,19 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   scrie și el doar câmpurile trimise, sub lacătul rândului, din motivul de la `updateInvoice`. În
   `draft` plățile nu pleacă deloc — o ciornă de factură n-are număr, iar dintre încasări doar
   chitanța are ciornă —, iar o chitanță de probă se vede cu
-  `pnpm smartbill:check --draft --receipt`.
+  `pnpm smartbill:check --draft --receipt`. O plată care nu mai e bani — inversată cât răspunsul
+  ei era pierdut — **iese din coadă** când se judecă răspunsul, nu se retrimite; `claimNext` ia doar
+  plăți reușite, iar „retrimite" pe una sub revizie care nu mai e bani o scoate, cu urmă în jurnal.
+  Iar o factură pe care SmartBill n-o mai găsește trimite la un om **doar acea plată**: înainte
+  oprea toată coada, la fiecare trecere.
 - **Divergența cu SmartBill se derivă; pe factură stă doar ce a spus SmartBill** (E16 S8).
   `fiscalPaidAmount`, `fiscalTotalAmount` și `fiscalCheckedAt` sunt citirea lor, reîmprospătată o
   dată pe zi de `FiscalDivergenceJob`; verdictul e `divergenceOf`, calculat când se citește
   raportul (`GET /invoices/fiscal-divergences`), față de plățile de atunci. O încasare înregistrată
   golește `fiscalCheckedAt`, iar o factură necitită nu se judecă — altfel o cifră veche ar fi o
   alarmă falsă. Dacă adaugi un drum care schimbă partea SmartBill a unei facturi, golește-l și acolo.
+  Iar citirea **se scrie doar dacă nicio plată a facturii nu s-a înregistrat după ce a început**:
+  altfel punea la loc, cu cifra de dinainte, verificarea pe care tocmai o golise plata.
 - **În `live`, PDF-ul e al lor, la aceeași cheie** (`invoicePdfKey`, mutată în `invoice-pdf-key.ts`
   ca să nu facă ciclu): nu se mai generează nimic cu PDFKit, iar descărcarea, exportul și ștergerea
   îl citesc fără să știe cine l-a făcut. Documentul poartă **o singură linie, la suma calculată de
@@ -1430,7 +1448,10 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   sare. Se păstrează doar intrările, iar amprenta liniei (conținutul plus locul printre liniile
   identice) e unică, deci un extras importat de două ori nu adaugă nimic. Propunerile sunt două:
   **după numărul fiscal al facturii** din detalii — sigure, se confirmă toate dintr-o apăsare — și
-  **după numele plătitorului și suma rămasă exact** — doar propunere, câte una. „Ce mai datorează o
+  **după numele plătitorului și suma rămasă exact** — doar propunere, câte una. Cele sigure se judecă
+  **împreună**, cea mai veche întâi, fiecare față de ce au lăsat cele dinainte
+  (`withRunningRemainder`): judecate una câte una, două linii care citează aceeași factură treceau
+  amândouă, iar o apăsare o înregistra plătită de două ori. „Ce mai datorează o
   factură" vine din `ArrearsService.list`, nu dintr-o interogare nouă. O linie confirmată devine plată
   prin `PaymentService.createPayment`, în tranzacția liniei — `createPayment` primește acum
   `EntityManager`-ul apelantului —, deci familia primește confirmarea și plata pleacă spre SmartBill

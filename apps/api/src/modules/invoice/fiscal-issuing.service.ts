@@ -117,6 +117,14 @@ export class FiscalIssuingService {
      */
     async drain(options: { now?: Date; batchSize?: number } = {}): Promise<FiscalDrainResult> {
         const now = options.now ?? new Date();
+        // What the pass writes times with: its `now`, moved on by the real time since the pass
+        // began. A lease is how long a request may be in the air, so it has to start when the
+        // request does; stamped from the start of the pass, a batch that ran long handed its last
+        // rows a lease that had already run out, and the next pass read the series seconds after a
+        // timeout — before a slow SmartBill had finished writing. Moving `now`, rather than reading
+        // the wall clock, keeps a test's `now` meaning what it says.
+        const startedAt = Date.now();
+        const clock = () => new Date(now.getTime() + (Date.now() - startedAt));
         const batchSize = options.batchSize ?? FISCAL_BATCH_SIZE;
         const result: FiscalDrainResult = { reconciled: 0, sent: 0, issued: 0, drafts: 0, refused: 0, review: 0, stoppedBy: null };
 
@@ -152,7 +160,7 @@ export class FiscalIssuingService {
 
         let expected: number | null = null;
         for (let sent = 0; sent < batchSize; sent++) {
-            const invoice = await this.claimNext(now);
+            const invoice = await this.claimNext(clock());
             if (!invoice) break;
 
             if (config.mode === 'live' && expected === null) {
@@ -160,12 +168,12 @@ export class FiscalIssuingService {
                     expected = await this.smartBill.nextInvoiceNumber();
                 } catch (error: unknown) {
                     // Nothing was sent: the row goes back as it was, with its attempt.
-                    await this.giveBack(invoice, now, error, result);
+                    await this.giveBack(invoice, clock(), error, result);
                     return result;
                 }
             }
 
-            const outcome = await this.send(invoice, config.mode, expected, now, result);
+            const outcome = await this.send(invoice, config.mode, expected, clock, result);
             if (outcome.stop) return result;
             expected = outcome.expected;
         }
@@ -277,7 +285,7 @@ export class FiscalIssuingService {
         invoice: Invoice,
         mode: SmartBillMode,
         expected: number | null,
-        now: Date,
+        clock: () => Date,
         result: FiscalDrainResult,
     ): Promise<{ stop: boolean; expected: number | null }> {
         const withParent = await this.invoiceRepository.findOne({ where: { id: invoice.id }, relations: { parent: true } });
@@ -306,19 +314,30 @@ export class FiscalIssuingService {
             mode === 'draft',
         );
 
-        // The number goes on the row before the request goes out: from here on, a crash leaves a row
-        // that says "sent, answer unknown", which is exactly what it is.
-        if (expected !== null) {
-            await this.settle(invoice, { fiscalExpectedNumber: expected });
-            invoice.fiscalExpectedNumber = expected;
+        // The number and a fresh lease go on the row before the request goes out: from here on, a
+        // crash leaves a row that says "sent, answer unknown", which is exactly what it is, and the
+        // lease counts from this request rather than from whenever the pass began.
+        //
+        // The write is conditional on the attempt this pass claimed, and if it matched nothing the
+        // row is somebody else's now — a second process settled it and took it again. Sending anyway
+        // would be two requests for one invoice, so nothing goes up.
+        const leased = await this.settle(invoice, {
+            fiscalExpectedNumber: expected,
+            fiscalNextAttemptAt: new Date(clock().getTime() + FISCAL_LEASE_MS),
+        });
+        if (leased === 0) {
+            result.stoppedBy = 'in_flight';
+            this.logger.warn(`Invoice ${invoice.id} changed hands before it was sent; nothing went up, and the pass stops.`);
+            return { stop: true, expected: null };
         }
+        invoice.fiscalExpectedNumber = expected;
 
         result.sent++;
         let document: IssuedDocument;
         try {
             document = await this.smartBill.issueInvoice(payload);
         } catch (error: unknown) {
-            return this.recordFailure(invoice, error, now, expected, result);
+            return this.recordFailure(invoice, error, clock(), expected, result);
         }
 
         if (mode === 'draft') {
@@ -420,8 +439,8 @@ export class FiscalIssuingService {
      * One conditional write. Conditional on the attempt count the row was claimed with, so a pass
      * that is somehow late cannot overwrite a newer claim.
      */
-    private async settle(invoice: Invoice, changes: Partial<Invoice>): Promise<void> {
-        await this.invoiceRepository
+    private async settle(invoice: Invoice, changes: Partial<Invoice>): Promise<number> {
+        const outcome = await this.invoiceRepository
             .createQueryBuilder()
             .update(Invoice)
             .set(changes)
@@ -429,6 +448,7 @@ export class FiscalIssuingService {
             .andWhere('"fiscalAttempts" = :attempts', { attempts: invoice.fiscalAttempts })
             .execute();
         if (changes.fiscalAttempts !== undefined) invoice.fiscalAttempts = changes.fiscalAttempts;
+        return outcome.affected ?? 0;
     }
 
     /**

@@ -123,6 +123,26 @@ describe('Reconciling a bank statement (e2e)', () => {
         expect(await lineAbout('chirie')).toMatchObject({ suggestion: null });
     });
 
+    it('records an invoice once when two lines cite it, and leaves the later one to a person', async () => {
+        const twice = [
+            'Data tranzactie;Descriere;Debit;Credit;Sold',
+            '12.11.2026;"POPESCU ANA plata ITB 0041 din nou";;350,00;700,00',
+            '05.11.2026;"POPESCU ANA plata ITB 0041";;350,00;350,00',
+        ].join('\r\n');
+        await importStatement(twice).expect(200);
+
+        expect((await waiting()).sureCount).toBe(1);
+        const res = await request(app.getHttpServer()).post('/reconciliation/lines/confirm-suggested').set('Authorization', admin.auth).expect(200);
+
+        expect(res.body).toMatchObject({ confirmed: 1, failed: 0 });
+        const recorded = await dataSource.getRepository(Payment).find({ relations: { invoice: true } });
+        expect(recorded).toHaveLength(1);
+        // The money that came first is the money recorded.
+        expect(recorded[0]).toMatchObject({ amount: 350, invoice: { id: invoiceAna.id } });
+        expect(toIsoDate(recorded[0].date)).toBe('2026-11-05');
+        expect(await lineAbout('din nou')).toMatchObject({ state: 'waiting' });
+    });
+
     it('records the sure ones in one press, as transfers on the day of the statement', async () => {
         await importStatement().expect(200);
 

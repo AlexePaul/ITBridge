@@ -4,7 +4,7 @@ import { DataSource, EntityManager, In, IsNull, Not, Repository } from 'typeorm'
 import { Profile } from 'src/entities/profile.entity';
 import { Child } from 'src/entities/child.entity';
 import { Discount } from 'src/entities/discount.entity';
-import { Invoice } from 'src/entities/invoice.entity';
+import { FISCAL_WORK_OUTSTANDING, Invoice } from 'src/entities/invoice.entity';
 import { Payment } from 'src/entities/payment.entity';
 import { BankStatementLine } from 'src/entities/bank-statement-line.entity';
 import { Lead } from 'src/entities/lead.entity';
@@ -182,6 +182,18 @@ export class ErasureService {
         const profile = await this.profiles.findOne({ where: { id: profileId }, relations: { user: true } });
         if (!profile) throw new NotFoundException('Profile not found');
         if (isErased(profile)) throw new ConflictException({ message: 'Contul e deja șters.', error: 'ALREADY_ERASED' });
+
+        // Not while an invoice of theirs is still on its way to SmartBill: its fiscal document is
+        // written from the name this erasure is about to empty. See `FISCAL_WORK_OUTSTANDING`.
+        const inFlight = await this.dataSource
+            .getRepository(Invoice)
+            .count({ where: { parent: { id: profileId }, fiscalStatus: In([...FISCAL_WORK_OUTSTANDING]) } });
+        if (inFlight > 0) {
+            throw new ConflictException({
+                message: `Family ${profileId} has ${inFlight} invoice(s) still on their way to SmartBill; it is erased once they are issued or withdrawn.`,
+                error: 'FAMILY_HAS_FISCAL_WORK',
+            });
+        }
 
         const email = profile.email;
         const userId = profile.user?.id;

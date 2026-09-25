@@ -106,6 +106,7 @@ describe('ArrearsService', () => {
     describe('markOverdue', () => {
         it('moves only the pending ones that are actually past the term', async () => {
             invoiceRepo.find!.mockResolvedValue([invoice({ id: 7, dateIssued: new Date(2026, 2, 1) }), invoice({ id: 9, dateIssued: new Date(2026, 2, 18) })]);
+            invoiceRepo.update!.mockResolvedValue({ affected: 1 });
 
             const moved = await service.markOverdue(DAY);
 
@@ -113,6 +114,18 @@ describe('ArrearsService', () => {
             const [criteria] = invoiceRepo.update!.mock.calls[0] as [{ id: unknown }];
             expect(JSON.stringify(criteria.id)).toContain('7');
             expect(JSON.stringify(criteria.id)).not.toContain('9');
+        });
+
+        it('writes only rows still pending, so an invoice paid since the read is not turned back', async () => {
+            invoiceRepo.find!.mockResolvedValue([invoice({ id: 7, dateIssued: new Date(2026, 2, 1) })]);
+            // Paid between the read and the write: the UPDATE matches nothing.
+            invoiceRepo.update!.mockResolvedValue({ affected: 0 });
+
+            const moved = await service.markOverdue(DAY);
+
+            const [criteria] = invoiceRepo.update!.mock.calls[0] as [{ status: unknown }];
+            expect(criteria.status).toBe(InvoiceStatus.PENDING);
+            expect(moved).toBe(0);
         });
 
         it('writes nothing when nothing is late', async () => {

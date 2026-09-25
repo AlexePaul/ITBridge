@@ -66,6 +66,8 @@ const MESSAGES: Record<string, string> = {
     "Familia e încă pe o listă de așteptare. Scoate-o întâi de acolo, apoi consemnează retragerea.",
   WITHDRAWAL_IN_FUTURE: "Retragerea se consemnează cu o zi care a trecut deja, sau cu ziua de azi.",
   ALREADY_ERASED: "Datele familiei au fost deja șterse.",
+  FAMILY_HAS_FISCAL_WORK:
+    "Familia are o factură încă în drum spre SmartBill. Emite-o sau retrage-o, apoi șterge datele.",
 
   // E07/S4. The two refusals that stop a profile delete from taking the school's records with it.
   // Both name the door that does the thing the admin probably meant.
