@@ -57,9 +57,30 @@ export class Enrollment {
     @Column({ type: 'date' })
     startDate: string;
 
-    /** Set when the row stops being in force. `null` for exactly the rows that still are. */
+    /**
+     * The day the row stopped being in force. `null` for exactly the rows that still are.
+     *
+     * A shared day, like `startDate`: `close` and `transfer` write today and take the child off the
+     * register at once, so the child was in the group that morning and is not by the evening, and
+     * nothing on the row says on which side of the class the change fell. The roster reads the day
+     * as gone (`membersOn`); the bill asks the register — a class on the day is the child's only if
+     * they are on it, marked while they were still in the group (`billable-sessions.rules.ts`). Read
+     * as simply the last day, as the billing did until the review of 25 September 2026, a family who
+     * withdrew on a Monday morning was billed for Monday's evening class.
+     */
     @Column({ type: 'date', nullable: true })
     endDate: string | null;
+
+    /**
+     * The last day this row was a trial, when it has stopped being one — the review of 25 September
+     * 2026. A trial is free (E11 D5), and the rule that kept it out of the bill read the status: the
+     * moment the office decided — accepted on the same row, declined, closed, or moved to another
+     * group — the status changed and the trial's own class became billable. Set on every way out of
+     * `TRIAL`, to the day of the decision; `null` on a row that was never a trial, and on one that
+     * still is (its status says so). Nothing up to and including this day is billed.
+     */
+    @Column({ type: 'date', nullable: true })
+    trialUntil: string | null;
 
     /** Why it ended, in the admin's words. Empty for a row still in force. */
     @Column({ type: 'varchar', length: 500, nullable: true })

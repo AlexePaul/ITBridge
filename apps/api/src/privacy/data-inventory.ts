@@ -319,6 +319,15 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
                 retention: 'account',
                 readableBy: ['admin', 'parent'],
             },
+            trialUntil: {
+                personal: true,
+                about: 'child',
+                category: 'participation',
+                purpose: 'Până când a fost probă, ca lecția de probă să nu se factureze după decizie.',
+                basis: 'contract',
+                retention: 'account',
+                readableBy: ['admin', 'parent'],
+            },
             exitReason: {
                 personal: true,
                 about: 'child',

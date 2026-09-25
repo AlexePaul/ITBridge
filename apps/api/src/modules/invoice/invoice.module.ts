@@ -26,6 +26,7 @@ import { FiscalIssuingService } from './fiscal-issuing.service';
 import { FiscalIssuingJob } from './fiscal-issuing.job';
 import { FiscalDivergenceService } from './fiscal-divergence.service';
 import { FiscalDivergenceJob } from './fiscal-divergence.job';
+import { PaymentModule } from 'src/modules/payment/payment.module';
 
 @Module({
     // `Enrollment` because the amount counts children *actively enrolled*, not children on file:
@@ -50,6 +51,9 @@ import { FiscalDivergenceJob } from './fiscal-divergence.job';
         // E16/S2: the fiscal document is SmartBill's. Issued afterwards, off the request, by the
         // fiscal queue — see `FiscalIssuingService`.
         SmartBillModule,
+        // An edit of the amount re-derives the status from the payments, through the one door that
+        // derives it (`PaymentService.recomputeInvoiceStatus`) rather than a second copy of the sum.
+        PaymentModule,
     ],
     controllers: [InvoiceController],
     providers: [

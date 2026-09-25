@@ -30,6 +30,10 @@ import { invoicePdfKey } from './invoice-pdf-key';
 import { FiscalIssuingService } from './fiscal-issuing.service';
 import { fiscalStateAtIssue, servesLocalPdf } from './fiscal-issuing.rules';
 import { smartBillMode } from 'src/modules/smartbill/smartbill.config';
+import { Payment } from 'src/entities/payment.entity';
+import { PaymentStatus } from 'src/enum/payment-status.enum';
+import { PaymentService } from 'src/modules/payment/payment.service';
+import { parseIsoDate } from 'src/modules/class-session/class-session.dates';
 
 /** One family's row on the issuing screen, with the children whose sessions have to be counted. */
 export interface InvoiceWorksheetRow {
@@ -87,6 +91,7 @@ export class InvoiceService {
         private readonly dataSource: DataSource,
         private readonly audit: AuditService,
         private readonly fiscal: FiscalIssuingService,
+        private readonly payments: PaymentService,
     ) {}
 
     /**
@@ -141,7 +146,7 @@ export class InvoiceService {
             for (const { parent, amount } of parents) {
                 const invoice = new Invoice();
                 invoice.amount = amount;
-                invoice.dateIssued = new Date(createInvoiceDto.dateIssued);
+                invoice.dateIssued = parseIsoDate(createInvoiceDto.dateIssued.slice(0, 10));
                 invoice.monthIssued = createInvoiceDto.monthIssued;
                 invoice.status = InvoiceStatus.PENDING;
                 invoice.parent = parent;
@@ -183,6 +188,22 @@ export class InvoiceService {
         return invoice;
     }
 
+    /**
+     * Corrects an invoice's amount or date — the platform's record, while no fiscal document holds them.
+     *
+     * **The status is not an input** — the review of 25 September 2026. It is derived: `paid` from
+     * the succeeded payments (`PaymentService.recomputeInvoiceStatus`), `waived` from a zero amount,
+     * `overdue` from the calendar. Typed by hand it was a second answer to "has this family paid" —
+     * `paid` on the portal beside a debt on the arrears screen, which counts the payments — and an
+     * edit of the amount left the derived one stale: 350 lowered to the 200 already paid stayed
+     * `pending` for ever. So an amount edit re-derives it, in the same transaction:
+     *
+     *  - to zero, the month is `waived` and leaves the fiscal queue, as a zero month does at issue —
+     *    refused while money sits on the invoice (`INVOICE_HAS_PAYMENTS`): a month the school does
+     *    not charge for, with a payment against it, is two facts contradicting each other;
+     *  - from zero, it is owed again, and enters the fiscal queue as an issue would;
+     *  - otherwise the payments decide, as they do everywhere else.
+     */
     async updateInvoice(id: number, dto: UpdateInvoiceDto, actor: Actor) {
         const invoice = await this.invoiceRepository.findOne({ where: { id }, relations: ['parent', 'parent.user'] });
 
@@ -192,28 +213,48 @@ export class InvoiceService {
         // compare against and every diff would be empty.
         const before = InvoiceService.auditableInvoice(invoice);
 
-        const changes: Partial<Pick<Invoice, 'amount' | 'dateIssued' | 'status'>> = {};
-        if (dto.amount) changes.amount = dto.amount;
-        if (dto.dateIssued) changes.dateIssued = new Date(dto.dateIssued);
-        if (dto.status) changes.status = dto.status;
+        const changes: Partial<Pick<Invoice, 'amount' | 'dateIssued'>> = {};
+        // Not truthiness: zero is the one amount with a meaning of its own, and `if (dto.amount)`
+        // dropped it without a word — the request answered 200 and the invoice kept its 350.
+        if (dto.amount !== undefined) changes.amount = dto.amount;
+        if (dto.dateIssued) changes.dateIssued = parseIsoDate(dto.dateIssued.slice(0, 10));
         Object.assign(invoice, changes);
 
         // The save and its record in one transaction: a trail entry that survives a rolled-back
         // edit says something happened that did not — E07/S3.
         const updated = await this.dataSource.transaction(async (manager) => {
+            if (Object.keys(changes).length === 0) return invoice;
+
             // The amount and the date are printed on the fiscal document; once one exists in
             // SmartBill, or may, changing them here would leave the platform's row describing an
-            // invoice nobody issued. The status is the platform's own and stays editable.
-            if (changes.amount !== undefined || changes.dateIssued !== undefined) {
-                await this.assertNoFiscalDocument(id, manager, 'change the amount or the date of');
+            // invoice nobody issued.
+            const locked = await this.assertNoFiscalDocument(id, manager, 'change the amount or the date of');
+
+            const derived: Partial<Pick<Invoice, 'status' | 'fiscalStatus' | 'fiscalNextAttemptAt'>> = {};
+            if (changes.amount === 0) {
+                if (await this.holdsPayments(id, manager, [PaymentStatus.SUCCEEDED, PaymentStatus.INITIATED])) {
+                    throw new ConflictException({
+                        message: `Invoice ${id} has money recorded against it; a month without charge cannot hold payments — reverse or delete them first.`,
+                        error: 'INVOICE_HAS_PAYMENTS',
+                    });
+                }
+                Object.assign(derived, { status: InvoiceStatus.WAIVED }, fiscalStateAtIssue(0, smartBillMode(), new Date()));
+            } else if (changes.amount !== undefined && locked?.status === InvoiceStatus.WAIVED) {
+                Object.assign(derived, { status: InvoiceStatus.PENDING }, fiscalStateAtIssue(changes.amount, smartBillMode(), new Date()));
             }
-            // Only the fields that were sent. A whole-entity `save` of a row read before this
-            // transaction writes back every column that differs from the database — the fiscal ones
-            // included — so an invoice the queue had issued in between would be put back in the
-            // queue as it was when read, and issued a second time (E16/S2).
-            if (Object.keys(changes).length > 0) {
-                await manager.update(Invoice, id, changes);
-            }
+
+            // Only the fields that were sent, and what follows from them. A whole-entity `save` of a
+            // row read before this transaction writes back every column that differs from the
+            // database — the fiscal ones included — so an invoice the queue had issued in between
+            // would be put back in the queue as it was when read, and issued a second time (E16/S2).
+            await manager.update(Invoice, id, { ...changes, ...derived });
+            // After the write, so the payments are weighed against the new amount. A waived month
+            // has nothing to weigh, and the derivation says so itself.
+            const balance = changes.amount !== undefined ? await this.payments.recomputeInvoiceStatus(id, manager) : null;
+
+            // Recorded before the derived status reaches `invoice`, so the entry holds the amount and
+            // the date and not the status: it moved because the amount did, and a derivation beside
+            // the decision that caused it is noise (E07/S3).
             await this.audit.recordUpdate(
                 {
                     actor,
@@ -225,6 +266,9 @@ export class InvoiceService {
                 },
                 manager,
             );
+            if (balance) invoice.status = balance.status;
+            if (derived.fiscalStatus !== undefined)
+                Object.assign(invoice, { fiscalStatus: derived.fiscalStatus, fiscalNextAttemptAt: derived.fiscalNextAttemptAt });
             return invoice;
         });
 
@@ -246,12 +290,30 @@ export class InvoiceService {
         // "who removed the family's March invoice" has no answer otherwise.
         await this.dataSource.transaction(async (manager) => {
             await this.assertNoFiscalDocument(id, manager, 'delete');
+            // `payments.invoice_id` cascades, so the delete took the money with it — every payment,
+            // its receipt's reason and its SmartBill record's anchor, with no entry saying any of
+            // them had existed. The review of 25 September 2026. Any status counts: a failed or a
+            // reversed payment is still the answer to "what happened to the transfer we made".
+            if (await this.holdsPayments(id, manager)) {
+                throw new ConflictException({
+                    message: `Invoice ${id} has payments recorded against it; deleting it would erase them — delete them first, one by one.`,
+                    error: 'INVOICE_HAS_PAYMENTS',
+                });
+            }
             await manager.delete(Invoice, id);
             await this.recordInvoice(invoice, AuditAction.DELETED, actor, manager);
         });
         // The drawing goes with its row: left behind, it would be a document for an invoice that no
         // longer exists, which nothing would ever read or clear.
         await this.forgetLocalPdf(invoice);
+    }
+
+    /** Whether any payment — or any in `statuses` — is recorded against the invoice. */
+    private async holdsPayments(invoiceId: number, manager: EntityManager, statuses?: PaymentStatus[]): Promise<boolean> {
+        const count = await manager.count(Payment, {
+            where: { invoice: { id: invoiceId }, ...(statuses ? { status: In(statuses) } : {}) },
+        });
+        return count > 0;
     }
 
     /**
@@ -262,7 +324,7 @@ export class InvoiceService {
      * invoice it already started on is seen in the air and refused. The way to correct an issued
      * invoice is a storno in SmartBill; a draft is not a fiscal document and does not block anything.
      */
-    private async assertNoFiscalDocument(id: number, manager: EntityManager, act: string): Promise<void> {
+    private async assertNoFiscalDocument(id: number, manager: EntityManager, act: string): Promise<Invoice | null> {
         const locked = await manager.findOne(Invoice, { where: { id }, lock: { mode: 'pessimistic_write' } });
         if (locked?.fiscalStatus && FISCAL_DOCUMENT_MAY_EXIST.includes(locked.fiscalStatus)) {
             throw new ConflictException({
@@ -270,6 +332,7 @@ export class InvoiceService {
                 error: 'INVOICE_HAS_FISCAL_DOCUMENT',
             });
         }
+        return locked;
     }
 
     /**
@@ -534,7 +597,7 @@ export class InvoiceService {
             for (const { parent, amount } of prepared) {
                 const invoice = new Invoice();
                 invoice.amount = amount;
-                invoice.dateIssued = new Date(dto.dateIssued);
+                invoice.dateIssued = parseIsoDate(dto.dateIssued.slice(0, 10));
                 invoice.monthIssued = dto.monthIssued;
                 // A month that comes to nothing is recorded, not skipped. The row is the whole
                 // point: without it, a family with no October invoice looks the same as a family

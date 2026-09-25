@@ -33,8 +33,10 @@ export interface Enrollment {
     id: number;
     status: EnrollmentStatus;
     startDate: ISODate;
-    /** `null` for exactly the rows still in force. */
+    /** The day it stopped; a class that day is billed only if the child is on its register. `null` in force. */
     endDate: ISODate | null;
+    /** The last day this row was a trial, once it stopped being one; nothing up to it is billed. */
+    trialUntil: ISODate | null;
     exitReason: string | null;
     /** The date on the paper contract — E11/D3. The platform stores the fact, not the document. */
     contractSignedAt: ISODate | null;

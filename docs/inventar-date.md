@@ -26,8 +26,8 @@ Trei lucruri de citit înainte de tabele:
 
 ## Pe scurt
 
-- **33 tabele**, cu **281 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
-- **125 coloane sunt date personale**, în **25 tabele**.
+- **33 tabele**, cu **282 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
+- **126 coloane sunt date personale**, în **25 tabele**.
 - Restul de **156** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
 
 ## Datele personale, câmp cu câmp
@@ -60,6 +60,7 @@ Trei lucruri de citit înainte de tabele:
 | `enrollments.status` | Copil | Participare | Dacă copilul e la probă, activ sau a ieșit. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `enrollments.startDate` | Copil | Participare | De când vine copilul la grupă. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `enrollments.endDate` | Copil | Participare | Când s-a încheiat participarea. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
+| `enrollments.trialUntil` | Copil | Participare | Până când a fost probă, ca lecția de probă să nu se factureze după decizie. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `enrollments.exitReason` | Copil | Conținut | De ce a ieșit copilul din grupă. | Interes legitim | Cât ține contul familiei (termenul: E22 S3) | Admin |
 | `enrollments.contractSignedAt` | Copil | Participare | Ziua în care s-a semnat contractul pe hârtie (E07 S8). | Executarea contractului | Termenul contabil legal | Admin, Familia respectivă |
 | `waitlist_entries.status` | Copil | Participare | Unde stă cererea: în așteptare, ofertată, acceptată, expirată. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |

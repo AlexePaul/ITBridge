@@ -402,13 +402,15 @@ describe('Issuing invoices through SmartBill (e2e)', () => {
             expect(remove.body.code).toBe('INVOICE_HAS_FISCAL_DOCUMENT');
         });
 
-        it('keeps its fiscal reference through an edit of the status', async () => {
+        // The review of 25 September 2026: the status is derived from the payments, never typed —
+        // a hand-set `paid` said so on the portal beside a debt on the arrears screen.
+        it('refuses a status typed by hand, and keeps its fiscal reference', async () => {
             const [invoice] = await issueOctober();
             await fiscal.drain();
 
-            await request(app.getHttpServer()).put(`/invoices/${invoice.id}`).set('Authorization', admin.auth).send({ status: 'paid' }).expect(200);
+            await request(app.getHttpServer()).put(`/invoices/${invoice.id}`).set('Authorization', admin.auth).send({ status: 'paid' }).expect(400);
 
-            expect(await reload(invoice.id)).toMatchObject({ status: 'paid', fiscalStatus: InvoiceFiscalStatus.ISSUED, fiscalNumber: '0041' });
+            expect(await reload(invoice.id)).toMatchObject({ status: 'pending', fiscalStatus: InvoiceFiscalStatus.ISSUED, fiscalNumber: '0041' });
         });
     });
 

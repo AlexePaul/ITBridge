@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { createClassSession, createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { schoolToday } from 'src/modules/enrollment/enrollment.service';
 
 /**
  * Issuing a month from the registers — E15/S9, against a real database.
@@ -214,6 +215,97 @@ describe('Issuing invoices from the registers (e2e)', () => {
             // The family is still enrolled in November, so November lists them — with nothing held:
             // the 1st belongs to October's last week, not to November's first.
             expect(inNovember.body.families[0].children[0]).toMatchObject({ sessions: 0, lines: [] });
+        });
+    });
+
+    /**
+     * The review of 25 September 2026. The decisions stamp today and a close refuses a day ahead, so
+     * each test takes the stamp through the API and then moves the day into October with SQL: what
+     * is under test there is what the bill makes of the dates, not the clock.
+     */
+    describe('trials, and the days an enrolment starts and ends', () => {
+        const enrolmentsOf = (childId: number) =>
+            dataSource.query<{ id: number; status: string; startDate: string; endDate: string | null; trialUntil: string | null }[]>(
+                `SELECT "id", "status", to_char("startDate", 'YYYY-MM-DD') AS "startDate", to_char("endDate", 'YYYY-MM-DD') AS "endDate",
+                        to_char("trialUntil", 'YYYY-MM-DD') AS "trialUntil"
+                 FROM "enrollments" WHERE "child_id" = $1 ORDER BY "id"`,
+                [childId],
+            );
+        const resolveTrial = async (childId: number, accepted: boolean) => {
+            const [row] = await enrolmentsOf(childId);
+            await request(app.getHttpServer()).put(`/enrollments/${row.id}/resolve-trial`).set('Authorization', admin.auth).send({ accepted }).expect(200);
+            return row.id;
+        };
+        const linesOf = (sheet: request.Response, childId: number): string[] =>
+            (
+                sheet.body.families
+                    .flatMap((family: { children: { childId: number; lines: { date: string; counted: boolean }[] }[] }) => family.children)
+                    .find((child: { childId: number }) => child.childId === childId)?.lines ?? []
+            )
+                .filter((line: { counted: boolean }) => line.counted)
+                .map((line: { date: string }) => line.date);
+
+        it('bills a trial accepted on the same row only after the day it was decided', async () => {
+            const childId = await makeChild({ status: 'TRIAL' });
+            const enrolmentId = await resolveTrial(childId, true);
+            expect((await enrolmentsOf(childId))[0]).toMatchObject({ status: 'ACTIVE', trialUntil: schoolToday() });
+
+            // Decided on Monday the 12th, after the trial class of the 5th and that day's own class.
+            await dataSource.query(`UPDATE "enrollments" SET "trialUntil" = '2026-10-12' WHERE "id" = $1`, [enrolmentId]);
+            for (const session of await october()) await mark(session, childId, true);
+
+            expect(linesOf(await worksheet().expect(200), childId)).toEqual(['2026-10-19', '2026-10-26']);
+        });
+
+        it('does not invoice a family whose only trial came to nothing — not even at zero', async () => {
+            const childId = await makeChild({ status: 'TRIAL' });
+            const enrolmentId = await resolveTrial(childId, false);
+            expect((await enrolmentsOf(childId))[0]).toMatchObject({ status: 'WITHDRAWN', endDate: schoolToday(), trialUntil: schoolToday() });
+
+            // The trial class on the 5th, declined on the 12th.
+            await dataSource.query(
+                `UPDATE "enrollments" SET "startDate" = '2026-10-01', "endDate" = '2026-10-12', "trialUntil" = '2026-10-12' WHERE "id" = $1`,
+                [enrolmentId],
+            );
+            const [first] = await october();
+            await mark(first, childId, true);
+
+            expect((await worksheet().expect(200)).body.families).toHaveLength(0);
+            const res = await issue().expect(201);
+            expect([...res.body.issued, ...res.body.waived]).toHaveLength(0);
+        });
+
+        it('bills the last day only to a child who was on its register', async () => {
+            // Both leave on Monday the 12th: Ana that morning, before the class; Radu at pickup.
+            const ana = await makeChild();
+            const radu = await makeChild();
+            const [first, second] = await october();
+            await mark(first, ana, true);
+            await mark(first, radu, true);
+            await mark(second, radu, true);
+            await dataSource.query(`UPDATE "enrollments" SET "status" = 'WITHDRAWN', "endDate" = '2026-10-12' WHERE "child_id" = ANY($1)`, [[ana, radu]]);
+
+            const sheet = await worksheet().expect(200);
+
+            expect(linesOf(sheet, ana)).toEqual(['2026-10-05']);
+            expect(linesOf(sheet, radu)).toEqual(['2026-10-05', '2026-10-12']);
+        });
+
+        it('bills once a class reached by two rows — a child taken out and put back the same day', async () => {
+            const childId = await makeChild();
+            const sessions = await october();
+            for (const session of sessions) await mark(session, childId, true);
+            await dataSource.query(`UPDATE "enrollments" SET "status" = 'WITHDRAWN', "endDate" = '2026-10-12' WHERE "child_id" = $1`, [childId]);
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId, groupId, startDate: '2026-10-12' })
+                .expect(201);
+
+            const sheet = await worksheet().expect(200);
+
+            expect(linesOf(sheet, childId)).toEqual(['2026-10-05', '2026-10-12', '2026-10-19', '2026-10-26']);
+            expect(sheet.body.families[0].amount).toBe(350);
         });
     });
 

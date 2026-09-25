@@ -84,14 +84,21 @@ export class BillableSessionsService {
         // Every enrolment that touches the month, in any state but trial: a child who left on the
         // 15th still owes what was held before it. Sorted so the latest one per child comes last,
         // which is the group the worksheet labels them with.
+        //
+        // "Touches" is measured from the day after the trial was decided, when there was one: a row
+        // that was only ever a trial — declined, or moved to another group — has no billable day,
+        // and listing it would issue a family that never enrolled a zero-lei invoice. The last day
+        // stays in (`>= :from`): a class on it counts when the child is on its register.
+        const billableFrom = 'GREATEST(enrollment.startDate, enrollment.trialUntil + 1)';
         const enrollments = await this.enrollmentRepository
             .createQueryBuilder('enrollment')
             .leftJoinAndSelect('enrollment.child', 'child')
             .leftJoinAndSelect('child.parent', 'parent')
             .leftJoinAndSelect('enrollment.group', 'group')
             .andWhere('enrollment.status != :trial', { trial: EnrollmentStatus.TRIAL })
-            .andWhere('enrollment.startDate <= :to', { to })
+            .andWhere(`${billableFrom} <= :to`, { to })
             .andWhere('(enrollment.endDate IS NULL OR enrollment.endDate >= :from)', { from })
+            .andWhere(`(enrollment.endDate IS NULL OR ${billableFrom} <= enrollment.endDate)`)
             .orderBy('enrollment.startDate', 'ASC')
             .getMany();
 
@@ -112,6 +119,7 @@ export class BillableSessionsService {
                 status: enrollment.status,
                 startDate: toIsoDate(enrollment.startDate),
                 endDate: enrollment.endDate === null ? null : toIsoDate(enrollment.endDate),
+                trialUntil: enrollment.trialUntil === null ? null : toIsoDate(enrollment.trialUntil),
             })),
         );
 

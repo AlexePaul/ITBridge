@@ -6,7 +6,7 @@ import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Child } from 'src/entities/child.entity';
 import { Group } from 'src/entities/group.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
-import { EnrollmentStatus, IN_FORCE_STATUSES } from 'src/enum/enrollment-status.enum';
+import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
@@ -105,6 +105,16 @@ describe('EnrollmentService', () => {
             ]),
         );
         manager.save.mockImplementation((_entity: unknown, data: Record<string, unknown>) => Promise.resolve({ id: 99, ...data }));
+        // A conditional write on an enrolment hits only while the row is in the status it names, as
+        // in the database — the row being the last one this suite's `findOne` handed out. `close`
+        // and `transfer` try the trial-only write first; hitting every row, the mock would make each
+        // active enrolment a trial.
+        manager.update.mockImplementation(async (entity: unknown, criteria: { status?: unknown } | undefined) => {
+            if (entity !== Enrollment || typeof criteria?.status !== 'string') return { affected: 1 };
+            const reads = enrollmentRepo.findOne!.mock.results;
+            const row = reads.length > 0 ? ((await reads[reads.length - 1].value) as { status?: unknown } | null) : null;
+            return { affected: row?.status === criteria.status ? 1 : 0 };
+        });
         // The group's coming classes, which the capacity check reads with SQL: none unless a test
         // says so, and then the group's own capacity is the whole question.
         manager.query = jest.fn().mockResolvedValue([]);
@@ -387,9 +397,39 @@ describe('EnrollmentService', () => {
             expect(manager.update).toHaveBeenCalledWith(
                 Enrollment,
                 // Only while it is still in force: two presses must not both release the seat.
-                { id: 9, status: In([...IN_FORCE_STATUSES]) },
-                expect.objectContaining({ status: EnrollmentStatus.WITHDRAWN, exitReason: 'S-a mutat din oraș', endDate: expect.any(String) }),
+                { id: 9, status: EnrollmentStatus.ACTIVE },
+                { status: EnrollmentStatus.WITHDRAWN, exitReason: 'S-a mutat din oraș', endDate: expect.any(String) },
             );
+        });
+
+        /** The review of 25 September 2026: the trial's own class stays off the bill once it is decided. */
+        it('records on a trial the day it stopped being one', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ ...inForce, status: EnrollmentStatus.TRIAL });
+
+            await service.close(9, { status: EnrollmentStatus.WITHDRAWN, endDate: '2026-01-05' });
+
+            expect(manager.update).toHaveBeenCalledWith(
+                Enrollment,
+                { id: 9, status: EnrollmentStatus.TRIAL },
+                expect.objectContaining({ status: EnrollmentStatus.WITHDRAWN, endDate: '2026-01-05', trialUntil: '2026-01-05' }),
+            );
+        });
+
+        /** Read as a trial, accepted by somebody else before the lock: closed as the active row it is. */
+        it('decides what the row was under the lock, not from the read before it', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ ...inForce, status: EnrollmentStatus.TRIAL });
+            manager.update.mockImplementation((entity: unknown, criteria: { status?: unknown }) =>
+                Promise.resolve({ affected: entity === Enrollment && criteria.status === EnrollmentStatus.TRIAL ? 0 : 1 }),
+            );
+
+            await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
+
+            expect(manager.update).toHaveBeenCalledWith(
+                Enrollment,
+                { id: 9, status: EnrollmentStatus.ACTIVE },
+                expect.not.objectContaining({ trialUntil: expect.anything() }),
+            );
+            expect(leadProgress.settleForEnrollment).not.toHaveBeenCalled();
         });
 
         /** The second press of "close", arriving while the first held the group. */
@@ -896,10 +936,13 @@ describe('EnrollmentService', () => {
             expect(manager.update).toHaveBeenCalledWith(
                 Enrollment,
                 // Only while it is still in force: it was read before the locks.
-                { id: 9, status: In([...IN_FORCE_STATUSES]) },
+                { id: 9, status: EnrollmentStatus.ACTIVE },
                 expect.objectContaining({ status: EnrollmentStatus.TRANSFERRED, endDate: expect.any(String) }),
             );
-            expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ group: { id: 2 }, endDate: null }));
+            expect(manager.save).toHaveBeenCalledWith(
+                Enrollment,
+                expect.objectContaining({ group: { id: 2 }, endDate: null, status: EnrollmentStatus.ACTIVE }),
+            );
         });
 
         /**
@@ -951,6 +994,25 @@ describe('EnrollmentService', () => {
 
             // Promoting it here would enrol a family that has not decided yet.
             expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ status: EnrollmentStatus.TRIAL }));
+            // And the row it leaves stopped being a trial today: its class is not billed there.
+            expect(manager.update).toHaveBeenCalledWith(
+                Enrollment,
+                { id: 9, status: EnrollmentStatus.TRIAL },
+                expect.objectContaining({ status: EnrollmentStatus.TRANSFERRED, trialUntil: schoolToday() }),
+            );
+        });
+
+        /** Read as a trial, accepted before the locks: it moves as the enrolment it has become. */
+        it('carries across what the row was under the lock, not what the read said', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ ...current, status: EnrollmentStatus.TRIAL });
+            manager.update.mockImplementation((entity: unknown, criteria: { status?: unknown }) =>
+                Promise.resolve({ affected: entity === Enrollment && criteria.status === EnrollmentStatus.TRIAL ? 0 : 1 }),
+            );
+
+            await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
+
+            expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ status: EnrollmentStatus.ACTIVE }));
+            expect(leadProgress.followTransfer).not.toHaveBeenCalled();
         });
 
         /** The review of 25 September 2026: the lead hangs off the row E11 will decide on, which is now the new one. */
@@ -1035,11 +1097,12 @@ describe('EnrollmentService', () => {
         it('keeps the same row when the family stays, so the history reads as one period', async () => {
             await service.resolveTrial(9, { accepted: true });
 
-            // Only while it is still a trial: a decision made twice at once must not count twice.
+            // Only while it is still a trial: a decision made twice at once must not count twice. And
+            // the day it stopped being one goes on the row, or its class would reach the bill.
             expect(manager.update).toHaveBeenCalledWith(
                 Enrollment,
                 { id: 9, status: EnrollmentStatus.TRIAL },
-                expect.objectContaining({ status: EnrollmentStatus.ACTIVE }),
+                expect.objectContaining({ status: EnrollmentStatus.ACTIVE, trialUntil: schoolToday() }),
             );
             expect(manager.save).not.toHaveBeenCalled();
         });
@@ -1059,7 +1122,7 @@ describe('EnrollmentService', () => {
             expect(manager.update).toHaveBeenCalledWith(
                 Enrollment,
                 { id: 9, status: EnrollmentStatus.TRIAL },
-                expect.objectContaining({ status: EnrollmentStatus.WITHDRAWN, exitReason: 'Nu s-a potrivit programul' }),
+                expect.objectContaining({ status: EnrollmentStatus.WITHDRAWN, exitReason: 'Nu s-a potrivit programul', trialUntil: schoolToday() }),
             );
             expect(outbox.queueOrRecord).toHaveBeenCalled();
         });

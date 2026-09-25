@@ -116,6 +116,60 @@ describe('Payments (e2e)', () => {
         });
     });
 
+    /**
+     * The review of 25 September 2026. The status is derived — from the payments, from a zero amount
+     * — and the payments are not deleted with their invoice.
+     */
+    describe('editing and deleting an invoice with money on it', () => {
+        const edit = (body: Record<string, unknown>) => request(app.getHttpServer()).put(`/invoices/${invoiceId}`).set('Authorization', admin.auth).send(body);
+
+        it('lowered to what was paid, the invoice is paid; raised again, it is owed again', async () => {
+            await pay({ amount: 200 }).expect(201);
+
+            const lowered = await edit({ amount: 200 }).expect(200);
+            expect(lowered.body.status).toBe('paid');
+            expect(await invoiceStatus()).toBe('paid');
+
+            await edit({ amount: 350 }).expect(200);
+            expect(await invoiceStatus()).toBe('pending');
+        });
+
+        it('takes zero, and the month is waived — no document to download', async () => {
+            const res = await edit({ amount: 0 }).expect(200);
+
+            expect(res.body.status).toBe('waived');
+            expect(await invoiceStatus()).toBe('waived');
+            await request(app.getHttpServer()).get(`/invoices/${invoiceId}/pdf`).set('Authorization', admin.auth).expect(404);
+        });
+
+        it('refuses zero while money sits on the invoice', async () => {
+            await pay({ amount: 100 }).expect(201);
+
+            const res = await edit({ amount: 0 }).expect(409);
+
+            expect(res.body.code).toBe('INVOICE_HAS_PAYMENTS');
+            const [row] = await dataSource.query<{ amount: string; status: string }[]>('SELECT "amount", "status" FROM "invoices" WHERE "id" = $1', [
+                invoiceId,
+            ]);
+            expect(row).toMatchObject({ amount: '350.00', status: 'pending' });
+        });
+
+        it('refuses a status typed by hand', async () => {
+            await edit({ status: 'paid' }).expect(400);
+            expect(await invoiceStatus()).toBe('pending');
+        });
+
+        it('refuses to delete an invoice with payments, and keeps them — a failed one included', async () => {
+            await pay({ amount: 100, method: 'bank_transfer', status: 'failed' }).expect(201);
+
+            const res = await request(app.getHttpServer()).delete(`/invoices/${invoiceId}`).set('Authorization', admin.auth).expect(409);
+
+            expect(res.body.code).toBe('INVOICE_HAS_PAYMENTS');
+            const [{ count }] = await dataSource.query<{ count: string }[]>('SELECT COUNT(*) AS count FROM "payments" WHERE "invoice_id" = $1', [invoiceId]);
+            expect(Number(count)).toBe(1);
+        });
+    });
+
     describe('what the wire carries', () => {
         it('the recording admin appears to the office as id and username, and never the credentials row', async () => {
             await pay({ amount: 350 }).expect(201);

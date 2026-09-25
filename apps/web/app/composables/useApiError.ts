@@ -202,6 +202,11 @@ const MESSAGES: Record<string, string> = {
   // E16/S1. Money against a month the school chose not to charge for — the row picked is wrong.
   INVOICE_WAIVED: "Factura este anulată (0 lei) — nu se pot înregistra plăți pe ea.",
 
+  // The review of 25 September 2026: an invoice's payments are not deleted along with it, and a
+  // month made free cannot keep money against it.
+  INVOICE_HAS_PAYMENTS:
+    "Factura are plăți înregistrate pe ea. Ca s-o ștergi, șterge întâi plățile; ca s-o treci la 0 lei, stornează sau șterge plățile încasate.",
+
   // E16/S2. SmartBill holds the fiscal document; the platform's row cannot drift from it.
   INVOICE_HAS_FISCAL_DOCUMENT:
     "Factura e emisă în SmartBill — suma, data sau ștergerea se corectează acolo, printr-o stornare.",

@@ -18,6 +18,9 @@ import { createMockQueryBuilder, createMockRepository, isScopedToUser, MockRepos
 import { BillableSessionsService, MonthCount } from './billable-sessions.service';
 import { FiscalIssuingService } from './fiscal-issuing.service';
 import { InvoiceFiscalStatus } from 'src/entities/invoice.entity';
+import { PaymentService } from 'src/modules/payment/payment.service';
+import { Payment } from 'src/entities/payment.entity';
+import { PaymentStatus } from 'src/enum/payment-status.enum';
 
 describe('InvoiceService', () => {
     /** E07/S3. What reached the trail, and with which manager. */
@@ -30,7 +33,9 @@ describe('InvoiceService', () => {
     let childRepo: MockRepository;
     let overrideRepo: MockRepository;
     let s3: { putObject: jest.Mock; downloadFile: jest.Mock; deleteObject: jest.Mock };
-    let transactionManager: { save: jest.Mock; delete: jest.Mock; update: jest.Mock; findOne: jest.Mock };
+    let transactionManager: { save: jest.Mock; delete: jest.Mock; update: jest.Mock; findOne: jest.Mock; count: jest.Mock };
+    /** The one door that derives an invoice's status from its payments. */
+    let payments: { recomputeInvoiceStatus: jest.Mock };
     /** E15/S9's one query, mute: what it counts is its own suite's business. */
     let billable: { countForMonth: jest.Mock };
     /** E16/S2's queue: only the PDF fetch is reached from here. */
@@ -63,7 +68,8 @@ describe('InvoiceService', () => {
         // `createInvoice` writes the row and uploads the PDF inside one transaction. The fake runs
         // the callback with a manager whose `save` behaves like the repository's, so a rejected
         // upload propagates exactly as it would in production.
-        transactionManager = { save: jest.fn(), delete: jest.fn(), update: jest.fn(), findOne: jest.fn() };
+        transactionManager = { save: jest.fn(), delete: jest.fn(), update: jest.fn(), findOne: jest.fn(), count: jest.fn().mockResolvedValue(0) };
+        payments = { recomputeInvoiceStatus: jest.fn().mockResolvedValue({ paid: 0, outstanding: 350, status: InvoiceStatus.PENDING }) };
 
         audit = { record: jest.fn(() => Promise.resolve()), recordUpdate: jest.fn(() => Promise.resolve()) };
 
@@ -87,6 +93,7 @@ describe('InvoiceService', () => {
                 },
                 { provide: AuditService, useValue: audit },
                 { provide: FiscalIssuingService, useValue: fiscal },
+                { provide: PaymentService, useValue: payments },
             ],
         }).compile();
 
@@ -286,14 +293,95 @@ describe('InvoiceService', () => {
 
     describe('updateInvoice', () => {
         it('changes only the fields that were sent', async () => {
-            const invoice = { id: 1, amount: 350, status: InvoiceStatus.PENDING, dateIssued: new Date('2026-03-01') };
+            const invoice = { id: 1, amount: 350, status: InvoiceStatus.PENDING, dateIssued: new Date(2026, 2, 1) };
             invoiceRepo.findOne!.mockResolvedValue(invoice);
-            transactionManager.save.mockImplementation((_entity: unknown, i: unknown) => Promise.resolve(i));
 
-            await service.updateInvoice(1, { status: InvoiceStatus.PAID }, ACTOR);
+            await service.updateInvoice(1, { dateIssued: '2026-03-05' }, ACTOR);
 
-            expect(invoice.status).toBe(InvoiceStatus.PAID);
+            // A local calendar day, never `new Date('2026-03-05')` — UTC midnight, the 4th west of Greenwich.
+            expect(transactionManager.update).toHaveBeenCalledWith(Invoice, 1, { dateIssued: new Date(2026, 2, 5) });
             expect(invoice.amount).toBe(350);
+            // Only an amount is weighed against the payments; a date moves nothing they decide.
+            expect(payments.recomputeInvoiceStatus).not.toHaveBeenCalled();
+        });
+
+        /**
+         * The review of 25 September 2026: the status is derived, never typed, and an amount edit
+         * derives it again — before, `if (dto.amount)` dropped a zero and a lowered amount left a
+         * paid invoice `pending` for ever.
+         */
+        describe('an amount edit re-derives the status', () => {
+            const pending = { id: 1, amount: 350, status: InvoiceStatus.PENDING, dateIssued: new Date(2026, 2, 1), monthIssued: '2026-03' };
+
+            it('from the payments, through the door that derives it', async () => {
+                invoiceRepo.findOne!.mockResolvedValue({ ...pending });
+                transactionManager.findOne.mockResolvedValue({ ...pending, fiscalStatus: null });
+                payments.recomputeInvoiceStatus.mockResolvedValue({ paid: 200, outstanding: 0, status: InvoiceStatus.PAID });
+
+                const updated = await service.updateInvoice(1, { amount: 200 }, ACTOR);
+
+                expect(transactionManager.update).toHaveBeenCalledWith(Invoice, 1, { amount: 200 });
+                expect(payments.recomputeInvoiceStatus).toHaveBeenCalledWith(1, transactionManager);
+                expect(updated.status).toBe(InvoiceStatus.PAID);
+            });
+
+            it('takes zero, and the month becomes waived and leaves the fiscal queue', async () => {
+                invoiceRepo.findOne!.mockResolvedValue({ ...pending });
+                transactionManager.findOne.mockResolvedValue({ ...pending, fiscalStatus: InvoiceFiscalStatus.PENDING });
+                payments.recomputeInvoiceStatus.mockResolvedValue({ paid: 0, outstanding: 0, status: InvoiceStatus.WAIVED });
+
+                const updated = await service.updateInvoice(1, { amount: 0 }, ACTOR);
+
+                expect(transactionManager.update).toHaveBeenCalledWith(Invoice, 1, {
+                    amount: 0,
+                    status: InvoiceStatus.WAIVED,
+                    fiscalStatus: null,
+                    fiscalNextAttemptAt: null,
+                });
+                expect(updated.status).toBe(InvoiceStatus.WAIVED);
+            });
+
+            it('refuses zero while money sits on the invoice', async () => {
+                invoiceRepo.findOne!.mockResolvedValue({ ...pending });
+                transactionManager.findOne.mockResolvedValue({ ...pending, fiscalStatus: null });
+                transactionManager.count.mockResolvedValue(1);
+
+                await expect(service.updateInvoice(1, { amount: 0 }, ACTOR)).rejects.toMatchObject({
+                    response: expect.objectContaining({ error: 'INVOICE_HAS_PAYMENTS' }),
+                });
+                expect(transactionManager.count).toHaveBeenCalledWith(Payment, {
+                    where: { invoice: { id: 1 }, status: expect.objectContaining({ _value: [PaymentStatus.SUCCEEDED, PaymentStatus.INITIATED] }) },
+                });
+                expect(transactionManager.update).not.toHaveBeenCalled();
+            });
+
+            it('gives a waived month an amount, and it is owed again', async () => {
+                const waived = { ...pending, amount: 0, status: InvoiceStatus.WAIVED };
+                invoiceRepo.findOne!.mockResolvedValue({ ...waived });
+                transactionManager.findOne.mockResolvedValue({ ...waived, fiscalStatus: null });
+
+                const updated = await service.updateInvoice(1, { amount: 350 }, ACTOR);
+
+                // `off` by default: owed again, with nothing for SmartBill.
+                expect(transactionManager.update).toHaveBeenCalledWith(Invoice, 1, {
+                    amount: 350,
+                    status: InvoiceStatus.PENDING,
+                    fiscalStatus: null,
+                    fiscalNextAttemptAt: null,
+                });
+                expect(updated.status).toBe(InvoiceStatus.PENDING);
+            });
+
+            it('leaves the status out of the trail: it moved because the amount did', async () => {
+                invoiceRepo.findOne!.mockResolvedValue({ ...pending });
+                transactionManager.findOne.mockResolvedValue({ ...pending, fiscalStatus: null });
+                payments.recomputeInvoiceStatus.mockResolvedValue({ paid: 200, outstanding: 0, status: InvoiceStatus.PAID });
+
+                await service.updateInvoice(1, { amount: 200 }, ACTOR);
+
+                const entry = audit.recordUpdate.mock.calls[0][0] as { before: { status: string }; after: { status: string } };
+                expect(entry.after.status).toBe(entry.before.status);
+            });
         });
 
         // E07/S3. The trail entry and the change it describes commit together, so the record is
@@ -371,6 +459,23 @@ describe('InvoiceService', () => {
 
             await expect(service.deleteInvoice(99, ACTOR)).rejects.toThrow(NotFoundException);
             expect(invoiceRepo.delete).not.toHaveBeenCalled();
+        });
+
+        // The review of 25 September 2026: `payments.invoice_id` cascades, so the delete took every
+        // payment with it, and nothing said they had existed. Any status counts.
+        it('refuses an invoice with payments recorded against it', async () => {
+            invoiceRepo.findOne!.mockResolvedValue({
+                id: 1,
+                amount: 350,
+                status: InvoiceStatus.PAID,
+                dateIssued: new Date(2026, 2, 1),
+                monthIssued: '2026-03',
+            });
+            transactionManager.count.mockResolvedValue(1);
+
+            await expect(service.deleteInvoice(1, ACTOR)).rejects.toMatchObject({ response: expect.objectContaining({ error: 'INVOICE_HAS_PAYMENTS' }) });
+            expect(transactionManager.count).toHaveBeenCalledWith(Payment, { where: { invoice: { id: 1 } } });
+            expect(transactionManager.delete).not.toHaveBeenCalled();
         });
     });
 
@@ -554,8 +659,9 @@ describe('InvoiceService', () => {
             await service.issueFromSessions(october, ACTOR);
 
             // The 14-day term (E16/S7) runs from this date, and the month can only be issued once
-            // its last register exists — which is the following month.
-            expect(transactionManager.save).toHaveBeenCalledWith(expect.objectContaining({ dateIssued: new Date('2026-11-01'), monthIssued: '2026-10' }));
+            // its last register exists — which is the following month. A local calendar day: through
+            // UTC, the `date` column stores the 31st of October west of Greenwich.
+            expect(transactionManager.save).toHaveBeenCalledWith(expect.objectContaining({ dateIssued: new Date(2026, 10, 1), monthIssued: '2026-10' }));
         });
     });
 
@@ -720,14 +826,15 @@ describe('InvoiceService', () => {
         });
 
         // The race this rewrite closed: a whole-entity `save` of a row read before the transaction
-        // would put the fiscal columns back as they were read — an issued invoice back in the queue.
+        // would put the fiscal columns back as they were read — here, a refused invoice back in the
+        // queue as the `pending` it was when read.
         it('writes only the field that was sent, never the fiscal columns it read earlier', async () => {
             invoiceRepo.findOne!.mockResolvedValue({ ...issuedInvoice, fiscalStatus: InvoiceFiscalStatus.PENDING });
-            transactionManager.findOne.mockResolvedValue({ id: 1, fiscalStatus: InvoiceFiscalStatus.ISSUED });
+            transactionManager.findOne.mockResolvedValue({ ...issuedInvoice, fiscalStatus: InvoiceFiscalStatus.FAILED });
 
-            await service.updateInvoice(1, { status: InvoiceStatus.PAID }, ACTOR);
+            await service.updateInvoice(1, { amount: 300 }, ACTOR);
 
-            expect(transactionManager.update).toHaveBeenCalledWith(Invoice, 1, { status: InvoiceStatus.PAID });
+            expect(transactionManager.update).toHaveBeenCalledWith(Invoice, 1, { amount: 300 });
             expect(transactionManager.save).not.toHaveBeenCalled();
         });
 
@@ -836,10 +943,10 @@ describe('InvoiceService', () => {
             expect(s3.deleteObject).toHaveBeenCalledWith('invoices/2026-10/1.pdf');
         });
 
-        it('keeps it when only the status moves — the status is not printed', async () => {
+        it('keeps it when nothing printed moves', async () => {
             invoiceRepo.findOne!.mockResolvedValue({ ...invoice });
 
-            await service.updateInvoice(1, { status: InvoiceStatus.PAID }, ACTOR);
+            await service.updateInvoice(1, {}, ACTOR);
 
             expect(s3.deleteObject).not.toHaveBeenCalled();
         });
