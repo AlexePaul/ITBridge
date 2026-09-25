@@ -243,33 +243,39 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # Started as a plain container rather than a service, because the official MinIO image needs
-      # a command (`server /data`) and `services:` has nowhere to put one. The bucket is created by
+      # Started as a plain container rather than a service, because the MinIO image needs a command
+      # (`server /data`) and `services:` has nowhere to put one. The bucket is created by
       # `test/global-setup.ts`, not by the image.
       #
-      # Pulled from quay.io, not Docker Hub: `minio/minio` there now answers an anonymous pull with
-      # `pull access denied ... may require 'docker login'`. When that started, this step failed in
-      # one second and the two steps after it — schema drift and the whole integration suite — were
-      # *skipped*, so the job went red having run no test at all. The check said "Integration
-      # tests" and meant "docker could not fetch an image", which is the worst kind of red: it
-      # looks like the code and reads like nothing.
+      # Chainguard's build, not MinIO's: MinIO stopped publishing images. On 25 September 2026
+      # `minio/minio` no longer existed on Docker Hub and quay.io answered an anonymous pull with
+      # `unauthorized`, three times out of three, so every run fell here with no test run.
+      # `chainguard/minio` is MinIO built from source and published on Docker Hub by Chainguard.
+      # `--tmpfs /data` because the image ships a pre-built `/data/.minio.sys` in its layer, and on
+      # the container's overlay filesystem MinIO cannot rename it ("Rename across devices not
+      # allowed"). A tmpfs is a fresh directory, in memory, that the image's non-root user can write.
+      #
+      # When a pull fails, this step fails in seconds and the two steps after it (schema drift and
+      # the whole integration suite) are *skipped*: the job goes red having run no test at all. The
+      # check says "Integration tests" and means "docker could not fetch an image", which is the
+      # worst kind of red: it looks like the code and reads like nothing.
       - name: Start MinIO
         run: |
           set -euo pipefail
           # Three tries: a registry blip should cost seconds, not a run. A genuine denial fails all
           # three and says so below, rather than being read as a flaky test.
           for attempt in 1 2 3; do
-            if docker pull quay.io/minio/minio:latest; then break; fi
+            if docker pull chainguard/minio:latest; then break; fi
             if [ "$attempt" = 3 ]; then
-              echo "::error::Could not pull quay.io/minio/minio. This is the object-storage image the integration suite needs; no test has run."
+              echo "::error::Could not pull chainguard/minio. This is the object-storage image the integration suite needs; no test has run."
               exit 1
             fi
             sleep 5
           done
-          docker run -d --name minio -p 9000:9000 \
+          docker run -d --name minio -p 9000:9000 --tmpfs /data \
             -e MINIO_ROOT_USER=itbridge \
             -e MINIO_ROOT_PASSWORD=dev_password \
-            quay.io/minio/minio:latest server /data
+            chainguard/minio:latest server /data
           for i in $(seq 1 30); do
             curl -sf http://localhost:9000/minio/health/live && break
             sleep 2
