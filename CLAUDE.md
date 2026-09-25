@@ -2042,8 +2042,9 @@ Trei reguli care par detalii și nu sunt:
 - **Nimic nu se întinde în trecut**: `+` pleacă de la luna viitoare, `−` ia doar de acolo încolo, și
   scoate numai rândurile recompensei. Un procent tastat din formular nu e al butonului să-l
   retragă, iar peste el `DISCOUNT_ALREADY_GRANTED` refuză să se adune. Refuzul e în serviciu, fără
-  index unic în spate — spre deosebire de locurile din E11, un rând duplicat aici se vede pe ecran
-  și se șterge din două clicuri.
+  index unic în spate, și nu mai lasă nici duplicatul pe care îl lăsa înainte: două apăsări în
+  aceeași secundă ajung pe aceeași lună, iar lacătul lunii (mai jos) o pune pe a doua să aștepte,
+  să găsească rândul primei și să fie refuzată — apăsată din nou, cade pe luna următoare.
 
 **Ultimul pas al oricărei facturi e tabelul `discounts`, și nu depinde de cum s-a calculat suma.**
 Indiferent ce dă totalul — ședințe numărate pe un ecran, prezențe, orice vine după —, rândurile
@@ -2053,6 +2054,20 @@ de emitere trebuie s-o facă și ea.** Fără pasul ăsta, familia căreia școa
 primește factura întreagă, iar promisiunea rămâne în tabel, nevăzută de nimeni: nu apare ca eroare
 nicăieri, fiindcă suma calculată e perfect validă. Cazul obișnuit e −50% din E20/S5, dat dintr-un
 buton, deci nu mai e rar.
+
+**Tot ce hotărăște din ce e făcută factura unei luni stă la rând cu emiterea ei** (revizuirea din 25
+septembrie 2026). Emiterea citea luna — cataloagele, bifele de vacanță, corecturile pe copil,
+reducerile — pe fotografia ei, iar fiecare dintre scriitorii ăștia verifica „luna nu e facturată
+încă" pe a lui. O corectură salvată în aceeași secundă cu „emite" ajungea după ce emiterea citise
+luna și înainte ca factura ei să existe: nu intra pe factură, și nici nu era refuzată, ci rămânea
+înghețată pe o lună care n-o citise niciodată — ecranul arăta un număr și factura purta altul. Acum
+e un lacăt consultativ pe lună, `lockInvoiceMonth` (`invoice-month-lock.ts`), luat în tranzacția
+care scrie: emiterea îl ia **înainte** să citească luna, iar corecturile, reducerile (și butonul de
+recomandare) și bifa de vacanță îl iau înainte să întrebe dacă luna mai e deschisă. Două luni —
+mutarea unei reduceri — se iau în ordine, cea mai veche întâi. Un scriitor nou al lunii facturate
+trece pe aici, altfel redeschide exact fereastra asta. Tot de aici, bifa de vacanță scrie doar
+coloana ei, și doar cât ora nu e anulată: salvarea rândului întreg citit înainte punea la loc o
+anulare venită între timp.
 
 **Zero e un răspuns, nu un câmp gol.** O lună fără plată se scrie ca factură `waived`, de 0 lei,
 fără PDF. Rândul există fiindcă n-are bani în el: fără el, o familie fără factură pe octombrie arată

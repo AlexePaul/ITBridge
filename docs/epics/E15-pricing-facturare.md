@@ -734,6 +734,14 @@ reprodus și are un test care pică pe codul de dinainte.
   acum ce s-a încasat și ce a rămas, din aceeași sumă ca lista de restanțe, iar portalul arată restul
   și, lângă el, cât s-a plătit deja; o factură neplătită cu bani pe ea apare „Plătită parțial".
 
+- **Emiterea și ce hotărăște luna nu stăteau la rând.** O corectură pe copil, o reducere sau o bifă de
+  vacanță salvate în aceeași secundă cu „emite" treceau de verificarea „luna nu e facturată" și
+  ratau totuși factura: emiterea citise luna înainte ca ele să se comită. Rămâneau înghețate pe o
+  lună pe care factura n-o reflecta. Acum emiterea citește luna sub un lacăt pe lună, iar fiecare
+  dintre scriitori îl ia înainte să întrebe dacă luna mai e deschisă: ori intră în ce citește
+  emiterea, ori e refuzat. Bifa de vacanță scria și rândul întreg al orei citit înainte, deci o
+  anulare venită între timp era pusă la loc; acum scrie doar bifa, și doar pe o oră care se ține.
+
 **Deciziile luate aici**, de revăzut dacă școala vede altfel:
 
 - **Ziua deciziei unei probe e gratuită întreagă**, chiar dacă biroul a decis înaintea orei ei: o
