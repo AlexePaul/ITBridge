@@ -26,9 +26,9 @@ Trei lucruri de citit înainte de tabele:
 
 ## Pe scurt
 
-- **32 tabele**, cu **273 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
-- **119 coloane sunt date personale**, în **24 tabele**.
-- Restul de **154** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
+- **33 tabele**, cu **280 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
+- **125 coloane sunt date personale**, în **25 tabele**.
+- Restul de **155** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
 
 ## Datele personale, câmp cu câmp
 
@@ -150,6 +150,12 @@ Trei lucruri de citit înainte de tabele:
 | `document_acceptances.document` | Titularul contului | Urme de utilizare | Care document a fost acceptat. | Obligație legală | Evidență; supraviețuiește rândului descris | Admin, Familia respectivă |
 | `document_acceptances.version` | Titularul contului | Urme de utilizare | Ce versiune de text a citit familia — singura întrebare care contează dacă cineva întreabă. | Obligație legală | Evidență; supraviețuiește rândului descris | Admin, Familia respectivă |
 | `document_acceptances.acceptedAt` | Titularul contului | Urme de utilizare | Când a acceptat. | Obligație legală | Evidență; supraviețuiește rândului descris | Admin, Familia respectivă |
+| `publication_consents.purpose` | Copil | Urme de utilizare | Pentru ce s-a dat acordul — azi un singur scop: materialele de promovare ale școlii. | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
+| `publication_consents.textVersion` | Copil | Urme de utilizare | Ce versiune a textului a citit familia când a acceptat — GDPR art. 7 alin. 1 cere ca acordul să poată fi dovedit. | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
+| `publication_consents.grantedAt` | Copil | Urme de utilizare | Din ce zi e permisă folosirea. | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
+| `publication_consents.grantedVia` | Copil | Urme de utilizare | Dacă acordul l-a dat familia din portal sau l-a consemnat biroul după un formular pe hârtie. | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
+| `publication_consents.revokedAt` | Copil | Urme de utilizare | Din ce zi nu mai e permisă; gol cât acordul e în vigoare. | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
+| `publication_consents.revokedVia` | Copil | Urme de utilizare | Cine a consemnat retragerea: familia din portal, sau biroul la cererea ei. | Obligație legală | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `audit_log.actorUserId` | Titularul contului | Urme de utilizare | Ce cont a făcut schimbarea. | Obligație legală | Evidență; supraviețuiește rândului descris | Admin |
 | `audit_log.actorUsername` | Titularul contului | Urme de utilizare | Numele contului, copiat la scriere ca urma să rămână citibilă după ștergerea lui. | Obligație legală | Evidență; supraviețuiește rândului descris | Admin |
 | `audit_log.changes` | Părinte | Financiar | Ce s-a schimbat: suma, data, starea — doar câmpurile care s-au mișcat. | Obligație legală | Evidență; supraviețuiește rândului descris | Admin |
@@ -185,6 +191,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 | `password_resets` | Titularul contului | `user.profile` | Linkul prin care o familie își recapătă contul când nu mai știe parola. |
 | `email_confirmations` | Titularul contului | `user.profile` | Tokenul trimis la înregistrare, ca să se confirme adresa. |
 | `document_acceptances` | Titularul contului | `user.profile` | Ce versiune a cărui document a acceptat cine, și când (E22 S4). |
+| `publication_consents` | Copil | `child.parent` | Acordul familiei ca lucrările unui copil să apară în materialele școlii, de la acordare la retragere (E07 S2). |
 | `audit_log` | Titularul contului | **nu se poate ajunge prin relații** | Cine a schimbat ce și când, pe drumurile banilor (E07 S3). |
 
 ## Ce nu e dată personală, și de ce
@@ -192,7 +199,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 | Motiv | Câte | Coloane |
 | ----- | ---- | ------- |
 | configurația școlii | 18 | `locations.name`, `locations.slug`, `locations.street`, `locations.city`, `locations.district`, `locations.postalCode`, `locations.latitude`, `locations.longitude`, `locations.phone`, `locations.email`, `locations.openingHours`, `locations.isActive`, `rooms.name`, `rooms.isActive`, `groups.isActive`, `agent_status.agentName`, `agent_status.version`, `agent_status.watchedRoot` |
-| identificator surogat | 34 | `users.id`, `profiles.id`, `children.id`, `enrollments.id`, `waitlist_entries.id`, `attendances.id`, `absence_notices.id`, `session_count_overrides.id`, `invoices.id`, `invoices.fiscalDocumentId`, `payments.id`, `discounts.id`, `projects.id`, `projects.publicId`, `project_versions.id`, `project_files.id`, `project_links.id`, `bank_statement_lines.id`, `unassigned_files.id`, `leads.id`, `outbox.id`, `announcements.id`, `mail_templates.id`, `sessions.id`, `password_resets.id`, `email_confirmations.id`, `document_acceptances.id`, `audit_log.id`, `locations.id`, `rooms.id`, `groups.id`, `class_sessions.id`, `non_teaching_periods.id`, `agent_status.id` |
+| identificator surogat | 35 | `users.id`, `profiles.id`, `children.id`, `enrollments.id`, `waitlist_entries.id`, `attendances.id`, `absence_notices.id`, `session_count_overrides.id`, `invoices.id`, `invoices.fiscalDocumentId`, `payments.id`, `discounts.id`, `projects.id`, `projects.publicId`, `project_versions.id`, `project_files.id`, `project_links.id`, `bank_statement_lines.id`, `unassigned_files.id`, `leads.id`, `outbox.id`, `announcements.id`, `mail_templates.id`, `sessions.id`, `password_resets.id`, `email_confirmations.id`, `document_acceptances.id`, `publication_consents.id`, `audit_log.id`, `locations.id`, `rooms.id`, `groups.id`, `class_sessions.id`, `non_teaching_periods.id`, `agent_status.id` |
 | mecanică internă | 29 | `invoices.fiscalDocumentUrl`, `invoices.fiscalAttempts`, `invoices.fiscalNextAttemptAt`, `invoices.fiscalExpectedNumber`, `invoices.fiscalLastError`, `invoices.fiscalCheckedAt`, `payments.fiscalAttempts`, `payments.fiscalNextAttemptAt`, `payments.fiscalExpectedPaid`, `payments.fiscalExpectedNumber`, `payments.fiscalLastError`, `projects.sentOutboxMessageId`, `project_files.contentType`, `project_files.sizeBytes`, `bank_statement_lines.fingerprint`, `unassigned_files.sizeBytes`, `unassigned_files.reportKey`, `leads.bookingKey`, `outbox.attempts`, `outbox.nextAttemptAt`, `outbox.lastError`, `outbox.dedupeKey`, `outbox.attachments`, `announcements.dedupeKey`, `sessions.familyId`, `audit_log.entityType`, `audit_log.entityId`, `audit_log.note`, `agent_status.lastError` |
 | marcaj de timp al rândului | 25 | `users.createdAt`, `children.createdAt`, `enrollments.createdAt`, `waitlist_entries.createdAt`, `absence_notices.createdAt`, `session_count_overrides.createdAt`, `session_count_overrides.updatedAt`, `payments.createdAt`, `projects.createdAt`, `project_versions.createdAt`, `project_files.uploadedAt`, `project_files.createdAt`, `project_links.createdAt`, `bank_statement_lines.importedAt`, `unassigned_files.reportedAt`, `leads.createdAt`, `leads.updatedAt`, `outbox.createdAt`, `announcements.createdAt`, `mail_templates.updatedAt`, `sessions.createdAt`, `password_resets.createdAt`, `email_confirmations.createdAt`, `audit_log.occurredAt`, `non_teaching_periods.createdAt` |
 | orar, sală, capacitate | 16 | `rooms.capacity`, `rooms.computers`, `rooms.hasProjector`, `rooms.hasWhiteboard`, `groups.name`, `groups.weekday`, `groups.startTime`, `groups.endTime`, `groups.capacity`, `groups.minAge`, `groups.maxAge`, `class_sessions.date`, `class_sessions.startTime`, `class_sessions.endTime`, `non_teaching_periods.startDate`, `non_teaching_periods.endDate` |

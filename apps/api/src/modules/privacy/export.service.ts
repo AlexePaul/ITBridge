@@ -20,6 +20,7 @@ import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
 import { EmailConfirmation } from 'src/entities/email-confirmation.entity';
 import { PasswordReset } from 'src/entities/password-reset.entity';
 import { BankStatementLine } from 'src/entities/bank-statement-line.entity';
+import { PublicationConsent } from 'src/entities/publication-consent.entity';
 import type { ExportedPayment, FamilyExport } from './export.types';
 
 /**
@@ -70,6 +71,7 @@ export class ExportService {
         @InjectRepository(EmailConfirmation) private readonly confirmations: Repository<EmailConfirmation>,
         @InjectRepository(PasswordReset) private readonly passwordResets: Repository<PasswordReset>,
         @InjectRepository(BankStatementLine) private readonly statementLines: Repository<BankStatementLine>,
+        @InjectRepository(PublicationConsent) private readonly consents: Repository<PublicationConsent>,
     ) {}
 
     /** Which tables this service reads. `export.spec.ts` compares it with the inventory. */
@@ -96,6 +98,7 @@ export class ExportService {
         'EmailConfirmation',
         'PasswordReset',
         'DocumentAcceptance',
+        'PublicationConsent',
     ] as const;
 
     async forProfile(profileId: number): Promise<FamilyExport> {
@@ -115,7 +118,7 @@ export class ExportService {
         // than arriving there by accident.
         const ofChildren = async <T>(run: () => Promise<T[]>): Promise<T[]> => (childIds.length ? run() : []);
 
-        const [enrollments, waitlist, attendances, absences, overrides, projects] = await Promise.all([
+        const [enrollments, waitlist, attendances, absences, overrides, projects, consents] = await Promise.all([
             ofChildren(() => this.enrollments.find({ where: { child: { id: In(childIds) } }, relations: { child: true, group: true }, order: { id: 'ASC' } })),
             ofChildren(() => this.waitlist.find({ where: { child: { id: In(childIds) } }, relations: { child: true, group: true }, order: { id: 'ASC' } })),
             ofChildren(() =>
@@ -136,6 +139,7 @@ export class ExportService {
                     order: { id: 'ASC' },
                 }),
             ),
+            ofChildren(() => this.consents.find({ where: { child: { id: In(childIds) } }, relations: { child: true }, order: { id: 'ASC' } })),
         ]);
 
         const invoices = await this.invoices.find({ where: { parent: { id: profileId } }, order: { id: 'ASC' } });
@@ -254,6 +258,18 @@ export class ExportService {
                         trimisLaAdresa: row.sentToEmail ?? null,
                         fisiere: (row.versions ?? []).flatMap((version) => (version.files ?? []).map((file) => file.originalName)),
                         legaturi: (row.links ?? []).map((link) => ({ eticheta: link.label, adresa: link.url })),
+                    })),
+                // E07/S2: every consent, the ones taken back included — "when did we allow it, and
+                // when did we stop" is the question a family asking for its record would have.
+                acorduriPentruLucrari: consents
+                    .filter((row) => row.child?.id === child.id)
+                    .map((row) => ({
+                        scop: row.purpose,
+                        versiuneaTextului: row.textVersion,
+                        datLa: row.grantedAt?.toISOString() ?? null,
+                        datPrin: row.grantedVia,
+                        retrasLa: row.revokedAt?.toISOString() ?? null,
+                        retrasPrin: row.revokedVia ?? null,
                     })),
             })),
             facturi: invoices.map((invoice) => ({

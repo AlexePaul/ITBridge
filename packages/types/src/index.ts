@@ -21,3 +21,4 @@ export * from './reports';
 export * from './lead';
 export * from './reconciliation';
 export * from './retention';
+export * from './consent';

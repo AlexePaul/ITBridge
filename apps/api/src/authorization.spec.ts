@@ -206,6 +206,13 @@ describe('authorization matrix', () => {
             // else's family.
             'PrivacyController.requestErasure',
             'PrivacyController.withdrawErasure',
+            // E07/S2. A family deciding whether a child's work may appear in the school's materials,
+            // and taking it back — GDPR art. 7 alin. 3 wants withdrawing to be as easy as giving, so
+            // a parent who could give it from the portal must be able to withdraw it there too.
+            // `PublicationConsentService` refuses any child that is not the caller's own, and the
+            // office reaches the same two routes as ADMIN, for a family that signed on paper.
+            'ConsentController.grant',
+            'ConsentController.revoke',
             // E17/S4, and fully public like the trial booking above. It writes one boolean, in one
             // direction, on the row a random 32-byte token names.
             'UnsubscribeController.unsubscribe',

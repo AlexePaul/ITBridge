@@ -102,4 +102,13 @@ export interface ExportedChild {
         fisiere: string[];
         legaturi: { eticheta: string; adresa: string }[];
     }[];
+    /** E07/S2. `portal` means the family gave it; `office` means the school wrote it down for them. */
+    acorduriPentruLucrari: {
+        scop: string;
+        versiuneaTextului: string;
+        datLa: string | null;
+        datPrin: string;
+        retrasLa: string | null;
+        retrasPrin: string | null;
+    }[];
 }

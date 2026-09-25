@@ -41,6 +41,14 @@ export function privacyUrl(): string {
     return `${siteBase()}/confidentialitate`;
 }
 
+/**
+ * The text a family agrees to when it lets a child's work appear in the school's materials — E07 S2.
+ * Rendered from `docs/legal/acord-lucrari.md`, like the three documents above.
+ */
+export function consentTextUrl(): string {
+    return `${siteBase()}/acord-lucrari`;
+}
+
 /** The family's own profile page, where the acceptance record can be read again (terms §4.7). */
 export function profileUrl(): string {
     return `${siteBase()}/user/profile`;
@@ -57,6 +65,11 @@ export function absencesUrl(): string {
  */
 export function paymentsUrl(): string {
     return `${siteBase()}/user/payments`;
+}
+
+/** One family's page on the admin side — where the office records or withdraws a consent (E07 S2). */
+export function adminFamilyUrl(profileId: number): string {
+    return `${siteBase()}/admin/profiles/${profileId}`;
 }
 
 /** The admin screen the internal "somebody is waiting" mail points at. */

@@ -21,9 +21,15 @@ export type DataSubject =
 /**
  * Why the school is allowed to hold it. GDPR art. 6, in the four forms this platform actually uses.
  *
- * `consent` appears exactly where a refusal changes nothing else: marketing today, publishing a
- * child's work when E07 S2 is built. Anywhere a refusal would end the service, consent would not be
- * freely given and so would not be a valid basis — that is `contract`.
+ * `consent` appears exactly where a refusal changes nothing else: marketing, and using a child's
+ * work in the school's promotional materials (E07 S2). Anywhere a refusal would end the service,
+ * consent would not be freely given and so would not be a valid basis — that is `contract`.
+ *
+ * The second one shows up here only indirectly. The work's files are held under the contract,
+ * because delivering them is part of the course, and using them for promotion happens outside the
+ * platform's tables. What the platform holds about that use is the proof that the family agreed,
+ * `publication_consents`, and that proof is kept because GDPR art. 7 alin. 1 requires it to exist:
+ * `legal_obligation`, like the acceptance ledger.
  */
 export type LegalBasis = 'contract' | 'legal_obligation' | 'legitimate_interest' | 'consent';
 

@@ -49,6 +49,10 @@ import type { StatementImportResult, StatementLinesPage } from './modules/reconc
 import type { MatchConfidence } from './modules/reconciliation/statement-matching.rules';
 import type { FamilyRetention, RetentionSchedule } from './modules/privacy/retention.service';
 import type { RetentionHold } from './modules/privacy/retention.rules';
+import type { ChildConsents, ConsentInForce, FamilyConsents, PublicationConsentRecord } from './modules/privacy/publication-consent.service';
+import type { PublicationConsent } from './entities/publication-consent.entity';
+import type { PublicationPurpose } from './enum/publication-purpose.enum';
+import type { ConsentChannel } from './enum/consent-channel.enum';
 import type { Payment, PaymentFiscalStatus } from './entities/payment.entity';
 import type { PaymentFiscalQueueStatus } from './modules/payment/payment-fiscal.service';
 import type { PaymentMethod } from './enum/payment-method.enum';
@@ -232,6 +236,19 @@ type _RetentionSchedule = Check<Wire.RetentionSchedule, Serialized<RetentionSche
 type _FamilyRetention = Check<Wire.FamilyRetention, Serialized<FamilyRetention>>;
 type _RetentionHold = Check<Wire.RetentionHold, RetentionHold>;
 type _RetentionHoldBack = Check<RetentionHold, Wire.RetentionHold>;
+// E07/S2: a consent is a row from grant to withdrawal, and the record on the wire is that row.
+type _PublicationPurpose = Check<Wire.PublicationPurpose, `${PublicationPurpose}`>;
+type _PublicationPurposeBack = Check<`${PublicationPurpose}`, Wire.PublicationPurpose>;
+type _ConsentChannel = Check<Wire.ConsentChannel, `${ConsentChannel}`>;
+type _ConsentChannelBack = Check<`${ConsentChannel}`, Wire.ConsentChannel>;
+type _PublicationConsentRow = Check<
+    Wire.PublicationConsentRecord,
+    Pick<Serialized<PublicationConsent>, 'id' | 'purpose' | 'textVersion' | 'grantedAt' | 'grantedVia' | 'revokedAt' | 'revokedVia'>
+>;
+type _PublicationConsentRecord = Check<Wire.PublicationConsentRecord, PublicationConsentRecord>;
+type _ChildConsents = Check<Wire.ChildConsents, ChildConsents>;
+type _FamilyConsents = Check<Wire.FamilyConsents, FamilyConsents>;
+type _ConsentInForce = Check<Wire.ConsentInForce, ConsentInForce>;
 type _Payment = Check<
     Pick<Wire.Payment, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'notes' | 'createdAt'>,
     Pick<Serialized<Payment>, 'id' | 'amount' | 'method' | 'status' | 'date' | 'externalReference' | 'notes' | 'createdAt'>
