@@ -26,9 +26,9 @@ Trei lucruri de citit înainte de tabele:
 
 ## Pe scurt
 
-- **33 tabele**, cu **280 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
+- **33 tabele**, cu **281 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
 - **125 coloane sunt date personale**, în **25 tabele**.
-- Restul de **155** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
+- Restul de **156** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
 
 ## Datele personale, câmp cu câmp
 
@@ -202,7 +202,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 | identificator surogat | 35 | `users.id`, `profiles.id`, `children.id`, `enrollments.id`, `waitlist_entries.id`, `attendances.id`, `absence_notices.id`, `session_count_overrides.id`, `invoices.id`, `invoices.fiscalDocumentId`, `payments.id`, `discounts.id`, `projects.id`, `projects.publicId`, `project_versions.id`, `project_files.id`, `project_links.id`, `bank_statement_lines.id`, `unassigned_files.id`, `leads.id`, `outbox.id`, `announcements.id`, `mail_templates.id`, `sessions.id`, `password_resets.id`, `email_confirmations.id`, `document_acceptances.id`, `publication_consents.id`, `audit_log.id`, `locations.id`, `rooms.id`, `groups.id`, `class_sessions.id`, `non_teaching_periods.id`, `agent_status.id` |
 | mecanică internă | 29 | `invoices.fiscalDocumentUrl`, `invoices.fiscalAttempts`, `invoices.fiscalNextAttemptAt`, `invoices.fiscalExpectedNumber`, `invoices.fiscalLastError`, `invoices.fiscalCheckedAt`, `payments.fiscalAttempts`, `payments.fiscalNextAttemptAt`, `payments.fiscalExpectedPaid`, `payments.fiscalExpectedNumber`, `payments.fiscalLastError`, `projects.sentOutboxMessageId`, `project_files.contentType`, `project_files.sizeBytes`, `bank_statement_lines.fingerprint`, `unassigned_files.sizeBytes`, `unassigned_files.reportKey`, `leads.bookingKey`, `outbox.attempts`, `outbox.nextAttemptAt`, `outbox.lastError`, `outbox.dedupeKey`, `outbox.attachments`, `announcements.dedupeKey`, `sessions.familyId`, `audit_log.entityType`, `audit_log.entityId`, `audit_log.note`, `agent_status.lastError` |
 | marcaj de timp al rândului | 25 | `users.createdAt`, `children.createdAt`, `enrollments.createdAt`, `waitlist_entries.createdAt`, `absence_notices.createdAt`, `session_count_overrides.createdAt`, `session_count_overrides.updatedAt`, `payments.createdAt`, `projects.createdAt`, `project_versions.createdAt`, `project_files.uploadedAt`, `project_files.createdAt`, `project_links.createdAt`, `bank_statement_lines.importedAt`, `unassigned_files.reportedAt`, `leads.createdAt`, `leads.updatedAt`, `outbox.createdAt`, `announcements.createdAt`, `mail_templates.updatedAt`, `sessions.createdAt`, `password_resets.createdAt`, `email_confirmations.createdAt`, `audit_log.occurredAt`, `non_teaching_periods.createdAt` |
-| orar, sală, capacitate | 16 | `rooms.capacity`, `rooms.computers`, `rooms.hasProjector`, `rooms.hasWhiteboard`, `groups.name`, `groups.weekday`, `groups.startTime`, `groups.endTime`, `groups.capacity`, `groups.minAge`, `groups.maxAge`, `class_sessions.date`, `class_sessions.startTime`, `class_sessions.endTime`, `non_teaching_periods.startDate`, `non_teaching_periods.endDate` |
+| orar, sală, capacitate | 17 | `rooms.capacity`, `rooms.computers`, `rooms.hasProjector`, `rooms.hasWhiteboard`, `groups.name`, `groups.weekday`, `groups.startTime`, `groups.endTime`, `groups.capacity`, `groups.minAge`, `groups.maxAge`, `class_sessions.date`, `class_sessions.scheduledFor`, `class_sessions.startTime`, `class_sessions.endTime`, `non_teaching_periods.startDate`, `non_teaching_periods.endDate` |
 | text scris de școală | 10 | `announcements.audience`, `announcements.kind`, `announcements.subject`, `announcements.bodyText`, `mail_templates.key`, `mail_templates.subject`, `mail_templates.bodyText`, `mail_templates.bodyHtml`, `class_sessions.notes`, `non_teaching_periods.name` |
 | starea rândului | 22 | `invoices.fiscalStatus`, `payments.fiscalStatus`, `projects.hasThumbnail`, `projects.thumbnailAttemptedAt`, `project_versions.versionNumber`, `bank_statement_lines.ignoredAt`, `unassigned_files.reason`, `unassigned_files.resolvedAt`, `leads.noSeats`, `outbox.status`, `outbox.undeliverableReason`, `announcements.recipientCount`, `announcements.declinedCount`, `mail_templates.version`, `sessions.expiresAt`, `password_resets.expiresAt`, `email_confirmations.expiresAt`, `audit_log.action`, `class_sessions.status`, `class_sessions.isVacation`, `agent_status.lastSeenAt`, `agent_status.pendingFiles` |
 
@@ -264,6 +264,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 - **`locations.phone`** — Telefonul filialei, nu al unei persoane.
 - **`locations.email`** — Adresa filialei, nu a unei persoane.
 - **`groups.minAge`** — Banda de vârstă a grupei, nu vârsta cuiva.
+- **`class_sessions.scheduledFor`** — Ziua pentru care a scris-o generatorul; o mutare nu o schimbă.
 - **`class_sessions.notes`** — De ce s-a anulat ora — „Vacanța de iarnă". Despre oră, nu despre cineva.
 - **`agent_status.agentName`** — Numele serviciului, nu al unui om.
 - **`agent_status.watchedRoot`** — Rădăcina partajării. Sub ea sunt folderele copiilor, dar calea în sine e configurație.

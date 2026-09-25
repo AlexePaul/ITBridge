@@ -914,6 +914,32 @@ buton în antet pentru ora care n-are rând — grupa și ziua, apoi lista feres
 o apăsare. Profesorul e adminul, cum spune story-ul. Ce rămâne scris mai sus și nu s-a schimbat:
 „liber" înseamnă sala, fiindcă platforma nu are profesori.
 
+### Revizuirea din 25 septembrie 2026: orarul după o mutare
+
+O revizuire a contabilității locurilor a găsit trei defecte în orar, reproduse pe o bază reală și
+reparate fiecare cu testul lui, care pică pe codul dinainte.
+
+- **Generarea scria din nou ziua de pe care se mutase o oră.** Era idempotentă pe `(group, date)` și
+  atât, deci o oră mutată de vineri pe sâmbătă lăsa vinerea liberă, iar rularea de la 04:30 o scria
+  la loc: două ore în săptămână, cea fantomă vândută pe `/proba`, oferită la mutări, raportată
+  nemarcată și numărată pe ecranul de emitere. `ClassSession.scheduledFor` e acum ziua pentru care a
+  scris-o generatorul, iar o mutare n-o schimbă; generarea întreabă de loc, nu de zi. Regula „o oră
+  pe săptămână" ar fi reparat cazul raportat și l-ar fi stricat pe cel de alături: o oră mutată **în
+  altă săptămână** lasă săptămâna aia cu ora ei proprie.
+- **O grupă mutată pe altă zi își lăsa orele pe ziua veche**, iar generarea scria opt noi lângă ele.
+  Acum orele viitoare încă acolo unde le-a pus generatorul se mută în săptămâna lor pe ziua, ora și
+  sala noi, iar familiile primesc un singur mesaj (`group-schedule-changed`). Ce e mutat de birou,
+  ținut, anulat, pe o zi nouă trecută sau închisă rămâne pe loc — și dă totuși locul săptămânii zilei
+  noi, ca generarea să nu scrie o a doua oră.
+- **Un interval din calendar anula și ore ținute, și lăsa copiii mutați acolo pe loc.** Ora cu
+  prezențe rămâne acum neatinsă, iar plasările din orele anulate se eliberează, ca la anularea de
+  mână. Nu se scrie nimănui, dinadins: revizuirea propunea să se anunțe familiile, dar S2 a hotărât
+  că o vacanță nu e o veste, iar un test o spune.
+
+**Ce rămâne deschis:** `moveSession` nu verifică săptămâna (decizie amânată, scrisă mai sus). Acum
+nu mai dublează orarul — locul rămâne al săptămânii din care a plecat ora —, dar luna facturată se
+poate schimba odată cu săptămâna.
+
 ## Dependențe
 
 [E11](E11-inscrieri-capacitate.md) pentru cine e înscris când.
