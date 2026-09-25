@@ -309,6 +309,149 @@ describe('Issuing invoices from the registers (e2e)', () => {
         });
     });
 
+    /**
+     * The review of 25 September 2026: issuing read the month on its own snapshot, and each writer
+     * of what the month is made of checked "not invoiced yet" on its own. A correction, a discount
+     * or a vacation tick saved in the same second as "emite" was then neither on the invoice nor
+     * refused. A second connection plays the issue here: it holds the month's lock, and the request
+     * under test has to wait for it — or, on the code before the lock, does not wait at all.
+     */
+    describe("the month's lock", () => {
+        type Runner = ReturnType<DataSource['createQueryRunner']>;
+
+        const holdMonth = async (month = '2026-10'): Promise<Runner> => {
+            const runner = dataSource.createQueryRunner();
+            await runner.connect();
+            await runner.startTransaction();
+            await runner.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`invoice-month:${month}`]);
+            return runner;
+        };
+
+        const release = async (runner: Runner) => {
+            await runner.commitTransaction();
+            await runner.release();
+        };
+
+        /** Until the request waits on a lock — or has already answered, which is what the old code did. */
+        const blockedOrDone = async (pending: Promise<unknown>): Promise<void> => {
+            let done = false;
+            void pending.then(() => (done = true));
+            for (let attempt = 0; attempt < 300 && !done; attempt++) {
+                const [{ waiting }] = await dataSource.query<{ waiting: string }[]>('SELECT COUNT(*) AS waiting FROM pg_locks WHERE NOT granted');
+                if (Number(waiting) > 0) return;
+                await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+        };
+
+        /** The issue's own write, made on the connection that holds the month. */
+        const invoiceTheFamily = async (runner: Runner) => {
+            await runner.query(
+                `INSERT INTO "invoices" ("amount", "dateIssued", "monthIssued", "status", "parent_id") VALUES (87.5, '2026-11-01', '2026-10', 'pending', $1)`,
+                [await ownProfileId(app, parent)],
+            );
+        };
+
+        it('refuses a correction that waited on an issue of its month', async () => {
+            const childId = await makeChild();
+            const runner = await holdMonth();
+
+            const pending = request(app.getHttpServer())
+                .put('/invoices/overrides')
+                .set('Authorization', admin.auth)
+                .send({ monthIssued: '2026-10', childId, sessions: 3 })
+                .then((res) => res);
+            await blockedOrDone(pending);
+            await invoiceTheFamily(runner);
+            await release(runner);
+
+            const res = await pending;
+            expect(res.status).toBe(409);
+            expect(res.body.code).toBe('MONTH_ALREADY_INVOICED');
+            const [{ count }] = await dataSource.query<{ count: string }[]>('SELECT COUNT(*) AS count FROM "session_count_overrides"');
+            expect(Number(count)).toBe(0);
+        });
+
+        it('refuses a discount that waited on an issue of its month', async () => {
+            await makeChild();
+            const runner = await holdMonth();
+
+            const pending = request(app.getHttpServer())
+                .post('/discounts')
+                .set('Authorization', admin.auth)
+                .send({ name: 'Frate', value: 50, monthIssued: '2026-10', parentId: await ownProfileId(app, parent) })
+                .then((res) => res);
+            await blockedOrDone(pending);
+            await invoiceTheFamily(runner);
+            await release(runner);
+
+            const res = await pending;
+            expect(res.status).toBe(409);
+            expect(res.body.code).toBe('DISCOUNT_MONTH_INVOICED');
+        });
+
+        it('refuses a vacation tick that waited on an issue of its month', async () => {
+            await makeChild();
+            const [first] = await october();
+            const runner = await holdMonth();
+
+            const pending = request(app.getHttpServer())
+                .put(`/class-sessions/${first}/vacation`)
+                .set('Authorization', admin.auth)
+                .send({ isVacation: true })
+                .then((res) => res);
+            await blockedOrDone(pending);
+            await invoiceTheFamily(runner);
+            await release(runner);
+
+            const res = await pending;
+            expect(res.status).toBe(409);
+            expect(res.body.code).toBe('MONTH_ALREADY_INVOICED');
+        });
+
+        it('does not tick a class cancelled while the tick waited — and leaves it cancelled', async () => {
+            await makeChild();
+            const [first] = await october();
+            const runner = await holdMonth();
+
+            const pending = request(app.getHttpServer())
+                .put(`/class-sessions/${first}/vacation`)
+                .set('Authorization', admin.auth)
+                .send({ isVacation: true })
+                .then((res) => res);
+            await blockedOrDone(pending);
+            await runner.query(`UPDATE "class_sessions" SET "status" = 'cancelled' WHERE "id" = $1`, [first]);
+            await release(runner);
+
+            const res = await pending;
+            expect(res.status).toBe(409);
+            expect(res.body.code).toBe('CLASS_SESSION_CANCELLED');
+            const [row] = await dataSource.query<{ status: string; isVacation: boolean }[]>(
+                'SELECT "status", "isVacation" FROM "class_sessions" WHERE "id" = $1',
+                [first],
+            );
+            expect(row).toEqual({ status: 'cancelled', isVacation: false });
+        });
+
+        it('issues from a correction committed while the issue waited', async () => {
+            const childId = await makeChild();
+            for (const session of await october()) await mark(session, childId, true);
+            const runner = await holdMonth();
+            await runner.query(`INSERT INTO "session_count_overrides" ("monthIssued", "sessions", "reason", "child_id") VALUES ('2026-10', 3, 'test', $1)`, [
+                childId,
+            ]);
+
+            const pending = issue().then((res) => res);
+            await blockedOrDone(pending);
+            await release(runner);
+
+            const res = await pending;
+            expect(res.status).toBe(201);
+            // Three sessions at the first-child rate, as the correction says — not the four the
+            // registers hold, which is what a month read before the correction committed would bill.
+            expect(res.body.issued[0].amount).toBe(262.5);
+        });
+    });
+
     describe('a month that comes to nothing', () => {
         it('is recorded as a row, not skipped', async () => {
             await makeChild();

@@ -182,6 +182,9 @@ export interface MockEntityManager {
     createQueryBuilder?: jest.Mock;
     /** A raw `query`, installed by the suites whose transaction reads rows with SQL. */
     query?: jest.Mock;
+    /** `exists` and `count`, installed by the suites whose transaction asks before it writes. */
+    exists?: jest.Mock;
+    count?: jest.Mock;
 }
 
 export function createMockEntityManager(repositories: Map<unknown, MockRepository> = new Map()): MockEntityManager {

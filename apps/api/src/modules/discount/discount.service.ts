@@ -12,6 +12,7 @@ import { REFERRAL_DISCOUNT_NAME, REFERRAL_PERCENT, nextBillingMonthAt, nextUncov
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { snapshotFields } from 'src/modules/audit/audit.rules';
 import { AuditAction } from 'src/enum/audit-action.enum';
+import { lockInvoiceMonth, lockInvoiceMonths } from 'src/modules/invoice/invoice-month-lock';
 
 /**
  * The fields of a discount worth a line in the trail — E07/S3.
@@ -31,7 +32,6 @@ export class DiscountService {
     constructor(
         @InjectRepository(Discount) private discountRepository: Repository<Discount>,
         @InjectRepository(Profile) private profileRepository: Repository<Profile>,
-        @InjectRepository(Invoice) private invoiceRepository: Repository<Invoice>,
         @InjectDataSource() private readonly dataSource: DataSource,
         private readonly audit: AuditService,
     ) {}
@@ -57,13 +57,16 @@ export class DiscountService {
 
     async createDiscount(createDiscountDto: CreateDiscountDto, actor: Actor): Promise<Discount> {
         this.assertWithinBounds(createDiscountDto.type ?? DiscountType.FIXED, createDiscountDto.value);
-        await this.assertMonthNotInvoiced(createDiscountDto.parentId, createDiscountDto.monthIssued);
 
         const discount = this.discountRepository.create(createDiscountDto);
         // Only the id is set: TypeORM writes the foreign key without loading the whole profile.
         discount.parent = { id: createDiscountDto.parentId } as Profile;
 
         return this.dataSource.transaction(async (manager) => {
+            // Behind the month's lock, and only then asked whether the month is still open — an
+            // issue running in the same second has either committed, and this refuses, or waits.
+            await lockInvoiceMonth(manager, createDiscountDto.monthIssued);
+            await this.assertMonthNotInvoiced(createDiscountDto.parentId, createDiscountDto.monthIssued, manager);
             const saved = await manager.save(Discount, discount);
             await this.recordDiscount(saved, createDiscountDto.parentId, AuditAction.CREATED, actor, manager);
             return saved;
@@ -113,9 +116,10 @@ export class DiscountService {
      * 50% plus this one costs the school the same as two of ours. That case is deliberate by
      * definition, so it belongs in the form, where it takes deciding rather than clicking.
      *
-     * No database constraint behind the check, unlike the seat rules in E11: two admins pressing in
-     * the same second leave a duplicate row that is visible on `/admin/reduceri` and deletable in
-     * two clicks, which is not the class of damage an index is for.
+     * No database constraint behind the check, unlike the seat rules in E11, and none needed since
+     * the month's lock (the review of 25 September 2026): two presses in the same second land on
+     * the same month, the second waits for the first, finds its row and is refused — pressing again
+     * lands on the month after, as a second referral should.
      */
     async grantReferralMonth(parentId: number, actor: Actor, now: Date = new Date()): Promise<ReferralReward> {
         await this.assertParentExists(parentId);
@@ -124,18 +128,19 @@ export class DiscountService {
         const covered = await this.coveredMonths(parentId, from);
         const monthIssued = nextUncoveredMonth(from, covered);
 
-        const clash = await this.discountRepository.findOne({
-            where: { parent: { id: parentId }, monthIssued, type: DiscountType.PERCENT },
-        });
-        if (clash) {
-            throw new ConflictException({
-                message: `Familia are deja o reducere procentuală pe ${monthIssued}, dată de altcineva decât butonul. Două se adună și fac luna gratuită.`,
-                error: 'DISCOUNT_ALREADY_GRANTED',
-            });
-        }
-        await this.assertMonthNotInvoiced(parentId, monthIssued);
-
         await this.dataSource.transaction(async (manager) => {
+            await lockInvoiceMonth(manager, monthIssued);
+            const clash = await manager.findOne(Discount, {
+                where: { parent: { id: parentId }, monthIssued, type: DiscountType.PERCENT },
+            });
+            if (clash) {
+                throw new ConflictException({
+                    message: `Familia are deja o reducere procentuală pe ${monthIssued}, dată de altcineva decât butonul. Două se adună și fac luna gratuită.`,
+                    error: 'DISCOUNT_ALREADY_GRANTED',
+                });
+            }
+            await this.assertMonthNotInvoiced(parentId, monthIssued, manager);
+
             const saved = await manager.save(
                 Discount,
                 this.discountRepository.create({
@@ -178,22 +183,22 @@ export class DiscountService {
                 error: 'REFERRAL_NOTHING_TO_REVOKE',
             });
         }
-        await this.assertMonthNotInvoiced(parentId, last);
+        await this.dataSource.transaction(async (manager) => {
+            await lockInvoiceMonth(manager, last);
+            await this.assertMonthNotInvoiced(parentId, last, manager);
 
-        const row = await this.discountRepository.findOne({
-            where: {
-                parent: { id: parentId },
-                monthIssued: last,
-                name: REFERRAL_DISCOUNT_NAME,
-                type: DiscountType.PERCENT,
-            },
-        });
-        if (row) {
-            await this.dataSource.transaction(async (manager) => {
-                await manager.delete(Discount, row.id);
-                await this.recordDiscount(row, parentId, AuditAction.DELETED, actor, manager);
+            const row = await manager.findOne(Discount, {
+                where: {
+                    parent: { id: parentId },
+                    monthIssued: last,
+                    name: REFERRAL_DISCOUNT_NAME,
+                    type: DiscountType.PERCENT,
+                },
             });
-        }
+            if (!row) return;
+            await manager.delete(Discount, row.id);
+            await this.recordDiscount(row, parentId, AuditAction.DELETED, actor, manager);
+        });
 
         return { parentId, months: covered.slice(0, -1) };
     }
@@ -238,12 +243,7 @@ export class DiscountService {
         // no invoice will ever read again.
         const owner = await this.discountRepository.findOne({ where: { id }, relations: { parent: true }, select: { id: true, parent: { id: true } } });
         const parentId = owner?.parent?.id;
-        if (parentId !== undefined) {
-            await this.assertMonthNotInvoiced(parentId, discount.monthIssued);
-            if (updateDiscountDto.monthIssued !== undefined && updateDiscountDto.monthIssued !== discount.monthIssued) {
-                await this.assertMonthNotInvoiced(parentId, updateDiscountDto.monthIssued);
-            }
-        }
+        const months = [discount.monthIssued, ...(updateDiscountDto.monthIssued !== undefined ? [updateDiscountDto.monthIssued] : [])];
 
         // Read before the merge overwrites it — after `applyDefined` there is nothing left to
         // compare against and every diff would come out empty.
@@ -257,6 +257,12 @@ export class DiscountService {
         this.assertWithinBounds(discount.type, discount.value);
 
         return this.dataSource.transaction(async (manager) => {
+            // Both months, the one it leaves and the one it moves to, in the one order every caller
+            // takes them — then asked, behind the locks, whether either is invoiced.
+            await lockInvoiceMonths(manager, months);
+            if (parentId !== undefined) {
+                for (const month of new Set(months)) await this.assertMonthNotInvoiced(parentId, month, manager);
+            }
             const saved = await manager.save(Discount, discount);
             await this.audit.recordUpdate(
                 {
@@ -278,9 +284,10 @@ export class DiscountService {
         // Nothing on file is not an act. `delete` on a missing id has always answered without
         // complaint, and an entry for it would claim somebody withdrew a discount that never was.
         if (!discount) return;
-        if (discount.parent) await this.assertMonthNotInvoiced(discount.parent.id, discount.monthIssued);
 
         await this.dataSource.transaction(async (manager) => {
+            await lockInvoiceMonth(manager, discount.monthIssued);
+            if (discount.parent) await this.assertMonthNotInvoiced(discount.parent.id, discount.monthIssued, manager);
             await manager.delete(Discount, id);
             await this.recordDiscount(discount, discount.parent?.id ?? null, AuditAction.DELETED, actor, manager);
         });
@@ -297,8 +304,8 @@ export class DiscountService {
      * reads is what the amount was computed from. A month that needs a different discount needs its
      * invoice corrected, or deleted and issued again — or, once it is fiscal, a storno in SmartBill.
      */
-    private async assertMonthNotInvoiced(parentId: number, monthIssued: string): Promise<void> {
-        const invoiced = await this.invoiceRepository.exists({ where: { parent: { id: parentId }, monthIssued } });
+    private async assertMonthNotInvoiced(parentId: number, monthIssued: string, manager: EntityManager): Promise<void> {
+        const invoiced = await manager.exists(Invoice, { where: { parent: { id: parentId }, monthIssued } });
         if (invoiced) {
             throw new ConflictException({
                 message: `Family ${parentId} already has an invoice for ${monthIssued}; a discount on that month would not reach it.`,
