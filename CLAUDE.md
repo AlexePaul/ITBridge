@@ -170,17 +170,19 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — douăzeci și două de module în `apps/api/src/modules/`, șaisprezece după același tipar
-`controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
-`room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, `announcement`,
-`lead`, `reconciliation`.
-Șase ies din tipar: `storage` și `smartbill` n-au controller, fiindcă nimic din ele nu e expus pe HTTP — ce
+**Backend** — douăzeci și patru de module în `apps/api/src/modules/`, șaptesprezece după același
+tipar `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`,
+`location`, `room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`,
+`announcement`, `lead`, `reconciliation`, `audit`.
+Șapte ies din tipar: `storage` și `smartbill` n-au controller, fiindcă nimic din ele nu e expus pe HTTP — ce
 se cere SmartBill-ului decide modulul care deține rândul —, `mail` are unul singur
 și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
 decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
 (agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
 ce ia părintele acasă, ce cere agentul. `dashboard` are și el două controllere și patru servicii, dar
-din motivul opus: nu deține nimic, ci adună — vezi regula lui E21 mai jos. Entitățile stau centralizat
+din motivul opus: nu deține nimic, ci adună — vezi regula lui E21 mai jos. `privacy` are tot două:
+drepturile pe care o familie le exercită asupra datelor ei — exportul, ștergerea, retragerea — și
+acordurile pentru lucrările copiilor (E07 S2), pe care le scriu și familia, și biroul. Entitățile stau centralizat
 în `apps/api/src/entities/` și
 sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
 reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
@@ -718,6 +720,13 @@ pe pagina publică. `routeRules` din `nuxt.config.ts` pune acum `ssr: false` pe 
 găsite și l-ar fi lăsat pe al treilea să fie găsit la fel; ecranele astea sunt oricum `noindex`,
 n-au SEO și își cer datele la montare, deci randarea pe server nu cumpără nimic.
 
+**Paginile publice nu pot face la fel** — au nevoie de server pentru SEO —, iar al treilea a fost
+găsit exact acolo: bara de navigare e singura componentă publică ce depinde de cine e logat, deci un
+părinte autentificat vedea „Contul meu" cu `href`-ul lui „Programează o probă", pe fiecare pagină
+publică. `Navbar.vue` **ține ramura vizitatorului până la montare**: hidratarea potrivește HTML-ul
+serverului, iar comutarea de după e un patch obișnuit, care mută și `href`-ul. Dacă mai adaugi pe o
+pagină publică ceva care citește `userStore`, poartă-l la fel.
+
 **Un `value` gol într-un `USelect` nu e o opțiune, e o opțiune lipsă.** reka-ui refuză `SelectItem`
 cu `value=""`, fiindcă șirul gol e felul în care se golește un select — iar refuzul e o eroare în
 consolă, nu una pe ecran: declanșatorul afișează în continuare eticheta, deci nimic nu arată greșit
@@ -729,7 +738,11 @@ când pleacă spre API.
 `check-a11y-auth.mjs`. Amândouă defectele de mai sus erau vizibile exact acolo și nicăieri altundeva:
 nu se văd într-o captură de ecran, nu pică niciun test pe date și nu le vede axe. Cererile picate
 sunt excluse dinadins: job-ul ăla n-are stocare de obiecte, deci ecranul de PDF răspunde 500 acolo
-pentru totdeauna, iar un ecran rămas fără date e deja prins de verificarea de „se încarcă".
+pentru totdeauna, iar un ecran rămas fără date e deja prins de verificarea de „se încarcă". **Și
+citește, tot autentificat, fiecare pagină publică din sitemap** — singurul loc în care le vede
+cineva așa: celelalte trei gărzi publice vizitează anonim, deci bara de navigare de mai sus le-a
+trecut pe toate. Rulată pe build-ul de dinainte de reparație, verificarea a picat pe toate cele
+douăsprezece pagini publice.
 
 **Nu pune `@input` pe un câmp de text Nuxt UI.** Handler-ul rulează, dar **înainte** ca `v-model` să scrie caracterul tocmai tastat: Vue îmbină ascultătorul venit prin `$attrs` cu al componentei într-un vector și le cheamă în ordinea aia, al nostru primul. Deci orice citește din model e cu o tastă în urmă. Căutarea de copii din catalog a fost exact asta: `a` nu găsea nimic (filtra pe șirul gol), `aa` găsea unsprezece (filtra pe `a`), iar un nume întreg nu găsea niciodată nimic. Derivă din model — un `computed` nu poate fi decalat față de ce citește. `@change` și `@blur` sunt emit-uri declarate și se produc după actualizare, deci sunt în regulă. `no-input-listener.spec.ts` ține linia.
 
@@ -1971,8 +1984,9 @@ Patru lucruri de știut înainte să-l atingi:
   ci **atârnă**, ceea ce costă o jumătate de oră prima dată.
 
 **Zona autentificată e sub aceeași poartă, dar într-un job propriu.** `pnpm test:a11y:auth`
-(`apps/web/scripts/check-a11y-auth.mjs`, E18 S6) se autentifică și trece axe peste cele 51 de
-ecrane de admin și de portal, în ambele teme, pe aceleași etichete. Patru lucruri îl deosebesc de
+(`apps/web/scripts/check-a11y-auth.mjs`, E18 S6) se autentifică și trece axe peste cele 55 de
+ecrane de admin și de portal, în ambele teme, pe aceleași etichete — plus consola paginilor publice,
+citite autentificat. Patru lucruri îl deosebesc de
 cel public:
 
 - **Are nevoie de bază de date, seed și un API care răspunde**, fiindcă un ecran fără date pe el nu e

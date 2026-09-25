@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { launchChromium, startPreviewServer } from "./preview-site.mjs";
+import { launchChromium, publicPaths, startPreviewServer } from "./preview-site.mjs";
 
 /**
  * The other half of E18/S6 — the same check, behind the login.
@@ -306,6 +306,41 @@ async function violationsOn(context, base, path) {
  * asserts on data. Both write to the console every single time.
  */
 /**
+ * The public pages, opened by somebody who is signed in — a reader the public checks never are.
+ *
+ * `check-a11y.mjs`, `check-third-party.mjs` and `check-links.mjs` all visit the site anonymously,
+ * which is how the server renders it. A signed-in visitor gets a different client from the same
+ * HTML: the auth plugin has set the user before hydration, so anything on a public page that asks
+ * who is signed in answers differently in the browser than it did on the server. The navbar did,
+ * and hydration kept the server's attributes under the client's text — "Contul meu" linking to
+ * `/proba` on every public page, for every signed-in family, and the only trace was one line in
+ * the console. This is the one place that already signs in, so it reads that console too.
+ *
+ * No axe here: the public job measures these pages, and the markup a signed-in visitor gets after
+ * the switch is the navbar alone. What this adds is the console, on the pages that job cannot see
+ * this way.
+ */
+async function signedInProblemsOn(context, base, path) {
+  const page = await context.newPage();
+  const runtimeErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && isTheScreensOwn(message.text()))
+      runtimeErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => runtimeErrors.push(error.message));
+  try {
+    const response = await page.goto(`${base}${path}`, { waitUntil: "load" });
+    if (!response || !response.ok()) {
+      throw new Error(`${path} answered ${response ? response.status() : "nothing"}`);
+    }
+    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+    return runtimeProblems(runtimeErrors);
+  } finally {
+    await page.close();
+  }
+}
+
+/**
  * A request that failed is not this check's business.
  *
  * This job has no object storage — `seedInvoicePdfs` asks and skips — so the invoice PDF screen
@@ -463,6 +498,27 @@ async function main() {
   let browser;
   let failures = 0;
   let failedPages = 0;
+  let publicPagesRead = 0;
+
+  const report = (label, violations) => {
+    if (violations.length === 0) {
+      console.log(`  ok  ${label}`);
+      return;
+    }
+    failures += violations.reduce((sum, violation) => sum + violation.total, 0);
+    failedPages += 1;
+    console.error(`FAIL  ${label}`);
+    for (const violation of violations) {
+      console.error(
+        `        ${violation.id} [${violation.impact}] — ${violation.help} (${violation.total} node(s))`
+      );
+      for (const node of violation.nodes) {
+        console.error(`          ${node.target}`);
+        if (node.summary)
+          console.error(`            ${node.summary.replace(/\n/g, "\n            ")}`);
+      }
+    }
+  };
 
   try {
     browser = await launchChromium();
@@ -471,26 +527,17 @@ async function main() {
       const context = await browser.newContext({ colorScheme, reducedMotion: "reduce" });
       await signIn(context, base);
       for (const { route, path } of visitable) {
-        const violations = await violationsOn(context, base, path);
         // The route, not the resolved path: `/admin/children/[childId]/edit` is the thing that
         // failed, and the id it happened to be checked with is noise in a diff.
-        const label = `${route} (${colorScheme})`;
-        if (violations.length === 0) {
-          console.log(`  ok  ${label}`);
-          continue;
-        }
-        failures += violations.reduce((sum, violation) => sum + violation.total, 0);
-        failedPages += 1;
-        console.error(`FAIL  ${label}`);
-        for (const violation of violations) {
-          console.error(
-            `        ${violation.id} [${violation.impact}] — ${violation.help} (${violation.total} node(s))`
-          );
-          for (const node of violation.nodes) {
-            console.error(`          ${node.target}`);
-            if (node.summary)
-              console.error(`            ${node.summary.replace(/\n/g, "\n            ")}`);
-          }
+        report(`${route} (${colorScheme})`, await violationsOn(context, base, path));
+      }
+      // Once, not per scheme: what differs for a signed-in reader of a public page is who they
+      // are, not the palette — and the public job already reads every page in both.
+      if (colorScheme === "light") {
+        const paths = await publicPaths(base);
+        publicPagesRead = paths.length;
+        for (const path of paths) {
+          report(`${path} (public, signed in)`, await signedInProblemsOn(context, base, path));
         }
       }
       await context.close();
@@ -514,7 +561,8 @@ async function main() {
     return;
   }
   console.log(
-    `\nNo accessibility violations on ${visitable.length} authenticated screens, in either colour scheme.`
+    `\nNo accessibility violations on ${visitable.length} authenticated screens, in either colour scheme,` +
+      ` and nothing in the console on ${publicPagesRead} public pages read signed in.`
   );
 }
 

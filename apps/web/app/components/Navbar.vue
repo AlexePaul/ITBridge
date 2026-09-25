@@ -27,7 +27,7 @@
       </nav>
 
       <div class="nav-actions">
-        <template v-if="!userStore.user">
+        <template v-if="!signedIn">
           <!--
             E20/S2. The main call to action now leads to the booking form rather than to the contact
             page: the whole point of the epic is that a parent can pick an hour at 20:00 without
@@ -64,6 +64,24 @@ const { handleLogout } = useLogout();
 
 const isOpen = ref(false);
 
+/**
+ * Who is signed in, but only once the bar has mounted.
+ *
+ * The public pages are rendered on the server, where nobody is signed in — authentication is
+ * client-only (`plugins/01.auth.client.ts`) — so the HTML always carries the visitor's buttons. The
+ * plugin has already set the user by the time the browser hydrates, so reading the store directly
+ * made the first client render the signed-in branch, and hydration reconciles a mismatch by
+ * replacing text and keeping attributes. The result was „Contul meu" pointing at `/proba`: a left
+ * click still worked, through the router, while ctrl-click, "open in new tab" and "copy link" went
+ * to the trial form. That is the trap CLAUDE.md describes for the admin shell, on the one public
+ * component that depends on who is signed in.
+ *
+ * Holding the visitor's branch until mount makes hydration match the server's HTML exactly; the
+ * switch after it is an ordinary patch, which updates `href` along with the text.
+ */
+const mounted = ref(false);
+const signedIn = computed(() => mounted.value && Boolean(userStore.user));
+
 // The bar is sticky: it takes an edge once the page has moved under it, and
 // carries how far down that page the reader is. Both are read on one rAF per
 // scroll burst rather than on every event, and neither exists on the server —
@@ -85,6 +103,7 @@ const onScroll = () => {
 };
 
 onMounted(() => {
+  mounted.value = true;
   measure();
   window.addEventListener("scroll", onScroll, { passive: true });
   window.addEventListener("resize", onScroll, { passive: true });
