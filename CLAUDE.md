@@ -233,6 +233,20 @@ e ce rămâne după `taken` și `held`; `freeSeatsAtSessions` și verificarea de
 **Singura excepție e copilul care ține oferta**: oferta lui e scaunul în care se așază, nu un scaun
 din calea lui. `taken` rămâne înscrierile, ca un ecran să poată deosebi o probă de o promisiune.
 
+**Și locurile unei ore sunt ale sălii în care e ora** (aceeași revizuire). O oră mutată într-o sală
+mai mică are locurile sălii, nu ale grupei: `freeSeatsAtSessions` numără cel mai mic dintre cele
+două, iar ședința îi dă sala ei (`SeatedSession.room`). Iar un copil înscris azi stă în fiecare oră
+de acum încolo, deci `enrol` și `transfer` întreabă și de ora cea mai strâmtă (`tightestClassFrom`):
+una cu un copil mutat acolo pe o săptămână are un scaun mai puțin, iar al zecelea copil din zece
+intra în grupă cât joia avea un vizitator — unsprezece în sală în joia aia. Copilul care se înscrie
+nu e vizitator în orele în care intră, chiar dacă biroul îl mutase deja acolo pe o săptămână: stă pe
+un scaun, nu pe două. Refuzul e tot `GROUP_FULL`, dar numește ora, fiindcă grupa arată un loc liber;
+iar peste el, `allowOverCapacity` lasă în jurnal ora pe care a supraumplut-o, nu „peste capacitate".
+De partea sălii: nu mai scade sub o grupă care se ține în ea (`ROOM_SMALLER_THAN_GROUP`), iar o oră
+nu se mută și nu se recuperează într-o sală în care nu încap copiii care vin (`ROOM_TOO_SMALL`) —
+numărați **sub lacătul grupei, în tranzacția mutării**, ca o probă programată între timp să fie
+văzută.
+
 **Factura numără înscrierile `ACTIVE`, nu copiii din familie.** Din E11/S4: proba e gratuită, iar un
 copil care nu e în nicio grupă nu vine, deci nu plătește. Al doilea caz era greșit dinainte să existe
 probele. Dacă schimbi asta, e o decizie de preț și e a E15 — nu o numărare de rânduri în `children`.
@@ -245,6 +259,17 @@ iar ecranul grupei vechi arăta `free: 1` lângă o listă pe care n-o anunțase
 transferul e singura tranzacție care ține **două** grupe, și le ia în ordinea id-ului, cea mai mică
 prima — altfel două transferuri în sensuri opuse țin fiecare câte una și o așteaptă pe cealaltă. Și
 decontează, ca `enrol`, cererea pe care copilul o avea pentru grupa nouă.
+
+**O probă mutată în altă grupă își ia lead-ul cu ea** (revizuirea din 25 septembrie 2026). Lead-ul
+atârnă de înscrierea pe care o decide E11, iar după transfer aia e rândul nou — deci decizia pe el nu
+decontase nimic, iar mementoul și recontactarea după neprezentare vorbeau despre ora grupei vechi.
+`LeadProgressService.followTransfer` mută `enrollment` și `group`, iar cât proba e încă în față îi dă
+ca oră următoarea oră neîncepută a grupei noi: ce s-a stabilit la telefon platforma nu are de unde
+ști, iar următoarea e ce ar oferi și formularul. O probă deja ținută își păstrează ora — acolo s-a
+ținut —, iar `location` rămâne unde a cerut familia, fiindcă după ea numără pâlnia cererea. Tot de
+aici: o probă închisă prin `close` în loc de `resolveTrial` își trece lead-ul pe pierdut, iar
+**`close` refuză o zi din viitor** (`ENROLLMENT_END_IN_FUTURE`): închiderea ia locul pe loc, deci o
+dată înainte scotea copilul din catalog și îi oferea scaunul listei cât încă stătea pe el.
 
 **Contractul de înscriere e pe hârtie; platforma ține faptul și ziua, nimic altceva** (E07 S8).
 `Enrollment.contractSignedAt` se completează la înscriere, la confirmarea probei sau după, prin
@@ -398,7 +423,10 @@ anunțul care a provocat-o: `AbsenceNotice.replacementSession`, scrisă de `Repl
   a fost exact defecțiunea pe care E20/S2 a închis-o pentru grupă și a lăsat-o deschisă pentru
   ședință: două programări la aceeași oră citeau amândouă ultimul loc, iar la `ReplacementService`
   verificarea stătea chiar în afara tranzacției care o folosea. Lacătul se pune înaintea numărului
-  pe care îl apără; a doua luare, în `enrol`, e no-op în aceeași tranzacție.
+  pe care îl apără; a doua luare, în `enrol`, e no-op în aceeași tranzacție. **Iar ora se citește a
+  doua oară după lacăt** (revizuirea din 25 septembrie 2026) — starea, sala și grupa, nu copiile de
+  dinainte —, cu rândul ei blocat `FOR SHARE`: o anulare nu ia lacătul grupei, deci una încă în zbor
+  s-ar fi comis după citire, iar eliberarea plasărilor ei ar fi ratat-o pe cea scrisă acum.
 - **A patra oară a fost pe partea care _eliberează_ locul**, și acolo victima nu e cel care se
   așază, ci cel care așteaptă. `offerFreedSeat` număra fără lacăt, deci un `enrol` care lua ultimul
   scaun se comitea nevăzut, iar familia din capul listei era anunțată că are locul 48 de ore pentru
@@ -458,7 +486,10 @@ să primească un singur email. Trei consecințe de ținut minte:
   fost vreodată. Restul cheilor din repo aveau deja discriminatorul în ele — ziua școlii la anunțuri
   și la mementouri, a câta anunțare la o ședință, id-ul plății la chitanță —, deci asta era singura
   cheiată pe o identitate care nu se schimbă niciodată. Dacă adaugi una, întreabă ce se întâmplă a
-  doua oară când lucrul ăla se întâmplă din nou.
+  doua oară când lucrul ăla se întâmplă din nou. Mementoul probei a fost al doilea caz, găsit în
+  revizuirea din 25 septembrie 2026: era cheiat pe lead, iar de când ora unui lead se poate schimba —
+  o probă mutată în altă grupă — cheia poartă și ora (`trial-reminder:<lead>:<oră>`, la fel
+  recontactarea).
 
 **Miniatura are două drumuri, iar al doilea nu e o coadă nouă** (E14 S3b). O imagine primește poza
 în cererea care o încarcă, după commit; un video și un `.sb3` n-au cum — primul fiindcă octeții lui
@@ -946,6 +977,7 @@ despre cod și despre git, nu despre proza de proiect.
 - `Group.weekday` e zi ISO: 1 = luni, 7 = duminică.
 - Unicitatea orarului e pe **sală**, nu pe școală: `@Unique(['room', 'weekday', 'startTime'])`.
 - `Room.capacity` implicit e 10, dar e configurabil din `/admin/locations`; nu-l hardcoda nicăieri.
+  Nu coboară sub capacitatea unei grupe care se ține în sală (`ROOM_SMALLER_THAN_GROUP`).
 - `isActive` pe `Location` și `Room` blochează **grupe noi**, nu editarea celor existente.
 
 ## Capcane
@@ -1699,7 +1731,15 @@ Patru reguli pe care le încalci ușor:
   liber n-are niciunul în ziua în care biroul a mutat deja un copil acolo — și are din nou săptămâna
   următoare. Lista cere `freeSeatsAtSessions` pentru toate orele pe care e pe cale să le ofere,
   într-o singură interogare, iar la trimitere se reverifică ora aleasă, în tranzacție: între
-  fotografie și buton se poate strecura o mutare.
+  fotografie și buton se poate strecura o mutare. **O oră de azi care a început nu se oferă și nu
+  se primește** (revizuirea din 25 septembrie 2026): părinții programează seara, iar ora de la 16:00
+  era încă pe listă după ce se terminase — un loc ținut pentru o probă la care nu mai putea veni
+  nimeni, până când recontactarea îi spunea familiei că a lipsit. Comparația e pe ceasul școlii, ca
+  text, ca toate celelalte „a început?" din aplicație. **Și o oră se oferă doar cât ea și fiecare oră
+  de după ea a grupei mai au un loc**: proba ține scaunul până o decide cineva, deci stă și în orele
+  următoare, iar `enrol` refuză o probă pe care o oră de mai târziu n-o mai încape. Lista citește de
+  aceea toate orele din față, nu doar cele trei săptămâni oferite — altfel oferea o zi la care
+  programarea răspundea „nu mai sunt locuri".
 - **Formularul nu se termină niciodată într-o eroare.** Fără loc liber, cu ultimul loc luat între
   timp, sau fără nicio oră potrivită — toate trei scriu un lead marcat `noSeats` și răspund „te
   contactăm noi". Cel mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca
