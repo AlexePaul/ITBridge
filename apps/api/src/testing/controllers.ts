@@ -25,6 +25,7 @@ import { TrialController } from 'src/modules/lead/trial.controller';
 import { AuditController } from 'src/modules/audit/audit.controller';
 import { ReconciliationController } from 'src/modules/reconciliation/reconciliation.controller';
 import { PrivacyController } from 'src/modules/privacy/privacy.controller';
+import { ConsentController } from 'src/modules/privacy/consent.controller';
 
 /**
  * Every HTTP surface the application exposes, in one place.
@@ -66,5 +67,6 @@ export const CONTROLLERS = [
     TrialController,
     AuditController,
     PrivacyController,
+    ConsentController,
     ReconciliationController,
 ];

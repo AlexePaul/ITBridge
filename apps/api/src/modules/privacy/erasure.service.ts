@@ -57,8 +57,9 @@ export interface ErasureReport {
  * everything that could identify anybody leaves it.
  *
  * **The cascades do most of the work, and that is the point.** Deleting a `Child` takes its
- * enrolments, attendance, announced absences, waitlist entries, session-count overrides and projects
- * with it, because every one of those declares `onDelete: 'CASCADE'` on the child. Deleting the
+ * enrolments, attendance, announced absences, waitlist entries, session-count overrides, projects
+ * and publication consents with it, because every one of those declares `onDelete: 'CASCADE'` on
+ * the child. Deleting the
  * `User` takes the sessions, the e-mail confirmations and the document acceptances. What is left
  * over is exactly what this service has to say out loud, and there are five such things:
  *

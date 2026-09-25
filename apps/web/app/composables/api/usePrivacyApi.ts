@@ -2,6 +2,12 @@ import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import type { ProfileSummary } from "~/types/profile.types";
 import type { FamilyRetention, RetentionSchedule } from "~/types/retention.types";
+import type {
+  ChildConsents,
+  ConsentInForce,
+  FamilyConsents,
+  PublicationPurpose,
+} from "~/types/consent.types";
 
 /** A family waiting, as the office queue lists it. */
 export type ErasurePending = ProfileSummary;
@@ -98,6 +104,53 @@ export const usePrivacyApi = () => {
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
+  /** The caller's own children and what each may be used for — E07/S2. No id: the token decides. */
+  const fetchOwnConsents = async (): Promise<FamilyConsents> =>
+    api<FamilyConsents>("/privacy/consents", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** One family, for its page on the admin side. ADMIN. */
+  const fetchFamilyConsents = async (profileId: number): Promise<FamilyConsents> =>
+    api<FamilyConsents>(`/privacy/consents/profile/${profileId}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** The children whose work may be used today. ADMIN. */
+  const fetchConsentsInForce = async (
+    purpose: PublicationPurpose = "promotion"
+  ): Promise<ConsentInForce[]> =>
+    api<ConsentInForce[]>("/privacy/consents/in-force", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      query: { purpose },
+    });
+
+  /**
+   * Gives it, or records it from a paper form when the office presses. Idempotent: a second press
+   * while one is in force changes nothing. The answer is the child as it now stands.
+   */
+  const grantConsent = async (
+    childId: number,
+    purpose: PublicationPurpose = "promotion"
+  ): Promise<ChildConsents> =>
+    api<ChildConsents>(`/privacy/consents/${childId}/${purpose}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** Takes it back — as easily as it was given. The office is told on the server's side. */
+  const revokeConsent = async (
+    childId: number,
+    purpose: PublicationPurpose = "promotion"
+  ): Promise<ChildConsents> =>
+    api<ChildConsents>(`/privacy/consents/${childId}/${purpose}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
   return {
     fetchOwnExport,
     requestErasure,
@@ -108,5 +161,10 @@ export const usePrivacyApi = () => {
     fetchFamilyRetention,
     withdrawFamily,
     reinstateFamily,
+    fetchOwnConsents,
+    fetchFamilyConsents,
+    fetchConsentsInForce,
+    grantConsent,
+    revokeConsent,
   };
 };

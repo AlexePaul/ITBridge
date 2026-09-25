@@ -1,6 +1,7 @@
 import termsSource from "../../../../../docs/legal/termeni-si-conditii.md";
 import privacySource from "../../../../../docs/legal/politica-de-confidentialitate.md";
 import cookiesSource from "../../../../../docs/legal/politica-de-cookies.md";
+import worksConsentSource from "../../../../../docs/legal/acord-lucrari.md";
 import { isLegalSlug, type LegalSlug } from "#shared/legal";
 import { renderLegalMarkdown } from "../../utils/legal-markdown";
 
@@ -9,13 +10,14 @@ import { renderLegalMarkdown } from "../../utils/legal-markdown";
  *
  * The Markdown is imported at build time, so the function on Vercel carries the text with it and
  * the pages need no filesystem; the same files are the single source the README describes. The
- * three page routes are prerendered, so in practice this answers once per build and then the
- * static HTML does.
+ * page routes are prerendered, so in practice this answers once per build and then the static HTML
+ * does.
  */
 const SOURCES: Record<LegalSlug, string> = {
   termeni: termsSource,
   confidentialitate: privacySource,
   cookies: cookiesSource,
+  "acord-lucrari": worksConsentSource,
 };
 
 export default defineEventHandler((event) => {

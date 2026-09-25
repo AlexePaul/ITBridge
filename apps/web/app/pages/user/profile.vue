@@ -107,6 +107,60 @@
       </section>
 
       <!--
+        E07/S2. One switch per child, because the ordinary case is a yes for the elder and a no for
+        the younger. Withdrawing is the same click as giving — GDPR art. 7 alin. 3 asks for exactly
+        that — and it is saved on the click, for the reason the switch above is. The list is its own
+        load with its own retry, like the acceptance record below: failing to read it must not take
+        the contact details down with it.
+      -->
+      <section
+        v-if="profile.children && profile.children.length > 0"
+        class="portal-section marketing"
+      >
+        <h2 class="portal-label">Lucrările copiilor în materialele școlii</h2>
+
+        <p class="body-text">
+          Putem arăta o lucrare a copilului — un proiect, un desen, o pagină — pe site, pe paginile
+          școlii din rețelele sociale sau într-o prezentare doar dacă ne dai voie pentru copilul
+          acela. Lângă ea apar cel mult prenumele, inițiala numelui și vârsta. Copiii nu îi
+          fotografiem.
+          <NuxtLink to="/acord-lucrari" class="link">Citește textul acordului</NuxtLink>.
+        </p>
+
+        <p v-if="consentsError" class="portal-empty">
+          Nu am putut încărca acordurile. {{ consentsError }}
+          <button type="button" class="link link-button" @click="loadConsents">
+            Încearcă din nou
+          </button>
+        </p>
+
+        <template v-else-if="consents">
+          <div v-for="child in consents.children" :key="child.childId" class="opt-in">
+            <input
+              :id="`consent-${child.childId}`"
+              type="checkbox"
+              :checked="consentFor(child, 'promotion').inForce !== null"
+              :disabled="consentBusy !== null"
+              @change="onConsentToggle(child, $event)"
+            />
+            <div>
+              <label :for="`consent-${child.childId}`" class="opt-in-label">
+                Lucrările făcute de {{ child.firstName }} pot apărea în materialele școlii.
+              </label>
+              <p class="body-text opt-in-note">
+                {{ consentSummary(consentFor(child, "promotion")) }}
+              </p>
+            </div>
+          </div>
+        </template>
+
+        <p class="note">
+          Refuzul nu schimbă nimic: lucrările ajung la tine oricum, pe email și aici. Acordul se
+          retrage de aici, cu o singură apăsare, oricând.
+        </p>
+      </section>
+
+      <!--
         Changing the password from inside the account.
 
         The current password is asked for, and is not ceremony: an access token is honoured for
@@ -317,6 +371,8 @@ import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 import { LEGAL_DOCUMENT_LABELS, LEGAL_READING_ORDER } from "~/types/legal.types";
 import type { LegalDocumentKey, LegalRecord } from "~/types/legal.types";
+import { consentFor, consentSummary } from "~/composables/useConsent";
+import type { ChildConsents, FamilyConsents } from "~/types/consent.types";
 
 /**
  * Profil — E18/S4, screen 5.
@@ -445,10 +501,64 @@ const legalRows = computed<LegalRow[]>(() => {
   });
 });
 
+/**
+ * The consents, child by child — E07/S2. Cleared before the request, like the record above, so a
+ * retry that succeeds is seen to.
+ */
+const consents = ref<FamilyConsents | null>(null);
+const consentsError = ref<string | null>(null);
+/** The child whose switch is being saved. One at a time: each answer replaces that child's row. */
+const consentBusy = ref<number | null>(null);
+
+const loadConsents = async () => {
+  consentsError.value = null;
+  try {
+    consents.value = await privacyApi.fetchOwnConsents();
+  } catch (err) {
+    consentsError.value = apiErrorMessage(err);
+  }
+};
+
+/**
+ * Saved on the click. The switch is bound to the server's answer, and a failed request puts the box
+ * back by hand: Vue re-renders a binding only when its value changes, and here it did not, so the
+ * box would otherwise go on showing a consent that nobody recorded.
+ */
+const onConsentToggle = async (child: ChildConsents, event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const next = input.checked;
+
+  consentBusy.value = child.childId;
+  try {
+    const updated = next
+      ? await privacyApi.grantConsent(child.childId)
+      : await privacyApi.revokeConsent(child.childId);
+    if (consents.value) {
+      consents.value = {
+        ...consents.value,
+        children: consents.value.children.map((entry) =>
+          entry.childId === updated.childId ? updated : entry
+        ),
+      };
+    }
+    success(
+      next
+        ? `Lucrările făcute de ${child.firstName} pot apărea în materialele școlii.`
+        : `Ai retras acordul pentru lucrările făcute de ${child.firstName}.`,
+      next ? "Îți trimitem confirmarea pe email." : "Biroul scoate ce publicasem deja."
+    );
+  } catch (err) {
+    input.checked = !next;
+    notifyError("Nu am putut salva acordul", apiErrorMessage(err));
+  } finally {
+    consentBusy.value = null;
+  }
+};
+
 onMounted(async () => {
   // The layout fetches it once, for the header. Only ask again if that did not land.
   if (!profileStore.profile) await loadProfile();
-  await loadLegalRecord();
+  await Promise.all([loadLegalRecord(), loadConsents()]);
 });
 
 /**

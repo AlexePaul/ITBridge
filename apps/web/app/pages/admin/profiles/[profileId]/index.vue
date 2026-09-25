@@ -144,6 +144,87 @@
         </div>
       </UCard>
 
+      <!--
+        E07/S2 — the office side of the parent's switch: a consent signed on paper, or a withdrawal
+        asked for on the phone. Each button names its child, so a family of three is three distinct
+        controls to a screen reader rather than three identical ones.
+      -->
+      <UCard
+        v-if="profile.children && profile.children.length > 0"
+        class="border rounded-lg"
+        variant="subtle"
+      >
+        <template #header>
+          <div class="flex items-center gap-3">
+            <UIcon name="i-lucide-image" class="text-2xl text-primary" />
+            <h2 class="text-2xl font-semibold">Acorduri pentru lucrări</h2>
+          </div>
+        </template>
+
+        <p v-if="consentsError" class="text-sm text-error">{{ consentsError }}</p>
+        <div v-else-if="consents" class="space-y-3">
+          <div
+            v-for="child in consents.children"
+            :key="child.childId"
+            class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border rounded-lg p-3"
+          >
+            <div>
+              <p class="font-medium">{{ child.firstName }} {{ child.lastName }}</p>
+              <p class="text-sm text-muted">
+                {{ consentSummary(consentFor(child, "promotion")) }}
+              </p>
+            </div>
+            <UButton
+              v-if="consentFor(child, 'promotion').inForce"
+              color="error"
+              variant="subtle"
+              class="min-h-11 justify-center"
+              :aria-label="`Retrage acordul pentru ${child.firstName} ${child.lastName}`"
+              @click="askConsent(child, 'revoke')"
+            >
+              Retrage acordul
+            </UButton>
+            <UButton
+              v-else
+              variant="subtle"
+              class="min-h-11 justify-center"
+              :aria-label="`Consemnează acordul pentru ${child.firstName} ${child.lastName}`"
+              @click="askConsent(child, 'grant')"
+            >
+              Consemnează acordul
+            </UButton>
+          </div>
+          <p class="text-xs text-muted">
+            {{ PURPOSE_LABELS.promotion }}: site, paginile școlii din rețelele sociale, prezentări.
+            <NuxtLink to="/acord-lucrari" class="underline">Textul acordului</NuxtLink>
+          </p>
+        </div>
+      </UCard>
+
+      <AdminConfirmModal
+        v-model:open="consentConfirmOpen"
+        :title="consentAction === 'grant' ? 'Consemnează acordul' : 'Retrage acordul'"
+        :confirm-label="consentAction === 'grant' ? 'Consemnează' : 'Retrage'"
+        :danger="consentAction === 'revoke'"
+        :loading="consentBusy"
+        @confirm="confirmConsent"
+      >
+        <template #body>
+          <p v-if="consentAction === 'grant'">
+            Consemnezi că familia a acceptat ca lucrările făcute de
+            <strong>{{ consentChild?.firstName }}</strong> să apară în materialele școlii. Fă asta
+            doar cu formularul semnat în mână: familia primește un email care spune că acordul a
+            fost consemnat de birou.
+          </p>
+          <p v-else>
+            Retragi acordul pentru lucrările făcute de
+            <strong>{{ consentChild?.firstName }}</strong
+            >. Familia primește confirmarea, iar biroul un mesaj cu ce trebuie scos de pe site și
+            din rețelele sociale.
+          </p>
+        </template>
+      </AdminConfirmModal>
+
       <!-- Account Information Card -->
       <UCard class="border rounded-lg" variant="subtle">
         <template #header>
@@ -308,6 +389,9 @@ import { RETENTION_HOLD_LABELS } from "~/types/retention.types";
 import type { RetentionRow, RetentionTerms } from "~/types/retention.types";
 import type { Profile } from "~/types/profile.types";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
+import { consentFor, consentSummary } from "~/composables/useConsent";
+import { PURPOSE_LABELS } from "~/types/consent.types";
+import type { ChildConsents, FamilyConsents } from "~/types/consent.types";
 
 const route = useRoute();
 const profileApi = useProfileApi();
@@ -399,6 +483,55 @@ const reinstate = async () => {
 };
 
 /**
+ * The consents, child by child — E07/S2. The office records what a family signed on paper and
+ * withdraws what a family asked on the phone; the family is written to either way, by the server.
+ */
+const consents = ref<FamilyConsents | null>(null);
+const consentsError = ref<string | null>(null);
+const consentConfirmOpen = ref(false);
+const consentAction = ref<"grant" | "revoke">("grant");
+const consentChild = ref<ChildConsents | null>(null);
+const consentBusy = ref(false);
+
+const askConsent = (child: ChildConsents, action: "grant" | "revoke") => {
+  consentChild.value = child;
+  consentAction.value = action;
+  consentConfirmOpen.value = true;
+};
+
+const confirmConsent = async () => {
+  const child = consentChild.value;
+  if (!child || consentBusy.value) return;
+  const action = consentAction.value;
+  consentBusy.value = true;
+  try {
+    const updated =
+      action === "grant"
+        ? await privacyApi.grantConsent(child.childId)
+        : await privacyApi.revokeConsent(child.childId);
+    if (consents.value) {
+      consents.value = {
+        ...consents.value,
+        children: consents.value.children.map((entry) =>
+          entry.childId === updated.childId ? updated : entry
+        ),
+      };
+    }
+    consentConfirmOpen.value = false;
+    success(
+      action === "grant" ? "Acordul a fost consemnat." : "Acordul a fost retras.",
+      action === "grant"
+        ? "Familia primește confirmarea pe email."
+        : "Familia și biroul primesc câte un email."
+    );
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut salva acordul."));
+  } finally {
+    consentBusy.value = false;
+  }
+};
+
+/**
  * The family, and the two ways it can fail to arrive.
  *
  * The fetch used to have no `catch` and the template no `v-else`, so a failed request left the
@@ -433,6 +566,15 @@ const load = async () => {
     // Same judgement as the reward: without the answer the card is left out, rather than offering
     // a withdrawal on a page that could not say whether one is already recorded.
     retentionTerms.value = null;
+  }
+  consentsError.value = null;
+  try {
+    consents.value = await privacyApi.fetchFamilyConsents(profile.value.id);
+  } catch (err: unknown) {
+    // Said, not hidden: a consents card that silently vanished would read as a family with no
+    // children to ask about, and "may we use this work" is the question it exists to answer.
+    consents.value = null;
+    consentsError.value = apiErrorMessage(err, "Nu am putut încărca acordurile.");
   }
 };
 

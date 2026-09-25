@@ -32,6 +32,7 @@ import { Announcement } from './announcement.entity';
 import { Lead } from './lead.entity';
 import { DocumentAcceptance } from './document-acceptance.entity';
 import { BankStatementLine } from './bank-statement-line.entity';
+import { PublicationConsent } from './publication-consent.entity';
 
 @Module({
     imports: [
@@ -68,6 +69,7 @@ import { BankStatementLine } from './bank-statement-line.entity';
             Lead,
             DocumentAcceptance,
             BankStatementLine,
+            PublicationConsent,
         ]),
     ],
     exports: [TypeOrmModule],

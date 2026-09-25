@@ -1,12 +1,16 @@
 /**
- * The three documents a reader can open — E22 S2 — by the slug in the URL and the file in
- * `docs/legal/` at the repository root. The pages render those files; nothing here is a second
- * copy of the text.
+ * The documents a reader can open — E22 S2 — by the slug in the URL and the file in `docs/legal/`
+ * at the repository root. The pages render those files; nothing here is a second copy of the text.
+ *
+ * The fourth is not a document a family accepts at registration: it is the text behind the switch
+ * in "Profil" that lets a child's work appear in the school's materials (E07 S2). It is a page all
+ * the same, because the family should be able to read what they agreed to without logging in.
  */
 export const LEGAL_DOCUMENTS = {
   termeni: { file: "termeni-si-conditii.md", kicker: "Termeni și condiții" },
   confidentialitate: { file: "politica-de-confidentialitate.md", kicker: "Confidențialitate" },
   cookies: { file: "politica-de-cookies.md", kicker: "Cookie-uri" },
+  "acord-lucrari": { file: "acord-lucrari.md", kicker: "Lucrările copilului" },
 } as const;
 
 export type LegalSlug = keyof typeof LEGAL_DOCUMENTS;
