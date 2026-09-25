@@ -34,6 +34,7 @@ import { Payment } from 'src/entities/payment.entity';
 import { PaymentStatus } from 'src/enum/payment-status.enum';
 import { PaymentService } from 'src/modules/payment/payment.service';
 import { parseIsoDate } from 'src/modules/class-session/class-session.dates';
+import { lockInvoiceMonth } from './invoice-month-lock';
 
 /** One family's row on the issuing screen, with the children whose sessions have to be counted. */
 export interface InvoiceWorksheetRow {
@@ -570,27 +571,32 @@ export class InvoiceService {
         dto: IssueMonthDto,
         actor: Actor,
     ): Promise<{ issued: Invoice[]; waived: Invoice[]; skipped: { parentId: number; reason: string }[] }> {
-        const worksheet = await this.getWorksheet(dto.monthIssued);
-
-        const skipped: { parentId: number; reason: string }[] = [];
-        const prepared: { parent: Profile; amount: number }[] = [];
-        for (const family of worksheet.families) {
-            if (family.alreadyInvoiced) {
-                skipped.push({ parentId: family.parentId, reason: 'ALREADY_INVOICED' });
-                continue;
-            }
-            const parent = await this.profileRepository.findOne({ where: { id: family.parentId } });
-            if (!parent) throw new NotFoundException(`Parent profile ${family.parentId} not found`);
-            prepared.push({ parent, amount: family.amount });
-        }
-
         // One mode for the whole month, read once: E16/S2. The fiscal documents themselves are made
         // afterwards by `FiscalIssuingService`, off this request — pressing "emite" never waits on
         // SmartBill, and SmartBill being down never undoes the month.
         const mode = smartBillMode();
         const now = new Date();
 
-        const { issued, waived } = await this.dataSource.transaction(async (manager) => {
+        const { issued, waived, skipped, unmarked } = await this.dataSource.transaction(async (manager) => {
+            // The month is read behind its lock, and so after anything that changes it and got there
+            // first: a correction, a discount or a vacation tick saved in the same second is either
+            // in what this reads or refused once this commits — never frozen on a month that did not
+            // read it. A second press waits here, then finds every family already invoiced.
+            await lockInvoiceMonth(manager, dto.monthIssued);
+            const worksheet = await this.getWorksheet(dto.monthIssued);
+
+            const passed: { parentId: number; reason: string }[] = [];
+            const prepared: { parent: Profile; amount: number }[] = [];
+            for (const family of worksheet.families) {
+                if (family.alreadyInvoiced) {
+                    passed.push({ parentId: family.parentId, reason: 'ALREADY_INVOICED' });
+                    continue;
+                }
+                const parent = await this.profileRepository.findOne({ where: { id: family.parentId } });
+                if (!parent) throw new NotFoundException(`Parent profile ${family.parentId} not found`);
+                prepared.push({ parent, amount: family.amount });
+            }
+
             const created: Invoice[] = [];
             const nil: Invoice[] = [];
 
@@ -618,11 +624,11 @@ export class InvoiceService {
                 }
             }
 
-            return { issued: created, waived: nil };
+            return { issued: created, waived: nil, skipped: passed, unmarked: worksheet.unmarked.length };
         });
 
         this.logger.log(
-            `Month ${dto.monthIssued}: issued ${issued.length} invoice(s), waived ${waived.length}, skipped ${skipped.length} already invoiced; ${worksheet.unmarked.length} session(s) had no register.`,
+            `Month ${dto.monthIssued}: issued ${issued.length} invoice(s), waived ${waived.length}, skipped ${skipped.length} already invoiced; ${unmarked} session(s) had no register.`,
         );
         return { issued, waived, skipped };
     }
@@ -642,19 +648,23 @@ export class InvoiceService {
     async setSessionCountOverride(dto: SessionCountOverrideDto, userId: number, actor: Actor): Promise<SessionCountOverride> {
         const child = await this.childRepository.findOne({ where: { id: dto.childId }, relations: { parent: true } });
         if (!child) throw new NotFoundException('Child not found');
-        await this.assertMonthOpenFor(child, dto.monthIssued);
-
-        const existing = await this.overrideRepository.findOne({ where: { monthIssued: dto.monthIssued, child: { id: child.id } } });
-        // The row keeps who decided and why, but only for the decision standing now — a second
-        // decision replaces the first. The trail is where "four, then two, then four again" can
-        // still be read afterwards, which is the whole reason a hand-typed number is audited.
-        const before = existing ? { sessions: existing.sessions, reason: existing.reason } : null;
-        const row = existing ?? this.overrideRepository.create({ child, monthIssued: dto.monthIssued });
-        row.sessions = dto.sessions;
-        row.reason = dto.reason ?? null;
-        row.createdBy = { id: userId } as User;
 
         return this.dataSource.transaction(async (manager) => {
+            // Behind the month's lock, and only then asked whether the month is still open: an issue
+            // running in the same second has either committed — and this refuses — or waits.
+            await lockInvoiceMonth(manager, dto.monthIssued);
+            await this.assertMonthOpenFor(child, dto.monthIssued, manager);
+
+            const existing = await manager.findOne(SessionCountOverride, { where: { monthIssued: dto.monthIssued, child: { id: child.id } } });
+            // The row keeps who decided and why, but only for the decision standing now — a second
+            // decision replaces the first. The trail is where "four, then two, then four again" can
+            // still be read afterwards, which is the whole reason a hand-typed number is audited.
+            const before = existing ? { sessions: existing.sessions, reason: existing.reason } : null;
+            const row = existing ?? this.overrideRepository.create({ child, monthIssued: dto.monthIssued });
+            row.sessions = dto.sessions;
+            row.reason = dto.reason ?? null;
+            row.createdBy = { id: userId } as User;
+
             const saved = await manager.save(SessionCountOverride, row);
             const after = { sessions: saved.sessions, reason: saved.reason };
             const note = `copil ${child.id}, luna ${dto.monthIssued}`;
@@ -684,14 +694,16 @@ export class InvoiceService {
     async clearSessionCountOverride(monthIssued: string, childId: number, actor: Actor): Promise<void> {
         const child = await this.childRepository.findOne({ where: { id: childId }, relations: { parent: true } });
         if (!child) throw new NotFoundException('Child not found');
-        await this.assertMonthOpenFor(child, monthIssued);
-
-        const existing = await this.overrideRepository.findOne({ where: { monthIssued, child: { id: child.id } } });
-        // Nothing on file is not an act: a delete that removed no row would otherwise leave an
-        // entry claiming a decision was withdrawn that nobody ever made.
-        if (!existing) return;
 
         await this.dataSource.transaction(async (manager) => {
+            await lockInvoiceMonth(manager, monthIssued);
+            await this.assertMonthOpenFor(child, monthIssued, manager);
+
+            const existing = await manager.findOne(SessionCountOverride, { where: { monthIssued, child: { id: child.id } } });
+            // Nothing on file is not an act: a delete that removed no row would otherwise leave an
+            // entry claiming a decision was withdrawn that nobody ever made.
+            if (!existing) return;
+
             // By id, now that the row is in hand: the index makes it the only one, and a criteria
             // object with a relation in it is a shape `delete` reads differently from `findOne`.
             await manager.delete(SessionCountOverride, existing.id);
@@ -709,9 +721,9 @@ export class InvoiceService {
         });
     }
 
-    private async assertMonthOpenFor(child: Child, monthIssued: string): Promise<void> {
+    private async assertMonthOpenFor(child: Child, monthIssued: string, manager: EntityManager): Promise<void> {
         if (!child.parent) return;
-        const invoice = await this.invoiceRepository.findOne({ where: { monthIssued, parent: { id: child.parent.id } } });
+        const invoice = await manager.findOne(Invoice, { where: { monthIssued, parent: { id: child.parent.id } } });
         if (invoice) {
             throw new ConflictException({
                 message: `Luna ${monthIssued} e deja facturată pentru familia asta — numărul nu se mai poate schimba.`,

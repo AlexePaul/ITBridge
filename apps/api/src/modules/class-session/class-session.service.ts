@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, DataSource, EntityManager, MoreThanOrEqual, Repository } from 'typeorm';
+import { Between, DataSource, EntityManager, MoreThanOrEqual, Not, Repository } from 'typeorm';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
@@ -22,6 +22,7 @@ import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { Invoice } from 'src/entities/invoice.entity';
 import { SetVacationDto } from './dto/setVacation.dto';
 import { teachingMonthOf } from 'src/modules/invoice/billing-period.rules';
+import { lockInvoiceMonth } from 'src/modules/invoice/invoice-month-lock';
 
 /** The rolling horizon from E12/S1: eight weeks of timetable, always. */
 export const DEFAULT_HORIZON_WEEKS = 8;
@@ -61,7 +62,6 @@ export class ClassSessionService {
         @InjectRepository(Room) private readonly roomRepository: Repository<Room>,
         // Only to ask "is this session's month already invoiced" — the one thing that freezes the
         // vacation tick (E12/S8). Issuing itself never runs from here.
-        @InjectRepository(Invoice) private readonly invoiceRepository: Repository<Invoice>,
         private readonly nonTeachingPeriodService: NonTeachingPeriodService,
         private readonly notifier: ClassSessionNotifier,
         private readonly replacements: ReplacementService,
@@ -446,16 +446,32 @@ export class ClassSessionService {
         // The teaching month, not the calendar one: a session on Friday 4 September belongs to
         // August if its Monday did, and August is the invoice it would be changing.
         const month = teachingMonthOf(session.date);
-        const invoiced = await this.invoiceRepository.count({ where: { monthIssued: month } });
-        if (invoiced > 0) {
-            throw new ConflictException({
-                message: `Luna ${month} e deja facturată — bifa nu se mai poate schimba.`,
-                error: 'MONTH_ALREADY_INVOICED',
-            });
-        }
+        await this.dataSource.transaction(async (manager) => {
+            // Behind the month's lock, like every other writer of what a month's invoice is made of
+            // (the review of 25 September 2026): an issue in the same second has either committed —
+            // and this refuses — or waits, and then reads the tick.
+            await lockInvoiceMonth(manager, month);
+            const invoiced = await manager.count(Invoice, { where: { monthIssued: month } });
+            if (invoiced > 0) {
+                throw new ConflictException({
+                    message: `Luna ${month} e deja facturată — bifa nu se mai poate schimba.`,
+                    error: 'MONTH_ALREADY_INVOICED',
+                });
+            }
+            // The tick and nothing else, and only while the class is still on. A save of the row read
+            // above wrote every column back as it was read, so a cancellation or a move committed in
+            // between was quietly undone.
+            const ticked = await manager.update(ClassSession, { id, status: Not(ClassSessionStatus.CANCELLED) }, { isVacation: dto.isVacation });
+            if (!ticked.affected) {
+                throw new ConflictException({
+                    message: 'Ședința e anulată — o oră care nu se ține nu poate fi „de vacanță".',
+                    error: 'CLASS_SESSION_CANCELLED',
+                });
+            }
+        });
 
         session.isVacation = dto.isVacation;
-        return this.classSessionRepository.save(session);
+        return session;
     }
 
     async reinstateSession(id: number): Promise<ClassSession> {

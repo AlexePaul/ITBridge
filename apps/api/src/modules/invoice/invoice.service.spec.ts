@@ -33,7 +33,7 @@ describe('InvoiceService', () => {
     let childRepo: MockRepository;
     let overrideRepo: MockRepository;
     let s3: { putObject: jest.Mock; downloadFile: jest.Mock; deleteObject: jest.Mock };
-    let transactionManager: { save: jest.Mock; delete: jest.Mock; update: jest.Mock; findOne: jest.Mock; count: jest.Mock };
+    let transactionManager: { save: jest.Mock; delete: jest.Mock; update: jest.Mock; findOne: jest.Mock; count: jest.Mock; query: jest.Mock };
     /** The one door that derives an invoice's status from its payments. */
     let payments: { recomputeInvoiceStatus: jest.Mock };
     /** E15/S9's one query, mute: what it counts is its own suite's business. */
@@ -68,7 +68,18 @@ describe('InvoiceService', () => {
         // `createInvoice` writes the row and uploads the PDF inside one transaction. The fake runs
         // the callback with a manager whose `save` behaves like the repository's, so a rejected
         // upload propagates exactly as it would in production.
-        transactionManager = { save: jest.fn(), delete: jest.fn(), update: jest.fn(), findOne: jest.fn(), count: jest.fn().mockResolvedValue(0) };
+        transactionManager = {
+            save: jest.fn(),
+            delete: jest.fn(),
+            update: jest.fn(),
+            // Reads inside the transaction go to the repositories the tests already set up, unless a
+            // test says what the locked row holds; the month's lock is a `query` with nothing to return.
+            findOne: jest.fn((entity: unknown, options: unknown) =>
+                entity === SessionCountOverride ? overrideRepo.findOne!(options) : entity === Invoice ? invoiceRepo.findOne!(options) : Promise.resolve(null),
+            ),
+            count: jest.fn().mockResolvedValue(0),
+            query: jest.fn().mockResolvedValue([]),
+        };
         payments = { recomputeInvoiceStatus: jest.fn().mockResolvedValue({ paid: 0, outstanding: 350, status: InvoiceStatus.PENDING }) };
 
         audit = { record: jest.fn(() => Promise.resolve()), recordUpdate: jest.fn(() => Promise.resolve()) };
@@ -606,6 +617,27 @@ describe('InvoiceService', () => {
             expect(result.issued[0].amount).toBe(262.5);
         });
 
+        /**
+         * The review of 25 September 2026: the worksheet was read before the transaction, so a
+         * correction or a discount saved in between was neither in the invoice nor refused. The month
+         * is read behind its lock now, inside the transaction that writes the invoices.
+         */
+        it("reads the month behind the month's lock", async () => {
+            const order: string[] = [];
+            transactionManager.query.mockImplementation((_sql: string, params: string[]) => {
+                order.push(`lock ${params[0]}`);
+                return Promise.resolve([]);
+            });
+            billable.countForMonth.mockImplementation(() => {
+                order.push('read');
+                return Promise.resolve(aMonth());
+            });
+
+            await service.issueFromSessions(october, ACTOR);
+
+            expect(order).toEqual(['lock invoice-month:2026-10', 'read']);
+        });
+
         it('bills what the registers say, and nothing the caller could have typed', async () => {
             const result = await service.issueFromSessions(october, ACTOR);
 
@@ -748,6 +780,31 @@ describe('InvoiceService', () => {
             childRepo.findOne!.mockResolvedValue(null);
 
             await expect(service.setSessionCountOverride(decision, 42, ACTOR)).rejects.toThrow(NotFoundException);
+        });
+
+        /**
+         * The review of 25 September 2026: asked on its own snapshot, the check passed while an issue
+         * of the same month was committing, and the correction then sat on a month its invoice never
+         * read. The month's lock comes first, and the question after it, in the transaction.
+         */
+        it('asks whether the month is open behind its lock, in the transaction that writes', async () => {
+            const order: string[] = [];
+            transactionManager.query.mockImplementation((_sql: string, params: string[]) => {
+                order.push(`lock ${params[0]}`);
+                return Promise.resolve([]);
+            });
+            invoiceRepo.findOne!.mockImplementation(() => {
+                order.push('asked');
+                return Promise.resolve(null);
+            });
+            transactionManager.save.mockImplementation((_entity: unknown, row: object) => {
+                order.push('saved');
+                return Promise.resolve({ id: 7, ...row });
+            });
+
+            await service.setSessionCountOverride(decision, 42, ACTOR);
+
+            expect(order).toEqual(['lock invoice-month:2026-10', 'asked', 'saved']);
         });
     });
 

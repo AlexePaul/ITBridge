@@ -33,6 +33,11 @@ describe('DiscountService', () => {
         // No invoice for any month unless a test says so: E15/S6's freeze is its own tests.
         invoiceRepo.exists!.mockResolvedValue(false);
         manager = createMockEntityManager();
+        // Behind the month's lock (the review of 25 September 2026) the checks read through the
+        // transaction's manager; the fake hands them on to the repositories the tests set up.
+        manager.query = jest.fn().mockResolvedValue([]);
+        manager.exists = jest.fn((_entity: unknown, options: unknown) => invoiceRepo.exists!(options));
+        manager.findOne = jest.fn((_entity: unknown, options: unknown) => discountRepo.findOne!(options));
         audit = { record: jest.fn(() => Promise.resolve()), recordUpdate: jest.fn(() => Promise.resolve()) };
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -153,6 +158,7 @@ describe('DiscountService', () => {
 
         it('refuses a new discount', async () => {
             invoicedMonth('2026-03');
+            discountRepo.create!.mockImplementation((d: unknown) => ({ ...(d as object) }));
 
             await expect(service.createDiscount({ name: 'Frate', value: 50, monthIssued: '2026-03', parentId: 7 }, ACTOR)).rejects.toEqual(refusal);
             expect(manager.save).not.toHaveBeenCalled();
@@ -184,6 +190,43 @@ describe('DiscountService', () => {
 
             await expect(service.deleteDiscount(1, ACTOR)).rejects.toEqual(refusal);
             expect(manager.delete).not.toHaveBeenCalled();
+        });
+
+        /**
+         * The review of 25 September 2026: asked on its own snapshot, the check could pass while an
+         * issue of the same month was committing, and the discount then sat on a month its invoice
+         * never read. The month's lock comes first, and the question after it, in the transaction.
+         */
+        it('asks behind the month\u2019s lock, in the transaction that writes', async () => {
+            const order: string[] = [];
+            manager.query!.mockImplementation((_sql: string, params: string[]) => {
+                order.push(`lock ${params[0]}`);
+                return Promise.resolve([]);
+            });
+            invoiceRepo.exists!.mockImplementation(() => {
+                order.push('asked');
+                return Promise.resolve(false);
+            });
+            discountRepo.create!.mockImplementation((d: unknown) => ({ ...(d as object) }));
+            manager.save.mockImplementation((_entity: unknown, d: unknown) => {
+                order.push('saved');
+                return Promise.resolve(d);
+            });
+
+            await service.createDiscount({ name: 'Frate', value: 50, monthIssued: '2026-04', parentId: 7 }, ACTOR);
+
+            expect(order).toEqual(['lock invoice-month:2026-04', 'asked', 'saved']);
+        });
+
+        it('locks both months of a move, oldest first, whichever way it goes', async () => {
+            discountRepo.findOne!.mockImplementation((options: { select?: unknown }) =>
+                Promise.resolve(options.select ? { id: 1, parent: { id: 7 } } : { id: 1, name: 'Frate', type: 'fixed', value: 50, monthIssued: '2026-05' }),
+            );
+            manager.save.mockImplementation((_entity: unknown, d: unknown) => Promise.resolve(d));
+
+            await service.updateDiscount(1, { monthIssued: '2026-04' }, ACTOR);
+
+            expect(manager.query!.mock.calls.map((call: unknown[]) => (call[1] as string[])[0])).toEqual(['invoice-month:2026-04', 'invoice-month:2026-05']);
         });
 
         it('leaves the months not invoiced yet alone', async () => {
@@ -225,6 +268,11 @@ describe('DiscountService referral reward', () => {
         // No invoice for any month unless a test says so: E15/S6's freeze is its own tests.
         invoiceRepo.exists!.mockResolvedValue(false);
         manager = createMockEntityManager();
+        // Behind the month's lock (the review of 25 September 2026) the checks read through the
+        // transaction's manager; the fake hands them on to the repositories the tests set up.
+        manager.query = jest.fn().mockResolvedValue([]);
+        manager.exists = jest.fn((_entity: unknown, options: unknown) => invoiceRepo.exists!(options));
+        manager.findOne = jest.fn((_entity: unknown, options: unknown) => discountRepo.findOne!(options));
         audit = { record: jest.fn(() => Promise.resolve()), recordUpdate: jest.fn(() => Promise.resolve()) };
         const module: TestingModule = await Test.createTestingModule({
             providers: [
