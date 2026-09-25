@@ -1997,7 +1997,9 @@ e **corectura pe copil** (`SessionCountOverride`, `PUT|DELETE /invoices/override
 consemnată — cât, de ce, cine, când —, un rând per copil și lună, aplicată în fișă ca factura să
 poarte același număr pe care l-a arătat ecranul, și înghețată odată ce familia are factura lunii.
 Factura poartă o singură linie de produs, deci corectura nu contrazice niciodată catalogul; ce
-apără rândul e evidența școlii.
+apără rândul e evidența școlii. **Catalogul, în schimb, nu stă sub lacătul lunii** — e al
+profesorului —, deci o oră marcată după emitere mută fișa, nu factura: rândul unei familii facturate
+arată suma de pe factură (`invoicedAmount`) și, când diferă, ce ar da cataloagele de acum.
 
 **O probă decisă rămâne gratuită, iar prima și ultima zi a unei înscrieri le decide catalogul**
 (revizuirea din 25 septembrie 2026). Regula citea statusul: `TRIAL` nu se factura, dar în clipa în

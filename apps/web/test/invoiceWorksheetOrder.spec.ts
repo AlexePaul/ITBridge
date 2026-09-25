@@ -21,7 +21,14 @@ const family = (
   parentName: string,
   children: ReturnType<typeof child>[]
 ): InvoiceWorksheetRow =>
-  ({ parentId, parentName, email: null, alreadyInvoiced: false, children }) as InvoiceWorksheetRow;
+  ({
+    parentId,
+    parentName,
+    email: null,
+    alreadyInvoiced: false,
+    invoicedAmount: null,
+    children,
+  }) as InvoiceWorksheetRow;
 
 describe("primaryGroupOf", () => {
   it("picks the earliest weekday when a family spans two groups", () => {

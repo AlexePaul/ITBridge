@@ -86,6 +86,12 @@ export interface InvoiceWorksheetRow {
     email: string | null;
     /** True when this family already has an invoice for the month. The screen skips them. */
     alreadyInvoiced: boolean;
+    /**
+     * What the family's invoice for the month says, when there is one. `amount` is what the
+     * registers come to now, and the two part company when a register is marked after the month
+     * was issued — the screen shows both, since only one of them is on the invoice.
+     */
+    invoicedAmount: number | null;
     /** What the family will be billed, after this month's discounts — the same number the server writes. */
     amount: number;
     children: {
