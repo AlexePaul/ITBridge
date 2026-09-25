@@ -545,6 +545,15 @@ reală și reparat cu testul lui, care pică pe codul dinainte. Orarul are secț
 - **`close` primea o zi din viitor** și elibera locul pe loc: copilul ieșea din catalog, iar scaunul i
   se oferea listei cât încă stătea pe el. Acum refuză (`ENROLLMENT_END_IN_FUTURE`) — închiderea se
   face în ziua în care pleacă copilul.
+- **O probă decisă ajungea pe factură**, fiindcă facturarea o ținea afară după status. Acum fiecare
+  ieșire din `TRIAL` — `resolveTrial` în ambele sensuri, `close`, `transfer` — scrie pe rând ziua
+  deciziei, `trialUntil`, iar facturarea nu numără nimic până la ea inclusiv (detaliile în
+  [E15](E15-pricing-facturare.md)). `close` și `transfer` scriu rândul de probă și cel activ separat,
+  fiecare doar cât rândul mai e în starea aceea, deci și „a fost probă?" se hotărăște sub lacăt, nu
+  după citirea de dinainte: o probă acceptată între timp se transferă ca înscriere activă, fără ca
+  lead-ul ei să mai fie mutat.
+- **Lista „cine era în grupă la data X" număra și ziua în care copilul a plecat**, deși registrul nu
+  îl mai lista de dimineață. Acum ziua de final e plecată și pentru `membersOn`.
 
 ## Dependențe
 
