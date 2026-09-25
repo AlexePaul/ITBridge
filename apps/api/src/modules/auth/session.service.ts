@@ -95,6 +95,20 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
         // With the lock, the loser blocks until the winner commits, so by the time it sweeps the
         // family the successor row is committed and visible, and gets revoked with the rest.
         const outcome = await this.dataSource.transaction<{ replayOf: string } | { successor: Session }>(async (manager) => {
+            // The account first, shared, and only then the session. `revokeAllForUser` takes the
+            // same row exclusively, so "end every session" waits for a rotation in flight to commit
+            // and then sees the successor it wrote. Without it the sweep — one UPDATE, under READ
+            // COMMITTED — waited on the row locked below, skipped it as already revoked, and never
+            // saw the successor, which committed after its snapshot: a refresh caught mid-way
+            // through a password reset kept a new token for seven days.
+            //
+            // The owner is read before any lock, because only the row knows it. Account, then
+            // session, is the order every path that takes both keeps — the erasure's `DELETE` on
+            // the user cascades the same way — so no two of them can each hold one and wait on the
+            // other.
+            const owners = await manager.query<{ user_id: number }[]>('SELECT user_id FROM sessions WHERE "tokenHash" = $1', [tokenHash]);
+            if (owners[0]) await manager.query('SELECT 1 FROM users WHERE id = $1 FOR SHARE', [owners[0].user_id]);
+
             // A raw `SELECT ... FOR UPDATE` rather than `findOne({ lock })`: TypeORM turns a
             // `relations` option into a LEFT JOIN, and Postgres refuses `FOR UPDATE` on the
             // nullable side of an outer join. The columns needed are few enough to name.
@@ -161,9 +175,20 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
         await this.sessionRepository.update({ familyId, revokedAt: IsNull() }, { revokedAt: new Date() });
     }
 
-    /** Every session of a user; used by "log me out everywhere". */
+    /**
+     * Every session of a user: "log me out everywhere", a password reset, a password change.
+     *
+     * **Behind an exclusive lock on the account row**, which every rotation holds shared while it
+     * writes a successor — see `rotate`. The sweep then runs only once no rotation is in flight,
+     * and as its own statement it takes its snapshot after the last one committed. Callers must not
+     * hold that row themselves: none of the three runs inside a transaction, and one that did would
+     * wait on itself.
+     */
     async revokeAllForUser(userId: number): Promise<void> {
-        await this.sessionRepository.update({ user: { id: userId }, revokedAt: IsNull() }, { revokedAt: new Date() });
+        await this.dataSource.transaction(async (manager) => {
+            await manager.query('SELECT 1 FROM users WHERE id = $1 FOR UPDATE', [userId]);
+            await manager.update(Session, { user: { id: userId }, revokedAt: IsNull() }, { revokedAt: new Date() });
+        });
     }
 
     /** What a parent sees when asking which sessions are open. Never includes the hashes. */

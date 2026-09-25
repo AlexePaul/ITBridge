@@ -140,6 +140,65 @@ describe('Sessions and logout (e2e)', () => {
             await refresh(other.refreshToken).expect(401);
         });
 
+        /**
+         * A refresh in flight at the moment the family ends every session. The sweep was one UPDATE:
+         * under READ COMMITTED it waited on the session row the rotation had locked, skipped it once
+         * it came back revoked, and never saw the successor, which committed after its snapshot. The
+         * new token then lived its seven days through "log out everywhere", a reset or a change of
+         * password — the three moments somebody is trying to shut a thief out.
+         *
+         * The interleaving is forced rather than hoped for. A second connection holds the account
+         * row, which stops the rotation exactly between revoking the old row and writing the new one:
+         * inserting a session checks its foreign key against that row. The sweep starts while the
+         * rotation waits there, and the row is let go once both are queued.
+         */
+        it('log out everywhere also ends a refresh that was in flight at that moment', async () => {
+            const { accessToken, refreshToken } = await register();
+            const [{ user_id: userId }] = await dataSource.query<{ user_id: number }[]>('SELECT user_id FROM sessions');
+
+            const blocked = async (count: number) => {
+                for (let attempt = 0; attempt < 200; attempt++) {
+                    const [{ waiting }] = await dataSource.query<{ waiting: string }[]>('SELECT COUNT(*) AS waiting FROM pg_locks WHERE NOT granted');
+                    if (Number(waiting) >= count) return;
+                    await new Promise((resolve) => setTimeout(resolve, 10));
+                }
+                throw new Error(`Expected ${count} statement(s) waiting on a lock`);
+            };
+
+            const holder = dataSource.createQueryRunner();
+            await holder.connect();
+            await holder.startTransaction();
+            let refreshed: request.Response;
+            try {
+                await holder.query('SELECT 1 FROM users WHERE id = $1 FOR UPDATE', [userId]);
+
+                // `then` is what sends a supertest request; without it nothing leaves until awaited.
+                const refreshing = refresh(refreshToken).then((res) => res);
+                await blocked(1);
+                const endingAll = request(app.getHttpServer())
+                    .post('/auth/logout-all')
+                    .set('Authorization', `Bearer ${accessToken}`)
+                    .then((res) => res);
+                await blocked(2);
+
+                await holder.commitTransaction();
+                const [rotation, sweep] = await Promise.all([refreshing, endingAll]);
+                expect(sweep.status).toBe(200);
+                refreshed = rotation;
+            } finally {
+                if (holder.isTransactionActive) await holder.rollbackTransaction();
+                await holder.release();
+            }
+
+            // Either order is sound — the rotation first and its successor swept, or the sweep first
+            // and the rotation refused — but nothing of this account may be left alive.
+            const [{ live }] = await dataSource.query<{ live: string }[]>('SELECT COUNT(*) AS live FROM sessions WHERE user_id = $1 AND "revokedAt" IS NULL', [
+                userId,
+            ]);
+            expect(Number(live)).toBe(0);
+            if (refreshed.status === 200) await refresh(refreshed.body.refreshToken as string).expect(401);
+        });
+
         it("a parent cannot see another user's sessions", async () => {
             await register('ana');
             const bogdan = await register('bogdan');
