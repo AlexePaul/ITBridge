@@ -1503,6 +1503,22 @@ tranzacția care înregistrează banii — dă-i `EntityManager`-ul —, iar dac
 unde se încasează, cheamă și de acolo aceeași ușă: o încasare tăcută arată pentru familie exact ca
 una pierdută.
 
+**Un transfer anunțat e bani pe drum, nu bani intrați** (E16 S6, testarea din 25 septembrie 2026:
+fluxul exista pe API și n-avea niciun ecran). Biroul îl trece din formularul de încasare, cu bifa
+„doar anunțat", când îl vede pe extrasul provizoriu: rândul e `initiated`, nu intră în `paid`, deci
+factura rămâne pe lista de restanțe, cu transferul lângă ea (`ArrearsRow.announced`). Trei reguli:
+
+- **Mementourile tac cât transferurile anunțate acoperă restul** (`restIsAnnounced` din
+  `arrears.rules.ts`) — altfel familia care a plătit ieri primește „ai întârziat", adică exact
+  plângerea din S8. Un transfer care acoperă doar o parte nu oprește nimic.
+- **Se închide din `/admin/payments`**, pe unul din două drumuri: „au intrat", cu ziua din extras —
+  atunci pleacă chitanța, pe aceeași tranziție ca oricare alta —, sau „n-a venit", adică `failed`, iar
+  mementourile se reiau singure.
+- **O linie de extras potrivită pe factură confirmă transferul anunțat de exact aceeași sumă**, nu
+  scrie o a doua plată lângă el (`ReconciliationService.match`, prin `updatePayment` cu managerul
+  tranzacției). Altfel factura ieșea plătită, iar rândul anunțat rămânea în registru pentru
+  totdeauna, așteptând bani care veniseră.
+
 **Factura fiscală e a SmartBill, iar SmartBill n-are sandbox** (E16 S0–S3). Orice factură emisă
 prin API-ul lor e un document fiscal real: ia următorul număr din serie și, cu e-Factura activă,
 pleacă în SPV. De aici toată forma integrării, din `apps/api/src/modules/smartbill/` (clientul și
