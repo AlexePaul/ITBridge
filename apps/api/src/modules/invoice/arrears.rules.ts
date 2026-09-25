@@ -14,6 +14,16 @@ import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/clas
  */
 export const PAYMENT_TERM_DAYS = 14;
 
+/**
+ * What is left to pay on an invoice, given what arrived against it — the one subtraction. The
+ * arrears list and every invoice the API hands out, the portal's "de plătit" among them, read it
+ * from here, so no two screens can disagree about one invoice. Rounded to the ban: `350 - 100.1`
+ * is not a figure anybody owes.
+ */
+export function outstandingOf(amount: number, paid: number): number {
+    return Math.max(0, Math.round((amount - paid) * 100) / 100);
+}
+
 /** The last day a family can pay without being late. Inclusive. */
 export function dueDateFor(dateIssued: Date | string): Date {
     return addDays(typeof dateIssued === 'string' ? parseIsoDate(dateIssued.slice(0, 10)) : dateIssued, PAYMENT_TERM_DAYS);

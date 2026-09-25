@@ -23,7 +23,10 @@
         <span class="portal-label">De plătit</span>
         <div v-for="invoice in unpaid" :key="invoice.id" class="body-text">
           Factura pe {{ formatMonth(invoice.monthIssued) }} —
-          <strong class="tnum">{{ formatLei(invoice.amount) }}</strong>
+          <strong class="tnum">{{ formatLei(leftToPay(invoice)) }}</strong>
+          <template v-if="invoice.paid">
+            (din {{ formatLei(invoice.amount) }}; ai plătit deja {{ formatLei(invoice.paid) }})
+          </template>
           <template v-if="invoice.status === 'overdue'"> · scadența a trecut</template>
         </div>
         <NuxtLink to="/user/payments" class="btn btn-primary home-action">Vezi facturile</NuxtLink>
@@ -123,6 +126,7 @@ import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { useProjectsApi } from "~/composables/api/useProjectsApi";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { formatDateKey, formatLei, formatMonth } from "~/composables/useAdminFormat";
+import { leftToPay } from "~/types/invoice.types";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { useAttendanceStore } from "~/stores/attendanceStore";

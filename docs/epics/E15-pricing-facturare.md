@@ -729,6 +729,10 @@ reprodus și are un test care pică pe codul de dinainte.
   câte una, fiecare cu intrarea ei în jurnal.
 - **Și una măruntă:** data de emitere se citea prin `new Date('YYYY-MM-DD')`, adică miezul nopții UTC,
   deci ziua dinainte la vest de Greenwich. Acum trece prin `parseIsoDate`, ca restul datelor.
+- **Portalul arăta totalul unei facturi plătite parțial ca „de plătit".** O familie care plătise 100
+  din 350 citea tot 350, pe pagina de start și pe cea de plăți. Fiecare factură dată familiei poartă
+  acum ce s-a încasat și ce a rămas, din aceeași sumă ca lista de restanțe, iar portalul arată restul
+  și, lângă el, cât s-a plătit deja; o factură neplătită cu bani pe ea apare „Plătită parțial".
 
 **Deciziile luate aici**, de revăzut dacă școala vede altfel:
 

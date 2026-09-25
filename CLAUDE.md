@@ -1454,6 +1454,14 @@ fiindcă n-a rulat un job. `markOverdue` ține coloana onestă pentru restul ecr
 care se sprijină acceptanța: mementourile se opresc la încasare fiindcă factura plătită iese din
 interogare, nu fiindcă anulează cineva ceva.
 
+**Ce vede familia ca „de plătit" e restul, nu totalul** (revizuirea din 25 septembrie 2026). Portalul
+arăta suma facturii, deci o familie care plătise 100 din 350 citea tot 350 — iar cine plătește ce
+scrie pe ecran plătește de două ori. Fiecare factură din `GET /invoices` și `GET /invoices/:id` poartă
+acum `paid` și `outstanding`, atașate de `ArrearsService.withBalances` din aceeași sumă a plăților
+reușite și aceeași scădere (`outstandingOf`) ca lista de restanțe — nu o a doua definiție. În web,
+`leftToPay` citește `outstanding`; un ecran nou care arată cât datorează o familie îl folosește pe el,
+nu `amount`.
+
 **Încasarea se începe de la factură, iar suma precompletată e restul, nu totalul** (E16 S5).
 `/admin/restante` și `/admin/payments/new` deschid amândouă `AdminPaymentModal`, care se completează
 din rândul de restanță — familia, factura și `outstanding`. Precompletarea cu totalul facturii, cum

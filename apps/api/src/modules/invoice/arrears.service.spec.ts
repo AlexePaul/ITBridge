@@ -103,6 +103,40 @@ describe('ArrearsService', () => {
         });
     });
 
+    /**
+     * The review of 25 September 2026: the portal showed a family that had paid 100 of 350 the whole
+     * 350 as still to pay. Every invoice the API hands out now carries what arrived and what is left,
+     * from the same sum and subtraction as the list.
+     */
+    describe('the balance on every invoice', () => {
+        it('attaches what arrived and what is left, from succeeded payments only', async () => {
+            qb.getRawMany = jest.fn().mockResolvedValue([{ invoiceId: 7, paid: '100' }]);
+
+            const [withBalance] = await service.withBalances([invoice() as unknown as Invoice]);
+
+            expect(withBalance).toMatchObject({ id: 7, amount: 350, paid: 100, outstanding: 250 });
+            expect(qb.andWhere).toHaveBeenCalledWith('payment.status = :status', { status: 'succeeded' });
+        });
+
+        it('says nothing is left on a paid invoice, and never a negative figure on an overpaid one', async () => {
+            qb.getRawMany = jest.fn().mockResolvedValue([{ invoiceId: 7, paid: '400' }]);
+
+            const [withBalance] = await service.withBalances([invoice({ status: InvoiceStatus.PAID }) as unknown as Invoice]);
+
+            expect(withBalance).toMatchObject({ paid: 400, outstanding: 0 });
+        });
+
+        it('owes nothing on a waived month', async () => {
+            const [withBalance] = await service.withBalances([invoice({ amount: 0, status: InvoiceStatus.WAIVED }) as unknown as Invoice]);
+
+            expect(withBalance).toMatchObject({ paid: 0, outstanding: 0 });
+        });
+
+        it('does not go looking for payments for an empty list', async () => {
+            await expect(service.withBalances([])).resolves.toEqual([]);
+            expect(paymentRepo.createQueryBuilder).not.toHaveBeenCalled();
+        });
+    });
     describe('markOverdue', () => {
         it('moves only the pending ones that are actually past the term', async () => {
             invoiceRepo.find!.mockResolvedValue([invoice({ id: 7, dateIssued: new Date(2026, 2, 1) }), invoice({ id: 9, dateIssued: new Date(2026, 2, 18) })]);

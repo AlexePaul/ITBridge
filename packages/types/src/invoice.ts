@@ -52,6 +52,13 @@ export interface Invoice {
     fiscalPaidAmount: number | null;
     fiscalTotalAmount: number | null;
     fiscalCheckedAt: ISODateTime | null;
+    /**
+     * What arrived against it (succeeded payments) and what is left — on `GET /invoices` and
+     * `GET /invoices/:id`, from the same sum as the arrears screen. What a family still owes is
+     * `outstanding`, never `amount`: a family shown 350 on an invoice it paid 100 of pays twice.
+     */
+    paid?: number;
+    outstanding?: number;
 }
 
 /**

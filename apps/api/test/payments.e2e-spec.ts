@@ -210,5 +210,20 @@ describe('Payments (e2e)', () => {
             const list = await request(app.getHttpServer()).get('/payments').set('Authorization', other.auth).expect(200);
             expect(list.body).toEqual([]);
         });
+
+        /**
+         * The review of 25 September 2026: the portal showed a family that had paid 100 of 350 the
+         * whole 350 as still to pay. Only succeeded money counts, as on the arrears screen.
+         */
+        it('tells the family what is left on each invoice, not only its total', async () => {
+            await pay({ amount: 100 }).expect(201);
+            await pay({ amount: 50, method: 'bank_transfer', status: 'initiated' }).expect(201);
+
+            const list = await request(app.getHttpServer()).get('/invoices').set('Authorization', parent.auth).expect(200);
+            const one = await request(app.getHttpServer()).get(`/invoices/${invoiceId}`).set('Authorization', parent.auth).expect(200);
+
+            expect(list.body[0]).toMatchObject({ id: invoiceId, amount: 350, paid: 100, outstanding: 250 });
+            expect(one.body).toMatchObject({ amount: 350, paid: 100, outstanding: 250 });
+        });
     });
 });

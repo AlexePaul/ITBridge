@@ -12,7 +12,16 @@ export type {
   SessionCountOverrideDto,
 } from "@itbridge/types";
 
-import type { InvoiceFiscalStatus, SmartBillMode } from "@itbridge/types";
+import type { Invoice, InvoiceFiscalStatus, SmartBillMode } from "@itbridge/types";
+
+/**
+ * What a family still has to pay on an invoice: the server's `outstanding`, from the same sum as
+ * the arrears screen — never `amount`. The portal showed a family that had paid 100 of 350 the
+ * whole 350, and a family that pays what the screen says pays twice. The fallback covers a
+ * response without the field; the invoice list and the single invoice always carry it.
+ */
+export const leftToPay = (invoice: Pick<Invoice, "amount" | "outstanding">): number =>
+  invoice.outstanding ?? invoice.amount;
 
 /**
  * How the office reads an invoice's state with SmartBill — E16/S2. Labels live here, beside the
