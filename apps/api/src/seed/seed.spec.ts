@@ -25,6 +25,14 @@ describe('the seed', () => {
         expect(SEED).toContain('ACCEPTED_AT_REGISTRATION');
     });
 
+    it('writes the slot every class was generated for, as the generator does', () => {
+        // Without it every seeded class reads as one the office placed by hand: `followGroup` leaves
+        // it behind when its group moves to another day, and the generator writes a second class
+        // beside it — which is what the end-to-end testing of 25 September 2026 found on a seeded
+        // database, and stage is one.
+        expect(SEED).toMatch(/scheduledFor: date,/);
+    });
+
     it('leaves one family on an older version, so the re-acceptance screen is a state somebody meets', () => {
         // Without it the screen exists only for whoever edits rows by hand, which is the same as
         // saying it is never looked at — and it is the one screen a family is *forced* through.

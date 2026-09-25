@@ -648,6 +648,13 @@ export async function seed(dataSource: DataSource): Promise<void> {
                         // Copied from the group, exactly as generation does it.
                         room: group.room,
                         date,
+                        // The slot the generator would have written it for, which is what it
+                        // is — and what `followGroup` and the generator recognise a class by.
+                        // Left empty until the end-to-end testing of 25 September 2026: every
+                        // seeded class read as one the office had placed by hand, so moving a
+                        // group to another day left all of them behind and generated a second
+                        // class beside each — on stage, which runs on this seed.
+                        scheduledFor: date,
                         startTime: group.startTime,
                         endTime: group.endTime,
                         status: date.getTime() < markedUntil.getTime() ? ClassSessionStatus.HELD : ClassSessionStatus.SCHEDULED,

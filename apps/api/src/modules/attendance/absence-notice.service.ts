@@ -181,6 +181,17 @@ export class AbsenceNoticeService {
     }
 
     /**
+     * The children the office moved into this class for the week — E12/S4, read from the host's
+     * side. With each child's own group, so the register can say where they came from.
+     */
+    async placedIn(classSessionId: number): Promise<AbsenceNotice[]> {
+        return this.noticeRepository.find({
+            where: { replacementSession: { id: classSessionId } },
+            relations: { child: { parent: true, group: true } },
+        });
+    }
+
+    /**
      * Everything still ahead, soonest first: a notice whose class is on or after `from`, **or whose
      * move is** — the review of 25 September 2026.
      *

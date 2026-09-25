@@ -37,6 +37,8 @@ describe('AttendanceService', () => {
 
     /** The school calendar of announced absences; empty unless a test says otherwise. */
     const forSessionMock = jest.fn();
+    /** The children the office moved into a class for the week (E12/S4); none unless a test says so. */
+    const placedInMock = jest.fn();
     /** E20/S3: the register is what moves a trial lead. Asserted for real in the lead suites. */
     const leadProgress = {
         markTrialHeld: jest.fn().mockResolvedValue(undefined),
@@ -46,6 +48,7 @@ describe('AttendanceService', () => {
 
     beforeEach(async () => {
         forSessionMock.mockResolvedValue(new Map());
+        placedInMock.mockResolvedValue([]);
         leadProgress.markTrialHeld.mockClear();
         leadProgress.revertTrialHeld.mockClear();
         attendanceRepo = createMockRepository();
@@ -60,7 +63,7 @@ describe('AttendanceService', () => {
                 provideMockRepository(Attendance, attendanceRepo),
                 provideMockRepository(ClassSession, classSessionRepo),
                 provideMockRepository(Child, childRepo),
-                { provide: AbsenceNoticeService, useValue: { forSession: forSessionMock } },
+                { provide: AbsenceNoticeService, useValue: { forSession: forSessionMock, placedIn: placedInMock } },
                 // E20/S3 hangs off marking; it runs with a double that does nothing, so a register
                 // test never becomes a lead test by accident. E12/S4 used to hang off the same
                 // mark and no longer does — a make-up is a placement the office records before the
@@ -240,6 +243,38 @@ describe('AttendanceService', () => {
 
             // Dropping the row would hide a mark the bulk endpoint wrote.
             expect(register.entries.find((entry) => entry.childId === 7)).toMatchObject({ type: AttendanceType.MAKE_UP, present: true });
+        });
+
+        /**
+         * The end-to-end testing of 25 September 2026: a child the office moved here for the week
+         * appeared only once somebody had marked them — and the phone screen offers no way to add
+         * anybody, so nobody could.
+         */
+        it('lists a child the office moved here for the week before anybody has marked them, and says from where', async () => {
+            placedInMock.mockResolvedValue([{ child: { ...child(7, 'Dan', 'Radu'), group: { id: 6, name: 'Python' } } }]);
+
+            const register = await service.sessionRegister(9);
+
+            expect(register.entries.find((entry) => entry.childId === 7)).toMatchObject({
+                type: AttendanceType.MAKE_UP,
+                present: null,
+                attendanceId: null,
+                visitingFrom: 'Python',
+            });
+            // The group's own are not visitors.
+            expect(register.entries.find((entry) => entry.childId === 2)?.visitingFrom).toBeNull();
+        });
+
+        it('lists a moved child once, however many ways they come to be on it', async () => {
+            const dan = { ...child(7, 'Dan', 'Radu'), group: { id: 6, name: 'Python' } };
+            attendanceRepo.find!.mockResolvedValue([{ id: 33, present: true, type: AttendanceType.MAKE_UP, child: dan }]);
+            placedInMock.mockResolvedValue([{ child: dan }]);
+
+            const register = await service.sessionRegister(9);
+
+            expect(register.entries.filter((entry) => entry.childId === 7)).toEqual([
+                expect.objectContaining({ present: true, attendanceId: 33, visitingFrom: 'Python' }),
+            ]);
         });
 
         it('answers null for a family with no phone, not a button that dials nowhere', async () => {

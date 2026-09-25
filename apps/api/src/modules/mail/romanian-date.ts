@@ -59,3 +59,18 @@ export function romanianDate(date: Date | string): string {
     const [, month, day] = iso.split('-');
     return `${Number(day)} ${MONTHS[Number(month) - 1] ?? ''}`;
 }
+
+/**
+ * `2026-12-21`, `2027-01-07` → `21 decembrie 2026 – 7 ianuarie 2027`.
+ *
+ * For a stretch of days an admin reads back — a school holiday, most often, which is the one range
+ * that crosses into a new year. Both ends keep their month, so nobody has to infer one; the year
+ * appears once when both ends share it (`1 aprilie – 10 aprilie 2027`), and on each end when not.
+ */
+export function romanianDateRange(start: Date | string, end: Date | string): string {
+    const startYear = toIsoDate(start).slice(0, 4);
+    const endYear = toIsoDate(end).slice(0, 4);
+    return startYear === endYear
+        ? `${romanianDate(start)} – ${romanianDate(end)} ${endYear}`
+        : `${romanianDate(start)} ${startYear} – ${romanianDate(end)} ${endYear}`;
+}
