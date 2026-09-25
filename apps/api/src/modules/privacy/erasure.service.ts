@@ -16,7 +16,7 @@ import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { S3Service } from 'src/modules/storage/s3.service';
 import { projectFileKey, projectThumbnailKey } from 'src/modules/project/project.keys';
 import { ERASED_STATEMENT_TEXT, erasedProfileFields, isErased } from './erasure.rules';
-import { leadsOfFamily } from './family-rows';
+import { leadsOfFamily, messagesOfFamily } from './family-rows';
 
 /**
  * Who the erasure is for, as the trail tells it afterwards — the one sentence a reader of "profile
@@ -71,6 +71,9 @@ export interface ErasureReport {
  *   about which rows are a family's.
  * - **The outbox has no relation to a profile.** It is shared and it also writes to the office, so
  *   its rows are found by address — which is what the data inventory says E07 S4 would have to do.
+ *   In both cases **only an address the family vouched for** (`vouchedAddresses`): a number or a
+ *   mailbox typed into a profile is somebody else's as often as it is theirs, and here a wrong
+ *   match deletes it.
  * - **A payment's `notes` is free text an admin wrote about a family**, on a row that is kept. The
  *   figures stay because they are the accounting record; the sentence does not.
  * - **A bank statement line keeps the payer's name and the transfer's text** (E16/S8), on a row
@@ -195,7 +198,6 @@ export class ErasureService {
             });
         }
 
-        const email = profile.email;
         const userId = profile.user?.id;
 
         /** Filled inside the transaction, acted on after it commits. */
@@ -228,7 +230,10 @@ export class ErasureService {
 
             // No relation to walk: the queue is shared and also writes to the office, so its rows
             // are found by address — exactly what the inventory says this story would have to do.
-            const messages = email ? await manager.delete(OutboxMessage, { to: email }) : { affected: 0 };
+            // Only a vouched one (`vouchedAddresses`): the office's address typed into a profile
+            // would otherwise take the office's copy of every notice down with the family.
+            const ownMessages = messagesOfFamily(profile);
+            const messages = ownMessages ? await manager.delete(OutboxMessage, ownMessages) : { affected: 0 };
 
             const invoices = await manager.find(Invoice, { where: { parent: { id: profileId } }, select: { id: true } });
             const invoiceIds = invoices.map((invoice) => invoice.id);

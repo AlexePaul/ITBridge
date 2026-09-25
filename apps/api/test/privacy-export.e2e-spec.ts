@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { createClassSession, createTestApp, enrolInNewGroup, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { officeAddress } from 'src/modules/mail/office-address';
 
 /**
  * A family's own data, against a real database — E07 S4.
@@ -170,6 +171,111 @@ describe('Privacy export (e2e)', () => {
         expect(mine.body.solicitari).toHaveLength(1);
         expect(mine.body.solicitari[0].copil).toBe('Maria Pop');
         expect(theirs.body.solicitari).toHaveLength(0);
+    });
+
+    /**
+     * The other side of matching by address, and the reason the match has a rule. `PUT
+     * /profiles/:id` takes any number no other profile holds, and nothing ever checks one — so an
+     * enquiry found by a typed number is somebody else's child, handed to whoever typed it.
+     */
+    it("does not give a family somebody else's enquiry because they typed its phone number", async () => {
+        await request(app.getHttpServer())
+            .post('/leads')
+            .set('Authorization', admin.auth)
+            .send({
+                parentName: 'Elena Vasile',
+                parentPhone: '0722000111',
+                childFirstName: 'Ioana',
+                childLastName: 'Vasile',
+                childBirthDate: '2017-05-06',
+                source: 'phone',
+            })
+            .expect(201);
+        await request(app.getHttpServer()).put(`/profiles/${bogdanProfileId}`).set('Authorization', bogdan.auth).send({ phone: '0722000111' }).expect(200);
+
+        const res = await exportOwn(bogdan).expect(200);
+
+        expect(res.body.solicitari).toEqual([]);
+        expect(JSON.stringify(res.body)).not.toContain('Ioana');
+    });
+
+    /**
+     * An address becomes the family's when they open the link sent to it, and not before:
+     * registering with it proves nothing. The enquiry below was typed in by the office from a call
+     * made by whoever reads that mailbox.
+     */
+    it('gives a family the enquiry at their address only once they have confirmed it', async () => {
+        await request(app.getHttpServer())
+            .post('/leads')
+            .set('Authorization', admin.auth)
+            .send({
+                parentName: 'Elena Vasile',
+                parentEmail: 'elena.export@example.com',
+                childFirstName: 'Ioana',
+                childLastName: 'Vasile',
+                childBirthDate: '2017-05-06',
+                source: 'phone',
+            })
+            .expect(201);
+        const elena = await registerUser(app, 'elena.export', 'parola123', { active: false });
+
+        expect((await exportOwn(elena).expect(200)).body.solicitari).toEqual([]);
+
+        // The link, opened.
+        await dataSource.query('UPDATE users SET "emailConfirmedAt" = now() WHERE id = $1', [elena.userId]);
+        const confirmed = await exportOwn(elena).expect(200);
+
+        expect(confirmed.body.solicitari).toHaveLength(1);
+        expect(confirmed.body.solicitari[0].copil).toBe('Ioana Vasile');
+    });
+
+    /**
+     * The same gap with the office's address in it, which is worse: every registration and every
+     * digest is written to that address, so typing it into a profile would read the office's mail.
+     */
+    it("does not give a family the office's mail because they typed the office's address", async () => {
+        const office = officeAddress();
+        const toOffice = await dataSource.query<{ count: string }[]>('SELECT COUNT(*) AS count FROM outbox WHERE "to" = $1', [office]);
+        // The three registrations in `beforeEach` each told the office a family is waiting.
+        expect(Number(toOffice[0].count)).toBeGreaterThan(0);
+
+        await request(app.getHttpServer()).put(`/profiles/${bogdanProfileId}`).set('Authorization', bogdan.auth).send({ email: office }).expect(200);
+        const res = await exportOwn(bogdan).expect(200);
+
+        expect(res.body.mesajePrimite).toEqual([]);
+    });
+
+    /**
+     * What the rule must not take away. A family the office typed in has no account to confirm
+     * anything with, and no parent can edit its row — the office wrote the address on both sides,
+     * so the office's export still finds the enquiry it typed from the same call.
+     */
+    it('still finds the enquiry for a family the office typed in, by the number the office typed', async () => {
+        const family = await request(app.getHttpServer())
+            .post('/profiles')
+            .set('Authorization', admin.auth)
+            .send({ firstName: 'Elena', lastName: 'Vasile', phone: '0722000111' })
+            .expect(201);
+        await request(app.getHttpServer())
+            .post('/leads')
+            .set('Authorization', admin.auth)
+            .send({
+                parentName: 'Elena Vasile',
+                parentPhone: '0722000111',
+                childFirstName: 'Ioana',
+                childLastName: 'Vasile',
+                childBirthDate: '2017-05-06',
+                source: 'phone',
+            })
+            .expect(201);
+
+        const res = await request(app.getHttpServer())
+            .get(`/privacy/export/${family.body.id as number}`)
+            .set('Authorization', admin.auth)
+            .expect(200);
+
+        expect(res.body.solicitari).toHaveLength(1);
+        expect(res.body.solicitari[0].copil).toBe('Ioana Vasile');
     });
 
     it('never returns a credential', async () => {

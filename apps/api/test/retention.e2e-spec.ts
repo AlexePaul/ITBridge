@@ -243,6 +243,30 @@ describe('Retention (e2e)', () => {
             expect(left.map((lead) => lead.parentName)).toEqual(['A Anei', 'Recentă', 'Înscrisă']);
         });
 
+        /**
+         * The same rule as the erasure, from the other side: a family keeps an enquiry past its term
+         * only by an address it has vouched for. A number it typed vouches for nothing, so an
+         * enquiry that nothing else ties to a family goes on its own day.
+         */
+        it('does not keep an enquiry because a family typed its phone number', async () => {
+            const [{ phone }] = await dataSource.query<{ phone: string }[]>('SELECT phone FROM profiles WHERE id = $1', [anaProfileId]);
+            await dataSource.getRepository(Lead).save({
+                status: LeadStatus.CONTACTED,
+                source: LeadSource.PHONE,
+                parentName: 'Alta familie',
+                parentPhone: phone,
+                childFirstName: 'Ioana',
+                childLastName: 'Test',
+                childBirthDate: new Date(2016, 3, 2),
+                lastActivityAt: new Date(`${monthsAgo(13)}T12:00:00Z`),
+            });
+
+            const report = await retention.run(today);
+
+            expect(report.enquiriesRemoved).toBe(1);
+            expect(await dataSource.getRepository(Lead).count()).toBe(0);
+        });
+
         it('takes the shell profile a booking made with its enquiry', async () => {
             const shell = await request(app.getHttpServer())
                 .post('/profiles')

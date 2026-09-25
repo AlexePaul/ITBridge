@@ -13,7 +13,7 @@ import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { SessionCountOverride } from 'src/entities/session-count-override.entity';
 import { Project } from 'src/entities/project.entity';
 import { Lead } from 'src/entities/lead.entity';
-import { leadsOfFamily } from './family-rows';
+import { leadsOfFamily, messagesOfFamily } from './family-rows';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { Session } from 'src/entities/session.entity';
 import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
@@ -156,12 +156,16 @@ export class ExportService {
         const discounts = await this.discounts.find({ where: { parent: { id: profileId } }, order: { id: 'ASC' } });
         // Not `{ profile: { id } }` alone: a lead an admin typed in from a phone call has no link
         // to either the family or the child, so the family's first contact with the school would be
-        // missing from the copy of "everything we hold about you". See `leadsOfFamily`.
+        // missing from the copy of "everything we hold about you". See `leadsOfFamily` — and, for why
+        // the address has to be one the family vouched for rather than one it typed,
+        // `vouchedAddresses`: this document is everything the school holds, so an unproven match
+        // is somebody else's child.
         const leads = await this.leads.find({ where: leadsOfFamily(profile), order: { id: 'ASC' } });
 
         // The queue has no relation to a profile — it is shared, and it also writes to the office —
         // so it is searched by address, exactly as the inventory says E07 S4 would have to.
-        const messages = profile.email ? await this.outbox.find({ where: { to: profile.email }, order: { id: 'ASC' } }) : [];
+        const ownMessages = messagesOfFamily(profile);
+        const messages = ownMessages ? await this.outbox.find({ where: ownMessages, order: { id: 'ASC' } }) : [];
 
         const userId = profile.user?.id;
         const [sessions, acceptances, confirmations, resets] = userId
