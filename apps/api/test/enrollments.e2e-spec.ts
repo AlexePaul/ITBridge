@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { createClassSession, createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
 
 /**
  * Enrolment as a period, and the capacity rule — E11/S1 and S3, over HTTP and against Postgres.
@@ -304,6 +304,96 @@ describe('Enrolments and capacity (e2e)', () => {
             const trail = await request(app.getHttpServer()).get(`/audit?entityType=Group&entityId=${groupId}`).set('Authorization', admin.auth).expect(200);
 
             expect(trail.body).toHaveLength(0);
+        });
+
+        /**
+         * The review of 25 September 2026: the group's seats are not the whole question. A class
+         * holding a child the office moved in for the week has a chair fewer, and a child enrolled
+         * now sits in that class too — the tenth child of ten went in while Thursday's class held a
+         * visitor, and the room had eleven that Thursday.
+         */
+        it('refuses the last seat of the group while one of its coming classes holds a visitor', async () => {
+            const groupId = await makeGroup({ capacity: 2 });
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId })
+                .expect(201);
+            const classId = await createClassSession(dataSource, groupId, { date: '2027-04-05' });
+
+            // A child from another group, moved into that class for the week.
+            const otherGroup = await makeGroup({ name: 'Python', startTime: '18:00', endTime: '19:30' });
+            const visitor = await makeChild();
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: visitor, groupId: otherGroup })
+                .expect(201);
+            const missed = await createClassSession(dataSource, otherGroup, { date: '2027-04-05' });
+            await dataSource.query(
+                `INSERT INTO absence_notices (child_id, class_session_id, reason, "inTime", replacement_session_id) VALUES ($1, $2, 'Răcit', true, $3)`,
+                [visitor, missed, classId],
+            );
+
+            const refused = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId })
+                .expect(409);
+            expect(refused.body.code).toBe('GROUP_FULL');
+            expect(refused.body.message).toContain('2027-04-05');
+
+            // The office can still decide otherwise, and the trail names the class it overfilled.
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId, allowOverCapacity: true })
+                .expect(201);
+            const trail = await request(app.getHttpServer()).get(`/audit?entityType=Group&entityId=${groupId}`).set('Authorization', admin.auth).expect(200);
+            expect(trail.body[0].note).toBe('Înscriere peste locurile orei din 2027-04-05: 3 copii în 2 locuri.');
+        });
+
+        /** The child moved into a class of the group for the week, and now joining it, takes one chair there, not two. */
+        it('does not count the child being moved in as a visitor to the classes they join', async () => {
+            const own = await makeGroup({ name: 'Python', startTime: '18:00', endTime: '19:30' });
+            const target = await makeGroup({ capacity: 2 });
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId: target })
+                .expect(201);
+            const mover = await makeChild();
+            await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId: mover, groupId: own }).expect(201);
+
+            // This week the office already sent them to the target group's class.
+            const missed = await createClassSession(dataSource, own, { date: '2027-04-05' });
+            const visited = await createClassSession(dataSource, target, { date: '2027-04-05' });
+            await dataSource.query(
+                `INSERT INTO absence_notices (child_id, class_session_id, reason, "inTime", replacement_session_id) VALUES ($1, $2, 'Răcit', true, $3)`,
+                [mover, missed, visited],
+            );
+
+            await request(app.getHttpServer())
+                .post('/enrollments/transfer')
+                .set('Authorization', admin.auth)
+                .send({ childId: mover, toGroupId: target })
+                .expect(201);
+        });
+
+        /** The review of 25 September 2026: a close dated ahead freed the seat at once, with the child still in it. */
+        it('refuses to close on a day ahead, and leaves the child in the group', async () => {
+            const groupId = await makeGroup({ capacity: 1 });
+            const childId = await makeChild();
+            const opened = await request(app.getHttpServer()).post('/enrollments').set('Authorization', admin.auth).send({ childId, groupId }).expect(201);
+
+            const res = await request(app.getHttpServer())
+                .put(`/enrollments/${opened.body.id}/close`)
+                .set('Authorization', admin.auth)
+                .send({ status: 'WITHDRAWN', endDate: '2999-01-01' })
+                .expect(400);
+
+            expect(res.body.code).toBe('ENROLLMENT_END_IN_FUTURE');
+            expect(await derivedGroupOf(childId)).toBe(groupId);
         });
 
         it('frees the seat when an enrolment closes', async () => {

@@ -492,7 +492,7 @@ care l-a folosit nu mai deschide nimic după aceea.
 O revizuire a contabilității locurilor a pus o singură întrebare: pe ce drum ajunge o familie să
 creadă că are un loc pe care nu-l are, sau să nu afle de unul pe care îl are? A găsit unsprezece
 defecte, toate reproduse pe o bază reală. Cele despre listă sunt reparate aici, fiecare cu testul lui
-care pică pe codul dinainte; orarul și probele vin separat.
+care pică pe codul dinainte; orarul și probele au secțiunile lor, mai jos și în E12.
 
 - **Un loc oferit nu era ținut.** Toate numărătorile scădeau înscrierile în vigoare și atât, deci cele
   48 de ore ale ofertei locul părea liber: formularul public îl vindea ca probă, un admin înscria alt
@@ -512,6 +512,39 @@ care pică pe codul dinainte; orarul și probele vin separat.
   `children.group_id` după listă, deci o înscriere venită între citire și scriere rămânea fără grupă.
 - **Ruta care scoate o cerere de pe listă primește doar `DECLINED`, `EXPIRED` sau `CANCELLED`.** Un
   `OFFERED` trimis de mână făcea o ofertă fără termen, pe care măturarea n-o expira niciodată.
+
+### Revizuirea din 25 septembrie 2026: locurile unei ore și probele
+
+Tot din aceeași revizuire, defectele despre o oră anume și despre probe — fiecare reprodus pe o bază
+reală și reparat cu testul lui, care pică pe codul dinainte. Orarul are secțiunea lui în
+[E12](E12-prezenta-orar.md), iar pâlnia în [E20](E20-achizitie-lead.md).
+
+- **O oră mutată într-o sală mai mică număra locurile grupei.** O grupă de zece mutată într-o sală de
+  doi era vândută pe `/proba` ca având opt locuri. Acum o oră are cel mai mic dintre locurile grupei
+  și ale sălii în care e, iar mutarea sau recuperarea într-o sală în care nu încap copiii care vin e
+  refuzată (`ROOM_TOO_SMALL`). Sala nu mai poate scădea sub o grupă care se ține în ea
+  (`ROOM_SMALLER_THAN_GROUP`) — verificarea exista doar la crearea și mutarea grupei.
+- **O înscriere nouă nu întreba de ore.** Al zecelea copil din zece intra în grupă cât joia avea un
+  copil mutat acolo pe o săptămână: unsprezece în sală. `enrol` și `transfer` caută acum ora cea mai
+  strâmtă de la începutul înscrierii încolo, iar refuzul o numește — grupa, singură, arată un loc
+  liber. Peste refuz, adminul poate trece tot cu `allowOverCapacity`, iar jurnalul spune ce oră a
+  supraumplut. Copilul care se înscrie nu se numără printre vizitatorii orelor în care intră — mutat
+  deja acolo pe o săptămână, stă tot pe un singur scaun. Și, fiindcă o probă stă și ea în orele de
+  după ea până e decisă, `/proba` oferă o oră doar cât ea și cele de după ea mai au loc (E20).
+  **Ofertele către listă rămân numărate pe grupă**, dinadins: înscrierea familiei care a spus da o
+  face biroul, deci dacă un vizitator umple ora din săptămâna aia, refuzul numește ora, iar biroul
+  trece peste el sau mută vizitatorul. Mai puține oferte ar fi lăsat restul locurilor neoferite după
+  ce trece săptămâna, fiindcă nimic nu le mai oferă singur.
+- **Programarea și mutarea pe o săptămână numărau pe o fotografie.** Ora și grupa se citeau înaintea
+  lacătului, deci o anulare sau o mutare venită între timp nu se vedea. Acum se recitesc după el, cu
+  rândul orei blocat `FOR SHARE`: o anulare nu ia lacătul grupei, iar una încă în zbor s-ar fi comis
+  după citire, cu plasarea făcută într-o oră care nu se mai ține.
+- **O probă transferată își pierdea lead-ul, iar una închisă prin `close` îl lăsa deschis.** Detaliile
+  sunt în E20; pe partea asta, `transfer` mută lead-ul pe înscrierea nouă, iar `close` îl trece pe
+  pierdut.
+- **`close` primea o zi din viitor** și elibera locul pe loc: copilul ieșea din catalog, iar scaunul i
+  se oferea listei cât încă stătea pe el. Acum refuză (`ENROLLMENT_END_IN_FUTURE`) — închiderea se
+  face în ziua în care pleacă copilul.
 
 ## Dependențe
 

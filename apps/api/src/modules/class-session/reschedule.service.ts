@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, DataSource, Repository } from 'typeorm';
+import { Between, DataSource, EntityManager, Repository } from 'typeorm';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
@@ -13,6 +13,7 @@ import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { RescheduleClassSessionDto } from './dto/rescheduleClassSession.dto';
 import { RescheduleWindowsDto } from './dto/rescheduleWindows.dto';
 import { buildRescheduleWindows, BusySlot, hhmm, isInWeek, minutesBetween, RescheduleWindow, Week, WindowRoom } from './reschedule.rules';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 
 /** The row on the missed day, as the screen needs to describe it. `HH:mm` throughout. */
 export interface RescheduleSource {
@@ -76,6 +77,7 @@ export class RescheduleService {
         @InjectRepository(Room) private readonly roomRepository: Repository<Room>,
         private readonly nonTeachingPeriodService: NonTeachingPeriodService,
         private readonly notifier: ClassSessionNotifier,
+        private readonly enrollments: EnrollmentService,
         private readonly dataSource: DataSource,
     ) {}
 
@@ -109,8 +111,9 @@ export class RescheduleService {
 
         let windows: RescheduleWindow[] = [];
         if (blocked === null) {
+            const expected = await this.expectedAt(group, source);
             const [rooms, starts, busy] = await Promise.all([
-                this.roomsAt(group),
+                this.roomsAt(group, expected),
                 this.startsAt(group, locationId),
                 this.liveSessionsAt(week, locationId, source?.id ?? null),
             ]);
@@ -267,6 +270,18 @@ export class RescheduleService {
 
         // The row and the message stand or fall together, as for every change to a class (S5).
         return this.dataSource.transaction(async (manager) => {
+            // As a move: the class has to fit the room it goes into, counted behind the group's lock
+            // (`ClassSessionService.moveSession` says why).
+            if (targetRoom.id !== usualRoom.id) {
+                await this.enrollments.lockGroup(manager, group.id);
+                const expected = await this.expectedAt(group, source, manager);
+                if (expected > targetRoom.capacity) {
+                    throw new ConflictException({
+                        message: `Sala „${targetRoom.name}" are ${targetRoom.capacity} locuri, iar la ora asta vin ${expected} copii.`,
+                        error: 'ROOM_TOO_SMALL',
+                    });
+                }
+            }
             const saved = await manager.getRepository(ClassSession).save(row);
             await this.notifier.notifyMoved(saved.id, from, dto.reason, manager);
             this.logger.log(
@@ -337,8 +352,19 @@ export class RescheduleService {
         });
     }
 
-    /** The active rooms at the group's address, its own first. The own room is offered even if retired — the class is taught there. */
-    private async roomsAt(group: Group): Promise<WindowRoom[]> {
+    /**
+     * The children coming to the class being recovered: its row's own count when there is one — the
+     * visitors the office moved in are on that row — and the group's enrolments when there is not.
+     */
+    private async expectedAt(group: Group, source: ClassSession | null, manager?: EntityManager): Promise<number> {
+        return source ? this.enrollments.expectedAt(source, manager) : (await this.enrollments.occupancyOf(group.id, manager)).taken;
+    }
+
+    /**
+     * The active rooms at the group's address that hold the children coming, its own first. The own
+     * room is offered even if retired or small — the class is taught there.
+     */
+    private async roomsAt(group: Group, expected: number): Promise<WindowRoom[]> {
         const locationId = group.room.location?.id;
         const rooms =
             locationId === undefined
@@ -348,7 +374,9 @@ export class RescheduleService {
                       relations: { location: true },
                       order: { name: 'ASC' },
                   });
-        const others = rooms.filter((room) => room.id !== group.room.id);
+        // Only rooms the class fits in — the review of 25 September 2026. The group's own room stays
+        // first whatever its size: the class is already there.
+        const others = rooms.filter((room) => room.id !== group.room.id && room.capacity >= expected);
         const locationName = group.room.location?.name ?? '';
         return [group.room, ...others].map((room) => ({ id: room.id, name: room.name, locationName: room.location?.name ?? locationName }));
     }

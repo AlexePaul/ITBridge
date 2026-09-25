@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { ageOf, bandFor, compatibilityWarnings, EnrollmentService, WAITLIST_RESPONSE_HOURS } from './enrollment.service';
+import { ageOf, bandFor, compatibilityWarnings, EnrollmentService, schoolToday, WAITLIST_RESPONSE_HOURS } from './enrollment.service';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Child } from 'src/entities/child.entity';
@@ -8,6 +8,7 @@ import { Group } from 'src/entities/group.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { EnrollmentStatus, IN_FORCE_STATUSES } from 'src/enum/enrollment-status.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
+import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
 import { Role } from 'src/enum/role.enum';
 import { In, LessThan } from 'typeorm';
@@ -78,7 +79,12 @@ describe('EnrollmentService', () => {
         // `queueOrRecord` for the lapsed-offer mail in E11/S3: a family with no address has to leave
         // a row saying so, not be skipped.
         outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }), queueOrRecord: jest.fn().mockResolvedValue({ id: 1 }) };
-        leadProgress = { settleForEnrollment: jest.fn().mockResolvedValue(undefined), markTrialHeld: jest.fn(), revertTrialHeld: jest.fn() };
+        leadProgress = {
+            settleForEnrollment: jest.fn().mockResolvedValue(undefined),
+            followTransfer: jest.fn().mockResolvedValue(undefined),
+            markTrialHeld: jest.fn(),
+            revertTrialHeld: jest.fn(),
+        };
 
         childRepo.findOne!.mockResolvedValue(child);
         groupRepo.findOne!.mockResolvedValue(group());
@@ -99,6 +105,9 @@ describe('EnrollmentService', () => {
             ]),
         );
         manager.save.mockImplementation((_entity: unknown, data: Record<string, unknown>) => Promise.resolve({ id: 99, ...data }));
+        // The group's coming classes, which the capacity check reads with SQL: none unless a test
+        // says so, and then the group's own capacity is the whole question.
+        manager.query = jest.fn().mockResolvedValue([]);
         audit = { record: jest.fn() };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -176,6 +185,50 @@ describe('EnrollmentService', () => {
             expect(responseOf(error).message).toContain('lista de așteptare');
         });
 
+        /**
+         * The review of 25 September 2026: the group's ten seats are not the whole question. A class
+         * of it can hold a child moved in for the week, or have moved into a smaller room, and the
+         * child being enrolled sits in that class too.
+         */
+        it('refuses the last seat of the group when one of its coming classes is already full', async () => {
+            enrollmentRepo.count!.mockResolvedValue(9);
+            manager.query!.mockResolvedValue([
+                { date: '2026-10-01', roomCapacity: 10, visitors: 1 },
+                { date: '2026-10-08', roomCapacity: 10, visitors: 0 },
+            ]);
+
+            const error = await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' }).catch((e: unknown) => e);
+
+            expect(responseOf(error).error).toBe('GROUP_FULL');
+            // The message names the class, since the group itself still shows a free seat.
+            expect(responseOf(error).message).toContain('2026-10-01');
+            expect(manager.save).not.toHaveBeenCalledWith(Enrollment, expect.anything());
+        });
+
+        it('counts a class moved into a smaller room by that room', async () => {
+            enrollmentRepo.count!.mockResolvedValue(6);
+            manager.query!.mockResolvedValue([{ date: '2026-10-01', roomCapacity: 6, visitors: 0 }]);
+
+            const error = await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' }).catch((e: unknown) => e);
+
+            expect(responseOf(error).error).toBe('GROUP_FULL');
+        });
+
+        it('asks about the classes from the day the enrolment starts', async () => {
+            await service.enrol({ childId: 1, groupId: 2, startDate: '2026-11-02' }, { userId: 42, username: 'admin' });
+
+            expect(manager.query).toHaveBeenCalledWith(expect.stringContaining('class_sessions'), [2, '2026-11-02', ClassSessionStatus.SCHEDULED, 1]);
+        });
+
+        it('enrols when every coming class has room for one more', async () => {
+            enrollmentRepo.count!.mockResolvedValue(8);
+            manager.query!.mockResolvedValue([{ date: '2026-10-01', roomCapacity: 10, visitors: 1 }]);
+
+            await service.enrol({ childId: 1, groupId: 2 }, { userId: 42, username: 'admin' });
+
+            expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.anything());
+        });
+
         it('lets an admin over capacity only when they ask for it explicitly', async () => {
             enrollmentRepo.count!.mockResolvedValue(10);
 
@@ -201,6 +254,19 @@ describe('EnrollmentService', () => {
                     changes: { seatsTaken: { from: 10, to: 11 } },
                     note: 'Înscriere peste capacitate: 11 copii în 10 locuri.',
                 },
+                manager,
+            );
+        });
+
+        it('names the class in the note when a class, not the group, had no seat left', async () => {
+            enrollmentRepo.count!.mockResolvedValue(1);
+            manager.query!.mockResolvedValue([{ date: '2026-10-01', roomCapacity: 2, visitors: 1 }]);
+
+            await service.enrol({ childId: 1, groupId: 2, allowOverCapacity: true }, { userId: 42, username: 'admin' });
+
+            // The group had seats to spare, so "over capacity" would be the wrong sentence.
+            expect(audit.record).toHaveBeenCalledWith(
+                expect.objectContaining({ note: 'Înscriere peste locurile orei din 2026-10-01: 3 copii în 2 locuri.' }),
                 manager,
             );
         });
@@ -334,6 +400,37 @@ describe('EnrollmentService', () => {
 
             expect(responseOf(error).error).toBe('ENROLLMENT_ALREADY_CLOSED');
             expect(outbox.queueOrRecord).not.toHaveBeenCalled();
+        });
+
+        /** The review of 25 September 2026: a date ahead would free the seat today, with the child still in it. */
+        it('refuses an end date ahead, and writes nothing', async () => {
+            const error = await service.close(9, { status: EnrollmentStatus.WITHDRAWN, endDate: '2999-01-01' }).catch((e: unknown) => e);
+
+            expect(error).toBeInstanceOf(BadRequestException);
+            expect(responseOf(error).error).toBe('ENROLLMENT_END_IN_FUTURE');
+            expect(manager.update).not.toHaveBeenCalled();
+        });
+
+        it('accepts today as the end date, and a day already past', async () => {
+            await service.close(9, { status: EnrollmentStatus.WITHDRAWN, endDate: schoolToday() });
+            await service.close(9, { status: EnrollmentStatus.WITHDRAWN, endDate: '2026-01-05' });
+
+            expect(manager.update).toHaveBeenCalledWith(Enrollment, expect.anything(), expect.objectContaining({ endDate: '2026-01-05' }));
+        });
+
+        /** A trial closed here came to nothing, as surely as one closed through `resolveTrial`. */
+        it('settles a trial’s lead as lost, with the reason given', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ ...inForce, status: EnrollmentStatus.TRIAL });
+
+            await service.close(9, { status: EnrollmentStatus.WITHDRAWN, exitReason: 'Nu a mai venit' });
+
+            expect(leadProgress.settleForEnrollment).toHaveBeenCalledWith(9, { enrolled: false, reason: 'Nu a mai venit' }, expect.any(Date), manager);
+        });
+
+        it('leaves the leads alone when the enrolment closed was not a trial', async () => {
+            await service.close(9, { status: EnrollmentStatus.WITHDRAWN });
+
+            expect(leadProgress.settleForEnrollment).not.toHaveBeenCalled();
         });
 
         it('refuses to close into a status that is still in force', async () => {
@@ -854,6 +951,21 @@ describe('EnrollmentService', () => {
 
             // Promoting it here would enrol a family that has not decided yet.
             expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ status: EnrollmentStatus.TRIAL }));
+        });
+
+        /** The review of 25 September 2026: the lead hangs off the row E11 will decide on, which is now the new one. */
+        it('moves a trial’s lead onto the new enrolment and group, in the transaction', async () => {
+            enrollmentRepo.findOne!.mockResolvedValue({ ...current, status: EnrollmentStatus.TRIAL });
+
+            await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
+
+            expect(leadProgress.followTransfer).toHaveBeenCalledWith(9, { enrollmentId: 99, groupId: 2 }, expect.any(Date), manager);
+        });
+
+        it('leaves the leads alone when an active enrolment moves', async () => {
+            await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
+
+            expect(leadProgress.followTransfer).not.toHaveBeenCalled();
         });
 
         it('carries the signed contract across, because it is the same enrolment continuing', async () => {

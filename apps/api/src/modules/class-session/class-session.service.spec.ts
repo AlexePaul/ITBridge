@@ -5,6 +5,7 @@ import { ClassSessionService } from './class-session.service';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { ClassSessionNotifier } from './class-session-notifier';
 import { ReplacementService } from 'src/modules/attendance/replacement.service';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { toIsoDate } from './class-session.dates';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
@@ -48,6 +49,7 @@ describe('ClassSessionService', () => {
     let manager: MockEntityManager;
     let notifier: { notifyCancelled: jest.Mock; notifyMoved: jest.Mock; notifyReinstated: jest.Mock };
     let replacements: { clearOn: jest.Mock };
+    let enrollments: { expectedAt: jest.Mock; lockGroup: jest.Mock };
 
     const room = { id: 1, name: 'Sala 1', location: { id: 1, name: 'Drumul Taberei' } };
     const group = {
@@ -79,6 +81,7 @@ describe('ClassSessionService', () => {
             notifyReinstated: jest.fn().mockResolvedValue(0),
         };
         replacements = { clearOn: jest.fn().mockResolvedValue(0) };
+        enrollments = { expectedAt: jest.fn().mockResolvedValue(0), lockGroup: jest.fn().mockResolvedValue({ id: 7 }) };
         closedDates = jest.fn().mockResolvedValue(new Set<string>());
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -92,6 +95,8 @@ describe('ClassSessionService', () => {
                 // business; here the question is that the timetable calls them, and with what.
                 { provide: ClassSessionNotifier, useValue: notifier },
                 { provide: ReplacementService, useValue: replacements },
+                // How many children a class expects, which a room it moves into has to hold.
+                { provide: EnrollmentService, useValue: enrollments },
                 provideMockDataSource(manager),
             ],
         }).compile();
@@ -475,6 +480,31 @@ describe('ClassSessionService', () => {
             // The calendar is asked about the TARGET room's location: a closure at the old
             // address must not block a move to the other one.
             expect(closedDates).toHaveBeenCalledWith(expect.any(Date), expect.any(Date), 2);
+        });
+
+        /** The review of 25 September 2026: the move checked that the room was free, and nothing about its size. */
+        it('refuses a room too small for the children coming to the class, and tells nobody', async () => {
+            clearRunway();
+            roomRepo.findOne!.mockResolvedValue({ id: 2, name: 'Sala mică', capacity: 2, location: { id: 1 } });
+            enrollments.expectedAt.mockResolvedValue(5);
+
+            const error = await service.moveSession(3, { roomId: 2, reason: 'Sala 1 în lucrări' }).catch((e: unknown) => e);
+
+            expect((error as ConflictException).getResponse()).toMatchObject({ error: 'ROOM_TOO_SMALL', message: expect.stringContaining('Sala mică') });
+            // Counted behind the group's lock, inside the move's transaction.
+            expect(enrollments.lockGroup).toHaveBeenCalledWith(manager, 7);
+            expect(enrollments.expectedAt).toHaveBeenCalledWith(expect.objectContaining({ id: 3, group: { id: 7 } }), manager);
+            expect(notifier.notifyMoved).not.toHaveBeenCalled();
+        });
+
+        it('moves into a smaller room that still holds everybody coming', async () => {
+            clearRunway();
+            roomRepo.findOne!.mockResolvedValue({ id: 2, name: 'Sala mică', capacity: 5, location: { id: 1 } });
+            enrollments.expectedAt.mockResolvedValue(5);
+
+            const moved = await service.moveSession(3, { roomId: 2, reason: 'Sala 1 în lucrări' });
+
+            expect(moved.room).toMatchObject({ id: 2 });
         });
 
         it('404s on a room that does not exist', async () => {

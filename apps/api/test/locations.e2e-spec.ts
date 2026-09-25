@@ -146,6 +146,21 @@ describe('Locations, rooms and the timetable (e2e)', () => {
             await createGroup(groupBody(dtRoom, { capacity: 11 })).expect(201);
         });
 
+        /**
+         * The review of 25 September 2026. The group check ran only when a group was created or
+         * moved, so lowering the room afterwards left a group of ten in a room of six, and every
+         * count went on offering ten.
+         */
+        it('refuses to make a room smaller than a group that meets in it, and allows down to it', async () => {
+            const { dtRoom } = await seedBothLocations();
+            await createGroup(groupBody(dtRoom, { capacity: 8 })).expect(201);
+
+            const res = await request(app.getHttpServer()).put(`/rooms/${dtRoom}`).set('Authorization', admin.auth).send({ capacity: 6 }).expect(409);
+            expect(res.body.code).toBe('ROOM_SMALLER_THAN_GROUP');
+
+            await request(app.getHttpServer()).put(`/rooms/${dtRoom}`).set('Authorization', admin.auth).send({ capacity: 8 }).expect(200);
+        });
+
         it('refuses a capacity below one', async () => {
             const { dtRoom } = await seedBothLocations();
             await request(app.getHttpServer()).put(`/rooms/${dtRoom}`).set('Authorization', admin.auth).send({ capacity: 0 }).expect(400);

@@ -940,6 +940,18 @@ reparate fiecare cu testul lui, care pică pe codul dinainte.
 nu mai dublează orarul — locul rămâne al săptămânii din care a plecat ora —, dar luna facturată se
 poate schimba odată cu săptămâna.
 
+**Sala unei ore și mutările pe o săptămână**, din aceeași revizuire:
+
+- **O mutare (S5) și o recuperare (S9) într-o sală mai mică treceau**, fiindcă se verifica doar că
+  sala e liberă atunci. Acum copiii care vin — înscrierile în vigoare plus cei mutați acolo pe o
+  săptămână — trebuie să încapă (`ROOM_TOO_SMALL`), numărați sub lacătul grupei, în tranzacția care
+  scrie ora, ca o probă programată între timp să fie văzută. Ferestrele de recuperare oferă doar
+  sălile în care încap; sala grupei rămâne oferită oricum, ora e deja acolo.
+- **O mutare pe o săptămână (S4) într-o oră anulată între timp trecea.** `place` citea ora înaintea
+  lacătului, iar o anulare nu ia lacătul grupei. Acum o recitește după lacăt, cu rândul orei blocat
+  `FOR SHARE`, deci o anulare încă în zbor fie s-a comis și se vede (`CLASS_SESSION_CANCELLED`), fie
+  așteaptă mutarea și îi eliberează plasarea, ca oricărei alteia.
+
 ## Dependențe
 
 [E11](E11-inscrieri-capacitate.md) pentru cine e înscris când.

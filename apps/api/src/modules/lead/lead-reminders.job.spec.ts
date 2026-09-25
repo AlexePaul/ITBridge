@@ -86,7 +86,7 @@ describe('LeadRemindersJob', () => {
             expect(await job.remindTrialsOn(now)).toBe(1);
             expect(outbox.queueOrRecord).toHaveBeenCalledWith(
                 { email: 'ioana@example.com' },
-                expect.objectContaining({ dedupeKey: `${TRIAL_REMINDER_PREFIX}9` }),
+                expect.objectContaining({ dedupeKey: `${TRIAL_REMINDER_PREFIX}9:42` }),
             );
         });
 
@@ -127,7 +127,7 @@ describe('LeadRemindersJob', () => {
             attendanceRepo.count?.mockResolvedValueOnce(8).mockResolvedValueOnce(0);
 
             expect(await job.followUpNoShows(now)).toBe(1);
-            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'ioana@example.com' }, expect.objectContaining({ dedupeKey: `${NO_SHOW_PREFIX}9` }));
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'ioana@example.com' }, expect.objectContaining({ dedupeKey: `${NO_SHOW_PREFIX}9:42` }));
         });
 
         it('says nothing when nobody took the register — an unmarked class is not an absence', async () => {

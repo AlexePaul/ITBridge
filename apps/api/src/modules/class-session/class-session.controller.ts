@@ -186,7 +186,7 @@ export class ClassSessionController {
     @ApiResponse({
         status: 409,
         description:
-            'CLASS_SESSION_HAS_ATTENDANCE, GROUP_ALREADY_HAS_SESSION_THAT_WEEK, RESCHEDULE_OUT_OF_WEEK, MOVED_ONTO_NON_TEACHING_DAY, GROUP_ALREADY_HAS_SESSION_THAT_DAY or ROOM_BUSY_AT_THAT_TIME',
+            'CLASS_SESSION_HAS_ATTENDANCE, GROUP_ALREADY_HAS_SESSION_THAT_WEEK, RESCHEDULE_OUT_OF_WEEK, MOVED_ONTO_NON_TEACHING_DAY, GROUP_ALREADY_HAS_SESSION_THAT_DAY, ROOM_BUSY_AT_THAT_TIME or ROOM_TOO_SMALL',
     })
     async rescheduleSession(@Body() dto: RescheduleClassSessionDto) {
         return this.rescheduleService.reschedule(dto);
@@ -208,7 +208,7 @@ export class ClassSessionController {
     @ApiResponse({
         status: 409,
         description:
-            'CLASS_SESSION_CANCELLED, CLASS_SESSION_HAS_ATTENDANCE, MOVED_ONTO_NON_TEACHING_DAY, GROUP_ALREADY_HAS_SESSION_THAT_DAY or ROOM_BUSY_AT_THAT_TIME',
+            'CLASS_SESSION_CANCELLED, CLASS_SESSION_HAS_ATTENDANCE, MOVED_ONTO_NON_TEACHING_DAY, GROUP_ALREADY_HAS_SESSION_THAT_DAY, ROOM_BUSY_AT_THAT_TIME or ROOM_TOO_SMALL',
     })
     async moveSession(@Param('id', ParseIntPipe) id: number, @Body() moveClassSessionDto: MoveClassSessionDto) {
         return this.classSessionService.moveSession(id, moveClassSessionDto);

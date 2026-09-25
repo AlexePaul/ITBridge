@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { Between, DataSource, In, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { DataSource, In, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { Child } from 'src/entities/child.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
@@ -13,7 +13,8 @@ import { LeadStatus } from 'src/enum/lead-status.enum';
 import { ageOf, EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
-import { schoolDay } from 'src/common/school-clock';
+import { schoolDay, schoolLocalStamp } from 'src/common/school-clock';
+import { sessionStartStamp } from 'src/modules/attendance/absence-notice.rules';
 import { BookTrialDto } from './dto/bookTrial.dto';
 import { TrialSlotsDto } from './dto/trialSlots.dto';
 import { bookingKeyFor, TRIAL_HORIZON_DAYS } from './lead.rules';
@@ -85,29 +86,46 @@ export class TrialBookingService {
         const from = schoolDay(now);
         const until = toIsoDate(addDays(parseIsoDate(from), TRIAL_HORIZON_DAYS));
 
+        // Every class ahead, not only the ones on offer — the review of 25 September 2026. A trial
+        // holds its seat until somebody decides, so a booking is a seat in each later class of the
+        // group as well, and `enrol` refuses a trial that a later class has no room for. The list has
+        // to say what the booking will say, or the form offers a date and then answers "no seats".
         const sessions = await this.classSessionRepository.find({
             where: {
                 group: { id: In(activeGroups.map((group) => group.id)) },
                 status: ClassSessionStatus.SCHEDULED,
-                // `Between`, not two operators joined with `&&` — that evaluates in JavaScript and
-                // silently keeps only the right-hand one, which would have offered every past class.
-                date: Between(from, until) as unknown as Date,
+                date: MoreThanOrEqual(from) as unknown as Date,
             },
-            relations: { group: true },
-            order: { date: 'ASC' },
+            relations: { group: true, room: true },
+            order: { date: 'ASC', startTime: 'ASC' },
         });
 
         // Seats are counted **per class**, not per group. A group with one place left has none at all
         // on a Monday somebody has already booked a make-up onto, and one again the Monday after —
         // so the filter belongs on the date, which is what the parent is actually choosing. One
         // batched query for the lot: a query per hour is how a public page becomes slow.
-        const freeSeats = await this.enrollments.freeSeatsAtSessions(sessions.map((session) => ({ id: session.id, group: session.group })));
+        const freeSeats = await this.enrollments.freeSeatsAtSessions(sessions.map((session) => ({ id: session.id, group: session.group, room: session.room })));
+
+        // Today's classes too — but only the ones that have not started. Parents book in the evening,
+        // so the afternoon's classes were offered after they had ended, and a booking into one held a
+        // seat for a trial nobody could attend, before the no-show job told the family they had missed
+        // it. Compared on the school clock, as text, like every other "has it started" in this app.
+        const nowStamp = schoolLocalStamp(now);
 
         const offered: TrialSlot[] = [];
         for (const group of activeGroups) {
-            const upcoming = sessions
-                .filter((session) => session.group.id === group.id)
-                .filter((session) => (freeSeats.get(session.id) ?? 0) > 0)
+            const own = sessions.filter((session) => session.group.id === group.id);
+            // What a class can offer is the least that it and every class after it has free, since
+            // the trial sits in all of them until it is decided. Walked from the last class back.
+            const lasting = new Map<number, number>();
+            let floor = Number.POSITIVE_INFINITY;
+            for (const session of [...own].reverse()) {
+                floor = Math.min(floor, freeSeats.get(session.id) ?? 0);
+                lasting.set(session.id, floor);
+            }
+            const upcoming = own
+                .filter((session) => sessionStartStamp(session) > nowStamp)
+                .filter((session) => (lasting.get(session.id) ?? 0) > 0)
                 .map((session) => ({ id: session.id, date: toIsoDate(new Date(session.date)) }))
                 .filter((session) => session.date >= from && session.date <= until);
             // Every hour taken means the group is not offered at all, rather than offered with an
@@ -188,8 +206,9 @@ export class TrialBookingService {
             throw new ConflictException({ message: 'Ora aleasă nu se mai ține. Alege alta din listă.', error: 'TRIAL_SESSION_UNAVAILABLE' });
         }
         const sessionDate = toIsoDate(new Date(session.date));
-        if (sessionDate < schoolDay(now)) {
-            throw new ConflictException({ message: 'Ora aleasă a trecut. Alege alta din listă.', error: 'TRIAL_SESSION_UNAVAILABLE' });
+        // Started, not only past: a class at 16:00 today is gone at 16:05 — see `slots`.
+        if (sessionStartStamp(session) <= schoolLocalStamp(now)) {
+            throw new ConflictException({ message: 'Ora aleasă a început deja. Alege alta din listă.', error: 'TRIAL_SESSION_UNAVAILABLE' });
         }
 
         const age = ageOf(dto.childBirthDate, now);
@@ -207,12 +226,24 @@ export class TrialBookingService {
                 // read the last seat and only then queued up to insert. The lock has to be in front
                 // of the number it protects; re-locking inside `enrol` is a no-op in the same
                 // transaction.
-                await this.enrollments.lockGroup(manager, session.group.id);
+                const group = await this.enrollments.lockGroup(manager, session.group.id);
+
+                // Read again behind the lock: the class, because it may have been cancelled or moved
+                // since the read above, and the group — `lockGroup` hands back the row as it stands
+                // now — because its capacity may have changed. Counting against the copies read
+                // before the lock is counting against a photograph. The class row is share-locked
+                // first, because a cancellation takes no group lock: one still in flight waits for
+                // this booking, or this booking waits for it and reads what it wrote.
+                await manager.query('SELECT 1 FROM class_sessions WHERE id = $1 FOR SHARE', [session.id]);
+                const current = await manager.getRepository(ClassSession).findOne({ where: { id: session.id }, relations: { room: true } });
+                if (!current || current.status !== ClassSessionStatus.SCHEDULED) {
+                    throw new ConflictException({ message: 'Ora aleasă nu se mai ține. Alege alta din listă.', error: 'TRIAL_SESSION_UNAVAILABLE' });
+                }
 
                 // On the **class** rather than the group: the list the parent saw is a photograph,
                 // and between it and this line the office may have moved a child onto exactly this
                 // hour. `enrol` still checks the group, which is the other half of D7.
-                const seats = await this.enrollments.freeSeatsAt({ id: session.id, group: session.group }, manager);
+                const seats = await this.enrollments.freeSeatsAt({ id: session.id, group, room: current.room }, manager);
                 if (seats <= 0) {
                     throw new ConflictException({ message: 'Ora aleasă tocmai s-a ocupat', error: 'GROUP_FULL' });
                 }

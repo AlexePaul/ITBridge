@@ -180,8 +180,19 @@ export class ReplacementService {
             // trial booking could take it from under both. It counts in-force enrolments plus the
             // children already moved in, which is D7's number, and D7's number is guarded by the
             // group row: `EnrollmentService.lockGroup`, the same one `enrol` takes.
-            await this.enrollments.lockGroup(manager, session.group.id);
-            if ((await this.enrollments.freeSeatsAt(session, manager)) <= 0) {
+            const group = await this.enrollments.lockGroup(manager, session.group.id);
+            // Read again behind the lock — the review of 25 September 2026. The class may have been
+            // cancelled since the read above, and the family would be told to come to a class that
+            // is off; and the group's capacity is the one `lockGroup` hands back, as it stands now,
+            // not the copy read before anybody held anything. The class row is share-locked first: a
+            // cancellation does not take the group, so one still in flight would otherwise commit
+            // after this read, and its release of the class's placements would miss this one.
+            await manager.query('SELECT 1 FROM class_sessions WHERE id = $1 FOR SHARE', [session.id]);
+            const current = await manager.getRepository(ClassSession).findOne({ where: { id: session.id }, relations: { room: true } });
+            if (!current || current.status === ClassSessionStatus.CANCELLED) {
+                throw new ConflictException({ message: 'Ședința e anulată.', error: 'CLASS_SESSION_CANCELLED' });
+            }
+            if ((await this.enrollments.freeSeatsAt({ id: session.id, group, room: current.room }, manager)) <= 0) {
                 throw new ConflictException({ message: 'Nu mai e loc la ședința asta.', error: 'REPLACEMENT_SESSION_FULL' });
             }
 

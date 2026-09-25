@@ -9,6 +9,7 @@ import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { EnrollmentStatus, IN_FORCE_STATUSES, isInForce } from 'src/enum/enrollment-status.enum';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { WaitlistStatus, type WaitlistClosingStatus } from 'src/enum/waitlist-status.enum';
+import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { isAccountActive } from 'src/entities/user.entity';
 import { Profile, isProfileComplete } from 'src/entities/profile.entity';
 import { OutboxService } from 'src/modules/mail/outbox.service';
@@ -58,10 +59,16 @@ export interface CompatibilityWarning {
     message: string;
 }
 
-/** The least a class has to say about itself for its seats to be counted. */
+/**
+ * The least a class has to say about itself for its seats to be counted.
+ *
+ * `room` is the room the class is actually in, which a move can change for one class without
+ * changing the group's (E12/S5). Its seats bound the class as surely as the group's capacity does.
+ */
 export interface SeatedSession {
     id: number;
     group: { id: number; capacity: number };
+    room?: { capacity: number } | null;
 }
 
 export interface GroupOccupancy {
@@ -220,7 +227,11 @@ export class EnrollmentService {
 
         for (const session of sessions) {
             const taken = (enrolled.get(session.group.id) ?? 0) + (held.get(session.group.id) ?? 0) + (visiting.get(session.id) ?? 0);
-            free.set(session.id, Math.max(0, session.group.capacity - taken));
+            // The smaller of the group's seats and the room's — the review of 25 September 2026. A
+            // class moved into a room of two kept counting the group's ten, so the form sold a trial
+            // into a room that was already full.
+            const seats = Math.min(session.group.capacity, session.room?.capacity ?? session.group.capacity);
+            free.set(session.id, Math.max(0, seats - taken));
         }
         return free;
     }
@@ -228,6 +239,17 @@ export class EnrollmentService {
     /** The same question about a single class. */
     async freeSeatsAt(session: SeatedSession, manager?: EntityManager): Promise<number> {
         return (await this.freeSeatsAtSessions([session], manager)).get(session.id) ?? 0;
+    }
+
+    /**
+     * How many children are expected at one class: the group's enrolments in force plus the ones the
+     * office moved in for the week. What a room has to hold if the class moves into it — the seats
+     * offered to the list are the group's future, not this hour's.
+     */
+    async expectedAt(session: { id: number; group: { id: number } }, manager?: EntityManager): Promise<number> {
+        const noticeRepository = manager ? manager.getRepository(AbsenceNotice) : this.absenceNoticeRepository;
+        const visiting = await noticeRepository.count({ where: { replacementSession: { id: session.id } } });
+        return (await this.countInForce(session.group.id, manager)) + visiting;
     }
 
     private async countInForce(groupId: number, manager?: EntityManager): Promise<number> {
@@ -340,7 +362,7 @@ export class EnrollmentService {
                 error: 'GROUP_INACTIVE',
             });
         }
-        await this.assertRoomForOneMore(group, manager, input.allowOverCapacity === true, actor, input.childId);
+        await this.assertRoomForOneMore(group, manager, input.allowOverCapacity === true, actor, input.childId, input.startDate ?? today());
         this.assertCompatible(child, group, input.acknowledgeWarnings === true);
 
         const enrollment = await manager.save(Enrollment, {
@@ -434,6 +456,16 @@ export class EnrollmentService {
                 error: 'ENROLLMENT_STATUS_NOT_CLOSING',
             });
         }
+        // Closing takes the seat away today, whatever the date on the row says — the review of 25
+        // September 2026. A date ahead left the child off the register at once and offered the seat to
+        // the waiting list while the child still sat in it: two children told to come for one chair.
+        // The close is for the day the child leaves; until then the enrolment is in force.
+        if (input.endDate !== undefined && input.endDate.slice(0, 10) > today()) {
+            throw new BadRequestException({
+                message: 'O înscriere se închide în ziua în care pleacă copilul, nu dinainte: închiderea eliberează locul pe loc.',
+                error: 'ENROLLMENT_END_IN_FUTURE',
+            });
+        }
 
         return this.dataSource.transaction(async (manager) => {
             const enrollment = await manager.getRepository(Enrollment).findOne({
@@ -459,6 +491,13 @@ export class EnrollmentService {
             );
             if (!closed.affected) {
                 throw alreadyClosed();
+            }
+
+            // A trial closed here, rather than through `resolveTrial`, came to nothing all the same,
+            // and its lead has to say so — the review of 25 September 2026 found it left on the
+            // follow-up list for ever. Only an open lead moves, so one already decided stays decided.
+            if (enrollment.status === EnrollmentStatus.TRIAL) {
+                await this.leadProgress.settleForEnrollment(enrollmentId, { enrolled: false, reason: input.exitReason ?? null }, new Date(), manager);
             }
 
             await this.syncDerivedGroup(enrollment.child.id, manager);
@@ -515,7 +554,7 @@ export class EnrollmentService {
             if (!target.isActive) {
                 throw new ConflictException({ message: 'Grupa este inactivă și nu poate primi înscrieri noi', error: 'GROUP_INACTIVE' });
             }
-            await this.assertRoomForOneMore(target, manager, input.allowOverCapacity === true, actor, input.childId);
+            await this.assertRoomForOneMore(target, manager, input.allowOverCapacity === true, actor, input.childId, today());
             this.assertCompatible(child, target, input.acknowledgeWarnings === true);
 
             const now = today();
@@ -552,6 +591,11 @@ export class EnrollmentService {
                     { child: { id: input.childId }, group: { id: input.toGroupId }, status: In([WaitlistStatus.WAITING, WaitlistStatus.OFFERED]) },
                     { status: WaitlistStatus.ACCEPTED },
                 );
+
+            // A trial's lead hangs off the enrolment E11 will decide on, and that is now the new row.
+            if (current.status === EnrollmentStatus.TRIAL) {
+                await this.leadProgress.followTransfer(current.id, { enrollmentId: opened.id, groupId: input.toGroupId }, new Date(), manager);
+            }
 
             await this.syncDerivedGroup(input.childId, manager);
             await this.offerFreeSeats(current.group.id, manager);
@@ -1092,20 +1136,41 @@ export class EnrollmentService {
      * The log line stays as well. They are read by different people at different times: the warning
      * is for whoever is watching a deploy, the row is for whoever asks in March.
      */
-    private async assertRoomForOneMore(group: Group, manager: EntityManager, allowOverCapacity: boolean, actor: Actor | null, childId: number): Promise<void> {
+    private async assertRoomForOneMore(
+        group: Group,
+        manager: EntityManager,
+        allowOverCapacity: boolean,
+        actor: Actor | null,
+        childId: number,
+        from: string,
+    ): Promise<void> {
         // A seat offered to somebody else on the list is theirs until they answer — `occupancyOf`.
         // This child's own offer is not: it is the seat they are sitting down in.
         const held = await this.countHeld(group.id, manager, childId);
         const enrolled = await this.countInForce(group.id, manager);
         const taken = enrolled + held;
-        if (taken < group.capacity) {
+        // The group's seats are not the whole question: a class of it can be tighter — moved into a
+        // smaller room, or holding children the office moved in for a week — and this child sits in
+        // that class too. The review of 25 September 2026 enrolled the tenth child of ten while
+        // Thursday's class held a visitor: eleven in the room that Thursday.
+        const tightest = await this.tightestClassFrom(group, from, childId, manager);
+        const limit = tightest ? Math.min(group.capacity, tightest.room - tightest.visitors) : group.capacity;
+        if (taken < limit) {
             return;
         }
+        // The group has a seat and one of its classes does not: that class is what the refusal, or
+        // the override, is about.
+        const fullClass = taken < group.capacity ? tightest : null;
 
         if (allowOverCapacity) {
             this.logger.warn(
-                `${actor ? `User ${actor.userId}` : 'The public trial form'} enrolled over capacity in group ${group.id}: ${enrolled + 1} children and ${held} offered seat(s) in ${group.capacity} seats.`,
+                `${actor ? `User ${actor.userId}` : 'The public trial form'} enrolled over capacity in group ${group.id}: ${enrolled + 1} children and ${held} offered seat(s) in ${group.capacity} seats` +
+                    `${fullClass ? `, with the class of ${fullClass.date} holding ${fullClass.visitors} visitor(s) in ${fullClass.room} seats` : ''}.`,
             );
+            // "într-un loc", not "în 1 locuri": an admin reads this, and a sentence that cannot
+            // decline its own numbers reads like a machine wrote it for itself.
+            const seats = (count: number) => (count === 1 ? 'într-un loc' : `în ${count} locuri`);
+            const children = (count: number) => (count === 1 ? 'un copil' : `${count} copii`);
             await this.audit.record(
                 {
                     // `{ userId: null, username: null }` where nobody signed in. It is the shape
@@ -1115,11 +1180,11 @@ export class EnrollmentService {
                     entityType: 'Group',
                     entityId: group.id,
                     changes: { seatsTaken: { from: taken, to: taken + 1 } },
-                    // "într-un loc", not "în 1 locuri": an admin reads this, and a sentence that
-                    // cannot decline its own numbers reads like a machine wrote it for itself.
                     note:
-                        `Înscriere peste capacitate: ${enrolled === 0 ? 'un copil' : `${enrolled + 1} copii`} ${group.capacity === 1 ? 'într-un loc' : `în ${group.capacity} locuri`}` +
-                        `${held === 0 ? '' : held === 1 ? ', plus un loc oferit listei de așteptare' : `, plus ${held} locuri oferite listei de așteptare`}` +
+                        (fullClass
+                            ? `Înscriere peste locurile orei din ${fullClass.date}: ${children(taken + fullClass.visitors + 1)} ${seats(fullClass.room)}`
+                            : `Înscriere peste capacitate: ${children(enrolled + 1)} ${seats(group.capacity)}` +
+                              `${held === 0 ? '' : held === 1 ? ', plus un loc oferit listei de așteptare' : `, plus ${held} locuri oferite listei de așteptare`}`) +
                         `${actor ? '' : ', din formularul public'}.`,
                 },
                 manager,
@@ -1127,6 +1192,18 @@ export class EnrollmentService {
             return;
         }
 
+        if (fullClass) {
+            // Not "the group is full": the group shows a free seat, and the reader has to be told
+            // which class has none, and why — the room it moved into, or the children moved into it.
+            throw new ConflictException({
+                message:
+                    `Ora din ${fullClass.date} nu mai are niciun loc liber: ${fullClass.room === 1 ? 'un loc' : `${fullClass.room} locuri`}, ` +
+                    `${taken === 1 ? 'un copil' : `${taken} copii`} din grupă` +
+                    `${fullClass.visitors === 0 ? '' : ` și ${fullClass.visitors === 1 ? 'unul mutat' : `${fullClass.visitors} mutați`} acolo pentru o săptămână`}.` +
+                    ' Poți pune copilul pe lista de așteptare.',
+                error: 'GROUP_FULL',
+            });
+        }
         throw new ConflictException({
             message:
                 `Grupa este plină: ${taken} din ${group.capacity} locuri, inclusiv probele programate` +
@@ -1134,6 +1211,38 @@ export class EnrollmentService {
                 ' Poți pune copilul pe lista de așteptare.',
             error: 'GROUP_FULL',
         });
+    }
+
+    /**
+     * The class of this group, from `from` on, with the least room left for one more child: the
+     * seats in the room it is actually in (never more than the group's), less the children moved in
+     * for that week. `null` when no scheduled class is ahead.
+     *
+     * The child being enrolled is not one of the visitors: moved into a class of this group for the
+     * week and now joining it, they sit in one chair, not two.
+     */
+    private async tightestClassFrom(
+        group: Group,
+        from: string,
+        childId: number,
+        manager: EntityManager,
+    ): Promise<{ date: string; room: number; visitors: number } | null> {
+        const rows = await manager.query<{ date: string; roomCapacity: number; visitors: number }[]>(
+            `SELECT s."date"::text AS "date", r.capacity AS "roomCapacity", COUNT(n.id)::int AS visitors
+             FROM class_sessions s
+             JOIN rooms r ON r.id = s.room_id
+             LEFT JOIN absence_notices n ON n.replacement_session_id = s.id AND n.child_id <> $4
+             WHERE s.group_id = $1 AND s."date" >= $2 AND s.status = $3
+             GROUP BY s.id, s."date", r.capacity`,
+            [group.id, from, ClassSessionStatus.SCHEDULED, childId],
+        );
+        let tightest: { date: string; room: number; visitors: number } | null = null;
+        for (const row of rows) {
+            const room = Math.min(group.capacity, Number(row.roomCapacity));
+            const visitors = Number(row.visitors);
+            if (!tightest || room - visitors < tightest.room - tightest.visitors) tightest = { date: row.date, room, visitors };
+        }
+        return tightest;
     }
 
     /**

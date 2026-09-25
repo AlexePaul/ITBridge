@@ -88,6 +88,7 @@ export class EnrollmentController {
         description: 'Locul eliberat e oferit imediat primei familii de pe lista de așteptare, în aceeași tranzacție.',
     })
     @ApiResponse({ status: 200, description: 'Closed' })
+    @ApiResponse({ status: 400, description: 'ENROLLMENT_STATUS_NOT_CLOSING or ENROLLMENT_END_IN_FUTURE' })
     @ApiResponse({ status: 409, description: 'ENROLLMENT_ALREADY_CLOSED' })
     async close(@Param('id', ParseIntPipe) id: number, @Body() closeEnrollmentDto: CloseEnrollmentDto) {
         return this.enrollmentService.close(id, closeEnrollmentDto);

@@ -83,6 +83,29 @@ describe('RoomService', () => {
         expect(roomRepo.findOne).toHaveBeenLastCalledWith(expect.objectContaining({ where: expect.objectContaining({ location: { id: 2 } }) }));
     });
 
+    /** The review of 25 September 2026: a room made smaller left its group counting seats the room does not have. */
+    it('refuses to shrink a room below a group that meets in it, naming the group', async () => {
+        roomRepo.findOne!.mockResolvedValue({ id: 1, name: 'Sala 1', capacity: 10, location });
+        groupRepo.find!.mockResolvedValue([{ id: 4, name: 'Scratch Începători', capacity: 8 }]);
+
+        const error = await service.updateRoom(1, { capacity: 6 }).catch((e: unknown) => e);
+
+        expect((error as ConflictException).getResponse()).toMatchObject({
+            error: 'ROOM_SMALLER_THAN_GROUP',
+            message: expect.stringContaining('Scratch Începători'),
+        });
+        expect(roomRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('shrinks a room down to its largest group', async () => {
+        roomRepo.findOne!.mockResolvedValue({ id: 1, name: 'Sala 1', capacity: 10, location });
+        groupRepo.find!.mockResolvedValue([]);
+
+        await service.updateRoom(1, { capacity: 8 });
+
+        expect(roomRepo.save).toHaveBeenCalledWith(expect.objectContaining({ capacity: 8 }));
+    });
+
     it('refuses to delete a room that still hosts groups', async () => {
         groupRepo.count!.mockResolvedValue(1);
         await expect(service.deleteRoom(1)).rejects.toThrow(ConflictException);

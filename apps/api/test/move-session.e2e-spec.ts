@@ -119,4 +119,31 @@ describe('Moving a class session (e2e)', () => {
         const res = await move({ date: '2027-04-06' }).expect(409);
         expect(res.body.code).toBe('CLASS_SESSION_HAS_ATTENDANCE');
     });
+
+    /** The review of 25 September 2026: the move checked that the room was free, and never that the class fit in it. */
+    it('refuses a room too small for the children coming, and takes one that holds them', async () => {
+        const parent = await registerUser(app, 'parinte.sala');
+        const profileId = await ownProfileId(app, parent);
+        for (const firstName of ['Ana', 'Radu', 'Ioana']) {
+            const child = await request(app.getHttpServer())
+                .post('/children')
+                .set('Authorization', parent.auth)
+                .send({ firstName, lastName: 'Pop', birthDate: '2016-01-01', parentId: profileId })
+                .expect(201);
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: child.body.id as number, groupId })
+                .expect(201);
+        }
+        const [{ locationId }] = await dataSource.query<{ locationId: number }[]>('SELECT "location_id" AS "locationId" FROM "rooms" LIMIT 1');
+        const room = async (name: string, capacity: number) =>
+            (await request(app.getHttpServer()).post('/rooms').set('Authorization', admin.auth).send({ name, locationId, capacity }).expect(201)).body
+                .id as number;
+
+        const refused = await move({ roomId: await room('Sala mică', 2) }).expect(409);
+        expect(refused.body.code).toBe('ROOM_TOO_SMALL');
+
+        await move({ roomId: await room('Sala medie', 3) }).expect(200);
+    });
 });

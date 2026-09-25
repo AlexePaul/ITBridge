@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { createClassSession, createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { schoolDay } from 'src/common/school-clock';
 
 /**
  * Booking a trial without an account — E20/S2, and the funnel that follows from it, E20/S1 and S3.
@@ -381,6 +382,170 @@ describe('Trial booking, public (e2e)', () => {
 
             const lead = await request(app.getHttpServer()).get(`/leads/${leadId}`).set('Authorization', admin.auth).expect(200);
             expect(lead.body).toMatchObject({ status: 'lost', lostReason: 'Programul nu li se potrivește' });
+        });
+    });
+
+    /** The review of 25 September 2026. */
+    describe('what a trial is booked into, and what follows it', () => {
+        /** The group's own room and its address — where a second group, or a smaller room, goes. */
+        const placeOf = async (groupId: number): Promise<{ roomId: number; locationId: number }> =>
+            (
+                await dataSource.query<{ roomId: number; locationId: number }[]>(
+                    'SELECT r.id AS "roomId", r.location_id AS "locationId" FROM groups g JOIN rooms r ON r.id = g.room_id WHERE g.id = $1',
+                    [groupId],
+                )
+            )[0];
+
+        const leadOf = async (leadId: number) => (await request(app.getHttpServer()).get(`/leads/${leadId}`).set('Authorization', admin.auth).expect(200)).body;
+
+        /**
+         * Parents book in the evening, and the afternoon's class was still on the list after it had
+         * ended — a seat held for a trial nobody could attend, until the no-show job told the family
+         * they had missed it.
+         */
+        it('neither offers nor books a class of today that has already started', async () => {
+            const { groupId, sessionId } = await schoolWithAClass();
+            // Midnight today has always started by the time the test runs.
+            const [{ id: startedId }] = await dataSource.query<{ id: number }[]>(
+                `INSERT INTO class_sessions (group_id, "date", "startTime", "endTime", room_id, status)
+                 SELECT id, $2, '00:00', '00:30', room_id, 'scheduled' FROM groups WHERE id = $1 RETURNING id`,
+                [groupId, schoolDay(new Date())],
+            );
+
+            const slots = await request(app.getHttpServer()).get('/trial/slots').query({ birthDate: '2016-04-04' }).expect(200);
+            expect(slots.body[0].sessions.map((entry: { id: number }) => entry.id)).toEqual([sessionId]);
+
+            const res = await request(app.getHttpServer())
+                .post('/trial/bookings')
+                .send(bookingBody({ classSessionId: startedId }))
+                .expect(409);
+            expect(res.body.code).toBe('TRIAL_SESSION_UNAVAILABLE');
+        });
+
+        /** The class had moved into a room of one, and the form went on counting the group's ten. */
+        it('counts a class by the room it has moved into', async () => {
+            const { groupId, sessionId } = await schoolWithAClass();
+            const { locationId } = await placeOf(groupId);
+            const small = await request(app.getHttpServer())
+                .post('/rooms')
+                .set('Authorization', admin.auth)
+                .send({ name: 'Sala mică', locationId, capacity: 1 })
+                .expect(201);
+            await request(app.getHttpServer())
+                .put(`/class-sessions/${sessionId}/move`)
+                .set('Authorization', admin.auth)
+                .send({ roomId: small.body.id as number, reason: 'Sala mare e în lucrări' })
+                .expect(200);
+
+            const first = await request(app.getHttpServer())
+                .post('/trial/bookings')
+                .send(bookingBody({ classSessionId: sessionId }))
+                .expect(201);
+            expect(first.body.status).toBe('booked');
+
+            const slots = await request(app.getHttpServer()).get('/trial/slots').query({ birthDate: '2016-04-04' }).expect(200);
+            expect(slots.body).toEqual([]);
+
+            const second = await request(app.getHttpServer())
+                .post('/trial/bookings')
+                .send(bookingBody({ classSessionId: sessionId, parentEmail: 'alta.familie@example.com', childFirstName: 'Radu' }))
+                .expect(201);
+            expect(second.body.status).toBe('no_seats');
+        });
+
+        /**
+         * A trial holds its seat until somebody decides, so it sits in every later class of the
+         * group as well, and a later class with no chair left refuses it. The list says so first,
+         * rather than offering a date the booking then answers with "no seats".
+         */
+        it('offers no class that a later one has no room for, because the trial sits in both', async () => {
+            const { groupId, sessionId } = await schoolWithAClass({ capacity: 1 });
+            const weekAfter = (() => {
+                const date = new Date();
+                date.setDate(date.getDate() + 14);
+                return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
+            })();
+            const later = await createClassSession(dataSource, groupId, { date: weekAfter });
+
+            // A visitor takes the one chair of the later class.
+            const parent = await registerUser(app, 'parinte.mai.tarziu');
+            const visitor = await request(app.getHttpServer())
+                .post('/children')
+                .set('Authorization', admin.auth)
+                .send({ firstName: 'Ana', lastName: 'Ionescu', birthDate: '2016-01-01', parentId: await ownProfileId(app, parent) })
+                .expect(201);
+            await dataSource.query(
+                `INSERT INTO "absence_notices" ("child_id", "class_session_id", "reason", "inTime", "replacement_session_id")
+                 VALUES ($1, $2, 'Răcit', true, $3)`,
+                [visitor.body.id as number, sessionId, later],
+            );
+
+            const slots = await request(app.getHttpServer()).get('/trial/slots').query({ birthDate: '2016-04-04' }).expect(200);
+            expect(slots.body).toEqual([]);
+
+            const res = await request(app.getHttpServer())
+                .post('/trial/bookings')
+                .send(bookingBody({ classSessionId: sessionId }))
+                .expect(201);
+            expect(res.body.status).toBe('no_seats');
+        });
+
+        /**
+         * A transfer closes the trial's enrolment and opens another, and the lead kept the closed
+         * one: the decision on the new row settled nothing, and the reminder named the old group.
+         */
+        it('takes the lead along when the trial moves group, so the decision on it still counts', async () => {
+            const { groupId, sessionId } = await schoolWithAClass();
+            const booking = await request(app.getHttpServer())
+                .post('/trial/bookings')
+                .send(bookingBody({ classSessionId: sessionId }))
+                .expect(201);
+            const leadId = booking.body.leadId as number;
+
+            const { roomId } = await placeOf(groupId);
+            const evening = await request(app.getHttpServer())
+                .post('/groups')
+                .set('Authorization', admin.auth)
+                .send(groupBody(roomId, { name: 'Scratch Seara', startTime: '18:00', endTime: '19:30', minAge: 8, maxAge: 12 }))
+                .expect(201);
+            const eveningClass = await createClassSession(dataSource, evening.body.id as number, { date: trialDate() });
+
+            const [{ childId }] = await dataSource.query<{ childId: number }[]>('SELECT child_id AS "childId" FROM leads WHERE id = $1', [leadId]);
+            const moved = await request(app.getHttpServer())
+                .post('/enrollments/transfer')
+                .set('Authorization', admin.auth)
+                .send({ childId, toGroupId: evening.body.id as number })
+                .expect(201);
+
+            expect(await leadOf(leadId)).toMatchObject({
+                status: 'trial_scheduled',
+                group: { id: evening.body.id as number },
+                trialSession: { id: eveningClass },
+            });
+
+            await request(app.getHttpServer())
+                .put(`/enrollments/${moved.body.id as number}/resolve-trial`)
+                .set('Authorization', admin.auth)
+                .send({ accepted: true })
+                .expect(200);
+            expect((await leadOf(leadId)).status).toBe('enrolled');
+        });
+
+        it('records the loss when the trial is closed rather than decided', async () => {
+            const { sessionId } = await schoolWithAClass();
+            const booking = await request(app.getHttpServer())
+                .post('/trial/bookings')
+                .send(bookingBody({ classSessionId: sessionId }))
+                .expect(201);
+            const [{ id: trialId }] = await dataSource.query<{ id: number }[]>(`SELECT id FROM enrollments WHERE status = 'TRIAL'`);
+
+            await request(app.getHttpServer())
+                .put(`/enrollments/${trialId}/close`)
+                .set('Authorization', admin.auth)
+                .send({ status: 'WITHDRAWN', exitReason: 'Nu mai vin' })
+                .expect(200);
+
+            expect(await leadOf(booking.body.leadId as number)).toMatchObject({ status: 'lost', lostReason: 'Nu mai vin' });
         });
     });
 

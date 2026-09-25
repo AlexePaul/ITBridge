@@ -18,6 +18,7 @@ import { Weekday } from 'src/enum/weekday.enum';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { ClassSessionNotifier } from './class-session-notifier';
 import { ReplacementService } from 'src/modules/attendance/replacement.service';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { Invoice } from 'src/entities/invoice.entity';
 import { SetVacationDto } from './dto/setVacation.dto';
 import { teachingMonthOf } from 'src/modules/invoice/billing-period.rules';
@@ -64,6 +65,7 @@ export class ClassSessionService {
         private readonly nonTeachingPeriodService: NonTeachingPeriodService,
         private readonly notifier: ClassSessionNotifier,
         private readonly replacements: ReplacementService,
+        private readonly enrollments: EnrollmentService,
         private readonly dataSource: DataSource,
     ) {}
 
@@ -334,6 +336,7 @@ export class ClassSessionService {
             }
             targetRoom = room;
         }
+        const roomChanged = targetRoom.id !== session.room.id;
 
         // The move obeys the school calendar exactly as generation does — otherwise the calendar
         // has a side door, and a class moved into the winter break shows up on a day the whole
@@ -395,6 +398,13 @@ export class ClassSessionService {
         session.room = targetRoom;
 
         return this.dataSource.transaction(async (manager) => {
+            // A class going into another room has to fit in it, counted behind the group's lock —
+            // the one a booking or a placement takes before counting this same class. Checked before
+            // the lock, a trial booked in between would sit in a room already too small for it.
+            if (roomChanged) {
+                await this.enrollments.lockGroup(manager, session.group.id);
+                await this.assertRoomHolds(session, targetRoom, manager);
+            }
             const saved = await manager.getRepository(ClassSession).save(session);
             await this.notifier.notifyMoved(id, from, dto.reason, manager);
             return saved;
@@ -584,6 +594,22 @@ export class ClassSessionService {
 
         this.logger.log(`Group ${group.id} changed its slot: ${movedTo.length} class(es) followed, ${kept} kept where they were, ${created} written.`);
         return { moved: movedTo.length, kept, created };
+    }
+
+    /**
+     * A class moved into another room has to fit in it — the review of 25 September 2026. The move
+     * checked that the room was free at that hour and nothing about its size, so a group of eight
+     * went into a room of two, and the per-class count, now reading the room, would have been the
+     * only thing to notice.
+     */
+    async assertRoomHolds(session: { id: number; group: { id: number } }, room: Room, manager?: EntityManager): Promise<void> {
+        const expected = await this.enrollments.expectedAt(session, manager);
+        if (expected > room.capacity) {
+            throw new ConflictException({
+                message: `Sala „${room.name}" are ${room.capacity} locuri, iar la ora asta vin ${expected} copii.`,
+                error: 'ROOM_TOO_SMALL',
+            });
+        }
     }
 
     private async findGroupsToGenerateFor(groupId?: number): Promise<Group[]> {

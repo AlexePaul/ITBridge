@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { MoreThan, Not, Repository } from 'typeorm';
 import { Group } from 'src/entities/group.entity';
 import { Location } from 'src/entities/location.entity';
 import { Room } from 'src/entities/room.entity';
@@ -55,6 +55,19 @@ export class RoomService {
         }
         if (dto.name !== undefined || dto.locationId !== undefined) {
             await this.assertNameIsFree(dto.name ?? room.name, targetLocationId, id);
+        }
+
+        // A room made smaller than a group that meets in it — the review of 25 September 2026. The
+        // group check (`assertFitsInRoom`) ran only when a group was created or moved, so lowering the
+        // room afterwards left a group of ten in a room of six, and every count went on offering ten.
+        if (dto.capacity !== undefined && dto.capacity < room.capacity) {
+            const tooBig = await this.groupRepository.find({ where: { room: { id }, capacity: MoreThan(dto.capacity) }, order: { capacity: 'DESC' } });
+            if (tooBig.length > 0) {
+                throw new ConflictException({
+                    message: `Grupa „${tooBig[0].name}" are ${tooBig[0].capacity} locuri în sala asta. Micșorează grupa întâi, sau mut-o în altă sală.`,
+                    error: 'ROOM_SMALLER_THAN_GROUP',
+                });
+            }
         }
 
         const { locationId: _locationId, ...fields } = dto;

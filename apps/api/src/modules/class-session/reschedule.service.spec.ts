@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { RescheduleService } from './reschedule.service';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { ClassSessionNotifier } from './class-session-notifier';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { toIsoDate } from './class-session.dates';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
@@ -40,10 +41,11 @@ describe('RescheduleService', () => {
     let closedDates: jest.Mock;
     let manager: MockEntityManager;
     let notifier: { notifyMoved: jest.Mock };
+    let enrollments: { expectedAt: jest.Mock; occupancyOf: jest.Mock; lockGroup: jest.Mock };
 
     const location = { id: 1, name: 'Drumul Taberei' };
-    const room = { id: 1, name: 'Sala 1', location };
-    const otherRoom = { id: 2, name: 'Sala 2', location };
+    const room = { id: 1, name: 'Sala 1', capacity: 10, location };
+    const otherRoom = { id: 2, name: 'Sala 2', capacity: 10, location };
     const group = {
         id: 7,
         name: 'Scratch Începători',
@@ -88,6 +90,11 @@ describe('RescheduleService', () => {
         roomRepo = createMockRepository();
         manager = createMockEntityManager(new Map([[ClassSession, sessionRepo]]));
         notifier = { notifyMoved: jest.fn().mockResolvedValue(0) };
+        enrollments = {
+            expectedAt: jest.fn().mockResolvedValue(0),
+            occupancyOf: jest.fn().mockResolvedValue({ taken: 0 }),
+            lockGroup: jest.fn().mockResolvedValue({ id: 7 }),
+        };
         closedDates = jest.fn().mockResolvedValue(new Set<string>());
 
         const module: TestingModule = await Test.createTestingModule({
@@ -98,6 +105,7 @@ describe('RescheduleService', () => {
                 provideMockRepository(Room, roomRepo),
                 { provide: NonTeachingPeriodService, useValue: { datesIn: closedDates } },
                 { provide: ClassSessionNotifier, useValue: notifier },
+                { provide: EnrollmentService, useValue: enrollments },
                 provideMockDataSource(manager),
             ],
         }).compile();
@@ -163,6 +171,30 @@ describe('RescheduleService', () => {
 
             const tuesday = result.windows.filter((window) => window.date === TUESDAY);
             expect(tuesday.map((window) => `${window.startTime}@${window.roomId}`)).toEqual(['16:00@1', '16:00@2', '18:00@1', '18:00@2']);
+        });
+
+        /** The review of 25 September 2026: a recovery could be offered a room the class does not fit in. */
+        it('offers only the rooms the children coming fit in, and the group’s own whatever its size', async () => {
+            timetable(scheduled());
+            roomRepo.find!.mockResolvedValue([room, { ...otherRoom, capacity: 3 }]);
+            enrollments.expectedAt.mockResolvedValue(5);
+
+            const result = await service.windowsFor({ groupId: 7, date: MONDAY }, now);
+
+            expect(new Set(result.windows.map((window) => window.roomId))).toEqual(new Set([1]));
+            // A class with a row counts its own children, visitors included.
+            expect(enrollments.expectedAt).toHaveBeenCalledWith(expect.objectContaining({ id: 3 }), undefined);
+        });
+
+        it('counts the group’s enrolments for a class that was never written', async () => {
+            timetable(null);
+            roomRepo.find!.mockResolvedValue([room, { ...otherRoom, capacity: 3 }]);
+            enrollments.occupancyOf.mockResolvedValue({ taken: 3 });
+
+            const result = await service.windowsFor({ groupId: 7, date: MONDAY }, now);
+
+            expect(new Set(result.windows.map((window) => window.roomId))).toEqual(new Set([1, 2]));
+            expect(enrollments.occupancyOf).toHaveBeenCalledWith(7, undefined);
         });
 
         it('leaves out a room another live class holds at that hour', async () => {
@@ -335,6 +367,18 @@ describe('RescheduleService', () => {
             sessionRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ one: { id: 9, startTime: '16:30:00', endTime: '18:00:00' } as never }));
 
             expect(await codeOf(recover())).toMatchObject({ error: 'ROOM_BUSY_AT_THAT_TIME' });
+        });
+
+        it('refuses a room too small for the children coming to the class', async () => {
+            timetable(scheduled());
+            roomRepo.findOne!.mockResolvedValue({ ...otherRoom, capacity: 3 });
+            enrollments.expectedAt.mockResolvedValue(5);
+
+            expect(await codeOf(recover({ roomId: 2 }))).toMatchObject({ error: 'ROOM_TOO_SMALL' });
+            // Counted behind the group's lock, inside the transaction that would write the row.
+            expect(enrollments.lockGroup).toHaveBeenCalledWith(manager, 7);
+            expect(enrollments.expectedAt).toHaveBeenCalledWith(expect.objectContaining({ id: 3 }), manager);
+            expect(notifier.notifyMoved).not.toHaveBeenCalled();
         });
 
         it('refuses a class that was taught', async () => {

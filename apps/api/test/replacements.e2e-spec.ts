@@ -99,6 +99,16 @@ describe('Temporary group moves (e2e)', () => {
         return rows[0]?.id ?? null;
     };
 
+    /** Until `count` statements are queued on a lock — how a test knows an interleaving is set up. */
+    const waitingOnLocks = async (count: number): Promise<void> => {
+        for (let attempt = 0; attempt < 200; attempt++) {
+            const [{ waiting }] = await dataSource.query<{ waiting: string }[]>('SELECT COUNT(*) AS waiting FROM pg_locks WHERE NOT granted');
+            if (Number(waiting) >= count) return;
+            await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        throw new Error(`Expected ${count} statement(s) waiting on a lock`);
+    };
+
     describe('the whole story', () => {
         it('announce, be offered the week, be moved, and be told where', async () => {
             const offered = await options().expect(200);
@@ -252,6 +262,33 @@ describe('Temporary group moves (e2e)', () => {
                 .set('Authorization', admin.auth)
                 .expect(200);
             expect(offered.body.map((option: { sessionId: number }) => option.sessionId)).not.toContain(tightSession);
+        });
+
+        /**
+         * The review of 25 September 2026. A cancellation takes no group lock, so a placement that
+         * read the class before it could still write after it: the family told to come to a class
+         * that is off, and kept there, because the cancellation had already released the class's
+         * placements before this one existed. Forced, not hoped for: a second connection has written
+         * the cancellation and not committed it when the placement arrives.
+         */
+        it('waits for a cancellation in flight and then refuses the class, rather than placing a child in it', async () => {
+            const holder = dataSource.createQueryRunner();
+            await holder.connect();
+            await holder.startTransaction();
+            let answer: { status: number; code?: string } = { status: 0 };
+            try {
+                await holder.query(`UPDATE class_sessions SET status = 'cancelled' WHERE id = $1`, [hostSessionId]);
+                const pending = place(hostSessionId).then((res) => ({ status: res.status, code: (res.body as { code?: string }).code }));
+                await waitingOnLocks(1);
+                await holder.commitTransaction();
+                answer = await pending;
+            } finally {
+                if (holder.isTransactionActive) await holder.rollbackTransaction();
+                await holder.release();
+            }
+
+            expect(answer).toEqual({ status: 409, code: 'CLASS_SESSION_CANCELLED' });
+            expect(await placedSessionId()).toBeNull();
         });
     });
 });
