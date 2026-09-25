@@ -13,6 +13,14 @@ export class Profile {
     @JoinColumn({ name: 'user_id' })
     user?: User | null;
 
+    /**
+     * Unique twice over. `unique` here compares exactly; `UQ_profiles_email_lower`, from the
+     * `ProfileEmailIgnoringCase` migration, compares the way every lookup reads the column —
+     * `lower(email)` at registration, in the profile edits and in `forgot-password`. Without it
+     * `Ana@Example.com` could sit beside `ana@example.com`, one mailbox, and the reset link go to
+     * whichever row `getOne()` met first. TypeORM cannot describe an expression index, so it is not
+     * declared here; it also leaves one alone, so the drift check does not read it as a stranger.
+     */
     @Column({ unique: true, length: 255, nullable: true })
     email?: string;
 

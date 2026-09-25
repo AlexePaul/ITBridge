@@ -41,11 +41,8 @@ export class ProfileService {
         // condition and degenerates into "find any profile", so a profile with no contact details
         // used to collide with the first row in the table. Contact fields are nullable by design —
         // an admin creates a profile with just a name and links an account later.
-        if (createProfileDto.email) {
-            const existingEmail = await this.profileRepository.findOne({ where: { email: createProfileDto.email } });
-            if (existingEmail) {
-                throw new ConflictException('Email is already in use');
-            }
+        if (createProfileDto.email && (await this.emailTakenByAnother(createProfileDto.email))) {
+            throw new ConflictException('Email is already in use');
         }
         if (createProfileDto.phone) {
             const existingPhone = await this.profileRepository.findOne({ where: { phone: createProfileDto.phone } });
@@ -137,11 +134,8 @@ export class ProfileService {
             throw new UnauthorizedException('You do not have permission to update this profile');
         }
 
-        if (updateProfileDto.email && updateProfileDto.email !== profile.email) {
-            const existingEmail = await this.profileRepository.findOne({ where: { email: updateProfileDto.email } });
-            if (existingEmail) {
-                throw new ConflictException('Email is already in use');
-            }
+        if (updateProfileDto.email && (await this.emailTakenByAnother(updateProfileDto.email, profileId))) {
+            throw new ConflictException('Email is already in use');
         }
 
         if (updateProfileDto.phone && updateProfileDto.phone !== profile.phone) {
@@ -198,6 +192,23 @@ export class ProfileService {
         });
         updatedProfile.user = undefined;
         return updatedProfile;
+    }
+
+    /**
+     * Whether another family already holds this address — compared the way every lookup reads it,
+     * `lower(email)`, like `AuthService.assertEmailIsFree` at registration.
+     *
+     * The two doors here compared exactly, so a parent could store `Ana@Example.com` beside another
+     * family's `ana@example.com`: the same mailbox for every provider that matters, and two rows that
+     * `forgot-password` then finds with one `getOne()`, in no defined order — the reset link could be
+     * issued for the other account, and the family could not get back into its own. Its own row is
+     * left out, so changing only the capitals of one's own address is not a conflict. The unique
+     * index on `lower(email)` holds the same line for two requests that arrive together.
+     */
+    private async emailTakenByAnother(email: string, ownProfileId?: number): Promise<boolean> {
+        const qb = this.profileRepository.createQueryBuilder('profile').andWhere('lower(profile.email) = lower(:email)', { email });
+        if (ownProfileId !== undefined) qb.andWhere('profile.id <> :ownProfileId', { ownProfileId });
+        return qb.getExists();
     }
 
     /**
