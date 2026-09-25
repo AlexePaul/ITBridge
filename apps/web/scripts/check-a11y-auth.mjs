@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
+import { keyboardProblemsOn } from "./keyboard.mjs";
 import { launchChromium, publicPaths, startPreviewServer } from "./preview-site.mjs";
 
 /**
@@ -33,6 +34,9 @@ import { launchChromium, publicPaths, startPreviewServer } from "./preview-site.
  * Both colour schemes, `prefers-reduced-motion: reduce`, WCAG 2.0 and 2.1 at A and AA, and
  * `best-practice` deliberately left out — all four for the reasons written up in `check-a11y.mjs`,
  * which owns them.
+ *
+ * **And the keyboard, the half axe cannot see.** The light pass signs in and out with the keyboard
+ * alone, which is the story's acceptance line, and walks every screen with Tab (`keyboard.mjs`).
  */
 
 /** WCAG 2.0 and 2.1, levels A and AA — the standard the story names. */
@@ -223,7 +227,98 @@ async function signIn(context, base) {
   }
 }
 
-async function violationsOn(context, base, path) {
+/**
+ * Presses Tab until focus is on the element `matches` accepts, and says whether it got there.
+ *
+ * Tab and nothing else — no `click`, no `fill`, no `focus()`. Each of those would pass on a form
+ * the keyboard cannot use, which is the one thing these two flows exist to catch.
+ */
+async function tabTo(page, matches, maxPresses) {
+  for (let press = 0; press < maxPresses; press++) {
+    await page.keyboard.press("Tab");
+    if (await page.evaluate(matches)) return true;
+  }
+  return false;
+}
+
+async function waitForAccessToken(context, present) {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const has = (await context.cookies()).some((cookie) => cookie.name === "accessToken");
+    if (has === present) return true;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return false;
+}
+
+function keyboardFlowProblem(id, help, summary) {
+  return [{ id, impact: "serious", help, nodes: [{ target: "keyboard", summary }], total: 1 }];
+}
+
+/**
+ * Signs in with the keyboard alone — the acceptance line of E18/S6 that nothing checked: "un flux
+ * complet de autentificare se parcurge doar din tastatură".
+ *
+ * From the top of the login page: Tab to the username, type it, Tab to the password, type it, Enter.
+ * A failure is reported, and the run then signs in the ordinary way, so one broken form does not
+ * hide every other screen's result behind it.
+ */
+async function signInByKeyboard(context, base) {
+  const page = await context.newPage();
+  const failed = (summary) =>
+    keyboardFlowProblem(
+      "keyboard-sign-in",
+      "Signing in cannot be done with the keyboard alone",
+      summary
+    );
+  try {
+    await page.goto(`${base}/auth/login`, { waitUntil: "load" });
+    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+    if (!(await tabTo(page, () => document.activeElement?.id === "auth-username", 40))) {
+      return failed("Tab from the top of the page never reached the username field.");
+    }
+    await page.keyboard.type(USERNAME);
+    if (!(await tabTo(page, () => document.activeElement?.id === "auth-password", 5))) {
+      return failed("The password field is not among the next few stops after the username.");
+    }
+    await page.keyboard.type(PASSWORD);
+    await page.keyboard.press("Enter");
+    if (await waitForAccessToken(context, true)) return [];
+    return failed("Enter in the password field did not sign in: no access token after 30s.");
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * The other end of the same flow: from a signed-in screen to signed out, with Tab and Enter.
+ *
+ * Run last, because it ends the session every screen before it relied on.
+ */
+async function signOutByKeyboard(context, base) {
+  const page = await context.newPage();
+  const failed = (summary) =>
+    keyboardFlowProblem(
+      "keyboard-sign-out",
+      "Signing out cannot be done with the keyboard alone",
+      summary
+    );
+  try {
+    await page.goto(`${base}/admin/dashboard`, { waitUntil: "load" });
+    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+    const onSignOut = () => document.activeElement?.textContent?.trim() === "Ieșire";
+    if (!(await tabTo(page, onSignOut, 150))) {
+      return failed("Tab from the top of the dashboard never reached the sign-out button.");
+    }
+    await page.keyboard.press("Enter");
+    if (await waitForAccessToken(context, false)) return [];
+    return failed("Enter on the sign-out button left the access token in place.");
+  } finally {
+    await page.close();
+  }
+}
+
+async function violationsOn(context, base, path, { keyboard = false } = {}) {
   const page = await context.newPage();
   // Collected from the moment the page exists, because the ones worth catching happen during
   // hydration — before anything this function does afterwards could observe them.
@@ -277,7 +372,12 @@ async function violationsOn(context, base, path) {
       }));
     }, TAGS);
 
-    return [...violations, ...(await nameProblemsOn(page)), ...runtimeProblems(runtimeErrors)];
+    return [
+      ...violations,
+      ...(await nameProblemsOn(page)),
+      ...(keyboard ? await keyboardProblemsOn(page) : []),
+      ...runtimeProblems(runtimeErrors),
+    ];
   } finally {
     await page.close();
   }
@@ -525,20 +625,30 @@ async function main() {
 
     for (const colorScheme of ["light", "dark"]) {
       const context = await browser.newContext({ colorScheme, reducedMotion: "reduce" });
-      await signIn(context, base);
+      // The keyboard is checked once, in the light pass: what it reaches and in what order does
+      // not change with the palette, and a walk of every screen is the slowest thing here.
+      const keyboard = colorScheme === "light";
+      if (keyboard) {
+        const signInProblems = await signInByKeyboard(context, base);
+        report("/auth/login (keyboard only)", signInProblems);
+        if (signInProblems.length > 0) await signIn(context, base);
+      } else {
+        await signIn(context, base);
+      }
       for (const { route, path } of visitable) {
         // The route, not the resolved path: `/admin/children/[childId]/edit` is the thing that
         // failed, and the id it happened to be checked with is noise in a diff.
-        report(`${route} (${colorScheme})`, await violationsOn(context, base, path));
+        report(`${route} (${colorScheme})`, await violationsOn(context, base, path, { keyboard }));
       }
       // Once, not per scheme: what differs for a signed-in reader of a public page is who they
       // are, not the palette — and the public job already reads every page in both.
-      if (colorScheme === "light") {
+      if (keyboard) {
         const paths = await publicPaths(base);
         publicPagesRead = paths.length;
         for (const path of paths) {
           report(`${path} (public, signed in)`, await signedInProblemsOn(context, base, path));
         }
+        report("sign-out (keyboard only)", await signOutByKeyboard(context, base));
       }
       await context.close();
     }
@@ -561,7 +671,8 @@ async function main() {
     return;
   }
   console.log(
-    `\nNo accessibility violations on ${visitable.length} authenticated screens, in either colour scheme,` +
+    `\nNo accessibility violations on ${visitable.length} authenticated screens, in either colour scheme;` +
+      ` every one walked with Tab, and signed into and out of with the keyboard alone;` +
       ` and nothing in the console on ${publicPagesRead} public pages read signed in.`
   );
 }
