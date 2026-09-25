@@ -44,6 +44,7 @@ ce se stochează sau ce se întâmplă are o sursă; când sursa se schimbă, se
 | regiunea: Stockholm (`eu-north-1`), pentru server, bază, fișiere și backup                                   | `.env.stage.example`, E01 S4, E04 S4; `.env.example` și `ci.yml` spun `eu-central-1` doar pentru dezvoltare și CI. Producția nu există încă — de confirmat că rămâne aceeași regiune |
 | fără CNP, fără fotografii ale copiilor, fără date de sănătate                                                | E16 „Decizii luate", E07 „Decizii luate"; niciun câmp în entități                                                                                                                    |
 | versiunea acceptată la înregistrare e cea din capul fișierului                                               | `LEGAL_DOCUMENT_VERSIONS` în `apps/api/src/modules/auth/legal-documents.ts`, ținută egală cu prima linie boldată a fiecărui document de `legal-documents.spec.ts`                    |
+| evidența se recitește din portal; fiecare acceptare primește un email de confirmare                          | `GET /auth/documents`, secțiunea „Documentele acceptate" din `pages/user/profile.vue`, șablonul `legal-acceptance` din `template-defaults.ts`                                        |
 
 ## Ce lipsește: `[[…]]`
 
@@ -61,10 +62,14 @@ Lista, ca să se poată bifa:
 
 **Decizii ale școlii** — cifrele din documente sunt propuneri, marcate `[[PROPUNERE: …]]`:
 
-- **termenul de păstrare după retragere** — propus 12 luni. E numărul din E22 S3, cel pe care îl
-  implementează E07 S4 și E04 S5; odată publicat, devine promisiune;
-- cererile de probă care nu duc la înscriere — propus 12 luni de la ultima activitate;
-- copiile mesajelor din `outbox` — propus 12 luni; azi nu se șterg niciodată;
+- **termenul de păstrare după retragere** — propus 12 luni. E numărul din E22 S3 și e acum cod: un
+  job de noapte șterge familia la termen, prin ștergerea din E07 S4; numărul stă într-o singură
+  constantă, `FAMILY_RETENTION_MONTHS`. Odată publicat, devine promisiune;
+- **familia care datorează bani nu se șterge la termen** — propunere nouă, E22 S3: datele rămân până
+  la achitare (GDPR art. 17 alin. 3 lit. e), iar ecranul de ștergeri spune de ce;
+- cererile de probă care nu duc la înscriere — propus 12 luni de la ultima activitate; implementat;
+- copiile mesajelor din `outbox` — propus 12 luni; implementat (până la E22 S3 nu se ștergeau
+  niciodată);
 - logurile serverului — propus 30 de zile; depinde de rotația de loguri din `ecosystem.config.js`,
   care stă pe instanță, nu în repo;
 - mesajele din formularul de contact — propus 24 de luni; trăiesc în căsuța de email, nu în
@@ -94,19 +99,24 @@ Lista, ca să se poată bifa:
 3. ~~**E22 S4, a doua jumătate** — re-acceptarea la versiune nouă, la prima autentificare de
    după.~~ **Livrat.** `GET /auth/me` spune ce documente n-au fost acceptate în versiunea în
    vigoare, portalul duce familia la `/user/termeni-noi` și `POST /auth/accept-documents` scrie
-   numai ce lipsește. Rămâne din §4.7 **e-mailul de confirmare a acceptării**, care nu se trimite
-   încă.
-4. **E22 S3** — jobul care șterge la termen. Politica §7 promite un număr; fără job, e o minciună
-   întreținută.
+   numai ce lipsește. Iar §4.7 e acum adevărat întreg: evidența se recitește din Profil
+   (`GET /auth/documents`, fiecare versiune cu ziua ei), iar fiecare acceptare — la înregistrare și
+   la fiecare versiune nouă — primește un email de confirmare care numește **ce s-a acceptat în ziua
+   aceea**, nu tot ce e în vigoare.
+4. ~~**E22 S3** — jobul care șterge la termen. Politica §7 promite un număr; fără job, e o minciună
+   întreținută.~~ **Livrat.** Retragerea se consemnează din pagina familiei (E04 S5), iar în fiecare
+   noapte familiile retrase de peste 12 luni se șterg prin ștergerea din E07 S4 — mai puțin cele care
+   datorează bani, care rămân până la achitare. Tot atunci pleacă cererile de probă fără înscriere,
+   copiile mesajelor și linkurile expirate. Numerele rămân propuneri până le confirmă școala.
 5. **E01 S4 pentru producție** — pe stage e livrat, deci regiunea și backup-ul zilnic sunt fapte; la
    producție se confirmă că rămân aceleași, plus rotația logurilor și retenția de 30 de zile a
    backup-urilor (E04 S4).
 6. **E07 S7** — acordurile de prelucrare cu furnizorii din tabelul §5.2.
-7. **`DELETE /profiles/:id` e azi în `PARENT_WRITABLE` și șterge fizic, în cascadă** — copiii,
-   prezența, lucrările **și facturile** (`Invoice.parent` e `onDelete: 'CASCADE'`). Portalul n-are
-   buton pentru el, dar endpoint-ul răspunde unui părinte autentificat. Documentele spun că
-   ștergerea se cere la școală și că evidența facturilor rămâne; până la anonimizarea din E07 S4,
-   ruta ar trebui restrânsă la admin sau să refuze un profil cu facturi. Sarcină propusă.
+7. ~~**`DELETE /profiles/:id` e azi în `PARENT_WRITABLE` și șterge fizic, în cascadă** — copiii,
+   prezența, lucrările **și facturile**.~~ **Rezolvat.** Ruta refuză o familie cu facturi
+   (`PROFILE_HAS_INVOICES`) sau cu copii (`PROFILE_HAS_CHILDREN`) și lasă urmă în jurnal, deci ce a
+   rămas e anularea unui rând tastat greșit. Ștergerea unei familii e E07 S4, din `/admin/stergeri`,
+   și păstrează facturile — exact ce spun documentele.
 8. ~~**Linia de dezabonare pe mesajele de marketing** — azi niciun mesaj promoțional nu spune cum
    se oprește (Legea 506/2004 art. 12, GDPR art. 7 alin. 3).~~ **Livrat** (E17 S4): footerul se
    adaugă în `queueMarketing`, deci la singura ușă prin care trece marketingul, iar linkul duce la
@@ -117,6 +127,12 @@ Lista, ca să se poată bifa:
    **Livrat.** Formularul cere `acceptedUnusualClauses` separat, evidența îl ține ca rând propriu
    (`unusual_clauses`, cu versiunea termenilor), iar cele trei secțiuni se leagă din formular —
    titlurile documentelor au acum id-uri, deci bifa duce la textul pe care îl acceptă.
+10. **Textul versiunilor înlocuite.** §4.7 promite că versiunea acceptată „o poți reciti oricând
+    din portal". Azi e adevărat fiindcă fiecare document are o singură versiune, deci pagina
+    publică _este_ textul acceptat, iar Profilul trimite la ea. La **prima versiune nouă de după
+    publicare**, textul vechi trebuie păstrat și arătat din portal — până atunci, rândul unei
+    versiuni înlocuite spune doar „înlocuită între timp". Nu blochează publicarea; blochează prima
+    schimbare de versiune, și de aceea procedura din `legal-documents.ts` îl numește.
 
 ## Verificarea juridică
 
@@ -147,7 +163,7 @@ ce face sistemul. Ce **nu** acoperă e scris la final.
 | Legea 506/2004 art. 4 — cookie-uri fără acord doar dacă sunt strict necesare                                                | cookie-uri §2              | ✓, cu justificarea pentru cele două de preferință                                                                                                                                   |
 | Legea 506/2004 art. 12 — marketing doar cu acord prealabil, cu refuz posibil din fiecare mesaj                              | termeni §13                | ✓ — acordul prin `marketingOptIn`, refuzul prin linkul din subsolul fiecărui mesaj promoțional (E17 S4)                                                                             |
 | Legea 365/2002 art. 5 — datele de identificare pe site                                                                      | termeni §1, site           | placeholder; **statutul de TVA** trebuie afișat și pe pagina de contact                                                                                                             |
-| Legea 365/2002 art. 8–9 — pașii încheierii contractului electronic, limba, stocarea, corectarea erorilor                    | termeni §4.7               | **adăugat**                                                                                                                                                                         |
+| Legea 365/2002 art. 8–9 — pașii încheierii contractului electronic, limba, stocarea, corectarea erorilor                    | termeni §4.7               | **adăugat**; evidența se recitește din Profil, iar fiecare acceptare e confirmată pe email (E22 S4)                                                                                 |
 | Legea 193/2000 — clauze abuzive (anexa: limitarea răspunderii, modificarea unilaterală, restrângerea accesului la justiție) | termeni §14, §15, §18, §19 | **corectate**: excepție pentru intenție și culpă gravă, motiv întemeiat și drept de ieșire la modificare, contestarea suspendării, instanțele competente fără restrângere           |
 | Cod civil art. 1203 — clauzele neuzuale cer acceptare expresă                                                               | termeni §14, §15, §18      | ✓ — a doua bifă, separată, la înregistrare și la fiecare versiune nouă (E22 S4)                                                                                                     |
 | OUG 34/2014 și OUG 141/2021 — contracte la distanță, servicii digitale                                                      | —                          | nu se aplică: contractul de înscriere e față în față, contul e gratuit și datele se prelucrează doar ca să funcționeze (excepția din OUG 141/2021 art. 3)                           |

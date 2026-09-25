@@ -544,9 +544,11 @@ iar formularea din factură și din termeni trebuie să reflecte asta.
 numerotarea, TVA-ul, e-Factura și PDF-ul de factură. `apps/api/src/modules/invoice/pdf.service.ts`
 rămâne doar pentru documente nefiscale — certificatele din [E13](E13-progres-evaluare.md). În
 schimb intră în scop două lucruri
-noi: sincronizarea între două sisteme cu stări proprii, și o coadă temperată la **3 apeluri pe
-secundă**, limita API-ului SmartBill. Premisa comercială — abonament **Facturare Platinum** — se
-verifică înainte de orice cod.
+noi: sincronizarea între două sisteme cu stări proprii, și o coadă temperată sub **30 de apeluri
+la 10 secunde**, limita API-ului SmartBill. Premisa comercială — abonament **Facturare Platinum** —
+se verifică înainte de orice document, iar din septembrie 2026 se verifică **fără niciunul**:
+SmartBill n-are sandbox, deci `pnpm smartbill:check` doar citește, iar o ciornă ține loc de factura
+de test — vezi [E16](E16-plati-fiscal.md) S0.
 
 ### Acces și produs
 

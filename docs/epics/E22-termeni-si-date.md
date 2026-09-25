@@ -96,6 +96,38 @@ contabilității.
 **Acceptanță:** termenul e scris în document, implementat ca job, și verificabil — se poate arăta
 că o familie retrasă acum N luni nu mai are date personale în platformă.
 
+**Livrat (septembrie 2026), cu numărul încă propunere.** Termenul e cel din nota de
+confidențialitate §7 — **12 luni de la retragere**, marcat `[[PROPUNERE]]` până îl confirmă școala —
+și stă într-un singur loc, `FAMILY_RETENTION_MONTHS` din
+`apps/api/src/modules/privacy/retention.rules.ts`, de unde îl primesc și ecranele: ziua în care
+școala decide, se mută o linie. Patru lucruri:
+
+- **Retragerea e o zi consemnată, nu o deducție** — jumătatea din [E04](E04-migrari-date.md) S5:
+  `Profile.withdrawnAt`, pusă de un admin din pagina familiei, cu ziua ei, anulabilă până la termen.
+  E refuzată cât timp un copil e înscris (`FAMILY_HAS_ENROLMENTS_IN_FORCE`) sau pe o listă de
+  așteptare (`FAMILY_ON_WAITLIST`): acelea se închid pe ușile lor, care eliberează locul și îl oferă
+  listei. Iar o înscriere nouă a unui copil din familie anulează singură retragerea, în aceeași
+  tranzacție — o familie cu un copil în grupă n-a plecat.
+- **Ștergerea la termen e ștergerea din [E07](E07-securitate-gdpr.md) S4**, chemată de un job de
+  noapte (03:45, ceasul școlii) cu actorul sistemului și cu motivul în jurnal („ștergere la termen,
+  după retragerea familiei"). Nu există a doua implementare a lui „ce pleacă și ce rămâne": facturile
+  rămân, rândul familiei rămâne golit, restul dispare.
+- **O familie care datorează bani nu se șterge la termen** (`owes_money`), cu restanța citită din
+  `ArrearsService`, aceeași definiție ca pe ecranul de restanțe: golind rândul, școala ar rămâne cu o
+  datorie pe care n-o mai poate cere nimănui. Temeiul e art. 17 alin. 3 lit. e din GDPR, iar nota îl
+  spune ca propunere. Termenul se reia în noaptea în care familia iese de pe lista de restanțe.
+- **Aceeași trecere ține celelalte promisiuni din §7**: cererile de probă fără înscriere, după 12
+  luni de liniște, cu tot cu profilul-coajă pe care l-a scris programarea; copiile mesajelor trimise,
+  după 12 luni (niciodată unul încă în așteptare); linkurile de confirmare și de resetare, la 30 de
+  zile după ce au expirat. O cerere fără legătură, dar cu adresa unei familii din evidență, e a acelei
+  familii și pleacă odată cu ea — aceeași regulă ca `leadsOfFamily`.
+
+**Verificabil, cum cere acceptanța**, de două ori: `/admin/stergeri` are acum o secțiune „La termen",
+cu fiecare familie retrasă, ziua în care se șterge și ce o mai ține; iar
+`apps/api/test/retention.e2e-spec.ts` retrage o familie acum 13 luni, rulează trecerea și verifică
+că n-a rămas nimic personal — rândul golit, copiii, contul și mesajele șterse, jurnalul spunând că a
+fost calendarul, fără niciun nume — în timp ce familia retrasă acum 11 luni e neatinsă.
+
 ### S4 · Evidența acceptărilor
 
 Cine a acceptat ce versiune și când. Versionat, fiindcă un document care se schimbă fără istoric
@@ -138,8 +170,31 @@ nouă n-are voie să încuie afară singurii oameni care ar putea repara ceva.
 
 Ce a rămas dinadins nefăcut: **nimic din API nu refuză o cerere** fiindcă familia n-a acceptat încă.
 §18 promite că portalul cere, nu că platforma se închide, iar un refuz pe fiecare rută ar fi o
-decizie de produs pe care n-a luat-o nimeni. Și e-mailul de confirmare din §4.7 nu se trimite încă —
-E17 are coada, dar șablonul e o propoziție de scris, nu o piesă de infrastructură.
+decizie de produs pe care n-a luat-o nimeni.
+
+**Și §4.7, care promite două lucruri pe care nu le făcea nimic.** „Versiunea pe care ai acceptat-o,
+cu ziua acceptării, rămâne înregistrată pe cont și o poți reciti oricând din portal": evidența se
+citește acum prin `GET /auth/documents` — toate rândurile contului, cu ziua lor, plus versiunile în
+vigoare — și stă în Profil, sub „Documentele acceptate", unde o versiune înlocuită rămâne pe listă
+cu mențiunea asta. „Primești și un email de confirmare": șablonul `legal-acceptance` pleacă prin
+coadă, în tranzacția care scrie rândurile, la înregistrare și la fiecare versiune nouă acceptată.
+Trei lucruri pe care le face dinadins:
+
+- **Numește ce s-a acceptat în actul acela, nu tot ce e în vigoare.** O politică nouă acceptată în
+  martie nu înseamnă termenii acceptați din nou în martie, iar o confirmare care ar spune asta ar
+  greși exact lucrul pe care îl confirmă. Lista vine din rândurile scrise (`RETURNING`), nu din cele
+  cerute: un submit concurent poate să fi scris o parte primul. Regula e `acceptedInWords`, lângă
+  `outstandingDocuments`.
+- **Cheia de deduplicare e contul plus id-urile rândurilor.** Al doilea clic dintr-un dublu-clic
+  n-a scris nimic, deci nu confirmă nimic; fiecare acceptare care a scris ceva e confirmată o dată.
+- **La înregistrare nu se uită la confirmarea adresei**, deși restul mesajelor către familie o
+  fac: adresa e nedovedită prin definiție în clipa aia, iar mesajul pleacă odată cu linkul care o
+  dovedește. Legat de poartă, singurul mesaj promis la înregistrare ar ajunge `undeliverable`. La
+  re-acceptare, adresa e cea de pe fișă și trece prin `queueOrRecord` ca oricare alta.
+
+Textul versiunilor înlocuite nu e încă de citit nicăieri — azi fiecare document are o singură
+versiune, deci pagina publică _este_ textul acceptat. Devine obligatoriu la prima versiune nouă de
+după publicare, și e trecut ca atare în lista din `docs/legal/README.md`.
 
 ## Dependențe
 
