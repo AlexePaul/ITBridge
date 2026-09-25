@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EntityManager, Like } from 'typeorm';
 import { ClassSession } from 'src/entities/class-session.entity';
+import { Group } from 'src/entities/group.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
@@ -19,6 +20,7 @@ export interface SessionPlacement {
 export const CANCELLED_DEDUPE_PREFIX = 'class-cancelled:';
 export const MOVED_DEDUPE_PREFIX = 'class-moved:';
 export const REINSTATED_DEDUPE_PREFIX = 'class-reinstated:';
+export const GROUP_SCHEDULE_DEDUPE_PREFIX = 'group-schedule:';
 
 /** One inbox, and whether it hears about the class as the group's or as a visitor's. */
 interface Recipient {
@@ -143,6 +145,59 @@ export class ClassSessionNotifier {
                 portalUrl: loginUrl(),
             }),
         );
+    }
+
+    /**
+     * The group moved to another day, hour or room, and its coming classes moved with it.
+     *
+     * **Once per family**, not once per class: eight classes following a group to Wednesday are one
+     * change, and eight "class moved" messages would bury it. The group's families only — a child the
+     * office moved into one of those classes for a week hears about that week from the office, which
+     * placed them. The key counts the group's earlier announcements, as the per-class ones do, so a
+     * group moved and moved back is told both times.
+     */
+    async notifyGroupScheduleChanged(
+        groupId: number,
+        change: { fromSlot: string; toSlot: string; firstDate: Date | string },
+        manager: EntityManager,
+    ): Promise<number> {
+        const group = await manager.getRepository(Group).findOne({ where: { id: groupId }, relations: { children: { parent: true } } });
+        if (!group) return 0;
+
+        const recipients = new Map<number, Recipient>();
+        for (const child of group.children ?? []) {
+            const parent = child.parent;
+            if (!parent || recipients.has(parent.id)) continue;
+            recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: false });
+        }
+
+        const prefix = `${GROUP_SCHEDULE_DEDUPE_PREFIX}${groupId}:`;
+        const announcement = await manager.getRepository(OutboxMessage).count({ where: { dedupeKey: Like(`${prefix}%`) } });
+        let written = 0;
+        for (const recipient of recipients.values()) {
+            const mail = await this.mailTemplates.render('group-schedule-changed', {
+                firstName: recipient.firstName,
+                groupName: group.name,
+                fromSlot: change.fromSlot,
+                toSlot: change.toSlot,
+                firstDate: romanianDate(change.firstDate),
+                portalUrl: loginUrl(),
+            });
+            const queued = await this.outbox.queueOrRecord(
+                { email: recipient.email },
+                {
+                    subject: mail.subject,
+                    bodyText: mail.bodyText,
+                    bodyHtml: mail.bodyHtml ?? undefined,
+                    dedupeKey: `${prefix}${announcement}:${recipient.parentId}`,
+                },
+                manager,
+            );
+            if (queued) written += 1;
+        }
+
+        this.logger.log(`Group ${groupId}: told ${written} parent(s) about the new schedule.`);
+        return written;
     }
 
     /**

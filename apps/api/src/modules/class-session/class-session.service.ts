@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, DataSource, Repository } from 'typeorm';
+import { Between, DataSource, EntityManager, MoreThanOrEqual, Repository } from 'typeorm';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
@@ -11,7 +11,10 @@ import { MoveClassSessionDto } from './dto/moveClassSession.dto';
 import { FilterClassSessionDto } from './dto/filterClassSession.dto';
 import { GenerateClassSessionsDto } from './dto/generateClassSessions.dto';
 import { UnmarkedClassSessionsDto } from './dto/unmarkedClassSessions.dto';
-import { addDays, occurrencesOf, parseIsoDate, startOfToday, toIsoDate } from './class-session.dates';
+import { addDays, isoWeekday, occurrencesOf, parseIsoDate, startOfIsoWeek, startOfToday, toIsoDate } from './class-session.dates';
+import { schoolDay } from 'src/common/school-clock';
+import { romanianWeekdayName } from 'src/modules/mail/romanian-date';
+import { Weekday } from 'src/enum/weekday.enum';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
 import { ClassSessionNotifier } from './class-session-notifier';
 import { ReplacementService } from 'src/modules/attendance/replacement.service';
@@ -474,6 +477,115 @@ export class ClassSessionService {
         });
     }
 
+    /**
+     * The group moved to another day, hour or room, and its coming classes follow it — the review
+     * of 25 September 2026.
+     *
+     * The edit used to change the group and nothing else: eight weeks of classes stayed on the old
+     * day, and the next morning's generation wrote eight more on the new one — each phantom sold on
+     * `/proba`, offered for replacements and reported unmarked. Now each class still where the
+     * generator put it (on its slot, at the old hour, in the old room, not taught, not cancelled)
+     * moves **within its own week** to the group's new day, hour and room. A week's class stays that
+     * week's class, and the month it is billed to is the month of its Monday (E15/S9).
+     *
+     * What stays put, and why:
+     * - a class the office moved by hand — it was put there on purpose;
+     * - a class already taught or cancelled — the first happened, the second was called off;
+     * - a class whose new day has passed, is closed by the calendar, or already holds another class
+     *   of the group — the change takes effect in the weeks it can.
+     *
+     * Every one of them still hands its week's slot to the new day, so the generation that follows
+     * does not write a second class beside it. The families hear once, in this transaction.
+     *
+     * `group` carries the new values, with `room.location` loaded; `before` is where it was.
+     */
+    async followGroup(
+        group: Group,
+        before: { weekday: Weekday; startTime: string; endTime: string; room: Room },
+        manager: EntityManager,
+    ): Promise<{ moved: number; kept: number; created: number }> {
+        const repository = manager.getRepository(ClassSession);
+        const tomorrow = addDays(parseIsoDate(schoolDay(new Date())), 1);
+        const future = await repository.find({
+            where: { group: { id: group.id }, date: MoreThanOrEqual(tomorrow) },
+            relations: { room: true, attendances: true },
+            order: { date: 'ASC' },
+        });
+
+        const occupiedDays = new Set(future.map((row) => toIsoDate(row.date)));
+        const occupiedSlots = new Set(future.flatMap((row) => (row.scheduledFor ? [toIsoDate(row.scheduledFor)] : [])));
+        const horizonEnd = future.length > 0 ? addDays(parseIsoDate(toIsoDate(future[future.length - 1].date)), 7) : addDays(tomorrow, 7);
+        const closed = await this.nonTeachingPeriodService.datesIn(tomorrow, horizonEnd, group.room?.location?.id ?? null);
+
+        const movedTo: Date[] = [];
+        let kept = 0;
+        for (const row of future) {
+            if (!row.scheduledFor) continue;
+            const slot = toIsoDate(row.scheduledFor);
+            if (slot < toIsoDate(tomorrow) || isoWeekday(parseIsoDate(slot)) !== before.weekday) continue;
+
+            const newDay = addDays(startOfIsoWeek(parseIsoDate(slot)), group.weekday - 1);
+            const newSlot = toIsoDate(newDay);
+            if (newDay.getTime() < tomorrow.getTime() || (newSlot !== slot && occupiedSlots.has(newSlot))) {
+                kept += 1;
+                continue;
+            }
+
+            const whereGenerated =
+                toIsoDate(row.date) === slot &&
+                sameTime(row.startTime, before.startTime) &&
+                sameTime(row.endTime, before.endTime) &&
+                row.room?.id === before.room.id;
+            const movable =
+                whereGenerated &&
+                row.status === ClassSessionStatus.SCHEDULED &&
+                row.attendances.length === 0 &&
+                !closed.has(newSlot) &&
+                (newSlot === slot || !occupiedDays.has(newSlot));
+
+            occupiedSlots.delete(slot);
+            occupiedSlots.add(newSlot);
+            if (movable) {
+                occupiedDays.delete(slot);
+                occupiedDays.add(newSlot);
+                await repository.update(row.id, {
+                    date: newDay,
+                    scheduledFor: newDay,
+                    startTime: group.startTime,
+                    endTime: group.endTime,
+                    room: { id: group.room.id },
+                });
+                movedTo.push(newDay);
+            } else {
+                await repository.update(row.id, { scheduledFor: newDay });
+                kept += 1;
+            }
+        }
+
+        // Weeks with no class at all — a closure on the old day, a horizon the old day ran out of —
+        // get one on the new day now, rather than at 04:30 tomorrow.
+        const created = group.isActive
+            ? (await this.generateForGroup(group, tomorrow, addDays(tomorrow, DEFAULT_HORIZON_WEEKS * 7), manager)).created.length
+            : 0;
+
+        if (movedTo.length > 0) {
+            const slotText = (weekday: Weekday, start: string, end: string, room: Room) =>
+                `${romanianWeekdayName(weekday)}, ${start.slice(0, 5)}–${end.slice(0, 5)}, ${room.location?.name ? `${room.name} — ${room.location.name}` : room.name}`;
+            await this.notifier.notifyGroupScheduleChanged(
+                group.id,
+                {
+                    fromSlot: slotText(before.weekday, before.startTime, before.endTime, before.room),
+                    toSlot: slotText(group.weekday, group.startTime, group.endTime, group.room),
+                    firstDate: movedTo[0],
+                },
+                manager,
+            );
+        }
+
+        this.logger.log(`Group ${group.id} changed its slot: ${movedTo.length} class(es) followed, ${kept} kept where they were, ${created} written.`);
+        return { moved: movedTo.length, kept, created };
+    }
+
     private async findGroupsToGenerateFor(groupId?: number): Promise<Group[]> {
         // The room comes along because it is copied onto every session generated below, and its
         // location because the school calendar is asked per location: a period declared for one
@@ -502,7 +614,13 @@ export class ClassSessionService {
         return [group];
     }
 
-    private async generateForGroup(group: Group, from: Date, until: Date): Promise<{ created: ClassSession[]; existing: number; skipped: number }> {
+    private async generateForGroup(
+        group: Group,
+        from: Date,
+        until: Date,
+        manager?: EntityManager,
+    ): Promise<{ created: ClassSession[]; existing: number; skipped: number }> {
+        const repository = manager ? manager.getRepository(ClassSession) : this.classSessionRepository;
         const everyWeek = occurrencesOf(group.weekday, from, until);
         if (everyWeek.length === 0) {
             return { created: [], existing: 0, skipped: 0 };
@@ -520,32 +638,42 @@ export class ClassSessionService {
             return { created: [], existing: 0, skipped };
         }
 
-        const known = await this.classSessionRepository.find({
-            where: { group: { id: group.id }, date: Between(from, addDays(until, -1)) },
+        // A day is taken twice over: a class is on it, or a class was **generated for it** and moved
+        // somewhere else (`scheduledFor`). The second is the review of 25 September 2026 — asking
+        // about the day alone, a class moved from Friday to Saturday left Friday free, and the next
+        // morning's run wrote Friday again: two classes that week, and the phantom one sold on
+        // `/proba`, offered for replacements and reported unmarked.
+        const window = Between(from, addDays(until, -1));
+        const known = await repository.find({
+            where: [
+                { group: { id: group.id }, date: window },
+                { group: { id: group.id }, scheduledFor: window },
+            ],
         });
         // The driver hands back a `date` column as a string while the entity declares `Date`, so
         // both forms go through `toIsoDate` before anything is compared. Comparing them raw is how
         // an idempotent generator quietly stops being idempotent.
-        const taken = new Set(known.map((session) => toIsoDate(session.date)));
+        const taken = new Set(known.flatMap((session) => [toIsoDate(session.date), ...(session.scheduledFor ? [toIsoDate(session.scheduledFor)] : [])]));
         const missing = wanted.filter((date) => !taken.has(toIsoDate(date)));
         if (missing.length === 0) {
             return { created: [], existing: wanted.length, skipped };
         }
 
         const rows = missing.map((date) =>
-            this.classSessionRepository.create({
+            repository.create({
                 group,
                 // Copied, not read through `group.room` at display time. Moving a group to another
                 // room changes where its future classes are, not where the past ones were.
                 room: group.room,
                 date,
+                scheduledFor: date,
                 startTime: group.startTime,
                 endTime: group.endTime,
                 status: ClassSessionStatus.SCHEDULED,
                 notes: null,
             }),
         );
-        const created = await this.classSessionRepository.save(rows);
+        const created = await repository.save(rows);
         return { created, existing: wanted.length - missing.length, skipped };
     }
 
@@ -564,4 +692,9 @@ export class ClassSessionService {
             throw new BadRequestException(`dateFrom (${dateFrom}) is after dateTo (${dateTo})`);
         }
     }
+}
+
+/** `16:00` and `16:00:00` are the same hour: the column hands back seconds, a DTO often does not. */
+function sameTime(one: string, other: string): boolean {
+    return one.slice(0, 5) === other.slice(0, 5);
 }

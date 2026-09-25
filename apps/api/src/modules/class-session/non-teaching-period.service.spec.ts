@@ -5,6 +5,7 @@ import { NonTeachingPeriod } from 'src/entities/non-teaching-period.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Location } from 'src/entities/location.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
+import { ReplacementService } from 'src/modules/attendance/replacement.service';
 import {
     createMockEntityManager,
     createMockQueryBuilder,
@@ -21,8 +22,10 @@ describe('NonTeachingPeriodService', () => {
     let sessionRepo: MockRepository;
     let locationRepo: MockRepository;
     let manager: MockEntityManager;
+    let replacements: { clearOn: jest.Mock };
 
     beforeEach(async () => {
+        replacements = { clearOn: jest.fn().mockResolvedValue(0) };
         periodRepo = createMockRepository();
         sessionRepo = createMockRepository();
         locationRepo = createMockRepository();
@@ -47,6 +50,9 @@ describe('NonTeachingPeriodService', () => {
                 provideMockRepository(ClassSession, sessionRepo),
                 provideMockRepository(Location, locationRepo),
                 provideMockDataSource(manager),
+                // A class the calendar cancels lets go of the children placed in it, like one
+                // cancelled by hand. Asserted below; the release itself is the replacements suite.
+                { provide: ReplacementService, useValue: replacements },
             ],
         }).compile();
 
@@ -116,6 +122,38 @@ describe('NonTeachingPeriodService', () => {
             // Deleting the row would leave the history saying the week simply had one fewer class.
             expect(result.cancelled).toBe(1);
             expect(sessionRepo.delete).not.toHaveBeenCalled();
+        });
+
+        /**
+         * A child moved into one of these classes for the week is released, as a class cancelled by
+         * hand releases them. Before, the placement kept pointing at a class that was not going to
+         * happen, and the child never came back among the ones to place.
+         */
+        it('releases the children placed in the classes it cancels, in its transaction', async () => {
+            sessionRepo.createQueryBuilder!.mockReturnValue(
+                createMockQueryBuilder({
+                    many: [
+                        { id: 1, date: '2026-12-21', group: { id: 5, name: 'Scratch' } },
+                        { id: 2, date: '2026-12-22', group: { id: 6, name: 'Python' } },
+                    ] as never[],
+                }),
+            );
+            await service.create({ name: 'Vacanța de iarnă', startDate: '2026-12-21', endDate: '2027-01-07' });
+
+            expect(replacements.clearOn).toHaveBeenCalledWith(1, manager);
+            expect(replacements.clearOn).toHaveBeenCalledWith(2, manager);
+        });
+
+        /** A class with marks happened; the calendar changing its mind about the day does not undo it. */
+        it('leaves out the classes that already have marks', async () => {
+            const qb = createMockQueryBuilder({ many: [] });
+            sessionRepo.createQueryBuilder!.mockReturnValue(qb);
+
+            await service.impactOf({ startDate: '2026-12-21', endDate: '2027-01-07' });
+
+            expect(qb.andWhereCalls.map(([condition]) => condition)).toContain(
+                'NOT EXISTS (SELECT 1 FROM attendances marked WHERE marked.class_session_id = session.id)',
+            );
         });
 
         it('writes the period name into the cancelled session, so the reason survives', async () => {

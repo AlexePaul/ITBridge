@@ -6,6 +6,7 @@ import { ClassSession } from 'src/entities/class-session.entity';
 import { Location } from 'src/entities/location.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { addDays, parseIsoDate, toIsoDate } from './class-session.dates';
+import { ReplacementService } from 'src/modules/attendance/replacement.service';
 
 /**
  * The days on which the school does not teach — E12/S2.
@@ -31,6 +32,7 @@ export class NonTeachingPeriodService {
         @InjectRepository(ClassSession) private readonly classSessionRepository: Repository<ClassSession>,
         @InjectRepository(Location) private readonly locationRepository: Repository<Location>,
         @InjectDataSource() private readonly dataSource: DataSource,
+        private readonly replacements: ReplacementService,
     ) {}
 
     async findAll(): Promise<NonTeachingPeriod[]> {
@@ -85,6 +87,10 @@ export class NonTeachingPeriodService {
             .leftJoin('room.location', 'location')
             .where('session.date BETWEEN :start AND :end', { start: input.startDate, end: input.endDate })
             .andWhere('session.status = :status', { status: ClassSessionStatus.SCHEDULED })
+            // A class with marks against it happened, whatever the calendar now says about the day —
+            // the same line `cancelSession` draws. Cancelled, it would drop out of the month's count
+            // (E15/S9) with its children marked present in it.
+            .andWhere('NOT EXISTS (SELECT 1 FROM attendances marked WHERE marked.class_session_id = session.id)')
             .orderBy('session.date', 'ASC');
 
         if (input.locationId) {
@@ -169,6 +175,15 @@ export class NonTeachingPeriodService {
                     .set({ status: ClassSessionStatus.CANCELLED, notes: `Anulată automat: ${input.name}` })
                     .whereInIds(impact.affected.map((session) => session.id))
                     .execute();
+                // A child the office moved into one of these classes for the week is released, as a
+                // class cancelled by hand releases them — the review of 25 September 2026. Before,
+                // the placement kept pointing at a class that was off, so the child never came back
+                // among the ones to place, and the office's count said there was nobody to move.
+                // Nobody is written to, as before: a holiday is not news (S2), and the office's own
+                // list is what the release reaches.
+                for (const session of impact.affected) {
+                    await this.replacements.clearOn(session.id, manager);
+                }
             }
 
             this.logger.log(`Added "${input.name}" (${input.startDate}–${input.endDate}); cancelled ${impact.affected.length} class session(s).`);
