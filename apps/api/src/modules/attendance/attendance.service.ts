@@ -135,10 +135,11 @@ export class AttendanceService {
 
         const marks = await this.attendanceRepository.find({
             where: { classSession: { id: classSessionId } },
-            relations: { child: { parent: true } },
+            relations: { child: { parent: true, group: true } },
         });
         const markByChild = new Map(marks.map((mark) => [mark.child.id, mark]));
         const noticeByChild = await this.absenceNoticeService.forSession(classSessionId);
+        const groupChildIds = new Set(classSession.group.children.map((child) => child.id));
 
         const entryOf = (child: Child, type: AttendanceType) => {
             const mark = markByChild.get(child.id);
@@ -155,10 +156,12 @@ export class AttendanceService {
                 attendanceId: mark ? mark.id : null,
                 // What the family said, and whether they said it before the class — E12/S3.
                 announcedAbsence: notice ? { reason: notice.reason, inTime: notice.inTime } : null,
+                // A child from another group: the one they normally sit in, so the teacher knows
+                // who the stranger is. Null for the group's own.
+                visitingFrom: groupChildIds.has(child.id) ? null : (child.group?.name ?? null),
             };
         };
 
-        const groupChildIds = new Set(classSession.group.children.map((child) => child.id));
         const entries = classSession.group.children
             .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
             .map((child) => entryOf(child, AttendanceType.REGULAR));
@@ -168,6 +171,17 @@ export class AttendanceService {
             if (!groupChildIds.has(mark.child.id)) {
                 entries.push(entryOf(mark.child, mark.type));
             }
+        }
+        // And the children the office moved here for the week who have no mark yet — E12/S4, the
+        // end-to-end testing of 25 September 2026. The register listed a visitor only once they had
+        // a mark, and the phone screen, the one a teacher marks from, offers no way to add anyone:
+        // a moved child never appeared and could not be marked, because nothing on the screen knew
+        // they were coming. Listed as their mark will be typed, `make-up`.
+        const listed = new Set(entries.map((entry) => entry.childId));
+        for (const notice of await this.absenceNoticeService.placedIn(classSessionId)) {
+            if (listed.has(notice.child.id)) continue;
+            listed.add(notice.child.id);
+            entries.push(entryOf(notice.child, AttendanceType.MAKE_UP));
         }
 
         return {

@@ -124,6 +124,20 @@ describe('Issuing invoices from the registers (e2e)', () => {
             const res = await worksheet().expect(200);
             expect(res.body.families[0].alreadyInvoiced).toBe(true);
         });
+
+        // Finding 7 of the review of 25 September 2026: a register marked after the month was issued
+        // moved the worksheet's count while the invoice kept its sum, and the screen showed only
+        // "Deja facturat" — nothing said the two now disagree.
+        it('shows what the invoice says beside what the registers come to now', async () => {
+            const childId = await makeChild();
+            const [first, second] = await october();
+            await mark(first, childId, true);
+            await issue().expect(201);
+            await mark(second, childId, true);
+
+            const res = await worksheet().expect(200);
+            expect(res.body.families[0]).toMatchObject({ alreadyInvoiced: true, invoicedAmount: 87.5, amount: 175 });
+        });
     });
 
     describe('the rule, end to end', () => {

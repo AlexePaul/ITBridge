@@ -238,7 +238,7 @@ const MESSAGES: Record<string, string> = {
   // E12/S2. `PERIOD_OVERLAPS` and `PERIOD_ENDS_BEFORE_IT_STARTS` are deliberately absent: both
   // arrive already in Romanian, and the first names the period it collided with and its dates —
   // which is the whole answer. A generic line here would replace „se suprapune cu «Vacanța de
-  // iarnă» (2026-12-21 – 2027-01-07)" with „există deja o înregistrare cu aceste date".
+  // iarnă» (21 decembrie 2026 – 7 ianuarie 2027)" with „există deja o înregistrare cu aceste date".
 };
 
 /**

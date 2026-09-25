@@ -36,6 +36,9 @@
                   >
                     Probă
                   </UBadge>
+                  <UBadge v-if="visitorIds.has(child.id)" color="info" variant="subtle" size="sm">
+                    Recuperare
+                  </UBadge>
                 </div>
                 <template v-if="String(child?.group?.id) !== groupId">
                   <!-- The child's name in the label: on a register of ten, ten "Scoate" sound
@@ -206,6 +209,7 @@ import { DEFAULT_HORIZON_WEEKS, useClassSessionsApi } from "~/composables/api/us
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { generatedScheduleMessage } from "~/composables/useClassSessionSchedule";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
+import { childMatches } from "~/composables/useChildSearch";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
 import { useGroupsStore } from "~/stores/groupsStore";
@@ -318,16 +322,11 @@ definePageMeta({
  * `isAccountActive` are derived on the backend: a second copy of a value is free to disagree with
  * the first.
  */
-const filteredChildren = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase();
-  if (!query) return [];
-  return availableChildren.value.filter(
-    (child) =>
-      child.firstName.toLowerCase().includes(query) ||
-      child.lastName.toLowerCase().includes(query) ||
-      String(child.id).includes(query)
-  );
-});
+const filteredChildren = computed(() =>
+  searchQuery.value.trim()
+    ? availableChildren.value.filter((child) => childMatches(child, searchQuery.value))
+    : []
+);
 
 const addChildToList = (child: Child) => {
   // Avoid duplicates
@@ -346,6 +345,42 @@ const removeChildFromList = (childId: number) => {
   delete attendanceData[String(childId)];
   availableChildren.value.push(childrenStore.getChildById(childId) as Child);
 };
+
+/**
+ * The children the office moved into the selected class for the week — E12/S4.
+ *
+ * Read from the class's register, which lists them, and added the way a teacher adds a child by
+ * hand, so the switch and the save treat them like any other row. Until the end-to-end testing of
+ * 25 September 2026 the teacher had to know, by name, who had been moved here on another screen on
+ * another day. Swapped when the class changes: a visitor belongs to one class, not to the group.
+ */
+const visitorIds = ref<Set<number>>(new Set());
+
+watch(selectedSessionId, async (sessionId) => {
+  // Only those still on the list: one the teacher took off by hand is already back in the search,
+  // and taking it off twice would put it there twice.
+  for (const childId of visitorIds.value) {
+    if (children.value.some((row) => row.id === childId)) removeChildFromList(childId);
+  }
+  visitorIds.value = new Set();
+  if (!sessionId) return;
+  try {
+    const register = await attendanceApi.fetchSessionRegister(sessionId);
+    // A newer choice made while this one was loading wins.
+    if (selectedSessionId.value !== sessionId) return;
+    const added = new Set<number>();
+    for (const entry of register.entries) {
+      if (!entry.visitingFrom) continue;
+      const child = childrenStore.getChildById(entry.childId) as Child | undefined;
+      if (!child || children.value.some((row) => row.id === child.id)) continue;
+      addChildToList(child);
+      added.add(child.id);
+    }
+    visitorIds.value = added;
+  } catch {
+    // The search below still reaches every child; a visitor left for it is better than no register.
+  }
+});
 
 /**
  * The classes this screen can take a register for, and the selection that follows from them.

@@ -742,6 +742,15 @@ reprodus și are un test care pică pe codul de dinainte.
   emiterea, ori e refuzat. Bifa de vacanță scria și rândul întreg al orei citit înainte, deci o
   anulare venită între timp era pusă la loc; acum scrie doar bifa, și doar pe o oră care se ține.
 
+- **Un catalog marcat după emitere schimba fișa, iar ecranul nu spunea.** Marcajele nu stau sub
+  lacătul lunii — catalogul e al profesorului, nu al facturii —, deci o oră marcată după „emite"
+  mută numărătoarea fișei, iar factura își păstrează suma. Fișa arăta doar „Deja facturat" și
+  numărul nou de ședințe, adică exact cifra care nu era pe factură. Acum rândul unei familii
+  facturate poartă suma de pe factură (`invoicedAmount`), iar dedesubt, când diferă, ce ar da
+  cataloagele de acum. Îndreptarea rămâne a biroului (o stornare în SmartBill, o corectură pe luna
+  următoare); înghețarea cataloagelor unei luni facturate ar fi o decizie despre profesori, nu despre
+  facturi, și n-a luat-o nimeni.
+
 **Deciziile luate aici**, de revăzut dacă școala vede altfel:
 
 - **Ziua deciziei unei probe e gratuită întreagă**, chiar dacă biroul a decis înaintea orei ei: o

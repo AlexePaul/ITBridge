@@ -141,6 +141,12 @@
               {{ entry.announcedAbsence.reason }}
             </p>
 
+            <!-- A child from another group (E12/S4): the teacher has not met them, so the register
+                 says who they are before the tap. -->
+            <p v-if="entry.visitingFrom" class="text-sm text-muted">
+              Vine de la grupa {{ entry.visitingFrom }}, mutat aici pe săptămâna asta.
+            </p>
+
             <!-- The whole job: two targets a thumb cannot miss. -->
             <div class="grid grid-cols-2 gap-2">
               <UButton

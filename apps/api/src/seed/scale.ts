@@ -103,8 +103,8 @@ async function load(dataSource: DataSource, shape: ScaleShape): Promise<void> {
 
     // One class a week per group, counting back from today so the newest rows are current.
     await q(
-        `INSERT INTO class_sessions (group_id, room_id, date, "startTime", "endTime", status, "isVacation")
-         SELECT gr.id, gr.room_id, CURRENT_DATE - (w * 7), '16:00:00', '17:30:00', 'scheduled', false
+        `INSERT INTO class_sessions (group_id, room_id, date, "scheduledFor", "startTime", "endTime", status, "isVacation")
+         SELECT gr.id, gr.room_id, CURRENT_DATE - (w * 7), CURRENT_DATE - (w * 7), '16:00:00', '17:30:00', 'scheduled', false
          FROM groups gr, generate_series(0, $1::int - 1) w`,
         [shape.weeks],
     );

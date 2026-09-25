@@ -60,6 +60,11 @@ export interface SessionRegisterEntry {
      * which is a different fact from "announced and turned up anyway".
      */
     announcedAbsence: { reason: string; inTime: boolean } | null;
+    /**
+     * For a child from another group — moved here for the week (E12/S4), or marked here anyway —
+     * the name of the group they normally attend. `null` for the group's own children.
+     */
+    visitingFrom: string | null;
 }
 
 /**

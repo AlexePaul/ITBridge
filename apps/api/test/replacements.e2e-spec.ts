@@ -158,6 +158,30 @@ describe('Temporary group moves (e2e)', () => {
             expect((await mailTo('parinte.mutari@example.com')).filter((row) => row.subject.includes('Ana')).length).toBe(2);
         });
 
+        // The end-to-end testing of 25 September 2026: the host class's register listed a moved child
+        // only once somebody had marked them, and the phone screen a teacher marks from cannot add
+        // anybody — so nobody could.
+        it("lists the moved child on the host class's register, and a tap there marks a make-up", async () => {
+            await place(hostSessionId).expect(200);
+            const register = () =>
+                request(app.getHttpServer())
+                    .get(`/attendance/session/${hostSessionId}/register`)
+                    .set('Authorization', admin.auth)
+                    .expect(200)
+                    .then((res) => res.body.entries as { childId: number }[]);
+
+            expect(await register()).toEqual([expect.objectContaining({ childId, type: 'make-up', present: null, visitingFrom: 'Scratch Începători' })]);
+
+            await request(app.getHttpServer())
+                .put(`/attendance/session/${hostSessionId}/child/${childId}`)
+                .set('Authorization', admin.auth)
+                .send({ present: true })
+                .expect(200);
+
+            // Once, now with the mark on it.
+            expect(await register()).toEqual([expect.objectContaining({ childId, type: 'make-up', present: true, visitingFrom: 'Scratch Începători' })]);
+        });
+
         it('clearing the move says nothing to anybody — the absence stands', async () => {
             await place(hostSessionId).expect(200);
 

@@ -42,6 +42,8 @@ export interface InvoiceWorksheetRow {
     parentName: string;
     email: string | null;
     alreadyInvoiced: boolean;
+    /** What the family's invoice for the month says, when there is one — `amount` is what the registers come to now. */
+    invoicedAmount: number | null;
     /** What the family will be billed after the month's discounts — read, so the screen shows what the server will write. */
     amount: number;
     children: {
@@ -501,7 +503,7 @@ export class InvoiceService {
         const month = await this.billable.countForMonth(monthIssued);
 
         const invoiced = await this.invoiceRepository.find({ where: { monthIssued }, relations: { parent: true } });
-        const invoicedParentIds = new Set(invoiced.map((invoice) => invoice.parent?.id));
+        const invoicedAmountByParent = new Map(invoiced.map((invoice) => [invoice.parent?.id, invoice.amount]));
 
         const overrides = await this.overrideRepository.find({ where: { monthIssued }, relations: { child: true } });
         const overrideByChild = new Map(overrides.map((row) => [row.child.id, row]));
@@ -538,7 +540,8 @@ export class InvoiceService {
                 parentId: parent.id,
                 parentName: `${parent.lastName} ${parent.firstName}`,
                 email: parent.email ?? null,
-                alreadyInvoiced: invoicedParentIds.has(parent.id),
+                alreadyInvoiced: invoicedAmountByParent.has(parent.id),
+                invoicedAmount: invoicedAmountByParent.get(parent.id) ?? null,
                 amount: sessionAmountAfterDiscounts(
                     children.map((child) => child.sessions),
                     own,

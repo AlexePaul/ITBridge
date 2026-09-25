@@ -7,6 +7,7 @@ import { Location } from 'src/entities/location.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { addDays, parseIsoDate, toIsoDate } from './class-session.dates';
 import { ReplacementService } from 'src/modules/attendance/replacement.service';
+import { romanianDateRange } from 'src/modules/mail/romanian-date';
 
 /**
  * The days on which the school does not teach — E12/S2.
@@ -154,7 +155,7 @@ export class NonTeachingPeriodService {
 
         if (overlapping) {
             throw new ConflictException({
-                message: `Intervalul se suprapune cu „${overlapping.name}" (${overlapping.startDate} – ${overlapping.endDate})`,
+                message: `Intervalul se suprapune cu „${overlapping.name}" (${romanianDateRange(overlapping.startDate, overlapping.endDate)})`,
                 error: 'PERIOD_OVERLAPS',
             });
         }

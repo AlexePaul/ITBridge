@@ -91,9 +91,23 @@
                 <p v-if="family.email" class="text-sm text-muted">{{ family.email }}</p>
               </div>
               <div class="text-right shrink-0">
-                <UBadge v-if="family.alreadyInvoiced" color="neutral" variant="subtle">
-                  Deja facturat
-                </UBadge>
+                <template v-if="family.alreadyInvoiced">
+                  <UBadge color="neutral" variant="subtle">Deja facturat</UBadge>
+                  <p
+                    v-if="family.invoicedAmount !== null"
+                    class="font-bold text-lg tabular-nums mt-1"
+                  >
+                    {{ formatLei(family.invoicedAmount) }}
+                  </p>
+                  <!-- A register marked after the month was issued: the invoice keeps its sum, and
+                       the office should see that the registers now say otherwise. -->
+                  <p
+                    v-if="family.invoicedAmount !== null && family.invoicedAmount !== family.amount"
+                    class="text-xs text-muted mt-1 max-w-48"
+                  >
+                    Cataloagele de acum ar da {{ formatLei(family.amount) }}.
+                  </p>
+                </template>
                 <template v-else-if="family.amount === 0">
                   <UBadge color="info" variant="subtle">Fără plată</UBadge>
                   <p class="text-xs text-muted mt-1">se consemnează, fără factură</p>

@@ -551,6 +551,7 @@ describe('InvoiceService', () => {
                 parentName: 'Pop Ana',
                 email: 'ana@example.com',
                 alreadyInvoiced: false,
+                invoicedAmount: null,
                 // 2 × 87,50 — the same number the invoice will carry, so the screen shows it.
                 amount: 175,
                 children: [expect.objectContaining({ childId: 5, childName: 'Maria Pop', groupName: 'Scratch', weekday: 1, sessions: 2 })],
@@ -587,13 +588,13 @@ describe('InvoiceService', () => {
             expect(profileRepo.find).not.toHaveBeenCalled();
         });
 
-        it('marks a family that already has an invoice for the month', async () => {
-            invoiceRepo.find!.mockResolvedValue([{ id: 9, parent: { id: 1 } }]);
+        it('marks a family that already has an invoice for the month, with what the invoice says', async () => {
+            invoiceRepo.find!.mockResolvedValue([{ id: 9, amount: 87.5, parent: { id: 1 } }]);
 
             // This is what makes the screen safe to run a second time after somebody enrols on the
             // fifth: `@Unique(['parent', 'monthIssued'])` fails the whole pass otherwise.
             const sheet = await service.getWorksheet('2026-10');
-            expect(sheet.families[0].alreadyInvoiced).toBe(true);
+            expect(sheet.families[0]).toMatchObject({ alreadyInvoiced: true, invoicedAmount: 87.5, amount: 175 });
         });
     });
 
