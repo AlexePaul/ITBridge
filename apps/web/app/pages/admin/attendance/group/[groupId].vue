@@ -357,7 +357,11 @@ const removeChildFromList = (childId: number) => {
 const visitorIds = ref<Set<number>>(new Set());
 
 watch(selectedSessionId, async (sessionId) => {
-  for (const childId of visitorIds.value) removeChildFromList(childId);
+  // Only those still on the list: one the teacher took off by hand is already back in the search,
+  // and taking it off twice would put it there twice.
+  for (const childId of visitorIds.value) {
+    if (children.value.some((row) => row.id === childId)) removeChildFromList(childId);
+  }
   visitorIds.value = new Set();
   if (!sessionId) return;
   try {
