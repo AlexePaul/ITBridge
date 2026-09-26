@@ -28,11 +28,25 @@ export interface ParsedStatementLine {
     reference: string | null;
 }
 
+/**
+ * Why a row was not read — a code, not a sentence: the office reads it, so the Romanian words stay
+ * beside the screen (`STATEMENT_ROW_PROBLEM_LABELS`). They went out as English sentences until the
+ * QA of 26 September 2026 — "unreadable date", "no amount could be read" — straight onto the page.
+ */
+export type StatementRowProblem = 'unreadable_date' | 'no_date' | 'no_amount';
+
+export interface UnreadableStatementRow {
+    row: number;
+    problem: StatementRowProblem;
+    /** The date cell as the file wrote it, when there was one — the page quotes it. */
+    cell: string | null;
+}
+
 export interface StatementParse {
     lines: ParsedStatementLine[];
     /** Outgoing rows, skipped. Counted so the screen can say nothing was lost, only set aside. */
     debits: number;
-    unreadable: { row: number; reason: string }[];
+    unreadable: UnreadableStatementRow[];
     /** The header cells the reader used, as written in the file, so a wrong pick can be seen. */
     columns: { date: string; amount: string; description: string | null; counterparty: string | null; reference: string | null };
 }
@@ -156,11 +170,11 @@ export function parseStatement(content: string): StatementParse {
 
         const bookedOn = parseStatementDate(dateCell);
         if (!bookedOn) {
-            result.unreadable.push({ row: line, reason: dateCell ? `unreadable date "${dateCell}"` : 'no date — probably a total or a balance row' });
+            result.unreadable.push(dateCell ? { row: line, problem: 'unreadable_date', cell: dateCell } : { row: line, problem: 'no_date', cell: null });
             continue;
         }
         if (signed === null) {
-            result.unreadable.push({ row: line, reason: 'no amount could be read' });
+            result.unreadable.push({ row: line, problem: 'no_amount', cell: dateCell || null });
             continue;
         }
         if (signed <= 0) {

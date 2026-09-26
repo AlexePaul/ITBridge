@@ -28,8 +28,18 @@ describe('parseStatement', () => {
         ]);
         expect(parsed.debits).toBe(1);
         // A total row is reported, never swallowed: a statement that loses a line is worse than one that complains.
-        expect(parsed.unreadable).toEqual([{ row: 9, reason: 'unreadable date "Total rulaje"' }]);
+        expect(parsed.unreadable).toEqual([{ row: 9, problem: 'unreadable_date', cell: 'Total rulaje' }]);
         expect(parsed.columns).toMatchObject({ date: 'Data tranzactie', amount: 'Credit', description: 'Descriere' });
+    });
+
+    it('names why a row was not read, as a code the page can say in Romanian', () => {
+        const parsed = parseStatement(['Data;Credit;Detalii', ';1.550,00;Sold final', '05.11.2026;;OP fara suma', '05.11.2026;350,00;ITB 41'].join('\n'));
+
+        expect(parsed.unreadable).toEqual([
+            { row: 2, problem: 'no_date', cell: null },
+            { row: 3, problem: 'no_amount', cell: '05.11.2026' },
+        ]);
+        expect(parsed.lines).toHaveLength(1);
     });
 
     it('reads a signed amount, English headers and ISO dates', () => {

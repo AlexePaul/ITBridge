@@ -12,6 +12,9 @@ export type StatementLineState = 'waiting' | 'matched' | 'ignored';
 /** By the invoice's fiscal reference in the details (sure), or by the payer's name and the exact sum (a proposal). */
 export type MatchConfidence = 'reference' | 'name';
 
+/** Why a statement row was not read. The screen says it in Romanian; the wire carries the code. */
+export type StatementRowProblem = 'unreadable_date' | 'no_date' | 'no_amount';
+
 /** `POST /reconciliation/statements`. */
 export interface StatementImportResult {
     credits: number;
@@ -19,7 +22,8 @@ export interface StatementImportResult {
     /** Lines an earlier import already brought in. */
     duplicates: number;
     debits: number;
-    unreadable: { row: number; reason: string }[];
+    /** `cell` is the date cell as the file wrote it, when there was one. */
+    unreadable: { row: number; problem: StatementRowProblem; cell: string | null }[];
     /** The header cells the reader used, as the file wrote them. */
     columns: {
         date: string;

@@ -8,9 +8,10 @@ export type {
   StatementLineSuggestion,
   StatementLinesPage,
   StatementLineView,
+  StatementRowProblem,
 } from "@itbridge/types";
 
-import type { DivergenceReason } from "@itbridge/types";
+import type { DivergenceReason, StatementRowProblem } from "@itbridge/types";
 
 /**
  * What each divergence means, and where it is fixed — E16/S8. Here and not in `@itbridge/types`:
@@ -40,4 +41,22 @@ export const STATEMENT_LINE_STATE_LABELS: Record<
 export const MATCH_CONFIDENCE_LABELS: Record<import("@itbridge/types").MatchConfidence, string> = {
   reference: "după numărul facturii",
   name: "după nume și sumă",
+};
+
+/**
+ * Why a statement row was not read, in the office's words. The server sends a code: until the QA
+ * of 26 September 2026 it sent English sentences ("no amount could be read"), printed as they came.
+ */
+export const describeUnreadableRow = (
+  problem: StatementRowProblem,
+  cell: string | null
+): string => {
+  switch (problem) {
+    case "unreadable_date":
+      return `„${cell ?? ""}” nu e o dată`;
+    case "no_date":
+      return "n-are dată — probabil un total sau un sold";
+    case "no_amount":
+      return "n-are nicio sumă care să poată fi citită";
+  }
 };

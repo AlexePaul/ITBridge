@@ -63,15 +63,23 @@
 
         <div v-if="lastImport" class="text-sm" role="status">
           <p>
-            <strong>{{ lastImport.imported }} încasări noi</strong> din {{ lastImport.credits
+            <strong>{{
+              lastImport.imported === 1 ? "O încasare nouă" : `${lastImport.imported} încasări noi`
+            }}</strong>
+            din {{ lastImport.credits
             }}<template v-if="lastImport.duplicates">
               ({{ lastImport.duplicates }} erau deja importate)</template
-            >; {{ lastImport.debits }} plăți ieșite puse deoparte. Cu propunere:
-            {{ lastImport.suggested }} din {{ lastImport.imported }}
-            <template v-if="lastImport.imported"
-              >({{ Math.round((lastImport.suggested / lastImport.imported) * 100) }}%), dintre care
-              {{ lastImport.suggestedByReference }} după numărul facturii</template
-            >.
+            >;
+            {{
+              lastImport.debits === 1
+                ? "o plată ieșită pusă deoparte"
+                : `${lastImport.debits} plăți ieșite puse deoparte`
+            }}.
+            <template v-if="lastImport.imported">
+              Cu propunere: {{ lastImport.suggested }} din {{ lastImport.imported }} ({{
+                Math.round((lastImport.suggested / lastImport.imported) * 100)
+              }}%), dintre care {{ lastImport.suggestedByReference }} după numărul facturii.
+            </template>
           </p>
           <p class="text-muted">
             Coloanele folosite: data din „{{ lastImport.columns.date }}”, suma din „{{
@@ -82,7 +90,8 @@
           </p>
           <ul v-if="lastImport.unreadable.length" class="text-warning mt-1">
             <li v-for="problem in lastImport.unreadable" :key="problem.row">
-              Rândul {{ problem.row }} nu s-a putut citi ({{ problem.reason }}).
+              Rândul {{ problem.row }} nu s-a putut citi:
+              {{ describeUnreadableRow(problem.problem, problem.cell) }}.
             </li>
           </ul>
         </div>
@@ -265,10 +274,12 @@ import { useNotifications } from "~/composables/useNotifications";
 import { formatDateKey, formatLei, formatMonth } from "~/composables/useAdminFormat";
 import { useReconciliationApi } from "~/composables/api/useReconciliationApi";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
+import { readStatementFile } from "~/composables/useStatementFile";
 import {
   DIVERGENCE_REASON_LABELS,
   MATCH_CONFIDENCE_LABELS,
   STATEMENT_LINE_STATE_LABELS,
+  describeUnreadableRow,
   type FiscalDivergenceReport,
   type FiscalDivergenceRow,
   type StatementImportResult,
@@ -362,7 +373,9 @@ const onFile = async (event: Event) => {
   const file = input.files?.[0];
   input.value = "";
   if (!file) return;
-  const content = await file.text();
+  // A summary left from the previous file would read as this file's (QA of 26 September 2026).
+  lastImport.value = null;
+  const content = await readStatementFile(file);
   if (content.length > MAX_STATEMENT_CHARS) {
     error("Extrasul e prea mare pentru un singur import — exportă-l o lună o dată.");
     return;
