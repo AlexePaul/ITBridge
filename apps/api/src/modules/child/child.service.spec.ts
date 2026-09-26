@@ -1,12 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ChildService } from './child.service';
 import { Child } from 'src/entities/child.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Group } from 'src/entities/group.entity';
 import { Attendance } from 'src/entities/attendance.entity';
 import { Project } from 'src/entities/project.entity';
+import { Enrollment } from 'src/entities/enrollment.entity';
+import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Role } from 'src/enum/role.enum';
+import { PublicationConsentService } from 'src/modules/privacy/publication-consent.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import {
@@ -34,6 +37,10 @@ describe('ChildService', () => {
     let groupRepo: MockRepository;
     let attendanceRepo: MockRepository;
     let projectRepo: MockRepository;
+    let enrollmentRepo: MockRepository;
+    let waitlistRepo: MockRepository;
+    /** A deleted child's consent is announced to the office, as at an erasure — E07/S2. */
+    let consents: { announceErasure: jest.Mock };
     /** The transaction each write opens: the row and its audit trail share it — E07/S3. */
     let manager: MockEntityManager;
     let enrollments: Record<string, jest.Mock>;
@@ -50,11 +57,16 @@ describe('ChildService', () => {
         groupRepo = createMockRepository();
         attendanceRepo = createMockRepository();
         projectRepo = createMockRepository();
+        enrollmentRepo = createMockRepository();
+        waitlistRepo = createMockRepository();
         manager = createMockEntityManager();
         // Nothing recorded against the child unless a test says so: `deleteChild` looks before it
         // deletes, and an unstubbed `exists` returns `undefined`, which reads as "there is nothing".
         attendanceRepo.exists!.mockResolvedValue(false);
         projectRepo.exists!.mockResolvedValue(false);
+        enrollmentRepo.exists!.mockResolvedValue(false);
+        waitlistRepo.exists!.mockResolvedValue(false);
+        consents = { announceErasure: jest.fn().mockResolvedValue(0) };
         enrollments = {
             enrol: jest.fn().mockResolvedValue({ id: 9 }),
             close: jest.fn().mockResolvedValue({ id: 9 }),
@@ -75,7 +87,10 @@ describe('ChildService', () => {
                 provideMockRepository(Group, groupRepo),
                 provideMockRepository(Attendance, attendanceRepo),
                 provideMockRepository(Project, projectRepo),
+                provideMockRepository(Enrollment, enrollmentRepo),
+                provideMockRepository(WaitlistEntry, waitlistRepo),
                 { provide: EnrollmentService, useValue: enrollments },
+                { provide: PublicationConsentService, useValue: consents },
                 provideMockDataSource(manager),
             ],
         }).compile();
@@ -139,6 +154,26 @@ describe('ChildService', () => {
             await expect(
                 service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5, ACTOR),
             ).rejects.toThrow(ForbiddenException);
+        });
+
+        /**
+         * The school's day, not the server's: 21:30 UTC on the 26th is already the 27th in Bucharest,
+         * so a child born that day is born by today, and the 28th is not.
+         */
+        it('refuses a birth date after the school day, and writes nothing', async () => {
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 10 });
+            childRepo.create!.mockReturnValue({});
+            manager.save.mockResolvedValue({ id: 1 });
+            const lateEvening = new Date('2026-09-26T21:30:00Z');
+
+            await expect(
+                service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2026-09-28' }, Role.PARENT, 5, ACTOR, lateEvening),
+            ).rejects.toMatchObject({ response: { error: 'BIRTH_DATE_IN_FUTURE' } });
+            expect(manager.save).not.toHaveBeenCalled();
+
+            await expect(
+                service.createChild({ parentId: 10, firstName: 'Ion', lastName: 'Pop', birthDate: '2026-09-27' }, Role.PARENT, 5, ACTOR, lateEvening),
+            ).resolves.toEqual({ id: 1 });
         });
     });
 
@@ -213,6 +248,23 @@ describe('ChildService', () => {
             childRepo.findOne!.mockResolvedValue(null);
             await expect(service.updateChild(99, {}, Role.ADMIN, 5, ACTOR)).rejects.toThrow(NotFoundException);
         });
+
+        it('refuses a birth date corrected to a day after today, and writes nothing', async () => {
+            childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
+
+            await expect(service.updateChild(1, { birthDate: '2026-10-01' }, Role.PARENT, 5, ACTOR, new Date('2026-09-26T10:00:00Z'))).rejects.toThrow(
+                BadRequestException,
+            );
+            expect(manager.save).not.toHaveBeenCalled();
+        });
+
+        it('forbids a stranger before it judges the date', async () => {
+            childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
+
+            await expect(service.updateChild(1, { birthDate: '2026-10-01' }, Role.PARENT, 5, ACTOR, new Date('2026-09-26T10:00:00Z'))).rejects.toThrow(
+                ForbiddenException,
+            );
+        });
     });
 
     describe('deleteChild', () => {
@@ -252,7 +304,7 @@ describe('ChildService', () => {
                 return Promise.resolve();
             });
 
-            await service.deleteChild(1, Role.PARENT, 5, ACTOR);
+            await service.deleteChild(1, Role.ADMIN, 999, ACTOR);
 
             expect(order).toEqual(['lock', 'delete', 'offer']);
             expect(enrollments.lockSeatsHeldBy).toHaveBeenCalledWith([1], manager);
@@ -267,7 +319,7 @@ describe('ChildService', () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
             attendanceRepo.exists!.mockResolvedValue(true);
 
-            await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).rejects.toMatchObject({
+            await expect(service.deleteChild(1, Role.ADMIN, 999, ACTOR)).rejects.toMatchObject({
                 response: { error: 'CHILD_HAS_ATTENDANCE' },
             });
             expect(manager.delete).not.toHaveBeenCalled();
@@ -288,8 +340,66 @@ describe('ChildService', () => {
         it('forbids before it explains', async () => {
             childRepo.findOne!.mockResolvedValue(childOwnedBy(999));
             attendanceRepo.exists!.mockResolvedValue(true);
+            enrollmentRepo.exists!.mockResolvedValue(true);
 
             await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).rejects.toThrow(ForbiddenException);
+        });
+
+        /**
+         * Terms §5: only the school enrols, moves or withdraws a child. Deleting an enrolled child from
+         * the portal did all three through the cascade, so a parent removes only a row the school has
+         * no record of — and hears that before anything about the register.
+         */
+        it('refuses a parent a child the school has enrolled, even never marked, and deletes nothing', async () => {
+            childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
+            enrollmentRepo.exists!.mockResolvedValue(true);
+            attendanceRepo.exists!.mockResolvedValue(true);
+
+            await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).rejects.toMatchObject({
+                response: { error: 'CHILD_HAS_ENROLMENTS' },
+            });
+            expect(enrollmentRepo.exists).toHaveBeenCalledWith({ where: { child: { id: 1 } } });
+            expect(manager.delete).not.toHaveBeenCalled();
+        });
+
+        it('refuses a parent a child on a waiting list, and deletes nothing', async () => {
+            childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
+            waitlistRepo.exists!.mockResolvedValue(true);
+
+            await expect(service.deleteChild(1, Role.PARENT, 5, ACTOR)).rejects.toMatchObject({
+                response: { error: 'CHILD_ON_WAITLIST' },
+            });
+            expect(manager.delete).not.toHaveBeenCalled();
+        });
+
+        /** The office keeps its tool for a child added, and placed, in error. */
+        it('does not ask the office about enrolments', async () => {
+            childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
+            enrollmentRepo.exists!.mockResolvedValue(true);
+            waitlistRepo.exists!.mockResolvedValue(true);
+
+            await service.deleteChild(1, Role.ADMIN, 999, ACTOR);
+
+            expect(manager.delete).toHaveBeenCalledWith(Child, 1);
+        });
+
+        /** The consent row goes with the child, so the office hears it went — before the cascade takes it. */
+        it('announces a consent in force to the office, in the transaction and before the delete', async () => {
+            childRepo.findOne!.mockResolvedValue(childOwnedBy(5));
+            const order: string[] = [];
+            consents.announceErasure.mockImplementation(() => {
+                order.push('announce');
+                return Promise.resolve(1);
+            });
+            manager.delete.mockImplementation(() => {
+                order.push('delete');
+                return Promise.resolve({ affected: 1 });
+            });
+
+            await service.deleteChild(1, Role.PARENT, 5, ACTOR);
+
+            expect(order).toEqual(['announce', 'delete']);
+            expect(consents.announceErasure).toHaveBeenCalledWith([1], manager, 'odată cu ștergerea copilului din evidență');
         });
     });
 

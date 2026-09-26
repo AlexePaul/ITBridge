@@ -91,6 +91,15 @@ const MESSAGES: Record<string, string> = {
   CHILD_HAS_PROJECTS:
     "Copilul are lucrări încărcate. Șterge întâi lucrările, sau fă ștergerea din Ștergeri.",
 
+  // Terms §5–6: a family adds and corrects its children from Profil, and removes only a row the
+  // school has no record of. Only a parent reaches the last two, so they are written for one: the
+  // next step is the office's.
+  BIRTH_DATE_IN_FUTURE: "Data nașterii nu poate fi după ziua de azi.",
+  CHILD_HAS_ENROLMENTS:
+    "Copilul a fost înscris la școală, deci îl scoatem noi din evidență. Scrie-ne sau sună-ne.",
+  CHILD_ON_WAITLIST:
+    "Copilul e pe lista de așteptare a unei grupe. Ca să-l scoatem, scrie-ne sau sună-ne.",
+
   // E08. "Există deja o înregistrare cu aceste date" is true of all of these and useful for none:
   // an admin who has just double-booked a room needs to know that is what happened.
   GROUP_SLOT_TAKEN: "Sala este deja ocupată în acest interval de altă grupă.",

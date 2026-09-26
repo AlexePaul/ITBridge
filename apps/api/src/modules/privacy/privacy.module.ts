@@ -37,11 +37,14 @@ import { EnrollmentModule } from 'src/modules/enrollment/enrollment.module';
  *
  * `EnrollmentModule` because an erased child's seat is a freed seat, and the waiting list for it is
  * told through the one door every release goes through.
+ *
+ * `PublicationConsentService` is exported for `ChildService.deleteChild`: a child removed on its own
+ * takes its consent with it, and the office hears about it the way it does at an erasure.
  */
 @Module({
     imports: [EntitiesModule, TypeOrmModule.forFeature([]), JwtModule.register({}), AuditModule, StorageModule, InvoiceModule, MailModule, EnrollmentModule],
     controllers: [PrivacyController, ConsentController],
     providers: [ExportService, ErasureService, RetentionService, RetentionJob, PublicationConsentService, AuthGuard, RolesGuard],
-    exports: [ExportService, ErasureService],
+    exports: [ExportService, ErasureService, PublicationConsentService],
 })
 export class PrivacyModule {}

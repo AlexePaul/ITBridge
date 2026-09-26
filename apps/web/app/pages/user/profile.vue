@@ -54,22 +54,83 @@
 
           <div v-else class="children">
             <div v-for="child in profile.children" :key="child.id" class="child-row">
-              <p class="portal-when">{{ child.firstName }} {{ child.lastName }}</p>
-              <p class="portal-where">născut(ă) pe {{ formatDateKey(child.birthDate) }}</p>
-              <p v-if="child.group" class="portal-where">
-                {{ child.group.name }} · {{ getWeekdayName(child.group.weekday).toLowerCase() }}
-                {{ formatTime(child.group.startTime) }}–{{ formatTime(child.group.endTime) }}
-                <template v-if="child.group.room?.location">
-                  · {{ child.group.room.location.name }}
-                </template>
-              </p>
-              <p v-else class="portal-where">Încă nu e repartizat(ă) într-o grupă.</p>
+              <PortalChildForm
+                v-if="editingChildId === child.id"
+                :parent-id="profile.id"
+                :child="child"
+                submit-label="Salvează"
+                @saved="onChildSaved"
+                @cancel="editingChildId = null"
+              />
+              <template v-else>
+                <p class="portal-when">{{ child.firstName }} {{ child.lastName }}</p>
+                <p class="portal-where">născut(ă) pe {{ formatDateKey(child.birthDate) }}</p>
+                <p v-if="child.group" class="portal-where">
+                  {{ child.group.name }} · {{ getWeekdayName(child.group.weekday).toLowerCase() }}
+                  {{ formatTime(child.group.startTime) }}–{{ formatTime(child.group.endTime) }}
+                  <template v-if="child.group.room?.location">
+                    · {{ child.group.room.location.name }}
+                  </template>
+                </p>
+                <p v-else class="portal-where">Încă nu e repartizat(ă) într-o grupă.</p>
+
+                <!--
+                  Each control names its child: a row of identical „Corectează" buttons is a list of
+                  identical entries for whoever navigates by controls (E18/S6). Removal is offered
+                  only where the school has placed the child nowhere — the server refuses the rest
+                  (CHILD_HAS_ENROLMENTS), since only the school withdraws a child (terms §5) — and
+                  asks twice, like every control on this page that cannot be taken back.
+                -->
+                <div class="child-actions">
+                  <button
+                    type="button"
+                    class="link link-button child-action"
+                    :aria-label="`Corectează datele: ${child.firstName} ${child.lastName}`"
+                    :disabled="childFormOpen || removingChildId !== null"
+                    @click="startEditing(child.id)"
+                  >
+                    Corectează datele
+                  </button>
+                  <button
+                    v-if="!child.group"
+                    type="button"
+                    class="link link-button child-action"
+                    :aria-label="
+                      confirmingRemovalOf === child.id
+                        ? `Sigur? Apasă din nou ca să ștergi: ${child.firstName} ${child.lastName}`
+                        : `Șterge din cont: ${child.firstName} ${child.lastName}`
+                    "
+                    :disabled="childFormOpen || removingChildId !== null"
+                    @click="onRemoveChild(child.id, child.firstName)"
+                  >
+                    {{ confirmingRemovalOf === child.id ? "Sigur? Apasă din nou" : "Șterge" }}
+                  </button>
+                </div>
+              </template>
             </div>
           </div>
 
+          <PortalChildForm
+            v-if="addingChild"
+            :parent-id="profile.id"
+            submit-label="Adaugă copilul"
+            @saved="onChildSaved"
+            @cancel="addingChild = false"
+          />
+          <button
+            v-else
+            type="button"
+            class="btn btn-secondary details-action"
+            :disabled="childFormOpen || removingChildId !== null"
+            @click="startAdding"
+          >
+            Adaugă un copil
+          </button>
+
           <p class="note">
-            Pentru schimbarea grupei sau orice altă modificare, scrie-ne sau sună la
-            <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
+            Adăugarea nu înscrie copilul într-o grupă: grupa o alegem împreună, iar înscrierea o
+            facem la școală, cu contractul. Pentru grupă sau orice altă schimbare, scrie-ne sau sună
+            la <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
             >.
           </p>
         </div>
@@ -400,6 +461,7 @@ import { MIN_PASSWORD_LENGTH } from "~/composables/useAuthForms";
 import { computed, onMounted, ref } from "vue";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { usePrivacyApi } from "~/composables/api/usePrivacyApi";
+import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useProfileStore } from "~/stores/profileStore";
 import { useUserStore } from "~/stores/userStore";
 import { useAuthApi } from "~/composables/api/useAuthApi";
@@ -439,6 +501,7 @@ definePageMeta({
 const profileApi = useProfileApi();
 const authApi = useAuthApi();
 const privacyApi = usePrivacyApi();
+const childrenApi = useChildrenApi();
 const profileStore = useProfileStore();
 const userStore = useUserStore();
 const tokenStore = useTokenStore();
@@ -462,6 +525,61 @@ const erasureRequestedAt = computed(() => profile.value?.erasureRequestedAt ?? n
 
 const profile = computed(() => profileStore.profile);
 const emailConfirmed = computed(() => Boolean(userStore.user?.emailConfirmed));
+
+/**
+ * The children, added and corrected here — terms §5 and §6, privacy notice §8. One form open at a
+ * time: two open forms would be two sets of fields with the same labels, and a parent who is
+ * correcting one child is not adding another in the same breath.
+ */
+const addingChild = ref(false);
+const editingChildId = ref<number | null>(null);
+const childFormOpen = computed(() => addingChild.value || editingChildId.value !== null);
+/** First press arms, second one removes — as for the account itself, further down. */
+const confirmingRemovalOf = ref<number | null>(null);
+const removingChildId = ref<number | null>(null);
+
+const startAdding = () => {
+  confirmingRemovalOf.value = null;
+  addingChild.value = true;
+};
+
+const startEditing = (childId: number) => {
+  confirmingRemovalOf.value = null;
+  editingChildId.value = childId;
+};
+
+/**
+ * Everything on this page that lists the children is read again: the list above, and the consent
+ * switches, which have one row per child. The other portal screens ask for the children when they
+ * open, so they need nothing from here.
+ */
+const refreshChildren = async () => {
+  await Promise.all([loadProfile(), loadConsents()]);
+};
+
+const onChildSaved = async () => {
+  addingChild.value = false;
+  editingChildId.value = null;
+  await refreshChildren();
+};
+
+const onRemoveChild = async (childId: number, firstName: string) => {
+  if (confirmingRemovalOf.value !== childId) {
+    confirmingRemovalOf.value = childId;
+    return;
+  }
+  removingChildId.value = childId;
+  try {
+    await childrenApi.deleteChild(childId);
+    success(`Am șters din cont copilul ${firstName}.`);
+    await refreshChildren();
+  } catch (err) {
+    notifyError("Nu am putut șterge copilul", apiErrorMessage(err));
+  } finally {
+    removingChildId.value = null;
+    confirmingRemovalOf.value = null;
+  }
+};
 
 /**
  * Assembled here rather than split into three rows, because it is one fact: who to call. Partial
@@ -823,6 +941,25 @@ const onToggle = async (event: Event) => {
 
 .child-row .portal-where {
   margin-top: 4px;
+}
+
+.child-actions {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+/* A link to read, a 44px target to press — E18/S7, on the parent's path. */
+.child-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.child-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .marketing {

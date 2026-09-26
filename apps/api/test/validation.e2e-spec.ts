@@ -66,10 +66,14 @@ describe('Request validation (e2e)', () => {
             }).expect(400);
         });
 
+        /**
+         * Named in the words the reader uses: the child's form answers a parent in Romanian since the
+         * portal adds children too, so the field is „Prenumele copilului", not `firstName`.
+         */
         it('reports which field was wrong, not just that something was', async () => {
             const res = await post('/children', { parentId, lastName: 'Pop', birthDate: '2016-01-01' }).expect(400);
 
-            expect(JSON.stringify(res.body)).toContain('firstName');
+            expect((res.body.details as string[]).join(' ')).toContain('Prenumele copilului');
         });
 
         it('accepts a well-formed body', async () => {

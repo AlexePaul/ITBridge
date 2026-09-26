@@ -19,6 +19,23 @@ import { changedFieldNames } from 'src/modules/audit/personal-fields';
 import { assertNotErased } from 'src/modules/privacy/erasure.rules';
 import { Invoice } from 'src/entities/invoice.entity';
 import { Lead } from 'src/entities/lead.entity';
+import { Enrollment } from 'src/entities/enrollment.entity';
+import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
+import { schoolDay } from 'src/common/school-clock';
+import { PublicationConsentService } from 'src/modules/privacy/publication-consent.service';
+
+/**
+ * A child is born by today — on the school's clock, compared as day keys, like every other "has it
+ * happened yet?" in the app. The office's form stopped a later day in its calendar and nothing
+ * stopped it on the way in; the portal is a second door onto the same row (terms §6).
+ */
+function assertBornByToday(birthDate: string | undefined, now: Date): void {
+    if (birthDate === undefined) return;
+    const today = schoolDay(now);
+    if (birthDate > today) {
+        throw new BadRequestException({ message: `A birth date after today (${today}) is refused.`, error: 'BIRTH_DATE_IN_FUTURE' });
+    }
+}
 
 @Injectable()
 export class ChildService {
@@ -28,12 +45,15 @@ export class ChildService {
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
         @InjectRepository(Attendance) private readonly attendanceRepository: Repository<Attendance>,
         @InjectRepository(Project) private readonly projectRepository: Repository<Project>,
+        @InjectRepository(Enrollment) private readonly enrollmentRepository: Repository<Enrollment>,
+        @InjectRepository(WaitlistEntry) private readonly waitlistRepository: Repository<WaitlistEntry>,
         private readonly enrollmentService: EnrollmentService,
         @InjectDataSource() private readonly dataSource: DataSource,
         private readonly audit: AuditService,
+        private readonly publicationConsents: PublicationConsentService,
     ) {}
 
-    async createChild(createChildDto: CreateChildDto, role: Role, userId: number, actor: Actor) {
+    async createChild(createChildDto: CreateChildDto, role: Role, userId: number, actor: Actor, now: Date = new Date()) {
         if (role !== Role.ADMIN) {
             const profile = await this.profileRepository.findOne({
                 where: { user: { id: userId } },
@@ -49,6 +69,7 @@ export class ChildService {
             throw new NotFoundException('Parent profile not found');
         }
         assertNotErased(parentProfile);
+        assertBornByToday(createChildDto.birthDate, now);
         const child = this.childRepository.create(createChildDto);
         child.parent = parentProfile;
         // Row and trail in one transaction — E07/S3. They were two loose statements, so a failure
@@ -102,7 +123,7 @@ export class ChildService {
         return query.getMany();
     }
 
-    async updateChild(childId: number, updateChildDto: UpdateChildDto, role: Role, userId: number, actor: Actor) {
+    async updateChild(childId: number, updateChildDto: UpdateChildDto, role: Role, userId: number, actor: Actor, now: Date = new Date()) {
         const child = await this.childRepository.findOne({
             where: { id: childId },
             relations: ['parent', 'parent.user'],
@@ -114,6 +135,7 @@ export class ChildService {
         if (role !== Role.ADMIN && child.parent.user?.id !== userId) {
             throw new ForbiddenException('You do not have permission to update this child');
         }
+        assertBornByToday(updateChildDto.birthDate, now);
 
         // Which fields moved, never what they became — E07/S3. A child's name and date of birth are
         // held under the `account` retention rule and go when the family goes; this trail outlives
@@ -181,6 +203,26 @@ export class ChildService {
             throw new ForbiddenException('You do not have permission to delete this child');
         }
 
+        // A family removes a row it typed by mistake, not a child the school has a record of. Terms §5
+        // leave enrolling, moving and withdrawing a child to the school, and deleting an enrolled child
+        // from the portal did all three at once, through the cascade: the enrolment, its history and,
+        // for a child on a list, the family's place in it. Asked first, because for a parent it is the
+        // answer — the refusals below name the office's next step, which is not theirs to take.
+        if (role !== Role.ADMIN) {
+            if (await this.enrollmentRepository.exists({ where: { child: { id: childId } } })) {
+                throw new ConflictException({
+                    message: `Child ${childId} has an enrolment on file; only the office removes that child.`,
+                    error: 'CHILD_HAS_ENROLMENTS',
+                });
+            }
+            if (await this.waitlistRepository.exists({ where: { child: { id: childId } } })) {
+                throw new ConflictException({
+                    message: `Child ${childId} is on a waiting list; only the office removes that child.`,
+                    error: 'CHILD_ON_WAITLIST',
+                });
+            }
+        }
+
         if (await this.attendanceRepository.exists({ where: { child: { id: childId } } })) {
             throw new ConflictException({
                 message: 'Copilul are prezențe marcate, iar catalogul se păstrează. Scoate-l din grupă dacă nu mai vine.',
@@ -202,6 +244,10 @@ export class ChildService {
             // the list — and the cascade frees it without asking anybody. So the groups are taken
             // before the delete and their lists asked after it, as any other release would.
             const heldIn = await this.enrollmentService.lockSeatsHeldBy([childId], manager);
+            // A consent to publish the child's work goes with the child (`CASCADE`), so the office is
+            // told in this transaction, as at an erasure: the platform publishes nothing itself, and
+            // `/admin/acorduri` would simply stop listing a child whose drawing may still be up.
+            await this.publicationConsents.announceErasure([childId], manager, 'odată cu ștergerea copilului din evidență');
             await manager.delete(Child, childId);
             await this.enrollmentService.offerFreeSeatsIn(heldIn, manager);
             // The act, not the contents: a deleted child leaving a copy of their name in the trail

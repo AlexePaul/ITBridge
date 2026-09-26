@@ -636,7 +636,9 @@ describe('Enrolments and capacity (e2e)', () => {
                 .send({ childId: await makeChild(), groupId })
                 .expect(201);
 
-            await request(app.getHttpServer()).delete(`/children/${childId}`).set('Authorization', parent.auth).expect(200);
+            // The office's token: a family may delete only a child the school has no record of
+            // (`CHILD_HAS_ENROLMENTS`), so an enrolled child's seat is freed this way.
+            await request(app.getHttpServer()).delete(`/children/${childId}`).set('Authorization', admin.auth).expect(200);
 
             expect(await statuses(groupId)).toEqual(['OFFERED']);
         });
