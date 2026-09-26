@@ -67,7 +67,7 @@ plecat:
   3:1), există legătură „Sari la conținut”, erorile de formular sunt legate prin `aria-describedby`
   și carusel are rol și etichete — iar din S6 **verificarea automată rulează în CI**, cu axe-core
   într-un Chromium adevărat, pe fiecare pagină din sitemap și în ambele teme. Zona autentificată a
-  intrat sub aceeași poartă: `pnpm test:a11y:auth`, un job propriu, 51 de ecrane, ambele teme.
+  intrat sub aceeași poartă: `pnpm test:a11y:auth`, un job propriu, toate ecranele de admin și de portal, ambele teme.
 - **Fără stări de încărcare și eroare coerente.** `NotificationContainer` există; nu e clar că e
   folosit consecvent. Nerezolvat în zona autentificată.
 - ~~**Fără mod întunecat**, deși @nuxt/ui îl suportă din start.~~ Paleta întunecată e definită în
@@ -589,7 +589,7 @@ deschisă, cu 2,61:1 și numele elementului. Cu el la loc, trece.
 **Zona autentificată, măsurată și trecută sub aceeași poartă.** S4 și S5 au rescris ecranele, deci
 verificarea nu mai cimentează nimic. `pnpm test:a11y:auth` — `apps/web/scripts/check-a11y-auth.mjs`,
 un job propriu în CI — se autentifică și trece axe peste **toate ecranele** de admin și de portal
-(51 la livrare, 53 azi), în ambele teme, pe aceleași etichete WCAG. **De la septembrie 2026 pică și
+(51 la livrare, 55 la 25 septembrie 2026), în ambele teme, pe aceleași etichete WCAG. **De la septembrie 2026 pică și
 pe o eroare scrisă în consola browserului**, nu doar pe axe: e singurul lucru care deschide fiecare
 ecran într-un browser adevărat, pe un build adevărat, iar o a doua rulare a aceleiași liste doar ca
 să citească aceeași consolă ar dubla degeaba cel mai lent job din CI. Cererile picate sunt excluse —
@@ -642,10 +642,60 @@ cererile și luaseră cu ele reîmprospătarea tokenului, deci aplicația decide
 mergea la login; predicatul fusese văzut doar întorcând `false`. O gardă văzută numai nedeclanșându-se
 nu e gardă.
 
-**Ce rămâne:** ecranele care primesc un parametru — nu se pot vizita fără un id care există,
-iar unul inventat ar verifica pagina de eroare. Scriptul le tipărește la final, cu număr, ca golul
-să fie o cifră citibilă, nu o tăcere. Și restul acceptanței de tastatură: axe verifică ce e în DOM,
-nu ce se întâmplă când cineva apasă Tab de douăzeci de ori.
+**Din 25 septembrie 2026 citește autentificat și fiecare pagină publică din sitemap**, dar numai
+consola, fiindcă axe le măsoară deja jobul public. Celelalte trei gărzi publice vizitează anonim,
+deci nimeni nu citea site-ul așa. Rulată pe build-ul de dinainte de reparație, verificarea a picat pe
+toate cele douăsprezece pagini: pentru un părinte autentificat, bara de navigare scria „Contul meu"
+cu `href`-ul lui „Programează o probă". Hidratarea înlocuiește textul și păstrează atributele, deci
+un clic stânga mergea, prin router, iar „deschide în tab nou" ducea la formularul de probă. Bara ține
+acum ramura vizitatorului până la montare; regula e în CLAUDE.md.
+
+**Jumătatea de tastatură a acceptanței se verifică și ea, la fiecare rulare** (25 septembrie 2026,
+`apps/web/scripts/keyboard.mjs`, folosit de ambele porți în trecerea cu tema deschisă). axe citește
+DOM-ul și nu apasă nicio tastă, deci toate trei verificările de mai jos îi lipseau:
+
+- **Autentificarea se face doar din tastatură**, cum cere acceptanța. Poarta autentificată nu mai
+  completează formularul: apasă Tab până la utilizator, tastează, Tab la parolă, tastează, Enter. La
+  final iese din cont tot cu Tab și Enter. Dacă intrarea pică, raportează și intră pe calea
+  obișnuită, ca un formular stricat să nu ascundă restul ecranelor.
+- **Fiecare pagină e parcursă cu Tab, de sus până jos.** Fiecare oprire trebuie să se vadă și să
+  arate altfel cât are focus. Comparația e cu pagina fără niciun focus, nu cu oprirea dinainte:
+  altfel inelul vecinului trece drept indicatorul unui control care n-are. Parcurgerea trebuie să
+  ajungă la capăt, iar una care nu ajunge e o capcană.
+- **Tot ce ascultă de un clic și arată a control trebuie să se poată folosi din tastatură.**
+  Ascultătorii vin din protocolul DevTools, fiindcă Vue pune `@click` direct pe element și nimic din
+  DOM nu spune asta. Un `role="button"` pe ceva ce nu e buton trebuie să asculte și de taste.
+
+Prima rulare a găsit două defecte reale:
+
+- **Pe `/admin/reconciliere`, inputul de fișier ascuns** din spatele butonului „Importă un extras"
+  era o a doua oprire, invizibilă, imediat după buton, și un al doilea control citit cu voce pentru
+  același act. Acum e `tabindex="-1"` și `aria-hidden`.
+- **Rândul apăsabil din `AdminListRow`** răspundea la Enter, dar nu la Space. Iar Enter pe un buton
+  din coloana de acțiuni deschidea și rândul, fiindcă `@click.stop` oprește clicurile, nu tastele.
+  Acum răspunde la amândouă tastele, și doar pe rândul însuși (`.self`).
+
+**Verificarea a fost verificată, și a trebuit reparată de două ori înainte să merite încredere.** Pe
+o pagină reală s-a plantat câte un defect de fiecare fel: un link fără stil de focus, un buton scos
+din ecran, un `div` cu `@click`, un `role="button"` fără taste și o capcană de focus. Fiecare trebuie
+să aprindă verificarea lui.
+
+- **Prima dată n-a aprins niciunul.** Plantele intrau înainte de hidratare, iar hidratarea le ștergea
+  ca noduri pe care serverul nu le randase. De aceea verificarea așteaptă acum semnalul `isHydrating`
+  al lui Nuxt și pică dacă nu-l găsește: o pagină nehidratată n-are niciun `@click` atașat, deci ar
+  trece.
+- **A doua oară, linkul fără contur trecea.** Regula globală de `:focus-visible` pune
+  `outline-offset: 2px`, deci elementul „se schimba" mutând un contur pe care nu-l avea. Citirea ia
+  acum doar ce se desenează. Cu asta, toate cinci aprind, iar pagina neatinsă rămâne curată.
+
+**Un câmp nativ de dată are o oprire în plus: butonul de calendar din interiorul lui.** Acolo inputul
+nu mai potrivește nici `:focus`, nici `:focus-visible`, iar inelul îl desenează browserul, fără ca
+stilurile paginii să-l poată atinge sau citi. Inelul se vede, subțire, în jurul iconiței, deci
+oprirea e sărită, nu judecată.
+
+**Ce rămâne:** nimic automatizat. Ecranele cu parametru se vizitează cu primul rând al fiecărei
+colecții. Unul al cărui parametru n-are valoare — o bază goală, sau un `[param]` pe care
+`PARAM_SOURCES` nu-l știe — e tipărit la final, cu număr, ca golul să fie o cifră, nu o tăcere.
 
 ### S7 · Interfața profesorului — livrat
 

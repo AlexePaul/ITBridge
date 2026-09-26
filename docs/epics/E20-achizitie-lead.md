@@ -393,6 +393,94 @@ familia nou-venită, prima ei factură, care e oricum de după acel moment.
 Momentul de declanșare e deci același pentru amândouă — începutul efectiv — și e o presupunere
 scrisă aici ca să fie contrazisă dacă e greșită, nu o regulă venită de la patron.
 
+### Revizuirea din 25 septembrie 2026: proba după ce a fost programată
+
+O revizuire a contabilității locurilor a găsit patru defecte pe drumul unei probe, reproduse pe o
+bază reală și reparate fiecare cu testul lui, care pică pe codul dinainte.
+
+- **`/proba` oferea orele de azi care începuseră deja.** Filtrul era pe zi, iar părinții programează
+  seara: ora de la 16:00 era încă pe listă la 20:00, iar o programare în ea ținea un loc pentru o
+  probă la care nu mai putea veni nimeni, până când recontactarea îi spunea familiei că a lipsit.
+  Acum lista și programarea compară începutul orei cu ceasul școlii, ca text.
+- **O oră mutată într-o sală mai mică se vindea cu locurile grupei.** Lista și programarea numără
+  acum locurile sălii în care e ora, și le recitesc sub lacăt, cu rândul orei blocat: o anulare sau o
+  mutare venită între fotografie și buton se vede.
+- **O probă transferată în altă grupă își pierdea lead-ul.** Transferul închide înscrierea de probă
+  și deschide alta, iar lead-ul rămânea legat de cea închisă: confirmarea sau închiderea probei nu-l
+  mai decontau, iar mementoul și recontactarea vorbeau despre ora grupei vechi — după ce catalogul ei
+  se marca fără copil, familiei i se scria că a lipsit de la o oră de pe care fusese mutată. Acum
+  lead-ul trece pe înscrierea și grupa noi, iar o probă încă în față primește ca oră următoarea oră
+  neîncepută a grupei noi. Ce s-a stabilit la telefon platforma nu știe, iar lead-ul n-are câmp de oră
+  pe care să-l corecteze biroul: următoarea oră e ce ar oferi și formularul. Cheile mementoului și ale
+  recontactării poartă acum și ora, altfel cea pentru ora nouă s-ar fi pierdut ca duplicat.
+- **O probă închisă prin `close` în loc de `resolveTrial` lăsa lead-ul deschis**, pe lista de urmărit
+  pentru totdeauna. Acum îl trece pe pierdut, cu motivul închiderii.
+
+Un al cincilea punct nu e un defect găsit, ci ce i-a cerut listei reparația din E11: proba ține
+scaunul până e decisă, deci stă și în orele de după ea, iar înscrierea întreabă acum și de ele. O oră
+se oferă de aceea doar cât ea și fiecare oră de după ea a grupei mai au un loc — lista citește toate
+orele din față, nu doar cele trei săptămâni oferite —, altfel ar fi oferit o zi la care programarea
+răspundea „nu mai sunt locuri".
+
+### Testarea din 25 septembrie 2026: formularul ascundea greșelile de tastare
+
+`/proba` răspundea la orice eșec cu aceeași propoziție — „nu am putut trimite cererea, încearcă din
+nou sau sună-ne" —, deși serverul întorcea deja motivul în română: un email fără `@` arăta ca o
+defecțiune a școlii, iar a doua încercare pica la fel, la nesfârșit. Acum formularul verifică forma
+emailului și a telefonului sub câmp, înainte de trimitere, **fără să fie mai strict decât serverul**
+(un număr din străinătate trece, fiindcă `@IsPhoneNumber('RO')` îl ia), iar când serverul refuză,
+pagina arată propoziția lui. Fiecare câmp pe care îl poate greși un părinte are acum mesajul lui în
+`BookTrialDto`; doar eșecul fără niciun răspuns — rețeaua, serverul căzut — mai trimite la telefon.
+Telefonul se stochează și aici în forma `+40…`, ca peste tot (`@NormalizePhone()`), altfel un lead
+tastat `0722…` nu era găsit pentru familia scrisă `+40722…`.
+
+### Revizuirea din 25 septembrie 2026: pâlnia după programare
+
+O revizuire a lead-urilor și a mesajelor a găsit șapte defecte între „s-a programat" și „s-a
+decis", reproduse fiecare cu un test care pică pe codul dinainte.
+
+- **Familia programată nu afla nimic despre ora ei.** Profilul scris de `/proba` n-are adresă,
+  dinadins, iar anularea, mutarea, reactivarea, grupa mutată pe altă zi și anunțul către grupă
+  citeau doar `profile.email` — fiecare mesaj ajungea un rând `undeliverable`, deși adresa stătea pe
+  lead. Acum se scrie la adresa lăsată în formular (`bookingAddresses`), iar anularea îi spune unei
+  familii la probă ce urmează pentru ea („te sunăm să stabilim altă oră"), nu fraza grupei despre
+  factură.
+- **Mementoul se pierdea când ora se muta.** Cheia era lead și rând, iar `moveSession` păstrează
+  rândul; acum poartă și începutul orei.
+- **„Pierdut" pe o probă nedecisă lăsa copilul pe scaun.** Scria doar lead-ul: grupa rămânea plină,
+  `/proba` n-o mai oferea, lista de așteptare nu afla, iar copilul rămânea în cataloage. Acum
+  închide proba prin `resolveTrial`, care eliberează locul și îl oferă mai departe.
+- **O cerere fără oră era aceeași cerere pentru totdeauna.** Cheia n-avea nimic care să treacă, deci
+  familia pierdută în martie care întreba din nou în septembrie primea răspuns din rândul din martie.
+  Acum cheia poartă ziua școlii.
+- **Proba se socotea ținută doar la ora programată.** Recontactarea o invită chiar la alta, iar
+  proba stă în fiecare oră a grupei până e decisă; acum contează orice oră de la cea programată
+  încolo, și lead-ul ia ora la care a venit copilul. Și a treia cale de a scrie un marcaj,
+  `PATCH /attendance/:id`, decontează acum lead-ul ca celelalte două.
+- **Recontactarea spunea „ai lipsit" unui copil nemarcat.** Întreba doar dacă cineva din oră
+  fusese marcat; acum cere un marcaj de absent pentru copilul ăla.
+- **Rata cerere→probă număra familiile pe care nu le putea așeza nimeni**, contra regulii din S4, iar
+  pâlnia citea lunile pe zile UTC (o programare la 00:40 pe 1 octombrie cădea în septembrie).
+
+Tot de aici: lista de ore nu mai oferă sub grupă o oră mutată la altă oră sau la cealaltă adresă, iar
+confirmarea, mementoul și recontactarea spun adresa sălii orei.
+
+**Ce a rămas deschis, cu motiv.** O cerere fără oră n-are locație — `/proba` nu întreabă una, deci
+cererea neservită pe locații se vede sub „Fără locație" pentru cazul obișnuit; o întrebare în plus
+pe formular e o decizie de produs, nu o reparație. Și un lead tastat de birou nu poate deveni probă
+sau înscriere legată de el: n-are profil și nu există o rută care să-l lege, deci sursele în afară de
+formular arată zero înscrieri în pâlnie — e un ecran de construit, nu un defect de reparat.
+
+### Testarea din 26 septembrie 2026: fișa cererii și frații programați separat
+
+- **`/admin/leads` deschide o cerere.** Lista nu se putea deschide: telefonul, proba, notele, pasul
+  următor, preluarea și „Am contactat" existau doar pe API, iar `POST /leads` n-avea niciun ecran.
+  `AdminLeadFile` e fișa, `AdminLeadNew` cererea venită la telefon sau la birou; „Pierdut" își
+  verifică motivul în dialog și nu mai înlocuiește pagina cu eroarea.
+- **Frații programați pe rând sunt două familii**, fiindcă fiecare programare scrie o coajă proprie.
+  Biroul mută copilul în familia lui din pagina copilului (`PUT /children/:id/family`), cu cererile
+  despre el, iar coaja goală se șterge; refuzat cât timp familia copilului are facturi.
+
 ## Dependențe
 
 [E17](E17-comunicare-notificari.md) pentru confirmări și memento-uri,

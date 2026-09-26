@@ -550,11 +550,36 @@ Sub el stau două rute noi, croite pe conexiunea slabă din acceptanță:
 într-o fereastră privată) și se retrimite la evenimentul `online` sau din bannerul cu numărul de
 marcaje în așteptare. Răzgândirile înlocuiesc marcajul vechi din coadă în loc să-l dubleze. Un 4xx —
 ședință anulată, copil dispărut — **nu** intră în coadă: serverul a spus nu, iar reîncercarea nu l-ar
-răzgândi.
+răzgândi. **Afară de 401 și 403** (revizuirea din 26 septembrie 2026): ăia spun că telefonul trebuie
+să se autentifice din nou, nu ce crede serverul despre marcaj, deci marcajul rămâne în coadă, iar
+ecranul cere autentificarea.
 
 Din S7 e livrat aici și butonul de apel: un copil marcat absent cu telefon în profil primește
 **„Sună părintele"**, un `tel:` direct în rând — profesorul e deja în ecranul ăla, cu telefonul în
 mână.
+
+**Revizuirea din 26 septembrie 2026** a găsit ecranul pierzând marcaje exact pe conexiunea pentru
+care există, și l-a făcut locul unde se termină un catalog:
+
+- **O apăsare picată în timpul unei reîncercări dispărea.** Trecerea scria la final lista cu care
+  pornise, deci marcajul pus în coadă între timp ieșea și din memorie, și din `localStorage`, cu
+  iconița de nor încă pe rând. Acum o trecere scoate doar ce a livrat sau i s-a refuzat.
+- **Un marcaj vechi din coadă scria peste unul mai nou.** „Absent" picat, apoi „Prezent" reușit: primul
+  rămânea în coadă și pleca la reîncercare — minute sau zile mai târziu. O apăsare reușită scoate acum
+  marcajul mai vechi al aceluiași copil, iar cererile pentru un copil pleacă una câte una.
+- **O reîmprospătare pierdută deloga profesorul**, după care fiecare apăsare lua 401, iar ecranul
+  citea orice 4xx ca refuz: marcajul se întorcea, iar coada se arunca cu „Un marcaj din coadă a fost
+  refuzat". `useApi` golește acum tokenurile doar când `/auth/refresh` răspunde 400 sau 401, iar
+  401/403 rămân în coadă, cu un banner care cere autentificarea.
+- **După ziua orei, catalogul nu se mai putea nici termina, nici corecta.** Ecranul arăta doar azi,
+  cel de desktop ascunde orele cu vreun marcaj, iar istoricul copilului e doar pentru citit. Acum
+  `?zi=YYYY-MM-DD` deschide orice zi până azi, iar indexul prezenței promite doar ce face fiecare ecran.
+  Butonul de apel apare doar azi.
+- **Catalogul arată grupa din ziua orei** (`membersOn`), nu grupa de azi, și poartă „Probă" ca cel de
+  desktop; o familie programată pe `/proba` are numărul din programare, fiindcă profilul ei coajă n-are
+  telefon.
+
+Logica cozii stă în `useMarkQueue.ts`, iar a zilei în `useRegisterDay.ts`, amândouă ținute de vitest.
 
 **Fără poze**, deși schița story-ului le numește: `Child` nu are câmp de poză, iar a-l adăuga e o
 întrebare de stocare și consimțământ care aparține E07/E14, nu ecranului ăstuia. Ecranul vechi de
@@ -562,6 +587,14 @@ marcare pe desktop rămâne neschimbat, pentru cataloagele din urmă. **Nu și �
 cum scria aici: un copil mutat temporar se marchează în catalogul obișnuit al grupei-gazdă, iar
 `MAKE_UP` se scrie singur fiindcă nu e din grupa aia. N-a existat niciodată un al doilea drum de
 marcare, și cu atât mai puțin acum.
+
+**Doar că până la testarea din 25 septembrie 2026 copilul mutat nu apărea în catalogul ăla.**
+`GET /attendance/session/:id/register` lista un vizitator numai după ce avea deja un marcaj, iar
+ecranul de telefon n-are niciun buton de adăugat pe cineva — deci profesorul n-avea pe cine apăsa, și
+nimic de pe ecran nu spunea că vine cineva. Catalogul citește acum și mutările făcute în ora aceea
+(`AbsenceNoticeService.placedIn`), le listează ca `make-up`, cum se va scrie marcajul, și spune de la
+ce grupă vine copilul (`visitingFrom`). Ecranul de desktop îi adaugă singur la alegerea orei, iar
+căutarea lui manuală găsește acum un copil după numele întreg, cum îl tastează biroul.
 
 ### S7 · Notificări
 
@@ -713,6 +746,13 @@ unde a fost mutat copilul; îl scrie `ReplacementService.place`, adică mecanism
 către părinte e a lui S7. Grupa mai primește trei mesaje la anulare, mutare și reactivare, dar
 acelea sunt ale lui S5 și n-au legătură cu absențele. Dacă rezumatele revin cândva, revine și linia de absență cu ele; până atunci nu e
 o datorie deschisă, e o linie pe care școala a ales să n-o trimită.
+
+**Mesajul mutării se scrie la fiecare mutare, nu o dată pe oră-țintă** (revizuirea din 26 septembrie
+2026). Cheia lui era anunțul plus ora în care a fost mutat copilul, unică pentru totdeauna: mutat joi,
+apoi sâmbătă, apoi înapoi joi, familia nu afla de a treia mutare, iar ultimul ei mesaj spunea sâmbătă.
+Cheia poartă acum numărul de ordine al mutării, numărat sub lacătul anunțului — un dublu-clic rămâne
+un singur mesaj. Și **un copil marcat prezent la ora „pierdută" nu mai e de mutat**: iese din lista
+biroului și din cifra din meniu, iar mutarea lui e refuzată (`CHILD_ATTENDED_CLASS`).
 
 Iar **mementourile către birou** — cel de la minutul 15 și raportul de la 10:00 — **se scriu azi în
 coadă și nu pleacă nicăieri în producție**: nu există producție. Vezi
@@ -913,6 +953,58 @@ Ecranul e tot `/admin/orar`: „Recuperează" pe rândurile programate și pe ce
 buton în antet pentru ora care n-are rând — grupa și ziua, apoi lista ferestrelor pe zile, un motiv,
 o apăsare. Profesorul e adminul, cum spune story-ul. Ce rămâne scris mai sus și nu s-a schimbat:
 „liber" înseamnă sala, fiindcă platforma nu are profesori.
+
+### Revizuirea din 25 septembrie 2026: orarul după o mutare
+
+O revizuire a contabilității locurilor a găsit trei defecte în orar, reproduse pe o bază reală și
+reparate fiecare cu testul lui, care pică pe codul dinainte.
+
+- **Generarea scria din nou ziua de pe care se mutase o oră.** Era idempotentă pe `(group, date)` și
+  atât, deci o oră mutată de vineri pe sâmbătă lăsa vinerea liberă, iar rularea de la 04:30 o scria
+  la loc: două ore în săptămână, cea fantomă vândută pe `/proba`, oferită la mutări, raportată
+  nemarcată și numărată pe ecranul de emitere. `ClassSession.scheduledFor` e acum ziua pentru care a
+  scris-o generatorul, iar o mutare n-o schimbă; generarea întreabă de loc, nu de zi. Regula „o oră
+  pe săptămână" ar fi reparat cazul raportat și l-ar fi stricat pe cel de alături: o oră mutată **în
+  altă săptămână** lasă săptămâna aia cu ora ei proprie.
+- **O grupă mutată pe altă zi își lăsa orele pe ziua veche**, iar generarea scria opt noi lângă ele.
+  Acum orele viitoare încă acolo unde le-a pus generatorul se mută în săptămâna lor pe ziua, ora și
+  sala noi, iar familiile primesc un singur mesaj (`group-schedule-changed`). Ce e mutat de birou,
+  ținut, anulat, pe o zi nouă trecută sau închisă rămâne pe loc — și dă totuși locul săptămânii zilei
+  noi, ca generarea să nu scrie o a doua oră.
+- **Un interval din calendar anula și ore ținute, și lăsa copiii mutați acolo pe loc.** Ora cu
+  prezențe rămâne acum neatinsă, iar plasările din orele anulate se eliberează, ca la anularea de
+  mână. Nu se scrie nimănui, dinadins: revizuirea propunea să se anunțe familiile, dar S2 a hotărât
+  că o vacanță nu e o veste, iar un test o spune.
+
+**Ce rămâne deschis:** `moveSession` nu verifică săptămâna (decizie amânată, scrisă mai sus). Acum
+nu mai dublează orarul — locul rămâne al săptămânii din care a plecat ora —, dar luna facturată se
+poate schimba odată cu săptămâna.
+
+**Sala unei ore și mutările pe o săptămână**, din aceeași revizuire:
+
+- **O mutare (S5) și o recuperare (S9) într-o sală mai mică treceau**, fiindcă se verifica doar că
+  sala e liberă atunci. Acum copiii care vin — înscrierile în vigoare plus cei mutați acolo pe o
+  săptămână — trebuie să încapă (`ROOM_TOO_SMALL`), numărați sub lacătul grupei, în tranzacția care
+  scrie ora, ca o probă programată între timp să fie văzută. Ferestrele de recuperare oferă doar
+  sălile în care încap; sala grupei rămâne oferită oricum, ora e deja acolo.
+- **O mutare pe o săptămână (S4) într-o oră anulată între timp trecea.** `place` citea ora înaintea
+  lacătului, iar o anulare nu ia lacătul grupei. Acum o recitește după lacăt, cu rândul orei blocat
+  `FOR SHARE`, deci o anulare încă în zbor fie s-a comis și se vede (`CLASS_SESSION_CANCELLED`), fie
+  așteaptă mutarea și îi eliberează plasarea, ca oricărei alteia.
+
+**Ce vede familia după o mutare (S4)**, găsit la testarea cap-coadă din aceeași zi: portalul pierdea
+mutarea a doua zi după ora pierdută, deși ora în care fusese mutat copilul era încă în față. Lista
+anunțurilor era cheiată doar pe ora pierdută, deci o mutare de luni pe sâmbătă dispărea marți, iar
+pagina de absențe și tabloul de bord spuneau „nicio mutare" — exact lucrul pe care îl promite
+mailul („detaliile sunt și în contul tău"). Acum un anunț rămâne pe listă cât timp ora lui sau ora
+mutării sunt încă în față, iar „următoarea oră" de pe tabloul de bord sare peste ora pierdută și
+arată ora mutării, cu grupa în care e.
+
+### Testarea din 26 septembrie 2026: mutarea în trecut
+
+O oră de pe 6 octombrie mutată pe 24 septembrie era primită, iar familiile primeau „se mută pe 24
+septembrie". `moveSession` refuză acum un început care a trecut pe ceasul școlii
+(`CLASS_SESSION_MOVED_INTO_PAST`).
 
 ## Dependențe
 

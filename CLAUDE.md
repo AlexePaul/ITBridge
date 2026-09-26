@@ -106,7 +106,7 @@ identice. Grupele acoperă luni–sâmbătă tocmai ca „azi" să aibă o oră 
 `pnpm seed` nu trece prin turbo, deci variabila **nu** se declară în `globalEnv`.
 
 **`pnpm seed:scale` e a doua volumetrie, nu a treia țintă.** Seed-ul obișnuit are ~120 de ședințe
-și ~80 de marcaje, iar la dimensiunea aia Postgres alege scanarea secvențială orice index i-ai pune
+și ~70 de marcaje, iar la dimensiunea aia Postgres alege scanarea secvențială orice index i-ai pune
 — deci o interogare care scanează toată tabela și una care folosește un index dau **același plan și
 același timp**. Două defecte au stat fix în golul ăla până în septembrie 2026, printre ele un `SUM`
 peste plățile unei facturi care rula neindexat **ținând lacătul acelei facturi**.
@@ -117,6 +117,18 @@ secunde, fiindcă scrie prin `generate_series`, nu prin TypeORM. Dimensiunea se 
 `SCALE_YEARS` și `SCALE_FAMILIES`; forma stă în `scale.rules.ts` și are spec propriu, fiindcă e
 partea care poate fi tăcut greșită: un copil înmulțit cu **toate** ședințele școlii, în loc cu cele
 ale grupei lui, dă 936.000 de rânduri în loc de 35.100, iar scriptul rulează la fel de vesel.
+
+**Și a măsurat primele ecrane care cresc cu școala** (26 septembrie 2026). `/admin/payments` cerea
+toate plățile înregistrate vreodată și le desena pe toate: la trei ani, 9,6 MB de la API, 8.300 de
+rânduri, **1,9 GB de memorie în browser și 46 de secunde** — un laptop de birou nu supraviețuiește.
+Acum arată o lună (după data plății, luna curentă întâi, cu săgeți), plus, din orice lună, ce mai
+așteaptă pe cineva — transferurile anunțate și încasările de verificat în SmartBill (`needsAction`):
+1,4 s și 10 MB. `/admin/invoices` descărca toate facturile ca să afle ce luni există (6,9 MB) —
+acum întreabă `GET /invoices/months` —, iar pagina unei luni cere `?monthIssued=`. Și fiecare
+pagină de admin cerea la pornire `GET /profiles`, care pentru un admin înseamnă **toate familiile**,
+ca să umple profilul unui părinte pe care nu-l citea nimeni: `initializeProfile` sare acum peste
+admini. **Regula: o listă de admin care crește lunar cere o lună**, nu tot tabelul; un ecran nou
+de felul ăsta se măsoară cu `pnpm seed:scale` înainte să fie numit gata.
 
 **Nu e o bază în care se dă clic**: n-are conturi de părinte, toate familiile se cheamă `Familia 37`
 și **golește tot** înainte, deci trece prin acelaşi `checkSeedTarget`. Când ai terminat de măsurat,
@@ -170,17 +182,19 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — douăzeci și două de module în `apps/api/src/modules/`, șaisprezece după același tipar
-`controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`, `location`,
-`room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`, `announcement`,
-`lead`, `reconciliation`.
-Șase ies din tipar: `storage` și `smartbill` n-au controller, fiindcă nimic din ele nu e expus pe HTTP — ce
+**Backend** — douăzeci și patru de module în `apps/api/src/modules/`, șaptesprezece după același
+tipar `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`,
+`location`, `room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`,
+`announcement`, `lead`, `reconciliation`, `audit`.
+Șapte ies din tipar: `storage` și `smartbill` n-au controller, fiindcă nimic din ele nu e expus pe HTTP — ce
 se cere SmartBill-ului decide modulul care deține rândul —, `mail` are unul singur
 și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
 decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
 (agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
 ce ia părintele acasă, ce cere agentul. `dashboard` are și el două controllere și patru servicii, dar
-din motivul opus: nu deține nimic, ci adună — vezi regula lui E21 mai jos. Entitățile stau centralizat
+din motivul opus: nu deține nimic, ci adună — vezi regula lui E21 mai jos. `privacy` are tot două:
+drepturile pe care o familie le exercită asupra datelor ei — exportul, ștergerea, retragerea — și
+acordurile pentru lucrările copiilor (E07 S2), pe care le scriu și familia, și biroul. Entitățile stau centralizat
 în `apps/api/src/entities/` și
 sunt expuse tuturor modulelor prin `EntitiesModule` (un singur `TypeOrmModule.forFeature`
 reexportat), deci un modul nou importă `EntitiesModule`, nu entitățile individual.
@@ -192,8 +206,11 @@ tipul ca argument, iar clientul știe `HeadObject`, ștergere, stream și URL se
 unul singur; `projects/` stă lângă `invoices/`.
 
 **Model de date** — `User` (credențiale) și `Profile` (date de contact) sunt separate
-intenționat: un admin poate crea un `Profile` fără cont, iar `GET /users/without-profile`
-servește fluxul de legare ulterioară. `Profile` e "părintele" în tot restul modelului.
+intenționat: un admin poate crea un `Profile` fără cont, iar familia își face contul mai târziu
+prin linkul de cont (al patrulea link, la „Auth" mai jos). `GET /users/without-profile` și
+alegătorul de cont din `/admin/profiles/new` rămân, dar nu mai au pe cine lega: `register` scrie
+mereu și profilul, deci ce apare acolo sunt conturile de admin, care n-au profil, și cel mult un cont
+al cărui profil a fost șters. `Profile` e "părintele" în tot restul modelului.
 
 ```
 User ─1:1─ Profile ─1:N─ Child ─N:1─ Group ─N:1─ Room ─N:1─ Location
@@ -223,14 +240,52 @@ indexul e acolo pentru doi admini care apasă în aceeași secundă.
 sală (D7). Numără-le prin `EnrollmentService.occupancyOf`, nu din lungimea listei de copii afișate:
 lista nu conține probele, deci un număr calculat din ea spune că o grupă plină mai are loc.
 
+**Iar un loc oferit listei de așteptare nu e liber** (revizuirea din 25 septembrie 2026). Cele 48 de
+ore în care familia are de răspuns, niciun număr nu-l vedea: formularul public îl vindea ca probă,
+un admin înscria alt copil în el, iar familia care spunea da găsea `GROUP_FULL` — exact rezultatul
+pentru care există lista. `occupancyOf` întoarce acum și `held` (ofertele fără răspuns), iar `free`
+e ce rămâne după `taken` și `held`; `freeSeatsAtSessions` și verificarea de capacitate numără la fel.
+**Singura excepție e copilul care ține oferta**: oferta lui e scaunul în care se așază, nu un scaun
+din calea lui. `taken` rămâne înscrierile, ca un ecran să poată deosebi o probă de o promisiune.
+
+**Și locurile unei ore sunt ale sălii în care e ora** (aceeași revizuire). O oră mutată într-o sală
+mai mică are locurile sălii, nu ale grupei: `freeSeatsAtSessions` numără cel mai mic dintre cele
+două, iar ședința îi dă sala ei (`SeatedSession.room`). Iar un copil înscris azi stă în fiecare oră
+de acum încolo, deci `enrol` și `transfer` întreabă și de ora cea mai strâmtă (`tightestClassFrom`):
+una cu un copil mutat acolo pe o săptămână are un scaun mai puțin, iar al zecelea copil din zece
+intra în grupă cât joia avea un vizitator — unsprezece în sală în joia aia. Copilul care se înscrie
+nu e vizitator în orele în care intră, chiar dacă biroul îl mutase deja acolo pe o săptămână: stă pe
+un scaun, nu pe două. Refuzul e tot `GROUP_FULL`, dar numește ora, fiindcă grupa arată un loc liber;
+iar peste el, `allowOverCapacity` lasă în jurnal ora pe care a supraumplut-o, nu „peste capacitate".
+De partea sălii: nu mai scade sub o grupă care se ține în ea (`ROOM_SMALLER_THAN_GROUP`), iar o oră
+nu se mută și nu se recuperează într-o sală în care nu încap copiii care vin (`ROOM_TOO_SMALL`) —
+numărați **sub lacătul grupei, în tranzacția mutării**, ca o probă programată între timp să fie
+văzută.
+
 **Factura numără înscrierile `ACTIVE`, nu copiii din familie.** Din E11/S4: proba e gratuită, iar un
 copil care nu e în nicio grupă nu vine, deci nu plătește. Al doilea caz era greșit dinainte să existe
 probele. Dacă schimbi asta, e o decizie de preț și e a E15 — nu o numărare de rânduri în `children`.
+Proba rămâne gratuită și după ce e decisă, prin `Enrollment.trialUntil` — vezi emiterea, mai jos.
 
 **Un copil își schimbă grupa doar prin transfer**, `POST /enrollments/transfer`: închide vechea
-înscriere și o deschide pe cea nouă într-o singură tranzacție. Locul eliberat de un transfer **nu**
-se oferă listei de așteptare — nu e liber, se dă acestui copil. Coada e întrebată doar când un loc
-chiar pleacă din grupă.
+înscriere și o deschide pe cea nouă într-o singură tranzacție. **Locul lăsat în urmă se oferă listei
+grupei vechi**, ca orice loc eliberat. Paragraful de aici spunea invers — că locul „nu e liber, se dă
+acestui copil" —, ceea ce nu e adevărat despre niciun scaun: copilul stă acum în _cealaltă_ grupă,
+iar ecranul grupei vechi arăta `free: 1` lângă o listă pe care n-o anunțase nimeni. De aceea
+transferul e singura tranzacție care ține **două** grupe, și le ia în ordinea id-ului, cea mai mică
+prima — altfel două transferuri în sensuri opuse țin fiecare câte una și o așteaptă pe cealaltă. Și
+decontează, ca `enrol`, cererea pe care copilul o avea pentru grupa nouă.
+
+**O probă mutată în altă grupă își ia lead-ul cu ea** (revizuirea din 25 septembrie 2026). Lead-ul
+atârnă de înscrierea pe care o decide E11, iar după transfer aia e rândul nou — deci decizia pe el nu
+decontase nimic, iar mementoul și recontactarea după neprezentare vorbeau despre ora grupei vechi.
+`LeadProgressService.followTransfer` mută `enrollment` și `group`, iar cât proba e încă în față îi dă
+ca oră următoarea oră neîncepută a grupei noi: ce s-a stabilit la telefon platforma nu are de unde
+ști, iar următoarea e ce ar oferi și formularul. O probă deja ținută își păstrează ora — acolo s-a
+ținut —, iar `location` rămâne unde a cerut familia, fiindcă după ea numără pâlnia cererea. Tot de
+aici: o probă închisă prin `close` în loc de `resolveTrial` își trece lead-ul pe pierdut, iar
+**`close` refuză o zi din viitor** (`ENROLLMENT_END_IN_FUTURE`): închiderea ia locul pe loc, deci o
+dată înainte scotea copilul din catalog și îi oferea scaunul listei cât încă stătea pe el.
 
 **Contractul de înscriere e pe hârtie; platforma ține faptul și ziua, nimic altceva** (E07 S8).
 `Enrollment.contractSignedAt` se completează la înscriere, la confirmarea probei sau după, prin
@@ -248,8 +303,65 @@ cale de acces peste capacitate — aia se verifică prima și refuză oricum. Da
 înscrie, dă-i și câmpul: un avertisment fără cale de răspuns e un blocaj cu numele greșit.
 
 **Prezența se leagă de ședință, nu de o dată și o oră.** `ClassSession` (tabelul `class_sessions`)
-e ședința din orar, generată din programul grupei pe un orizont rulant de opt săptămâni, idempotent
-pe `(group, date)`. Numele are prefix fiindcă `Session` e deja luat de tabelul de refresh tokenuri.
+e ședința din orar, generată din programul grupei pe un orizont rulant de opt săptămâni. Numele are
+prefix fiindcă `Session` e deja luat de tabelul de refresh tokenuri.
+
+**Iar catalogul unei ore e grupa din ziua ei, nu grupa de azi** (revizuirea din 26 septembrie 2026).
+`sessionRegister`, POST-ul în masă și tipul unui marcaj întrebau `Child.group`, adică grupa de acum:
+catalogul de săptămâna trecută cerea un copil înscris azi — iar familia lui vedea apoi un marcaj
+pentru o oră ținută înainte să fie în grupă —, iar o probă programată pentru lunea viitoare stătea
+în catalogul de azi ca elev obișnuit, fără de care catalogul nu se salva. Acum toate trei întreabă
+`EnrollmentService.membersOn(grupă, ziua orei)`. Catalogul listează membrii zilei, plus cine are deja
+un marcaj pe oră și copiii mutați acolo pe săptămână (`placedIn`); POST-ul cere doar membrii zilei.
+**Capetele se citesc ca la facturare**: ziua de final e plecată, deci un copil scos dimineața nu e în
+catalogul de seară, iar unul marcat înainte să fie scos rămâne în el prin marcaj, `regular` — exact
+rândul din care regula primei și ultimei zile (mai jos, la emitere) decide că ora se plătește. Un
+copil care începe azi e în catalogul de azi. Ecranul de desktop își ia rândurile din același catalog,
+nu din lista de azi a grupei, și nu lasă să fie scos din listă decât cine nu e cerut.
+
+**Catalogul de pe telefon e cel care se completează și se corectează, pe orice zi până azi**
+(aceeași revizuire). `/admin/attendance/azi` arăta doar orele de azi, iar după ziua orei nimic nu mai
+putea termina un catalog început: ecranul de desktop oferă doar orele fără niciun marcaj (POST-ul în
+masă refuză una care are), iar istoricul copilului e doar pentru citit. Acum `?zi=YYYY-MM-DD`
+deschide orice zi trecută, cu săgeți și un câmp de dată care nu trece de azi, și salvează prin
+același upsert pe copil. Adresa goală rămâne azi. „Sună părintele" apare doar azi: e pentru un copil
+care poate e pe drum, nu pentru o corectură de săptămâna trecută.
+
+**Și nu pierde un marcaj** (aceeași revizuire). Coada din `localStorage` e acum `useMarkQueue`, ținută
+de vitest, cu trei reguli: o trecere de reîncercare scoate din coadă **doar ce a livrat sau i s-a
+refuzat** — scria înapoi lista cu care pornise, deci o apăsare picată în timpul trecerii dispărea,
+cu iconița de nor încă pe rând; o apăsare care a ajuns la server **scoate din coadă marcajul mai vechi
+al aceluiași copil** — altfel reîncercarea, poate zile mai târziu, scria peste el —, iar cererile
+pentru un copil pleacă una câte una; și **un 401 sau un 403 nu e un refuz**: marcajul rămâne în coadă,
+iar ecranul cere o autentificare care se întoarce acolo. Până atunci, orice 4xx arunca marcajul cu
+„refuzat".
+
+**Generarea e idempotentă pe loc, nu pe zi** (revizuirea din 25 septembrie 2026).
+`ClassSession.scheduledFor` e ziua pentru care a scris-o generatorul, iar o mutare n-o schimbă. O zi e
+ocupată de două ori: o oră stă pe ea, sau o oră **a fost generată pentru ea** și s-a mutat în altă
+parte. Cât timp se întreba doar de zi, o oră mutată de vineri pe sâmbătă lăsa vinerea liberă, iar
+rularea de a doua zi o scria din nou: două ore în săptămâna aia, iar cea fantomă era vândută pe
+`/proba`, oferită la mutări și raportată nemarcată. De ce nu „o oră pe săptămână": o oră mutată **în
+altă săptămână** lasă săptămâna aia cu ora ei proprie, iar regula pe săptămână ar fi șters-o.
+`UQ_class_sessions_group_slot` ține linia pentru două generări deodată; `scheduledFor` e `null` pe un
+rând pe care nu l-a scris generatorul, iar o recuperare (E12 S9) scrisă pe o zi goală primește ca loc
+ziua pe care o recuperează. **Seed-ul îl scrie și el**, fiindcă orele lui sunt ce ar fi scris
+generatorul — până la testarea din 25 septembrie 2026 nu-l scria, deci pe o bază populată, adică pe
+stage, fiecare oră arăta ca una pusă de mână, iar o grupă mutată pe altă zi își lăsa toate orele în
+urmă și căpăta câte una nouă lângă fiecare. O bază populată înainte de reparație se repopulează.
+
+**O grupă mutată pe altă zi, oră sau sală își ia orele viitoare cu ea** — `followGroup`, chemat din
+`updateGroup` în aceeași tranzacție. Editarea schimba grupa și atât: opt săptămâni de ore rămâneau pe
+ziua veche, iar generarea de a doua zi scria opt pe cea nouă. Acum fiecare oră încă acolo unde a pus-o
+generatorul (pe locul ei, la ora și în sala vechi, neținută, neanulată) se mută **în săptămâna ei** pe
+ziua nouă — luna în care se facturează e a lunii în care cade lunea (E15 S9). Rămân pe loc ora mutată
+de birou dinadins, ora ținută sau anulată, și ora a cărei zi nouă a trecut, e închisă de calendar
+sau are deja o oră a grupei; toate dau totuși locul săptămânii zilei noi, ca generarea să nu scrie
+una lângă ele. **Familiile află o dată**, prin șablonul `group-schedule-changed`, nu o dată pe oră:
+opt ore care urmează grupa sunt o singură schimbare. **Familia unui copil mutat de birou într-una din
+orele care pleacă află de la ora ei** (testarea din 26 septembrie 2026): copilul nu e în grupă, deci
+mesajul grupei nu-l atingea — i se spusese luni, iar ora ajunsese miercuri. Fiecare oră mutată care
+găzduiește un vizitator îi scrie prin `class-moved` (`notifyMoved` cu `visitorsOnly`).
 
 **Orarul ascultă de calendarul școlar, iar calendarul anulează, nu șterge.** `NonTeachingPeriod`
 (E12 S2) e un **interval**, nu o zi: o vacanță de două săptămâni e un rând, o sărbătoare legală e un
@@ -263,7 +375,11 @@ rând cu aceleași date la ambele capete. `location` gol înseamnă „toată ș
   oricum populată.
 - Adăugarea unui interval trece ședințele din el în `CANCELLED` și le scrie numele intervalului în
   `notes`. Ștergerea intervalului **nu** le reactivează — o ședință anulată de vacanță și una anulată
-  fiindcă profesorul a fost bolnav arată la fel după aceea. Reactivarea e per ședință.
+  fiindcă profesorul a fost bolnav arată la fel după aceea. Reactivarea e per ședință. **O ședință cu
+  prezențe nu se anulează** — s-a ținut, iar anulată ar ieși din numărătoarea lunii (E15 S9) cu
+  copiii marcați în ea —, iar **un copil mutat de birou într-o ședință anulată e eliberat**
+  (`clearOn`), ca la anularea de mână, și reapare printre cei de mutat. Nu se scrie nimănui, dinadins:
+  o vacanță nu e o veste.
 - Suprapunerile sunt refuzate simetric, indiferent de locație (`PERIOD_OVERLAPS`). Regula mai îngustă
   ar face acceptarea să depindă de ordinea în care au fost tastate cele două intervale.
 
@@ -281,6 +397,11 @@ deja e o familie pe care n-o mai vede. Anularea **nu** compensează cu nimic: pr
 ținută (`pricing.ts`), deci ora care nu s-a ținut nu se facturează, iar un drept pe deasupra ar fi a
 patra lecție la prețul a trei — o decizie de preț, nu o consecință a butonului. Dacă familia
 trebuie totuși mutată undeva, se mută, din `/admin/absente`.
+
+**Iar o oră nu se mută într-un moment care a trecut** (`CLASS_SESSION_MOVED_INTO_PAST`, testarea din 26
+septembrie 2026): o oră de pe 6 octombrie mutată pe 24 septembrie era primită, familiile primeau „se
+mută pe 24 septembrie", iar săptămâna aceea rămânea cu două ore. Comparația e pe ceasul școlii, ca
+text, ca toate celelalte „a început?".
 
 **O oră care nu se poate ține se recuperează dintr-un singur act, cheiat pe grupă și zi** (E12 S9).
 `RescheduleService` (`apps/api/src/modules/class-session/reschedule.service.ts`) nu pornește de la
@@ -310,6 +431,17 @@ ar fi judecat ca fiind ziua dinainte. Regula însăși („luni la 12:00 din să
 coloana spune când a tastat el, nu când a sunat familia, deci un buton „Mută" ascuns pe „după
 termen" ar fi ținut de cod o regulă pe care S3 a lăsat-o dinadins biroului. Cifra celor de mutat stă
 în meniu, prin `unplacedAbsencesStore`, din același motiv ca restanța de documente din E17 S8.
+**Iar familia vede mutarea cât timp ora în care a fost mutat copilul e încă în față** (revizuirea din
+25 septembrie 2026): `GET /attendance/absences` ține un anunț cât timp ora lui **sau** ora mutării
+sunt azi ori mai încolo, pe ziua școlii. Cheiată doar pe ora pierdută, lista familiei pierdea
+mutarea de luni pe sâmbătă a doua zi după luni, iar portalul spunea „nicio mutare" despre singurul
+lucru pe care familia mai avea de făcut. Pe tabloul de bord, „următoarea oră" sare peste ora pe care
+copilul o pierde și arată ora în care a fost mutat, cu grupa ei. **Un anunț pe care catalogul îl
+contrazice nu mai e de mutat** (revizuirea din 26 septembrie 2026): un copil marcat prezent la ora pe
+care o anunțase ca pierdută iese din `GET /attendance/replacements/unplaced` — deci și din cifra din
+meniu, care citește aceeași listă —, iar `ReplacementService.place` îl refuză cu
+`CHILD_ATTENDED_CLASS`. Rămânea pe listă și putea fi mutat, cu mesaj către familie despre o
+recuperare pentru o oră pe care n-o pierduse. Marcat absent sau nemarcat, anunțul rămâne ce a spus.
 
 **`User.passwordHash` e `select: false`: nu iese din bază decât cerut pe nume.** Până în septembrie
 2026 nu era, și singurul lucru dintre hash-ul unei familii și un browser era forma fiecărei
@@ -349,7 +481,10 @@ anunțul care a provocat-o: `AbsenceNotice.replacementSession`, scrisă de `Repl
   anunț, iar biroul care tastează marți ce a sunat luni n-are de ce să coste familia săptămâna.
 - **Marcarea nu mai consumă nimic.** `AttendanceType.MAKE_UP` se scrie în continuare singur pentru
   orice copil marcat în afara grupei lui, dar e o observație despre unde a stat, nu decontarea unui
-  drept.
+  drept. **Iar catalogul orei-gazdă îl listează de la mutare, nu de la primul marcaj**
+  (`AbsenceNoticeService.placedIn`), cu grupa de unde vine (`visitingFrom`): ecranul de telefon nu
+  poate adăuga pe nimeni, deci până la testarea din 25 septembrie 2026 un copil mutat era un copil pe
+  care nu-l putea marca nimeni.
 - **Locul liber se numără pe ședință**: un copil mutat temporar ocupă un scaun ca o probă (D7), deci
   înscrieri în vigoare plus copiii mutați în acea ședință — nu `occupancyOf`, care e despre grupă.
   Numărătoarea stă în `EnrollmentService.freeSeatsAt` / `freeSeatsAtSessions`, lângă `occupancyOf`:
@@ -359,16 +494,33 @@ anunțul care a provocat-o: `AbsenceNotice.replacementSession`, scrisă de `Repl
   a fost exact defecțiunea pe care E20/S2 a închis-o pentru grupă și a lăsat-o deschisă pentru
   ședință: două programări la aceeași oră citeau amândouă ultimul loc, iar la `ReplacementService`
   verificarea stătea chiar în afara tranzacției care o folosea. Lacătul se pune înaintea numărului
-  pe care îl apără; a doua luare, în `enrol`, e no-op în aceeași tranzacție.
+  pe care îl apără; a doua luare, în `enrol`, e no-op în aceeași tranzacție. **Iar ora se citește a
+  doua oară după lacăt** (revizuirea din 25 septembrie 2026) — starea, sala și grupa, nu copiile de
+  dinainte —, cu rândul ei blocat `FOR SHARE`: o anulare nu ia lacătul grupei, deci una încă în zbor
+  s-ar fi comis după citire, iar eliberarea plasărilor ei ar fi ratat-o pe cea scrisă acum.
 - **A patra oară a fost pe partea care _eliberează_ locul**, și acolo victima nu e cel care se
   așază, ci cel care așteaptă. `offerFreedSeat` număra fără lacăt, deci un `enrol` care lua ultimul
   scaun se comitea nevăzut, iar familia din capul listei era anunțată că are locul 48 de ore pentru
   un scaun deja ocupat — exact rezultatul pentru care există lista. Lacătul stă acum **în**
-  `offerFreedSeat`, lângă numărul pe care îl apără, nu în cei patru apelanți, ca a cincea cale care
-  eliberează un loc să-l moștenească în loc să și-l amintească. Iar cele două căi care scriu un
-  `WaitlistEntry` înainte să ajungă acolo — `expireLapsedOffers` și `removeFromWaitlist` — îl iau
-  înaintea rândului ăluia: `enrol` ia grupa și _apoi_ decontează lista, deci ordinea inversă e
-  singurul ciclu de deadlock din zonă.
+  `offerFreeSeats`, lângă numărul pe care îl apără, nu în apelanți, ca o cale nouă care eliberează
+  un loc să-l moștenească în loc să și-l amintească. Iar căile care scriu un rând — o înscriere
+  închisă, o probă decisă, un `WaitlistEntry` — îl iau **înaintea** rândului: `enrol` ia grupa și
+  _apoi_ decontează lista, deci ordinea inversă e singurul ciclu de deadlock din zonă.
+- **A cincea oară, scrierea însăși** (revizuirea din 25 septembrie 2026). Lacătul serializa, dar
+  fiecare cale scria rândul pe care îl citise _înainte_ de lacăt, fără să întrebe dacă mai e în
+  starea aia: două apăsări pe „închide" eliberau locul de două ori, iar măturarea ofertelor expirate
+  suprascria ca „expirat" un „nu" dat între timp și îi trimitea familiei mailul greșit. Acum `close`,
+  `resolveTrial`, `transfer`, `expireLapsedOffers` și `removeFromWaitlist` scriu **condiționat** —
+  numai dacă rândul e încă în vigoare, încă probă, încă ofertă — și nu fac nimic mai departe când
+  n-au mișcat nimic.
+- **Fiecare loc liber se oferă, nu unul pe apel.** `offerFreeSeats` oferea exact un loc, pe teoria
+  că două locuri eliberate înseamnă două apeluri — dar jumătate din ușile care eliberează un loc nu
+  chemau deloc: transferul, un copil șters, o familie ștearsă, o capacitate mărită. Acum dă câte un
+  loc fiecărei familii din capul listei, cât sunt locuri libere, iar numărul e sigur de folosit
+  întreg fiindcă e luat sub lacăt și scade deja ofertele date (`held`). Ștergerile trec prin
+  `lockSeatsHeldBy` înainte de `DELETE` și prin `offerFreeSeatsIn` după el, fiindcă o cascadă nu
+  întreabă pe nimeni. **O grupă inactivă nu primește oferte** (`GROUP_INACTIVE` ar refuza-o la
+  ușă), iar o familie fără adresă lasă un rând `undeliverable`, nu o linie de log (E17/S5).
 
 **Proiectele elevilor merg într-o singură direcție, și nimic nu pleacă singur** (E14). Un fișier
 salvat de profesor în folderul copilului, pe partajarea de rețea, e urcat de `apps/agent` prin
@@ -385,7 +537,17 @@ să primească un singur email. Trei consecințe de ținut minte:
   de pornire să nu se anuleze unul pe altul.
 - **Un părinte vede doar ce a fost trimis.** Restrângerea e în serviciu, ca peste tot, și adaugă
   `status = 'sent'` pe lângă restrângerea pe utilizator. Portalul nu are voie să fie portița prin
-  care se vede ce n-a verificat încă nimeni.
+  care se vede ce n-a verificat încă nimeni. **Nici exportul din E07 S4**, care le dădea pe toate
+  (revizuirea din 25 septembrie 2026): acum dă lucrările trimise și numără restul
+  (`proiecteInVerificare`). Iar rândul care ajunge la părinte e al lui, nu al biroului —
+  `ProjectService.forParent` scoate adresa la care a plecat, cine l-a mutat și de unde, și sursa.
+- **O lucrare trimisă și mutată la alt copil se întoarce la „De verificat"** (aceeași revizuire).
+  Mutarea schimba copilul și lăsa restul: rândul spunea „trimis" familiei noi, care nu primise nimic,
+  și purta pe el adresa familiei vechi — pe care portalul familiei noi o arăta. `reassign` golește
+  acum trimiterea (`sentAt`, `sentToEmail`, mesajul), iar biroul o trimite din nou, familiei potrivite;
+  pe cea care a primit-o din greșeală o sună. Scrierea e **condiționată** de starea citită, ca la
+  înscrieri: o trimitere venită între timp dă `PROJECT_CHANGED`, nu o lucrare mutată cu o adresă pe
+  care n-a mai verificat-o nimeni.
 - **Un eșec care nu se poate repeta cu folos e un refuz, nu o eroare.** Agentul tratează eșecul ca
   „mai încearcă" și lasă fișierul pe partajare — corect pentru o rețea picată, fiindcă partajarea
   _e_ coada. Un `.url` fără nicio adresă în el nu mai avea însă ce să încerce: rămânea în folder,
@@ -393,7 +555,25 @@ să primească un singur email. Trei consecințe de ținut minte:
   câmpul de sănătate al agentului roșu pe un defect pe care nimeni nu-l putea repara — exact ce
   descrie comentariul din `Agent.pass` despre erorile care rămân după ce cauza lor a trecut. Are
   acum motiv propriu, `link_without_address`, deci pleacă în `_neatribuite` ca orice alt refuz. Dacă
-  adaugi o cale nouă de eșec, prima întrebare e dacă a doua încercare poate da alt răspuns.
+  adaugi o cale nouă de eșec, prima întrebare e dacă a doua încercare poate da alt răspuns. **La fel
+  un refuz al serverului** (revizuirea din 25 septembrie 2026): un `.png` care e JPEG sau o
+  scurtătură către `localhost` urcau din nou la fiecare trecere, fiindcă orice eroare HTTP era „mai
+  încearcă". `refusalReason` din `uploader.ts` face refuz doar din ce spune serverul despre fișier —
+  413, 415 (cu `content_mismatch`, motiv nou) și 400-ul unei scurtături. **Un 401, 403 sau 404 rămân
+  reîncercări, dinadins**: pot fi un `config.json` greșit, iar un refuz ar muta toată partajarea în
+  `_neatribuite`.
+- **Folderul grupei poartă id-ul grupei, ca al copilului** (`Scratch (grupa 7)`, aceeași revizuire).
+  Cheiat pe nume, o grupă redenumită sau mutată la cealaltă adresă primea un arbore nou și gol, iar
+  cel vechi, unde profesorii salvau în continuare, nu-l mai parcurgea nimeni; două grupe cu același
+  nume împărțeau un folder. `currentGroupFolders` din `mirror.ts` găsește folderul după id oriunde sub
+  rădăcină — scannerul îl parcurge **unde e**, oglinda îl mută unde trebuie să fie —, iar un folder
+  fără id, făcut de versiunea veche, e adoptat dacă nu-l împart două grupe.
+- **Agentul nu confundă „nu pot citi" cu „nu e nimic".** Un folder de necitit era tratat ca gol, deci
+  o partajare dispărută trecea drept o zi liniștită, cu agentul verde: `scan` aruncă acum
+  `ShareUnreachableError` pentru rădăcină și numără folderele de necitit, iar eroarea oglinzii și a
+  trecerii se țin separat, fiindcă o trecere „curată" o ștergea pe a oglinzii. Iar un fișier deschis
+  în Word **rămâne pe loc** — copierea e doar pentru mutarea între volume, `EXDEV` —, se urcă o dată și
+  trecerile de după încearcă doar mutarea; înainte, fiecare trecere lăsa încă o copie.
 - **O cheie de deduplicare are o durată, iar cea a fișierelor neatribuite e „cât stă deschis".**
   `unassigned_files.reportKey` e `{grupă}:{cale}` și avea un unic simplu — ceea ce se citește ca
   „raportează fiecare loc o dată", dar promite că un fișier apărut în rădăcina grupei în septembrie
@@ -405,7 +585,24 @@ să primească un singur email. Trei consecințe de ținut minte:
   fost vreodată. Restul cheilor din repo aveau deja discriminatorul în ele — ziua școlii la anunțuri
   și la mementouri, a câta anunțare la o ședință, id-ul plății la chitanță —, deci asta era singura
   cheiată pe o identitate care nu se schimbă niciodată. Dacă adaugi una, întreabă ce se întâmplă a
-  doua oară când lucrul ăla se întâmplă din nou.
+  doua oară când lucrul ăla se întâmplă din nou. Mementoul probei a fost al doilea caz, găsit în
+  revizuirea din 25 septembrie 2026: era cheiat pe lead, iar de când ora unui lead se poate schimba —
+  o probă mutată în altă grupă — cheia poartă și ora (`trial-reminder:<lead>:<oră>`, la fel
+  recontactarea). Și **începutul orei**, nu doar rândul ei: `moveSession` păstrează rândul, deci
+  mementoul pentru marți consuma cheia, iar cel pentru ora mutată pe joi era refuzat ca duplicat —
+  familia venea marți. Cheia e acum `trial-reminder:<lead>:<oră>:<YYYY-MM-DDTHH:mm>`. Al treilea caz
+  e programarea **fără** oră de pe `/proba`: cheia ei n-avea nimic care să treacă, deci o familie
+  căreia i s-a spus în martie că nu e loc și care a întrebat din nou în septembrie primea răspunsul
+  din rândul din martie, deja pierdut, fără să se scrie nimic. Poartă acum ziua școlii — două apăsări
+  într-o seară sunt o cerere, luna viitoare e alta (`bookingKeyFor`). **Iar o cerere închisă ca pierdută
+  își cedează cheia** (testarea din 26 septembrie 2026): aceeași familie, același copil și aceeași oră
+  după „Pierdut" e o cerere nouă, nu a doua apăsare — răspunsă din rândul închis, familia citea „Ne
+  vedem atunci" fără nimic programat. Al patrulea a fost mesajul
+  mutării din E12 S4 (revizuirea din 26 septembrie 2026): cheiat pe anunț și oră, un copil mutat joi,
+  apoi sâmbătă, apoi înapoi joi nu mai afla de a treia mutare, deși ecranul biroului spunea că a
+  plecat mesajul. Cheia poartă acum și **numărul de ordine al mutării**
+  (`absence-replacement:<anunț>:<oră>:<n>`), numărat sub lacătul rândului anunțului, ca la
+  `ClassSessionNotifier.writeTo`: o mutare adevărată scrie din nou, un dublu-clic rămâne o mutare.
 
 **Miniatura are două drumuri, iar al doilea nu e o coadă nouă** (E14 S3b). O imagine primește poza
 în cererea care o încarcă, după commit; un video și un `.sb3` n-au cum — primul fiindcă octeții lui
@@ -437,7 +634,15 @@ proiecte pe trecere. Patru lucruri:
 **Locația nu e un câmp pe grupă, ci o consecință a sălii.** `Group.room` e obligatoriu, `Room.location`
 la fel, deci fiecare grupă știe unde se ține fără să poată contrazice sala. Ștergerile sunt
 `RESTRICT` în ambele direcții, verificate întâi în serviciu, ca refuzul să ajungă la client ca 409 cu
-explicație, nu ca 500 de la driver.
+explicație, nu ca 500 de la driver. **Și celelalte două referințe `RESTRICT` se verifică la fel**
+(testarea din 26 septembrie 2026): o oră își păstrează sala în care s-a ținut, iar un anunț locația
+căreia i-a fost trimis, deci o sală cu ore (`ROOM_HAS_CLASSES`) și o locație cu anunțuri
+(`LOCATION_HAS_ANNOUNCEMENTS`) se dezactivează, nu se șterg. Până atunci ajungea la birou „This record
+is still referenced by other records", în engleză. **Grupa la fel**, cu o capcană în plus: înscrierile
+și catalogul o opresc în bază, dar lista de așteptare e `CASCADE`, deci o grupă fără înscrieri se
+ștergea cu familiile care așteptau un loc în ea, fără ca cineva să afle. `deleteGroup` refuză acum
+pe nume — `GROUP_HAS_ENROLMENTS`, `GROUP_HAS_ATTENDANCE`, `GROUP_HAS_WAITLIST` —, iar o grupă care a
+rulat se dezactivează.
 
 **Familia, în schimb, e `CASCADE` în trei direcții deodată, și de aia nu se șterge de nicăieri.**
 `children.parent_id`, `invoices.parent_id` și `discounts.parent_id` sunt toate `CASCADE`, iar
@@ -461,11 +666,22 @@ refuzul pe ea ar închide singura folosință rămasă rutei — un copil adăug
 greșeală. Ștergerea din E07 S4 nu trece pe aici: `ErasureService` șterge rândurile prin tranzacția
 lui, după ce citește cheile.
 
+**Un copil se mută în familia lui, nu se șterge și se adaugă din nou** (testarea din 26 septembrie
+2026). Fiecare programare de pe `/proba` scrie o familie-coajă proprie, fără email și fără telefon,
+dinadins — deci doi frați programați pe rând sunt două familii, iar o familie cu cont care programează
+o probă e tot două. Tariful de frate nu se aplica, iar familia a doua nu se mai putea scoate.
+`PUT /children/:id/family` (biroul, din pagina copilului) mută copilul cu tot ce e al lui — înscrieri,
+catalog, lucrări, acorduri, anunțuri de absență — și îndreaptă spre familia nouă cererile despre el,
+ca pâlnia și adresa programării să urmeze. **E refuzat cât timp familia copilului are vreo factură**
+(`CHILD_FAMILY_INVOICED`): o factură numără copiii familiei, iar mutarea ar împărți ce s-a facturat.
+Coaja rămasă goală se șterge apoi din pagina ei, cu ruta care refuză orice familie cu copii sau
+facturi.
+
 **Retragerea e o zi consemnată, iar ștergerea la termen e aceeași ștergere** (E04 S5, E22 S3).
 `Profile.withdrawnAt` e ziua în care școala a notat că familia a plecat — pusă de un admin din pagina
 familiei, prin `POST /privacy/retention/:profileId`, și anulabilă până la termen —, iar
 `RetentionJob` (03:45, ceasul școlii) șterge familiile retrase de peste `FAMILY_RETENTION_MONTHS`
-chemând `ErasureService.erase` cu `SYSTEM_ACTOR` și cu motivul pentru jurnal. Patru reguli:
+chemând `ErasureService.erase` cu `SYSTEM_ACTOR` și cu motivul pentru jurnal. Cinci reguli:
 
 - **Nu deduce retragerea din tăcere.** Nici din ultima autentificare, nici din ultima factură, nici
   din ultima înscriere închisă: familia care ia o pauză de o vacanță e exact cea pe care ar șterge-o
@@ -477,10 +693,59 @@ chemând `ErasureService.erase` cu `SYSTEM_ACTOR` și cu motivul pentru jurnal. 
 - **O familie care datorează bani nu se șterge la termen**: restanța vine din `ArrearsService`, iar
   ecranul `/admin/stergeri` spune de ce a rămas. Golit, rândul ar lăsa școala cu o datorie pe care
   n-o mai poate cere nimănui.
+- **Nici una cu o factură încă în drum spre SmartBill**, plătită sau nu (`FISCAL_WORK_OUTSTANDING`:
+  în coadă, în aer, la revizie sau refuzată). Documentul fiscal se scrie din numele familiei **când
+  pleacă**, deci ștearsă înainte, factura ar ajunge în SPV pe numele unui rând golit.
+  `ErasureService.erase` refuză la fel, cu `FAMILY_HAS_FISCAL_WORK`: contabilitatea se termină
+  întâi.
 - **Numerele sunt propuneri și stau într-un singur loc**, `retention.rules.ts`, de unde pleacă și pe
   sârmă: 12 luni pentru familie, pentru cererile de probă fără înscriere și pentru copiile mesajelor,
-  30 de zile după expirare pentru linkurile de confirmare și de resetare. Nota de confidențialitate
-  §7 le promite; dacă schimbi unul, schimbi și nota.
+  30 de zile după expirare pentru linkurile de confirmare, de resetare și de cont. Nota de
+  confidențialitate §7 le promite; dacă schimbi unul, schimbi și nota.
+
+**O ștergere pornește de la o cerere care e încă pe fișă, recitită sub lacăt** (testarea din 26
+septembrie 2026). `erase` verifica doar că familia nu fusese deja ștearsă, deci o familie care își
+retrăsese cererea era ștearsă din lista încărcată înainte — jurnalul spunea „cerere retrasă" și, trei
+secunde mai târziu, „ștergere la cererea familiei". Acum rândul familiei se recitește cu `FOR UPDATE`
+**după** lacătele grupelor (ordinea din `enrol`, care e și cel ce anulează o retragere), iar
+`assertStillDue` refuză o ștergere la cerere fără cerere (`NO_ERASURE_REQUEST`) și una la termen pe o
+familie care nu mai e retrasă (`FAMILY_NOT_WITHDRAWN`). **Cererea o poate consemna și biroul**, din
+pagina familiei, cu felul în care a venit — telefon, email, la birou —, fiindcă termenii §17 și nota
+§8 trimit familiile la școală, iar o familie fără cont n-are altă ușă; tot de acolo o retrage și
+exportă datele familiei. **Un rând șters rămâne închis**: editarea, un copil nou și o reducere pe el
+sunt refuzate (`PROFILE_ERASED`), fiindcă ștergerea și retenția îl sar ca terminat, deci ce s-ar
+scrie pe el n-ar mai scoate nimeni.
+
+**Un rând fără drum către familie se revendică doar printr-o adresă pe care o garantează cineva**
+(E07 S4, revizuirea din 25 septembrie 2026). `outbox` și lead-urile tastate de birou n-au relație
+către `Profile`, deci exportul, ștergerea și retenția le caută după adresă — iar adresa de pe un
+profil e ce a tastat cineva în el. `PUT /profiles/:id` verifică doar că n-o mai ține alt _profil_:
+adresa biroului trece, numărul unei familii care a sunat și nu s-a înregistrat trece. Potrivit așa,
+`GET /privacy/export` îi dădea oricui își făcea cont copilul altei familii — nume, data nașterii,
+proba — și subiectul fiecărui mesaj al biroului, iar ștergerea le lua cu ea. Regula e
+`vouchedAddresses` din `apps/api/src/modules/privacy/family-rows.ts`, citită de toate trei:
+
+- **un cont: e-mailul, după confirmare** — linkul deschis e singura dovadă că familia citește adresa,
+  iar orice editare a adresei golește ștampila;
+- **o familie fără cont: amândouă, cum le-a tastat biroul** — nimeni altcineva nu poate edita rândul;
+  e linia pe care o trage `announcement.service.ts` pentru „confirmat";
+- **telefonul unui cont: niciodată** — nimic din platformă nu dovedește un număr. Prețul e un lead cu
+  telefon și fără e-mail, pe care niciun flux nu-l mai găsește pentru o familie cu cont; pleacă la
+  termenul lui.
+
+`user` trebuie încărcat: `null` e „fără cont", `undefined` e „n-a cerut nimeni relația" și nu
+revendică nimic — citit invers, un apelant care uită join-ul ar da fiecărei adrese tastate
+încrederea biroului. Dacă adaugi a patra căutare după adresă, trece prin aceeași funcție:
+unicitatea printre profiluri nu face o adresă a familiei care a tastat-o.
+
+**Iar adresa se potrivește fără majuscule, ca peste tot în platformă** (aceeași revizuire).
+Înregistrarea, `forgot-password` și `UQ_profiles_email_lower` citesc o cutie poștală după
+`lower(email)`, dar căutările de aici comparau exact: familia înregistrată ca `Ana.Pop@gmail.com` nu
+își găsea în export cererea tastată de birou ca `ana.pop@gmail.com`, iar ștergerea lăsa în urmă
+numele și data nașterii copilului din ea. `leadsOfFamily`, `messagesOfFamily`, `claimsLead` și
+`RetentionService.answersToAFamily` compară acum pe `lower()`. Tot după adresa garantată, ștergerea
+golește și `Project.sentToEmail` rămas pe lucrări care nu mai sunt ale familiei: cascada ia lucrările
+copiilor ei, dar nu și una trimisă ei și mutată apoi la copilul altei familii.
 
 **Auth** — două roluri, `ADMIN` și `PARENT` (`apps/api/src/enum/role.enum.ts`). `register` creează
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
@@ -520,6 +785,21 @@ repartizarea unui copil într-o grupă (`PARENT_ACCOUNT_NOT_ACTIVE`). **Un cont 
 autentifica** — portalul îi arată ce mai lipsește și butonul de retrimitere a linkului; un login care
 refuză fără să explice ar lăsa familia să nu distingă „încă nu" de „stricat".
 
+**Un cont respins se poate aproba din nou, și se vede unde** (revizuirea din 26 septembrie 2026).
+Mailul de refuz și portalul îi spun familiei „scrie-ne… ne uităm încă o dată", iar
+`POST /users/:id/approve` a primit mereu un cont `REJECTED` — dar coada din `/admin/approvals`
+lista doar `PENDING`, iar pagina familiei nu spunea nimic despre cont, deci după „Respinge" familia
+nu mai era pe niciun ecran. `GET /users/rejected` dă conturile respinse, cu ziua deciziei și nota
+adminilor, sub coadă, cu „Aprobă"; `GET /profiles` poartă `account` (starea porților și ziua
+deciziei, niciodată nota) **numai pentru un admin**, iar pagina familiei are aceeași acțiune.
+
+**Pagina de confirmare spune doar ce e adevărat** (aceeași revizuire). Citea numai `active`, deci
+unei familii respinse îi promitea aprobarea „de obicei în aceeași zi lucrătoare"; citește acum și
+`approvalStatus`. Iar `CONFIRMATION_TOKEN_USED` se traduce pe ecran prin „adresa ta este confirmată",
+așa că `confirm` îl dă numai cât e încă adevărat — adresa de pe fișă e cea dovedită de link, iar
+contul e confirmat acum. Un link folosit pentru o adresă înlocuită între timp, sau schimbată și pusă
+la loc (ceea ce închide poarta din nou), primește `CONFIRMATION_TOKEN_SUPERSEDED`.
+
 **Parola uitată e al treilea link din familia asta, și singurul care deschide contul.**
 `PasswordResetService` (`apps/api/src/modules/auth/password-reset.service.ts`) stă lângă
 `EmailConfirmationService` din același motiv pentru care acela stă lângă `AuthService`: unul e despre
@@ -558,6 +838,54 @@ dintre ele sunt diferențe față de linkul de confirmare, nu asemănări:
   înainte mai merge până la cincisprezece minute — compromisul deja documentat, și locul de schimbat
   dacă vine vreodată o cerință de revocare instantanee.
 
+**Al patrulea link e al familiei pe care a trecut-o biroul** (revizuirea din 26 septembrie 2026).
+`POST /profiles` e drumul pe care intră majoritatea familiilor (E11): biroul scrie numele și adresa
+de la telefon, fără cont. Până acum drumul se oprea acolo — `register` găsea adresa pe profil și
+răspundea „Există deja un cont cu această adresă de email", deși cont nu exista, iar nimic nu putea
+lega unul după aceea. Acum `register` cu adresa unui profil **fără cont și neșters** nu scrie nici
+cont, nici coajă: emite un rând în `account_claims` și trimite la adresa din fișă șablonul
+`account-claim`, cu un link spre `/auth/cont-familie`, iar formularul spune doar că școala are deja
+familia și că a plecat un link. Biroul poate trimite același link din pagina familiei
+(`POST /profiles/:id/account-claim`, cu `PROFILE_HAS_ACCOUNT`, `PROFILE_HAS_NO_EMAIL` și
+`PROFILE_ERASED`). `POST /auth/claim` (public, limitat ca `register`) creează contul **pe rândul
+biroului**, într-o tranzacție cu acceptările, confirmarea lor, anunțul către birou și urma în jurnal.
+Trei lucruri de ținut minte:
+
+- **Ce dovedește linkul e cutia poștală, și ajunge.** Adresa unui profil fără cont e una pe care o
+  garantează biroul (`vouchedAddresses`), deci cine deschide linkul trimis acolo e familia. De aceea
+  contul se naște cu `emailConfirmedAt` pus: al doilea link ar dovedi același lucru.
+- **Contul rămâne `PENDING`.** Biroul știe familia, nu și că acest cont e al ei și nu al altcuiva
+  care citește aceeași cutie; aprobarea rămâne a școlii, ca pentru orice cont.
+- **`register` nu scrie coajă aici**, dinadins: o a doua familie lângă rândul biroului ar rupe
+  familia în două — copiii, facturile și contractul pe unul, contul pe celălalt —, iar adresa unică
+  de pe profil ar refuza-o oricum.
+
+Tabela e modelată pe `password_resets`: doar SHA-256 al tokenului, al doilea link îl omoară pe
+primul (prin `expiresAt`, fiindcă `usedAt` înseamnă „s-a creat un cont"), adresa e înghețată la
+emitere și recitită la folosire prin `sameAddress`, iar `CLAIM_TOKEN_INVALID` e un singur răspuns
+pentru necunoscut, expirat, folosit și înlocuit. 48 de ore, ca la confirmare, nu o oră ca la
+resetare: linkul pleacă des din inițiativa biroului, iar ce deschide e un cont care încă așteaptă
+aprobarea. Se șterge la termenul celorlalte linkuri (`removeExpiredLinks`) și apare în exportul
+familiei.
+
+**O cutie poștală e a unei singure familii, oricum ar fi scrisă.** Înregistrarea și
+`forgot-password` caută adresa după `lower(email)`, dar cele două editări de profil comparau exact,
+deci o a doua familie putea ține `Ana@Example.com` lângă `ana@example.com`, iar `forgot-password`
+găsea două rânduri și îl lua pe primul venit: linkul putea pleca pentru contul celuilalt. Acum
+editările compară ca restul (`emailTakenByAnother` din `ProfileService`, cu rândul propriu scos, ca
+o familie să-și poată schimba doar majusculele), iar indexul unic `UQ_profiles_email_lower` ține
+linia și pentru două cereri deodată. E un index pe expresie, scris de migrare: TypeORM nu-l
+poate descrie, deci nu stă pe entitate — și nici nu-l atinge, deci `check:schema` nu-l vede ca drift.
+
+**Formularul de autentificare nu aplică nicio regulă de parolă**, doar cere să fie tastată una
+(testarea din 26 septembrie 2026): cerea opt caractere, în timp ce înregistrarea pe server, linkul de
+resetare și schimbarea din cont primeau șase, deci o familie care își pusese „parola1" nu se mai putea
+autentifica — formularul nu trimitea cererea. Minimul pentru o parolă **nouă** e un singur număr pe
+fiecare parte: `MIN_PASSWORD_LENGTH` din `password-reset.service.ts` și din
+`apps/web/app/composables/useAuthForms.ts`. Iar numele de utilizator pierde spațiile de la capete
+(`@Trim()`, și în formular): o tastatură de telefon pune un spațiu după un cuvânt completat, iar
+„admin " devenea un cont nou lângă cel al biroului.
+
 `POST /auth/change-password` **cere parola actuală**, și nu e ceremonie: un access token ține un
 sfert de oră și e onorat fără să se atingă `sessions`, deci un telefon împrumutat sau un tab uitat
 deschis ajunge până la rută. Ce știe doar proprietarul e ce oprește schimbarea să fie la îndemâna
@@ -575,6 +903,10 @@ familie putea rămâne pentru totdeauna fără nicio cale de contact. Dar rezult
 ecran cu zece câmpuri obligatorii, fix în epicul în care E20 coboară bariera de intrare — iar cine
 abandonează la câmpul opt nu e o familie cu date incomplete, e o familie pe care școala n-a
 văzut-o. Distincția față de starea dinainte de S2 e tot ce contează: pasul doi e acum de netrecut.
+**Poarta o ridică `useAuthApi`, nu paginile**: `login` și `register` cheamă amândouă
+`initializeProfile` după `/auth/me`. Până la testarea din 25 septembrie 2026 o chema doar pagina de
+login, deci familia abia înregistrată — singura care sigur n-are încă telefon, adresă sau contact de
+urgență — trecea pe lângă pasul doi până la primul reload.
 
 „Complet" nu se stochează, se derivă — `isProfileComplete` din
 `apps/api/src/entities/profile.entity.ts` — din același motiv pentru care nu există o coloană
@@ -594,7 +926,8 @@ familie deja înscrisă nu se blochează retroactiv.
 Celălalt drum către un `Profile` — adminul care introduce o familie de la telefon, prin
 `POST /profiles` — rămâne exact cum era, cu toate câmpurile opționale. Sunt două uși cu reguli
 diferite, fiindcă au surse de adevăr diferite. Un test ține fluxul adminului viu, ca să nu fie
-strâns din greșeală odată cu `register`.
+strâns din greșeală odată cu `register`. Contul unei astfel de familii vine prin linkul de cont (al
+patrulea link, mai sus), iar pasul doi îi cere apoi ce n-a notat biroul.
 
 **Formularul are două bife, iar a doua nu e o exagerare de avocat** (E22 S4). Codul civil
 art. 1203 spune că într-un contract standard clauzele neuzuale — la noi §14 suspendarea, §15
@@ -625,7 +958,9 @@ lucruri de ținut minte:
 - **Nicio rută nu refuză o cerere pentru asta.** §18 promite că portalul cere, nu că platforma se
   închide; poarta e `03.legal-acceptance.global.ts`, care **cedează cât timp ține poarta de profil**
   — două middleware-uri globale care redirecționează amândouă sunt o buclă fără eroare și fără log,
-  iar precedența e scrisă în fișierul care a venit al doilea.
+  iar precedența e scrisă în fișierul care a venit al doilea. **Și lasă să treacă `/user/profile`**
+  (`LEGAL_ACCEPTANCE_WAY_OUT`): §18 promite că cine nu acceptă poate închide contul, din Profil, iar
+  linkul de pe ecranul de acceptare era trimis înapoi pe același ecran.
 
 **Fiecare acceptare e confirmată pe email, cu ce s-a acceptat _atunci_** (termenii §4.7). Șablonul
 `legal-acceptance` se pune în coadă în tranzacția care scrie rândurile, la înregistrare și în
@@ -693,6 +1028,12 @@ refuzată de Vue — optsprezece avertismente pentru optsprezece rânduri — ș
 ordinea în care a venit de la API, prefăcându-se sortată. Ecranul de plăți a promis „cele mai noi
 întâi" fără să fie, de la început. Copiază înainte de sortare: `[...store.lista].sort(...)`.
 
+**Un număr și substantivul lui trec prin `countOf`** (`composables/useRomanianCount.ts`): „1
+familie", „2 familii", „20 de familii" — „de" de la douăzeci în sus, când ultimele două cifre sunt
+00 sau 20–99. Ecranele scriau „de" mereu („2 de familii", „de 15 de minute") sau niciodată („1
+cereri"), adică greșeala de gramatică pe care o vede primul un părinte (testarea din 26 septembrie
+2026).
+
 **Și pe asta o ține acum un spec**, fiindcă felul în care pică e felul în care a trecut de review:
 nu e nicio excepție și nicio linie roșie — vectorul se întoarce, șablonul îl randează, fiecare rând
 e corect —, greșită e doar **ordinea**, adică singurul lucru pe care cititorul nu-l poate verifica
@@ -713,10 +1054,19 @@ portalul fără numele familiei, iar browserul hidrata pe deasupra ce trebuia. *
 textul și lasă atributele** — o spune chiar el în avertisment —, așa că bara laterală a ajuns cu o
 intrare scrisă „Rapoarte" al cărei `href` era `/`: un clic stânga mergea, fiindcă router-ul
 folosește props-urile componentei, dar ctrl-clic, „deschide în tab nou" și „copiază adresa" duceau
-pe pagina publică. `routeRules` din `nuxt.config.ts` pune acum `ssr: false` pe `/admin/**` și
-`/user/**`. Un `<ClientOnly>` pe fiecare bucată care depinde de cine e logat ar fi reparat cele două
+pe pagina publică. `routeRules` din `nuxt.config.ts` pune acum `ssr: false` pe `/admin/**`,
+`/user/**` și `/files/**` — al treilea, linkul din emailul despre lucrarea unui copil, a lipsit până
+la testarea din 25 septembrie 2026 și randa pe server portalul unui părinte autentificat pentru un
+vizitator pe care nu-l autentificase nimeni. Un `<ClientOnly>` pe fiecare bucată care depinde de cine e logat ar fi reparat cele două
 găsite și l-ar fi lăsat pe al treilea să fie găsit la fel; ecranele astea sunt oricum `noindex`,
 n-au SEO și își cer datele la montare, deci randarea pe server nu cumpără nimic.
+
+**Paginile publice nu pot face la fel** — au nevoie de server pentru SEO —, iar al treilea a fost
+găsit exact acolo: bara de navigare e singura componentă publică ce depinde de cine e logat, deci un
+părinte autentificat vedea „Contul meu" cu `href`-ul lui „Programează o probă", pe fiecare pagină
+publică. `Navbar.vue` **ține ramura vizitatorului până la montare**: hidratarea potrivește HTML-ul
+serverului, iar comutarea de după e un patch obișnuit, care mută și `href`-ul. Dacă mai adaugi pe o
+pagină publică ceva care citește `userStore`, poartă-l la fel.
 
 **Un `value` gol într-un `USelect` nu e o opțiune, e o opțiune lipsă.** reka-ui refuză `SelectItem`
 cu `value=""`, fiindcă șirul gol e felul în care se golește un select — iar refuzul e o eroare în
@@ -729,7 +1079,11 @@ când pleacă spre API.
 `check-a11y-auth.mjs`. Amândouă defectele de mai sus erau vizibile exact acolo și nicăieri altundeva:
 nu se văd într-o captură de ecran, nu pică niciun test pe date și nu le vede axe. Cererile picate
 sunt excluse dinadins: job-ul ăla n-are stocare de obiecte, deci ecranul de PDF răspunde 500 acolo
-pentru totdeauna, iar un ecran rămas fără date e deja prins de verificarea de „se încarcă".
+pentru totdeauna, iar un ecran rămas fără date e deja prins de verificarea de „se încarcă". **Și
+citește, tot autentificat, fiecare pagină publică din sitemap** — singurul loc în care le vede
+cineva așa: celelalte trei gărzi publice vizitează anonim, deci bara de navigare de mai sus le-a
+trecut pe toate. Rulată pe build-ul de dinainte de reparație, verificarea a picat pe toate cele
+douăsprezece pagini publice.
 
 **Nu pune `@input` pe un câmp de text Nuxt UI.** Handler-ul rulează, dar **înainte** ca `v-model` să scrie caracterul tocmai tastat: Vue îmbină ascultătorul venit prin `$attrs` cu al componentei într-un vector și le cheamă în ordinea aia, al nostru primul. Deci orice citește din model e cu o tastă în urmă. Căutarea de copii din catalog a fost exact asta: `a` nu găsea nimic (filtra pe șirul gol), `aa` găsea unsprezece (filtra pe `a`), iar un nume întreg nu găsea niciodată nimic. Derivă din model — un `computed` nu poate fi decalat față de ce citește. `@change` și `@blur` sunt emit-uri declarate și se produc după actualizare, deci sunt în regulă. `no-input-listener.spec.ts` ține linia.
 
@@ -738,6 +1092,16 @@ pentru totdeauna, iar un ecran rămas fără date e deja prins de verificarea de
 `01.auth.global.ts` și `02.profile-setup.global.ts` **ies devreme** dacă flag-ul e fals →
 `apps/web/app/middleware/admin-check.ts` e opt-in, pus explicit pe paginile `/admin/*`. Prefixele numerice
 din numele fișierelor dictează ordinea de execuție; nu le redenumi.
+
+**Poarta numește ce e privat: `/admin`, `/user` și `/files`** (`protectedPrefixes` din
+`01.auth.global.ts`). Al treilea lipsea, iar linkul din emailul despre lucrarea copilului, deschis pe
+un telefon fără sesiune, arăta portalul cu „Ieși din cont" funcțional și o propoziție în engleză a
+validatorului — nu formularul de login. Un vizitator fără sesiune e trimis acum la login cu adresa pe
+care a întrerupt-o (`?inapoi=`), iar login-ul îl duce înapoi acolo, **numai dacă e o cale de pe site**
+(`safeReturnPath` din `composables/useReturnPath.ts`): altfel un link către formularul nostru l-ar
+trimite pe părinte, după parolă, unde vrea cine a scris linkul. Iar `useApi` **nu mai încearcă
+reîmprospătarea fără refresh token**: cererea cu `refreshToken: null` întorcea un 400 cu engleza
+validatorului, care înlocuia 401-ul pe care ecranul l-ar fi putut explica.
 
 **Un plugin `async` care aruncă duce toată aplicația în pagina de eroare.** O respingere neprinsă la
 boot nu strică ecranul care a cerut, ci **orice** pagină, pentru oricine e autentificat — iar cauza
@@ -756,6 +1120,23 @@ Tokenurile trăiesc în cookies (`apps/web/app/stores/tokenStore.ts`). Toate ape
 `apps/web/app/composables/api/useApi.ts`, care face refresh automat pe 401 și de-duplică refresh-urile
 concurente printr-un `refreshPromise` partajat. Nu apela `$fetch` direct — folosește
 composable-urile din `apps/web/app/composables/api/`.
+
+**Tokenurile se golesc numai când `/auth/refresh` însuși răspunde 400 sau 401** (revizuirea din 26
+septembrie 2026). Se goleau la orice eșec al reîmprospătării — o cerere pierdută pe o linie de semnal,
+un 502 cât repornea API-ul — și chiar când eșua cererea reluată după o reîmprospătare reușită: pe
+telefonul din sală, profesorul era delogat de rețea, cu un refresh token de șapte zile aruncat. O
+reîmprospătare fără răspuns sau cu 5xx își dă înapoi propria eroare și lasă sesiunea pentru
+încercarea următoare; una refuzată dă înapoi 401-ul cererii, pe care ecranul îl poate explica.
+**Pluginul de boot urmează aceeași regulă** (`refreshRejected`, exportat din `useApi.ts`): golea
+tokenurile la orice eșec al lui `/auth/me`, deci un reload pe o linie de semnal delogă familia.
+
+**Sesiunile se văd și se închid din „Profil"** (termenii §4.4–4.5, nota §8; aceeași revizuire).
+`POST /auth/logout-all` și lista de sesiuni existau pe API și nu le chema nimic. Secțiunea „Sesiuni
+active" numește fiecare sesiune după browser și sistem (`deviceLabel`), o marchează pe a acestui
+browser și are „Deconectează-te de pe toate dispozitivele", cu a doua apăsare de confirmare, după
+care golește și tokenurile locale. „Sesiunea aceasta" o spune serverul: `POST /auth/sessions`
+primește refresh tokenul în corp — niciodată în adresă — și îl compară, după hash, doar cu
+sesiunile celui care întreabă.
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
@@ -844,8 +1225,13 @@ despre cod și despre git, nu despre proza de proiect.
 - Lunile de facturare sunt string-uri `'YYYY-MM'` (`monthIssued`), cu constrângere
   `@Unique(['parent', 'monthIssued'])` pe `Invoice`.
 - `Group.weekday` e zi ISO: 1 = luni, 7 = duminică.
-- Unicitatea orarului e pe **sală**, nu pe școală: `@Unique(['room', 'weekday', 'startTime'])`.
+- Unicitatea orarului e pe **sală**, nu pe școală: `@Unique(['room', 'weekday', 'startTime'])`. Indexul știe
+  doar începuturi egale, deci serviciul refuză el **intervalele care se suprapun** (`GROUP_SLOT_TAKEN` —
+  16:30–18:00 lângă 16:00–17:30 trecea), o grupă care se termină înainte să înceapă
+  (`GROUP_ENDS_BEFORE_IT_STARTS`) și o grupă mutată peste o oră a altei grupe mutate acolo pe o
+  săptămână (`ROOM_BUSY_AT_THAT_TIME`): orele ei viitoare ar urma-o, iar sala ar ține două.
 - `Room.capacity` implicit e 10, dar e configurabil din `/admin/locations`; nu-l hardcoda nicăieri.
+  Nu coboară sub capacitatea unei grupe care se ține în sală (`ROOM_SMALLER_THAN_GROUP`).
 - `isActive` pe `Location` și `Room` blochează **grupe noi**, nu editarea celor existente.
 
 ## Capcane
@@ -931,11 +1317,21 @@ apelanți. `optional-text-is-never-empty.spec.ts` mătură DTO-urile și pică p
 exceptată e `PreviewMailTemplateDto`, cu motivul lângă ea: acolo `''` e o stare, nu o absență —
 editorul de șabloane previzualizează exact ce e în casete, deci un subiect șters trebuie să se vadă
 șters, nu cum e încă salvat pe server. Dacă mai apare una, se trece în listă cu propoziția ei.
+**Un șablon editat ca text își redesenează HTML-ul** (testarea din 26 septembrie 2026): majoritatea
+clienților de mail arată HTML-ul, deci textul nou lângă HTML-ul vechi trimitea vorbele vechi.
+`MailTemplateService.save` îl refă din text (`htmlFromText`, în rama școlii) când textul s-a schimbat
+și HTML-ul a rămas cum era; HTML-ul scris de școală și un șablon doar-text rămân cum au venit.
 
 **`@IsPhoneNumber()` fără regiune cere format internațional.** Numerele se scriu `0712345678` în
-România, deci decoratorul e `@IsPhoneNumber('RO')`, care acceptă și `+40712345678`. Frontend-ul
-normalizează la `+40…` înainte să trimită (`normalizePhone` din `composables/useUtils.ts`), ca
-verificarea de duplicat să compare o singură formă.
+România, deci decoratorul e `@IsPhoneNumber('RO')`, care acceptă și `+40712345678`. **Forma stocată o
+alege API-ul**: `@NormalizePhone()` (`apps/api/src/common/romanian-phone.ts`) stă lângă fiecare
+`@IsPhoneNumber` și scrie `+40…`, oricum a fost tastat. Până la testarea din 25 septembrie 2026
+normaliza doar formularul de profil din portal, în browser, iar formularele biroului trimiteau
+numărul cum era tastat — deci verificarea de duplicat, o comparație de șiruri, lăsa două familii cu
+același număr în două scrieri, iar exportul și ștergerea, care găsesc după număr un lead tastat de la
+telefon, îl ratau pe cel scris altfel. `romanian-phone.spec.ts` mătură DTO-urile și pică pe câmpul
+care validează un telefon fără să-l normalizeze; singura excepție e numărul unei locații, tipărit cum
+îl vrea școala și comparat cu nimic.
 
 **Coloanele `decimal` vin ca string din driver.** `@Column({ type: 'decimal' })` fără `transformer`
 declară `number` și livrează `"11"`. `contract.ts` nu prinde asta — compară declarații, nu
@@ -1077,6 +1473,14 @@ fiindcă Nest potrivește în ordinea declarării și `:id` are `ParseIntPipe`, 
 UUID. În `LeadController` (E20/S3) e aceeași capcană cu alt chip: `follow-up` și `undecided` stau
 înaintea lui `:id`, altfel `ParseIntPipe` răspunde 400 la un cuvânt.
 
+**Un nume de fișier ajunge într-un antet numai prin `attachmentDisposition`** (`s3.service.ts`).
+Node refuză să scrie în antet un caracter peste U+00FF, deci `filename="proiecte-ștefan.zip"` a dat
+500 la „Descarcă tot" pentru fiecare Ștefan, Mălina și Răzvan (revizuirea din 25 septembrie 2026).
+Helper-ul pune o variantă ASCII, cu diacriticele scoase, plus `filename*=UTF-8''…`; îl folosesc
+arhiva și URL-urile semnate. Tot acolo: arhiva deschide **un obiect o dată**, după ce s-a scris
+precedentul — `archiver` primea toate sursele deodată, deci deschidea toate obiectele înainte ca
+browserul să citească un octet, fiecare ținând un socket din pool-ul comun al SDK-ului.
+
 **Singurul lucru servit `inline` de pe domeniul școlii e miniatura.** Fișierele urcate se servesc
 prin URL semnat cu `Content-Disposition: attachment`, fiindcă vin de pe o partajare pe care poate
 scrie orice mașină din școală. Miniatura e altceva: octeții ei au fost produși de `sharp` pe server,
@@ -1090,6 +1494,23 @@ date de care e nevoie o dată; iar un obiect care lipsește nu oprește mesajul 
 **Refresh tokenurile sunt urmăribile și revocabile.** Tabelul `sessions` ține un SHA-256 al
 fiecăruia, niciodată tokenul. Refresh-ul rotește, iar refolosirea unuia consumat revocă tot lanțul —
 semnalul de furt. `POST /auth/logout` nu cere access token, fiindcă acela e adesea deja expirat.
+
+**„Închide toate sesiunile" așteaptă o rotație în curs, prin rândul contului.** `revokeAllForUser`
+era un singur `UPDATE`: sub READ COMMITTED aștepta rândul pe care îl blocase rotația, îl sărea
+fiindcă venea înapoi revocat și nu vedea succesorul, scris după instantaneul lui. Deci un refresh
+prins la jumătatea unei resetări de parolă păstra un token nou șapte zile — exact în clipa în care
+cineva încearcă să închidă ușa unui hoț. Acum rotația ține rândul din `users` **partajat**
+(`FOR SHARE`) înaintea sesiunii, iar măturarea îl ia **exclusiv** (`FOR UPDATE`) înainte să revoce.
+Ordinea e cont, apoi sesiune, peste tot — și `DELETE`-ul ștergerii cascadează la fel —, altfel două
+tranzacții țin fiecare câte una și o așteaptă pe cealaltă. Iar `revokeAllForUser` nu se cheamă
+dintr-o tranzacție care ține deja rândul contului: s-ar aștepta pe ea însăși, fără ca Postgres să
+vadă vreun ciclu. Testul forțează interleavarea — o a doua conexiune ține rândul contului, care
+oprește rotația exact între revocarea rândului vechi și scrierea celui nou.
+
+**Numele de utilizator al unui admin nu pleacă spre un părinte.** E jumătate din credențial, iar
+login-ul e limitat pe adresă, nu pe cont. `GET /payments` îl punea pe fiecare plată a fiecărei
+familii (`recordedBy`), deși niciun ecran de părinte nu-l arată; acum îl primește doar biroul —
+`withRecorder` din `payment.service.ts`.
 
 **Revocarea acționează doar pe refresh, nu și pe access.** `AuthGuard` verifică semnătura JWT și
 atât — nu atinge tabelul `sessions`. Deci după `logout` sau `logout-all`, un access token deja emis
@@ -1117,15 +1538,20 @@ adevărat: ce se verifică e ce se întâmplă când două cereri sunt în aer �
 `fetch` înlocuit cu un răspuns gata făcut dă înapoi controlul prea devreme ca ele să se suprapună
 cu adevărat.
 
-**Un login ține șapte zile, cât refresh tokenul din spatele lui.** `useCookie("accessToken")` fără
-opțiuni scrie un cookie **de sesiune** — `CookieDefaults` din Nuxt pune `path`, `watch`, `decode`,
-`encode` și `refresh`, și nimic altceva, deci nici `maxAge` și nici `expires` —, așa că amândouă
-tokenurile se aruncau la închiderea browserului. Tot ce e de partea cealaltă a sârmei fusese
-construit pentru opusul: șapte zile de refresh token, tabelul `sessions` care îl urmărește, rotația
-care revocă lanțul la refolosire. Un părinte își retasta parola la fiecare vizită, iar nimeni nu
-alesese asta — era implicitul pe care nu-l recitise nimeni. Trei lucruri de ținut minte:
+**Un login ține șapte zile când bifezi „Ține-mă minte", și până la închiderea browserului când
+nu.** `useCookie("accessToken")` fără opțiuni scrie un cookie **de sesiune** — `CookieDefaults` din
+Nuxt pune `path`, `watch`, `decode`, `encode` și `refresh`, și nimic altceva, deci nici `maxAge` și
+nici `expires` —, așa că la început amândouă tokenurile se aruncau la închiderea browserului, deși
+tot ce e de partea cealaltă a sârmei fusese construit pentru șapte zile. Reparația a dat apoi
+fiecărui refresh token șapte zile pe disc, iar bifa „Ține-mă minte" de pe formular nu schimba nimic:
+`login.vue` o arunca (revizuirea din 26 septembrie 2026) — deci o familie care nu bifase, pe
+calculatorul altcuiva, rămânea autentificată o săptămână. Cum `useCookie` fixează `maxAge` când se
+creează ref-ul, alegerea e **care cookie ține tokenul**: `refreshToken`, de sesiune — cum îl descrie
+și politica de cookie-uri §2 —, implicit; `refreshTokenKept`, șapte zile, cu bifa. **Rotația din
+`useApi` nu alege**: `setRefreshToken` fără al doilea argument scrie tokenul nou unde era cel vechi,
+altfel prima reîmprospătare, după un sfert de oră, ar anula bifa. Trei lucruri de ținut minte:
 
-- **`maxAge` pe cookie-ul de refresh, singur, nu repară nimic.** Și pluginul de boot
+- **`maxAge` pe cookie-ul durabil, singur, nu repară nimic.** Și pluginul de boot
   (`01.auth.client.ts`), și middleware-ul (`01.auth.global.ts`) citeau **access tokenul** ca „e
   cineva autentificat", deci părintele întors a doua zi era trimis la formularul de login cu un
   refresh token bun în borcan, neatins: nimic nu cheamă `/auth/refresh` până nu ia o cerere 401, și
@@ -1144,7 +1570,8 @@ alesese asta — era implicitul pe care nu-l recitise nimeni. Trei lucruri de ț
 
 Cele două numere — `REFRESH_TOKEN_MAX_AGE_SECONDS` din `apps/web/app/stores/tokenStore.ts` și
 `JWT_REFRESH_TOKEN_EXPIRATION` — se mută împreună: browserul nu vede mediul API-ului, iar `useCookie`
-fixează `maxAge` când se creează ref-ul, deci valoarea nu poate fi citită nici de pe token.
+fixează `maxAge` când se creează ref-ul, deci valoarea nu poate fi citită nici de pe token. Politica
+de cookie-uri (§2) nu numește încă `refreshTokenKept`: e textul juridic, și se schimbă pe drumul lui.
 
 **Nimic din datele utilizatorului nu se ține în cookie.** Limita e ~4 KB per cookie, iar depășirea
 nu produce nicio eroare: browserul aruncă tăcut, `useCookie` citește mai departe o valoare goală și
@@ -1229,6 +1656,15 @@ rândul cu el însuși; iar o salvare care n-a mișcat nimic nu scrie niciun râ
 adaugi un al treilea drum prin care un om atinge datele unei familii, cheamă aceeași ușă — nu
 `record` cu valori în ea.
 
+**Și la bani, textul liber lasă tot numele câmpului** (revizuirea din 25 septembrie 2026). Cifrele
+rămân cu valoarea lor — „350 a devenit 300" e rostul jurnalului —, dar trei dintre câmpurile pe care
+le consemnează scriitorii de bani sunt propoziții despre o familie: nota unei plăți (reconcilierea
+scrie acolo textul transferului, adică „plata martie Maria Pop"), motivul unei corecturi de ședințe
+(„a fost bolnavă") și numele unei reduceri. Copiate ca valori, erau singurul loc la care ștergerea
+din S4 nu ajungea. `FREE_TEXT_FIELDS` din `audit.rules.ts` le numește pe tip de rând, iar
+`AuditService.record` — ușa prin care trece orice intrare — le scrie `{ from: null, to: null }`.
+Dacă un scriitor nou consemnează un câmp tastat de un om despre o familie, îl treci în listă.
+
 **A treia categorie e accesul, și ea cade ușor între primele două** (E07 S3). Cine intră, cine e
 refuzat, cine devine admin, al cui cont dispare: cele patru scrieri din `apps/api/src/modules/user/`
 sunt deciziile prin care platforma spune cine o poate folosi, iar multă vreme n-au consemnat nimic —
@@ -1283,6 +1719,17 @@ factură). Diferă exact când o familie plătește târziu, deci nu alege unul 
 plățile `succeeded` sunt bani, iar `waived` se numără, nu se adună. Pragul de ocupare (60%) și prețul
 unui loc gol stau în `reports.rules.ts` și sunt propuneri afișate ca atare, nu decizii.
 
+**Tabloul de bord numără ziua școlii, orele care se țin și familiile** (revizuirea din 25
+septembrie 2026). Trei greșeli mici pe ecranul pe care îl deschide biroul primul: ziua se lua din
+ceasul serverului, deci între miezul nopții și 03:00 la București „orele de azi" erau cele de ieri;
+o oră anulată intra în „0 din N marcate", cu eticheta „Nemarcată" pe fiecare oră a unei zile libere;
+iar „peste 60 de zile" număra facturi, deși rândul de deasupra, și ecranul, vorbesc despre familii de
+sunat. Acum `OverviewService.build` pleacă de la `schoolDay`, lasă deoparte orele `cancelled` — cum
+face deja `findUnmarkedSessions`, care deține „nemarcat" — și numără părinți distincți. **Cererile
+de probă au și ele un rând acolo** (testarea din 26 septembrie 2026): până atunci o probă ținută fără
+decizie se vedea doar în mailul zilnic al biroului. Numărul vine din `LeadService.followUp`, aceeași
+citire din care e făcut mailul, și numără lead-uri, nu intrări: o familie pe două liste e un telefon.
+
 **Semnalele timpurii sunt patru liste și un email de luni, nu o acțiune** (E21 S7).
 `EarlySignalsService` (`apps/api/src/modules/dashboard/early-signals.service.ts`) cere fiecare
 listă de la cine deține definiția: restanțele repetate de la `ArrearsService.list`, grupele sub prag
@@ -1292,7 +1739,10 @@ absențe (și seria e „vie": ultimul marcaj sub trei săptămâni, altfel copi
 cărei medii pe ultimele trei ședințe ținute a căzut cu 20 de puncte față de cele trei dinainte.
 Toate pragurile sunt constante acolo și pleacă pe sârmă, ca ecranul să numească linia pe care o
 trage. **`asOf` e verificarea retroactivă**: marcajele și facturile se citesc așa cum stăteau în
-ziua cerută, ocuparea mereu azi — și răspunsul o spune. Digest-ul `EarlySignalsJob` pleacă luni la
+ziua cerută, ocuparea mereu azi — și răspunsul o spune. Restanțele vin de la
+`ArrearsService.asOf`, nu de la `list`: aceea citește starea facturii de acum și toate plățile, deci
+întrebată despre 2 martie după ce familia plătise pe 20 răspundea ca și cum banii veniseră pe 2, iar
+digest-ul care o numise luni nu se mai putea verifica (revizuirea din 25 septembrie 2026). Digest-ul `EarlySignalsJob` pleacă luni la
 08:00 pe ceasul școlii, prin outbox, cu `dedupeKey` `early-signals:<zi>`, și **doar când există ceva
 de semnalat**, ca mementourile de prezență și de lead-uri. Un semnal nu declanșează nimic — nici
 reducere, nici transfer, nici mesaj către familie; e un motiv de telefon, cu numărul lângă el.
@@ -1303,6 +1753,14 @@ reducere, nici transfer, nici mesaj către familie; e un motiv de telefon, cu nu
 fiindcă n-a rulat un job. `markOverdue` ține coloana onestă pentru restul ecranelor. Consecința pe
 care se sprijină acceptanța: mementourile se opresc la încasare fiindcă factura plătită iese din
 interogare, nu fiindcă anulează cineva ceva.
+
+**Ce vede familia ca „de plătit" e restul, nu totalul** (revizuirea din 25 septembrie 2026). Portalul
+arăta suma facturii, deci o familie care plătise 100 din 350 citea tot 350 — iar cine plătește ce
+scrie pe ecran plătește de două ori. Fiecare factură din `GET /invoices` și `GET /invoices/:id` poartă
+acum `paid` și `outstanding`, atașate de `ArrearsService.withBalances` din aceeași sumă a plăților
+reușite și aceeași scădere (`outstandingOf`) ca lista de restanțe — nu o a doua definiție. În web,
+`leftToPay` citește `outstanding`; un ecran nou care arată cât datorează o familie îl folosește pe el,
+nu `amount`.
 
 **Încasarea se începe de la factură, iar suma precompletată e restul, nu totalul** (E16 S5).
 `/admin/restante` și `/admin/payments/new` deschid amândouă `AdminPaymentModal`, care se completează
@@ -1339,6 +1797,22 @@ tranzacția care înregistrează banii — dă-i `EntityManager`-ul —, iar dac
 unde se încasează, cheamă și de acolo aceeași ușă: o încasare tăcută arată pentru familie exact ca
 una pierdută.
 
+**Un transfer anunțat e bani pe drum, nu bani intrați** (E16 S6, testarea din 25 septembrie 2026:
+fluxul exista pe API și n-avea niciun ecran). Biroul îl trece din formularul de încasare, cu bifa
+„doar anunțat", când îl vede pe extrasul provizoriu: rândul e `initiated`, nu intră în `paid`, deci
+factura rămâne pe lista de restanțe, cu transferul lângă ea (`ArrearsRow.announced`). Trei reguli:
+
+- **Mementourile tac cât transferurile anunțate acoperă restul** (`restIsAnnounced` din
+  `arrears.rules.ts`) — altfel familia care a plătit ieri primește „ai întârziat", adică exact
+  plângerea din S8. Un transfer care acoperă doar o parte nu oprește nimic.
+- **Se închide din `/admin/payments`**, pe unul din două drumuri: „au intrat", cu ziua din extras —
+  atunci pleacă chitanța, pe aceeași tranziție ca oricare alta —, sau „n-a venit", adică `failed`, iar
+  mementourile se reiau singure.
+- **O linie de extras potrivită pe factură confirmă transferul anunțat de exact aceeași sumă**, nu
+  scrie o a doua plată lângă el (`ReconciliationService.match`, prin `updatePayment` cu managerul
+  tranzacției). Altfel factura ieșea plătită, iar rândul anunțat rămânea în registru pentru
+  totdeauna, așteptând bani care veniseră.
+
 **Factura fiscală e a SmartBill, iar SmartBill n-are sandbox** (E16 S0–S3). Orice factură emisă
 prin API-ul lor e un document fiscal real: ia următorul număr din serie și, cu e-Factura activă,
 pleacă în SPV. De aici toată forma integrării, din `apps/api/src/modules/smartbill/` (clientul și
@@ -1371,6 +1845,13 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   **Platforma nu adoptă niciodată un număr fiscal pe care nu l-a văzut venind înapoi.** Cât timp
   un rând e în aer nu pleacă nimic altceva, fiindcă seria s-ar mișca sub judecata lui — și de aceea
   seria configurată în `SMARTBILL_INVOICE_SERIES` trebuie să fie **doar a platformei**.
+  **Împrumutul curge de la cerere, nu de la începutul trecerii**: se reînnoiește chiar înaintea ei,
+  odată cu numărul așteptat. Ștampilat de la începutul trecerii, o serie lentă le dădea ultimelor
+  rânduri un împrumut deja expirat, iar trecerea următoare citea seria înainte ca SmartBill să
+  termine de scris — adică o a doua factură. Dacă scrierea de dinaintea cererii nu mai găsește rândul,
+  l-a luat altcineva, și nu pleacă nimic. **Și un 2xx al cărui corp nu se citește e tăcere, nu
+  succes** (`call`), la fel ca o factură sau o chitanță confirmată fără număr: altfel devenea o
+  factură `issued` fără număr, pe care nimic n-o mai putea retrimite, confirma sau șterge.
 - **Felul eșecului decide pasul următor**, în `classifyFailure`: un refuz (`errorText` completat,
   **chiar și pe un 200** — „errorText este sursa de adevar") așteaptă un om; un 401 sau un 403 de
   drepturi și blocarea pentru rată (429, sau 403 cu „limita maxima de requesturi", cum se vede de
@@ -1396,13 +1877,19 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   scrie și el doar câmpurile trimise, sub lacătul rândului, din motivul de la `updateInvoice`. În
   `draft` plățile nu pleacă deloc — o ciornă de factură n-are număr, iar dintre încasări doar
   chitanța are ciornă —, iar o chitanță de probă se vede cu
-  `pnpm smartbill:check --draft --receipt`.
+  `pnpm smartbill:check --draft --receipt`. O plată care nu mai e bani — inversată cât răspunsul
+  ei era pierdut — **iese din coadă** când se judecă răspunsul, nu se retrimite; `claimNext` ia doar
+  plăți reușite, iar „retrimite" pe una sub revizie care nu mai e bani o scoate, cu urmă în jurnal.
+  Iar o factură pe care SmartBill n-o mai găsește trimite la un om **doar acea plată**: înainte
+  oprea toată coada, la fiecare trecere.
 - **Divergența cu SmartBill se derivă; pe factură stă doar ce a spus SmartBill** (E16 S8).
   `fiscalPaidAmount`, `fiscalTotalAmount` și `fiscalCheckedAt` sunt citirea lor, reîmprospătată o
   dată pe zi de `FiscalDivergenceJob`; verdictul e `divergenceOf`, calculat când se citește
   raportul (`GET /invoices/fiscal-divergences`), față de plățile de atunci. O încasare înregistrată
   golește `fiscalCheckedAt`, iar o factură necitită nu se judecă — altfel o cifră veche ar fi o
   alarmă falsă. Dacă adaugi un drum care schimbă partea SmartBill a unei facturi, golește-l și acolo.
+  Iar citirea **se scrie doar dacă nicio plată a facturii nu s-a înregistrat după ce a început**:
+  altfel punea la loc, cu cifra de dinainte, verificarea pe care tocmai o golise plata.
 - **În `live`, PDF-ul e al lor, la aceeași cheie** (`invoicePdfKey`, mutată în `invoice-pdf-key.ts`
   ca să nu facă ciclu): nu se mai generează nimic cu PDFKit, iar descărcarea, exportul și ștergerea
   îl citesc fără să știe cine l-a făcut. Documentul poartă **o singură linie, la suma calculată de
@@ -1417,12 +1904,18 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   sare. Se păstrează doar intrările, iar amprenta liniei (conținutul plus locul printre liniile
   identice) e unică, deci un extras importat de două ori nu adaugă nimic. Propunerile sunt două:
   **după numărul fiscal al facturii** din detalii — sigure, se confirmă toate dintr-o apăsare — și
-  **după numele plătitorului și suma rămasă exact** — doar propunere, câte una. „Ce mai datorează o
+  **după numele plătitorului și suma rămasă exact** — doar propunere, câte una. Cele sigure se judecă
+  **împreună**, cea mai veche întâi, fiecare față de ce au lăsat cele dinainte
+  (`withRunningRemainder`): judecate una câte una, două linii care citează aceeași factură treceau
+  amândouă, iar o apăsare o înregistra plătită de două ori. „Ce mai datorează o
   factură" vine din `ArrearsService.list`, nu dintr-o interogare nouă. O linie confirmată devine plată
   prin `PaymentService.createPayment`, în tranzacția liniei — `createPayment` primește acum
   `EntityManager`-ul apelantului —, deci familia primește confirmarea și plata pleacă spre SmartBill
   ca oricare alta. Starea liniei se derivă (are plată, e pusă deoparte, sau așteaptă); o plată
-  ștearsă o pune singură la loc în coadă, prin `SET NULL`. **O linie devenită plată e a familiei**:
+  ștearsă o pune singură la loc în coadă, prin `SET NULL`, iar una stornată sau neintrată la fel —
+  nu mai e bani, deci linia așteaptă din nou un om, spunând de ce, și nu intră în apăsarea unică:
+  referința care a propus-o ar propune exact potrivirea pe care cineva tocmai a desfăcut-o (testarea
+  din 26 septembrie 2026). **O linie devenită plată e a familiei**:
   intră în exportul ei (E07 S4), iar la ștergere pierde plătitorul și detaliile — familiile scriu
   acolo numele copilului la fel de des ca numărul facturii —, și păstrează cifrele, referința băncii
   și amprenta. Amprenta trebuie să rămână: fără ea, același extras importat din nou ar aduce numele
@@ -1464,6 +1957,32 @@ marketing fără cale de oprire e **imposibil de trimis**, nu doar descurajat. P
   face unul scurs e să oprească un buletin. Un răspuns care ar distinge „oprit" de „nu există" ar fi
   un oracol pentru ghicit jetoane.
 
+**Al doilea consimțământ din platformă e pe copil, nu pe familie** (E07 S2). `publication_consents`
+spune dacă lucrările unui copil pot apărea în materialele școlii, iar un părinte cu doi copii poate
+răspunde diferit pentru fiecare. Un rând e un acord de la dat la retras: retragerea ștampilează
+`revokedAt`, nu șterge, iar un acord dat din nou e rând nou; `UQ_publication_consents_one_in_force`
+ține unul singur în vigoare, iar serviciul scrie cu `ON CONFLICT DO NOTHING`, deci a doua apăsare e
+același fapt. Patru lucruri:
+
+- **Nu-l îmbina cu `marketingOptIn`.** Ăla e pe familie fiindcă mesajul pleacă într-o cutie, o dată
+  per familie; ăsta e pe copil fiindcă lucrarea e a copilului. Scopul e unul singur azi, `promotion`
+  — vitrina din E14 S6 ar fi a doua valoare a enum-ului, nu un `isPublic` pe `Project`.
+- **Versiunea e a textului din `docs/legal/acord-lucrari.md`**, copiată pe rând din
+  `PUBLICATION_CONSENT_VERSIONS`, pe care `publication-consent.texts.spec.ts` o ține egală cu capul
+  fișierului — aceeași procedură ca `LEGAL_DOCUMENT_VERSIONS`.
+- **Două uși, o singură coloană între ele.** Părintele dă și retrage din „Profil"; biroul consemnează
+  din pagina familiei un acord semnat pe hârtie. `grantedVia`/`revokedVia` spun care, jurnalul spune
+  cine, iar familia primește confirmarea **de fiecare dată** — e singura cale prin care observă un
+  acord consemnat pe copilul greșit.
+- **Retragerea anunță biroul în aceeași tranzacție**, fiindcă platforma nu publică nimic: site-ul e
+  static și nu citește din ea, iar rețelele sociale sunt în afara ei. Verificarea „în momentul
+  afișării" e deci `/admin/acorduri`, citită înainte să plece o lucrare spre site. Când revine vitrina
+  automată, interogarea ei citește aceeași tabelă — nu un instantaneu pus lângă. **Ștergerea
+  familiei anunță la fel** (revizuirea din 25 septembrie 2026): acordul pleacă în cascadă odată cu
+  copilul, deci fără anunț biroul nu afla că o lucrare de pe site nu mai are acord și nici copil în
+  evidență. `ErasureService` cheamă `announceErasure` **înaintea** cascadei — după ea n-ar mai avea ce
+  citi.
+
 **Un mesaj care n-are unde să plece lasă un rând, nu o linie de log** (E17 S5). `queueOrRecord` din
 `OutboxService` primește destinatarul oricare ar fi el și scrie `undeliverable` cu motiv tipizat
 (`no_address` / `unconfirmed_address`) când n-are adresă — starea e terminală și dispecerul n-o
@@ -1478,11 +1997,17 @@ nelivrabil — una inventată n-ar putea fi deosebită de una reală care a resp
 
 - `failed` — furnizorul a refuzat definitiv, sau s-au consumat cele șapte încercări.
 - `undeliverable` — n-a avut unde să plece, de mai sus.
-- **`stuck` — și ăsta nu e o stare, e un ceas.** Un mesaj pe care dispecerul nu l-a revendicat
-  rămâne `pending`, adică arată exact ca unul care își așteaptă backoff-ul; singura diferență e
-  `nextAttemptAt`, care a trecut. Pragul e `STUCK_AFTER_MINUTES` din `outbox-health.rules.ts`:
-  cincisprezece minute, adică **treizeci de ticuri ratate** la `POLL_INTERVAL_MS` de 30 de secunde,
-  și pleacă pe sârmă ca să numească ecranul linia, nu s-o deseneze a doua oară.
+- **`stuck` — și ăsta nu e o stare, e un ceas. De fapt, două.** Un mesaj pe care dispecerul nu l-a
+  revendicat rămâne `pending`, adică arată exact ca unul care își așteaptă backoff-ul; singura
+  diferență e `nextAttemptAt`, care a trecut. Al doilea ceas e pentru coada care revendică și dă
+  totul înapoi: fără `MAIL_RESEND_API_KEY`, fiecare trecere întoarce încercarea și mută
+  `nextAttemptAt` cu două minute, deci primul ceas nu suna niciodată — trei zile de coadă care nu
+  trimitea nimic, cu tile-ul pe zero (revizuirea din 25 septembrie 2026). Se numără deci și un mesaj
+  **niciodată predat unui furnizor** (`attempts = 0`) la un sfert de oră după ce a fost scris; unul
+  care a fost încercat și își așteaptă backoff-ul e pe drum, nu blocat. Pragul e
+  `STUCK_AFTER_MINUTES` din `outbox-health.rules.ts`: cincisprezece minute, adică **treizeci de
+  ticuri ratate** la `POLL_INTERVAL_MS` de 30 de secunde, și pleacă pe sârmă ca să numească ecranul
+  linia, nu s-o deseneze a doua oară.
 
 Tile-ul scria „Mesaje nelivrate" și număra doar al doilea fel, deci un mesaj refuzat de furnizor
 arăta zero, iar o coadă **oprită de tot** arăta tot zero — exact defecțiunea pe care epicul o
@@ -1504,7 +2029,10 @@ incluse, deduplicate **per părinte**. Patru lucruri care se ratează ușor:
   școală în subiect și corp, fără diacritice și pe cuvinte întregi, iar rezultatul e **avertisment cu
   confirmare** (`ANNOUNCEMENT_NAMES_A_CHILD` plus `acknowledgeWarnings`), aceeași formă ca vârsta de
   la E11 S6. Blocajul ar fi greșit: Maria e și sală, și stradă, iar o verificare care se declanșează
-  mereu devine o bifă apăsată reflex.
+  mereu devine o bifă apăsată reflex. Caută și genitiv-dativul unui nume în -a („diploma
+  **Mariei**"), forma pe care o ia o felicitare. Iar ecranul confirmă **doar avertismentele pe care
+  le-a arătat**: trimitea `acknowledgeWarnings: true` mereu, iar cât aștepta previzualizarea (400
+  ms) butonul trimitea peste previzualizarea veche.
 - **`kind` decide dacă se consultă `marketingOptIn`.** `transactional` (implicit) ajunge la toți,
   `marketing` trece prin `queueMarketing`. Fără el, ecranul ăsta ar fi fost portița prin care orice
   mesaj ajunge la orice familie, indiferent de comutatorul din E17 S4.
@@ -1535,25 +2063,73 @@ Patru reguli pe care le încalci ușor:
 
 - **Patru din cele șase stări nu se scriu de la niciun ecran.** `trial_scheduled` vine din
   programare, `trial_held` din catalog (`LeadProgressService`, chemat din
-  `AttendanceService.settleLead` — singurul lucru pe care marcarea îl mai decontează), iar
-  `enrolled` / `lost` din `resolveTrial` în E11. `UpdateLeadDto` **nu are câmp
-  `status`**, iar cele două stări pe care le declară un om au endpoint-uri proprii. Un câmp de stare
-  pe un PATCH ar lăsa un ecran să scrie `înscris` pe o familie pe care n-a înscris-o nimeni — și aia
-  e cifra pe care se sprijină tot raportul de pâlnie.
+  `AttendanceService.settleLead` — singurul lucru pe care marcarea îl mai decontează, pe oricare din
+  cele trei drumuri ale unui marcaj), iar `enrolled` / `lost` din `resolveTrial` în E11.
+  `UpdateLeadDto` **nu are câmp `status`**, iar cele două stări pe care le declară un om au
+  endpoint-uri proprii. Un câmp de stare pe un PATCH ar lăsa un ecran să scrie `înscris` pe o familie
+  pe care n-a înscris-o nimeni — și aia e cifra pe care se sprijină tot raportul de pâlnie. Trei
+  urmări, din revizuirea din 25 septembrie 2026: proba se socotește ținută la **orice oră a grupei ei
+  de la cea programată încolo** (recontactarea o invită chiar la alta, iar proba stă în fiecare oră
+  până e decisă), iar lead-ul ia ora la care a venit copilul; **„Pierdut" pe un lead cu proba în
+  vigoare trece prin `resolveTrial`** — scria doar lead-ul, iar copilul rămânea pe scaun, grupa
+  plină și lista neanunțată; iar rata cerere→probă se socotește din familiile pe care școala le putea
+  așeza, fără cererile `noSeats`, pe zilele școlii, nu pe ale UTC.
 - **Orele se filtrează pe dată, nu pe grupă.** Ce alege părintele e o zi, iar o grupă cu un loc
   liber n-are niciunul în ziua în care biroul a mutat deja un copil acolo — și are din nou săptămâna
   următoare. Lista cere `freeSeatsAtSessions` pentru toate orele pe care e pe cale să le ofere,
   într-o singură interogare, iar la trimitere se reverifică ora aleasă, în tranzacție: între
-  fotografie și buton se poate strecura o mutare.
+  fotografie și buton se poate strecura o mutare. **O oră de azi care a început nu se oferă și nu
+  se primește** (revizuirea din 25 septembrie 2026): părinții programează seara, iar ora de la 16:00
+  era încă pe listă după ce se terminase — un loc ținut pentru o probă la care nu mai putea veni
+  nimeni, până când recontactarea îi spunea familiei că a lipsit. Comparația e pe ceasul școlii, ca
+  text, ca toate celelalte „a început?" din aplicație. **Și o oră se oferă doar cât ea și fiecare oră
+  de după ea a grupei mai au un loc**: proba ține scaunul până o decide cineva, deci stă și în orele
+  următoare, iar `enrol` refuză o probă pe care o oră de mai târziu n-o mai încape. Lista citește de
+  aceea toate orele din față, nu doar cele trei săptămâni oferite — altfel oferea o zi la care
+  programarea răspundea „nu mai sunt locuri". **O oră mutată la altă oră sau la cealaltă adresă nu
+  se oferă sub grupă**: lista tipărește ora și adresa grupei o dată, deasupra datelor, deci ar fi
+  vândut-o unde și când nu e. Confirmarea, mementoul și recontactarea spun adresa **sălii orei**, nu
+  pe cea obișnuită a grupei.
 - **Formularul nu se termină niciodată într-o eroare.** Fără loc liber, cu ultimul loc luat între
   timp, sau fără nicio oră potrivită — toate trei scriu un lead marcat `noSeats` și răspund „te
-  contactăm noi". Cel mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca
-  școala să știe că a trecut pe acolo. Numărul ăla e și singura măsură a cererii pe care școala nu o
+  contactăm noi". Asta nu înseamnă că ascunde o greșeală de tastare: un email sau un telefon greșit
+  e oprit sub câmp, iar un refuz al serverului se arată cum l-a scris el — fiecare câmp pe care îl
+  poate greși un părinte are propoziția lui în română în `BookTrialDto`. Pagina spunea „încearcă din
+  nou sau sună-ne" peste orice, adică arăta o greșeală de tastare ca pe o defecțiune a școlii. Cel
+  mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca școala să știe că a
+  trecut pe acolo. Numărul ăla e și singura măsură a cererii pe care școala nu o
   poate servi: cine nu găsește oră nu intră în nicio rată de conversie.
+- **Ecranul lucrează cererea, nu doar o listează** (testarea din 26 septembrie 2026). Lista nu se
+  deschidea: niciun telefon de sunat, nicio probă de citit, nicăieri de scris ce a spus familia, iar
+  „Am contactat", preluarea și eliberarea existau doar pe API — la fel `POST /leads`, deci o familie
+  care suna nu intra în pâlnie. `AdminLeadFile` e fișa, deschisă din fiecare listă a paginii, și
+  salvează câmp cu câmp doar ce s-a mișcat; `AdminLeadNew` scrie o cerere venită la telefon sau la
+  birou. Tot fără control de stare, din motivul de mai sus.
 - **`lastActivityAt` e o coloană proprie, nu `updatedAt`.** Job-ul de memento nu scrie în ea, deci un
   lead nu poate deveni „proaspăt" fiindcă a fost amintit.
-- **Un catalog nemarcat nu e o absență.** Recontactarea după neprezentare cere ca ședința să fi fost
-  marcată de cineva; altfel i-am spune unei familii că a lipsit de la o oră la care poate a fost.
+- **Un catalog nemarcat nu e o absență — și nici un copil nemarcat.** Recontactarea după
+  neprezentare cere un marcaj de absent **pentru copilul ăla**; altfel i-am spune unei familii că a
+  lipsit de la o oră la care poate a fost. Întreba doar dacă fusese marcat cineva în oră, iar
+  catalogul de pe telefon se ia o atingere pe rând: o oră cu marcaje în ea putea să nu fi spus nimic
+  despre copilul la probă.
+- **O familie programată pe `/proba` se scrie la adresa lăsată în formular.** Profilul ei e o coajă
+  fără adresă, dinadins, iar tot ce scrie unei familii citea `profile.email` — ora anulată, ora
+  mutată, grupa mutată pe altă zi, anunțul către grupă —, deci fiecare mesaj ajungea un rând
+  `undeliverable`, iar familia venea la o sală goală. `bookingAddresses`
+  (`apps/api/src/modules/mail/booking-address.ts`) dă, pentru un profil fără adresă, emailul celui
+  mai nou lead legat de el; notificatorul orelor și audiența anunțului îl citesc amândouă. Dacă
+  adaugi un al treilea expeditor către „familiile grupei", treci pe acolo. **Iar familia asta n-are
+  cont**, deci mesajele despre oră nu o trimit la login (testarea din 26 septembrie 2026): propoziția
+  de dinaintea linkului e o variabilă, `portalNote`, iar pentru o familie ajunsă prin adresa de pe
+  programare ea și linkul duc la pagina de contact. Numărul de telefon are
+  aceeași poveste și aceeași ieșire (revizuirea din 26 septembrie 2026): catalogul citea doar
+  `profile.phone`, deci „Sună părintele" lipsea tocmai pentru copilul la probă, iar `bookingPhones`,
+  alături, dă numărul celui mai nou lead al copilului. **Adresa ajunge la familie, dar nu decide ce
+  citește** (testarea din 26 septembrie 2026): anularea spunea „proba copilului tău era la ora asta"
+  oricui era găsit prin formular — și familiei cu proba peste o săptămână, și celei deja înscrise și
+  plătitoare. Propoziția se alege acum din înscrierile în vigoare și din ora lead-ului
+  (`trialStandingOf`): cea a probei doar pentru familia a cărei probă e chiar ora asta, una neutră
+  pentru o probă din altă oră, a grupei pentru oricine are o înscriere activă.
 
 **Pagina `/proba` e una dintre cele două pagini publice care ating backend-ul** — cealaltă e
 `/dezabonare` din E17/S4 —, ceea ce contrazice regula de mai sus doar în aparență: orele se încarcă
@@ -1632,8 +2208,9 @@ care două răspunsuri încep să difere.
 
 **De ce e zilnic și nu săptămânal**: orizontul se măsoară din _ziua de azi_, deci o trecere
 săptămânală l-ar lăsa să respire între șapte și opt săptămâni. Zilnic ține promisiunea pe care o face
-constanta, și nu costă nimic — generarea e idempotentă pe `(group, date)` și lasă neatins ce există,
-indiferent de stare, deci o dimineață obișnuită nu scrie niciun rând și nu spune nimic în log.
+constanta, și nu costă nimic — generarea e idempotentă pe loc (`scheduledFor`, mai sus) și lasă
+neatins ce există, indiferent de stare, deci o dimineață obișnuită nu scrie niciun rând și nu spune
+nimic în log.
 
 Ce se strica înainte merită ținut minte, fiindcă e forma pe care o iau lipsurile astea: orizontul nu
 se termina, se retrăgea. Prezența se marchează pe `POST /attendance/session/:classSessionId`, deci o
@@ -1704,6 +2281,14 @@ propoziție pentru toate. Un serviciu poate acum să-și numească cazul:
 propoziția în `MESSAGES` din `apps/web/app/composables/useApiError.ts` — altfel utilizatorul
 primește mesajul în engleză de la server.
 
+**Un ecran nu arată niciodată `err.message` al unei erori prinse.** Ăla nu e ce a spus API-ul —
+răspunsul stă în `err.data` —, ci propoziția pe care ofetch o face din metodă, URL și cod:
+`[POST] "http://…/profiles": 409 Conflict`. Cele două formulare de familie ale biroului o arătau
+exact așa, pe cea mai obișnuită corectură de la birou, o adresă sau un număr care e deja al altei
+familii (acum `PROFILE_EMAIL_TAKEN` / `PROFILE_PHONE_TAKEN`). Se trece prin `apiErrorMessage`, cu
+propoziția ecranului ca rezervă; `no-raw-error-message.spec.ts` mătură paginile, componentele și
+layout-urile.
+
 **`@itbridge/types` nu mai primește valori de rulare — nici `enum`-uri, nici hărți de etichete.**
 Doar tipuri, și uniuni de literali unde altfel ai pune un `enum`. Pachetul e CommonJS, Vite îl
 prebundle-uiește, iar o valoare exportată de acolo a ajuns în browser ca `undefined` de **două ori**:
@@ -1764,7 +2349,40 @@ e **corectura pe copil** (`SessionCountOverride`, `PUT|DELETE /invoices/override
 consemnată — cât, de ce, cine, când —, un rând per copil și lună, aplicată în fișă ca factura să
 poarte același număr pe care l-a arătat ecranul, și înghețată odată ce familia are factura lunii.
 Factura poartă o singură linie de produs, deci corectura nu contrazice niciodată catalogul; ce
-apără rândul e evidența școlii.
+apără rândul e evidența școlii. **Catalogul, în schimb, nu stă sub lacătul lunii** — e al
+profesorului —, deci o oră marcată după emitere mută fișa, nu factura: rândul unei familii facturate
+arată suma de pe factură (`invoicedAmount`) și, când diferă, ce ar da cataloagele de acum.
+
+**O lună se emite după ce s-a predat, și poartă ziua în care s-a emis** (testarea din 26 septembrie
+2026). Ecranul pornea pe luna calendaristică curentă, citită în UTC, cu butonul activ de la prima
+familie ajunsă la zero, iar o apăsare pe 26 septembrie a consemnat octombrie „fără plată" pentru
+toate familiile: luna înghețată — reducerea de recomandare nu se mai putea scoate —, portalul spunând
+„octombrie · Fără plată", iar octombrie adevărat imposibil de emis. `POST /invoices/issue` refuză acum
+o lună a cărei ultimă săptămână de cursuri — duminica de după ultima ei luni, `to` din
+`teachingMonthRange` — nu e în urma zilei școlii (`MONTH_NOT_TAUGHT_YET`, regula e `monthIsTaught`),
+iar fișa spune același lucru ca `issuable`. **Data de pe factură e ziua apăsării**: ecranul trimitea
+întâi a lunii următoare, deci o lună emisă târziu era restantă de la sosire, iar una emisă devreme
+avea o dată din viitor; serverul refuză acum o dată încă neajunsă (`INVOICE_DATE_IN_FUTURE`).
+Suitele de integrare emit octombrie 2026 din cataloage scrise de ele, o lună la care ceasul mașinii
+n-a ajuns: `createTestApp` mută ceasul emiterii (`issuing-clock.ts`) după toate, iar regula are
+testele ei.
+
+**O probă decisă rămâne gratuită, iar prima și ultima zi a unei înscrieri le decide catalogul**
+(revizuirea din 25 septembrie 2026). Regula citea statusul: `TRIAL` nu se factura, dar în clipa în
+care biroul decidea — acceptată pe același rând, refuzată, închisă sau mutată în altă grupă —
+statusul nu mai spunea „probă", iar ora de probă intra pe factură. `Enrollment.trialUntil` e ziua
+deciziei, scrisă de fiecare ieșire din `TRIAL` (`close`, `transfer`, `resolveTrial`), și nimic până
+la ea inclusiv nu se facturează — ziua deciziei întreagă, chiar dacă biroul a decis înaintea orei ei:
+o oră promisă gratuit și facturată e greșeala mai rea dintre cele două. Un rând care n-a fost decât
+probă nu apare deloc pe fișă, altfel familia primea o factură de 0 lei fără să se fi înscris vreodată.
+Cealaltă jumătate e ziua: `enrol`, `transfer` și `close` scriu azi, iar copilul era în grupă
+dimineață și nu mai e seara — nimic de pe rând nu spune de care parte a orei a căzut schimbarea. Așa
+că o oră din prima sau din ultima zi se facturează **numai dacă copilul e în catalogul ei**, marcat
+prezent sau absent: catalogul listează grupa așa cum era când a fost luat. Familia care a retras
+copilul luni dimineață nu plătește ora de luni seara; cea care a spus la plecare că a fost ultima,
+da. Zilele dintre capete se facturează ca până acum, cu sau fără catalog, iar o oră atinsă de două
+rânduri — copil scos și pus la loc în aceeași zi — se facturează o dată. `membersOn` citește ziua de
+final ca plecată, ca registrul.
 
 **Emiterea nu desenează nimic; PDF-ul platformei se desenează la prima descărcare** (E15 S6). În
 `off` și `draft`, fiecare familie era un PDF desenat cu PDFKit și urcat în bucket cu tranzacția
@@ -1820,8 +2438,9 @@ Trei reguli care par detalii și nu sunt:
 - **Nimic nu se întinde în trecut**: `+` pleacă de la luna viitoare, `−` ia doar de acolo încolo, și
   scoate numai rândurile recompensei. Un procent tastat din formular nu e al butonului să-l
   retragă, iar peste el `DISCOUNT_ALREADY_GRANTED` refuză să se adune. Refuzul e în serviciu, fără
-  index unic în spate — spre deosebire de locurile din E11, un rând duplicat aici se vede pe ecran
-  și se șterge din două clicuri.
+  index unic în spate, și nu mai lasă nici duplicatul pe care îl lăsa înainte: două apăsări în
+  aceeași secundă ajung pe aceeași lună, iar lacătul lunii (mai jos) o pune pe a doua să aștepte,
+  să găsească rândul primei și să fie refuzată — apăsată din nou, cade pe luna următoare.
 
 **Ultimul pas al oricărei facturi e tabelul `discounts`, și nu depinde de cum s-a calculat suma.**
 Indiferent ce dă totalul — ședințe numărate pe un ecran, prezențe, orice vine după —, rândurile
@@ -1832,9 +2451,33 @@ primește factura întreagă, iar promisiunea rămâne în tabel, nevăzută de 
 nicăieri, fiindcă suma calculată e perfect validă. Cazul obișnuit e −50% din E20/S5, dat dintr-un
 buton, deci nu mai e rar.
 
+**Tot ce hotărăște din ce e făcută factura unei luni stă la rând cu emiterea ei** (revizuirea din 25
+septembrie 2026). Emiterea citea luna — cataloagele, bifele de vacanță, corecturile pe copil,
+reducerile — pe fotografia ei, iar fiecare dintre scriitorii ăștia verifica „luna nu e facturată
+încă" pe a lui. O corectură salvată în aceeași secundă cu „emite" ajungea după ce emiterea citise
+luna și înainte ca factura ei să existe: nu intra pe factură, și nici nu era refuzată, ci rămânea
+înghețată pe o lună care n-o citise niciodată — ecranul arăta un număr și factura purta altul. Acum
+e un lacăt consultativ pe lună, `lockInvoiceMonth` (`invoice-month-lock.ts`), luat în tranzacția
+care scrie: emiterea îl ia **înainte** să citească luna, iar corecturile, reducerile (și butonul de
+recomandare) și bifa de vacanță îl iau înainte să întrebe dacă luna mai e deschisă. Două luni —
+mutarea unei reduceri — se iau în ordine, cea mai veche întâi. Un scriitor nou al lunii facturate
+trece pe aici, altfel redeschide exact fereastra asta. Tot de aici, bifa de vacanță scrie doar
+coloana ei, și doar cât ora nu e anulată: salvarea rândului întreg citit înainte punea la loc o
+anulare venită între timp.
+
 **Zero e un răspuns, nu un câmp gol.** O lună fără plată se scrie ca factură `waived`, de 0 lei,
 fără PDF. Rândul există fiindcă n-are bani în el: fără el, o familie fără factură pe octombrie arată
 la fel cu una a cărei lună a uitat-o cineva. `GET /invoices/:id/pdf` răspunde 404 pe ele, explicit.
+
+**Starea unei facturi nu se tastează, iar o factură cu plăți nu se șterge** (revizuirea din 25
+septembrie 2026). `PUT /invoices/:id` primea `status`, iar un `paid` pus de mână spunea „plătit" pe
+portal lângă o restanță pe `/admin/restante`, care numără plățile. Acum DTO-ul nu-l mai are (400),
+iar o sumă schimbată re-derivă starea în aceeași tranzacție, prin `recomputeInvoiceStatus`: la zero
+luna devine `waived` și iese din coada fiscală, ca la emitere — refuzat cu `INVOICE_HAS_PAYMENTS`
+cât timp are bani pe ea —, de la zero redevine datorată și intră în coadă, altfel decid plățile. Tot
+acolo `if (dto.amount)` înghițea zero fără niciun semn. Iar `DELETE /invoices/:id` refuză cu același
+cod o factură cu orice plată, de orice stare: `payments.invoice_id` e `CASCADE`, deci ștergerea lua
+banii cu ea, și nimic nu mai spunea că au existat.
 
 `apps/web/shared/courses.ts` ține cifrele pentru site și **încă spune „350 lei pe lună"** — adică
 prețul unei luni pline, nu regula. Dacă atingi prețul, potrivește-le pe amândouă.
@@ -1949,8 +2592,9 @@ Patru lucruri de știut înainte să-l atingi:
   ci **atârnă**, ceea ce costă o jumătate de oră prima dată.
 
 **Zona autentificată e sub aceeași poartă, dar într-un job propriu.** `pnpm test:a11y:auth`
-(`apps/web/scripts/check-a11y-auth.mjs`, E18 S6) se autentifică și trece axe peste cele 51 de
-ecrane de admin și de portal, în ambele teme, pe aceleași etichete. Patru lucruri îl deosebesc de
+(`apps/web/scripts/check-a11y-auth.mjs`, E18 S6) se autentifică și trece axe peste cele 55 de
+ecrane de admin și de portal, în ambele teme, pe aceleași etichete — plus consola paginilor publice,
+citite autentificat. Patru lucruri îl deosebesc de
 cel public:
 
 - **Are nevoie de bază de date, seed și un API care răspunde**, fiindcă un ecran fără date pe el nu e
@@ -1973,6 +2617,20 @@ cel public:
   primul apare doar când componenta e desenată în buclă, iar al doilea nu e scris nicăieri în repo.
   De aici și regula: dacă un ecran desenează **mai mult de un** `AdminDateField`, dă-i `label` —
   butonul lui arată o iconiță și nimic altceva, deci numele e tot ce primește cititorul.
+
+**Amândouă porțile apasă și tastele** (`apps/web/scripts/keyboard.mjs`, E18 S6), în trecerea cu
+tema deschisă. Fiecare pagină e parcursă cu Tab de sus până jos: fiecare oprire se vede, arată
+altfel cât are focus, iar parcurgerea ajunge la capăt. Tot ce ascultă de un clic și arată a control
+trebuie să se poată atinge din tastatură. Poarta autentificată intră și iese din cont doar cu
+tastatura. Trei lucruri de știut:
+
+- **Verificarea așteaptă hidratarea**, prin `isHydrating` al lui Nuxt, și pică dacă nu-l găsește.
+  Vue atașează `@click`-urile la hidratare, deci o pagină citită înainte n-are niciun ascultător și
+  trece.
+- **Citește doar ce se desenează.** Regula globală de `:focus-visible` pune `outline-offset`, iar un
+  element fără contur „se schimba" mutându-l. Un `outline: none` plantat trecea așa.
+- **Butonul de calendar al unui câmp nativ de dată e sărit.** Acolo inputul nu mai potrivește nici
+  măcar `:focus`, iar inelul îl desenează browserul, în afara stilurilor paginii.
 
 **A doua gardă rulează în același browser: nicio pagină publică nu iese din origine și nu pune
 niciun cookie.** `pnpm test:privacy` (`apps/web/scripts/check-third-party.mjs`, E07 S5) încarcă

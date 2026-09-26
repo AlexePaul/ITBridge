@@ -213,8 +213,9 @@ poate descărca.
 
 **Lucrarea ajunge numai la tine.** Nu o vedem decât noi și familia copilului. Nu o publicăm pe
 site, în rețele sociale sau în materiale de prezentare fără acordul tău explicit, cerut separat,
-pentru copilul acela și scopul acela, și pe care îl poți retrage oricând. Nu fotografiem copiii:
-dacă fotografiem ceva, e ecranul sau lucrarea, fără copii în cadru.
+pentru copilul acela și scopul acela, și pe care îl poți retrage oricând, din „Profil". Ce
+cuprinde acordul e scris în [acordul pentru lucrările copilului](acord-lucrari.md). Nu fotografiem
+copiii: dacă fotografiem ceva, e ecranul sau lucrarea, fără copii în cadru.
 
 Lucrarea rămâne a copilului. Ne dai doar dreptul să o păstrăm, să facem o miniatură din ea și să
 ți-o trimitem, atât cât ține contul (vezi §17).
@@ -225,11 +226,12 @@ biroul e anunțat imediat.
 ## 13. Mesajele pe care le trimitem
 
 **Mesaje de serviciu**, pe care le primești oricând ai cont, fiindcă fără ele nu putem să ne ținem
-partea de contract: confirmarea contului și a documentelor acceptate, aprobarea sau respingerea
-contului, factura lunii, mementourile de plată, confirmarea plății, ora anulată, mutată sau pusă la
-loc, ora de recuperare a copilului, oferta de pe lista de așteptare, lucrarea trimisă, și anunțurile
-școlii către grupă sau către toată școala (schimbări de program, ce trebuie adus la oră). Nu se pot
-dezactiva altfel decât prin închiderea contului.
+partea de contract: confirmarea contului și a documentelor acceptate, confirmarea acordului pentru
+lucrările copilului și a retragerii lui, aprobarea sau respingerea contului, factura lunii,
+mementourile de plată, confirmarea plății, ora anulată, mutată sau pusă la loc, ora de recuperare a
+copilului, oferta de pe lista de așteptare, lucrarea trimisă, și anunțurile școlii către grupă sau
+către toată școala (schimbări de program, ce trebuie adus la oră). Nu se pot dezactiva altfel decât
+prin închiderea contului.
 
 **Mesaje de marketing** — oferte, cursuri noi, evenimente — le primești **numai dacă ai bifat** în
 portal că le vrei. Bifa e implicit oprită și o poți opri oricând, din „Profil", iar fiecare mesaj

@@ -1,6 +1,6 @@
 # E07 · Securitate, GDPR și consimțământ
 
-**Status:** în lucru — **S1, S3, S4, S5 și S8 livrate**, S6 construit, restul propus · **Pistă:** Fundație · **Depinde de:**
+**Status:** în lucru — **S1, S2, S3, S4, S5 și S8 livrate**, S6 construit, S7 propus · **Pistă:** Fundație · **Depinde de:**
 E04, E05 · **Blochează:** E14, E19; E09 doar odată cu reluarea lui S2
 
 > **Granița cu [E22](E22-termeni-si-date.md), fiindcă se confundă ușor: aici e mecanica, acolo e ce
@@ -125,7 +125,7 @@ obligația contabilă, operațional, expiră singur, evidență —, iar număru
 regulă e al [E22](E22-termeni-si-date.md) S3. Așa, S3 pune cinci numere, nu două sute treizeci și
 unu.
 
-### S2 · Consimțământ parental
+### S2 · Consimțământ parental — livrat
 
 Entitate de consimțământ pe tripleta **`(Profile, Child, scop)`**: părintele consimte, dar subiectul
 datelor e copilul. Fiecare înregistrare are dată, versiune de text acceptat și revocare.
@@ -175,6 +175,69 @@ copil și acel scop în momentul afișării.
 **Acceptanță:** [E14](E14-proiecte-elevi.md) nu poate publica un proiect fără consimțământ activ
 pentru copilul acela și scopul acela. Revocarea îl retrage în sub un minut. Un părinte cu doi copii
 poate accepta pentru unul și refuza pentru celălalt, iar vitrina arată exact asta.
+
+#### Ce s-a construit, și ce s-a schimbat față de textul de mai sus
+
+**Un rând e un acord, de la dat la retras.** `publication_consents` e cheiat pe copil și scop;
+retragerea ștampilează `revokedAt` pe rândul în vigoare și nu șterge nimic, iar un acord dat din nou
+e un rând nou. Deci „era permis în ziua în care am folosit-o?" are răspuns din rânduri, citite în
+ordine. Un index unic parțial, `UQ_publication_consents_one_in_force`, ține un singur acord în
+vigoare per copil și scop — aceeași formă ca `UQ_enrollments_one_in_force` —, iar a doua apăsare e
+același fapt, nu un rând în plus și nu o zi mutată. Fiecare rând poartă versiunea textului citit,
+luată din capul lui [`docs/legal/acord-lucrari.md`](../legal/acord-lucrari.md) și ținută egală de un
+spec, ca la termeni.
+
+**Părintele e `child.parent`, nu o coloană.** Tripleta rămâne `(Profile, Child, scop)`, dar
+familia se citește din copil: un copil are o singură familie, iar o a doua coloană care o numește
+ar fi liberă să spună altceva.
+
+**Un singur scop azi, și asta e decizia, nu o omisiune.** Din cele trei de mai sus:
+
+- **vitrina din [E14](E14-proiecte-elevi.md) S6 a ieșit din MVP**, deci un scop pentru ea ar fi o
+  bifă cerută, stocată și verificată fără ca răspunsul să schimbe ceva — exact argumentul cu care a
+  plecat fotografierea copilului. Revine ca a doua valoare a enum-ului în ziua în care revine
+  vitrina; tabela e deja cheiată pe scop, deci e un `ALTER TYPE … ADD VALUE`, nu o migrare de rânduri;
+- **comunicările comerciale sunt `Profile.marketingOptIn`** ([E17](E17-comunicare-notificari.md) S4)
+  și acolo le e locul: mesajul pleacă în cutia părintelui, o dată per familie, deci un răspuns pe
+  copil — da pentru cel mare, nu pentru cel mic — ar fi o întrebare pe care n-o poate executa nimeni;
+- rămâne **scopul 2, materialele de promovare ale școlii**: site-ul, paginile școlii din rețelele
+  sociale, prezentările. E consumatorul real al acordului de când vitrina se face de mână (E14 S6:
+  „acordul părintelui se cere înainte, chiar dacă e cerut la telefon și consemnat pe hârtie").
+
+**Două uși, care diferă printr-o coloană.** Părintele dă și retrage din „Profil", câte o bifă pe
+copil. Biroul consemnează din pagina familiei un acord semnat pe hârtie, sau o retragere cerută la
+telefon — singura cale pentru o familie fără cont. Rândul spune care (`grantedVia`, `revokedVia`,
+`portal` sau `office`), jurnalul din S3 spune cine, cu numele câmpurilor și fără valori. **Familia
+primește confirmarea pe email de fiecare dată**, inclusiv când a apăsat biroul: e singura șansă să
+observe un acord consemnat pe copilul greșit, iar un „da" greșit aici e lucrarea unui copil pe o
+pagină publică.
+
+**„Revocarea îl retrage în sub un minut" s-a schimbat odată cu vitrina.** Platforma nu publică
+nimic: site-ul public e static și nu citește din ea, iar paginile din rețelele sociale sunt în afara
+ei. Deci retragerea nu poate fi o interogare care încetează să întoarcă un rând. Ce face în loc:
+**biroul primește un email în aceeași tranzacție cu retragerea**, prin outbox, cu ce trebuie scos —
+galeria de pe site, postările, prezentările netipărite —, iar dispecerul îl trimite la următorul
+tick. Scoaterea însăși e manuală și are termen propus în text (`[[DE DECIS]]`, trei zile lucrătoare).
+Iar „în momentul afișării" devine momentul alegerii: `/admin/acorduri` e lista copiilor ale căror
+lucrări se pot folosi azi, cu linia gata de pus lângă lucrare („Ana P., 9 ani" — cât permite textul,
+nimic mai mult), și e locul de verificat înainte ca o lucrare să plece spre site. Când revine
+vitrina automată, verificarea trece în interogarea ei, cu aceeași tabelă ca sursă.
+
+**Acceptanța, citită pe ce există:** un părinte cu doi copii acceptă pentru unul și refuză pentru
+celălalt, iar `/admin/acorduri` arată exact asta — `publication-consent.e2e-spec.ts`, primul test.
+Tot acolo: a doua apăsare nu schimbă nimic, două apăsări simultane lasă un singur acord în vigoare,
+un părinte nu poate decide pentru copilul altei familii, retragerea anunță biroul o singură dată,
+exportul poartă și acordurile retrase, iar ștergerea copilului le ia cu el.
+
+**Ce pleacă odată cu familia:** rândurile sunt `CASCADE` pe copil, deci ștergerea din S4 le ia fără
+cod în plus. Un copil șters n-are ce lucrare să mai publice, iar „copilul al cărui nume l-am șters a
+fost de acord odată" ar fi ultima urmă a lui. Exportul din S4 le arată pe toate, inclusiv pe cele
+retrase, sub `acorduriPentruLucrari`.
+
+**Ce rămâne:** textul acordului e ciornă, ca restul din `docs/legal/`, și trece pe la avocat odată
+cu el ([E22](E22-termeni-si-date.md) S2) — cu o întrebare proprie, marcată în text: lucrarea e operă
+a copilului în sensul Legii 8/1996, iar dacă bifa ajunge ca permisiune de folosire sau trebuie formă
+scrisă nu e o întrebare de cod.
 
 ### S3 · Audit log — livrat
 
@@ -326,11 +389,13 @@ Ce **rămâne pe dinafară** e exact ce serviciul trebuie să spună cu voce tar
   are un rând cu numele ei, adresa, telefonul și numele copilului la care nu arată nimic. Regula e
   în `apps/api/src/modules/privacy/family-rows.ts` și o citesc **amândouă** fluxurile — altfel
   exportul și ștergerea ar ajunge să răspundă diferit la aceeași întrebare, „care rânduri sunt ale
-  familiei ăsteia". E sigur fiindcă `Profile.email` și `Profile.phone` sunt unice, deci o adresă
-  identifică o singură familie sau niciuna; și poate găsi doar **mai multe** rânduri, niciodată mai
-  puține.
+  familiei ăsteia". **Numai o adresă garantată de cineva** (`vouchedAddresses`, revizuirea de mai
+  jos): paragraful de aici spunea că potrivirea e sigură fiindcă `Profile.email` și `Profile.phone`
+  sunt unice, și era greșit — unicitatea printre profiluri nu face o adresă a familiei care a
+  tastat-o.
 - **Outbox-ul n-are relație către profil** — coada e partajată și scrie și către birou —, deci
-  rândurile se caută după adresă, exact cum spune inventarul din S1 că va trebui.
+  rândurile se caută după adresă, exact cum spune inventarul din S1 că va trebui. Tot numai după una
+  garantată.
 - **`Payment.notes` e text liber scris de un admin despre o familie**, pe un rând care se păstrează.
   Cifrele rămân, fiindcă sunt evidența contabilă; propoziția nu.
 - **O linie din extrasul bancar devenită plata familiei** (E16 S8) își pierde plătitorul și
@@ -363,6 +428,91 @@ mână, din ecranul care le listează, iar nota de pe `/admin/stergeri` spune as
 aceeași tranzacție, iar „cine a șters familia 412 și când" rămâne de răspuns **tocmai fiindcă** tot
 restul a dispărut. E sigur fiindcă jurnalul ține identificatori, nu nume (E07 S3) — verificat în
 test: după ștergere, nici prenumele copilului, nici adresa familiei nu apar în el.
+
+#### Revizuirea din 25 septembrie 2026: adresa tastată nu e a familiei
+
+O revizuire a autentificării și a conturilor a găsit că **exportul dădea oricui își făcea cont datele
+altei familii.** Cele două tabele fără relație către profil — lead-urile tastate de birou și coada de
+mesaje — se căutau după adresa de pe profil, așa cum era tastată. Iar `PUT /profiles/:id` verifică
+doar că adresa n-o mai ține alt _profil_: numărul unei familii care a sunat și nu s-a înregistrat
+trece, adresa biroului trece. Reprodus pe o bază reală, fiecare cu testul lui:
+
+- un părinte abia înregistrat își trece în profil numărul altei familii și primește în export lead-ul
+  ei — numele copilului, data nașterii, proba;
+- își trece adresa biroului și primește subiectul fiecărui mesaj trimis acolo, începând cu „Cont nou
+  de părinte: …" pentru fiecare înregistrare;
+- ștergerea aceleiași familii lua lead-ul celeilalte și toată copia mesajelor biroului.
+
+Regula e acum `vouchedAddresses` din `apps/api/src/modules/privacy/family-rows.ts`, citită de export,
+de ștergere și de trecerea de retenție, ca toate trei să spună același lucru despre ale cui sunt
+rândurile. O adresă revendică un rând numai dacă o garantează cineva în care școala are încredere:
+
+- **un cont: e-mailul, după confirmare.** Linkul deschis e singura dovadă a platformei că familia
+  citește adresa, iar orice editare a adresei golește ștampila (E11 S2). E aceeași întrebare pe care
+  o pune coada înainte să scrie la o adresă.
+- **o familie fără cont: amândouă, cum le-a tastat biroul.** Rândul nu-l poate edita decât un admin,
+  deci biroul a scris adresa de ambele părți — la familie și la lead-ul din același telefon. E linia
+  pe care o trage deja `announcement.service.ts` pentru „confirmat".
+- **telefonul unui cont: niciodată.** Nimic din platformă nu dovedește un număr.
+
+**Prețul, scris aici în loc să fie descoperit:** un lead cu telefon și fără e-mail nu-l mai găsește
+niciun flux pentru o familie cu cont, iar un e-mail neconfirmat nu revendică nimic până la confirmare.
+Lead-ul pleacă atunci la termenul lui, după anul de liniște din E22 S3. Iar mesajele trimise la o
+adresă neconfirmată — linkul de confirmare, confirmarea acceptării termenilor — nu intră în exportul
+familiei până nu confirmă. Ambele sunt mai puțin decât „tot ce ține școala", dar un rând lipsă din
+export se cere la birou, pe când un rând în plus e copilul altcuiva.
+
+#### Revizuirea din 25 septembrie 2026, a doua: ce scăpa jurnalului, exportului și ștergerii
+
+O revizuire a confidențialității și a rapoartelor a găsit șapte locuri în care promisiunea „tot ce
+ține școala despre voi, și numai atât" nu se ținea. Fiecare are acum un test care pică pe codul de
+dinainte.
+
+- **Jurnalul copia text liber despre o familie** (S3). Cifrele banilor au valoare în jurnal, și e
+  corect, dar nota unei plăți (reconcilierea scrie acolo textul transferului — „plata martie Maria
+  Pop"), motivul unei corecturi de ședințe și numele unei reduceri sunt propoziții despre o familie,
+  iar jurnalul îi supraviețuiește prin construcție. Acum le ține doar numele câmpului, ca pe datele
+  din `Profile` și `Child` (`FREE_TEXT_FIELDS` din `audit.rules.ts`, aplicat în ușa prin care trece
+  orice intrare).
+- **Un acord de publicare în vigoare pleca în cascadă fără ca biroul să afle** (S2). O lucrare de pe
+  site rămânea acolo fără acord și fără copil în evidență. Ștergerea anunță acum biroul, ca retragerea
+  din portal, înaintea cascadei. Prețul: mesajul către birou numește copilul, fiindcă altfel nimeni
+  n-ar ști ce să scoată de pe site; pleacă la termenul copiilor de mesaje, ca restul.
+- **Exportul dădea și lucrările pe care nu le verificase încă nimeni** ([E14](E14-proiecte-elevi.md)
+  S4). Acum le dă pe cele trimise și le numără pe celelalte (`proiecteInVerificare`); adresa la care a
+  plecat o lucrare apare doar dacă e adresa garantată a familiei.
+- **O adresă cu majuscule nu era aceeași cutie poștală.** Înregistrarea și `forgot-password` o citesc
+  după `lower(email)`, dar căutările din export, ștergere și retenție comparau exact, deci o cerere
+  tastată de birou cu alte majuscule rămânea în urmă, cu numele și data nașterii copilului.
+- **Adresa unei familii rămânea pe o lucrare mutată la alt copil** ([E14](E14-proiecte-elevi.md) S7):
+  o lucrare trimisă și apoi mutată purta `sentToEmail` al familiei vechi, pe care portalul familiei
+  noi îl arăta, iar ștergerea n-o găsea. Mutarea golește acum trimiterea, iar ștergerea golește
+  adresa oriunde a rămas.
+- **Semnalele timpurii verificate retroactiv citeau banii de azi** ([E21](E21-raportare-analytics.md)
+  S7), iar **tabloul de bord** citea ziua serverului, număra orele anulate și număra facturi în loc de
+  familii ([E21](E21-raportare-analytics.md) S1).
+
+**Ce rămâne deschis**, scris aici în loc să fie descoperit:
+
+- **Copiile mesajelor către birou supraviețuiesc unei ștergeri la cerere.** „Cont nou de părinte:
+  Ana Pop", o absență anunțată, anunțul de mai sus — sunt adresate biroului, deci ștergerea, care
+  găsește mesajele după adresa familiei, nu le vede. Pleacă la termenul lor, 12 luni (E22 S3). O
+  ștergere care le-ar căuta după conținut ar trebui să ghicească numele în text.
+- **O familie al cărei cont a fost șters arată ca una tastată de birou.** `vouchedAddresses` citește
+  `user === null` ca „fără cont", deci adresa pe care și-o tastase familia primește încrederea
+  biroului. Cere un admin care șterge contul fără familie — ruta rămâne pentru rândul tastat greșit —,
+  deci e îngust; închiderea lui e o coloană care spune că rândul a avut cont.
+
+#### Testarea din 26 septembrie 2026: cererea trebuie să mai fie acolo
+
+- **O familie care își retrăsese cererea era ștearsă** din lista `/admin/stergeri` încărcată înainte
+  de retragere: `erase` nu se uita la cerere. Acum o recitește sub lacătul rândului familiei și refuză
+  cu `NO_ERASURE_REQUEST`; o ștergere la termen refuză la fel o familie care nu mai e retrasă.
+- **Biroul consemnează o cerere venită la telefon, pe email sau la birou**, din pagina familiei — o
+  familie fără cont n-avea nicio ușă —, o retrage la cererea familiei și îi exportă datele, fișierul
+  pe care familia îl ia din portal.
+- **Un rând șters nu se mai completează**: editarea, un copil nou sau o reducere pe o familie ștearsă
+  sunt refuzate (`PROFILE_ERASED`), altfel datele puse la loc n-ar mai fi scos-o nimeni.
 
 ### S5 · Bannerul de cookie-uri și blocarea scripturilor — livrat
 

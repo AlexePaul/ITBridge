@@ -270,7 +270,7 @@ procent cere cititorului să știe baza și să facă el scăderea. „−25%" �
 
 **Trecerea site-ului public pe prețul de modul face parte din livrarea acestui epic** — niciun alt
 story nu o acoperă, iar catalogul din S1 fără ea lasă școala cu două prețuri publicate simultan.
-Sumele stau azi în `apps/web/shared/courses.ts:119-120`, ca `PRICE_ONE_CHILD = 350` și
+Sumele stau azi în `apps/web/shared/courses.ts`, ca `PRICE_ONE_CHILD = 350` și
 `PRICE_TWO_CHILDREN = 600`, și sunt citite din șase locuri: pagina `cursuri.vue`, cele două pagini
 de locație, `shared/seo.ts` (descrierile meta), `shared/structured-data.ts` (`priceRange` și nodul
 `Offer`) și `server/routes/llms.txt.ts`. Nu e de ajuns să se schimbe cele două numere: unitatea e
@@ -693,6 +693,88 @@ testate cap-coadă: fișa arată amândouă numerele, factura poartă numărul d
 Ce **nu** s-a livrat de aici: rapoartele din [E21](E21-raportare-analytics.md) nu numără încă
 ședințe, deci a treia gură a interogării stă goală, dar e aceeași metodă când vor. Și propoziția din
 `CLAUDE.md` a fost rescrisă odată cu story-ul, cum cerea el.
+
+### Revizuirea din 25 septembrie 2026: probele decise, zilele de capăt și editarea facturii
+
+Codul facturării a fost recitit cu o singură întrebare: pe ce drum ajunge pe factură o oră pe care
+familia nu trebuia s-o plătească, sau dispar bani înregistrați? Fiecare defect de mai jos a fost
+reprodus și are un test care pică pe codul de dinainte.
+
+- **Proba se factura în clipa în care era decisă.** Regula ținea proba afară citind statusul, iar
+  statusul nu mai spune „probă" după decizie: acceptată pe același rând, ora de probă intra pe prima
+  factură; refuzată, închisă sau mutată în altă grupă, rândul devenea `WITHDRAWN` ori `TRANSFERRED`
+  și se factura întreg — o familie care n-a rămas primea o factură pentru proba gratuită. Acum
+  `Enrollment.trialUntil` ține ziua deciziei, scrisă de fiecare ieșire din `TRIAL`, și nimic până la
+  ea inclusiv nu se facturează. Un rând care n-a fost decât probă nu mai apare pe fișă deloc, altfel
+  ar fi ieșit o factură `waived` de 0 lei pentru o familie care nu s-a înscris niciodată.
+- **Ziua în care se închide o înscriere se factura întreagă.** Precizarea de la S9 spunea „datorează
+  ședințele ținute înainte de 15", dar codul număra și ziua de 15, inclusiv: familia care a retras
+  copilul luni dimineață plătea ora de luni seara, iar un transfer făcut dimineața factura ora de
+  seară a grupei vechi. Aceeași greșeală la capătul celălalt: copilul înscris după ora zilei
+  plătea ora la care n-a fost. Rândul nu poate spune de care parte a orei a căzut schimbarea, deci o
+  spune catalogul: o oră din prima sau din ultima zi se facturează numai dacă copilul e în catalogul
+  ei, marcat prezent sau absent. Cine a spus la plecare că a fost ultima oră o plătește; cine a
+  plecat dimineață, nu. Zilele dintre capete rămân cum le descrie S9.
+- **Un copil scos din grupă și pus la loc în aceeași zi plătea ora zilei de două ori** — câte o dată
+  pentru fiecare rând. Acum o oră se numără o singură dată per copil, oricâte rânduri ajung la ea.
+- **Starea unei facturi se putea tasta**, iar o editare a sumei n-o re-deriva. Un `paid` pus de mână
+  spunea „plătit" pe portal lângă o restanță pe `/admin/restante`, care numără plățile; o factură de
+  350 coborâtă la cei 200 deja plătiți rămânea `pending`; iar `if (dto.amount)` înghițea zero fără
+  niciun semn. `status` a ieșit din `PUT /invoices/:id` (400), iar suma re-derivă starea prin
+  `recomputeInvoiceStatus`: zero face luna `waived` — refuzat cât timp are bani pe ea —, de la zero
+  factura redevine datorată, altfel decid plățile.
+- **Ștergerea unei facturi lua plățile cu ea.** `payments.invoice_id` e `CASCADE`, deci o factură
+  ștearsă ducea cu ea fiecare plată, fără nicio urmă că ar fi existat. Acum `DELETE /invoices/:id`
+  refuză o factură cu plăți, de orice stare (`INVOICE_HAS_PAYMENTS`); plățile se șterg întâi, una
+  câte una, fiecare cu intrarea ei în jurnal.
+- **Și una măruntă:** data de emitere se citea prin `new Date('YYYY-MM-DD')`, adică miezul nopții UTC,
+  deci ziua dinainte la vest de Greenwich. Acum trece prin `parseIsoDate`, ca restul datelor.
+- **Portalul arăta totalul unei facturi plătite parțial ca „de plătit".** O familie care plătise 100
+  din 350 citea tot 350, pe pagina de start și pe cea de plăți. Fiecare factură dată familiei poartă
+  acum ce s-a încasat și ce a rămas, din aceeași sumă ca lista de restanțe, iar portalul arată restul
+  și, lângă el, cât s-a plătit deja; o factură neplătită cu bani pe ea apare „Plătită parțial".
+
+- **Emiterea și ce hotărăște luna nu stăteau la rând.** O corectură pe copil, o reducere sau o bifă de
+  vacanță salvate în aceeași secundă cu „emite" treceau de verificarea „luna nu e facturată" și
+  ratau totuși factura: emiterea citise luna înainte ca ele să se comită. Rămâneau înghețate pe o
+  lună pe care factura n-o reflecta. Acum emiterea citește luna sub un lacăt pe lună, iar fiecare
+  dintre scriitori îl ia înainte să întrebe dacă luna mai e deschisă: ori intră în ce citește
+  emiterea, ori e refuzat. Bifa de vacanță scria și rândul întreg al orei citit înainte, deci o
+  anulare venită între timp era pusă la loc; acum scrie doar bifa, și doar pe o oră care se ține.
+
+- **Un catalog marcat după emitere schimba fișa, iar ecranul nu spunea.** Marcajele nu stau sub
+  lacătul lunii — catalogul e al profesorului, nu al facturii —, deci o oră marcată după „emite"
+  mută numărătoarea fișei, iar factura își păstrează suma. Fișa arăta doar „Deja facturat" și
+  numărul nou de ședințe, adică exact cifra care nu era pe factură. Acum rândul unei familii
+  facturate poartă suma de pe factură (`invoicedAmount`), iar dedesubt, când diferă, ce ar da
+  cataloagele de acum. Îndreptarea rămâne a biroului (o stornare în SmartBill, o corectură pe luna
+  următoare); înghețarea cataloagelor unei luni facturate ar fi o decizie despre profesori, nu despre
+  facturi, și n-a luat-o nimeni.
+
+**Deciziile luate aici**, de revăzut dacă școala vede altfel:
+
+- **Ziua deciziei unei probe e gratuită întreagă**, chiar dacă biroul a decis înaintea orei ei: o
+  oră promisă gratuit și facturată e greșeala mai rea dintre cele două. Costul e o oră nefacturată
+  când biroul confirmă proba dimineața, înaintea orei din ziua aceea — rar, și se îndreaptă cu
+  corectura pe copil.
+- **Închiderea în seara ultimei ore o facturează doar dacă ora are deja catalogul.** Dacă biroul
+  retrage copilul înainte ca profesorul să fi marcat ora, catalogul nu-l mai listează, iar ora nu se
+  facturează. Aceeași ieșire: corectura pe copil, sau închiderea a doua zi.
+
+### Testarea din 26 septembrie 2026: luna care nu s-a predat încă
+
+S9 spunea că luna se facturează „abia după ce ultima ei ședință are catalog", dar nimic n-o ținea:
+ecranul pornea pe luna calendaristică curentă (în UTC), iar butonul era activ de la prima familie
+ajunsă la zero. O apăsare pe 26 septembrie a consemnat octombrie fără plată pentru toate familiile,
+cu data de 1 noiembrie — luna înghețată, reducerea de recomandare de nescos, octombrie adevărat
+imposibil de emis. Acum:
+
+- **`POST /invoices/issue` refuză o lună nepredată** (`MONTH_NOT_TAUGHT_YET`): ultima ei săptămână —
+  duminica de după ultima ei luni — trebuie să fie în urma zilei școlii. Fișa poartă `issuable`, iar
+  ecranul pornește pe luna trecută și spune de când se poate emite luna curentă.
+- **Data de pe factură e ziua apăsării**, nu întâi a lunii următoare: aceea făcea o lună emisă târziu
+  restantă de la sosire și una emisă devreme datată în viitor. Serverul refuză o dată încă neajunsă
+  (`INVOICE_DATE_IN_FUTURE`).
 
 ## Dependențe
 
