@@ -173,6 +173,27 @@ describe('Privacy export (e2e)', () => {
         expect(theirs.body.solicitari).toHaveLength(0);
     });
 
+    it('includes it whatever capitals the office typed the address in', async () => {
+        // One mailbox, as registration reads one: `Ana.Export@…` and `ana.export@…` are the same
+        // family, and the enquiry was left out of "everything we hold about you".
+        await request(app.getHttpServer())
+            .post('/leads')
+            .set('Authorization', admin.auth)
+            .send({
+                parentName: 'Ana Test',
+                parentEmail: 'Ana.Export@Example.com',
+                childFirstName: 'Maria',
+                childLastName: 'Pop',
+                childBirthDate: '2016-04-02',
+                source: 'phone',
+            })
+            .expect(201);
+
+        const mine = await exportOwn(ana).expect(200);
+
+        expect(mine.body.solicitari).toHaveLength(1);
+    });
+
     /**
      * The other side of matching by address, and the reason the match has a rule. `PUT
      * /profiles/:id` takes any number no other profile holds, and nothing ever checks one — so an

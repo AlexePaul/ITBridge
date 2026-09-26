@@ -296,6 +296,49 @@ export class PublicationConsentService {
     }
 
     /**
+     * The takedown notice for consents an erasure is about to remove — the review of 25 September 2026.
+     *
+     * The rows go with the children (`CASCADE`), and the erasure told nobody: a child's work could
+     * stay on the school's page as "Maria P., 9 ani" with the one record that it was ever agreed to
+     * gone, and `/admin/acorduri` simply stopped listing her. The platform publishes nothing — the
+     * site is static and social media are outside it — so what a withdrawal does, the erasure has to
+     * do too: tell the office, in the same transaction, that it may have something to take down.
+     * Called before the children are deleted, with the erasure's manager. GDPR art. 17(2) asks as
+     * much of data that was made public.
+     */
+    async announceErasure(childIds: number[], manager: EntityManager): Promise<number> {
+        if (childIds.length === 0) return 0;
+        const inForce = await manager.getRepository(PublicationConsent).find({
+            where: { child: { id: In(childIds) }, revokedAt: IsNull() },
+            relations: { child: { parent: true } },
+        });
+
+        const erasedOn = dayInWords(new Date());
+        for (const consent of inForce) {
+            const child = consent.child;
+            const mail = await this.mailTemplates.render('publication-consent-revoked-office', {
+                childName: `${child.firstName} ${child.lastName}`.trim(),
+                familyName: `${child.parent.firstName} ${child.parent.lastName}`.trim(),
+                grantedOn: dayInWords(new Date(consent.grantedAt)),
+                revokedOn: erasedOn,
+                recordedBy: 'odată cu ștergerea datelor familiei',
+                familyUrl: adminFamilyUrl(child.parent.id),
+            });
+            await this.outbox.queue(
+                {
+                    to: officeAddress(),
+                    subject: mail.subject,
+                    bodyText: mail.bodyText,
+                    bodyHtml: mail.bodyHtml ?? undefined,
+                    dedupeKey: `publication-consent-erased-office:${consent.id}`,
+                },
+                manager,
+            );
+        }
+        return inForce.length;
+    }
+
+    /**
      * The notice that something may have to come down. Always sent, whoever withdrew: two people run
      * the office, and the one who recorded the withdrawal is not necessarily the one who posted.
      */

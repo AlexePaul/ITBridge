@@ -160,6 +160,7 @@ const MESSAGES: Record<string, string> = {
   PROJECT_NOT_YOURS: "Documentul aparține altei familii.",
   PROJECT_EMPTY: "Un proiect are nevoie de cel puțin un fișier sau un link.",
   PROJECT_ALREADY_ASSIGNED: "Documentul este deja al acelui copil.",
+  PROJECT_CHANGED: "Documentul s-a schimbat între timp. Reîncarcă pagina și încearcă din nou.",
   PROJECT_CHILD_MISMATCH: "Proiectul acela este al altui copil.",
   PROJECT_FILE_TOO_LARGE: "Fișierul depășește limita de dimensiune.",
   PROJECT_FILE_TYPE_NOT_ALLOWED: "Tipul acesta de fișier nu este acceptat.",

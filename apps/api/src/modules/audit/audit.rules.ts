@@ -103,3 +103,34 @@ function forStorage(value: unknown): AuditValue {
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
     return JSON.stringify(value) ?? null;
 }
+
+/**
+ * Free text somebody typed about a family, by the kind of row it is on — recorded by name, never by
+ * value (review of 25 September 2026).
+ *
+ * The money writers keep their figures in the trail, and that is right: "350 became 300" is what the
+ * trail is for. But three of the fields they audit are sentences, and a sentence about a family is
+ * personal data whatever else it is — a payment's note (the bank reconciliation writes the transfer's
+ * own text into it, which families fill with their child's name as often as with the invoice
+ * number), a session override's reason ("a fost bolnavă"), a discount's name. The trail has the
+ * `audit` retention and outlives the family by design, so a value copied here was the one place an
+ * erasure could never reach — the thing E07 S4 promises does not happen.
+ *
+ * Applied in `AuditService.record`, the one door every entry passes, so a new writer inherits it.
+ */
+export const FREE_TEXT_FIELDS: Readonly<Record<string, readonly string[]>> = {
+    Payment: ['notes'],
+    SessionCountOverride: ['reason'],
+    Discount: ['name'],
+};
+
+/** The same changes, with the free text on this kind of row reduced to its name. */
+export function withoutFreeText(entityType: string, changes: AuditChanges): AuditChanges {
+    const fields = FREE_TEXT_FIELDS[entityType];
+    if (!fields) return changes;
+    const out: AuditChanges = { ...changes };
+    for (const field of fields) {
+        if (field in out) out[field] = { from: null, to: null };
+    }
+    return out;
+}

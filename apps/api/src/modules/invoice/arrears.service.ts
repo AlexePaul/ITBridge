@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Repository, Not, LessThanOrEqual } from 'typeorm';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice.entity';
 import { Payment } from 'src/entities/payment.entity';
 import { PaymentStatus } from 'src/enum/payment-status.enum';
@@ -81,7 +81,36 @@ export class ArrearsService {
         if (invoices.length === 0) return [];
 
         const receivedByInvoice = await this.receivedPerInvoice(invoices.map((invoice) => invoice.id));
+        return this.rowsFor(invoices, receivedByInvoice, today);
+    }
 
+    /**
+     * The same list as it stood at the end of `day` — for the retrospective check of the early
+     * signals (E21 S7), and nothing else.
+     *
+     * `list` reads the invoices by their status **now** and adds up **every** payment, so asked
+     * about 2 March after the family paid on 20 March it answered as if they had paid on the 2nd:
+     * the digest that named them on Monday could no longer be checked (review of 25 September 2026).
+     * Here an invoice counts if it had been issued by then, whatever it says now — only a waived
+     * month owes nothing on any day — and a payment counts if it had arrived by then.
+     */
+    async asOf(day: Date): Promise<ArrearsRow[]> {
+        const until = toIsoDate(day);
+        const invoices = await this.invoiceRepository.find({
+            where: { status: Not(InvoiceStatus.WAIVED), dateIssued: LessThanOrEqual(until) as unknown as Date },
+            relations: { parent: true },
+            order: { dateIssued: 'ASC' },
+        });
+        if (invoices.length === 0) return [];
+
+        const receivedByInvoice = await this.receivedPerInvoice(
+            invoices.map((invoice) => invoice.id),
+            until,
+        );
+        return this.rowsFor(invoices, receivedByInvoice, day);
+    }
+
+    private rowsFor(invoices: Invoice[], receivedByInvoice: Map<number, Received>, today: Date): ArrearsRow[] {
         return (
             invoices
                 .map((invoice) => {
@@ -158,16 +187,16 @@ export class ArrearsService {
      * announced transfer has not arrived, so it settles nothing — it is counted apart, for the
      * screens that must not record it twice and the reminders that must not chase it (E16/S6).
      */
-    private async receivedPerInvoice(invoiceIds: number[]): Promise<Map<number, Received>> {
-        const rows = await this.paymentRepository
+    private async receivedPerInvoice(invoiceIds: number[], until?: string): Promise<Map<number, Received>> {
+        const qb = this.paymentRepository
             .createQueryBuilder('payment')
             .select('payment.invoice_id', 'invoiceId')
             .addSelect('COALESCE(SUM(payment.amount) FILTER (WHERE payment.status = :succeeded), 0)', 'paid')
             .addSelect('COALESCE(SUM(payment.amount) FILTER (WHERE payment.status = :initiated), 0)', 'announced')
             .where('payment.invoice_id IN (:...invoiceIds)', { invoiceIds })
-            .andWhere('payment.status IN (:succeeded, :initiated)', { succeeded: PaymentStatus.SUCCEEDED, initiated: PaymentStatus.INITIATED })
-            .groupBy('payment.invoice_id')
-            .getRawMany<{ invoiceId: number; paid: string; announced: string }>();
+            .andWhere('payment.status IN (:succeeded, :initiated)', { succeeded: PaymentStatus.SUCCEEDED, initiated: PaymentStatus.INITIATED });
+        if (until) qb.andWhere('payment.date <= :until', { until });
+        const rows = await qb.groupBy('payment.invoice_id').getRawMany<{ invoiceId: number; paid: string; announced: string }>();
 
         return new Map(rows.map((row) => [Number(row.invoiceId), { paid: Number(row.paid), announced: Number(row.announced) }]));
     }

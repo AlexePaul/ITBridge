@@ -260,7 +260,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 - **`sessions.userAgent`** — Trunchiat dinadins: cât să deosebești două sesiuni, nu cât să faci o amprentă.
 - **`audit_log.actorUsername`** — Denormalizat dinadins: o urmă care arată către un rând ce poate fi șters pierde exact intrările care contează.
 - **`audit_log.entityId`** — Trimite la rândul schimbat — o factură, o plată. Datele familiei stau acolo, nu aici.
-- **`audit_log.changes`** — Numai drumurile banilor sunt consemnate azi. Ce se ține despre o schimbare de `Profile` sau `Child` e decizia deschisă din E07 S3, exact fiindcă acolo *valoarea* e data personală.
+- **`audit_log.changes`** — Cifrele banilor se consemnează cu valoarea lor; textul liber despre o familie — nota unei plăți, motivul unei corecturi, numele unei reduceri — doar cu numele câmpului (`FREE_TEXT_FIELDS`), la fel ca datele din `Profile` și `Child`: jurnalul trăiește mai mult decât familia, iar o propoziție copiată aici ar fi singurul loc la care ștergerea nu ajunge.
 - **`audit_log.note`** — Identificatori („copil 5, luna 2026-10"), niciodată nume.
 - **`locations.phone`** — Telefonul filialei, nu al unei persoane.
 - **`locations.email`** — Adresa filialei, nu a unei persoane.

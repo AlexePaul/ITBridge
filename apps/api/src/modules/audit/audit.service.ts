@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { AuditLog, type AuditChanges } from 'src/entities/audit-log.entity';
 import { AuditAction } from 'src/enum/audit-action.enum';
-import { diffFields } from './audit.rules';
+import { diffFields, withoutFreeText } from './audit.rules';
 
 /** Who acted, as the guard hands it over. Null where a job acted and no human did. */
 export interface Actor {
@@ -54,7 +54,8 @@ export class AuditService {
             action: input.action,
             entityType: input.entityType,
             entityId: input.entityId,
-            changes: input.changes ?? {},
+            // Free text about a family by name only — see `FREE_TEXT_FIELDS`.
+            changes: withoutFreeText(input.entityType, input.changes ?? {}),
             note: input.note ?? null,
         });
     }

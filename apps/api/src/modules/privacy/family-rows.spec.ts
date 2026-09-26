@@ -1,5 +1,11 @@
 import { claimsLead, leadsOfFamily, messagesOfFamily, vouchedAddresses } from './family-rows';
 
+/**
+ * The address clause: one mailbox whatever its capitals, like `sameAddress` and the unique index on
+ * profiles — an exact comparison missed the lead typed `ana@…` for the family registered `Ana@…`.
+ */
+const mailbox = (email: string) => expect.objectContaining({ type: 'raw', objectLiteralParameters: { mailbox: email } });
+
 describe('vouchedAddresses', () => {
     const typed = { id: 7, email: 'ana@example.com', phone: '+40712345678' };
 
@@ -40,10 +46,10 @@ describe('leadsOfFamily', () => {
     });
 
     it('also matches a vouched address, so a lead an admin typed in is found', () => {
-        expect(leadsOfFamily(confirmed)).toEqual([{ profile: { id: 7 } }, { parentEmail: 'ana@example.com' }]);
+        expect(leadsOfFamily(confirmed)).toEqual([{ profile: { id: 7 } }, { parentEmail: mailbox('ana@example.com') }]);
         expect(leadsOfFamily({ ...confirmed, user: null })).toEqual([
             { profile: { id: 7 } },
-            { parentEmail: 'ana@example.com' },
+            { parentEmail: mailbox('ana@example.com') },
             { parentPhone: '+40712345678' },
         ]);
     });
@@ -61,7 +67,7 @@ describe('leadsOfFamily', () => {
         expect(leadsOfFamily({ id: 7, email: null, phone: null, user: null })).toEqual([{ profile: { id: 7 } }]);
         expect(leadsOfFamily({ id: 7, email: 'ana@example.com', phone: null, user: null })).toEqual([
             { profile: { id: 7 } },
-            { parentEmail: 'ana@example.com' },
+            { parentEmail: mailbox('ana@example.com') },
         ]);
     });
 
@@ -72,7 +78,7 @@ describe('leadsOfFamily', () => {
 
 describe('messagesOfFamily', () => {
     it('finds the messages sent to a vouched address', () => {
-        expect(messagesOfFamily({ id: 7, email: 'ana@example.com', user: { emailConfirmedAt: new Date() } })).toEqual({ to: 'ana@example.com' });
+        expect(messagesOfFamily({ id: 7, email: 'ana@example.com', user: { emailConfirmedAt: new Date() } })).toEqual({ to: mailbox('ana@example.com') });
     });
 
     /** `{ to: undefined }` would match the whole queue, so there is no clause to run at all. */
@@ -84,6 +90,10 @@ describe('messagesOfFamily', () => {
 
 describe('claimsLead', () => {
     const lead = { parentEmail: 'ana@example.com', parentPhone: '+40712345678' };
+
+    it('claims a lead at a vouched address written in other capitals — one mailbox', () => {
+        expect(claimsLead({ id: 7, email: 'Ana@Example.com', user: { emailConfirmedAt: new Date() } }, lead)).toBe(true);
+    });
 
     it('claims a lead at a vouched address', () => {
         expect(claimsLead({ id: 7, email: 'ana@example.com', user: { emailConfirmedAt: new Date() } }, lead)).toBe(true);

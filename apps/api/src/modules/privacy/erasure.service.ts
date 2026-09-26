@@ -17,7 +17,8 @@ import { S3Service } from 'src/modules/storage/s3.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { projectFileKey, projectThumbnailKey } from 'src/modules/project/project.keys';
 import { ERASED_STATEMENT_TEXT, erasedProfileFields, isErased } from './erasure.rules';
-import { leadsOfFamily, messagesOfFamily } from './family-rows';
+import { leadsOfFamily, messagesOfFamily, vouchedAddresses } from './family-rows';
+import { PublicationConsentService } from './publication-consent.service';
 
 /**
  * Who the erasure is for, as the trail tells it afterwards — the one sentence a reader of "profile
@@ -110,6 +111,7 @@ export class ErasureService {
         private readonly audit: AuditService,
         private readonly storage: S3Service,
         private readonly enrollments: EnrollmentService,
+        private readonly consents: PublicationConsentService,
     ) {}
 
     /** The family asks. Nothing is deleted here — the office has to look first. */
@@ -228,11 +230,29 @@ export class ErasureService {
             // entries, session-count overrides and projects with them. The seats those children held
             // — enrolled, on trial, offered from a list — are taken first and handed on after: the
             // cascade frees them without telling anybody waiting.
+            // Before the children too: their publication consents go with them, and a consent still
+            // in force may be work on the school's page that somebody now has to take down.
+            await this.consents.announceErasure(childIds, manager);
+
             const seatsHeldIn = await this.enrollments.lockSeatsHeldBy(childIds, manager);
             if (childIds.length) await manager.delete(Child, childIds);
             await this.enrollments.offerFreeSeatsIn(seatsHeldIn, manager);
 
             const discounts = await manager.delete(Discount, { parent: { id: profileId } });
+
+            // A document sent to this family and then moved to another family's child (E14 S7) is no
+            // longer theirs, so the cascade above does not reach it — but its `sentToEmail` is still
+            // this family's address. The inventory says the erasure has to find it; by the vouched
+            // address, like the queue below (review of 25 September 2026).
+            const { email: vouchedEmail } = vouchedAddresses(profile);
+            if (vouchedEmail) {
+                await manager
+                    .createQueryBuilder()
+                    .update(Project)
+                    .set({ sentToEmail: null })
+                    .where('lower("sentToEmail") = lower(:email)', { email: vouchedEmail })
+                    .execute();
+            }
 
             // No relation to walk: the queue is shared and also writes to the office, so its rows
             // are found by address — exactly what the inventory says this story would have to do.

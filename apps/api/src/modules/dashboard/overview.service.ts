@@ -11,7 +11,9 @@ import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { ArrearsService } from 'src/modules/invoice/arrears.service';
 import { DeliveryLogService } from 'src/modules/mail/delivery-log.service';
 import { OutboxHealth } from 'src/modules/mail/outbox-health.rules';
-import { addDays, toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { addDays, toIsoDate, parseIsoDate } from 'src/modules/class-session/class-session.dates';
+import { schoolDay } from 'src/common/school-clock';
+import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 
 /** One of today's classes, as the overview shows it. */
 export interface OverviewSession {
@@ -101,7 +103,10 @@ export class OverviewService {
     ) {}
 
     async build(today: Date = new Date()): Promise<Overview> {
-        const date = toIsoDate(today);
+        // The school's day, not the server's: between 00:00 and 03:00 in Bucharest a server on UTC
+        // still reads yesterday, and the tile showed yesterday's classes as today's.
+        const date = schoolDay(today);
+        const day = parseIsoDate(date);
 
         const [sessions, unmarked, arrearsRows, groupsNearlyFull, pendingProjects, pendingApprovals, messagesNotDelivered, withoutContract] = await Promise.all(
             [
@@ -110,7 +115,7 @@ export class OverviewService {
                 this.classSessions.findSessions({ dateFrom: date, dateTo: date }, Role.ADMIN, 0),
                 // The week behind today, today excluded: what is missing from the day in progress is
                 // not a backlog, it is work still being done.
-                this.classSessions.findUnmarkedSessions({ dateFrom: toIsoDate(addDays(today, -7)), dateTo: toIsoDate(addDays(today, -1)) }),
+                this.classSessions.findUnmarkedSessions({ dateFrom: toIsoDate(addDays(day, -7)), dateTo: toIsoDate(addDays(day, -1)) }),
                 this.arrears.list(today),
                 this.nearlyFullGroups(),
                 // Asked of the service that owns the question, not counted here. A report deriving
@@ -129,7 +134,11 @@ export class OverviewService {
             ],
         );
 
-        const todaySessions: OverviewSession[] = sessions.map((session) => ({
+        // A cancelled class is not one of today's, and it can never be marked: counted here it showed
+        // "0 din N marcate" and a „Nemarcată" badge on every class of a day off (review of 25
+        // September 2026). `findUnmarkedSessions`, which owns "unmarked", already leaves them out.
+        const held = sessions.filter((session) => session.status !== ClassSessionStatus.CANCELLED);
+        const todaySessions: OverviewSession[] = held.map((session) => ({
             id: session.id,
             groupName: session.group?.name ?? 'Grupă necunoscută',
             startTime: session.startTime,
@@ -149,7 +158,9 @@ export class OverviewService {
             arrears: {
                 families: new Set(arrearsRows.map((row) => row.parentId)).size,
                 outstanding: Math.round(arrearsRows.reduce((sum, row) => sum + row.outstanding, 0) * 100) / 100,
-                over60: arrearsRows.filter((row) => row.bucket === 'over_60').length,
+                // Families, not invoices: the screen reads it as calls to make, and one family two
+                // months behind is one call (E21).
+                over60: new Set(arrearsRows.filter((row) => row.bucket === 'over_60').map((row) => row.parentId)).size,
             },
             groupsNearlyFull,
             projectsAwaitingSend: pendingProjects.total,

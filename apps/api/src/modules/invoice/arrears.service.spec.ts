@@ -115,6 +115,32 @@ describe('ArrearsService', () => {
      * 350 as still to pay. Every invoice the API hands out now carries what arrived and what is left,
      * from the same sum and subtraction as the list.
      */
+    /**
+     * The review of 25 September 2026: the early signals' retrospective check asked `list`, which
+     * reads statuses as they are now and every payment ever made — so a family named in Monday's
+     * digest that paid on the 20th could no longer be found by asking about Monday.
+     */
+    describe('as it stood on a day', () => {
+        it('reads every invoice issued by then, whatever it says now, except a waived month', async () => {
+            await service.asOf(new Date(2026, 2, 2));
+
+            const where = (invoiceRepo.find!.mock.calls[0][0] as { where: { status: unknown; dateIssued: unknown } }).where;
+            expect(JSON.stringify(where.status)).toContain('waived');
+            expect(JSON.stringify(where.status)).toContain('"not"');
+            expect(JSON.stringify(where.dateIssued)).toContain('2026-03-02');
+        });
+
+        it('counts only the payments that had arrived by then', async () => {
+            invoiceRepo.find!.mockResolvedValue([invoice({ status: InvoiceStatus.PAID, dateIssued: new Date(2026, 1, 1) })]);
+
+            const [row] = await service.asOf(new Date(2026, 2, 2));
+
+            expect(qb.andWhere).toHaveBeenCalledWith('payment.date <= :until', { until: '2026-03-02' });
+            // No payment by then, so the invoice paid on the 20th was still owed on the 2nd.
+            expect(row).toMatchObject({ invoiceId: 7, outstanding: 350 });
+        });
+    });
+
     describe('the balance on every invoice', () => {
         it('attaches what arrived and what is left, from succeeded payments only', async () => {
             // 250 announced on top: a transfer on its way is not money a family has paid.

@@ -421,20 +421,51 @@ describe('ProjectService', () => {
 
     describe('reassign', () => {
         it('records where the document came from, and moves nothing in storage', async () => {
-            const project = { id: 41, child: { id: 12 }, capturedOn: new Date('2026-09-14T00:00:00'), reassignedFromChildId: null };
+            const project = { id: 41, child: { id: 12 }, status: 'new', capturedOn: new Date('2026-09-14T00:00:00'), reassignedFromChildId: null };
             projectRepo.findOne!.mockResolvedValueOnce(project);
             childRepo.findOne!.mockResolvedValue({ ...child, id: 13, group: { id: 5 } });
-            projectRepo.save!.mockImplementation((row: unknown) => Promise.resolve(row));
+            projectRepo.update!.mockResolvedValue({ affected: 1 });
 
             await service.reassign(41, { childId: 13 }, 1);
 
-            const saved = projectRepo.save!.mock.calls[0][0] as Record<string, unknown>;
+            const [where, changes] = projectRepo.update!.mock.calls[0] as [Record<string, unknown>, Record<string, unknown>];
+            // Only while the row is still as it was read: `save` wrote back every column of that
+            // copy, so a send committed in between was undone (review of 25 September 2026).
+            expect(where).toEqual({ id: 41, status: 'new' });
             // Losing "moved away from whom" would make a misdelivery untraceable, and a document
             // sent to the wrong family is a disclosure of personal data, not an embarrassment.
-            expect(saved.reassignedFromChildId).toBe(12);
-            expect(saved.reassignedAt).toBeInstanceOf(Date);
+            expect(changes.reassignedFromChildId).toBe(12);
+            expect(changes.reassignedAt).toBeInstanceOf(Date);
+            expect(changes.child).toEqual({ id: 13 });
+            // Still in review: nothing about a send to write back.
+            expect(changes).not.toHaveProperty('status');
             // The key holds project identifiers, not the child's, so nothing has to be re-uploaded.
             expect(s3.putObject).not.toHaveBeenCalled();
+        });
+
+        /**
+         * The review of 25 September 2026: a document that had gone went to the wrong family, and it
+         * stayed `sent` — so "Trimite" skipped it and the right family could never be told, while
+         * the other family's address stayed on a row that was now this child's.
+         */
+        it('puts a document that had already gone back in review, without the other family’s address', async () => {
+            projectRepo.findOne!.mockResolvedValueOnce({ id: 41, child: { id: 12 }, status: 'sent', capturedOn: new Date('2026-09-14T00:00:00') });
+            childRepo.findOne!.mockResolvedValue({ ...child, id: 13, group: { id: 5 } });
+            projectRepo.update!.mockResolvedValue({ affected: 1 });
+
+            await service.reassign(41, { childId: 13 }, 1);
+
+            const [where, changes] = projectRepo.update!.mock.calls[0] as [Record<string, unknown>, Record<string, unknown>];
+            expect(where).toEqual({ id: 41, status: 'sent' });
+            expect(changes).toMatchObject({ status: 'new', sentAt: null, sentToEmail: null, sentOutboxMessageId: null });
+        });
+
+        it('refuses rather than overwrites when the document changed meanwhile', async () => {
+            projectRepo.findOne!.mockResolvedValueOnce({ id: 41, child: { id: 12 }, status: 'new', capturedOn: new Date('2026-09-14T00:00:00') });
+            childRepo.findOne!.mockResolvedValue({ ...child, id: 13, group: { id: 5 } });
+            projectRepo.update!.mockResolvedValue({ affected: 0 });
+
+            await expect(service.reassign(41, { childId: 13 }, 1)).rejects.toMatchObject({ response: { error: 'PROJECT_CHANGED' } });
         });
 
         it('refuses to move a document to the child it already belongs to', async () => {

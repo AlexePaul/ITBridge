@@ -1579,7 +1579,7 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
                 basis: 'legal_obligation',
                 retention: 'audit',
                 readableBy: ['admin'],
-                note: 'Numai drumurile banilor sunt consemnate azi. Ce se ține despre o schimbare de `Profile` sau `Child` e decizia deschisă din E07 S3, exact fiindcă acolo *valoarea* e data personală.',
+                note: 'Cifrele banilor se consemnează cu valoarea lor; textul liber despre o familie — nota unei plăți, motivul unei corecturi, numele unei reduceri — doar cu numele câmpului (`FREE_TEXT_FIELDS`), la fel ca datele din `Profile` și `Child`: jurnalul trăiește mai mult decât familia, iar o propoziție copiată aici ar fi singurul loc la care ștergerea nu ajunge.',
             },
             note: { personal: false, why: 'plumbing', note: 'Identificatori („copil 5, luna 2026-10"), niciodată nume.' },
         },

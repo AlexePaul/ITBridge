@@ -102,6 +102,12 @@ export interface ExportedChild {
         fisiere: string[];
         legaturi: { eticheta: string; adresa: string }[];
     }[];
+    /**
+     * Work received from the share that the office has not checked yet — counted, never described.
+     * Until somebody looks, a file in this child's folder may be another child's (E14 S7), and its
+     * title is often the other child's name.
+     */
+    proiecteInVerificare: number;
     /** E07/S2. `portal` means the family gave it; `office` means the school wrote it down for them. */
     acorduriPentruLucrari: {
         scop: string;

@@ -1,4 +1,5 @@
-import type { FindOptionsWhere } from 'typeorm';
+import { Raw, type FindOperator, type FindOptionsWhere } from 'typeorm';
+import { sameAddress } from 'src/common/same-address';
 import type { Lead } from 'src/entities/lead.entity';
 import type { OutboxMessage } from 'src/entities/outbox-message.entity';
 import type { Profile } from 'src/entities/profile.entity';
@@ -77,9 +78,22 @@ export function vouchedAddresses(family: FamilyIdentity): { email: string | null
 export function leadsOfFamily(family: FamilyIdentity): FindOptionsWhere<Lead>[] {
     const clauses: FindOptionsWhere<Lead>[] = [{ profile: { id: family.id } }];
     const { email, phone } = vouchedAddresses(family);
-    if (email) clauses.push({ parentEmail: email });
+    if (email) clauses.push({ parentEmail: sameMailbox(email) });
     if (phone) clauses.push({ parentPhone: phone });
     return clauses;
+}
+
+/**
+ * An address as the rest of the platform reads one: one mailbox, whatever its capitals — the rule of
+ * `sameAddress` and of `UQ_profiles_email_lower`. These three lookups compared exactly, so the family
+ * registered as `Ana.Pop@gmail.com` did not find the enquiry the office typed as `ana.pop@gmail.com`,
+ * and the erasure left that child's name and birth date behind (review of 25 September 2026).
+ */
+function sameMailbox(email: string): FindOperator<string> {
+    // `Raw` is typed as returning `FindOperator<any>` whatever it is given. Narrowed from `unknown`
+    // rather than asserted twice, which `lint:fix` would strip — see CLAUDE.md on `lint:fix` and types.
+    const operator: unknown = Raw((column) => `lower(${column}) = lower(:mailbox)`, { mailbox: email.trim() });
+    return operator as FindOperator<string>;
 }
 
 /**
@@ -90,11 +104,11 @@ export function leadsOfFamily(family: FamilyIdentity): FindOptionsWhere<Lead>[] 
  */
 export function messagesOfFamily(family: FamilyIdentity): FindOptionsWhere<OutboxMessage> | null {
     const { email } = vouchedAddresses(family);
-    return email ? { to: email } : null;
+    return email ? { to: sameMailbox(email) } : null;
 }
 
 /** Whether a lead with no link belongs to this family by address — the retention pass's question. */
 export function claimsLead(family: FamilyIdentity, lead: Pick<Lead, 'parentEmail' | 'parentPhone'>): boolean {
     const { email, phone } = vouchedAddresses(family);
-    return Boolean((email && email === lead.parentEmail) || (phone && phone === lead.parentPhone));
+    return Boolean((email && lead.parentEmail && sameAddress(email, lead.parentEmail)) || (phone && phone === lead.parentPhone));
 }

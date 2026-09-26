@@ -31,13 +31,14 @@ describe('OverviewService', () => {
 
     const DAY = new Date(2026, 2, 20);
 
-    const session = (id: number, marked: boolean, name = 'Scratch') => ({
+    const session = (id: number, marked: boolean, name = 'Scratch', status = 'scheduled') => ({
         id,
         group: { name },
         startTime: '16:00:00',
         endTime: '17:30:00',
         room: { location: { name: 'Drumul Taberei' } },
         hasAttendance: marked,
+        status,
     });
 
     beforeEach(async () => {
@@ -108,6 +109,27 @@ describe('OverviewService', () => {
             expect(classSessions.findSessions).toHaveBeenCalledWith({ dateFrom: '2026-03-20', dateTo: '2026-03-20' }, Role.ADMIN, 0);
         });
 
+        it("asks for the school's day, not the server's", async () => {
+            // 00:30 on 20 March in Bucharest is still the 19th in UTC, where the server runs: the tile
+            // showed yesterday's classes as today's for the first three hours of every day.
+            await service.build(new Date('2026-03-19T22:30:00Z'));
+
+            expect(classSessions.findSessions).toHaveBeenCalledWith({ dateFrom: '2026-03-20', dateTo: '2026-03-20' }, Role.ADMIN, 0);
+            expect(classSessions.findUnmarkedSessions).toHaveBeenCalledWith({ dateFrom: '2026-03-13', dateTo: '2026-03-19' });
+        });
+
+        it('leaves out a cancelled class, which nobody will ever mark', async () => {
+            // A day off cancels every class of the day: counted, the tile read "0 din 3 marcate" with
+            // a „Nemarcată" badge on each, about classes that were never going to be held.
+            classSessions.findSessions.mockResolvedValue([session(1, true), session(2, false, 'Python', 'cancelled'), session(3, false)]);
+
+            const overview = await service.build(DAY);
+
+            expect(overview.today.total).toBe(2);
+            expect(overview.today.marked).toBe(1);
+            expect(overview.today.sessions.map((row) => row.id)).toEqual([1, 3]);
+        });
+
         it('survives a session whose group somehow did not load', async () => {
             classSessions.findSessions.mockResolvedValue([{ id: 1, startTime: '16:00:00', endTime: '17:30:00', hasAttendance: false }]);
             const overview = await service.build(DAY);
@@ -141,6 +163,15 @@ describe('OverviewService', () => {
             arrears.list.mockResolvedValue([row(1, 350, 'over_60'), row(2, 150, 'overdue')]);
             const overview = await service.build(DAY);
             // Those are the rows where an email will not do it any more.
+            expect(overview.arrears.over60).toBe(1);
+        });
+
+        it('counts those as families too, like the line above them', async () => {
+            // Two months past sixty days is still one family to phone; the tile said two.
+            arrears.list.mockResolvedValue([row(1, 350, 'over_60'), row(1, 350, 'over_60'), row(2, 150, 'overdue')]);
+
+            const overview = await service.build(DAY);
+
             expect(overview.arrears.over60).toBe(1);
         });
     });

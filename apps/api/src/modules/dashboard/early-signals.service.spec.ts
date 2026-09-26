@@ -17,7 +17,7 @@ describe('EarlySignalsService', () => {
     let service: EarlySignalsService;
     let attendanceRepo: MockRepository;
     let noticeRepo: MockRepository;
-    let arrears: { list: jest.Mock };
+    let arrears: { asOf: jest.Mock };
     let occupancy: { build: jest.Mock };
 
     const AS_OF = new Date(2026, 2, 30);
@@ -54,7 +54,7 @@ describe('EarlySignalsService', () => {
     beforeEach(async () => {
         attendanceRepo = createMockRepository();
         noticeRepo = createMockRepository();
-        arrears = { list: jest.fn().mockResolvedValue([]) };
+        arrears = { asOf: jest.fn().mockResolvedValue([]) };
         occupancy = { build: jest.fn().mockResolvedValue({ groups: [] }) };
         attendanceRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ many: [] }));
         noticeRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ many: [] }));
@@ -254,7 +254,7 @@ describe('EarlySignalsService', () => {
 
     describe('families', () => {
         it('asks the arrears list as of the day, and flags families two invoices behind', async () => {
-            arrears.list.mockResolvedValue([
+            arrears.asOf.mockResolvedValue([
                 { invoiceId: 1, parentId: 20, parentName: 'Maria Pop', email: 'maria@example.com', phone: '+40700000001', daysOverdue: 45, outstanding: 350 },
                 { invoiceId: 2, parentId: 20, parentName: 'Maria Pop', email: 'maria@example.com', phone: '+40700000001', daysOverdue: 16, outstanding: 200 },
                 { invoiceId: 3, parentId: 21, parentName: 'Ion Ion', email: null, phone: null, daysOverdue: 40, outstanding: 600 },
@@ -263,7 +263,7 @@ describe('EarlySignalsService', () => {
 
             const signals = await service.build(AS_OF);
 
-            expect(arrears.list).toHaveBeenCalledWith(AS_OF);
+            expect(arrears.asOf).toHaveBeenCalledWith(AS_OF);
             expect(signals.families).toEqual([
                 {
                     parentId: 20,

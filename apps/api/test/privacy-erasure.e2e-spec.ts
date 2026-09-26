@@ -240,6 +240,33 @@ describe('Privacy erasure (e2e)', () => {
             expect(await countRows('SELECT COUNT(*) FROM leads')).toBe(0);
         });
 
+        it('finds the enquiry and the mail whatever capitals the address was typed in', async () => {
+            // One mailbox, as registration and `forgot-password` read one: the office typed the
+            // address from a phone call with capitals, and an old message went out the same way.
+            await request(app.getHttpServer())
+                .post('/leads')
+                .set('Authorization', admin.auth)
+                .send({
+                    parentName: 'Ana Test',
+                    parentEmail: 'Ana.Stergere@Example.com',
+                    childFirstName: 'Maria',
+                    childLastName: 'Pop',
+                    childBirthDate: '2016-04-02',
+                    source: 'phone',
+                })
+                .expect(201);
+            await dataSource.query(`UPDATE outbox SET "to" = upper("to") WHERE "to" = 'ana.stergere@example.com'`);
+            const shouted = await countRows(`SELECT COUNT(*) FROM outbox WHERE "to" = 'ANA.STERGERE@EXAMPLE.COM'`);
+            expect(shouted).toBeGreaterThan(0);
+
+            const report = await erase(anaProfileId).expect(201);
+
+            expect(report.body.leadsRemoved).toBe(1);
+            expect(report.body.messagesRemoved).toBeGreaterThanOrEqual(shouted);
+            expect(await countRows('SELECT COUNT(*) FROM leads')).toBe(0);
+            expect(await countRows(`SELECT COUNT(*) FROM outbox WHERE lower("to") = 'ana.stergere@example.com'`)).toBe(0);
+        });
+
         it("leaves the other family's unlinked lead exactly where it was", async () => {
             await request(app.getHttpServer())
                 .post('/leads')
@@ -377,6 +404,48 @@ describe('Privacy erasure (e2e)', () => {
             const again = await importStatement();
             expect(again.body).toMatchObject({ imported: 0, duplicates: 1 });
             expect(await countRows('SELECT count(*) FROM bank_statement_lines')).toBe(1);
+        });
+
+        /**
+         * The review of 25 September 2026. The consents go with the children, and the erasure told
+         * nobody — while the work may still be on the school's page, which the platform does not
+         * publish and cannot take down. A withdrawal tells the office; the erasure has to as well.
+         */
+        it('tells the office when it takes a consent still in force, so published work can come down', async () => {
+            await request(app.getHttpServer()).put(`/privacy/consents/${anaChildId}/promotion`).set('Authorization', ana.auth).expect(200);
+
+            await erase(anaProfileId).expect(201);
+
+            const notices = await dataSource.query<{ to: string; subject: string }[]>(
+                `SELECT "to", subject FROM outbox WHERE "dedupeKey" LIKE 'publication-consent-erased-office:%'`,
+            );
+            expect(notices).toHaveLength(1);
+            expect(notices[0].subject).toContain('Maria');
+            expect(await countRows('SELECT COUNT(*) FROM publication_consents')).toBe(0);
+        });
+
+        /**
+         * The review of 25 September 2026: the payment's note — the transfer's own text, which
+         * families fill with their child's name — was copied into the trail as a value. The trail
+         * outlives the family by design, so it was the one copy the erasure could not reach.
+         */
+        it('leaves no words the family wrote in the trail of a payment it kept', async () => {
+            const invoices = await request(app.getHttpServer()).get('/invoices').query({ parentId: anaProfileId }).set('Authorization', admin.auth).expect(200);
+            const statement = 'Data;Nume platitor;Detalii;Referinta;Credit\n05.03.2026;POP ELENA;plata martie Maria Pop;RB2026030501;100,00';
+            await request(app.getHttpServer()).post('/reconciliation/statements').set('Authorization', admin.auth).send({ content: statement }).expect(200);
+            const [line] = await dataSource.query('SELECT id FROM bank_statement_lines');
+            await request(app.getHttpServer())
+                .post(`/reconciliation/lines/${line.id as number}/match`)
+                .set('Authorization', admin.auth)
+                .send({ invoiceId: invoices.body[0].id as number })
+                .expect(200);
+
+            await erase(anaProfileId).expect(201);
+
+            const trail = await request(app.getHttpServer()).get('/audit').query({ entityType: 'Payment' }).set('Authorization', admin.auth).expect(200);
+            expect(trail.body.length).toBeGreaterThan(0);
+            expect(JSON.stringify(trail.body)).not.toContain('Maria');
+            expect(JSON.stringify(trail.body)).not.toContain('plata martie');
         });
 
         /**
