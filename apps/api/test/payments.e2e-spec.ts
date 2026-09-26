@@ -138,6 +138,24 @@ describe('Payments (e2e)', () => {
         });
     });
 
+    // QA of 26 September 2026: the form refused a later day and the API took it. `createTestApp` puts
+    // the billing clock at 15 January 2031, so the 16th is a day still to come.
+    describe('a day that has not happened', () => {
+        it('is refused, on a new payment and on an edit', async () => {
+            const refused = await pay({ amount: 100, date: '2031-01-16' }).expect(400);
+            expect(refused.body.code).toBe('PAYMENT_DATE_IN_FUTURE');
+
+            const today = await pay({ amount: 100, date: '2031-01-15' }).expect(201);
+            const edited = await request(app.getHttpServer())
+                .put(`/payments/${today.body.id as number}`)
+                .set('Authorization', admin.auth)
+                .send({ date: '2031-02-01' })
+                .expect(400);
+            expect(edited.body.code).toBe('PAYMENT_DATE_IN_FUTURE');
+            expect(await dataSource.query('SELECT "date" FROM "payments" WHERE "date" > $1', ['2031-01-15'])).toHaveLength(0);
+        });
+    });
+
     describe('waived invoices', () => {
         it('refuses money against a waived month, with its own code', async () => {
             // A waived invoice comes from the issuing screen writing a zero row.

@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository, SelectQueryBuilder } from 'typeorm';
 import { Payment, PAYMENT_RECORD_MAY_EXIST, PaymentFiscalStatus } from 'src/entities/payment.entity';
@@ -22,6 +22,25 @@ import { smartBillMode } from 'src/modules/smartbill/smartbill.config';
 import { paymentsUrl } from 'src/modules/auth/portal-urls';
 import { owesReceipt, receiptDedupeKey, receiptTemplate } from './payment-receipt.rules';
 import { editTouchesSmartBillRecord, nextPaymentFiscalState, owesSmartBillRecord } from './payment-fiscal.rules';
+import { schoolDay } from 'src/common/school-clock';
+import { issuingNow } from 'src/modules/invoice/issuing-clock';
+
+/**
+ * A payment is money that moved, so its day has happened — the QA of 26 September 2026: the form
+ * refused a later day and the API took it, and the receipt then told the family they had paid on a
+ * day still to come. The clock is the billing one, which the integration suites move past the months
+ * they use, and the day is the school's.
+ */
+function refuseDayToCome(date: string | undefined): void {
+    if (!date) return;
+    const today = schoolDay(issuingNow());
+    if (date.slice(0, 10) > today) {
+        throw new BadRequestException({
+            message: `Payment date ${date.slice(0, 10)} is after today (${today}).`,
+            error: 'PAYMENT_DATE_IN_FUTURE',
+        });
+    }
+}
 
 /** What the invoice looks like once a payment has been counted — the single computation of it. */
 export interface InvoiceBalance {
@@ -87,6 +106,7 @@ export class PaymentService {
      * to the row that justified it and nothing kept the two in step afterwards.
      */
     async createPayment(dto: CreatePaymentDto, recordedByUserId: number | undefined, actor: Actor, outer?: EntityManager) {
+        refuseDayToCome(dto.date);
         const invoice = await this.invoiceRepo.findOne({ where: { id: dto.invoiceId }, relations: { parent: true } });
         if (!invoice) throw new NotFoundException('Invoice not found');
 
@@ -295,6 +315,7 @@ export class PaymentService {
      * confirms an announced transfer and the confirmation commit together (E16/S8).
      */
     async updatePayment(id: number, dto: UpdatePaymentDto, actor: Actor, outer?: EntityManager) {
+        refuseDayToCome(dto.date);
         const edit = async (manager: EntityManager) => {
             // The lock first, on the payment alone — `FOR UPDATE` cannot sit on the nullable side of
             // the joins the relations below need. The queue claims with `SKIP LOCKED`, so while this
