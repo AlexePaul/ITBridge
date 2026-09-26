@@ -1126,5 +1126,18 @@ describe('Enrolments and capacity (e2e)', () => {
             expect(refused.body.code).toBe('GROUP_HAS_WAITLIST');
             expect(await dataSource.query('SELECT id FROM waitlist_entries WHERE group_id = $1', [groupId])).toHaveLength(1);
         });
+
+        // Review of 26 September 2026: the announcement's foreign key stopped the delete, and the
+        // office read the generic "still referenced" in English.
+        it('refuses a group an announcement was sent to, by name', async () => {
+            const groupId = await makeGroup({ name: 'Anunțată' });
+            await dataSource.query(
+                `INSERT INTO announcements (audience, group_id, subject, "bodyText", "dedupeKey") VALUES ('group', $1, 'Test', 'Test', 'test-key')`,
+                [groupId],
+            );
+
+            const refused = await remove(groupId).expect(409);
+            expect(refused.body.code).toBe('GROUP_HAS_ANNOUNCEMENTS');
+        });
     });
 });

@@ -7,6 +7,7 @@ import { Profile } from 'src/entities/profile.entity';
 import { sameAddress } from 'src/common/same-address';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
+import { SYSTEM_ACTOR } from 'src/modules/audit/actor';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { accountClaimUrl } from './portal-urls';
@@ -94,14 +95,33 @@ export class AccountClaimService {
      *
      * The mail goes to the address on the profile, unconfirmed by definition — `queue`, not
      * `queueOrRecord`: this message *is* the proof, and gated on it it would never leave.
+     *
+     * Refused, each with its own code, when there is nothing a link could do: the family already has
+     * an account, has no address to send to, or was erased. Judged here, under the lock, because the
+     * callers read the family before it: a claim spent or an erasure committed in between is only
+     * visible after the wait.
      */
-    async issue(profile: Profile, now: Date, manager: EntityManager): Promise<AccountClaim> {
-        await manager.getRepository(Profile).findOne({ where: { id: profile.id }, lock: { mode: 'pessimistic_write' } });
+    async issue(profileId: number, now: Date, manager: EntityManager): Promise<AccountClaim> {
+        // Everything below is written from the row read under the lock, not from the caller's copy:
+        // an address the office corrected a moment before the press got the link sent to the address
+        // it replaced (review of 26 September 2026). The link failed there, as `redeem` compares the
+        // addresses, and the family at the right address got nothing.
+        const profile = await this.lockFamily(profileId, manager);
+        if (!profile) throw new NotFoundException('Profile not found');
+        if (profile.erasedAt !== null) {
+            throw new ConflictException({ message: `Profile ${profileId} is erased.`, error: 'PROFILE_ERASED' });
+        }
+        if (profile.user) {
+            throw new ConflictException({ message: `Profile ${profileId} already has an account.`, error: 'PROFILE_HAS_ACCOUNT' });
+        }
+        if (!profile.email) {
+            throw new ConflictException({ message: `Profile ${profileId} has no email address.`, error: 'PROFILE_HAS_NO_EMAIL' });
+        }
 
         await manager.update(AccountClaim, { profile: { id: profile.id }, usedAt: IsNull(), expiresAt: MoreThan(now) }, { expiresAt: now });
 
         const token = randomBytes(TOKEN_BYTES).toString('base64url');
-        const address = profile.email as string;
+        const address = profile.email;
         const claim = await manager.save(
             manager.create(AccountClaim, {
                 profile: { id: profile.id } as Profile,
@@ -124,44 +144,53 @@ export class AccountClaimService {
     }
 
     /**
-     * The office's button — "Trimite linkul de cont" on the family page.
+     * The office's button — "Trimite linkul de cont" on the family page. Refused as `issue` refuses.
      *
-     * Refused, each with its own code, when there is nothing a link could do: the family already has
-     * an account, has no address to send to, or was erased. Audited, with the field names only, in
-     * the transaction that writes the link: who sent a way into a family is a question about access,
-     * the third category E07 S3 keeps.
+     * Audited, with the field names only, in the transaction that writes the link: who sent a way
+     * into a family is a question about access, the third category E07 S3 keeps.
      */
     async sendForProfile(profileId: number, actor: Actor): Promise<{ message: string }> {
         await this.dataSource.transaction(async (manager) => {
-            const profile = await manager.getRepository(Profile).findOne({ where: { id: profileId }, relations: { user: true } });
-            if (!profile) throw new NotFoundException('Profile not found');
-
-            if (profile.erasedAt !== null) {
-                throw new ConflictException({ message: `Profile ${profileId} is erased.`, error: 'PROFILE_ERASED' });
-            }
-            if (profile.user) {
-                throw new ConflictException({ message: `Profile ${profileId} already has an account.`, error: 'PROFILE_HAS_ACCOUNT' });
-            }
-            if (!profile.email) {
-                throw new ConflictException({ message: `Profile ${profileId} has no email address.`, error: 'PROFILE_HAS_NO_EMAIL' });
-            }
-
-            const claim = await this.issue(profile, new Date(), manager);
-
-            await this.audit.recordPersonalDataChange(
-                {
-                    actor,
-                    action: AuditAction.CREATED,
-                    entityType: 'AccountClaim',
-                    entityId: claim.id,
-                    fields: ['profile', 'email'],
-                    note: `link de cont trimis de birou familiei ${profileId}`,
-                },
-                manager,
-            );
+            const claim = await this.issue(profileId, new Date(), manager);
+            await this.recordIssued(claim, actor, `link de cont trimis de birou familiei ${profileId}`, manager);
         });
 
         return { message: 'Am trimis linkul de cont' };
+    }
+
+    /**
+     * The register form's branch: someone typed the address of a family the office holds.
+     *
+     * In the trail like the office's button, with nobody as the actor and the form named in the note
+     * (review of 26 September 2026). Anyone can type an address, and every press replaces the
+     * family's link; the trail is where the office sees that a stranger keeps doing it.
+     */
+    async sendFromRegisterForm(profileId: number): Promise<void> {
+        await this.dataSource.transaction(async (manager) => {
+            const claim = await this.issue(profileId, new Date(), manager);
+            await this.recordIssued(claim, SYSTEM_ACTOR, `link de cont cerut din formularul de înregistrare pentru familia ${profileId}`, manager);
+        });
+    }
+
+    private recordIssued(claim: AccountClaim, actor: Actor, note: string, manager: EntityManager): Promise<void> {
+        return this.audit.recordPersonalDataChange(
+            { actor, action: AuditAction.CREATED, entityType: 'AccountClaim', entityId: claim.id, fields: ['profile', 'email'], note },
+            manager,
+        );
+    }
+
+    /**
+     * The family's row, locked, with its account. `FOR UPDATE OF` the one table: Postgres refuses to
+     * lock the nullable side of an outer join.
+     */
+    private lockFamily(profileId: number, manager: EntityManager): Promise<Profile | null> {
+        return manager
+            .getRepository(Profile)
+            .createQueryBuilder('profile')
+            .leftJoinAndSelect('profile.user', 'user')
+            .andWhere('profile.id = :id', { id: profileId })
+            .setLock('pessimistic_write', undefined, ['profile'])
+            .getOne();
     }
 
     /**
@@ -181,14 +210,7 @@ export class AccountClaimService {
             .findOne({ where: { tokenHash: AccountClaimService.hash(token) }, relations: { profile: true } });
         if (!found) throw claimTokenInvalid();
 
-        // `FOR UPDATE OF` the one table: Postgres refuses to lock the nullable side of an outer join.
-        const profile = await manager
-            .getRepository(Profile)
-            .createQueryBuilder('profile')
-            .leftJoinAndSelect('profile.user', 'user')
-            .andWhere('profile.id = :id', { id: found.profile.id })
-            .setLock('pessimistic_write', undefined, ['profile'])
-            .getOne();
+        const profile = await this.lockFamily(found.profile.id, manager);
         const claim = await manager.getRepository(AccountClaim).findOne({ where: { id: found.id }, lock: { mode: 'pessimistic_write' } });
 
         // Judged on the clock read after the locks, not on `now`: a newer link issued while this one

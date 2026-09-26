@@ -92,7 +92,7 @@ export class AuthService {
         // asks for one again, which is also why this runs before the username is checked.
         const typedByOffice = await this.accountClaims.accountlessProfileFor(registerDto.email);
         if (typedByOffice) {
-            await this.dataSource.transaction((manager) => this.accountClaims.issue(typedByOffice, new Date(), manager));
+            await this.accountClaims.sendFromRegisterForm(typedByOffice.id);
             this.logger.log(`Registration with the address of office-entered profile ${typedByOffice.id}; a claim link was sent instead.`);
             return { claimSent: true, message: CLAIM_SENT_MESSAGE };
         }

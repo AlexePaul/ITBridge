@@ -57,6 +57,10 @@ export const linkBlock = (variable: string) =>
  * HTML is what most mail clients show, so keeping the old HTML beside new text sent the old words.
  * Placeholders pass through untouched — `{{firstName}}` has nothing to escape — and are filled in,
  * escaped, when the message is rendered. The text's closing signature is left to the frame's own.
+ *
+ * A link stays a link (review of 26 September 2026): a placeholder whose name ends in `Url`, or an
+ * address typed out, is drawn as the defaults draw theirs (`linkBlock`). Redrawn as plain text, the
+ * portal or claim link was one a family had to copy by hand on a phone.
  */
 export function htmlFromText(text: string, escape: (value: string) => string): string {
     const trimmed = text.trimEnd();
@@ -65,6 +69,14 @@ export function htmlFromText(text: string, escape: (value: string) => string): s
         .split(/\n\s*\n/)
         .map((paragraph) => paragraph.trim())
         .filter((paragraph) => paragraph.length > 0)
-        .map((paragraph) => `    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${escape(paragraph).replace(/\n/g, '<br />')}</p>`);
+        .map((paragraph) => `    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${linked(escape(paragraph)).replace(/\n/g, '<br />')}</p>`);
     return htmlFrame(paragraphs.join('\n'));
 }
+
+/**
+ * What in an escaped paragraph is a link: a `…Url` placeholder, or an http(s) address without the
+ * sentence's closing punctuation. Matched on the escaped text, so nothing typed becomes markup.
+ */
+const LINKABLE = /\{\{\w+Url\}\}|https?:\/\/[^\s<]*[^\s<.,;:!?)]/g;
+
+const linked = (escaped: string): string => escaped.replace(LINKABLE, (target) => `<a href="${target}" style="color:#7a4a2b;">${target}</a>`);
