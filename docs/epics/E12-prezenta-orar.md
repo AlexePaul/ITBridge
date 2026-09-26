@@ -550,11 +550,36 @@ Sub el stau două rute noi, croite pe conexiunea slabă din acceptanță:
 într-o fereastră privată) și se retrimite la evenimentul `online` sau din bannerul cu numărul de
 marcaje în așteptare. Răzgândirile înlocuiesc marcajul vechi din coadă în loc să-l dubleze. Un 4xx —
 ședință anulată, copil dispărut — **nu** intră în coadă: serverul a spus nu, iar reîncercarea nu l-ar
-răzgândi.
+răzgândi. **Afară de 401 și 403** (revizuirea din 26 septembrie 2026): ăia spun că telefonul trebuie
+să se autentifice din nou, nu ce crede serverul despre marcaj, deci marcajul rămâne în coadă, iar
+ecranul cere autentificarea.
 
 Din S7 e livrat aici și butonul de apel: un copil marcat absent cu telefon în profil primește
 **„Sună părintele"**, un `tel:` direct în rând — profesorul e deja în ecranul ăla, cu telefonul în
 mână.
+
+**Revizuirea din 26 septembrie 2026** a găsit ecranul pierzând marcaje exact pe conexiunea pentru
+care există, și l-a făcut locul unde se termină un catalog:
+
+- **O apăsare picată în timpul unei reîncercări dispărea.** Trecerea scria la final lista cu care
+  pornise, deci marcajul pus în coadă între timp ieșea și din memorie, și din `localStorage`, cu
+  iconița de nor încă pe rând. Acum o trecere scoate doar ce a livrat sau i s-a refuzat.
+- **Un marcaj vechi din coadă scria peste unul mai nou.** „Absent" picat, apoi „Prezent" reușit: primul
+  rămânea în coadă și pleca la reîncercare — minute sau zile mai târziu. O apăsare reușită scoate acum
+  marcajul mai vechi al aceluiași copil, iar cererile pentru un copil pleacă una câte una.
+- **O reîmprospătare pierdută deloga profesorul**, după care fiecare apăsare lua 401, iar ecranul
+  citea orice 4xx ca refuz: marcajul se întorcea, iar coada se arunca cu „Un marcaj din coadă a fost
+  refuzat". `useApi` golește acum tokenurile doar când `/auth/refresh` răspunde 400 sau 401, iar
+  401/403 rămân în coadă, cu un banner care cere autentificarea.
+- **După ziua orei, catalogul nu se mai putea nici termina, nici corecta.** Ecranul arăta doar azi,
+  cel de desktop ascunde orele cu vreun marcaj, iar istoricul copilului e doar pentru citit. Acum
+  `?zi=YYYY-MM-DD` deschide orice zi până azi, iar indexul prezenței promite doar ce face fiecare ecran.
+  Butonul de apel apare doar azi.
+- **Catalogul arată grupa din ziua orei** (`membersOn`), nu grupa de azi, și poartă „Probă" ca cel de
+  desktop; o familie programată pe `/proba` are numărul din programare, fiindcă profilul ei coajă n-are
+  telefon.
+
+Logica cozii stă în `useMarkQueue.ts`, iar a zilei în `useRegisterDay.ts`, amândouă ținute de vitest.
 
 **Fără poze**, deși schița story-ului le numește: `Child` nu are câmp de poză, iar a-l adăuga e o
 întrebare de stocare și consimțământ care aparține E07/E14, nu ecranului ăstuia. Ecranul vechi de
@@ -721,6 +746,13 @@ unde a fost mutat copilul; îl scrie `ReplacementService.place`, adică mecanism
 către părinte e a lui S7. Grupa mai primește trei mesaje la anulare, mutare și reactivare, dar
 acelea sunt ale lui S5 și n-au legătură cu absențele. Dacă rezumatele revin cândva, revine și linia de absență cu ele; până atunci nu e
 o datorie deschisă, e o linie pe care școala a ales să n-o trimită.
+
+**Mesajul mutării se scrie la fiecare mutare, nu o dată pe oră-țintă** (revizuirea din 26 septembrie
+2026). Cheia lui era anunțul plus ora în care a fost mutat copilul, unică pentru totdeauna: mutat joi,
+apoi sâmbătă, apoi înapoi joi, familia nu afla de a treia mutare, iar ultimul ei mesaj spunea sâmbătă.
+Cheia poartă acum numărul de ordine al mutării, numărat sub lacătul anunțului — un dublu-clic rămâne
+un singur mesaj. Și **un copil marcat prezent la ora „pierdută" nu mai e de mutat**: iese din lista
+biroului și din cifra din meniu, iar mutarea lui e refuzată (`CHILD_ATTENDED_CLASS`).
 
 Iar **mementourile către birou** — cel de la minutul 15 și raportul de la 10:00 — **se scriu azi în
 coadă și nu pleacă nicăieri în producție**: nu există producție. Vezi
