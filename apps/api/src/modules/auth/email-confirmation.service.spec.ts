@@ -221,8 +221,35 @@ describe('EmailConfirmationService', () => {
             await expect(service.confirm('nope')).rejects.toMatchObject({ response: { error: 'CONFIRMATION_TOKEN_INVALID' } });
         });
 
+        /**
+         * "Already used" reaches the family as „adresa ta este confirmată" (review of 26 September
+         * 2026). A link used for an address the family has since replaced proves nothing about the
+         * address on file now, and saying it is confirmed sends them away from the newer link.
+         */
+        it('does not call a used link confirmed once the address it proved has been replaced', async () => {
+            confirmationRepo.findOne!.mockResolvedValue(
+                live({ email: 'veche@pop.ro', consumedAt: new Date('2026-08-29T00:00:00Z'), user: { id: 7, emailConfirmedAt: null } }),
+            );
+            profileRepo.findOne!.mockResolvedValue({ id: 3, email: 'noua@pop.ro' });
+
+            await expect(service.confirm('tok-abc', new Date('2026-08-30T00:00:00Z'))).rejects.toMatchObject({
+                response: { error: 'CONFIRMATION_TOKEN_SUPERSEDED' },
+            });
+        });
+
+        it('nor once the address was changed away and back, which closes the gate again', async () => {
+            confirmationRepo.findOne!.mockResolvedValue(live({ consumedAt: new Date('2026-08-29T00:00:00Z'), user: { id: 7, emailConfirmedAt: null } }));
+            profileRepo.findOne!.mockResolvedValue({ id: 3, email: 'ana@pop.ro' });
+
+            await expect(service.confirm('tok-abc', new Date('2026-08-30T00:00:00Z'))).rejects.toMatchObject({
+                response: { error: 'CONFIRMATION_TOKEN_SUPERSEDED' },
+            });
+        });
+
         it('refuses a token that was already used', async () => {
-            confirmationRepo.findOne!.mockResolvedValue(live({ consumedAt: new Date('2026-08-29T00:00:00Z') }));
+            confirmationRepo.findOne!.mockResolvedValue(
+                live({ consumedAt: new Date('2026-08-29T00:00:00Z'), user: { id: 7, emailConfirmedAt: new Date('2026-08-29T00:00:00Z') } }),
+            );
 
             await expect(service.confirm('tok-abc', new Date('2026-08-30T00:00:00Z'))).rejects.toMatchObject({
                 response: { error: 'CONFIRMATION_TOKEN_USED' },
@@ -255,7 +282,9 @@ describe('EmailConfirmationService', () => {
 
             confirmationRepo.findOne!.mockResolvedValue(null);
             const unknown = await codeOf('a');
-            confirmationRepo.findOne!.mockResolvedValue(live({ consumedAt: new Date('2026-01-01') }));
+            confirmationRepo.findOne!.mockResolvedValue(
+                live({ consumedAt: new Date('2026-01-01'), user: { id: 7, emailConfirmedAt: new Date('2026-01-01') } }),
+            );
             const used = await codeOf('b');
             confirmationRepo.findOne!.mockResolvedValue(live({ expiresAt: new Date('2026-01-01') }));
             const expired = await codeOf('c');
