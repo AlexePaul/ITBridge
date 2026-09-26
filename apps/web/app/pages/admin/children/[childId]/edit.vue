@@ -117,7 +117,7 @@
             color="primary"
             :disabled="!transferTargetId || transferring"
             :loading="transferring"
-            @click="handleTransfer"
+            @click="handleTransfer()"
           >
             Transferă
           </UButton>
@@ -128,6 +128,17 @@
         </p>
       </template>
     </UCard>
+    <AdminConfirmModal
+      v-model:open="transferWarningOpen"
+      title="Transferi totuși?"
+      confirm-label="Transferă oricum"
+      :loading="transferring"
+      @confirm="handleTransfer(true)"
+    >
+      <template #body>
+        <p>{{ transferWarning }}</p>
+      </template>
+    </AdminConfirmModal>
   </AdminPage>
 </template>
 
@@ -144,7 +155,7 @@ import type { Enrollment } from "~/types/enrollment.types";
 import { ENROLLMENT_STATUS_LABELS } from "~/types/enrollment.types";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { useGroupsStore } from "~/stores/groupsStore";
-import { apiErrorMessage } from "~/composables/useApiError";
+import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
 import { DATE_KEY_PATTERN } from "~/composables/useDateField";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 
@@ -267,20 +278,35 @@ onMounted(async () => {
   }
 });
 
-async function handleTransfer() {
+/**
+ * E11/S6: the age check warns once and accepts the answer. The transfer used to show the warning as
+ * a failure with nothing to press, so a child outside the band could never be moved — "a warning
+ * with no way to answer is a block with the wrong name" (QA of 26 September 2026).
+ */
+const transferWarning = ref<string | null>(null);
+const transferWarningOpen = ref(false);
+
+async function handleTransfer(acknowledgeWarnings = false) {
   if (!transferTargetId.value) return;
   transferring.value = true;
   try {
     await enrollmentsApi.transfer({
       childId: Number(route.params.childId),
       toGroupId: transferTargetId.value,
+      ...(acknowledgeWarnings ? { acknowledgeWarnings: true } : {}),
     });
+    transferWarningOpen.value = false;
     success("Copilul a fost transferat");
     transferTargetId.value = undefined;
     history.value = (await enrollmentsApi.fetchHistory(Number(route.params.childId))) ?? [];
   } catch (err) {
-    // A full group, an age outside the band, an inactive group — the server names each, and
-    // `useApiError` has the Romanian sentence.
+    if (!acknowledgeWarnings && apiErrorCode(err) === "COMPATIBILITY_WARNINGS") {
+      transferWarning.value = apiErrorMessage(err);
+      transferWarningOpen.value = true;
+      return;
+    }
+    // A full group, an inactive group — the server names each, and `useApiError` has the
+    // Romanian sentence.
     notifyError("Transferul nu s-a putut face", apiErrorMessage(err));
   } finally {
     transferring.value = false;
