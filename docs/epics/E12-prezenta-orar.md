@@ -968,6 +968,12 @@ mailul („detaliile sunt și în contul tău"). Acum un anunț rămâne pe list
 mutării sunt încă în față, iar „următoarea oră" de pe tabloul de bord sare peste ora pierdută și
 arată ora mutării, cu grupa în care e.
 
+### Testarea din 26 septembrie 2026: mutarea în trecut
+
+O oră de pe 6 octombrie mutată pe 24 septembrie era primită, iar familiile primeau „se mută pe 24
+septembrie". `moveSession` refuză acum un început care a trecut pe ceasul școlii
+(`CLASS_SESSION_MOVED_INTO_PAST`).
+
 ## Dependențe
 
 [E11](E11-inscrieri-capacitate.md) pentru cine e înscris când.

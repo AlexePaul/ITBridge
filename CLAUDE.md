@@ -362,6 +362,11 @@ deja e o familie pe care n-o mai vede. Anularea **nu** compensează cu nimic: pr
 patra lecție la prețul a trei — o decizie de preț, nu o consecință a butonului. Dacă familia
 trebuie totuși mutată undeva, se mută, din `/admin/absente`.
 
+**Iar o oră nu se mută într-un moment care a trecut** (`CLASS_SESSION_MOVED_INTO_PAST`, testarea din 26
+septembrie 2026): o oră de pe 6 octombrie mutată pe 24 septembrie era primită, familiile primeau „se
+mută pe 24 septembrie", iar săptămâna aceea rămânea cu două ore. Comparația e pe ceasul școlii, ca
+text, ca toate celelalte „a început?".
+
 **O oră care nu se poate ține se recuperează dintr-un singur act, cheiat pe grupă și zi** (E12 S9).
 `RescheduleService` (`apps/api/src/modules/class-session/reschedule.service.ts`) nu pornește de la
 un id de ședință, fiindcă ora poate să nu fie un rând: o sărbătoare trecută în `/admin/calendar`
@@ -603,6 +608,17 @@ blochează**, dinadins: o înscriere fără niciun marcaj consemnează o intenț
 refuzul pe ea ar închide singura folosință rămasă rutei — un copil adăugat și repartizat din
 greșeală. Ștergerea din E07 S4 nu trece pe aici: `ErasureService` șterge rândurile prin tranzacția
 lui, după ce citește cheile.
+
+**Un copil se mută în familia lui, nu se șterge și se adaugă din nou** (testarea din 26 septembrie
+2026). Fiecare programare de pe `/proba` scrie o familie-coajă proprie, fără email și fără telefon,
+dinadins — deci doi frați programați pe rând sunt două familii, iar o familie cu cont care programează
+o probă e tot două. Tariful de frate nu se aplica, iar familia a doua nu se mai putea scoate.
+`PUT /children/:id/family` (biroul, din pagina copilului) mută copilul cu tot ce e al lui — înscrieri,
+catalog, lucrări, acorduri, anunțuri de absență — și îndreaptă spre familia nouă cererile despre el,
+ca pâlnia și adresa programării să urmeze. **E refuzat cât timp familia copilului are vreo factură**
+(`CHILD_FAMILY_INVOICED`): o factură numără copiii familiei, iar mutarea ar împărți ce s-a facturat.
+Coaja rămasă goală se șterge apoi din pagina ei, cu ruta care refuză orice familie cu copii sau
+facturi.
 
 **Retragerea e o zi consemnată, iar ștergerea la termen e aceeași ștergere** (E04 S5, E22 S3).
 `Profile.withdrawnAt` e ziua în care școala a notat că familia a plecat — pusă de un admin din pagina
@@ -1937,6 +1953,12 @@ Patru reguli pe care le încalci ușor:
   mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca școala să știe că a
   trecut pe acolo. Numărul ăla e și singura măsură a cererii pe care școala nu o
   poate servi: cine nu găsește oră nu intră în nicio rată de conversie.
+- **Ecranul lucrează cererea, nu doar o listează** (testarea din 26 septembrie 2026). Lista nu se
+  deschidea: niciun telefon de sunat, nicio probă de citit, nicăieri de scris ce a spus familia, iar
+  „Am contactat", preluarea și eliberarea existau doar pe API — la fel `POST /leads`, deci o familie
+  care suna nu intra în pâlnie. `AdminLeadFile` e fișa, deschisă din fiecare listă a paginii, și
+  salvează câmp cu câmp doar ce s-a mișcat; `AdminLeadNew` scrie o cerere venită la telefon sau la
+  birou. Tot fără control de stare, din motivul de mai sus.
 - **`lastActivityAt` e o coloană proprie, nu `updatedAt`.** Job-ul de memento nu scrie în ea, deci un
   lead nu poate deveni „proaspăt" fiindcă a fost amintit.
 - **Un catalog nemarcat nu e o absență — și nici un copil nemarcat.** Recontactarea după
