@@ -119,6 +119,24 @@ describe('Account claim (e2e)', () => {
             expect(res.body.code).toBe('EMAIL_TAKEN');
             expect(await dataSource.getRepository(AccountClaim).count()).toBe(0);
         });
+
+        // Review of 26 September 2026: anyone can type an address, and every press replaces the
+        // family's link. The office's button left a trail and this branch left none.
+        it('leaves a trail naming the form, with nobody as the actor and no address in it', async () => {
+            const profileId = await officeFamily();
+
+            await request(app.getHttpServer())
+                .post('/auth/register')
+                .send({ ...registrationBody('ana'), email: OFFICE_EMAIL })
+                .expect(201);
+
+            const [claim] = await dataSource.getRepository(AccountClaim).find();
+            const trail = await dataSource.getRepository(AuditLog).find({ where: { entityType: 'AccountClaim', entityId: claim.id } });
+            expect(trail).toHaveLength(1);
+            expect(trail[0].actorUserId).toBeNull();
+            expect(trail[0].note).toBe(`link de cont cerut din formularul de înregistrare pentru familia ${profileId}`);
+            expect(JSON.stringify(trail[0].changes)).not.toContain(OFFICE_EMAIL);
+        });
     });
 
     describe('POST /auth/claim', () => {
@@ -306,6 +324,35 @@ describe('Account claim (e2e)', () => {
             expect(trail).toHaveLength(1);
             expect(trail[0].actorUsername).toBe('admin');
             expect(JSON.stringify(trail[0].changes)).not.toContain(OFFICE_EMAIL);
+        });
+
+        // Review of 26 September 2026: the link was written from the family as read before its lock,
+        // so an address corrected while the press waited got the link sent to the address it replaced.
+        it('sends the link to the address on the family once the wait is over, not to the one read before it', async () => {
+            const profileId = await officeFamily();
+            const CORRECTED = 'ana.pop@example.com';
+
+            // An edit of the family's row, held open.
+            const edit = dataSource.createQueryRunner();
+            await edit.connect();
+            await edit.startTransaction();
+            await edit.query('SELECT id FROM profiles WHERE id = $1 FOR UPDATE', [profileId]);
+
+            const press = request(app.getHttpServer())
+                .post(`/profiles/${profileId}/account-claim`)
+                .set('Authorization', admin.auth)
+                .then((res) => res);
+            await new Promise((resolve) => setTimeout(resolve, 300));
+
+            await edit.query('UPDATE profiles SET email = $2 WHERE id = $1', [profileId, CORRECTED]);
+            await edit.commitTransaction();
+            await edit.release();
+
+            expect((await press).status).toBe(200);
+            const [claim] = await dataSource.getRepository(AccountClaim).find();
+            expect(claim.email).toBe(CORRECTED);
+            await expect(tokenFromMail(CORRECTED)).resolves.toBeTruthy();
+            expect(await lastMailTo(OFFICE_EMAIL)).toBeNull();
         });
 
         it('refuses a family that already has an account, one with no address, and one erased — each with its own code', async () => {

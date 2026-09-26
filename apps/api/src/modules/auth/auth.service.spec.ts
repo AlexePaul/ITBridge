@@ -109,7 +109,7 @@ describe('AuthService', () => {
         };
 
         outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }), queueOrRecord: jest.fn().mockResolvedValue({ id: 2 }) };
-        claims = { accountlessProfileFor: jest.fn().mockResolvedValue(null), issue: jest.fn(), redeem: jest.fn() };
+        claims = { accountlessProfileFor: jest.fn().mockResolvedValue(null), sendFromRegisterForm: jest.fn(), redeem: jest.fn() };
         audit = { recordPersonalDataChange: jest.fn() };
         // The acceptance ledger is written through the transaction's manager (terms §4.7 queues its
         // confirmation in the same transaction), so the manager hands back the same double.
@@ -370,7 +370,7 @@ describe('AuthService', () => {
             const result = await service.register(REGISTRATION);
 
             expect(result).toEqual({ claimSent: true, message: expect.any(String) });
-            expect(claims.issue).toHaveBeenCalledWith(officeRow, expect.any(Date), manager);
+            expect(claims.sendFromRegisterForm).toHaveBeenCalledWith(officeRow.id);
             expect(saved(User)).toEqual([]);
             expect(sessions.startSession).not.toHaveBeenCalled();
         });
