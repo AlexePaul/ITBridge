@@ -8,7 +8,7 @@ export class CreateProfileDto {
     @ApiProperty({ example: 'user@example.com', required: false })
     @EmptyToUndefined()
     @IsOptional()
-    @IsEmail()
+    @IsEmail({}, { message: 'Adresa de email nu pare validă' })
     email?: string;
 
     // `'RO'` rather than no region. Without it `@IsPhoneNumber()` demands E.164, so `0712345678` —
@@ -19,26 +19,26 @@ export class CreateProfileDto {
     @NormalizePhone()
     @IsOptional()
     @IsString()
-    @IsPhoneNumber('RO')
+    @IsPhoneNumber('RO', { message: 'Numărul de telefon nu pare valid' })
     phone?: string;
 
     @ApiProperty({ example: 'John' })
     @IsString()
     @IsNotEmpty()
-    @Length(1, 100)
+    @Length(1, 100, { message: 'Prenumele trebuie să aibă între 1 și 100 de caractere' })
     firstName: string;
 
     @ApiProperty({ example: 'Doe' })
     @IsString()
     @IsNotEmpty()
-    @Length(1, 100)
+    @Length(1, 100, { message: 'Numele trebuie să aibă între 1 și 100 de caractere' })
     lastName: string;
 
     @ApiProperty({ example: '123 Main St', required: false })
     @EmptyToUndefined()
     @IsOptional()
     @IsString()
-    @Length(1, 255)
+    @Length(1, 255, { message: 'Adresa are cel mult 255 de caractere' })
     address?: string;
 
     /*
@@ -53,14 +53,14 @@ export class CreateProfileDto {
     @EmptyToUndefined()
     @IsOptional()
     @IsString()
-    @Length(1, 200)
+    @Length(1, 200, { message: 'Numele persoanei de contact are cel mult 200 de caractere' })
     emergencyContactName?: string;
 
     @ApiProperty({ example: 'bunica', required: false })
     @EmptyToUndefined()
     @IsOptional()
     @IsString()
-    @Length(1, 100)
+    @Length(1, 100, { message: 'Relația cu copilul are cel mult 100 de caractere' })
     emergencyContactRelation?: string;
 
     @ApiProperty({ example: '0723456789', required: false })
@@ -68,7 +68,7 @@ export class CreateProfileDto {
     @NormalizePhone()
     @IsOptional()
     @IsString()
-    @IsPhoneNumber('RO')
+    @IsPhoneNumber('RO', { message: 'Numărul persoanei de contact nu pare valid' })
     emergencyContactPhone?: string;
 
     // `@IsInt` was missing entirely: the only field in any DTO with no type decorator at all, so

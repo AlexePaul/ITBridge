@@ -6,7 +6,7 @@ import { MIN_PASSWORD_LENGTH } from '../password-reset.service';
 export class ResetPasswordDto {
     @ApiProperty({ example: 'k3Jx…' })
     @IsString()
-    @Length(1, 200)
+    @Length(1, 200, { message: 'Linkul pare incomplet sau greșit. Verifică dacă l-ai copiat întreg.' })
     token: string;
 
     @ApiProperty({ example: 'o-parola-noua' })
