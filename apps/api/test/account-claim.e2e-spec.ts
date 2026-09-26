@@ -197,6 +197,23 @@ describe('Account claim (e2e)', () => {
             expect(await dataSource.getRepository(User).count()).toBe(1); // the admin
         });
 
+        // Review of 26 September 2026: the erasure keeps the emptied profile, so nothing cascaded
+        // to the links hanging off it, and each kept the family's address for another month.
+        it('goes with the family when the family is erased', async () => {
+            const profileId = await officeFamily();
+            await request(app.getHttpServer()).post(`/profiles/${profileId}/account-claim`).set('Authorization', admin.auth).expect(200);
+            expect(await dataSource.getRepository(AccountClaim).count()).toBe(1);
+
+            await request(app.getHttpServer())
+                .post(`/privacy/erasure/${profileId}/request`)
+                .set('Authorization', admin.auth)
+                .send({ via: 'phone' })
+                .expect(201);
+            await request(app.getHttpServer()).post(`/privacy/erasure/${profileId}`).set('Authorization', admin.auth).expect(201);
+
+            expect(await dataSource.getRepository(AccountClaim).count()).toBe(0);
+        });
+
         it('refuses a link whose address the office has corrected since', async () => {
             const profileId = await officeFamily();
             await request(app.getHttpServer()).post(`/profiles/${profileId}/account-claim`).set('Authorization', admin.auth).expect(200);
@@ -241,6 +258,21 @@ describe('Account claim (e2e)', () => {
             const res = await submit;
             expect(res.status).toBe(400);
             expect(res.body.code).toBe('CLAIM_TOKEN_INVALID');
+        });
+
+        // Review of 26 September 2026: the expiry was judged on a time taken before the wait for the
+        // locks, so a link a resend had just killed still looked alive to a submit already queued.
+        it('judges the link on the clock after the wait, not on the time the submit began', async () => {
+            const profileId = await officeFamily();
+            await request(app.getHttpServer()).post(`/profiles/${profileId}/account-claim`).set('Authorization', admin.auth).expect(200);
+            const token = await tokenFromMail();
+            // Killed a moment ago — after the submit below says it began.
+            await dataSource.query(`UPDATE account_claims SET "expiresAt" = now() - interval '1 second' WHERE profile_id = $1`, [profileId]);
+            const began = new Date(Date.now() - 60_000);
+
+            const redeem = dataSource.transaction((manager) => app.get(AccountClaimService).redeem(token, began, manager));
+
+            await expect(redeem).rejects.toMatchObject({ response: { error: 'CLAIM_TOKEN_INVALID' } });
         });
 
         it('keeps the username rules of registration', async () => {

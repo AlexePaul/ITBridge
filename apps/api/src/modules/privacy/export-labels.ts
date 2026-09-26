@@ -49,7 +49,7 @@ const LABELS = {
     message: { pending: 'în curs de trimitere', sent: 'trimis', failed: 'netrimis', undeliverable: 'fără adresă la care să plece' },
     consentPurpose: { promotion: 'materialele școlii' },
     consentChannel: { portal: 'din portal', office: 'la birou' },
-    document: { terms: 'termenii și condițiile', privacy: 'nota de confidențialitate', unusual_clauses: 'clauzele neuzuale (§14, §15, §18)' },
+    document: { terms: 'termenii și condițiile', privacy: 'politica de confidențialitate', unusual_clauses: 'clauzele neuzuale (§14, §15, §18)' },
 } as const;
 
 export type ExportLabelKind = keyof typeof LABELS;

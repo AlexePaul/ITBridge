@@ -94,6 +94,10 @@ export class MailTemplateService {
      * Text edited and HTML left as it was means the HTML still says the old words, and the HTML is
      * what most mail clients show (QA of 26 September 2026). It is redrawn from the new text; HTML
      * the school wrote itself, or a text-only template, is kept as it came.
+     *
+     * "Left as it was" is only the HTML the platform made — the code's default or an earlier redraw.
+     * HTML the school wrote in an earlier save is its own, and a text edit later must not replace it
+     * (review of 26 September 2026).
      */
     async save(key: string, submitted: TemplateFields) {
         const definition = templateDefault(key);
@@ -101,7 +105,8 @@ export class MailTemplateService {
 
         const existing = await this.templateRepository.findOne({ where: { key } });
         const before = existing ?? definition;
-        const htmlLagsBehind = submitted.bodyHtml !== null && submitted.bodyHtml === before.bodyHtml && submitted.bodyText !== before.bodyText;
+        const machineMade = before.bodyHtml === definition.bodyHtml || before.bodyHtml === htmlFromText(before.bodyText, escapeHtml);
+        const htmlLagsBehind = machineMade && submitted.bodyHtml !== null && submitted.bodyHtml === before.bodyHtml && submitted.bodyText !== before.bodyText;
         const fields: TemplateFields = htmlLagsBehind ? { ...submitted, bodyHtml: htmlFromText(submitted.bodyText, escapeHtml) } : submitted;
         if (existing) {
             existing.subject = fields.subject;
