@@ -1,3 +1,4 @@
+import { countOf } from "~/composables/useRomanianCount";
 import type { AbsenceNotice, ReplacementOption } from "~/types/attendance.types";
 import type { ClassSession } from "~/types/class-session.types";
 import type { Child } from "~/types/child.types";
@@ -107,8 +108,7 @@ export const announceableSessions = <T extends Pick<ClassSession, "date" | "stat
     .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
 
 /** "1 loc liber" / "3 locuri libere" */
-export const freeSeatsLabel = (free: number): string =>
-  free === 1 ? "1 loc liber" : `${free} locuri libere`;
+export const freeSeatsLabel = (free: number): string => countOf(free, "loc liber", "locuri libere");
 
 /** "17:00–18:30 · Python · Drumul Taberei" — the location only when the API knows it. */
 export const optionLabel = (option: ReplacementOption): string =>

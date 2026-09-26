@@ -64,7 +64,9 @@
         <div v-if="lastImport" class="text-sm" role="status">
           <p>
             <strong>{{
-              lastImport.imported === 1 ? "O încasare nouă" : `${lastImport.imported} încasări noi`
+              lastImport.imported === 1
+                ? "O încasare nouă"
+                : countOf(lastImport.imported, "încasare nouă", "încasări noi")
             }}</strong>
             din {{ lastImport.credits
             }}<template v-if="lastImport.duplicates">
@@ -73,7 +75,7 @@
             {{
               lastImport.debits === 1
                 ? "o plată ieșită pusă deoparte"
-                : `${lastImport.debits} plăți ieșite puse deoparte`
+                : `${countOf(lastImport.debits, "plată ieșită", "plăți ieșite")} puse deoparte`
             }}.
             <template v-if="lastImport.imported">
               Cu propunere: {{ lastImport.suggested }} din {{ lastImport.imported }} ({{
@@ -191,7 +193,9 @@
           </p>
           <template v-else>
             <p>
-              {{ report.issued }} facturi emise în SmartBill<template v-if="report.unchecked">
+              {{ countOf(report.issued, "factură emisă", "facturi emise") }} în SmartBill<template
+                v-if="report.unchecked"
+              >
                 · {{ report.unchecked }} încă necitite de la ultima schimbare</template
               ><template v-if="report.oldestCheckAt">
                 · cea mai veche citire: {{ formatStamp(report.oldestCheckAt) }}</template
@@ -275,6 +279,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import type { DropdownMenuItem } from "@nuxt/ui";
 import type { AdminTableColumn } from "~/types/admin-ui.types";
 import type { ArrearsRow } from "~/types/arrears.types";
@@ -569,7 +574,11 @@ const refresh = async () => {
   refreshing.value = true;
   try {
     const { due } = await reconciliation.refreshDivergences();
-    success(`${due} facturi se recitesc din SmartBill în următoarele minute`);
+    success(
+      due === 1
+        ? "O factură se recitește din SmartBill în următoarele minute"
+        : `${countOf(due, "factură", "facturi")} se recitesc din SmartBill în următoarele minute`
+    );
     report.value = await reconciliation.fetchDivergences();
   } catch (err: unknown) {
     error(apiErrorMessage(err, "Nu am putut cere recitirea"));

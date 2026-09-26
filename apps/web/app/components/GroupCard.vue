@@ -56,13 +56,11 @@
         :class="occupancy && occupancy.free === 0 ? 'text-warning' : 'text-secondary'"
       />
       <span v-if="occupancy" class="text-sm text-muted">
-        {{ occupancy.taken }} din {{ occupancy.capacity }} locuri ocupate<template
-          v-if="occupancy.free === 0"
-        >
-          · plină</template
+        {{ occupancy.taken }} din {{ countOf(occupancy.capacity, "loc ocupat", "locuri ocupate")
+        }}<template v-if="occupancy.free === 0"> · plină</template
         ><template v-if="occupancy.waiting > 0"> · {{ occupancy.waiting }} pe listă</template>
       </span>
-      <span v-else class="text-sm text-muted">{{ group.capacity }} locuri</span>
+      <span v-else class="text-sm text-muted">{{ countOf(group.capacity, "loc", "locuri") }}</span>
     </div>
 
     <!-- Actions -->
@@ -94,6 +92,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import type { Group } from "~/types/group.types";
 
