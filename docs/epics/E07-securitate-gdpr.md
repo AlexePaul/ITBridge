@@ -503,6 +503,17 @@ dinainte.
   biroului. Cere un admin care șterge contul fără familie — ruta rămâne pentru rândul tastat greșit —,
   deci e îngust; închiderea lui e o coloană care spune că rândul a avut cont.
 
+#### Testarea din 26 septembrie 2026: cererea trebuie să mai fie acolo
+
+- **O familie care își retrăsese cererea era ștearsă** din lista `/admin/stergeri` încărcată înainte
+  de retragere: `erase` nu se uita la cerere. Acum o recitește sub lacătul rândului familiei și refuză
+  cu `NO_ERASURE_REQUEST`; o ștergere la termen refuză la fel o familie care nu mai e retrasă.
+- **Biroul consemnează o cerere venită la telefon, pe email sau la birou**, din pagina familiei — o
+  familie fără cont n-avea nicio ușă —, o retrage la cererea familiei și îi exportă datele, fișierul
+  pe care familia îl ia din portal.
+- **Un rând șters nu se mai completează**: editarea, un copil nou sau o reducere pe o familie ștearsă
+  sunt refuzate (`PROFILE_ERASED`), altfel datele puse la loc n-ar mai fi scos-o nimeni.
+
 ### S5 · Bannerul de cookie-uri și blocarea scripturilor — livrat
 
 Bannerul care chiar **blochează scripturile neesențiale până la accept** — nu unul care anunță că
