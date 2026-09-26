@@ -39,7 +39,8 @@ describe("a session that outlives the browser", () => {
       return middleware.default as (to: { path: string }, from: { path: string }) => unknown;
     };
 
-    const visit = async (path: string) => (await load())({ path }, { path: "/" });
+    const visit = async (path: string) =>
+      (await load())({ path, fullPath: path } as { path: string }, { path: "/" });
 
     it("lets a returning parent through on the refresh token alone", async () => {
       useTokenStore().setRefreshToken("a-seven-day-token");
@@ -53,7 +54,11 @@ describe("a session that outlives the browser", () => {
     it("still sends a genuinely signed-out visitor to the login form", async () => {
       await visit("/admin/children");
 
-      expect(globalThis.navigateTo).toHaveBeenCalledWith("/auth/login");
+      // With the address it interrupted, so signing in leads back to it.
+      expect(globalThis.navigateTo).toHaveBeenCalledWith({
+        path: "/auth/login",
+        query: { inapoi: "/admin/children" },
+      });
     });
 
     it("leaves the public site alone either way", async () => {

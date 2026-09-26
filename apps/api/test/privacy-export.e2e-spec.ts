@@ -278,6 +278,38 @@ describe('Privacy export (e2e)', () => {
         expect(res.body.solicitari[0].copil).toBe('Ioana Vasile');
     });
 
+    /**
+     * The office typed the family one way and the enquiry another — the same number. Matched as
+     * strings before phones were stored in one spelling, the export missed the enquiry and the
+     * erasure left it behind.
+     */
+    it('finds the enquiry whichever way the office wrote the number each time', async () => {
+        const family = await request(app.getHttpServer())
+            .post('/profiles')
+            .set('Authorization', admin.auth)
+            .send({ firstName: 'Elena', lastName: 'Vasile', phone: '+40722000111' })
+            .expect(201);
+        await request(app.getHttpServer())
+            .post('/leads')
+            .set('Authorization', admin.auth)
+            .send({
+                parentName: 'Elena Vasile',
+                parentPhone: '0722 000 111',
+                childFirstName: 'Ioana',
+                childLastName: 'Vasile',
+                childBirthDate: '2017-05-06',
+                source: 'phone',
+            })
+            .expect(201);
+
+        const res = await request(app.getHttpServer())
+            .get(`/privacy/export/${family.body.id as number}`)
+            .set('Authorization', admin.auth)
+            .expect(200);
+
+        expect(res.body.solicitari).toHaveLength(1);
+    });
+
     it('never returns a credential', async () => {
         const res = await exportOwn(ana).expect(200);
         const wholeDocument = JSON.stringify(res.body);

@@ -64,7 +64,11 @@ export const useApi = () => {
       return (await client<T>(url, { ...opts, headers: buildHeaders() })) as T;
     } catch (err: any) {
       const status = err?.status || err?.response?.status;
-      if (status === 401) {
+      // Only with something to refresh with. A visitor with no session at all used to be sent
+      // through `/auth/refresh` with `refreshToken: null`, and the 400 that came back — the
+      // validator's own English, „refreshToken should not be empty" — replaced the 401 the screen
+      // could have explained, on the page a parent reaches from the school's email (`/files/…`).
+      if (status === 401 && tokenStore.refreshToken) {
         try {
           await ensureRefreshed();
           return (await client<T>(url, { ...opts, headers: buildHeaders() })) as T;

@@ -158,6 +158,9 @@ export default defineNuxtConfig({
      */
     "/admin/**": { ssr: false },
     "/user/**": { ssr: false },
+    // The link in the email about a child's work. Same layout, same portal chrome, same reason —
+    // and on the server it rendered a signed-in shell for a visitor nobody had signed in.
+    "/files/**": { ssr: false },
     // The legal pages are one Markdown file each, rendered once: prerendered so they are static
     // on Vercel and in the a11y run, and reach the reader without a function in between.
     "/termeni": { prerender: true },

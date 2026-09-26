@@ -275,7 +275,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
-import { formatDateKey } from "~/composables/useAdminFormat";
+import { formatDateKey, formatLei } from "~/composables/useAdminFormat";
 import { getWeekdayName } from "~/composables/useUtils";
 import { orderByGroup, primaryGroupOf } from "~/composables/useInvoiceWorksheetOrder";
 import type { InvoiceWorksheet, InvoiceWorksheetRow } from "~/types/invoice.types";
@@ -356,12 +356,6 @@ const groupHeadingFor = (family: InvoiceWorksheetRow): string | null => {
 };
 
 const weekdayLabel = (weekday: number) => getWeekdayName(weekday);
-const formatLei = (value: number) =>
-  new Intl.NumberFormat("ro-RO", {
-    style: "currency",
-    currency: "RON",
-    maximumFractionDigits: 2,
-  }).format(value);
 
 /** Which children are unfolded to their sessions. */
 const open = ref(new Set<number>());

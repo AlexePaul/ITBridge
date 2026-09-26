@@ -59,6 +59,7 @@
 </template>
 
 <script setup lang="ts">
+import { apiErrorMessage } from "~/composables/useApiError";
 import * as z from "zod";
 import type { FormSubmitEvent } from "@nuxt/ui";
 import { useProfileApi } from "~/composables/api/useProfileApi";
@@ -113,7 +114,7 @@ onMounted(async () => {
       await navigateTo("/admin/profiles");
     }
   } catch (e: any) {
-    error(e?.message || "Eroare la încărcarea profilului");
+    error(apiErrorMessage(e, "Eroare la încărcarea profilului"));
     await navigateTo("/admin/profiles");
   }
 });
@@ -134,7 +135,7 @@ async function handleSubmit(event: FormSubmitEvent<Schema>) {
     success("Profil actualizat cu succes");
     await navigateTo(`/admin/profiles/${route.params.profileId}`);
   } catch (e: any) {
-    error(e?.message || "Eroare la actualizarea profilului");
+    error(apiErrorMessage(e, "Eroare la actualizarea profilului"));
   } finally {
     isSubmitting.value = false;
   }

@@ -106,11 +106,15 @@ const MESSAGES: Record<string, string> = {
   // filters them out - but without an entry here the admin gets the English sentence from the API.
   GROUP_INACTIVE: "Grupa este inactivă. Reactiveaz-o înainte să îi generezi orarul.",
 
-  // E11/S2. Registration can now collide on three different things, and one shared "există deja o
-  // înregistrare cu aceste date" left a parent whose email was taken changing their username.
+  // E11/S2. Registration collides on two things, and one shared "există deja o înregistrare cu
+  // aceste date" left a parent whose email was taken changing their username.
   USERNAME_TAKEN: "Există deja un cont cu acest nume de utilizator. Alege altul.",
   EMAIL_TAKEN: "Există deja un cont cu această adresă de email.",
-  PHONE_TAKEN: "Există deja un cont cu acest număr de telefon.",
+
+  // A family's contact details, typed by the office or by the family. "Altei familii", not "unui
+  // cont": the holder is often a family the office entered from a phone call, with no account.
+  PROFILE_EMAIL_TAKEN: "Adresa de email este deja trecută la altă familie.",
+  PROFILE_PHONE_TAKEN: "Numărul de telefon este deja trecut la altă familie.",
 
   // The confirmation link. Three separate cases, because what the reader should do differs in each:
   // ask for a new link, nothing at all, or check they copied the whole address.

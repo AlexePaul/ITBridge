@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsDateString, IsEmail, IsEnum, IsInt, IsOptional, IsPhoneNumber, IsString, Length } from 'class-validator';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
+import { NormalizePhone } from 'src/common/romanian-phone';
 import { LeadChannel, LeadSource } from 'src/enum/lead-source.enum';
 
 /**
@@ -28,6 +29,7 @@ export class CreateLeadDto {
     @ApiPropertyOptional({ example: '0712345678' })
     @IsOptional()
     @EmptyToUndefined()
+    @NormalizePhone()
     @IsPhoneNumber('RO')
     @Length(5, 30)
     parentPhone?: string;

@@ -3,6 +3,7 @@ import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
 import type { ConfirmEmailResponse, LoginResponse } from "~/types/auth.types";
 import type { LegalDocumentKey, LegalRecord } from "~/types/legal.types";
+import { useProfileInitialization } from "~/composables/useProfileInitialization";
 
 /**
  * What `POST /auth/register` requires. Mirrors `RegisterDto`.
@@ -55,6 +56,10 @@ export const useAuthApi = () => {
     } catch {
       // Left to the boot plugin, which asks again.
     }
+    // And the profile-setup gate, for the same reason: `02.profile-setup.global` reads the flag
+    // this sets, and the navigation that follows a login is the first thing it guards. It swallows
+    // its own failures, so awaiting it cannot make the login fail.
+    await useProfileInitialization().initializeProfile();
 
     return response;
   };
@@ -89,6 +94,11 @@ export const useAuthApi = () => {
     } catch {
       // Left to the boot plugin, which asks again.
     }
+    // Here rather than on the page, where it was missing (end-to-end testing, 25 September 2026):
+    // `login.vue` called it and `register.vue` did not, so the flag was still `false` from boot and
+    // every family that had just registered — none of whom has a phone, an address or an emergency
+    // contact yet — went past the step that "cannot be skipped" until their next full reload.
+    await useProfileInitialization().initializeProfile();
 
     return response;
   };

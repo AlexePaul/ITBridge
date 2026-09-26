@@ -708,6 +708,10 @@ familie putea rămâne pentru totdeauna fără nicio cale de contact. Dar rezult
 ecran cu zece câmpuri obligatorii, fix în epicul în care E20 coboară bariera de intrare — iar cine
 abandonează la câmpul opt nu e o familie cu date incomplete, e o familie pe care școala n-a
 văzut-o. Distincția față de starea dinainte de S2 e tot ce contează: pasul doi e acum de netrecut.
+**Poarta o ridică `useAuthApi`, nu paginile**: `login` și `register` cheamă amândouă
+`initializeProfile` după `/auth/me`. Până la testarea din 25 septembrie 2026 o chema doar pagina de
+login, deci familia abia înregistrată — singura care sigur n-are încă telefon, adresă sau contact de
+urgență — trecea pe lângă pasul doi până la primul reload.
 
 „Complet" nu se stochează, se derivă — `isProfileComplete` din
 `apps/api/src/entities/profile.entity.ts` — din același motiv pentru care nu există o coloană
@@ -846,8 +850,10 @@ portalul fără numele familiei, iar browserul hidrata pe deasupra ce trebuia. *
 textul și lasă atributele** — o spune chiar el în avertisment —, așa că bara laterală a ajuns cu o
 intrare scrisă „Rapoarte" al cărei `href` era `/`: un clic stânga mergea, fiindcă router-ul
 folosește props-urile componentei, dar ctrl-clic, „deschide în tab nou" și „copiază adresa" duceau
-pe pagina publică. `routeRules` din `nuxt.config.ts` pune acum `ssr: false` pe `/admin/**` și
-`/user/**`. Un `<ClientOnly>` pe fiecare bucată care depinde de cine e logat ar fi reparat cele două
+pe pagina publică. `routeRules` din `nuxt.config.ts` pune acum `ssr: false` pe `/admin/**`,
+`/user/**` și `/files/**` — al treilea, linkul din emailul despre lucrarea unui copil, a lipsit până
+la testarea din 25 septembrie 2026 și randa pe server portalul unui părinte autentificat pentru un
+vizitator pe care nu-l autentificase nimeni. Un `<ClientOnly>` pe fiecare bucată care depinde de cine e logat ar fi reparat cele două
 găsite și l-ar fi lăsat pe al treilea să fie găsit la fel; ecranele astea sunt oricum `noindex`,
 n-au SEO și își cer datele la montare, deci randarea pe server nu cumpără nimic.
 
@@ -882,6 +888,16 @@ douăsprezece pagini publice.
 `01.auth.global.ts` și `02.profile-setup.global.ts` **ies devreme** dacă flag-ul e fals →
 `apps/web/app/middleware/admin-check.ts` e opt-in, pus explicit pe paginile `/admin/*`. Prefixele numerice
 din numele fișierelor dictează ordinea de execuție; nu le redenumi.
+
+**Poarta numește ce e privat: `/admin`, `/user` și `/files`** (`protectedPrefixes` din
+`01.auth.global.ts`). Al treilea lipsea, iar linkul din emailul despre lucrarea copilului, deschis pe
+un telefon fără sesiune, arăta portalul cu „Ieși din cont" funcțional și o propoziție în engleză a
+validatorului — nu formularul de login. Un vizitator fără sesiune e trimis acum la login cu adresa pe
+care a întrerupt-o (`?inapoi=`), iar login-ul îl duce înapoi acolo, **numai dacă e o cale de pe site**
+(`safeReturnPath` din `composables/useReturnPath.ts`): altfel un link către formularul nostru l-ar
+trimite pe părinte, după parolă, unde vrea cine a scris linkul. Iar `useApi` **nu mai încearcă
+reîmprospătarea fără refresh token**: cererea cu `refreshToken: null` întorcea un 400 cu engleza
+validatorului, care înlocuia 401-ul pe care ecranul l-ar fi putut explica.
 
 **Un plugin `async` care aruncă duce toată aplicația în pagina de eroare.** O respingere neprinsă la
 boot nu strică ecranul care a cerut, ci **orice** pagină, pentru oricine e autentificat — iar cauza
@@ -1078,9 +1094,15 @@ editorul de șabloane previzualizează exact ce e în casete, deci un subiect ș
 șters, nu cum e încă salvat pe server. Dacă mai apare una, se trece în listă cu propoziția ei.
 
 **`@IsPhoneNumber()` fără regiune cere format internațional.** Numerele se scriu `0712345678` în
-România, deci decoratorul e `@IsPhoneNumber('RO')`, care acceptă și `+40712345678`. Frontend-ul
-normalizează la `+40…` înainte să trimită (`normalizePhone` din `composables/useUtils.ts`), ca
-verificarea de duplicat să compare o singură formă.
+România, deci decoratorul e `@IsPhoneNumber('RO')`, care acceptă și `+40712345678`. **Forma stocată o
+alege API-ul**: `@NormalizePhone()` (`apps/api/src/common/romanian-phone.ts`) stă lângă fiecare
+`@IsPhoneNumber` și scrie `+40…`, oricum a fost tastat. Până la testarea din 25 septembrie 2026
+normaliza doar formularul de profil din portal, în browser, iar formularele biroului trimiteau
+numărul cum era tastat — deci verificarea de duplicat, o comparație de șiruri, lăsa două familii cu
+același număr în două scrieri, iar exportul și ștergerea, care găsesc după număr un lead tastat de la
+telefon, îl ratau pe cel scris altfel. `romanian-phone.spec.ts` mătură DTO-urile și pică pe câmpul
+care validează un telefon fără să-l normalizeze; singura excepție e numărul unei locații, tipărit cum
+îl vrea școala și comparat cu nimic.
 
 **Coloanele `decimal` vin ca string din driver.** `@Column({ type: 'decimal' })` fără `transformer`
 declară `number` și livrează `"11"`. `contract.ts` nu prinde asta — compară declarații, nu
@@ -1779,7 +1801,10 @@ Patru reguli pe care le încalci ușor:
   programarea răspundea „nu mai sunt locuri".
 - **Formularul nu se termină niciodată într-o eroare.** Fără loc liber, cu ultimul loc luat între
   timp, sau fără nicio oră potrivită — toate trei scriu un lead marcat `noSeats` și răspund „te
-  contactăm noi". Cel mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca
+  contactăm noi". Asta nu înseamnă că ascunde o greșeală de tastare: un email sau un telefon greșit
+  e oprit sub câmp, iar un refuz al serverului se arată cum l-a scris el — fiecare câmp pe care îl
+  poate greși un părinte are propoziția lui în română în `BookTrialDto`. Pagina spunea „încearcă din
+  nou sau sună-ne" peste orice, adică arăta o greșeală de tastare ca pe o defecțiune a școlii. Cel mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca
   școala să știe că a trecut pe acolo. Numărul ăla e și singura măsură a cererii pe care școala nu o
   poate servi: cine nu găsește oră nu intră în nicio rată de conversie.
 - **`lastActivityAt` e o coloană proprie, nu `updatedAt`.** Job-ul de memento nu scrie în ea, deci un
@@ -1936,6 +1961,14 @@ propoziție pentru toate. Un serviciu poate acum să-și numească cazul:
 `new ConflictException({ message, error: 'GROUP_SLOT_TAKEN' })`. Dacă adaugi un cod, adaugă-i și
 propoziția în `MESSAGES` din `apps/web/app/composables/useApiError.ts` — altfel utilizatorul
 primește mesajul în engleză de la server.
+
+**Un ecran nu arată niciodată `err.message` al unei erori prinse.** Ăla nu e ce a spus API-ul —
+răspunsul stă în `err.data` —, ci propoziția pe care ofetch o face din metodă, URL și cod:
+`[POST] "http://…/profiles": 409 Conflict`. Cele două formulare de familie ale biroului o arătau
+exact așa, pe cea mai obișnuită corectură de la birou, o adresă sau un număr care e deja al altei
+familii (acum `PROFILE_EMAIL_TAKEN` / `PROFILE_PHONE_TAKEN`). Se trece prin `apiErrorMessage`, cu
+propoziția ecranului ca rezervă; `no-raw-error-message.spec.ts` mătură paginile, componentele și
+layout-urile.
 
 **`@itbridge/types` nu mai primește valori de rulare — nici `enum`-uri, nici hărți de etichete.**
 Doar tipuri, și uniuni de literali unde altfel ai pune un `enum`. Pachetul e CommonJS, Vite îl

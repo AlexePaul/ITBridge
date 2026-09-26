@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsOptional, IsEmail, Length, IsString, IsPhoneNumber, IsNumber } from 'class-validator';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
+import { NormalizePhone } from 'src/common/romanian-phone';
 
 /**
  * `EmptyToUndefined` on every text filter: a search form that submits with a field left blank sends
@@ -17,6 +18,7 @@ export class FilterProfileDto {
 
     @ApiPropertyOptional({ example: '0712345678', required: false })
     @EmptyToUndefined()
+    @NormalizePhone()
     @IsOptional()
     @IsString()
     @IsPhoneNumber('RO')

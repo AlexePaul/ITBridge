@@ -469,6 +469,14 @@ nu vede în ea niciun document netrimis. Un link `/files/<uuid>` deschis fără 
 autentificare, iar același link deschis de alt părinte răspunde 403 — nu 404, fiindcă resursa
 există; și nu o pagină goală, fiindcă un refuz tăcut e mai greu de raportat decât unul explicit.
 
+> **Corectură din testarea din 25 septembrie 2026.** Prima jumătate a acceptanței nu era adevărată:
+> `/files` nu era în lista de căi private a middleware-ului, deci linkul deschis fără cont arăta
+> portalul — cu „Ieși din cont" funcțional — și o propoziție în engleză a validatorului, fiindcă
+> `useApi` încerca o reîmprospătare fără refresh token. Pagina era și randată pe server, cu portalul
+> unui părinte autentificat în HTML. Acum `/files` e privat, nu se randează pe server, iar login-ul
+> duce înapoi la lucrarea din link (`?inapoi=`), nu la tabloul de bord — altfel linkul din email ar fi
+> fost bun doar pe dispozitivul pe care părintele era deja autentificat.
+
 **Livrat.** Arhiva se **streamează**: obiectele se citesc din bucket pe măsură ce zip-ul se scrie în
 răspuns, deci procesul ține un fișier o dată, nu munca unui copil pe un semestru. E aceeași greșeală
 ca un upload buferat, venită din direcția opusă.

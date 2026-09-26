@@ -34,9 +34,11 @@ async function onSubmit(payload: RegisterSubmitPayload) {
 
     success("Ți-am trimis un email de confirmare", "Contul a fost creat");
 
-    // No longer `/user/profile-setup`: since E11/S2 the profile is written by the registration
-    // itself, so that screen has nothing left to ask. The dashboard is where the account's state
-    // is explained and where a new confirmation link can be requested.
+    // Towards the portal, and the profile-setup gate turns it into step two: `register` has read
+    // the gate by now, and a family that has just signed up has no phone, address or emergency
+    // contact yet, so `02.profile-setup.global` sends them to `/user/profile-setup` — the step that
+    // cannot be skipped. The comment here used to say that screen had nothing left to ask, from
+    // the months when registration took every field, and the page was written to match it.
     await navigateTo("/user/dashboard");
   } catch (error) {
     console.error("Registration failed:", error);
