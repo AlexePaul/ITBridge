@@ -15,6 +15,7 @@ import { AuditAction } from 'src/enum/audit-action.enum';
 import { changedFieldNames } from 'src/modules/audit/personal-fields';
 import { EmailConfirmationService } from 'src/modules/auth/email-confirmation.service';
 import { movesTheAddress } from './address-change';
+import { assertNotErased } from 'src/modules/privacy/erasure.rules';
 
 @Injectable()
 export class ProfileService {
@@ -132,6 +133,7 @@ export class ProfileService {
         if (!profile) {
             throw new NotFoundException('Profile not found');
         }
+        assertNotErased(profile);
 
         if (userRole !== Role.ADMIN && profile.user?.id !== userId) {
             throw new UnauthorizedException('You do not have permission to update this profile');

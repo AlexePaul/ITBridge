@@ -13,6 +13,7 @@ import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { snapshotFields } from 'src/modules/audit/audit.rules';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { lockInvoiceMonth, lockInvoiceMonths } from 'src/modules/invoice/invoice-month-lock';
+import { assertNotErased } from 'src/modules/privacy/erasure.rules';
 
 /**
  * The fields of a discount worth a line in the trail — E07/S3.
@@ -57,6 +58,7 @@ export class DiscountService {
 
     async createDiscount(createDiscountDto: CreateDiscountDto, actor: Actor): Promise<Discount> {
         this.assertWithinBounds(createDiscountDto.type ?? DiscountType.FIXED, createDiscountDto.value);
+        await this.assertParentExists(createDiscountDto.parentId);
 
         const discount = this.discountRepository.create(createDiscountDto);
         // Only the id is set: TypeORM writes the foreign key without loading the whole profile.
@@ -224,6 +226,7 @@ export class DiscountService {
         if (!parent) {
             throw new NotFoundException('Profile not found');
         }
+        assertNotErased(parent);
     }
 
     async updateDiscount(id: number, updateDiscountDto: UpdateDiscountDto, actor: Actor): Promise<Discount> {

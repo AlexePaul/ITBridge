@@ -630,6 +630,30 @@ describe('Privacy erasure (e2e)', () => {
             await erase(anaProfileId).expect(201);
         });
 
+        // The QA of 26 September 2026 filled an erased family in again from the edit form, and added
+        // a child and a referral month to it — personal data on a row erasure and retention skip.
+        it('leaves the emptied row closed: no edit, no child, no discount', async () => {
+            await erase(anaProfileId).expect(201);
+
+            const edit = await request(app.getHttpServer())
+                .put(`/profiles/${anaProfileId}`)
+                .set('Authorization', admin.auth)
+                .send({ firstName: 'Ana', phone: '0722000111' })
+                .expect(409);
+            expect(edit.body.code).toBe('PROFILE_ERASED');
+            await request(app.getHttpServer())
+                .post('/children')
+                .set('Authorization', admin.auth)
+                .send({ firstName: 'Nou', lastName: 'Copil', birthDate: '2017-01-01', parentId: anaProfileId })
+                .expect(409);
+            await request(app.getHttpServer()).post('/discounts/referral').set('Authorization', admin.auth).send({ parentId: anaProfileId }).expect(409);
+            await request(app.getHttpServer())
+                .post('/discounts')
+                .set('Authorization', admin.auth)
+                .send({ parentId: anaProfileId, name: 'Test', value: 10, monthIssued: '2030-01' })
+                .expect(409);
+        });
+
         it('refuses to do it twice', async () => {
             await erase(anaProfileId).expect(201);
             const res = await erase(anaProfileId).expect(409);

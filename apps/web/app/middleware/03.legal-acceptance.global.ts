@@ -7,6 +7,14 @@ import { isProtectedRoute } from "./01.auth.global";
 export const LEGAL_ACCEPTANCE_ROUTE = "/user/termeni-noi";
 
 /**
+ * The way out terms §18 promises: a family that does not accept the new version can close the
+ * account instead, and the page that does that is Profil. The acceptance screen links there — and
+ * this gate used to send the link straight back, so "don't accept, leave" was a loop (QA of
+ * 26 September 2026).
+ */
+export const LEGAL_ACCEPTANCE_WAY_OUT = "/user/profile";
+
+/**
  * What terms §18 promises: at the first sign-in after a new version, the portal asks for it.
  *
  * The list of what is outstanding comes from `/auth/me` — the server derived it, this file only
@@ -38,7 +46,11 @@ export default defineNuxtRouteMiddleware((to) => {
   const userStore = useUserStore();
   const outstanding = userStore.user?.pendingLegalDocuments ?? [];
 
-  if (outstanding.length > 0 && to.path !== LEGAL_ACCEPTANCE_ROUTE) {
+  if (
+    outstanding.length > 0 &&
+    to.path !== LEGAL_ACCEPTANCE_ROUTE &&
+    to.path !== LEGAL_ACCEPTANCE_WAY_OUT
+  ) {
     return navigateTo(LEGAL_ACCEPTANCE_ROUTE);
   }
 

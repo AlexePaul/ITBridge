@@ -16,6 +16,7 @@ import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { changedFieldNames } from 'src/modules/audit/personal-fields';
+import { assertNotErased } from 'src/modules/privacy/erasure.rules';
 
 @Injectable()
 export class ChildService {
@@ -45,6 +46,7 @@ export class ChildService {
         if (!parentProfile) {
             throw new NotFoundException('Parent profile not found');
         }
+        assertNotErased(parentProfile);
         const child = this.childRepository.create(createChildDto);
         child.parent = parentProfile;
         // Row and trail in one transaction — E07/S3. They were two loose statements, so a failure
