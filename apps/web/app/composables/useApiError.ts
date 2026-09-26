@@ -109,6 +109,8 @@ const MESSAGES: Record<string, string> = {
   GROUP_HAS_ATTENDANCE: "Grupa are catalog, deci are istoric. Dezactiveaz-o în loc să o ștergi.",
   GROUP_HAS_WAITLIST:
     "Pe lista de așteptare a grupei sunt familii. Scoate-le de pe listă înainte să ștergi grupa.",
+  GROUP_HAS_ANNOUNCEMENTS:
+    "Familiile grupei au primit anunțuri, iar anunțurile rămân în evidență. Dezactiveaz-o în loc să o ștergi.",
   ROOM_INACTIVE: "Sala sau locația este inactivă, deci nu poate primi grupe noi.",
 
   // E17/S7. All three are conflicts an admin can hit from the announcement screen, and the generic

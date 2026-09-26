@@ -18,6 +18,7 @@ import { ClassSessionService } from 'src/modules/class-session/class-session.ser
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { Attendance } from 'src/entities/attendance.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
+import { Announcement } from 'src/entities/announcement.entity';
 
 describe('GroupService', () => {
     let service: GroupService;
@@ -238,11 +239,12 @@ describe('GroupService', () => {
 
     describe('deleteGroup', () => {
         /** What each table answers to "how many rows point at this group". */
-        const pointing = (counts: { enrolments?: number; marks?: number; waiting?: number }) => {
+        const pointing = (counts: { enrolments?: number; marks?: number; waiting?: number; announcements?: number }) => {
             const answers = new Map<unknown, number>([
                 [Enrollment, counts.enrolments ?? 0],
                 [Attendance, counts.marks ?? 0],
                 [WaitlistEntry, counts.waiting ?? 0],
+                [Announcement, counts.announcements ?? 0],
             ]);
             manager.getRepository.mockImplementation((entity: unknown) => ({ count: jest.fn().mockResolvedValue(answers.get(entity) ?? 0) }));
         };
@@ -265,6 +267,7 @@ describe('GroupService', () => {
             [{ enrolments: 1 }, 'GROUP_HAS_ENROLMENTS'],
             [{ marks: 3 }, 'GROUP_HAS_ATTENDANCE'],
             [{ waiting: 2 }, 'GROUP_HAS_WAITLIST'],
+            [{ announcements: 1 }, 'GROUP_HAS_ANNOUNCEMENTS'],
         ])('refuses a group with %o, by name', async (counts, code) => {
             pointing(counts);
             await expect(service.deleteGroup(1)).rejects.toMatchObject({ response: { error: code } });

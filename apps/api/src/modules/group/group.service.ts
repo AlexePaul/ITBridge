@@ -15,6 +15,7 @@ import { romanianDayAndDate } from 'src/modules/mail/romanian-date';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { Attendance } from 'src/entities/attendance.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
+import { Announcement } from 'src/entities/announcement.entity';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 
 @Injectable()
@@ -158,6 +159,13 @@ export class GroupService {
                 throw new ConflictException({
                     message: 'Families are waiting for a seat in this group; take them off the list first',
                     error: 'GROUP_HAS_WAITLIST',
+                });
+            }
+            // An announcement keeps the group it went to (`RESTRICT`): who was told stays readable.
+            if ((await manager.getRepository(Announcement).count({ where: { group: { id } } })) > 0) {
+                throw new ConflictException({
+                    message: 'Announcements were sent to this group; deactivate it instead',
+                    error: 'GROUP_HAS_ANNOUNCEMENTS',
                 });
             }
             const result = await manager.delete(Group, id);
