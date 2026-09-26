@@ -1146,7 +1146,11 @@ despre cod și despre git, nu despre proza de proiect.
 - Lunile de facturare sunt string-uri `'YYYY-MM'` (`monthIssued`), cu constrângere
   `@Unique(['parent', 'monthIssued'])` pe `Invoice`.
 - `Group.weekday` e zi ISO: 1 = luni, 7 = duminică.
-- Unicitatea orarului e pe **sală**, nu pe școală: `@Unique(['room', 'weekday', 'startTime'])`.
+- Unicitatea orarului e pe **sală**, nu pe școală: `@Unique(['room', 'weekday', 'startTime'])`. Indexul știe
+  doar începuturi egale, deci serviciul refuză el **intervalele care se suprapun** (`GROUP_SLOT_TAKEN` —
+  16:30–18:00 lângă 16:00–17:30 trecea), o grupă care se termină înainte să înceapă
+  (`GROUP_ENDS_BEFORE_IT_STARTS`) și o grupă mutată peste o oră a altei grupe mutate acolo pe o
+  săptămână (`ROOM_BUSY_AT_THAT_TIME`): orele ei viitoare ar urma-o, iar sala ar ține două.
 - `Room.capacity` implicit e 10, dar e configurabil din `/admin/locations`; nu-l hardcoda nicăieri.
   Nu coboară sub capacitatea unei grupe care se ține în sală (`ROOM_SMALLER_THAN_GROUP`).
 - `isActive` pe `Location` și `Room` blochează **grupe noi**, nu editarea celor existente.

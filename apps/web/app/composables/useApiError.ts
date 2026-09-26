@@ -91,6 +91,7 @@ const MESSAGES: Record<string, string> = {
   // E08. "Există deja o înregistrare cu aceste date" is true of all of these and useful for none:
   // an admin who has just double-booked a room needs to know that is what happened.
   GROUP_SLOT_TAKEN: "Sala este deja ocupată în acest interval de altă grupă.",
+  GROUP_ENDS_BEFORE_IT_STARTS: "Ora de final trebuie să fie după ora de început.",
   GROUP_OVER_ROOM_CAPACITY: "Grupa are mai multe locuri decât încap în sală.",
   LOCATION_SLUG_TAKEN: "Există deja o locație cu acest identificator (slug).",
   LOCATION_HAS_ROOMS: "Locația are săli. Șterge sau mută întâi sălile.",
