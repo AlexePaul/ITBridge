@@ -34,9 +34,9 @@ async function onSubmit(payload: RegisterSubmitPayload) {
   isLoading.value = true;
   errorMessage.value = null;
   try {
-    // `remember` is the form's own affair and is not part of the registration.
-    const { remember: _remember, ...registration } = payload;
-    const answer = await register(registration);
+    // `remember` is not part of the registration: it is how long this browser keeps the session.
+    const { remember, ...registration } = payload;
+    const answer = await register(registration, remember);
 
     if ("claimSent" in answer) {
       claimSent.value = true;

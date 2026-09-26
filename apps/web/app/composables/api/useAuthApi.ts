@@ -43,7 +43,12 @@ export const useAuthApi = () => {
   const api = useApi();
   const tokenStore = useTokenStore();
 
-  const login = async (username: string, password: string) => {
+  /**
+   * `remember` is „Ține-mă minte": ticked, the refresh token is kept seven days; unticked, it goes
+   * when the browser closes. The server issues the same token either way — the choice is only how
+   * long this browser holds it.
+   */
+  const login = async (username: string, password: string, remember = false) => {
     const response = await api<LoginResponse>("/auth/login", {
       method: "POST",
       body: { username, password },
@@ -52,7 +57,7 @@ export const useAuthApi = () => {
     // Store tokens in the Pinia store
     if (response && response.accessToken) {
       tokenStore.setAccessToken(response.accessToken);
-      tokenStore.setRefreshToken(response.refreshToken || "");
+      tokenStore.setRefreshToken(response.refreshToken || "", remember);
     }
 
     // Awaited: `/auth/login` returning is not the same as the session being readable. Unawaited,
@@ -84,7 +89,10 @@ export const useAuthApi = () => {
    * they are told what happens next, and it is the only place they can ask for the confirmation
    * link again.
    */
-  const register = async (payload: RegistrationPayload): Promise<RegisterResponse> => {
+  const register = async (
+    payload: RegistrationPayload,
+    remember = false
+  ): Promise<RegisterResponse> => {
     const response = await api<RegisterResponse>("/auth/register", {
       method: "POST",
       body: payload,
@@ -96,7 +104,7 @@ export const useAuthApi = () => {
       return response;
     }
 
-    await startSession(response);
+    await startSession(response, remember);
     return response;
   };
 
@@ -115,10 +123,10 @@ export const useAuthApi = () => {
   };
 
   /** Stores a fresh account's tokens and reads the gates, as registration always has. */
-  const startSession = async (response: LoginResponse) => {
+  const startSession = async (response: LoginResponse, remember = false) => {
     if (response && response.accessToken) {
       tokenStore.setAccessToken(response.accessToken);
-      tokenStore.setRefreshToken(response.refreshToken || "");
+      tokenStore.setRefreshToken(response.refreshToken || "", remember);
     }
 
     // Awaited, for the same reason as in `login`: the account exists the moment this returns, and

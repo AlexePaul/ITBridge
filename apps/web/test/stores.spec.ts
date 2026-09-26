@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useChildrenStore } from "~/stores/childrenStore";
@@ -170,12 +171,12 @@ describe("tokenStore", () => {
 
   it("gives the refresh cookie a lifetime, so a login outlives the browser closing", () => {
     buildStore();
-    expect(optionsFor("refreshToken")?.maxAge).toBeGreaterThan(0);
+    expect(optionsFor("refreshTokenKept")?.maxAge).toBeGreaterThan(0);
   });
 
   it("keeps the refresh cookie for as long as the token it holds — seven days", () => {
     buildStore();
-    expect(optionsFor("refreshToken")?.maxAge).toBe(60 * 60 * 24 * 7);
+    expect(optionsFor("refreshTokenKept")?.maxAge).toBe(60 * 60 * 24 * 7);
   });
 
   /**
@@ -194,12 +195,14 @@ describe("tokenStore", () => {
     buildStore();
     expect(optionsFor("accessToken")?.sameSite).toBe("lax");
     expect(optionsFor("refreshToken")?.sameSite).toBe("lax");
+    expect(optionsFor("refreshTokenKept")?.sameSite).toBe("lax");
   });
 
   it("marks the cookies secure over https", () => {
     buildStore("https://stage.itbridgeschool.com/user");
     expect(optionsFor("accessToken")?.secure).toBe(true);
     expect(optionsFor("refreshToken")?.secure).toBe(true);
+    expect(optionsFor("refreshTokenKept")?.secure).toBe(true);
   });
 
   /**
@@ -211,6 +214,7 @@ describe("tokenStore", () => {
     buildStore("http://127.0.0.1:3124/admin");
     expect(optionsFor("accessToken")?.secure).toBe(false);
     expect(optionsFor("refreshToken")?.secure).toBe(false);
+    expect(optionsFor("refreshTokenKept")?.secure).toBe(false);
   });
 
   it("still stores and clears both tokens", () => {
@@ -223,5 +227,73 @@ describe("tokenStore", () => {
     store.clearTokens();
     expect(store.accessToken).toBeNull();
     expect(store.refreshToken).toBeNull();
+  });
+
+  /**
+   * „Ține-mă minte" did nothing (review of 26 September 2026): the login page dropped the box and
+   * the store gave every refresh token seven days on disk. `useCookie` fixes `maxAge` when the ref is
+   * created, so the choice is which of two cookies holds the token — and a rotation, which passes
+   * no choice, writes where the previous token was.
+   */
+  describe("„Ține-mă minte”", () => {
+    /** What the browser keeps, cookie by cookie: the jar behind `useCookie`. */
+    const jar = (name: string) => jarCookie(name).value;
+
+    beforeEach(() => {
+      for (const name of ["refreshToken", "refreshTokenKept", "accessToken"]) {
+        jarCookie(name).value = null;
+      }
+    });
+
+    it("unticked, keeps the refresh token in a cookie that dies with the browser", () => {
+      const store = buildStore();
+      store.setRefreshToken("refresh", false);
+
+      expect(store.refreshToken).toBe("refresh");
+      expect(jar("refreshTokenKept")).toBeNull();
+      expect(jar("refreshToken")).toBe("refresh");
+      expect(optionsFor("refreshToken")?.maxAge).toBeUndefined();
+    });
+
+    it("ticked, keeps it for the seven days the token is good for", () => {
+      const store = buildStore();
+      store.setRefreshToken("refresh", true);
+
+      expect(jar("refreshTokenKept")).toBe("refresh");
+      expect(jar("refreshToken")).toBeNull();
+      expect(optionsFor("refreshTokenKept")?.maxAge).toBe(60 * 60 * 24 * 7);
+    });
+
+    it("survives a rotation either way, because the rotated token goes where the old one was", () => {
+      const store = buildStore();
+
+      store.setRefreshToken("first", false);
+      store.setRefreshToken("rotated");
+      expect(jar("refreshToken")).toBe("rotated");
+      expect(jar("refreshTokenKept")).toBeNull();
+
+      store.setRefreshToken("first", true);
+      store.setRefreshToken("rotated");
+      expect(jar("refreshTokenKept")).toBe("rotated");
+      expect(jar("refreshToken")).toBeNull();
+    });
+
+    it("forgets both on sign-out", () => {
+      const store = buildStore();
+      store.setRefreshToken("refresh", false);
+      store.clearTokens();
+      expect(jar("refreshToken")).toBeNull();
+      expect(store.refreshToken).toBeNull();
+    });
+
+    it("is read off the login form and handed to the store", () => {
+      const page = readFileSync(new URL("../app/pages/auth/login.vue", import.meta.url), "utf8");
+      const api = readFileSync(
+        new URL("../app/composables/api/useAuthApi.ts", import.meta.url),
+        "utf8"
+      );
+      expect(page).toMatch(/login\(payload\.username, payload\.password, payload\.remember\)/);
+      expect(api).toMatch(/setRefreshToken\(response\.refreshToken \|\| "", remember\)/);
+    });
   });
 });
