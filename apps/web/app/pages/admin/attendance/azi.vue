@@ -198,13 +198,7 @@ import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { todayKey } from "~/composables/useAttendanceCalendar";
-import {
-  readPendingMarks,
-  retryDelayMs,
-  upsertPending,
-  writePendingMarks,
-  type PendingMark,
-} from "~/composables/useAttendanceQueue";
+import { useMarkQueue } from "~/composables/useMarkQueue";
 import type { ClassSessionWithAttendance } from "~/types/class-session.types";
 import { SessionStatus } from "~/types/class-session.types";
 import type { SessionRegister, SessionRegisterEntry } from "~/types/attendance.types";
@@ -214,8 +208,8 @@ import type { SessionRegister, SessionRegisterEntry } from "~/types/attendance.t
  *
  * A phone in a classroom: today's classes, the children of the chosen one, two thumb-sized targets
  * per child, and a save on every tap. A tap that the network refuses goes into the local queue
- * (`useAttendanceQueue`) and is retried when the connection returns — the server's upsert is
- * idempotent precisely so this screen can retry blindly.
+ * (`useMarkQueue`, over the storage in `useAttendanceQueue`) and is retried when the connection
+ * returns — the server's upsert is idempotent precisely so this screen can retry blindly.
  *
  * No photos, although the story sketch names them: `Child` has no photo field, and adding one is a
  * storage-and-consent question that belongs to E07/E14, not to this screen.
@@ -241,11 +235,18 @@ const loadingRegister = ref(false);
 /** Per-row feedback: the tap saved, is saving, or waits for the network. */
 const rowState = reactive<Record<number, "saving" | "saved" | "queued" | undefined>>({});
 
-const pending = ref<PendingMark[]>([]);
-const flushing = ref(false);
-/** The automatic retry: a handle to cancel, and how many rounds have come back empty-handed. */
-const retryTimer = ref<ReturnType<typeof setTimeout> | null>(null);
-const failedFlushes = ref(0);
+const queue = useMarkQueue({
+  send: (queued) => attendanceApi.upsertMark(queued.sessionId, queued.childId, queued.present),
+  onDelivered: (queued) => {
+    // A tap still on its way owns the row; the queued mark it replaced is old news.
+    if (queued.sessionId === selectedSessionId.value && rowState[queued.childId] !== "saving") {
+      rowState[queued.childId] = "saved";
+    }
+  },
+  onRefused: (_queued, err) => error(apiErrorMessage(err, "Un marcaj din coadă a fost refuzat")),
+});
+const { pending, flushing } = queue;
+const flushQueue = queue.flush;
 
 const today = todayKey();
 const todayLabel = computed(() => {
@@ -258,8 +259,8 @@ const markedCount = computed(
 );
 
 onMounted(async () => {
-  pending.value = readPendingMarks();
-  window.addEventListener("online", onBackOnline);
+  queue.load();
+  window.addEventListener("online", queue.onBackOnline);
 
   try {
     const sessions = await classSessionsApi.fetchSessions({ dateFrom: today, dateTo: today });
@@ -280,30 +281,9 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("online", onBackOnline);
-  cancelRetry();
+  window.removeEventListener("online", queue.onBackOnline);
+  queue.cancelRetry();
 });
-
-const onBackOnline = () => {
-  // A connection that properly came back deserves an immediate try, not the tail of a backoff.
-  failedFlushes.value = 0;
-  void flushQueue();
-};
-
-const cancelRetry = () => {
-  if (retryTimer.value) clearTimeout(retryTimer.value);
-  retryTimer.value = null;
-};
-
-/** Keeps exactly one retry in flight, so a manual tap cannot stack a second timer on the first. */
-const scheduleRetry = () => {
-  cancelRetry();
-  if (pending.value.length === 0) return;
-  retryTimer.value = setTimeout(() => {
-    retryTimer.value = null;
-    void flushQueue();
-  }, retryDelayMs(failedFlushes.value));
-};
 
 const savingVacation = ref(false);
 
@@ -329,7 +309,17 @@ const openSession = async (sessionId: number) => {
   loadingRegister.value = true;
   registerError.value = "";
   try {
-    register.value = await attendanceApi.fetchSessionRegister(sessionId);
+    const loaded = await attendanceApi.fetchSessionRegister(sessionId);
+    // What the phone still holds for this class is the teacher's word, not yet the server's: the
+    // row shows it, with the cloud icon, instead of whatever was there before the tap.
+    for (const key of Object.keys(rowState)) delete rowState[Number(key)];
+    for (const entry of loaded.entries) {
+      const queued = queue.queuedFor(sessionId, entry.childId);
+      if (!queued) continue;
+      entry.present = queued.present;
+      rowState[entry.childId] = "queued";
+    }
+    register.value = loaded;
   } catch (err: unknown) {
     register.value = null;
     registerError.value = apiErrorMessage(err, "Eroare la încărcarea catalogului");
@@ -346,73 +336,26 @@ const openSession = async (sessionId: number) => {
 const mark = async (entry: SessionRegisterEntry, present: boolean) => {
   if (!selectedSessionId.value) return;
   const sessionId = selectedSessionId.value;
+  const tapId = (latestTap[entry.childId] ?? 0) + 1;
+  latestTap[entry.childId] = tapId;
   entry.present = present;
   rowState[entry.childId] = "saving";
 
-  try {
-    await attendanceApi.upsertMark(sessionId, entry.childId, present);
+  const result = await queue.tap({ sessionId, childId: entry.childId, present });
+  // A second tap on the same row made meanwhile owns it now; this answer is about an older one.
+  if (latestTap[entry.childId] !== tapId || selectedSessionId.value !== sessionId) return;
+  if (result.outcome === "saved") {
     rowState[entry.childId] = "saved";
-  } catch (err: unknown) {
-    // A 4xx is a real refusal (session cancelled, child gone) and deserves the toast; anything
-    // network-shaped waits in the queue.
-    if (isRequestRefusal(err)) {
-      rowState[entry.childId] = undefined;
-      entry.present = null;
-      error(apiErrorMessage(err, "Marcajul a fost refuzat"));
-      return;
-    }
-    pending.value = upsertPending(pending.value, {
-      sessionId,
-      childId: entry.childId,
-      present,
-      queuedAt: Date.now(),
-    });
-    writePendingMarks(pending.value);
-    rowState[entry.childId] = "queued";
-    scheduleRetry();
-  }
-};
-
-/** True when the server answered and said no — as opposed to the network never delivering. */
-const isRequestRefusal = (err: unknown): boolean => {
-  const status = (err as { status?: number; statusCode?: number })?.status;
-  return typeof status === "number" && status >= 400 && status < 500;
-};
-
-/** Retries the queue in order. Whatever still fails stays queued; the rest clears. */
-const flushQueue = async () => {
-  if (flushing.value || pending.value.length === 0) return;
-  flushing.value = true;
-  const remaining: PendingMark[] = [];
-
-  for (const queued of pending.value) {
-    try {
-      await attendanceApi.upsertMark(queued.sessionId, queued.childId, queued.present);
-      if (queued.sessionId === selectedSessionId.value) {
-        rowState[queued.childId] = "saved";
-      }
-    } catch (err: unknown) {
-      if (isRequestRefusal(err)) {
-        // The server said no — retrying forever would not change its mind. Drop it and say so.
-        error(apiErrorMessage(err, "Un marcaj din coadă a fost refuzat"));
-      } else {
-        remaining.push(queued);
-      }
-    }
-  }
-
-  pending.value = remaining;
-  writePendingMarks(remaining);
-  flushing.value = false;
-
-  // Whatever is still here could not be delivered, so the next attempt is this screen's to make:
-  // the `online` event will not fire on a connection that never admitted to being down.
-  if (remaining.length > 0) {
-    failedFlushes.value += 1;
-    scheduleRetry();
+  } else if (result.outcome === "refused") {
+    // A 4xx is a real refusal (session cancelled, child gone) and deserves the toast.
+    rowState[entry.childId] = undefined;
+    entry.present = null;
+    error(apiErrorMessage(result.error, "Marcajul a fost refuzat"));
   } else {
-    failedFlushes.value = 0;
-    cancelRetry();
+    rowState[entry.childId] = "queued";
   }
 };
+
+/** Which tap on a row is the newest, so an older answer arriving late does not repaint it. */
+const latestTap: Record<number, number> = {};
 </script>
