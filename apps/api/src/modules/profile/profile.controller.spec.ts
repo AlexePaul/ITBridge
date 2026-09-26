@@ -2,15 +2,21 @@ import { ProfileController } from './profile.controller';
 import { ProfileService } from './profile.service';
 import { buildController, requestOf } from 'src/testing/controller.spec-helpers';
 import { Role } from 'src/enum/role.enum';
+import { AccountClaimService } from 'src/modules/auth/account-claim.service';
 
 describe('ProfileController', () => {
     const build = () =>
-        buildController(ProfileController, ProfileService, {
-            createProfile: jest.fn().mockResolvedValue({ id: 1 }),
-            findProfiles: jest.fn().mockResolvedValue([]),
-            updateProfile: jest.fn().mockResolvedValue({ id: 1 }),
-            deleteProfile: jest.fn().mockResolvedValue(undefined),
-        });
+        buildController(
+            ProfileController,
+            ProfileService,
+            {
+                createProfile: jest.fn().mockResolvedValue({ id: 1 }),
+                findProfiles: jest.fn().mockResolvedValue([]),
+                updateProfile: jest.fn().mockResolvedValue({ id: 1 }),
+                deleteProfile: jest.fn().mockResolvedValue(undefined),
+            },
+            [{ provide: AccountClaimService, useValue: { sendForProfile: jest.fn() } }],
+        );
 
     /** Identity must come from the token, never from body or query. */
     const lastTwoArgs = (mock: jest.Mock) => mock.mock.calls[0].slice(-2);

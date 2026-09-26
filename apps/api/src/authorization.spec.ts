@@ -30,6 +30,11 @@ const PUBLIC_ALLOWLIST = new Set([
     // token is the credential. Both are throttled well below the global bucket.
     'AuthController.forgotPassword',
     'AuthController.resetPassword',
+    // E11 S2, review of 26 September 2026: the link a family the office typed in gets by mail, to
+    // create its own account on the office's row. Public for the reason `resetPassword` is — the
+    // reader has no account by definition, and the token is the credential. One refusal for an
+    // unknown, expired, used or replaced token; throttled like `register`, the other door.
+    'AuthController.claim',
     // A liveness/readiness checker has no credentials, and neither endpoint reveals anything.
     'HealthController.health',
     'HealthController.ready',
@@ -168,6 +173,8 @@ describe('authorization matrix', () => {
             // Public, and above; the token in the body is the credential.
             'AuthController.forgotPassword',
             'AuthController.resetPassword',
+            // Public, and above: creates an account on the office's profile, and only with the link's token.
+            'AuthController.claim',
             // Changes the password of the account in the token and nothing else. It takes no id,
             // and it asks for the current password anyway, because `AuthGuard` checks a signature
             // rather than a session and a borrowed tab would otherwise be enough.

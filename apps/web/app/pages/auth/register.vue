@@ -23,6 +23,12 @@ const { success } = useNotifications();
 
 const isLoading = ref(false);
 const errorMessage = ref<string | null>(null);
+/**
+ * The address belongs to a family the office typed in (E11 S2, review of 26 September 2026): no
+ * account was created, and a link went to that address to finish one. The page says so and nothing
+ * more — not the name the office wrote down, not whether children are on file.
+ */
+const claimSent = ref(false);
 
 async function onSubmit(payload: RegisterSubmitPayload) {
   isLoading.value = true;
@@ -30,7 +36,12 @@ async function onSubmit(payload: RegisterSubmitPayload) {
   try {
     // `remember` is the form's own affair and is not part of the registration.
     const { remember: _remember, ...registration } = payload;
-    await register(registration);
+    const answer = await register(registration);
+
+    if ("claimSent" in answer) {
+      claimSent.value = true;
+      return;
+    }
 
     success("Ți-am trimis un email de confirmare", "Contul a fost creat");
 
@@ -56,7 +67,27 @@ async function onSubmit(payload: RegisterSubmitPayload) {
 </script>
 
 <template>
+  <div v-if="claimSent" class="page">
+    <section class="section-lead">
+      <div class="auth-panel">
+        <h1 class="auth-title">Verifică-ți emailul</h1>
+        <div class="card card-lg card-accent" role="status">
+          <p class="body-text">
+            Familia ta este deja în evidența școlii. Ți-am trimis pe email un link cu care îți
+            termini crearea contului: alegi un nume de utilizator și o parolă, iar contul se leagă
+            de datele pe care le avem deja.
+          </p>
+        </div>
+        <p class="colophon">
+          Linkul e valabil 48 de ore. Dacă nu găsești emailul, uită-te și în dosarul de spam sau
+          sună-ne.
+        </p>
+        <NuxtLink to="/" class="btn btn-ghost btn-block">Înapoi la prima pagină</NuxtLink>
+      </div>
+    </section>
+  </div>
   <AuthPanel
+    v-else
     mode="register"
     :loading="isLoading"
     :error-message="errorMessage"

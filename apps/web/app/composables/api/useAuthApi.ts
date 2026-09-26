@@ -1,7 +1,7 @@
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
-import type { ConfirmEmailResponse, LoginResponse } from "~/types/auth.types";
+import type { ConfirmEmailResponse, LoginResponse, RegisterResponse } from "~/types/auth.types";
 import type { LegalDocumentKey, LegalRecord } from "~/types/legal.types";
 import { useProfileInitialization } from "~/composables/useProfileInitialization";
 
@@ -24,6 +24,18 @@ export interface RegistrationPayload {
    * clauses of the terms — §14, §15, §18 — produce no effect on an acceptance that covered the
    * whole document in one tick. Refused as anything but `true`, like the one above.
    */
+  acceptedUnusualClauses: true;
+}
+
+/**
+ * What `POST /auth/claim` requires. Mirrors `ClaimAccountDto`: the link's token and what an account
+ * needs, minus the name and the address, which the office already holds for this family.
+ */
+export interface ClaimAccountPayload {
+  token: string;
+  username: string;
+  password: string;
+  acceptedTerms: true;
   acceptedUnusualClauses: true;
 }
 
@@ -72,12 +84,38 @@ export const useAuthApi = () => {
    * they are told what happens next, and it is the only place they can ask for the confirmation
    * link again.
    */
-  const register = async (payload: RegistrationPayload) => {
-    const response = await api<LoginResponse>("/auth/register", {
+  const register = async (payload: RegistrationPayload): Promise<RegisterResponse> => {
+    const response = await api<RegisterResponse>("/auth/register", {
       method: "POST",
       body: payload,
     });
 
+    // A family the office already typed in: no account was created and there are no tokens — a
+    // link went to the address, and the account is made from it (E11 S2). Nothing to sign in to.
+    if ("claimSent" in response) {
+      return response;
+    }
+
+    await startSession(response);
+    return response;
+  };
+
+  /**
+   * Creates the account of a family the office typed in, from the link mailed to its address, and
+   * signs the family in — what `register` does after its request, for the same reasons. Public, like
+   * the reset link: the token is the whole credential.
+   */
+  const claimAccount = async (payload: ClaimAccountPayload): Promise<LoginResponse> => {
+    const response = await api<LoginResponse>("/auth/claim", {
+      method: "POST",
+      body: payload,
+    });
+    await startSession(response);
+    return response;
+  };
+
+  /** Stores a fresh account's tokens and reads the gates, as registration always has. */
+  const startSession = async (response: LoginResponse) => {
     if (response && response.accessToken) {
       tokenStore.setAccessToken(response.accessToken);
       tokenStore.setRefreshToken(response.refreshToken || "");
@@ -99,8 +137,6 @@ export const useAuthApi = () => {
     // every family that had just registered — none of whom has a phone, an address or an emergency
     // contact yet — went past the step that "cannot be skipped" until their next full reload.
     await useProfileInitialization().initializeProfile();
-
-    return response;
   };
 
   /**
@@ -210,6 +246,7 @@ export const useAuthApi = () => {
   return {
     login,
     register,
+    claimAccount,
     confirmEmail,
     resendConfirmation,
     forgotPassword,

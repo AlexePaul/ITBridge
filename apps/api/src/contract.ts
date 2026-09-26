@@ -230,6 +230,8 @@ type LegalRecordRowWire = {
     }[];
 };
 type _LegalRecord = Check<Wire.LegalRecord, LegalRecordRowWire>;
+// E11 S2, review of 26 September 2026: registration answers with tokens, or with a claim link sent.
+type _RegisterResponse = Check<Wire.RegisterResponse, Serialized<Awaited<ReturnType<AuthService['register']>>>>;
 type _LegalRecordBack = Check<LegalRecordRowWire, Wire.LegalRecord>;
 // E22/S3: the retention term, as the office's list and the family page read it.
 type _RetentionSchedule = Check<Wire.RetentionSchedule, Serialized<RetentionSchedule>>;

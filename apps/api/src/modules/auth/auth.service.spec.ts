@@ -24,6 +24,8 @@ import { EmailConfirmationService } from './email-confirmation.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
 import { LegalDocument } from 'src/enum/legal-document.enum';
+import { AccountClaimService } from './account-claim.service';
+import { AuditService } from 'src/modules/audit/audit.service';
 
 /**
  * Everything `register` now requires, so each test can say only what it is about.
@@ -51,6 +53,7 @@ describe('AuthService', () => {
     let sessions: Record<string, jest.Mock>;
     let confirmations: Record<string, jest.Mock>;
     let outbox: Record<string, jest.Mock>;
+    let claims: Record<string, jest.Mock>;
     let manager: MockEntityManager;
 
     /** What `manager.save` was handed for a given entity, in call order. */
@@ -104,6 +107,7 @@ describe('AuthService', () => {
         };
 
         outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }), queueOrRecord: jest.fn().mockResolvedValue({ id: 2 }) };
+        claims = { accountlessProfileFor: jest.fn().mockResolvedValue(null), issue: jest.fn(), redeem: jest.fn() };
         // The acceptance ledger is written through the transaction's manager (terms §4.7 queues its
         // confirmation in the same transaction), so the manager hands back the same double.
         manager = createMockEntityManager(new Map([[DocumentAcceptance, acceptanceRepo]]));
@@ -128,6 +132,9 @@ describe('AuthService', () => {
                 { provide: SessionService, useValue: sessions },
                 { provide: EmailConfirmationService, useValue: confirmations },
                 { provide: OutboxService, useValue: outbox },
+                // No office-entered family holds the address unless a test says so.
+                { provide: AccountClaimService, useValue: claims },
+                { provide: AuditService, useValue: { recordPersonalDataChange: jest.fn() } },
                 // The real template service over a repo with no overrides: the wording assertions
                 // below then hold against the shipped defaults, which is what actually goes out.
                 MailTemplateService,
@@ -141,6 +148,13 @@ describe('AuthService', () => {
     });
 
     describe('register', () => {
+        /** Tokens, as a registration on a fresh address answers — never the claim-link shape here. */
+        const registered = async () => {
+            const result = await service.register(REGISTRATION);
+            if (!('accessToken' in result)) throw new Error('Expected tokens, got a claim link');
+            return result;
+        };
+
         /** Registration writes through the transaction manager, so the user comes back with an id. */
         const registrationSucceeds = () => {
             userRepo.findOne!.mockResolvedValue(null);
@@ -317,7 +331,7 @@ describe('AuthService', () => {
         it('returns a valid pair of tokens', async () => {
             registrationSucceeds();
 
-            const result = await service.register(REGISTRATION);
+            const result = await registered();
 
             const access = jwtService.verify(result.accessToken, { secret: jwtConstants.accessTokenSecret });
             expect(access).toMatchObject({ sub: 7, username: 'ana', role: 'PARENT' });
@@ -329,7 +343,7 @@ describe('AuthService', () => {
         it('does not put the role in the refresh token', async () => {
             registrationSucceeds();
 
-            const { refreshToken } = await service.register(REGISTRATION);
+            const { refreshToken } = await registered();
             const payload = jwtService.verify<Record<string, unknown>>(refreshToken, {
                 secret: jwtConstants.refreshTokenSecret,
             });

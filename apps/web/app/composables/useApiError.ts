@@ -266,6 +266,14 @@ const MESSAGES: Record<string, string> = {
   // E12/S4, review of 26 September 2026: the register says the child came to the class after all.
   CHILD_ATTENDED_CLASS:
     "Copilul a fost marcat prezent la ora pe care o anunțase ca pierdută, deci nu mai are ce recupera. Dacă marcajul e greșit, corectează întâi catalogul orei.",
+
+  // E11 S2, review of 26 September 2026: the link that lets a family the office typed in create its
+  // own account. One sentence for every way the link can be dead, as for the reset link.
+  CLAIM_TOKEN_INVALID:
+    "Linkul nu mai este valabil: a expirat, a fost folosit deja sau între timp a plecat unul mai nou. Înregistrează-te din nou cu aceeași adresă și îți trimitem altul.",
+  PROFILE_HAS_ACCOUNT: "Familia are deja un cont, deci nu mai are nevoie de link.",
+  PROFILE_HAS_NO_EMAIL:
+    "Familia nu are o adresă de email în fișă. Completează adresa, apoi trimite linkul.",
 };
 
 /**

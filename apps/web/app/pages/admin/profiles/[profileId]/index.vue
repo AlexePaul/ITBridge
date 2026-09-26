@@ -53,6 +53,31 @@
             </div>
           </div>
         </div>
+
+        <!-- E11 S2, review of 26 September 2026: a family the office typed in has no account and no
+             way to make one on its own — the register form refused its address. The link goes to
+             the address on file and the family creates the account there. -->
+        <div
+          v-if="!profile.hasUser && !profile.erasedAt"
+          class="mt-6 border-t border-default pt-4 flex flex-wrap items-center gap-3"
+        >
+          <UBadge color="neutral" variant="subtle">Fără cont</UBadge>
+          <p class="text-sm text-muted flex-1 min-w-0">
+            Familia e trecută de birou și nu are încă un cont în portal.
+          </p>
+          <UButton
+            v-if="profile.email"
+            icon="i-lucide-send"
+            class="min-h-11"
+            :loading="claimBusy"
+            @click="sendAccountClaim"
+          >
+            Trimite linkul de cont
+          </UButton>
+          <p v-else class="text-sm text-warning">
+            Fără o adresă de email în fișă, linkul de cont nu are unde pleca.
+          </p>
+        </div>
       </UCard>
 
       <!-- Children Information Card -->
@@ -516,6 +541,28 @@ const bumpReferral = async (direction: 1 | -1, event?: MouseEvent) => {
     error(apiErrorMessage(err, "Nu am putut schimba reducerea."));
   } finally {
     referralBusy.value = null;
+  }
+};
+
+/**
+ * The account-claim link — E11 S2, review of 26 September 2026. The server writes the link, mails
+ * it to the address on file and keeps the trail; a second press replaces the first link.
+ */
+const claimBusy = ref(false);
+
+const sendAccountClaim = async () => {
+  if (!profile.value || claimBusy.value) return;
+  claimBusy.value = true;
+  try {
+    await profileApi.sendAccountClaim(profile.value.id);
+    success(
+      "Linkul de cont a plecat.",
+      `Familia îl primește la ${profile.value.email}; e valabil 48 de ore.`
+    );
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut trimite linkul de cont."));
+  } finally {
+    claimBusy.value = false;
   }
 };
 

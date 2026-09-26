@@ -53,3 +53,16 @@ export const registrationSchema = z.object({
   acceptedTerms: z.literal(true, "Bifează că ai citit termenii și politica de confidențialitate"),
   acceptedUnusualClauses: z.literal(true, "Bifează că accepți clauzele din §14, §15 și §18"),
 });
+
+/**
+ * The page a family the office typed in reaches from its mail — `/auth/cont-familie` (E11 S2): the
+ * registration's own rules for what an account needs, without the name and the address, which the
+ * office already holds. Picked from the schema above rather than written again, so the two doors
+ * into an account cannot drift apart.
+ */
+export const claimSchema = registrationSchema.pick({
+  username: true,
+  password: true,
+  acceptedTerms: true,
+  acceptedUnusualClauses: true,
+});
