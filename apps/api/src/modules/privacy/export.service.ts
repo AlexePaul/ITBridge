@@ -21,6 +21,7 @@ import { Session } from 'src/entities/session.entity';
 import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
 import { EmailConfirmation } from 'src/entities/email-confirmation.entity';
 import { PasswordReset } from 'src/entities/password-reset.entity';
+import { AccountClaim } from 'src/entities/account-claim.entity';
 import { BankStatementLine } from 'src/entities/bank-statement-line.entity';
 import { PublicationConsent } from 'src/entities/publication-consent.entity';
 import type { ExportedPayment, FamilyExport } from './export.types';
@@ -72,6 +73,7 @@ export class ExportService {
         @InjectRepository(DocumentAcceptance) private readonly acceptances: Repository<DocumentAcceptance>,
         @InjectRepository(EmailConfirmation) private readonly confirmations: Repository<EmailConfirmation>,
         @InjectRepository(PasswordReset) private readonly passwordResets: Repository<PasswordReset>,
+        @InjectRepository(AccountClaim) private readonly accountClaims: Repository<AccountClaim>,
         @InjectRepository(BankStatementLine) private readonly statementLines: Repository<BankStatementLine>,
         @InjectRepository(PublicationConsent) private readonly consents: Repository<PublicationConsent>,
     ) {}
@@ -99,6 +101,7 @@ export class ExportService {
         'Session',
         'EmailConfirmation',
         'PasswordReset',
+        'AccountClaim',
         'DocumentAcceptance',
         'PublicationConsent',
     ] as const;
@@ -179,6 +182,8 @@ export class ExportService {
                   this.passwordResets.find({ where: { user: { id: userId } }, order: { id: 'ASC' } }),
               ])
             : [[], [], [], []];
+        // The claim links hang off the profile, not an account: they exist before there is one.
+        const claims = await this.accountClaims.find({ where: { profile: { id: profileId } }, order: { id: 'ASC' } });
 
         return {
             generatedAt: new Date().toISOString(),
@@ -356,6 +361,13 @@ export class ExportService {
                 adresa: reset.email,
                 cerutLa: reset.createdAt?.toISOString() ?? null,
                 folositLa: reset.consumedAt?.toISOString() ?? null,
+            })),
+            // As with the resets: the fact, not the token — a link to create an account on this
+            // family was sent on this day, to this address, and whether an account came of it.
+            linkuriDeCont: claims.map((claim) => ({
+                adresa: claim.email,
+                trimisLa: claim.createdAt?.toISOString() ?? null,
+                folositLa: claim.usedAt?.toISOString() ?? null,
             })),
             documenteAcceptate: acceptances.map((acceptance) => ({
                 document: acceptance.document,

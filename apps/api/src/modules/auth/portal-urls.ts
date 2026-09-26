@@ -32,6 +32,14 @@ export function loginUrl(): string {
     return `${siteBase()}/auth/login`;
 }
 
+/**
+ * The link mailed to a family the office typed in, so it can create its own account. Same shape as
+ * the two above: the page reads the token out of the query string, so nothing has to be typed.
+ */
+export function accountClaimUrl(token: string): string {
+    return `${siteBase()}/auth/cont-familie?token=${encodeURIComponent(token)}`;
+}
+
 /** The public pages the legal documents are rendered on — the same files as `docs/legal/`. */
 export function termsUrl(): string {
     return `${siteBase()}/termeni`;

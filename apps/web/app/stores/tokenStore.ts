@@ -52,24 +52,52 @@ export const useTokenStore = defineStore("tokens", () => {
    * it on the first 401.
    */
   const accessToken = useCookie("accessToken", cookieOptions());
-  const refreshToken = useCookie("refreshToken", cookieOptions(REFRESH_TOKEN_MAX_AGE_SECONDS));
+
+  /**
+   * „Ține-mă minte" — two cookies, because the choice is a lifetime and `useCookie` fixes `maxAge`
+   * when the ref is created (review of 26 September 2026: the box was on the form and changed
+   * nothing). Ticked, the refresh token lives seven days on disk; unticked, it goes when the browser
+   * closes, like the access token. Unticked is the default and keeps the name `refreshToken`, which
+   * the cookie policy (`docs/legal/politica-de-cookies.md` §2) describes as a session cookie.
+   */
+  const keptRefreshToken = useCookie<string | null>(
+    "refreshTokenKept",
+    cookieOptions(REFRESH_TOKEN_MAX_AGE_SECONDS)
+  );
+  const sessionRefreshToken = useCookie<string | null>("refreshToken", cookieOptions());
+
+  /** Whichever cookie holds it — the half of a session the boot plugin and the middleware ask about. */
+  const refreshToken = computed(() => keptRefreshToken.value || sessionRefreshToken.value || null);
 
   const setAccessToken = (token: string) => {
     accessToken.value = token;
   };
 
-  const setRefreshToken = (token: string) => {
-    refreshToken.value = token;
+  /**
+   * `remember` is the login form's box. A rotation (`useApi`) passes none, and the new token goes
+   * where the previous one was — otherwise the first refresh, fifteen minutes in, would undo the
+   * choice.
+   */
+  const setRefreshToken = (token: string, remember?: boolean) => {
+    const keep = remember ?? Boolean(keptRefreshToken.value);
+    if (keep) {
+      keptRefreshToken.value = token;
+      sessionRefreshToken.value = null;
+    } else {
+      sessionRefreshToken.value = token;
+      keptRefreshToken.value = null;
+    }
   };
 
   const clearTokens = () => {
     accessToken.value = null;
-    refreshToken.value = null;
+    keptRefreshToken.value = null;
+    sessionRefreshToken.value = null;
   };
 
   return {
     accessToken: readonly(accessToken),
-    refreshToken: readonly(refreshToken),
+    refreshToken,
     setAccessToken,
     setRefreshToken,
     clearTokens,

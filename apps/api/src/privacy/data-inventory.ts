@@ -1401,6 +1401,45 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
         },
     },
 
+    AccountClaim: {
+        table: 'account_claims',
+        purpose: 'Linkul prin care o familie trecută în platformă de birou își face singură contul, la adresa din fișă.',
+        subject: 'account-holder',
+        linkedVia: 'profile',
+        columns: {
+            id: { personal: false, why: 'identifier' },
+            tokenHash: {
+                personal: true,
+                about: 'account-holder',
+                category: 'credential',
+                purpose: 'Recunoașterea linkului de cont. Nu se stochează tokenul, doar amprenta lui.',
+                basis: 'contract',
+                retention: 'self-expiring',
+                readableBy: ['nobody'],
+            },
+            email: {
+                personal: true,
+                about: 'account-holder',
+                category: 'contact',
+                purpose: 'Adresa la care a plecat linkul — înghețată la emitere, ca o adresă corectată după aceea să oprească tokenul.',
+                basis: 'contract',
+                retention: 'self-expiring',
+                readableBy: ['nobody'],
+            },
+            createdAt: { personal: false, why: 'row-timestamp' },
+            expiresAt: { personal: false, why: 'state' },
+            usedAt: {
+                personal: true,
+                about: 'account-holder',
+                category: 'behavioural',
+                purpose: 'Când s-a creat contul din link.',
+                basis: 'contract',
+                retention: 'self-expiring',
+                readableBy: ['admin'],
+            },
+        },
+    },
+
     EmailConfirmation: {
         table: 'email_confirmations',
         purpose: 'Tokenul trimis la înregistrare, ca să se confirme adresa.',

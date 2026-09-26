@@ -106,8 +106,17 @@ export const useProfileApi = () => {
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
+  /**
+   * „Trimite linkul de cont" — a link to the address on a family the office typed in, with which the
+   * family creates its own account (E11 S2). ADMIN. Refused with a code of its own when the family
+   * already has an account, has no address, or was erased.
+   */
+  const sendAccountClaim = async (profileId: number) =>
+    api<{ message: string }>(`/profiles/${profileId}/account-claim`, { method: "POST" });
+
   return {
     fetchFamilies,
+    sendAccountClaim,
     fetchProfile,
     getProfile,
     createProfile,

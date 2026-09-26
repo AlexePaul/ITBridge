@@ -19,6 +19,7 @@ import { AbsenceNotice } from './absence-notice.entity';
 import { SessionCountOverride } from './session-count-override.entity';
 import { EmailConfirmation } from './email-confirmation.entity';
 import { PasswordReset } from './password-reset.entity';
+import { AccountClaim } from './account-claim.entity';
 import { Enrollment } from './enrollment.entity';
 import { WaitlistEntry } from './waitlist-entry.entity';
 import { NonTeachingPeriod } from './non-teaching-period.entity';
@@ -56,6 +57,7 @@ import { PublicationConsent } from './publication-consent.entity';
             SessionCountOverride,
             EmailConfirmation,
             PasswordReset,
+            AccountClaim,
             Enrollment,
             WaitlistEntry,
             NonTeachingPeriod,

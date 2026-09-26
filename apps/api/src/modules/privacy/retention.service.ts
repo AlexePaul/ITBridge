@@ -9,6 +9,7 @@ import { FISCAL_WORK_OUTSTANDING, Invoice } from 'src/entities/invoice.entity';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { EmailConfirmation } from 'src/entities/email-confirmation.entity';
 import { PasswordReset } from 'src/entities/password-reset.entity';
+import { AccountClaim } from 'src/entities/account-claim.entity';
 import { IN_FORCE_STATUSES } from 'src/enum/enrollment-status.enum';
 import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { LeadStatus } from 'src/enum/lead-status.enum';
@@ -112,6 +113,7 @@ export class RetentionService {
         @InjectRepository(OutboxMessage) private readonly outbox: Repository<OutboxMessage>,
         @InjectRepository(EmailConfirmation) private readonly confirmations: Repository<EmailConfirmation>,
         @InjectRepository(PasswordReset) private readonly passwordResets: Repository<PasswordReset>,
+        @InjectRepository(AccountClaim) private readonly accountClaims: Repository<AccountClaim>,
         @InjectDataSource() private readonly dataSource: DataSource,
         private readonly audit: AuditService,
         private readonly erasure: ErasureService,
@@ -348,14 +350,19 @@ export class RetentionService {
         return result.affected ?? 0;
     }
 
-    /** E-mail confirmations and password resets whose link stopped working a month ago. */
+    /**
+     * E-mail confirmations, password resets and account-claim links whose link stopped working a
+     * month ago. A claim link replaced by a newer one had its expiry brought forward to the moment it
+     * was replaced, so it leaves on the same clock as one that simply ran out.
+     */
     private async removeExpiredLinks(now: Date): Promise<number> {
         const cutoff = new Date(now.getTime() - EXPIRED_LINK_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-        const [confirmations, resets] = await Promise.all([
+        const [confirmations, resets, claims] = await Promise.all([
             this.confirmations.delete({ expiresAt: LessThan(cutoff) }),
             this.passwordResets.delete({ expiresAt: LessThan(cutoff) }),
+            this.accountClaims.delete({ expiresAt: LessThan(cutoff) }),
         ]);
-        return (confirmations.affected ?? 0) + (resets.affected ?? 0);
+        return (confirmations.affected ?? 0) + (resets.affected ?? 0) + (claims.affected ?? 0);
     }
 
     /** No invoice, and nothing in force or waiting — what a trial booking leaves when it goes nowhere. */

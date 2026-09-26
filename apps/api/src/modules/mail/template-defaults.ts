@@ -300,6 +300,49 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
         ),
     },
     {
+        key: 'account-claim',
+        name: 'Linkul de cont pentru o familie trecută de birou',
+        description:
+            'Pleacă atunci când o familie pe care biroul a trecut-o în platformă încearcă să-și facă un cont cu adresa din fișă, sau când biroul apasă „Trimite linkul de cont". Valabil 48 de ore.',
+        variables: [
+            { name: 'firstName', description: 'Prenumele părintelui, cum l-a trecut biroul' },
+            { name: 'claimUrl', description: 'Linkul prin care familia își alege utilizatorul și parola, valabil 48 de ore' },
+            { name: 'hours', description: 'Câte ore e valabil linkul' },
+        ],
+        sampleData: { firstName: 'Ana', claimUrl: 'https://itbridgeschool.com/auth/cont-familie?token=exemplu', hours: '48' },
+        subject: 'Termină-ți contul IT Bridge School',
+        bodyText: [
+            'Bună, {{firstName}}!',
+            '',
+            'Familia ta este deja în evidența IT Bridge School — am trecut-o noi în platformă. Ca să ai',
+            'și un cont cu care să intri în portal, deschide linkul de mai jos și alege un nume de',
+            'utilizator și o parolă:',
+            '',
+            '{{claimUrl}}',
+            '',
+            'Linkul e valabil {{hours}} de ore și poate fi folosit o singură dată. Dacă ceri altul, acesta',
+            'nu mai merge. După ce îți faci contul, îl mai aprobăm și noi — te anunțăm printr-un email',
+            'când e gata, de obicei în aceeași zi lucrătoare.',
+            '',
+            'Dacă nu tu ai cerut contul, ignoră mesajul: fără linkul acesta nu se creează nimic.',
+            '',
+            SIGNATURE,
+        ].join('\n'),
+        bodyHtml: htmlFrame(
+            [
+                paragraph('Bună, {{firstName}}!'),
+                paragraph(
+                    'Familia ta este deja în evidența IT Bridge School — am trecut-o noi în platformă. Ca să ai și un cont cu care să intri în portal, deschide linkul de mai jos și alege un nume de utilizator și o parolă:',
+                ),
+                linkBlock('claimUrl'),
+                paragraph(
+                    'Linkul e valabil {{hours}} de ore și poate fi folosit o singură dată. Dacă ceri altul, acesta nu mai merge. După ce îți faci contul, îl mai aprobăm și noi — te anunțăm printr-un email când e gata, de obicei în aceeași zi lucrătoare.',
+                ),
+                paragraph('Dacă nu tu ai cerut contul, ignoră mesajul: fără linkul acesta nu se creează nimic.'),
+            ].join('\n'),
+        ),
+    },
+    {
         key: 'account-approved',
         name: 'Contul a fost aprobat',
         description: 'Pleacă în clipa în care un admin aprobă familia, ca așteptarea să se termine cu un mesaj, nu cu o bănuială.',

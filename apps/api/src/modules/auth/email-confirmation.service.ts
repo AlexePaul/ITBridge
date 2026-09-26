@@ -133,10 +133,22 @@ export class EmailConfirmationService {
         }
 
         if (confirmation.consumedAt !== null) {
-            throw new BadRequestException({
-                message: 'Linkul de confirmare a fost deja folosit',
-                error: 'CONFIRMATION_TOKEN_USED',
-            });
+            // "Already used" is answered as „adresa ta este confirmată", so it may only be said while
+            // that is still true (review of 26 September 2026): the address on file is the one this
+            // link proved, and the account is confirmed now. A link used for an address the family
+            // has since replaced — or changed away from and back, which closes the gate again —
+            // proves nothing about today's address, and the way on is the newer link, which is what
+            // `CONFIRMATION_TOKEN_SUPERSEDED` says.
+            const onFile = await this.profileRepository.findOne({ where: { user: { id: confirmation.user.id } } });
+            const stillTrue = (!onFile || sameAddress(onFile.email, confirmation.email)) && Boolean(confirmation.user.emailConfirmedAt);
+            throw new BadRequestException(
+                stillTrue
+                    ? { message: 'Linkul de confirmare a fost deja folosit', error: 'CONFIRMATION_TOKEN_USED' }
+                    : {
+                          message: 'Adresa s-a schimbat între timp, iar linkul acesta confirma adresa veche. Am trimis unul nou la adresa nouă.',
+                          error: 'CONFIRMATION_TOKEN_SUPERSEDED',
+                      },
+            );
         }
 
         if (confirmation.expiresAt.getTime() <= now.getTime()) {

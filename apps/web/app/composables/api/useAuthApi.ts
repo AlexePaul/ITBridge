@@ -1,7 +1,12 @@
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
-import type { ConfirmEmailResponse, LoginResponse } from "~/types/auth.types";
+import type {
+  ActiveSession,
+  ConfirmEmailResponse,
+  LoginResponse,
+  RegisterResponse,
+} from "~/types/auth.types";
 import type { LegalDocumentKey, LegalRecord } from "~/types/legal.types";
 import { useProfileInitialization } from "~/composables/useProfileInitialization";
 
@@ -27,11 +32,28 @@ export interface RegistrationPayload {
   acceptedUnusualClauses: true;
 }
 
+/**
+ * What `POST /auth/claim` requires. Mirrors `ClaimAccountDto`: the link's token and what an account
+ * needs, minus the name and the address, which the office already holds for this family.
+ */
+export interface ClaimAccountPayload {
+  token: string;
+  username: string;
+  password: string;
+  acceptedTerms: true;
+  acceptedUnusualClauses: true;
+}
+
 export const useAuthApi = () => {
   const api = useApi();
   const tokenStore = useTokenStore();
 
-  const login = async (username: string, password: string) => {
+  /**
+   * `remember` is „Ține-mă minte": ticked, the refresh token is kept seven days; unticked, it goes
+   * when the browser closes. The server issues the same token either way — the choice is only how
+   * long this browser holds it.
+   */
+  const login = async (username: string, password: string, remember = false) => {
     const response = await api<LoginResponse>("/auth/login", {
       method: "POST",
       body: { username, password },
@@ -40,7 +62,7 @@ export const useAuthApi = () => {
     // Store tokens in the Pinia store
     if (response && response.accessToken) {
       tokenStore.setAccessToken(response.accessToken);
-      tokenStore.setRefreshToken(response.refreshToken || "");
+      tokenStore.setRefreshToken(response.refreshToken || "", remember);
     }
 
     // Awaited: `/auth/login` returning is not the same as the session being readable. Unawaited,
@@ -72,15 +94,44 @@ export const useAuthApi = () => {
    * they are told what happens next, and it is the only place they can ask for the confirmation
    * link again.
    */
-  const register = async (payload: RegistrationPayload) => {
-    const response = await api<LoginResponse>("/auth/register", {
+  const register = async (
+    payload: RegistrationPayload,
+    remember = false
+  ): Promise<RegisterResponse> => {
+    const response = await api<RegisterResponse>("/auth/register", {
       method: "POST",
       body: payload,
     });
 
+    // A family the office already typed in: no account was created and there are no tokens — a
+    // link went to the address, and the account is made from it (E11 S2). Nothing to sign in to.
+    if ("claimSent" in response) {
+      return response;
+    }
+
+    await startSession(response, remember);
+    return response;
+  };
+
+  /**
+   * Creates the account of a family the office typed in, from the link mailed to its address, and
+   * signs the family in — what `register` does after its request, for the same reasons. Public, like
+   * the reset link: the token is the whole credential.
+   */
+  const claimAccount = async (payload: ClaimAccountPayload): Promise<LoginResponse> => {
+    const response = await api<LoginResponse>("/auth/claim", {
+      method: "POST",
+      body: payload,
+    });
+    await startSession(response);
+    return response;
+  };
+
+  /** Stores a fresh account's tokens and reads the gates, as registration always has. */
+  const startSession = async (response: LoginResponse, remember = false) => {
     if (response && response.accessToken) {
       tokenStore.setAccessToken(response.accessToken);
-      tokenStore.setRefreshToken(response.refreshToken || "");
+      tokenStore.setRefreshToken(response.refreshToken || "", remember);
     }
 
     // Awaited, for the same reason as in `login`: the account exists the moment this returns, and
@@ -99,8 +150,6 @@ export const useAuthApi = () => {
     // every family that had just registered — none of whom has a phone, an address or an emergency
     // contact yet — went past the step that "cannot be skipped" until their next full reload.
     await useProfileInitialization().initializeProfile();
-
-    return response;
   };
 
   /**
@@ -207,9 +256,28 @@ export const useAuthApi = () => {
    */
   const fetchLegalRecord = () => api<LegalRecord>("/auth/documents");
 
+  /**
+   * The family's open sessions, this one marked — terms §4.5. The refresh token goes in the body so
+   * the server can say which session is this browser's; it never goes in a URL.
+   */
+  const fetchSessions = () =>
+    api<ActiveSession[]>("/auth/sessions", {
+      method: "POST",
+      body: { refreshToken: tokenStore.refreshToken ?? undefined },
+    });
+
+  /**
+   * „Deconectează-te de pe toate dispozitivele" — terms §4.4. Every session of the account ends on
+   * the server, this one included; the caller signs out locally afterwards.
+   */
+  const logoutEverywhere = () => api<{ message: string }>("/auth/logout-all", { method: "POST" });
+
   return {
     login,
     register,
+    claimAccount,
+    fetchSessions,
+    logoutEverywhere,
     confirmEmail,
     resendConfirmation,
     forgotPassword,

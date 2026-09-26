@@ -116,6 +116,22 @@ export class ProfileService {
             .map((profile) => ({
                 ...profile,
                 hasUser: profile.user !== null,
+                // The account's gates, for the office only (review of 26 September 2026): the family
+                // page is where a refused family is found again, and it showed nothing about the
+                // account at all. The state and its day, never the admin's note on it — a family
+                // reads its own profile through this same route.
+                ...(userRole === Role.ADMIN
+                    ? {
+                          account: profile.user
+                              ? {
+                                    userId: profile.user.id,
+                                    approvalStatus: profile.user.approvalStatus,
+                                    approvalDecidedAt: profile.user.approvalDecidedAt,
+                                    emailConfirmed: profile.user.emailConfirmedAt !== null,
+                                }
+                              : null,
+                      }
+                    : {}),
             }))
             .map((profile) => {
                 profile.user = undefined;

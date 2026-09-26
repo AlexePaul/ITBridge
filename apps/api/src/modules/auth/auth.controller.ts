@@ -10,6 +10,8 @@ import { ConfirmEmailDto } from 'src/modules/auth/dto/confirm-email.dto';
 import { ForgotPasswordDto } from 'src/modules/auth/dto/forgotPassword.dto';
 import { ResetPasswordDto } from 'src/modules/auth/dto/resetPassword.dto';
 import { ChangePasswordDto } from 'src/modules/auth/dto/changePassword.dto';
+import { ClaimAccountDto } from 'src/modules/auth/dto/claimAccount.dto';
+import { ListSessionsDto } from 'src/modules/auth/dto/listSessions.dto';
 import { PasswordResetService } from './password-reset.service';
 import { AuthGuard } from 'src/guards/auth.guard';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
@@ -39,6 +41,23 @@ export class AuthController {
     })
     async register(@Body() registerDto: RegisterDto, @Headers('user-agent') userAgent?: string) {
         return this.authService.register(registerDto, userAgent);
+    }
+
+    /**
+     * The link a family the office typed in gets by mail — its token, plus a username, a password
+     * and the two checkboxes, exactly as registration asks. Creates the account on the office's
+     * profile and signs the family in, as `register` does.
+     *
+     * Public for the reason `reset-password` is: the token is the whole credential, and the reader has
+     * no account by definition. Throttled like `register`, the other door an account comes through.
+     */
+    @Throttle({ default: { ttl: 60_000, limit: 5 } })
+    @Post('claim')
+    @ApiResponse({ status: 201, description: 'The account was created on the family the office typed in' })
+    @ApiResponse({ status: 400, description: 'Token unknown, expired, used, or replaced by a newer link' })
+    @ApiResponse({ status: 409, description: 'The username is taken' })
+    async claim(@Body() claimAccountDto: ClaimAccountDto, @Headers('user-agent') userAgent?: string) {
+        return this.authService.claimAccount(claimAccountDto, userAgent);
     }
 
     /**
@@ -211,5 +230,19 @@ export class AuthController {
     @ApiResponse({ status: 200, description: 'Active sessions of the authenticated user' })
     async sessions(@Request() req: AuthenticatedRequest) {
         return this.authService.listSessions(req.user.sub);
+    }
+
+    /**
+     * The same list, with the caller's own session marked — terms §4.5: a list in which the family
+     * recognises its devices. A `POST` because the refresh token that identifies "this one" travels
+     * in a body, as it does on `logout`, never in a URL. Reads only the caller's own rows.
+     */
+    @Post('sessions')
+    @HttpCode(200)
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'Active sessions of the authenticated user, the current one marked' })
+    async sessionsWithCurrent(@Request() req: AuthenticatedRequest, @Body() listSessionsDto: ListSessionsDto) {
+        return this.authService.listSessions(req.user.sub, listSessionsDto.refreshToken);
     }
 }

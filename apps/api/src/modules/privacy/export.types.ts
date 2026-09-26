@@ -50,6 +50,8 @@ export interface FamilyExport {
     autentificari: { incepiuta: string | null; expiraLa: string | null; revocataLa: string | null; dispozitiv: string | null }[];
     confirmariDeEmail: { adresa: string; trimisLa: string | null; deschisLa: string | null }[];
     resetariDeParola: { adresa: string; cerutLa: string | null; folositLa: string | null }[];
+    /** Links sent to create an account on this family (E11 S2) — when, to where, and whether one was. */
+    linkuriDeCont: { adresa: string; trimisLa: string | null; folositLa: string | null }[];
     documenteAcceptate: { document: string; versiune: string; acceptatLa: string | null }[];
 }
 

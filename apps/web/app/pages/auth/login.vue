@@ -26,11 +26,12 @@ const route = useRoute();
 const isLoading = ref(false);
 const errorMessage = ref<string | null>(null);
 
-async function onSubmit(payload: { username: string; password: string }) {
+async function onSubmit(payload: { username: string; password: string; remember: boolean }) {
   isLoading.value = true;
   errorMessage.value = null;
   try {
-    await login(payload.username, payload.password);
+    // „Ține-mă minte" decides how long this browser keeps the session: seven days, or until it closes.
+    await login(payload.username, payload.password, payload.remember);
 
     success("Bine te-am găsit!", "Autentificare reușită");
 

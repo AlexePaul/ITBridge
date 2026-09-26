@@ -6,6 +6,11 @@ import { useAuthApi } from "~/composables/api/useAuthApi";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useUserStore } from "~/stores/userStore";
 import { useTokenStore } from "~/stores/tokenStore";
+import {
+  confirmationOutcome,
+  type ConfirmationOutcome,
+} from "~/composables/useConfirmationOutcome";
+import { SCHOOL_EMAIL, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 
 /**
  * Where the link in the confirmation email lands — E11/S2, the first gate.
@@ -33,7 +38,7 @@ const route = useRoute();
 const { confirmEmail } = useAuthApi();
 const tokenStore = useTokenStore();
 
-type State = "working" | "confirmed" | "awaiting-approval" | "failed";
+type State = "working" | ConfirmationOutcome | "failed";
 
 const state = ref<State>("working");
 const errorMessage = ref<string | null>(null);
@@ -51,7 +56,7 @@ onMounted(async () => {
     const result = await confirmEmail(token);
     // Confirmed is not the same as usable: the admin's approval is a separate gate, and saying
     // "gata, intră în cont" to somebody who then cannot get in would be a worse kind of wrong.
-    state.value = result.active ? "confirmed" : "awaiting-approval";
+    state.value = confirmationOutcome(result);
 
     // A parent who confirmed in the same browser they registered in is still signed in; refreshing
     // the cached user is what makes the portal stop showing "confirmă-ți adresa".
@@ -89,6 +94,19 @@ onMounted(async () => {
           <p class="body-text">
             Adresa ta este confirmată. Mai rămâne un pas: contul trebuie aprobat de noi. Îți
             trimitem un email imediat ce e gata — de obicei în aceeași zi lucrătoare.
+          </p>
+          <NuxtLink to="/" class="btn btn-ghost btn-block">Înapoi la pagina principală</NuxtLink>
+        </template>
+
+        <!-- The school has already said no (review of 26 September 2026): the address is confirmed
+             all the same, and the way on is the one the refusal mail names — not a wait. -->
+        <template v-else-if="state === 'rejected'">
+          <p class="body-text">
+            Adresa ta este confirmată, dar contul nu a fost activat — ți-am scris despre asta pe
+            email. Dacă ți se pare o greșeală, scrie-ne la
+            <a :href="`mailto:${SCHOOL_EMAIL}`" class="link">{{ SCHOOL_EMAIL }}</a> sau sună-ne la
+            <a :href="SCHOOL_PHONE_HREF" class="link">{{ SCHOOL_PHONE }}</a> și ne uităm încă o
+            dată.
           </p>
           <NuxtLink to="/" class="btn btn-ghost btn-block">Înapoi la pagina principală</NuxtLink>
         </template>

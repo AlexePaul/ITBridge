@@ -34,6 +34,12 @@ export interface PendingAccount {
     phone: string | null;
 }
 
+/** One row of the refused list: the same, plus when the school decided and the admins' own note. */
+export interface RejectedAccount extends PendingAccount {
+    decidedAt: Date | null;
+    rejectionReason: string | null;
+}
+
 @Injectable()
 export class AccountApprovalService {
     private readonly logger = new Logger('AccountApproval');
@@ -63,6 +69,35 @@ export class AccountApprovalService {
             order: { createdAt: 'ASC' },
         });
 
+        return this.rowsFor(users);
+    }
+
+    /**
+     * Every parent account the school refused, newest decision first — the review of 26 September
+     * 2026.
+     *
+     * The refusal mail and the portal both tell the family "scrie-ne… ne uităm încă o dată", and
+     * `approve` has always accepted a refused account — but the queue lists only `PENDING`, so the
+     * moment somebody pressed "Respinge" the family vanished from every screen, and the office had
+     * nowhere to look again from. The decision day is on the row because that is what the family
+     * will quote on the phone; the reason is the admin's own note and this list is the admins'.
+     */
+    async listRejected(): Promise<RejectedAccount[]> {
+        const users = await this.userRepository.find({
+            where: { role: Role.PARENT, approvalStatus: ApprovalStatus.REJECTED },
+            order: { approvalDecidedAt: 'DESC', id: 'DESC' },
+        });
+
+        const rows = await this.rowsFor(users);
+        return rows.map((row, index) => ({
+            ...row,
+            decidedAt: users[index].approvalDecidedAt,
+            rejectionReason: users[index].rejectionReason,
+        }));
+    }
+
+    /** One row per account, with the family's name and contact read in a single query. */
+    private async rowsFor(users: User[]): Promise<PendingAccount[]> {
         if (users.length === 0) {
             return [];
         }

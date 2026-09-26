@@ -3,7 +3,7 @@ import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import { useProfileStore } from "~/stores/profileStore";
 import { ProfileSetup } from "../useProfileInitialization";
-import type { PendingAccount, User } from "~/types/user.types";
+import type { PendingAccount, RejectedAccount, User } from "~/types/user.types";
 
 export const useUserApi = () => {
   const api = useApi();
@@ -24,6 +24,12 @@ export const useUserApi = () => {
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
   };
+
+  /**
+   * Parent accounts the school refused, newest decision first — where the office looks again from,
+   * as the refusal mail promises. Admin only.
+   */
+  const fetchRejectedAccounts = async () => api<RejectedAccount[]>("/users/rejected");
 
   const approveAccount = async (userId: number) => {
     return api<{ message: string }>(`/users/${userId}/approve`, {
@@ -47,6 +53,7 @@ export const useUserApi = () => {
   return {
     fetchUsersWithoutProfile,
     fetchPendingAccounts,
+    fetchRejectedAccounts,
     approveAccount,
     rejectAccount,
   };

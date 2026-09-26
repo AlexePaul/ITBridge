@@ -8,6 +8,8 @@ import { EmailConfirmationService } from './email-confirmation.service';
 import { PasswordResetService } from './password-reset.service';
 import { EntitiesModule } from 'src/entities/entities.module';
 import { MailModule } from 'src/modules/mail/mail.module';
+import { AuditModule } from 'src/modules/audit/audit.module';
+import { AccountClaimService } from './account-claim.service';
 
 /**
  * `EntitiesModule` replaces the two-entity `forFeature` this module used to carry: registration now
@@ -19,9 +21,12 @@ import { MailModule } from 'src/modules/mail/mail.module';
  * outage can never fail a registration.
  */
 @Module({
-    imports: [EntitiesModule, MailModule, JwtModule.register({})],
-    providers: [AuthService, SessionService, EmailConfirmationService, PasswordResetService, AuthGuard],
+    // `AuditModule` for the account-claim link (E11 S2, review of 26 September 2026): the office
+    // sending a way into a family, and the family creating an account on the office's row, are both
+    // decisions about access, and the trail records them where they happen.
+    imports: [EntitiesModule, MailModule, AuditModule, JwtModule.register({})],
+    providers: [AuthService, SessionService, EmailConfirmationService, PasswordResetService, AccountClaimService, AuthGuard],
     controllers: [AuthController],
-    exports: [EmailConfirmationService],
+    exports: [EmailConfirmationService, AccountClaimService],
 })
 export class AuthModule {}

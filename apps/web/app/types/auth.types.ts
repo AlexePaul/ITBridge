@@ -1,1 +1,7 @@
-export type { ConfirmEmailResponse, LoginResponse } from "@itbridge/types";
+export type {
+  AccountClaimSent,
+  ActiveSession,
+  ConfirmEmailResponse,
+  LoginResponse,
+  RegisterResponse,
+} from "@itbridge/types";

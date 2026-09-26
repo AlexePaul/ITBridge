@@ -74,6 +74,42 @@
       </div>
     </UCard>
 
+    <!-- Review of 26 September 2026: the refusal mail tells the family „scrie-ne… ne uităm încă o
+         dată", and until this list the refused account was on no screen at all. -->
+    <section v-if="!loading && !loadError && rejected.length > 0" class="space-y-3 pt-4">
+      <h2 class="text-lg font-semibold">Conturi respinse</h2>
+      <p class="text-sm text-muted">
+        Dacă o familie îți scrie după un refuz, o găsești aici și o poți aproba.
+      </p>
+      <UCard v-for="account in rejected" :key="account.userId" class="border" variant="subtle">
+        <div class="flex flex-col md:flex-row md:items-center gap-4">
+          <div class="flex-1 space-y-1 min-w-0">
+            <span class="font-semibold">{{ fullName(account) }}</span>
+            <p class="text-sm text-muted">
+              <span class="font-mono">{{ account.username }}</span>
+              <template v-if="account.email"> · {{ account.email }}</template>
+              <template v-if="account.phone"> · {{ account.phone }}</template>
+            </p>
+            <p class="text-sm text-muted">
+              Respins {{ decidedOn(account.decidedAt) }}
+              <template v-if="account.rejectionReason"> · {{ account.rejectionReason }}</template>
+            </p>
+          </div>
+          <UButton
+            color="primary"
+            variant="outline"
+            class="min-h-11 shrink-0"
+            :loading="busyId === account.userId"
+            :disabled="busyId !== null"
+            :aria-label="`Aprobă contul lui ${fullName(account)}`"
+            @click="onApproveRejected(account)"
+          >
+            Aprobă
+          </UButton>
+        </div>
+      </UCard>
+    </section>
+
     <UModal v-model:open="rejectOpen" title="Respinge contul">
       <template #body>
         <div class="space-y-4">
@@ -102,7 +138,7 @@ import { useUserApi } from "~/composables/api/useUserApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { daysSince } from "~/composables/useUtils";
-import type { PendingAccount } from "~/types/user.types";
+import type { PendingAccount, RejectedAccount } from "~/types/user.types";
 
 /**
  * The approvals queue — E11/S2, and the answer to the risk the epic names: two gates in front of a
@@ -115,10 +151,45 @@ definePageMeta({
   title: "Conturi în așteptare",
 });
 
-const { fetchPendingAccounts, approveAccount, rejectAccount } = useUserApi();
+const { fetchPendingAccounts, fetchRejectedAccounts, approveAccount, rejectAccount } = useUserApi();
 const { success, error: notifyError } = useNotifications();
 
 const accounts = ref<PendingAccount[]>([]);
+/** The refused accounts, newest decision first — the server's order, kept as it comes. */
+const rejected = ref<RejectedAccount[]>([]);
+
+/** The day the school decided, as the family will quote it on the phone. */
+const decidedOn = (decidedAt: string | null) =>
+  decidedAt
+    ? `pe ${new Date(decidedAt).toLocaleDateString("ro-RO", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "Europe/Bucharest",
+      })}`
+    : "";
+
+/** The refused list is a second read; failing it leaves the queue, which is the page's job. */
+const loadRejected = async () => {
+  try {
+    rejected.value = (await fetchRejectedAccounts()) ?? [];
+  } catch {
+    rejected.value = [];
+  }
+};
+
+const onApproveRejected = async (account: RejectedAccount) => {
+  busyId.value = account.userId;
+  try {
+    await approveAccount(account.userId);
+    rejected.value = rejected.value.filter((row) => row.userId !== account.userId);
+    success("Cont aprobat", `${fullName(account)} a fost anunțat prin email.`);
+  } catch (err) {
+    notifyError("Nu am putut aproba contul", apiErrorMessage(err));
+  } finally {
+    busyId.value = null;
+  }
+};
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 const busyId = ref<number | null>(null);
@@ -145,6 +216,7 @@ const load = async () => {
   loadError.value = null;
   try {
     accounts.value = (await fetchPendingAccounts()) ?? [];
+    await loadRejected();
   } catch (err) {
     loadError.value = apiErrorMessage(err, "Nu am putut încărca lista de conturi în așteptare.");
   } finally {
@@ -183,6 +255,7 @@ const onReject = async () => {
     accounts.value = accounts.value.filter((row) => row.userId !== account.userId);
     rejectOpen.value = false;
     success("Cont respins", fullName(account));
+    await loadRejected();
   } catch (err) {
     notifyError("Nu am putut respinge contul", apiErrorMessage(err));
   } finally {

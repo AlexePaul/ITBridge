@@ -57,6 +57,21 @@ export class UserController {
         return this.accountApprovalService.listPending();
     }
 
+    /**
+     * The accounts the school refused, with the day it decided — so the office can "look again", as
+     * the refusal mail promises, and approve from the same screen. Above `:id`, for the reason
+     * `pending` is.
+     */
+    @Get('rejected')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: 'Parent accounts the school refused, newest decision first' })
+    @ApiResponse({ status: 403, description: 'Forbidden' })
+    async getRejectedAccounts() {
+        return this.accountApprovalService.listRejected();
+    }
+
     @Post(':id/approve')
     @HttpCode(200)
     @UseGuards(AuthGuard, RolesGuard)

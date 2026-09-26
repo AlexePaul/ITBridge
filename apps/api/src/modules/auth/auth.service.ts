@@ -25,6 +25,13 @@ import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { approvalsUrl, privacyUrl, profileUrl, termsUrl } from './portal-urls';
 import { romanianDay } from 'src/modules/invoice/money-words';
 import { schoolDay } from 'src/common/school-clock';
+import { AccountClaimService } from './account-claim.service';
+import { ClaimAccountDto } from 'src/modules/auth/dto/claimAccount.dto';
+import { AuditService } from 'src/modules/audit/audit.service';
+import { AuditAction } from 'src/enum/audit-action.enum';
+
+/** What `register` answers when the address belongs to a family the office typed in. */
+export const CLAIM_SENT_MESSAGE = 'Familia ta este deja în evidența școlii. Ți-am trimis pe email un link cu care îți termini crearea contului.';
 
 @Injectable()
 export class AuthService {
@@ -46,6 +53,8 @@ export class AuthService {
         private outbox: OutboxService,
         private mailTemplates: MailTemplateService,
         @InjectDataSource() private dataSource: DataSource,
+        private accountClaims: AccountClaimService,
+        private audit: AuditService,
     ) {}
 
     /** When a refresh token issued now stops being accepted. */
@@ -70,22 +79,25 @@ export class AuthService {
      * looking at your account" is more honest than a login screen that refuses without saying why,
      * and it is also the only place a parent can ask for a new confirmation link.
      */
-    async register(registerDto: RegisterDto, userAgent?: string) {
-        // Case-insensitive, and registration is public. Comparing exactly let anyone create
-        // `Admin` and `ADMIN` alongside a real `admin`, which is an impersonation vector in a UI
-        // that shows usernames — and inconsistent with every other lookup in the app, all of which
-        // already compare with `lower()`.
-        const preExistingUser = await this.userRepository
-            .createQueryBuilder('user')
-            .where('lower(user.username) = lower(:username)', { username: registerDto.username })
-            .getOne();
-
-        if (preExistingUser) {
-            throw new ConflictException({
-                message: 'Există deja un cont cu acest nume de utilizator',
-                error: 'USERNAME_TAKEN',
-            });
+    async register(
+        registerDto: RegisterDto,
+        userAgent?: string,
+    ): Promise<{ accessToken: string; refreshToken: string; message: string } | { claimSent: true; message: string }> {
+        // A family the office typed in from a phone call (`POST /profiles`) — the road most families
+        // take in, E11 says — holds this address on a profile with no account. Refusing it as "taken"
+        // told the family an account existed when none did, and writing a second shell beside the
+        // office's row would split one family in two. So nothing is written here but a link to the
+        // address the office typed: opening it proves the mailbox, and the account is created on the
+        // office's own row (`claimAccount`). The username typed here is not used; the link's page
+        // asks for one again, which is also why this runs before the username is checked.
+        const typedByOffice = await this.accountClaims.accountlessProfileFor(registerDto.email);
+        if (typedByOffice) {
+            await this.dataSource.transaction((manager) => this.accountClaims.issue(typedByOffice, new Date(), manager));
+            this.logger.log(`Registration with the address of office-entered profile ${typedByOffice.id}; a claim link was sent instead.`);
+            return { claimSent: true, message: CLAIM_SENT_MESSAGE };
         }
+
+        await this.assertUsernameIsFree(registerDto.username);
 
         // `Profile.email` is a unique column, so the database would refuse a duplicate anyway — as a
         // 500 out of the driver. Checked here so the parent is told which field to change. The race
@@ -188,6 +200,111 @@ export class AuthService {
                 error: 'EMAIL_TAKEN',
             });
         }
+    }
+
+    /**
+     * Case-insensitive, and registration is public. Comparing exactly let anyone create `Admin` and
+     * `ADMIN` alongside a real `admin`, which is an impersonation vector in a UI that shows usernames
+     * — and inconsistent with every other lookup in the app, all of which already compare with
+     * `lower()`. Shared by both ways an account is born, so neither is the easier one.
+     */
+    private async assertUsernameIsFree(username: string): Promise<void> {
+        const preExistingUser = await this.userRepository.createQueryBuilder('user').where('lower(user.username) = lower(:username)', { username }).getOne();
+
+        if (preExistingUser) {
+            throw new ConflictException({
+                message: 'Există deja un cont cu acest nume de utilizator',
+                error: 'USERNAME_TAKEN',
+            });
+        }
+    }
+
+    /**
+     * Creates the account of a family the office typed in, from the link `register` or the office
+     * sent to the address on its profile — E11 S2, review of 26 September 2026.
+     *
+     * One transaction, like `register`, and doing what `register` does where it applies: the account
+     * is born on the office's row rather than beside it, the acceptances are written and confirmed,
+     * the office hears that somebody is waiting. Three differences, each a consequence of the link:
+     *
+     * - **`emailConfirmedAt` is now.** Opening the link sent to the address on file is precisely the
+     *   proof the confirmation link asks for, so asking for it again would be a second click proving
+     *   the same thing.
+     * - **`approvalStatus` stays `PENDING`.** The office knows the family, but not yet that this
+     *   account is theirs rather than whoever else reads that inbox; the approval is still the
+     *   school's to give, as it is for every other account.
+     * - **No shell profile, and no name typed here.** The office's row is the family; the link
+     *   attaches the account to it, and step two (`/user/profile-setup`) asks for whatever the office
+     *   did not write down.
+     *
+     * The trail records it through `recordPersonalDataChange` — field names only — with the new
+     * account as the actor: nobody signed in pressed anything, and the family did.
+     */
+    async claimAccount(dto: ClaimAccountDto, userAgent?: string) {
+        await this.assertUsernameIsFree(dto.username);
+
+        const passwordHash = await bcrypt.hash(dto.password, 10);
+        const now = new Date();
+
+        const user = await this.dataSource.transaction(async (manager) => {
+            const profile = await this.accountClaims.redeem(dto.token, now, manager);
+
+            const created = await manager.save(User, {
+                username: dto.username,
+                passwordHash,
+                role: Role.PARENT,
+                emailConfirmedAt: now,
+                approvalStatus: ApprovalStatus.PENDING,
+                approvalDecidedAt: null,
+                rejectionReason: null,
+            });
+            await manager.update(Profile, { id: profile.id }, { user: { id: created.id } });
+
+            const accepted = await manager.save(
+                DocumentAcceptance,
+                ACCEPTED_AT_REGISTRATION.map((document) => ({ user: created, document, version: LEGAL_DOCUMENT_VERSIONS[document] })),
+            );
+            await this.queueAcceptanceConfirmation(
+                created.id,
+                accepted.map(({ id, document }) => ({ id, document })),
+                { firstName: profile.firstName, email: profile.email ?? null, confirmed: true },
+                now,
+                manager,
+            );
+
+            const notice = await this.mailTemplates.render('approval-needed', {
+                parentName: `${profile.firstName} ${profile.lastName}`,
+                email: profile.email ?? '',
+                phone: profile.phone ?? 'încă necompletat',
+                approvalsUrl: approvalsUrl(),
+            });
+            await this.outbox.queue({ to: this.office, subject: notice.subject, bodyText: notice.bodyText }, manager);
+
+            await this.audit.recordPersonalDataChange(
+                {
+                    actor: { userId: created.id, username: created.username },
+                    action: AuditAction.UPDATED,
+                    entityType: 'Profile',
+                    entityId: profile.id,
+                    fields: ['user'],
+                    note: 'cont creat de familie din linkul trimis la adresa din fișă',
+                },
+                manager,
+            );
+
+            return created;
+        });
+
+        const tokens = this.generateTokens(user.id, user.username, user.role);
+        await this.sessionService.startSession(user, tokens.refreshToken, this.refreshExpiry(), userAgent);
+
+        this.logger.log(`Account ${user.id} created from a claim link; awaiting admin approval.`);
+
+        return {
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            message: 'Account created',
+        };
     }
 
     /**
@@ -317,8 +434,8 @@ export class AuthService {
         return { message: 'All sessions ended' };
     }
 
-    async listSessions(userId: number) {
-        return this.sessionService.listActive(userId);
+    async listSessions(userId: number, currentRefreshToken?: string) {
+        return this.sessionService.listActive(userId, currentRefreshToken);
     }
 
     /**

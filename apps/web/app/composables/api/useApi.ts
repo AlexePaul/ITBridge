@@ -20,7 +20,7 @@ let refreshPromise: Promise<void> | null = null;
  * revoked, replayed) is the server saying the token is no good; anything else says nothing about
  * the token, and the next request that meets a 401 simply refreshes again.
  */
-const refreshRejected = (err: unknown): boolean => {
+export const refreshRejected = (err: unknown): boolean => {
   const failure = err as { status?: number; response?: { status?: number } } | null;
   const status = failure?.status ?? failure?.response?.status;
   return status === 400 || status === 401;

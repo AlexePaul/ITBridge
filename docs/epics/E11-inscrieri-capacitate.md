@@ -253,6 +253,20 @@ odată cu el; sunt în [În afara scopului](#în-afara-scopului), explicit, ca s
 - `POST /profiles` fără email, telefon și adresă, cu token de admin, răspunde în continuare 201 — și
   există un test care ține fluxul ăsta viu, ca să nu fie strâns din greșeală odată cu `register`.
 
+**Revizuirea din 26 septembrie 2026: familia trecută de birou își face singură contul.** „Legarea
+ulterioară" pe care o promitea story-ul nu mai avea cum să se întâmple: `register` scrie mereu și
+profilul, deci `GET /users/without-profile` a rămas gol, iar o familie trecută de birou cu adresa ei
+primea la înregistrare „Există deja un cont cu această adresă de email" — fals, fiindcă nu exista
+niciun cont. Acum `register` cu adresa unui profil fără cont și neșters răspunde
+`{ claimSent: true }` și trimite la adresa din fișă un link (`account_claims`, șablonul
+`account-claim`); pe `/auth/cont-familie` familia își alege utilizatorul și parola și bifează cele
+două acceptări, iar contul se creează **pe profilul biroului**, confirmat (linkul a dovedit adresa)
+și în așteptarea aprobării (familia e cunoscută, contul încă nu). Biroul poate trimite linkul și
+din pagina familiei. O adresă care are deja cont e refuzată ca înainte. Alegătorul de cont din
+`/admin/profiles/new` a rămas pe loc, dar nu mai are pe cine lega: oferă doar conturile de admin,
+care n-au profil, și cel mult un cont al cărui profil a fost șters. Detaliile sunt în `CLAUDE.md`,
+la „Al patrulea link".
+
 ### S3 · Capacitate și listă de așteptare — **LIVRAT**
 
 > **Ce s-a construit.** Capacitatea se aplică la înscriere, și numărul care contează e

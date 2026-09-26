@@ -97,3 +97,12 @@ export interface PendingAccount {
     email: string | null;
     phone: string | null;
 }
+
+/**
+ * One row of the refused accounts, `GET /users/rejected`: the same, plus the day the school decided
+ * and the admins' own note. Admin-only, like the queue.
+ */
+export interface RejectedAccount extends PendingAccount {
+    decidedAt: ISODateTime | null;
+    rejectionReason: string | null;
+}
