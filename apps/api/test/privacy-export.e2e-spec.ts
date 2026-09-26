@@ -94,6 +94,9 @@ describe('Privacy export (e2e)', () => {
         expect(res.body.facturi).toHaveLength(1);
         expect(res.body.facturi[0].luna).toBe('2026-03');
         expect(Date.parse(res.body.generatedAt as string)).not.toBeNaN();
+        // The codes a family meets are said in words (QA of 26 September 2026).
+        expect(res.body.cont).toMatchObject({ rol: 'părinte', stareAprobare: 'aprobat' });
+        expect(res.body.facturi[0].stare).toBe('de plată');
     });
 
     it('carries the bank line a payment was recorded from, as the bank wrote it', async () => {
@@ -104,7 +107,9 @@ describe('Privacy export (e2e)', () => {
         expect(res.body.facturi[0].plati).toHaveLength(1);
         expect(res.body.facturi[0].plati[0]).toMatchObject({
             suma: 350,
-            metoda: 'bank_transfer',
+            // Said as a family would read it (QA of 26 September 2026), not as the database stores it.
+            metoda: 'transfer bancar',
+            stare: 'încasată',
             referinta: 'RB2026030501',
             dinExtras: { data: '2026-03-05', suma: 350, platitor: 'POP ELENA', detalii: 'plata martie Maria Pop', referintaBanca: 'RB2026030501' },
         });

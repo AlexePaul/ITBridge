@@ -225,6 +225,7 @@ const MESSAGES: Record<string, string> = {
   MONTH_NOT_TAUGHT_YET:
     "Luna nu s-a terminat încă: facturile ei se emit după ultima ei săptămână de cursuri.",
   INVOICE_DATE_IN_FUTURE: "Data emiterii nu poate fi în viitor.",
+  PAYMENT_DATE_IN_FUTURE: "Ziua plății nu poate fi în viitor.",
   INVOICE_WAIVED_HAS_NO_PDF:
     "Luna aceasta a fost consemnată fără plată (0 lei), deci nu are factură de descărcat.",
 

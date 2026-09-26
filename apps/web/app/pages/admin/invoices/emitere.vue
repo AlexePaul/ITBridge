@@ -322,6 +322,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { computed, onMounted, reactive, ref } from "vue";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { useNotifications } from "~/composables/useNotifications";
@@ -598,10 +599,23 @@ const send = async () => {
     // is not read as "already in SmartBill" — the month's page shows each one's state.
     const queued =
       result?.issued?.filter((invoice) => invoice.fiscalStatus === "pending").length ?? 0;
-    const details = [formatLei(grandTotal.value)];
-    if (waived > 0) details.push(`${waived} luni consemnate fără plată`);
-    if (queued > 0) details.push(`${queued} pleacă în SmartBill în minutele următoare`);
-    success(`${issued} ${issued === 1 ? "factură emisă" : "facturi emise"}`, details.join(" · "));
+    const skipped = result?.skipped?.length ?? 0;
+    // What this press issued, summed from what came back — not the sheet's total. Two admins
+    // pressing together left the second one reading "0 facturi emise · 600 lei" (QA of 26
+    // September 2026): the sum of invoices somebody else had just issued.
+    if (issued === 0 && waived === 0 && skipped > 0) {
+      success(
+        "Luna era deja emisă",
+        "Altcineva a emis-o înaintea ta — fișa de mai jos arată ce s-a emis."
+      );
+    } else {
+      const total = (result?.issued ?? []).reduce((sum, invoice) => sum + invoice.amount, 0);
+      const details = [formatLei(total)];
+      if (waived > 0)
+        details.push(countOf(waived, "lună consemnată", "luni consemnate") + " fără plată");
+      if (queued > 0) details.push(`${queued} pleacă în SmartBill în minutele următoare`);
+      success(countOf(issued, "factură emisă", "facturi emise"), details.join(" · "));
+    }
     // Reloaded rather than adjusted by hand: everything just issued comes back marked, which is
     // also what makes a second pass safe after a family enrols mid-month.
     await load();

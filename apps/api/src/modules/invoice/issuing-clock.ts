@@ -1,5 +1,6 @@
 /**
- * "Now", for the one question in issuing that turns on the calendar: has the month been taught?
+ * "Now", for the questions in billing that turn on the calendar: has the month been taught, and has
+ * the day on an invoice or a payment happened yet?
  *
  * A function the integration suites can replace, rather than `new Date()` inline, because they issue
  * October 2026 from registers they wrote themselves — a month that, by the machine's clock, has not

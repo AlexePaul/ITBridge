@@ -430,6 +430,50 @@
               </li>
             </ul>
           </UCard>
+
+          <!--
+            E20/S4's "pe sursă și pe locație": the API returned both and no card drew them (QA of
+            26 September 2026). Source is how the request reached the school; location is where
+            the family asked for, which is also where a missing seat was missing.
+          -->
+          <UCard class="border">
+            <template #header>
+              <h3 class="font-semibold">Cum au ajuns cererile</h3>
+              <p class="text-sm text-muted">Formularul de pe site, telefon, la birou sau altfel.</p>
+            </template>
+            <p v-if="funnel.bySource.length === 0" class="text-sm text-muted">Nimic încă.</p>
+            <ul v-else class="space-y-1 text-sm">
+              <li v-for="row in funnel.bySource" :key="row.key" class="flex justify-between gap-4">
+                <span>{{ sourceLabel(row.key) }}</span>
+                <span class="tabular-nums text-muted">
+                  {{ countOf(row.requests, "cerere", "cereri") }} ·
+                  {{ countOf(row.enrolled, "înscriere", "înscrieri") }}
+                </span>
+              </li>
+            </ul>
+          </UCard>
+
+          <UCard class="border">
+            <template #header>
+              <h3 class="font-semibold">Pe locație</h3>
+              <p class="text-sm text-muted">Unde au cerut familiile, și câte n-au găsit loc.</p>
+            </template>
+            <p v-if="funnel.byLocation.length === 0" class="text-sm text-muted">Nimic încă.</p>
+            <ul v-else class="space-y-1 text-sm">
+              <li
+                v-for="row in funnel.byLocation"
+                :key="row.locationId ?? 'none'"
+                class="flex justify-between gap-4"
+              >
+                <span>{{ row.locationName }}</span>
+                <span class="tabular-nums text-muted">
+                  {{ countOf(row.requests, "cerere", "cereri") }} ·
+                  {{ countOf(row.enrolled, "înscriere", "înscrieri") }}
+                  <template v-if="row.noSeats > 0"> · {{ row.noSeats }} fără loc</template>
+                </span>
+              </li>
+            </ul>
+          </UCard>
         </div>
       </template>
     </section>
@@ -442,8 +486,8 @@ import type { TabsItem } from "@nuxt/ui";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useReportsApi } from "~/composables/api/useReportsApi";
 import { useLeadsApi } from "~/composables/api/useLeadsApi";
-import { LEAD_CHANNEL_LABELS } from "~/types/lead.types";
-import type { LeadChannel, LeadFunnel } from "~/types/lead.types";
+import { LEAD_CHANNEL_LABELS, LEAD_SOURCE_LABELS } from "~/types/lead.types";
+import type { LeadChannel, LeadFunnel, LeadSource } from "~/types/lead.types";
 import { formatDateKey, formatLei, formatMonth, formatPercent } from "~/composables/useAdminFormat";
 import { defaultReportRange, isValidRange } from "~/composables/useReportRange";
 import { todayKey } from "~/composables/useAttendanceCalendar";
@@ -522,6 +566,8 @@ const funnelStages = computed(() => {
 
 const channelLabel = (key: string) =>
   key === "unspecified" ? "N-au spus" : (LEAD_CHANNEL_LABELS[key as LeadChannel] ?? key);
+
+const sourceLabel = (key: string) => LEAD_SOURCE_LABELS[key as LeadSource] ?? key;
 
 const loadFunnel = async () => {
   funnelLoading.value = true;
