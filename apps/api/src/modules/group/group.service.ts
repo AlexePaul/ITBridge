@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
-import { DataSource, EntityManager, FindOperator, LessThan, MoreThan, Not, Raw, Repository } from 'typeorm';
+import { DataSource, EntityManager, FindOperator, In, LessThan, MoreThan, Not, Raw, Repository } from 'typeorm';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { ClassSessionService } from 'src/modules/class-session/class-session.service';
 import { createGroupDto } from './dto/createGroup.dto';
@@ -12,6 +12,10 @@ import { ClassSession } from 'src/entities/class-session.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { schoolDay } from 'src/common/school-clock';
 import { romanianDayAndDate } from 'src/modules/mail/romanian-date';
+import { Enrollment } from 'src/entities/enrollment.entity';
+import { Attendance } from 'src/entities/attendance.entity';
+import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
+import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 
 @Injectable()
 export class GroupService {
@@ -130,11 +134,37 @@ export class GroupService {
         return this.getGroupById(id);
     }
 
+    /**
+     * A group is deleted only while nothing hangs off it (QA of 26 September 2026). Its enrolments
+     * (`RESTRICT`) and its register (`attendances.group`, no action) stopped the delete in the
+     * database, which reached the client as the filter's generic "still referenced"; its waiting
+     * list (`CASCADE`) stopped nothing, and the families waiting for a seat — one of them perhaps
+     * holding an offer — went with the group without a word. A group that has run is deactivated
+     * instead: it keeps its history and takes no new children. The foreign keys stay the backstop
+     * for a row written between the counts and the delete.
+     */
     async deleteGroup(id: number): Promise<void> {
-        const result = await this.groupRepository.delete(id);
-        if (result.affected === 0) {
-            throw new NotFoundException('Group not found');
-        }
+        await this.dataSource.transaction(async (manager) => {
+            if ((await manager.getRepository(Enrollment).count({ where: { group: { id } } })) > 0) {
+                throw new ConflictException({ message: 'Children were enrolled in this group; deactivate it instead', error: 'GROUP_HAS_ENROLMENTS' });
+            }
+            if ((await manager.getRepository(Attendance).count({ where: { group: { id } } })) > 0) {
+                throw new ConflictException({ message: 'The group has a register; deactivate it instead', error: 'GROUP_HAS_ATTENDANCE' });
+            }
+            const waiting = await manager
+                .getRepository(WaitlistEntry)
+                .count({ where: { group: { id }, status: In([WaitlistStatus.WAITING, WaitlistStatus.OFFERED]) } });
+            if (waiting > 0) {
+                throw new ConflictException({
+                    message: 'Families are waiting for a seat in this group; take them off the list first',
+                    error: 'GROUP_HAS_WAITLIST',
+                });
+            }
+            const result = await manager.delete(Group, id);
+            if (result.affected === 0) {
+                throw new NotFoundException('Group not found');
+            }
+        });
     }
 
     private async findRoomOrFail(id: number): Promise<Room> {

@@ -10,6 +10,7 @@ import { Role } from 'src/enum/role.enum';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 import { DeliveryLogService } from 'src/modules/mail/delivery-log.service';
 import { STUCK_AFTER_MINUTES } from 'src/modules/mail/outbox-health.rules';
+import { LeadService } from 'src/modules/lead/lead.service';
 
 /**
  * The overview — E21/S1.
@@ -28,6 +29,8 @@ describe('OverviewService', () => {
     let classSessions: { findSessions: jest.Mock; findUnmarkedSessions: jest.Mock };
     let enrollments: { occupancyOf: jest.Mock; withoutContract: jest.Mock };
     let arrears: { list: jest.Mock };
+    /** The lead module owns who needs a call; the overview counts what it is handed. */
+    let leads: { followUp: jest.Mock };
 
     const DAY = new Date(2026, 2, 20);
 
@@ -51,6 +54,7 @@ describe('OverviewService', () => {
         classSessions = { findSessions: jest.fn().mockResolvedValue([]), findUnmarkedSessions: jest.fn().mockResolvedValue([]) };
         enrollments = { occupancyOf: jest.fn(), withoutContract: jest.fn().mockResolvedValue([]) };
         arrears = { list: jest.fn().mockResolvedValue([]) };
+        leads = { followUp: jest.fn().mockResolvedValue({ undecided: [], noSeats: [], stale: [], due: [], unassigned: 0 }) };
 
         groupRepo.find!.mockResolvedValue([]);
         projects.pendingSummary.mockResolvedValue({ total: 0, oldestDays: null, staleAfterDays: 2, byGroup: [] });
@@ -66,6 +70,7 @@ describe('OverviewService', () => {
                 { provide: ArrearsService, useValue: arrears },
                 { provide: DeliveryLogService, useValue: deliveries },
                 { provide: ProjectService, useValue: projects },
+                { provide: LeadService, useValue: leads },
             ],
         }).compile();
         service = module.get(OverviewService);
@@ -251,6 +256,16 @@ describe('OverviewService', () => {
             deliveries.health.mockResolvedValue({ failed: 3, undeliverable: 0, stuck: 0, stuckAfterMinutes: STUCK_AFTER_MINUTES });
 
             await expect(service.build(DAY)).resolves.toMatchObject({ messagesNotDelivered: { failed: 3 } });
+        });
+
+        // QA of 26 September 2026: the dashboard had no leads tile, and the office's daily email was
+        // the only place a trial held with no decision showed up.
+        it('counts the leads to call from the lists the daily email is made of, each lead once', async () => {
+            const row = (id: number) => ({ lead: { id }, days: 3 });
+            leads.followUp.mockResolvedValue({ undecided: [row(1), row(2)], noSeats: [row(3)], stale: [row(4)], due: [row(1), row(3)], unassigned: 5 });
+
+            await expect(service.build(DAY)).resolves.toMatchObject({ leads: { toCall: 4, undecided: 2, noSeats: 1 } });
+            expect(leads.followUp).toHaveBeenCalledWith(DAY);
         });
     });
 });

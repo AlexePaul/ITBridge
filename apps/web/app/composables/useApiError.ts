@@ -104,6 +104,11 @@ const MESSAGES: Record<string, string> = {
     "Sala are ore în orar — ținute sau programate —, iar fiecare oră își păstrează sala. Dezactiveaz-o în loc s-o ștergi.",
   LOCATION_HAS_ANNOUNCEMENTS:
     "Familiile locației au primit anunțuri, iar anunțurile rămân în evidență. Dezactivează locația în loc s-o ștergi.",
+  GROUP_HAS_ENROLMENTS:
+    "În grupa asta au fost înscriși copii, deci are istoric. Dezactiveaz-o în loc să o ștergi.",
+  GROUP_HAS_ATTENDANCE: "Grupa are catalog, deci are istoric. Dezactiveaz-o în loc să o ștergi.",
+  GROUP_HAS_WAITLIST:
+    "Pe lista de așteptare a grupei sunt familii. Scoate-le de pe listă înainte să ștergi grupa.",
   ROOM_INACTIVE: "Sala sau locația este inactivă, deci nu poate primi grupe noi.",
 
   // E17/S7. All three are conflicts an admin can hit from the announcement screen, and the generic

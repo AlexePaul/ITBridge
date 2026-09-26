@@ -136,6 +136,13 @@ function projectsWaitingNote(oldestDays: number | null): string {
   return `cel mai vechi de ${countOf(oldestDays, "zi", "zile")}`;
 }
 
+/** The most pressing of the lead lists, in words: a decision owed first, then a seat nobody had. */
+function leadsNote(leads: Overview["leads"]): string | undefined {
+  if (leads.undecided > 0) return `${countOf(leads.undecided, "probă", "probe")} fără decizie`;
+  if (leads.noSeats > 0) return `${countOf(leads.noSeats, "familie", "familii")} fără loc`;
+  return leads.toCall > 0 ? "de sunat" : undefined;
+}
+
 const tiles = computed(() => {
   const data = overview.value;
   if (!data) return [];
@@ -148,7 +155,7 @@ const tiles = computed(() => {
       note:
         data.arrears.families === 0
           ? "nimic de urmărit"
-          : `${data.arrears.families} ${data.arrears.families === 1 ? "familie" : "familii"}` +
+          : countOf(data.arrears.families, "familie", "familii") +
             (data.arrears.over60 > 0 ? ` · ${data.arrears.over60} de sunat` : ""),
       to: "/admin/restante",
     },
@@ -158,6 +165,16 @@ const tiles = computed(() => {
       display: String(data.unmarkedThisWeek),
       note: "din ultima săptămână",
       to: "/admin/attendance",
+    },
+    {
+      // E20/S3's follow-up lists, counted — QA of 26 September 2026: a trial held with no decision
+      // showed only in the office's daily email. Leads, not list entries: one family on two lists
+      // is one call.
+      label: "Cereri de probă",
+      value: data.leads.toCall,
+      display: String(data.leads.toCall),
+      note: leadsNote(data.leads),
+      to: "/admin/leads",
     },
     {
       label: "Conturi în așteptare",

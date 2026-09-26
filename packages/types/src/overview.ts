@@ -80,4 +80,15 @@ export interface Overview {
     };
     /** Active enrolments with no signed contract on file — E07/S8. A child in a room nobody has the paper for. */
     enrollmentsWithoutContract: number;
+    /**
+     * The leads somebody has to phone — E20/S3's lists, counted by the lead module. `toCall` counts
+     * leads, not list entries: one family on two lists is one call.
+     */
+    leads: {
+        toCall: number;
+        /** Trials held with no decision. */
+        undecided: number;
+        /** Families who asked and found no seat. */
+        noSeats: number;
+    };
 }

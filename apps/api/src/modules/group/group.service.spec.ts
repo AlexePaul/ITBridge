@@ -15,6 +15,9 @@ import {
 } from 'src/testing/repository.mock';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { ClassSessionService } from 'src/modules/class-session/class-session.service';
+import { Enrollment } from 'src/entities/enrollment.entity';
+import { Attendance } from 'src/entities/attendance.entity';
+import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 
 describe('GroupService', () => {
     let service: GroupService;
@@ -233,13 +236,39 @@ describe('GroupService', () => {
         expect(manager.save).not.toHaveBeenCalled();
     });
 
-    it('deleteGroup rejects a group that does not exist', async () => {
-        groupRepo.delete!.mockResolvedValue({ affected: 0 });
-        await expect(service.deleteGroup(99)).rejects.toThrow(NotFoundException);
-    });
+    describe('deleteGroup', () => {
+        /** What each table answers to "how many rows point at this group". */
+        const pointing = (counts: { enrolments?: number; marks?: number; waiting?: number }) => {
+            const answers = new Map<unknown, number>([
+                [Enrollment, counts.enrolments ?? 0],
+                [Attendance, counts.marks ?? 0],
+                [WaitlistEntry, counts.waiting ?? 0],
+            ]);
+            manager.getRepository.mockImplementation((entity: unknown) => ({ count: jest.fn().mockResolvedValue(answers.get(entity) ?? 0) }));
+        };
 
-    it('deleteGroup succeeds when something was deleted', async () => {
-        groupRepo.delete!.mockResolvedValue({ affected: 1 });
-        await expect(service.deleteGroup(1)).resolves.toBeUndefined();
+        it('rejects a group that does not exist', async () => {
+            pointing({});
+            manager.delete.mockResolvedValue({ affected: 0 });
+            await expect(service.deleteGroup(99)).rejects.toThrow(NotFoundException);
+        });
+
+        it('deletes a group nothing points at', async () => {
+            pointing({});
+            await expect(service.deleteGroup(1)).resolves.toBeUndefined();
+            expect(manager.delete).toHaveBeenCalledWith(Group, 1);
+        });
+
+        // QA of 26 September 2026: the first two reached the client as the generic "still
+        // referenced", and the third went with the group in silence.
+        it.each([
+            [{ enrolments: 1 }, 'GROUP_HAS_ENROLMENTS'],
+            [{ marks: 3 }, 'GROUP_HAS_ATTENDANCE'],
+            [{ waiting: 2 }, 'GROUP_HAS_WAITLIST'],
+        ])('refuses a group with %o, by name', async (counts, code) => {
+            pointing(counts);
+            await expect(service.deleteGroup(1)).rejects.toMatchObject({ response: { error: code } });
+            expect(manager.delete).not.toHaveBeenCalled();
+        });
     });
 });
