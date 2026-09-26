@@ -660,11 +660,23 @@ inclusiv catalogul și proiectele — măsurat la fel: un copil, o înscriere ș
 din fiecare după, 200, de pe tokenul părintelui. `ChildService.deleteChild` refuză acum dacă
 copilul are prezențe (`CHILD_HAS_ATTENDANCE` — catalogul e ce s-a întâmplat, iar E15 S9 facturează
 din el) sau lucrări (`CHILD_HAS_PROJECTS` — cheile de obiect se derivă din id-uri, deci după
-ștergerea rândurilor nimic nu mai poate spune ce era de scos din bucket). **Înscrierile singure nu
-blochează**, dinadins: o înscriere fără niciun marcaj consemnează o intenție, nu un fapt, iar
-refuzul pe ea ar închide singura folosință rămasă rutei — un copil adăugat și repartizat din
+ștergerea rândurilor nimic nu mai poate spune ce era de scos din bucket). **Pentru birou, înscrierile
+singure nu blochează**, dinadins: o înscriere fără niciun marcaj consemnează o intenție, nu un fapt,
+iar refuzul pe ea ar închide singura folosință rămasă rutei — un copil adăugat și repartizat din
 greșeală. Ștergerea din E07 S4 nu trece pe aici: `ErasureService` șterge rândurile prin tranzacția
 lui, după ce citește cheile.
+
+**Familia își adaugă și își corectează copiii din „Profil"** (termenii §5–6, nota §8; revizuirea din
+26 septembrie 2026). Rutele existau, ecranul nu, deci textele promiteau ceva ce se făcea doar la
+telefon. `PortalChildForm` scrie prin aceleași `POST /children` și `PUT /children/:id`, iar DTO-urile
+țin acum regulile unei a doua uși: numele tăiate la capete și de cel mult 100 de caractere (coloana;
+mai lung era un 500 de la driver), data nașterii **o zi** `YYYY-MM-DD` (nu un instant) care nu e după
+ziua școlii (`BIRTH_DATE_IN_FUTURE`), cu propoziții în română, fiindcă portalul le arată. **O familie
+șterge doar un copil despre care școala nu știe nimic**: `CHILD_HAS_ENROLMENTS` pentru orice
+înscriere, oricât de veche, și `CHILD_ON_WAITLIST` — cascada retrăgea din grupă, adică exact ce §5
+lasă școlii. Refuzul vine înaintea celui despre catalog, fiindcă pentru părinte el e răspunsul. Iar
+un acord pentru lucrări în vigoare pleacă cu copilul, deci `deleteChild` anunță biroul ca la o
+ștergere de familie (`announceErasure`, înainte de cascadă).
 
 **Un copil se mută în familia lui, nu se șterge și se adaugă din nou** (testarea din 26 septembrie
 2026). Fiecare programare de pe `/proba` scrie o familie-coajă proprie, fără email și fără telefon,

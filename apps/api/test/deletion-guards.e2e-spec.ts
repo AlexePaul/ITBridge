@@ -156,7 +156,10 @@ describe('Deletion guards (e2e)', () => {
                 .send({ present: true })
                 .expect(200);
 
-            const refused = await request(app.getHttpServer()).delete(`/children/${childId}`).set('Authorization', ana.auth).expect(409);
+            // The office's token: a parent is refused earlier, for having an enrolment on file at all
+            // (`CHILD_HAS_ENROLMENTS`, portal-children.e2e-spec.ts). The register guard is what stands
+            // between the office's delete button and the register.
+            const refused = await request(app.getHttpServer()).delete(`/children/${childId}`).set('Authorization', admin.auth).expect(409);
 
             expect(refused.body.code).toBe('CHILD_HAS_ATTENDANCE');
             expect(await countRows('SELECT COUNT(*) FROM attendances WHERE "childId" = $1', [childId])).toBe(1);

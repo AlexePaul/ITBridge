@@ -305,8 +305,11 @@ export class PublicationConsentService {
      * do too: tell the office, in the same transaction, that it may have something to take down.
      * Called before the children are deleted, with the erasure's manager. GDPR art. 17(2) asks as
      * much of data that was made public.
+     *
+     * A single child removed from the family's page or from Profil (`ChildService.deleteChild`) takes
+     * its consent the same way, and says so in `recordedBy`.
      */
-    async announceErasure(childIds: number[], manager: EntityManager): Promise<number> {
+    async announceErasure(childIds: number[], manager: EntityManager, recordedBy = 'odată cu ștergerea datelor familiei'): Promise<number> {
         if (childIds.length === 0) return 0;
         const inForce = await manager.getRepository(PublicationConsent).find({
             where: { child: { id: In(childIds) }, revokedAt: IsNull() },
@@ -321,7 +324,7 @@ export class PublicationConsentService {
                 familyName: `${child.parent.firstName} ${child.parent.lastName}`.trim(),
                 grantedOn: dayInWords(new Date(consent.grantedAt)),
                 revokedOn: erasedOn,
-                recordedBy: 'odată cu ștergerea datelor familiei',
+                recordedBy,
                 familyUrl: adminFamilyUrl(child.parent.id),
             });
             await this.outbox.queue(

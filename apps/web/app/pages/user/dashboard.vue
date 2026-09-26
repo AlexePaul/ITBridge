@@ -38,8 +38,10 @@
       </div>
 
       <p v-if="children.length === 0" class="portal-empty">
-        Încă nu e niciun copil înscris. Alegem împreună grupa potrivită — te sunăm noi, sau ne scrii
-        tu la <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
+        Încă nu e niciun copil pe contul tău. Îl adaugi din
+        <NuxtLink to="/user/profile" class="link">Profil</NuxtLink>, iar grupa potrivită o alegem
+        împreună — te sunăm noi, sau ne scrii tu la
+        <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
         >.
       </p>
 
