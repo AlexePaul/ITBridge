@@ -151,6 +151,14 @@
             aria-label="Ora de curs"
             class="w-full"
           />
+          <!-- The save below is the whole register at once, which the API refuses for a class that
+               already has a mark — so a register begun on the phone is finished there, on its day
+               (review of 26 September 2026). Said here, since the list just leaves those out. -->
+          <p class="mt-2 text-xs text-muted">
+            Orele care au deja un marcaj nu apar aici: se completează și se corectează din
+            <NuxtLink to="/admin/attendance/azi" class="underline">Prezența de azi</NuxtLink>,
+            alegând ziua lor.
+          </p>
           <div v-if="sessionOptions.length === 0" class="mt-2 space-y-2">
             <p class="text-sm text-warning">
               Grupa nu are ore programate fără prezență înregistrată. Generează-i orarul chiar de

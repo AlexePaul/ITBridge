@@ -3,9 +3,40 @@
     <!-- No page heading of its own: the navbar above already renders "Prezența de azi" as the
          page's `h1`, and repeating it cost the top of a phone screen to say the same thing twice.
          What is left is the one fact the bar does not carry — which day is being marked. -->
-    <div class="flex items-center justify-between gap-4">
-      <p class="text-muted text-sm tabular-nums">{{ todayLabel }}</p>
-      <UButton to="/admin/attendance" variant="outline" class="min-h-11 shrink-0">Înapoi</UButton>
+    <div class="space-y-3">
+      <div class="flex items-center justify-between gap-4">
+        <p class="text-muted text-sm tabular-nums">
+          {{ dayText }}<template v-if="!isToday"> · zi trecută</template>
+        </p>
+        <UButton to="/admin/attendance" variant="outline" class="min-h-11 shrink-0">Înapoi</UButton>
+      </div>
+      <!-- Any day up to today, not today only (review of 26 September 2026): this is the one
+           screen that can finish or correct a register already begun, so yesterday's forgotten
+           one is finished here too. No later day — a mark is about a class that took place. -->
+      <div class="flex items-center gap-2">
+        <UButton
+          icon="i-lucide-chevron-left"
+          variant="outline"
+          class="min-h-11 shrink-0"
+          aria-label="Ziua anterioară"
+          @click="goToDay(shiftDay(day, -1))"
+        />
+        <AdminDateField
+          :model-value="day"
+          :max="today"
+          label="ziua catalogului"
+          class="flex-1"
+          @update:model-value="(value: string | undefined) => value && goToDay(value)"
+        />
+        <UButton
+          icon="i-lucide-chevron-right"
+          variant="outline"
+          class="min-h-11 shrink-0"
+          aria-label="Ziua următoare"
+          :disabled="isToday"
+          @click="goToDay(shiftDay(day, 1))"
+        />
+      </div>
     </div>
 
     <!-- Signed out, not refused: a 401 says nothing about the marks, so they stay on the phone and
@@ -49,18 +80,24 @@
 
     <template v-else-if="!selectedSessionId">
       <div
-        v-if="todaySessions.length === 0"
+        v-if="daySessions.length === 0"
         class="text-center py-12 border border-dashed border-muted rounded-lg space-y-2"
       >
         <UIcon name="i-lucide-calendar-off" class="text-4xl text-muted" />
-        <p class="font-medium">Nicio ședință azi</p>
-        <p class="text-sm text-muted">Orarul de azi nu are nimic programat.</p>
+        <template v-if="isToday">
+          <p class="font-medium">Nicio ședință azi</p>
+          <p class="text-sm text-muted">Orarul de azi nu are nimic programat.</p>
+        </template>
+        <template v-else>
+          <p class="font-medium">Nicio ședință în ziua asta</p>
+          <p class="text-sm text-muted">Orarul zilei n-a avut nimic programat sau s-a anulat.</p>
+        </template>
       </div>
 
-      <!-- More than one class today: pick. One tap, targets sized for a thumb. -->
+      <!-- More than one class that day: pick. One tap, targets sized for a thumb. -->
       <div v-else class="space-y-3">
         <button
-          v-for="session in todaySessions"
+          v-for="session in daySessions"
           :key="session.id"
           type="button"
           class="w-full flex items-center justify-between gap-4 p-4 border border-muted rounded-lg hover:bg-muted transition-colors text-left"
@@ -107,7 +144,7 @@
             </label>
           </div>
           <UButton
-            v-if="todaySessions.length > 1"
+            v-if="daySessions.length > 1"
             variant="ghost"
             class="min-h-11 shrink-0"
             @click="selectedSessionId = null"
@@ -191,9 +228,13 @@
             </div>
 
             <!-- An **unannounced** absence is one tap from a call — the S7 detail. A family that
-                 announced has already answered the question the call would ask. -->
+                 announced has already answered the question the call would ask. Today only: the
+                 call is for a child who may be on the way, and on a past day the class is over and
+                 a correction to the register is not news to ring a family with. -->
             <UButton
-              v-if="entry.present === false && entry.parentPhone && !entry.announcedAbsence"
+              v-if="
+                isToday && entry.present === false && entry.parentPhone && !entry.announcedAbsence
+              "
               :to="`tel:${entry.parentPhone}`"
               variant="soft"
               color="warning"
@@ -220,6 +261,7 @@ import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 import { useMarkQueue } from "~/composables/useMarkQueue";
+import { dayLabel, registerDay, shiftDay } from "~/composables/useRegisterDay";
 import type { ClassSessionWithAttendance } from "~/types/class-session.types";
 import { SessionStatus } from "~/types/class-session.types";
 import type { SessionRegister, SessionRegisterEntry } from "~/types/attendance.types";
@@ -228,9 +270,12 @@ import type { SessionRegister, SessionRegisterEntry } from "~/types/attendance.t
  * The tap-to-mark screen — E12/S6.
  *
  * A phone in a classroom: today's classes, the children of the chosen one, two thumb-sized targets
- * per child, and a save on every tap. A tap that the network refuses goes into the local queue
- * (`useMarkQueue`, over the storage in `useAttendanceQueue`) and is retried when the connection
- * returns — the server's upsert is idempotent precisely so this screen can retry blindly.
+ * per child, and a save on every tap. Any earlier day too, from `?zi=` (`useRegisterDay`): the
+ * per-child save is what a half-taken register needs, so this is where one is finished.
+ *
+ * A tap that the network refuses goes into the local queue (`useMarkQueue`, over the storage in
+ * `useAttendanceQueue`) and is retried when the connection returns — the server's upsert is
+ * idempotent precisely so this screen can retry blindly.
  *
  * No photos, although the story sketch names them: `Child` has no photo field, and adding one is a
  * storage-and-consent question that belongs to E07/E14, not to this screen.
@@ -245,8 +290,17 @@ const attendanceApi = useAttendanceApi();
 const classSessionsApi = useClassSessionsApi();
 const { error } = useNotifications();
 
+const route = useRoute();
+const router = useRouter();
+
+const today = todayKey();
+/** The day on screen: `?zi=` when it names today or a day before; today otherwise. */
+const day = ref(registerDay(route.query.zi, today));
+const isToday = computed(() => day.value === today);
+const dayText = computed(() => dayLabel(day.value));
+
 const loadingSessions = ref(true);
-const todaySessions = ref<ClassSessionWithAttendance[]>([]);
+const daySessions = ref<ClassSessionWithAttendance[]>([]);
 const selectedSessionId = ref<number | null>(null);
 
 const register = ref<SessionRegister | null>(null);
@@ -270,40 +324,67 @@ const { pending, flushing, signInNeeded } = queue;
 const flushQueue = queue.flush;
 
 /** The login form, told to come back to this very screen — where the queue drains on opening. */
-const route = useRoute();
 const signInLink = computed(() => ({
   path: "/auth/login",
   query: { inapoi: route.fullPath },
 }));
 
-const today = todayKey();
-const todayLabel = computed(() => {
-  const [year, month, day] = today.split("-");
-  return `${Number(day)}.${month}.${year}`;
-});
-
 const markedCount = computed(
   () => register.value?.entries.filter((entry) => entry.present !== null).length ?? 0
+);
+
+/** The day's classes; with only one, straight into its register, no picking. */
+const loadDay = async () => {
+  const requested = day.value;
+  loadingSessions.value = true;
+  selectedSessionId.value = null;
+  register.value = null;
+  registerError.value = "";
+  try {
+    const sessions = await classSessionsApi.fetchSessions({
+      dateFrom: requested,
+      dateTo: requested,
+    });
+    // Another day was picked while this one loaded; its own load owns the screen.
+    if (requested !== day.value) return;
+    daySessions.value = sessions
+      .filter((session) => session.status !== SessionStatus.CANCELLED)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+    if (daySessions.value.length === 1) {
+      await openSession(daySessions.value[0]!.id);
+    }
+  } catch (err: unknown) {
+    if (requested !== day.value) return;
+    daySessions.value = [];
+    error(apiErrorMessage(err, "Eroare la încărcarea orarului zilei"));
+  } finally {
+    if (requested === day.value) loadingSessions.value = false;
+  }
+};
+
+/** Today stays the bare address, so the screen a teacher bookmarks is the one for the class now. */
+const goToDay = (next: string) => {
+  const target = registerDay(next, today);
+  if (target === day.value) return;
+  void router.replace({ query: { ...route.query, zi: target === today ? undefined : target } });
+};
+
+// The query is the source of truth, so the browser's back button walks the days as well.
+watch(
+  () => route.query.zi,
+  (zi) => {
+    const next = registerDay(zi, today);
+    if (next === day.value) return;
+    day.value = next;
+    void loadDay();
+  }
 );
 
 onMounted(async () => {
   queue.load();
   window.addEventListener("online", queue.onBackOnline);
 
-  try {
-    const sessions = await classSessionsApi.fetchSessions({ dateFrom: today, dateTo: today });
-    todaySessions.value = sessions
-      .filter((session) => session.status !== SessionStatus.CANCELLED)
-      .sort((a, b) => a.startTime.localeCompare(b.startTime));
-    // One class today — straight in, no picking.
-    if (todaySessions.value.length === 1) {
-      await openSession(todaySessions.value[0]!.id);
-    }
-  } catch (err: unknown) {
-    error(apiErrorMessage(err, "Eroare la încărcarea orarului de azi"));
-  } finally {
-    loadingSessions.value = false;
-  }
+  await loadDay();
 
   if (pending.value.length > 0) void flushQueue();
 });
