@@ -60,7 +60,7 @@ export class ReconciliationController {
     @ApiBearerAuth()
     @ApiResponse({ status: 409, description: 'STATEMENT_LINE_ALREADY_MATCHED' })
     async match(@Param('id', ParseIntPipe) id: number, @Body() dto: MatchStatementLineDto, @Request() req: AuthenticatedRequest) {
-        return this.reconciliation.match(id, dto.invoiceId, req.user.sub, actorFrom(req));
+        return this.reconciliation.match(id, dto.invoiceId, req.user.sub, actorFrom(req), dto.acceptOverpayment === true);
     }
 
     @Post('lines/:id/ignore')

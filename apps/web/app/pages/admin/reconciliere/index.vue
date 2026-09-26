@@ -238,6 +238,21 @@
         <p v-if="pickError" class="text-sm text-error mt-2" role="alert">{{ pickError }}</p>
       </template>
     </AdminConfirmModal>
+    <AdminConfirmModal
+      v-model:open="overpayOpen"
+      title="Factura e deja plătită?"
+      confirm-label="Înregistrează totuși"
+      danger
+      @confirm="overpay && match(overpay.line, overpay.invoiceId, true)"
+    >
+      <template #body>
+        <p>
+          Linia de extras plătește mai mult decât mai are de plată factura aleasă — de obicei
+          fiindcă familia a plătit între timp altfel. Înregistreaz-o doar dacă au intrat cu adevărat
+          două plăți; altfel alege altă factură sau pune linia deoparte.
+        </p>
+      </template>
+    </AdminConfirmModal>
   </AdminPage>
 </template>
 
@@ -245,7 +260,7 @@
 import type { DropdownMenuItem } from "@nuxt/ui";
 import type { AdminTableColumn } from "~/types/admin-ui.types";
 import type { ArrearsRow } from "~/types/arrears.types";
-import { apiErrorMessage } from "~/composables/useApiError";
+import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
 import { useNotifications } from "~/composables/useNotifications";
 import { formatDateKey, formatLei, formatMonth } from "~/composables/useAdminFormat";
 import { useReconciliationApi } from "~/composables/api/useReconciliationApi";
@@ -423,12 +438,28 @@ const lineActions = (line: StatementLineView): DropdownMenuItem[] => {
   return items;
 };
 
-const match = async (line: StatementLineView, invoiceId: number) => {
+/**
+ * A proposal can be older than the invoice's last payment: the page is opened, the office takes the
+ * same month in cash at the desk, and the proposal still says "rest 350". The server refuses a line
+ * that pays more than is owed (QA of 26 September 2026); the office can still record it on purpose —
+ * two real payments, one to be given back — after saying so here.
+ */
+const overpay = ref<{ line: StatementLineView; invoiceId: number } | null>(null);
+const overpayOpen = ref(false);
+
+const match = async (line: StatementLineView, invoiceId: number, acceptOverpayment = false) => {
   try {
-    await reconciliation.matchLine(line.id, invoiceId);
+    await reconciliation.matchLine(line.id, invoiceId, acceptOverpayment);
+    overpayOpen.value = false;
     success("Încasare înregistrată");
     await load();
   } catch (err: unknown) {
+    if (!acceptOverpayment && apiErrorCode(err) === "STATEMENT_LINE_EXCEEDS_REMAINDER") {
+      overpay.value = { line, invoiceId };
+      overpayOpen.value = true;
+      await load();
+      return;
+    }
     error(apiErrorMessage(err, "Nu am putut înregistra încasarea"));
   }
 };
@@ -499,6 +530,12 @@ const confirmPick = async () => {
     success("Încasare înregistrată");
     await load();
   } catch (err: unknown) {
+    if (apiErrorCode(err) === "STATEMENT_LINE_EXCEEDS_REMAINDER") {
+      pickOpen.value = false;
+      overpay.value = { line, invoiceId: pickInvoiceId.value };
+      overpayOpen.value = true;
+      return;
+    }
     pickError.value = apiErrorMessage(err, "Nu am putut înregistra încasarea");
   } finally {
     matching.value = false;
