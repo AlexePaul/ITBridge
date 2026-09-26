@@ -11,6 +11,7 @@ import { Lead } from 'src/entities/lead.entity';
 import { Project } from 'src/entities/project.entity';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { User } from 'src/entities/user.entity';
+import { AccountClaim } from 'src/entities/account-claim.entity';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { S3Service } from 'src/modules/storage/s3.service';
@@ -314,6 +315,11 @@ export class ErasureService {
                     { counterparty: null, description: ERASED_STATEMENT_TEXT },
                 );
             }
+
+            // The links to create an account on this family hang off the profile, not the account,
+            // and the profile stays — emptied — so nothing cascades to them: each one kept the
+            // family's address until 30 days after it expired (review of 26 September 2026).
+            await manager.delete(AccountClaim, { profile: { id: profileId } });
 
             // Cascades to sessions, e-mail confirmations and document acceptances, and sets
             // `Profile.user` to null on the way out.

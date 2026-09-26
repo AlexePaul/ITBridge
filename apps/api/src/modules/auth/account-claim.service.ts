@@ -191,7 +191,11 @@ export class AccountClaimService {
             .getOne();
         const claim = await manager.getRepository(AccountClaim).findOne({ where: { id: found.id }, lock: { mode: 'pessimistic_write' } });
 
-        if (!claim || claim.usedAt !== null || claim.expiresAt.getTime() <= now.getTime()) {
+        // Judged on the clock read after the locks, not on `now`: a newer link issued while this one
+        // waited killed it at that later instant, which a time taken before the wait still saw ahead
+        // (review of 26 September 2026).
+        const judgedAt = Math.max(now.getTime(), Date.now());
+        if (!claim || claim.usedAt !== null || claim.expiresAt.getTime() <= judgedAt) {
             throw claimTokenInvalid();
         }
         if (!profile || profile.user || profile.erasedAt !== null || !profile.email || !sameAddress(profile.email, claim.email)) {
