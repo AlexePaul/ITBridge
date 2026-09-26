@@ -118,6 +118,18 @@ secunde, fiindcă scrie prin `generate_series`, nu prin TypeORM. Dimensiunea se 
 partea care poate fi tăcut greșită: un copil înmulțit cu **toate** ședințele școlii, în loc cu cele
 ale grupei lui, dă 936.000 de rânduri în loc de 35.100, iar scriptul rulează la fel de vesel.
 
+**Și a măsurat primele ecrane care cresc cu școala** (26 septembrie 2026). `/admin/payments` cerea
+toate plățile înregistrate vreodată și le desena pe toate: la trei ani, 9,6 MB de la API, 8.300 de
+rânduri, **1,9 GB de memorie în browser și 46 de secunde** — un laptop de birou nu supraviețuiește.
+Acum arată o lună (după data plății, luna curentă întâi, cu săgeți), plus, din orice lună, ce mai
+așteaptă pe cineva — transferurile anunțate și încasările de verificat în SmartBill (`needsAction`):
+1,4 s și 10 MB. `/admin/invoices` descărca toate facturile ca să afle ce luni există (6,9 MB) —
+acum întreabă `GET /invoices/months` —, iar pagina unei luni cere `?monthIssued=`. Și fiecare
+pagină de admin cerea la pornire `GET /profiles`, care pentru un admin înseamnă **toate familiile**,
+ca să umple profilul unui părinte pe care nu-l citea nimeni: `initializeProfile` sare acum peste
+admini. **Regula: o listă de admin care crește lunar cere o lună**, nu tot tabelul; un ecran nou
+de felul ăsta se măsoară cu `pnpm seed:scale` înainte să fie numit gata.
+
 **Nu e o bază în care se dă clic**: n-are conturi de părinte, toate familiile se cheamă `Familia 37`
 și **golește tot** înainte, deci trece prin acelaşi `checkSeedTarget`. Când ai terminat de măsurat,
 `pnpm seed` îți dă înapoi baza folosibilă. Ce tipărește la final sunt numerele **citite din bază**,

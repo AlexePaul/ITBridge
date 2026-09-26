@@ -742,6 +742,16 @@ iar cele 81 vechi verzi.
 - **Și trei mărunte.** O blocare pentru rată venită pe un PDF nu se consemna. Corectura unei facturi
   primea o sumă negativă. Iar trecerea în `overdue` putea întoarce o factură tocmai plătită.
 
+### Măsurarea din 26 septembrie 2026: ecranele de bani la trei ani
+
+Cu `pnpm seed:scale` (250 de familii, 9.000 de facturi, 8.300 de plăți), **`/admin/payments` se
+încărca în 46 de secunde și ducea fila la 1,9 GB de memorie**: cerea toate plățile înregistrate
+vreodată (9,6 MB) și le desena pe toate. Acum arată o lună, după data plății, cu luna curentă
+întâi, plus — din orice lună — transferurile anunțate și încasările de verificat în SmartBill, adică
+exact rândurile pentru care deschide cineva ecranul (`GET /payments?needsAction=true`): 1,4 s și
+10 MB. Tot de acolo, `/admin/invoices` nu mai descarcă toate facturile ca să afle ce luni există
+(`GET /invoices/months`), iar pagina unei luni cere doar luna ei (`?monthIssued=`).
+
 ## Dependențe
 
 [E15](E15-pricing-facturare.md). Nu se poate emite corect ce nu e calculat corect.
