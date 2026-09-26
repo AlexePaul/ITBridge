@@ -13,6 +13,6 @@ import { IsString, Length } from 'class-validator';
 export class LoseLeadDto {
     @ApiProperty({ example: 'Programul nu li se potrivește; poate în toamnă' })
     @IsString()
-    @Length(3, 255)
+    @Length(3, 255, { message: 'Motivul trebuie să aibă între 3 și 255 de caractere' })
     reason: string;
 }
