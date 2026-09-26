@@ -86,6 +86,28 @@ describe('Overview (e2e)', () => {
     });
 
     describe('it agrees with the screens it summarises', () => {
+        // QA of 26 September 2026: the dashboard had no leads tile. It counts the lists the office's
+        // daily email is made of, asked of the lead module.
+        it('counts the leads to call as the follow-up lists do', async () => {
+            await request(app.getHttpServer())
+                .post('/leads')
+                .set('Authorization', admin.auth)
+                .send({
+                    parentName: 'Ioana Test',
+                    parentEmail: 'ioana.lead@example.com',
+                    childFirstName: 'Radu',
+                    childLastName: 'Test',
+                    childBirthDate: '2016-04-02',
+                    source: 'phone',
+                    nextActionAt: iso(TODAY),
+                })
+                .expect(201);
+
+            const followUp = await request(app.getHttpServer()).get('/leads/follow-up').set('Authorization', admin.auth).expect(200);
+            expect(followUp.body.due).toHaveLength(1);
+            expect((await overview().expect(200)).body.leads).toEqual({ toCall: 1, undecided: 0, noSeats: 0 });
+        });
+
         it('the arrears figure matches the arrears list, to the leu', async () => {
             await holdSessions(app, dataSource, admin, groupId, [childId], teachingMondays('2026-03').slice(0, 4));
             await request(app.getHttpServer())

@@ -1725,7 +1725,10 @@ ceasul serverului, deci între miezul nopții și 03:00 la București „orele d
 o oră anulată intra în „0 din N marcate", cu eticheta „Nemarcată" pe fiecare oră a unei zile libere;
 iar „peste 60 de zile" număra facturi, deși rândul de deasupra, și ecranul, vorbesc despre familii de
 sunat. Acum `OverviewService.build` pleacă de la `schoolDay`, lasă deoparte orele `cancelled` — cum
-face deja `findUnmarkedSessions`, care deține „nemarcat" — și numără părinți distincți.
+face deja `findUnmarkedSessions`, care deține „nemarcat" — și numără părinți distincți. **Cererile
+de probă au și ele un rând acolo** (testarea din 26 septembrie 2026): până atunci o probă ținută fără
+decizie se vedea doar în mailul zilnic al biroului. Numărul vine din `LeadService.followUp`, aceeași
+citire din care e făcut mailul, și numără lead-uri, nu intrări: o familie pe două liste e un telefon.
 
 **Semnalele timpurii sunt patru liste și un email de luni, nu o acțiune** (E21 S7).
 `EarlySignalsService` (`apps/api/src/modules/dashboard/early-signals.service.ts`) cere fiecare

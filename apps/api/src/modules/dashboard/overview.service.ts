@@ -9,6 +9,7 @@ import { Role } from 'src/enum/role.enum';
 import { ClassSessionService } from 'src/modules/class-session/class-session.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { ArrearsService } from 'src/modules/invoice/arrears.service';
+import { LeadService } from 'src/modules/lead/lead.service';
 import { DeliveryLogService } from 'src/modules/mail/delivery-log.service';
 import { OutboxHealth } from 'src/modules/mail/outbox-health.rules';
 import { addDays, toIsoDate, parseIsoDate } from 'src/modules/class-session/class-session.dates';
@@ -75,6 +76,18 @@ export interface Overview {
     messagesNotDelivered: OutboxHealth;
     /** Active enrolments with no contract on file — E07/S8. Asked of `EnrollmentService.withoutContract`. */
     enrollmentsWithoutContract: number;
+    /**
+     * The leads somebody has to phone — E20/S3's lists, counted. Asked of `LeadService.followUp`, the
+     * read the office's daily email is made of, so the tile and the email cannot disagree.
+     */
+    leads: {
+        /** Distinct leads on any of the lists: one family on two of them is one call. */
+        toCall: number;
+        /** Trials held with no decision — a seat, a teacher and an hour already given. */
+        undecided: number;
+        /** Families who asked and found no seat. */
+        noSeats: number;
+    };
 }
 
 /**
@@ -100,6 +113,7 @@ export class OverviewService {
         private readonly arrears: ArrearsService,
         private readonly projects: ProjectService,
         private readonly deliveries: DeliveryLogService,
+        private readonly leads: LeadService,
     ) {}
 
     async build(today: Date = new Date()): Promise<Overview> {
@@ -108,8 +122,8 @@ export class OverviewService {
         const date = schoolDay(today);
         const day = parseIsoDate(date);
 
-        const [sessions, unmarked, arrearsRows, groupsNearlyFull, pendingProjects, pendingApprovals, messagesNotDelivered, withoutContract] = await Promise.all(
-            [
+        const [sessions, unmarked, arrearsRows, groupsNearlyFull, pendingProjects, pendingApprovals, messagesNotDelivered, withoutContract, followUp] =
+            await Promise.all([
                 // The admin view of the day: `findSessions` narrows for a parent and not for an admin,
                 // and this endpoint is admin-only, so it sees the whole school.
                 this.classSessions.findSessions({ dateFrom: date, dateTo: date }, Role.ADMIN, 0),
@@ -131,8 +145,10 @@ export class OverviewService {
                 // E07/S8: the enrolments the office has no signed contract for. The list is the
                 // enrolment module's; the tile only counts what it is handed.
                 this.enrollments.withoutContract(),
-            ],
-        );
+                // E20/S3: the lead module owns "who needs a call"; the tile counts what it is handed.
+                this.leads.followUp(today),
+            ]);
+        const leadsToCall = new Set([...followUp.undecided, ...followUp.noSeats, ...followUp.stale, ...followUp.due].map((row) => row.lead.id)).size;
 
         // A cancelled class is not one of today's, and it can never be marked: counted here it showed
         // "0 din N marcate" and a „Nemarcată" badge on every class of a day off (review of 25
@@ -168,6 +184,7 @@ export class OverviewService {
             pendingApprovals,
             messagesNotDelivered,
             enrollmentsWithoutContract: withoutContract.length,
+            leads: { toCall: leadsToCall, undecided: followUp.undecided.length, noSeats: followUp.noSeats.length },
         };
     }
 
