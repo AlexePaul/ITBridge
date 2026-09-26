@@ -33,6 +33,14 @@ export function loginUrl(): string {
 }
 
 /**
+ * The public contact page — the link for a family with no account, which a login link would only
+ * turn away: a trial family booked on `/proba` (QA of 26 September 2026).
+ */
+export function contactUrl(): string {
+    return `${siteBase()}/contact`;
+}
+
+/**
  * The link mailed to a family the office typed in, so it can create its own account. Same shape as
  * the two above: the page reads the token out of the query string, so nothing has to be typed.
  */

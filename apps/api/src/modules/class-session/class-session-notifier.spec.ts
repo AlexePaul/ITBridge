@@ -189,6 +189,18 @@ describe('ClassSessionNotifier', () => {
                 'class-cancelled',
                 expect.objectContaining({ makeUpNote: expect.stringContaining('Proba copilului tău era la ora asta') }),
             );
+            // QA of 26 September 2026: the family has no account, so the login page is no use to it.
+            const mail = templates.render.mock.calls[0][1] as Record<string, string>;
+            expect(mail.portalUrl).toMatch(/\/contact$/);
+            expect(mail.portalNote).not.toContain('portal');
+        });
+
+        it('sends a family with an account to the portal, in the sentence the template always had', async () => {
+            await notifier.notifyCancelled(3, 'Profesor bolnav', asManager());
+
+            const mail = templates.render.mock.calls[0][1] as Record<string, string>;
+            expect(mail.portalUrl).toMatch(/\/auth\/login$/);
+            expect(mail.portalNote).toBe('Restul orelor rămân neschimbate, iar orarul actualizat e mereu în portal:');
         });
 
         // QA of 26 September 2026: the sentence followed the address, not the enrolment, so a

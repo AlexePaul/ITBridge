@@ -46,7 +46,9 @@ export const SEEDED_TEMPLATE_EDITS: SeededTemplateEdit[] = [
             '',
             '{{makeUpNote}}',
             '',
-            'Orarul la zi e în portal: {{portalUrl}}',
+            // The sentence comes with its link: the portal for a family with an account, the contact
+            // page for a trial family without one (QA of 26 September 2026).
+            '{{portalNote}} {{portalUrl}}',
             '',
             'IT Bridge School',
         ].join('\n'),

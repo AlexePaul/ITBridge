@@ -2118,7 +2118,10 @@ Patru reguli pe care le încalci ușor:
   `undeliverable`, iar familia venea la o sală goală. `bookingAddresses`
   (`apps/api/src/modules/mail/booking-address.ts`) dă, pentru un profil fără adresă, emailul celui
   mai nou lead legat de el; notificatorul orelor și audiența anunțului îl citesc amândouă. Dacă
-  adaugi un al treilea expeditor către „familiile grupei", treci pe acolo. Numărul de telefon are
+  adaugi un al treilea expeditor către „familiile grupei", treci pe acolo. **Iar familia asta n-are
+  cont**, deci mesajele despre oră nu o trimit la login (testarea din 26 septembrie 2026): propoziția
+  de dinaintea linkului e o variabilă, `portalNote`, iar pentru o familie ajunsă prin adresa de pe
+  programare ea și linkul duc la pagina de contact. Numărul de telefon are
   aceeași poveste și aceeași ieșire (revizuirea din 26 septembrie 2026): catalogul citea doar
   `profile.phone`, deci „Sună părintele" lipsea tocmai pentru copilul la probă, iar `bookingPhones`,
   alături, dă numărul celui mai nou lead al copilului. **Adresa ajunge la familie, dar nu decide ce
