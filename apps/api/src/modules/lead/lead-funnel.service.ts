@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Raw, Repository } from 'typeorm';
+import { SCHOOL_TIME_ZONE } from 'src/common/school-clock';
 import { Lead } from 'src/entities/lead.entity';
 import { LeadStatus } from 'src/enum/lead-status.enum';
 import { ageOf, bandFor } from 'src/modules/enrollment/enrollment.service';
@@ -24,7 +25,14 @@ export class LeadFunnelService {
 
     async funnel(range: { from: string; to: string }): Promise<LeadFunnel> {
         const leads = await this.leadRepository.find({
-            where: { createdAt: Between(new Date(`${range.from}T00:00:00Z`), new Date(`${range.to}T23:59:59.999Z`)) },
+            // The school's days, not UTC's: a booking at 00:40 on 1 October in Bucharest is
+            // 21:40 on 30 September in UTC, and was counted in September (review of 25 September 2026).
+            where: {
+                createdAt: Raw((column) => `(${column} AT TIME ZONE '${SCHOOL_TIME_ZONE}')::date BETWEEN :from AND :to`, {
+                    from: range.from,
+                    to: range.to,
+                }),
+            },
             // `trialSession` and `enrollment` are loaded because `hasReached` reads them, and an
             // unloaded relation comes back as `undefined` rather than `null` — which would have made
             // every lead in the range look as though it had had a trial booked.
@@ -34,6 +42,7 @@ export class LeadFunnelService {
         const reached = (status: LeadStatus) => leads.filter((lead) => hasReached(lead, status)).length;
 
         const requests = leads.length;
+        const noSeats = leads.filter((lead) => lead.noSeats).length;
         const trialsScheduled = reached(LeadStatus.TRIAL_SCHEDULED);
         const trialsHeld = reached(LeadStatus.TRIAL_HELD);
         const enrolled = reached(LeadStatus.ENROLLED);
@@ -50,10 +59,13 @@ export class LeadFunnelService {
                 trialsHeld,
                 enrolled,
                 lost: leads.filter((lead) => lead.status === LeadStatus.LOST).length,
-                noSeats: leads.filter((lead) => lead.noSeats).length,
+                noSeats,
             },
             rates: {
-                requestToTrial: rate(trialsScheduled, requests),
+                // Out of the families the school could seat. A request nobody could place never had
+                // a trial to book — E20/S4 keeps it outside every rate — so counting it here read a
+                // month of full groups as a month of families who would not come.
+                requestToTrial: rate(trialsScheduled, requests - noSeats),
                 trialToAttendance: rate(trialsHeld, trialsScheduled),
                 // The number the epic calls the most important one — and the one that measures two
                 // things at once, which is why the median below travels with it: a family may have

@@ -19,6 +19,17 @@ describe('renderTemplate', () => {
         expect(renderTemplate({ subject: '{{nmae}}', bodyText: '', bodyHtml: null }, { name: 'Ana' }).subject).toBe('{{nmae}}');
     });
 
+    /**
+     * `in` walks the prototype, so `{{constructor}}` rendered the source of `Object` in the text
+     * and threw in the HTML escape — and a template saved with it failed on every send (review of
+     * 25 September 2026). A name the caller did not pass is an unknown placeholder, like any other.
+     */
+    it("treats a name only the object's prototype has as unknown, and renders it visibly", () => {
+        const rendered = renderTemplate({ subject: '{{constructor}}', bodyText: 'x {{toString}}', bodyHtml: '<p>{{constructor}}</p>' }, {});
+
+        expect(rendered).toEqual({ subject: '{{constructor}}', bodyText: 'x {{toString}}', bodyHtml: '<p>{{constructor}}</p>' });
+    });
+
     it('escapes values in the HTML variant and not in the text one', () => {
         const rendered = renderTemplate({ subject: '', bodyText: '{{who}}', bodyHtml: '{{who}}' }, { who: "O'Brien & <Co>" });
 

@@ -4,6 +4,7 @@ import { LeadChannel, LeadSource } from 'src/enum/lead-source.enum';
 import { LeadStatus } from 'src/enum/lead-status.enum';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 import { hasReached, LeadFunnelService } from './lead-funnel.service';
+import { FindOperator } from 'typeorm';
 
 /**
  * The funnel — E20/S4.
@@ -129,6 +130,36 @@ describe('LeadFunnelService', () => {
 
         expect(funnel.byChannel[0]).toEqual({ key: 'friend', requests: 2, enrolled: 1 });
         expect(funnel.byChannel[1]).toEqual({ key: 'unspecified', requests: 1, enrolled: 0 });
+    });
+
+    /**
+     * E20/S4 keeps the requests nobody could seat outside every rate, and this one counted them: two
+     * families booked and two found no hour read as 50% where every family who could book, booked
+     * (review of 25 September 2026).
+     */
+    it('measures request to trial against the families the school could seat', async () => {
+        leadRepo.find?.mockResolvedValue([
+            lead({ id: 1, status: LeadStatus.TRIAL_SCHEDULED, trialSession: { id: 1 } }),
+            lead({ id: 2, status: LeadStatus.TRIAL_SCHEDULED, trialSession: { id: 2 } }),
+            lead({ id: 3, noSeats: true }),
+            lead({ id: 4, noSeats: true }),
+        ]);
+
+        const funnel = await service.funnel(range);
+
+        expect(funnel.stages).toMatchObject({ requests: 4, noSeats: 2 });
+        expect(funnel.rates.requestToTrial).toBe(100);
+    });
+
+    it("reads the range as the school's days, not UTC's", async () => {
+        leadRepo.find?.mockResolvedValue([]);
+
+        await service.funnel(range);
+
+        const [options] = leadRepo.find?.mock.calls[0] as [{ where: { createdAt: FindOperator<Date> } }];
+        const operator = options.where.createdAt as unknown as { type: string; getSql: (column: string) => string };
+        expect(operator.type).toBe('raw');
+        expect(operator.getSql('"lead"."createdAt"')).toContain("AT TIME ZONE 'Europe/Bucharest'");
     });
 
     it('answers zero rather than dividing by nothing when a month was quiet', async () => {

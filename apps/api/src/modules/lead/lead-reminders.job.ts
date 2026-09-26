@@ -12,6 +12,7 @@ import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/clas
 import { schoolDay } from 'src/common/school-clock';
 import { LeadService } from './lead.service';
 import { composeNoShowFollowUp, composeOfficeDigest, composeTrialReminder, officeDigestIsEmpty, TrialDetails } from './lead-mail';
+import { sessionStartStamp } from 'src/modules/attendance/absence-notice.rules';
 
 /**
  * The three things E20/S3 says have to happen without anybody remembering them.
@@ -109,7 +110,7 @@ export class LeadRemindersJob {
         const tomorrow = toIsoDate(addDays(parseIsoDate(schoolDay(now)), 1));
         const leads = await this.leadRepository.find({
             where: { status: LeadStatus.TRIAL_SCHEDULED },
-            relations: { trialSession: { group: { room: { location: true } } } },
+            relations: { trialSession: { group: { room: { location: true } }, room: { location: true } } },
         });
 
         let queued = 0;
@@ -118,9 +119,15 @@ export class LeadRemindersJob {
             if (!session || session.status !== ClassSessionStatus.SCHEDULED) continue;
             if (toIsoDate(new Date(session.date)) !== tomorrow) continue;
 
+            // The class's start in the key, not only its row: `moveSession` keeps the row, so a trial
+            // moved from Tuesday to Thursday after Monday's reminder was refused Wednesday's as a
+            // duplicate, and the family came on Tuesday (review of 25 September 2026).
             await this.outbox.queueOrRecord(
                 { email: lead.parentEmail },
-                { ...composeTrialReminder(detailsOf(lead)), dedupeKey: `${TRIAL_REMINDER_PREFIX}${lead.id}:${session.id}` },
+                {
+                    ...composeTrialReminder(detailsOf(lead)),
+                    dedupeKey: `${TRIAL_REMINDER_PREFIX}${lead.id}:${session.id}:${sessionStartStamp(session)}`,
+                },
             );
             queued += 1;
         }
@@ -146,13 +153,14 @@ export class LeadRemindersJob {
             if (toIsoDate(new Date(session.date)) >= today) continue;
             if (session.status === ClassSessionStatus.CANCELLED) continue;
 
-            const marked = await this.attendanceRepository.count({ where: { classSession: { id: session.id } } });
-            if (marked === 0) continue;
-
-            const attended = await this.attendanceRepository.count({
-                where: { classSession: { id: session.id }, child: { id: lead.child.id }, present: true },
+            // Only a mark that says absent, for this child. The register is taken a tap at a time on
+            // the phone, so a class with marks in it can still have said nothing about the child on
+            // trial — and "you missed it" to a family whose child sat there, untapped, is the message
+            // this check exists never to send (review of 25 September 2026).
+            const mark = await this.attendanceRepository.findOne({
+                where: { classSession: { id: session.id }, child: { id: lead.child.id } },
             });
-            if (attended > 0) continue;
+            if (!mark || mark.present) continue;
 
             await this.outbox.queueOrRecord(
                 { email: lead.parentEmail },
@@ -167,7 +175,9 @@ export class LeadRemindersJob {
 /** What the messages need out of a lead, once its session is loaded. */
 function detailsOf(lead: Lead): TrialDetails {
     const session = lead.trialSession;
-    const location = session?.group?.room?.location;
+    // The class's own room: a class moved to the other address takes the family there, not to the
+    // group's usual one.
+    const location = session?.room?.location ?? session?.group?.room?.location;
     return {
         childFirstName: lead.childFirstName,
         groupName: session?.group?.name ?? '',

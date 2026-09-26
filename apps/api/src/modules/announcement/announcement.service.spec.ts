@@ -57,8 +57,16 @@ describe('AnnouncementService', () => {
         childRepo.find!.mockResolvedValue(allChildren);
     };
 
+    /** The booking forms' addresses, which a family booked on `/proba` is reached at. None by default. */
+    let bookingLeads: unknown[];
+
     beforeEach(async () => {
         childRepo = createMockRepository();
+        bookingLeads = [];
+        // `bookingAddresses` reads the leads through the repository's own manager.
+        (childRepo as unknown as { manager: unknown }).manager = {
+            getRepository: () => ({ find: jest.fn(() => Promise.resolve(bookingLeads)) }),
+        };
         groupRepo = createMockRepository();
         insertValues = [];
 
@@ -143,6 +151,22 @@ describe('AnnouncementService', () => {
 
             // The row exists and so does the line in the report: nobody is skipped in silence (S5).
             expect(result.undeliverable).toEqual([{ parentId: 1, parentName: 'Parinte1 Test', reason: 'no_address' }]);
+        });
+    });
+
+    describe('a family booked for a trial on /proba', () => {
+        /**
+         * The form writes a shell profile with no address, on purpose, and E17 S7 counts trial
+         * families in the audience — so the announcement was an undeliverable row for exactly the
+         * families least likely to hear anything else (review of 25 September 2026).
+         */
+        it('is written to at the address it left on the booking', async () => {
+            withAudience([childOf(1, { email: undefined })]);
+            bookingLeads = [{ id: 5, parentEmail: 'ioana@example.com', profile: { id: 1 } }];
+
+            await service.send(announcement(), 99);
+
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith(expect.objectContaining({ email: 'ioana@example.com' }), expect.anything(), expect.anything());
         });
     });
 

@@ -8,6 +8,7 @@ import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { romanianDate } from 'src/modules/mail/romanian-date';
 import { absencesUrl, loginUrl } from 'src/modules/auth/portal-urls';
+import { bookingAddresses } from 'src/modules/mail/booking-address';
 
 /** Where a session was before it moved — the half a parent asks about. */
 export interface SessionPlacement {
@@ -29,6 +30,11 @@ interface Recipient {
     firstName: string;
     /** True for a family whose child the office moved into this class for the week, not enrolled in it. */
     visiting: boolean;
+    /**
+     * True for a family reached at the address it left on the booking form — a trial booked on
+     * `/proba`, whose profile carries no address of its own (see `bookingAddresses`).
+     */
+    trial: boolean;
 }
 
 interface RenderedMail {
@@ -88,6 +94,9 @@ export class ClassSessionNotifier {
 
         const groupNote = 'Ora nu se facturează — plata e pe ședință ținută, deci luna aceasta va fi cu o ședință mai mică.';
         const visitorNote = 'Ora la care îl mutasem pe copilul tău pentru săptămâna asta nu se mai ține. Căutăm alta în aceeași săptămână și te anunțăm.';
+        // A family here for a free trial is billed for nothing, so the group's sentence about the
+        // month would be about somebody else. What they need is the next step, and it is ours.
+        const trialNote = 'Proba copilului tău era la ora asta. Te sunăm să stabilim împreună alta.';
 
         const recipients = await this.recipientsOf(session, manager, { includeVisitors: true });
         return this.writeTo(recipients, session, manager, CANCELLED_DEDUPE_PREFIX, (recipient) =>
@@ -97,7 +106,7 @@ export class ClassSessionNotifier {
                 date: romanianDate(session.date),
                 time: session.startTime.slice(0, 5),
                 reason,
-                makeUpNote: recipient.visiting ? visitorNote : groupNote,
+                makeUpNote: recipient.visiting ? visitorNote : recipient.trial ? trialNote : groupNote,
                 // The absences page for a family whose move just evaporated; otherwise just the portal.
                 portalUrl: recipient.visiting ? absencesUrl() : loginUrl(),
             }),
@@ -168,8 +177,9 @@ export class ClassSessionNotifier {
         for (const child of group.children ?? []) {
             const parent = child.parent;
             if (!parent || recipients.has(parent.id)) continue;
-            recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: false });
+            recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: false, trial: false });
         }
+        await this.reachTrialFamilies([...recipients.values()], manager);
 
         const prefix = `${GROUP_SCHEDULE_DEDUPE_PREFIX}${groupId}:`;
         const announcement = await manager.getRepository(OutboxMessage).count({ where: { dedupeKey: Like(`${prefix}%`) } });
@@ -221,7 +231,7 @@ export class ClassSessionNotifier {
         for (const child of session.group.children ?? []) {
             const parent = child.parent;
             if (!parent || recipients.has(parent.id)) continue;
-            recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: false });
+            recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: false, trial: false });
         }
 
         if (options.includeVisitors) {
@@ -234,11 +244,33 @@ export class ClassSessionNotifier {
             for (const notice of placed) {
                 const parent = notice.child?.parent;
                 if (!parent || recipients.has(parent.id)) continue;
-                recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: true });
+                recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: true, trial: false });
             }
         }
 
-        return [...recipients.values()];
+        const all = [...recipients.values()];
+        await this.reachTrialFamilies(all, manager);
+        return all;
+    }
+
+    /**
+     * Gives a family with no address on its profile the one it left on the booking form — see
+     * `bookingAddresses`. A trial booked on `/proba` is in the group like any child and in every
+     * one of these messages, and it is the family least likely to have heard anything else from us.
+     */
+    private async reachTrialFamilies(recipients: Recipient[], manager: EntityManager): Promise<void> {
+        const unreachable = recipients.filter((recipient) => !recipient.email);
+        const addresses = await bookingAddresses(
+            manager,
+            unreachable.map((recipient) => recipient.parentId),
+        );
+        for (const recipient of unreachable) {
+            const address = addresses.get(recipient.parentId);
+            if (address) {
+                recipient.email = address;
+                recipient.trial = true;
+            }
+        }
     }
 
     private async writeTo(

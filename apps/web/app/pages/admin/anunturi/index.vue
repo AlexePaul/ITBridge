@@ -201,7 +201,7 @@
 </template>
 
 <script setup lang="ts">
-import { apiErrorMessage } from "~/composables/useApiError";
+import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
 import { useAnnouncementsApi } from "~/composables/api/useAnnouncementsApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { useLocationsApi } from "~/composables/api/useLocationsApi";
@@ -294,7 +294,18 @@ const complete = computed(
     (draft.audience !== "location" || draft.locationId !== undefined)
 );
 
-const canSend = computed(() => complete.value && !previewLoading.value && preview.value !== null);
+/**
+ * Whether what is typed has changed since the preview on screen was made.
+ *
+ * Set the moment the draft changes, not when the debounced request starts: for those 400 ms the
+ * old preview — its audience count, its warnings — sat under a live send button, and a quick press
+ * confirmed a message nobody had been shown (review of 25 September 2026).
+ */
+const previewStale = ref(false);
+
+const canSend = computed(
+  () => complete.value && !previewLoading.value && !previewStale.value && preview.value !== null
+);
 
 const payload = () => ({
   audience: draft.audience,
@@ -346,7 +357,10 @@ const refreshPreview = async () => {
     // A failed preview while typing is not worth a notification; sending is the guarded action.
     if (token === previewToken) preview.value = null;
   } finally {
-    if (token === previewToken) previewLoading.value = false;
+    if (token === previewToken) {
+      previewLoading.value = false;
+      previewStale.value = false;
+    }
   }
 };
 
@@ -354,6 +368,7 @@ let previewTimer: ReturnType<typeof setTimeout> | undefined;
 watch(
   () => [draft.audience, draft.groupId, draft.locationId, draft.kind, draft.subject, draft.body],
   () => {
+    previewStale.value = true;
     clearTimeout(previewTimer);
     previewTimer = setTimeout(() => void refreshPreview(), 400);
   }
@@ -378,9 +393,11 @@ const sendTest = async () => {
 const send = async () => {
   sending.value = true;
   try {
-    // The preview has already shown the warnings and the confirm dialog has repeated them, so this
-    // press is the acknowledgement the server asks for.
-    const result = await api.sendAnnouncement({ ...payload(), acknowledgeWarnings: true });
+    // The acknowledgement is of the warnings this press was shown — the preview listed them and the
+    // confirm dialog repeated them. None shown, none acknowledged: if the server finds one anyway,
+    // it refuses, and the admin reads it before anything leaves.
+    const shownWarnings = (preview.value?.warnings.length ?? 0) > 0;
+    const result = await api.sendAnnouncement({ ...payload(), acknowledgeWarnings: shownWarnings });
     confirmOpen.value = false;
     const skipped = result.undeliverable.length;
     success(
@@ -392,6 +409,14 @@ const send = async () => {
     preview.value = null;
     await load();
   } catch (err: unknown) {
+    if (apiErrorCode(err) === "ANNOUNCEMENT_NAMES_A_CHILD") {
+      // Its `details` are the names, not a sentence, so they are shown the way the preview shows
+      // them — the warning above the form — rather than joined into a toast.
+      confirmOpen.value = false;
+      await refreshPreview();
+      error("Anunțul numește un copil. Citește avertismentul de sub formular și confirmă din nou.");
+      return;
+    }
     error(apiErrorMessage(err, "Eroare la trimiterea anunțului"));
   } finally {
     sending.value = false;

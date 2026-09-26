@@ -300,12 +300,19 @@ export class AttendanceService {
     }
 
     async updateAttendanceStatus(attendanceId: number, present: boolean) {
-        const attendanceRecord = await this.attendanceRepository.findOne({ where: { id: attendanceId } });
+        const attendanceRecord = await this.attendanceRepository.findOne({
+            where: { id: attendanceId },
+            relations: { child: true, classSession: true },
+        });
 
         if (!attendanceRecord) {
             throw new NotFoundException(`Attendance record with ID ${attendanceId} does not exist`);
         }
         attendanceRecord.present = present;
-        return this.attendanceRepository.save(attendanceRecord);
+        const saved = await this.attendanceRepository.save(attendanceRecord);
+        // The third way to write a mark, and it settles the lead like the other two: a trial held
+        // is whatever the register says, by whichever route the register was corrected.
+        await this.settleLead(attendanceRecord.child.id, attendanceRecord.classSession.id, present);
+        return saved;
     }
 }

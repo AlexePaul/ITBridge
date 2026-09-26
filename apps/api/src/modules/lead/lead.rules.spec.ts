@@ -48,7 +48,7 @@ describe('lead rules', () => {
     });
 
     describe('bookingKeyFor', () => {
-        const base = { childFirstName: 'Matei Popescu', childBirthDate: '2016-04-04', classSessionId: 7, contact: 'ioana@example.com' };
+        const base = { childFirstName: 'Matei Popescu', childBirthDate: '2016-04-04', classSessionId: 7, contact: 'ioana@example.com', day: '2026-03-10' };
 
         it('gives two presses of the same form the same key', () => {
             expect(bookingKeyFor(base)).toBe(bookingKeyFor({ ...base }));
@@ -71,6 +71,16 @@ describe('lead rules', () => {
 
         it('has a key for the request that found no class at all', () => {
             expect(bookingKeyFor({ ...base, classSessionId: null })).toHaveLength(64);
+        });
+
+        it('lets a request with no class last a day, so asking again next month is asking again', () => {
+            const march = { ...base, classSessionId: null };
+            expect(bookingKeyFor({ ...march, day: '2026-03-10' })).toBe(bookingKeyFor(march));
+            expect(bookingKeyFor({ ...march, day: '2026-09-15' })).not.toBe(bookingKeyFor(march));
+        });
+
+        it('keeps a booking into a class the same booking whatever day the button is pressed', () => {
+            expect(bookingKeyFor({ ...base, day: '2026-03-11' })).toBe(bookingKeyFor(base));
         });
     });
 });

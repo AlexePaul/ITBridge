@@ -385,6 +385,60 @@ describe('Trial booking, public (e2e)', () => {
         });
     });
 
+    /** The review of 25 September 2026: the leads and messaging pass. */
+    describe('a trial the school has to talk to', () => {
+        const book = async () => {
+            const { groupId, sessionId } = await schoolWithAClass();
+            const booking = await request(app.getHttpServer())
+                .post('/trial/bookings')
+                .send(bookingBody({ classSessionId: sessionId }))
+                .expect(201);
+            return { groupId, sessionId, leadId: booking.body.leadId as number };
+        };
+
+        /**
+         * The form writes a shell profile with no address, on purpose, and every message about a
+         * class read the profile's — so a cancelled trial was an undeliverable row, and the family
+         * came to an empty room.
+         */
+        it('tells the family the class is off, at the address it left on the booking', async () => {
+            const { sessionId } = await book();
+
+            await request(app.getHttpServer())
+                .put(`/class-sessions/${sessionId}/cancel`)
+                .set('Authorization', admin.auth)
+                .send({ reason: 'Profesor bolnav' })
+                .expect(200);
+
+            const notices = await dataSource.query<{ to: string; status: string }[]>(
+                `SELECT "to", "status" FROM "outbox" WHERE "dedupeKey" LIKE 'class-cancelled:%'`,
+            );
+            expect(notices).toEqual([{ to: 'ioana.popescu@example.com', status: 'pending' }]);
+        });
+
+        /**
+         * „Pierdut" on a trial nobody had decided wrote the lead and left the enrolment: the child
+         * kept a chair the family had said no to — the group stayed full, `/proba` stopped offering
+         * it, the waiting list was never told, and the child stayed on every register.
+         */
+        it('frees the seat when the lead is closed as lost', async () => {
+            const { groupId, leadId } = await book();
+
+            await request(app.getHttpServer())
+                .post(`/leads/${leadId}/lost`)
+                .set('Authorization', admin.auth)
+                .send({ reason: 'Nu i se potrivește programul' })
+                .expect(201);
+
+            const enrollments = await dataSource.query<{ status: string }[]>(`SELECT "status" FROM "enrollments"`);
+            expect(enrollments).toEqual([{ status: 'WITHDRAWN' }]);
+            const inGroup = await dataSource.query<{ count: number }[]>(`SELECT COUNT(*)::int AS count FROM "children" WHERE "group_id" = $1`, [groupId]);
+            expect(inGroup[0].count).toBe(0);
+            const lead = await request(app.getHttpServer()).get(`/leads/${leadId}`).set('Authorization', admin.auth).expect(200);
+            expect(lead.body).toMatchObject({ status: 'lost', lostReason: 'Nu i se potrivește programul' });
+        });
+    });
+
     /** The review of 25 September 2026. */
     describe('what a trial is booked into, and what follows it', () => {
         /** The group's own room and its address — where a second group, or a smaller room, goes. */
@@ -571,8 +625,9 @@ describe('Trial booking, public (e2e)', () => {
 
             expect(funnel.body.stages).toMatchObject({ requests: 2, trialsScheduled: 1, noSeats: 1 });
             // The family nobody could seat is outside every rate — that is what makes them
-            // invisible without this figure, and why S4 asks for it separately.
-            expect(funnel.body.rates.requestToTrial).toBe(50);
+            // invisible without this figure, and why S4 asks for it separately. This line used to
+            // assert 50, the opposite of the sentence above it (review of 25 September 2026).
+            expect(funnel.body.rates.requestToTrial).toBe(100);
             expect(funnel.body.unmetByBand[0]).toMatchObject({ count: 1 });
         });
     });

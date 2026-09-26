@@ -61,6 +61,16 @@ describe('announcement text', () => {
             expect(childNamesIn('Strada Iliescu 4, lângă Marianei.', names)).toEqual([]);
         });
 
+        /**
+         * The form a congratulation takes in Romanian — „diploma Mariei", „felicitări Ioanei" — is
+         * the genitive-dative, and the check missed it (review of 25 September 2026).
+         */
+        it('finds a name in -a in its genitive-dative, the form a congratulation takes', () => {
+            expect(childNamesIn('Diploma Mariei a sosit.', names)).toEqual(['Maria']);
+            expect(childNamesIn('Felicitări Ioanei!', ['Ioana'])).toEqual(['Ioana']);
+            expect(childNamesIn('Premiul Anei, la festivitate.', names)).toEqual(['Ana']);
+        });
+
         it('reports each name once, however often it appears', () => {
             expect(childNamesIn('Maria și Maria.', names)).toEqual(['Maria']);
         });

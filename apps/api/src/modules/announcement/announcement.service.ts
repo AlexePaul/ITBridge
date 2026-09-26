@@ -17,6 +17,7 @@ import { officeAddress } from 'src/modules/mail/office-address';
 import { childNamesIn, composeAnnouncement, SAMPLE_FIRST_NAME, TEST_SUBJECT_PREFIX } from './announcement-text';
 import { SendAnnouncementDto } from './dto/sendAnnouncement.dto';
 import { SAMPLE_UNSUBSCRIBE_TOKEN, withUnsubscribeHtml, withUnsubscribeText } from 'src/modules/mail/unsubscribe-footer';
+import { bookingAddresses } from 'src/modules/mail/booking-address';
 
 /** One inbox the announcement resolves to, and everything that decides whether it can be written to. */
 interface Recipient {
@@ -449,6 +450,17 @@ export class AnnouncementService {
                 marketingOptIn: parent.marketingOptIn,
                 unsubscribeToken: parent.unsubscribeToken,
             });
+        }
+
+        // A family booked for a trial on `/proba` has no address on its profile — the form writes a
+        // shell, on purpose — but it left one on the booking, and it is counted in this audience.
+        const withoutAddress = [...byParent.values()].filter((recipient) => !recipient.email);
+        const addresses = await bookingAddresses(
+            this.childRepository.manager,
+            withoutAddress.map((recipient) => recipient.parentId),
+        );
+        for (const recipient of withoutAddress) {
+            recipient.email = addresses.get(recipient.parentId) ?? null;
         }
 
         return { recipients: [...byParent.values()], label, group, location };
