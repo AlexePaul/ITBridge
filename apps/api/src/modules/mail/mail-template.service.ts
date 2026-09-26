@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MailTemplate } from 'src/entities/mail-template.entity';
 import { TEMPLATE_DEFAULTS, templateDefault } from './template-defaults';
-import { renderTemplate, TemplateFields } from './template-render';
+import { escapeHtml, renderTemplate, TemplateFields } from './template-render';
+import { htmlFromText } from './mail-frame';
 
 /**
  * Templates: the defaults in code, the school's edits in the database — E17/S2.
@@ -87,12 +88,21 @@ export class MailTemplateService {
         return renderTemplate(fields, definition.sampleData);
     }
 
-    /** Saves the school's wording. An upsert; the version counts the saves. */
-    async save(key: string, fields: TemplateFields) {
+    /**
+     * Saves the school's wording. An upsert; the version counts the saves.
+     *
+     * Text edited and HTML left as it was means the HTML still says the old words, and the HTML is
+     * what most mail clients show (QA of 26 September 2026). It is redrawn from the new text; HTML
+     * the school wrote itself, or a text-only template, is kept as it came.
+     */
+    async save(key: string, submitted: TemplateFields) {
         const definition = templateDefault(key);
         if (!definition) throw new NotFoundException('No such mail template');
 
         const existing = await this.templateRepository.findOne({ where: { key } });
+        const before = existing ?? definition;
+        const htmlLagsBehind = submitted.bodyHtml !== null && submitted.bodyHtml === before.bodyHtml && submitted.bodyText !== before.bodyText;
+        const fields: TemplateFields = htmlLagsBehind ? { ...submitted, bodyHtml: htmlFromText(submitted.bodyText, escapeHtml) } : submitted;
         if (existing) {
             existing.subject = fields.subject;
             existing.bodyText = fields.bodyText;

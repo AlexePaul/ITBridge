@@ -5,12 +5,12 @@ import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 export class UpdateMailTemplateDto {
     @ApiProperty({ description: 'The subject line. Placeholders welcome.' })
     @IsString()
-    @Length(1, 500)
+    @Length(1, 500, { message: 'Subiectul nu poate fi gol și are cel mult 500 de caractere' })
     subject: string;
 
     @ApiProperty({ description: 'The plain-text body. Every message has one.' })
     @IsString()
-    @Length(1, 20000)
+    @Length(1, 20000, { message: 'Corpul text nu poate fi gol și are cel mult 20000 de caractere' })
     bodyText: string;
 
     /** Null clears the HTML variant; the message then goes out text-only. */
@@ -18,7 +18,7 @@ export class UpdateMailTemplateDto {
     @EmptyToUndefined()
     @IsOptional()
     @IsString()
-    @Length(1, 50000)
+    @Length(1, 50000, { message: 'Corpul HTML are cel mult 50000 de caractere' })
     bodyHtml?: string | null;
 }
 

@@ -77,6 +77,35 @@ describe('MailTemplateService', () => {
             expect(row.subject).toBe('S2');
         });
 
+        /**
+         * QA of 26 September 2026: editing "Corp text" left "Corp HTML" with the old wording, and
+         * the HTML is what most mail clients show — the family read what the school had changed.
+         */
+        it('redraws the HTML from the new text when only the text was edited', async () => {
+            const shipped = await service.get('account-approved');
+
+            await service.save('account-approved', {
+                subject: shipped.subject,
+                bodyText: 'Bună, {{firstName}}!\n\nContul e <gata>.',
+                bodyHtml: shipped.bodyHtml,
+            });
+
+            const [[row]] = repo.save!.mock.calls as [{ bodyHtml: string }][];
+            expect(row.bodyHtml).toContain('Contul e &lt;gata&gt;.');
+            expect(row.bodyHtml).toContain('{{firstName}}');
+            expect(row.bodyHtml).not.toBe(shipped.bodyHtml);
+        });
+
+        it('keeps the HTML the school wrote, and a text-only template text-only', async () => {
+            const shipped = await service.get('account-approved');
+
+            await service.save('account-approved', { subject: shipped.subject, bodyText: 'Text nou', bodyHtml: '<p>HTML nou</p>' });
+            await service.save('account-approved', { subject: shipped.subject, bodyText: 'Text nou', bodyHtml: null });
+
+            const rows = (repo.save!.mock.calls as [{ bodyHtml: string | null }][]).map(([row]) => row.bodyHtml);
+            expect(rows).toEqual(['<p>HTML nou</p>', null]);
+        });
+
         it('revert deletes the row — the default needs no restoring, it never left the code', async () => {
             await service.revert('account-approved');
             expect(repo.delete).toHaveBeenCalledWith({ key: 'account-approved' });

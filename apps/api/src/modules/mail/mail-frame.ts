@@ -49,3 +49,22 @@ export const paragraph = (text: string) => `    <p style="margin:0 0 16px;font-s
 
 export const linkBlock = (variable: string) =>
     `    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;"><a href="{{${variable}}}" style="color:#7a4a2b;">{{${variable}}}</a></p>`;
+
+/**
+ * A text body drawn in the frame: its paragraphs, each escaped, with its own line breaks kept.
+ *
+ * For a template the school edited as text and not as HTML (E17 S2, QA of 26 September 2026): the
+ * HTML is what most mail clients show, so keeping the old HTML beside new text sent the old words.
+ * Placeholders pass through untouched — `{{firstName}}` has nothing to escape — and are filled in,
+ * escaped, when the message is rendered. The text's closing signature is left to the frame's own.
+ */
+export function htmlFromText(text: string, escape: (value: string) => string): string {
+    const trimmed = text.trimEnd();
+    const body = trimmed.endsWith(SIGNATURE) ? trimmed.slice(0, trimmed.length - SIGNATURE.length) : trimmed;
+    const paragraphs = body
+        .split(/\n\s*\n/)
+        .map((paragraph) => paragraph.trim())
+        .filter((paragraph) => paragraph.length > 0)
+        .map((paragraph) => `    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${escape(paragraph).replace(/\n/g, '<br />')}</p>`);
+    return htmlFrame(paragraphs.join('\n'));
+}
