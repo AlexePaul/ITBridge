@@ -6,6 +6,7 @@ import { CreateChildDto } from './dto/createChild.dto';
 import { FilterChildDto } from './dto/filterChild.dto';
 import { UpdateChildDto } from './dto/updateChild.dto';
 import { AssignToGroupDto } from './dto/assignToGroup.dto';
+import { MoveChildToFamilyDto } from './dto/moveChildToFamily.dto';
 import { RolesGuard } from 'src/guards/role.guard';
 import { Roles } from 'src/decorators/role.decorator';
 import { Role } from 'src/enum/role.enum';
@@ -45,6 +46,17 @@ export class ChildController {
     @ApiResponse({ status: 404, description: 'Child not found' })
     async updateChild(@Param('childId', ParseIntPipe) childId: number, @Body() updateChildDto: UpdateChildDto, @Request() req: AuthenticatedRequest) {
         return this.childService.updateChild(childId, updateChildDto, req.user.role, req.user.sub, actorFrom(req));
+    }
+
+    /** The office joins a child to the family it belongs with — see `ChildService.moveToFamily`. */
+    @Put('/:childId/family')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: 'The child now belongs to the family given' })
+    @ApiResponse({ status: 409, description: 'CHILD_FAMILY_INVOICED or PROFILE_ERASED' })
+    async moveToFamily(@Param('childId', ParseIntPipe) childId: number, @Body() dto: MoveChildToFamilyDto, @Request() req: AuthenticatedRequest) {
+        return this.childService.moveToFamily(childId, dto.profileId, actorFrom(req));
     }
 
     @Delete('/:childId')

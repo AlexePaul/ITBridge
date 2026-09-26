@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Child } from 'src/entities/child.entity';
 import { Profile } from 'src/entities/profile.entity';
@@ -17,6 +17,8 @@ import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { changedFieldNames } from 'src/modules/audit/personal-fields';
 import { assertNotErased } from 'src/modules/privacy/erasure.rules';
+import { Invoice } from 'src/entities/invoice.entity';
+import { Lead } from 'src/entities/lead.entity';
 
 @Injectable()
 export class ChildService {
@@ -217,6 +219,57 @@ export class ChildService {
             );
         });
         return { message: 'Child deleted successfully' };
+    }
+
+    /**
+     * Moves a child into another family — the office's tool for the duplicate families `/proba`
+     * makes (QA of 26 September 2026).
+     *
+     * Every booking on the public form writes its own shell `Profile`, deliberately without email or
+     * phone (a public form must not write another family's row), so two siblings booked one after
+     * the other are two families, and a family with an account that books a trial is two. Sibling
+     * pricing then never applies, and the trial family's invoices would go to a row with no address.
+     * The child moves with everything that is the child's — enrolments, register, work, consents,
+     * absence notices — and the enquiries about it follow, so the funnel and the booking address point
+     * at the family that is left. The empty shell can then be deleted from its page.
+     *
+     * Refused when the child's family has any invoice: an invoice counts a family's children, and a
+     * child moved out of an invoiced family would split what it was billed for across two.
+     */
+    async moveToFamily(childId: number, profileId: number, actor: Actor): Promise<Child> {
+        return this.dataSource.transaction(async (manager) => {
+            const child = await manager.findOne(Child, { where: { id: childId }, relations: { parent: true } });
+            if (!child) throw new NotFoundException('Child not found');
+            const target = await manager.findOne(Profile, { where: { id: profileId } });
+            if (!target) throw new NotFoundException('Profile not found');
+            if (child.parent.id === target.id) {
+                throw new BadRequestException({ message: 'The child is already in that family.', error: 'CHILD_ALREADY_IN_FAMILY' });
+            }
+            assertNotErased(child.parent);
+            assertNotErased(target);
+            const invoiced = await manager.count(Invoice, { where: { parent: { id: child.parent.id } } });
+            if (invoiced > 0) {
+                throw new ConflictException({
+                    message: `Family ${child.parent.id} has ${invoiced} invoice(s); its children are not moved to another family.`,
+                    error: 'CHILD_FAMILY_INVOICED',
+                });
+            }
+
+            await manager.update(Child, childId, { parent: { id: target.id } });
+            await manager.update(Lead, { child: { id: childId } }, { profile: { id: target.id } });
+            await this.audit.recordPersonalDataChange(
+                {
+                    actor,
+                    action: AuditAction.UPDATED,
+                    entityType: 'Child',
+                    entityId: childId,
+                    fields: ['parent'],
+                    note: `copil mutat din familia ${child.parent.id} în familia ${target.id}`,
+                },
+                manager,
+            );
+            return { ...child, parent: target };
+        });
     }
 
     /**
