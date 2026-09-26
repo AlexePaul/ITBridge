@@ -21,7 +21,7 @@ export interface StatementImportResult {
     duplicates: number;
     /** Outgoing lines, set aside. */
     debits: number;
-    unreadable: { row: number; reason: string }[];
+    unreadable: StatementParse['unreadable'];
     columns: StatementParse['columns'];
     /** Of the imported lines: how many have a proposal, and how many of those are by reference. */
     suggested: number;

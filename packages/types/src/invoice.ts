@@ -1,5 +1,6 @@
 import type { BillingMonth, ISODate, ISODateTime, TimeOfDay } from './common';
 import type { ProfileSummary } from './profile';
+import type { DiscountType } from './discount';
 
 /**
  * Mirrors `InvoiceStatus` in `apps/api/src/entities/invoice.entity.ts`.
@@ -74,6 +75,15 @@ export interface FiscalQueueStatus {
     counts: Record<InvoiceFiscalStatus, number>;
 }
 
+/** A discount as the issuing screen shows it: its terms, and what it takes off the list price. */
+export interface WorksheetDiscount {
+    id: number;
+    name: string;
+    type: DiscountType;
+    value: number;
+    off: number;
+}
+
 /**
  * One family's row on the monthly issuing screen — E15, the model in force.
  *
@@ -94,6 +104,10 @@ export interface InvoiceWorksheetRow {
     invoicedAmount: number | null;
     /** What the family will be billed, after this month's discounts — the same number the server writes. */
     amount: number;
+    /** The sessions' price before the discounts: what the child lines on the card add up to. */
+    listAmount: number;
+    /** The month's discounts, each with what it takes off `listAmount`. */
+    discounts: WorksheetDiscount[];
     children: {
         childId: number;
         childName: string;

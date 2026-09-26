@@ -100,7 +100,7 @@ describe('Reconciling a bank statement (e2e)', () => {
         const res = await importStatement().expect(200);
 
         expect(res.body).toMatchObject({ credits: 3, imported: 3, duplicates: 0, debits: 1, suggested: 2, suggestedByReference: 1 });
-        expect(res.body.unreadable).toEqual([{ row: 9, reason: 'unreadable date "Total rulaje"' }]);
+        expect(res.body.unreadable).toEqual([{ row: 9, problem: 'unreadable_date', cell: 'Total rulaje' }]);
         expect(res.body.columns).toMatchObject({ date: 'Data tranzactie', amount: 'Credit', description: 'Descriere' });
     });
 

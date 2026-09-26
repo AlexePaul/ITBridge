@@ -92,6 +92,39 @@ describe('Issuing invoices from the registers (e2e)', () => {
             expect(res.body.families[0].amount).toBe(175);
         });
 
+        /**
+         * QA of 26 September 2026: the card showed the discounted total above session lines that added
+         * up to the list price, with the discount nowhere — the mismatch E20/S5 warns makes somebody
+         * "fix" a bill that is right. The row now carries what the discounts take off, one by one.
+         */
+        it('shows the price before discounts and what each discount takes off', async () => {
+            const childId = await makeChild();
+            const sessions = await october();
+            for (const session of sessions) await mark(session, childId, true);
+            const parentId = await ownProfileId(app, parent);
+            await request(app.getHttpServer())
+                .post('/discounts')
+                .set('Authorization', admin.auth)
+                .send({ name: 'Recomandare', type: 'percent', value: 10, monthIssued: '2026-10', parentId })
+                .expect(201);
+            await request(app.getHttpServer())
+                .post('/discounts')
+                .set('Authorization', admin.auth)
+                .send({ name: 'Bursă', type: 'fixed', value: 50, monthIssued: '2026-10', parentId })
+                .expect(201);
+
+            const [family] = (await worksheet().expect(200)).body.families;
+
+            expect(family.listAmount).toBe(350);
+            expect(family.discounts).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({ name: 'Recomandare', type: 'percent', value: 10, off: 35 }),
+                    expect.objectContaining({ name: 'Bursă', type: 'fixed', value: 50, off: 50 }),
+                ]),
+            );
+            expect(family.amount).toBe(265);
+        });
+
         it('answers 400, not 500, when the month is missing or malformed', async () => {
             // It reached the month arithmetic and failed there (review of 26 September 2026).
             await request(app.getHttpServer()).get('/invoices/worksheet').set('Authorization', admin.auth).expect(400);
