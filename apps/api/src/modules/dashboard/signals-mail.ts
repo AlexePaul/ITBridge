@@ -1,4 +1,5 @@
 import { EarlySignals } from './early-signals.service';
+import { countOf } from 'src/common/romanian-count';
 
 /**
  * The Monday message about the early signals — E21/S7 — as text.
@@ -45,7 +46,7 @@ export function composeSignalsDigest(signals: EarlySignals): ComposedSignalsDige
         lines.push(`Familii cu ${signals.thresholds.familyOverdueInvoices} sau mai multe facturi restante (${signals.families.length}):`);
         for (const family of signals.families) {
             lines.push(
-                `- ${family.parentName} — ${family.invoices} facturi, ${lei(family.outstanding)}, cea mai veche de ${family.oldestDaysOverdue} ${family.oldestDaysOverdue === 1 ? 'zi' : 'zile'}`,
+                `- ${family.parentName} — ${countOf(family.invoices, 'factură', 'facturi')}, ${lei(family.outstanding)}, cea mai veche de ${countOf(family.oldestDaysOverdue, 'zi', 'zile')}`,
             );
         }
         lines.push('');
