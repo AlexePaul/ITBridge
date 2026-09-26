@@ -8,8 +8,29 @@
       <UButton to="/admin/attendance" variant="outline" class="min-h-11 shrink-0">Înapoi</UButton>
     </div>
 
+    <!-- Signed out, not refused: a 401 says nothing about the marks, so they stay on the phone and
+         go once the teacher is back in — the login returns here, and opening the screen drains the
+         queue. They used to be reverted and dropped as „refuzat" (review of 26 September 2026). -->
+    <UCard v-if="signInNeeded" variant="subtle" class="border border-error">
+      <div class="space-y-3 text-sm">
+        <p class="flex items-center gap-2 font-medium">
+          <UIcon name="i-lucide-log-in" class="shrink-0" />
+          Sesiunea a expirat. Intră din nou în cont.
+        </p>
+        <p>
+          {{
+            pending.length === 1
+              ? "Marcajul tău rămâne pe telefon"
+              : `Cele ${pending.length} marcaje rămân pe telefon`
+          }}
+          și pleacă singure după autentificare. Nu se pierde nimic.
+        </p>
+        <UButton :to="signInLink" class="min-h-11">Intră în cont</UButton>
+      </div>
+    </UCard>
+
     <!-- The offline banner: how many marks wait, and a hand-crank for the impatient. -->
-    <UCard v-if="pending.length > 0" variant="subtle" class="border border-warning">
+    <UCard v-else-if="pending.length > 0" variant="subtle" class="border border-warning">
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-2 text-sm">
           <UIcon name="i-lucide-cloud-off" class="shrink-0" />
@@ -245,8 +266,15 @@ const queue = useMarkQueue({
   },
   onRefused: (_queued, err) => error(apiErrorMessage(err, "Un marcaj din coadă a fost refuzat")),
 });
-const { pending, flushing } = queue;
+const { pending, flushing, signInNeeded } = queue;
 const flushQueue = queue.flush;
+
+/** The login form, told to come back to this very screen — where the queue drains on opening. */
+const route = useRoute();
+const signInLink = computed(() => ({
+  path: "/auth/login",
+  query: { inapoi: route.fullPath },
+}));
 
 const today = todayKey();
 const todayLabel = computed(() => {
@@ -347,7 +375,8 @@ const mark = async (entry: SessionRegisterEntry, present: boolean) => {
   if (result.outcome === "saved") {
     rowState[entry.childId] = "saved";
   } else if (result.outcome === "refused") {
-    // A 4xx is a real refusal (session cancelled, child gone) and deserves the toast.
+    // A 4xx is a real refusal (session cancelled, child gone) and deserves the toast. Not a 401 or
+    // a 403: those come back as `signed-out`, queued, with the banner above asking for a login.
     rowState[entry.childId] = undefined;
     entry.present = null;
     error(apiErrorMessage(result.error, "Marcajul a fost refuzat"));

@@ -23,27 +23,38 @@ import {
  *   lives in localStorage and drains on every opening of the screen — wrote it over the newer one.
  *   Requests for one child also go out one at a time, so the older one cannot overtake the newer on
  *   the wire either.
+ * - **A signed-out phone is not a refusal.** A 401 or a 403 says nothing about the mark; it says the
+ *   session needs a login. Read as "the server said no", every tap was reverted and every queued mark
+ *   thrown away with „refuzat" — exactly the marks a teacher would then have to remember and retype.
+ *   They stay queued, and `signInNeeded` tells the screen to say so.
  */
 
 export type MarkRequest = Pick<PendingMark, "sessionId" | "childId" | "present">;
 
-/** What happened to a request: refused on its merits, or not delivered yet. */
-export type Failure = "refused" | "undelivered";
+/** Why a request failed: refused on its merits, not signed in, or not delivered yet. */
+export type Failure = "refused" | "signed-out" | "undelivered";
 
 /**
- * How a failed request is read: a 4xx is the server saying no — a cancelled class, a child that is
- * gone — and retrying would not change its mind. Anything else waits in the queue.
+ * How a failed request is read.
+ *
+ * `signed-out` for 401 and 403: the server did not look at the mark at all. `refused` for the rest
+ * of 4xx — a cancelled class, a child that is gone — where retrying would not change its mind.
+ * Everything else, a 5xx or a request that never got an answer, is the network's problem and waits.
  */
 export function classifyFailure(err: unknown): Failure {
   const status =
     (err as { status?: unknown; statusCode?: unknown } | null)?.status ??
     (err as { statusCode?: unknown } | null)?.statusCode;
+  if (status === 401 || status === 403) return "signed-out";
   if (typeof status === "number" && status >= 400 && status < 500) return "refused";
   return "undelivered";
 }
 
 export type TapResult =
-  { outcome: "saved" } | { outcome: "queued" } | { outcome: "refused"; error: unknown };
+  | { outcome: "saved" }
+  | { outcome: "queued" }
+  | { outcome: "signed-out" }
+  | { outcome: "refused"; error: unknown };
 
 export interface MarkQueueOptions {
   /** Sends one mark. The server's upsert is idempotent, so resending is always safe. */
@@ -61,6 +72,7 @@ export function useMarkQueue(options: MarkQueueOptions) {
   const now = options.now ?? Date.now;
   const pending = ref<PendingMark[]>([]);
   const flushing = ref(false);
+  const signInNeeded = ref(false);
   /** How many passes in a row have come back with something undelivered; drives the backoff. */
   const failedFlushes = ref(0);
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -126,9 +138,11 @@ export function useMarkQueue(options: MarkQueueOptions) {
       if (failure === "refused") return { outcome: "refused", error };
       pending.value = upsertPending(pending.value, { ...mark, queuedAt: now() });
       persist();
+      if (failure === "signed-out") signInNeeded.value = true;
       scheduleRetry();
-      return { outcome: "queued" };
+      return { outcome: failure === "signed-out" ? "signed-out" : "queued" };
     }
+    signInNeeded.value = false;
     // What the server holds now is this tap. An older mark for the same child still in the queue is
     // a statement the teacher has taken back, and sending it later would overwrite this one.
     const key = keyOf(mark);
@@ -159,6 +173,7 @@ export function useMarkQueue(options: MarkQueueOptions) {
           const sent = await deliver(queued, () => pending.value.includes(queued));
           if (!sent) continue;
           settled.add(queued);
+          signInNeeded.value = false;
           options.onDelivered?.(queued);
         } catch (error: unknown) {
           const failure = classifyFailure(error);
@@ -169,6 +184,11 @@ export function useMarkQueue(options: MarkQueueOptions) {
             continue;
           }
           undelivered = true;
+          if (failure === "signed-out") {
+            // Every other mark would get the same answer; they wait for the login instead.
+            signInNeeded.value = true;
+            break;
+          }
         }
       }
     } finally {
@@ -201,6 +221,7 @@ export function useMarkQueue(options: MarkQueueOptions) {
   return {
     pending,
     flushing,
+    signInNeeded,
     load,
     tap,
     flush,

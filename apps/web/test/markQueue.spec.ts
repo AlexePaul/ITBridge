@@ -181,3 +181,55 @@ describe("useMarkQueue — a tap that got through is newer than anything queued"
     expect(held.get("7:1")).toBe(true);
   });
 });
+
+describe("useMarkQueue — signed out is not refused", () => {
+  const unauthorized = () => Object.assign(new Error("HTTP 401"), { status: 401 });
+
+  /**
+   * A lost refresh used to clear the tokens, after which every tap met a 401 — and the screen read
+   * any 4xx as "the server refused this mark": the tap was reverted and not queued, and the marks
+   * already queued were dropped with „Un marcaj din coadă a fost refuzat". A 401 or 403 says the
+   * phone needs a login; it says nothing about the mark.
+   */
+  it("queues a tap that meets a 401 and asks for a login", async () => {
+    const queue = useMarkQueue({
+      send: vi.fn(async () => {
+        throw unauthorized();
+      }),
+    });
+
+    expect((await queue.tap(ana(true))).outcome).toBe("signed-out");
+    expect(queue.pending.value).toEqual([expect.objectContaining({ childId: 1, present: true })]);
+    expect(stored()).toHaveLength(1);
+    expect(queue.signInNeeded.value).toBe(true);
+    queue.cancelRetry();
+  });
+
+  it("keeps every queued mark through a pass that meets a 403, and stops asking once one gets through", async () => {
+    const onRefused = vi.fn();
+    let signedIn = false;
+    const queue = useMarkQueue({
+      send: vi.fn(async (mark: MarkRequest) => {
+        if (!signedIn) throw Object.assign(new Error("HTTP 403"), { status: 403 });
+        held.set(`${mark.sessionId}:${mark.childId}`, mark.present);
+      }),
+      onRefused,
+    });
+    queue.pending.value = [
+      { ...ana(true), queuedAt: 1 },
+      { ...bogdan(false), queuedAt: 2 },
+    ];
+
+    await queue.flush();
+    expect(onRefused).not.toHaveBeenCalled();
+    expect(queue.pending.value).toHaveLength(2);
+    expect(queue.signInNeeded.value).toBe(true);
+
+    signedIn = true;
+    await vi.advanceTimersByTimeAsync(60 * 1000);
+    expect(queue.pending.value).toHaveLength(0);
+    expect(held.get("7:1")).toBe(true);
+    expect(held.get("7:2")).toBe(false);
+    expect(queue.signInNeeded.value).toBe(false);
+  });
+});
