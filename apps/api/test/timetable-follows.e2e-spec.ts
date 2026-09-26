@@ -128,6 +128,45 @@ describe('The timetable follows moves (e2e)', () => {
             expect(inThatWeek).toEqual([{ id: handMoved.id, date: tuesday }]);
         });
 
+        /**
+         * QA of 26 September 2026. A child moved into one of the group's coming classes for a week is
+         * not in the group, so the one "the group changes its schedule" mail never reached that family:
+         * they were told Monday, and the class they were sent to was now on a Wednesday.
+         */
+        it('tells a family whose child was moved into a class that followed the group', async () => {
+            const hosting = (await days()).find((row) => row.date >= fromNextWeek);
+            if (!hosting) throw new Error('Expected a class from next week on');
+            const visitor = await registerUser(app, 'parinte.vizitator');
+            const visitorProfile = await ownProfileId(app, visitor);
+            const [visitorChild] = await dataSource.query<{ id: number }[]>(
+                `INSERT INTO children ("firstName", "lastName", "birthDate", parent_id) VALUES ('Ion', 'Vizitator', '2016-05-01', $1) RETURNING id`,
+                [visitorProfile],
+            );
+            // The class the visiting child misses: its own group's, any class will do for the notice.
+            const otherRoom = await createRoom(app, admin, { slug: 'alt-loc', name: 'Alt loc' });
+            const other = await request(app.getHttpServer()).post('/groups').set('Authorization', admin.auth).send(groupBody(otherRoom)).expect(201);
+            const [missed] = await dataSource.query<{ id: number }[]>(
+                `INSERT INTO class_sessions (group_id, "date", "startTime", "endTime", room_id, status)
+                 SELECT id, $2, "startTime", "endTime", room_id, 'scheduled' FROM groups WHERE id = $1 RETURNING id`,
+                [other.body.id, hosting.date],
+            );
+            await dataSource.query(
+                `INSERT INTO absence_notices (child_id, class_session_id, reason, "inTime", replacement_session_id) VALUES ($1, $2, 'Răceală', true, $3)`,
+                [visitorChild.id, missed.id, hosting.id],
+            );
+            await dataSource.query('DELETE FROM outbox');
+
+            await request(app.getHttpServer()).put(`/groups/${groupId}`).set('Authorization', admin.auth).send({ weekday: 3 }).expect(200);
+
+            const [moved] = await dataSource.query<{ date: string }[]>('SELECT "date"::text AS date FROM class_sessions WHERE id = $1', [hosting.id]);
+            expect(isoWeekday(parseIsoDate(moved.date))).toBe(Weekday.WEDNESDAY);
+            const toVisitor = await dataSource.query<{ subject: string }[]>(
+                `SELECT o.subject FROM outbox o JOIN profiles p ON lower(p.email) = lower(o."to") WHERE p.id = $1`,
+                [visitorProfile],
+            );
+            expect(toVisitor).toEqual([{ subject: expect.stringContaining('se mută') }]);
+        });
+
         it('stays put when only the name changes', async () => {
             const before = await futureDays();
 

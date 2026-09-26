@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Not } from 'typeorm';
 import { LocationService } from './location.service';
+import { Announcement } from 'src/entities/announcement.entity';
 import { Location } from 'src/entities/location.entity';
 import { Room } from 'src/entities/room.entity';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
@@ -10,6 +11,7 @@ describe('LocationService', () => {
     let service: LocationService;
     let locationRepo: MockRepository;
     let roomRepo: MockRepository;
+    let announcementRepo: MockRepository;
 
     const dto = {
         name: 'Drumul Taberei',
@@ -23,8 +25,14 @@ describe('LocationService', () => {
     beforeEach(async () => {
         locationRepo = createMockRepository();
         roomRepo = createMockRepository();
+        announcementRepo = createMockRepository();
         const module: TestingModule = await Test.createTestingModule({
-            providers: [LocationService, provideMockRepository(Location, locationRepo), provideMockRepository(Room, roomRepo)],
+            providers: [
+                LocationService,
+                provideMockRepository(Location, locationRepo),
+                provideMockRepository(Room, roomRepo),
+                provideMockRepository(Announcement, announcementRepo),
+            ],
         }).compile();
         service = module.get(LocationService);
 
@@ -32,6 +40,7 @@ describe('LocationService', () => {
         locationRepo.create!.mockImplementation((d: unknown) => ({ ...(d as object) }));
         locationRepo.save!.mockImplementation((l: unknown) => Promise.resolve(l));
         roomRepo.count!.mockResolvedValue(0);
+        announcementRepo.count!.mockResolvedValue(0);
     });
 
     it('creates a location', async () => {
@@ -76,6 +85,12 @@ describe('LocationService', () => {
     it('refuses to delete a location that still has rooms', async () => {
         roomRepo.count!.mockResolvedValue(2);
         await expect(service.deleteLocation(1)).rejects.toThrow(ConflictException);
+        expect(locationRepo.delete).not.toHaveBeenCalled();
+    });
+
+    it('refuses to delete a location whose families were sent an announcement, by name', async () => {
+        announcementRepo.count!.mockResolvedValue(1);
+        await expect(service.deleteLocation(1)).rejects.toMatchObject({ response: { error: 'LOCATION_HAS_ANNOUNCEMENTS' } });
         expect(locationRepo.delete).not.toHaveBeenCalled();
     });
 
