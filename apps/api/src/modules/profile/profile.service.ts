@@ -16,6 +16,24 @@ import { changedFieldNames } from 'src/modules/audit/personal-fields';
 import { EmailConfirmationService } from 'src/modules/auth/email-confirmation.service';
 import { movesTheAddress } from './address-change';
 import { assertNotErased } from 'src/modules/privacy/erasure.rules';
+import { claimedFamilyOf, waitingAccountsOf } from 'src/modules/auth/claimant';
+
+/**
+ * The account behind a family, as the office reads it on the family page: its gates and the day of
+ * the decision, never the admins' note on it. `viaClaim` for one created from a claim link and not
+ * attached yet — the family page is where the office approves it.
+ */
+function accountOf(user: User | null, viaClaim: boolean) {
+    return user
+        ? {
+              userId: user.id,
+              approvalStatus: user.approvalStatus,
+              approvalDecidedAt: user.approvalDecidedAt,
+              emailConfirmed: user.emailConfirmedAt !== null,
+              viaClaim,
+          }
+        : null;
+}
 
 @Injectable()
 export class ProfileService {
@@ -36,6 +54,15 @@ export class ProfileService {
             const existingProfile = await this.profileRepository.findOne({ where: { user: { id: createProfileDto.userId } } });
             if (existingProfile) {
                 throw new ConflictException('Profile already exists for this user');
+            }
+            // An account created from a claim link has a family already, waiting for the office's
+            // approval to attach it; a profile written here would be a second family beside it
+            // (review of 26 September 2026).
+            if (await claimedFamilyOf(this.dataSource.manager, createProfileDto.userId)) {
+                throw new ConflictException({
+                    message: `Account ${createProfileDto.userId} waits to be attached to the family it was created for.`,
+                    error: 'ACCOUNT_AWAITS_FAMILY',
+                });
             }
         }
         // The guards matter: `findOne({ where: { email: undefined } })` drops the undefined
@@ -112,6 +139,15 @@ export class ProfileService {
         }
 
         const profiles = await queryBuilder.getMany();
+        // For the office, the account created from a claim link that waits on a family with none
+        // attached — the account the family page is asked to approve (review of 26 September 2026).
+        const waiting =
+            userRole === Role.ADMIN
+                ? await waitingAccountsOf(
+                      this.dataSource.manager,
+                      profiles.filter((profile) => !profile.user).map((profile) => profile.id),
+                  )
+                : new Map<number, User>();
         const profilesReturnObject = profiles
             .map((profile) => ({
                 ...profile,
@@ -122,14 +158,7 @@ export class ProfileService {
                 // reads its own profile through this same route.
                 ...(userRole === Role.ADMIN
                     ? {
-                          account: profile.user
-                              ? {
-                                    userId: profile.user.id,
-                                    approvalStatus: profile.user.approvalStatus,
-                                    approvalDecidedAt: profile.user.approvalDecidedAt,
-                                    emailConfirmed: profile.user.emailConfirmedAt !== null,
-                                }
-                              : null,
+                          account: accountOf(profile.user ?? waiting.get(profile.id) ?? null, !profile.user),
                       }
                     : {}),
             }))

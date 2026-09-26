@@ -7,7 +7,12 @@
 
     <AccountStatusNotice />
 
-    <p v-if="loading" class="portal-empty">Se încarcă…</p>
+    <!--
+      An account created from a claim link has no family until the office attaches it (review of
+      26 September 2026): there is nothing of the family to load, and the notice above says why.
+    -->
+    <template v-if="awaitingFamily"></template>
+    <p v-else-if="loading" class="portal-empty">Se încarcă…</p>
 
     <div v-else-if="loadError" class="portal-card portal-card-accent portal-notice" role="alert">
       <p class="body-text">{{ loadError }}</p>
@@ -135,6 +140,7 @@ import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { useAttendanceStore } from "~/stores/attendanceStore";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useProfileStore } from "~/stores/profileStore";
+import { useUserStore } from "~/stores/userStore";
 import { MarkType } from "~/types/attendance.types";
 import type { AbsenceNotice } from "~/types/attendance.types";
 import type { Child } from "~/types/child.types";
@@ -192,6 +198,9 @@ const RECENT_MARKS = 4;
 
 const children = computed(() => childrenStore.children);
 
+const userStore = useUserStore();
+const awaitingFamily = computed(() => Boolean(userStore.user?.awaitingFamily));
+
 const greeting = computed(() => {
   const first = profileStore.profile?.firstName;
   return first ? `Bună, ${first}` : "Portalul familiei";
@@ -222,6 +231,10 @@ const childRows = computed(() =>
 );
 
 onMounted(async () => {
+  if (awaitingFamily.value) {
+    loading.value = false;
+    return;
+  }
   try {
     const mine = await childrenApi.fetchChildren();
 

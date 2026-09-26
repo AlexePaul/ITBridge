@@ -74,7 +74,7 @@ async function onSubmit() {
   isLoading.value = true;
   try {
     await claimAccount({ token: token.value, ...result.data });
-    success("Contul a fost creat", "Mai rămâne aprobarea școlii");
+    success("Contul a fost creat", "Îl legăm de datele familiei după ce îl aprobă școala.");
     // What `register.vue` does after success: into the portal, where the profile-setup gate asks for
     // whatever the office did not write down, and the dashboard says the approval is pending.
     await navigateTo("/user/dashboard");
@@ -108,9 +108,9 @@ async function onSubmit() {
 
         <template v-else>
           <p class="body-text">
-            Familia ta este deja în evidența școlii. Alege un nume de utilizator și o parolă, iar
-            contul se leagă de datele pe care le avem. Adresa de email e confirmată prin linkul pe
-            care l-ai deschis; contul îl mai aprobăm și noi.
+            Familia ta este deja în evidența școlii. Alege un nume de utilizator și o parolă. Adresa
+            de email e confirmată prin linkul pe care l-ai deschis; după ce un coleg confirmă că
+            contul e al familiei, îl leagă de datele pe care le avem.
           </p>
 
           <div v-if="errorMessage" class="card card-lg card-accent" role="alert">

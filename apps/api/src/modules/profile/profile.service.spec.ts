@@ -16,6 +16,13 @@ import {
 } from 'src/testing/repository.mock';
 import { EmailConfirmationService } from 'src/modules/auth/email-confirmation.service';
 import { User } from 'src/entities/user.entity';
+import { claimedFamilyOf, waitingAccountsOf } from 'src/modules/auth/claimant';
+
+// The claimant reads are SQL over two tables, exercised against Postgres by the claim e2e suite; here
+// each test says whether an account waits on a family.
+jest.mock('src/modules/auth/claimant', () => ({ claimedFamilyOf: jest.fn(), waitingAccountsOf: jest.fn() }));
+const mockedClaimedFamilyOf = claimedFamilyOf as jest.MockedFunction<typeof claimedFamilyOf>;
+const mockedWaitingAccountsOf = waitingAccountsOf as jest.MockedFunction<typeof waitingAccountsOf>;
 
 describe('ProfileService', () => {
     /** E07/S3. Field names reach the trail; values never do. */
@@ -32,6 +39,8 @@ describe('ProfileService', () => {
     let manager: ReturnType<typeof createMockEntityManager>;
 
     beforeEach(async () => {
+        mockedClaimedFamilyOf.mockResolvedValue(null);
+        mockedWaitingAccountsOf.mockResolvedValue(new Map());
         profileRepo = createMockRepository();
         childRepo = createMockRepository();
         invoiceRepo = createMockRepository();
@@ -82,6 +91,18 @@ describe('ProfileService', () => {
             await service.createProfile(dto, Role.ADMIN, 5, ACTOR);
 
             expect(dto.userId).toBe(999);
+        });
+
+        // Review of 26 September 2026: an account created from a claim link has its family already,
+        // waiting for the office's approval; a profile written here would be a second one.
+        it('refuses a second family for an account waiting to be attached to its own', async () => {
+            profileRepo.findOne!.mockResolvedValue(null);
+            mockedClaimedFamilyOf.mockResolvedValue({ claimId: 5, profile: { id: 40 } as Profile, email: 'ana@example.com' });
+
+            await expect(service.createProfile({ firstName: 'Ana', lastName: 'Pop' }, Role.PARENT, 9, ACTOR)).rejects.toMatchObject({
+                response: { error: 'ACCOUNT_AWAITS_FAMILY' },
+            });
+            expect(profileRepo.save).not.toHaveBeenCalled();
         });
 
         it('lets an admin create a profile with no account attached', async () => {

@@ -26,6 +26,7 @@ import { BankStatementLine } from 'src/entities/bank-statement-line.entity';
 import { PublicationConsent } from 'src/entities/publication-consent.entity';
 import type { ExportedPayment, FamilyExport } from './export.types';
 import { exportLabel } from './export-labels';
+import { waitingAccountOf } from 'src/modules/auth/claimant';
 
 /**
  * Everything the school holds about one family, in one document — E07 S4, the access right.
@@ -174,7 +175,10 @@ export class ExportService {
         const ownMessages = messagesOfFamily(profile);
         const messages = ownMessages ? await this.outbox.find({ where: ownMessages, order: { id: 'ASC' } }) : [];
 
-        const userId = profile.user?.id;
+        // The family's account, attached or — created from a claim link — still waiting for the
+        // office to attach it: either way it is the family's, and this is everything held about it.
+        const account = profile.user ?? (await waitingAccountOf(this.accountClaims.manager, profileId));
+        const userId = account?.id;
         const [sessions, acceptances, confirmations, resets] = userId
             ? await Promise.all([
                   this.sessions.find({ where: { user: { id: userId } }, order: { id: 'ASC' } }),
@@ -205,14 +209,14 @@ export class ExportService {
                 // term runs (E22/S3) — a fact about the family the family is entitled to see.
                 retrasaLa: profile.withdrawnAt ? String(profile.withdrawnAt).slice(0, 10) : null,
             },
-            cont: profile.user
+            cont: account
                 ? {
-                      utilizator: profile.user.username,
-                      rol: exportLabel('role', profile.user.role),
-                      creatLa: profile.user.createdAt?.toISOString() ?? null,
-                      emailConfirmatLa: profile.user.emailConfirmedAt?.toISOString() ?? null,
-                      stareAprobare: exportLabel('approval', profile.user.approvalStatus),
-                      aprobatLa: profile.user.approvalDecidedAt?.toISOString() ?? null,
+                      utilizator: account.username,
+                      rol: exportLabel('role', account.role),
+                      creatLa: account.createdAt?.toISOString() ?? null,
+                      emailConfirmatLa: account.emailConfirmedAt?.toISOString() ?? null,
+                      stareAprobare: exportLabel('approval', account.approvalStatus),
+                      aprobatLa: account.approvalDecidedAt?.toISOString() ?? null,
                   }
                 : null,
             copii: children.map((child) => ({

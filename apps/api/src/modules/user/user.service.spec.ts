@@ -136,7 +136,7 @@ describe('UserService', () => {
     });
 
     it('getUsersWithoutProfile asks the database rather than filtering in memory', async () => {
-        const qb = { where: jest.fn().mockReturnThis(), getMany: jest.fn().mockResolvedValue([]) };
+        const qb = { where: jest.fn().mockReturnThis(), andWhere: jest.fn().mockReturnThis(), getMany: jest.fn().mockResolvedValue([]) };
         userRepo.createQueryBuilder!.mockReturnValue(qb);
 
         await service.getUsersWithoutProfile();
@@ -151,6 +151,7 @@ describe('UserService', () => {
         // so it came up empty exactly when it mattered.
         const qb = {
             where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
             subQuery: jest.fn().mockReturnThis(),
             select: jest.fn().mockReturnThis(),
             from: jest.fn().mockReturnThis(),
@@ -164,5 +165,29 @@ describe('UserService', () => {
         const clause = (qb.where.mock.calls[0][0] as (b: typeof qb) => string)(qb);
         expect(clause).toContain('NOT EXISTS');
         expect(clause).not.toContain('NOT IN');
+    });
+
+    // Review of 26 September 2026: an account created from a claim link has its family already,
+    // waiting for approval; offering it here would hand another family over without that check.
+    it('getUsersWithoutProfile leaves out accounts created from a claim link', async () => {
+        const qb = {
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            subQuery: jest.fn().mockReturnThis(),
+            select: jest.fn().mockReturnThis(),
+            from: jest.fn((table: string) => {
+                qb.table = table;
+                return qb;
+            }),
+            table: '',
+            getQuery: jest.fn(() => `(SELECT 1 FROM ${qb.table})`),
+            getMany: jest.fn().mockResolvedValue([]),
+        };
+        userRepo.createQueryBuilder!.mockReturnValue(qb);
+
+        await service.getUsersWithoutProfile();
+
+        const clause = (qb.andWhere.mock.calls[0][0] as (b: typeof qb) => string)(qb);
+        expect(clause).toBe('NOT EXISTS (SELECT 1 FROM account_claims)');
     });
 });

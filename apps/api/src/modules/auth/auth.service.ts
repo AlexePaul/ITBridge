@@ -26,6 +26,8 @@ import { approvalsUrl, privacyUrl, profileUrl, termsUrl } from './portal-urls';
 import { romanianDay } from 'src/modules/invoice/money-words';
 import { schoolDay } from 'src/common/school-clock';
 import { AccountClaimService } from './account-claim.service';
+import { claimedFamilyOf } from './claimant';
+import { AccountClaim } from 'src/entities/account-claim.entity';
 import { ClaimAccountDto } from 'src/modules/auth/dto/claimAccount.dto';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { AuditAction } from 'src/enum/audit-action.enum';
@@ -233,9 +235,13 @@ export class AuthService {
      * - **`approvalStatus` stays `PENDING`.** The office knows the family, but not yet that this
      *   account is theirs rather than whoever else reads that inbox; the approval is still the
      *   school's to give, as it is for every other account.
-     * - **No shell profile, and no name typed here.** The office's row is the family; the link
-     *   attaches the account to it, and step two (`/user/profile-setup`) asks for whatever the office
-     *   did not write down.
+     * - **No shell profile, and no name typed here.** The office's row is the family, and step two
+     *   (`/user/profile-setup`) asks for whatever the office did not write down.
+     * - **The account is not attached to the family yet** (review of 26 September 2026). It is tied
+     *   to the link it was created from (`AccountClaim.user`), and the office attaches it when it
+     *   approves it: opening the link proves the mailbox, and a mailbox the office mistyped is a
+     *   stranger's. Until then the portal shows the account a waiting notice and nothing of the
+     *   family — see `claimant.ts`.
      *
      * The trail records it through `recordPersonalDataChange` — field names only — with the new
      * account as the actor: nobody signed in pressed anything, and the family did.
@@ -247,7 +253,7 @@ export class AuthService {
         const now = new Date();
 
         const user = await this.dataSource.transaction(async (manager) => {
-            const profile = await this.accountClaims.redeem(dto.token, now, manager);
+            const { profile, claim } = await this.accountClaims.redeem(dto.token, now, manager);
 
             const created = await manager.save(User, {
                 username: dto.username,
@@ -258,7 +264,7 @@ export class AuthService {
                 approvalDecidedAt: null,
                 rejectionReason: null,
             });
-            await manager.update(Profile, { id: profile.id }, { user: { id: created.id } });
+            await manager.update(AccountClaim, { id: claim.id }, { user: { id: created.id } });
 
             const accepted = await manager.save(
                 DocumentAcceptance,
@@ -284,10 +290,10 @@ export class AuthService {
                 {
                     actor: { userId: created.id, username: created.username },
                     action: AuditAction.UPDATED,
-                    entityType: 'Profile',
-                    entityId: profile.id,
+                    entityType: 'AccountClaim',
+                    entityId: claim.id,
                     fields: ['user'],
-                    note: 'cont creat de familie din linkul trimis la adresa din fișă',
+                    note: `cont creat din linkul trimis la adresa din fișă a familiei ${profile.id}; se leagă de familie când îl aprobă școala`,
                 },
                 manager,
             );
@@ -298,7 +304,7 @@ export class AuthService {
         const tokens = this.generateTokens(user.id, user.username, user.role);
         await this.sessionService.startSession(user, tokens.refreshToken, this.refreshExpiry(), userAgent);
 
-        this.logger.log(`Account ${user.id} created from a claim link; awaiting admin approval.`);
+        this.logger.log(`Account ${user.id} created from a claim link; attached to its family once an admin approves it.`);
 
         return {
             accessToken: tokens.accessToken,
@@ -463,6 +469,11 @@ export class AuthService {
             select: ['id', 'email', 'phone', 'address', 'emergencyContactName', 'emergencyContactRelation', 'emergencyContactPhone'],
         });
 
+        // An account created from a claim link waits for the office to attach it to its family, and
+        // has no profile until then. Without saying so here, the profile-setup gate read it as a
+        // parent who had skipped step two, and the form would have written it a second family.
+        const awaitingFamily = user.role === Role.PARENT && profile === null && (await claimedFamilyOf(this.dataSource.manager, user.id)) !== null;
+
         return {
             id: user.id,
             username: user.username,
@@ -474,6 +485,7 @@ export class AuthService {
             // An admin has no profile and needs none; `false` here would send them to a form that
             // is not theirs to fill in.
             profileComplete: user.role === Role.ADMIN || (profile !== null && isProfileComplete(profile)),
+            awaitingFamily,
             pendingLegalDocuments: await this.pendingLegalDocuments(user),
         };
     }

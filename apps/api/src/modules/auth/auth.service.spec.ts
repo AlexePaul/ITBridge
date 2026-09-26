@@ -27,6 +27,13 @@ import { Role } from 'src/enum/role.enum';
 import { LegalDocument } from 'src/enum/legal-document.enum';
 import { AccountClaimService } from './account-claim.service';
 import { AuditService } from 'src/modules/audit/audit.service';
+import { claimedFamilyOf } from './claimant';
+import { AccountClaim } from 'src/entities/account-claim.entity';
+
+// The claimant read is SQL over two tables, exercised against Postgres by the claim e2e suite; here
+// each test says whether the caller is an account waiting to be attached to a family.
+jest.mock('./claimant', () => ({ claimedFamilyOf: jest.fn() }));
+const mockedClaimedFamilyOf = claimedFamilyOf as jest.MockedFunction<typeof claimedFamilyOf>;
 
 /**
  * Everything `register` now requires, so each test can say only what it is about.
@@ -66,6 +73,7 @@ describe('AuthService', () => {
     let userQueryBuilder: Record<string, jest.Mock> = {};
 
     beforeEach(async () => {
+        mockedClaimedFamilyOf.mockResolvedValue(null);
         userRepo = createMockRepository();
         profileRepo = createMockRepository();
         acceptanceRepo = createMockRepository();
@@ -391,9 +399,11 @@ describe('AuthService', () => {
             expect(sessions.startSession).not.toHaveBeenCalled();
         });
 
-        it('creates the account on the office’s row: confirmed, still waiting for approval, with the acceptances and a trail', async () => {
+        // Review of 26 September 2026: the account is tied to the link it came from, and the office
+        // attaches it to the family when it approves it — not here.
+        it('creates the account from the link without attaching it: confirmed, waiting for approval, with the acceptances and a trail', async () => {
             userRepo.findOne!.mockResolvedValue(null);
-            claims.redeem.mockResolvedValue(officeRow);
+            claims.redeem.mockResolvedValue({ profile: officeRow, claim: { id: 5 } });
             manager.save.mockImplementation((entity: unknown, data: Record<string, unknown> | Record<string, unknown>[]) => {
                 if (entity === User) return Promise.resolve({ id: 9, ...data });
                 if (entity === DocumentAcceptance && Array.isArray(data)) return Promise.resolve(data.map((row, index) => ({ id: 21 + index, ...row })));
@@ -407,11 +417,12 @@ describe('AuthService', () => {
             expect(user).toMatchObject({ username: 'ana.popescu', role: Role.PARENT, approvalStatus: ApprovalStatus.PENDING });
             expect(user.emailConfirmedAt).toBeInstanceOf(Date);
             await expect(bcrypt.compare('parola-noua', user.passwordHash as string)).resolves.toBe(true);
-            expect(manager.update).toHaveBeenCalledWith(Profile, { id: 40 }, { user: { id: 9 } });
+            expect(manager.update).toHaveBeenCalledWith(AccountClaim, { id: 5 }, { user: { id: 9 } });
+            expect(manager.update).not.toHaveBeenCalledWith(Profile, expect.anything(), expect.anything());
             const [rows] = saved(DocumentAcceptance) as unknown as { document: string }[][];
             expect(rows.map((row) => row.document)).toEqual(['terms', 'privacy', 'unusual_clauses']);
             expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
-                expect.objectContaining({ actor: { userId: 9, username: 'ana.popescu' }, entityType: 'Profile', entityId: 40, fields: ['user'] }),
+                expect.objectContaining({ actor: { userId: 9, username: 'ana.popescu' }, entityType: 'AccountClaim', entityId: 5, fields: ['user'] }),
                 manager,
             );
             expect(sessions.startSession).toHaveBeenCalledWith(expect.objectContaining({ id: 9 }), expect.any(String), expect.any(Date), 'Firefox');
@@ -590,7 +601,24 @@ describe('AuthService', () => {
                 emailConfirmed: false,
                 approvalStatus: ApprovalStatus.PENDING,
                 active: false,
+                awaitingFamily: false,
             });
+        });
+
+        // Review of 26 September 2026: an account created from a claim link has no family until the
+        // office approves it, and the portal must not read that as a parent who skipped step two.
+        it('says when the account waits to be attached to the family it was created for', async () => {
+            userRepo.findOne!.mockResolvedValue({
+                id: 9,
+                username: 'ana',
+                role: 'PARENT',
+                emailConfirmedAt: new Date(),
+                approvalStatus: ApprovalStatus.PENDING,
+            });
+            profileRepo.findOne!.mockResolvedValue(null);
+            mockedClaimedFamilyOf.mockResolvedValue({ claimId: 5, profile: { id: 40 } as Profile, email: 'ana@example.com' });
+
+            await expect(service.getUserProfile(9)).resolves.toMatchObject({ awaitingFamily: true, profileComplete: false });
         });
 
         it('returns null for a user that is gone, rather than a half-built object', async () => {

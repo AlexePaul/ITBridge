@@ -1,6 +1,7 @@
 import { authInitialized } from "~/plugins/01.auth.client";
 import { ProfileSetup } from "~/composables/useProfileInitialization";
 import { isProtectedRoute } from "./01.auth.global";
+import { useUserStore } from "~/stores/userStore";
 
 // middleware/profile-setup.ts
 export default defineNuxtRouteMiddleware(async (to, from) => {
@@ -32,5 +33,23 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   if (ProfileSetup.value && to.path !== "/user/profile-setup") {
     return navigateTo("/user/profile-setup");
   }
+
+  /*
+   * An account created from a claim link waits for the office to attach it to its family (review of
+   * 26 September 2026). Until then no page has anything of the family to show, and the home page is
+   * the one that says why. The new-terms page stays open, since the legal gate after this one sends
+   * a family there, and a redirect each way would be a loop.
+   */
+  const userStore = useUserStore();
+  if (
+    userStore.user?.awaitingFamily &&
+    to.path.startsWith("/user") &&
+    !AWAITING_FAMILY_PAGES.includes(to.path)
+  ) {
+    return navigateTo("/user/dashboard");
+  }
   return;
 });
+
+/** What an account waiting to be attached to its family can open in the portal. */
+export const AWAITING_FAMILY_PAGES = ["/user/dashboard", "/user/termeni-noi"];

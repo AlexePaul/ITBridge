@@ -11,6 +11,7 @@ import { SYSTEM_ACTOR } from 'src/modules/audit/actor';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { accountClaimUrl } from './portal-urls';
+import { waitingAccountOf } from './claimant';
 
 /**
  * How long a claim link lives: forty-eight hours, the confirmation link's span.
@@ -81,6 +82,10 @@ export class AccountClaimService {
     /**
      * The family the office typed in under this address, if there is one: a profile with no account
      * that has not been erased. Compared on `lower()`, like every other lookup of a mailbox.
+     *
+     * Not one with an account created from a link and waiting for the office's approval: that family
+     * has an account, only not attached yet, and the register form answers as it does for any
+     * address that has one — "an account exists, sign in".
      */
     async accountlessProfileFor(email: string, manager: EntityManager = this.dataSource.manager): Promise<Profile | null> {
         const profile = await manager
@@ -91,6 +96,7 @@ export class AccountClaimService {
             .getOne();
 
         if (!profile || profile.user || profile.erasedAt !== null || !profile.email) return null;
+        if (await waitingAccountOf(manager, profile.id, true)) return null;
         return profile;
     }
 
@@ -109,9 +115,9 @@ export class AccountClaimService {
      * `queueOrRecord`: this message *is* the proof, and gated on it it would never leave.
      *
      * Refused, each with its own code, when there is nothing a link could do: the family already has
-     * an account, has no address to send to, or was erased. Judged here, under the lock, because the
-     * callers read the family before it: a claim spent or an erasure committed in between is only
-     * visible after the wait.
+     * an account, has no address to send to, was erased, or has an account created from an earlier
+     * link waiting for approval. Judged here, under the lock, because the callers read the family
+     * before it: a claim spent or an erasure committed in between is only visible after the wait.
      */
     async issue(profileId: number, now: Date, manager: EntityManager): Promise<AccountClaim> {
         // Everything below is written from the row read under the lock, not from the caller's copy:
@@ -128,6 +134,15 @@ export class AccountClaimService {
         }
         if (!profile.email) {
             throw new ConflictException({ message: `Profile ${profileId} has no email address.`, error: 'PROFILE_HAS_NO_EMAIL' });
+        }
+        // One account waiting on a family at a time: a second link would be a second account for the
+        // office to tell apart from the first. One the office refused no longer counts — see
+        // `waitingAccountOf`.
+        if (await waitingAccountOf(manager, profile.id, true)) {
+            throw new ConflictException({
+                message: `Profile ${profileId} has an account created from a claim link, waiting for approval.`,
+                error: 'PROFILE_HAS_PENDING_ACCOUNT',
+            });
         }
 
         await manager.update(AccountClaim, { profile: { id: profile.id }, usedAt: IsNull(), expiresAt: MoreThan(now) }, { expiresAt: now });
@@ -222,14 +237,17 @@ export class AccountClaimService {
     }
 
     /**
-     * Spends a link, in the caller's transaction, and answers with the family it opens.
+     * Spends a link, in the caller's transaction, and answers with the family it opens and the link.
      *
      * Everything is read again under the family's lock and then the link's, so two tabs submitting
      * the same link wait for each other and the second finds it used. The family must still be the
      * account-less, unerased one at the address the link went to: an office correction of the
      * address in between means the link reached an inbox that is no longer the family's.
+     *
+     * The caller ties the account it creates to the returned link (`AccountClaim.user`), not to the
+     * family: the office attaches it when it approves it — see `claimant.ts`.
      */
-    async redeem(token: string, now: Date, manager: EntityManager): Promise<Profile> {
+    async redeem(token: string, now: Date, manager: EntityManager): Promise<{ profile: Profile; claim: AccountClaim }> {
         // Which family, read without a lock: the family's row is locked first and the link's second,
         // the order `issue` takes them in — the other way round, a resend racing a submit would each
         // hold one row and wait for the other.
@@ -251,8 +269,13 @@ export class AccountClaimService {
         if (!profile || profile.user || profile.erasedAt !== null || !profile.email || !sameAddress(profile.email, claim.email)) {
             throw claimTokenInvalid();
         }
+        // A backstop: no link is issued while an account waits on the family, so a live one here was
+        // written before that account existed, and the family has one account to decide on already.
+        if (await waitingAccountOf(manager, profile.id, true)) {
+            throw claimTokenInvalid();
+        }
 
         await manager.update(AccountClaim, { id: claim.id }, { usedAt: now });
-        return profile;
+        return { profile, claim };
     }
 }

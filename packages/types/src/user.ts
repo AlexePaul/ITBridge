@@ -63,6 +63,13 @@ export interface CurrentUser extends User {
      */
     profileComplete: boolean;
     /**
+     * Whether this account was created from a claim link and waits for the office to attach it to
+     * its family — the review of 26 September 2026. Until the office approves it, the account has
+     * no family: the portal shows it a waiting notice, and the profile-setup gate leaves it alone,
+     * since step two would write it a second family beside the one it claimed.
+     */
+    awaitingFamily: boolean;
+    /**
      * Which documents this family has not accepted in the version in force — E22 S4, second half.
      *
      * Terms §18 promises that a new version is asked for at the first sign-in after it, and this is
@@ -96,6 +103,12 @@ export interface PendingAccount {
     lastName: string | null;
     email: string | null;
     phone: string | null;
+    /**
+     * The family the account asks to be attached to, when it was created from a claim link — the
+     * names and contacts above are that family's, as the office holds it. Approving attaches it.
+     * `null` for an account registered on its own.
+     */
+    claimedProfileId: number | null;
 }
 
 /**

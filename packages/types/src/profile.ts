@@ -66,4 +66,10 @@ export interface ProfileAccount {
     approvalStatus: ApprovalStatus;
     approvalDecidedAt: ISODateTime | null;
     emailConfirmed: boolean;
+    /**
+     * Created from a claim link and not attached to the family yet: it waits for the office's
+     * approval, which attaches it. `hasUser` stays `false` meanwhile — the family has no account
+     * the portal would show its data to.
+     */
+    viaClaim: boolean;
 }

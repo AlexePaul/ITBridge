@@ -32,6 +32,14 @@ export const useProfileInitialization = () => {
       return;
     }
 
+    // An account created from a claim link has no family until the office attaches it (review of
+    // 26 September 2026): step two would write it a second family beside the one it claimed, so
+    // the setup gate leaves it alone, and there is no profile to fetch.
+    if (userStore.user.awaitingFamily) {
+      ProfileSetup.value = false;
+      return;
+    }
+
     // The profile itself is still fetched, because the setup form needs the fields it already has
     // — a family the admin entered by phone arrives with a name and sometimes an address.
     try {

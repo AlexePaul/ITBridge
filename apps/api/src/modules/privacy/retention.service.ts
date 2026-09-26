@@ -354,13 +354,23 @@ export class RetentionService {
      * E-mail confirmations, password resets and account-claim links whose link stopped working a
      * month ago. A claim link replaced by a newer one had its expiry brought forward to the moment it
      * was replaced, so it leaves on the same clock as one that simply ran out.
+     *
+     * Not a claim link whose account still waits for the office to attach it to the family: the
+     * link is the only tie between the two until then, and deleting it would leave an account
+     * approved into no family at all (review of 26 September 2026).
      */
     private async removeExpiredLinks(now: Date): Promise<number> {
         const cutoff = new Date(now.getTime() - EXPIRED_LINK_RETENTION_DAYS * 24 * 60 * 60 * 1000);
         const [confirmations, resets, claims] = await Promise.all([
             this.confirmations.delete({ expiresAt: LessThan(cutoff) }),
             this.passwordResets.delete({ expiresAt: LessThan(cutoff) }),
-            this.accountClaims.delete({ expiresAt: LessThan(cutoff) }),
+            this.accountClaims
+                .createQueryBuilder()
+                .delete()
+                .from(AccountClaim)
+                .where('"expiresAt" < :cutoff', { cutoff })
+                .andWhere('(user_id IS NULL OR EXISTS (SELECT 1 FROM profiles attached WHERE attached.user_id = account_claims.user_id))')
+                .execute(),
         ]);
         return (confirmations.affected ?? 0) + (resets.affected ?? 0) + (claims.affected ?? 0);
     }

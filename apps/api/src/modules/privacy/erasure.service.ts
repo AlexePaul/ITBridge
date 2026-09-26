@@ -316,6 +316,24 @@ export class ErasureService {
                 );
             }
 
+            // An account created from one of those links and still waiting for the office to attach
+            // it is the family's account too, only not attached yet: it goes with the family, like
+            // the attached one below (review of 26 September 2026). Read before the links it hangs
+            // off are deleted.
+            const waiting = await manager
+                .getRepository(AccountClaim)
+                .createQueryBuilder('claim')
+                .innerJoin('claim.user', 'claimant')
+                .select('claimant.id', 'userId')
+                .andWhere('claim.profile_id = :profileId', { profileId })
+                .andWhere('NOT EXISTS (SELECT 1 FROM profiles attached WHERE attached.user_id = claimant.id)')
+                .getRawMany<{ userId: number }>();
+            if (waiting.length)
+                await manager.delete(
+                    User,
+                    waiting.map((row) => row.userId),
+                );
+
             // The links to create an account on this family hang off the profile, not the account,
             // and the profile stays — emptied — so nothing cascades to them: each one kept the
             // family's address until 30 days after it expired (review of 26 September 2026).

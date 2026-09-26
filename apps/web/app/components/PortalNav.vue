@@ -53,6 +53,8 @@ import { useRoute } from "#imports";
 import { useChildSelection } from "~/composables/useChildSelection";
 import { useLogout } from "~/composables/useLogout";
 import { useProfileStore } from "~/stores/profileStore";
+import { useUserStore } from "~/stores/userStore";
+import { AWAITING_FAMILY_PAGES } from "~/middleware/02.profile-setup.global";
 import { SCHOOL_NAME } from "#shared/school";
 
 /**
@@ -82,7 +84,7 @@ const siteLinks = [
 ];
 
 // Prezența sits next to Absențe: one is what happened, the other what is coming and what it earned.
-const tabs = [
+const allTabs = [
   { label: "Acasă", to: "/user/dashboard" },
   { label: "Prezența", to: "/user/prezenta" },
   { label: "Absențe și recuperări", to: "/user/absente" },
@@ -90,6 +92,15 @@ const tabs = [
   { label: "Plăți", to: "/user/payments" },
   { label: "Profil", to: "/user/profile" },
 ];
+
+// An account waiting to be attached to its family can open only its home page (review of 26
+// September 2026); tabs it would be sent back from are not offered.
+const userStore = useUserStore();
+const tabs = computed(() =>
+  userStore.user?.awaitingFamily
+    ? allTabs.filter((tab) => AWAITING_FAMILY_PAGES.includes(tab.to))
+    : allTabs
+);
 
 /**
  * Matched on the path alone.

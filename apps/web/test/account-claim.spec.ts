@@ -59,11 +59,13 @@ describe("the link's page", () => {
     ProfileSetup.value = false;
   });
 
-  it("signs the new account in and raises the profile-setup gate, as registration does", async () => {
-    stubApi({
+  // Review of 26 September 2026: the account is attached to the family when the office approves
+  // it. Until then step two would write it a second family, so the setup gate stays down and no
+  // profile is asked for — there is none the account may read.
+  it("signs the new account in, and raises no profile-setup gate while the family is not attached", async () => {
+    const client = stubApi({
       "/auth/claim": { accessToken: "acces", refreshToken: "refresh" },
-      "/auth/me": { id: 9, role: "PARENT", profileComplete: false },
-      "/profiles": [{ id: 4, firstName: "Ana" }],
+      "/auth/me": { id: 9, role: "PARENT", profileComplete: false, awaitingFamily: true },
     });
     const { useAuthApi } = await import("~/composables/api/useAuthApi");
     const { useTokenStore } = await import("~/stores/tokenStore");
@@ -79,7 +81,8 @@ describe("the link's page", () => {
 
     expect(useTokenStore().accessToken).toBe("acces");
     expect(useTokenStore().refreshToken).toBe("refresh");
-    expect(ProfileSetup.value).toBe(true);
+    expect(ProfileSetup.value).toBe(false);
+    expect(client.mock.calls.map(([url]) => url)).not.toContain("/profiles");
   });
 
   it("asks what registration asks for an account, both checkboxes included", () => {
