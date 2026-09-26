@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { createTestApp, groupBody, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
+import { createClassSession, createTestApp, groupBody, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
 
 /**
  * E08. The school teaches at two addresses, and until now the platform had no way to say so — the
@@ -207,6 +207,37 @@ describe('Locations, rooms and the timetable (e2e)', () => {
             const moving = await createGroup(groupBody(dtRoom, { name: 'Python Începători', weekday: 3, startTime: '17:00' })).expect(201);
 
             await request(app.getHttpServer()).put(`/groups/${moving.body.id}`).set('Authorization', admin.auth).send({ weekday: 2 }).expect(409);
+        });
+
+        // The QA of 26 September 2026: 16:30–18:00 beside 16:00–17:30 in one room, and 12:00–11:00,
+        // were both accepted — the check only knew an equal start.
+        it('refuses overlapping hours in the same room, and a group that ends before it starts', async () => {
+            const { dtRoom } = await seedBothLocations();
+            await createGroup(groupBody(dtRoom, { name: 'Scratch Începători', weekday: 1, startTime: '16:00', endTime: '17:30' })).expect(201);
+
+            const overlap = await createGroup(groupBody(dtRoom, { name: 'QA Suprapus', weekday: 1, startTime: '16:30', endTime: '18:00' })).expect(409);
+            expect(overlap.body.code).toBe('GROUP_SLOT_TAKEN');
+            const inverted = await createGroup(groupBody(dtRoom, { name: 'QA Ore inversate', weekday: 1, startTime: '12:00', endTime: '11:00' })).expect(400);
+            expect(inverted.body.code).toBe('GROUP_ENDS_BEFORE_IT_STARTS');
+            // Back to back is not an overlap.
+            await createGroup(groupBody(dtRoom, { name: 'Python', weekday: 1, startTime: '17:30', endTime: '19:00' })).expect(201);
+        });
+
+        it('refuses to move a group onto an hour a class of another group was moved into', async () => {
+            const { dtRoom } = await seedBothLocations();
+            const host = await createGroup(groupBody(dtRoom, { name: 'Python Avansați', weekday: 4, startTime: '17:00', endTime: '18:30' })).expect(201);
+            const moving = await createGroup(groupBody(dtRoom, { name: 'Web Începători', weekday: 3, startTime: '16:00', endTime: '17:30' })).expect(201);
+            // One Thursday class of Python moved to a Monday evening in the same room.
+            const moved = await createClassSession(dataSource, host.body.id as number, { date: '2030-01-07' });
+            await dataSource.query(`UPDATE class_sessions SET "startTime" = '18:00', "endTime" = '19:30' WHERE id = $1`, [moved]);
+
+            const res = await request(app.getHttpServer())
+                .put(`/groups/${moving.body.id}`)
+                .set('Authorization', admin.auth)
+                .send({ weekday: 1, startTime: '18:00', endTime: '19:30' })
+                .expect(409);
+            expect(res.body.code).toBe('ROOM_BUSY_AT_THAT_TIME');
+            expect(res.body.message).toContain('2030-01-07');
         });
 
         it('lets a group keep its slot through an unrelated update', async () => {

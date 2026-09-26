@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { LessThan, MoreThan } from 'typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { GroupService } from './group.service';
 import { Group } from 'src/entities/group.entity';
@@ -116,7 +117,10 @@ describe('GroupService', () => {
     it('compares start times in the stored form, so HH:MM and HH:MM:SS collide', async () => {
         await service.createGroup(dto);
 
-        expect(groupRepo.findOne).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ startTime: '17:00:00' }) }));
+        // Overlapping hours, in the stored form: it starts before this one ends and ends after it starts.
+        expect(groupRepo.findOne).toHaveBeenCalledWith(
+            expect.objectContaining({ where: expect.objectContaining({ startTime: LessThan('18:30:00'), endTime: MoreThan('17:00:00') }) }),
+        );
     });
 
     it('getGroupById also loads the group members, the room and its location', async () => {

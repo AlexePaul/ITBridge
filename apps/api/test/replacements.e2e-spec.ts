@@ -92,6 +92,12 @@ describe('Temporary group moves (e2e)', () => {
     const mailTo = (address: string) =>
         dataSource.query<{ subject: string; bodyText: string }[]>('SELECT "subject", "bodyText" FROM "outbox" WHERE "to" = $1 ORDER BY id DESC', [address]);
 
+    /** The keys of the messages about this notice's moves, oldest first. */
+    const moveMessages = () =>
+        dataSource
+            .query<{ dedupeKey: string }[]>('SELECT "dedupeKey" FROM "outbox" WHERE "dedupeKey" LIKE $1 ORDER BY id', [`absence-replacement:${noticeId}:%`])
+            .then((rows) => rows.map((row) => row.dedupeKey));
+
     const placedSessionId = async () => {
         const rows = await dataSource.query<{ id: number | null }[]>('SELECT "replacement_session_id" AS id FROM "absence_notices" WHERE "id" = $1', [
             noticeId,
@@ -158,6 +164,39 @@ describe('Temporary group moves (e2e)', () => {
             expect((await mailTo('parinte.mutari@example.com')).filter((row) => row.subject.includes('Ana')).length).toBe(2);
         });
 
+        /**
+         * The review of 26 September 2026. The key was the notice and the class, unique forever, so
+         * moving a child back to a class it had already been moved to wrote nothing: the insert was
+         * a duplicate and was dropped, the office's screen said the family had been written to, and
+         * the family's newest message still named the other day.
+         */
+        it('writes again when the child is moved back to a class it was moved to before', async () => {
+            const saturday = await createClassSession(dataSource, hostGroupId, { date: iso(5) });
+
+            await place(hostSessionId).expect(200);
+            await place(saturday).expect(200);
+            await place(hostSessionId).expect(200);
+
+            expect(await placedSessionId()).toBe(hostSessionId);
+            const keys = await moveMessages();
+            expect(keys).toHaveLength(3);
+            // The newest message is about the class the child actually goes to.
+            expect(keys[2]).toContain(`:${hostSessionId}:`);
+
+            // A move cleared in silence and recorded again is a move the family has to hear about.
+            await request(app.getHttpServer()).delete(`/attendance/absences/${noticeId}/replacement`).set('Authorization', admin.auth).expect(200);
+            await place(saturday).expect(200);
+            expect(await moveMessages()).toHaveLength(4);
+        });
+
+        it('a double click is still one move and one message', async () => {
+            const [first, second] = await Promise.all([place(hostSessionId), place(hostSessionId)]);
+
+            expect([first.status, second.status]).toEqual([200, 200]);
+            expect(await placedSessionId()).toBe(hostSessionId);
+            expect(await moveMessages()).toHaveLength(1);
+        });
+
         // The end-to-end testing of 25 September 2026: the host class's register listed a moved child
         // only once somebody had marked them, and the phone screen a teacher marks from cannot add
         // anybody — so nobody could.
@@ -190,6 +229,49 @@ describe('Temporary group moves (e2e)', () => {
             expect(await placedSessionId()).toBeNull();
             // Still the one message, the one announcing the move. Clearing it writes nothing.
             expect((await mailTo('parinte.mutari@example.com')).filter((row) => row.subject.includes('Ana')).length).toBe(1);
+        });
+    });
+
+    /**
+     * The review of 26 September 2026. A notice says the child will miss the class, and the register
+     * is what says whether they did: a child who came after all and was marked present stayed on the
+     * office's list of children to move, and could be moved — with the family written to about a
+     * make-up for a class the child had sat in.
+     */
+    describe('a child who came to the class after all', () => {
+        const markAtMissedClass = (present: boolean) =>
+            request(app.getHttpServer())
+                .put(`/attendance/session/${missedSessionId}/child/${childId}`)
+                .set('Authorization', admin.auth)
+                .send({ present })
+                .expect(200);
+
+        const unplacedIds = async () =>
+            (await request(app.getHttpServer()).get('/attendance/replacements/unplaced').set('Authorization', admin.auth).expect(200)).body.map(
+                (notice: { id: number }) => notice.id,
+            );
+
+        it('leaves the list of children to move once the register says present', async () => {
+            expect(await unplacedIds()).toContain(noticeId);
+
+            await markAtMissedClass(true);
+
+            expect(await unplacedIds()).not.toContain(noticeId);
+        });
+
+        it('stays on the list when the register says absent — the absence it announced', async () => {
+            await markAtMissedClass(false);
+
+            expect(await unplacedIds()).toContain(noticeId);
+        });
+
+        it('cannot be moved, and nobody is written to', async () => {
+            await markAtMissedClass(true);
+
+            const refused = await place(hostSessionId).expect(409);
+            expect(refused.body.code).toBe('CHILD_ATTENDED_CLASS');
+            expect(await placedSessionId()).toBeNull();
+            expect(await moveMessages()).toHaveLength(0);
         });
     });
 

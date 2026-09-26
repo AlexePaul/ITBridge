@@ -44,11 +44,11 @@ export const useReconciliationApi = () => {
     });
 
   /** A line recorded as a transfer on the invoice a person chose. */
-  const matchLine = (lineId: number, invoiceId: number) =>
+  const matchLine = (lineId: number, invoiceId: number, acceptOverpayment = false) =>
     api<StatementLineView>(`/reconciliation/lines/${lineId}/match`, {
       method: "POST",
       headers: { ...auth(), "Content-Type": "application/json" },
-      body: JSON.stringify({ invoiceId }),
+      body: JSON.stringify(acceptOverpayment ? { invoiceId, acceptOverpayment } : { invoiceId }),
     });
 
   /** Every line matched by the invoice's number, in one press. */

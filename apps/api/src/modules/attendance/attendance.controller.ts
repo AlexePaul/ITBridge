@@ -178,7 +178,8 @@ export class AttendanceController {
     @ApiResponse({ status: 400, description: 'REPLACEMENT_SAME_GROUP' })
     @ApiResponse({
         status: 409,
-        description: 'CLASS_SESSION_CANCELLED, REPLACEMENT_OUT_OF_WEEK, REPLACEMENT_SESSION_STARTED, REPLACEMENT_AGE_MISMATCH or REPLACEMENT_SESSION_FULL',
+        description:
+            'CLASS_SESSION_CANCELLED, REPLACEMENT_OUT_OF_WEEK, REPLACEMENT_SESSION_STARTED, REPLACEMENT_AGE_MISMATCH, REPLACEMENT_SESSION_FULL or CHILD_ATTENDED_CLASS',
     })
     async placeReplacement(@Param('id', ParseIntPipe) id: number, @Body() dto: PlaceReplacementDto) {
         return this.replacementService.place(id, dto.classSessionId);

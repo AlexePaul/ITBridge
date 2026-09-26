@@ -160,16 +160,77 @@ describe("useApi", () => {
     expect(calls.filter((c) => c !== "/auth/refresh")).toHaveLength(20); // 10 failed + 10 retried
   });
 
-  it("clears the tokens when the refresh itself fails", async () => {
+  it("clears the tokens when the server turns the refresh down", async () => {
     handler = (url) => {
       if (url === "/auth/refresh") return Promise.reject(httpError(401));
       return Promise.reject(httpError(401));
     };
 
     const api = await loadUseApi();
-    await expect(api("/invoices")).rejects.toThrow();
+    await expect(api("/invoices")).rejects.toMatchObject({ status: 401 });
 
     expect(tokenStore.clearTokens).toHaveBeenCalled();
+  });
+
+  it("hands back the request's own 401 when the refresh is refused as malformed", async () => {
+    handler = (url) => {
+      if (url === "/auth/refresh") return Promise.reject(httpError(400));
+      return Promise.reject(httpError(401));
+    };
+
+    const api = await loadUseApi();
+    // The 400 is about the refresh token; the screen asked about its own request, which is 401.
+    await expect(api("/invoices")).rejects.toMatchObject({ status: 401 });
+    expect(tokenStore.clearTokens).toHaveBeenCalled();
+  });
+
+  /**
+   * One bar of signal in a classroom: the access token has expired, and the one refresh request
+   * the phone makes is lost on the network. That used to clear both tokens — the teacher signed out
+   * by the network, with a seven-day refresh token that was perfectly good thrown away — and every
+   * mark tapped afterwards met a 401 the phone register then read as "the server refused it"
+   * (review of 26 September 2026).
+   */
+  it("keeps the session when the refresh never got an answer", async () => {
+    const networkError = new Error("fetch failed");
+    handler = (url) => {
+      if (url === "/auth/refresh") return Promise.reject(networkError);
+      return Promise.reject(httpError(401));
+    };
+
+    const api = await loadUseApi();
+    await expect(api("/attendance/session/7/child/1")).rejects.toBe(networkError);
+
+    expect(tokenStore.clearTokens).not.toHaveBeenCalled();
+    expect(tokenStore.refreshToken).toBe("refresh-vechi");
+  });
+
+  it("keeps the session when the refresh meets a server error", async () => {
+    handler = (url) => {
+      if (url === "/auth/refresh") return Promise.reject(httpError(502));
+      return Promise.reject(httpError(401));
+    };
+
+    const api = await loadUseApi();
+    await expect(api("/invoices")).rejects.toMatchObject({ status: 502 });
+
+    expect(tokenStore.clearTokens).not.toHaveBeenCalled();
+  });
+
+  it("does not sign out over the retried request's own failure", async () => {
+    let refreshed = false;
+    handler = (url) => {
+      if (url === "/auth/refresh") {
+        refreshed = true;
+        return Promise.resolve({ accessToken: "acces-nou" });
+      }
+      return Promise.reject(httpError(refreshed ? 409 : 401));
+    };
+
+    const api = await loadUseApi();
+    await expect(api("/enrollments")).rejects.toMatchObject({ status: 409 });
+
+    expect(tokenStore.clearTokens).not.toHaveBeenCalled();
   });
 
   it("allows a new refresh once the previous one has settled", async () => {

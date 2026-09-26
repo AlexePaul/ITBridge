@@ -10,6 +10,22 @@ import { useTokenStore } from "~/stores/tokenStore";
  */
 let refreshPromise: Promise<void> | null = null;
 
+/**
+ * Whether `/auth/refresh` itself turned the refresh token down — the one answer that ends a session.
+ *
+ * It used to be any failure at all. A refresh lost on one bar of signal, or a 502 while the API
+ * restarted, cleared both tokens, and the teacher on the phone register was signed out for the
+ * network's sake — with every mark tapped after that answered 401 and, until the screen learned to
+ * tell the two apart, thrown away as "refused". A 400 (a malformed token) or a 401 (expired,
+ * revoked, replayed) is the server saying the token is no good; anything else says nothing about
+ * the token, and the next request that meets a 401 simply refreshes again.
+ */
+const refreshRejected = (err: unknown): boolean => {
+  const failure = err as { status?: number; response?: { status?: number } } | null;
+  const status = failure?.status ?? failure?.response?.status;
+  return status === 400 || status === 401;
+};
+
 export const useApi = () => {
   const config = useRuntimeConfig();
   const tokenStore = useTokenStore();
@@ -36,7 +52,7 @@ export const useApi = () => {
         tokenStore.setRefreshToken((res as any).refreshToken as string);
       }
     } catch (err) {
-      tokenStore.clearTokens();
+      if (refreshRejected(err)) tokenStore.clearTokens();
       throw err;
     }
   }
@@ -71,11 +87,15 @@ export const useApi = () => {
       if (status === 401 && tokenStore.refreshToken) {
         try {
           await ensureRefreshed();
-          return (await client<T>(url, { ...opts, headers: buildHeaders() })) as T;
         } catch (refreshErr) {
-          tokenStore.clearTokens();
-          throw refreshErr;
+          // Turned down: the request is still what it was, unauthorized, and its 401 is what a
+          // screen can explain — not the refresh's own 400. Not delivered: the refresh's error goes
+          // back as it is, network-shaped, and the session stays for the next attempt.
+          throw refreshRejected(refreshErr) ? err : refreshErr;
         }
+        // Outside the `try` on purpose: the retried request's own failure — a 409, a 500 — is that
+        // request's answer, and it used to sign the user out as well.
+        return (await client<T>(url, { ...opts, headers: buildHeaders() })) as T;
       }
       throw err;
     }

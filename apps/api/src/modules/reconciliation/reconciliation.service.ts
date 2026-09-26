@@ -212,7 +212,7 @@ export class ReconciliationService {
      * payment without its line would be matched a second time, a line without its payment would
      * claim money nobody recorded.
      */
-    async match(lineId: number, invoiceId: number, userId: number | undefined, actor: Actor): Promise<StatementLineView> {
+    async match(lineId: number, invoiceId: number, userId: number | undefined, actor: Actor, acceptOverpayment = false): Promise<StatementLineView> {
         await this.dataSource.transaction(async (manager) => {
             const locked = await manager.findOne(BankStatementLine, { where: { id: lineId }, lock: { mode: 'pessimistic_write' } });
             if (!locked) throw new NotFoundException('Statement line not found');
@@ -222,6 +222,27 @@ export class ReconciliationService {
                     message: `Statement line ${lineId} is already recorded as payment ${line.payment.id}.`,
                     error: 'STATEMENT_LINE_ALREADY_MATCHED',
                 });
+            }
+
+            // What the invoice still owes, read now and under its lock — not the "rest" the page showed.
+            // A proposal confirmed from a page opened before the office took the same money in cash
+            // recorded a second payment on a paid invoice, 700 on 350, and sent the family two
+            // "achitată" receipts (QA of 26 September 2026). More than is owed is the office's
+            // decision to make on purpose, not a stale row's.
+            if (!acceptOverpayment) {
+                const invoice = await manager.findOne(Invoice, { where: { id: invoiceId }, lock: { mode: 'pessimistic_write' } });
+                if (!invoice) throw new NotFoundException('Invoice not found');
+                const [{ paid }] = await manager.query<{ paid: string }[]>(
+                    `SELECT COALESCE(SUM(amount), 0) AS paid FROM payments WHERE invoice_id = $1 AND status = $2`,
+                    [invoiceId, PaymentStatus.SUCCEEDED],
+                );
+                const owed = Math.round((invoice.amount - Number(paid)) * 100) / 100;
+                if (line.amount > owed) {
+                    throw new ConflictException({
+                        message: `Statement line ${lineId} pays ${line.amount} on invoice ${invoiceId}, which has ${owed} left.`,
+                        error: 'STATEMENT_LINE_EXCEEDS_REMAINDER',
+                    });
+                }
             }
 
             const bookedOn = toIsoDate(line.bookedOn);

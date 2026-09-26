@@ -29,6 +29,12 @@
  * in the room, and until now this page did not offer it at all — it was reachable only from the
  * sidebar, which is exactly the thing a phone hides behind a button. Somebody who lands here on a
  * phone is almost certainly about to mark the class that is starting.
+ *
+ * Each card promises only what its screen does (review of 26 September 2026). The group card said
+ * "pe orice zi din orar" and the child card "consultă și corectează", while the group screen offers
+ * only unmarked classes from the last four weeks and the child's history is read-only — so a
+ * register half-taken on the phone could be finished nowhere. The phone screen now opens any past
+ * day as well, and it is the door named for completing and correcting.
  */
 definePageMeta({
   layout: "dashboard" as any,
@@ -41,22 +47,22 @@ const choices = [
     to: "/admin/attendance/azi",
     icon: "i-lucide-smartphone",
     title: "Prezența de azi",
-    description: "Orele de azi, marcate de pe telefon, din sală.",
-    hint: "Două butoane per copil; marcajele se retrimit singure dacă pică rețeaua",
+    description: "Orele de azi, marcate de pe telefon, din sală — sau ale unei zile trecute.",
+    hint: "Aici se completează și se corectează un catalog început; marcajele se retrimit singure dacă pică rețeaua",
   },
   {
     to: "/admin/attendance/group",
     icon: "i-lucide-users",
     title: "Prezența unei grupe",
-    description: "Catalogul unei grupe, pe orice zi din orar.",
-    hint: "Alege grupa și ziua, apoi marchează copiii",
+    description: "Catalogul întreg al unei ore încă nemarcate, din ultimele patru săptămâni.",
+    hint: "Alege grupa și ora, apoi marchează toți copiii deodată",
   },
   {
     to: "/admin/attendance/children",
     icon: "i-lucide-user",
     title: "Prezența unui copil",
     description: "Istoricul unui singur copil, cu recuperările lui.",
-    hint: "Consultă și corectează prezențele unei anumite persoane",
+    hint: "Doar pentru citit; o corectură se face în catalogul orei",
   },
 ];
 </script>

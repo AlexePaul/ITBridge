@@ -1,13 +1,17 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
-import { DataSource, Not, Repository } from 'typeorm';
+import { DataSource, EntityManager, FindOperator, LessThan, MoreThan, Not, Raw, Repository } from 'typeorm';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { ClassSessionService } from 'src/modules/class-session/class-session.service';
 import { createGroupDto } from './dto/createGroup.dto';
 import { updateGroupDto } from './dto/updateGroup.dto';
 import { applyDefined } from 'src/common/apply-defined';
+import { ClassSession } from 'src/entities/class-session.entity';
+import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
+import { schoolDay } from 'src/common/school-clock';
+import { toIsoDate } from 'src/modules/class-session/class-session.dates';
 
 @Injectable()
 export class GroupService {
@@ -23,7 +27,8 @@ export class GroupService {
         const room = await this.findRoomOrFail(createGroupDto.roomId);
         this.assertRoomIsUsable(room);
         this.assertFitsInRoom(createGroupDto.capacity, room);
-        await this.assertSlotIsFree(room.id, createGroupDto.weekday, createGroupDto.startTime);
+        assertEndsAfterStart(createGroupDto.startTime, createGroupDto.endTime);
+        await this.assertSlotIsFree(room.id, createGroupDto.weekday, createGroupDto.startTime, createGroupDto.endTime);
 
         const { roomId: _roomId, ...fields } = createGroupDto;
         const group = this.groupRepository.create(fields);
@@ -82,11 +87,18 @@ export class GroupService {
         // Normalised on both sides: the column hands back `09:00:00` and the DTO accepts `09:00`,
         // so comparing them raw reports a move every time the caller resends the current time.
         const startTime = normalizeTime(updateGroupDto.startTime ?? group.startTime);
+        const endTime = normalizeTime(updateGroupDto.endTime ?? group.endTime);
         const capacity = updateGroupDto.capacity ?? group.capacity;
 
         this.assertFitsInRoom(capacity, room);
-        if (room.id !== group.room.id || weekday !== group.weekday || startTime !== normalizeTime(group.startTime)) {
-            await this.assertSlotIsFree(room.id, weekday, startTime, id);
+        assertEndsAfterStart(startTime, endTime);
+        if (
+            room.id !== group.room.id ||
+            weekday !== group.weekday ||
+            startTime !== normalizeTime(group.startTime) ||
+            endTime !== normalizeTime(group.endTime)
+        ) {
+            await this.assertSlotIsFree(room.id, weekday, startTime, endTime, id);
         }
         // Where the group met until now — its coming classes are found by it, and told from it.
         const before = { weekday: group.weekday, startTime: group.startTime, endTime: group.endTime, room: group.room };
@@ -100,6 +112,11 @@ export class GroupService {
             normalizeTime(group.endTime) !== normalizeTime(before.endTime) ||
             group.room.id !== before.room.id;
         await this.dataSource.transaction(async (manager) => {
+            // A class another group was moved into for one week holds the room at that hour too:
+            // following the group there would put two classes in one room (QA of 26 September 2026).
+            if (slotMoved) {
+                await this.assertNoMovedClassInTheWay(manager, room.id, weekday, startTime, endTime, id);
+            }
             await manager.save(Group, group);
             // The coming classes follow the group to its new day, hour or room, and the families
             // hear once — see `followGroup`. Without it the edit left the old day's classes standing
@@ -126,6 +143,42 @@ export class GroupService {
             throw new NotFoundException('Room not found');
         }
         return room;
+    }
+
+    /**
+     * A class of another group moved into this room at this hour, on a day still ahead. The group's
+     * coming classes would follow it there (`followGroup`), and the room would hold two.
+     */
+    private async assertNoMovedClassInTheWay(
+        manager: EntityManager,
+        roomId: number,
+        weekday: number,
+        startTime: string,
+        endTime: string,
+        groupId: number,
+    ): Promise<void> {
+        const clash = await manager.getRepository(ClassSession).findOne({
+            where: {
+                room: { id: roomId },
+                group: { id: Not(groupId) },
+                status: Not(ClassSessionStatus.CANCELLED),
+                date: onWeekdayFrom(weekday, schoolDay(new Date())),
+                startTime: LessThan(normalizeTime(endTime)),
+                endTime: MoreThan(normalizeTime(startTime)),
+            },
+            relations: { group: true },
+            order: { date: 'ASC' },
+        });
+        if (clash) {
+            throw new ConflictException({
+                // Romanian like the timetable's own ROOM_BUSY_AT_THAT_TIME: the sentence carries the day
+                // and the group, so the screen shows it as it is instead of a sentence of its own.
+                message:
+                    `Sala e ocupată pe ${toIsoDate(clash.date)} la ${clash.startTime.slice(0, 5)} de o oră a grupei ` +
+                    `„${clash.group.name}", mutată acolo. Mut-o întâi pe aceea sau alege altă oră.`,
+                error: 'ROOM_BUSY_AT_THAT_TIME',
+            });
+        }
     }
 
     /**
@@ -159,14 +212,17 @@ export class GroupService {
      * Note that this is per room, not per school: two locations teaching at the same hour is the
      * normal case, and forbidding it was the bug E08/S2 exists to fix.
      */
-    private async assertSlotIsFree(roomId: number, weekday: number, startTime: string, exceptId?: number): Promise<void> {
+    private async assertSlotIsFree(roomId: number, weekday: number, startTime: string, endTime: string, exceptId?: number): Promise<void> {
+        // Overlapping hours, not only the same start: 16:30–18:00 beside 16:00–17:30 in one room was
+        // accepted, because the unique index — and this check — only knew equal starts (QA of 26
+        // September 2026). Postgres stores `time` as HH:MM:SS while the DTO accepts HH:MM, so both
+        // sides are compared in the stored form.
         const clash = await this.groupRepository.findOne({
             where: {
                 room: { id: roomId },
                 weekday,
-                // Postgres stores `time` as HH:MM:SS while the DTO accepts HH:MM, so the two forms
-                // have to be compared in the same one or a real collision looks free.
-                startTime: normalizeTime(startTime),
+                startTime: LessThan(normalizeTime(endTime)),
+                endTime: MoreThan(normalizeTime(startTime)),
                 ...(exceptId === undefined ? {} : { id: Not(exceptId) }),
             },
             relations: { room: true },
@@ -183,4 +239,17 @@ export class GroupService {
 /** `09:00` and `09:00:00` are the same instant; the column always holds the second form. */
 function normalizeTime(time: string): string {
     return time.length === 5 ? `${time}:00` : time;
+}
+
+/** A group that ends at or before it starts is a typing slip, not a slot — 12:00–11:00 was accepted. */
+function assertEndsAfterStart(startTime: string, endTime: string): void {
+    if (normalizeTime(endTime) <= normalizeTime(startTime)) {
+        throw new BadRequestException({ message: 'The group ends before it starts.', error: 'GROUP_ENDS_BEFORE_IT_STARTS' });
+    }
+}
+
+/** A day from `from` on (a `YYYY-MM-DD` school day) that falls on the ISO `weekday`. */
+function onWeekdayFrom(weekday: number, from: string): FindOperator<Date> {
+    const operator: unknown = Raw((alias) => `${alias} >= :from AND EXTRACT(ISODOW FROM ${alias}) = :weekday`, { from, weekday });
+    return operator as FindOperator<Date>;
 }

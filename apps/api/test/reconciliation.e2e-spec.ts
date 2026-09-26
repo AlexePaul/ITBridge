@@ -178,6 +178,33 @@ describe('Reconciling a bank statement (e2e)', () => {
         expect(await dataSource.getRepository(Payment).count()).toBe(1);
     });
 
+    // The QA of 26 September 2026: a proposal confirmed from a page opened before the office took the
+    // same month in cash recorded 700 on a 350 invoice, and sent two "achitată" receipts.
+    it('refuses to pay an invoice twice from a stale proposal, unless the office says it means to', async () => {
+        await importStatement().expect(200);
+        const line = await lineAbout('IONESCU');
+        await request(app.getHttpServer())
+            .post('/payments')
+            .set('Authorization', admin.auth)
+            .send({ invoiceId: invoiceMihai.id, amount: invoiceMihai.amount, method: 'cash', date: '2026-11-05', externalReference: 'CH-1' })
+            .expect(201);
+
+        const refused = await request(app.getHttpServer())
+            .post(`/reconciliation/lines/${line.id as number}/match`)
+            .set('Authorization', admin.auth)
+            .send({ invoiceId: invoiceMihai.id })
+            .expect(409);
+        expect(refused.body.code).toBe('STATEMENT_LINE_EXCEEDS_REMAINDER');
+        expect(await dataSource.getRepository(Payment).count()).toBe(1);
+
+        await request(app.getHttpServer())
+            .post(`/reconciliation/lines/${line.id as number}/match`)
+            .set('Authorization', admin.auth)
+            .send({ invoiceId: invoiceMihai.id, acceptOverpayment: true })
+            .expect(200);
+        expect(await dataSource.getRepository(Payment).count()).toBe(2);
+    });
+
     // E16/S6: the office saw Ana's transfer on the provisional statement and recorded it as announced.
     // The final statement is the same money arriving, not a second payment.
     it('confirms a transfer the office had announced instead of recording it a second time', async () => {
