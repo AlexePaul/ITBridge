@@ -19,6 +19,7 @@ import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { SYSTEM_ACTOR } from 'src/modules/audit/actor';
 import { composeWaitlistOffer, composeWaitlistOfferExpired } from './waitlist-mail';
 import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { countOf } from 'src/common/romanian-count';
 
 /**
  * Everything that decides where a child sits — E11/S1 and S3.
@@ -1216,8 +1217,8 @@ export class EnrollmentService {
             // which class has none, and why — the room it moved into, or the children moved into it.
             throw new ConflictException({
                 message:
-                    `Ora de ${romanianDayAndDate(fullClass.date)} nu mai are niciun loc liber: ${fullClass.room === 1 ? 'un loc' : `${fullClass.room} locuri`}, ` +
-                    `${taken === 1 ? 'un copil' : `${taken} copii`} din grupă` +
+                    `Ora de ${romanianDayAndDate(fullClass.date)} nu mai are niciun loc liber: ${fullClass.room === 1 ? 'un loc' : countOf(fullClass.room, 'loc', 'locuri')}, ` +
+                    `${taken === 1 ? 'un copil' : countOf(taken, 'copil', 'copii')} din grupă` +
                     `${fullClass.visitors === 0 ? '' : ` și ${fullClass.visitors === 1 ? 'unul mutat' : `${fullClass.visitors} mutați`} acolo pentru o săptămână`}.` +
                     ' Poți pune copilul pe lista de așteptare.',
                 error: 'GROUP_FULL',

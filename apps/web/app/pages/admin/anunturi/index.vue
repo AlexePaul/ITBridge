@@ -94,7 +94,8 @@
                 linkul
               </li>
               <li v-if="preview.recipients.declined > 0">
-                {{ preview.recipients.declined }} n-au bifat mesajele promoționale
+                {{ preview.recipients.declined }}
+                {{ preview.recipients.declined === 1 ? "n-a" : "n-au" }} bifat mesajele promoționale
               </li>
             </ul>
           </UCard>
