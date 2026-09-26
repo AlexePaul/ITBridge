@@ -4,6 +4,7 @@ import type {
   Invoice,
   InvoiceWorksheet,
   IssueInvoicesResult,
+  PaymentDetails,
   SessionCountOverrideDto,
 } from "~/types/invoice.types";
 import { useApi } from "./useApi";
@@ -84,6 +85,12 @@ export const useInvoiceApi = () => {
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
+  /** Where a bank transfer goes, from the school's settings — terms §11.3. Any account. */
+  const fetchPaymentDetails = async () =>
+    api<PaymentDetails>("/invoices/payment-details", {
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
   /** Who has not paid, oldest debt first — E16/S7. Admin only. */
   const fetchArrears = async () =>
     api<ArrearsRow[]>("/invoices/arrears", {
@@ -127,6 +134,7 @@ export const useInvoiceApi = () => {
     });
 
   return {
+    fetchPaymentDetails,
     deleteInvoice,
     fetchFiscalQueue,
     retryFiscal,

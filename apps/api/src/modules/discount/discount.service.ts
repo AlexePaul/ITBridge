@@ -28,6 +28,9 @@ function auditableDiscount(discount: Discount): Record<string, unknown> {
     return { name: discount.name, type: discount.type, value: discount.value, monthIssued: discount.monthIssued };
 }
 
+/** One of the family's own discounts, as the portal reads it — see `familyDiscounts`. */
+export type FamilyDiscount = Pick<Discount, 'id' | 'name' | 'type' | 'value' | 'monthIssued'>;
+
 @Injectable()
 export class DiscountService {
     constructor(
@@ -90,6 +93,26 @@ export class DiscountService {
             .orderBy('discount.monthIssued', 'DESC')
             .addOrderBy('discount.id', 'DESC')
             .getMany();
+    }
+
+    /**
+     * The family's own discounts, for the portal — terms §11.4: „Le vezi în portal".
+     *
+     * Scoped by the account, like every read a parent can make (CLAUDE.md, „Autorizarea pe date"):
+     * the caller's family and nobody else's, joined through `parent.user` and narrowed with
+     * `andWhere`. An admin has no family and gets an empty list. The fields the invoice already
+     * prints about a discount and nothing else — the office's `description` is its own note.
+     */
+    async familyDiscounts(userId: number): Promise<FamilyDiscount[]> {
+        const rows = await this.discountRepository
+            .createQueryBuilder('discount')
+            .innerJoin('discount.parent', 'parent')
+            .innerJoin('parent.user', 'user')
+            .andWhere('user.id = :userId', { userId })
+            .orderBy('discount.monthIssued', 'DESC')
+            .addOrderBy('discount.id', 'ASC')
+            .getMany();
+        return rows.map(({ id, name, type, value, monthIssued }) => ({ id, name, type, value, monthIssued }));
     }
 
     /**

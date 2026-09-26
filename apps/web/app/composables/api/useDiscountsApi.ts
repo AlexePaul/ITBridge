@@ -3,11 +3,15 @@ import { useTokenStore } from "~/stores/tokenStore";
 import type {
   CreateDiscountDto,
   Discount,
+  FamilyDiscount,
   ReferralReward,
   UpdateDiscountDto,
 } from "~/types/discount.types";
 
-/** The discounts an admin grants by hand — E15/S5. Admin only, the API enforces it. */
+/**
+ * The discounts an admin grants by hand — E15/S5. Admin only, the API enforces it — except
+ * `fetchFamilyDiscounts`, which is the signed-in family's own list (terms §11.4).
+ */
 export const useDiscountsApi = () => {
   const api = useApi();
   const tokenStore = useTokenStore();
@@ -15,6 +19,10 @@ export const useDiscountsApi = () => {
 
   const fetchDiscounts = async () =>
     api<Discount[]>("/discounts", { method: "GET", headers: auth() });
+
+  /** The signed-in family's own discounts, newest month first — terms §11.4: „Le vezi în portal". */
+  const fetchFamilyDiscounts = async () =>
+    api<FamilyDiscount[]>("/discounts/family", { method: "GET", headers: auth() });
 
   const createDiscount = async (dto: CreateDiscountDto) =>
     api<Discount>("/discounts", { method: "POST", headers: auth(), body: dto });
@@ -49,6 +57,7 @@ export const useDiscountsApi = () => {
 
   return {
     fetchDiscounts,
+    fetchFamilyDiscounts,
     createDiscount,
     fetchReferralReward,
     grantReferralMonth,

@@ -596,6 +596,81 @@ describe('Issuing invoices from the registers (e2e)', () => {
         });
     });
 
+    /**
+     * Terms §11.2, §11.3 and §11.4 — what the family is told and shown about a month's money. With
+     * the platform making the document (`off`), the invoice exists at issue, so the email goes then.
+     */
+    describe('what the family hears and sees', () => {
+        const EXAMPLE_IBAN = 'RO49AAAA1B31007593840000';
+        const told = () =>
+            dataSource.query<{ to: string; bodyText: string; dedupeKey: string }[]>(
+                `SELECT "to", "bodyText", "dedupeKey" FROM outbox WHERE "dedupeKey" LIKE 'invoice-issued:%'`,
+            );
+
+        afterEach(() => {
+            delete process.env.SCHOOL_LEGAL_NAME;
+            delete process.env.SCHOOL_IBAN;
+            delete process.env.SCHOOL_BANK;
+        });
+
+        it('emails the family its invoice once, with the amount, the day it is due and the reference', async () => {
+            const childId = await makeChild();
+            const [first] = await october();
+            await mark(first, childId, true);
+            process.env.SCHOOL_LEGAL_NAME = 'IT Bridge School SRL';
+            process.env.SCHOOL_IBAN = EXAMPLE_IBAN;
+
+            const issued = await issue().expect(201);
+            const invoiceId = (issued.body.issued as { id: number }[])[0].id;
+
+            const [message] = await told();
+            expect(message).toMatchObject({ to: 'ana@example.com', dedupeKey: `invoice-issued:${invoiceId}` });
+            expect(message.bodyText).toContain('87,50 lei');
+            expect(message.bodyText).toContain('15 noiembrie');
+            expect(message.bodyText).toContain('RO49 AAAA 1B31 0075 9384 0000');
+            expect(message.bodyText).toContain(`factura nr. ${invoiceId}`);
+        });
+
+        it('says nothing about a month that came to nothing', async () => {
+            await makeChild();
+            await october();
+
+            const issued = await issue().expect(201);
+
+            expect(issued.body.waived).toHaveLength(1);
+            expect(await told()).toHaveLength(0);
+        });
+
+        /** Never a placeholder account: until both halves are set, the portal sends the family to the office. */
+        it("gives the portal the school's account only once it is configured", async () => {
+            const none = await request(app.getHttpServer()).get('/invoices/payment-details').set('Authorization', parent.auth).expect(200);
+            expect(none.body).toEqual({ transfer: null });
+
+            process.env.SCHOOL_LEGAL_NAME = 'IT Bridge School SRL';
+            process.env.SCHOOL_IBAN = EXAMPLE_IBAN;
+            process.env.SCHOOL_BANK = 'Banca Exemplu';
+            const set = await request(app.getHttpServer()).get('/invoices/payment-details').set('Authorization', parent.auth).expect(200);
+            expect(set.body).toEqual({ transfer: { beneficiary: 'IT Bridge School SRL', iban: 'RO49 AAAA 1B31 0075 9384 0000', bank: 'Banca Exemplu' } });
+        });
+
+        it("lists the family's own discounts, and nobody else's", async () => {
+            const own = await ownProfileId(app, parent);
+            const other = await registerUser(app, 'bogdan');
+            const discount = (parentId: number, name: string) =>
+                request(app.getHttpServer())
+                    .post('/discounts')
+                    .set('Authorization', admin.auth)
+                    .send({ parentId, name, type: 'percent', value: 50, monthIssued: '2026-12', description: 'nota biroului' })
+                    .expect(201);
+            await discount(own, 'Recomandare');
+            await discount(await ownProfileId(app, other), 'Frate');
+
+            const mine = await request(app.getHttpServer()).get('/discounts/family').set('Authorization', parent.auth).expect(200);
+
+            expect(mine.body).toEqual([{ id: expect.any(Number), name: 'Recomandare', type: 'percent', value: 50, monthIssued: '2026-12' }]);
+        });
+    });
+
     describe('validation and authorization', () => {
         it('refuses a request that still sends session counts — the number is not the client’s to state', async () => {
             const childId = await makeChild();

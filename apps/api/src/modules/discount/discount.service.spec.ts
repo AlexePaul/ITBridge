@@ -6,6 +6,7 @@ import { Profile } from 'src/entities/profile.entity';
 import { Invoice } from 'src/entities/invoice.entity';
 import {
     createMockEntityManager,
+    createMockQueryBuilder,
     createMockRepository,
     MockEntityManager,
     MockRepository,
@@ -71,6 +72,19 @@ describe('DiscountService', () => {
         const updated = await service.updateDiscount(1, { value: 75, name: undefined }, ACTOR);
 
         expect(updated).toMatchObject({ name: 'Frate', value: 75 });
+    });
+
+    /** Terms §11.4. A parent's read, narrowed by the account with `andWhere` — CLAUDE.md, „Autorizarea pe date". */
+    it("lists only the caller's family's discounts, without the office's note", async () => {
+        const qb = createMockQueryBuilder({
+            many: [{ id: 3, name: 'Recomandare', type: 'percent', value: 50, monthIssued: '2026-11', description: 'nota biroului' }],
+        });
+        discountRepo.createQueryBuilder!.mockReturnValue(qb);
+
+        const rows = await service.familyDiscounts(12);
+
+        expect(qb.andWhereCalls).toContainEqual(['user.id = :userId', { userId: 12 }]);
+        expect(rows).toEqual([{ id: 3, name: 'Recomandare', type: 'percent', value: 50, monthIssued: '2026-11' }]);
     });
 
     it('updateDiscount rejects a discount that does not exist', async () => {

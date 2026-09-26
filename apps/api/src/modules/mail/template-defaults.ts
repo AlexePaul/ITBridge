@@ -450,6 +450,58 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
         ),
     },
     {
+        key: 'invoice-issued',
+        name: 'Factura lunii a fost emisă',
+        description:
+            'Pleacă o dată pentru fiecare factură cu ceva de plată (termenii §11.2 și §13): la emitere, iar când facturile vin din SmartBill, în clipa în care factura fiscală are număr. O lună fără plată nu primește mesaj.',
+        variables: [
+            { name: 'firstName', description: 'Prenumele părintelui' },
+            { name: 'month', description: 'Luna facturată, în cuvinte' },
+            { name: 'amount', description: 'Suma de plată' },
+            { name: 'dueOn', description: 'Ultima zi de plată, în cuvinte' },
+            {
+                name: 'paymentInstructions',
+                description: 'Cum se plătește: numerar la școală și, dacă e configurat, contul pentru transfer, cu ce se scrie la detalii',
+            },
+            { name: 'portalUrl', description: 'Pagina de plăți din portal, unde se descarcă factura' },
+            { name: 'officeEmail', description: 'Adresa biroului' },
+        ],
+        sampleData: {
+            firstName: 'Ana',
+            month: 'martie',
+            amount: '350 lei',
+            dueOn: '15 aprilie',
+            paymentInstructions:
+                'Poți plăti în numerar, la școală, sau prin transfer bancar în contul RO49 AAAA 1B31 0075 9384 0000, Banca Exemplu, beneficiar IT Bridge School SRL; la detaliile plății scrie factura ITB 0042.',
+            portalUrl: 'https://itbridgeschool.com/user/payments',
+            officeEmail: 'office@itbridgeschool.com',
+        },
+        subject: 'Factura pe {{month}}',
+        bodyText: [
+            'Bună, {{firstName}}!',
+            '',
+            'Factura pe {{month}} e gata: {{amount}}, de plătit până pe {{dueOn}}.',
+            '',
+            '{{paymentInstructions}}',
+            '',
+            'Factura se descarcă din portal, unde vezi și plățile înregistrate:',
+            '{{portalUrl}}',
+            '',
+            'Dacă ceva nu se potrivește — numărul de ședințe, o reducere —, scrie-ne la {{officeEmail}} și lămurim.',
+            '',
+            SIGNATURE,
+        ].join('\n'),
+        bodyHtml: htmlFrame(
+            [
+                paragraph('Bună, {{firstName}}!'),
+                paragraph('Factura pe {{month}} e gata: <strong>{{amount}}</strong>, de plătit până pe {{dueOn}}.'),
+                paragraph('{{paymentInstructions}}'),
+                paragraph('Factura se descarcă din portal, unde vezi și plățile înregistrate: <a href="{{portalUrl}}">{{portalUrl}}</a>'),
+                paragraph('Dacă ceva nu se potrivește — numărul de ședințe, o reducere —, scrie-ne la {{officeEmail}} și lămurim.'),
+            ].join('\n'),
+        ),
+    },
+    {
         key: 'payment-due-soon',
         name: 'Factura se apropie de scadență',
         description: 'Pleacă cu trei zile înainte de termen, către o familie care nu a plătit încă. E o amintire, nu o somație.',

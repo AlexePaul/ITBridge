@@ -149,6 +149,25 @@ describe('Issuing invoices through SmartBill (e2e)', () => {
             );
         });
 
+        /**
+         * Terms §11.2: the family hears when the invoice is there. In `live` that is when SmartBill
+         * gave it a number — the reference a transfer is matched by, and a document to download.
+         */
+        it('tells the family once the fiscal number is recorded, and not before', async () => {
+            const [invoice] = await issueOctober();
+            const announced = () =>
+                dataSource.query<{ bodyText: string }[]>(`SELECT "bodyText" FROM outbox WHERE "dedupeKey" = $1`, [`invoice-issued:${invoice.id}`]);
+            expect(await announced()).toHaveLength(0);
+
+            await fiscal.drain();
+
+            const [message] = await announced();
+            expect(message.bodyText).toContain('350 lei');
+            expect(message.bodyText).toContain('factura ITB 0041');
+            await fiscal.drain({ now: minutesFromNow(60) });
+            expect(await announced()).toHaveLength(1);
+        });
+
         it('sends the amount the platform computed, the name and the address — and no e-mail or phone', async () => {
             const [invoice] = await issueOctober();
             await fiscal.drain();
@@ -274,6 +293,11 @@ describe('Issuing invoices through SmartBill (e2e)', () => {
                 .send({ number: '0041' })
                 .expect(200);
             expect(confirmed.body).toMatchObject({ fiscalStatus: 'issued', fiscalSeries: 'ITB', fiscalNumber: '0041' });
+            // The number a person vouched for is when the family hears, as it is for one the queue records.
+            const [told] = await dataSource.query<{ bodyText: string }[]>(`SELECT "bodyText" FROM outbox WHERE "dedupeKey" = $1`, [
+                `invoice-issued:${invoice.id}`,
+            ]);
+            expect(told.bodyText).toContain('factura ITB 0041');
 
             const trail = await request(app.getHttpServer())
                 .get(`/audit?entityType=Invoice&entityId=${invoice.id}`)

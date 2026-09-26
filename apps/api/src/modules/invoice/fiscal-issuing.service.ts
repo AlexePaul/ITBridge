@@ -19,6 +19,7 @@ import { toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { dueDateFor } from './arrears.rules';
 import { CONFIGURATION_RETRY_MS, FISCAL_BATCH_SIZE, FISCAL_LEASE_MS, FISCAL_MAX_ATTEMPTS, fiscalBackoffFrom } from './fiscal-issuing.rules';
 import { invoicePdfKey } from './invoice-pdf-key';
+import { InvoiceAnnouncementService } from './invoice-announcement.service';
 
 export interface FiscalDrainResult {
     /** Unanswered requests settled at the start of the pass. */
@@ -84,6 +85,7 @@ export class FiscalIssuingService {
         private readonly smartBill: SmartBillService,
         private readonly s3: S3Service,
         private readonly audit: AuditService,
+        private readonly announcement: InvoiceAnnouncementService,
     ) {}
 
     /** Where the fiscal queue stands, over one month or over everything. */
@@ -353,7 +355,7 @@ export class FiscalIssuingService {
             return { stop: false, expected: null };
         }
 
-        await this.settle(invoice, {
+        const recorded = await this.settle(invoice, {
             fiscalStatus: InvoiceFiscalStatus.ISSUED,
             fiscalSeries: document.series,
             fiscalNumber: document.number,
@@ -367,10 +369,27 @@ export class FiscalIssuingService {
         result.issued++;
         this.logger.log(`Invoice ${invoice.id} issued in SmartBill as ${document.series ?? '?'} ${document.number ?? '?'}.`);
 
+        // In `live` the invoice exists for the family from here: it has a number to write on a
+        // transfer and a document to download (terms §11.2). After the write, not in it — `settle` is
+        // one conditional statement — and never able to undo it: the fiscal record is the fact, and a
+        // message that could not be queued is logged, while the key keeps a second pass from sending
+        // it twice.
+        if (recorded > 0) {
+            await this.announceIssued({ ...withParent, fiscalSeries: document.series, fiscalNumber: document.number });
+        }
+
         if (document.series && document.number) {
             await this.storeFiscalPdf(withParent, document.series, document.number);
         }
         return { stop: false, expected: nextExpectedAfter(document.number) };
+    }
+
+    private async announceIssued(invoice: Invoice): Promise<void> {
+        try {
+            await this.announcement.announce(invoice);
+        } catch (error: unknown) {
+            this.logger.error(`Invoice ${invoice.id} was issued, but its email could not be queued: ${messageOf(error)}`);
+        }
     }
 
     /** Writes a failed request down according to its kind — see `SmartBillFailureKind`. */
@@ -562,7 +581,11 @@ export class FiscalIssuingService {
                 },
                 manager,
             );
-            return manager.findOneOrFail(Invoice, { where: { id: invoice.id } });
+            // The number a person vouched for is the moment the invoice exists for the family, as it
+            // is when the queue records one — so the email goes here too, in this transaction.
+            const withParent = await manager.findOneOrFail(Invoice, { where: { id: invoice.id }, relations: { parent: true } });
+            if (withParent.parent) await this.announcement.announce({ ...withParent, parent: withParent.parent }, manager);
+            return withParent;
         });
 
         await this.storeFiscalPdf(confirmed, series, number);

@@ -1795,6 +1795,26 @@ reușite și aceeași scădere (`outstandingOf`) ca lista de restanțe — nu o 
 `leftToPay` citește `outstanding`; un ecran nou care arată cât datorează o familie îl folosește pe el,
 nu `amount`.
 
+**Factura lunii e anunțată familiei pe email, o dată, când există pentru ea** (termenii §11.2 și
+§13; revizuirea din 26 septembrie 2026). Termenii promiteau „ești anunțat pe email când apare", iar
+nimic nu trimitea mesajul: seed-ul avea chiar un exemplu în jurnalul de livrări, deci primul lucru pe
+care îl auzea o familie despre factură era mementoul de dinaintea scadenței. `InvoiceAnnouncementService`
+scrie șablonul `invoice-issued`, cu cheia `invoice-issued:<id>`. **Când „există" depinde de cine face
+documentul**: în `off` și `draft` e al platformei, deci mesajul pleacă în tranzacția emiterii; în
+`live` e al SmartBill, iar până are număr n-are nici referință de transfer, nici PDF — mesajul pleacă
+când se înregistrează numărul, din coadă sau din confirmarea de mână. O lună de zero lei nu primește
+mesaj: rândul e pentru evidența școlii, iar „nimic de plată" într-un inbox pare o greșeală.
+
+**Datele firmei și contul pentru transfer sunt setări, nu cod** (`SCHOOL_*`, citite de
+`invoice/school-identity.ts`; termenii §11.3). Pagina de plăți din portal (`GET
+/invoices/payment-details`), emailul facturii și PDF-ul platformei le citesc toate de acolo; nesetate,
+familia e trimisă la birou, niciodată la un cont inventat. **IBAN-ul se verifică la pornire, cifră cu
+cifră** (ISO 13616, `ibanProblem`), iar un IBAN fără `SCHOOL_LEGAL_NAME` e refuzat tot atunci: e
+singurul număr către care familiile trimit bani, iar următorul loc în care s-ar vedea o greșeală e
+banca unei familii. În `live`, documentul SmartBill ia datele firmei din contul SmartBill. **Reducerile
+familiei se văd tot pe pagina de plăți** (§11.4), prin `GET /discounts/family`, restrâns pe cont ca
+orice citire a unui părinte, fără `description` — nota biroului.
+
 **Încasarea se începe de la factură, iar suma precompletată e restul, nu totalul** (E16 S5).
 `/admin/restante` și `/admin/payments/new` deschid amândouă `AdminPaymentModal`, care se completează
 din rândul de restanță — familia, factura și `outstanding`. Precompletarea cu totalul facturii, cum
@@ -2427,6 +2447,8 @@ emitere. Trei lucruri de ținut minte:
 - **Tot ce se tipărește vine din rând**, fiindcă desenul poate veni la săptămâni după emitere: data e
   `dateIssued`, niciodată `new Date()` — vechiul PDF tipărea ziua desenării —, iar scadența vine din
   `dueDateFor`, aceeași din care numără restanțele.
+- **Pe document stau furnizorul și familia ca pe documentul SmartBill**: firma din setări (`SCHOOL_*`,
+  cu IBAN-ul), iar familia cu numele și adresa, fără email — `supplierLines` din `pdf.service.ts`.
 - **O editare a sumei sau a datei aruncă desenul păstrat, iar ștergerea îl ia cu ea**, după commit și
   fără ca un eșec de stocare să strice ceva: rândul e evidența, PDF-ul doar un desen al lui.
 - **Reducerile se citesc la desenare, și e sigur fiindcă o reducere pe o lună facturată e
