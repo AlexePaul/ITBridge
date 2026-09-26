@@ -62,7 +62,7 @@ describe('Moving a child to another family (e2e)', () => {
 
         const siblings: { id: number }[] = await dataSource.query('SELECT id FROM children WHERE parent_id = $1 ORDER BY id', [family]);
         expect(siblings).toHaveLength(2);
-        const [lead] = (await dataSource.query('SELECT profile_id FROM leads WHERE child_id = $1', [brother])) as { profile_id: number }[];
+        const [lead]: { profile_id: number }[] = await dataSource.query('SELECT profile_id FROM leads WHERE child_id = $1', [brother]);
         expect(lead?.profile_id).toBe(family);
         const trail: { note: string }[] = await dataSource.query(`SELECT note FROM audit_log WHERE entity_type = 'Child' AND entity_id = $1`, [brother]);
         expect(trail.map((row) => row.note)).toContain(`copil mutat din familia ${shell} în familia ${family}`);
