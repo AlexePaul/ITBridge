@@ -1,3 +1,4 @@
+import { countOf } from "~/composables/useRomanianCount";
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import type { AgentStatus, UnassignedFile } from "~/types/project.types";
@@ -20,7 +21,7 @@ export function isAgentStale(agent: AgentStatus, now: Date = new Date()): boolea
 export function lastSeenLabel(agent: AgentStatus, now: Date = new Date()): string {
   const minutes = Math.round((now.getTime() - new Date(agent.lastSeenAt).getTime()) / 60000);
   if (minutes < 2) return "chiar acum";
-  if (minutes < 60) return `acum ${minutes} de minute`;
+  if (minutes < 60) return `acum ${countOf(minutes, "minut", "minute")}`;
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `acum ${hours} ${hours === 1 ? "oră" : "ore"}`;
   const days = Math.round(hours / 24);

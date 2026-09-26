@@ -6,7 +6,7 @@
   >
     <template #actions>
       <UBadge v-if="followUp" color="warning" variant="subtle">
-        {{ followUp.undecided.length }} probe fără decizie
+        {{ countOf(followUp.undecided.length, "probă fără decizie", "probe fără decizie") }}
       </UBadge>
       <UButton icon="i-lucide-plus" class="min-h-11" @click="newOpen = true">Cerere nouă</UButton>
     </template>
@@ -100,7 +100,7 @@
       </div>
 
       <!-- Everything open, in one table. -->
-      <AdminFilterBar layout="row" :count-label="`${leads.length} cereri`">
+      <AdminFilterBar layout="row" :count-label="countOf(leads.length, 'cerere', 'cereri')">
         <!-- Cele două bife de alături își poartă eticheta; asta n-o avea deloc. -->
         <USelect
           v-model="statusFilter"
@@ -155,6 +155,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { computed, onMounted, ref, watch } from "vue";
 import { useLeadsApi } from "~/composables/api/useLeadsApi";
 import { apiErrorMessage } from "~/composables/useApiError";

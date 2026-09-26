@@ -133,6 +133,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { onMounted, ref } from "vue";
 import { useUserApi } from "~/composables/api/useUserApi";
 import { useNotifications } from "~/composables/useNotifications";
@@ -208,7 +209,7 @@ const registeredAgo = (createdAt: string) => {
   const days = daysSince(createdAt);
   if (days <= 0) return "azi";
   if (days === 1) return "ieri";
-  return `acum ${days} zile`;
+  return `acum ${countOf(days, "zi", "zile")}`;
 };
 
 const load = async () => {
