@@ -1092,4 +1092,39 @@ describe('Enrolments and capacity (e2e)', () => {
             await request(app.getHttpServer()).get('/enrollments/child/1').expect(401);
         });
     });
+    // QA of 26 September 2026: a group with enrolments or a register answered the generic "still
+    // referenced", and one whose only rows were its waiting list was deleted with the list in it.
+    describe('deleting a group', () => {
+        const remove = (groupId: number) => request(app.getHttpServer()).delete(`/groups/${groupId}`).set('Authorization', admin.auth);
+
+        it('deletes a group nothing points at', async () => {
+            const groupId = await makeGroup({ name: 'Goală' });
+            await remove(groupId).expect(204);
+        });
+
+        it('refuses a group children were enrolled in, by name, and keeps it', async () => {
+            const groupId = await makeGroup({ name: 'Cu istoric' });
+            await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId: await makeChild(), groupId })
+                .expect(201);
+
+            const refused = await remove(groupId).expect(409);
+            expect(refused.body.code).toBe('GROUP_HAS_ENROLMENTS');
+            expect(await dataSource.query('SELECT id FROM groups WHERE id = $1', [groupId])).toHaveLength(1);
+        });
+
+        it('refuses a group families are waiting for, and keeps the list', async () => {
+            const groupId = await makeGroup({ name: 'Cu listă' });
+            const childId = await makeChild();
+            // A list without enrolments: written directly, since the service only lists a family for
+            // a full group — and a full group has enrolments, which are refused first.
+            await dataSource.query(`INSERT INTO waitlist_entries (child_id, group_id, status) VALUES ($1, $2, 'WAITING')`, [childId, groupId]);
+
+            const refused = await remove(groupId).expect(409);
+            expect(refused.body.code).toBe('GROUP_HAS_WAITLIST');
+            expect(await dataSource.query('SELECT id FROM waitlist_entries WHERE group_id = $1', [groupId])).toHaveLength(1);
+        });
+    });
 });

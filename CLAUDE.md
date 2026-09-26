@@ -638,7 +638,11 @@ explicație, nu ca 500 de la driver. **Și celelalte două referințe `RESTRICT`
 (testarea din 26 septembrie 2026): o oră își păstrează sala în care s-a ținut, iar un anunț locația
 căreia i-a fost trimis, deci o sală cu ore (`ROOM_HAS_CLASSES`) și o locație cu anunțuri
 (`LOCATION_HAS_ANNOUNCEMENTS`) se dezactivează, nu se șterg. Până atunci ajungea la birou „This record
-is still referenced by other records", în engleză.
+is still referenced by other records", în engleză. **Grupa la fel**, cu o capcană în plus: înscrierile
+și catalogul o opresc în bază, dar lista de așteptare e `CASCADE`, deci o grupă fără înscrieri se
+ștergea cu familiile care așteptau un loc în ea, fără ca cineva să afle. `deleteGroup` refuză acum
+pe nume — `GROUP_HAS_ENROLMENTS`, `GROUP_HAS_ATTENDANCE`, `GROUP_HAS_WAITLIST` —, iar o grupă care a
+rulat se dezactivează.
 
 **Familia, în schimb, e `CASCADE` în trei direcții deodată, și de aia nu se șterge de nicăieri.**
 `children.parent_id`, `invoices.parent_id` și `discounts.parent_id` sunt toate `CASCADE`, iar
