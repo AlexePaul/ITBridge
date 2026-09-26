@@ -94,6 +94,13 @@ describe('Discounts (e2e)', () => {
     });
 
     describe('the cap', () => {
+        // QA of 26 September 2026: a discount of nothing was accepted, a row that reads as a
+        // discount and takes nothing off.
+        it('refuses a discount of zero, and says so in Romanian', async () => {
+            const res = await grant({ value: 0 }).expect(400);
+            expect(res.body.details).toContain('Reducerea trebuie să fie mai mare decât zero');
+        });
+
         it('refuses 200%, instead of clamping it into a free month nobody explained', async () => {
             const res = await grant({ type: 'percent', value: 200 }).expect(400);
             expect(res.body.code).toBe('DISCOUNT_PERCENT_OVER_100');

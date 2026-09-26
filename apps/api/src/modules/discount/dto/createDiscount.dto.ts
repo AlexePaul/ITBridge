@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNumber, IsInt, IsNotEmpty, IsOptional, IsEnum, Matches, Min } from 'class-validator';
+import { IsString, IsNumber, IsInt, IsNotEmpty, IsOptional, IsEnum, Matches, IsPositive } from 'class-validator';
 import { DiscountType } from 'src/enum/discount-type.enum';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
@@ -21,8 +21,10 @@ export class CreateDiscountDto {
      * the service sees the combination that ends up stored.
      */
     @ApiProperty({ example: 50, description: 'Lei, or per cent when type is percent (0–100)' })
-    @IsNumber({ maxDecimalPlaces: 2 })
-    @Min(0)
+    @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Reducerea se scrie cu cel mult două zecimale' })
+    // Zero takes nothing off, and was accepted: a row that reads as a discount and is none (QA of
+    // 26 September 2026).
+    @IsPositive({ message: 'Reducerea trebuie să fie mai mare decât zero' })
     value: number;
 
     @ApiProperty({ example: '2026-01' })

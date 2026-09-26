@@ -58,7 +58,7 @@ const MESSAGES: Record<string, string> = {
   // E20/S5 — the one-press referral reward. The refusal has to say what would have happened,
   // because "already has one" sounds harmless and a free month is not.
   DISCOUNT_ALREADY_GRANTED:
-    "Pe luna aceea stă deja o reducere procentuală dată din formular. Încă una s-ar aduna cu ea și ar face luna gratuită — dacă asta vrei, dă-o tot din formular.",
+    "Pe luna aceea stă deja o reducere procentuală dată din formular, iar încă 50% s-ar aduna cu ea. Dacă asta vrei, dă-o tot din formular.",
   REFERRAL_NOTHING_TO_REVOKE: "Familia nu are nicio lună de recomandare de scos.",
 
   // E04/S5 and E22/S3. A withdrawal starts the clock on a family's data, so it is refused while
