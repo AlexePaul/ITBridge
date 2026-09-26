@@ -182,6 +182,12 @@ interogarea de mai sus se verifică pe ele. Un `POST` de înscriere cu token de 
 > **Ce rămâne neatins:** cele două porți, `isAccountActive`, migrarea `AccountGates` și drumul
 > adminului care introduce o familie de la telefon. Completarea profilului nu e o a treia poartă —
 > e aceeași cerință de date pe care S2 a impus-o, cerută în două ecrane în loc de unul.
+>
+> **Corectură din testarea din 25 septembrie 2026:** pasul doi se putea sări exact în cazul pentru
+> care există — imediat după înregistrare. Steagul pe care îl citește middleware-ul îl ridica doar
+> pagina de login, iar pagina de înregistrare mergea direct la tabloul de bord, deci familia nouă
+> ajungea în portal fără telefon, adresă sau contact de urgență și rămânea acolo până la primul
+> reload. Acum îl ridică `useAuthApi.register` și `useAuthApi.login`, nu paginile.
 
 Până la acest story `register` cerea `username` și `password`, atât — `RegisterDto` avea exact cele
 două câmpuri, cu `@Length(1, 30)` și `@MinLength(6)`. Datele de contact se cereau abia după
