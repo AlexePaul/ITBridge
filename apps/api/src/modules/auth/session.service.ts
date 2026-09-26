@@ -191,14 +191,31 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
         });
     }
 
-    /** What a parent sees when asking which sessions are open. Never includes the hashes. */
-    async listActive(userId: number): Promise<Pick<Session, 'id' | 'createdAt' | 'expiresAt' | 'userAgent'>[]> {
+    /**
+     * What a parent sees when asking which sessions are open. Never includes the hashes.
+     *
+     * `current` marks the session the caller's own refresh token belongs to, when the caller sends
+     * it — terms §4.5 promise a list in which a family recognises its devices, and "this one" is the
+     * first thing to recognise. The token is compared by hash against the caller's own rows only, so
+     * a token that is not theirs marks nothing.
+     */
+    async listActive(
+        userId: number,
+        currentRefreshToken?: string,
+    ): Promise<(Pick<Session, 'id' | 'createdAt' | 'expiresAt' | 'userAgent'> & { current: boolean })[]> {
         const sessions = await this.sessionRepository.find({
             where: { user: { id: userId }, revokedAt: IsNull(), expiresAt: MoreThan(new Date()) },
             order: { createdAt: 'DESC' },
         });
+        const currentHash = currentRefreshToken ? SessionService.hash(currentRefreshToken) : null;
 
-        return sessions.map(({ id, createdAt, expiresAt, userAgent }) => ({ id, createdAt, expiresAt, userAgent }));
+        return sessions.map(({ id, createdAt, expiresAt, userAgent, tokenHash }) => ({
+            id,
+            createdAt,
+            expiresAt,
+            userAgent,
+            current: currentHash !== null && tokenHash === currentHash,
+        }));
     }
 
     /**

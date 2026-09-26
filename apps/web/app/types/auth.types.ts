@@ -1,5 +1,6 @@
 export type {
   AccountClaimSent,
+  ActiveSession,
   ConfirmEmailResponse,
   LoginResponse,
   RegisterResponse,

@@ -434,8 +434,8 @@ export class AuthService {
         return { message: 'All sessions ended' };
     }
 
-    async listSessions(userId: number) {
-        return this.sessionService.listActive(userId);
+    async listSessions(userId: number, currentRefreshToken?: string) {
+        return this.sessionService.listActive(userId, currentRefreshToken);
     }
 
     /**

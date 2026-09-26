@@ -11,6 +11,7 @@ import { ForgotPasswordDto } from 'src/modules/auth/dto/forgotPassword.dto';
 import { ResetPasswordDto } from 'src/modules/auth/dto/resetPassword.dto';
 import { ChangePasswordDto } from 'src/modules/auth/dto/changePassword.dto';
 import { ClaimAccountDto } from 'src/modules/auth/dto/claimAccount.dto';
+import { ListSessionsDto } from 'src/modules/auth/dto/listSessions.dto';
 import { PasswordResetService } from './password-reset.service';
 import { AuthGuard } from 'src/guards/auth.guard';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
@@ -229,5 +230,19 @@ export class AuthController {
     @ApiResponse({ status: 200, description: 'Active sessions of the authenticated user' })
     async sessions(@Request() req: AuthenticatedRequest) {
         return this.authService.listSessions(req.user.sub);
+    }
+
+    /**
+     * The same list, with the caller's own session marked — terms §4.5: a list in which the family
+     * recognises its devices. A `POST` because the refresh token that identifies "this one" travels
+     * in a body, as it does on `logout`, never in a URL. Reads only the caller's own rows.
+     */
+    @Post('sessions')
+    @HttpCode(200)
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'Active sessions of the authenticated user, the current one marked' })
+    async sessionsWithCurrent(@Request() req: AuthenticatedRequest, @Body() listSessionsDto: ListSessionsDto) {
+        return this.authService.listSessions(req.user.sub, listSessionsDto.refreshToken);
     }
 }

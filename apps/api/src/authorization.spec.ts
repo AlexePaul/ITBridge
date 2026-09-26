@@ -179,6 +179,8 @@ describe('authorization matrix', () => {
             // and it asks for the current password anyway, because `AuthGuard` checks a signature
             // rather than a session and a borrowed tab would otherwise be enough.
             'AuthController.changePassword',
+            // Reads the caller's own sessions; a POST only so the refresh token marking "this one" stays out of the URL.
+            'AuthController.sessionsWithCurrent',
             // Sends only to the address already on file, for the caller's own account — it takes no
             // address, so a session cannot be used to point a confirmation somewhere else.
             'AuthController.resendConfirmation',

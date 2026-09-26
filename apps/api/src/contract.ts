@@ -235,6 +235,8 @@ type _LegalRecord = Check<Wire.LegalRecord, LegalRecordRowWire>;
 // Review of 26 September 2026: the approvals queue and the refused list the office looks again from.
 type _PendingAccount = Check<Wire.PendingAccount, Serialized<PendingAccount>>;
 type _RejectedAccount = Check<Wire.RejectedAccount, Serialized<RejectedAccount>>;
+// Terms §4.5: the sessions list, with the caller's own marked.
+type _ActiveSessions = Check<Wire.ActiveSession[], Serialized<Awaited<ReturnType<AuthService['listSessions']>>>>;
 type _RegisterResponse = Check<Wire.RegisterResponse, Serialized<Awaited<ReturnType<AuthService['register']>>>>;
 type _LegalRecordBack = Check<LegalRecordRowWire, Wire.LegalRecord>;
 // E22/S3: the retention term, as the office's list and the family page read it.

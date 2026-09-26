@@ -1,4 +1,18 @@
+import type { ISODateTime } from './common';
 import type { ApprovalStatus } from './user';
+
+/**
+ * One open session of the caller — `GET` and `POST /auth/sessions` (terms §4.5). `createdAt` is when
+ * the refresh token in it was issued, which a rotation renews; `current` marks the session of the
+ * refresh token the caller sent, and is always `false` on the `GET`.
+ */
+export interface ActiveSession {
+    id: number;
+    createdAt: ISODateTime;
+    expiresAt: ISODateTime;
+    userAgent: string | null;
+    current: boolean;
+}
 
 export interface LoginResponse {
     accessToken: string;

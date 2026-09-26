@@ -138,7 +138,7 @@ describe('SessionService', () => {
 
             const sessions = await service.listActive(4);
 
-            expect(Object.keys(sessions[0]).sort()).toEqual(['createdAt', 'expiresAt', 'id', 'userAgent']);
+            expect(Object.keys(sessions[0]).sort()).toEqual(['createdAt', 'current', 'expiresAt', 'id', 'userAgent']);
             expect(JSON.stringify(sessions)).not.toContain('nu-trebuie-sa-iasa');
         });
     });

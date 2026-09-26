@@ -223,6 +223,49 @@
       </section>
 
       <!--
+        Terms §4.4 and §4.5, and privacy §8: the portal lists the open sessions, by browser, so a
+        family can recognise its own, and offers „Deconectează-te de pe toate dispozitivele". The API
+        had both; nothing here called them (review of 26 September 2026).
+      -->
+      <section class="portal-section">
+        <h2 class="portal-label">Sesiuni active</h2>
+
+        <p v-if="sessionsError" class="portal-empty">{{ sessionsError }}</p>
+        <dl v-else-if="sessions.length > 0" class="portal-dl details">
+          <div v-for="session in sessions" :key="session.id" class="portal-dl-row">
+            <dt>
+              {{ deviceLabel(session.userAgent) }}
+              <template v-if="session.current"> — sesiunea aceasta</template>
+            </dt>
+            <dd>
+              <p class="legal-entry">
+                reînnoită pe {{ formatInstant(session.createdAt) }}; expiră pe
+                {{ formatInstant(session.expiresAt) }} dacă nu mai e folosită
+              </p>
+            </dd>
+          </div>
+        </dl>
+        <p v-else class="portal-empty">Nu mai e nicio sesiune deschisă.</p>
+
+        <p class="body-text">
+          Dacă nu recunoști un dispozitiv sau bănuiești că altcineva îți știe parola, schimbă parola
+          și deconectează-te de peste tot. Te autentifici apoi din nou aici.
+        </p>
+        <button
+          type="button"
+          class="btn btn-secondary details-action"
+          :disabled="endingSessions"
+          @click="onLogoutEverywhere"
+        >
+          {{
+            confirmingLogoutEverywhere
+              ? "Sigur? Apasă din nou"
+              : "Deconectează-te de pe toate dispozitivele"
+          }}
+        </button>
+      </section>
+
+      <!--
         Terms §4.7: "Versiunea pe care ai acceptat-o, cu ziua acceptării, rămâne înregistrată pe
         cont și o poți reciti oricând din portal." The ledger read back as it is — every version,
         with its day, newest first — and a version a newer text replaced stays on the list, because
@@ -375,6 +418,8 @@ import { LEGAL_DOCUMENT_LABELS, LEGAL_READING_ORDER } from "~/types/legal.types"
 import type { LegalDocumentKey, LegalRecord } from "~/types/legal.types";
 import { consentFor, consentSummary } from "~/composables/useConsent";
 import type { ChildConsents, FamilyConsents } from "~/types/consent.types";
+import type { ActiveSession } from "~/types/auth.types";
+import { deviceLabel, orderSessions } from "~/composables/useSessions";
 
 /**
  * Profil — E18/S4, screen 5.
@@ -555,10 +600,67 @@ const onConsentToggle = async (child: ChildConsents, event: Event) => {
   }
 };
 
+/**
+ * The open sessions — terms §4.5. Read from the server each time: a list kept here would still show
+ * a session somebody closed from another device a minute ago.
+ */
+const sessions = ref<ActiveSession[]>([]);
+const sessionsError = ref<string | null>(null);
+const endingSessions = ref(false);
+const confirmingLogoutEverywhere = ref(false);
+
+const loadSessions = async () => {
+  sessionsError.value = null;
+  try {
+    sessions.value = orderSessions(await authApi.fetchSessions());
+  } catch (err) {
+    sessionsError.value = apiErrorMessage(err, "Nu am putut încărca sesiunile.");
+  }
+};
+
+/** A day and a time on the school's clock — when a token was issued is an instant, not a day. */
+const formatInstant = (iso: string) =>
+  new Date(iso).toLocaleString("ro-RO", {
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Bucharest",
+  });
+
+/**
+ * „Deconectează-te de pe toate dispozitivele" — terms §4.4. Asks once more, like the erasure
+ * request, then ends every session on the server and this one here: the refresh token in this
+ * browser has just been revoked with the rest.
+ */
+const onLogoutEverywhere = async () => {
+  if (!confirmingLogoutEverywhere.value) {
+    confirmingLogoutEverywhere.value = true;
+    return;
+  }
+  endingSessions.value = true;
+  try {
+    await authApi.logoutEverywhere();
+    success("Te-am deconectat de pe toate dispozitivele.", "Autentifică-te din nou aici.");
+    tokenStore.clearTokens();
+    userStore.logout();
+    profileStore.clearProfile();
+    childrenStore.clearChildren();
+    attendanceStore.clearAttendance();
+    classSessionStore.clearSessions();
+    await navigateTo("/auth/login");
+  } catch (err) {
+    notifyError("Nu am putut închide sesiunile", apiErrorMessage(err));
+  } finally {
+    endingSessions.value = false;
+    confirmingLogoutEverywhere.value = false;
+  }
+};
+
 onMounted(async () => {
   // The layout fetches it once, for the header. Only ask again if that did not land.
   if (!profileStore.profile) await loadProfile();
-  await Promise.all([loadLegalRecord(), loadConsents()]);
+  await Promise.all([loadLegalRecord(), loadConsents(), loadSessions()]);
 });
 
 /**

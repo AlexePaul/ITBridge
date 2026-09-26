@@ -126,7 +126,33 @@ describe('Sessions and logout (e2e)', () => {
                 expiresAt: expect.any(String),
                 // supertest sends no User-Agent, so null is the honest value here.
                 userAgent: null,
+                current: false,
             });
+        });
+
+        /**
+         * Terms §4.5 promise a list in which a family recognises its devices, and §4.4 a way to sign
+         * out of all of them; the portal had neither (review of 26 September 2026). The screen marks
+         * its own session from the refresh token it holds, sent in a body, never in a URL.
+         */
+        it('marks the session of the refresh token the caller sends, and only among its own', async () => {
+            const { accessToken, refreshToken } = await register();
+            const other = await request(app.getHttpServer()).post('/auth/login').send({ username: 'ana', password: 'parola123' }).expect(200);
+            const stranger = await register('bogdan');
+
+            const mine = await request(app.getHttpServer())
+                .post('/auth/sessions')
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ refreshToken })
+                .expect(200);
+            expect((mine.body as { current: boolean }[]).map((session) => session.current).sort()).toEqual([false, true]);
+
+            const foreign = await request(app.getHttpServer())
+                .post('/auth/sessions')
+                .set('Authorization', `Bearer ${other.body.accessToken as string}`)
+                .send({ refreshToken: stranger.refreshToken })
+                .expect(200);
+            expect((foreign.body as { current: boolean }[]).every((session) => !session.current)).toBe(true);
         });
 
         it('log out everywhere ends all of them at once', async () => {

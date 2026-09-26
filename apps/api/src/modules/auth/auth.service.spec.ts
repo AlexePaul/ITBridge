@@ -689,7 +689,7 @@ describe('AuthService', () => {
 
         it('listing sessions asks only for the calling user', async () => {
             await service.listSessions(7);
-            expect(sessions.listActive).toHaveBeenCalledWith(7);
+            expect(sessions.listActive).toHaveBeenCalledWith(7, undefined);
         });
     });
 });

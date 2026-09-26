@@ -1,7 +1,12 @@
 import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
-import type { ConfirmEmailResponse, LoginResponse, RegisterResponse } from "~/types/auth.types";
+import type {
+  ActiveSession,
+  ConfirmEmailResponse,
+  LoginResponse,
+  RegisterResponse,
+} from "~/types/auth.types";
 import type { LegalDocumentKey, LegalRecord } from "~/types/legal.types";
 import { useProfileInitialization } from "~/composables/useProfileInitialization";
 
@@ -251,10 +256,28 @@ export const useAuthApi = () => {
    */
   const fetchLegalRecord = () => api<LegalRecord>("/auth/documents");
 
+  /**
+   * The family's open sessions, this one marked — terms §4.5. The refresh token goes in the body so
+   * the server can say which session is this browser's; it never goes in a URL.
+   */
+  const fetchSessions = () =>
+    api<ActiveSession[]>("/auth/sessions", {
+      method: "POST",
+      body: { refreshToken: tokenStore.refreshToken ?? undefined },
+    });
+
+  /**
+   * „Deconectează-te de pe toate dispozitivele" — terms §4.4. Every session of the account ends on
+   * the server, this one included; the caller signs out locally afterwards.
+   */
+  const logoutEverywhere = () => api<{ message: string }>("/auth/logout-all", { method: "POST" });
+
   return {
     login,
     register,
     claimAccount,
+    fetchSessions,
+    logoutEverywhere,
     confirmEmail,
     resendConfirmation,
     forgotPassword,
