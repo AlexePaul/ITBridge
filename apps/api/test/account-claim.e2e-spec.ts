@@ -120,6 +120,46 @@ describe('Account claim (e2e)', () => {
             expect(await dataSource.getRepository(AccountClaim).count()).toBe(0);
         });
 
+        // Review of 26 September 2026: every press replaced the family's link and sent another mail,
+        // five a minute from every address a stranger could use.
+        it('sends one link for registrations moments apart, and the first link keeps working', async () => {
+            await officeFamily();
+            const register = () =>
+                request(app.getHttpServer())
+                    .post('/auth/register')
+                    .send({ ...registrationBody('ana'), email: OFFICE_EMAIL })
+                    .expect(201);
+
+            await register();
+            const token = await tokenFromMail();
+            const second = await register();
+
+            expect(second.body.claimSent).toBe(true);
+            expect(await dataSource.getRepository(AccountClaim).count()).toBe(1);
+            expect(await dataSource.getRepository(OutboxMessage).count({ where: { to: OFFICE_EMAIL } })).toBe(1);
+            await request(app.getHttpServer()).post('/auth/claim').send(claimBody(token)).expect(201);
+        });
+
+        it('sends a new link once the pause is over, and never pauses the office button', async () => {
+            const profileId = await officeFamily();
+            const register = () =>
+                request(app.getHttpServer())
+                    .post('/auth/register')
+                    .send({ ...registrationBody('ana'), email: OFFICE_EMAIL })
+                    .expect(201);
+
+            await register();
+            await request(app.getHttpServer()).post(`/profiles/${profileId}/account-claim`).set('Authorization', admin.auth).expect(200);
+            expect(await dataSource.getRepository(AccountClaim).count()).toBe(2);
+
+            await dataSource.query(`UPDATE account_claims SET "createdAt" = now() - interval '11 minutes'`);
+            await register();
+
+            expect(await dataSource.getRepository(AccountClaim).count()).toBe(3);
+            const live = await dataSource.query(`SELECT id FROM account_claims WHERE "usedAt" IS NULL AND "expiresAt" > now()`);
+            expect(live).toHaveLength(1);
+        });
+
         // Review of 26 September 2026: anyone can type an address, and every press replaces the
         // family's link. The office's button left a trail and this branch left none.
         it('leaves a trail naming the form, with nobody as the actor and no address in it', async () => {
@@ -196,10 +236,7 @@ describe('Account claim (e2e)', () => {
             const profileId = await officeFamily();
             await request(app.getHttpServer()).post(`/profiles/${profileId}/account-claim`).set('Authorization', admin.auth).expect(200);
             const first = await tokenFromMail();
-            await request(app.getHttpServer())
-                .post('/auth/register')
-                .send({ ...registrationBody('ana'), email: OFFICE_EMAIL })
-                .expect(201);
+            await request(app.getHttpServer()).post(`/profiles/${profileId}/account-claim`).set('Authorization', admin.auth).expect(200);
             const second = await tokenFromMail();
             expect(second).not.toBe(first);
 
