@@ -40,7 +40,9 @@
                     Recuperare
                   </UBadge>
                 </div>
-                <template v-if="String(child?.group?.id) !== groupId">
+                <!-- Only a row the save does not demand can come off: the group on the class's day
+                     is required by the API, and removing one of them would only earn a 400. -->
+                <template v-if="!memberIds.has(child.id)">
                   <!-- The child's name in the label: on a register of ten, ten "Scoate" sound
                        identical in a screen reader's list of controls. -->
                   <UButton
@@ -223,6 +225,7 @@ import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
 import { useGroupsStore } from "~/stores/groupsStore";
 import type { Child } from "~/types/child.types";
 import type { Group } from "~/types/group.types";
+import type { SessionRegister } from "~/types/attendance.types";
 import type { ClassSessionWithAttendance } from "~/types/class-session.types";
 import { SessionStatus } from "~/types/class-session.types";
 
@@ -355,38 +358,56 @@ const removeChildFromList = (childId: number) => {
 };
 
 /**
- * The children the office moved into the selected class for the week — E12/S4.
+ * The rows of the selected class: its register, as the server reads it — the review of 26
+ * September 2026.
  *
- * Read from the class's register, which lists them, and added the way a teacher adds a child by
- * hand, so the switch and the save treat them like any other row. Until the end-to-end testing of
- * 25 September 2026 the teacher had to know, by name, who had been moved here on another screen on
- * another day. Swapped when the class changes: a visitor belongs to one class, not to the group.
+ * The rows were the group as it is today (`getChildrenByGroupId`), whichever class was picked, and
+ * the save demanded the same list: last week's register asked for a child who joined this morning,
+ * and a trial booked for next Monday had to be marked on today's class. The register endpoint lists
+ * the group **on the class's day** (`EnrollmentService.membersOn`) plus the children the office
+ * moved into that class for the week (E12/S4), and the save demands exactly the first of those — so
+ * the rows, the „Probă" badges and the ones that can come off all follow the class, and are swapped
+ * whenever it changes. A child added by hand belongs to the class it was added for.
  */
+const memberIds = ref<Set<number>>(new Set());
 const visitorIds = ref<Set<number>>(new Set());
 
+const applyRegister = (register: SessionRegister) => {
+  const rows = register.entries.map(
+    (entry) =>
+      (childrenStore.getChildById(entry.childId) as Child | undefined) ??
+      ({ id: entry.childId, firstName: entry.firstName, lastName: entry.lastName } as Child)
+  );
+  const listed = new Set(rows.map((row) => row.id));
+  children.value = rows;
+  availableChildren.value = childrenStore.children.filter(
+    (child) => !listed.has(child.id)
+  ) as Child[];
+  for (const key of Object.keys(attendanceData)) delete attendanceData[key];
+  for (const row of rows) attendanceData[String(row.id)] = true;
+  memberIds.value = new Set(
+    register.entries
+      .filter((entry) => entry.type === "regular" && !entry.visitingFrom)
+      .map((entry) => entry.childId)
+  );
+  visitorIds.value = new Set(
+    register.entries.filter((entry) => entry.visitingFrom).map((entry) => entry.childId)
+  );
+  trialChildIds.value = new Set(
+    register.entries.filter((entry) => entry.trial).map((entry) => entry.childId)
+  );
+};
+
 watch(selectedSessionId, async (sessionId) => {
-  // Only those still on the list: one the teacher took off by hand is already back in the search,
-  // and taking it off twice would put it there twice.
-  for (const childId of visitorIds.value) {
-    if (children.value.some((row) => row.id === childId)) removeChildFromList(childId);
-  }
-  visitorIds.value = new Set();
   if (!sessionId) return;
   try {
     const register = await attendanceApi.fetchSessionRegister(sessionId);
     // A newer choice made while this one was loading wins.
     if (selectedSessionId.value !== sessionId) return;
-    const added = new Set<number>();
-    for (const entry of register.entries) {
-      if (!entry.visitingFrom) continue;
-      const child = childrenStore.getChildById(entry.childId) as Child | undefined;
-      if (!child || children.value.some((row) => row.id === child.id)) continue;
-      addChildToList(child);
-      added.add(child.id);
-    }
-    visitorIds.value = added;
+    applyRegister(register);
   } catch {
-    // The search below still reaches every child; a visitor left for it is better than no register.
+    // Today's roster stays on screen; if it is not the group of that day, the save says who is
+    // missing, and the search below still reaches every child.
   }
 });
 
@@ -446,10 +467,12 @@ const load = async () => {
     trialChildIds.value = new Set();
   }
 
-  // Initialize attendance data map with all group children
+  // Initialize attendance data map with all group children — today's roster, until a class is
+  // picked and its own register replaces it.
   children.value.forEach((child) => {
     attendanceData[String(child.id)] = true; // Default to present
   });
+  memberIds.value = new Set(children.value.map((child) => child.id));
 
   await loadSessions();
 };

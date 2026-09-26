@@ -31,15 +31,22 @@ describe('AttendanceService', () => {
         childrenAttendance: childIds.map((childId) => ({ childId, present: true })),
     });
 
-    /** A scheduled session for group 1, with whichever children the test wants enrolled. */
-    const sessionWith = (children: { id: number }[], overrides: Record<string, unknown> = {}) => ({
-        id: 3,
-        status: ClassSessionStatus.SCHEDULED,
-        date: '2026-03-10',
-        startTime: '16:00',
-        group: { id: 1, children },
-        ...overrides,
-    });
+    /**
+     * A scheduled session for group 1, with whichever children the test wants enrolled — on the
+     * class's day, which is what the register asks since the review of 26 September 2026
+     * (`EnrollmentService.membersOn`), not the group's roster today.
+     */
+    const sessionWith = (children: { id: number }[], overrides: Record<string, unknown> = {}) => {
+        membersOnMock.mockResolvedValue(children.map((child) => ({ status: EnrollmentStatus.ACTIVE, trialUntil: null, child })));
+        return {
+            id: 3,
+            status: ClassSessionStatus.SCHEDULED,
+            date: '2026-03-10',
+            startTime: '16:00',
+            group: { id: 1 },
+            ...overrides,
+        };
+    };
 
     /** The school calendar of announced absences; empty unless a test says otherwise. */
     const forSessionMock = jest.fn();
@@ -176,6 +183,17 @@ describe('AttendanceService', () => {
             await expect(service.createAttendance(3, dto([7]))).rejects.toThrow(BadRequestException);
         });
 
+        it("asks for the group as it was on the class's day, not as it is today", async () => {
+            classSessionRepo.findOne!.mockResolvedValue(sessionWith([{ id: 7 }]));
+            childRepo.findByIds!.mockResolvedValue([{ id: 7 }]);
+            attendanceRepo.find!.mockResolvedValue([]);
+            attendanceRepo.save!.mockImplementation((r: unknown) => Promise.resolve(r));
+
+            await service.createAttendance(3, dto([7]));
+
+            expect(membersOnMock).toHaveBeenCalledWith(1, '2026-03-10');
+        });
+
         it('rejects a child that does not exist', async () => {
             classSessionRepo.findOne!.mockResolvedValue(sessionWith([]));
             childRepo.findByIds!.mockResolvedValue([]);
@@ -218,6 +236,12 @@ describe('AttendanceService', () => {
             parent: phone === null ? {} : { phone },
         });
 
+        /** The group on the class's day: its enrolments, and the children the register loads for them. */
+        const groupOnTheDay = (...children: ReturnType<typeof child>[]) => {
+            membersOnMock.mockResolvedValue(children.map((c) => ({ status: EnrollmentStatus.ACTIVE, trialUntil: null, child: { id: c.id } })));
+            childRepo.find!.mockResolvedValue(children);
+        };
+
         beforeEach(() => {
             classSessionRepo.findOne!.mockResolvedValue({
                 id: 9,
@@ -225,9 +249,22 @@ describe('AttendanceService', () => {
                 startTime: '16:00:00',
                 endTime: '17:30:00',
                 status: ClassSessionStatus.SCHEDULED,
-                group: { id: 5, name: 'Scratch', children: [child(2, 'Ana', 'Pop'), child(1, 'Vlad', 'Ionescu')] },
+                group: { id: 5, name: 'Scratch' },
             });
+            groupOnTheDay(child(2, 'Ana', 'Pop'), child(1, 'Vlad', 'Ionescu'));
             attendanceRepo.find!.mockResolvedValue([]);
+        });
+
+        it("lists the group on the class's day, read from the enrolments", async () => {
+            await service.sessionRegister(9);
+
+            expect(membersOnMock).toHaveBeenCalledWith(5, '2026-09-07');
+        });
+
+        it('lists nobody the enrolments did not have in the group that day, unless they have a mark', async () => {
+            groupOnTheDay();
+
+            expect((await service.sessionRegister(9)).entries).toEqual([]);
         });
 
         it('lists every child of the group, sorted by name, with no mark as null', async () => {
@@ -289,14 +326,7 @@ describe('AttendanceService', () => {
         });
 
         it('answers null for a family with no phone, not a button that dials nowhere', async () => {
-            classSessionRepo.findOne!.mockResolvedValue({
-                id: 9,
-                date: '2026-09-07',
-                startTime: '16:00:00',
-                endTime: '17:30:00',
-                status: ClassSessionStatus.SCHEDULED,
-                group: { id: 5, name: 'Scratch', children: [child(2, 'Ana', 'Pop', null)] },
-            });
+            groupOnTheDay(child(2, 'Ana', 'Pop', null));
 
             const register = await service.sessionRegister(9);
             expect(register.entries[0].parentPhone).toBeNull();
@@ -308,14 +338,7 @@ describe('AttendanceService', () => {
          * profile alone, so the call button was missing for exactly the family the teacher knows least.
          */
         it('fills in the number a /proba family left on the booking when the profile has none', async () => {
-            classSessionRepo.findOne!.mockResolvedValue({
-                id: 9,
-                date: '2026-09-07',
-                startTime: '16:00:00',
-                endTime: '17:30:00',
-                status: ClassSessionStatus.SCHEDULED,
-                group: { id: 5, name: 'Scratch', children: [child(2, 'Ana', 'Pop', null), child(1, 'Vlad', 'Ionescu')] },
-            });
+            groupOnTheDay(child(2, 'Ana', 'Pop', null), child(1, 'Vlad', 'Ionescu'));
             leadRepo.find!.mockResolvedValue([{ child: { id: 2 }, parentPhone: '+40722333444' }]);
 
             const register = await service.sessionRegister(9);
@@ -367,9 +390,11 @@ describe('AttendanceService', () => {
         beforeEach(() => {
             classSessionRepo.findOne!.mockResolvedValue({
                 id: 9,
+                date: '2026-09-07',
                 status: ClassSessionStatus.SCHEDULED,
-                group: { id: 5, children: [{ id: 2 }] },
+                group: { id: 5 },
             });
+            membersOnMock.mockResolvedValue([{ status: EnrollmentStatus.ACTIVE, trialUntil: null, child: { id: 2 } }]);
             childRepo.findOne!.mockResolvedValue({ id: 2 });
             attendanceRepo.findOne!.mockResolvedValue(null);
             attendanceRepo.save!.mockImplementation((record: unknown) => Promise.resolve(record));

@@ -38,6 +38,23 @@ export class AttendanceService {
     ) {}
 
     /**
+     * Who belongs on a class's register: the group **as it was on the class's day** — the review of
+     * 26 September 2026.
+     *
+     * It was the group as it is today (`group.children`, the derived column), which is right for
+     * today's class and wrong for every other one. Last week's register demanded a child who joined
+     * this morning, and the family then saw a mark for a class held before their child was in the
+     * group; a trial booked on `/proba` for next Monday sat on today's register as a regular pupil,
+     * and today's register could not be saved without marking them. The enrolments answer the
+     * question by date (`membersOn`), with the end day read as departed, like the billing does: a
+     * child withdrawn this morning is not in this evening's class, and a child who starts today is.
+     */
+    private async membersAt(classSession: ClassSession): Promise<Map<number, Enrollment>> {
+        const members = await this.enrollments.membersOn(classSession.group.id, toIsoDate(classSession.date));
+        return new Map(members.map((enrollment) => [enrollment.child.id, enrollment]));
+    }
+
+    /**
      * Marks a whole class at once.
      *
      * The class is named by id, not described by date and hour. The group is no longer a parameter
@@ -47,7 +64,7 @@ export class AttendanceService {
     async createAttendance(classSessionId: number, markAttendanceDto: markAttendanceDto) {
         const classSession = await this.classSessionRepository.findOne({
             where: { id: classSessionId },
-            relations: { group: { children: true } },
+            relations: { group: true },
         });
         if (!classSession) {
             throw new NotFoundException(`Class session with ID ${classSessionId} does not exist`);
@@ -62,7 +79,9 @@ export class AttendanceService {
         }
 
         const group = classSession.group;
-        const groupChildrenIds = group.children.map((child) => child.id);
+        // Required: the group on the class's day, not today — see `membersAt`. Anyone else may be
+        // posted (a visitor, a child added by hand) and is written as a make-up.
+        const groupChildrenIds = [...(await this.membersAt(classSession)).keys()];
         const reqChildrenIds = markAttendanceDto.childrenAttendance.map((att) => att.childId);
 
         for (const childId of groupChildrenIds) {
@@ -149,7 +168,7 @@ export class AttendanceService {
     async sessionRegister(classSessionId: number) {
         const classSession = await this.classSessionRepository.findOne({
             where: { id: classSessionId },
-            relations: { group: { children: { parent: true } } },
+            relations: { group: true },
         });
         if (!classSession) {
             throw new NotFoundException(`Class session with ID ${classSessionId} does not exist`);
@@ -161,13 +180,18 @@ export class AttendanceService {
         });
         const markByChild = new Map(marks.map((mark) => [mark.child.id, mark]));
         const noticeByChild = await this.absenceNoticeService.forSession(classSessionId);
-        const groupChildIds = new Set(classSession.group.children.map((child) => child.id));
+        // The group on the class's day (`membersAt`); everyone else on the register is there
+        // because they have a mark on it or were moved into it for the week.
         const sessionDay = toIsoDate(classSession.date);
+        const members = await this.membersAt(classSession);
+        const groupChildIds = new Set(members.keys());
         const trialChildIds = new Set(
-            (await this.enrollments.membersOn(classSession.group.id, sessionDay))
-                .filter((enrollment) => wasTrialOn(enrollment, sessionDay))
-                .map((enrollment) => enrollment.child.id),
+            [...members.values()].filter((enrollment) => wasTrialOn(enrollment, sessionDay)).map((enrollment) => enrollment.child.id),
         );
+        const memberChildren =
+            groupChildIds.size === 0
+                ? []
+                : await this.childRepository.find({ where: { id: In([...groupChildIds]) }, relations: { parent: true, group: true } });
 
         const entryOf = (child: Child, type: AttendanceType) => {
             const mark = markByChild.get(child.id);
@@ -193,7 +217,7 @@ export class AttendanceService {
             };
         };
 
-        const entries = classSession.group.children
+        const entries = [...memberChildren]
             .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
             .map((child) => entryOf(child, AttendanceType.REGULAR));
         // A make-up child is not in the group but already has a mark on this class; the register
@@ -249,7 +273,7 @@ export class AttendanceService {
     async upsertMark(classSessionId: number, childId: number, present: boolean) {
         const classSession = await this.classSessionRepository.findOne({
             where: { id: classSessionId },
-            relations: { group: { children: true } },
+            relations: { group: true },
         });
         if (!classSession) {
             throw new NotFoundException(`Class session with ID ${classSessionId} does not exist`);
@@ -278,8 +302,10 @@ export class AttendanceService {
         record.classSession = classSession;
         record.present = present;
         record.group = classSession.group;
-        // Same rule as the bulk endpoint: in the group means regular, anyone else is a make-up.
-        record.type = classSession.group.children.some((groupChild) => groupChild.id === childId) ? AttendanceType.REGULAR : AttendanceType.MAKE_UP;
+        // Same rule as the bulk endpoint: in the group on the class's day means regular, anyone else
+        // is a make-up. The day, not today — a correction to last month's register is about who was
+        // in the group last month.
+        record.type = (await this.membersAt(classSession)).has(childId) ? AttendanceType.REGULAR : AttendanceType.MAKE_UP;
         const saved = await this.attendanceRepository.save(record);
         await this.settleLead(childId, classSessionId, present);
         return saved;
