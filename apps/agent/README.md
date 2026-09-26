@@ -14,14 +14,23 @@ salvează lucrarea în folderul copilului, din Explorer sau direct din dialogul 
 trecere, o urcă prin API și o mută în `_urcate\<data>`, ca profesorul să vadă din Explorer ce a plecat.
 
 ```
-P:\Proiecte\<Locație>\<Grupă>\<Copil (#12)>\
-P:\Proiecte\<Locație>\<Grupă>\<Copil (#12)>\_urcate\<data>\
-P:\Proiecte\<Locație>\<Grupă>\_neatribuite\
+P:\Proiecte\<Locație>\<Grupă (grupa 7)>\<Copil (#12)>\
+P:\Proiecte\<Locație>\<Grupă (grupa 7)>\<Copil (#12)>\_urcate\<data>\
+P:\Proiecte\<Locație>\<Grupă (grupa 7)>\_neatribuite\
 ```
 
 **Numele folderului conține identificatorul copilului**, nu doar numele. Doi copii cu același prenume
 într-o grupă nu sunt o ipoteză, iar un folder redenumit de mână nu are voie să orfanizeze fișierele
 din el.
+
+**Și numele folderului grupei îl conține pe al grupei** (revizuirea din 25 septembrie 2026). Fără el,
+o grupă redenumită sau mutată la cealaltă adresă primea un folder nou și gol, iar ce salvau
+profesorii în continuare în cel vechi nu mai urca nimeni și nu mai raporta nimeni; iar două grupe cu
+același nume la aceeași adresă împărțeau un folder. Acum folderul grupei se găsește după
+identificator oriunde ar sta sub rădăcină, iar oglinda îl mută, cu tot ce e în el, acolo unde îi e
+locul. **Un folder făcut de o versiune mai veche** (fără `(grupa N)` în nume) e redenumit la prima
+trecere a oglinzii, cu fișierele înăuntru — dacă nu îl împart două grupe cu același nume; atunci
+rămâne unde e și trebuie mutat de mână.
 
 **Nimic nu se șterge de pe partajare.** Ce s-a urcat se mută în `_urcate`, ce nu s-a putut atribui se
 mută în `_neatribuite` și apare pe ecranul grupei cu motivul.
@@ -31,7 +40,19 @@ mută în `_neatribuite` și apare pe ecranul grupei cu motivul.
 ce să încerce, deci rămânea în folder și era găsit din nou la fiecare trecere, cu o linie de avertisment
 la fiecare treizeci de secunde și cu câmpul de sănătate al agentului roșu pe un defect pe care nimeni
 nu-l putea repara. Acum pleacă în `_neatribuite` cu motivul „Scurtătură fără o adresă web validă",
-adică exact ce se vede pe ecran pentru orice alt fișier refuzat.
+adică exact ce se vede pe ecran pentru orice alt fișier refuzat. **La fel și ce refuză serverul**
+despre fișierul însuși: un `.png` care e de fapt JPEG (motiv propriu, „Conținutul nu corespunde
+extensiei"), un tip neacceptat, un fișier prea mare, o scurtătură către `http://localhost:…`. Un 401,
+un 403 sau un 404 nu sunt refuzuri: pot fi o greșeală în `config.json`, iar mutarea întregii
+partajări în `_neatribuite` din cauza unei parole greșite ar fi mult mai rea decât o reîncercare.
+
+**Un fișier deschis în alt program rămâne pe loc.** Word și Acrobat țin fișierul blocat: se poate
+citi, dar nu muta. Agentul îl urcă o dată și încearcă doar mutarea la trecerile următoare, fără să-l
+mai trimită și fără să lase copii în urmă; pleacă din folder când e închis programul.
+
+**Câmpul de sănătate spune și când partajarea nu se poate citi.** Un folder care nu se putea citi
+arăta ca unul gol, deci o partajare dispărută — serverul oprit, un drive mapat pe care un serviciu
+nu-l vede — trecea drept o după-amiază liniștită, cu agentul verde și nimic urcat.
 
 **Dacă programul nu poate salva direct pe drive-ul mapat, se mută fișierul acolo.** Scratch în
 browser, de exemplu, descarcă în `Downloads` fără să întrebe. Agentul nu are de unde ști cum a ajuns

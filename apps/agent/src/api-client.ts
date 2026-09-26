@@ -266,7 +266,11 @@ export class ApiClient {
 
         if (!response.ok) {
             const detail = await response.text().catch(() => '');
-            throw new HttpError(response.status, `${pathname} answered ${response.status}: ${detail.slice(0, 300)}`);
+            throw new HttpError(
+                response.status,
+                `${pathname} answered ${response.status}: ${detail.slice(0, 300)}`,
+                codeIn(detail),
+            );
         }
 
         // 204, and any empty body, is a perfectly good answer to a heartbeat.
@@ -279,9 +283,21 @@ export class HttpError extends Error {
     constructor(
         readonly status: number,
         message: string,
+        /** The API's machine-readable `code` (`PROJECT_FILE_CONTENT_MISMATCH`), when it sent one. */
+        readonly code: string | null = null,
     ) {
         super(message);
         this.name = 'HttpError';
+    }
+}
+
+/** The `code` field of an error body from the API, or null for anything else — a proxy's HTML page. */
+function codeIn(body: string): string | null {
+    try {
+        const parsed = JSON.parse(body) as { code?: unknown };
+        return typeof parsed.code === 'string' ? parsed.code : null;
+    } catch {
+        return null;
     }
 }
 

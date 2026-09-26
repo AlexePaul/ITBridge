@@ -36,6 +36,7 @@ describe('ProjectService', () => {
         downloadFile: jest.Mock;
         downloadStream: jest.Mock;
         presignedDownloadUrl: jest.Mock;
+        presignedUploadUrl: jest.Mock;
         deleteObject: jest.Mock;
         headObject: jest.Mock;
     };
@@ -74,6 +75,7 @@ describe('ProjectService', () => {
             downloadFile: jest.fn(),
             downloadStream: jest.fn(),
             presignedDownloadUrl: jest.fn().mockResolvedValue('https://signed.example/x'),
+            presignedUploadUrl: jest.fn().mockResolvedValue('https://signed.example/upload'),
             deleteObject: jest.fn(),
             headObject: jest.fn(),
         };
@@ -218,6 +220,17 @@ describe('ProjectService', () => {
                     1,
                 ),
             ).rejects.toBeInstanceOf(UnsupportedMediaTypeException);
+        });
+
+        it('stores and signs a WebM as WebM, not as MP4', async () => {
+            // Every video was written down and signed as `video/mp4` (review of 25 September 2026).
+            await service.registerLargeFile(
+                { childId: 12, capturedOn: '2026-09-14', originalName: 'robot.webm', sizeBytes: 1000, contentHash: 'a'.repeat(64) },
+                1,
+            );
+
+            expect(manager.create).toHaveBeenCalledWith(ProjectFile, expect.objectContaining({ contentType: 'video/webm' }));
+            expect(s3.presignedUploadUrl).toHaveBeenCalledWith(expect.any(String), 'video/webm');
         });
 
         it('refuses a size past the video ceiling', async () => {
@@ -488,6 +501,17 @@ describe('ProjectService', () => {
 
             expect(projectRepo.delete).toHaveBeenCalledWith(41);
             expect(s3.deleteObject).toHaveBeenCalledWith('projects/41/7/92');
+            expect(s3.deleteObject).toHaveBeenCalledWith('projects/41/thumb.jpg');
+        });
+
+        it('removes the thumbnail even when the row says there is none, because the job may have written it since', async () => {
+            // The thumbnail job writes the picture after the row that says `hasThumbnail: false` was
+            // read; left to the flag, that picture stayed in the bucket for good (review of 25
+            // September 2026). Deleting a key that is not there costs nothing.
+            projectRepo.findOne!.mockResolvedValueOnce({ id: 41, hasThumbnail: false, versions: [{ id: 7, files: [{ id: 92 }] }] });
+
+            await service.deleteProject(41);
+
             expect(s3.deleteObject).toHaveBeenCalledWith('projects/41/thumb.jpg');
         });
 

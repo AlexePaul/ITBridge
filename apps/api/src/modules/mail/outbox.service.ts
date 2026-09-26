@@ -229,7 +229,9 @@ export class OutboxService {
 
         const row = (result.raw as OutboxMessage[])[0] ?? null;
         if (row) {
-            this.logger.warn(`Message "${message.subject}" is undeliverable: ${reason}.`);
+            // The row and its key, never the subject: "Proiectele lui Andrei", "Ora Mariei de marți"
+            // — a subject names the child as often as not, and a log is not where names belong.
+            this.logger.warn(`Message ${row.id}${message.dedupeKey ? ` (${message.dedupeKey})` : ''} is undeliverable: ${reason}.`);
         }
         return row;
     }

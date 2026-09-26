@@ -205,7 +205,7 @@ export class S3Service implements OnModuleInit {
         const command = new GetObjectCommand({
             Bucket: this.requireBucket(),
             Key: key,
-            ResponseContentDisposition: `attachment; filename="${sanitizeFilename(options.filename ?? 'fisier')}"`,
+            ResponseContentDisposition: attachmentDisposition(options.filename ?? 'fisier'),
             ...(options.contentType ? { ResponseContentType: options.contentType } : {}),
         });
         return getSignedUrl(this.client(), command, { expiresIn: options.expiresInSeconds ?? DEFAULT_SIGNED_URL_TTL_SECONDS });
@@ -278,4 +278,25 @@ export function sanitizeFilename(name: string): string {
         .replace(/[/\\]/g, '-')
         .trim();
     return cleaned.slice(0, 200) || 'fisier';
+}
+
+/**
+ * A `Content-Disposition: attachment` value for a file name in any language — what every download
+ * the platform names should send.
+ *
+ * `filename="…"` alone cannot carry a Romanian name. Node refuses to write a header character above
+ * U+00FF, so "proiecte-ștefan.zip" ended the request in a 500 for every Ștefan, Mălina and Răzvan
+ * (review of 25 September 2026), and a browser reads the Latin-1 it does accept as mojibake anyway.
+ * RFC 6266's answer is two parameters: an ASCII fallback, diacritics folded, for the few clients
+ * that know nothing else, and `filename*`, the UTF-8 name percent-encoded, for every browser since
+ * 2011. Both are pure ASCII, so the header is always writable.
+ */
+export function attachmentDisposition(filename: string): string {
+    const name = sanitizeFilename(filename);
+    const fallback = name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\x20-\x7e]/g, '_');
+    const encoded = encodeURIComponent(name).replace(/['()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+    return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 }

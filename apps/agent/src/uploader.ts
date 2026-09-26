@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
-import { ApiClient } from './api-client';
+import type { UnassignedFileReason } from '@itbridge/types';
+import { ApiClient, HttpError } from './api-client';
 import { log } from './log';
 import { LINK_EXTENSIONS } from './scanner';
 import type { FoundFile, RejectedFile } from './scanner';
@@ -23,27 +24,69 @@ import { uploadedPath } from './paths';
 /**
  * What became of one file.
  *
- * `failed` and `unusable` are the distinction worth keeping. `failed` means try again — the network
+ * `failed` and a refusal are the distinction worth keeping. `failed` means try again — the network
  * was down, the server said 500, the file was locked — and the share is the queue, so the next pass
- * picks it up. `unusable` means never: reading this file again tomorrow will produce the same
- * answer, so it is reported and moved out of the way like anything else the agent refuses.
+ * picks it up. A refusal means never: sending this file again tomorrow will produce the same answer,
+ * so it is reported and moved out of the way like anything else the agent refuses.
  *
- * There used to be only `failed`, and a `.url` with no address in it took that branch. The file
- * stayed on the share, so the agent found it again thirty seconds later — a warning line every half
- * minute, and the agent's health field on the group screen permanently reporting a fault nobody
- * could clear. The code's own note about the heartbeat says why that is the expensive kind of
- * wrong: an error that lingers after its cause is gone teaches an admin to ignore the field.
+ * There used to be only `failed`, and two kinds of file took that branch for ever. A `.url` with no
+ * address in it was the first, and got a reason of its own. The second was every file **the server**
+ * refused (review of 25 September 2026): a `.png` whose bytes are a JPEG, an empty `.sb3`, a link to
+ * `http://localhost:5500`. Each stayed in the child's folder and went up again every thirty seconds,
+ * up to 25 MB at a time — never on the group screen, never in `_neatribuite`, with the health field
+ * saying a file could not be uploaded and not which. The code's own note about the heartbeat says why
+ * that is the expensive kind of wrong: an error that lingers after its cause is gone teaches an admin
+ * to ignore the field.
  */
-export type UploadOutcome = 'uploaded' | 'linked' | 'failed' | 'unusable';
+export type UploadOutcome = 'uploaded' | 'linked' | 'failed' | { refused: UnassignedFileReason };
 
-export async function uploadFile(api: ApiClient, file: FoundFile): Promise<UploadOutcome> {
+/**
+ * Which of the server's answers is a verdict on the file rather than a bad moment, and the reason to
+ * file it under.
+ *
+ * Deliberately narrow. A 403 or a 404 can be the agent's own configuration — a wrong account, a
+ * wrong address for the API — and filing every file on the share under `_neatribuite` because of a
+ * typo in `config.json` would be far worse than retrying; a 401, a 408 or a 429 is a moment. What
+ * is left are the three answers the server gives about the bytes themselves.
+ */
+export function refusalReason(error: unknown, isLink: boolean): UnassignedFileReason | null {
+    if (!(error instanceof HttpError)) return null;
+    // The server's `IsUrl` is stricter than `readLink`: `http://localhost:5500/…` and a host with an
+    // underscore pass here and are refused there, and they will be refused again tomorrow.
+    if (isLink) return error.status === 400 ? 'link_without_address' : null;
+    if (error.status === 413) return 'too_large';
+    if (error.status === 415)
+        return error.code === 'PROJECT_FILE_CONTENT_MISMATCH' ? 'content_mismatch' : 'extension_not_allowed';
+    return null;
+}
+
+/**
+ * Files already on the server whose move out of the way failed — open in Word, in Acrobat — so the
+ * next pass only tries the move again instead of sending the bytes a second time. Keyed on the
+ * child, the name, the size and the time it was last saved: a file saved again is a new version and
+ * goes up again.
+ */
+export type AwaitingMove = Set<string>;
+
+export async function uploadFile(
+    api: ApiClient,
+    file: FoundFile,
+    awaitingMove: AwaitingMove = new Set(),
+): Promise<UploadOutcome> {
     const extension = path.extname(file.fileName).toLowerCase();
     const capturedOn = dayOf(file.modifiedAt);
+    // The child, not the path: a folder the mirror renames meanwhile moves the file without making
+    // it a new one, and the server already holds it.
+    const key = `${file.childId}|${file.fileName}|${file.sizeBytes}|${file.modifiedAt.getTime()}`;
 
+    if (awaitingMove.has(key)) return settle(file, capturedOn, 'uploaded', key, awaitingMove);
+
+    let isLink = false;
     try {
         if (LINK_EXTENSIONS.has(extension)) {
             const url = readLink(file.absolutePath);
             if (url) {
+                isLink = true;
                 await api.createLinkProject({
                     childId: file.childId,
                     capturedOn,
@@ -51,15 +94,14 @@ export async function uploadFile(api: ApiClient, file: FoundFile): Promise<Uploa
                     label: titleOf(file.fileName),
                     url,
                 });
-                move(file.absolutePath, uploadedPath(file.childDir, capturedOn), file.fileName);
-                return 'linked';
+                return settle(file, capturedOn, 'linked', key, awaitingMove);
             }
             // A `.txt` with no URL in it is just a text file, and the whitelist accepts those. It
             // falls through to the ordinary upload rather than being refused for not being a link.
             //
             // A `.url` cannot: it is on no whitelist except as a link, so there is nothing left to
             // try. Refused rather than failed, so that it leaves the folder and stops coming back.
-            if (extension === '.url') return 'unusable';
+            if (extension === '.url') return { refused: 'link_without_address' };
         }
 
         const bytes = fs.readFileSync(file.absolutePath);
@@ -70,31 +112,65 @@ export async function uploadFile(api: ApiClient, file: FoundFile): Promise<Uploa
             fileName: file.fileName,
             bytes,
         });
-
-        move(file.absolutePath, uploadedPath(file.childDir, capturedOn), file.fileName);
-        return 'uploaded';
     } catch (error) {
+        const reason = refusalReason(error, isLink);
+        if (reason) return { refused: reason };
+
         // The file stays exactly where it is. That is the whole failure mode of this design and it
         // is a mild one: the share is the queue, so a network outage delays uploads rather than
-        // losing them, and the next pass picks the file up again.
-        log.warn(`Could not upload ${file.relativePath}: ${error instanceof Error ? error.message : String(error)}`);
+        // losing them, and the next pass picks the file up again. Ids only: the path would name the
+        // child, every thirty seconds, for as long as the outage lasts.
+        log.warn(`Could not upload a file for child ${file.childId}: ${describeError(error)}`);
+        return 'failed';
+    }
+
+    return settle(file, capturedOn, 'uploaded', key, awaitingMove);
+}
+
+/**
+ * Moves a file the server now holds into `_urcate`. When the move fails the upload still stands:
+ * the file is remembered, so the next pass tries only the move.
+ */
+function settle(
+    file: FoundFile,
+    capturedOn: string,
+    outcome: 'uploaded' | 'linked',
+    key: string,
+    awaitingMove: AwaitingMove,
+): UploadOutcome {
+    try {
+        move(file.absolutePath, uploadedPath(file.childDir, capturedOn), file.fileName);
+        awaitingMove.delete(key);
+        return outcome;
+    } catch (error) {
+        awaitingMove.add(key);
+        log.warn(`Uploaded a file for child ${file.childId} but could not move it yet: ${describeError(error)}`);
         return 'failed';
     }
 }
 
+/** An error, short: for an answer from the API, its status and code — the body can carry a file name. */
+function describeError(error: unknown): string {
+    if (error instanceof HttpError) return `the API answered ${error.status}${error.code ? ` (${error.code})` : ''}`;
+    return (
+        (error as NodeJS.ErrnoException | undefined)?.code ?? (error instanceof Error ? error.message : String(error))
+    );
+}
+
 /**
- * The refusal the scanner could not make, because it does not read files.
+ * A refusal the scanner could not make, because it does not read files or talk to the server.
  *
  * Everything else in `RejectedFile` was decided from a directory entry; whether a shortcut carries
- * a usable address needs the contents, so it is settled here and filed the same way.
+ * a usable address needs the contents, and whether the bytes are what their name says needs the
+ * server — so those are settled by the uploader and filed the same way.
  */
-export function unusableLink(file: FoundFile): RejectedFile {
+export function refusedFile(file: FoundFile, reason: UnassignedFileReason): RejectedFile {
     return {
         absolutePath: file.absolutePath,
         relativePath: file.relativePath,
         fileName: file.fileName,
         sizeBytes: file.sizeBytes,
-        reason: 'link_without_address',
+        reason,
         groupId: file.groupId,
         unassignedDir: file.unassignedDir,
     };
@@ -140,9 +216,13 @@ export async function handleRejected(api: ApiClient, rejected: RejectedFile): Pr
  * screenshots. The second gets ` (2)` rather than replacing the first, because the copy in `_urcate`
  * is a teacher's only local record of what was sent.
  *
- * `renameSync` first, and a copy-then-delete only if it fails: a rename within one share is atomic
- * and instant, but `_urcate` could be on a different volume from the child's folder if somebody has
- * mounted things creatively, and rename cannot cross volumes.
+ * `renameSync`, and a copy-then-delete **only** when the rename failed for crossing volumes: a
+ * rename within one share is atomic and instant, but `_urcate` could be on a different volume from
+ * the child's folder if somebody has mounted things creatively. Any other failure — the file open in
+ * Word or Acrobat — leaves it exactly where it is. The copy used to be the answer to every failure,
+ * so a locked file was copied and not deleted, found again thirty seconds later and copied again:
+ * `tema (2).docx` … `tema (N).docx` in `_neatribuite` (review of 25 September 2026). And when the
+ * delete after a real cross-volume copy fails, the copy goes, so the file is in one place.
  */
 function move(from: string, toDir: string, fileName: string): void {
     fs.mkdirSync(toDir, { recursive: true });
@@ -150,9 +230,17 @@ function move(from: string, toDir: string, fileName: string): void {
 
     try {
         fs.renameSync(from, target);
-    } catch {
-        fs.copyFileSync(from, target);
+        return;
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EXDEV') throw error;
+    }
+
+    fs.copyFileSync(from, target);
+    try {
         fs.unlinkSync(from);
+    } catch (error) {
+        fs.rmSync(target, { force: true });
+        throw error;
     }
 }
 

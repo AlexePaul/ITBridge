@@ -1,10 +1,12 @@
 import * as fs from 'fs';
 import type { AgentMirror } from '@itbridge/types';
-import { ApiClient } from './api-client';
+import { ApiClient, HttpError } from './api-client';
 import type { AgentConfig } from './config';
 import { applyMirror } from './mirror';
-import { scan } from './scanner';
-import { handleRejected, unusableLink, uploadFile } from './uploader';
+import { scan, ShareUnreachableError } from './scanner';
+import type { UnreadableFolder } from './scanner';
+import { handleRejected, refusedFile, uploadFile } from './uploader';
+import type { AwaitingMove } from './uploader';
 import { log } from './log';
 
 /** Reported in the heartbeat, so an admin looking at a stale agent can tell which build it is. */
@@ -33,8 +35,18 @@ export const AGENT_VERSION = '0.1.0';
 export class Agent {
     private mirror: AgentMirror = { locations: [] };
     private running = false;
-    private lastError: string | null = null;
+    /**
+     * What went wrong, kept per source and joined for the heartbeat. One field used to hold both, so
+     * the last writer won: a clean-looking pass erased the mirror's error thirty seconds after it was
+     * written, and a share nobody could reach reported healthy (review of 25 September 2026).
+     *
+     * **In Romanian**, unlike the log: the admin screen shows it word for word as the reason the
+     * agent is in trouble, and the person reading it is the office, not a developer.
+     */
+    private passError: string | null = null;
+    private mirrorError: string | null = null;
     private pendingFiles = 0;
+    private readonly awaitingMove: AwaitingMove = new Set();
     private timers: NodeJS.Timeout[] = [];
 
     constructor(
@@ -81,15 +93,15 @@ export class Agent {
 
             let uploaded = 0;
             let failed = 0;
-            // The refusals the scanner made, plus the one only reading a file can settle: a
-            // shortcut with no address in it. Both end up in `_neatribuite` with a reason, because
-            // neither will ever succeed by being tried again.
+            // The refusals the scanner made, plus the ones only reading a file or asking the server
+            // can settle. All of them end up in `_neatribuite` with a reason, because none will ever
+            // succeed by being tried again.
             const refusals = [...result.rejected];
 
             for (const file of result.files) {
-                const outcome = await uploadFile(this.api, file);
+                const outcome = await uploadFile(this.api, file, this.awaitingMove);
                 if (outcome === 'failed') failed++;
-                else if (outcome === 'unusable') refusals.push(unusableLink(file));
+                else if (typeof outcome === 'object') refusals.push(refusedFile(file, outcome.refused));
                 else uploaded++;
             }
 
@@ -103,16 +115,50 @@ export class Agent {
 
             this.pendingFiles = failed;
             // Cleared on a clean pass, so a problem that has been fixed stops being reported. An
-            // error that lingers after its cause is gone teaches an admin to ignore the field.
-            this.lastError = failed > 0 ? `${failed} file(s) could not be uploaded on the last pass` : null;
+            // error that lingers after its cause is gone teaches an admin to ignore the field. But a
+            // folder that could not be read is not a clean pass: it looked like an empty one.
+            const problems: string[] = [];
+            if (failed > 0) {
+                problems.push(
+                    failed === 1
+                        ? 'Un fișier nu s-a putut urca la ultima trecere; se încearcă din nou.'
+                        : `${failed} fișiere nu s-au putut urca la ultima trecere; se încearcă din nou.`,
+                );
+            }
+            if (result.unreadable.length > 0) {
+                const count = result.unreadable.length;
+                const which = result.unreadable.slice(0, 3).map(inRomanian).join(', ');
+                problems.push(
+                    `${count === 1 ? 'Un folder nu s-a putut citi' : `${count} foldere nu s-au putut citi`}: ${which}.`,
+                );
+                log.warn(
+                    `Could not read ${result.unreadable.map((folder) => `a ${folder.kind} folder in group ${folder.groupId} (${folder.code})`).join(', ')}.`,
+                );
+            }
+            this.passError = problems.length > 0 ? problems.join(' ') : null;
         } catch (error) {
-            // The share being unreachable lands here. It is a temporary condition and the heartbeat
-            // carries it, so an admin sees a reason rather than an agent that has simply gone quiet.
-            this.lastError = error instanceof Error ? error.message : String(error);
-            log.error(`Pass failed: ${this.lastError}`);
+            // The share being unreachable lands here — `scan` refuses to call an unreadable root an
+            // empty one. It is a temporary condition and the heartbeat carries it, so an admin sees a
+            // reason rather than an agent that has simply gone quiet.
+            const message = error instanceof Error ? error.message : String(error);
+            this.passError =
+                error instanceof ShareUnreachableError
+                    ? `Folderul urmărit nu se poate citi (${error.code}), deci nu se urcă nimic. Dacă e un drive mapat, un serviciu nu-l vede: folosește calea de rețea.`
+                    : `Trecerea prin folder a eșuat: ${message}`;
+            log.error(`Pass failed: ${message}`);
         } finally {
             this.running = false;
         }
+    }
+
+    /**
+     * Both halves of what went wrong, for the heartbeat. Null only when neither has a problem.
+     * Capped well below the API's limit: a heartbeat refused for its length would make a working
+     * agent look like a silent one.
+     */
+    lastError(): string | null {
+        const errors = [this.passError, this.mirrorError].filter((error): error is string => error !== null);
+        return errors.length > 0 ? errors.join(' ').slice(0, 1000) : null;
     }
 
     /**
@@ -146,11 +192,19 @@ export class Agent {
             if (created > 0 || renamed > 0) {
                 log.info(`Mirror: ${created} folder(s) created, ${renamed} renamed.`);
             }
+            this.mirrorError = null;
         } catch (error) {
             // The previous tree stays in memory, so a passing outage does not stop uploads: the
             // groups and children have not changed in the last fifteen minutes either way.
-            this.lastError = error instanceof Error ? error.message : String(error);
-            log.error(`Could not refresh the mirror: ${this.lastError}`);
+            const message = error instanceof Error ? error.message : String(error);
+            // The reason in a few words — the server's status or the file system's code — not the
+            // raw message, which carries a path and a stack's worth of English into the admin screen.
+            const reason =
+                error instanceof HttpError
+                    ? `serverul a răspuns ${error.status}`
+                    : ((error as NodeJS.ErrnoException | undefined)?.code ?? 'eroare necunoscută');
+            this.mirrorError = `Structura de foldere nu s-a putut actualiza (${reason}).`;
+            log.error(`Could not refresh the mirror: ${message}`);
         }
     }
 
@@ -158,7 +212,7 @@ export class Agent {
         try {
             await this.api.heartbeat({
                 pendingFiles: this.pendingFiles,
-                lastError: this.lastError,
+                lastError: this.lastError(),
                 version: AGENT_VERSION,
             });
         } catch (error) {
@@ -167,4 +221,15 @@ export class Agent {
             log.warn(`Heartbeat failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
+}
+
+/** `grupa 7 (EACCES)`, for the heartbeat the office reads. */
+function inRomanian(folder: UnreadableFolder): string {
+    const where =
+        folder.kind === 'group'
+            ? `grupa ${folder.groupId}`
+            : folder.kind === 'child'
+              ? `un folder de copil din grupa ${folder.groupId}`
+              : `un folder din grupa ${folder.groupId}`;
+    return `${where} (${folder.code})`;
 }

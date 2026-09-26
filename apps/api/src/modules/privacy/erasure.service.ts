@@ -343,7 +343,8 @@ export class ErasureService {
         });
 
         return projects.flatMap((project) => [
-            ...(project.hasThumbnail ? [projectThumbnailKey(project.id)] : []),
+            // Whatever `hasThumbnail` says: the job can write the picture after the row was read.
+            projectThumbnailKey(project.id),
             ...(project.versions ?? []).flatMap((version) => (version.files ?? []).map((file) => projectFileKey(project.id, version.id, file.id))),
         ]);
     }
