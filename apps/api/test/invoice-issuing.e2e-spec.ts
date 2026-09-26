@@ -85,8 +85,8 @@ describe('Issuing invoices from the registers (e2e)', () => {
             const [child] = res.body.families[0].children;
             expect(child).toMatchObject({ groupName: 'Scratch Începători', sessions: 2 });
             expect(child.lines).toEqual([
-                expect.objectContaining({ date: '2026-10-05', present: true, counted: true, isVacation: false }),
-                expect.objectContaining({ date: '2026-10-12', present: false, counted: true, isVacation: false }),
+                expect.objectContaining({ date: '2026-10-05', present: true, counted: true, isVacation: false, groupName: 'Scratch Începători' }),
+                expect.objectContaining({ date: '2026-10-12', present: false, counted: true, isVacation: false, groupName: 'Scratch Începători' }),
             ]);
             // Two sessions at the first-child rate. The screen shows what the server will write.
             expect(res.body.families[0].amount).toBe(175);

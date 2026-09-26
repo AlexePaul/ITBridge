@@ -12,6 +12,7 @@ import { BillableEnrollment, BillableMark, BillableSession, billableSessionsFor,
 const session = (id: number, date: string, overrides: Partial<BillableSession> = {}): BillableSession => ({
     id,
     groupId: 10,
+    groupName: 'Scratch',
     date,
     isVacation: false,
     status: ClassSessionStatus.SCHEDULED,
@@ -38,6 +39,24 @@ const enrolled = (childId: number, overrides: Partial<BillableEnrollment> = {}):
 const MONDAYS = [session(1, '2026-09-07'), session(2, '2026-09-14'), session(3, '2026-09-21'), session(4, '2026-09-28')];
 
 describe('billableSessionsFor', () => {
+    // QA of 26 September 2026: the worksheet lists a child transferred mid-month under the new
+    // group, and every line read as that group's. Each line now names the group whose class it was.
+    it("a child moved mid-month has each group's classes, each under its own name", () => {
+        const python = (id: number, date: string) => session(id, date, { groupId: 20, groupName: 'Python' });
+        const sessions = [session(1, '2026-09-07'), session(2, '2026-09-14'), python(5, '2026-09-23'), python(6, '2026-09-30')];
+        const marks = [mark(1, 1, true), mark(2, 1, true), mark(5, 1, true), mark(6, 1, true)];
+        const moved = [enrolled(1, { endDate: '2026-09-15', status: EnrollmentStatus.TRANSFERRED }), enrolled(1, { groupId: 20, startDate: '2026-09-16' })];
+
+        const lines = billableSessionsFor(sessions, marks, moved).get(1)?.lines ?? [];
+
+        expect(lines.map((line) => [line.date, line.groupName])).toEqual([
+            ['2026-09-07', 'Scratch'],
+            ['2026-09-14', 'Scratch'],
+            ['2026-09-23', 'Python'],
+            ['2026-09-30', 'Python'],
+        ]);
+    });
+
     it('a session with no register never happened, so nobody pays for it', () => {
         // Nobody marked the first Monday. Three held, so three each — including Radu, who missed one
         // of the three that were held.

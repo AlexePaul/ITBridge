@@ -55,6 +55,8 @@ import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 export interface BillableSession {
     id: number;
     groupId: number;
+    /** Carried onto the child's line: a child moved mid-month has lines from two groups. */
+    groupName: string;
     /** `YYYY-MM-DD`, local — never a `Date` that went through UTC. */
     date: string;
     isVacation: boolean;
@@ -81,6 +83,12 @@ export interface BillableEnrollment {
 /** One held session of a child's group, and whether it counts for them — what the screen unfolds. */
 export interface BillableLine {
     sessionId: number;
+    /**
+     * The group whose class it was. Not always the child's group on the worksheet: a child
+     * transferred mid-month is listed under the new group, with the old group's classes before the
+     * move among its lines (QA of 26 September 2026).
+     */
+    groupName: string;
     date: string;
     isVacation: boolean;
     /** The child's own mark at that session; `null` when the register has no row for them. */
@@ -172,7 +180,7 @@ export function billableSessionsFor(sessions: BillableSession[], marks: Billable
             if (!covers(enrollment, session.date, present !== null)) continue;
             seen.add(session.id);
             const counted = !session.isVacation || present === true;
-            entry.lines.push({ sessionId: session.id, date: session.date, isVacation: session.isVacation, present, counted });
+            entry.lines.push({ sessionId: session.id, groupName: session.groupName, date: session.date, isVacation: session.isVacation, present, counted });
             if (counted) entry.sessions += 1;
         }
         counts.set(enrollment.childId, entry);
