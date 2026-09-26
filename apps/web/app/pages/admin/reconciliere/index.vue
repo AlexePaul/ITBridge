@@ -122,33 +122,42 @@
         >
           <template #match-cell="{ row }">
             <div class="flex flex-col gap-1 whitespace-normal max-w-sm">
-              <template v-if="row.original.payment">
-                <span>
-                  Plata #{{ row.original.payment.id }} · {{ row.original.payment.familyName }} ·
-                  {{ formatMonth(row.original.payment.monthIssued) }}
+              <span v-if="row.original.payment && row.original.state === 'matched'">
+                Plata #{{ row.original.payment.id }} · {{ row.original.payment.familyName }} ·
+                {{ formatMonth(row.original.payment.monthIssued) }}
+              </span>
+              <template v-else>
+                <!-- A payment reversed or marked as never arrived is no longer money, so its line is
+                     back to be decided — and says why it is here again (QA of 26 September 2026). -->
+                <span v-if="row.original.payment" class="text-xs text-warning">
+                  Plata #{{ row.original.payment.id }} ({{ row.original.payment.familyName }},
+                  {{ formatMonth(row.original.payment.monthIssued) }}) a fost
+                  {{
+                    row.original.payment.status === "failed" ? "marcată ca neintrată" : "stornată"
+                  }}.
                 </span>
+                <template v-if="row.original.suggestion">
+                  <span>
+                    {{ referenceOf(row.original.suggestion) }} ·
+                    {{ row.original.suggestion.familyName }} ·
+                    {{ formatMonth(row.original.suggestion.monthIssued) }} · rest
+                    {{ formatLei(row.original.suggestion.outstanding) }}
+                  </span>
+                  <UBadge
+                    :color="
+                      row.original.suggestion.confidence === 'reference' ? 'success' : 'warning'
+                    "
+                    variant="subtle"
+                    class="self-start"
+                  >
+                    {{ MATCH_CONFIDENCE_LABELS[row.original.suggestion.confidence] }}
+                  </UBadge>
+                  <span v-if="row.original.suggestion.overpays" class="text-xs text-warning">
+                    Suma depășește restul facturii — diferența ar rămâne ca avans.
+                  </span>
+                </template>
+                <span v-else-if="!row.original.payment" class="text-muted">—</span>
               </template>
-              <template v-else-if="row.original.suggestion">
-                <span>
-                  {{ referenceOf(row.original.suggestion) }} ·
-                  {{ row.original.suggestion.familyName }} ·
-                  {{ formatMonth(row.original.suggestion.monthIssued) }} · rest
-                  {{ formatLei(row.original.suggestion.outstanding) }}
-                </span>
-                <UBadge
-                  :color="
-                    row.original.suggestion.confidence === 'reference' ? 'success' : 'warning'
-                  "
-                  variant="subtle"
-                  class="self-start"
-                >
-                  {{ MATCH_CONFIDENCE_LABELS[row.original.suggestion.confidence] }}
-                </UBadge>
-                <span v-if="row.original.suggestion.overpays" class="text-xs text-warning">
-                  Suma depășește restul facturii — diferența ar rămâne ca avans.
-                </span>
-              </template>
-              <span v-else class="text-muted">—</span>
             </div>
           </template>
         </AdminTable>

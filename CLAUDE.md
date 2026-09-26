@@ -1827,7 +1827,10 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   prin `PaymentService.createPayment`, în tranzacția liniei — `createPayment` primește acum
   `EntityManager`-ul apelantului —, deci familia primește confirmarea și plata pleacă spre SmartBill
   ca oricare alta. Starea liniei se derivă (are plată, e pusă deoparte, sau așteaptă); o plată
-  ștearsă o pune singură la loc în coadă, prin `SET NULL`. **O linie devenită plată e a familiei**:
+  ștearsă o pune singură la loc în coadă, prin `SET NULL`, iar una stornată sau neintrată la fel —
+  nu mai e bani, deci linia așteaptă din nou un om, spunând de ce, și nu intră în apăsarea unică:
+  referința care a propus-o ar propune exact potrivirea pe care cineva tocmai a desfăcut-o (testarea
+  din 26 septembrie 2026). **O linie devenită plată e a familiei**:
   intră în exportul ei (E07 S4), iar la ștergere pierde plătitorul și detaliile — familiile scriu
   acolo numele copilului la fel de des ca numărul facturii —, și păstrează cifrele, referința băncii
   și amprenta. Amprenta trebuie să rămână: fără ea, același extras importat din nou ar aduce numele

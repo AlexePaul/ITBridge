@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
+import { DataSource, FindOptionsWhere, In, IsNull, Not, Repository } from 'typeorm';
 import { BankStatementLine } from 'src/entities/bank-statement-line.entity';
 import { Invoice } from 'src/entities/invoice.entity';
 import { Payment } from 'src/entities/payment.entity';
@@ -61,6 +61,19 @@ export interface StatementLinesPage {
     /** Waiting lines matched by reference, not paying more than is left: what one press confirms. */
     sureCount: number;
     lines: StatementLineView[];
+}
+
+/**
+ * A payment that is money. A line whose payment was reversed or failed is not paid by anything, so it
+ * waits for a person again (QA of 26 September 2026): it read "Înregistrate" with no sign of the
+ * reversal while the invoice was back in arrears, and could not be matched again.
+ */
+const MONEY = [PaymentStatus.SUCCEEDED, PaymentStatus.INITIATED];
+const NOT_MONEY = [PaymentStatus.REVERSED, PaymentStatus.FAILED];
+
+function stateOf(line: BankStatementLine): StatementLineState {
+    if (line.payment && MONEY.includes(line.payment.status)) return 'matched';
+    return line.ignoredAt ? 'ignored' : 'waiting';
 }
 
 /** Matched and ignored lines are history: the most recent ones are enough to look back at. */
@@ -135,20 +148,26 @@ export class ReconciliationService {
     }
 
     async lines(state: StatementLineState = 'waiting'): Promise<StatementLinesPage> {
+        // `stateOf`, as queries: a reversed or failed payment counts as no payment.
+        const whereState: Record<StatementLineState, FindOptionsWhere<BankStatementLine>[]> = {
+            waiting: [
+                { payment: IsNull(), ignoredAt: IsNull() },
+                { payment: { status: In(NOT_MONEY) }, ignoredAt: IsNull() },
+            ],
+            matched: [{ payment: { status: In(MONEY) } }],
+            ignored: [
+                { payment: IsNull(), ignoredAt: Not(IsNull()) },
+                { payment: { status: In(NOT_MONEY) }, ignoredAt: Not(IsNull()) },
+            ],
+        };
         const [waitingCount, matchedCount, ignoredCount] = await Promise.all([
-            this.lineRepository.count({ where: { payment: IsNull(), ignoredAt: IsNull() } }),
-            this.lineRepository.count({ where: { payment: Not(IsNull()) } }),
-            this.lineRepository.count({ where: { payment: IsNull(), ignoredAt: Not(IsNull()) } }),
+            this.lineRepository.count({ where: whereState.waiting }),
+            this.lineRepository.count({ where: whereState.matched }),
+            this.lineRepository.count({ where: whereState.ignored }),
         ]);
 
-        const where =
-            state === 'waiting'
-                ? { payment: IsNull(), ignoredAt: IsNull() }
-                : state === 'matched'
-                  ? { payment: Not(IsNull()) }
-                  : { payment: IsNull(), ignoredAt: Not(IsNull()) };
         const lines = await this.lineRepository.find({
-            where,
+            where: whereState[state],
             relations: { payment: { invoice: { parent: true } } },
             order: { bookedOn: 'DESC', id: 'DESC' },
             ...(state === 'waiting' ? {} : { take: HISTORY_LIMIT }),
@@ -171,7 +190,9 @@ export class ReconciliationService {
         const views = lines.map((line): StatementLineView => {
             const suggestion = suggestions.get(line.id) ?? null;
             const target = suggestion ? openById.get(suggestion.invoiceId) : undefined;
-            if (suggestion?.confidence === 'reference' && !suggestion.overpays) sureCount++;
+            // A line whose payment somebody reversed goes back to a person, never to the one press:
+            // the reference that proposed it proposes the same match somebody just undid.
+            if (suggestion?.confidence === 'reference' && !suggestion.overpays && !line.payment) sureCount++;
             return {
                 id: line.id,
                 bookedOn: toIsoDate(line.bookedOn),
@@ -179,7 +200,7 @@ export class ReconciliationService {
                 description: line.description,
                 counterparty: line.counterparty,
                 bankReference: line.bankReference,
-                state: line.payment ? 'matched' : line.ignoredAt ? 'ignored' : 'waiting',
+                state: stateOf(line),
                 importedAt: line.importedAt.toISOString(),
                 suggestion:
                     suggestion && target
@@ -217,7 +238,7 @@ export class ReconciliationService {
             const locked = await manager.findOne(BankStatementLine, { where: { id: lineId }, lock: { mode: 'pessimistic_write' } });
             if (!locked) throw new NotFoundException('Statement line not found');
             const line = await manager.findOneOrFail(BankStatementLine, { where: { id: lineId }, relations: { payment: true } });
-            if (line.payment) {
+            if (line.payment && MONEY.includes(line.payment.status)) {
                 throw new ConflictException({
                     message: `Statement line ${lineId} is already recorded as payment ${line.payment.id}.`,
                     error: 'STATEMENT_LINE_ALREADY_MATCHED',
@@ -305,7 +326,7 @@ export class ReconciliationService {
         const oldestFirst = [...page.lines].sort((a, b) => a.bookedOn.localeCompare(b.bookedOn) || a.id - b.id);
         for (const line of oldestFirst) {
             const suggestion = line.suggestion;
-            if (!suggestion || suggestion.confidence !== 'reference' || suggestion.overpays) continue;
+            if (!suggestion || suggestion.confidence !== 'reference' || suggestion.overpays || line.payment) continue;
             try {
                 await this.match(line.id, suggestion.invoiceId, userId, actor);
                 confirmed++;
@@ -332,7 +353,7 @@ export class ReconciliationService {
             const locked = await manager.findOne(BankStatementLine, { where: { id: lineId }, lock: { mode: 'pessimistic_write' } });
             if (!locked) throw new NotFoundException('Statement line not found');
             const line = await manager.findOneOrFail(BankStatementLine, { where: { id: lineId }, relations: { payment: true } });
-            if (line.payment) {
+            if (line.payment && MONEY.includes(line.payment.status)) {
                 throw new ConflictException({
                     message: `Statement line ${lineId} is already recorded as payment ${line.payment.id}.`,
                     error: 'STATEMENT_LINE_ALREADY_MATCHED',
@@ -351,7 +372,7 @@ export class ReconciliationService {
             description: line.description,
             counterparty: line.counterparty,
             bankReference: line.bankReference,
-            state: line.payment ? 'matched' : line.ignoredAt ? 'ignored' : 'waiting',
+            state: stateOf(line),
             importedAt: line.importedAt.toISOString(),
             suggestion: null,
             payment: line.payment
