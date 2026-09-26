@@ -143,6 +143,8 @@ export interface SessionCountOverrideDto {
 /** One held session, as the issuing screen unfolds it under a child. */
 export interface InvoiceWorksheetLine {
     sessionId: number;
+    /** The group whose class it was — for a child moved mid-month, not always the row's group. */
+    groupName: string;
     date: ISODate;
     isVacation: boolean;
     /** The child's own mark; `null` when the register has no row for them. */

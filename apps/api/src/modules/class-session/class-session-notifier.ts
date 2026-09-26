@@ -10,7 +10,7 @@ import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { romanianDate } from 'src/modules/mail/romanian-date';
-import { absencesUrl, loginUrl } from 'src/modules/auth/portal-urls';
+import { absencesUrl, contactUrl, loginUrl } from 'src/modules/auth/portal-urls';
 import { bookingAddresses } from 'src/modules/mail/booking-address';
 
 /** Where a session was before it moved — the half a parent asks about. */
@@ -33,6 +33,21 @@ interface Recipient {
     firstName: string;
     /** True for a family whose child the office moved into this class for the week, not enrolled in it. */
     visiting: boolean;
+    /**
+     * Reached at the address it left on `/proba`, because its profile has none: a trial family with
+     * no account, for whom the portal's login page is a door that does not open.
+     */
+    viaBooking?: boolean;
+}
+
+/**
+ * The closing line and its link. A family with an account is sent to the portal, in the sentence the
+ * template always had; a family reached through its booking address has no account, so it is sent
+ * to the contact page instead (QA of 26 September 2026).
+ */
+const NO_ACCOUNT_NOTE = 'Pentru orice întrebare, ne găsești aici:';
+function portalLine(recipient: Recipient, accountNote: string, accountUrl: string = loginUrl()): { portalNote: string; portalUrl: string } {
+    return recipient.viaBooking ? { portalNote: NO_ACCOUNT_NOTE, portalUrl: contactUrl() } : { portalNote: accountNote, portalUrl: accountUrl };
 }
 
 interface RenderedMail {
@@ -117,7 +132,11 @@ export class ClassSessionNotifier {
                 reason,
                 makeUpNote: noteFor(recipient),
                 // The absences page for a family whose move just evaporated; otherwise just the portal.
-                portalUrl: recipient.visiting ? absencesUrl() : loginUrl(),
+                ...portalLine(
+                    recipient,
+                    'Restul orelor rămân neschimbate, iar orarul actualizat e mereu în portal:',
+                    recipient.visiting ? absencesUrl() : loginUrl(),
+                ),
             }),
         );
     }
@@ -152,7 +171,7 @@ export class ClassSessionNotifier {
                 toWhen: when(session.date, session.startTime),
                 room: where(session.room.name, session.room.location.name),
                 reason,
-                portalUrl: loginUrl(),
+                ...portalLine(recipient, 'Orarul actualizat e în portal:'),
             }),
         );
     }
@@ -173,7 +192,7 @@ export class ClassSessionNotifier {
                 groupName: session.group.name,
                 date: romanianDate(session.date),
                 time: session.startTime.slice(0, 5),
-                portalUrl: loginUrl(),
+                ...portalLine(recipient, 'Orarul e în portal:'),
             }),
         );
     }
@@ -213,7 +232,7 @@ export class ClassSessionNotifier {
                 fromSlot: change.fromSlot,
                 toSlot: change.toSlot,
                 firstDate: romanianDate(change.firstDate),
-                portalUrl: loginUrl(),
+                ...portalLine(recipient, 'Orarul actualizat e în portal:'),
             });
             const queued = await this.outbox.queueOrRecord(
                 { email: recipient.email },
@@ -322,7 +341,10 @@ export class ClassSessionNotifier {
         );
         for (const recipient of unreachable) {
             const address = addresses.get(recipient.parentId);
-            if (address) recipient.email = address;
+            if (address) {
+                recipient.email = address;
+                recipient.viaBooking = true;
+            }
         }
     }
 

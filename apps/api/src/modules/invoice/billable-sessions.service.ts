@@ -105,6 +105,7 @@ export class BillableSessionsService {
         const billableSessions: BillableSession[] = sessions.map((session) => ({
             id: session.id,
             groupId: session.group.id,
+            groupName: session.group.name,
             date: toIsoDate(session.date),
             isVacation: session.isVacation,
             status: session.status,

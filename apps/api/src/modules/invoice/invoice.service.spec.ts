@@ -522,8 +522,8 @@ describe('InvoiceService', () => {
                 {
                     sessions: 2,
                     lines: [
-                        { sessionId: 1, date: '2026-10-05', isVacation: false, present: true, counted: true },
-                        { sessionId: 2, date: '2026-10-12', isVacation: false, present: false, counted: true },
+                        { sessionId: 1, groupName: 'Scratch', date: '2026-10-05', isVacation: false, present: true, counted: true },
+                        { sessionId: 2, groupName: 'Scratch', date: '2026-10-12', isVacation: false, present: false, counted: true },
                     ],
                 },
             ],

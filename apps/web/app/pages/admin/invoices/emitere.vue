@@ -148,6 +148,9 @@
                     <p class="text-sm text-muted truncate">
                       {{ child.groupName }}
                       <template v-if="child.weekday"> · {{ weekdayLabel(child.weekday) }}</template>
+                      <template v-if="earlierGroupsOf(child).length > 0">
+                        · înainte în {{ earlierGroupsOf(child).join(", ") }}
+                      </template>
                     </p>
                   </div>
 
@@ -241,6 +244,9 @@
                     :class="line.counted ? '' : 'text-muted line-through'"
                   >
                     <span>{{ formatDateKey(line.date) }}</span>
+                    <span v-if="line.groupName !== child.groupName" class="text-muted">
+                      {{ line.groupName }}
+                    </span>
                     <UBadge v-if="line.isVacation" color="warning" variant="subtle" size="sm">
                       vacanță
                     </UBadge>
@@ -378,6 +384,15 @@ const { fetchWorksheet, issueInvoices, setSessionCountOverride, clearSessionCoun
 const { success, error: notifyError } = useNotifications();
 
 type WorksheetChild = InvoiceWorksheetRow["children"][number];
+
+/**
+ * The other groups a child's classes came from this month. A child transferred mid-month is listed
+ * under the new group, and its lines hold the old group's classes before the move — which the row
+ * used to show with the new group's name only (QA of 26 September 2026).
+ */
+const earlierGroupsOf = (child: WorksheetChild): string[] => [
+  ...new Set(child.lines.map((line) => line.groupName).filter((name) => name !== child.groupName)),
+];
 
 const worksheet = ref<InvoiceWorksheet | null>(null);
 const loading = ref(true);
