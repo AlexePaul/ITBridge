@@ -131,6 +131,11 @@ export class EnvironmentVariables {
     @IsString()
     MAIL_OFFICE_ADDRESS?: string;
 
+    /** `true` or `false` overrides the default — Swagger UI everywhere but production. See `bootstrap-options.ts`. */
+    @IsOptional()
+    @IsIn(['true', 'false'])
+    SWAGGER_ENABLED?: string;
+
     /** `false` disables rate limiting entirely; see `AppThrottlerGuard`. Defaults to enabled. */
     @IsOptional()
     @IsIn(['true', 'false'])
@@ -265,6 +270,7 @@ export function validateEnv(raw: Record<string, unknown>): EnvironmentVariables 
 
     problems.push(...smartBillProblems(raw));
     problems.push(...schoolIdentityProblems(raw));
+    problems.push(...productionProblems(raw));
 
     if (problems.length > 0) {
         throw new Error(['Invalid environment configuration. The application will not start.', '', ...problems.map((p) => `  - ${p}`), ''].join('\n'));
@@ -347,4 +353,24 @@ export function schoolIdentityProblems(raw: Record<string, unknown>): string[] {
         problems.push('SCHOOL_IBAN is set without SCHOOL_LEGAL_NAME; a transfer needs the beneficiary as well as the account');
     }
     return problems;
+}
+
+/**
+ * What a production backend cannot run without, though a laptop and stage can.
+ *
+ * Mail and storage are optional elsewhere, by design: a missing key leaves messages queued with the
+ * reason on the row (E17), and stage can live without a bucket for a day. In production the same
+ * absence means families hear nothing and no invoice has a place to be kept — and the first sign
+ * would be a parent asking. A deploy that refuses to start keeps the previous version serving and
+ * says which variable is missing, which is where docs/lansare-platforma.md sends whoever is entering
+ * the accounts.
+ */
+export function productionProblems(raw: Record<string, unknown>): string[] {
+    const text = (key: string) => {
+        const value = raw[key];
+        return typeof value === 'string' ? value.trim() : '';
+    };
+    if (text('NODE_ENV') !== 'production') return [];
+    const required = ['MAIL_RESEND_API_KEY', 'MAIL_FROM', 'AWS_S3_BUCKET'].filter((key) => text(key) === '');
+    return required.length > 0 ? [`NODE_ENV=production needs ${required.join(', ')} (see docs/lansare-platforma.md)`] : [];
 }

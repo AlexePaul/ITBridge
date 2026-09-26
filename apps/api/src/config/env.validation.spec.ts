@@ -1,4 +1,4 @@
-import { schoolIdentityProblems, smartBillProblems, validateEnv } from './env.validation';
+import { productionProblems, schoolIdentityProblems, smartBillProblems, validateEnv } from './env.validation';
 
 /**
  * The SmartBill half of the boot-time check — E16/S2. SmartBill has no sandbox, so a wrong mode is
@@ -111,5 +111,26 @@ describe('schoolIdentityProblems', () => {
             expect.stringContaining('check digits'),
         ]);
         expect(schoolIdentityProblems({ SCHOOL_IBAN: 'RO49AAAA1B31007593840000' })).toEqual([expect.stringContaining('SCHOOL_LEGAL_NAME')]);
+    });
+});
+
+/** Families would hear nothing and invoices would have nowhere to be kept: refused at boot in production. */
+describe('productionProblems', () => {
+    const complete = {
+        NODE_ENV: 'production',
+        MAIL_RESEND_API_KEY: 're_x',
+        MAIL_FROM: 'IT Bridge School <notificari@itbridgeschool.com>',
+        AWS_S3_BUCKET: 'itbridge-prod',
+    };
+
+    it('asks nothing of a laptop or of stage', () => {
+        expect(productionProblems({})).toEqual([]);
+        expect(productionProblems({ NODE_ENV: 'stage' })).toEqual([]);
+    });
+
+    it('names every missing variable in production', () => {
+        expect(productionProblems({ NODE_ENV: 'production' })).toEqual([expect.stringContaining('MAIL_RESEND_API_KEY, MAIL_FROM, AWS_S3_BUCKET')]);
+        expect(productionProblems({ ...complete, MAIL_FROM: ' ' })).toEqual([expect.stringContaining('MAIL_FROM')]);
+        expect(productionProblems(complete)).toEqual([]);
     });
 });

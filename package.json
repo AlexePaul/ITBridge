@@ -26,6 +26,7 @@
     "seed:stage": "dotenv -e .env.stage -v SEED_TARGET=stage -- pnpm --filter api seed",
     "seed:scale": "dotenv -e .env -- pnpm --filter api seed:scale",
     "smartbill:check": "dotenv -e .env -- pnpm --filter api smartbill:check",
+    "admin:create": "dotenv -e .env -- pnpm --filter api admin:create",
     "secrets": "secretlint \"**/*\""
   },
   "devDependencies": {
