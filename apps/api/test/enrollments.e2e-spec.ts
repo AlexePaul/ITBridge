@@ -356,7 +356,7 @@ describe('Enrolments and capacity (e2e)', () => {
                 .send({ childId: await makeChild(), groupId })
                 .expect(409);
             expect(refused.body.code).toBe('GROUP_FULL');
-            expect(refused.body.message).toContain('2027-04-05');
+            expect(refused.body.message).toContain('luni, 5 aprilie');
 
             // The office can still decide otherwise, and the trail names the class it overfilled.
             await request(app.getHttpServer())
