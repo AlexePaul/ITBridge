@@ -16,8 +16,8 @@ export class CreatePaymentDto {
      * normal life, and the derivation treats covered-or-more as paid.
      */
     @ApiProperty({ example: 350, description: 'Sum received, in lei' })
-    @IsNumber({ maxDecimalPlaces: 2 })
-    @IsPositive()
+    @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Suma se scrie în lei, cu cel mult două zecimale' })
+    @IsPositive({ message: 'Suma trebuie să fie mai mare decât zero' })
     amount: number;
 
     @ApiPropertyOptional({ enum: PaymentMethod, description: 'How the money arrived; defaults to cash' })
@@ -33,19 +33,19 @@ export class CreatePaymentDto {
     status?: PaymentStatus;
 
     @ApiProperty({ example: '2026-03-01', description: 'The day the money moved' })
-    @IsDateString()
+    @IsDateString({}, { message: 'Data plății nu e o dată validă' })
     @IsNotEmpty()
     date: string;
 
     @ApiPropertyOptional({ example: 'OP 1234', description: 'Payment-order or cash-receipt number' })
     @EmptyToUndefined()
     @IsOptional()
-    @Length(1, 100)
+    @Length(1, 100, { message: 'Referința poate avea cel mult 100 de caractere' })
     externalReference?: string;
 
     @ApiPropertyOptional({ description: 'Free-text note' })
     @EmptyToUndefined()
     @IsOptional()
-    @Length(1, 500)
+    @Length(1, 500, { message: 'Nota poate avea cel mult 500 de caractere' })
     notes?: string;
 }

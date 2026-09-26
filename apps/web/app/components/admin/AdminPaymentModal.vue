@@ -43,7 +43,12 @@
           name="externalReference"
           help="Numărul ordinului de plată — singurul lucru după care încasarea se regăsește în extras."
         >
-          <UInput v-model="externalReference" placeholder="OP 1234" class="w-full" />
+          <UInput
+            v-model="externalReference"
+            placeholder="OP 1234"
+            maxlength="100"
+            class="w-full"
+          />
         </UFormField>
 
         <!--
@@ -64,7 +69,7 @@
         </UFormField>
 
         <UFormField label="Observații" name="notes">
-          <UInput v-model="notes" placeholder="Opțional" class="w-full" />
+          <UInput v-model="notes" placeholder="Opțional" maxlength="500" class="w-full" />
         </UFormField>
 
         <p v-if="amount && amount > row.outstanding" class="text-sm text-warning">
@@ -157,7 +162,10 @@ const submit = async () => {
   amountError.value =
     typeof amount.value !== "number" || !(amount.value > 0)
       ? "Scrie suma încasată, mai mare decât zero."
-      : undefined;
+      : // In cents with a tolerance: 4.35 × 100 is 434.99999999999994 in floating point.
+        Math.abs(Math.round(amount.value * 100) - amount.value * 100) > 1e-6
+        ? "Suma se scrie în lei, cu cel mult două zecimale."
+        : undefined;
   dateError.value = !date.value
     ? "Alege ziua în care au intrat banii."
     : date.value > today

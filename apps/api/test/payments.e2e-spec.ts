@@ -104,6 +104,19 @@ describe('Payments (e2e)', () => {
         it('refuses a payment with no amount — a payment is a figure, not a flag', async () => {
             await pay({}).expect(400);
         });
+
+        /**
+         * QA of 26 September 2026: the payment form showed class-validator's defaults as they came —
+         * "amount must be a number conforming to the specified constraints" — because the screen
+         * prints the details, and the details were English.
+         */
+        it('says what is wrong with a sum or a reference in Romanian', async () => {
+            const cents = await pay({ amount: 100.555 }).expect(400);
+            expect(cents.body.details).toContain('Suma se scrie în lei, cu cel mult două zecimale');
+
+            const reference = await pay({ amount: 350, externalReference: 'x'.repeat(101) }).expect(400);
+            expect(reference.body.details).toContain('Referința poate avea cel mult 100 de caractere');
+        });
     });
 
     describe('a month at a time', () => {
