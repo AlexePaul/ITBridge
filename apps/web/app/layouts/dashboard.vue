@@ -1,6 +1,11 @@
 <template>
-  <UDashboardGroup>
-    <UDashboardSidebar collapsible class="border-r">
+  <!--
+    The sidebar's width and collapsed state live in the browser's local storage, under
+    `dashboard-sidebar-admin`, not in a cookie: Nuxt UI's default wrote a sixth cookie the cookie
+    policy does not list (§2), and one that would travel with every request for nothing.
+  -->
+  <UDashboardGroup storage="local">
+    <UDashboardSidebar id="admin" collapsible class="border-r">
       <template #header>
         <NuxtLink to="/" class="font-bold text-lg text-highlighted">IT Bridge School</NuxtLink>
       </template>

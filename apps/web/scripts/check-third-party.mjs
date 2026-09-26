@@ -18,7 +18,7 @@ import { launchChromium, publicPaths, startPreviewServer } from "./preview-site.
  * network on a page that would call Google the instant a reader moved.
  *
  * **Cookies are checked too**, because the story's other half is "no non-essential cookie before
- * accepting". On the public site the honest number is zero — the four cookies the policy names all
+ * accepting". On the public site the honest number is zero — the five cookies the policy names all
  * belong to the portal, behind a login — so anything at all here is a finding. That is a stronger
  * line than "no non-essential cookie" and a much easier one to check, and the cookie policy makes
  * the same promise to the reader in as many words.

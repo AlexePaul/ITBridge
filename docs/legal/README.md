@@ -92,7 +92,10 @@ Lista, ca să se poată bifa:
   Resend are și clauze contractuale standard în DPA, dar ține datele de cont și jurnalele în SUA,
   fără opțiune de stocare în UE. Rămâne de verificat, în conturi, că acordurile de prelucrare sunt
   acceptate (E07 S7);
-- SmartBill: intră în text abia când E16 S2 e livrat; până atunci paragraful e marcat.
+- SmartBill: E16 S2 e livrat, iar textul (§3.7 și §5.2) descrie emiterea în `live` — SmartBill
+  primește numele, adresa și suma, nu emailul și telefonul. Documentele presupun deci că producția
+  rulează cu `SMARTBILL_MODE=live`; dacă școala lansează fără SmartBill, paragraful se marchează la
+  loc.
 
 ## Ce trebuie să existe înainte de publicare
 
@@ -145,6 +148,24 @@ Lista, ca să se poată bifa:
     8/1996. `acord-lucrari.md` e scris ca un consimțământ GDPR; dacă o bifă ajunge și ca permisiune
     de reproducere și de comunicare publică, sau legea cere formă scrisă pentru ea, e întrebarea pe
     care textul o marchează, și e a avocatului.
+
+12. **Aliniere cu produsul, 26 septembrie 2026** (termeni și politică 0.2, cookie-uri 0.3). Unde
+    textul promitea ce codul nu făcea, s-a construit ce lipsea, iar unde produsul hotărâse dinadins
+    altfel, s-a schimbat textul:
+    - §5–6 și §8: familia își adaugă și își corectează copiii din „Profil"; șterge doar un copil
+      despre care școala nu știe nimic;
+    - §11.2 și §13: factura lunii se anunță pe email; §11.3: portalul și emailul spun contul pentru
+      transfer, din setările școlii; §11.4: reducerile se văd pe pagina de plăți;
+    - §4.5: o sesiune se închide și singură, din „Profil", nu doar toate deodată;
+    - §4.3: motivul respingerii **nu** pleacă în email — e nota biroului —, dar e în copia datelor
+      familiei (GDPR art. 15), iar formularul de respingere o spune adminului;
+    - §6, §17 și politica §8: copia datelor și cererea de ștergere se fac și din portal, nu doar la
+      școală;
+    - politica de cookie-uri: `refreshTokenKept` („Ține-mă minte") e în listă, iar `portalChild` și
+      `selectedLocation` se pun abia după alegere — până atunci codul le scria la prima citire.
+13. **§14, suspendarea unui cont.** Textul rezervă dreptul; platforma n-are încă butonul — biroul
+    poate respinge doar un cont neaprobat. De decis: se construiește (închide sesiunile, oprește
+    reautentificarea, trimite motivul) sau se reformulează.
 
 ## Verificarea juridică
 

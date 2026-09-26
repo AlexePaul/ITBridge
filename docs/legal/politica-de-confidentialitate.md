@@ -2,7 +2,7 @@
 
 **Cum prelucrăm datele familiei tale și ale copilului tău.**
 
-**Versiunea 0.1 · ciornă din 7 septembrie 2026 · neverificată de un avocat · nepublicată.**
+**Versiunea 0.2 · ciornă din 26 septembrie 2026 · neverificată de un avocat · nepublicată.**
 Faptele marcate `[[…]]` lipsesc sau sunt propuneri; vezi [README](README.md).
 
 ---
@@ -166,14 +166,11 @@ pe consimțământ (lit. a); evidența acordului, obligația de a-l putea dovedi
 fiecare plată — suma, data, metoda (numerar sau transfer), referința din extras, cine din școală a
 înregistrat-o, o notă dacă a fost ceva de spus; reducerile — nume, tip, valoare, luna.
 
-[[DE CONFIRMAT ÎNAINTE DE PUBLICARE: platforma generează azi PDF-ul facturii și îl păstrează.
-Când emiterea trece prin SmartBill (E16 S2), documentul fiscal e emis și păstrat de SmartBill, iar
-noi ținem referința; SmartBill primește atunci numele și adresa ta. Paragraful de mai jos se
-activează în ziua aceea.]]
-
-[[Facturile sunt emise prin SmartBill (Intelligent IT S.R.L., Sibiu), care primește numele,
-adresa și suma, emite documentul fiscal și, unde legea cere, îl transmite în sistemul e-Factura al
-ANAF. Platforma noastră ține referința documentului, nu îl produce.]]
+Facturile sunt emise prin SmartBill (Intelligent IT S.R.L., Sibiu), care primește numele, adresa
+și suma, emite documentul fiscal și, unde legea cere, îl transmite în sistemul e-Factura al ANAF.
+Platforma noastră ține numărul documentului și o copie a PDF-ului, ca să-l poți descărca din portal;
+încasările ajung și ele în SmartBill, cu suma, data și metoda. Adresa ta de email și telefonul nu
+pleacă spre SmartBill: mesajele despre facturi ți le trimitem noi.
 
 **De ce:** ca să te facturăm și să ținem evidența — e contractul, și e o obligație legală: legea
 contabilității ne cere să păstrăm documentele contabile, în prezent **5 ani**.
@@ -257,14 +254,14 @@ calculatoarele din săli; [[DE CONFIRMAT: procedura de acces la ele]].
 
 ### 5.2 Furnizori care prelucrează în numele nostru
 
-| Cine                                         | Ce face pentru noi                                                                  | Unde prelucrează                                                                                                                                 |
-| -------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Amazon Web Services EMEA SARL                | găzduiește serverul, baza de date, fișierele lucrărilor și copiile de siguranță     | Stockholm, Suedia (UE)                                                                                                                           |
-| Vercel Inc.                                  | găzduiește site-ul public și formularul de contact                                  | rețea globală, sediul în SUA; certificat în Cadrul UE–SUA de protecție a datelor                                                                 |
-| Resend, Inc.                                 | trimite emailurile — de serviciu, de marketing și pe cele din formularul de contact | SUA; certificat în Cadrul UE–SUA, cu clauze contractuale standard în acordul de prelucrare. Datele de cont și jurnalele de trimitere stau în SUA |
-| [[SmartBill — Intelligent IT S.R.L., Sibiu]] | emite și păstrează facturile [[de la E16 S2]]                                       | România (UE)                                                                                                                                     |
-| Google Ireland Ltd., cu Google LLC în SUA    | harta de pe paginile locațiilor, numai după acordul tău                             | Irlanda; transferul spre SUA pe certificarea Google LLC în Cadrul UE–SUA                                                                         |
-| [[CABINETUL DE CONTABILITATE]]               | contabilitatea școlii                                                               | România (UE)                                                                                                                                     |
+| Cine                                      | Ce face pentru noi                                                                  | Unde prelucrează                                                                                                                                 |
+| ----------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Amazon Web Services EMEA SARL             | găzduiește serverul, baza de date, fișierele lucrărilor și copiile de siguranță     | Stockholm, Suedia (UE)                                                                                                                           |
+| Vercel Inc.                               | găzduiește site-ul public și formularul de contact                                  | rețea globală, sediul în SUA; certificat în Cadrul UE–SUA de protecție a datelor                                                                 |
+| Resend, Inc.                              | trimite emailurile — de serviciu, de marketing și pe cele din formularul de contact | SUA; certificat în Cadrul UE–SUA, cu clauze contractuale standard în acordul de prelucrare. Datele de cont și jurnalele de trimitere stau în SUA |
+| SmartBill — Intelligent IT S.R.L., Sibiu  | emite și păstrează facturile fiscale și le transmite în e-Factura, unde legea cere  | România (UE)                                                                                                                                     |
+| Google Ireland Ltd., cu Google LLC în SUA | harta de pe paginile locațiilor, numai după acordul tău                             | Irlanda; transferul spre SUA pe certificarea Google LLC în Cadrul UE–SUA                                                                         |
+| [[CABINETUL DE CONTABILITATE]]            | contabilitatea școlii                                                               | România (UE)                                                                                                                                     |
 
 Cu fiecare avem sau vom avea un acord de prelucrare a datelor, conform art. 28 GDPR
 [[DE CONFIRMAT: lista acordurilor semnate — E07 S7]]. Ei prelucrează doar ce le dăm și doar
@@ -337,8 +334,9 @@ obligă să ținem alte date. Răspundem în **cel mult o lună**; dacă cererea
 prelungi cu două luni și îți spunem de ce. E gratuit.
 
 **Din portal, fără să ne scrii:** îți schimbi datele, adaugi sau corectezi copiii, pornești sau
-oprești marketingul, îți închizi sesiunile. Ștergerea contului se cere la școală, ca să putem
-păstra ce cere legea și să ștergem restul.
+oprești marketingul, îți închizi sesiunile, descarci o copie a tuturor datelor pe care le ținem
+despre tine și despre copii și ceri ștergerea contului — toate din „Profil". Ștergerea o facem noi,
+în cel mult o lună, ca să putem păstra ce cere legea și să ștergem restul.
 
 **Dacă nu ești mulțumit** de răspuns, te poți adresa Autorității Naționale de Supraveghere a
 Prelucrării Datelor cu Caracter Personal (ANSPDCP): B-dul G-ral. Gheorghe Magheru 28-30, Sector 1,

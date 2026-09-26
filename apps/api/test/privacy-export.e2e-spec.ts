@@ -99,6 +99,22 @@ describe('Privacy export (e2e)', () => {
         expect(res.body.facturi[0].stare).toBe('de plată');
     });
 
+    /**
+     * GDPR art. 15. The office's note on a rejection never goes in the email and never shows in the
+     * portal, but it is a note about the family, and the export is everything the school holds about
+     * it — the portal promises exactly that („tot ce ține școala despre tine").
+     */
+    it("carries the office's note on a rejection, and the day the school decided", async () => {
+        // Still waiting: an approved account is not rejected afterwards (ACCOUNT_ALREADY_APPROVED).
+        await dataSource.query(`UPDATE users SET "approvalStatus" = 'PENDING', "approvalDecidedAt" = NULL WHERE id = $1`, [ana.userId]);
+        await request(app.getHttpServer()).post(`/users/${ana.userId}/reject`).set('Authorization', admin.auth).send({ reason: 'cont duplicat' }).expect(200);
+
+        const res = await exportOwn(ana).expect(200);
+
+        expect(res.body.cont).toMatchObject({ stareAprobare: 'respins', motivRespingere: 'cont duplicat' });
+        expect(Date.parse(res.body.cont.deciziaLa as string)).not.toBeNaN();
+    });
+
     it('carries the bank line a payment was recorded from, as the bank wrote it', async () => {
         await payFromStatement(anaProfileId, '05.03.2026;POP ELENA;plata martie Maria Pop;RB2026030501;350,00');
 

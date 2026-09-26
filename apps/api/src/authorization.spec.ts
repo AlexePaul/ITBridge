@@ -181,6 +181,9 @@ describe('authorization matrix', () => {
             'AuthController.changePassword',
             // Reads the caller's own sessions; a POST only so the refresh token marking "this one" stays out of the URL.
             'AuthController.sessionsWithCurrent',
+            // Terms §4.5: closes one of the caller's own sessions. `SessionService.revokeOne` finds the
+            // row among the caller's rows only, so an id that is somebody else's closes nothing.
+            'AuthController.closeSession',
             // Sends only to the address already on file, for the caller's own account — it takes no
             // address, so a session cannot be used to point a confirmation somewhere else.
             'AuthController.resendConfirmation',

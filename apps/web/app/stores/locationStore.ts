@@ -14,10 +14,15 @@ export const useLocationStore = defineStore("locations", () => {
   // In a cookie, like the tokens, so the choice survives a reload and a full page navigation. A
   // ref alone resets on every hard load and quietly puts the admin back on "all locations" —
   // which is the one state where a list mixes the two addresses.
-  const selectedLocationId = useCookie<LocationSelection>("selectedLocation", {
-    default: () => ALL_LOCATIONS,
+  //
+  // No `default`: Nuxt 4.5 writes a cookie's default the first time it is read, and the cookie
+  // policy (§2) says this one appears only after an admin chooses a location. Absent means "all".
+  const storedLocation = useCookie<LocationSelection | undefined>("selectedLocation", {
     sameSite: "lax",
   });
+  const selectedLocationId = computed<LocationSelection>(
+    () => storedLocation.value ?? ALL_LOCATIONS
+  );
 
   const setLocations = (data: Location[]) => {
     locations.value = data;
@@ -27,7 +32,8 @@ export const useLocationStore = defineStore("locations", () => {
       selectedLocationId.value !== ALL_LOCATIONS &&
       !data.some((location) => location.id === selectedLocationId.value)
     ) {
-      selectedLocationId.value = ALL_LOCATIONS;
+      // Back to "all" by forgetting the choice, not by writing one nobody made.
+      storedLocation.value = undefined;
     }
   };
 
@@ -36,7 +42,7 @@ export const useLocationStore = defineStore("locations", () => {
   };
 
   const selectLocation = (selection: LocationSelection) => {
-    selectedLocationId.value = selection;
+    storedLocation.value = selection;
   };
 
   const selectedLocation = computed(() =>

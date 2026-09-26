@@ -128,6 +128,7 @@ describe('AuthService', () => {
             rotate: jest.fn(),
             revoke: jest.fn(),
             revokeAllForUser: jest.fn(),
+            revokeOne: jest.fn().mockResolvedValue(true),
             listActive: jest.fn().mockResolvedValue([]),
         };
 
@@ -784,6 +785,18 @@ describe('AuthService', () => {
         it('listing sessions asks only for the calling user', async () => {
             await service.listSessions(7);
             expect(sessions.listActive).toHaveBeenCalledWith(7, undefined);
+        });
+
+        /** Terms §4.5: one session closed, among the caller's own. */
+        it('closing a session asks for it among the calling user rows', async () => {
+            await expect(service.closeSession(7, 42)).resolves.toEqual({ message: 'Session ended' });
+            expect(sessions.revokeOne).toHaveBeenCalledWith(7, 42);
+        });
+
+        it('answers SESSION_NOT_FOUND for a session that is not the caller, as for one that never was', async () => {
+            sessions.revokeOne.mockResolvedValue(false);
+
+            await expect(service.closeSession(7, 42)).rejects.toMatchObject({ response: { error: 'SESSION_NOT_FOUND' } });
         });
     });
 });

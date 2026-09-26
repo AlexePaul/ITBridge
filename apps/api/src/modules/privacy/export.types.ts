@@ -23,7 +23,14 @@ export interface FamilyExport {
         creatLa: string | null;
         emailConfirmatLa: string | null;
         stareAprobare: string;
-        aprobatLa: string | null;
+        /** The day the school decided, approval or rejection alike — it was `aprobatLa`, which a rejected family misread. */
+        deciziaLa: string | null;
+        /**
+         * The office's note on a rejection. Never in the email and never on a screen of the portal,
+         * but it is a note about the family, and this file is everything the school holds about it
+         * (GDPR art. 15) — the portal says so, and so does the rejection form.
+         */
+        motivRespingere: string | null;
     } | null;
     copii: ExportedChild[];
     facturi: {

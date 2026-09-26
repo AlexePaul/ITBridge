@@ -41,10 +41,10 @@ export const useChildSelection = () => {
   const route = useRoute();
   const router = useRouter();
 
-  const stored = useCookie<ChildSelection>("portalChild", {
-    default: () => ALL_CHILDREN,
-    sameSite: "lax",
-  });
+  // No `default`: Nuxt 4.5 writes a cookie's default the first time it is read, which put
+  // `portalChild` in every family's browser before anybody chose a child — and the cookie policy
+  // (§2) says it appears only after that choice. Absent means "every child".
+  const stored = useCookie<ChildSelection | undefined>("portalChild", { sameSite: "lax" });
 
   const fromQuery = computed<ChildSelection | null>(() => {
     const raw = route.query[QUERY_KEY];
@@ -55,7 +55,7 @@ export const useChildSelection = () => {
     return Number.isInteger(id) && id > 0 ? id : null;
   });
 
-  const selected = computed<ChildSelection>(() => fromQuery.value ?? stored.value);
+  const selected = computed<ChildSelection>(() => fromQuery.value ?? stored.value ?? ALL_CHILDREN);
 
   const isShowingAll = computed(() => selected.value === ALL_CHILDREN);
 
