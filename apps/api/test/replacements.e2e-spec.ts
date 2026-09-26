@@ -232,6 +232,49 @@ describe('Temporary group moves (e2e)', () => {
         });
     });
 
+    /**
+     * The review of 26 September 2026. A notice says the child will miss the class, and the register
+     * is what says whether they did: a child who came after all and was marked present stayed on the
+     * office's list of children to move, and could be moved — with the family written to about a
+     * make-up for a class the child had sat in.
+     */
+    describe('a child who came to the class after all', () => {
+        const markAtMissedClass = (present: boolean) =>
+            request(app.getHttpServer())
+                .put(`/attendance/session/${missedSessionId}/child/${childId}`)
+                .set('Authorization', admin.auth)
+                .send({ present })
+                .expect(200);
+
+        const unplacedIds = async () =>
+            (await request(app.getHttpServer()).get('/attendance/replacements/unplaced').set('Authorization', admin.auth).expect(200)).body.map(
+                (notice: { id: number }) => notice.id,
+            );
+
+        it('leaves the list of children to move once the register says present', async () => {
+            expect(await unplacedIds()).toContain(noticeId);
+
+            await markAtMissedClass(true);
+
+            expect(await unplacedIds()).not.toContain(noticeId);
+        });
+
+        it('stays on the list when the register says absent — the absence it announced', async () => {
+            await markAtMissedClass(false);
+
+            expect(await unplacedIds()).toContain(noticeId);
+        });
+
+        it('cannot be moved, and nobody is written to', async () => {
+            await markAtMissedClass(true);
+
+            const refused = await place(hostSessionId).expect(409);
+            expect(refused.body.code).toBe('CHILD_ATTENDED_CLASS');
+            expect(await placedSessionId()).toBeNull();
+            expect(await moveMessages()).toHaveLength(0);
+        });
+    });
+
     describe('what the week allows', () => {
         it('refuses a class in the following week', async () => {
             const nextWeek = await createClassSession(dataSource, hostGroupId, { date: iso(7) });

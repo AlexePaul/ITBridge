@@ -126,6 +126,13 @@ export class ReplacementService {
      * forgiven is a class that has already happened, because recording that move would be writing
      * down something that did not occur.
      *
+     * **A child the register says came to the missed class is not moved** (`CHILD_ATTENDED_CLASS`,
+     * review of 26 September 2026). A notice announces an absence; the register says whether it
+     * happened, and a child marked present sat in the class the move would make up for — moving
+     * them wrote the family about a make-up for an hour the child had not missed. Read behind the
+     * notice's lock, with the rest of what the move is decided on; marked absent, or not marked, is
+     * still the absence it announced.
+     *
      * **Recording the same move twice is a no-op**, checked before the seat count rather than after
      * it: the child already holds a chair in that class, so counting them against it would refuse
      * the office for repeating itself once the class is full. Checked twice, in fact: once on the
@@ -205,6 +212,12 @@ export class ReplacementService {
             if (!locked) throw new NotFoundException('Absence notice not found');
             notice.replacementSession = session;
             if (locked.replacement_session_id === session.id) return notice;
+            if (await this.attendedTheMissedClass(notice, manager)) {
+                throw new ConflictException({
+                    message: 'The child was marked present at the class this notice is about; there is nothing to make up.',
+                    error: 'CHILD_ATTENDED_CLASS',
+                });
+            }
             if ((await this.enrollments.freeSeatsAt({ id: session.id, group, room: current.room }, manager)) <= 0) {
                 throw new ConflictException({ message: 'Nu mai e loc la ședința asta.', error: 'REPLACEMENT_SESSION_FULL' });
             }
@@ -269,6 +282,11 @@ export class ReplacementService {
      * week's Monday: everything from it forward is live, everything before it is a week that closed
      * without a move, which is a fact and not a task. Nothing has to run for a row to leave this
      * list — it is placed, or the calendar passes it.
+     *
+     * **Nor is a child the register says came after all** (review of 26 September 2026): marked
+     * present at the class the notice is about, there is no hour to make up, and the row stayed on
+     * the office's list — and in the menu's count, which reads this list — as a child to move.
+     * Present, not merely marked: an absence marked is the announcement coming true.
      */
     async unplaced(now: Date = new Date()): Promise<AbsenceNotice[]> {
         return this.noticeRepository
@@ -278,6 +296,9 @@ export class ReplacementService {
             .leftJoinAndSelect('session.group', 'group')
             .andWhere('notice.replacement_session_id IS NULL')
             .andWhere('session.date >= :from', { from: replacementWeekFor(now).from })
+            .andWhere(
+                'NOT EXISTS (SELECT 1 FROM attendances mark WHERE mark.class_session_id = session.id AND mark."childId" = child.id AND mark.present = true)',
+            )
             .orderBy('session.date', 'ASC')
             .addOrderBy('session.startTime', 'ASC')
             .getMany();
@@ -335,6 +356,15 @@ export class ReplacementService {
             },
             manager,
         );
+    }
+
+    /** Whether the register has the notice's child present at the class the notice is about. */
+    private async attendedTheMissedClass(notice: AbsenceNotice, manager: EntityManager): Promise<boolean> {
+        const rows = await manager.query<unknown[]>('SELECT 1 FROM attendances WHERE class_session_id = $1 AND "childId" = $2 AND present = true', [
+            notice.classSession.id,
+            notice.child.id,
+        ]);
+        return rows.length > 0;
     }
 
     /** A notice with everything the rules ask about, or a 404. */

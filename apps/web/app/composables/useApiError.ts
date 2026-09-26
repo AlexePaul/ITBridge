@@ -254,6 +254,10 @@ const MESSAGES: Record<string, string> = {
   // arrive already in Romanian, and the first names the period it collided with and its dates —
   // which is the whole answer. A generic line here would replace „se suprapune cu «Vacanța de
   // iarnă» (21 decembrie 2026 – 7 ianuarie 2027)" with „există deja o înregistrare cu aceste date".
+
+  // E12/S4, review of 26 September 2026: the register says the child came to the class after all.
+  CHILD_ATTENDED_CLASS:
+    "Copilul a fost marcat prezent la ora pe care o anunțase ca pierdută, deci nu mai are ce recupera. Dacă marcajul e greșit, corectează întâi catalogul orei.",
 };
 
 /**
