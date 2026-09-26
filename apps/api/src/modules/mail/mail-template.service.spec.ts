@@ -96,6 +96,21 @@ describe('MailTemplateService', () => {
             expect(row.bodyHtml).not.toBe(shipped.bodyHtml);
         });
 
+        // Review of 26 September 2026: the portal link came out as text a family had to copy.
+        it('draws a link placeholder and a typed address as links in the redrawn HTML', async () => {
+            const shipped = await service.get('account-approved');
+
+            await service.save('account-approved', {
+                subject: shipped.subject,
+                bodyText: 'Intră în portal: {{portalUrl}}\n\nSau scrie-ne de pe https://itbridgeschool.com/contact.',
+                bodyHtml: shipped.bodyHtml,
+            });
+
+            const [[row]] = repo.save!.mock.calls as [{ bodyHtml: string }][];
+            expect(row.bodyHtml).toContain('Intră în portal: <a href="{{portalUrl}}" style="color:#7a4a2b;">{{portalUrl}}</a>');
+            expect(row.bodyHtml).toContain('de pe <a href="https://itbridgeschool.com/contact" style="color:#7a4a2b;">https://itbridgeschool.com/contact</a>.');
+        });
+
         it('keeps the HTML the school wrote, and a text-only template text-only', async () => {
             const shipped = await service.get('account-approved');
 
