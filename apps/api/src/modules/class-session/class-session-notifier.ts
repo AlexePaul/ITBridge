@@ -1,8 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EntityManager, Like } from 'typeorm';
+import { EntityManager, In, Like } from 'typeorm';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
+import { Enrollment } from 'src/entities/enrollment.entity';
+import { Lead } from 'src/entities/lead.entity';
+import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
@@ -30,11 +33,6 @@ interface Recipient {
     firstName: string;
     /** True for a family whose child the office moved into this class for the week, not enrolled in it. */
     visiting: boolean;
-    /**
-     * True for a family reached at the address it left on the booking form — a trial booked on
-     * `/proba`, whose profile carries no address of its own (see `bookingAddresses`).
-     */
-    trial: boolean;
 }
 
 interface RenderedMail {
@@ -97,8 +95,19 @@ export class ClassSessionNotifier {
         // A family here for a free trial is billed for nothing, so the group's sentence about the
         // month would be about somebody else. What they need is the next step, and it is ours.
         const trialNote = 'Proba copilului tău era la ora asta. Te sunăm să stabilim împreună alta.';
+        // On trial in the group, but not in this class: the trial is where it was, and free.
+        const trialElsewhereNote = 'Proba copilului tău nu se schimbă și e gratuită, deci ora asta nu te costă nimic.';
 
         const recipients = await this.recipientsOf(session, manager, { includeVisitors: true });
+        const trials = await this.trialStandingOf(session, manager);
+        const noteFor = (recipient: Recipient) =>
+            recipient.visiting
+                ? visitorNote
+                : trials.here.has(recipient.parentId)
+                  ? trialNote
+                  : trials.elsewhere.has(recipient.parentId)
+                    ? trialElsewhereNote
+                    : groupNote;
         return this.writeTo(recipients, session, manager, CANCELLED_DEDUPE_PREFIX, (recipient) =>
             this.mailTemplates.render('class-cancelled', {
                 firstName: recipient.firstName,
@@ -106,7 +115,7 @@ export class ClassSessionNotifier {
                 date: romanianDate(session.date),
                 time: session.startTime.slice(0, 5),
                 reason,
-                makeUpNote: recipient.visiting ? visitorNote : recipient.trial ? trialNote : groupNote,
+                makeUpNote: noteFor(recipient),
                 // The absences page for a family whose move just evaporated; otherwise just the portal.
                 portalUrl: recipient.visiting ? absencesUrl() : loginUrl(),
             }),
@@ -190,7 +199,7 @@ export class ClassSessionNotifier {
         for (const child of group.children ?? []) {
             const parent = child.parent;
             if (!parent || recipients.has(parent.id)) continue;
-            recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: false, trial: false });
+            recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: false });
         }
         await this.reachTrialFamilies([...recipients.values()], manager);
 
@@ -244,7 +253,7 @@ export class ClassSessionNotifier {
         for (const child of session.group.children ?? []) {
             const parent = child.parent;
             if (!parent || recipients.has(parent.id)) continue;
-            recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: false, trial: false });
+            recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: false });
         }
 
         if (options.includeVisitors) {
@@ -257,13 +266,47 @@ export class ClassSessionNotifier {
             for (const notice of placed) {
                 const parent = notice.child?.parent;
                 if (!parent || recipients.has(parent.id)) continue;
-                recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: true, trial: false });
+                recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: true });
             }
         }
 
         const all = [...recipients.values()];
         await this.reachTrialFamilies(all, manager);
         return all;
+    }
+
+    /**
+     * Which of the group's families are on trial, and whose trial this very class is.
+     *
+     * Read from the enrolments in force and the lead's class, not from how the address was found
+     * (QA of 26 September 2026): every family reached at a booking address was told „proba copilului
+     * tău era la ora asta" — one whose trial was a week later, and one already enrolled and paying.
+     * A family with an active enrolment in the group is the group's, whatever else it has.
+     */
+    private async trialStandingOf(session: ClassSession, manager: EntityManager): Promise<{ here: Set<number>; elsewhere: Set<number> }> {
+        const inForce = await manager.getRepository(Enrollment).find({
+            where: { group: { id: session.group.id }, status: In([EnrollmentStatus.TRIAL, EnrollmentStatus.ACTIVE]) },
+            relations: { child: { parent: true } },
+        });
+        const paying = new Set<number>();
+        const trying = new Set<number>();
+        for (const row of inForce) {
+            const parentId = row.child?.parent?.id;
+            if (parentId === undefined) continue;
+            (row.status === EnrollmentStatus.ACTIVE ? paying : trying).add(parentId);
+        }
+
+        const booked = await manager.getRepository(Lead).find({
+            where: { trialSession: { id: session.id } },
+            relations: { child: { parent: true }, profile: true },
+        });
+        const here = new Set<number>();
+        for (const lead of booked) {
+            const parentId = lead.child?.parent?.id ?? lead.profile?.id;
+            if (parentId !== undefined && trying.has(parentId) && !paying.has(parentId)) here.add(parentId);
+        }
+        const elsewhere = new Set([...trying].filter((parentId) => !paying.has(parentId) && !here.has(parentId)));
+        return { here, elsewhere };
     }
 
     /**
@@ -279,10 +322,7 @@ export class ClassSessionNotifier {
         );
         for (const recipient of unreachable) {
             const address = addresses.get(recipient.parentId);
-            if (address) {
-                recipient.email = address;
-                recipient.trial = true;
-            }
+            if (address) recipient.email = address;
         }
     }
 

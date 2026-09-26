@@ -417,6 +417,39 @@ describe('Trial booking, public (e2e)', () => {
         });
 
         /**
+         * QA of 26 September 2026: the trial sentence went to every family reached at a booking
+         * address — a family whose trial was a week later, and one already enrolled and paying —
+         * because „reached through the booking" was read as „on trial in this class".
+         */
+        it('says „your child\'s trial was at this hour" only to the family whose trial it was', async () => {
+            const { groupId, sessionId } = await book();
+            const [{ date }] = await dataSource.query<{ date: string }[]>('SELECT "date"::text AS date FROM class_sessions WHERE id = $1', [sessionId]);
+            const earlier = new Date(`${date}T12:00:00`);
+            earlier.setDate(earlier.getDate() - 1);
+            const earlierDay = `${earlier.getFullYear()}-${`${earlier.getMonth() + 1}`.padStart(2, '0')}-${`${earlier.getDate()}`.padStart(2, '0')}`;
+            const before = await createClassSession(dataSource, groupId, { date: earlierDay });
+
+            await request(app.getHttpServer())
+                .put(`/class-sessions/${before}/cancel`)
+                .set('Authorization', admin.auth)
+                .send({ reason: 'Profesor bolnav' })
+                .expect(200);
+            await request(app.getHttpServer())
+                .put(`/class-sessions/${sessionId}/cancel`)
+                .set('Authorization', admin.auth)
+                .send({ reason: 'Profesor bolnav' })
+                .expect(200);
+
+            const bodies = await dataSource.query<{ key: string; body: string }[]>(
+                `SELECT "dedupeKey" AS key, "bodyText" AS body FROM outbox WHERE "dedupeKey" LIKE 'class-cancelled:%' ORDER BY id`,
+            );
+            const aboutEarlier = bodies.find((row) => row.key.startsWith(`class-cancelled:${before}:`));
+            const aboutTrial = bodies.find((row) => row.key.startsWith(`class-cancelled:${sessionId}:`));
+            expect(aboutEarlier?.body).not.toContain('Proba copilului tău era la ora asta');
+            expect(aboutTrial?.body).toContain('Proba copilului tău era la ora asta');
+        });
+
+        /**
          * „Pierdut" on a trial nobody had decided wrote the lead and left the enrolment: the child
          * kept a chair the family had said no to — the group stayed full, `/proba` stopped offering
          * it, the waiting list was never told, and the child stayed on every register.
