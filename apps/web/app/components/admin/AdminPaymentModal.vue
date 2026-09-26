@@ -29,7 +29,7 @@
           a doua oară.
         </p>
 
-        <UFormField label="Suma încasată (lei)" name="amount" required>
+        <UFormField label="Suma încasată (lei)" name="amount" required :error="amountError">
           <UInput v-model.number="amount" type="number" min="0.01" step="0.01" class="w-full" />
         </UFormField>
 
@@ -59,8 +59,8 @@
           description="Factura rămâne de plată și familia nu primește încă confirmarea. Îl confirmi din Plăți când apare pe extras."
         />
 
-        <UFormField label="Data plății" name="date" required>
-          <UInput v-model="date" type="date" class="w-full" />
+        <UFormField label="Data plății" name="date" required :error="dateError">
+          <UInput v-model="date" type="date" :max="today" class="w-full" />
         </UFormField>
 
         <UFormField label="Observații" name="notes">
@@ -140,9 +140,30 @@ watch(
   { immediate: true }
 );
 
+/**
+ * The field says what is wrong: an empty, zero or negative amount used to make the button do
+ * nothing at all (QA of 26 September 2026), and a date in the future is money the family would be
+ * thanked for before it arrived — the server refuses it too.
+ */
+const today = todayKey();
+const amountError = ref<string | undefined>(undefined);
+const dateError = ref<string | undefined>(undefined);
+watch(amount, () => (amountError.value = undefined));
+watch(date, () => (dateError.value = undefined));
+
 const submit = async () => {
   const row = props.row;
-  if (!row || typeof amount.value !== "number" || amount.value <= 0 || !date.value) return;
+  if (!row) return;
+  amountError.value =
+    typeof amount.value !== "number" || !(amount.value > 0)
+      ? "Scrie suma încasată, mai mare decât zero."
+      : undefined;
+  dateError.value = !date.value
+    ? "Alege ziua în care au intrat banii."
+    : date.value > today
+      ? "Ziua plății nu poate fi în viitor."
+      : undefined;
+  if (amountError.value || dateError.value || typeof amount.value !== "number") return;
 
   // Only a transfer can be on its way; cash is in the drawer the moment it is recorded.
   const announced = method.value === "bank_transfer" && announcedOnly.value;
