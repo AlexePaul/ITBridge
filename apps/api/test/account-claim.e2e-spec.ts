@@ -211,6 +211,38 @@ describe('Account claim (e2e)', () => {
             expect(res.body.code).toBe('CLAIM_TOKEN_INVALID');
         });
 
+        /**
+         * A new link replaces the old one holding the family's row and then the links' (`issue`), and
+         * the submit takes them in the same order. Taken the other way round, a family submitting
+         * while the office pressed "Trimite linkul de cont" would each hold one row and wait for the
+         * other — a deadlock, and a 500 on one of the two.
+         */
+        it('waits for a link being replaced, then refuses the replaced one, rather than deadlocking', async () => {
+            const profileId = await officeFamily();
+            await request(app.getHttpServer()).post(`/profiles/${profileId}/account-claim`).set('Authorization', admin.auth).expect(200);
+            const token = await tokenFromMail();
+
+            // What `issue` does, held open: the family's row first, then the old links.
+            const office = dataSource.createQueryRunner();
+            await office.connect();
+            await office.startTransaction();
+            await office.query('SELECT id FROM profiles WHERE id = $1 FOR UPDATE', [profileId]);
+
+            const submit = request(app.getHttpServer())
+                .post('/auth/claim')
+                .send(claimBody(token))
+                .then((res) => res);
+            await new Promise((resolve) => setTimeout(resolve, 300));
+
+            await office.query(`UPDATE account_claims SET "expiresAt" = now() WHERE profile_id = $1 AND "usedAt" IS NULL`, [profileId]);
+            await office.commitTransaction();
+            await office.release();
+
+            const res = await submit;
+            expect(res.status).toBe(400);
+            expect(res.body.code).toBe('CLAIM_TOKEN_INVALID');
+        });
+
         it('keeps the username rules of registration', async () => {
             await officeFamily();
             await request(app.getHttpServer())

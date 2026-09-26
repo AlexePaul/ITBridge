@@ -167,33 +167,33 @@ export class AccountClaimService {
     /**
      * Spends a link, in the caller's transaction, and answers with the family it opens.
      *
-     * Everything is read again under the claim row's lock, so two tabs submitting the same link wait
-     * for each other and the second finds it used. The profile is re-read too, locked, and must still
-     * be the account-less, unerased family at the address the link went to: an office correction of
-     * the address in between means the link reached an inbox that is no longer the family's.
+     * Everything is read again under the family's lock and then the link's, so two tabs submitting
+     * the same link wait for each other and the second finds it used. The family must still be the
+     * account-less, unerased one at the address the link went to: an office correction of the
+     * address in between means the link reached an inbox that is no longer the family's.
      */
     async redeem(token: string, now: Date, manager: EntityManager): Promise<Profile> {
-        // `FOR UPDATE OF` the one table: Postgres refuses to lock the nullable side of an outer join.
-        const claim = await manager
+        // Which family, read without a lock: the family's row is locked first and the link's second,
+        // the order `issue` takes them in — the other way round, a resend racing a submit would each
+        // hold one row and wait for the other.
+        const found = await manager
             .getRepository(AccountClaim)
-            .createQueryBuilder('claim')
-            .leftJoinAndSelect('claim.profile', 'profile')
-            .andWhere('claim.tokenHash = :tokenHash', { tokenHash: AccountClaimService.hash(token) })
-            .setLock('pessimistic_write', undefined, ['claim'])
-            .getOne();
+            .findOne({ where: { tokenHash: AccountClaimService.hash(token) }, relations: { profile: true } });
+        if (!found) throw claimTokenInvalid();
 
-        if (!claim || claim.usedAt !== null || claim.expiresAt.getTime() <= now.getTime()) {
-            throw claimTokenInvalid();
-        }
-
+        // `FOR UPDATE OF` the one table: Postgres refuses to lock the nullable side of an outer join.
         const profile = await manager
             .getRepository(Profile)
             .createQueryBuilder('profile')
             .leftJoinAndSelect('profile.user', 'user')
-            .andWhere('profile.id = :id', { id: claim.profile.id })
+            .andWhere('profile.id = :id', { id: found.profile.id })
             .setLock('pessimistic_write', undefined, ['profile'])
             .getOne();
+        const claim = await manager.getRepository(AccountClaim).findOne({ where: { id: found.id }, lock: { mode: 'pessimistic_write' } });
 
+        if (!claim || claim.usedAt !== null || claim.expiresAt.getTime() <= now.getTime()) {
+            throw claimTokenInvalid();
+        }
         if (!profile || profile.user || profile.erasedAt !== null || !profile.email || !sameAddress(profile.email, claim.email)) {
             throw claimTokenInvalid();
         }
