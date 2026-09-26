@@ -263,6 +263,37 @@ describe('Reconciling a bank statement (e2e)', () => {
         expect((await waiting()).counts).toEqual({ waiting: 3, matched: 0, ignored: 0 });
     });
 
+    /**
+     * QA of 26 September 2026: a payment made from a line and then reversed left the line under
+     * "Înregistrate" with no sign of it, while the invoice was back in arrears — and the line could
+     * not be matched again unless the reversed payment was deleted. A reversed payment is not money,
+     * so the line waits for a person again; the one press does not redo a match somebody undid.
+     */
+    it('puts a line back in front of a person when its payment is reversed', async () => {
+        await importStatement().expect(200);
+        const line = await lineAbout('IONESCU');
+        await request(app.getHttpServer())
+            .post(`/reconciliation/lines/${line.id as number}/match`)
+            .set('Authorization', admin.auth)
+            .send({ invoiceId: invoiceMihai.id })
+            .expect(200);
+        const [payment] = await dataSource.getRepository(Payment).find();
+
+        await request(app.getHttpServer()).put(`/payments/${payment.id}`).set('Authorization', admin.auth).send({ status: 'reversed' }).expect(200);
+
+        const page = await waiting();
+        expect(page.counts).toEqual({ waiting: 3, matched: 0, ignored: 0 });
+        const back = page.lines.find((row: { id: number }) => row.id === line.id);
+        expect(back).toMatchObject({ state: 'waiting', payment: { id: payment.id, status: 'reversed' } });
+
+        await request(app.getHttpServer())
+            .post(`/reconciliation/lines/${line.id as number}/match`)
+            .set('Authorization', admin.auth)
+            .send({ invoiceId: invoiceMihai.id })
+            .expect(200);
+        expect(await dataSource.getRepository(Payment).count()).toBe(2);
+    });
+
     it('refuses a file with no header it can read, and saying so', async () => {
         const res = await importStatement('ceva;altceva\n1;2').expect(400);
 

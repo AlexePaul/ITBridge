@@ -137,7 +137,7 @@ export class DiscountService {
             });
             if (clash) {
                 throw new ConflictException({
-                    message: `Familia are deja o reducere procentuală pe ${monthIssued}, dată de altcineva decât butonul. Două se adună și fac luna gratuită.`,
+                    message: `Familia are deja o reducere procentuală pe ${monthIssued}, dată de altcineva decât butonul, iar încă 50% s-ar aduna cu ea.`,
                     error: 'DISCOUNT_ALREADY_GRANTED',
                 });
             }

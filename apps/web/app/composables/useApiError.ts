@@ -58,7 +58,7 @@ const MESSAGES: Record<string, string> = {
   // E20/S5 — the one-press referral reward. The refusal has to say what would have happened,
   // because "already has one" sounds harmless and a free month is not.
   DISCOUNT_ALREADY_GRANTED:
-    "Pe luna aceea stă deja o reducere procentuală dată din formular. Încă una s-ar aduna cu ea și ar face luna gratuită — dacă asta vrei, dă-o tot din formular.",
+    "Pe luna aceea stă deja o reducere procentuală dată din formular, iar încă 50% s-ar aduna cu ea. Dacă asta vrei, dă-o tot din formular.",
   REFERRAL_NOTHING_TO_REVOKE: "Familia nu are nicio lună de recomandare de scos.",
 
   // E04/S5 and E22/S3. A withdrawal starts the clock on a family's data, so it is refused while
@@ -215,7 +215,7 @@ const MESSAGES: Record<string, string> = {
   DISCOUNT_PERCENT_OVER_100: "O reducere procentuală nu poate depăși 100%.",
   // E15/S6. The invoice was computed from the month's discounts when it was issued, never again.
   DISCOUNT_MONTH_INVOICED:
-    "Familia are deja factura pe luna aceea, iar suma ei nu se mai recalculează — reducerea n-ar ajunge pe ea. Corectează factura sau șterge-o și emite luna din nou; o factură fiscală se stornează în SmartBill.",
+    "Familia are deja factura pe luna aceea, iar suma ei nu se mai recalculează — reducerea n-ar ajunge pe ea. Șterge factura din Facturi, pe luna ei, și emite luna din nou; o factură fiscală se stornează în SmartBill.",
 
   // E16/S1. Money against a month the school chose not to charge for — the row picked is wrong.
   INVOICE_WAIVED: "Factura este anulată (0 lei) — nu se pot înregistra plăți pe ea.",

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNumber, IsEnum, Matches, Min } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsEnum, Matches, IsPositive } from 'class-validator';
 import { DiscountType } from 'src/enum/discount-type.enum';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 
@@ -12,8 +12,10 @@ export class UpdateDiscountDto {
 
     @ApiPropertyOptional({ example: 50 })
     @IsOptional()
-    @IsNumber({ maxDecimalPlaces: 2 })
-    @Min(0)
+    @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Reducerea se scrie cu cel mult două zecimale' })
+    // Zero takes nothing off, and was accepted: a row that reads as a discount and is none (QA of
+    // 26 September 2026).
+    @IsPositive({ message: 'Reducerea trebuie să fie mai mare decât zero' })
     value?: number;
 
     @ApiPropertyOptional({ example: '2026-01' })

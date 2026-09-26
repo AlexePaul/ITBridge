@@ -116,7 +116,18 @@ export const useInvoiceApi = () => {
       body: { number },
     });
 
+  /**
+   * Deletes an invoice issued by mistake, so its month can be issued again for the family. The API
+   * refuses one with payments on it or a fiscal document behind it, and says which.
+   */
+  const deleteInvoice = async (invoiceId: number) =>
+    api<void>(`/invoices/${invoiceId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
   return {
+    deleteInvoice,
     fetchFiscalQueue,
     retryFiscal,
     confirmFiscal,
