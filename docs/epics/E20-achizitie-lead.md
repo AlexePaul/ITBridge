@@ -471,6 +471,16 @@ pe formular e o decizie de produs, nu o reparație. Și un lead tastat de birou 
 sau înscriere legată de el: n-are profil și nu există o rută care să-l lege, deci sursele în afară de
 formular arată zero înscrieri în pâlnie — e un ecran de construit, nu un defect de reparat.
 
+### Testarea din 26 septembrie 2026: fișa cererii și frații programați separat
+
+- **`/admin/leads` deschide o cerere.** Lista nu se putea deschide: telefonul, proba, notele, pasul
+  următor, preluarea și „Am contactat" existau doar pe API, iar `POST /leads` n-avea niciun ecran.
+  `AdminLeadFile` e fișa, `AdminLeadNew` cererea venită la telefon sau la birou; „Pierdut" își
+  verifică motivul în dialog și nu mai înlocuiește pagina cu eroarea.
+- **Frații programați pe rând sunt două familii**, fiindcă fiecare programare scrie o coajă proprie.
+  Biroul mută copilul în familia lui din pagina copilului (`PUT /children/:id/family`), cu cererile
+  despre el, iar coaja goală se șterge; refuzat cât timp familia copilului are facturi.
+
 ## Dependențe
 
 [E17](E17-comunicare-notificari.md) pentru confirmări și memento-uri,

@@ -362,6 +362,11 @@ deja e o familie pe care n-o mai vede. Anularea **nu** compensează cu nimic: pr
 patra lecție la prețul a trei — o decizie de preț, nu o consecință a butonului. Dacă familia
 trebuie totuși mutată undeva, se mută, din `/admin/absente`.
 
+**Iar o oră nu se mută într-un moment care a trecut** (`CLASS_SESSION_MOVED_INTO_PAST`, testarea din 26
+septembrie 2026): o oră de pe 6 octombrie mutată pe 24 septembrie era primită, familiile primeau „se
+mută pe 24 septembrie", iar săptămâna aceea rămânea cu două ore. Comparația e pe ceasul școlii, ca
+text, ca toate celelalte „a început?".
+
 **O oră care nu se poate ține se recuperează dintr-un singur act, cheiat pe grupă și zi** (E12 S9).
 `RescheduleService` (`apps/api/src/modules/class-session/reschedule.service.ts`) nu pornește de la
 un id de ședință, fiindcă ora poate să nu fie un rând: o sărbătoare trecută în `/admin/calendar`
@@ -604,6 +609,17 @@ refuzul pe ea ar închide singura folosință rămasă rutei — un copil adăug
 greșeală. Ștergerea din E07 S4 nu trece pe aici: `ErasureService` șterge rândurile prin tranzacția
 lui, după ce citește cheile.
 
+**Un copil se mută în familia lui, nu se șterge și se adaugă din nou** (testarea din 26 septembrie
+2026). Fiecare programare de pe `/proba` scrie o familie-coajă proprie, fără email și fără telefon,
+dinadins — deci doi frați programați pe rând sunt două familii, iar o familie cu cont care programează
+o probă e tot două. Tariful de frate nu se aplica, iar familia a doua nu se mai putea scoate.
+`PUT /children/:id/family` (biroul, din pagina copilului) mută copilul cu tot ce e al lui — înscrieri,
+catalog, lucrări, acorduri, anunțuri de absență — și îndreaptă spre familia nouă cererile despre el,
+ca pâlnia și adresa programării să urmeze. **E refuzat cât timp familia copilului are vreo factură**
+(`CHILD_FAMILY_INVOICED`): o factură numără copiii familiei, iar mutarea ar împărți ce s-a facturat.
+Coaja rămasă goală se șterge apoi din pagina ei, cu ruta care refuză orice familie cu copii sau
+facturi.
+
 **Retragerea e o zi consemnată, iar ștergerea la termen e aceeași ștergere** (E04 S5, E22 S3).
 `Profile.withdrawnAt` e ziua în care școala a notat că familia a plecat — pusă de un admin din pagina
 familiei, prin `POST /privacy/retention/:profileId`, și anulabilă până la termen —, iar
@@ -629,6 +645,19 @@ chemând `ErasureService.erase` cu `SYSTEM_ACTOR` și cu motivul pentru jurnal. 
   sârmă: 12 luni pentru familie, pentru cererile de probă fără înscriere și pentru copiile mesajelor,
   30 de zile după expirare pentru linkurile de confirmare și de resetare. Nota de confidențialitate
   §7 le promite; dacă schimbi unul, schimbi și nota.
+
+**O ștergere pornește de la o cerere care e încă pe fișă, recitită sub lacăt** (testarea din 26
+septembrie 2026). `erase` verifica doar că familia nu fusese deja ștearsă, deci o familie care își
+retrăsese cererea era ștearsă din lista încărcată înainte — jurnalul spunea „cerere retrasă" și, trei
+secunde mai târziu, „ștergere la cererea familiei". Acum rândul familiei se recitește cu `FOR UPDATE`
+**după** lacătele grupelor (ordinea din `enrol`, care e și cel ce anulează o retragere), iar
+`assertStillDue` refuză o ștergere la cerere fără cerere (`NO_ERASURE_REQUEST`) și una la termen pe o
+familie care nu mai e retrasă (`FAMILY_NOT_WITHDRAWN`). **Cererea o poate consemna și biroul**, din
+pagina familiei, cu felul în care a venit — telefon, email, la birou —, fiindcă termenii §17 și nota
+§8 trimit familiile la școală, iar o familie fără cont n-are altă ușă; tot de acolo o retrage și
+exportă datele familiei. **Un rând șters rămâne închis**: editarea, un copil nou și o reducere pe el
+sunt refuzate (`PROFILE_ERASED`), fiindcă ștergerea și retenția îl sar ca terminat, deci ce s-ar
+scrie pe el n-ar mai scoate nimeni.
 
 **Un rând fără drum către familie se revendică doar printr-o adresă pe care o garantează cineva**
 (E07 S4, revizuirea din 25 septembrie 2026). `outbox` și lead-urile tastate de birou n-au relație
@@ -746,6 +775,15 @@ o familie să-și poată schimba doar majusculele), iar indexul unic `UQ_profile
 linia și pentru două cereri deodată. E un index pe expresie, scris de migrare: TypeORM nu-l
 poate descrie, deci nu stă pe entitate — și nici nu-l atinge, deci `check:schema` nu-l vede ca drift.
 
+**Formularul de autentificare nu aplică nicio regulă de parolă**, doar cere să fie tastată una
+(testarea din 26 septembrie 2026): cerea opt caractere, în timp ce înregistrarea pe server, linkul de
+resetare și schimbarea din cont primeau șase, deci o familie care își pusese „parola1" nu se mai putea
+autentifica — formularul nu trimitea cererea. Minimul pentru o parolă **nouă** e un singur număr pe
+fiecare parte: `MIN_PASSWORD_LENGTH` din `password-reset.service.ts` și din
+`apps/web/app/composables/useAuthForms.ts`. Iar numele de utilizator pierde spațiile de la capete
+(`@Trim()`, și în formular): o tastatură de telefon pune un spațiu după un cuvânt completat, iar
+„admin " devenea un cont nou lângă cel al biroului.
+
 `POST /auth/change-password` **cere parola actuală**, și nu e ceremonie: un access token ține un
 sfert de oră și e onorat fără să se atingă `sessions`, deci un telefon împrumutat sau un tab uitat
 deschis ajunge până la rută. Ce știe doar proprietarul e ce oprește schimbarea să fie la îndemâna
@@ -817,7 +855,9 @@ lucruri de ținut minte:
 - **Nicio rută nu refuză o cerere pentru asta.** §18 promite că portalul cere, nu că platforma se
   închide; poarta e `03.legal-acceptance.global.ts`, care **cedează cât timp ține poarta de profil**
   — două middleware-uri globale care redirecționează amândouă sunt o buclă fără eroare și fără log,
-  iar precedența e scrisă în fișierul care a venit al doilea.
+  iar precedența e scrisă în fișierul care a venit al doilea. **Și lasă să treacă `/user/profile`**
+  (`LEGAL_ACCEPTANCE_WAY_OUT`): §18 promite că cine nu acceptă poate închide contul, din Profil, iar
+  linkul de pe ecranul de acceptare era trimis înapoi pe același ecran.
 
 **Fiecare acceptare e confirmată pe email, cu ce s-a acceptat _atunci_** (termenii §4.7). Șablonul
 `legal-acceptance` se pune în coadă în tranzacția care scrie rândurile, la înregistrare și în
@@ -1913,6 +1953,12 @@ Patru reguli pe care le încalci ușor:
   mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca școala să știe că a
   trecut pe acolo. Numărul ăla e și singura măsură a cererii pe care școala nu o
   poate servi: cine nu găsește oră nu intră în nicio rată de conversie.
+- **Ecranul lucrează cererea, nu doar o listează** (testarea din 26 septembrie 2026). Lista nu se
+  deschidea: niciun telefon de sunat, nicio probă de citit, nicăieri de scris ce a spus familia, iar
+  „Am contactat", preluarea și eliberarea existau doar pe API — la fel `POST /leads`, deci o familie
+  care suna nu intra în pâlnie. `AdminLeadFile` e fișa, deschisă din fiecare listă a paginii, și
+  salvează câmp cu câmp doar ce s-a mișcat; `AdminLeadNew` scrie o cerere venită la telefon sau la
+  birou. Tot fără control de stare, din motivul de mai sus.
 - **`lastActivityAt` e o coloană proprie, nu `updatedAt`.** Job-ul de memento nu scrie în ea, deci un
   lead nu poate deveni „proaspăt" fiindcă a fost amintit.
 - **Un catalog nemarcat nu e o absență — și nici un copil nemarcat.** Recontactarea după
@@ -2149,6 +2195,20 @@ Factura poartă o singură linie de produs, deci corectura nu contrazice nicioda
 apără rândul e evidența școlii. **Catalogul, în schimb, nu stă sub lacătul lunii** — e al
 profesorului —, deci o oră marcată după emitere mută fișa, nu factura: rândul unei familii facturate
 arată suma de pe factură (`invoicedAmount`) și, când diferă, ce ar da cataloagele de acum.
+
+**O lună se emite după ce s-a predat, și poartă ziua în care s-a emis** (testarea din 26 septembrie
+2026). Ecranul pornea pe luna calendaristică curentă, citită în UTC, cu butonul activ de la prima
+familie ajunsă la zero, iar o apăsare pe 26 septembrie a consemnat octombrie „fără plată" pentru
+toate familiile: luna înghețată — reducerea de recomandare nu se mai putea scoate —, portalul spunând
+„octombrie · Fără plată", iar octombrie adevărat imposibil de emis. `POST /invoices/issue` refuză acum
+o lună a cărei ultimă săptămână de cursuri — duminica de după ultima ei luni, `to` din
+`teachingMonthRange` — nu e în urma zilei școlii (`MONTH_NOT_TAUGHT_YET`, regula e `monthIsTaught`),
+iar fișa spune același lucru ca `issuable`. **Data de pe factură e ziua apăsării**: ecranul trimitea
+întâi a lunii următoare, deci o lună emisă târziu era restantă de la sosire, iar una emisă devreme
+avea o dată din viitor; serverul refuză acum o dată încă neajunsă (`INVOICE_DATE_IN_FUTURE`).
+Suitele de integrare emit octombrie 2026 din cataloage scrise de ele, o lună la care ceasul mașinii
+n-a ajuns: `createTestApp` mută ceasul emiterii (`issuing-clock.ts`) după toate, iar regula are
+testele ei.
 
 **O probă decisă rămâne gratuită, iar prima și ultima zi a unei înscrieri le decide catalogul**
 (revizuirea din 25 septembrie 2026). Regula citea statusul: `TRIAL` nu se factura, dar în clipa în

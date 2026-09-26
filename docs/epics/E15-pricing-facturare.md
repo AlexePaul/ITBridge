@@ -761,6 +761,21 @@ reprodus și are un test care pică pe codul de dinainte.
   retrage copilul înainte ca profesorul să fi marcat ora, catalogul nu-l mai listează, iar ora nu se
   facturează. Aceeași ieșire: corectura pe copil, sau închiderea a doua zi.
 
+### Testarea din 26 septembrie 2026: luna care nu s-a predat încă
+
+S9 spunea că luna se facturează „abia după ce ultima ei ședință are catalog", dar nimic n-o ținea:
+ecranul pornea pe luna calendaristică curentă (în UTC), iar butonul era activ de la prima familie
+ajunsă la zero. O apăsare pe 26 septembrie a consemnat octombrie fără plată pentru toate familiile,
+cu data de 1 noiembrie — luna înghețată, reducerea de recomandare de nescos, octombrie adevărat
+imposibil de emis. Acum:
+
+- **`POST /invoices/issue` refuză o lună nepredată** (`MONTH_NOT_TAUGHT_YET`): ultima ei săptămână —
+  duminica de după ultima ei luni — trebuie să fie în urma zilei școlii. Fișa poartă `issuable`, iar
+  ecranul pornește pe luna trecută și spune de când se poate emite luna curentă.
+- **Data de pe factură e ziua apăsării**, nu întâi a lunii următoare: aceea făcea o lună emisă târziu
+  restantă de la sosire și una emisă devreme datată în viitor. Serverul refuză o dată încă neajunsă
+  (`INVOICE_DATE_IN_FUTURE`).
+
 ## Dependențe
 
 [E10](E10-curriculum-module.md) pentru ce e un modul, [E11](E11-inscrieri-capacitate.md) pentru cine
