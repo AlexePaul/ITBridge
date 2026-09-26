@@ -235,6 +235,22 @@
       </template>
     </AdminConfirmModal>
 
+    <AdminConfirmModal
+      v-model:open="fullOpen"
+      title="Grupa e plină"
+      confirm-label="Pune pe lista de așteptare"
+      :loading="isLoading"
+      @confirm="addFullToWaitlist"
+    >
+      <template #body>
+        <p>{{ fullMessage }}</p>
+        <p class="text-sm text-muted mt-3">
+          Pe listă, copilul primește primul loc care se eliberează, în ordinea cererilor, iar
+          familia are 48 de ore să răspundă la email.
+        </p>
+      </template>
+    </AdminConfirmModal>
+
     <UModal v-model:open="warningOpen" title="Confirmi înscrierea?">
       <template #body>
         <p>{{ warningMessage }}</p>
@@ -389,6 +405,15 @@ const handleAddChild = async (childId: number, acknowledgeWarnings = false) => {
       warningOpen.value = true;
       return;
     }
+    // The refusal ends with "Poți pune copilul pe lista de așteptare", and until now nothing on any
+    // screen could (QA of 26 September 2026): `POST /enrollments/waitlist` had no caller. The
+    // sentence keeps its numbers — which class is full, and why — and the answer is one press away.
+    if (apiErrorCode(err) === "GROUP_FULL") {
+      fullChildId.value = childId;
+      fullMessage.value = apiErrorMessage(err);
+      fullOpen.value = true;
+      return;
+    }
     // The API names the rest — a full group, a child already enrolled elsewhere, a family still
     // waiting for approval — and `useApiError` has the Romanian sentence for each.
     error(apiErrorMessage(err, "Eroare la adăugarea copilului"));
@@ -401,6 +426,29 @@ const confirmWarning = async () => {
   const childId = warningChildId.value;
   warningOpen.value = false;
   if (childId !== null) await handleAddChild(childId, true);
+};
+
+const fullOpen = ref(false);
+const fullMessage = ref("");
+const fullChildId = ref<number | null>(null);
+
+const addFullToWaitlist = async () => {
+  const childId = fullChildId.value;
+  const groupId = Number(group.value?.id);
+  if (childId === null || !groupId) return;
+  try {
+    isLoading.value = true;
+    await enrollmentsApi.addToWaitlist({ childId, groupId });
+    fullOpen.value = false;
+    await refreshSeats(groupId);
+    success(
+      "Copilul e pe lista de așteptare. Familia primește un email când se eliberează un loc."
+    );
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut pune copilul pe lista de așteptare."));
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 const removeOpen = ref(false);
