@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { User } from 'src/entities/user.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Role } from 'src/enum/role.enum';
@@ -11,6 +11,8 @@ import { loginUrl } from 'src/modules/auth/portal-urls';
 import { officeAddress } from 'src/modules/mail/office-address';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
+import { claimedFamiliesOf, claimedFamilyOf } from 'src/modules/auth/claimant';
+import { sameAddress } from 'src/common/same-address';
 
 /**
  * The second gate of E11/S2, and the whole of D2: the school decides who gets in.
@@ -32,6 +34,8 @@ export interface PendingAccount {
     lastName: string | null;
     email: string | null;
     phone: string | null;
+    /** The family an account created from a claim link asks to be attached to; its names and contacts are the ones above. */
+    claimedProfileId: number | null;
 }
 
 /** One row of the refused list: the same, plus when the school decided and the admins' own note. */
@@ -96,34 +100,45 @@ export class AccountApprovalService {
         }));
     }
 
-    /** One row per account, with the family's name and contact read in a single query. */
+    /**
+     * One row per account, with the family's name and contact read in a single query.
+     *
+     * An account created from a claim link has no family attached yet, and its row carries the
+     * family it claimed instead (`claimedProfileId`): that is the family the office is being asked
+     * to hand over, and a row of nulls would ask it to approve a stranger blind.
+     */
     private async rowsFor(users: User[]): Promise<PendingAccount[]> {
         if (users.length === 0) {
             return [];
         }
+        const ids = users.map((user) => user.id);
 
         // One query for the profiles rather than one per user. `Profile.user` is the owning side,
         // so the join goes this way round.
         const profiles = await this.profileRepository
             .createQueryBuilder('profile')
             .leftJoin('profile.user', 'user')
-            .where('user.id IN (:...ids)', { ids: users.map((user) => user.id) })
+            .where('user.id IN (:...ids)', { ids })
             .addSelect('user.id')
             .getMany();
-
         const byUserId = new Map(profiles.filter((profile) => profile.user).map((profile) => [profile.user?.id, profile]));
+
+        const claimedBy = await claimedFamiliesOf(this.dataSource.manager, ids);
 
         return users.map((user) => {
             const profile = byUserId.get(user.id);
+            const claimed = profile ? undefined : claimedBy.get(user.id);
+            const family = profile ?? claimed;
             return {
                 userId: user.id,
                 username: user.username,
                 createdAt: user.createdAt,
                 emailConfirmed: user.emailConfirmedAt !== null,
-                firstName: profile?.firstName ?? null,
-                lastName: profile?.lastName ?? null,
-                email: profile?.email ?? null,
-                phone: profile?.phone ?? null,
+                firstName: family?.firstName ?? null,
+                lastName: family?.lastName ?? null,
+                email: family?.email ?? null,
+                phone: family?.phone ?? null,
+                claimedProfileId: claimed?.id ?? null,
             };
         });
     }
@@ -137,18 +152,62 @@ export class AccountApprovalService {
      * sign in is a parent who goes and finds the confirmation mail, which is the action we want.
      */
     async approve(userId: number, actor: Actor): Promise<{ message: string }> {
-        const user = await this.requireParent(userId);
-
-        if (user.approvalStatus === ApprovalStatus.APPROVED) {
-            // Idempotent rather than a 409: two admins opening the queue at once is normal, and the
-            // second click has already got what it asked for.
-            return { message: 'Contul era deja aprobat' };
-        }
-
-        const profile = await this.profileRepository.findOne({ where: { user: { id: userId } } });
+        await this.requireParent(userId);
         const now = new Date();
 
-        await this.dataSource.transaction(async (manager) => {
+        const approved = await this.dataSource.transaction(async (manager) => {
+            // An account created from a claim link is attached to its family here, not at the claim
+            // (review of 26 September 2026) — see `claimant.ts`. The family's row is locked before
+            // the account's, the order the claim and the erasure take them in.
+            const claimed = await claimedFamilyOf(manager, userId);
+            const claimedProfile = claimed ? await this.lockProfile(manager, claimed.profile.id) : null;
+            const user = await manager.getRepository(User).findOne({ where: { id: userId }, lock: { mode: 'pessimistic_write' } });
+            if (!user) {
+                throw new NotFoundException('User not found');
+            }
+
+            if (user.approvalStatus === ApprovalStatus.APPROVED) {
+                // Idempotent rather than a 409: two admins opening the queue at once is normal, and
+                // the second click has already got what it asked for. Judged under the lock, so the
+                // second one waits for the first and neither writes twice nor mails twice.
+                return false;
+            }
+
+            let profile: Profile | null;
+            if (claimed) {
+                // Read again under the lock: the family must still be the one the link was sent to,
+                // at the address the account proved. A correction of the address since means the
+                // link reached a mailbox that is no longer the family's; an account attached since,
+                // or an erasure, means there is nothing left to hand over.
+                if (
+                    !claimedProfile ||
+                    claimedProfile.user ||
+                    claimedProfile.erasedAt !== null ||
+                    !claimedProfile.email ||
+                    !sameAddress(claimedProfile.email, claimed.email)
+                ) {
+                    throw new ConflictException({
+                        message: `The family account ${userId} was created for has changed since the claim; reject it and send the family a new link.`,
+                        error: 'CLAIMED_FAMILY_CHANGED',
+                    });
+                }
+                await manager.update(Profile, { id: claimedProfile.id }, { user: { id: userId } });
+                await this.audit.recordPersonalDataChange(
+                    {
+                        actor,
+                        action: AuditAction.UPDATED,
+                        entityType: 'Profile',
+                        entityId: claimedProfile.id,
+                        fields: ['user'],
+                        note: 'cont creat din linkul de cont, legat de familie la aprobare',
+                    },
+                    manager,
+                );
+                profile = claimedProfile;
+            } else {
+                profile = await manager.findOne(Profile, { where: { user: { id: userId } } });
+            }
+
             await manager.update(User, { id: userId }, { approvalStatus: ApprovalStatus.APPROVED, approvalDecidedAt: now, rejectionReason: null });
 
             // E17/S5: a family with no address is **recorded as undeliverable**, not skipped. The
@@ -177,8 +236,12 @@ export class AccountApprovalService {
                 },
                 manager,
             );
+            return true;
         });
 
+        if (!approved) {
+            return { message: 'Contul era deja aprobat' };
+        }
         this.logger.log(`User ${userId} approved.`);
         return { message: 'Cont aprobat' };
     }
@@ -192,28 +255,41 @@ export class AccountApprovalService {
      * `account-rejected` template's description in `template-defaults.ts`.
      */
     async reject(userId: number, actor: Actor, reason?: string): Promise<{ message: string }> {
-        const user = await this.requireParent(userId);
-
-        if (user.approvalStatus === ApprovalStatus.APPROVED) {
-            throw new BadRequestException({
-                message: 'Contul este deja aprobat. Dezactivarea unui cont activ nu se face de aici.',
-                error: 'ACCOUNT_ALREADY_APPROVED',
-            });
-        }
-
-        if (user.approvalStatus === ApprovalStatus.REJECTED) {
-            return { message: 'Contul era deja respins' };
-        }
-
-        const profile = await this.profileRepository.findOne({ where: { user: { id: userId } } });
+        await this.requireParent(userId);
         const now = new Date();
 
-        await this.dataSource.transaction(async (manager) => {
+        const rejected = await this.dataSource.transaction(async (manager) => {
+            // Under the account's lock, so a refusal and an approval pressed together are judged one
+            // after the other, each on what the other left.
+            const user = await manager.getRepository(User).findOne({ where: { id: userId }, lock: { mode: 'pessimistic_write' } });
+            if (!user) {
+                throw new NotFoundException('User not found');
+            }
+            if (user.approvalStatus === ApprovalStatus.APPROVED) {
+                throw new BadRequestException({
+                    message: 'Contul este deja aprobat. Dezactivarea unui cont activ nu se face de aici.',
+                    error: 'ACCOUNT_ALREADY_APPROVED',
+                });
+            }
+            if (user.approvalStatus === ApprovalStatus.REJECTED) {
+                return false;
+            }
+
+            // An account created from a claim link has no family attached; the refusal goes to the
+            // address the link was sent to, which the account proved, greeting it as the link did.
+            const profile = await manager.findOne(Profile, { where: { user: { id: userId } } });
+            const claimed = profile ? null : await claimedFamilyOf(manager, userId);
+            const addressee = profile
+                ? { firstName: profile.firstName, email: profile.email }
+                : claimed
+                  ? { firstName: claimed.profile.firstName, email: claimed.email }
+                  : null;
+
             await manager.update(User, { id: userId }, { approvalStatus: ApprovalStatus.REJECTED, approvalDecidedAt: now, rejectionReason: reason ?? null });
 
-            const mail = await this.mailTemplates.render('account-rejected', { firstName: profile?.firstName ?? '', officeEmail: this.office });
+            const mail = await this.mailTemplates.render('account-rejected', { firstName: addressee?.firstName ?? '', officeEmail: this.office });
             await this.outbox.queueOrRecord(
-                { email: profile?.email },
+                { email: addressee?.email },
                 { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined },
                 manager,
             );
@@ -233,10 +309,28 @@ export class AccountApprovalService {
                 },
                 manager,
             );
+            return true;
         });
 
+        if (!rejected) {
+            return { message: 'Contul era deja respins' };
+        }
         this.logger.log(`User ${userId} rejected.`);
         return { message: 'Cont respins' };
+    }
+
+    /**
+     * The family's row, locked, with its account. `FOR UPDATE OF` the one table: Postgres refuses to
+     * lock the nullable side of an outer join.
+     */
+    private lockProfile(manager: EntityManager, profileId: number): Promise<Profile | null> {
+        return manager
+            .getRepository(Profile)
+            .createQueryBuilder('profile')
+            .leftJoinAndSelect('profile.user', 'user')
+            .andWhere('profile.id = :id', { id: profileId })
+            .setLock('pessimistic_write', undefined, ['profile'])
+            .getOne();
     }
 
     /**

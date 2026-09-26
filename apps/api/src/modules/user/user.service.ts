@@ -40,13 +40,22 @@ export class UserService {
      * `NOT EXISTS` has no such behaviour with NULLs.
      */
     async getUsersWithoutProfile(): Promise<User[]> {
-        return this.userRepository
-            .createQueryBuilder('user')
-            .where((qb) => {
-                const subQuery = qb.subQuery().select('1').from('profiles', 'profile').where('profile.user_id = user.id').getQuery();
-                return `NOT EXISTS ${subQuery}`;
-            })
-            .getMany();
+        return (
+            this.userRepository
+                .createQueryBuilder('user')
+                .where((qb) => {
+                    const subQuery = qb.subQuery().select('1').from('profiles', 'profile').where('profile.user_id = user.id').getQuery();
+                    return `NOT EXISTS ${subQuery}`;
+                })
+                // Not an account created from a claim link: it already has its family, waiting for the
+                // office's approval to attach it, and linking it to another from this picker would hand
+                // that one over without the check the approval is (review of 26 September 2026).
+                .andWhere((qb) => {
+                    const subQuery = qb.subQuery().select('1').from('account_claims', 'claim').where('claim.user_id = user.id').getQuery();
+                    return `NOT EXISTS ${subQuery}`;
+                })
+                .getMany()
+        );
     }
 
     async getUserById(id: number): Promise<User> {

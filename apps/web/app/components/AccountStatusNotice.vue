@@ -47,6 +47,10 @@
           <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a> și ne uităm încă o
           dată.
         </p>
+        <p v-else-if="gates.awaitingFamily" class="body-text">
+          Un coleg confirmă că acest cont e al familiei tale și apoi îl leagă de datele ei. Nu
+          trebuie să faci nimic — primești un email când e gata.
+        </p>
         <p v-else class="body-text">
           Un coleg confirmă că ești în evidența școlii. Nu trebuie să faci nimic.
         </p>
@@ -59,7 +63,16 @@
       merely said "your account is pending" would describe a locked door that is not locked, and a
       parent would stop looking for the invoice that is right there.
     -->
-    <p class="portal-empty">
+    <!--
+      An account created from a claim link is not attached to its family until the office approves it
+      (review of 26 September 2026), so for it the footer above would be untrue: nothing of the family
+      is shown yet, and saying so is what stops the empty portal reading as a lost family.
+    -->
+    <p v-if="gates.awaitingFamily" class="portal-empty">
+      Până atunci contul nu arată nimic din datele familiei: copiii, prezența și facturile apar după
+      ce școala leagă contul.
+    </p>
+    <p v-else class="portal-empty">
       Până se închid amândouă, un singur lucru nu e disponibil:
       <strong>înscrierea unui copil într-o grupă</strong>. Restul contului funcționează normal.
     </p>
@@ -102,6 +115,7 @@ const gates = computed(() => {
     emailDone: Boolean(user.emailConfirmed),
     schoolDone: user.approvalStatus === "APPROVED",
     rejected: user.approvalStatus === "REJECTED",
+    awaitingFamily: Boolean(user.awaitingFamily),
   };
 });
 

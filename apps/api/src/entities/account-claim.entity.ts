@@ -1,5 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Profile } from './profile.entity';
+import { User } from './user.entity';
 
 /**
  * One row per link that lets a family the office typed in create its own account.
@@ -22,9 +23,15 @@ import { Profile } from './profile.entity';
  * - **Forty-eight hours**, like the confirmation link and not the reset's hour: this one is sent
  *   on the office's initiative as often as the family's, and may well wait for a Sunday morning.
  *   Nothing is open meanwhile — the account it creates still waits for the office's approval.
+ * - **The account it creates is not attached to the family until the office approves it** (review
+ *   of 26 September 2026). Proving a mailbox proves whoever reads it, and an address the office
+ *   mistyped is a stranger's; attached at once, that stranger read the children, the invoices and
+ *   the register, and could move the address, before anybody at the school looked. Until approval,
+ *   `user` is the only tie between the two — see `claimant.ts`.
  */
 @Entity('account_claims')
 @Index('IDX_account_claims_profile_id', ['profile'])
+@Index('IDX_account_claims_user_id', ['user'])
 export class AccountClaim {
     @PrimaryGeneratedColumn('increment')
     id: number;
@@ -53,4 +60,13 @@ export class AccountClaim {
     /** Set the moment an account was created from the link. A second use finds this set and is refused. */
     @Column({ type: 'timestamptz', nullable: true })
     usedAt: Date | null;
+
+    /**
+     * The account created from the link, set with `usedAt`. Until the office approves it, this is
+     * the only thing saying which family the account is for: `profiles.user_id` is written at
+     * approval, not here. `CASCADE`: a claim whose account is gone ties nothing to anything.
+     */
+    @ManyToOne(() => User, { onDelete: 'CASCADE', nullable: true })
+    @JoinColumn({ name: 'user_id' })
+    user: User | null;
 }

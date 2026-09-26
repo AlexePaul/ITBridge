@@ -54,11 +54,46 @@
           </div>
         </div>
 
+        <!-- Review of 26 September 2026: an account created from the claim link is not attached to
+             the family until the office approves it, here or in Aprobări — approving is what hands
+             the family's data over. A refused one no longer stands in the way of a new link: it may
+             have been a stranger's, and the real family may still be without a way in. -->
+        <div
+          v-if="profile.account?.viaClaim && !profile.erasedAt"
+          class="mt-6 border-t border-default pt-4 flex flex-wrap items-center gap-3"
+        >
+          <UBadge :color="account.color" variant="subtle">{{ account.label }}</UBadge>
+          <p class="text-sm text-muted flex-1 min-w-0">
+            Cont creat din linkul de cont, încă nelegat de familie. Aprobarea îl leagă și îi arată
+            datele familiei — dacă nu ești sigur că e al familiei, sun-o întâi. Îl poți respinge din
+            <NuxtLink to="/admin/approvals" class="text-primary underline">Aprobări</NuxtLink>.
+          </p>
+          <UButton
+            v-if="account.canApprove"
+            icon="i-lucide-check"
+            class="min-h-11"
+            :loading="approvalBusy"
+            @click="approveAccount"
+          >
+            Aprobă
+          </UButton>
+          <UButton
+            v-if="profile.account.approvalStatus === 'REJECTED' && profile.email"
+            icon="i-lucide-send"
+            variant="outline"
+            class="min-h-11"
+            :loading="claimBusy"
+            @click="sendAccountClaim"
+          >
+            Trimite un link nou
+          </UButton>
+        </div>
+
         <!-- E11 S2, review of 26 September 2026: a family the office typed in has no account and no
              way to make one on its own — the register form refused its address. The link goes to
              the address on file and the family creates the account there. -->
         <div
-          v-if="!profile.hasUser && !profile.erasedAt"
+          v-else-if="!profile.hasUser && !profile.erasedAt"
           class="mt-6 border-t border-default pt-4 flex flex-wrap items-center gap-3"
         >
           <UBadge color="neutral" variant="subtle">Fără cont</UBadge>
@@ -609,12 +644,15 @@ const approveAccount = async () => {
   approvalBusy.value = true;
   try {
     await userApi.approveAccount(current.userId);
+    // Approving an account created from the claim link attaches it to this family.
     profile.value = {
       ...profile.value,
+      hasUser: profile.value.hasUser || current.viaClaim,
       account: {
         ...current,
         approvalStatus: "APPROVED",
         approvalDecidedAt: new Date().toISOString(),
+        viaClaim: false,
       },
     };
     success("Cont aprobat", "Familia a fost anunțată prin email.");

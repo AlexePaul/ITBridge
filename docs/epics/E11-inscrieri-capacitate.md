@@ -267,6 +267,14 @@ din pagina familiei. O adresă care are deja cont e refuzată ca înainte. Aleg�
 care n-au profil, și cel mult un cont al cărui profil a fost șters. Detaliile sunt în `CLAUDE.md`,
 la „Al patrulea link".
 
+**Și contul se leagă de familie la aprobare, nu la link** (a doua revizuire din aceeași zi, a
+securității). Legat pe loc, contul deschidea datele familiei oricui citea cutia la care plecase
+linkul — iar o adresă tastată greșit de birou e a unui străin, care vedea copiii, facturile și
+catalogul, descărca exportul și putea muta adresa înainte să se uite cineva de la școală. Acum
+contul creat din link așteaptă fără familie: portalul îi arată doar mesajul de așteptare, iar
+aprobarea din Aprobări sau din pagina familiei îl leagă, după ce verifică din nou că adresa din fișă
+e cea la care a plecat linkul. Cât așteaptă, nu pleacă alt link; unul respins nu mai oprește nimic.
+
 ### S3 · Capacitate și listă de așteptare — **LIVRAT**
 
 > **Ce s-a construit.** Capacitatea se aplică la înscriere, și numărul care contează e

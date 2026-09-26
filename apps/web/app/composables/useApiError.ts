@@ -280,6 +280,13 @@ const MESSAGES: Record<string, string> = {
   CLAIM_TOKEN_INVALID:
     "Linkul nu mai este valabil: a expirat, a fost folosit deja sau între timp a plecat unul mai nou. Înregistrează-te din nou cu aceeași adresă și îți trimitem altul.",
   PROFILE_HAS_ACCOUNT: "Familia are deja un cont, deci nu mai are nevoie de link.",
+  // Review of 26 September 2026: an account created from the claim link waits for approval.
+  PROFILE_HAS_PENDING_ACCOUNT:
+    "Familia are deja un cont creat din link, care așteaptă aprobarea. Aprobă-l sau respinge-l întâi.",
+  ACCOUNT_AWAITS_FAMILY:
+    "Contul așteaptă ca școala să-l lege de familia pentru care a fost creat, deci nu primește altă familie.",
+  CLAIMED_FAMILY_CHANGED:
+    "Familia pentru care a fost creat contul s-a schimbat între timp (altă adresă, un cont legat sau o ștergere). Respinge contul și trimite familiei un link nou.",
   PROFILE_HAS_NO_EMAIL:
     "Familia nu are o adresă de email în fișă. Completează adresa, apoi trimite linkul.",
 };

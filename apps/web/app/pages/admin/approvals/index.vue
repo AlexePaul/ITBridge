@@ -51,6 +51,20 @@
             Poți aproba acum, dar contul rămâne inactiv până când părintele deschide linkul primit
             pe email.
           </p>
+          <!--
+            An account created from a claim link asks to be handed a family the office already holds
+            (review of 26 September 2026): approving is what attaches it, and the names above are
+            that family's. The link proved the mailbox; an address typed wrong is a stranger's.
+          -->
+          <p v-if="account.claimedProfileId" class="text-sm">
+            Creat din linkul de cont al familiei.
+            <NuxtLink
+              :to="`/admin/profiles/${account.claimedProfileId}`"
+              class="text-primary underline"
+              >Vezi familia</NuxtLink
+            >. Aprobarea leagă contul de datele ei — dacă nu ești sigur că e al familiei, sun-o
+            întâi.
+          </p>
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
@@ -93,6 +107,14 @@
             <p class="text-sm text-muted">
               Respins {{ decidedOn(account.decidedAt) }}
               <template v-if="account.rejectionReason"> · {{ account.rejectionReason }}</template>
+            </p>
+            <p v-if="account.claimedProfileId" class="text-sm text-muted">
+              Creat din linkul de cont al familiei ·
+              <NuxtLink
+                :to="`/admin/profiles/${account.claimedProfileId}`"
+                class="text-primary underline"
+                >vezi familia</NuxtLink
+              >
             </p>
           </div>
           <UButton

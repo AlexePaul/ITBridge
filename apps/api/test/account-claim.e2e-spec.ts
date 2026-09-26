@@ -12,6 +12,7 @@ import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
 import { AuditLog } from 'src/entities/audit-log.entity';
 import { AccountClaimService } from 'src/modules/auth/account-claim.service';
 import { ACCEPTED_AT_REGISTRATION } from 'src/modules/auth/legal-documents';
+import { RetentionService } from 'src/modules/privacy/retention.service';
 
 /**
  * A family the office typed in creates its own account — E11 S2, review of 26 September 2026.
@@ -180,7 +181,10 @@ describe('Account claim (e2e)', () => {
     });
 
     describe('POST /auth/claim', () => {
-        it('creates the account on the office profile: confirmed, pending, with its acceptances, and it can sign in', async () => {
+        // Review of 26 September 2026: the account used to be attached to the office's row at once, so
+        // whoever read the mailbox the link went to — a stranger's, when the office mistyped it — read
+        // the family's data before anybody at the school had looked. It waits for approval now.
+        it('creates the account from the link without attaching it: confirmed, pending, with its acceptances, and it can sign in', async () => {
             const profileId = await officeFamily();
             await request(app.getHttpServer())
                 .post('/auth/register')
@@ -193,8 +197,10 @@ describe('Account claim (e2e)', () => {
             expect(res.body.refreshToken).toEqual(expect.any(String));
 
             const profile = await dataSource.getRepository(Profile).findOneOrFail({ where: { id: profileId }, relations: { user: true } });
-            expect(profile.user?.username).toBe('ana.popescu');
-            const user = await dataSource.getRepository(User).findOneOrFail({ where: { id: profile.user?.id } });
+            expect(profile.user).toBeNull();
+            const [claim] = await dataSource.getRepository(AccountClaim).find({ relations: { user: true } });
+            expect(claim.user?.username).toBe('ana.popescu');
+            const user = await dataSource.getRepository(User).findOneOrFail({ where: { id: claim.user?.id } });
             expect(user.role).toBe('PARENT');
             expect(user.emailConfirmedAt).not.toBeNull();
             expect(user.approvalStatus).toBe('PENDING');
@@ -210,11 +216,11 @@ describe('Account claim (e2e)', () => {
             ).toBe(true);
             expect(queued.some((m) => m.subject === 'Cont nou de părinte: Ana Popescu')).toBe(true);
 
-            const trail = await dataSource.getRepository(AuditLog).find({ where: { entityType: 'Profile', entityId: profileId } });
+            const trail = await dataSource.getRepository(AuditLog).find({ where: { entityType: 'AccountClaim', entityId: claim.id } });
             expect(trail.map((entry) => Object.keys(entry.changes ?? {}))).toContainEqual(['user']);
 
             const me = await request(app.getHttpServer()).get('/auth/me').set('Authorization', `Bearer ${res.body.accessToken}`).expect(200);
-            expect(me.body).toMatchObject({ emailConfirmed: true, approvalStatus: 'PENDING', active: false, pendingLegalDocuments: [] });
+            expect(me.body).toMatchObject({ emailConfirmed: true, approvalStatus: 'PENDING', active: false, awaitingFamily: true, pendingLegalDocuments: [] });
 
             await request(app.getHttpServer()).post('/auth/login').send({ username: 'ana.popescu', password: 'parola-noua' }).expect(200);
         });
@@ -346,6 +352,129 @@ describe('Account claim (e2e)', () => {
                 .expect(400);
             // Neither refusal spent the link.
             await request(app.getHttpServer()).post('/auth/claim').send(claimBody(token)).expect(201);
+        });
+    });
+
+    // Review of 26 September 2026: an account created from a claim link is attached to its family
+    // when the office approves it. Until then it reads nothing of the family, writes no second one,
+    // and stands in the way of no family's own account for longer than it takes to refuse it.
+    describe('an account waiting to be attached to its family', () => {
+        /** The family, a child of it, and an account created from the link — not attached yet. */
+        const claimed = async () => {
+            const profileId = await officeFamily();
+            await request(app.getHttpServer())
+                .post('/children')
+                .set('Authorization', admin.auth)
+                .send({ firstName: 'Maria', lastName: 'Popescu', birthDate: '2016-03-04', parentId: profileId })
+                .expect(201);
+            await request(app.getHttpServer()).post(`/profiles/${profileId}/account-claim`).set('Authorization', admin.auth).expect(200);
+            const res = await request(app.getHttpServer())
+                .post('/auth/claim')
+                .send(claimBody(await tokenFromMail()))
+                .expect(201);
+            const [claim] = await dataSource.getRepository(AccountClaim).find({ relations: { user: true } });
+            return { profileId, userId: claim.user?.id as number, auth: `Bearer ${res.body.accessToken as string}` };
+        };
+
+        it('reads nothing of the family and writes no second one until the office approves it', async () => {
+            const { auth } = await claimed();
+
+            expect((await request(app.getHttpServer()).get('/children').set('Authorization', auth).expect(200)).body).toEqual([]);
+            expect((await request(app.getHttpServer()).get('/profiles').set('Authorization', auth).expect(200)).body).toEqual([]);
+            expect((await request(app.getHttpServer()).get('/invoices').set('Authorization', auth).expect(200)).body).toEqual([]);
+            await request(app.getHttpServer()).get('/privacy/export').set('Authorization', auth).expect(404);
+
+            const second = await request(app.getHttpServer())
+                .post('/profiles')
+                .set('Authorization', auth)
+                .send({ firstName: 'Ana', lastName: 'Popescu' })
+                .expect(409);
+            expect(second.body.code).toBe('ACCOUNT_AWAITS_FAMILY');
+            expect(await dataSource.getRepository(Profile).count()).toBe(2);
+        });
+
+        it('is shown to the office with the family it asks for, and approving attaches it', async () => {
+            const { profileId, userId, auth } = await claimed();
+
+            const queue = await request(app.getHttpServer()).get('/users/pending').set('Authorization', admin.auth).expect(200);
+            expect(queue.body).toContainEqual(expect.objectContaining({ userId, claimedProfileId: profileId, firstName: 'Ana', email: OFFICE_EMAIL }));
+            const [family] = (await request(app.getHttpServer()).get(`/profiles?profileId=${profileId}`).set('Authorization', admin.auth).expect(200)).body;
+            expect(family).toMatchObject({ hasUser: false, account: { userId, approvalStatus: 'PENDING', viaClaim: true } });
+            const picker = await request(app.getHttpServer()).get('/users/without-profile').set('Authorization', admin.auth).expect(200);
+            expect(picker.body.map((user: { id: number }) => user.id)).not.toContain(userId);
+
+            await request(app.getHttpServer()).post(`/users/${userId}/approve`).set('Authorization', admin.auth).expect(200);
+
+            const attached = await dataSource.getRepository(Profile).findOneOrFail({ where: { id: profileId }, relations: { user: true } });
+            expect(attached.user?.id).toBe(userId);
+            const trail = await dataSource.getRepository(AuditLog).find({ where: { entityType: 'Profile', entityId: profileId } });
+            expect(trail.map((entry) => Object.keys(entry.changes ?? {}))).toContainEqual(['user']);
+            const me = await request(app.getHttpServer()).get('/auth/me').set('Authorization', auth).expect(200);
+            expect(me.body).toMatchObject({ awaitingFamily: false, approvalStatus: 'APPROVED', active: true });
+            const children = await request(app.getHttpServer()).get('/children').set('Authorization', auth).expect(200);
+            expect(children.body.map((child: { firstName: string }) => child.firstName)).toEqual(['Maria']);
+        });
+
+        it('is not approved into a family whose address the office corrected since the link went out', async () => {
+            const { profileId, userId } = await claimed();
+            await request(app.getHttpServer())
+                .put(`/profiles/${profileId}`)
+                .set('Authorization', admin.auth)
+                .send({ email: 'ana.pop@example.com' })
+                .expect(200);
+
+            const refused = await request(app.getHttpServer()).post(`/users/${userId}/approve`).set('Authorization', admin.auth).expect(409);
+
+            expect(refused.body.code).toBe('CLAIMED_FAMILY_CHANGED');
+            const family = await dataSource.getRepository(Profile).findOneOrFail({ where: { id: profileId }, relations: { user: true } });
+            expect(family.user).toBeNull();
+            expect((await dataSource.getRepository(User).findOneByOrFail({ id: userId })).approvalStatus).toBe('PENDING');
+        });
+
+        it('stops a second link while it waits, and stops nothing once the office refuses it', async () => {
+            const { profileId, userId } = await claimed();
+
+            const busy = await request(app.getHttpServer()).post(`/profiles/${profileId}/account-claim`).set('Authorization', admin.auth).expect(409);
+            expect(busy.body.code).toBe('PROFILE_HAS_PENDING_ACCOUNT');
+            const taken = await request(app.getHttpServer())
+                .post('/auth/register')
+                .send({ ...registrationBody('altcineva'), email: OFFICE_EMAIL })
+                .expect(409);
+            expect(taken.body.code).toBe('EMAIL_TAKEN');
+
+            await request(app.getHttpServer()).post(`/users/${userId}/reject`).set('Authorization', admin.auth).send({}).expect(200);
+            // The refusal goes to the address the link proved, since no family is attached to write to.
+            expect(await lastMailTo(OFFICE_EMAIL)).toMatchObject({ subject: 'Despre contul tău IT Bridge School' });
+
+            await request(app.getHttpServer()).post(`/profiles/${profileId}/account-claim`).set('Authorization', admin.auth).expect(200);
+            const family = await dataSource.getRepository(Profile).findOneOrFail({ where: { id: profileId }, relations: { user: true } });
+            expect(family.user).toBeNull();
+        });
+
+        it("is in the family's data copy, and goes with the family when the family is erased", async () => {
+            const { profileId, userId } = await claimed();
+
+            const copy = await request(app.getHttpServer()).get(`/privacy/export/${profileId}`).set('Authorization', admin.auth).expect(200);
+            expect(copy.body.cont).toMatchObject({ utilizator: 'ana.popescu' });
+
+            await request(app.getHttpServer())
+                .post(`/privacy/erasure/${profileId}/request`)
+                .set('Authorization', admin.auth)
+                .send({ via: 'phone' })
+                .expect(201);
+            await request(app.getHttpServer()).post(`/privacy/erasure/${profileId}`).set('Authorization', admin.auth).expect(201);
+
+            expect(await dataSource.getRepository(User).findOneBy({ id: userId })).toBeNull();
+            expect(await dataSource.getRepository(AccountClaim).count()).toBe(0);
+        });
+
+        it("keeps the link it came from past the link's term, since the link is what ties it to the family", async () => {
+            await claimed();
+            await dataSource.query(`UPDATE account_claims SET "expiresAt" = now() - interval '90 days'`);
+
+            await app.get(RetentionService).run();
+
+            expect(await dataSource.getRepository(AccountClaim).count()).toBe(1);
         });
     });
 

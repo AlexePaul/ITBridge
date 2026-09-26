@@ -847,15 +847,30 @@ cont, nici coajă: emite un rând în `account_claims` și trimite la adresa din
 `account-claim`, cu un link spre `/auth/cont-familie`, iar formularul spune doar că școala are deja
 familia și că a plecat un link. Biroul poate trimite același link din pagina familiei
 (`POST /profiles/:id/account-claim`, cu `PROFILE_HAS_ACCOUNT`, `PROFILE_HAS_NO_EMAIL` și
-`PROFILE_ERASED`). `POST /auth/claim` (public, limitat ca `register`) creează contul **pe rândul
-biroului**, într-o tranzacție cu acceptările, confirmarea lor, anunțul către birou și urma în jurnal.
-Trei lucruri de ținut minte:
+`PROFILE_ERASED`). `POST /auth/claim` (public, limitat ca `register`) creează contul într-o
+tranzacție cu acceptările, confirmarea lor, anunțul către birou și urma în jurnal — **dar nu-l leagă
+încă de familie**. Patru lucruri de ținut minte:
 
-- **Ce dovedește linkul e cutia poștală, și ajunge.** Adresa unui profil fără cont e una pe care o
-  garantează biroul (`vouchedAddresses`), deci cine deschide linkul trimis acolo e familia. De aceea
-  contul se naște cu `emailConfirmedAt` pus: al doilea link ar dovedi același lucru.
-- **Contul rămâne `PENDING`.** Biroul știe familia, nu și că acest cont e al ei și nu al altcuiva
-  care citește aceeași cutie; aprobarea rămâne a școlii, ca pentru orice cont.
+- **Ce dovedește linkul e cutia poștală.** Adresa unui profil fără cont e una pe care o garantează
+  biroul (`vouchedAddresses`), deci contul se naște cu `emailConfirmedAt` pus: al doilea link ar
+  dovedi același lucru.
+- **Contul se leagă de familie la aprobare, nu la link** (revizuirea din 26 septembrie 2026). O cutie
+  poștală dovedită e a oricui o citește, iar o adresă tastată greșit de birou e a unui străin: legat
+  pe loc, străinul vedea copiii, facturile și catalogul familiei, descărca exportul și putea muta
+  adresa înainte să se uite cineva de la școală. Până la aprobare, singura legătură e
+  `AccountClaim.user` (`apps/api/src/modules/auth/claimant.ts`), iar `AccountApprovalService.approve`
+  scrie `profiles.user_id` sub lacătul familiei, după ce recitește adresa — `CLAIMED_FAMILY_CHANGED`
+  dacă biroul a corectat-o între timp, dacă familia are deja un cont legat sau dacă a fost ștearsă.
+  Cum orice citire a datelor unei familii merge pe `profiles.user_id`, contul nu vede nimic până
+  atunci, fără nicio verificare în plus pe rute. Portalul îi arată doar pagina de acasă, cu mesajul
+  de așteptare (`awaitingFamily` din `/auth/me`), iar poarta pasului doi nu se ridică: ar scrie o a
+  doua familie, pe care `POST /profiles` o refuză oricum (`ACCOUNT_AWAITS_FAMILY`). Coada din Aprobări
+  și pagina familiei spun ce familie cere contul.
+- **Pe o familie așteaptă un singur cont.** Cât așteaptă, biroul nu poate trimite alt link
+  (`PROFILE_HAS_PENDING_ACCOUNT`), iar formularul de înregistrare răspunde ca pentru orice adresă cu
+  cont. Unul respins nu mai oprește nimic: poate fi al unui străin, iar familia adevărată poate fi
+  încă fără cont. Contul care așteaptă pleacă odată cu familia la ștergere, apare în exportul ei, iar
+  linkul lui nu se șterge la termen cât e singura legătură.
 - **`register` nu scrie coajă aici**, dinadins: o a doua familie lângă rândul biroului ar rupe
   familia în două — copiii, facturile și contractul pe unul, contul pe celălalt —, iar adresa unică
   de pe profil ar refuza-o oricum.
