@@ -43,7 +43,7 @@
               class="input"
               type="password"
               :autocomplete="isLogin ? 'current-password' : 'new-password'"
-              placeholder="Cel puțin 8 caractere"
+              :placeholder="isLogin ? undefined : `Cel puțin ${MIN_PASSWORD_LENGTH} caractere`"
             />
             <p v-if="errors.password" class="field-error">{{ errors.password }}</p>
           </div>
@@ -190,7 +190,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from "vue";
 import type * as z from "zod";
-import { loginSchema, registrationSchema } from "~/composables/useAuthForms";
+import { MIN_PASSWORD_LENGTH, loginSchema, registrationSchema } from "~/composables/useAuthForms";
 import { useReveal } from "~/composables/useReveal";
 
 const props = defineProps<{

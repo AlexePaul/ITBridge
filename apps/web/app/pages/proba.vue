@@ -15,7 +15,13 @@
     <section class="section split split-start" data-reveal>
       <div>
         <!-- Booked -->
-        <div v-if="booked" class="card card-lg card-accent" role="status">
+        <div
+          v-if="booked"
+          ref="resultCard"
+          class="card card-lg card-accent"
+          role="status"
+          tabindex="-1"
+        >
           <h2 class="block-title">Ne vedem atunci</h2>
           <p class="body-text">
             Am notat proba lui <strong>{{ form.childFirstName }}</strong
@@ -23,16 +29,27 @@
             la grupa {{ booked.groupName }} ({{ booked.locationName }}).
           </p>
           <p class="body-text">
-            Ți-am trimis detaliile pe email. Dacă nu mai poți ajunge, sună-ne la
+            <!-- A family that left only a phone has no email to read (QA of 26 September 2026). -->
+            <template v-if="form.parentEmail.trim()">Ți-am trimis detaliile pe email. </template>
+            Dacă nu mai poți ajunge, sună-ne la
             <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a> — locul merge mai
             departe altui copil.
           </p>
         </div>
 
         <!-- Kept, because there was no seat -->
-        <div v-else-if="kept" class="card card-lg card-accent" role="status">
+        <div
+          v-else-if="kept"
+          ref="resultCard"
+          class="card card-lg card-accent"
+          role="status"
+          tabindex="-1"
+        >
           <h2 class="block-title">Te contactăm noi</h2>
-          <p class="body-text">
+          <p v-if="noSuitableDay" class="body-text">
+            Ți-am notat cererea. Te sunăm să găsim împreună o zi și o oră care ți se potrivesc.
+          </p>
+          <p v-else class="body-text">
             Chiar acum nu avem un loc liber la grupa potrivită, dar ți-am notat cererea. Te sunăm
             imediat ce se eliberează unul sau când deschidem o grupă nouă.
           </p>
@@ -135,8 +152,10 @@
 
           <fieldset v-else class="fieldset">
             <legend class="sub-title">Ore disponibile</legend>
+            <!-- A card, not a label: a label around the dates' own labels made a tap on the group's
+                 title pick its first date, and gave that radio the whole card as its name. -->
             <div class="slot-list">
-              <label v-for="slot in slots" :key="slot.groupId" class="slot">
+              <div v-for="slot in slots" :key="slot.groupId" class="slot">
                 <span class="slot-head">
                   <span class="sub-title">{{ slot.groupName }}</span>
                   <span class="body-text"
@@ -153,12 +172,26 @@
                       type="radio"
                       name="classSessionId"
                       :value="session.id"
+                      :aria-invalid="Boolean(errors.classSessionId)"
+                      :aria-describedby="errors.classSessionId ? 'trial-slot-error' : undefined"
+                      @change="noSuitableDay = false"
                     />
                     <span>{{ formatDate(session.date) }}</span>
                   </label>
                 </span>
-              </label>
+              </div>
             </div>
+            <!--
+              Sending with no date chosen used to answer "nu avem un loc liber" beside a list of
+              free seats (QA of 26 September 2026). Choosing none is still possible — on purpose.
+            -->
+            <label class="slot-date">
+              <input v-model="noSuitableDay" type="checkbox" @change="form.classSessionId = null" />
+              <span>Nu mi se potrivește nicio zi — sunați-mă să găsim alta</span>
+            </label>
+            <p v-if="errors.classSessionId" id="trial-slot-error" class="field-error">
+              {{ errors.classSessionId }}
+            </p>
           </fieldset>
 
           <h2 class="block-title">3. Datele tale</h2>
@@ -387,6 +420,19 @@ const booked = ref<{
   locationName: string;
 } | null>(null);
 const kept = ref(false);
+/** The parent saw the free dates and said none fits: a request for a call, not a lack of seats. */
+const noSuitableDay = ref(false);
+const resultCard = ref<HTMLElement | null>(null);
+
+/**
+ * The form is replaced by the answer, and on a phone the answer landed some 870 px above the
+ * screen, with focus on the page (QA of 26 September 2026). Focusing it brings it into view and
+ * has it read out.
+ */
+const showResult = async () => {
+  await nextTick();
+  resultCard.value?.focus();
+};
 
 const hour = (time: string) => time.slice(0, 5);
 
@@ -405,6 +451,7 @@ const formatDate = (date: string) =>
  */
 const loadSlots = async () => {
   form.classSessionId = null;
+  noSuitableDay.value = false;
   slots.value = [];
   slotsFailed.value = false;
   if (!form.childBirthDate) return;
@@ -437,6 +484,9 @@ const validate = (): boolean => {
     errors.parentEmail = "Adresa de email nu pare validă. Verific-o, sau lasă doar telefonul.";
   if (form.parentPhone.trim() && !looksLikePhone(form.parentPhone))
     errors.parentPhone = "Numărul de telefon nu pare valid. Verifică-l, sau lasă doar emailul.";
+  if (slots.value.length > 0 && form.classSessionId === null && !noSuitableDay.value)
+    errors.classSessionId =
+      "Alege una din zilele de mai sus, sau bifează că nu ți se potrivește niciuna.";
   return Object.keys(errors).length === 0;
 };
 
@@ -461,6 +511,7 @@ const onSubmit = async () => {
   // Filled in means it was not a person. Answer exactly as a success would, and send nothing.
   if (honeypot.value.trim() !== "") {
     kept.value = true;
+    await showResult();
     return;
   }
 
@@ -480,9 +531,11 @@ const onSubmit = async () => {
 
     if (result.status === "booked" && result.trial) {
       booked.value = result.trial;
+      await showResult();
       return;
     }
     kept.value = true;
+    await showResult();
   } catch (err) {
     // When the server answered, its sentence is the answer — every refusal a parent can cause on
     // this form is worded for them (`BookTrialDto`). It used to be swallowed: „Adresa de email nu
