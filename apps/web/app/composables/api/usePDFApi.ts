@@ -21,8 +21,7 @@ export function usePDFApi() {
         responseType: "blob",
       });
     } catch (err: unknown) {
-      await readErrorBody(err);
-      throw err;
+      throw await withReadableBody(err);
     }
   };
 
@@ -34,13 +33,18 @@ export function usePDFApi() {
    * unread inside a Blob, and `apiErrorMessage` found nothing and fell back to "Nu s-a putut încărca
    * factura" for all of them (end-to-end testing, 25 September 2026).
    */
-  const readErrorBody = async (err: unknown): Promise<void> => {
-    const holder = err as { data?: unknown } | null;
-    if (!holder || !(holder.data instanceof Blob)) return;
+  const withReadableBody = async (err: unknown): Promise<unknown> => {
+    const holder = err as { data?: unknown; status?: number; statusCode?: number } | null;
+    if (!holder || !(holder.data instanceof Blob)) return err;
     try {
-      holder.data = JSON.parse(await holder.data.text());
+      const data: unknown = JSON.parse(await holder.data.text());
+      // A new object, not `holder.data = …`: ofetch's `FetchError` exposes `data` through a getter,
+      // so the assignment threw — inside this very catch — and the sentence was read and dropped
+      // (QA of 26 September 2026). `apiErrorMessage` reads `data`; the status travels along.
+      return { data, status: holder.status, statusCode: holder.statusCode };
     } catch {
       // Not JSON after all: the caller's fallback is the honest answer.
+      return err;
     }
   };
 

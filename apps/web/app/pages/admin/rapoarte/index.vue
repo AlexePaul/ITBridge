@@ -578,7 +578,10 @@ const loadFinance = async () => {
 const financeTiles = computed(() => {
   const data = finance.value;
   if (!data) return [];
-  const gap = Math.round((data.totals.invoiced - data.totals.collectedForMonth) * 100) / 100;
+  // The server's number, not `invoiced − collected`: a family that paid more than one invoice made
+  // that subtraction understate what the others still owe — 4690 on this tile beside 4740 in the
+  // arrears on the same screen (QA of 26 September 2026). What is owed has one owner (E21).
+  const gap = data.totals.outstanding;
   return [
     {
       label: "Facturat",
