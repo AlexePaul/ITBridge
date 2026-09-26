@@ -22,7 +22,7 @@ import { ProjectStatus } from 'src/enum/project-status.enum';
 import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
 import { parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { hashContent, ingestionKey, projectFileKey, projectThumbnailKey } from './project.keys';
-import { DEFERRED_THUMBNAIL_TYPES, inspectFile, isVideoName, MAX_VIDEO_BYTES, sizeLimitFor } from './file-types';
+import { declaredType, DEFERRED_THUMBNAIL_TYPES, inspectFile, isVideoName, MAX_VIDEO_BYTES, sizeLimitFor } from './file-types';
 import { daysWaiting, STALE_PENDING_DAYS } from './pending.rules';
 import { ThumbnailService, ThumbnailToolMissingError } from './thumbnail.service';
 import { CreateProjectDto } from './dto/createProject.dto';
@@ -257,6 +257,9 @@ export class ProjectService {
      */
     async registerLargeFile(dto: RegisterLargeFileDto, userId: number): Promise<{ projectId: number; fileId: number; uploadUrl: string }> {
         const declared = isVideoName(dto.originalName);
+        // The type the name claims — `video/webm` for a `.webm` — and not `video/mp4` for all of
+        // them, which stored and served a WebM as MP4 (review of 25 September 2026).
+        const contentType = declaredType(dto.originalName)?.contentType ?? 'video/mp4';
         if (!declared) {
             throw new UnsupportedMediaTypeException({
                 message: 'Only video takes the direct-upload road; everything else is small enough to send through the API.',
@@ -294,7 +297,7 @@ export class ProjectService {
                 manager.create(ProjectFile, {
                     version,
                     originalName: dto.originalName.slice(0, 255),
-                    contentType: 'video/mp4',
+                    contentType,
                     sizeBytes: dto.sizeBytes,
                     ingestionKey: key,
                     // Null until the bytes are confirmed. A file in this state is not shown to a
@@ -305,7 +308,7 @@ export class ProjectService {
             return { projectId: project.id, versionId: version.id, fileId: file.id };
         });
 
-        const uploadUrl = await this.s3Service.presignedUploadUrl(projectFileKey(registered.projectId, registered.versionId, registered.fileId), 'video/mp4');
+        const uploadUrl = await this.s3Service.presignedUploadUrl(projectFileKey(registered.projectId, registered.versionId, registered.fileId), contentType);
 
         return { projectId: registered.projectId, fileId: registered.fileId, uploadUrl };
     }
@@ -519,7 +522,9 @@ export class ProjectService {
         if (!project) throw new NotFoundException('Project not found');
 
         const keys = project.versions.flatMap((version) => version.files.map((file) => projectFileKey(project.id, version.id, file.id)));
-        if (project.hasThumbnail) keys.push(projectThumbnailKey(project.id));
+        // Whatever the flag says: the thumbnail job can write the picture after this row was read,
+        // and a delete of a key that is not there costs nothing (review of 25 September 2026).
+        keys.push(projectThumbnailKey(project.id));
 
         await this.projectRepository.delete(id);
 

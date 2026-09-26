@@ -208,6 +208,7 @@ import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
+import { stillSelectable } from "~/composables/useProjectSelection";
 import {
   PROJECT_SOURCE_LABELS,
   SKIPPED_PROJECT_REASON_LABELS,
@@ -313,6 +314,7 @@ async function load() {
   try {
     const [loaded] = await Promise.all([fetchProjects({ groupId }), fetchChildren()]);
     projects.value = loaded;
+    selected.value = stillSelectable(selected.value, loaded);
     withoutToday.value = await childrenWithoutProjects(groupId, todayKey());
   } catch (err) {
     loadError.value = apiErrorMessage(err);

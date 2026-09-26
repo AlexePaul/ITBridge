@@ -497,7 +497,25 @@ să primească un singur email. Trei consecințe de ținut minte:
   câmpul de sănătate al agentului roșu pe un defect pe care nimeni nu-l putea repara — exact ce
   descrie comentariul din `Agent.pass` despre erorile care rămân după ce cauza lor a trecut. Are
   acum motiv propriu, `link_without_address`, deci pleacă în `_neatribuite` ca orice alt refuz. Dacă
-  adaugi o cale nouă de eșec, prima întrebare e dacă a doua încercare poate da alt răspuns.
+  adaugi o cale nouă de eșec, prima întrebare e dacă a doua încercare poate da alt răspuns. **La fel
+  un refuz al serverului** (revizuirea din 25 septembrie 2026): un `.png` care e JPEG sau o
+  scurtătură către `localhost` urcau din nou la fiecare trecere, fiindcă orice eroare HTTP era „mai
+  încearcă". `refusalReason` din `uploader.ts` face refuz doar din ce spune serverul despre fișier —
+  413, 415 (cu `content_mismatch`, motiv nou) și 400-ul unei scurtături. **Un 401, 403 sau 404 rămân
+  reîncercări, dinadins**: pot fi un `config.json` greșit, iar un refuz ar muta toată partajarea în
+  `_neatribuite`.
+- **Folderul grupei poartă id-ul grupei, ca al copilului** (`Scratch (grupa 7)`, aceeași revizuire).
+  Cheiat pe nume, o grupă redenumită sau mutată la cealaltă adresă primea un arbore nou și gol, iar
+  cel vechi, unde profesorii salvau în continuare, nu-l mai parcurgea nimeni; două grupe cu același
+  nume împărțeau un folder. `currentGroupFolders` din `mirror.ts` găsește folderul după id oriunde sub
+  rădăcină — scannerul îl parcurge **unde e**, oglinda îl mută unde trebuie să fie —, iar un folder
+  fără id, făcut de versiunea veche, e adoptat dacă nu-l împart două grupe.
+- **Agentul nu confundă „nu pot citi" cu „nu e nimic".** Un folder de necitit era tratat ca gol, deci
+  o partajare dispărută trecea drept o zi liniștită, cu agentul verde: `scan` aruncă acum
+  `ShareUnreachableError` pentru rădăcină și numără folderele de necitit, iar eroarea oglinzii și a
+  trecerii se țin separat, fiindcă o trecere „curată" o ștergea pe a oglinzii. Iar un fișier deschis
+  în Word **rămâne pe loc** — copierea e doar pentru mutarea între volume, `EXDEV` —, se urcă o dată și
+  trecerile de după încearcă doar mutarea; înainte, fiecare trecere lăsa încă o copie.
 - **O cheie de deduplicare are o durată, iar cea a fișierelor neatribuite e „cât stă deschis".**
   `unassigned_files.reportKey` e `{grupă}:{cale}` și avea un unic simplu — ceea ce se citește ca
   „raportează fiecare loc o dată", dar promite că un fișier apărut în rădăcina grupei în septembrie
@@ -1268,6 +1286,14 @@ nimic nu face asta, iar `ON CONFLICT DO NOTHING` e necesar pe `project_files`, n
 fiindcă Nest potrivește în ordinea declarării și `:id` are `ParseIntPipe`, care răspunde 400 la un
 UUID. În `LeadController` (E20/S3) e aceeași capcană cu alt chip: `follow-up` și `undecided` stau
 înaintea lui `:id`, altfel `ParseIntPipe` răspunde 400 la un cuvânt.
+
+**Un nume de fișier ajunge într-un antet numai prin `attachmentDisposition`** (`s3.service.ts`).
+Node refuză să scrie în antet un caracter peste U+00FF, deci `filename="proiecte-ștefan.zip"` a dat
+500 la „Descarcă tot" pentru fiecare Ștefan, Mălina și Răzvan (revizuirea din 25 septembrie 2026).
+Helper-ul pune o variantă ASCII, cu diacriticele scoase, plus `filename*=UTF-8''…`; îl folosesc
+arhiva și URL-urile semnate. Tot acolo: arhiva deschide **un obiect o dată**, după ce s-a scris
+precedentul — `archiver` primea toate sursele deodată, deci deschidea toate obiectele înainte ca
+browserul să citească un octet, fiecare ținând un socket din pool-ul comun al SDK-ului.
 
 **Singurul lucru servit `inline` de pe domeniul școlii e miniatura.** Fișierele urcate se servesc
 prin URL semnat cu `Content-Disposition: attachment`, fiindcă vin de pe o partajare pe care poate

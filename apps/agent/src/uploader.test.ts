@@ -3,9 +3,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { describe, it } from 'node:test';
-import { unusableLink, uploadFile } from './uploader';
+import { refusalReason, refusedFile, uploadFile } from './uploader';
 import { readLink } from './uploader';
-import { ApiClient } from './api-client';
+import { ApiClient, HttpError } from './api-client';
 import type { AgentConfig } from './config';
 import type { FoundFile } from './scanner';
 
@@ -102,7 +102,7 @@ describe('a .url with no address in it', () => {
         };
     }
 
-    it('is unusable, not failed — so it stops coming back', async () => {
+    it('is refused, not failed — so it stops coming back', async () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'itbridge-agent-link-'));
         const file = path.join(dir, 'link.url');
         fs.writeFileSync(file, '[InternetShortcut]\r\nURL=javascript:alert(1)\r\n');
@@ -110,7 +110,9 @@ describe('a .url with no address in it', () => {
         try {
             // The API base points at a closed port: reaching the network here would be the test
             // failing, not passing slowly.
-            assert.equal(await uploadFile(new ApiClient(config), foundFile(file)), 'unusable');
+            assert.deepEqual(await uploadFile(new ApiClient(config), foundFile(file)), {
+                refused: 'link_without_address',
+            });
             assert.equal(fs.existsSync(file), true, 'nothing is ever deleted from the share');
         } finally {
             fs.rmSync(dir, { recursive: true, force: true });
@@ -118,11 +120,40 @@ describe('a .url with no address in it', () => {
     });
 
     it('becomes a refusal filed in the group folder, with a reason of its own', () => {
-        const rejected = unusableLink(foundFile(path.join('C:', 'share', 'Loc', 'Grupa', 'Copil (#12)', 'link.url')));
+        const rejected = refusedFile(
+            foundFile(path.join('C:', 'share', 'Loc', 'Grupa', 'Copil (#12)', 'link.url')),
+            'link_without_address',
+        );
 
         assert.equal(rejected.reason, 'link_without_address');
         assert.equal(rejected.groupId, 7);
         assert.equal(path.basename(rejected.unassignedDir!), '_neatribuite');
         assert.equal(rejected.sizeBytes, 42);
+    });
+});
+
+/**
+ * Which answers from the server are a verdict on the file. The review of 25 September 2026 found
+ * the agent retrying every one of them for ever; the opposite mistake — filing a whole share under
+ * `_neatribuite` because of a wrong password in `config.json` — would be worse.
+ */
+describe('refusalReason', () => {
+    const answer = (status: number, code: string | null = null) => new HttpError(status, `answered ${status}`, code);
+
+    it('files what the server said about the bytes', () => {
+        assert.equal(refusalReason(answer(415, 'PROJECT_FILE_CONTENT_MISMATCH'), false), 'content_mismatch');
+        assert.equal(refusalReason(answer(415, 'PROJECT_FILE_TYPE_NOT_ALLOWED'), false), 'extension_not_allowed');
+        assert.equal(refusalReason(answer(413, 'PROJECT_FILE_TOO_LARGE'), false), 'too_large');
+        assert.equal(refusalReason(answer(400, 'VALIDATION_FAILED'), true), 'link_without_address');
+    });
+
+    it('retries what is about the agent, the moment, or the server', () => {
+        for (const status of [400, 401, 403, 404, 408, 409, 429, 500, 502, 503]) {
+            assert.equal(refusalReason(answer(status), false), null, `status ${status} on a file`);
+        }
+        for (const status of [401, 403, 404, 429, 500]) {
+            assert.equal(refusalReason(answer(status), true), null, `status ${status} on a link`);
+        }
+        assert.equal(refusalReason(new Error('fetch failed'), false), null);
     });
 });

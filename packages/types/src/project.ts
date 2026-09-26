@@ -105,7 +105,13 @@ export interface Project {
 
 /** Why the agent could not decide whose work a file was. Each reason is a different fix. */
 export type UnassignedFileReason =
-    'unknown_folder' | 'group_root' | 'extension_not_allowed' | 'too_large' | 'unreadable' | 'link_without_address';
+    | 'unknown_folder'
+    | 'group_root'
+    | 'extension_not_allowed'
+    | 'too_large'
+    | 'unreadable'
+    | 'link_without_address'
+    | 'content_mismatch';
 
 export const UNASSIGNED_FILE_REASON_LABELS: Record<UnassignedFileReason, string> = {
     unknown_folder: 'Folder necunoscut — nu se potrivește cu niciun copil',
@@ -114,6 +120,7 @@ export const UNASSIGNED_FILE_REASON_LABELS: Record<UnassignedFileReason, string>
     too_large: 'Fișier prea mare',
     unreadable: 'Fișierul nu a putut fi citit',
     link_without_address: 'Scurtătură fără o adresă web validă',
+    content_mismatch: 'Conținutul nu corespunde extensiei — salvează-l din nou în formatul potrivit',
 };
 
 /**

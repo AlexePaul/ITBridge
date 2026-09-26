@@ -7,7 +7,7 @@ import { Child } from 'src/entities/child.entity';
 import { Project } from 'src/entities/project.entity';
 import { ProjectStatus } from 'src/enum/project-status.enum';
 import { Role } from 'src/enum/role.enum';
-import { S3Service, sanitizeFilename } from 'src/modules/storage/s3.service';
+import { ObjectNotFoundError, S3Service, sanitizeFilename } from 'src/modules/storage/s3.service';
 import { projectFileKey } from './project.keys';
 
 /**
@@ -20,6 +20,13 @@ import { projectFileKey } from './project.keys';
  * the bucket, so the process holds one file at a time rather than a term's worth of a child's work.
  * The API shares an instance with Postgres; a buffered archive is the same mistake as a buffered
  * video upload, arriving from the other direction.
+ *
+ * **And one object open at a time, which is a separate promise.** `archiver` queues what it is given
+ * and reads it in turn, so handing it every object at once opened every object at once: sixty GETs
+ * before the parent's browser had read a byte, each holding a socket from the SDK's pool of fifty —
+ * the pool every S3 call in the API shares, `/ready` included — for as long as the download took,
+ * or for ever when it was abandoned (review of 25 September 2026). `fill` now opens the next object
+ * only once the previous entry has been written, and stops when the response goes away.
  */
 @Injectable()
 export class ProjectArchiveService {
@@ -74,7 +81,7 @@ export class ProjectArchiveService {
         // Deliberately not awaited: `finalize` resolves when everything has been appended and
         // written, which cannot happen until the caller starts consuming the stream. Awaiting it
         // here deadlocks the request.
-        void this.fill(archive, projects).catch((error: unknown) => {
+        void this.fill(archive, projects, childId).catch((error: unknown) => {
             this.logger.error(`Could not fill the archive for child ${childId}: ${error instanceof Error ? error.message : String(error)}`);
             archive.destroy(error instanceof Error ? error : new Error(String(error)));
         });
@@ -82,33 +89,103 @@ export class ProjectArchiveService {
         return { archive, filename: `proiecte-${sanitizeFilename(child.firstName.toLowerCase())}.zip` };
     }
 
-    private async fill(archive: archiver.Archiver, projects: Project[]): Promise<void> {
+    private async fill(archive: archiver.Archiver, projects: Project[], childId: number): Promise<void> {
+        // The response went away — the parent closed the tab, or the connection dropped. Nothing
+        // is reading any more, so the object being copied is released and the rest never opened.
+        let abandoned = false;
+        let current: Readable | null = null;
+        archive.once('close', () => {
+            abandoned = true;
+            current?.destroy();
+        });
+
         for (const project of projects) {
+            // A folder per project, named by date and title, because a flat archive of forty
+            // files called `proiect.sb3` is not a keepsake. The version number only appears
+            // when there is more than one, so the usual case reads cleanly.
+            const folder = sanitizeFilename(`${isoDay(project.capturedOn)} ${project.title}`);
+
             for (const version of project.versions) {
                 for (const file of version.files) {
                     if (!file.uploadedAt) continue;
+                    if (abandoned) return;
 
-                    const stream = await this.s3Service.downloadStream(projectFileKey(project.id, version.id, file.id));
-                    // A folder per project, named by date and title, because a flat archive of forty
-                    // files called `proiect.sb3` is not a keepsake. The version number only appears
-                    // when there is more than one, so the usual case reads cleanly.
-                    const folder = sanitizeFilename(`${isoDay(project.capturedOn)} ${project.title}`);
+                    try {
+                        current = await this.s3Service.downloadStream(projectFileKey(project.id, version.id, file.id));
+                    } catch (error: unknown) {
+                        // One missing object costs its own entry, not the whole keepsake: the rest of
+                        // the archive is still the child's work. Ids only in the log — never a name.
+                        if (error instanceof ObjectNotFoundError) {
+                            this.logger.warn(`Archive for child ${childId}: file ${file.id} of project ${project.id} is not in the bucket; left out.`);
+                            continue;
+                        }
+                        throw error;
+                    }
+                    if (abandoned) {
+                        current.destroy();
+                        return;
+                    }
+
                     const prefix = project.versions.length > 1 ? `${folder}/v${version.versionNumber}` : folder;
-                    archive.append(stream, { name: `${prefix}/${sanitizeFilename(file.originalName)}` });
+                    if (!(await this.write(archive, current, `${prefix}/${sanitizeFilename(file.originalName)}`, () => abandoned))) return;
+                    current = null;
                 }
             }
 
-            if (project.links?.length) {
-                // A link is part of the child's work too, and a `.url` file is what Windows opens.
-                const folder = sanitizeFilename(`${isoDay(project.capturedOn)} ${project.title}`);
-                for (const link of project.links) {
-                    archive.append(`[InternetShortcut]\r\nURL=${link.url}\r\n`, { name: `${folder}/${sanitizeFilename(link.label)}.url` });
-                }
+            // A link is part of the child's work too, and a `.url` file is what Windows opens.
+            for (const link of project.links ?? []) {
+                const shortcut = `[InternetShortcut]\r\nURL=${link.url}\r\n`;
+                if (!(await this.write(archive, shortcut, `${folder}/${sanitizeFilename(link.label)}.url`, () => abandoned))) return;
             }
         }
 
-        await archive.finalize();
+        if (!abandoned) await archive.finalize();
     }
+
+    /**
+     * One entry, written before the next is opened. False when the download was abandoned on the
+     * way — an ordinary end, not a failure worth an error line.
+     */
+    private async write(archive: archiver.Archiver, source: Readable | string, name: string, abandoned: () => boolean): Promise<boolean> {
+        try {
+            await written(archive, source, name);
+            return true;
+        } catch (error: unknown) {
+            if (abandoned()) return false;
+            throw error;
+        }
+    }
+}
+
+/**
+ * Appends one source and resolves once `archiver` has written it — its `entry` event — so the caller
+ * can open the next. Rejects if the archive fails or is torn down first, so a waiting `fill` never
+ * hangs on a download nobody is reading.
+ */
+function written(archive: archiver.Archiver, source: Readable | string, name: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const onEntry = () => {
+            cleanup();
+            resolve();
+        };
+        const onError = (error: Error) => {
+            cleanup();
+            reject(error);
+        };
+        const onClose = () => {
+            cleanup();
+            reject(new Error('The archive was closed before the entry was written'));
+        };
+        const cleanup = () => {
+            archive.off('entry', onEntry);
+            archive.off('error', onError);
+            archive.off('close', onClose);
+        };
+        archive.once('entry', onEntry);
+        archive.once('error', onError);
+        archive.once('close', onClose);
+        archive.append(source, { name });
+    });
 }
 
 /**

@@ -25,4 +25,10 @@ export enum UnassignedFileReason {
      * the agent retried every thirty seconds for as long as it sat on the share.
      */
     LINK_WITHOUT_ADDRESS = 'link_without_address',
+    /**
+     * The server read the bytes and they are not what the name says — a JPEG saved as `.png`, an
+     * empty `.sb3`. The repair is to save it again in the format it claims, so it is not
+     * `extension_not_allowed`: the extension was fine, the file was not.
+     */
+    CONTENT_MISMATCH = 'content_mismatch',
 }

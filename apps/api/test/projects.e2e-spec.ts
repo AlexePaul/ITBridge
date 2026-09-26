@@ -2,6 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { Readable } from 'stream';
+import { S3Service } from 'src/modules/storage/s3.service';
 import { createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
 
 /**
@@ -194,6 +196,36 @@ describe('Student projects (e2e)', () => {
                 .get(`/projects/${andrei.body.id as number}/files/${fileId}`)
                 .set('Authorization', elena.auth)
                 .expect(403);
+        });
+
+        it("gives a family all of a child's work in one download, whatever the child is called", async () => {
+            // "Descarcă tot" answered 500 for Ștefan, Mălina, Ionuț: the name went raw into a header
+            // Node refuses to write above U+00FF (review of 25 September 2026).
+            const stefanId = await enrol(maria, 'Ștefan');
+            const sent = await ingest(stefanId, 'robot.png', PNG);
+            await request(app.getHttpServer())
+                .post('/projects/send')
+                .set('Authorization', admin.auth)
+                .send({ projectIds: [sent.body.id as number] })
+                .expect(201);
+            const storage: unknown = app.get(S3Service);
+            (storage as { downloadStream: jest.Mock }).downloadStream.mockImplementation(() => Promise.resolve(Readable.from([PNG])));
+
+            const response = await request(app.getHttpServer())
+                .get(`/projects/child/${stefanId}/archive`)
+                .set('Authorization', maria.auth)
+                .buffer(true)
+                .parse((res, done) => {
+                    const chunks: Buffer[] = [];
+                    res.on('data', (chunk: Buffer) => chunks.push(chunk));
+                    res.on('end', () => done(null, Buffer.concat(chunks)));
+                })
+                .expect(200);
+
+            expect(response.headers['content-type']).toBe('application/zip');
+            expect(response.headers['content-disposition']).toBe(`attachment; filename="proiecte-stefan.zip"; filename*=UTF-8''proiecte-%C8%99tefan.zip`);
+            expect((response.body as Buffer).subarray(0, 2).toString()).toBe('PK');
+            await request(app.getHttpServer()).get(`/projects/child/${stefanId}/archive`).set('Authorization', elena.auth).expect(404);
         });
 
         it('requires an account: no token, no document', async () => {

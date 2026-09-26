@@ -32,6 +32,7 @@ import { ReassignProjectDto } from './dto/reassignProject.dto';
 import { RegisterLargeFileDto } from './dto/registerLargeFile.dto';
 import { ReportProjectDto } from './dto/reportProject.dto';
 import { SendProjectsDto } from './dto/sendProjects.dto';
+import { attachmentDisposition } from 'src/modules/storage/s3.service';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 
 /**
@@ -188,7 +189,13 @@ export class ProjectController {
     @ApiResponse({ status: 404, description: 'Child not found, or not yours' })
     async archive(@Param('childId', ParseIntPipe) childId: number, @Request() req: AuthenticatedRequest) {
         const { archive, filename } = await this.archiveService.forChild(childId, req.user.role, req.user.sub);
-        return new StreamableFile(archive, { type: 'application/zip', disposition: `attachment; filename="${filename}"` });
+        // A download abandoned half-way leaves the archive paused, holding the object it was
+        // copying; the response closing before it finished is the one signal that nobody will read
+        // the rest.
+        req.res?.once('close', () => {
+            if (!req.res?.writableFinished) archive.destroy();
+        });
+        return new StreamableFile(archive, { type: 'application/zip', disposition: attachmentDisposition(filename) });
     }
 
     /**

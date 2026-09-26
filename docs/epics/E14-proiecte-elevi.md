@@ -182,9 +182,9 @@ ales adaugă zero.
 de rețea. Structura lui e generată, nu întreținută de mână:
 
 ```
-P:\Proiecte\<Locație>\<Grupă>\<Copil>\
-P:\Proiecte\<Locație>\<Grupă>\_neatribuite\
-P:\Proiecte\<Locație>\<Grupă>\<Copil>\_urcate\<data>\
+P:\Proiecte\<Locație>\<Grupă (grupa 7)>\<Copil (#12)>\
+P:\Proiecte\<Locație>\<Grupă (grupa 7)>\_neatribuite\
+P:\Proiecte\<Locație>\<Grupă (grupa 7)>\<Copil (#12)>\_urcate\<data>\
 ```
 
 Profesorul salvează lucrarea în folderul copilului — din Explorer, sau direct din dialogul de
@@ -286,6 +286,36 @@ ecran, cu motiv. Un agent care nu mai raportează e vizibil în interfață și 
 /projects/uploads/register` întoarce un URL semnat și `POST /projects/files/:id/complete` confirmă
   că obiectul chiar a ajuns; agentul refuză deocamdată extensiile video la scanare. Miniatura lui
   există de la S3b, deci ce mai lipsește e partea de agent.
+
+**Revizuirea din 25 septembrie 2026** a găsit patru locuri în care agentul tăcea sau repeta la
+nesfârșit exact ce promite story-ul că nu se întâmplă. Fiecare are acum un test care rulează agentul
+întreg, pe o partajare pe disc, contra unui server care răspunde ca API-ul; defectele au fost
+reproduse întâi pe versiunea veche.
+
+- **Un fișier refuzat de server era reîncercat la fiecare trecere.** Un `.png` care e JPEG, un `.sb3`
+  gol, o scurtătură către `http://localhost:5500` treceau de verificarea agentului și cădeau la server
+  (415 și 400), iar agentul trata orice eroare ca „mai încearcă": cinci urcări în cinci treceri, zero
+  rânduri pe ecran, și câmpul de sănătate spunând că un fișier nu s-a putut urca, fără să spună care.
+  Acum 413, 415 și 400-ul unei scurtături sunt refuzuri, cu motiv — `content_mismatch` e nou, cu
+  migrarea lui —, iar 401, 403 și 404 rămân reîncercări: pot fi `config.json`, iar mutarea întregii
+  partajări în `_neatribuite` ar fi mai rea.
+- **Un fișier deschis în Word sau Acrobat se copia la fiecare trecere.** Mutarea cădea pe copiere la
+  orice eroare, nu doar la trecerea între volume, iar ștergerea originalului blocat eșua: șase copii
+  în șase treceri, și PDF-ul urcat de fiecare dată. Acum fișierul rămâne pe loc, se urcă o dată, iar
+  trecerile următoare încearcă doar mutarea.
+- **O partajare de neatins arăta ca una liniștită.** Un folder care nu se putea citi era tratat ca
+  gol, iar trecerea „curată" ștergea și eroarea oglinzii după treizeci de secunde: agentul bătea
+  sănătos cu nimic urcat. Acum trecerea spune că rădăcina nu se poate citi, numără folderele de
+  necitit, iar eroarea oglinzii și a trecerii se țin separat.
+- **Folderul grupei era cheiat pe nume.** O grupă redenumită sau mutată la cealaltă adresă primea un
+  arbore nou și gol, iar cel vechi, în care profesorii salvau în continuare, nu-l mai parcurgea nimeni;
+  două grupe cu același nume împărțeau un folder și își raportau reciproc copiii ca necunoscuți.
+  Acum numele poartă identificatorul (`Scratch (grupa 7)`), folderul se găsește după el oriunde ar sta
+  sub rădăcină și e mutat de oglindă cu tot conținutul, iar un folder făcut de versiunea veche e
+  adoptat la prima trecere.
+
+Tot de aici: jurnalul agentului nu mai numește copilul la o eroare trecătoare (numai id-ul), iar
+jurnalul API-ului nu mai tipărește subiectul unui mesaj nelivrabil, care îl numea la fel de des.
 
 ### S3a · Miniatură pentru imagini
 
@@ -481,6 +511,17 @@ există; și nu o pagină goală, fiindcă un refuz tăcut e mai greu de raporta
 răspuns, deci procesul ține un fișier o dată, nu munca unui copil pe un semestru. E aceeași greșeală
 ca un upload buferat, venită din direcția opusă.
 
+> **Corectură din revizuirea din 25 septembrie 2026.** „Un fișier o dată" era adevărat despre
+> memorie și fals despre bucket: arhiva primea toate obiectele deodată, deci le deschidea pe toate —
+> șaizeci de cereri către S3 înainte ca browserul să citească un octet, fiecare ținând un socket din
+> cele cincizeci pe care le împart toate apelurile S3 ale API-ului, `/ready` inclus, iar o descărcare
+> abandonată le ținea pentru totdeauna. Acum următorul obiect se deschide abia după ce s-a scris
+> precedentul, iar închiderea răspunsului eliberează ce era deschis. Iar **„Descarcă tot" răspundea
+> 500 pentru Ștefan, Mălina, Ionuț**: numele copilului intra în antet, iar Node refuză să scrie un
+> caracter peste U+00FF. Antetul e acum `attachmentDisposition` — o variantă ASCII, fără diacritice,
+> plus `filename*` în UTF-8 —, folosit și pentru URL-urile semnate. Un obiect care lipsește din bucket
+> lipsește din arhivă, nu o taie la jumătate.
+
 Ecranele se pot deschide de la [E01](E01-infrastructura-medii.md) S4, pe stage — sunt pagini de după
 autentificare, iar acolo rulează un API. Ce lipsește e verificarea, care e a lui
 [E18](E18-frontend-portal.md) S4, nu a acestui story: codul e scris și testat.
@@ -590,10 +631,18 @@ lucrare mutată peste o trimitere pe care n-a văzut-o nimeni. Tot de aici, rân
 un părinte nu mai poartă câmpurile biroului — adresa la care a plecat, cine l-a mutat și de unde,
 sursa —, iar exportul din E07 S4 dă doar lucrările trimise.
 
+Tot din revizuire, pe ecranul grupei: **un document bifat și apoi șters rămânea bifat**, deci
+butonul îl număra, serverul răspundea 404 pentru id-ul lui și nu pleca nimic; selecția se curăță
+acum la fiecare recitire a listei. Iar miniatura se șterge odată cu proiectul (și la ștergerea
+familiei) orice ar spune `hasThumbnail`: job-ul o poate scrie după ce rândul a fost citit.
+
 **Ce rămâne deschis:** un mesaj încă în coadă — cele cel mult treizeci de secunde până la trecerea
 următoare a dispecerului — pleacă totuși către familia greșită, fiindcă mutarea nu retrage mesajul.
 Retragerea cere o stare nouă în `outbox` (un rând șters ar lăsa fără urmă un mesaj pe care
-dispecerul poate tocmai să-l trimită), deci e o schimbare a cozii, nu a ecranului.
+dispecerul poate tocmai să-l trimită), deci e o schimbare a cozii, nu a ecranului. Tot deschise,
+amândouă latente cât timp nimic nu înregistrează video: fără ffmpeg, un video în capul restanței de
+miniaturi oprește fiecare trecere înaintea unui `.sb3` de după el; iar `registerLargeFile` răspunde
+409 pentru totdeauna după o cădere între înregistrare și urcare, lăsând proiectul netrimisibil.
 
 ## Dependențe
 

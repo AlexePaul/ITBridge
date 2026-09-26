@@ -35,7 +35,7 @@ const CHILD = GROUP.children[0]!;
 /** A share with one group and one child, and whatever files the test puts in it. */
 function withShare(run: (root: string, groupDir: string, childDir: string) => void): void {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'itbridge-agent-scan-'));
-    const groupDir = groupPath(root, LOCATION.name, GROUP.name);
+    const groupDir = groupPath(root, LOCATION.name, GROUP);
     const childDir = path.join(groupDir, childFolderName(CHILD));
     fs.mkdirSync(childDir, { recursive: true });
     try {
