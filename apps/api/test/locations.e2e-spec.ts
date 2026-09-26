@@ -104,6 +104,23 @@ describe('Locations, rooms and the timetable (e2e)', () => {
 
             expect(res.body.code).toBe('LOCATION_HAS_ROOMS');
         });
+
+        /**
+         * QA of 26 September 2026. An announcement keeps the location it was sent to (RESTRICT), so
+         * a location with no rooms left but with an announcement behind it answered with the
+         * exception filter's English "still referenced" instead of saying why.
+         */
+        it('refuses to delete a location whose families were sent an announcement, and says so', async () => {
+            const location = await createLocation(drumulTaberei).expect(201);
+            await dataSource.query(
+                `INSERT INTO announcements (audience, location_id, subject, "bodyText", "dedupeKey") VALUES ('location', $1, 'Zi liberă', 'Luni nu se țin ore.', 'test-location-announcement')`,
+                [location.body.id],
+            );
+
+            const res = await request(app.getHttpServer()).delete(`/locations/${location.body.id}`).set('Authorization', admin.auth).expect(409);
+
+            expect(res.body.code).toBe('LOCATION_HAS_ANNOUNCEMENTS');
+        });
     });
 
     describe('rooms', () => {
@@ -172,6 +189,23 @@ describe('Locations, rooms and the timetable (e2e)', () => {
 
             const res = await request(app.getHttpServer()).delete(`/rooms/${dtRoom}`).set('Authorization', admin.auth).expect(409);
             expect(res.body.code).toBe('ROOM_HAS_GROUPS');
+        });
+
+        /**
+         * QA of 26 September 2026. A class keeps the room it was held in, even after its group moves
+         * (RESTRICT), so a room emptied of groups but with classes behind it answered with the
+         * exception filter's English "still referenced". The answer is to close the room instead.
+         */
+        it('refuses to delete a room that classes were held in, and says so', async () => {
+            const { dtRoom, strRoom } = await seedBothLocations();
+            const group = await createGroup(groupBody(dtRoom)).expect(201);
+            await createClassSession(dataSource, group.body.id as number, { date: '2026-03-10', status: 'held' });
+            // The group moves on; the class it held stays where it was held.
+            await dataSource.query('UPDATE groups SET room_id = $1 WHERE id = $2', [strRoom, group.body.id]);
+
+            const res = await request(app.getHttpServer()).delete(`/rooms/${dtRoom}`).set('Authorization', admin.auth).expect(409);
+
+            expect(res.body.code).toBe('ROOM_HAS_CLASSES');
         });
     });
 

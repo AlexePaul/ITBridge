@@ -38,6 +38,9 @@ const MESSAGES: Record<string, string> = {
   NOT_FOUND: "Nu am găsit ce ai cerut.",
   TOO_MANY_REQUESTS: "Prea multe încercări. Încearcă din nou peste un minut.",
   RELATED_RECORD_MISSING: "O înregistrare la care se face referire nu există.",
+  // The filter's answer to a foreign key that refused a delete. A service that can say *what* still
+  // points at the row names it with its own code; this is the floor under the ones that don't.
+  STILL_REFERENCED: "Înregistrarea e folosită în altă parte, deci nu poate fi ștearsă.",
   MISSING_REQUIRED_FIELD: "Un câmp obligatoriu lipsește.",
   INVALID_VALUE: "Un câmp are o valoare de tipul greșit.",
   SERVICE_UNAVAILABLE: "Serviciul este momentan indisponibil. Încearcă din nou.",
@@ -97,6 +100,10 @@ const MESSAGES: Record<string, string> = {
   LOCATION_HAS_ROOMS: "Locația are săli. Șterge sau mută întâi sălile.",
   ROOM_NAME_TAKEN: "Există deja o sală cu acest nume la această locație.",
   ROOM_HAS_GROUPS: "Sala găzduiește grupe. Mută întâi grupele în altă sală.",
+  ROOM_HAS_CLASSES:
+    "Sala are ore în orar — ținute sau programate —, iar fiecare oră își păstrează sala. Dezactiveaz-o în loc s-o ștergi.",
+  LOCATION_HAS_ANNOUNCEMENTS:
+    "Familiile locației au primit anunțuri, iar anunțurile rămân în evidență. Dezactivează locația în loc s-o ștergi.",
   ROOM_INACTIVE: "Sala sau locația este inactivă, deci nu poate primi grupe noi.",
 
   // E17/S7. All three are conflicts an admin can hit from the announcement screen, and the generic

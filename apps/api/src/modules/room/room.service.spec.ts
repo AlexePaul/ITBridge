@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { RoomService } from './room.service';
+import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
 import { Location } from 'src/entities/location.entity';
 import { Room } from 'src/entities/room.entity';
@@ -11,6 +12,7 @@ describe('RoomService', () => {
     let roomRepo: MockRepository;
     let locationRepo: MockRepository;
     let groupRepo: MockRepository;
+    let classSessionRepo: MockRepository;
 
     const location = { id: 1, name: 'Drumul Taberei', slug: 'drumul-taberei' };
     const dto = { name: 'Sala 1', locationId: 1, capacity: 10 };
@@ -19,12 +21,14 @@ describe('RoomService', () => {
         roomRepo = createMockRepository();
         locationRepo = createMockRepository();
         groupRepo = createMockRepository();
+        classSessionRepo = createMockRepository();
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 RoomService,
                 provideMockRepository(Room, roomRepo),
                 provideMockRepository(Location, locationRepo),
                 provideMockRepository(Group, groupRepo),
+                provideMockRepository(ClassSession, classSessionRepo),
             ],
         }).compile();
         service = module.get(RoomService);
@@ -34,6 +38,7 @@ describe('RoomService', () => {
         roomRepo.create!.mockImplementation((d: unknown) => ({ ...(d as object) }));
         roomRepo.save!.mockImplementation((r: unknown) => Promise.resolve(r));
         groupRepo.count!.mockResolvedValue(0);
+        classSessionRepo.count!.mockResolvedValue(0);
     });
 
     it('attaches the room to its location, without leaving a stray locationId behind', async () => {
@@ -109,6 +114,12 @@ describe('RoomService', () => {
     it('refuses to delete a room that still hosts groups', async () => {
         groupRepo.count!.mockResolvedValue(1);
         await expect(service.deleteRoom(1)).rejects.toThrow(ConflictException);
+        expect(roomRepo.delete).not.toHaveBeenCalled();
+    });
+
+    it('refuses to delete a room that classes were held in, by name', async () => {
+        classSessionRepo.count!.mockResolvedValue(3);
+        await expect(service.deleteRoom(1)).rejects.toMatchObject({ response: { error: 'ROOM_HAS_CLASSES' } });
         expect(roomRepo.delete).not.toHaveBeenCalled();
     });
 

@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
+import { Announcement } from 'src/entities/announcement.entity';
 import { Location } from 'src/entities/location.entity';
 import { Room } from 'src/entities/room.entity';
 import { CreateLocationDto } from './dto/createLocation.dto';
@@ -12,6 +13,7 @@ export class LocationService {
     constructor(
         @InjectRepository(Location) private readonly locationRepository: Repository<Location>,
         @InjectRepository(Room) private readonly roomRepository: Repository<Room>,
+        @InjectRepository(Announcement) private readonly announcementRepository: Repository<Announcement>,
     ) {}
 
     async createLocation(dto: CreateLocationDto): Promise<Location> {
@@ -47,6 +49,15 @@ export class LocationService {
         const rooms = await this.roomRepository.count({ where: { location: { id } } });
         if (rooms > 0) {
             throw new ConflictException({ message: 'Location still has rooms; delete or move them first', error: 'LOCATION_HAS_ROOMS' });
+        }
+        // An announcement keeps the location it was sent to, so its audience stays readable — also
+        // RESTRICT, and the same English "still referenced" without this (QA of 26 September 2026).
+        const announcements = await this.announcementRepository.count({ where: { location: { id } } });
+        if (announcements > 0) {
+            throw new ConflictException({
+                message: 'Announcements were sent to this location; deactivate it instead',
+                error: 'LOCATION_HAS_ANNOUNCEMENTS',
+            });
         }
         const result = await this.locationRepository.delete(id);
         if (result.affected === 0) {

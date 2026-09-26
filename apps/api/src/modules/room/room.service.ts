@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThan, Not, Repository } from 'typeorm';
+import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
 import { Location } from 'src/entities/location.entity';
 import { Room } from 'src/entities/room.entity';
@@ -15,6 +16,7 @@ export class RoomService {
         @InjectRepository(Room) private readonly roomRepository: Repository<Room>,
         @InjectRepository(Location) private readonly locationRepository: Repository<Location>,
         @InjectRepository(Group) private readonly groupRepository: Repository<Group>,
+        @InjectRepository(ClassSession) private readonly classSessionRepository: Repository<ClassSession>,
     ) {}
 
     async createRoom(dto: CreateRoomDto): Promise<Room> {
@@ -81,6 +83,13 @@ export class RoomService {
         const groups = await this.groupRepository.count({ where: { room: { id } } });
         if (groups > 0) {
             throw new ConflictException({ message: 'Room still hosts groups; move them to another room first', error: 'ROOM_HAS_GROUPS' });
+        }
+        // A class keeps the room it was held in, even after its group moves on — also RESTRICT, and
+        // it reached the screen as the filter's English "still referenced" (QA of 26 September
+        // 2026). A room with a history is closed with `isActive`, not deleted.
+        const classes = await this.classSessionRepository.count({ where: { room: { id } } });
+        if (classes > 0) {
+            throw new ConflictException({ message: 'Classes were held or are planned in this room; deactivate it instead', error: 'ROOM_HAS_CLASSES' });
         }
         const result = await this.roomRepository.delete(id);
         if (result.affected === 0) {
