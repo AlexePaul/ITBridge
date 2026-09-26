@@ -91,6 +91,30 @@ describe('Issuing invoices from the registers (e2e)', () => {
             expect(res.body.families[0].amount).toBe(175);
         });
 
+        it('answers 400, not 500, when the month is missing or malformed', async () => {
+            // It reached the month arithmetic and failed there (review of 26 September 2026).
+            await request(app.getHttpServer()).get('/invoices/worksheet').set('Authorization', admin.auth).expect(400);
+            await request(app.getHttpServer()).get('/invoices/worksheet?monthIssued=2026-13').set('Authorization', admin.auth).expect(400);
+        });
+
+        it('lets the office ask which months have invoices, and for one month of them', async () => {
+            // The overview downloaded every invoice to learn the months, the month's page to keep
+            // thirty rows: 6.9 MB at three years (review of 26 September 2026).
+            const childId = await makeChild();
+            const [first] = await october();
+            await mark(first, childId, true);
+            await issue().expect(201);
+
+            const months = await request(app.getHttpServer()).get('/invoices/months').set('Authorization', admin.auth).expect(200);
+            const october2026 = await request(app.getHttpServer()).get('/invoices?monthIssued=2026-10').set('Authorization', admin.auth).expect(200);
+            const november2026 = await request(app.getHttpServer()).get('/invoices?monthIssued=2026-11').set('Authorization', admin.auth).expect(200);
+
+            expect(months.body).toEqual(['2026-10']);
+            expect(october2026.body).toHaveLength(1);
+            expect(november2026.body).toHaveLength(0);
+            await request(app.getHttpServer()).get('/invoices/months').set('Authorization', parent.auth).expect(403);
+        });
+
         it('lists the sessions of the month with no register, first', async () => {
             const childId = await makeChild();
             const sessions = await october();

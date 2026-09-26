@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { InvoiceController } from './invoice.controller';
 import { InvoiceService } from './invoice.service';
 import { buildController, requestOf } from 'src/testing/controller.spec-helpers';
@@ -19,6 +20,8 @@ describe('InvoiceController', () => {
                 deleteInvoice: jest.fn().mockResolvedValue(undefined),
                 getInvoicePdf: jest.fn().mockResolvedValue(undefined),
                 getPreview: jest.fn().mockResolvedValue([]),
+                getWorksheet: jest.fn().mockResolvedValue({}),
+                issuedMonths: jest.fn().mockResolvedValue(['2026-09']),
             },
             [
                 { provide: ArrearsService, useValue: arrears },
@@ -45,6 +48,16 @@ describe('InvoiceController', () => {
         await controller.findInvoices({}, requestOf(Role.PARENT, 42));
 
         expect(service.findInvoices).toHaveBeenCalledWith({}, Role.PARENT, 42);
+    });
+
+    it('refuses a worksheet with no month, or a malformed one, instead of failing inside', async () => {
+        // It reached `teachingMonthRange` and answered 500 (review of 26 September 2026).
+        const { controller, service } = await build();
+
+        await expect(controller.worksheet(undefined as unknown as string)).rejects.toBeInstanceOf(BadRequestException);
+        await expect(controller.worksheet('2026-13')).rejects.toBeInstanceOf(BadRequestException);
+        await expect(controller.worksheet('2026-09')).resolves.toEqual({});
+        expect(service.getWorksheet).toHaveBeenCalledTimes(1);
     });
 
     it('passes the role and user id to findOne', async () => {

@@ -102,6 +102,32 @@ describe("registering", () => {
   });
 });
 
+describe("an admin signing in", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  /**
+   * `GET /profiles` is a parent's own profile; asked by an admin it is every family in the school.
+   * Every admin page load fetched it — 273 KB at three years — and kept the first family as "the"
+   * profile (review of 26 September 2026).
+   */
+  it("does not download every family to fill a parent's profile it will never show", async () => {
+    const client = vi.fn((url: string) => {
+      if (url === "/auth/login") return Promise.resolve({ accessToken: "a", refreshToken: "r" });
+      if (url === "/auth/me") return Promise.resolve({ id: 1, role: "ADMIN" });
+      if (url === "/profiles") return Promise.resolve([{ id: 7, firstName: "Ana" }]);
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+    vi.stubGlobal("$fetch", Object.assign(client, { create: () => client }));
+
+    const { useAuthApi } = await import("~/composables/api/useAuthApi");
+    await useAuthApi().login({ username: "admin", password: "parola123" } as never);
+
+    expect(client.mock.calls.map(([url]) => url)).not.toContain("/profiles");
+  });
+});
+
 describe("the booking form's own check of a contact", () => {
   it("catches the typo and nothing the server would take", () => {
     expect(looksLikeEmail("nu-e-email-valid")).toBe(false);

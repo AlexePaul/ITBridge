@@ -242,6 +242,20 @@ describe('PaymentService', () => {
             expect(isScopedToUser(qb, 42)).toBe(false);
         });
 
+        it('findPayments can ask only for what waits on somebody, whatever its date', async () => {
+            // The screen shows a month at a time; these are the rows a month would hide from the
+            // person who has to confirm or re-send them (review of 26 September 2026).
+            const qb = createMockQueryBuilder({ many: [] });
+            paymentRepo.createQueryBuilder!.mockReturnValue(qb);
+
+            await service.findPayments({ needsAction: true }, Role.ADMIN, 42);
+
+            expect(qb.andWhere).toHaveBeenCalledWith('(payment.status = :announced OR payment.fiscalStatus IN (:...toCheck))', {
+                announced: 'initiated',
+                toCheck: ['review', 'failed'],
+            });
+        });
+
         it('findPayments narrows to the authenticated user for a PARENT', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             paymentRepo.createQueryBuilder!.mockReturnValue(qb);

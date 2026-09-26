@@ -24,6 +24,13 @@ export const useProfileInitialization = () => {
 
   const initializeProfile = async () => {
     if (!userStore.user) return;
+    // A parent's question. Asked by an admin, `GET /profiles` answers with every family in the school
+    // and the first of them became "the" profile in the store — 273 KB on every page load at three
+    // years (review of 26 September 2026), read by nothing on the admin side.
+    if (userStore.user.role === "ADMIN") {
+      ProfileSetup.value = false;
+      return;
+    }
 
     // The profile itself is still fetched, because the setup form needs the fields it already has
     // — a family the admin entered by phone arrives with a name and sometimes an address.

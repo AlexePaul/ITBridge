@@ -61,9 +61,9 @@ import type { FinanceMonth, FinanceReport } from "~/types/reports.types";
  *
  * **The numbers are asked of the finance report, not recomputed here** — E21's rule, and the reason
  * it exists: a second `amount − payments` in a Vue file is a second definition of "outstanding",
- * and the two would drift the first time one of them learned about `waived` rows. The month list
- * still comes from `/invoices`, because that answers a different question — which months exist —
- * and the report answers for a range it is given.
+ * and the two would drift the first time one of them learned about `waived` rows. Which months
+ * exist is a different question, asked of `/invoices/months`; the report answers for a range it is
+ * given.
  */
 definePageMeta({
   layout: "dashboard" as any,
@@ -126,13 +126,9 @@ const load = async () => {
   loading.value = true;
   loadError.value = "";
   try {
-    // `fetchInvoices` fills the composable's own ref and returns nothing; `getInvoices` reads it.
-    await invoiceApi.fetchInvoices();
-    const issued = invoiceApi
-      .getInvoices()
-      .map((invoice) => invoice.monthIssued)
-      .filter(Boolean)
-      .sort();
+    // Which months exist, oldest first — asked as that, not by downloading every invoice to read
+    // its month: that was 6.9 MB at three years (review of 26 September 2026).
+    const issued = await invoiceApi.fetchIssuedMonths();
     if (issued.length === 0) {
       report.value = null;
       loading.value = false;

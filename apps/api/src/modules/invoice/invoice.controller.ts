@@ -1,4 +1,20 @@
-import { Body, Controller, Get, Post, UseGuards, Request, Query, Put, Delete, Param, ParseIntPipe, HttpCode, Response, StreamableFile } from '@nestjs/common';
+import {
+    BadRequestException,
+    Body,
+    Controller,
+    Get,
+    Post,
+    UseGuards,
+    Request,
+    Query,
+    Put,
+    Delete,
+    Param,
+    ParseIntPipe,
+    HttpCode,
+    Response,
+    StreamableFile,
+} from '@nestjs/common';
 import { InvoiceService } from './invoice.service';
 import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthGuard } from 'src/guards/auth.guard';
@@ -62,7 +78,23 @@ export class InvoiceController {
     })
     @ApiResponse({ status: 200, description: 'The month, its range, the unmarked sessions and one row per family enrolled in it' })
     async worksheet(@Query('monthIssued') monthIssued: string) {
+        // Checked here: an absent or malformed month reached `teachingMonthRange` and came back a
+        // 500 with a stack trace in the log (review of 26 September 2026).
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthIssued ?? '')) {
+            throw new BadRequestException({ message: 'monthIssued must be YYYY-MM', error: 'VALIDATION_FAILED' });
+        }
         return this.invoiceService.getWorksheet(monthIssued);
+    }
+
+    /** The billing months that have invoices, oldest first. Declared above `/:id`, like the rest. */
+    @Get('/months')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'The billing months that have invoices, oldest first' })
+    @ApiResponse({ status: 200, description: "`['2025-10', '2025-11', …]`" })
+    async issuedMonths() {
+        return this.invoiceService.issuedMonths();
     }
 
     /**
