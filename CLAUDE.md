@@ -206,8 +206,11 @@ tipul ca argument, iar clientul știe `HeadObject`, ștergere, stream și URL se
 unul singur; `projects/` stă lângă `invoices/`.
 
 **Model de date** — `User` (credențiale) și `Profile` (date de contact) sunt separate
-intenționat: un admin poate crea un `Profile` fără cont, iar `GET /users/without-profile`
-servește fluxul de legare ulterioară. `Profile` e "părintele" în tot restul modelului.
+intenționat: un admin poate crea un `Profile` fără cont, iar familia își face contul mai târziu
+prin linkul de cont (al patrulea link, la „Auth" mai jos). `GET /users/without-profile` și
+alegătorul de cont din `/admin/profiles/new` rămân, dar nu mai au pe cine lega: `register` scrie
+mereu și profilul, deci ce apare acolo sunt conturile de admin, care n-au profil, și cel mult un cont
+al cărui profil a fost șters. `Profile` e "părintele" în tot restul modelului.
 
 ```
 User ─1:1─ Profile ─1:N─ Child ─N:1─ Group ─N:1─ Room ─N:1─ Location
@@ -591,7 +594,10 @@ să primească un singur email. Trei consecințe de ținut minte:
   e programarea **fără** oră de pe `/proba`: cheia ei n-avea nimic care să treacă, deci o familie
   căreia i s-a spus în martie că nu e loc și care a întrebat din nou în septembrie primea răspunsul
   din rândul din martie, deja pierdut, fără să se scrie nimic. Poartă acum ziua școlii — două apăsări
-  într-o seară sunt o cerere, luna viitoare e alta (`bookingKeyFor`). Al patrulea a fost mesajul
+  într-o seară sunt o cerere, luna viitoare e alta (`bookingKeyFor`). **Iar o cerere închisă ca pierdută
+  își cedează cheia** (testarea din 26 septembrie 2026): aceeași familie, același copil și aceeași oră
+  după „Pierdut" e o cerere nouă, nu a doua apăsare — răspunsă din rândul închis, familia citea „Ne
+  vedem atunci" fără nimic programat. Al patrulea a fost mesajul
   mutării din E12 S4 (revizuirea din 26 septembrie 2026): cheiat pe anunț și oră, un copil mutat joi,
   apoi sâmbătă, apoi înapoi joi nu mai afla de a treia mutare, deși ecranul biroului spunea că a
   plecat mesajul. Cheia poartă acum și **numărul de ordine al mutării**
@@ -690,8 +696,8 @@ chemând `ErasureService.erase` cu `SYSTEM_ACTOR` și cu motivul pentru jurnal. 
   întâi.
 - **Numerele sunt propuneri și stau într-un singur loc**, `retention.rules.ts`, de unde pleacă și pe
   sârmă: 12 luni pentru familie, pentru cererile de probă fără înscriere și pentru copiile mesajelor,
-  30 de zile după expirare pentru linkurile de confirmare și de resetare. Nota de confidențialitate
-  §7 le promite; dacă schimbi unul, schimbi și nota.
+  30 de zile după expirare pentru linkurile de confirmare, de resetare și de cont. Nota de
+  confidențialitate §7 le promite; dacă schimbi unul, schimbi și nota.
 
 **O ștergere pornește de la o cerere care e încă pe fișă, recitită sub lacăt** (testarea din 26
 septembrie 2026). `erase` verifica doar că familia nu fusese deja ștearsă, deci o familie care își
@@ -775,6 +781,21 @@ repartizarea unui copil într-o grupă (`PARENT_ACCOUNT_NOT_ACTIVE`). **Un cont 
 autentifica** — portalul îi arată ce mai lipsește și butonul de retrimitere a linkului; un login care
 refuză fără să explice ar lăsa familia să nu distingă „încă nu" de „stricat".
 
+**Un cont respins se poate aproba din nou, și se vede unde** (revizuirea din 26 septembrie 2026).
+Mailul de refuz și portalul îi spun familiei „scrie-ne… ne uităm încă o dată", iar
+`POST /users/:id/approve` a primit mereu un cont `REJECTED` — dar coada din `/admin/approvals`
+lista doar `PENDING`, iar pagina familiei nu spunea nimic despre cont, deci după „Respinge" familia
+nu mai era pe niciun ecran. `GET /users/rejected` dă conturile respinse, cu ziua deciziei și nota
+adminilor, sub coadă, cu „Aprobă"; `GET /profiles` poartă `account` (starea porților și ziua
+deciziei, niciodată nota) **numai pentru un admin**, iar pagina familiei are aceeași acțiune.
+
+**Pagina de confirmare spune doar ce e adevărat** (aceeași revizuire). Citea numai `active`, deci
+unei familii respinse îi promitea aprobarea „de obicei în aceeași zi lucrătoare"; citește acum și
+`approvalStatus`. Iar `CONFIRMATION_TOKEN_USED` se traduce pe ecran prin „adresa ta este confirmată",
+așa că `confirm` îl dă numai cât e încă adevărat — adresa de pe fișă e cea dovedită de link, iar
+contul e confirmat acum. Un link folosit pentru o adresă înlocuită între timp, sau schimbată și pusă
+la loc (ceea ce închide poarta din nou), primește `CONFIRMATION_TOKEN_SUPERSEDED`.
+
 **Parola uitată e al treilea link din familia asta, și singurul care deschide contul.**
 `PasswordResetService` (`apps/api/src/modules/auth/password-reset.service.ts`) stă lângă
 `EmailConfirmationService` din același motiv pentru care acela stă lângă `AuthService`: unul e despre
@@ -812,6 +833,36 @@ dintre ele sunt diferențe față de linkul de confirmare, nu asemănări:
   cele ale persoanei de care se teme. `AuthGuard` nu atinge `sessions`, deci un access token emis
   înainte mai merge până la cincisprezece minute — compromisul deja documentat, și locul de schimbat
   dacă vine vreodată o cerință de revocare instantanee.
+
+**Al patrulea link e al familiei pe care a trecut-o biroul** (revizuirea din 26 septembrie 2026).
+`POST /profiles` e drumul pe care intră majoritatea familiilor (E11): biroul scrie numele și adresa
+de la telefon, fără cont. Până acum drumul se oprea acolo — `register` găsea adresa pe profil și
+răspundea „Există deja un cont cu această adresă de email", deși cont nu exista, iar nimic nu putea
+lega unul după aceea. Acum `register` cu adresa unui profil **fără cont și neșters** nu scrie nici
+cont, nici coajă: emite un rând în `account_claims` și trimite la adresa din fișă șablonul
+`account-claim`, cu un link spre `/auth/cont-familie`, iar formularul spune doar că școala are deja
+familia și că a plecat un link. Biroul poate trimite același link din pagina familiei
+(`POST /profiles/:id/account-claim`, cu `PROFILE_HAS_ACCOUNT`, `PROFILE_HAS_NO_EMAIL` și
+`PROFILE_ERASED`). `POST /auth/claim` (public, limitat ca `register`) creează contul **pe rândul
+biroului**, într-o tranzacție cu acceptările, confirmarea lor, anunțul către birou și urma în jurnal.
+Trei lucruri de ținut minte:
+
+- **Ce dovedește linkul e cutia poștală, și ajunge.** Adresa unui profil fără cont e una pe care o
+  garantează biroul (`vouchedAddresses`), deci cine deschide linkul trimis acolo e familia. De aceea
+  contul se naște cu `emailConfirmedAt` pus: al doilea link ar dovedi același lucru.
+- **Contul rămâne `PENDING`.** Biroul știe familia, nu și că acest cont e al ei și nu al altcuiva
+  care citește aceeași cutie; aprobarea rămâne a școlii, ca pentru orice cont.
+- **`register` nu scrie coajă aici**, dinadins: o a doua familie lângă rândul biroului ar rupe
+  familia în două — copiii, facturile și contractul pe unul, contul pe celălalt —, iar adresa unică
+  de pe profil ar refuza-o oricum.
+
+Tabela e modelată pe `password_resets`: doar SHA-256 al tokenului, al doilea link îl omoară pe
+primul (prin `expiresAt`, fiindcă `usedAt` înseamnă „s-a creat un cont"), adresa e înghețată la
+emitere și recitită la folosire prin `sameAddress`, iar `CLAIM_TOKEN_INVALID` e un singur răspuns
+pentru necunoscut, expirat, folosit și înlocuit. 48 de ore, ca la confirmare, nu o oră ca la
+resetare: linkul pleacă des din inițiativa biroului, iar ce deschide e un cont care încă așteaptă
+aprobarea. Se șterge la termenul celorlalte linkuri (`removeExpiredLinks`) și apare în exportul
+familiei.
 
 **O cutie poștală e a unei singure familii, oricum ar fi scrisă.** Înregistrarea și
 `forgot-password` caută adresa după `lower(email)`, dar cele două editări de profil comparau exact,
@@ -871,7 +922,8 @@ familie deja înscrisă nu se blochează retroactiv.
 Celălalt drum către un `Profile` — adminul care introduce o familie de la telefon, prin
 `POST /profiles` — rămâne exact cum era, cu toate câmpurile opționale. Sunt două uși cu reguli
 diferite, fiindcă au surse de adevăr diferite. Un test ține fluxul adminului viu, ca să nu fie
-strâns din greșeală odată cu `register`.
+strâns din greșeală odată cu `register`. Contul unei astfel de familii vine prin linkul de cont (al
+patrulea link, mai sus), iar pasul doi îi cere apoi ce n-a notat biroul.
 
 **Formularul are două bife, iar a doua nu e o exagerare de avocat** (E22 S4). Codul civil
 art. 1203 spune că într-un contract standard clauzele neuzuale — la noi §14 suspendarea, §15
@@ -1065,6 +1117,16 @@ un 502 cât repornea API-ul — și chiar când eșua cererea reluată după o r
 telefonul din sală, profesorul era delogat de rețea, cu un refresh token de șapte zile aruncat. O
 reîmprospătare fără răspuns sau cu 5xx își dă înapoi propria eroare și lasă sesiunea pentru
 încercarea următoare; una refuzată dă înapoi 401-ul cererii, pe care ecranul îl poate explica.
+**Pluginul de boot urmează aceeași regulă** (`refreshRejected`, exportat din `useApi.ts`): golea
+tokenurile la orice eșec al lui `/auth/me`, deci un reload pe o linie de semnal delogă familia.
+
+**Sesiunile se văd și se închid din „Profil"** (termenii §4.4–4.5, nota §8; aceeași revizuire).
+`POST /auth/logout-all` și lista de sesiuni existau pe API și nu le chema nimic. Secțiunea „Sesiuni
+active" numește fiecare sesiune după browser și sistem (`deviceLabel`), o marchează pe a acestui
+browser și are „Deconectează-te de pe toate dispozitivele", cu a doua apăsare de confirmare, după
+care golește și tokenurile locale. „Sesiunea aceasta" o spune serverul: `POST /auth/sessions`
+primește refresh tokenul în corp — niciodată în adresă — și îl compară, după hash, doar cu
+sesiunile celui care întreabă.
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
@@ -1462,15 +1524,20 @@ adevărat: ce se verifică e ce se întâmplă când două cereri sunt în aer �
 `fetch` înlocuit cu un răspuns gata făcut dă înapoi controlul prea devreme ca ele să se suprapună
 cu adevărat.
 
-**Un login ține șapte zile, cât refresh tokenul din spatele lui.** `useCookie("accessToken")` fără
-opțiuni scrie un cookie **de sesiune** — `CookieDefaults` din Nuxt pune `path`, `watch`, `decode`,
-`encode` și `refresh`, și nimic altceva, deci nici `maxAge` și nici `expires` —, așa că amândouă
-tokenurile se aruncau la închiderea browserului. Tot ce e de partea cealaltă a sârmei fusese
-construit pentru opusul: șapte zile de refresh token, tabelul `sessions` care îl urmărește, rotația
-care revocă lanțul la refolosire. Un părinte își retasta parola la fiecare vizită, iar nimeni nu
-alesese asta — era implicitul pe care nu-l recitise nimeni. Trei lucruri de ținut minte:
+**Un login ține șapte zile când bifezi „Ține-mă minte", și până la închiderea browserului când
+nu.** `useCookie("accessToken")` fără opțiuni scrie un cookie **de sesiune** — `CookieDefaults` din
+Nuxt pune `path`, `watch`, `decode`, `encode` și `refresh`, și nimic altceva, deci nici `maxAge` și
+nici `expires` —, așa că la început amândouă tokenurile se aruncau la închiderea browserului, deși
+tot ce e de partea cealaltă a sârmei fusese construit pentru șapte zile. Reparația a dat apoi
+fiecărui refresh token șapte zile pe disc, iar bifa „Ține-mă minte" de pe formular nu schimba nimic:
+`login.vue` o arunca (revizuirea din 26 septembrie 2026) — deci o familie care nu bifase, pe
+calculatorul altcuiva, rămânea autentificată o săptămână. Cum `useCookie` fixează `maxAge` când se
+creează ref-ul, alegerea e **care cookie ține tokenul**: `refreshToken`, de sesiune — cum îl descrie
+și politica de cookie-uri §2 —, implicit; `refreshTokenKept`, șapte zile, cu bifa. **Rotația din
+`useApi` nu alege**: `setRefreshToken` fără al doilea argument scrie tokenul nou unde era cel vechi,
+altfel prima reîmprospătare, după un sfert de oră, ar anula bifa. Trei lucruri de ținut minte:
 
-- **`maxAge` pe cookie-ul de refresh, singur, nu repară nimic.** Și pluginul de boot
+- **`maxAge` pe cookie-ul durabil, singur, nu repară nimic.** Și pluginul de boot
   (`01.auth.client.ts`), și middleware-ul (`01.auth.global.ts`) citeau **access tokenul** ca „e
   cineva autentificat", deci părintele întors a doua zi era trimis la formularul de login cu un
   refresh token bun în borcan, neatins: nimic nu cheamă `/auth/refresh` până nu ia o cerere 401, și
@@ -1489,7 +1556,8 @@ alesese asta — era implicitul pe care nu-l recitise nimeni. Trei lucruri de ț
 
 Cele două numere — `REFRESH_TOKEN_MAX_AGE_SECONDS` din `apps/web/app/stores/tokenStore.ts` și
 `JWT_REFRESH_TOKEN_EXPIRATION` — se mută împreună: browserul nu vede mediul API-ului, iar `useCookie`
-fixează `maxAge` când se creează ref-ul, deci valoarea nu poate fi citită nici de pe token.
+fixează `maxAge` când se creează ref-ul, deci valoarea nu poate fi citită nici de pe token. Politica
+de cookie-uri (§2) nu numește încă `refreshTokenKept`: e textul juridic, și se schimbă pe drumul lui.
 
 **Nimic din datele utilizatorului nu se ține în cookie.** Limita e ~4 KB per cookie, iar depășirea
 nu produce nicio eroare: browserul aruncă tăcut, `useCookie` citește mai departe o valoare goală și
