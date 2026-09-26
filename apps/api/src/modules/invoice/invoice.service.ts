@@ -11,6 +11,7 @@ import { CreateInvoiceDto } from './dto/createInvoice.dto';
 import { UpdateInvoiceDto } from './dto/updateInvoice.dto';
 import { FilterInvoiceDto } from './dto/filterInvoice.dto';
 import { Role } from 'src/enum/role.enum';
+import { DiscountType } from 'src/enum/discount-type.enum';
 import { PdfService } from './pdf.service';
 import { Discount } from 'src/entities/discount.entity';
 import { Enrollment } from 'src/entities/enrollment.entity';
@@ -22,7 +23,7 @@ import { BillableLine } from './billable-sessions.rules';
 // E14 moved `S3Service` out of this module: it is no longer only about invoices, it stores
 // children's project files too.
 import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
-import { amountAfterDiscounts, sessionAmountAfterDiscounts } from './pricing';
+import { amountAfterDiscounts, amountForSessions, discountTotal, sessionAmountAfterDiscounts } from './pricing';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { snapshotFields } from 'src/modules/audit/audit.rules';
 import { AuditAction } from 'src/enum/audit-action.enum';
@@ -49,6 +50,13 @@ export interface InvoiceWorksheetRow {
     invoicedAmount: number | null;
     /** What the family will be billed after the month's discounts — read, so the screen shows what the server will write. */
     amount: number;
+    /** The sessions' price before the discounts: what the child lines on the card add up to. */
+    listAmount: number;
+    /**
+     * The month's discounts and what each takes off `listAmount` (QA of 26 September 2026). The card
+     * showed `amount` above lines adding up to the list price, and the difference nowhere.
+     */
+    discounts: WorksheetDiscount[];
     children: {
         childId: number;
         childName: string;
@@ -64,6 +72,15 @@ export interface InvoiceWorksheetRow {
         /** Every held session of the child's group in the month, and whether it counted for them. */
         lines: BillableLine[];
     }[];
+}
+
+/** A discount on the worksheet, with what it takes off the list price, rounded as `discountTotal` rounds. */
+export interface WorksheetDiscount {
+    id: number;
+    name: string;
+    type: DiscountType;
+    value: number;
+    off: number;
 }
 
 /** The whole issuing screen in one payload — E15/S9. */
@@ -556,6 +573,7 @@ export class InvoiceService {
                     };
                 });
             const own = discounts.filter((discount) => discount.parent?.id === parent.id);
+            const listAmount = amountForSessions(children.map((child) => child.sessions));
             families.push({
                 parentId: parent.id,
                 parentName: `${parent.lastName} ${parent.firstName}`,
@@ -566,6 +584,14 @@ export class InvoiceService {
                     children.map((child) => child.sessions),
                     own,
                 ),
+                listAmount,
+                discounts: own.map((discount) => ({
+                    id: discount.id,
+                    name: discount.name,
+                    type: discount.type,
+                    value: discount.value,
+                    off: discountTotal(listAmount, [discount]),
+                })),
                 children,
             });
         }

@@ -99,8 +99,10 @@
           </h2>
 
           <UCard class="border">
-            <div class="flex items-start justify-between gap-4 mb-3">
-              <div>
+            <!-- Wraps at phone width: the amounts block used to be clipped by the card (QA of
+                 26 September 2026, 390 px). -->
+            <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 mb-3">
+              <div class="min-w-0">
                 <p class="font-semibold text-lg">{{ family.parentName }}</p>
                 <p v-if="family.email" class="text-sm text-muted">{{ family.email }}</p>
               </div>
@@ -126,7 +128,15 @@
                   <UBadge color="info" variant="subtle">Fără plată</UBadge>
                   <p class="text-xs text-muted mt-1">se consemnează, fără factură</p>
                 </template>
-                <p v-else class="font-bold text-lg tabular-nums">{{ formatLei(family.amount) }}</p>
+                <template v-else>
+                  <p class="font-bold text-lg tabular-nums">{{ formatLei(family.amount) }}</p>
+                  <p
+                    v-if="family.discounts.length > 0"
+                    class="text-xs text-muted tabular-nums mt-1"
+                  >
+                    din {{ formatLei(family.listAmount) }}, după reduceri
+                  </p>
+                </template>
               </div>
             </div>
 
@@ -244,6 +254,33 @@
                 </ul>
               </div>
             </div>
+
+            <!--
+              The month's discounts, each with what it takes off. The lines above add up to the
+              price before them and the total at the top is after them; without these lines the
+              difference was nowhere, which is how a right bill gets "fixed" by hand (QA of
+              26 September 2026, and the warning in E20/S5).
+            -->
+            <ul
+              v-if="!family.alreadyInvoiced && family.discounts.length > 0"
+              class="mt-3 pl-4 text-sm space-y-1 tabular-nums"
+            >
+              <li
+                v-for="discount in family.discounts"
+                :key="discount.id"
+                class="flex flex-wrap justify-between gap-x-4"
+              >
+                <span>
+                  Reducere „{{ discount.name }}”<template v-if="discount.type === 'percent'">
+                    ({{ discount.value }}%)</template
+                  >
+                </span>
+                <span>−{{ formatLei(discount.off) }}</span>
+              </li>
+              <li v-if="family.amount === 0 && family.listAmount > 0" class="text-muted">
+                Reducerile acoperă tot prețul lunii, deci luna iese fără plată.
+              </li>
+            </ul>
           </UCard>
         </template>
       </template>
@@ -516,6 +553,14 @@ const load = async ({ keepOpen = false } = {}) => {
   if (!keepOpen) {
     loading.value = true;
     open.value = new Set();
+  }
+  // A cleared month field sent `monthIssued=` and printed the validator's English in the error card
+  // (QA of 26 September 2026). There is nothing to ask the server about a month nobody picked.
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthIssued.value)) {
+    worksheet.value = null;
+    loadError.value = "Alege luna de facturat.";
+    loading.value = false;
+    return;
   }
   try {
     worksheet.value = await fetchWorksheet(monthIssued.value);
