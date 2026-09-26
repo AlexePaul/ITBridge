@@ -113,15 +113,28 @@ export class ClassSessionNotifier {
         );
     }
 
-    /** The class is on, but somewhere or somewhen else. A visiting family has to hear the new hour too. */
-    async notifyMoved(sessionId: number, from: SessionPlacement, reason: string, manager: EntityManager): Promise<number> {
+    /**
+     * The class is on, but somewhere or somewhen else. A visiting family has to hear the new hour too.
+     *
+     * `visitorsOnly` is for a class that moved because its whole group did (`followGroup`): the
+     * group's families hear that once, as a new schedule, and only the families visiting for the
+     * week need this class's own sentence.
+     */
+    async notifyMoved(
+        sessionId: number,
+        from: SessionPlacement,
+        reason: string,
+        manager: EntityManager,
+        options: { visitorsOnly?: boolean } = {},
+    ): Promise<number> {
         const session = await this.loadWithFamilies(sessionId, manager);
         if (!session) return 0;
 
         const when = (date: Date | string, startTime: string) => `${romanianDate(date)}, ora ${startTime.slice(0, 5)}`;
         const where = (roomName: string, locationName: string) => (locationName ? `${roomName} — ${locationName}` : roomName);
 
-        const recipients = await this.recipientsOf(session, manager, { includeVisitors: true });
+        const everyone = await this.recipientsOf(session, manager, { includeVisitors: true });
+        const recipients = options.visitorsOnly ? everyone.filter((recipient) => recipient.visiting) : everyone;
         return this.writeTo(recipients, session, manager, MOVED_DEDUPE_PREFIX, (recipient) =>
             this.mailTemplates.render('class-moved', {
                 firstName: recipient.firstName,

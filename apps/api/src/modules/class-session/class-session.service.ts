@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, DataSource, EntityManager, MoreThanOrEqual, Not, Repository } from 'typeorm';
+import { Between, DataSource, EntityManager, In, MoreThanOrEqual, Not, Repository } from 'typeorm';
+import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
 import { Room } from 'src/entities/room.entity';
@@ -16,7 +17,7 @@ import { schoolDay, schoolLocalStamp } from 'src/common/school-clock';
 import { romanianDayAndDate, romanianWeekdayName } from 'src/modules/mail/romanian-date';
 import { Weekday } from 'src/enum/weekday.enum';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
-import { ClassSessionNotifier } from './class-session-notifier';
+import { ClassSessionNotifier, SessionPlacement } from './class-session-notifier';
 import { ReplacementService } from 'src/modules/attendance/replacement.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { Invoice } from 'src/entities/invoice.entity';
@@ -553,6 +554,8 @@ export class ClassSessionService {
         const closed = await this.nonTeachingPeriodService.datesIn(tomorrow, horizonEnd, group.room?.location?.id ?? null);
 
         const movedTo: Date[] = [];
+        /** Where each class that followed was, for the families visiting it — see below. */
+        const followed: { id: number; from: SessionPlacement }[] = [];
         let kept = 0;
         for (const row of future) {
             if (!row.scheduledFor) continue;
@@ -591,6 +594,10 @@ export class ClassSessionService {
                     room: { id: group.room.id },
                 });
                 movedTo.push(newDay);
+                followed.push({
+                    id: row.id,
+                    from: { date: row.date, startTime: row.startTime, roomName: before.room.name, locationName: before.room.location?.name ?? '' },
+                });
             } else {
                 await repository.update(row.id, { scheduledFor: newDay });
                 kept += 1;
@@ -615,6 +622,20 @@ export class ClassSessionService {
                 },
                 manager,
             );
+        }
+
+        // A child the office moved into one of these classes for the week is not in the group, so the
+        // mail above never reached that family: they were told Monday, and the class was now on a
+        // Wednesday (QA of 26 September 2026). Each class that hosts a visitor tells them itself.
+        if (followed.length > 0) {
+            const hosting = await manager.getRepository(AbsenceNotice).find({
+                where: { replacementSession: { id: In(followed.map((row) => row.id)) } },
+                relations: { replacementSession: true },
+            });
+            const hostIds = new Set(hosting.map((notice) => notice.replacementSession?.id));
+            for (const row of followed.filter((candidate) => hostIds.has(candidate.id))) {
+                await this.notifier.notifyMoved(row.id, row.from, 'grupa își schimbă programul de acum încolo', manager, { visitorsOnly: true });
+            }
         }
 
         this.logger.log(`Group ${group.id} changed its slot: ${movedTo.length} class(es) followed, ${kept} kept where they were, ${created} written.`);
