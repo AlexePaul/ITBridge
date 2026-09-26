@@ -117,7 +117,7 @@
             color="primary"
             :disabled="!transferTargetId || transferring"
             :loading="transferring"
-            @click="handleTransfer"
+            @click="handleTransfer()"
           >
             Transferă
           </UButton>
@@ -128,6 +128,69 @@
         </p>
       </template>
     </UCard>
+    <!--
+      A child joined to the family it belongs with. Every `/proba` booking writes its own shell
+      family, so two siblings booked one after the other are two families — no sibling price, and a
+      second family nobody could remove (QA of 26 September 2026). The server refuses a family that
+      has invoices, where a move would split what was billed.
+    -->
+    <UCard class="border rounded-lg" variant="subtle">
+      <template #header>
+        <h2 class="text-lg font-semibold">Familia</h2>
+      </template>
+      <p v-if="currentFamily" class="mb-3">
+        Acum în familia
+        <NuxtLink :to="`/admin/profiles/${currentFamily.id}`" class="underline">
+          {{ currentFamily.firstName }} {{ currentFamily.lastName }}
+        </NuxtLink>
+        .
+      </p>
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+        <USelectMenu
+          v-model="familyTargetId"
+          :items="familyItems"
+          value-key="value"
+          placeholder="Mută în altă familie…"
+          aria-label="Familia în care se mută copilul"
+          class="flex-1"
+        />
+        <UButton
+          color="warning"
+          variant="soft"
+          class="min-h-11"
+          :disabled="!familyTargetId"
+          @click="familyConfirmOpen = true"
+        >
+          Mută copilul
+        </UButton>
+      </div>
+      <p class="text-sm text-muted mt-2">
+        Pentru frații programați separat la probă: copilul trece cu înscrierile, prezențele și
+        lucrările lui, iar familia rămasă goală se poate șterge din pagina ei.
+      </p>
+    </UCard>
+    <AdminConfirmModal
+      v-model:open="familyConfirmOpen"
+      title="Muți copilul în altă familie?"
+      confirm-label="Mută"
+      :loading="movingFamily"
+      @confirm="moveFamily"
+    >
+      <template #body>
+        <p>{{ state.firstName }} {{ state.lastName }} trece în familia {{ familyTargetLabel }}.</p>
+      </template>
+    </AdminConfirmModal>
+    <AdminConfirmModal
+      v-model:open="transferWarningOpen"
+      title="Transferi totuși?"
+      confirm-label="Transferă oricum"
+      :loading="transferring"
+      @confirm="handleTransfer(true)"
+    >
+      <template #body>
+        <p>{{ transferWarning }}</p>
+      </template>
+    </AdminConfirmModal>
   </AdminPage>
 </template>
 
@@ -144,9 +207,11 @@ import type { Enrollment } from "~/types/enrollment.types";
 import { ENROLLMENT_STATUS_LABELS } from "~/types/enrollment.types";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { useGroupsStore } from "~/stores/groupsStore";
-import { apiErrorMessage } from "~/composables/useApiError";
+import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
 import { DATE_KEY_PATTERN } from "~/composables/useDateField";
 import { todayKey } from "~/composables/useAttendanceCalendar";
+import { useProfileApi } from "~/composables/api/useProfileApi";
+import type { Profile } from "~/types/profile.types";
 
 const route = useRoute();
 const childrenStore = useChildrenStore();
@@ -238,7 +303,48 @@ const state = reactive<{
   createdAt: "",
 });
 
+const profileApi = useProfileApi();
+const families = ref<Profile[]>([]);
+const currentFamily = ref<{ id: number; firstName: string; lastName: string } | null>(null);
+const familyTargetId = ref<number | undefined>(undefined);
+const familyConfirmOpen = ref(false);
+const movingFamily = ref(false);
+
+const familyItems = computed(() =>
+  families.value
+    .filter((family) => family.id !== currentFamily.value?.id && !family.erasedAt)
+    .map((family) => ({
+      value: family.id,
+      label: `${family.firstName} ${family.lastName}${family.email ? ` · ${family.email}` : family.phone ? ` · ${family.phone}` : ""}`,
+    }))
+);
+const familyTargetLabel = computed(
+  () => familyItems.value.find((item) => item.value === familyTargetId.value)?.label ?? ""
+);
+
+const moveFamily = async () => {
+  if (!familyTargetId.value || movingFamily.value) return;
+  movingFamily.value = true;
+  try {
+    const target = familyTargetId.value;
+    await childrenApi.moveToFamily(Number(route.params.childId), target);
+    familyConfirmOpen.value = false;
+    success("Copilul a fost mutat", "Familia rămasă fără copii se poate șterge din pagina ei.");
+    await navigateTo(`/admin/profiles/${target}`);
+  } catch (err: unknown) {
+    notifyError("Nu am putut muta copilul", apiErrorMessage(err));
+  } finally {
+    movingFamily.value = false;
+  }
+};
+
 onMounted(async () => {
+  try {
+    families.value = await profileApi.fetchFamilies();
+  } catch {
+    // The picker stays empty; the rest of the page does not depend on it.
+    families.value = [];
+  }
   await childrenApi.fetchChildren();
   const childId = route.params.childId;
   const child: Child | undefined = childrenStore.getChildById(childId as string);
@@ -248,6 +354,7 @@ onMounted(async () => {
     state.lastName = child.lastName;
     state.birthDate = child.birthDate;
     state.createdAt = child.createdAt;
+    currentFamily.value = child.parent ?? null;
   }
 
   try {
@@ -267,20 +374,35 @@ onMounted(async () => {
   }
 });
 
-async function handleTransfer() {
+/**
+ * E11/S6: the age check warns once and accepts the answer. The transfer used to show the warning as
+ * a failure with nothing to press, so a child outside the band could never be moved — "a warning
+ * with no way to answer is a block with the wrong name" (QA of 26 September 2026).
+ */
+const transferWarning = ref<string | null>(null);
+const transferWarningOpen = ref(false);
+
+async function handleTransfer(acknowledgeWarnings = false) {
   if (!transferTargetId.value) return;
   transferring.value = true;
   try {
     await enrollmentsApi.transfer({
       childId: Number(route.params.childId),
       toGroupId: transferTargetId.value,
+      ...(acknowledgeWarnings ? { acknowledgeWarnings: true } : {}),
     });
+    transferWarningOpen.value = false;
     success("Copilul a fost transferat");
     transferTargetId.value = undefined;
     history.value = (await enrollmentsApi.fetchHistory(Number(route.params.childId))) ?? [];
   } catch (err) {
-    // A full group, an age outside the band, an inactive group — the server names each, and
-    // `useApiError` has the Romanian sentence.
+    if (!acknowledgeWarnings && apiErrorCode(err) === "COMPATIBILITY_WARNINGS") {
+      transferWarning.value = apiErrorMessage(err);
+      transferWarningOpen.value = true;
+      return;
+    }
+    // A full group, an inactive group — the server names each, and `useApiError` has the
+    // Romanian sentence.
     notifyError("Transferul nu s-a putut face", apiErrorMessage(err));
   } finally {
     transferring.value = false;

@@ -12,7 +12,7 @@ import { FilterClassSessionDto } from './dto/filterClassSession.dto';
 import { GenerateClassSessionsDto } from './dto/generateClassSessions.dto';
 import { UnmarkedClassSessionsDto } from './dto/unmarkedClassSessions.dto';
 import { addDays, isoWeekday, occurrencesOf, parseIsoDate, startOfIsoWeek, startOfToday, toIsoDate } from './class-session.dates';
-import { schoolDay } from 'src/common/school-clock';
+import { schoolDay, schoolLocalStamp } from 'src/common/school-clock';
 import { romanianDayAndDate, romanianWeekdayName } from 'src/modules/mail/romanian-date';
 import { Weekday } from 'src/enum/weekday.enum';
 import { NonTeachingPeriodService } from './non-teaching-period.service';
@@ -325,6 +325,15 @@ export class ClassSessionService {
             throw new BadRequestException({
                 message: 'Ora de sfârșit este înaintea celei de început.',
                 error: 'SESSION_ENDS_BEFORE_IT_STARTS',
+            });
+        }
+        // Not into the past, on the school's clock: a class moved to a day gone by is one nobody can
+        // come to, and the families were told so — the QA of 26 September 2026 moved a 6 October
+        // class to 24 September and mailed „se mută pe 24 septembrie", leaving the week with two.
+        if (`${targetDate}T${targetStart}` < schoolLocalStamp(new Date())) {
+            throw new BadRequestException({
+                message: 'Ora nu se poate muta într-un moment care a trecut.',
+                error: 'CLASS_SESSION_MOVED_INTO_PAST',
             });
         }
 

@@ -99,7 +99,15 @@ export const useProfileApi = () => {
     }
   };
 
+  /** Every family, for a picker — without touching the store `fetchProfile` fills. ADMIN. */
+  const fetchFamilies = async (): Promise<Profile[]> =>
+    api<Profile[]>("/profiles", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
   return {
+    fetchFamilies,
     fetchProfile,
     getProfile,
     createProfile,

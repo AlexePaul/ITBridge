@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MIN_PASSWORD_LENGTH } from "~/composables/useAuthForms";
 import { computed, ref } from "vue";
 import { useRoute } from "#imports";
 import { useSeo } from "~/composables/useSeo";
@@ -28,9 +29,6 @@ useSeo({
   path: "/auth/reset-password",
   noindex: true,
 });
-
-/** Mirrors `MIN_PASSWORD_LENGTH` on the server, which mirrors what registration accepts. */
-const MIN_PASSWORD_LENGTH = 6;
 
 const route = useRoute();
 const { resetPassword } = useAuthApi();

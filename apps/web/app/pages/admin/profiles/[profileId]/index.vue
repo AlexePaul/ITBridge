@@ -366,6 +366,75 @@
         </div>
       </UCard>
 
+      <!--
+        E07/S4 from the office's side. Terms §17 and the privacy notice §8 send families to the school
+        by phone or email, and a family with no account can reach its data no other way: the export
+        is the document the portal gives, and the request joins the same queue, where the erasure
+        itself happens.
+      -->
+      <UCard v-if="profile && !profile.erasedAt" class="border rounded-lg" variant="subtle">
+        <template #header>
+          <div class="flex items-center gap-3">
+            <UIcon name="i-lucide-shield" class="text-2xl text-primary" />
+            <h2 class="text-2xl font-semibold">Datele familiei</h2>
+          </div>
+        </template>
+
+        <div class="space-y-5">
+          <div class="flex flex-wrap items-center gap-3">
+            <UButton
+              color="neutral"
+              variant="subtle"
+              class="min-h-11"
+              icon="i-lucide-download"
+              :loading="exportBusy"
+              @click="downloadExport"
+            >
+              Exportă datele familiei
+            </UButton>
+            <p class="text-sm text-muted">Același fișier pe care familia îl descarcă din portal.</p>
+          </div>
+
+          <div v-if="profile.erasureRequestedAt" class="space-y-3">
+            <p>
+              Familia a cerut ștergerea datelor pe
+              <strong>{{ formatDateKey(todayKey(new Date(profile.erasureRequestedAt))) }}</strong
+              >. Ștergerea se face din
+              <NuxtLink to="/admin/stergeri" class="underline">Ștergeri</NuxtLink>.
+            </p>
+            <UButton
+              color="neutral"
+              variant="subtle"
+              class="min-h-11"
+              :loading="erasureBusy"
+              @click="withdrawErasureRequest"
+            >
+              Retrage cererea familiei
+            </UButton>
+          </div>
+
+          <div v-else class="space-y-3">
+            <p class="text-muted max-w-2xl">
+              Dacă familia a cerut ștergerea datelor la telefon, pe email sau la birou, consemnează
+              cererea aici. Apare apoi în lista de ștergeri, iar cele 30 de zile curg de azi.
+            </p>
+            <div class="flex flex-wrap items-end gap-4">
+              <UFormField name="erasureVia" label="Cum a cerut">
+                <USelect v-model="erasureVia" :items="erasureChannelItems" class="min-w-44" />
+              </UFormField>
+              <UButton
+                color="warning"
+                class="min-h-11"
+                :loading="erasureBusy"
+                @click="recordErasure"
+              >
+                Consemnează cererea de ștergere
+              </UButton>
+            </div>
+          </div>
+        </div>
+      </UCard>
+
       <UButton
         class="mt-4 mx-auto block justify-center text-center"
         variant="outline"
@@ -379,7 +448,11 @@
 </template>
 <script setup lang="ts">
 import { useDiscountsApi } from "~/composables/api/useDiscountsApi";
-import { usePrivacyApi } from "~/composables/api/usePrivacyApi";
+import {
+  ERASURE_REQUEST_CHANNEL_LABELS,
+  usePrivacyApi,
+  type ErasureRequestChannel,
+} from "~/composables/api/usePrivacyApi";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useNotifications } from "~/composables/useNotifications";
@@ -484,6 +557,66 @@ const reinstate = async () => {
     error(apiErrorMessage(err, "Nu am putut anula retragerea."));
   } finally {
     withdrawalBusy.value = false;
+  }
+};
+
+/**
+ * The family's own data, from the office's side — E07/S4. The request only goes on file here; the
+ * erasure is `/admin/stergeri`'s, with its thirty-day queue and its fiscal hold.
+ */
+const exportBusy = ref(false);
+const erasureBusy = ref(false);
+const erasureVia = ref<ErasureRequestChannel>("phone");
+const erasureChannelItems = (
+  Object.keys(ERASURE_REQUEST_CHANNEL_LABELS) as ErasureRequestChannel[]
+).map((value) => ({ value, label: ERASURE_REQUEST_CHANNEL_LABELS[value] }));
+
+const downloadExport = async () => {
+  if (!profile.value || exportBusy.value) return;
+  exportBusy.value = true;
+  let url: string | null = null;
+  try {
+    const data = await privacyApi.fetchFamilyExport(profile.value.id);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `datele-familiei-${profile.value.id}-${today}.json`;
+    anchor.click();
+    success("Datele familiei s-au descărcat.");
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut pregăti fișierul."));
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+    exportBusy.value = false;
+  }
+};
+
+const recordErasure = async () => {
+  if (!profile.value || erasureBusy.value) return;
+  erasureBusy.value = true;
+  try {
+    const answer = await privacyApi.recordErasureRequest(profile.value.id, erasureVia.value);
+    profile.value = { ...profile.value, erasureRequestedAt: answer.requestedAt };
+    success("Cererea de ștergere a fost consemnată.", "Familia apare acum în lista de ștergeri.");
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut consemna cererea."));
+  } finally {
+    erasureBusy.value = false;
+  }
+};
+
+const withdrawErasureRequest = async () => {
+  if (!profile.value || erasureBusy.value) return;
+  erasureBusy.value = true;
+  try {
+    await privacyApi.withdrawErasureForFamily(profile.value.id);
+    profile.value = { ...profile.value, erasureRequestedAt: null };
+    success("Cererea de ștergere a fost retrasă.");
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut retrage cererea."));
+  } finally {
+    erasureBusy.value = false;
   }
 };
 

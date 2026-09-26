@@ -318,9 +318,9 @@
 
         <template v-if="erasureRequestedAt">
           <p class="body-text">
-            Am primit cererea ta pe {{ formatDateKey(erasureRequestedAt.slice(0, 10)) }}. Ștergem
-            datele în cel mult 30 de zile. Îți rămân doar facturile, fiindcă legea ne obligă să
-            păstrăm evidența plăților.
+            Am primit cererea ta pe {{ formatDateKey(todayKey(new Date(erasureRequestedAt))) }}.
+            Ștergem datele în cel mult 30 de zile. Îți rămân doar facturile, fiindcă legea ne obligă
+            să păstrăm evidența plăților.
           </p>
           <button
             type="button"
@@ -353,6 +353,7 @@
 </template>
 
 <script setup lang="ts">
+import { MIN_PASSWORD_LENGTH } from "~/composables/useAuthForms";
 import { computed, onMounted, ref } from "vue";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { usePrivacyApi } from "~/composables/api/usePrivacyApi";
@@ -367,6 +368,7 @@ import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { dayKey } from "~/composables/useUtils";
 import { formatDateKey } from "~/composables/useAdminFormat";
+import { todayKey } from "~/composables/useAttendanceCalendar";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 import { LEGAL_DOCUMENT_LABELS, LEGAL_READING_ORDER } from "~/types/legal.types";
@@ -407,8 +409,6 @@ const currentPassword = ref("");
 const newPassword = ref("");
 const newPasswordConfirmation = ref("");
 
-/** Mirrors `MIN_PASSWORD_LENGTH` on the server, which mirrors what registration accepts. */
-const MIN_PASSWORD_LENGTH = 6;
 const erasing = ref(false);
 /** First press arms, second one asks. Reset on success, on failure and on leaving the screen. */
 const confirmingErasure = ref(false);

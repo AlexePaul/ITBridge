@@ -66,6 +66,11 @@ const MESSAGES: Record<string, string> = {
     "Familia e încă pe o listă de așteptare. Scoate-o întâi de acolo, apoi consemnează retragerea.",
   WITHDRAWAL_IN_FUTURE: "Retragerea se consemnează cu o zi care a trecut deja, sau cu ziua de azi.",
   ALREADY_ERASED: "Datele familiei au fost deja șterse.",
+  PROFILE_ERASED:
+    "Datele familiei au fost șterse; rândul ei păstrează doar facturile și nu se mai completează.",
+  NO_ERASURE_REQUEST:
+    "Familia nu mai are o cerere de ștergere: a retras-o între timp, sau n-a făcut-o niciodată. Nu s-a șters nimic.",
+  FAMILY_NOT_WITHDRAWN: "Familia nu mai e retrasă, deci nu s-a șters nimic la termen.",
   FAMILY_HAS_FISCAL_WORK:
     "Familia are o factură încă în drum spre SmartBill. Emite-o sau retrage-o, apoi șterge datele.",
 
@@ -207,6 +212,9 @@ const MESSAGES: Record<string, string> = {
   // E16/S1. Money against a month the school chose not to charge for — the row picked is wrong.
   INVOICE_WAIVED: "Factura este anulată (0 lei) — nu se pot înregistra plăți pe ea.",
   // A free month is recorded as a 0-lei row with nothing to print (E15/S6).
+  MONTH_NOT_TAUGHT_YET:
+    "Luna nu s-a terminat încă: facturile ei se emit după ultima ei săptămână de cursuri.",
+  INVOICE_DATE_IN_FUTURE: "Data emiterii nu poate fi în viitor.",
   INVOICE_WAIVED_HAS_NO_PDF:
     "Luna aceasta a fost consemnată fără plată (0 lei), deci nu are factură de descărcat.",
 

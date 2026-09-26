@@ -69,6 +69,13 @@ describe('Moving a class session (e2e)', () => {
         expect(res.body.code).toBe('MOVED_ONTO_NON_TEACHING_DAY');
     });
 
+    // The QA of 26 September 2026 moved a 6 October class to 24 September: accepted, the families
+    // mailed „se mută pe 24 septembrie", and the week left with two classes.
+    it('refuses a day that has gone by', async () => {
+        const res = await move({ date: '2020-03-02' }).expect(400);
+        expect(res.body.code).toBe('CLASS_SESSION_MOVED_INTO_PAST');
+    });
+
     it('refuses a day the group already has a class on, as a sentence rather than a driver error', async () => {
         await createClassSession(dataSource, groupId, { date: NEXT_MONDAY });
 

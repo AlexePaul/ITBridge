@@ -36,7 +36,7 @@
             </UBadge>
           </div>
           <p class="text-sm text-muted">
-            A cerut pe {{ formatDateKey(String(row.erasureRequestedAt).slice(0, 10)) }}
+            A cerut pe {{ formatDateKey(todayKey(new Date(String(row.erasureRequestedAt)))) }}
             <template v-if="row.email"> · {{ row.email }}</template>
             <template v-if="row.phone"> · {{ row.phone }}</template>
           </p>
@@ -108,6 +108,7 @@ import { apiErrorMessage } from "~/composables/useApiError";
 import { usePrivacyApi } from "~/composables/api/usePrivacyApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { formatDateKey } from "~/composables/useAdminFormat";
+import { todayKey } from "~/composables/useAttendanceCalendar";
 import { daysSince } from "~/composables/useUtils";
 import type { ProfileSummary } from "~/types/profile.types";
 import { RETENTION_HOLD_LABELS } from "~/types/retention.types";
@@ -211,6 +212,9 @@ const confirm = async (row: ProfileSummary) => {
     await load();
   } catch (err: unknown) {
     notifyError("Nu am putut șterge datele", apiErrorMessage(err));
+    // A refusal usually means the queue moved under this page — the family withdrew, or somebody
+    // else already erased it — so what is on screen is no longer the queue.
+    await load();
   } finally {
     confirmingId.value = null;
     busyId.value = null;

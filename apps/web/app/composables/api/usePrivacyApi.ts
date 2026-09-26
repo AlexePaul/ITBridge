@@ -9,6 +9,15 @@ import type {
   PublicationPurpose,
 } from "~/types/consent.types";
 
+/** How a request the office writes down reached it. */
+export type ErasureRequestChannel = "phone" | "email" | "in_person";
+
+export const ERASURE_REQUEST_CHANNEL_LABELS: Record<ErasureRequestChannel, string> = {
+  phone: "La telefon",
+  email: "Pe email",
+  in_person: "La birou",
+};
+
 /** A family waiting, as the office queue lists it. */
 export type ErasurePending = ProfileSummary;
 
@@ -69,6 +78,34 @@ export const usePrivacyApi = () => {
   const eraseProfile = async (profileId: number): Promise<ErasureReport> =>
     api<ErasureReport>(`/privacy/erasure/${profileId}`, {
       method: "POST",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /**
+   * The office writes down a request the family made by phone, by email or at the desk — terms §17
+   * send families to the school, and a family with no account has no other door. ADMIN.
+   */
+  const recordErasureRequest = async (
+    profileId: number,
+    via: ErasureRequestChannel
+  ): Promise<{ requestedAt: string }> =>
+    api<{ requestedAt: string }>(`/privacy/erasure/${profileId}/request`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: { via },
+    });
+
+  /** The family told the office it changed its mind. ADMIN. */
+  const withdrawErasureForFamily = async (profileId: number): Promise<void> =>
+    api<void>(`/privacy/erasure/${profileId}/request`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
+
+  /** Everything the school holds about one family, as the family's own export gives it. ADMIN. */
+  const fetchFamilyExport = async (profileId: number): Promise<unknown> =>
+    api<unknown>(`/privacy/export/${profileId}`, {
+      method: "GET",
       headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
     });
 
@@ -157,6 +194,9 @@ export const usePrivacyApi = () => {
     withdrawErasure,
     fetchPendingErasures,
     eraseProfile,
+    recordErasureRequest,
+    withdrawErasureForFamily,
+    fetchFamilyExport,
     fetchRetention,
     fetchFamilyRetention,
     withdrawFamily,

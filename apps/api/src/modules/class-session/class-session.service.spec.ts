@@ -386,6 +386,18 @@ describe('ClassSessionService', () => {
     });
 
     describe('moving', () => {
+        // The days below are September 2026, and a class is not moved into the past: the clock is
+        // held at the start of that month, and only the clock — promises and timers run as usual.
+        beforeEach(() => {
+            jest.useFakeTimers({
+                now: new Date('2026-09-01T06:00:00Z'),
+                doNotFake: ['nextTick', 'setImmediate', 'setTimeout', 'setInterval', 'queueMicrotask'],
+            });
+        });
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
         const monday = {
             id: 3,
             status: ClassSessionStatus.SCHEDULED,

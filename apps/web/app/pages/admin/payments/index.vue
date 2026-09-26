@@ -509,6 +509,12 @@ const askArrival = (payment: Payment) => {
 const confirmArrival = async () => {
   const payment = arrivalTarget.value;
   if (!payment || !arrivalDate.value) return;
+  // The field's `max` stops the picker, not the keyboard: a typed 30 September on the 26th sent the
+  // family „Am primit 350 lei pe 30 septembrie" (QA of 26 September 2026).
+  if (arrivalDate.value > todayKey()) {
+    error("Ziua în care au intrat banii nu poate fi în viitor.");
+    return;
+  }
   arriving.value = true;
   try {
     await paymentsApi.updatePayment(payment.id, { status: "succeeded", date: arrivalDate.value });

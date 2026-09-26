@@ -89,7 +89,8 @@
               variant="soft"
               size="sm"
               icon="i-lucide-minus"
-              @click="handleRemoveChild(child.id)"
+              :aria-label="`Scoate pe ${child.firstName} ${child.lastName} din grupă`"
+              @click="askRemoveChild(child)"
             >
               Elimină
             </UButton>
@@ -212,6 +213,27 @@
     </div>
 
     <AdminLoading v-else />
+
+    <!--
+      One click used to end the enrolment on the spot and offer the seat to the head of the waiting
+      list, mailing that family — a misclick cost a child the place and could not be undone (QA of
+      26 September 2026). Every other destructive action on these screens asks first.
+    -->
+    <AdminConfirmModal
+      v-model:open="removeOpen"
+      title="Scoți copilul din grupă?"
+      confirm-label="Scoate din grupă"
+      danger
+      :loading="isLoading"
+      @confirm="confirmRemoveChild"
+    >
+      <template #body>
+        <p v-if="removeTarget">
+          {{ removeTarget.firstName }} {{ removeTarget.lastName }} iese din grupă de azi, iar locul
+          lui se oferă primei familii de pe lista de așteptare, care primește un email.
+        </p>
+      </template>
+    </AdminConfirmModal>
 
     <UModal v-model:open="warningOpen" title="Confirmi înscrierea?">
       <template #body>
@@ -379,6 +401,22 @@ const confirmWarning = async () => {
   const childId = warningChildId.value;
   warningOpen.value = false;
   if (childId !== null) await handleAddChild(childId, true);
+};
+
+const removeOpen = ref(false);
+const removeTarget = ref<{ id: number; firstName: string; lastName: string } | null>(null);
+
+const askRemoveChild = (child: { id: number; firstName: string; lastName: string }) => {
+  removeTarget.value = child;
+  removeOpen.value = true;
+};
+
+const confirmRemoveChild = async () => {
+  const target = removeTarget.value;
+  if (!target) return;
+  await handleRemoveChild(target.id);
+  removeOpen.value = false;
+  removeTarget.value = null;
 };
 
 const handleRemoveChild = async (childId: number) => {

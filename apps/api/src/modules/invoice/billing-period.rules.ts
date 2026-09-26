@@ -55,3 +55,14 @@ export function teachingMonthRange(month: string): { from: string; to: string } 
 function toKey(date: Date): string {
     return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
 }
+
+/**
+ * Whether a teaching month can be issued on `today`, a school day (`YYYY-MM-DD`): only once its last
+ * week is over — E15 S9, "the month is invoiced once its last session has a register". Before that
+ * the count is of classes that have not happened, and issuing freezes it: the QA of 26 September
+ * 2026 recorded every family's October as 0 lei with one press on the 26th of September, and the
+ * real October could then never be issued.
+ */
+export function monthIsTaught(month: string, today: string): boolean {
+    return today > teachingMonthRange(month).to;
+}

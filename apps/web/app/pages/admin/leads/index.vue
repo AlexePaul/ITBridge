@@ -8,6 +8,7 @@
       <UBadge v-if="followUp" color="warning" variant="subtle">
         {{ followUp.undecided.length }} probe fără decizie
       </UBadge>
+      <UButton icon="i-lucide-plus" class="min-h-11" @click="newOpen = true">Cerere nouă</UButton>
     </template>
 
     <AdminLoading v-if="loading" />
@@ -40,7 +41,14 @@
             <div class="flex flex-wrap items-center justify-between gap-3">
               <div class="min-w-0">
                 <p class="font-medium">
-                  {{ row.lead.childFirstName }} {{ row.lead.childLastName }}
+                  <button
+                    type="button"
+                    class="underline underline-offset-2 text-left"
+                    :aria-label="`Deschide cererea pentru ${row.lead.childFirstName} ${row.lead.childLastName}`"
+                    @click="openFile(row.lead)"
+                  >
+                    {{ row.lead.childFirstName }} {{ row.lead.childLastName }}
+                  </button>
                   <span class="text-muted">· {{ row.lead.parentName }}</span>
                 </p>
                 <p class="text-sm text-muted">
@@ -77,7 +85,14 @@
           <p v-if="panel.rows.length === 0" class="text-sm text-muted">Nimic aici.</p>
           <ul v-else class="space-y-2">
             <li v-for="row in panel.rows" :key="row.lead.id" class="text-sm">
-              <span class="font-medium">{{ row.lead.childFirstName }}</span>
+              <button
+                type="button"
+                class="font-medium underline underline-offset-2"
+                :aria-label="`Deschide cererea pentru ${row.lead.childFirstName} ${row.lead.childLastName}, ${panel.title}`"
+                @click="openFile(row.lead)"
+              >
+                {{ row.lead.childFirstName }}
+              </button>
               <span class="text-muted"> · {{ row.lead.parentName }} · de {{ row.days }} z.</span>
             </li>
           </ul>
@@ -103,8 +118,17 @@
         empty-text="Nicio cerere"
         empty-description="Când cineva completează formularul de pe site, apare aici."
         :columns="columns"
+        :actions="rowActions"
       />
     </template>
+
+    <AdminLeadFile
+      v-model:open="fileOpen"
+      :lead="fileLead"
+      @changed="onFileChanged"
+      @lose="loseFromFile"
+    />
+    <AdminLeadNew v-model:open="newOpen" @created="onCreated" />
 
     <AdminConfirmModal
       v-model:open="lostOpen"
@@ -118,7 +142,7 @@
           Scrie de ce nu continuă {{ lostLead?.childFirstName ?? "familia" }}. Motivul rămâne pe
           cerere — o cerere nu iese din liste pentru că a trecut timpul.
         </p>
-        <UFormField label="Motiv" required>
+        <UFormField label="Motiv" required :error="lostError">
           <UInput
             v-model="lostReason"
             placeholder="ex. programul nu li se potrivește"
@@ -137,6 +161,7 @@ import { apiErrorMessage } from "~/composables/useApiError";
 import { useUserStore } from "~/stores/userStore";
 import { LEAD_SOURCE_LABELS, LEAD_STATUS_COLORS, LEAD_STATUS_LABELS } from "~/types/lead.types";
 import type { LeadFollowUp, LeadStatus, LeadSummary } from "~/types/lead.types";
+import { useNotifications } from "~/composables/useNotifications";
 
 /**
  * The office's screen — E20/S1 and S3.
@@ -249,11 +274,45 @@ const loadList = async () => {
 
 watch([statusFilter, onlyUnassigned, includeSettled], loadList);
 
+/** One request, opened: contact, trial, notes, next step, owner — `AdminLeadFile`. */
+const fileOpen = ref(false);
+const fileLead = ref<LeadSummary | null>(null);
+const newOpen = ref(false);
+const { success: notifySuccess, error: notifyError } = useNotifications();
+
+const openFile = (lead: LeadSummary) => {
+  fileLead.value = lead;
+  fileOpen.value = true;
+};
+
+const rowActions = (lead: LeadSummary) => [
+  { label: "Deschide cererea", icon: "i-lucide-folder-open", onSelect: () => openFile(lead) },
+];
+
+const onFileChanged = async (lead: LeadSummary) => {
+  fileLead.value = lead;
+  await load();
+};
+
+const loseFromFile = (lead: LeadSummary) => {
+  fileOpen.value = false;
+  openLost(lead);
+};
+
+const onCreated = async (lead: LeadSummary) => {
+  await load();
+  openFile(lead);
+};
+
 const claim = async (id: number) => {
   const me = userStore.user?.id;
   if (!me) return;
-  await updateLead(id, { assignedToId: me });
-  await load();
+  try {
+    await updateLead(id, { assignedToId: me });
+    await load();
+  } catch (caught) {
+    notifyError(apiErrorMessage(caught, "Nu am putut prelua cererea."));
+  }
 };
 
 const lostOpen = ref(false);
@@ -261,21 +320,36 @@ const lostSaving = ref(false);
 const lostReason = ref("");
 const lostLead = ref<LeadSummary | null>(null);
 
+const lostError = ref<string | undefined>(undefined);
+watch(lostReason, () => (lostError.value = undefined));
+
 const openLost = (lead: LeadSummary) => {
   lostLead.value = lead;
   lostReason.value = "";
+  lostError.value = undefined;
   lostOpen.value = true;
 };
 
+/**
+ * The reason is checked here and a refusal stays in the dialog. A short reason used to be sent,
+ * refused with class-validator's English, and shown as the error of the whole page — which replaced
+ * the lists the office was working from (QA of 26 September 2026).
+ */
 const confirmLost = async () => {
   if (!lostLead.value) return;
+  const reason = lostReason.value.trim();
+  if (reason.length < 3) {
+    lostError.value = "Scrie motivul în câteva cuvinte (cel puțin 3 caractere).";
+    return;
+  }
   lostSaving.value = true;
   try {
-    await markLost(lostLead.value.id, { reason: lostReason.value.trim() });
+    await markLost(lostLead.value.id, { reason });
     lostOpen.value = false;
+    notifySuccess("Cererea a fost închisă.");
     await load();
   } catch (caught) {
-    error.value = apiErrorMessage(caught);
+    lostError.value = apiErrorMessage(caught, "Nu am putut închide cererea.");
   } finally {
     lostSaving.value = false;
   }

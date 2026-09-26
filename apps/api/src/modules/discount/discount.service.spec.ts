@@ -50,6 +50,9 @@ describe('DiscountService', () => {
             ],
         }).compile();
         service = module.get(DiscountService);
+        // A family that exists and was not erased: a discount on an erased one is refused
+        // (`assertNotErased`), which is the privacy suite's case, not this one's.
+        profileRepo.findOne!.mockResolvedValue({ id: 7, erasedAt: null });
     });
 
     it('links the discount to the parent from the DTO', async () => {
@@ -287,7 +290,7 @@ describe('DiscountService referral reward', () => {
         service = module.get(DiscountService);
 
         rows = [];
-        profileRepo.findOne!.mockResolvedValue({ id: 7 });
+        profileRepo.findOne!.mockResolvedValue({ id: 7, erasedAt: null });
         discountRepo.find!.mockImplementation(() => Promise.resolve(rows.filter((row) => row.name === 'Recomandare')));
         discountRepo.findOne!.mockImplementation((options: { where?: { monthIssued?: string } }) =>
             Promise.resolve(rows.find((row) => row.monthIssued === options?.where?.monthIssued) ?? null),

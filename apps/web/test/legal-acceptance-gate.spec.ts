@@ -91,6 +91,16 @@ describe("the legal re-acceptance gate", () => {
     expect(globalThis.navigateTo).not.toHaveBeenCalled();
   });
 
+  // Terms §18: not accepting means closing the account, from Profil — the acceptance screen links
+  // there, and the gate used to send the link straight back.
+  it("lets a parent with an outstanding document reach Profil, the way out §18 promises", async () => {
+    await signedInWith(["terms"]);
+
+    await visit("/user/profile");
+
+    expect(globalThis.navigateTo).not.toHaveBeenCalled();
+  });
+
   it("leaves the acceptance screen reachable with nothing to accept", async () => {
     // An admin, or a parent who has just confirmed. Redirecting them away would make the page
     // unreachable for everyone who has nothing outstanding — including `check-a11y-auth.mjs`,

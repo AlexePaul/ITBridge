@@ -94,7 +94,16 @@ export const useChildrenApi = () => {
       },
     });
   };
+  /** The office joins a child to the family it belongs with (duplicate `/proba` families). ADMIN. */
+  const moveToFamily = async (childId: number, profileId: number) =>
+    api<Child>(`/children/${childId}/family`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      body: { profileId },
+    });
+
   return {
+    moveToFamily,
     fetchChildren,
     fetchChildrenAttendance,
     createChild,

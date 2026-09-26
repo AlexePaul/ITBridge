@@ -46,6 +46,22 @@ describe('Authentication (e2e)', () => {
             .expect(409);
     });
 
+    // A phone keyboard adds a space after an autocompleted word: stored as typed, "ioana.test " could
+    // never sign in as "ioana.test", and "admin " was a second account beside the office's.
+    it('takes the spaces off a username, so the family signs in as it reads and cannot shadow another', async () => {
+        await request(app.getHttpServer())
+            .post('/auth/register')
+            .send({ ...registrationBody('ioana.test'), username: 'ioana.test ' })
+            .expect(201);
+
+        await request(app.getHttpServer()).post('/auth/login').send({ username: 'ioana.test', password: 'parola123' }).expect(200);
+        await request(app.getHttpServer()).post('/auth/login').send({ username: ' ioana.test ', password: 'parola123' }).expect(200);
+        await request(app.getHttpServer())
+            .post('/auth/register')
+            .send({ ...registrationBody('ioana.test'), username: ' Ioana.Test', email: 'altcineva@example.com' })
+            .expect(409);
+    });
+
     it('login with the correct password returns tokens', async () => {
         await registerUser(app, 'ana');
 

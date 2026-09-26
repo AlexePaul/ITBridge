@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto';
+import { ConflictException } from '@nestjs/common';
 
 /**
  * What an erased family looks like afterwards — E07 S4, the pure half.
@@ -59,4 +60,19 @@ export function erasedProfileFields(now: Date): Record<string, unknown> {
 /** True once the family has been erased; the screens read this rather than guessing from a blank name. */
 export function isErased(profile: { erasedAt: Date | null }): boolean {
     return profile.erasedAt !== null;
+}
+
+/**
+ * An erased family's row stays only because its invoices hang off it. Filling it in again would put
+ * personal data back on a row that erasure and retention both skip as already done — data nobody
+ * could then take out (QA of 26 September 2026: the edit form, a new child and the referral "+"
+ * were all accepted on an erased family).
+ */
+export function assertNotErased(profile: { erasedAt: Date | null }): void {
+    if (isErased(profile)) {
+        throw new ConflictException({
+            message: 'This family was erased; its row keeps only the invoices and cannot be filled in again.',
+            error: 'PROFILE_ERASED',
+        });
+    }
 }

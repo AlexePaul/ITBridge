@@ -29,6 +29,20 @@
       </p>
 
       <!--
+        E15 S9: a month is issued once taught. The button stayed live on the month in progress, and
+        one press recorded every family's month as 0 lei, frozen for good (QA of 26 September 2026).
+        The server refuses it too; this says why before anybody presses.
+      -->
+      <UAlert
+        v-if="!worksheet.issuable"
+        color="info"
+        variant="subtle"
+        icon="i-lucide-calendar-clock"
+        title="Luna nu s-a terminat încă"
+        :description="`Ultima ei săptămână de cursuri se încheie pe ${formatDateKey(worksheet.to)}. Facturile se emit după aceea, din cataloagele complete.`"
+      />
+
+      <!--
         First, and loud: a session with no register is not a gap in the paperwork, it is an hour
         nobody is being billed for — 87,50 lei of every child in the group. The fix is the register,
         which can still be taken, or a cancellation, which is the explicit way to say the hour did
@@ -256,7 +270,7 @@
         <UButton
           size="lg"
           color="primary"
-          :disabled="billableCount + waivedCount === 0 || sending"
+          :disabled="!canIssue || sending"
           :loading="sending"
           @click="send"
         >
@@ -276,6 +290,7 @@ import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { formatDateKey, formatLei } from "~/composables/useAdminFormat";
+import { todayKey } from "~/composables/useAttendanceCalendar";
 import { getWeekdayName } from "~/composables/useUtils";
 import { orderByGroup, primaryGroupOf } from "~/composables/useInvoiceWorksheetOrder";
 import type { InvoiceWorksheet, InvoiceWorksheetRow } from "~/types/invoice.types";
@@ -330,7 +345,15 @@ const worksheet = ref<InvoiceWorksheet | null>(null);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 const sending = ref(false);
-const monthIssued = ref(new Date().toISOString().slice(0, 7));
+/**
+ * The month before this one, from the local calendar — the month in progress is never issuable
+ * (E15 S9), and `toISOString()` gave the UTC month, the previous one on the 1st before 03:00.
+ */
+const previousMonth = (now: Date = new Date()): string => {
+  const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, "0")}`;
+};
+const monthIssued = ref(previousMonth());
 
 /** By group, not alphabetically — see `useInvoiceWorksheetOrder` for why. */
 const families = computed(() => orderByGroup(worksheet.value?.families ?? []));
@@ -503,16 +526,26 @@ const load = async ({ keepOpen = false } = {}) => {
   }
 };
 
+/**
+ * Only the month on screen, once taught, with something to record. A cleared or retyped month
+ * left the previous month's worksheet — and its live button — behind.
+ */
+const canIssue = computed(
+  () =>
+    !!worksheet.value &&
+    worksheet.value.month === monthIssued.value &&
+    worksheet.value.issuable &&
+    billableCount.value + waivedCount.value > 0
+);
+
 const send = async () => {
+  if (!canIssue.value) return;
   sending.value = true;
   try {
-    // The date printed is the first of the month after the teaching month, which is when this
-    // screen can first be used: the last session's register has to exist before the count is right.
-    const [year, month] = monthIssued.value.split("-").map(Number);
-    const next = new Date(year!, month!, 1);
-    const dateIssued = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-01`;
-
-    const result = await issueInvoices({ monthIssued: monthIssued.value, dateIssued });
+    // The day the office presses: it is when the family learns what it owes, and the fourteen days
+    // run from it (E16 S7). The first of the next month, printed before, made a month issued late
+    // overdue on arrival and one issued early dated in the future (QA of 26 September 2026).
+    const result = await issueInvoices({ monthIssued: monthIssued.value, dateIssued: todayKey() });
 
     const issued = result?.issued?.length ?? 0;
     const waived = result?.waived?.length ?? 0;
