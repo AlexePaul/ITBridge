@@ -16,16 +16,24 @@
             />
             <div>
               <p class="font-bold text-lg">
-                {{ occupancy.taken }} din {{ occupancy.capacity }} locuri ocupate
+                {{ occupancy.taken }} din
+                {{ countOf(occupancy.capacity, "loc ocupat", "locuri ocupate") }}
               </p>
               <p class="text-sm text-muted">
                 {{
                   occupancy.free > 0
-                    ? `${occupancy.free} ${occupancy.free === 1 ? "loc liber" : "locuri libere"}`
+                    ? countOf(occupancy.free, "loc liber", "locuri libere")
                     : "Grupa este plină. Copiii noi merg pe lista de așteptare."
                 }}
                 <template v-if="occupancy.taken !== childrenInGroup.length">
-                  · include {{ occupancy.taken - childrenInGroup.length }} probă/probe programate
+                  · include
+                  {{
+                    countOf(
+                      occupancy.taken - childrenInGroup.length,
+                      "probă programată",
+                      "probe programate"
+                    )
+                  }}
                 </template>
                 <!--
                   A seat offered to the list is not free until the family answers, so `free`
@@ -36,7 +44,7 @@
                   {{
                     occupancy.held === 1
                       ? "un loc oferit listei, în așteptarea răspunsului"
-                      : `${occupancy.held} locuri oferite listei, în așteptarea răspunsului`
+                      : `${countOf(occupancy.held, "loc oferit", "locuri oferite")} listei, în așteptarea răspunsului`
                   }}
                 </template>
               </p>
@@ -270,6 +278,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { useNotifications } from "~/composables/useNotifications";
 import { useGroupsStore } from "~/stores/groupsStore";
 import { useChildrenStore } from "~/stores/childrenStore";

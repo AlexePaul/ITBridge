@@ -137,7 +137,8 @@
                     </UBadge>
                   </div>
                   <p class="text-sm text-muted">
-                    {{ room.capacity }} locuri · {{ room.computers }} calculatoare
+                    {{ countOf(room.capacity, "loc", "locuri") }} ·
+                    {{ countOf(room.computers, "calculator", "calculatoare") }}
                   </p>
                 </div>
                 <!--
@@ -192,6 +193,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useLocationsApi } from "~/composables/api/useLocationsApi";
 import { useRoomsApi } from "~/composables/api/useRoomsApi";

@@ -83,10 +83,15 @@
         <!-- What the numbers rest on. A report built on incomplete data misleads worse than none. -->
         <p class="text-xs text-muted">
           Calculat la {{ formatDateKey(finance.generatedOn) }} din
-          {{ finance.basis.billableInvoices }}
-          {{ finance.basis.billableInvoices === 1 ? "factură" : "facturi" }} și
-          {{ finance.basis.succeededPayments }} plăți reușite datate în interval;
-          {{ finance.basis.waivedInvoices }} luni anulate la 0 lei nu intră în facturat.
+          {{ countOf(finance.basis.billableInvoices, "factură", "facturi") }} și
+          {{
+            countOf(
+              finance.basis.succeededPayments,
+              "plată reușită datată în interval",
+              "plăți reușite datate în interval"
+            )
+          }}; {{ countOf(finance.basis.waivedInvoices, "lună anulată", "luni anulate") }} la 0 lei
+          nu intră în facturat.
           <template
             v-if="
               finance.basis.initiatedPayments ||
@@ -188,7 +193,7 @@
                   {{ room.roomName }} <span class="text-muted">· {{ room.locationName }}</span>
                 </p>
                 <p class="text-sm text-muted tabular-nums">
-                  {{ room.groups }} {{ room.groups === 1 ? "grupă" : "grupe" }}
+                  {{ countOf(room.groups, "grupă", "grupe") }}
                   <template v-if="room.groups > 0">
                     · {{ room.taken }} din {{ room.capacity }} locuri ({{
                       formatPercent(room.fillRate)
@@ -634,7 +639,7 @@ const financeTiles = computed(() => {
     {
       label: "Facturat",
       display: formatLei(data.totals.invoiced),
-      note: `${data.totals.invoices} facturi · ${data.totals.families} familii`,
+      note: `${countOf(data.totals.invoices, "factură", "facturi")} · ${countOf(data.totals.families, "familie", "familii")}`,
     },
     {
       label: "Încasat pentru lunile alese",
@@ -724,7 +729,7 @@ const occupancyTiles = computed(() => {
     {
       label: "Locuri ocupate",
       display: `${data.totals.taken} / ${data.totals.capacity}`,
-      note: `${formatPercent(data.totals.fillRate)} din capacitate, ${data.totals.groups} grupe`,
+      note: `${formatPercent(data.totals.fillRate)} din capacitate, ${countOf(data.totals.groups, "grupă", "grupe")}`,
     },
     {
       label: "Locuri libere",

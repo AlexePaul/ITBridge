@@ -133,7 +133,7 @@ describe('EarlySignalsJob', () => {
             const { bodyText } = composeSignalsDigest(busy());
 
             expect(bodyText).toContain('- Python (Drumul Taberei) — de la 92% la 33% pe ultimele 3 ședințe');
-            expect(bodyText).toContain('- Ion Ion — 2 facturi, 700 lei, cea mai veche de 45 zile');
+            expect(bodyText).toContain('- Ion Ion — 2 facturi, 700 lei, cea mai veche de 45 de zile');
             expect(bodyText).toContain('- Robotică (Străulești) — 4 din 10 locuri (40%)');
             expect(bodyText).toContain('/admin/rapoarte?tab=semnale');
         });

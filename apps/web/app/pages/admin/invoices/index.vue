@@ -45,6 +45,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { useReportsApi } from "~/composables/api/useReportsApi";
@@ -90,7 +91,7 @@ const totals = computed(() => {
     {
       label: "Emis",
       value: formatLei(t.invoiced),
-      note: `${t.invoices} facturi · ${t.families} familii`,
+      note: `${countOf(t.invoices, "factură", "facturi")} · ${countOf(t.families, "familie", "familii")}`,
     },
     {
       label: "Încasat",

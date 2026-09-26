@@ -7,6 +7,7 @@ import { ClassSessionService } from './class-session.service';
 import { romanianWeekdayName } from 'src/modules/mail/romanian-date';
 import { addDays, isoWeekday, parseIsoDate, toIsoDate } from './class-session.dates';
 import { describeSession } from './class-session.text';
+import { countOf } from 'src/common/romanian-count';
 
 /**
  * The daily reminder about registers nobody took, from E12/S7.
@@ -210,7 +211,7 @@ function countSessions(count: number): string {
     if (count === 1) {
         return 'o ședință';
     }
-    return count < 20 ? `${count} ședințe` : `${count} de ședințe`;
+    return countOf(count, 'ședință', 'ședințe');
 }
 
 function capitalise(value: string): string {

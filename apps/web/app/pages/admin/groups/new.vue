@@ -62,6 +62,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { WEEKDAYS_IN_ORDER, WEEKDAY_LABELS } from "~/types/group.types";
 import { apiErrorMessage } from "~/composables/useApiError";
 import * as z from "zod";
@@ -128,7 +129,7 @@ const state = reactive<Partial<Schema>>({
 const roomOptions = computed(() =>
   locationStore.usableRooms.map((room) => ({
     value: room.id,
-    label: `${room.location.name} · ${room.name} (${room.capacity} locuri)`,
+    label: `${room.location.name} · ${room.name} (${countOf(room.capacity, "loc", "locuri")})`,
   }))
 );
 
