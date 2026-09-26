@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { MailTemplateService } from './mail-template.service';
+import { SIGNATURE } from './mail-frame';
 import { MailTemplate } from 'src/entities/mail-template.entity';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 
@@ -109,6 +110,28 @@ describe('MailTemplateService', () => {
             const [[row]] = repo.save!.mock.calls as [{ bodyHtml: string }][];
             expect(row.bodyHtml).toContain('Intră în portal: <a href="{{portalUrl}}" style="color:#7a4a2b;">{{portalUrl}}</a>');
             expect(row.bodyHtml).toContain('de pe <a href="https://itbridgeschool.com/contact" style="color:#7a4a2b;">https://itbridgeschool.com/contact</a>.');
+        });
+
+        // Review of 26 September 2026: a text that signed off its own way got the frame's closing
+        // line after it, so the family read two signatures.
+        it('signs the redrawn HTML once, the way the text signs', async () => {
+            const shipped = await service.get('account-approved');
+
+            await service.save('account-approved', {
+                subject: shipped.subject,
+                bodyText: 'Bună, {{firstName}}!\n\nContul e gata.\n\nMulțumim,\nMaria, de la secretariat',
+                bodyHtml: shipped.bodyHtml,
+            });
+            await service.save('account-approved', {
+                subject: shipped.subject,
+                bodyText: `Bună, {{firstName}}!\n\nContul e gata.\n\n${SIGNATURE}`,
+                bodyHtml: shipped.bodyHtml,
+            });
+
+            const [[ownSignOff], [usualSignOff]] = repo.save!.mock.calls as [{ bodyHtml: string }][];
+            expect(ownSignOff.bodyHtml).toContain('Mulțumim,<br />Maria, de la secretariat');
+            expect(ownSignOff.bodyHtml).not.toContain('Echipa IT Bridge School');
+            expect(usualSignOff.bodyHtml.match(/Echipa IT Bridge School/g)).toHaveLength(1);
         });
 
         it('keeps the HTML the school wrote, and a text-only template text-only', async () => {
