@@ -27,6 +27,7 @@ import { FiscalIssuingJob } from './fiscal-issuing.job';
 import { FiscalDivergenceService } from './fiscal-divergence.service';
 import { FiscalDivergenceJob } from './fiscal-divergence.job';
 import { PaymentModule } from 'src/modules/payment/payment.module';
+import { InvoiceAnnouncementService } from './invoice-announcement.service';
 
 @Module({
     // `Enrollment` because the amount counts children *actively enrolled*, not children on file:
@@ -67,6 +68,9 @@ import { PaymentModule } from 'src/modules/payment/payment.module';
         // E16/S8: SmartBill's side of every issued invoice, read a day apart, against the platform's.
         FiscalDivergenceService,
         FiscalDivergenceJob,
+        // Terms §11.2: the family hears when a month's invoice is there — at issue, or when the fiscal
+        // number arrives in `live`.
+        InvoiceAnnouncementService,
         AuthGuard,
         RolesGuard,
     ],

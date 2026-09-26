@@ -1,4 +1,4 @@
-import { smartBillProblems, validateEnv } from './env.validation';
+import { schoolIdentityProblems, smartBillProblems, validateEnv } from './env.validation';
 
 /**
  * The SmartBill half of the boot-time check — E16/S2. SmartBill has no sandbox, so a wrong mode is
@@ -93,5 +93,23 @@ describe('validateEnv', () => {
     // One spelling: a second one would be a stage that nothing recognises as stage.
     it('refuses a spelling it does not know', () => {
         expect(() => validateEnv({ ...minimal, NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
+    });
+});
+
+/** The one number families send money to is checked before anyone reads it — `school-identity.ts`. */
+describe('schoolIdentityProblems', () => {
+    it('asks for nothing: a school with no account configured still starts', () => {
+        expect(schoolIdentityProblems({})).toEqual([]);
+    });
+
+    it('takes a valid IBAN with its beneficiary', () => {
+        expect(schoolIdentityProblems({ SCHOOL_IBAN: 'RO49 AAAA 1B31 0075 9384 0000', SCHOOL_LEGAL_NAME: 'IT Bridge School SRL' })).toEqual([]);
+    });
+
+    it('refuses a mistyped IBAN, and an IBAN with no beneficiary', () => {
+        expect(schoolIdentityProblems({ SCHOOL_IBAN: 'RO49AAAA1B31007593840001', SCHOOL_LEGAL_NAME: 'IT Bridge School SRL' })).toEqual([
+            expect.stringContaining('check digits'),
+        ]);
+        expect(schoolIdentityProblems({ SCHOOL_IBAN: 'RO49AAAA1B31007593840000' })).toEqual([expect.stringContaining('SCHOOL_LEGAL_NAME')]);
     });
 });

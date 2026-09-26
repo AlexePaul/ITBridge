@@ -29,6 +29,7 @@ import { snapshotFields } from 'src/modules/audit/audit.rules';
 import { AuditAction } from 'src/enum/audit-action.enum';
 import { invoicePdfKey } from './invoice-pdf-key';
 import { FiscalIssuingService } from './fiscal-issuing.service';
+import { InvoiceAnnouncementService } from './invoice-announcement.service';
 import { fiscalStateAtIssue, servesLocalPdf } from './fiscal-issuing.rules';
 import { smartBillMode } from 'src/modules/smartbill/smartbill.config';
 import { Payment } from 'src/entities/payment.entity';
@@ -117,6 +118,7 @@ export class InvoiceService {
         private readonly audit: AuditService,
         private readonly fiscal: FiscalIssuingService,
         private readonly payments: PaymentService,
+        private readonly announcement: InvoiceAnnouncementService,
     ) {}
 
     /**
@@ -694,6 +696,9 @@ export class InvoiceService {
 
                 if (amount > 0) {
                     created.push(persisted);
+                    // `off` and `draft`: the platform's invoice is the document, and it exists now.
+                    // In `live` it waits for SmartBill's number — `FiscalIssuingService` sends it then.
+                    if (mode !== 'live') await this.announcement.announce(persisted, manager);
                 } else {
                     // Never a document: there is nothing to print, nobody to ask for money, and an
                     // empty one in the family's file would only ever confuse whoever opened it.

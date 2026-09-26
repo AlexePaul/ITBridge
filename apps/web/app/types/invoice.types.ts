@@ -10,6 +10,7 @@ export type {
   InvoiceWorksheetUnmarked,
   IssueInvoicesResult,
   SessionCountOverrideDto,
+  PaymentDetails,
 } from "@itbridge/types";
 
 import type { Invoice, InvoiceFiscalStatus, SmartBillMode } from "@itbridge/types";

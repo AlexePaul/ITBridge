@@ -49,7 +49,10 @@
     // SmartBill, the fiscal system (E16/S2): the mode, the credentials, the series and the live
     // guard. A wildcard like `MAIL_*`, because an undeclared one is dropped without a word — and the
     // variable most likely to go missing that way is `SMARTBILL_MODE`, whose absence means `off`.
-    "SMARTBILL_*"
+    "SMARTBILL_*",
+    // The school on paper (terms §11.3): legal name, CUI, trade register, seat, IBAN and bank, read
+    // by `school-identity.ts` for the portal's payment page, the invoice email and the PDF.
+    "SCHOOL_*"
   ],
 
   // The root `.env` feeds into the cache hash: a configuration change invalidates the builds

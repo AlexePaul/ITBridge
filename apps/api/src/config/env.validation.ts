@@ -8,6 +8,7 @@ import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MinLength, validateSync 
 // CLI, which runs without `tsconfig-paths` — a `src/…` import here fails `migration:run`, and with
 // it the deploy.
 import { mayIssueFiscalDocuments } from '../modules/smartbill/smartbill.config';
+import { ibanProblem } from '../modules/invoice/school-identity';
 
 /**
  * The environment, validated once at startup. The application refuses to boot when it is
@@ -206,6 +207,35 @@ export class EnvironmentVariables {
     @IsString()
     SMARTBILL_BASE_URL?: string;
 
+    /**
+     * The school on paper — `school-identity.ts`. All optional: stage has no bank account, and a
+     * family with nothing configured is sent to the office rather than shown a placeholder. The
+     * legal name is the beneficiary of a transfer; the IBAN is checked below, digit by digit.
+     */
+    @IsOptional()
+    @IsString()
+    SCHOOL_LEGAL_NAME?: string;
+
+    @IsOptional()
+    @IsString()
+    SCHOOL_CUI?: string;
+
+    @IsOptional()
+    @IsString()
+    SCHOOL_REG_COM?: string;
+
+    @IsOptional()
+    @IsString()
+    SCHOOL_SEAT?: string;
+
+    @IsOptional()
+    @IsString()
+    SCHOOL_IBAN?: string;
+
+    @IsOptional()
+    @IsString()
+    SCHOOL_BANK?: string;
+
     /** Set only by the schema tooling, which needs the database settings and nothing else. */
     @IsOptional()
     @IsIn(['true', 'false'])
@@ -234,6 +264,7 @@ export function validateEnv(raw: Record<string, unknown>): EnvironmentVariables 
     }
 
     problems.push(...smartBillProblems(raw));
+    problems.push(...schoolIdentityProblems(raw));
 
     if (problems.length > 0) {
         throw new Error(['Invalid environment configuration. The application will not start.', '', ...problems.map((p) => `  - ${p}`), ''].join('\n'));
@@ -294,5 +325,26 @@ export function smartBillProblems(raw: Record<string, unknown>): string[] {
         }
     }
 
+    return problems;
+}
+
+/**
+ * The school's own settings that families act on — `school-identity.ts`.
+ *
+ * An IBAN with a mistyped digit is refused at boot: it is the one number families send money to, and
+ * the next place the mistake would surface is a family's bank, after the money left. An IBAN with no
+ * beneficiary is refused too — a transfer needs both, and the portal would silently show neither.
+ */
+export function schoolIdentityProblems(raw: Record<string, unknown>): string[] {
+    const text = (key: string) => {
+        const value = raw[key];
+        return typeof value === 'string' ? value.trim() : '';
+    };
+    const problems: string[] = [];
+    const iban = ibanProblem(text('SCHOOL_IBAN') || undefined);
+    if (iban) problems.push(iban);
+    if (text('SCHOOL_IBAN') !== '' && text('SCHOOL_LEGAL_NAME') === '') {
+        problems.push('SCHOOL_IBAN is set without SCHOOL_LEGAL_NAME; a transfer needs the beneficiary as well as the account');
+    }
     return problems;
 }

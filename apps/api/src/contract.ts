@@ -26,6 +26,8 @@ import type { EarlySignals } from './modules/dashboard/early-signals.service';
 import type { AnnouncementDetail, AnnouncementPreview, AnnouncementResult, AnnouncementSummary } from './modules/announcement/announcement.service';
 import type { PendingSummary } from './modules/project/project.service';
 import type { ReferralReward } from './modules/discount/discount.rules';
+import type { FamilyDiscount } from './modules/discount/discount.service';
+import type { PaymentDetails } from './modules/invoice/invoice.controller';
 import type { AnnouncementAudience } from './enum/announcement-audience.enum';
 import type { LeadChannel, LeadSource } from './enum/lead-source.enum';
 import type { LeadStatus } from './enum/lead-status.enum';
@@ -287,6 +289,10 @@ type _DiscountTypeBack = Check<`${DiscountType}`, Wire.DiscountType>;
 // a screen renders `−` from it, and would render the button wrong if the shape drifted.
 type _ReferralReward = Check<Wire.ReferralReward, Serialized<ReferralReward>>;
 type _ReferralRewardBack = Check<Serialized<ReferralReward>, Wire.ReferralReward>;
+// Terms §11.4 and §11.3: what the portal's payments page reads about discounts and transfers.
+type _FamilyDiscount = Check<Wire.FamilyDiscount, Serialized<FamilyDiscount>>;
+type _PaymentDetails = Check<Wire.PaymentDetails, Serialized<PaymentDetails>>;
+type _PaymentDetailsBack = Check<Serialized<PaymentDetails>, Wire.PaymentDetails>;
 
 // E17/S5 gave the outbox a read surface, so the two statuses it puts on the wire are checked here.
 // The row itself is compared loosely — `DeliveryRecord` is the queue's shape minus the fields the

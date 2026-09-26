@@ -66,3 +66,17 @@ export interface ReferralReward {
     parentId: number;
     months: BillingMonth[];
 }
+
+/**
+ * One of the family's own discounts, as the portal lists it — terms §11.4: „Le vezi în portal".
+ *
+ * What the invoice already prints about it (the name, the kind, the value, the month) and nothing
+ * else: the office's `description` is its own note, and who granted it is in the audit trail.
+ */
+export interface FamilyDiscount {
+    id: number;
+    name: string;
+    type: DiscountType;
+    value: number;
+    monthIssued: BillingMonth;
+}

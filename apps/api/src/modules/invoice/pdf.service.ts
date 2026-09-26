@@ -10,6 +10,7 @@ import { toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { PAYMENT_TERM_DAYS, dueDateFor } from './arrears.rules';
 import { romanianMonth } from './money-words';
 import { officeAddress } from 'src/modules/mail/office-address';
+import { formatIban, schoolIdentity, type SchoolIdentity } from './school-identity';
 
 /** One line on the invoice table. There is one: the month, at the amount the family owes. */
 interface InvoiceLine {
@@ -78,18 +79,15 @@ export class PdfService {
             }
 
             // Header
-            doc.fillColor('#444444')
-                .fontSize(20)
-                .text('IT Bridge School', 110, 57)
-                .fontSize(10)
-                .text('IT Bridge School', 200, 50, { align: 'right' })
-                // What the platform knows for certain. The header said "Strada Exemplu 123" — a
-                // made-up street on a document a family keeps — while the school's legal name,
-                // seat and CUI are still to be supplied (docs/legal/README.md); SmartBill's own
-                // document carries them in `live`, from the account.
-                .text(officeAddress(), 200, 65, { align: 'right' })
-                .text('București', 200, 80, { align: 'right' })
-                .moveDown();
+            doc.fillColor('#444444').fontSize(20).text('IT Bridge School', 110, 57).fontSize(10);
+            // The supplier, from the school's settings — the same facts the portal prints for a
+            // transfer. Until they are set, what the platform knows for certain: the header once said
+            // "Strada Exemplu 123", a made-up street on a document a family keeps. In `live` the
+            // document is SmartBill's and carries the company from the account.
+            supplierLines(schoolIdentity()).forEach((line, index) => {
+                doc.text(line, 200, 50 + index * 15, { align: 'right' });
+            });
+            doc.moveDown();
 
             // Customer Information
             doc.fillColor('#444444').fontSize(20).text('Factură', 50, 160);
@@ -108,10 +106,12 @@ export class PdfService {
                 .text(this.formatCurrency(total), 150, customerInformationTop + 30)
                 .text('Scadență:', 50, customerInformationTop + 45)
                 .text(dueOn, 150, customerInformationTop + 45)
+                // The buyer: name and address, what an invoice names — and what SmartBill's own
+                // document carries (E16), so the two are the same family on paper. Not the email.
                 .font('Roboto-Bold')
-                .text(invoice.parent?.firstName + ' ' + invoice.parent?.lastName, 300, customerInformationTop)
+                .text(`${invoice.parent?.firstName ?? ''} ${invoice.parent?.lastName ?? ''}`.trim(), 300, customerInformationTop)
                 .font('Roboto')
-                .text(invoice.parent?.email ?? '', 300, customerInformationTop + 15)
+                .text(invoice.parent?.address?.trim() ?? '', 300, customerInformationTop + 15, { width: 250 })
                 .moveDown();
             // Below the fourth row. It sat at 252, sized for three: when the due date was added it
             // ran straight through it, and the date read as struck out.
@@ -177,6 +177,22 @@ export class PdfService {
         const value = typeof amount === 'number' ? amount : Number(amount) || 0;
         return value.toLocaleString('ro-RO', { style: 'currency', currency: 'RON' });
     }
+}
+
+/**
+ * The supplier block, top right: the company as registered, and where a transfer goes. Only what is
+ * set, in the order an invoice prints it; with nothing set, the school's name, the office's address
+ * and the city — true, and the most the platform knows without the settings.
+ */
+export function supplierLines(identity: SchoolIdentity): string[] {
+    const registered = [
+        identity.taxId ? `CUI ${identity.taxId}` : null,
+        identity.registration ? `Reg. Com. ${identity.registration}` : null,
+        identity.seat,
+        identity.iban ? `IBAN ${formatIban(identity.iban)}${identity.bank ? `, ${identity.bank}` : ''}` : null,
+    ].filter((line): line is string => line !== null);
+    if (!identity.legalName && registered.length === 0) return ['IT Bridge School', officeAddress(), 'București'];
+    return [identity.legalName ?? 'IT Bridge School', ...registered];
 }
 
 /**

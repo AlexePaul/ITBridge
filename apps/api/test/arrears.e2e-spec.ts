@@ -125,9 +125,11 @@ describe('Arrears (e2e)', () => {
             await job.runFor(new Date(2026, 2, 22));
             await job.runFor(new Date(2026, 2, 22));
 
-            const mail = await dataSource.query<{ n: number }[]>(`SELECT count(*)::int AS n FROM "outbox" WHERE "to" = $1 AND "subject" LIKE '%martie%'`, [
-                'parinte.restante@example.com',
-            ]);
+            // The reminders only: the invoice's own email (terms §11.2) went to the same family at issue.
+            const mail = await dataSource.query<{ n: number }[]>(
+                `SELECT count(*)::int AS n FROM "outbox" WHERE "to" = $1 AND "subject" LIKE '%martie%' AND "dedupeKey" LIKE 'arrears:%'`,
+                ['parinte.restante@example.com'],
+            );
             expect(mail[0].n).toBe(1);
         });
 

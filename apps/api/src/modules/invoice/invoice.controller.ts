@@ -28,6 +28,12 @@ import { GetPreviewDto } from './dto/getPreview.dto';
 import { IssueMonthDto } from './dto/issueMonth.dto';
 import { SessionCountOverrideDto } from './dto/sessionCountOverride.dto';
 import { ArrearsService } from './arrears.service';
+import { transferDetails, type TransferDetails } from './school-identity';
+
+/** What `GET /invoices/payment-details` answers — `Wire.PaymentDetails` in `contract.ts`. */
+export interface PaymentDetails {
+    transfer: TransferDetails | null;
+}
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 import { actorFrom } from 'src/modules/audit/actor';
 import { FiscalIssuingService } from './fiscal-issuing.service';
@@ -84,6 +90,20 @@ export class InvoiceController {
             throw new BadRequestException({ message: 'monthIssued must be YYYY-MM', error: 'VALIDATION_FAILED' });
         }
         return this.invoiceService.getWorksheet(monthIssued);
+    }
+
+    /**
+     * Where a bank transfer goes — terms §11.3 — from the school's settings (`school-identity.ts`).
+     * Any account: it is what the portal's payments page prints under „Cum se plătește". `transfer`
+     * is `null` until both the beneficiary and the IBAN are set. Declared above `/:id`.
+     */
+    @Get('/payment-details')
+    @UseGuards(AuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Where a bank transfer goes, from the school settings' })
+    @ApiResponse({ status: 200, description: '`{ transfer: { beneficiary, iban, bank } | null }`' })
+    paymentDetails(): PaymentDetails {
+        return { transfer: transferDetails() };
     }
 
     /** The billing months that have invoices, oldest first. Declared above `/:id`, like the rest. */

@@ -269,3 +269,17 @@ export interface FiscalDivergenceReport {
     oldestCheckAt: ISODateTime | null;
     rows: FiscalDivergenceRow[];
 }
+
+/**
+ * Where a bank transfer goes — terms §11.3. From the school's settings (`SCHOOL_LEGAL_NAME`,
+ * `SCHOOL_IBAN`, `SCHOOL_BANK`); `transfer` is `null` until both the beneficiary and the IBAN are
+ * set, and the portal then sends the family to the office instead of printing a placeholder.
+ */
+export interface PaymentDetails {
+    transfer: {
+        beneficiary: string;
+        /** Grouped by four, as a bank prints it. */
+        iban: string;
+        bank: string | null;
+    } | null;
+}

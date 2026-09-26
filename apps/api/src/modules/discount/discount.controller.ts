@@ -65,6 +65,18 @@ export class DiscountController {
         return this.discountService.revokeReferralMonth(parentId, actorFrom(req));
     }
 
+    /**
+     * The signed-in family's own discounts — terms §11.4: „Le vezi în portal". Any account may ask;
+     * the service narrows to the caller's family, so an admin, who has none, gets an empty list.
+     */
+    @Get('/family')
+    @UseGuards(AuthGuard)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: "The caller's family's discounts, newest month first" })
+    async familyDiscounts(@Request() req: AuthenticatedRequest) {
+        return this.discountService.familyDiscounts(req.user.sub);
+    }
+
     @Get()
     @UseGuards(AuthGuard, RolesGuard)
     @Roles(Role.ADMIN)

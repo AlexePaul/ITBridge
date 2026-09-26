@@ -155,11 +155,66 @@
         </div>
       </section>
 
+      <!--
+        Terms §11.4: „Le vezi în portal". What each invoice already says about them, in one list, so
+        a family can see a promised month before its invoice exists — the referral month the school
+        granted in March for June, say. Newest month first, like the invoices above.
+      -->
+      <section v-if="discounts.length" class="portal-section">
+        <h2 class="portal-label">Reducerile tale</h2>
+
+        <div class="rows">
+          <div
+            v-for="discount in discounts"
+            :key="discount.id"
+            class="portal-row portal-row-baseline"
+          >
+            <p class="portal-when month">{{ formatMonth(discount.monthIssued) }}</p>
+            <p class="amount tnum">{{ familyDiscountValue(discount.value, discount.type) }}</p>
+            <p class="status">{{ discount.name }}</p>
+          </div>
+        </div>
+
+        <p class="portal-empty">
+          O reducere se scade din factura lunii ei. Procentul se socotește din prețul întreg al
+          lunii.
+        </p>
+      </section>
+
+      <!--
+        Terms §11.3: by transfer or in cash. Where a transfer goes is the school's own setting
+        (`SCHOOL_IBAN` and the beneficiary on the API); until it is set, the family is sent to the
+        office rather than shown a made-up account.
+      -->
       <section class="portal-section">
         <h2 class="portal-label">Cum se plătește</h2>
-        <p class="portal-empty">
-          Prin transfer bancar sau în numerar, la sediu. Plata cu cardul în portal nu există — dacă
-          ai o întrebare despre o factură, sună-ne la
+        <template v-if="transfer">
+          <p class="body-text">Prin transfer bancar sau în numerar, la sediu. Pentru transfer:</p>
+          <dl class="portal-dl transfer">
+            <div class="portal-dl-row">
+              <dt>Beneficiar</dt>
+              <dd>{{ transfer.beneficiary }}</dd>
+            </div>
+            <div class="portal-dl-row">
+              <dt>IBAN</dt>
+              <dd class="tnum">{{ transfer.iban }}</dd>
+            </div>
+            <div v-if="transfer.bank" class="portal-dl-row">
+              <dt>Bancă</dt>
+              <dd>{{ transfer.bank }}</dd>
+            </div>
+          </dl>
+          <p class="portal-empty">
+            La detaliile plății scrie numărul facturii — cel fiscal, dacă factura îl are, așa cum
+            apare mai sus. Plata cu cardul în portal nu există; dacă ai o întrebare despre o
+            factură, sună-ne la <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
+            >.
+          </p>
+        </template>
+        <p v-else class="portal-empty">
+          Prin transfer bancar sau în numerar, la sediu. Datele contului pentru transfer ți le dăm
+          la birou sau la telefon; plata cu cardul în portal nu există — dacă ai o întrebare despre
+          o factură, sună-ne la
           <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
           >.
         </p>
@@ -172,12 +227,19 @@
 import { computed, onMounted, ref } from "vue";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { usePaymentsApi } from "~/composables/api/usePaymentsApi";
+import { useDiscountsApi } from "~/composables/api/useDiscountsApi";
+import { familyDiscountValue, type FamilyDiscount } from "~/types/discount.types";
 import { PAYMENT_METHOD_LABELS, type Payment } from "~/types/payment.types";
 import { usePDFApi } from "~/composables/api/usePDFApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { formatDateKey, formatLei, formatMonth } from "~/composables/useAdminFormat";
-import { leftToPay, type Invoice, type InvoiceStatus } from "~/types/invoice.types";
+import {
+  leftToPay,
+  type Invoice,
+  type InvoiceStatus,
+  type PaymentDetails,
+} from "~/types/invoice.types";
 import { FIRST_CHILD_PER_SESSION, SIBLING_PER_SESSION } from "#shared/courses";
 import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 
@@ -204,6 +266,7 @@ definePageMeta({
 
 const invoiceApi = useInvoiceApi();
 const paymentsApi = usePaymentsApi();
+const discountsApi = useDiscountsApi();
 const { fetchInvoicePdf } = usePDFApi();
 const notifications = useNotifications();
 
@@ -211,6 +274,8 @@ const loading = ref(true);
 const loadError = ref("");
 const invoices = ref<Invoice[]>([]);
 const payments = ref<Payment[]>([]);
+const discounts = ref<FamilyDiscount[]>([]);
+const transfer = ref<PaymentDetails["transfer"]>(null);
 const downloading = ref<number | null>(null);
 
 const STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -250,7 +315,16 @@ onMounted(async () => {
     invoices.value = invoiceApi.getInvoices();
     // The payments are a second list under the invoices; one that cannot be read leaves the
     // invoices on the screen rather than taking them with it.
-    payments.value = await paymentsApi.fetchPayments().catch(() => []);
+    // Likewise the discounts and the transfer details: furniture around the invoices, each with
+    // an honest empty state of its own.
+    const [paid, promised, details] = await Promise.all([
+      paymentsApi.fetchPayments().catch(() => []),
+      discountsApi.fetchFamilyDiscounts().catch(() => []),
+      invoiceApi.fetchPaymentDetails().catch(() => ({ transfer: null })),
+    ]);
+    payments.value = paid;
+    discounts.value = promised;
+    transfer.value = details.transfer;
   } catch (err: unknown) {
     loadError.value = apiErrorMessage(err, "Nu am putut încărca facturile.");
   } finally {
@@ -322,6 +396,10 @@ const download = async (invoice: Invoice) => {
   line-height: 24px;
   margin: 0;
   color: var(--color-accent-ink);
+}
+
+.transfer {
+  margin-block: var(--space-2) var(--space-3);
 }
 
 .chip-icon {

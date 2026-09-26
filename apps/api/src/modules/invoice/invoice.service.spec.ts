@@ -19,6 +19,7 @@ import { BillableSessionsService, MonthCount } from './billable-sessions.service
 import { FiscalIssuingService } from './fiscal-issuing.service';
 import { InvoiceFiscalStatus } from 'src/entities/invoice.entity';
 import { PaymentService } from 'src/modules/payment/payment.service';
+import { InvoiceAnnouncementService } from './invoice-announcement.service';
 import { Payment } from 'src/entities/payment.entity';
 import { PaymentStatus } from 'src/enum/payment-status.enum';
 import { setIssuingClock } from './issuing-clock';
@@ -42,6 +43,8 @@ describe('InvoiceService', () => {
     let transactionManager: { save: jest.Mock; delete: jest.Mock; update: jest.Mock; findOne: jest.Mock; count: jest.Mock; query: jest.Mock };
     /** The one door that derives an invoice's status from its payments. */
     let payments: { recomputeInvoiceStatus: jest.Mock };
+    /** Terms §11.2: the family hears when a month's invoice is there. */
+    let announcement: { announce: jest.Mock };
     /** E15/S9's one query, mute: what it counts is its own suite's business. */
     let billable: { countForMonth: jest.Mock };
     /** E16/S2's queue: only the PDF fetch is reached from here. */
@@ -87,6 +90,7 @@ describe('InvoiceService', () => {
             query: jest.fn().mockResolvedValue([]),
         };
         payments = { recomputeInvoiceStatus: jest.fn().mockResolvedValue({ paid: 0, outstanding: 350, status: InvoiceStatus.PENDING }) };
+        announcement = { announce: jest.fn().mockResolvedValue(undefined) };
 
         audit = { record: jest.fn(() => Promise.resolve()), recordUpdate: jest.fn(() => Promise.resolve()) };
 
@@ -111,6 +115,7 @@ describe('InvoiceService', () => {
                 { provide: AuditService, useValue: audit },
                 { provide: FiscalIssuingService, useValue: fiscal },
                 { provide: PaymentService, useValue: payments },
+                { provide: InvoiceAnnouncementService, useValue: announcement },
             ],
         }).compile();
 
@@ -703,6 +708,36 @@ describe('InvoiceService', () => {
                 expect.objectContaining({ actor: ACTOR, action: AuditAction.CREATED, entityType: 'Invoice' }),
                 transactionManager,
             );
+        });
+
+        /** Terms §11.2: „ești anunțat pe email când apare". With the platform's document, it is there now. */
+        it('tells the family in the issuing transaction when the platform makes the document', async () => {
+            await service.issueFromSessions(october, ACTOR);
+
+            expect(announcement.announce).toHaveBeenCalledTimes(1);
+            expect(announcement.announce).toHaveBeenCalledWith(expect.objectContaining({ id: 55, amount: 175 }), transactionManager);
+        });
+
+        it('says nothing about a month that comes to nothing', async () => {
+            billable.countForMonth.mockResolvedValue(aMonth({ counts: new Map([[5, { sessions: 0, lines: [] }]]) }));
+
+            await service.issueFromSessions(october, ACTOR);
+
+            expect(announcement.announce).not.toHaveBeenCalled();
+        });
+
+        /** In `live` the invoice is SmartBill's, and exists for the family once it has a number. */
+        it('leaves the email to the fiscal queue when SmartBill makes the document', async () => {
+            const before = process.env.SMARTBILL_MODE;
+            process.env.SMARTBILL_MODE = 'live';
+            try {
+                await service.issueFromSessions(october, ACTOR);
+            } finally {
+                if (before === undefined) delete process.env.SMARTBILL_MODE;
+                else process.env.SMARTBILL_MODE = before;
+            }
+
+            expect(announcement.announce).not.toHaveBeenCalled();
         });
 
         it('prints the date it was given, not the first of the teaching month', async () => {
