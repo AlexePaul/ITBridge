@@ -214,7 +214,37 @@ describe('TrialBookingService', () => {
             await service.slots({ birthDate: '2017-05-05' }, now);
 
             expect(enrollments.freeSeatsAtSessions).toHaveBeenCalledWith([expect.objectContaining({ id: 42, room: { id: 3, capacity: 2 } })]);
-            expect(sessionRepo.find).toHaveBeenCalledWith(expect.objectContaining({ relations: { group: true, room: true } }));
+            expect(sessionRepo.find).toHaveBeenCalledWith(expect.objectContaining({ relations: { group: true, room: { location: true } } }));
+        });
+
+        /**
+         * The list names the group's day, hour and address once, above its dates. A class the office
+         * moved to another hour or the other address was offered under it anyway, so a family booked
+         * one hour and one address and was expected at another (review of 25 September 2026).
+         */
+        it('does not offer, under the group, a class moved to another hour or another address', async () => {
+            groupRepo.find?.mockResolvedValue([group()]);
+            const elsewhere = { id: 9, name: 'Străulești', street: 'Șoseaua București-Târgoviște 19A', city: 'București', isActive: true };
+            sessionRepo.find?.mockResolvedValue([
+                session({ id: 42 }),
+                session({ id: 43, date: '2026-03-24', startTime: '18:30:00' }),
+                session({ id: 44, date: '2026-03-31', room: { id: 7, capacity: 10, location: elsewhere } }),
+                session({ id: 45, date: '2026-03-19' }),
+            ]);
+            enrollments.freeSeatsAtSessions.mockResolvedValue(
+                new Map([
+                    [42, 3],
+                    [43, 3],
+                    [44, 3],
+                    [45, 3],
+                ]),
+            );
+
+            const slots = await service.slots({ birthDate: '2017-05-05' }, now);
+
+            // 43 moved to 18:30 and 44 to the other address. 45 moved to a Thursday stays: each date
+            // is printed with its own weekday, so the list tells the truth about it.
+            expect(slots[0].sessions.map((entry) => entry.id)).toEqual([42, 45]);
         });
 
         it('counts seats through the enrolment service rather than counting rows itself', async () => {

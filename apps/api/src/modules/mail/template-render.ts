@@ -18,7 +18,10 @@ export interface TemplateFields {
 }
 
 function interpolate(text: string, data: Record<string, string>, escape: (value: string) => string): string {
-    return text.replace(PLACEHOLDER, (whole, name: string) => (name in data ? escape(data[name]) : whole));
+    // `Object.hasOwn`, not `in`: `in` walks the prototype, so `{{constructor}}` rendered as
+    // "function Object() { [native code] }" in text and threw on the HTML escape, and a template
+    // saved with it failed on every send (review of 25 September 2026).
+    return text.replace(PLACEHOLDER, (whole, name: string) => (Object.hasOwn(data, name) ? escape(data[name]) : whole));
 }
 
 /** What `&` and friends must become before a value lands inside HTML somebody else wrote. */

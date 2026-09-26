@@ -27,13 +27,59 @@ describe('LeadProgressService', () => {
         service = module.get(LeadProgressService);
     });
 
-    it('moves only a lead still waiting for its trial, and only for that child and that class', async () => {
-        await service.markTrialHeld(4, 42, now);
+    describe('a trial held', () => {
+        const booked = { id: 42, date: '2026-03-17', startTime: '17:00:00' };
+        let sessionRepo: MockRepository<ClassSession>;
+        let manager: ReturnType<typeof createMockEntityManager>;
 
-        expect(leadRepo.update).toHaveBeenCalledWith(
-            { child: { id: 4 }, trialSession: { id: 42 }, status: LeadStatus.TRIAL_SCHEDULED },
-            expect.objectContaining({ status: LeadStatus.TRIAL_HELD, trialHeldAt: now, lastActivityAt: now }),
-        );
+        beforeEach(() => {
+            sessionRepo = createMockRepository<ClassSession>();
+            manager = createMockEntityManager(
+                new Map<unknown, MockRepository>([
+                    [Lead, leadRepo],
+                    [ClassSession, sessionRepo],
+                ]),
+            );
+            leadRepo.find?.mockResolvedValue([{ id: 9, status: LeadStatus.TRIAL_SCHEDULED, trialSession: booked }]);
+        });
+
+        it('moves only a lead still waiting for its trial, for that child in that group', async () => {
+            sessionRepo.findOne?.mockResolvedValue({ ...booked, group: { id: 3 } });
+
+            await service.markTrialHeld(4, 42, now, manager as unknown as EntityManager);
+
+            expect(leadRepo.find).toHaveBeenCalledWith(
+                expect.objectContaining({ where: { child: { id: 4 }, group: { id: 3 }, status: LeadStatus.TRIAL_SCHEDULED } }),
+            );
+            expect(leadRepo.update).toHaveBeenCalledWith(
+                { id: 9, status: LeadStatus.TRIAL_SCHEDULED },
+                expect.objectContaining({ status: LeadStatus.TRIAL_HELD, trialHeldAt: now, lastActivityAt: now, trialSession: { id: 42 } }),
+            );
+        });
+
+        /**
+         * The review of 25 September 2026: the no-show message invites the family to another class,
+         * and the trial sits in every class of the group until it is decided — so a child who came
+         * the week after was a trial held that the funnel never counted.
+         */
+        it('counts a later class of the group, and takes it as the class the trial was held at', async () => {
+            sessionRepo.findOne?.mockResolvedValue({ id: 50, date: '2026-03-24', startTime: '17:00:00', group: { id: 3 } });
+
+            await service.markTrialHeld(4, 50, now, manager as unknown as EntityManager);
+
+            expect(leadRepo.update).toHaveBeenCalledWith(
+                { id: 9, status: LeadStatus.TRIAL_SCHEDULED },
+                expect.objectContaining({ status: LeadStatus.TRIAL_HELD, trialSession: { id: 50 } }),
+            );
+        });
+
+        it('does not count a class before the booked one', async () => {
+            sessionRepo.findOne?.mockResolvedValue({ id: 30, date: '2026-03-10', startTime: '17:00:00', group: { id: 3 } });
+
+            await service.markTrialHeld(4, 30, now, manager as unknown as EntityManager);
+
+            expect(leadRepo.update).not.toHaveBeenCalled();
+        });
     });
 
     it('puts a mistapped mark back, the way a mistapped make-up credit is revoked', async () => {

@@ -86,8 +86,53 @@ describe('LeadRemindersJob', () => {
             expect(await job.remindTrialsOn(now)).toBe(1);
             expect(outbox.queueOrRecord).toHaveBeenCalledWith(
                 { email: 'ioana@example.com' },
-                expect.objectContaining({ dedupeKey: `${TRIAL_REMINDER_PREFIX}9:42` }),
+                expect.objectContaining({ dedupeKey: `${TRIAL_REMINDER_PREFIX}9:42:2026-03-17T17:00` }),
             );
+        });
+
+        /**
+         * The review of 25 September 2026: `moveSession` keeps the row, so a key of lead and row was
+         * spent by Monday's reminder for Tuesday, and Wednesday's for the class moved to Thursday
+         * was refused as its duplicate — the family came on Tuesday.
+         */
+        it('reminds again about a class that moved, because the start is in the key', async () => {
+            leadRepo.find?.mockResolvedValue([
+                { id: 9, status: LeadStatus.TRIAL_SCHEDULED, parentEmail: 'ioana@example.com', childFirstName: 'Matei', trialSession: session() },
+            ]);
+            await job.remindTrialsOn(now);
+            const before = (outbox.queueOrRecord.mock.calls[0] as [unknown, { dedupeKey: string }])[1].dedupeKey;
+
+            leadRepo.find?.mockResolvedValue([
+                {
+                    id: 9,
+                    status: LeadStatus.TRIAL_SCHEDULED,
+                    parentEmail: 'ioana@example.com',
+                    childFirstName: 'Matei',
+                    trialSession: session({ startTime: '18:30:00' }),
+                },
+            ]);
+            await job.remindTrialsOn(now);
+            const after = (outbox.queueOrRecord.mock.calls[1] as [unknown, { dedupeKey: string }])[1].dedupeKey;
+
+            expect(after).not.toBe(before);
+        });
+
+        it("sends the family to the class's own room, not the group's usual one", async () => {
+            leadRepo.find?.mockResolvedValue([
+                {
+                    id: 9,
+                    status: LeadStatus.TRIAL_SCHEDULED,
+                    parentEmail: 'ioana@example.com',
+                    childFirstName: 'Matei',
+                    trialSession: session({ room: { location: { name: 'Străulești', street: 'Șoseaua București-Târgoviște 19A', city: 'București' } } }),
+                },
+            ]);
+
+            await job.remindTrialsOn(now);
+
+            const [, message] = outbox.queueOrRecord.mock.calls[0] as [unknown, { bodyText: string }];
+            expect(message.bodyText).toContain('Șoseaua București-Târgoviște 19A');
+            expect(message.bodyText).not.toContain('Strada Rotundă 12');
         });
 
         it('leaves alone a trial that is next week, and one that has been cancelled', async () => {
@@ -122,19 +167,22 @@ describe('LeadRemindersJob', () => {
             trialSession: session({ date: '2026-03-10' }),
         } as unknown as Lead;
 
-        it('writes to a family whose class was marked and who was not in it', async () => {
+        it('writes to a family whose child the register marked absent', async () => {
             leads.awaitingNoShowFollowUp.mockResolvedValue([missed]);
-            attendanceRepo.count?.mockResolvedValueOnce(8).mockResolvedValueOnce(0);
+            attendanceRepo.findOne?.mockResolvedValue({ id: 70, present: false });
 
             expect(await job.followUpNoShows(now)).toBe(1);
             expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'ioana@example.com' }, expect.objectContaining({ dedupeKey: `${NO_SHOW_PREFIX}9:42` }));
         });
 
-        it('says nothing when nobody took the register — an unmarked class is not an absence', async () => {
-            // Telling a family they missed a class they may well have attended is worse than saying
-            // nothing; the unmarked register is chased separately, in E12/S7.
+        /**
+         * The per-tap register marks one child at a time, so a class with marks in it can still have
+         * said nothing about the child on trial. Asking only "was anybody marked" told a family whose
+         * child sat there, untapped, that they had missed it (review of 25 September 2026).
+         */
+        it('says nothing when the register said nothing about this child — an unmarked child is not an absence', async () => {
             leads.awaitingNoShowFollowUp.mockResolvedValue([missed]);
-            attendanceRepo.count?.mockResolvedValue(0);
+            attendanceRepo.findOne?.mockResolvedValue(null);
 
             expect(await job.followUpNoShows(now)).toBe(0);
             expect(outbox.queueOrRecord).not.toHaveBeenCalled();
@@ -142,7 +190,7 @@ describe('LeadRemindersJob', () => {
 
         it('says nothing to a family who came', async () => {
             leads.awaitingNoShowFollowUp.mockResolvedValue([missed]);
-            attendanceRepo.count?.mockResolvedValueOnce(8).mockResolvedValueOnce(1);
+            attendanceRepo.findOne?.mockResolvedValue({ id: 70, present: true });
 
             expect(await job.followUpNoShows(now)).toBe(0);
         });

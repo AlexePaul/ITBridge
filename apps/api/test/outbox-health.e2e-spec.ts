@@ -97,6 +97,26 @@ describe('Outbox health (e2e)', () => {
         await expect(overview()).resolves.toMatchObject({ stuck: 0 });
     });
 
+    /**
+     * A backend with no mail key claims every message and gives it back: the attempt is returned,
+     * and `nextAttemptAt` moves two minutes on each pass. So the row is never past due, and the tile
+     * said zero for three days of a queue that sent nothing (review of 25 September 2026) — which
+     * is stage today, and production after any deploy that loses the variable.
+     */
+    it('counts a message never handed to a provider a quarter hour after it was written', async () => {
+        await queue(OutboxStatus.PENDING, new Date(Date.now() + 2 * 60_000));
+        await dataSource.query(`UPDATE outbox SET "createdAt" = $1, attempts = 0 WHERE subject = 'Subiect'`, [minutesAgo(STUCK_AFTER_MINUTES + 5)]);
+
+        await expect(overview()).resolves.toMatchObject({ stuck: 1 });
+    });
+
+    it('leaves alone an old message that has been tried and is waiting out its backoff', async () => {
+        await queue(OutboxStatus.PENDING, new Date(Date.now() + 10 * 60_000));
+        await dataSource.query(`UPDATE outbox SET "createdAt" = $1, attempts = 2 WHERE subject = 'Subiect'`, [minutesAgo(120)]);
+
+        await expect(overview()).resolves.toMatchObject({ stuck: 0 });
+    });
+
     it('does not count what already left', async () => {
         await queue(OutboxStatus.SENT, minutesAgo(120));
 

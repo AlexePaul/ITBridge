@@ -92,7 +92,11 @@ export function childNamesIn(text: string, firstNames: readonly string[]): strin
         // Word boundaries written out rather than `\b`: the haystack is folded to ASCII letters,
         // but a name may still sit against a digit or an apostrophe, and `\b` would call that a
         // match on „Ana2" as readily as on „Ana".
-        const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(folded)}(?![\\p{L}\\p{N}])`, 'u');
+        // With the name's genitive-dative too, the form a congratulation takes: „diploma Mariei",
+        // „felicitări Ioanei". A name in -a makes it in -ei, and the check that missed „Mariei" was
+        // missing the sentence it exists for (review of 25 September 2026).
+        const forms = folded.endsWith('a') ? [folded, `${folded.slice(0, -1)}ei`] : [folded];
+        const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(?:${forms.map(escapeRegExp).join('|')})(?![\\p{L}\\p{N}])`, 'u');
         if (pattern.test(haystack)) found.set(folded, name.trim());
     }
 

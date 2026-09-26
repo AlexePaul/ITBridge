@@ -5,6 +5,8 @@ import { LeadSource } from 'src/enum/lead-source.enum';
 import { LeadStatus } from 'src/enum/lead-status.enum';
 import { createMockQueryBuilder, createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 import { LeadService } from './lead.service';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
+import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 
 /**
  * The office's side of the funnel — E20/S1 and S3.
@@ -15,6 +17,7 @@ import { LeadService } from './lead.service';
 describe('LeadService', () => {
     let service: LeadService;
     let leadRepo: MockRepository<Lead>;
+    let enrollments: { resolveTrial: jest.Mock };
 
     const now = new Date('2026-03-20T09:00:00Z');
 
@@ -50,8 +53,9 @@ describe('LeadService', () => {
     beforeEach(async () => {
         leadRepo = createMockRepository<Lead>();
         leadRepo.update?.mockResolvedValue({ affected: 1 });
+        enrollments = { resolveTrial: jest.fn().mockResolvedValue(undefined) };
         const module: TestingModule = await Test.createTestingModule({
-            providers: [LeadService, provideMockRepository(Lead, leadRepo)],
+            providers: [LeadService, provideMockRepository(Lead, leadRepo), { provide: EnrollmentService, useValue: enrollments }],
         }).compile();
         service = module.get(LeadService);
     });
@@ -78,6 +82,30 @@ describe('LeadService', () => {
                 { id: 1 },
                 expect.objectContaining({ status: LeadStatus.LOST, lostReason: 'Prea departe de casă', decidedAt: now }),
             );
+        });
+
+        /**
+         * The review of 25 September 2026: "Pierdut" on a trial nobody had decided wrote the lead
+         * and left the enrolment, so the child kept a chair the family had said no to — the group
+         * stayed full, `/proba` stopped offering it, and the waiting list was never told.
+         */
+        it('closes a trial still in force through the trial decision, which frees the seat', async () => {
+            leadRepo.findOne?.mockResolvedValue(lead({ status: LeadStatus.TRIAL_HELD, enrollment: { id: 40, status: EnrollmentStatus.TRIAL } }));
+
+            await service.markLost(1, { reason: 'Nu i-a plăcut' }, now);
+
+            expect(enrollments.resolveTrial).toHaveBeenCalledWith(40, { accepted: false, reason: 'Nu i-a plăcut' });
+            // The lead is settled by that decision, with this reason, not written a second time here.
+            expect(leadRepo.update).not.toHaveBeenCalled();
+        });
+
+        it('leaves an enrolment that is no longer a trial alone', async () => {
+            leadRepo.findOne?.mockResolvedValue(lead({ status: LeadStatus.TRIAL_HELD, enrollment: { id: 40, status: EnrollmentStatus.WITHDRAWN } }));
+
+            await service.markLost(1, { reason: 'Nu i-a plăcut' }, now);
+
+            expect(enrollments.resolveTrial).not.toHaveBeenCalled();
+            expect(leadRepo.update).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({ status: LeadStatus.LOST }));
         });
 
         it('refuses an update that both assigns and unassigns', async () => {

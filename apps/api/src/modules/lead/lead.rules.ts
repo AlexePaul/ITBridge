@@ -59,9 +59,23 @@ export function isStale(lastActivityAt: Date, now: Date = new Date()): boolean {
  * Folded the way the announcement check folds names: case and diacritics removed, so "Ştefan" and
  * "stefan" are one child rather than two.
  */
-export function bookingKeyFor(input: { childFirstName: string; childBirthDate: string; classSessionId: number | null; contact: string }): string {
+export function bookingKeyFor(input: {
+    childFirstName: string;
+    childBirthDate: string;
+    classSessionId: number | null;
+    contact: string;
+    /** The school day of the request — read only when no class was picked; see below. */
+    day: string;
+}): string {
     const fold = (value: string) => foldDiacritics(value.trim());
 
-    const parts = [fold(input.childFirstName), input.childBirthDate, String(input.classSessionId ?? 'none'), fold(input.contact)];
+    // A class happens once, so a booking into it is the same booking for as long as anyone could
+    // press the button. A request with **no** class has nothing like that in it, and without the day
+    // it was the same request for ever: the family told in March that nothing fitted — the lead
+    // since closed as lost, "revin în toamnă" — asked again in September and was answered from the
+    // March row, with nothing written and nobody told (review of 25 September 2026). The day is the
+    // request's duration: two presses on one evening are one request, and next month is a new one.
+    const what = input.classSessionId !== null ? String(input.classSessionId) : `none:${input.day}`;
+    const parts = [fold(input.childFirstName), input.childBirthDate, what, fold(input.contact)];
     return createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 64);
 }

@@ -96,7 +96,7 @@ export class TrialBookingService {
                 status: ClassSessionStatus.SCHEDULED,
                 date: MoreThanOrEqual(from) as unknown as Date,
             },
-            relations: { group: true, room: true },
+            relations: { group: true, room: { location: true } },
             order: { date: 'ASC', startTime: 'ASC' },
         });
 
@@ -126,6 +126,10 @@ export class TrialBookingService {
             const upcoming = own
                 .filter((session) => sessionStartStamp(session) > nowStamp)
                 .filter((session) => (lasting.get(session.id) ?? 0) > 0)
+                // The list names the group's hour and address once, above its dates, so a class the
+                // office moved to another hour or the other address is not offered under it — it
+                // would be sold where and when it is not. It still holds its seats in the walk above.
+                .filter((session) => keepsTheGroupsSlot(session, group))
                 .map((session) => ({ id: session.id, date: toIsoDate(new Date(session.date)) }))
                 .filter((session) => session.date >= from && session.date <= until);
             // Every hour taken means the group is not offered at all, rather than offered with an
@@ -177,6 +181,7 @@ export class TrialBookingService {
             childBirthDate: dto.childBirthDate,
             classSessionId: dto.classSessionId ?? null,
             contact: dto.parentEmail ?? dto.parentPhone ?? '',
+            day: schoolDay(now),
         });
 
         const alreadyBooked = await this.leadRepository.findOne({ where: { bookingKey }, relations: { trialSession: true, group: true } });
@@ -197,7 +202,7 @@ export class TrialBookingService {
 
         const session = await this.classSessionRepository.findOne({
             where: { id: dto.classSessionId },
-            relations: { group: { room: { location: true } } },
+            relations: { group: { room: { location: true } }, room: { location: true } },
         });
         if (!session) {
             throw new NotFoundException('Class session not found');
@@ -291,11 +296,13 @@ export class TrialBookingService {
                     bookingKey,
                 });
 
+                // Where the class is, which is where its own room is — not the group's usual one.
+                const venue = session.room?.location ?? session.group.room.location;
                 const trial = {
                     childFirstName: dto.childFirstName,
                     groupName: session.group.name,
-                    locationName: session.group.room.location.name,
-                    address: addressOf(session.group.room.location),
+                    locationName: venue.name,
+                    address: addressOf(venue),
                     date: sessionDate,
                     startTime: session.startTime,
                 };
@@ -308,7 +315,7 @@ export class TrialBookingService {
                 return {
                     status: 'booked' as const,
                     leadId: lead.id,
-                    trial: { date: sessionDate, startTime: session.startTime, groupName: session.group.name, locationName: session.group.room.location.name },
+                    trial: { date: sessionDate, startTime: session.startTime, groupName: session.group.name, locationName: venue.name },
                 };
             });
         } catch (error) {
@@ -393,13 +400,16 @@ export class TrialBookingService {
 
     private async describeTrial(sessionId?: number) {
         if (!sessionId) return undefined;
-        const session = await this.classSessionRepository.findOne({ where: { id: sessionId }, relations: { group: { room: { location: true } } } });
+        const session = await this.classSessionRepository.findOne({
+            where: { id: sessionId },
+            relations: { group: { room: { location: true } }, room: { location: true } },
+        });
         if (!session) return undefined;
         return {
             date: toIsoDate(new Date(session.date)),
             startTime: session.startTime,
             groupName: session.group.name,
-            locationName: session.group.room.location.name,
+            locationName: (session.room?.location ?? session.group.room.location).name,
         };
     }
 }
@@ -439,4 +449,13 @@ export function splitParentName(fullName: string): { firstName: string; lastName
 function errorCodeOf(error: ConflictException): string | undefined {
     const response = error.getResponse();
     return typeof response === 'object' && response !== null ? (response as { error?: string }).error : undefined;
+}
+
+/**
+ * Whether a class is at the hour and the address its group says, which is what the list prints once
+ * above its dates. The day needs no check: each date is printed with its own weekday.
+ */
+function keepsTheGroupsSlot(session: ClassSession, group: Group): boolean {
+    const location = session.room?.location?.id ?? group.room.location.id;
+    return session.startTime.slice(0, 5) === group.startTime.slice(0, 5) && location === group.room.location.id;
 }

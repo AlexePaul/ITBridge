@@ -434,6 +434,43 @@ pagina arată propoziția lui. Fiecare câmp pe care îl poate greși un părint
 Telefonul se stochează și aici în forma `+40…`, ca peste tot (`@NormalizePhone()`), altfel un lead
 tastat `0722…` nu era găsit pentru familia scrisă `+40722…`.
 
+### Revizuirea din 25 septembrie 2026: pâlnia după programare
+
+O revizuire a lead-urilor și a mesajelor a găsit șapte defecte între „s-a programat" și „s-a
+decis", reproduse fiecare cu un test care pică pe codul dinainte.
+
+- **Familia programată nu afla nimic despre ora ei.** Profilul scris de `/proba` n-are adresă,
+  dinadins, iar anularea, mutarea, reactivarea, grupa mutată pe altă zi și anunțul către grupă
+  citeau doar `profile.email` — fiecare mesaj ajungea un rând `undeliverable`, deși adresa stătea pe
+  lead. Acum se scrie la adresa lăsată în formular (`bookingAddresses`), iar anularea îi spune unei
+  familii la probă ce urmează pentru ea („te sunăm să stabilim altă oră"), nu fraza grupei despre
+  factură.
+- **Mementoul se pierdea când ora se muta.** Cheia era lead și rând, iar `moveSession` păstrează
+  rândul; acum poartă și începutul orei.
+- **„Pierdut" pe o probă nedecisă lăsa copilul pe scaun.** Scria doar lead-ul: grupa rămânea plină,
+  `/proba` n-o mai oferea, lista de așteptare nu afla, iar copilul rămânea în cataloage. Acum
+  închide proba prin `resolveTrial`, care eliberează locul și îl oferă mai departe.
+- **O cerere fără oră era aceeași cerere pentru totdeauna.** Cheia n-avea nimic care să treacă, deci
+  familia pierdută în martie care întreba din nou în septembrie primea răspuns din rândul din martie.
+  Acum cheia poartă ziua școlii.
+- **Proba se socotea ținută doar la ora programată.** Recontactarea o invită chiar la alta, iar
+  proba stă în fiecare oră a grupei până e decisă; acum contează orice oră de la cea programată
+  încolo, și lead-ul ia ora la care a venit copilul. Și a treia cale de a scrie un marcaj,
+  `PATCH /attendance/:id`, decontează acum lead-ul ca celelalte două.
+- **Recontactarea spunea „ai lipsit" unui copil nemarcat.** Întreba doar dacă cineva din oră
+  fusese marcat; acum cere un marcaj de absent pentru copilul ăla.
+- **Rata cerere→probă număra familiile pe care nu le putea așeza nimeni**, contra regulii din S4, iar
+  pâlnia citea lunile pe zile UTC (o programare la 00:40 pe 1 octombrie cădea în septembrie).
+
+Tot de aici: lista de ore nu mai oferă sub grupă o oră mutată la altă oră sau la cealaltă adresă, iar
+confirmarea, mementoul și recontactarea spun adresa sălii orei.
+
+**Ce a rămas deschis, cu motiv.** O cerere fără oră n-are locație — `/proba` nu întreabă una, deci
+cererea neservită pe locații se vede sub „Fără locație" pentru cazul obișnuit; o întrebare în plus
+pe formular e o decizie de produs, nu o reparație. Și un lead tastat de birou nu poate deveni probă
+sau înscriere legată de el: n-are profil și nu există o rută care să-l lege, deci sursele în afară de
+formular arată zero înscrieri în pâlnie — e un ecran de construit, nu un defect de reparat.
+
 ## Dependențe
 
 [E17](E17-comunicare-notificari.md) pentru confirmări și memento-uri,

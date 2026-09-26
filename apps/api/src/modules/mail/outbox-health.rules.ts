@@ -34,7 +34,11 @@
  */
 export const STUCK_AFTER_MINUTES = 15;
 
-/** The instant a pending message must have been due by to count as stuck. */
+/**
+ * The instant a pending message must have been due by — or, never handed to a provider, written
+ * by — to count as stuck. The second clock is for a queue that claims and gives everything back:
+ * without a mail key each pass moves `nextAttemptAt` two minutes on, so the first never rang.
+ */
 export function stuckBefore(now: Date): Date {
     return new Date(now.getTime() - STUCK_AFTER_MINUTES * 60_000);
 }

@@ -119,7 +119,16 @@ export class DeliveryLogService {
             .createQueryBuilder('message')
             .select(`COUNT(*) FILTER (WHERE message.status = :failed)::int`, 'failed')
             .addSelect(`COUNT(*) FILTER (WHERE message.status = :undeliverable)::int`, 'undeliverable')
-            .addSelect(`COUNT(*) FILTER (WHERE message.status = :pending AND message.nextAttemptAt <= :due)::int`, 'stuck')
+            // Two clocks. Past due by a quarter hour: nothing is claiming. Or never handed to a
+            // provider a quarter hour after it was written: something is claiming and giving every
+            // message back — a backend with no mail key retries the whole queue every two minutes,
+            // so `nextAttemptAt` is always fresh and the first clock never rang (review of
+            // 25 September 2026). A message waiting out a real failure has spent an attempt, and is
+            // on its way rather than stuck.
+            .addSelect(
+                `COUNT(*) FILTER (WHERE message.status = :pending AND (message.nextAttemptAt <= :due OR (message.attempts = 0 AND message.createdAt <= :due)))::int`,
+                'stuck',
+            )
             .where('message.status IN (:...counted)')
             .setParameters({
                 counted: [OutboxStatus.FAILED, OutboxStatus.UNDELIVERABLE, OutboxStatus.PENDING],

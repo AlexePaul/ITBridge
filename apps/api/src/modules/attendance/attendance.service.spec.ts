@@ -400,13 +400,29 @@ describe('AttendanceService', () => {
 
     describe('updateAttendanceStatus', () => {
         it('changes the presence flag', async () => {
-            const record = { id: 1, present: false };
+            const record = { id: 1, present: false, child: { id: 4 }, classSession: { id: 42 } };
             attendanceRepo.findOne!.mockResolvedValue(record);
             attendanceRepo.save!.mockImplementation((r: unknown) => Promise.resolve(r));
 
             await service.updateAttendanceStatus(1, true);
 
             expect(record.present).toBe(true);
+        });
+
+        /**
+         * The third way to write a mark (review of 25 September 2026). The other two settle the
+         * trial's lead; a correction through this one left it where it was.
+         */
+        it('settles the lead the way the register does, both ways', async () => {
+            const record = { id: 1, present: false, child: { id: 4 }, classSession: { id: 42 } };
+            attendanceRepo.findOne!.mockResolvedValue(record);
+            attendanceRepo.save!.mockImplementation((r: unknown) => Promise.resolve(r));
+
+            await service.updateAttendanceStatus(1, true);
+            expect(leadProgress.markTrialHeld).toHaveBeenCalledWith(4, 42);
+
+            await service.updateAttendanceStatus(1, false);
+            expect(leadProgress.revertTrialHeld).toHaveBeenCalledWith(4, 42);
         });
 
         it('rejects a record that does not exist', async () => {

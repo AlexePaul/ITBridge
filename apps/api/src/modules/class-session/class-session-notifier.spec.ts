@@ -4,6 +4,7 @@ import { ClassSessionNotifier, CANCELLED_DEDUPE_PREFIX, MOVED_DEDUPE_PREFIX, REI
 import { ClassSession } from 'src/entities/class-session.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
+import { Lead } from 'src/entities/lead.entity';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { createMockEntityManager, createMockRepository, MockEntityManager, MockRepository } from 'src/testing/repository.mock';
@@ -13,6 +14,7 @@ describe('ClassSessionNotifier', () => {
     let sessionRepo: MockRepository;
     let noticeRepo: MockRepository;
     let outboxRepo: MockRepository;
+    let leadRepo: MockRepository;
     let manager: MockEntityManager;
     let outbox: { queueOrRecord: jest.Mock };
     let templates: { render: jest.Mock };
@@ -47,11 +49,14 @@ describe('ClassSessionNotifier', () => {
         noticeRepo.find!.mockResolvedValue([]);
         outboxRepo = createMockRepository();
         outboxRepo.count!.mockResolvedValue(0);
+        leadRepo = createMockRepository();
+        leadRepo.find!.mockResolvedValue([]);
         manager = createMockEntityManager(
             new Map<unknown, MockRepository>([
                 [ClassSession, sessionRepo],
                 [AbsenceNotice, noticeRepo],
                 [OutboxMessage, outboxRepo],
+                [Lead, leadRepo],
             ]),
         );
         outbox = { queueOrRecord: jest.fn().mockResolvedValue({ id: 1 }) };
@@ -158,6 +163,26 @@ describe('ClassSessionNotifier', () => {
             await notifier.notifyCancelled(3, 'Profesor bolnav', asManager());
 
             expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null }, expect.anything(), manager);
+        });
+
+        /**
+         * The review of 25 September 2026: a family booked on `/proba` has no address on its profile
+         * — the form writes a shell, on purpose — so every message about the class became an
+         * undeliverable row, and the family came to a room with nobody in it. The address it left
+         * is on the booking.
+         */
+        it('writes to a family booked for a trial at the address it left on the booking, with the trial’s own sentence', async () => {
+            const trialFamily = { id: 20, firstName: 'Ioana', email: null };
+            sessionRepo.findOne!.mockResolvedValue({ ...session, group: { ...session.group, children: [{ id: 9, parent: trialFamily }] } });
+            leadRepo.find!.mockResolvedValue([{ id: 5, parentEmail: 'ioana@example.com', profile: { id: 20 } }]);
+
+            await notifier.notifyCancelled(3, 'Profesor bolnav', asManager());
+
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'ioana@example.com' }, expect.anything(), manager);
+            expect(templates.render).toHaveBeenCalledWith(
+                'class-cancelled',
+                expect.objectContaining({ makeUpNote: expect.stringContaining('Proba copilului tău') }),
+            );
         });
 
         it('says nothing about a session that is not there', async () => {

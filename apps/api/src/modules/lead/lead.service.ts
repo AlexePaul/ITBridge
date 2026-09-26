@@ -12,6 +12,8 @@ import { FilterLeadsDto } from './dto/filterLeads.dto';
 import { LoseLeadDto } from './dto/loseLead.dto';
 import { UpdateLeadDto } from './dto/updateLead.dto';
 import { daysSince, STALE_LEAD_DAYS } from './lead.rules';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
+import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 
 /**
  * The admin half of the funnel — E20/S1 and S3.
@@ -31,7 +33,10 @@ import { daysSince, STALE_LEAD_DAYS } from './lead.rules';
 export class LeadService {
     private readonly logger = new Logger('Lead');
 
-    constructor(@InjectRepository(Lead) private readonly leadRepository: Repository<Lead>) {}
+    constructor(
+        @InjectRepository(Lead) private readonly leadRepository: Repository<Lead>,
+        private readonly enrollments: EnrollmentService,
+    ) {}
 
     /** Everything open, longest untouched first, with the people and places a screen shows. */
     async list(filters: FilterLeadsDto): Promise<LeadSummary[]> {
@@ -180,6 +185,19 @@ export class LeadService {
                 error: 'LEAD_ALREADY_ENROLLED',
             });
         }
+
+        // A trial still in force is closed with the lead, through the one door that decides a trial
+        // (review of 25 September 2026). Marking only the lead left the child on a chair: the group
+        // stayed full, `/proba` stopped offering it, the waiting list was never told, and the child
+        // stayed on every register — while the family had said no. `resolveTrial` frees the seat,
+        // offers it on, and settles this lead as lost with the reason given here, in one transaction.
+        const trial = await this.leadRepository.findOne({ where: { id }, relations: { enrollment: true } });
+        if (trial?.enrollment?.status === EnrollmentStatus.TRIAL) {
+            await this.enrollments.resolveTrial(trial.enrollment.id, { accepted: false, reason: dto.reason });
+            this.logger.log(`Lead ${id} closed as lost with its trial ${trial.enrollment.id}: ${dto.reason}`);
+            return this.findOne(id);
+        }
+
         await this.leadRepository.update({ id }, { status: LeadStatus.LOST, lostReason: dto.reason, decidedAt: now, lastActivityAt: now });
         this.logger.log(`Lead ${id} closed as lost: ${dto.reason}`);
         return this.findOne(id);
@@ -221,7 +239,7 @@ export class LeadService {
     async awaitingNoShowFollowUp(): Promise<Lead[]> {
         return this.leadRepository.find({
             where: { status: LeadStatus.TRIAL_SCHEDULED, trialSession: { id: Not(IsNull()) } },
-            relations: { trialSession: { group: { room: { location: true } } }, child: true },
+            relations: { trialSession: { group: { room: { location: true } }, room: { location: true } }, child: true },
             order: { id: 'ASC' },
         });
     }

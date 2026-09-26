@@ -41,14 +41,36 @@ export class LeadProgressService {
      * Idempotent, and narrow on purpose: only a lead that is still `TRIAL_SCHEDULED` moves. One
      * already decided stays decided — a register corrected a week later must not drag a family back
      * onto the follow-up list after somebody has enrolled them.
+     *
+     * **Any class of the trial's group from the booked one on counts, not only the booked one**
+     * (review of 25 September 2026). A trial sits in every class of its group until it is decided,
+     * and the no-show message invites the family to come to another one — so the child marked present
+     * the week after was a trial held that stayed `TRIAL_SCHEDULED`: never on "Probe ținute, fără
+     * decizie", never in the digest, and missing from the funnel's count of trials held. The lead
+     * takes the class the child actually came to, which is also what lets `revertTrialHeld` find it
+     * when the mark was a mistake.
      */
     async markTrialHeld(childId: number, classSessionId: number, now: Date = new Date(), manager?: EntityManager): Promise<void> {
-        const result = await this.repo(manager).update(
-            { child: { id: childId }, trialSession: { id: classSessionId }, status: LeadStatus.TRIAL_SCHEDULED },
-            { status: LeadStatus.TRIAL_HELD, trialHeldAt: now, lastActivityAt: now },
-        );
-        if (result.affected) {
-            this.logger.log(`Child ${childId} attended their trial at session ${classSessionId}; lead moved to trial_held.`);
+        const repo = this.repo(manager);
+        const attended = await (manager ?? this.leadRepository.manager)
+            .getRepository(ClassSession)
+            .findOne({ where: { id: classSessionId }, relations: { group: true } });
+        if (!attended) return;
+
+        const leads = await repo.find({
+            where: { child: { id: childId }, group: { id: attended.group.id }, status: LeadStatus.TRIAL_SCHEDULED },
+            relations: { trialSession: true },
+        });
+        for (const lead of leads) {
+            // Not a class before the booked one: the trial had not started, whatever a register says.
+            if (lead.trialSession && sessionStartStamp(lead.trialSession) > sessionStartStamp(attended)) continue;
+            const result = await repo.update(
+                { id: lead.id, status: LeadStatus.TRIAL_SCHEDULED },
+                { status: LeadStatus.TRIAL_HELD, trialHeldAt: now, lastActivityAt: now, trialSession: { id: attended.id } },
+            );
+            if (result.affected) {
+                this.logger.log(`Child ${childId} attended their trial at session ${classSessionId}; lead ${lead.id} moved to trial_held.`);
+            }
         }
     }
 
