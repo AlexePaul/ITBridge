@@ -23,6 +23,7 @@ import { LEGAL_DOCUMENT_VERSIONS } from './legal-documents';
 import { EmailConfirmationService } from './email-confirmation.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
+import { Role } from 'src/enum/role.enum';
 import { LegalDocument } from 'src/enum/legal-document.enum';
 import { AccountClaimService } from './account-claim.service';
 import { AuditService } from 'src/modules/audit/audit.service';
@@ -54,6 +55,7 @@ describe('AuthService', () => {
     let confirmations: Record<string, jest.Mock>;
     let outbox: Record<string, jest.Mock>;
     let claims: Record<string, jest.Mock>;
+    let audit: { recordPersonalDataChange: jest.Mock };
     let manager: MockEntityManager;
 
     /** What `manager.save` was handed for a given entity, in call order. */
@@ -108,6 +110,7 @@ describe('AuthService', () => {
 
         outbox = { queue: jest.fn().mockResolvedValue({ id: 1 }), queueOrRecord: jest.fn().mockResolvedValue({ id: 2 }) };
         claims = { accountlessProfileFor: jest.fn().mockResolvedValue(null), issue: jest.fn(), redeem: jest.fn() };
+        audit = { recordPersonalDataChange: jest.fn() };
         // The acceptance ledger is written through the transaction's manager (terms §4.7 queues its
         // confirmation in the same transaction), so the manager hands back the same double.
         manager = createMockEntityManager(new Map([[DocumentAcceptance, acceptanceRepo]]));
@@ -134,7 +137,7 @@ describe('AuthService', () => {
                 { provide: OutboxService, useValue: outbox },
                 // No office-entered family holds the address unless a test says so.
                 { provide: AccountClaimService, useValue: claims },
-                { provide: AuditService, useValue: { recordPersonalDataChange: jest.fn() } },
+                { provide: AuditService, useValue: audit },
                 // The real template service over a repo with no overrides: the wording assertions
                 // below then hold against the shipped defaults, which is what actually goes out.
                 MailTemplateService,
@@ -350,6 +353,69 @@ describe('AuthService', () => {
 
             expect(payload.role).toBeUndefined();
             expect(payload.username).toBeUndefined();
+        });
+    });
+
+    /**
+     * A family the office typed in (E11 S2, review of 26 September 2026): `register` sends the link
+     * instead of writing a second family, and `claimAccount` puts the account on the office's row.
+     */
+    describe('a family the office typed in', () => {
+        const officeRow = { id: 40, firstName: 'Ana', lastName: 'Popescu', email: 'ana@example.com', phone: null, user: null, erasedAt: null };
+        const CLAIM = { token: 'claim-token', username: 'ana.popescu', password: 'parola-noua', acceptedTerms: true, acceptedUnusualClauses: true };
+
+        it('sends the claim link instead of writing a second account and profile', async () => {
+            claims.accountlessProfileFor!.mockResolvedValue(officeRow);
+
+            const result = await service.register(REGISTRATION);
+
+            expect(result).toEqual({ claimSent: true, message: expect.any(String) });
+            expect(claims.issue).toHaveBeenCalledWith(officeRow, expect.any(Date), manager);
+            expect(saved(User)).toEqual([]);
+            expect(sessions.startSession).not.toHaveBeenCalled();
+        });
+
+        it('refuses a username somebody already has, before spending the link', async () => {
+            userRepo.findOne!.mockResolvedValue({ id: 3, username: 'ana.popescu' });
+
+            await expect(service.claimAccount(CLAIM)).rejects.toMatchObject({ response: { error: 'USERNAME_TAKEN' } });
+            expect(claims.redeem).not.toHaveBeenCalled();
+        });
+
+        it('writes nothing when the link cannot be spent', async () => {
+            userRepo.findOne!.mockResolvedValue(null);
+            claims.redeem!.mockRejectedValue(new Error('CLAIM_TOKEN_INVALID'));
+
+            await expect(service.claimAccount(CLAIM)).rejects.toThrow('CLAIM_TOKEN_INVALID');
+            expect(saved(User)).toEqual([]);
+            expect(sessions.startSession).not.toHaveBeenCalled();
+        });
+
+        it('creates the account on the office’s row: confirmed, still waiting for approval, with the acceptances and a trail', async () => {
+            userRepo.findOne!.mockResolvedValue(null);
+            claims.redeem!.mockResolvedValue(officeRow);
+            manager.save.mockImplementation((entity: unknown, data: Record<string, unknown> | Record<string, unknown>[]) => {
+                if (entity === User) return Promise.resolve({ id: 9, ...data });
+                if (entity === DocumentAcceptance && Array.isArray(data)) return Promise.resolve(data.map((row, index) => ({ id: 21 + index, ...row })));
+                return Promise.resolve(data);
+            });
+
+            const result = await service.claimAccount(CLAIM, 'Firefox');
+
+            expect(claims.redeem).toHaveBeenCalledWith('claim-token', expect.any(Date), manager);
+            const [user] = saved(User);
+            expect(user).toMatchObject({ username: 'ana.popescu', role: Role.PARENT, approvalStatus: ApprovalStatus.PENDING });
+            expect(user.emailConfirmedAt).toBeInstanceOf(Date);
+            await expect(bcrypt.compare('parola-noua', user.passwordHash as string)).resolves.toBe(true);
+            expect(manager.update).toHaveBeenCalledWith(Profile, { id: 40 }, { user: { id: 9 } });
+            const [rows] = saved(DocumentAcceptance) as unknown as { document: string }[][];
+            expect(rows.map((row) => row.document)).toEqual(['terms', 'privacy', 'unusual_clauses']);
+            expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
+                expect.objectContaining({ actor: { userId: 9, username: 'ana.popescu' }, entityType: 'Profile', entityId: 40, fields: ['user'] }),
+                manager,
+            );
+            expect(sessions.startSession).toHaveBeenCalledWith(expect.objectContaining({ id: 9 }), expect.any(String), expect.any(Date), 'Firefox');
+            expect(result).toMatchObject({ accessToken: expect.any(String), refreshToken: expect.any(String) });
         });
     });
 
