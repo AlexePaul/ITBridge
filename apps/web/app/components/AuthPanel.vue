@@ -22,7 +22,7 @@
           <p class="body-text">{{ errorMessage }}</p>
         </div>
 
-        <form class="form" @submit.prevent="onSubmit">
+        <form class="form" novalidate @submit.prevent="onSubmit">
           <div class="field">
             <label for="auth-username">Utilizator</label>
             <input
@@ -188,8 +188,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from "vue";
-import * as z from "zod";
+import { computed, reactive, watch } from "vue";
+import type * as z from "zod";
+import { loginSchema, registrationSchema } from "~/composables/useAuthForms";
 import { useReveal } from "~/composables/useReveal";
 
 const props = defineProps<{
@@ -256,31 +257,8 @@ const copy = computed(() =>
       }
 );
 
-const credentials = z.object({
-  username: z
-    .string("Numele de utilizator este obligatoriu")
-    .min(1, "Numele de utilizator este obligatoriu"),
-  password: z.string("Parola este obligatorie").min(8, "Trebuie să aibă cel puțin 8 caractere"),
-});
-
-/**
- * The register form's own fields, mirroring `RegisterDto` (E11/S2).
- *
- * Checked here as well as on the server, for the same reason the contact form is: the message
- * belongs under the field the reader can see, not in a banner at the top. The server stays the
- * authority — this only decides whether the request is worth making.
- */
-const registration = credentials.extend({
-  firstName: z.string().trim().min(1, "Prenumele este obligatoriu").max(100),
-  lastName: z.string().trim().min(1, "Numele este obligatoriu").max(100),
-  email: z
-    .string()
-    .trim()
-    .min(1, "Adresa de email este obligatorie")
-    .email("Adresa de email nu pare validă"),
-  acceptedTerms: z.literal(true, "Bifează că ai citit termenii și politica de confidențialitate"),
-  acceptedUnusualClauses: z.literal(true, "Bifează că accepți clauzele din §14, §15 și §18"),
-});
+const credentials = loginSchema;
+const registration = registrationSchema;
 
 type FieldName = keyof z.infer<typeof registration>;
 
@@ -296,6 +274,17 @@ const form = reactive({
 });
 
 const errors = reactive<Partial<Record<FieldName, string>>>({});
+
+// A message goes when its field changes, not at the next submit: "…este obligatoriu" under a field
+// the reader has since filled in reads as the form not having noticed.
+watch(
+  () => ({ ...form }),
+  (now, before) => {
+    for (const key of Object.keys(errors) as FieldName[]) {
+      if (now[key] !== before[key]) errors[key] = undefined;
+    }
+  }
+);
 
 const onSubmit = () => {
   for (const key of Object.keys(errors) as FieldName[]) {

@@ -353,6 +353,7 @@
 </template>
 
 <script setup lang="ts">
+import { MIN_PASSWORD_LENGTH } from "~/composables/useAuthForms";
 import { computed, onMounted, ref } from "vue";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { usePrivacyApi } from "~/composables/api/usePrivacyApi";
@@ -408,8 +409,6 @@ const currentPassword = ref("");
 const newPassword = ref("");
 const newPasswordConfirmation = ref("");
 
-/** Mirrors `MIN_PASSWORD_LENGTH` on the server, which mirrors what registration accepts. */
-const MIN_PASSWORD_LENGTH = 6;
 const erasing = ref(false);
 /** First press arms, second one asks. Reset on success, on failure and on leaving the screen. */
 const confirmingErasure = ref(false);

@@ -1,5 +1,6 @@
 import { Equals, IsBoolean, IsEmail, IsNotEmpty, IsString, Length, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Trim } from 'src/common/trim';
 
 /**
  * What an account needs to exist — and only that.
@@ -33,8 +34,9 @@ import { ApiProperty } from '@nestjs/swagger';
  */
 export class RegisterDto {
     @ApiProperty({ example: 'username123' })
+    @Trim()
     @IsString()
-    @Length(1, 30)
+    @Length(1, 30, { message: 'Numele de utilizator trebuie să aibă între 1 și 30 de caractere' })
     username: string;
 
     @ApiProperty({ example: 'password123', minLength: 6 })
