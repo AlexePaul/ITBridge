@@ -1,5 +1,6 @@
 import { useTokenStore } from "~/stores/tokenStore";
 import { useUserStore } from "~/stores/userStore";
+import { refreshRejected } from "~/composables/api/useApi";
 
 // Create a global ref for auth initialization
 export const authInitialized = ref(false);
@@ -24,9 +25,15 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       await userStore.fetchUser();
     } catch (error) {
       console.error("Auth plugin: Failed to fetch user:", error);
-      // Clear invalid tokens if fetch fails
-      tokenStore.clearTokens();
-      userStore.logout();
+      // Only a refusal ends the session — `/auth/me` answering 401 once a refresh was turned down or
+      // impossible, or a 400 — the rule `useApi` follows for `/auth/refresh` (review of 26 September
+      // 2026). Any failure used to clear both tokens, so a reload on one bar of signal, or during a
+      // 502 while the API restarted, signed the family out and threw away a seven-day refresh token.
+      // Kept, the next reload or the next request restores the session.
+      if (refreshRejected(error)) {
+        tokenStore.clearTokens();
+        userStore.logout();
+      }
     }
   }
 
