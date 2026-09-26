@@ -11,7 +11,7 @@ import { applyDefined } from 'src/common/apply-defined';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { schoolDay } from 'src/common/school-clock';
-import { toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { romanianDayAndDate } from 'src/modules/mail/romanian-date';
 
 @Injectable()
 export class GroupService {
@@ -174,7 +174,7 @@ export class GroupService {
                 // Romanian like the timetable's own ROOM_BUSY_AT_THAT_TIME: the sentence carries the day
                 // and the group, so the screen shows it as it is instead of a sentence of its own.
                 message:
-                    `Sala e ocupată pe ${toIsoDate(clash.date)} la ${clash.startTime.slice(0, 5)} de o oră a grupei ` +
+                    `Sala e ocupată ${romanianDayAndDate(clash.date)}, la ${clash.startTime.slice(0, 5)}, de o oră a grupei ` +
                     `„${clash.group.name}", mutată acolo. Mut-o întâi pe aceea sau alege altă oră.`,
                 error: 'ROOM_BUSY_AT_THAT_TIME',
             });

@@ -211,7 +211,7 @@ describe('EnrollmentService', () => {
 
             expect(responseOf(error).error).toBe('GROUP_FULL');
             // The message names the class, since the group itself still shows a free seat.
-            expect(responseOf(error).message).toContain('2026-10-01');
+            expect(responseOf(error).message).toContain('joi, 1 octombrie');
             expect(manager.save).not.toHaveBeenCalledWith(Enrollment, expect.anything());
         });
 
