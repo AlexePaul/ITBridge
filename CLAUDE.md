@@ -1024,6 +1024,12 @@ refuzată de Vue — optsprezece avertismente pentru optsprezece rânduri — ș
 ordinea în care a venit de la API, prefăcându-se sortată. Ecranul de plăți a promis „cele mai noi
 întâi" fără să fie, de la început. Copiază înainte de sortare: `[...store.lista].sort(...)`.
 
+**Un număr și substantivul lui trec prin `countOf`** (`composables/useRomanianCount.ts`): „1
+familie", „2 familii", „20 de familii" — „de" de la douăzeci în sus, când ultimele două cifre sunt
+00 sau 20–99. Ecranele scriau „de" mereu („2 de familii", „de 15 de minute") sau niciodată („1
+cereri"), adică greșeala de gramatică pe care o vede primul un părinte (testarea din 26 septembrie
+2026).
+
 **Și pe asta o ține acum un spec**, fiindcă felul în care pică e felul în care a trecut de review:
 nu e nicio excepție și nicio linie roșie — vectorul se întoarce, șablonul îl randează, fiecare rând
 e corect —, greșită e doar **ordinea**, adică singurul lucru pe care cititorul nu-l poate verifica
@@ -1307,6 +1313,10 @@ apelanți. `optional-text-is-never-empty.spec.ts` mătură DTO-urile și pică p
 exceptată e `PreviewMailTemplateDto`, cu motivul lângă ea: acolo `''` e o stare, nu o absență —
 editorul de șabloane previzualizează exact ce e în casete, deci un subiect șters trebuie să se vadă
 șters, nu cum e încă salvat pe server. Dacă mai apare una, se trece în listă cu propoziția ei.
+**Un șablon editat ca text își redesenează HTML-ul** (testarea din 26 septembrie 2026): majoritatea
+clienților de mail arată HTML-ul, deci textul nou lângă HTML-ul vechi trimitea vorbele vechi.
+`MailTemplateService.save` îl refă din text (`htmlFromText`, în rama școlii) când textul s-a schimbat
+și HTML-ul a rămas cum era; HTML-ul scris de școală și un șablon doar-text rămân cum au venit.
 
 **`@IsPhoneNumber()` fără regiune cere format internațional.** Numerele se scriu `0712345678` în
 România, deci decoratorul e `@IsPhoneNumber('RO')`, care acceptă și `+40712345678`. **Forma stocată o
@@ -2104,7 +2114,12 @@ Patru reguli pe care le încalci ușor:
   adaugi un al treilea expeditor către „familiile grupei", treci pe acolo. Numărul de telefon are
   aceeași poveste și aceeași ieșire (revizuirea din 26 septembrie 2026): catalogul citea doar
   `profile.phone`, deci „Sună părintele" lipsea tocmai pentru copilul la probă, iar `bookingPhones`,
-  alături, dă numărul celui mai nou lead al copilului.
+  alături, dă numărul celui mai nou lead al copilului. **Adresa ajunge la familie, dar nu decide ce
+  citește** (testarea din 26 septembrie 2026): anularea spunea „proba copilului tău era la ora asta"
+  oricui era găsit prin formular — și familiei cu proba peste o săptămână, și celei deja înscrise și
+  plătitoare. Propoziția se alege acum din înscrierile în vigoare și din ora lead-ului
+  (`trialStandingOf`): cea a probei doar pentru familia a cărei probă e chiar ora asta, una neutră
+  pentru o probă din altă oră, a grupei pentru oricine are o înscriere activă.
 
 **Pagina `/proba` e una dintre cele două pagini publice care ating backend-ul** — cealaltă e
 `/dezabonare` din E17/S4 —, ceea ce contrazice regula de mai sus doar în aparență: orele se încarcă
