@@ -369,6 +369,9 @@ const columns: AdminTableColumn<Payment>[] = [
     accessor: (payment) => PAYMENT_STATUS_LABELS[payment.status],
     badgeColor: (payment) => PAYMENT_STATUS_COLORS[payment.status],
   },
+  // The day the money moved — the screen is a month of them, and a row without its day could not
+  // be matched against the bank's statement (QA of 26 September 2026).
+  { key: "date", label: "Data", icon: "i-lucide-calendar-days", type: "date" },
   // The payment's own figure, not the invoice total — since E16/S1 the two can differ, and the
   // difference (an instalment) is exactly what this column exists to show.
   { key: "amount", label: "Sumă", type: "money" },
