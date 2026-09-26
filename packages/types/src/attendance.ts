@@ -51,8 +51,14 @@ export interface SessionRegisterEntry {
     childId: number;
     firstName: string;
     lastName: string;
+    /**
+     * For the „Sună părintele" button: the profile's phone, or — for a family booked on `/proba`,
+     * whose shell profile has none — the number the booking left. `null` when neither exists.
+     */
     parentPhone: string | null;
     type: AttendanceType;
+    /** On a trial in this group on the class's day (E11/S4): the register marks them „Probă". */
+    trial: boolean;
     present: boolean | null;
     attendanceId: number | null;
     /**

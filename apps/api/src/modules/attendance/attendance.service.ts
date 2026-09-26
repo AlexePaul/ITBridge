@@ -4,11 +4,26 @@ import { In, Repository } from 'typeorm';
 import { Attendance } from 'src/entities/attendance.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Child } from 'src/entities/child.entity';
+import { Enrollment } from 'src/entities/enrollment.entity';
+import { Lead } from 'src/entities/lead.entity';
 import { AttendanceType } from 'src/enum/attendance-type.enum';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
+import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { markAttendanceDto } from './dto/markAttendance.dto';
 import { AbsenceNoticeService } from './absence-notice.service';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
+import { toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { bookingPhones } from 'src/modules/mail/booking-address';
+
+/**
+ * Whether an enrolment was a trial on a given day — E11/S4's rule, read the way billing reads it.
+ * In `TRIAL` still, or decided later than that day: `trialUntil` is the day of the decision, and
+ * nothing up to it, inclusive, was anything but the trial.
+ */
+export function wasTrialOn(enrollment: Pick<Enrollment, 'status' | 'trialUntil'>, day: string): boolean {
+    return enrollment.status === EnrollmentStatus.TRIAL || (enrollment.trialUntil !== null && day <= enrollment.trialUntil);
+}
 
 @Injectable()
 export class AttendanceService {
@@ -16,8 +31,10 @@ export class AttendanceService {
         @InjectRepository(Attendance) private readonly attendanceRepository: Repository<Attendance>,
         @InjectRepository(ClassSession) private readonly classSessionRepository: Repository<ClassSession>,
         @InjectRepository(Child) private readonly childRepository: Repository<Child>,
+        @InjectRepository(Lead) private readonly leadRepository: Repository<Lead>,
         private readonly absenceNoticeService: AbsenceNoticeService,
         private readonly leadProgress: LeadProgressService,
+        private readonly enrollments: EnrollmentService,
     ) {}
 
     /**
@@ -123,6 +140,11 @@ export class AttendanceService {
      * Since E12/S3 it also carries whatever the family announced. That is the point of announcing:
      * the teacher learns before the lesson rather than by counting empty chairs, and the row that
      * already has a reason beside it does not need the phone call the S7 button offers.
+     *
+     * And, since the review of 26 September 2026, two things a child booked on `/proba` lacked: the
+     * phone number, which the booking left on the lead because the shell profile has none, and the
+     * „Probă" marker the desktop register already drew — the teacher should know who is deciding
+     * whether to stay, on the screen they actually hold.
      */
     async sessionRegister(classSessionId: number) {
         const classSession = await this.classSessionRepository.findOne({
@@ -140,6 +162,12 @@ export class AttendanceService {
         const markByChild = new Map(marks.map((mark) => [mark.child.id, mark]));
         const noticeByChild = await this.absenceNoticeService.forSession(classSessionId);
         const groupChildIds = new Set(classSession.group.children.map((child) => child.id));
+        const sessionDay = toIsoDate(classSession.date);
+        const trialChildIds = new Set(
+            (await this.enrollments.membersOn(classSession.group.id, sessionDay))
+                .filter((enrollment) => wasTrialOn(enrollment, sessionDay))
+                .map((enrollment) => enrollment.child.id),
+        );
 
         const entryOf = (child: Child, type: AttendanceType) => {
             const mark = markByChild.get(child.id);
@@ -149,9 +177,12 @@ export class AttendanceService {
                 firstName: child.firstName,
                 lastName: child.lastName,
                 // For the tel: button. Absent when the profile has no phone — the screen shows
-                // nothing rather than a button that dials nowhere.
+                // nothing rather than a button that dials nowhere. A `/proba` family's number is
+                // filled in below, from the booking.
                 parentPhone: child.parent?.phone ?? null,
                 type,
+                // In the group on a trial that day, E11/S4 — sitting there, and deciding.
+                trial: trialChildIds.has(child.id),
                 present: mark ? mark.present : null,
                 attendanceId: mark ? mark.id : null,
                 // What the family said, and whether they said it before the class — E12/S3.
@@ -182,6 +213,12 @@ export class AttendanceService {
             if (listed.has(notice.child.id)) continue;
             listed.add(notice.child.id);
             entries.push(entryOf(notice.child, AttendanceType.MAKE_UP));
+        }
+
+        const withoutPhone = entries.filter((entry) => entry.parentPhone === null).map((entry) => entry.childId);
+        const bookedPhones = await bookingPhones(this.leadRepository, withoutPhone);
+        for (const entry of entries) {
+            entry.parentPhone ??= bookedPhones.get(entry.childId) ?? null;
         }
 
         return {

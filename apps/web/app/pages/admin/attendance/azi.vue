@@ -172,6 +172,9 @@
                 >
                   Anunțat
                 </UBadge>
+                <!-- E11/S4, as the desktop register already draws it: a trial sits there and is
+                     marked like anyone else, but the teacher should know who is deciding. -->
+                <UBadge v-if="entry.trial" color="info" variant="subtle" size="sm">Probă</UBadge>
                 <UBadge v-if="entry.type === 'make-up'" color="info" variant="subtle" size="sm">
                   Recuperare
                 </UBadge>

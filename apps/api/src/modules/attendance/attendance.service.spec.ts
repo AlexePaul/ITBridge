@@ -9,12 +9,18 @@ import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { AttendanceType } from 'src/enum/attendance-type.enum';
 import { createMockRepository, MockRepository, provideMockRepository } from 'src/testing/repository.mock';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
+import { Lead } from 'src/entities/lead.entity';
+import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
+import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 
 describe('AttendanceService', () => {
     let service: AttendanceService;
     let attendanceRepo: MockRepository;
     let classSessionRepo: MockRepository;
     let childRepo: MockRepository;
+    let leadRepo: MockRepository;
+    /** Who was in the group on the class's day (E11); nobody unless a test says so. */
+    const membersOnMock = jest.fn();
 
     /**
      * The body no longer carries a date or an hour — the class is the `classSessionId` in the path.
@@ -56,6 +62,9 @@ describe('AttendanceService', () => {
         classSessionRepo = createMockRepository();
         childRepo = createMockRepository();
         childRepo.findByIds = jest.fn();
+        leadRepo = createMockRepository();
+        leadRepo.find!.mockResolvedValue([]);
+        membersOnMock.mockResolvedValue([]);
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -63,6 +72,8 @@ describe('AttendanceService', () => {
                 provideMockRepository(Attendance, attendanceRepo),
                 provideMockRepository(ClassSession, classSessionRepo),
                 provideMockRepository(Child, childRepo),
+                provideMockRepository(Lead, leadRepo),
+                { provide: EnrollmentService, useValue: { membersOn: membersOnMock } },
                 { provide: AbsenceNoticeService, useValue: { forSession: forSessionMock, placedIn: placedInMock } },
                 // E20/S3 hangs off marking; it runs with a double that does nothing, so a register
                 // test never becomes a lead test by accident. E12/S4 used to hang off the same
@@ -289,6 +300,50 @@ describe('AttendanceService', () => {
 
             const register = await service.sessionRegister(9);
             expect(register.entries[0].parentPhone).toBeNull();
+        });
+
+        /**
+         * The review of 26 September 2026: a child booked on `/proba` belongs to a shell profile with
+         * no phone, by design — the number the family typed is on the lead. The register read the
+         * profile alone, so the call button was missing for exactly the family the teacher knows least.
+         */
+        it('fills in the number a /proba family left on the booking when the profile has none', async () => {
+            classSessionRepo.findOne!.mockResolvedValue({
+                id: 9,
+                date: '2026-09-07',
+                startTime: '16:00:00',
+                endTime: '17:30:00',
+                status: ClassSessionStatus.SCHEDULED,
+                group: { id: 5, name: 'Scratch', children: [child(2, 'Ana', 'Pop', null), child(1, 'Vlad', 'Ionescu')] },
+            });
+            leadRepo.find!.mockResolvedValue([{ child: { id: 2 }, parentPhone: '+40722333444' }]);
+
+            const register = await service.sessionRegister(9);
+
+            expect(register.entries.find((entry) => entry.childId === 2)?.parentPhone).toBe('+40722333444');
+            // The profile's own number still wins where there is one.
+            expect(register.entries.find((entry) => entry.childId === 1)?.parentPhone).toBe('0712345678');
+        });
+
+        it('marks a child on a trial that day, as the desktop register does', async () => {
+            membersOnMock.mockResolvedValue([
+                { status: EnrollmentStatus.TRIAL, trialUntil: null, child: { id: 2 } },
+                { status: EnrollmentStatus.ACTIVE, trialUntil: null, child: { id: 1 } },
+            ]);
+
+            const register = await service.sessionRegister(9);
+
+            expect(membersOnMock).toHaveBeenCalledWith(5, '2026-09-07');
+            expect(register.entries.find((entry) => entry.childId === 2)?.trial).toBe(true);
+            expect(register.entries.find((entry) => entry.childId === 1)?.trial).toBe(false);
+        });
+
+        it('still marks a trial that was decided after the class — the day was the trial', async () => {
+            membersOnMock.mockResolvedValue([{ status: EnrollmentStatus.ACTIVE, trialUntil: '2026-09-10', child: { id: 2 } }]);
+
+            const register = await service.sessionRegister(9);
+
+            expect(register.entries.find((entry) => entry.childId === 2)?.trial).toBe(true);
         });
 
         it('carries what the family announced, so the teacher knows before the lesson', async () => {

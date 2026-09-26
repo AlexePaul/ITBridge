@@ -101,6 +101,40 @@ describe('Tap-to-mark attendance (e2e)', () => {
             expect(res.body.entries[0].attendanceId).toBeNull();
         });
 
+        /**
+         * The review of 26 September 2026. A child booked on `/proba` belongs to a shell profile with
+         * no phone, by design — the number the family typed is on the lead — and the phone register
+         * showed neither a call button nor the „Probă" marker the desktop register draws.
+         */
+        it('gives a /proba booking the number the family left, and marks the trial', async () => {
+            const roomId = await createRoom(app, admin, { slug: 'proba-tap', name: 'Proba' });
+            const trialGroup = await request(app.getHttpServer())
+                .post('/groups')
+                .set('Authorization', admin.auth)
+                .send(groupBody(roomId, { name: 'Probă', minAge: 8, maxAge: 12 }))
+                .expect(201);
+            const next = new Date();
+            next.setDate(next.getDate() + (next.getDay() === 0 ? 1 : 8 - next.getDay()));
+            const nextMonday = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+            const trialSession = await createClassSession(dataSource, trialGroup.body.id as number, { date: nextMonday });
+
+            await request(app.getHttpServer())
+                .post('/trial/bookings')
+                .send({
+                    parentName: 'Ioana Popescu',
+                    parentEmail: 'ioana.popescu@example.com',
+                    parentPhone: '0722333444',
+                    childFirstName: 'Matei',
+                    childLastName: 'Popescu',
+                    childBirthDate: '2016-04-04',
+                    classSessionId: trialSession,
+                })
+                .expect(201);
+
+            const res = await request(app.getHttpServer()).get(`/attendance/session/${trialSession}/register`).set('Authorization', admin.auth).expect(200);
+            expect(res.body.entries).toEqual([expect.objectContaining({ firstName: 'Matei', parentPhone: '+40722333444', trial: true })]);
+        });
+
         it('is closed to parents — it carries other families’ phones', async () => {
             await request(app.getHttpServer()).get(`/attendance/session/${sessionId}/register`).set('Authorization', parent.auth).expect(403);
         });

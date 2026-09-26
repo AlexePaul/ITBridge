@@ -1,4 +1,4 @@
-import { EntityManager, In, IsNull, Not } from 'typeorm';
+import { EntityManager, In, IsNull, Not, Repository } from 'typeorm';
 import { Lead } from 'src/entities/lead.entity';
 
 /**
@@ -32,4 +32,32 @@ export async function bookingAddresses(manager: EntityManager, profileIds: numbe
         }
     }
     return addresses;
+}
+
+/**
+ * The phone number a family left on the booking form, per child — for the register's
+ * „Sună părintele" (E12/S7, review of 26 September 2026).
+ *
+ * The same shell as above: `/proba` writes no phone on the profile, so the register, which read
+ * `child.parent.phone` alone, had no number for exactly the child whose family the teacher knows
+ * least, although the booking left one. Keyed on the child, because the register asks about a child
+ * and the public form links its lead to the child it wrote; the newest lead wins, as above.
+ */
+export async function bookingPhones(leads: Repository<Lead>, childIds: number[]): Promise<Map<number, string>> {
+    if (childIds.length === 0) return new Map();
+
+    const rows = await leads.find({
+        where: { child: { id: In(childIds) }, parentPhone: Not(IsNull()) },
+        relations: { child: true },
+        order: { createdAt: 'DESC', id: 'DESC' },
+    });
+
+    const phones = new Map<number, string>();
+    for (const lead of rows) {
+        const childId = lead.child?.id;
+        if (childId !== undefined && lead.parentPhone && !phones.has(childId)) {
+            phones.set(childId, lead.parentPhone);
+        }
+    }
+    return phones;
 }
