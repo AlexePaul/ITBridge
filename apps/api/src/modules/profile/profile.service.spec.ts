@@ -96,7 +96,7 @@ describe('ProfileService', () => {
         });
 
         it('rejects a second profile for the same account', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 1 });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 1 });
 
             await expect(service.createProfile({ firstName: 'A', lastName: 'B', userId: 5 }, Role.ADMIN, undefined, ACTOR)).rejects.toThrow(ConflictException);
         });
@@ -162,20 +162,20 @@ describe('ProfileService', () => {
 
     describe('updateProfile', () => {
         it("forbids updating another user's profile", async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 1, user: { id: 999 } });
 
             await expect(service.updateProfile({ firstName: 'X' }, 1, Role.PARENT, 5, ACTOR)).rejects.toThrow(UnauthorizedException);
             expect(profileRepo.save).not.toHaveBeenCalled();
         });
 
         it('forbids a PARENT from updating a profile with no account attached', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 1, user: null });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 1, user: null });
 
             await expect(service.updateProfile({ firstName: 'X' }, 1, Role.PARENT, 5, ACTOR)).rejects.toThrow(UnauthorizedException);
         });
 
         it('lets a user update their own profile', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 5 } });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 1, user: { id: 5 } });
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
             await expect(service.updateProfile({ firstName: 'Ana' }, 1, Role.PARENT, 5, ACTOR)).resolves.toMatchObject({
@@ -184,7 +184,7 @@ describe('ProfileService', () => {
         });
 
         it('does not return the attached account in the response', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 5 } });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 1, user: { id: 5 } });
             profileRepo.save!.mockImplementation((p: unknown) => Promise.resolve(p));
 
             const result = await service.updateProfile({ firstName: 'Ana' }, 1, Role.PARENT, 5, ACTOR);
@@ -209,6 +209,7 @@ describe('ProfileService', () => {
     describe('an address that moves', () => {
         const withAccount = (email: string) => ({
             id: 1,
+            erasedAt: null,
             firstName: 'Ana',
             lastName: 'Pop',
             email,
@@ -275,7 +276,9 @@ describe('ProfileService', () => {
         /** The family an admin typed in from a phone call. There is no account to de-confirm. */
         it('has nothing to close for a profile with no account', async () => {
             profileRepo.findOne!.mockImplementation((options: { where: Record<string, unknown> }) =>
-                Promise.resolve('id' in options.where ? { id: 1, firstName: 'Ana', lastName: 'Pop', email: 'ana@example.com', user: null } : null),
+                Promise.resolve(
+                    'id' in options.where ? { id: 1, erasedAt: null, firstName: 'Ana', lastName: 'Pop', email: 'ana@example.com', user: null } : null,
+                ),
             );
 
             await service.updateProfile({ email: 'ana.pop@example.com' }, 1, Role.ADMIN, 9, ACTOR);
@@ -301,14 +304,14 @@ describe('ProfileService', () => {
 
     describe('deleteProfile', () => {
         it("forbids deleting another user's profile", async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 1, user: { id: 999 } });
 
             await expect(service.deleteProfile(1, Role.PARENT, 5, ACTOR)).rejects.toThrow(UnauthorizedException);
             expect(manager.delete).not.toHaveBeenCalled();
         });
 
         it('lets an admin delete a profile with nothing hanging off it', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 1, user: { id: 999 } });
 
             await service.deleteProfile(1, Role.ADMIN, 5, ACTOR);
 
@@ -322,7 +325,7 @@ describe('ProfileService', () => {
          * deleting one.
          */
         it('refuses when the family has invoices, and deletes nothing', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 1, user: { id: 999 } });
             invoiceRepo.exists!.mockResolvedValue(true);
 
             await expect(service.deleteProfile(1, Role.ADMIN, 5, ACTOR)).rejects.toMatchObject({
@@ -332,7 +335,7 @@ describe('ProfileService', () => {
         });
 
         it('refuses when the family has children, and deletes nothing', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 1, user: { id: 999 } });
             childRepo.exists!.mockResolvedValue(true);
 
             await expect(service.deleteProfile(1, Role.ADMIN, 5, ACTOR)).rejects.toMatchObject({
@@ -343,7 +346,7 @@ describe('ProfileService', () => {
 
         /** The money is named first: it is the one thing the platform promised to keep. */
         it('names the invoices when the family has both', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 999 } });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 1, user: { id: 999 } });
             invoiceRepo.exists!.mockResolvedValue(true);
             childRepo.exists!.mockResolvedValue(true);
 
@@ -353,7 +356,7 @@ describe('ProfileService', () => {
         });
 
         it('refuses a parent deleting their own family out from under the invoices', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 1, user: { id: 5 } });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 1, user: { id: 5 } });
             invoiceRepo.exists!.mockResolvedValue(true);
 
             await expect(service.deleteProfile(1, Role.PARENT, 5, ACTOR)).rejects.toMatchObject({
@@ -378,7 +381,7 @@ describe('ProfileService', () => {
         let stored: Record<string, unknown>;
 
         beforeEach(() => {
-            stored = { id: 1, firstName: 'Ana', lastName: 'Pop', phone: '+40712345678', user: { id: 5 } };
+            stored = { id: 1, erasedAt: null, firstName: 'Ana', lastName: 'Pop', phone: '+40712345678', user: { id: 5 } };
             // The service looks the row up by id and then, for a changed phone, asks whether anybody
             // else already has that number. One blanket answer makes the second lookup find *this*
             // profile and refuse the edit as a duplicate of itself.

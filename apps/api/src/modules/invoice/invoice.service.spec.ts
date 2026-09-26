@@ -21,8 +21,14 @@ import { InvoiceFiscalStatus } from 'src/entities/invoice.entity';
 import { PaymentService } from 'src/modules/payment/payment.service';
 import { Payment } from 'src/entities/payment.entity';
 import { PaymentStatus } from 'src/enum/payment-status.enum';
+import { setIssuingClock } from './issuing-clock';
 
 describe('InvoiceService', () => {
+    // These cases issue months like October 2026, which the machine's clock may not have reached;
+    // a month is only issued once taught (E15 S9, `billing-period.rules.spec.ts`).
+    beforeAll(() => setIssuingClock(() => new Date('2031-01-15T10:00:00Z')));
+    afterAll(() => setIssuingClock(() => new Date()));
+
     /** E07/S3. What reached the trail, and with which manager. */
     let audit: { record: jest.Mock; recordUpdate: jest.Mock };
     let service: InvoiceService;

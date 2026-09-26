@@ -85,7 +85,7 @@ describe('ChildService', () => {
 
     describe('createChild', () => {
         it('lets an admin create a child for any parent', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 10 });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 10 });
             childRepo.create!.mockReturnValue({});
             manager.save.mockResolvedValue({ id: 1 });
 
@@ -97,7 +97,7 @@ describe('ChildService', () => {
         });
 
         it('lets a parent create a child on their own profile', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 10 });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 10 });
             childRepo.create!.mockReturnValue({});
             manager.save.mockResolvedValue({ id: 1 });
 
@@ -109,7 +109,7 @@ describe('ChildService', () => {
         });
 
         it('records the act and the id, never the name that came with it', async () => {
-            profileRepo.findOne!.mockResolvedValue({ id: 10 });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 10 });
             childRepo.create!.mockReturnValue({});
             manager.save.mockResolvedValue({ id: 4 });
 
@@ -125,7 +125,7 @@ describe('ChildService', () => {
 
         it("forbids a parent from creating a child on someone else's profile", async () => {
             // The authenticated user's profile is 10, but the request targets 11.
-            profileRepo.findOne!.mockResolvedValue({ id: 10 });
+            profileRepo.findOne!.mockResolvedValue({ erasedAt: null, id: 10 });
 
             await expect(
                 service.createChild({ parentId: 11, firstName: 'Ion', lastName: 'Pop', birthDate: '2015-01-01' }, Role.PARENT, 5, ACTOR),
