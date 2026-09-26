@@ -440,6 +440,14 @@ export class AuthService {
         return { message: 'All sessions ended' };
     }
 
+    /** Closes one of the caller's own sessions — terms §4.5. 404 for an id that is not theirs, as for one that never was. */
+    async closeSession(userId: number, sessionId: number): Promise<{ message: string }> {
+        if (!(await this.sessionService.revokeOne(userId, sessionId))) {
+            throw new NotFoundException({ message: 'Session not found', error: 'SESSION_NOT_FOUND' });
+        }
+        return { message: 'Session ended' };
+    }
+
     async listSessions(userId: number, currentRefreshToken?: string) {
         return this.sessionService.listActive(userId, currentRefreshToken);
     }

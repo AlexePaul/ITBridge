@@ -293,7 +293,7 @@
 
         <p v-if="sessionsError" class="portal-empty">{{ sessionsError }}</p>
         <dl v-else-if="sessions.length > 0" class="portal-dl details">
-          <div v-for="session in sessions" :key="session.id" class="portal-dl-row">
+          <div v-for="(session, index) in sessions" :key="session.id" class="portal-dl-row">
             <dt>
               {{ deviceLabel(session.userAgent) }}
               <template v-if="session.current"> — sesiunea aceasta</template>
@@ -303,6 +303,22 @@
                 reînnoită pe {{ formatInstant(session.createdAt) }}; expiră pe
                 {{ formatInstant(session.expiresAt) }} dacă nu mai e folosită
               </p>
+              <!--
+                Terms §4.5: a device the family does not recognise is closed from here. Not the
+                session of this browser — that is „Ieși din cont". The name carries the row's number
+                and its device, so a list of the same browser signed in twice is not a list of
+                identical buttons (E18/S6).
+              -->
+              <button
+                v-if="!session.current"
+                type="button"
+                class="link link-button session-close"
+                :aria-label="`Închide sesiunea ${index + 1}: ${deviceLabel(session.userAgent)}, reînnoită pe ${formatInstant(session.createdAt)}`"
+                :disabled="closingSessionId !== null || endingSessions"
+                @click="onCloseSession(session.id)"
+              >
+                Închide sesiunea
+              </button>
             </dd>
           </div>
         </dl>
@@ -727,6 +743,22 @@ const sessionsError = ref<string | null>(null);
 const endingSessions = ref(false);
 const confirmingLogoutEverywhere = ref(false);
 
+const closingSessionId = ref<number | null>(null);
+
+/** One device, signed out — its next refresh is refused; the list is read again from the server. */
+const onCloseSession = async (sessionId: number) => {
+  closingSessionId.value = sessionId;
+  try {
+    await authApi.closeSession(sessionId);
+    success("Am închis sesiunea.", "Dispozitivul acela trebuie să se autentifice din nou.");
+    await loadSessions();
+  } catch (err) {
+    notifyError("Nu am putut închide sesiunea", apiErrorMessage(err));
+  } finally {
+    closingSessionId.value = null;
+  }
+};
+
 const loadSessions = async () => {
   sessionsError.value = null;
   try {
@@ -957,7 +989,14 @@ const onToggle = async (event: Event) => {
   min-height: 44px;
 }
 
-.child-action:disabled {
+.session-close {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.child-action:disabled,
+.session-close:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }

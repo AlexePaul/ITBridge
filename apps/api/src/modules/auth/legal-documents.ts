@@ -14,10 +14,10 @@ import { LegalDocument } from 'src/enum/legal-document.enum';
  * (`docs/legal/README.md`, item 10).
  */
 export const LEGAL_DOCUMENT_VERSIONS: Record<LegalDocument, string> = {
-    [LegalDocument.TERMS]: '0.1',
-    [LegalDocument.PRIVACY]: '0.1',
+    [LegalDocument.TERMS]: '0.2',
+    [LegalDocument.PRIVACY]: '0.2',
     // The unusual clauses are §14, §15 and §18 of the terms, so they move when the terms move.
-    [LegalDocument.UNUSUAL_CLAUSES]: '0.1',
+    [LegalDocument.UNUSUAL_CLAUSES]: '0.2',
 };
 
 /** The file behind each document, relative to `docs/legal/`. */

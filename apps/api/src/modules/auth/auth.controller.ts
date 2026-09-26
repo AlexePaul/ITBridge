@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Request, HttpCode, Headers } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Request, HttpCode, Headers, Delete, Param, ParseIntPipe } from '@nestjs/common';
 import { ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -222,6 +222,21 @@ export class AuthController {
     @ApiResponse({ status: 200, description: 'Every session of this user revoked' })
     async logoutEverywhere(@Request() req: AuthenticatedRequest) {
         return this.authService.logoutEverywhere(req.user.sub);
+    }
+
+    /**
+     * Closes one session of the caller's — terms §4.5: the family recognises a device in the list
+     * and closes it „dacă nu e al tău". Only the caller's own; the next refresh from that device is
+     * refused, and its access token lapses within fifteen minutes, as after any revocation.
+     */
+    @Delete('sessions/:id')
+    @HttpCode(200)
+    @ApiBearerAuth()
+    @UseGuards(AuthGuard)
+    @ApiResponse({ status: 200, description: 'That session ended' })
+    @ApiResponse({ status: 404, description: 'No such session among the caller’s own' })
+    async closeSession(@Request() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
+        return this.authService.closeSession(req.user.sub, id);
     }
 
     @Get('sessions')

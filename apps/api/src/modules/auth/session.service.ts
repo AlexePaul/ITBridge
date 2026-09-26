@@ -192,6 +192,26 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
     }
 
     /**
+     * One device's session, closed from Profil — terms §4.5: „să-l închizi dacă nu e al tău".
+     *
+     * The whole rotation chain goes, not the row: a row is only the latest link of a device's chain,
+     * and the next refresh from that device would present the token the row stands for. Scoped to
+     * the caller's own rows, so an id that is not theirs closes nothing and says so the same way as
+     * one that never existed. Behind the account row, exclusively, like `revokeAllForUser`: a rotation
+     * in flight holds it shared while it writes a successor, and closing before that successor exists
+     * would leave the device a fresh token.
+     */
+    async revokeOne(userId: number, sessionId: number): Promise<boolean> {
+        return this.dataSource.transaction(async (manager) => {
+            await manager.query('SELECT 1 FROM users WHERE id = $1 FOR UPDATE', [userId]);
+            const session = await manager.findOne(Session, { where: { id: sessionId, user: { id: userId } } });
+            if (!session) return false;
+            await manager.update(Session, { familyId: session.familyId, revokedAt: IsNull() }, { revokedAt: new Date() });
+            return true;
+        });
+    }
+
+    /**
      * What a parent sees when asking which sessions are open. Never includes the hashes.
      *
      * `current` marks the session the caller's own refresh token belongs to, when the caller sends

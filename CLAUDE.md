@@ -804,6 +804,10 @@ lista doar `PENDING`, iar pagina familiei nu spunea nimic despre cont, deci dup�
 nu mai era pe niciun ecran. `GET /users/rejected` dă conturile respinse, cu ziua deciziei și nota
 adminilor, sub coadă, cu „Aprobă"; `GET /profiles` poartă `account` (starea porților și ziua
 deciziei, niciodată nota) **numai pentru un admin**, iar pagina familiei are aceeași acțiune.
+**Nota nu pleacă în email și nu apare în portal, dar e în copia datelor familiei**
+(`cont.motivRespingere` în `GET /privacy/export`): e o notă despre familie, iar exportul e tot ce
+ține școala despre ea (GDPR art. 15). Formularul de respingere o spune adminului, iar inventarul o
+clasifică `readableBy: ['admin', 'parent']`.
 
 **Pagina de confirmare spune doar ce e adevărat** (aceeași revizuire). Citea numai `active`, deci
 unei familii respinse îi promitea aprobarea „de obicei în aceeași zi lucrătoare"; citește acum și
@@ -1166,7 +1170,10 @@ active" numește fiecare sesiune după browser și sistem (`deviceLabel`), o mar
 browser și are „Deconectează-te de pe toate dispozitivele", cu a doua apăsare de confirmare, după
 care golește și tokenurile locale. „Sesiunea aceasta" o spune serverul: `POST /auth/sessions`
 primește refresh tokenul în corp — niciodată în adresă — și îl compară, după hash, doar cu
-sesiunile celui care întreabă.
+sesiunile celui care întreabă. **O sesiune se închide și singură** (termenii §4.5):
+`DELETE /auth/sessions/:id` revocă tot lanțul de rotație al acelei sesiuni — rândul din listă e doar
+ultima verigă — numai printre rândurile celui care întreabă, ținând rândul contului exclusiv, ca
+măturarea de la „toate dispozitivele".
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
@@ -1604,7 +1611,16 @@ altfel prima reîmprospătare, după un sfert de oră, ar anula bifa. Trei lucru
 Cele două numere — `REFRESH_TOKEN_MAX_AGE_SECONDS` din `apps/web/app/stores/tokenStore.ts` și
 `JWT_REFRESH_TOKEN_EXPIRATION` — se mută împreună: browserul nu vede mediul API-ului, iar `useCookie`
 fixează `maxAge` când se creează ref-ul, deci valoarea nu poate fi citită nici de pe token. Politica
-de cookie-uri (§2) nu numește încă `refreshTokenKept`: e textul juridic, și se schimbă pe drumul lui.
+de cookie-uri (§2) le numește pe amândouă, din versiunea 0.3.
+
+**Un `useCookie` cu `default` scrie cookie-ul la prima citire** (Nuxt 4.5,
+`shouldSetInitialClientCookie`), nu la prima alegere. Așa ajungeau `portalChild` și
+`selectedLocation` în browserul oricui intra în portal, deși politica de cookie-uri spune că apar
+abia după ce alegi un copil sau o locație (testarea din 26 septembrie 2026). O preferință se
+declară **fără** `default` și se citește cu `?? implicit`; se revine la implicit scriind
+`undefined`, care șterge cookie-ul. Tot de aici: `UDashboardGroup` ține starea barei laterale în
+`localStorage` (`storage="local"`, cheia `dashboard-sidebar-admin`) — implicitul lui Nuxt UI era un
+al șaselea cookie, nelistat.
 
 **Nimic din datele utilizatorului nu se ține în cookie.** Limita e ~4 KB per cookie, iar depășirea
 nu produce nicio eroare: browserul aruncă tăcut, `useCookie` citește mai departe o valoare goală și

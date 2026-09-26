@@ -1,6 +1,6 @@
 # Politica de cookie-uri
 
-**Versiunea 0.2 · ciornă din 8 septembrie 2026 · neverificată de un avocat · nepublicată.**
+**Versiunea 0.3 · ciornă din 26 septembrie 2026 · neverificată de un avocat · nepublicată.**
 Nu mai are fapte marcate `[[…]]`: cele două pe care le avea erau despre hartă, iar E07 S5 le-a
 răspuns în cod — harta stă acum în spatele unui buton, iar alegerea nu se scrie nicăieri. Ce mai
 lipsește înainte de publicare e în [README](README.md).
@@ -20,22 +20,26 @@ doar dacă o ceri.
 
 ## 2. Cookie-urile noastre
 
-| Nume               | Cine îl primește    | La ce servește                                      | Cât ține                                                                       |
-| ------------------ | ------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `accessToken`      | cine se autentifică | tokenul de acces la portal                          | cookie de sesiune; tokenul din el expiră în 15 minute și se reînnoiește singur |
-| `refreshToken`     | cine se autentifică | reînnoiește accesul fără reautentificare            | cookie de sesiune; tokenul din el expiră în cel mult 7 zile                    |
-| `portalChild`      | părinții            | ține minte ce copil ai ales în portal, între pagini | cookie de sesiune                                                              |
-| `selectedLocation` | personalul școlii   | ține minte locația filtrată în zona de administrare | cookie de sesiune                                                              |
+| Nume               | Cine îl primește             | La ce servește                                      | Cât ține                                                                       |
+| ------------------ | ---------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `accessToken`      | cine se autentifică          | tokenul de acces la portal                          | cookie de sesiune; tokenul din el expiră în 15 minute și se reînnoiește singur |
+| `refreshToken`     | cine se autentifică          | reînnoiește accesul fără reautentificare            | cookie de sesiune; tokenul din el expiră în cel mult 7 zile                    |
+| `refreshTokenKept` | cine bifează „Ține-mă minte" | același lucru, în locul celui de mai sus            | 7 zile, cât tokenul din el; fără bifă nu se pune deloc                         |
+| `portalChild`      | părinții                     | ține minte ce copil ai ales în portal, între pagini | cookie de sesiune; se pune abia când alegi un copil                            |
+| `selectedLocation` | personalul școlii            | ține minte locația filtrată în zona de administrare | cookie de sesiune; se pune abia când alegi o locație                           |
 
-„Cookie de sesiune" înseamnă că dispare când închizi browserul. Niciunul nu conține date despre
-tine sau despre copil — doar tokenuri și un identificator numeric — și niciunul nu e citit de
-altcineva decât de platforma noastră.
+„Cookie de sesiune" înseamnă că dispare când închizi browserul. Singurul care rămâne după ce îl
+închizi e `refreshTokenKept`, și numai dacă ai bifat „Ține-mă minte" la autentificare: atunci
+portalul te recunoaște până la 7 zile, pe browserul acela. Niciunul nu conține date despre tine sau
+despre copil — doar tokenuri și un identificator numeric — și niciunul nu e citit de altcineva
+decât de platforma noastră.
 
 Vizitatorii site-ului public, care nu se autentifică, **nu primesc niciun cookie**.
 
-Toate patru sunt strict necesare în sensul Legii 506/2004, art. 4: fără primele două nu poți
-rămâne autentificat, iar ultimele două apar doar după o alegere pe care o faci tu — copilul sau
-locația — și dispar odată cu sesiunea. De asta nu cerem acord pentru ele.
+Toate cinci sunt strict necesare în sensul Legii 506/2004, art. 4: fără primele trei nu poți
+rămâne autentificat — iar al treilea îl pui tu, cu bifa —, iar ultimele două apar doar după o
+alegere pe care o faci tu — copilul sau locația — și dispar odată cu sesiunea. De asta nu cerem
+acord pentru ele.
 
 ## 3. Ce ține browserul în afară de cookie-uri
 
@@ -46,11 +50,13 @@ tot pe paginile publice, nu doar în portal:
   pagină, de la prima, cu valoarea `system` până alegi altceva.
 - `attendance-pending-marks-v1` — doar pentru personalul școlii, în portal: marcajele de prezență
   care așteaptă o conexiune atunci când rețeaua din sală pică.
+- `dashboard-sidebar-admin` — doar pentru personalul școlii: cât de lată e bara laterală din zona
+  de administrare și dacă e strânsă.
 
 Niciuna nu e un cookie, deci nu se trimite nicăieri cu fiecare cerere, și nimic din ele nu pleacă
 spre altcineva. Prima ține o preferință de afișare pe care ai exprimat-o tu, a doua ține munca
-făcută offline a unui profesor; amândouă sunt strict necesare în același sens ca și cookie-urile de
-mai sus, deci nu cerem acord nici pentru ele.
+făcută offline a unui profesor, a treia o preferință de afișare a personalului; toate sunt strict
+necesare în același sens ca și cookie-urile de mai sus, deci nu cerem acord nici pentru ele.
 
 ## 4. Harta Google
 

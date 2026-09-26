@@ -272,12 +272,17 @@ export const useAuthApi = () => {
    */
   const logoutEverywhere = () => api<{ message: string }>("/auth/logout-all", { method: "POST" });
 
+  /** Closes one of the caller's own sessions — terms §4.5: „să-l închizi dacă nu e al tău". */
+  const closeSession = (sessionId: number) =>
+    api<{ message: string }>(`/auth/sessions/${sessionId}`, { method: "DELETE" });
+
   return {
     login,
     register,
     claimAccount,
     fetchSessions,
     logoutEverywhere,
+    closeSession,
     confirmEmail,
     resendConfirmation,
     forgotPassword,

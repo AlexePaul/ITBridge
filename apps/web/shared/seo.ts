@@ -188,7 +188,7 @@ const LEGAL_PAGES: PageSeo[] = [
     path: "/cookies",
     title: "Politica de cookie-uri | IT Bridge School",
     description:
-      "Cele patru cookie-uri proprii ale portalului, ce ține browserul în afara lor, și harta Google " +
+      "Cele cinci cookie-uri proprii ale portalului, ce ține browserul în afara lor, și harta Google " +
       "care se încarcă doar dacă o ceri.",
     summary: "Cookie-urile site-ului și ale portalului, și singurul terț.",
     priority: 0.2,

@@ -216,7 +216,8 @@ export class ExportService {
                       creatLa: account.createdAt?.toISOString() ?? null,
                       emailConfirmatLa: account.emailConfirmedAt?.toISOString() ?? null,
                       stareAprobare: exportLabel('approval', account.approvalStatus),
-                      aprobatLa: account.approvalDecidedAt?.toISOString() ?? null,
+                      deciziaLa: account.approvalDecidedAt?.toISOString() ?? null,
+                      motivRespingere: account.rejectionReason ?? null,
                   }
                 : null,
             copii: children.map((child) => ({

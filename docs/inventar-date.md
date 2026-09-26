@@ -40,7 +40,7 @@ Trei lucruri de citit înainte de tabele:
 | `users.emailConfirmedAt` | Titularul contului | Urme de utilizare | Dovada că adresa de email chiar aparține familiei. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `users.approvalStatus` | Titularul contului | Urme de utilizare | Dacă școala a recunoscut familia și i-a deschis contul. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `users.approvalDecidedAt` | Titularul contului | Urme de utilizare | Când s-a luat decizia de aprobare. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
-| `users.rejectionReason` | Titularul contului | Conținut | Motivul scris de admin la respingerea unui cont. | Interes legitim | Cât ține contul familiei (termenul: E22 S3) | Admin |
+| `users.rejectionReason` | Titularul contului | Conținut | Motivul scris de admin la respingerea unui cont. | Interes legitim | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `profiles.email` | Părinte | Date de contact | Facturi, chitanțe, anunțuri despre ore și proiectele copilului. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `profiles.phone` | Părinte | Date de contact | Contactul telefonic al școlii cu familia. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
 | `profiles.firstName` | Părinte | Identitate | Identificarea familiei pe ecrane, facturi și mesaje. | Executarea contractului | Cât ține contul familiei (termenul: E22 S3) | Admin, Familia respectivă |
@@ -214,7 +214,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 ## Ce se ratează ușor
 
 - **`users.passwordHash`** — Hash bcrypt, niciodată parola. Coloana e `select: false`: iese din bază doar cerută pe nume, de `AuthService.login`.
-- **`users.rejectionReason`** — Nota adminului. Nu se întoarce părintelui — de asta `parent.user` se scoate din răspunsuri.
+- **`users.rejectionReason`** — Nota adminului. Nu pleacă în email și nu se întoarce în răspunsurile portalului — de asta `parent.user` se scoate din ele —, dar e o notă despre familie, deci e în copia datelor ei (GDPR art. 15).
 - **`profiles.emergencyContactName`** — Poate fi o a treia persoană, care nu are cont: datele ei ajung aici prin părinte.
 - **`profiles.marketingOptIn`** — Implicit `false`. Gatează exclusiv `queueMarketing`; nicio factură și niciun anunț despre ore nu trece prin ea.
 - **`profiles.unsubscribeToken`** — Singura coloană de tip `credential` ținută în clar, și dinadins: linkul trimis prin e-mail trebuie să funcționeze peste luni, deci nu poate fi comparat cu un hash al unui secret pe care nu-l mai are nimeni. Ce face acceptabil compromisul e cât de puțin poate: oprește marketingul, niciodată nu-l pornește, și nu deschide nimic altceva. Nu apare în export și pe niciun ecran, iar ștergerea contului îl **rotește** (E07 S4) — altfel un link dintr-un mesaj de acum un an ar rămâne viu către rândul unei familii care a cerut să dispară.

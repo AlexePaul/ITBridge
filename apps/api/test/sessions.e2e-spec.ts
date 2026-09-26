@@ -225,6 +225,44 @@ describe('Sessions and logout (e2e)', () => {
             if (refreshed.status === 200) await refresh(refreshed.body.refreshToken as string).expect(401);
         });
 
+        /**
+         * Terms §4.5: the family recognises a device in the list and closes it „dacă nu e al tău".
+         * The portal had only „log out everywhere" (review of 26 September 2026).
+         */
+        it('closes one session — its whole chain, rotated or not — and leaves the others alone', async () => {
+            const { accessToken, refreshToken: here } = await register();
+            const phone = (await request(app.getHttpServer()).post('/auth/login').send({ username: 'ana', password: 'parola123' }).expect(200)).body as {
+                refreshToken: string;
+            };
+            // The phone has refreshed since: the row in the list is the latest link of its chain.
+            const rotated = (await refresh(phone.refreshToken).expect(200)).body as { refreshToken: string };
+            const listed = await request(app.getHttpServer())
+                .post('/auth/sessions')
+                .set('Authorization', `Bearer ${accessToken}`)
+                .send({ refreshToken: here })
+                .expect(200);
+            const phoneRow = (listed.body as { id: number; current: boolean }[]).find((session) => !session.current)!;
+
+            await request(app.getHttpServer()).delete(`/auth/sessions/${phoneRow.id}`).set('Authorization', `Bearer ${accessToken}`).expect(200);
+
+            await refresh(rotated.refreshToken).expect(401);
+            await refresh(here).expect(200);
+        });
+
+        it("cannot close another user's session, and says only that there is no such session", async () => {
+            const ana = await register('ana');
+            const bogdan = await register('bogdan');
+            const bogdansOwn = await request(app.getHttpServer()).get('/auth/sessions').set('Authorization', `Bearer ${bogdan.accessToken}`).expect(200);
+
+            const refused = await request(app.getHttpServer())
+                .delete(`/auth/sessions/${(bogdansOwn.body as { id: number }[])[0].id}`)
+                .set('Authorization', `Bearer ${ana.accessToken}`)
+                .expect(404);
+
+            expect(refused.body.code).toBe('SESSION_NOT_FOUND');
+            await refresh(bogdan.refreshToken).expect(200);
+        });
+
         it("a parent cannot see another user's sessions", async () => {
             await register('ana');
             const bogdan = await register('bogdan');

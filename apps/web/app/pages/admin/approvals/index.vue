@@ -139,7 +139,15 @@
             Respingi contul lui <strong>{{ rejecting ? fullName(rejecting) : "" }}</strong
             >. Îi trimitem un email scurt, fără motivul de mai jos.
           </p>
-          <UFormField label="Motiv (doar pentru admini)" hint="Opțional">
+          <!--
+            The note is the office's, but it is about the family: it never goes in the email and never
+            shows in the portal, and it is in the copy of its data a family downloads (GDPR art. 15).
+            The form says so, so nobody writes here what they would not say to the family.
+          -->
+          <UFormField
+            label="Motiv (nu pleacă în email)"
+            hint="Opțional. Familia îl vede doar în copia datelor ei, ca pe orice notă despre ea."
+          >
             <UInput v-model="rejectReason" placeholder="duplicat, cont de test…" class="w-full" />
           </UFormField>
         </div>
