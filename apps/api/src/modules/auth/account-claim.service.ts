@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { createHash, randomBytes } from 'crypto';
-import { DataSource, EntityManager, IsNull, MoreThan } from 'typeorm';
+import { DataSource, EntityManager, IsNull, MoreThan, MoreThanOrEqual } from 'typeorm';
 import { AccountClaim } from 'src/entities/account-claim.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { sameAddress } from 'src/common/same-address';
@@ -21,6 +21,18 @@ import { accountClaimUrl } from './portal-urls';
  * office already holds.
  */
 export const CLAIM_TTL_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * How long the register form waits before sending a family another link: ten minutes.
+ *
+ * Anyone can type a family's address into the register form, and each press used to replace the
+ * family's link and send another mail — five a minute from every address a stranger could use
+ * (review of 26 September 2026). Within the pause the form sends nothing, and the link already in
+ * the inbox keeps working; a parent who pressed twice because the mail was slow gets one mail, not
+ * two of which only the second works. The office's button is not paused: whoever presses it has
+ * decided to send a new link.
+ */
+export const REGISTER_FORM_RESEND_MS = 10 * 60 * 1000;
 
 /** 32 bytes, base64url — the shape of every other link token in the platform. */
 const TOKEN_BYTES = 32;
@@ -162,14 +174,30 @@ export class AccountClaimService {
      * The register form's branch: someone typed the address of a family the office holds.
      *
      * In the trail like the office's button, with nobody as the actor and the form named in the note
-     * (review of 26 September 2026). Anyone can type an address, and every press replaces the
-     * family's link; the trail is where the office sees that a stranger keeps doing it.
+     * (review of 26 September 2026): anyone can type an address, and the trail is where the office
+     * sees that a stranger keeps doing it. Paused for `REGISTER_FORM_RESEND_MS` after any link.
      */
     async sendFromRegisterForm(profileId: number): Promise<void> {
         await this.dataSource.transaction(async (manager) => {
-            const claim = await this.issue(profileId, new Date(), manager);
+            const now = new Date();
+            // The family's row first, so the question and the write below see the same links: two
+            // submissions together would otherwise both find nothing recent and both send.
+            await this.lockFamily(profileId, manager);
+            if (await this.sentSince(profileId, new Date(now.getTime() - REGISTER_FORM_RESEND_MS), now, manager)) {
+                this.logger.log(`Registration with the address of profile ${profileId}; a claim link went out moments ago, none sent.`);
+                return;
+            }
+            const claim = await this.issue(profileId, now, manager);
             await this.recordIssued(claim, SYSTEM_ACTOR, `link de cont cerut din formularul de înregistrare pentru familia ${profileId}`, manager);
         });
+    }
+
+    /** Whether a link still alive was written for the family at or after `since`. */
+    private async sentSince(profileId: number, since: Date, now: Date, manager: EntityManager): Promise<boolean> {
+        const recent = await manager.getRepository(AccountClaim).count({
+            where: { profile: { id: profileId }, usedAt: IsNull(), expiresAt: MoreThan(now), createdAt: MoreThanOrEqual(since) },
+        });
+        return recent > 0;
     }
 
     private recordIssued(claim: AccountClaim, actor: Actor, note: string, manager: EntityManager): Promise<void> {

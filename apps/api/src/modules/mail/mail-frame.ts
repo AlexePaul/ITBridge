@@ -17,12 +17,13 @@ export const SIGNATURE = ['Cu drag,', 'Echipa IT Bridge School'].join('\n');
  */
 const FRAME_CLOSE = ['  </div>', '</div>'].join('\n');
 
-export function htmlFrame(contentHtml: string): string {
+/** `signed: false` leaves the school's closing line out, for a body that carries its own. */
+export function htmlFrame(contentHtml: string, signed = true): string {
     return [
         '<div style="margin:0;padding:24px 12px;background-color:#f3f2f2;font-family:Georgia,serif;color:#201f1d;">',
         '  <div style="max-width:560px;margin:0 auto;background-color:#ffffff;border:1px solid #e0dedb;border-radius:8px;padding:32px;">',
         contentHtml,
-        '    <p style="margin:24px 0 0;font-size:15px;line-height:1.6;">Cu drag,<br />Echipa IT Bridge School</p>',
+        ...(signed ? ['    <p style="margin:24px 0 0;font-size:15px;line-height:1.6;">Cu drag,<br />Echipa IT Bridge School</p>'] : []),
         FRAME_CLOSE,
     ].join('\n');
 }
@@ -56,7 +57,12 @@ export const linkBlock = (variable: string) =>
  * For a template the school edited as text and not as HTML (E17 S2, QA of 26 September 2026): the
  * HTML is what most mail clients show, so keeping the old HTML beside new text sent the old words.
  * Placeholders pass through untouched — `{{firstName}}` has nothing to escape — and are filled in,
- * escaped, when the message is rendered. The text's closing signature is left to the frame's own.
+ * escaped, when the message is rendered.
+ *
+ * It says what the text says, the ending included (review of 26 September 2026). A text that ends
+ * with the school's usual closing line gets the frame's own copy of it; one that ends any other way
+ * is drawn as written and the frame adds nothing, where it used to add its closing line after the
+ * school's own, so the message was signed twice.
  *
  * A link stays a link (review of 26 September 2026): a placeholder whose name ends in `Url`, or an
  * address typed out, is drawn as the defaults draw theirs (`linkBlock`). Redrawn as plain text, the
@@ -64,13 +70,14 @@ export const linkBlock = (variable: string) =>
  */
 export function htmlFromText(text: string, escape: (value: string) => string): string {
     const trimmed = text.trimEnd();
-    const body = trimmed.endsWith(SIGNATURE) ? trimmed.slice(0, trimmed.length - SIGNATURE.length) : trimmed;
+    const signed = trimmed.endsWith(SIGNATURE);
+    const body = signed ? trimmed.slice(0, trimmed.length - SIGNATURE.length) : trimmed;
     const paragraphs = body
         .split(/\n\s*\n/)
         .map((paragraph) => paragraph.trim())
         .filter((paragraph) => paragraph.length > 0)
         .map((paragraph) => `    <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${linked(escape(paragraph)).replace(/\n/g, '<br />')}</p>`);
-    return htmlFrame(paragraphs.join('\n'));
+    return htmlFrame(paragraphs.join('\n'), signed);
 }
 
 /**
