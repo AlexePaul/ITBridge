@@ -106,6 +106,43 @@ describe('MailTemplateService', () => {
             expect(rows).toEqual(['<p>HTML nou</p>', null]);
         });
 
+        // Review of 26 September 2026: a text edit replaced HTML the school had written by hand in
+        // an earlier save; and an earlier redraw is the platform's, so it follows the text again.
+        it('keeps HTML the school wrote in an earlier save when only the text changes later', async () => {
+            const shipped = await service.get('account-approved');
+            repo.findOne!.mockResolvedValue({
+                key: 'account-approved',
+                subject: shipped.subject,
+                bodyText: 'Text vechi',
+                bodyHtml: '<p><b>HTML</b> scris de școală</p>',
+                version: 3,
+            });
+
+            await service.save('account-approved', { subject: shipped.subject, bodyText: 'Text nou', bodyHtml: '<p><b>HTML</b> scris de școală</p>' });
+
+            const [[row]] = repo.save!.mock.calls as [{ bodyHtml: string }][];
+            expect(row.bodyHtml).toBe('<p><b>HTML</b> scris de școală</p>');
+        });
+
+        it('redraws an earlier redraw again, since the platform made it', async () => {
+            const shipped = await service.get('account-approved');
+            await service.save('account-approved', { subject: shipped.subject, bodyText: 'Text unu', bodyHtml: shipped.bodyHtml });
+            const [[first]] = repo.save!.mock.calls as [{ bodyText: string; bodyHtml: string }][];
+            repo.findOne!.mockResolvedValue({
+                key: 'account-approved',
+                subject: shipped.subject,
+                bodyText: first.bodyText,
+                bodyHtml: first.bodyHtml,
+                version: 2,
+            });
+
+            await service.save('account-approved', { subject: shipped.subject, bodyText: 'Text doi', bodyHtml: first.bodyHtml });
+
+            const second = (repo.save!.mock.calls as [{ bodyHtml: string }][])[1][0];
+            expect(second.bodyHtml).toContain('Text doi');
+            expect(second.bodyHtml).not.toContain('Text unu');
+        });
+
         it('revert deletes the row — the default needs no restoring, it never left the code', async () => {
             await service.revert('account-approved');
             expect(repo.delete).toHaveBeenCalledWith({ key: 'account-approved' });

@@ -242,6 +242,12 @@ const save = async () => {
       bodyHtml: draft.bodyHtml || null,
     });
     selected.value = detail;
+    // What was stored, not what was typed: the server may have redrawn the HTML from the new text,
+    // and a draft still holding the old HTML would send it back on the next save as if somebody had
+    // written it (review of 26 September 2026).
+    draft.subject = detail.subject;
+    draft.bodyText = detail.bodyText;
+    draft.bodyHtml = detail.bodyHtml ?? "";
     success(`Salvat — v${detail.version}. Mesajele următoare pleacă cu formularea asta.`);
     await load();
   } catch (err: unknown) {
