@@ -145,23 +145,57 @@
                 </div>
               </td>
               <td class="py-3 px-4 text-center">
-                <!-- A free month is a 0-lei row with nothing to print (E15/S6): no button that
-                     can only lead to "there is no invoice". -->
-                <UButton
-                  v-if="invoice.status !== 'waived'"
-                  size="sm"
-                  variant="outline"
-                  @click="() => visualisePDF(invoice.id)"
-                >
-                  Vizualizează PDF
-                </UButton>
-                <span v-else class="text-sm text-muted">Fără factură</span>
+                <div class="flex flex-wrap justify-center gap-2">
+                  <!-- A free month is a 0-lei row with nothing to print (E15/S6): no button that
+                       can only lead to "there is no invoice". -->
+                  <UButton
+                    v-if="invoice.status !== 'waived'"
+                    size="sm"
+                    variant="outline"
+                    @click="() => visualisePDF(invoice.id)"
+                  >
+                    Vizualizează PDF
+                  </UButton>
+                  <span v-else class="text-sm text-muted">Fără factură</span>
+                  <!--
+                    The way out of a month issued by mistake, which two refusals already pointed to
+                    and no screen offered (QA of 26 September 2026). Not for a fiscal document: that
+                    is corrected in SmartBill, by a reversal.
+                  -->
+                  <UButton
+                    v-if="!hasFiscalDocument(invoice)"
+                    size="sm"
+                    variant="ghost"
+                    color="error"
+                    :aria-label="`Șterge factura familiei ${familyName(invoice)}`"
+                    @click="askDelete(invoice)"
+                  >
+                    Șterge
+                  </UButton>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
+
+    <AdminConfirmModal
+      v-model:open="deleteOpen"
+      title="Ștergi factura?"
+      confirm-label="Șterge factura"
+      danger
+      :loading="deleting"
+      @confirm="confirmDelete"
+    >
+      <template #body>
+        <p v-if="deleteTarget">
+          Factura familiei {{ familyName(deleteTarget) }} pe {{ formatMonth(month) }} dispare, iar
+          luna se poate emite din nou pentru familie, din Emitere facturi. O factură cu plăți pe ea
+          nu se șterge.
+        </p>
+      </template>
+    </AdminConfirmModal>
   </AdminPage>
 </template>
 
@@ -285,6 +319,39 @@ const confirm = (invoice: Invoice) =>
     () => invoiceApi.confirmFiscal(invoice.id, confirmNumberFor(invoice)),
     "Nu am putut confirma numărul facturii."
   );
+
+/** Issued, uncertain or under review: a fiscal document is behind it, corrected only in SmartBill. */
+const hasFiscalDocument = (invoice: Invoice) =>
+  invoice.fiscalStatus === "issued" ||
+  invoice.fiscalStatus === "uncertain" ||
+  invoice.fiscalStatus === "review";
+
+const deleteOpen = ref(false);
+const deleteTarget = ref<Invoice | null>(null);
+const deleting = ref(false);
+
+const askDelete = (invoice: Invoice) => {
+  deleteTarget.value = invoice;
+  deleteOpen.value = true;
+};
+
+const confirmDelete = async () => {
+  const target = deleteTarget.value;
+  if (!target) return;
+  deleting.value = true;
+  actionError.value = null;
+  try {
+    await invoiceApi.deleteInvoice(target.id);
+    deleteOpen.value = false;
+    deleteTarget.value = null;
+    await load();
+  } catch (err: unknown) {
+    deleteOpen.value = false;
+    actionError.value = apiErrorMessage(err, "Nu am putut șterge factura.");
+  } finally {
+    deleting.value = false;
+  }
+};
 
 const visualisePDF = (invoiceId: number) => {
   // Navigate to PDF download or trigger download

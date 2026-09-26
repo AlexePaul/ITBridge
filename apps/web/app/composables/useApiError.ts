@@ -215,7 +215,7 @@ const MESSAGES: Record<string, string> = {
   DISCOUNT_PERCENT_OVER_100: "O reducere procentuală nu poate depăși 100%.",
   // E15/S6. The invoice was computed from the month's discounts when it was issued, never again.
   DISCOUNT_MONTH_INVOICED:
-    "Familia are deja factura pe luna aceea, iar suma ei nu se mai recalculează — reducerea n-ar ajunge pe ea. Corectează factura sau șterge-o și emite luna din nou; o factură fiscală se stornează în SmartBill.",
+    "Familia are deja factura pe luna aceea, iar suma ei nu se mai recalculează — reducerea n-ar ajunge pe ea. Șterge factura din Facturi, pe luna ei, și emite luna din nou; o factură fiscală se stornează în SmartBill.",
 
   // E16/S1. Money against a month the school chose not to charge for — the row picked is wrong.
   INVOICE_WAIVED: "Factura este anulată (0 lei) — nu se pot înregistra plăți pe ea.",
