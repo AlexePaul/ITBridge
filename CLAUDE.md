@@ -591,7 +591,10 @@ să primească un singur email. Trei consecințe de ținut minte:
   e programarea **fără** oră de pe `/proba`: cheia ei n-avea nimic care să treacă, deci o familie
   căreia i s-a spus în martie că nu e loc și care a întrebat din nou în septembrie primea răspunsul
   din rândul din martie, deja pierdut, fără să se scrie nimic. Poartă acum ziua școlii — două apăsări
-  într-o seară sunt o cerere, luna viitoare e alta (`bookingKeyFor`). Al patrulea a fost mesajul
+  într-o seară sunt o cerere, luna viitoare e alta (`bookingKeyFor`). **Iar o cerere închisă ca pierdută
+  își cedează cheia** (testarea din 26 septembrie 2026): aceeași familie, același copil și aceeași oră
+  după „Pierdut" e o cerere nouă, nu a doua apăsare — răspunsă din rândul închis, familia citea „Ne
+  vedem atunci" fără nimic programat. Al patrulea a fost mesajul
   mutării din E12 S4 (revizuirea din 26 septembrie 2026): cheiat pe anunț și oră, un copil mutat joi,
   apoi sâmbătă, apoi înapoi joi nu mai afla de a treia mutare, deși ecranul biroului spunea că a
   plecat mesajul. Cheia poartă acum și **numărul de ordine al mutării**

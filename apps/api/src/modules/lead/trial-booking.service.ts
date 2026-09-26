@@ -184,7 +184,16 @@ export class TrialBookingService {
             day: schoolDay(now),
         });
 
-        const alreadyBooked = await this.leadRepository.findOne({ where: { bookingKey }, relations: { trialSession: true, group: true } });
+        const earlier = await this.leadRepository.findOne({ where: { bookingKey }, relations: { trialSession: true, group: true } });
+        // A lead closed as lost holds nothing any more — no seat, no trial — so the same child, class
+        // and contact again is a new request, not a repeat press. Answered from the closed row, the
+        // family read „Ne vedem atunci" and nothing was booked (QA of 26 September 2026). The old row
+        // keeps its history and gives up its key, so this request writes its own.
+        if (earlier && earlier.status === LeadStatus.LOST) {
+            await this.leadRepository.update({ id: earlier.id, status: LeadStatus.LOST }, { bookingKey: null });
+            this.logger.log(`Booking again after lead ${earlier.id} was lost; its key is released.`);
+        }
+        const alreadyBooked = earlier && earlier.status !== LeadStatus.LOST ? earlier : null;
         if (alreadyBooked) {
             // The same press twice. Answering as if it were the first is deliberate: the parent's
             // request is on file, which is all they were asking for, and an error would send them

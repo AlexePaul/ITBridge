@@ -437,6 +437,31 @@ describe('Trial booking, public (e2e)', () => {
             const lead = await request(app.getHttpServer()).get(`/leads/${leadId}`).set('Authorization', admin.auth).expect(200);
             expect(lead.body).toMatchObject({ status: 'lost', lostReason: 'Nu i se potrivește programul' });
         });
+
+        /**
+         * QA of 26 September 2026: after the trial was closed as lost, the family booked the same
+         * class again and read „Ne vedem atunci" — answered from the closed lead as a repeat press,
+         * with nothing booked, no seat and no confirmation.
+         */
+        it('books again when the family asks again after the trial was closed as lost', async () => {
+            const { groupId, sessionId, leadId } = await book();
+            await request(app.getHttpServer()).post(`/leads/${leadId}/lost`).set('Authorization', admin.auth).send({ reason: 'Revin mai târziu' }).expect(201);
+
+            const again = await request(app.getHttpServer())
+                .post('/trial/bookings')
+                .send(bookingBody({ classSessionId: sessionId }))
+                .expect(201);
+
+            expect(again.body.status).toBe('booked');
+            expect(again.body.leadId).not.toBe(leadId);
+            const inForce = await dataSource.query<{ count: number }[]>(
+                `SELECT COUNT(*)::int AS count FROM "enrollments" WHERE "group_id" = $1 AND "status" = 'TRIAL'`,
+                [groupId],
+            );
+            expect(inForce[0].count).toBe(1);
+            const closed = await request(app.getHttpServer()).get(`/leads/${leadId}`).set('Authorization', admin.auth).expect(200);
+            expect(closed.body.status).toBe('lost');
+        });
     });
 
     /** The review of 25 September 2026. */
