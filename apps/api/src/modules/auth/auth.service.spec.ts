@@ -365,7 +365,7 @@ describe('AuthService', () => {
         const CLAIM = { token: 'claim-token', username: 'ana.popescu', password: 'parola-noua', acceptedTerms: true, acceptedUnusualClauses: true };
 
         it('sends the claim link instead of writing a second account and profile', async () => {
-            claims.accountlessProfileFor!.mockResolvedValue(officeRow);
+            claims.accountlessProfileFor.mockResolvedValue(officeRow);
 
             const result = await service.register(REGISTRATION);
 
@@ -384,7 +384,7 @@ describe('AuthService', () => {
 
         it('writes nothing when the link cannot be spent', async () => {
             userRepo.findOne!.mockResolvedValue(null);
-            claims.redeem!.mockRejectedValue(new Error('CLAIM_TOKEN_INVALID'));
+            claims.redeem.mockRejectedValue(new Error('CLAIM_TOKEN_INVALID'));
 
             await expect(service.claimAccount(CLAIM)).rejects.toThrow('CLAIM_TOKEN_INVALID');
             expect(saved(User)).toEqual([]);
@@ -393,7 +393,7 @@ describe('AuthService', () => {
 
         it('creates the account on the office’s row: confirmed, still waiting for approval, with the acceptances and a trail', async () => {
             userRepo.findOne!.mockResolvedValue(null);
-            claims.redeem!.mockResolvedValue(officeRow);
+            claims.redeem.mockResolvedValue(officeRow);
             manager.save.mockImplementation((entity: unknown, data: Record<string, unknown> | Record<string, unknown>[]) => {
                 if (entity === User) return Promise.resolve({ id: 9, ...data });
                 if (entity === DocumentAcceptance && Array.isArray(data)) return Promise.resolve(data.map((row, index) => ({ id: 21 + index, ...row })));
