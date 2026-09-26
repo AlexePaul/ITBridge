@@ -25,6 +25,7 @@ import { AccountClaim } from 'src/entities/account-claim.entity';
 import { BankStatementLine } from 'src/entities/bank-statement-line.entity';
 import { PublicationConsent } from 'src/entities/publication-consent.entity';
 import type { ExportedPayment, FamilyExport } from './export.types';
+import { exportLabel } from './export-labels';
 
 /**
  * Everything the school holds about one family, in one document — E07 S4, the access right.
@@ -207,10 +208,10 @@ export class ExportService {
             cont: profile.user
                 ? {
                       utilizator: profile.user.username,
-                      rol: profile.user.role,
+                      rol: exportLabel('role', profile.user.role),
                       creatLa: profile.user.createdAt?.toISOString() ?? null,
                       emailConfirmatLa: profile.user.emailConfirmedAt?.toISOString() ?? null,
-                      stareAprobare: profile.user.approvalStatus,
+                      stareAprobare: exportLabel('approval', profile.user.approvalStatus),
                       aprobatLa: profile.user.approvalDecidedAt?.toISOString() ?? null,
                   }
                 : null,
@@ -224,7 +225,7 @@ export class ExportService {
                     .filter((row) => row.child?.id === child.id)
                     .map((row) => ({
                         grupa: row.group?.name ?? null,
-                        stare: row.status,
+                        stare: exportLabel('enrollment', row.status),
                         de: toDay(row.startDate),
                         pana: toDay(row.endDate),
                         motivIesire: row.exitReason ?? null,
@@ -234,7 +235,7 @@ export class ExportService {
                     .filter((row) => row.child?.id === child.id)
                     .map((row) => ({
                         grupa: row.group?.name ?? null,
-                        stare: row.status,
+                        stare: exportLabel('waitlist', row.status),
                         cerutLa: row.createdAt?.toISOString() ?? null,
                         oferitLa: row.offeredAt?.toISOString() ?? null,
                         raspunsPanaLa: row.respondBy?.toISOString() ?? null,
@@ -246,7 +247,7 @@ export class ExportService {
                         data: toDay(row.classSession?.date),
                         grupa: row.classSession?.group?.name ?? null,
                         prezent: row.present,
-                        tip: row.type,
+                        tip: exportLabel('attendance', row.type),
                     })),
                 absenteAnuntate: absences
                     .filter((row) => row.child?.id === child.id)
@@ -269,7 +270,7 @@ export class ExportService {
                         titlu: row.title,
                         descriere: row.description ?? null,
                         realizatLa: toDay(row.capturedOn),
-                        stare: row.status,
+                        stare: exportLabel('project', row.status),
                         trimisLa: row.sentAt?.toISOString() ?? null,
                         // The address it went to, when that is one of this family's. A document sent to
                         // one family and then moved to this child (E14 S7) was sent to somebody else.
@@ -283,19 +284,19 @@ export class ExportService {
                 acorduriPentruLucrari: consents
                     .filter((row) => row.child?.id === child.id)
                     .map((row) => ({
-                        scop: row.purpose,
+                        scop: exportLabel('consentPurpose', row.purpose),
                         versiuneaTextului: row.textVersion,
                         datLa: row.grantedAt?.toISOString() ?? null,
-                        datPrin: row.grantedVia,
+                        datPrin: exportLabel('consentChannel', row.grantedVia),
                         retrasLa: row.revokedAt?.toISOString() ?? null,
-                        retrasPrin: row.revokedVia ?? null,
+                        retrasPrin: exportLabel('consentChannel', row.revokedVia),
                     })),
             })),
             facturi: invoices.map((invoice) => ({
                 luna: invoice.monthIssued,
                 suma: invoice.amount,
                 emisaLa: toDay(invoice.dateIssued),
-                stare: invoice.status,
+                stare: exportLabel('invoice', invoice.status),
                 // E16/S2: the fiscal document SmartBill issued for it, when there is one. The public
                 // link is the family's own invoice — it opens without a login, so it is theirs to have.
                 facturaFiscala:
@@ -311,8 +312,8 @@ export class ExportService {
                     .filter((payment) => payment.invoice?.id === invoice.id)
                     .map((payment) => ({
                         suma: payment.amount,
-                        metoda: payment.method,
-                        stare: payment.status,
+                        metoda: exportLabel('paymentMethod', payment.method),
+                        stare: exportLabel('payment', payment.status),
                         data: toDay(payment.date),
                         referinta: payment.externalReference ?? null,
                         // E16/S5: the receipt SmartBill numbered for a cash payment — a document the
@@ -324,13 +325,13 @@ export class ExportService {
             })),
             reduceri: discounts.map((discount) => ({
                 nume: discount.name,
-                tip: discount.type,
+                tip: exportLabel('discount', discount.type),
                 valoare: discount.value,
                 luna: discount.monthIssued,
             })),
             solicitari: leads.map((lead) => ({
-                stare: lead.status,
-                sursa: lead.source,
+                stare: exportLabel('lead', lead.status),
+                sursa: exportLabel('leadSource', lead.source),
                 copil: `${lead.childFirstName} ${lead.childLastName}`.trim(),
                 dataNasteriiCopilului: toDay(lead.childBirthDate),
                 experienta: lead.experience ?? null,
@@ -340,7 +341,7 @@ export class ExportService {
             mesajePrimite: messages.map((message) => ({
                 subiect: message.subject,
                 trimisLa: message.sentAt?.toISOString() ?? null,
-                stare: message.status,
+                stare: exportLabel('message', message.status),
             })),
             autentificari: sessions.map((session) => ({
                 incepiuta: session.createdAt?.toISOString() ?? null,
@@ -370,7 +371,7 @@ export class ExportService {
                 folositLa: claim.usedAt?.toISOString() ?? null,
             })),
             documenteAcceptate: acceptances.map((acceptance) => ({
-                document: acceptance.document,
+                document: exportLabel('document', acceptance.document),
                 versiune: acceptance.version,
                 acceptatLa: acceptance.acceptedAt?.toISOString() ?? null,
             })),
