@@ -303,6 +303,36 @@ cale de acces peste capacitate — aia se verifică prima și refuză oricum. Da
 e ședința din orar, generată din programul grupei pe un orizont rulant de opt săptămâni. Numele are
 prefix fiindcă `Session` e deja luat de tabelul de refresh tokenuri.
 
+**Iar catalogul unei ore e grupa din ziua ei, nu grupa de azi** (revizuirea din 26 septembrie 2026).
+`sessionRegister`, POST-ul în masă și tipul unui marcaj întrebau `Child.group`, adică grupa de acum:
+catalogul de săptămâna trecută cerea un copil înscris azi — iar familia lui vedea apoi un marcaj
+pentru o oră ținută înainte să fie în grupă —, iar o probă programată pentru lunea viitoare stătea
+în catalogul de azi ca elev obișnuit, fără de care catalogul nu se salva. Acum toate trei întreabă
+`EnrollmentService.membersOn(grupă, ziua orei)`. Catalogul listează membrii zilei, plus cine are deja
+un marcaj pe oră și copiii mutați acolo pe săptămână (`placedIn`); POST-ul cere doar membrii zilei.
+**Capetele se citesc ca la facturare**: ziua de final e plecată, deci un copil scos dimineața nu e în
+catalogul de seară, iar unul marcat înainte să fie scos rămâne în el prin marcaj, `regular` — exact
+rândul din care regula primei și ultimei zile (mai jos, la emitere) decide că ora se plătește. Un
+copil care începe azi e în catalogul de azi. Ecranul de desktop își ia rândurile din același catalog,
+nu din lista de azi a grupei, și nu lasă să fie scos din listă decât cine nu e cerut.
+
+**Catalogul de pe telefon e cel care se completează și se corectează, pe orice zi până azi**
+(aceeași revizuire). `/admin/attendance/azi` arăta doar orele de azi, iar după ziua orei nimic nu mai
+putea termina un catalog început: ecranul de desktop oferă doar orele fără niciun marcaj (POST-ul în
+masă refuză una care are), iar istoricul copilului e doar pentru citit. Acum `?zi=YYYY-MM-DD`
+deschide orice zi trecută, cu săgeți și un câmp de dată care nu trece de azi, și salvează prin
+același upsert pe copil. Adresa goală rămâne azi. „Sună părintele" apare doar azi: e pentru un copil
+care poate e pe drum, nu pentru o corectură de săptămâna trecută.
+
+**Și nu pierde un marcaj** (aceeași revizuire). Coada din `localStorage` e acum `useMarkQueue`, ținută
+de vitest, cu trei reguli: o trecere de reîncercare scoate din coadă **doar ce a livrat sau i s-a
+refuzat** — scria înapoi lista cu care pornise, deci o apăsare picată în timpul trecerii dispărea,
+cu iconița de nor încă pe rând; o apăsare care a ajuns la server **scoate din coadă marcajul mai vechi
+al aceluiași copil** — altfel reîncercarea, poate zile mai târziu, scria peste el —, iar cererile
+pentru un copil pleacă una câte una; și **un 401 sau un 403 nu e un refuz**: marcajul rămâne în coadă,
+iar ecranul cere o autentificare care se întoarce acolo. Până atunci, orice 4xx arunca marcajul cu
+„refuzat".
+
 **Generarea e idempotentă pe loc, nu pe zi** (revizuirea din 25 septembrie 2026).
 `ClassSession.scheduledFor` e ziua pentru care a scris-o generatorul, iar o mutare n-o schimbă. O zi e
 ocupată de două ori: o oră stă pe ea, sau o oră **a fost generată pentru ea** și s-a mutat în altă
@@ -400,7 +430,12 @@ termen" ar fi ținut de cod o regulă pe care S3 a lăsat-o dinadins biroului. C
 sunt azi ori mai încolo, pe ziua școlii. Cheiată doar pe ora pierdută, lista familiei pierdea
 mutarea de luni pe sâmbătă a doua zi după luni, iar portalul spunea „nicio mutare" despre singurul
 lucru pe care familia mai avea de făcut. Pe tabloul de bord, „următoarea oră" sare peste ora pe care
-copilul o pierde și arată ora în care a fost mutat, cu grupa ei.
+copilul o pierde și arată ora în care a fost mutat, cu grupa ei. **Un anunț pe care catalogul îl
+contrazice nu mai e de mutat** (revizuirea din 26 septembrie 2026): un copil marcat prezent la ora pe
+care o anunțase ca pierdută iese din `GET /attendance/replacements/unplaced` — deci și din cifra din
+meniu, care citește aceeași listă —, iar `ReplacementService.place` îl refuză cu
+`CHILD_ATTENDED_CLASS`. Rămânea pe listă și putea fi mutat, cu mesaj către familie despre o
+recuperare pentru o oră pe care n-o pierduse. Marcat absent sau nemarcat, anunțul rămâne ce a spus.
 
 **`User.passwordHash` e `select: false`: nu iese din bază decât cerut pe nume.** Până în septembrie
 2026 nu era, și singurul lucru dintre hash-ul unei familii și un browser era forma fiecărei
@@ -553,7 +588,12 @@ să primească un singur email. Trei consecințe de ținut minte:
   e programarea **fără** oră de pe `/proba`: cheia ei n-avea nimic care să treacă, deci o familie
   căreia i s-a spus în martie că nu e loc și care a întrebat din nou în septembrie primea răspunsul
   din rândul din martie, deja pierdut, fără să se scrie nimic. Poartă acum ziua școlii — două apăsări
-  într-o seară sunt o cerere, luna viitoare e alta (`bookingKeyFor`).
+  într-o seară sunt o cerere, luna viitoare e alta (`bookingKeyFor`). Al patrulea a fost mesajul
+  mutării din E12 S4 (revizuirea din 26 septembrie 2026): cheiat pe anunț și oră, un copil mutat joi,
+  apoi sâmbătă, apoi înapoi joi nu mai afla de a treia mutare, deși ecranul biroului spunea că a
+  plecat mesajul. Cheia poartă acum și **numărul de ordine al mutării**
+  (`absence-replacement:<anunț>:<oră>:<n>`), numărat sub lacătul rândului anunțului, ca la
+  `ClassSessionNotifier.writeTo`: o mutare adevărată scrie din nou, un dublu-clic rămâne o mutare.
 
 **Miniatura are două drumuri, iar al doilea nu e o coadă nouă** (E14 S3b). O imagine primește poza
 în cererea care o încarcă, după commit; un video și un `.sb3` n-au cum — primul fiindcă octeții lui
@@ -1012,6 +1052,13 @@ Tokenurile trăiesc în cookies (`apps/web/app/stores/tokenStore.ts`). Toate ape
 concurente printr-un `refreshPromise` partajat. Nu apela `$fetch` direct — folosește
 composable-urile din `apps/web/app/composables/api/`.
 
+**Tokenurile se golesc numai când `/auth/refresh` însuși răspunde 400 sau 401** (revizuirea din 26
+septembrie 2026). Se goleau la orice eșec al reîmprospătării — o cerere pierdută pe o linie de semnal,
+un 502 cât repornea API-ul — și chiar când eșua cererea reluată după o reîmprospătare reușită: pe
+telefonul din sală, profesorul era delogat de rețea, cu un refresh token de șapte zile aruncat. O
+reîmprospătare fără răspuns sau cu 5xx își dă înapoi propria eroare și lasă sesiunea pentru
+încercarea următoare; una refuzată dă înapoi 401-ul cererii, pe care ecranul îl poate explica.
+
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
 **Nuxt UI citește din `classical.css` și fundalul, și accentul.** Blocul de la finalul lui `:root`
@@ -1099,7 +1146,11 @@ despre cod și despre git, nu despre proza de proiect.
 - Lunile de facturare sunt string-uri `'YYYY-MM'` (`monthIssued`), cu constrângere
   `@Unique(['parent', 'monthIssued'])` pe `Invoice`.
 - `Group.weekday` e zi ISO: 1 = luni, 7 = duminică.
-- Unicitatea orarului e pe **sală**, nu pe școală: `@Unique(['room', 'weekday', 'startTime'])`.
+- Unicitatea orarului e pe **sală**, nu pe școală: `@Unique(['room', 'weekday', 'startTime'])`. Indexul știe
+  doar începuturi egale, deci serviciul refuză el **intervalele care se suprapun** (`GROUP_SLOT_TAKEN` —
+  16:30–18:00 lângă 16:00–17:30 trecea), o grupă care se termină înainte să înceapă
+  (`GROUP_ENDS_BEFORE_IT_STARTS`) și o grupă mutată peste o oră a altei grupe mutate acolo pe o
+  săptămână (`ROOM_BUSY_AT_THAT_TIME`): orele ei viitoare ar urma-o, iar sala ar ține două.
 - `Room.capacity` implicit e 10, dar e configurabil din `/admin/locations`; nu-l hardcoda nicăieri.
   Nu coboară sub capacitatea unei grupe care se ține în sală (`ROOM_SMALLER_THAN_GROUP`).
 - `isActive` pe `Location` și `Room` blochează **grupe noi**, nu editarea celor existente.
@@ -1972,7 +2023,10 @@ Patru reguli pe care le încalci ușor:
   `undeliverable`, iar familia venea la o sală goală. `bookingAddresses`
   (`apps/api/src/modules/mail/booking-address.ts`) dă, pentru un profil fără adresă, emailul celui
   mai nou lead legat de el; notificatorul orelor și audiența anunțului îl citesc amândouă. Dacă
-  adaugi un al treilea expeditor către „familiile grupei", treci pe acolo.
+  adaugi un al treilea expeditor către „familiile grupei", treci pe acolo. Numărul de telefon are
+  aceeași poveste și aceeași ieșire (revizuirea din 26 septembrie 2026): catalogul citea doar
+  `profile.phone`, deci „Sună părintele" lipsea tocmai pentru copilul la probă, iar `bookingPhones`,
+  alături, dă numărul celui mai nou lead al copilului.
 
 **Pagina `/proba` e una dintre cele două pagini publice care ating backend-ul** — cealaltă e
 `/dezabonare` din E17/S4 —, ceea ce contrazice regula de mai sus doar în aparență: orele se încarcă
