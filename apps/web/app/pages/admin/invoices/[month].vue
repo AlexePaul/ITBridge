@@ -302,7 +302,9 @@ const load = async () => {
   loading.value = true;
   loadError.value = null;
   try {
-    await invoiceApi.fetchInvoices();
+    // This month's invoices only: the whole history was 6.9 MB at three years, for about thirty
+    // rows (review of 26 September 2026).
+    await invoiceApi.fetchInvoices({ monthIssued: month.value });
     invoices.value = (await invoiceApi.getInvoices()) || [];
     // Beside the list, never instead of it: a queue status that could not be read leaves the
     // invoices on screen, each with its own state.

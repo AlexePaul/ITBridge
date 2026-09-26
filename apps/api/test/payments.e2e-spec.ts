@@ -106,6 +106,25 @@ describe('Payments (e2e)', () => {
         });
     });
 
+    describe('a month at a time', () => {
+        it('lists one month by its dates, and what waits on somebody whatever its month', async () => {
+            // The screen asked for every payment ever recorded: 9.6 MB and 1.9 GB of browser memory at
+            // three years (review of 26 September 2026). It now asks for a month, plus these.
+            const march = await pay({ amount: 100, date: '2026-03-05' }).expect(201);
+            const announced = await pay({ amount: 50, date: '2026-03-20', method: 'bank_transfer', status: 'initiated' }).expect(201);
+            const april = await pay({ amount: 100, date: '2026-04-02' }).expect(201);
+            const list = (query: string) => request(app.getHttpServer()).get(`/payments?${query}`).set('Authorization', admin.auth).expect(200);
+
+            const inApril = await list('dateFrom=2026-04-01&dateTo=2026-04-30');
+            const waiting = await list('needsAction=true');
+
+            expect((inApril.body as { id: number }[]).map((row) => row.id)).toEqual([april.body.id]);
+            // The announced transfer from March is still somebody's job in April; the settled ones are not.
+            expect((waiting.body as { id: number }[]).map((row) => row.id)).toEqual([announced.body.id]);
+            expect((waiting.body as { id: number }[]).map((row) => row.id)).not.toContain(march.body.id);
+        });
+    });
+
     describe('waived invoices', () => {
         it('refuses money against a waived month, with its own code', async () => {
             // A waived invoice comes from the issuing screen writing a zero row.

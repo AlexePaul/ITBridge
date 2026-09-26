@@ -203,6 +203,17 @@ describe('InvoiceService', () => {
             expect(isScopedToUser(qb, 42)).toBe(false);
         });
 
+        it('findInvoices can ask for one billing month', async () => {
+            // The month's page downloaded every invoice ever issued to keep thirty of them — 6.9 MB
+            // at three years (review of 26 September 2026).
+            const qb = createMockQueryBuilder({ many: [] });
+            invoiceRepo.createQueryBuilder!.mockReturnValue(qb);
+
+            await service.findInvoices({ monthIssued: '2026-09' }, Role.ADMIN, 42);
+
+            expect(qb.andWhere).toHaveBeenCalledWith('invoice.monthIssued = :monthIssued', { monthIssued: '2026-09' });
+        });
+
         it('findInvoices narrows to the authenticated user for a PARENT', async () => {
             const qb = createMockQueryBuilder({ many: [] });
             invoiceRepo.createQueryBuilder!.mockReturnValue(qb);

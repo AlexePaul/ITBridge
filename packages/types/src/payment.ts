@@ -82,6 +82,8 @@ export interface FilterPaymentDto {
     invoiceId?: number;
     dateFrom?: ISODate;
     dateTo?: ISODate;
+    /** Only announced transfers and collections SmartBill needs a person for, whatever their date. */
+    needsAction?: boolean;
 }
 
 /** The payments' side of the fiscal queue, for the admin screen — `GET /payments/fiscal-queue`. */

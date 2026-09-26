@@ -16,8 +16,16 @@ export const useInvoiceApi = () => {
 
   const invoices = ref<Invoice[]>([]);
 
-  const fetchInvoices = async () => {
-    const fetchedInvoices = await api<Invoice[]>("/invoices", {
+  /**
+   * The invoices a screen shows. An admin screen names the month it is about: without it the API
+   * answers with every invoice ever issued — 6.9 MB at three years (review of 26 September 2026).
+   * A parent's list is only ever their own, so the portal asks for all of it.
+   */
+  const fetchInvoices = async (filter: { monthIssued?: string } = {}) => {
+    const query = filter.monthIssued
+      ? `?monthIssued=${encodeURIComponent(filter.monthIssued)}`
+      : "";
+    const fetchedInvoices = await api<Invoice[]>(`/invoices${query}`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${tokenStore.accessToken}`,
@@ -26,6 +34,12 @@ export const useInvoiceApi = () => {
 
     invoices.value = fetchedInvoices;
   };
+
+  /** The billing months that have invoices, oldest first — what the overview needs, and nothing else. */
+  const fetchIssuedMonths = async () =>
+    api<string[]>("/invoices/months", {
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+    });
 
   const getInvoices = () => {
     return invoices.value;
@@ -113,5 +127,6 @@ export const useInvoiceApi = () => {
     clearSessionCountOverride,
     getInvoices,
     fetchInvoices,
+    fetchIssuedMonths,
   };
 };

@@ -249,6 +249,12 @@ export class PaymentService {
         if (filter.invoiceId) qb.andWhere('invoice.id = :invoiceId', { invoiceId: filter.invoiceId });
         if (filter.dateFrom) qb.andWhere('payment.date >= :from', { from: filter.dateFrom });
         if (filter.dateTo) qb.andWhere('payment.date <= :to', { to: filter.dateTo });
+        if (filter.needsAction) {
+            qb.andWhere('(payment.status = :announced OR payment.fiscalStatus IN (:...toCheck))', {
+                announced: PaymentStatus.INITIATED,
+                toCheck: [PaymentFiscalStatus.REVIEW, PaymentFiscalStatus.FAILED],
+            });
+        }
 
         return qb.getMany();
     }

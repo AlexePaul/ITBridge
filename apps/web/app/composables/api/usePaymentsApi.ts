@@ -20,6 +20,7 @@ export const usePaymentsApi = () => {
     if (filter?.invoiceId) queryParams.append("invoiceId", filter.invoiceId.toString());
     if (filter?.dateFrom) queryParams.append("dateFrom", filter.dateFrom);
     if (filter?.dateTo) queryParams.append("dateTo", filter.dateTo);
+    if (filter?.needsAction) queryParams.append("needsAction", "true");
 
     const url = `/payments${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
 

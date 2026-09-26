@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsOptional, IsNumber, IsString, IsEnum } from 'class-validator';
+import { IsOptional, IsNumber, IsString, IsEnum, Matches } from 'class-validator';
 import { InvoiceStatus } from '../../../entities/invoice.entity';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
@@ -30,4 +30,14 @@ export class FilterInvoiceDto {
     @IsOptional()
     @IsString()
     dateTo?: string;
+
+    /**
+     * One billing month. The month's page asked for every invoice ever issued and kept one month of
+     * them — 6.9 MB at three years, for a page about thirty rows (review of 26 September 2026).
+     */
+    @ApiPropertyOptional({ example: '2026-09', description: 'Only the invoices of one billing month' })
+    @EmptyToUndefined()
+    @IsOptional()
+    @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'monthIssued must be YYYY-MM' })
+    monthIssued?: string;
 }

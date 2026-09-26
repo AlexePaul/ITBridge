@@ -1,7 +1,7 @@
 <template>
   <AdminPage
     title="Plăți"
-    subtitle="Toate încasările înregistrate, oricare ar fi metoda"
+    subtitle="Încasările lunii, oricare ar fi metoda — și, din orice lună, ce mai așteaptă pe cineva"
     width="xl"
   >
     <template #actions>
@@ -16,9 +16,49 @@
         Adaugă plată nouă
       </UButton>
       <UBadge color="primary" variant="subtle" size="lg" class="min-h-11 flex items-center px-4">
-        {{ payments.length }} total
+        {{ payments.length }} pe ecran
       </UBadge>
     </template>
+
+    <!--
+      One month at a time, by the payments' own dates (review of 26 September 2026): the whole
+      history was 1.9 GB of browser memory at three years. What still waits on somebody comes along
+      whatever its month, and the line under the switcher says so.
+    -->
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+      <UButton
+        variant="ghost"
+        color="neutral"
+        icon="i-lucide-chevron-left"
+        class="min-h-11"
+        :aria-label="`Plățile din ${formatMonth(shiftMonth(month, -1))}`"
+        @click="goToMonth(-1)"
+      />
+      <span class="font-medium min-w-36 text-center" aria-live="polite">{{
+        formatMonth(month)
+      }}</span>
+      <UButton
+        variant="ghost"
+        color="neutral"
+        icon="i-lucide-chevron-right"
+        class="min-h-11"
+        :aria-label="`Plățile din ${formatMonth(shiftMonth(month, 1))}`"
+        @click="goToMonth(1)"
+      />
+      <UButton
+        v-if="month !== currentMonth"
+        variant="link"
+        size="sm"
+        class="min-h-11"
+        @click="goToMonth(0)"
+      >
+        Luna curentă
+      </UButton>
+      <p v-if="fromOtherMonths" class="text-sm text-muted w-full">
+        Plus {{ fromOtherMonths }} din alte luni care așteaptă pe cineva — transferuri anunțate
+        neconfirmate sau încasări de verificat în SmartBill.
+      </p>
+    </div>
 
     <AdminLoading v-if="loading" />
 
@@ -61,8 +101,8 @@
         :columns="columns"
         :actions="rowActions"
         empty-icon="i-lucide-banknote"
-        empty-text="Nicio plată înregistrată."
-        empty-description="Încasările apar aici pe măsură ce sunt înregistrate."
+        :empty-text="`Nicio plată în ${formatMonth(month)}.`"
+        empty-description="Încasările apar aici pe măsură ce sunt înregistrate; săgețile duc la alte luni."
       >
         <template #fiscal-cell="{ row }">
           <span v-if="!row.original.fiscalStatus" class="text-muted">—</span>
@@ -199,9 +239,9 @@ import { apiErrorMessage } from "~/composables/useApiError";
 import { useNotifications } from "~/composables/useNotifications";
 import { usePaymentsApi } from "~/composables/api/usePaymentsApi";
 import type { Payment, PaymentFiscalQueueStatus } from "~/types/payment.types";
-import { usePaymentsStore } from "~/stores/paymentsStore";
-import { formatLei } from "~/composables/useAdminFormat";
+import { formatLei, formatMonth } from "~/composables/useAdminFormat";
 import { todayKey } from "~/composables/useAttendanceCalendar";
+import { monthRange, paymentsOnScreen, shiftMonth } from "~/composables/usePaymentMonth";
 import {
   PAYMENT_FISCAL_STATUS_COLORS,
   PAYMENT_FISCAL_STATUS_LABELS,
@@ -212,7 +252,6 @@ import {
 } from "~/types/payment.types";
 
 const paymentsApi = usePaymentsApi();
-const paymentsStore = usePaymentsStore();
 const { success, error } = useNotifications();
 
 const payments: Ref<Payment[]> = ref([]);
@@ -226,24 +265,34 @@ definePageMeta({
   title: "Gestionarea Plăților",
 });
 
+/** The month on screen, `YYYY-MM`, by the school's calendar; the current one first. */
+const currentMonth = todayKey().slice(0, 7);
+const month = ref(currentMonth);
+/** How many of the rows are there for waiting on somebody, not for their month. */
+const fromOtherMonths = ref(0);
+
+const goToMonth = (delta: number) => {
+  month.value = delta === 0 ? currentMonth : shiftMonth(month.value, delta);
+  void load();
+};
+
 const load = async () => {
   loading.value = true;
   loadError.value = null;
   try {
-    const [, queue] = await Promise.all([
-      paymentsApi.fetchPayments(),
+    const [inMonth, waiting, queue] = await Promise.all([
+      paymentsApi.fetchPayments(monthRange(month.value)),
+      paymentsApi.fetchPayments({ needsAction: true }),
       // The queue line is a courtesy: a screen about money must not fail because SmartBill's
       // summary could not be read.
       paymentsApi.fetchFiscalQueue().catch(() => null),
     ]);
     fiscalQueue.value = queue;
-    // A copy before sorting. `paymentsStore.payments` is `readonly(...)` and `Array.sort` reorders
-    // in place, so every swap is a write Vue refuses — eighteen warnings deep — and what comes back
-    // is the list in its original order, pretending to be sorted. The screen has always claimed
-    // newest first and always shown API order.
-    payments.value = [...(paymentsStore.payments as Payment[])].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    // Newest first, and a fresh array: what comes back from the API is sorted here, not in place
+    // in a store (`readonly(...)` plus `Array.sort` sorted nothing for a long time — CLAUDE.md).
+    const onScreen = paymentsOnScreen(month.value, inMonth, waiting);
+    payments.value = onScreen.rows;
+    fromOtherMonths.value = onScreen.fromOtherMonths;
   } catch (err: unknown) {
     loadError.value = apiErrorMessage(err, "Nu am putut încărca plățile.");
   } finally {

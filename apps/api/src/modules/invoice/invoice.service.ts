@@ -175,8 +175,23 @@ export class InvoiceService {
         if (filterInvoiceDto.status) qb.andWhere('invoice.status = :status', { status: filterInvoiceDto.status });
         if (filterInvoiceDto.dateFrom) qb.andWhere('invoice.dateIssued >= :from', { from: filterInvoiceDto.dateFrom });
         if (filterInvoiceDto.dateTo) qb.andWhere('invoice.dateIssued <= :to', { to: filterInvoiceDto.dateTo });
+        if (filterInvoiceDto.monthIssued) qb.andWhere('invoice.monthIssued = :monthIssued', { monthIssued: filterInvoiceDto.monthIssued });
 
         return qb.getMany();
+    }
+
+    /**
+     * The billing months that have invoices, oldest first — what the invoices overview needs to
+     * know which range to ask the finance report about. It used to download every invoice to find
+     * that out: 6.9 MB at three years, for two strings (review of 26 September 2026).
+     */
+    async issuedMonths(): Promise<string[]> {
+        const rows = await this.invoiceRepository
+            .createQueryBuilder('invoice')
+            .select('DISTINCT invoice.monthIssued', 'month')
+            .orderBy('month', 'ASC')
+            .getRawMany<{ month: string }>();
+        return rows.map((row) => row.month);
     }
 
     async findOne(id: number, role: Role, userId: number) {
