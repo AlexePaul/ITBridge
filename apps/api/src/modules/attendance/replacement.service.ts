@@ -1,8 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Like, Repository } from 'typeorm';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { ClassSession } from 'src/entities/class-session.entity';
+import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { ageOf, EnrollmentService } from 'src/modules/enrollment/enrollment.service';
 import { toIsoDate } from 'src/modules/class-session/class-session.dates';
@@ -127,7 +128,9 @@ export class ReplacementService {
      *
      * **Recording the same move twice is a no-op**, checked before the seat count rather than after
      * it: the child already holds a chair in that class, so counting them against it would refuse
-     * the office for repeating itself once the class is full.
+     * the office for repeating itself once the class is full. Checked twice, in fact: once on the
+     * row read above, and again behind the notice's own row lock — a double click sends two
+     * requests that both read "not placed yet", and only the second look sees the first one's move.
      *
      * **The row and the message are one transaction**, as everywhere else that writes to a family.
      * A move recorded without the family told is the failure the outbox exists to prevent — they
@@ -173,7 +176,6 @@ export class ReplacementService {
                 error: 'REPLACEMENT_AGE_MISMATCH',
             });
         }
-        notice.replacementSession = session;
         const saved = await this.dataSource.transaction(async (manager) => {
             // The seat check used to sit above this line, outside the transaction that acts on it —
             // so two placements into the same class could both read the last chair, and a public
@@ -192,13 +194,26 @@ export class ReplacementService {
             if (!current || current.status === ClassSessionStatus.CANCELLED) {
                 throw new ConflictException({ message: 'Ședința e anulată.', error: 'CLASS_SESSION_CANCELLED' });
             }
+            // The notice itself, last: every move of this notice queues behind this lock, so the
+            // count of the messages below is exact, and a repeat of the move that has just committed
+            // finds it here and does nothing (review of 26 September 2026). Taken after the class,
+            // as a cancellation takes the class and then the notices placed in it.
+            const [locked] = await manager.query<{ replacement_session_id: number | null }[]>(
+                'SELECT replacement_session_id FROM absence_notices WHERE id = $1 FOR UPDATE',
+                [notice.id],
+            );
+            if (!locked) throw new NotFoundException('Absence notice not found');
+            notice.replacementSession = session;
+            if (locked.replacement_session_id === session.id) return notice;
             if ((await this.enrollments.freeSeatsAt({ id: session.id, group, room: current.room }, manager)) <= 0) {
                 throw new ConflictException({ message: 'Nu mai e loc la ședința asta.', error: 'REPLACEMENT_SESSION_FULL' });
             }
 
-            const written = await manager.getRepository(AbsenceNotice).save(notice);
+            // The one column, not the row read before the transaction: `save` would write back
+            // whatever else that copy holds over anything changed since.
+            await manager.getRepository(AbsenceNotice).update(notice.id, { replacementSession: { id: session.id } });
             await this.tellTheFamily(notice, session, manager);
-            return written;
+            return notice;
         });
         this.logger.log(`Child ${notice.child.id} moved to session ${session.id} for the week of ${toIsoDate(notice.classSession.date)}.`);
         return saved;
@@ -279,6 +294,14 @@ export class ReplacementService {
      * Queued with the caller's transaction manager, so it cannot outlive a move that rolled back
      * and a move cannot be recorded without it. No mail server is involved here — the outbox is a
      * table, and the dispatcher's bad afternoons are its own.
+     *
+     * **Keyed on how many moves of this notice came before**, as `ClassSessionNotifier.writeTo`
+     * keys a class's announcements. The key used to be the notice and the class, which is unique
+     * forever: a child moved to Thursday, then Saturday, then back to Thursday was never told about
+     * the third move — the insert was a duplicate and was dropped, while the office's screen said
+     * the family had been written to, and the family's newest message still said Saturday (review
+     * of 26 September 2026). Counted behind the notice's row lock, so a genuine move writes once
+     * more and a double click — which `place` turns into a no-op — writes nothing twice.
      */
     private async tellTheFamily(notice: AbsenceNotice, replacement: ClassSession, manager: EntityManager): Promise<void> {
         const parent = notice.child.parent;
@@ -300,16 +323,15 @@ export class ReplacementService {
             replacement: where,
             portalUrl: absencesUrl(),
         });
+        const prefix = `${REPLACEMENT_DEDUPE_PREFIX}${notice.id}:`;
+        const earlier = await manager.getRepository(OutboxMessage).count({ where: { dedupeKey: Like(`${prefix}%`) } });
         await this.outbox.queueOrRecord(
             { email: parent.email ?? null },
             {
                 subject: mail.subject,
                 bodyText: mail.bodyText,
                 bodyHtml: mail.bodyHtml ?? undefined,
-                // Keyed on the notice *and* the class it was moved to: a genuine change of group
-                // writes again, which is the only case where a family needs a second message. The
-                // same-session repeat never gets this far — `place` returns before it.
-                dedupeKey: `${REPLACEMENT_DEDUPE_PREFIX}${notice.id}:${replacement.id}`,
+                dedupeKey: `${prefix}${replacement.id}:${earlier}`,
             },
             manager,
         );

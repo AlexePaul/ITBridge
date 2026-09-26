@@ -92,6 +92,12 @@ describe('Temporary group moves (e2e)', () => {
     const mailTo = (address: string) =>
         dataSource.query<{ subject: string; bodyText: string }[]>('SELECT "subject", "bodyText" FROM "outbox" WHERE "to" = $1 ORDER BY id DESC', [address]);
 
+    /** The keys of the messages about this notice's moves, oldest first. */
+    const moveMessages = () =>
+        dataSource
+            .query<{ dedupeKey: string }[]>('SELECT "dedupeKey" FROM "outbox" WHERE "dedupeKey" LIKE $1 ORDER BY id', [`absence-replacement:${noticeId}:%`])
+            .then((rows) => rows.map((row) => row.dedupeKey));
+
     const placedSessionId = async () => {
         const rows = await dataSource.query<{ id: number | null }[]>('SELECT "replacement_session_id" AS id FROM "absence_notices" WHERE "id" = $1', [
             noticeId,
@@ -156,6 +162,39 @@ describe('Temporary group moves (e2e)', () => {
 
             expect(await placedSessionId()).toBe(second);
             expect((await mailTo('parinte.mutari@example.com')).filter((row) => row.subject.includes('Ana')).length).toBe(2);
+        });
+
+        /**
+         * The review of 26 September 2026. The key was the notice and the class, unique forever, so
+         * moving a child back to a class it had already been moved to wrote nothing: the insert was
+         * a duplicate and was dropped, the office's screen said the family had been written to, and
+         * the family's newest message still named the other day.
+         */
+        it('writes again when the child is moved back to a class it was moved to before', async () => {
+            const saturday = await createClassSession(dataSource, hostGroupId, { date: iso(5) });
+
+            await place(hostSessionId).expect(200);
+            await place(saturday).expect(200);
+            await place(hostSessionId).expect(200);
+
+            expect(await placedSessionId()).toBe(hostSessionId);
+            const keys = await moveMessages();
+            expect(keys).toHaveLength(3);
+            // The newest message is about the class the child actually goes to.
+            expect(keys[2]).toContain(`:${hostSessionId}:`);
+
+            // A move cleared in silence and recorded again is a move the family has to hear about.
+            await request(app.getHttpServer()).delete(`/attendance/absences/${noticeId}/replacement`).set('Authorization', admin.auth).expect(200);
+            await place(saturday).expect(200);
+            expect(await moveMessages()).toHaveLength(4);
+        });
+
+        it('a double click is still one move and one message', async () => {
+            const [first, second] = await Promise.all([place(hostSessionId), place(hostSessionId)]);
+
+            expect([first.status, second.status]).toEqual([200, 200]);
+            expect(await placedSessionId()).toBe(hostSessionId);
+            expect(await moveMessages()).toHaveLength(1);
         });
 
         // The end-to-end testing of 25 September 2026: the host class's register listed a moved child
