@@ -866,7 +866,10 @@ emitere și recitită la folosire prin `sameAddress`, iar `CLAIM_TOKEN_INVALID` 
 pentru necunoscut, expirat, folosit și înlocuit. 48 de ore, ca la confirmare, nu o oră ca la
 resetare: linkul pleacă des din inițiativa biroului, iar ce deschide e un cont care încă așteaptă
 aprobarea. Se șterge la termenul celorlalte linkuri (`removeExpiredLinks`) și apare în exportul
-familiei.
+familiei. **Formularul de înregistrare trimite cel mult un link la zece minute**
+(`REGISTER_FORM_RESEND_MS`): oricine poate tasta adresa unei familii, iar fiecare apăsare înlocuia
+linkul și trimitea încă un mail. În pauză nu pleacă nimic, iar linkul din inbox merge mai departe;
+verificarea se face sub lacătul familiei. Butonul biroului nu așteaptă — cine apasă a hotărât.
 
 **O cutie poștală e a unei singure familii, oricum ar fi scrisă.** Înregistrarea și
 `forgot-password` caută adresa după `lower(email)`, dar cele două editări de profil comparau exact,
@@ -1321,6 +1324,9 @@ editorul de șabloane previzualizează exact ce e în casete, deci un subiect ș
 clienților de mail arată HTML-ul, deci textul nou lângă HTML-ul vechi trimitea vorbele vechi.
 `MailTemplateService.save` îl refă din text (`htmlFromText`, în rama școlii) când textul s-a schimbat
 și HTML-ul a rămas cum era; HTML-ul scris de școală și un șablon doar-text rămân cum au venit.
+Redesenul spune exact ce spune textul: linkurile rămân linkuri, iar încheierea e a textului — rama
+își pune semnătura doar când textul se termină cu cea obișnuită, altfel mesajul ieșea semnat de
+două ori.
 
 **`@IsPhoneNumber()` fără regiune cere format internațional.** Numerele se scriu `0712345678` în
 România, deci decoratorul e `@IsPhoneNumber('RO')`, care acceptă și `+40712345678`. **Forma stocată o
