@@ -422,6 +422,8 @@ const openSession = async (sessionId: number) => {
   registerError.value = "";
   try {
     const loaded = await attendanceApi.fetchSessionRegister(sessionId);
+    // Another class, or another day, was picked while this one loaded.
+    if (selectedSessionId.value !== sessionId) return;
     // What the phone still holds for this class is the teacher's word, not yet the server's: the
     // row shows it, with the cloud icon, instead of whatever was there before the tap.
     for (const key of Object.keys(rowState)) delete rowState[Number(key)];
@@ -433,10 +435,12 @@ const openSession = async (sessionId: number) => {
     }
     register.value = loaded;
   } catch (err: unknown) {
+    if (selectedSessionId.value !== sessionId) return;
     register.value = null;
     registerError.value = apiErrorMessage(err, "Eroare la încărcarea catalogului");
   } finally {
-    loadingRegister.value = false;
+    // Only the newest choice ends the loading; an older answer arriving late leaves it alone.
+    if (selectedSessionId.value === sessionId) loadingRegister.value = false;
   }
 };
 
