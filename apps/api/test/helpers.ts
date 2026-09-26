@@ -9,6 +9,7 @@ import { PdfService } from 'src/modules/invoice/pdf.service';
 import { teachingMonthRange } from 'src/modules/invoice/billing-period.rules';
 import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { Role } from 'src/enum/role.enum';
+import { setIssuingClock } from 'src/modules/invoice/issuing-clock';
 
 /**
  * Boots the real application, with guards, routing and Postgres — only S3 and PDF generation are
@@ -25,6 +26,11 @@ export async function createTestApp(options: { realStorage?: boolean; throttling
     // them against MinIO. Everywhere else they are stubbed: they leave the process, and no other
     // test is about them.
     const builder = Test.createTestingModule({ imports: [AppModule] });
+
+    // The suites issue months like October 2026 from registers they write — months the machine's
+    // clock has not reached — and a month is only issued once it has been taught (E15 S9). Moved
+    // past all of them here; the suite about the rule sets its own day.
+    setIssuingClock(() => new Date('2031-01-15T10:00:00Z'));
 
     // Rate limiting is off by default. Suites register a handful of users in `beforeEach`, which
     // over a couple of dozen tests goes well past a limit meant for a human at a login form — the

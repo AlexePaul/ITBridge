@@ -156,7 +156,13 @@ export interface InvoiceWorksheetUnmarked {
 export interface InvoiceWorksheet {
     month: string;
     from: ISODate;
+    /** The month's last teaching day: the Sunday of the week of its last Monday (E15 S9). */
     to: ISODate;
+    /**
+     * Whether `POST /invoices/issue` would take the month today — only once `to` is behind the
+     * school's today. The button reads this rather than working the calendar out a second time.
+     */
+    issuable: boolean;
     unmarked: InvoiceWorksheetUnmarked[];
     families: InvoiceWorksheetRow[];
 }

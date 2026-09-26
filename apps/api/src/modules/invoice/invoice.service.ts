@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { FISCAL_DOCUMENT_MAY_EXIST, Invoice, InvoiceFiscalStatus, InvoiceStatus } from 'src/entities/invoice.entity';
@@ -35,6 +35,9 @@ import { PaymentStatus } from 'src/enum/payment-status.enum';
 import { PaymentService } from 'src/modules/payment/payment.service';
 import { parseIsoDate } from 'src/modules/class-session/class-session.dates';
 import { lockInvoiceMonth } from './invoice-month-lock';
+import { schoolDay } from 'src/common/school-clock';
+import { monthIsTaught, teachingMonthRange } from './billing-period.rules';
+import { issuingNow } from './issuing-clock';
 
 /** One family's row on the issuing screen, with the children whose sessions have to be counted. */
 export interface InvoiceWorksheetRow {
@@ -69,6 +72,8 @@ export interface InvoiceWorksheet {
     /** First and last day the teaching month covers, both inclusive. */
     from: string;
     to: string;
+    /** Whether `issueFromSessions` would take the month today (E15 S9). */
+    issuable: boolean;
     /** The month's sessions with no register: the money not being asked for. Shown first. */
     unmarked: UnmarkedSession[];
     families: InvoiceWorksheetRow[];
@@ -566,7 +571,15 @@ export class InvoiceService {
         }
         families.sort((a, b) => a.parentName.localeCompare(b.parentName));
 
-        return { month: month.month, from: month.from, to: month.to, unmarked: month.unmarked, families };
+        return {
+            month: month.month,
+            from: month.from,
+            to: month.to,
+            // The same rule `issueFromSessions` refuses by, so the screen can say so before the press.
+            issuable: monthIsTaught(monthIssued, schoolDay(issuingNow())),
+            unmarked: month.unmarked,
+            families,
+        };
     }
 
     /**
@@ -596,6 +609,24 @@ export class InvoiceService {
         // SmartBill, and SmartBill being down never undoes the month.
         const mode = smartBillMode();
         const now = new Date();
+
+        // E15 S9: a month is issued once it has been taught, never before — the screen offered the
+        // month in progress with its button enabled, and one press froze every family's October at
+        // 0 lei (QA of 26 September 2026). And the date printed is a day that has happened: the
+        // family's fourteen days run from it (E16 S7).
+        const today = schoolDay(issuingNow());
+        if (!monthIsTaught(dto.monthIssued, today)) {
+            throw new ConflictException({
+                message: `${dto.monthIssued} is taught until ${teachingMonthRange(dto.monthIssued).to}; it can be issued after that.`,
+                error: 'MONTH_NOT_TAUGHT_YET',
+            });
+        }
+        if (dto.dateIssued.slice(0, 10) > today) {
+            throw new BadRequestException({
+                message: `dateIssued ${dto.dateIssued.slice(0, 10)} is after today (${today}).`,
+                error: 'INVOICE_DATE_IN_FUTURE',
+            });
+        }
 
         const { issued, waived, skipped, unmarked } = await this.dataSource.transaction(async (manager) => {
             // The month is read behind its lock, and so after anything that changes it and got there

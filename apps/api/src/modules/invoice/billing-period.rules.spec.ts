@@ -1,4 +1,4 @@
-import { teachingMonthOf, teachingMonthRange } from './billing-period.rules';
+import { monthIsTaught, teachingMonthOf, teachingMonthRange } from './billing-period.rules';
 
 /**
  * The month rule of E15/S9: a week belongs to the month its Monday falls in, whole.
@@ -80,5 +80,27 @@ describe('teachingMonthRange', () => {
     it('handles February, including a leap year', () => {
         expect(teachingMonthOf(teachingMonthRange('2028-02').to)).toBe('2028-02');
         expect(teachingMonthOf(teachingMonthRange('2026-02').to)).toBe('2026-02');
+    });
+});
+
+/**
+ * E15 S9: a month is issued once taught. The QA of 26 September 2026 issued October on the 26th of
+ * September — every family "0 lei", frozen, and the real October then impossible to issue.
+ */
+describe('monthIsTaught', () => {
+    it('never takes the month in progress', () => {
+        expect(monthIsTaught('2026-09', '2026-09-26')).toBe(false);
+        expect(monthIsTaught('2026-10', '2026-09-26')).toBe(false);
+    });
+
+    // September 2026's last Monday is the 28th, so its last week runs to Sunday 4 October.
+    it('waits for the last week, even when it spills into the next month', () => {
+        expect(monthIsTaught('2026-09', '2026-10-02')).toBe(false);
+        expect(monthIsTaught('2026-09', '2026-10-04')).toBe(false);
+        expect(monthIsTaught('2026-09', '2026-10-05')).toBe(true);
+    });
+
+    it('takes a month long past', () => {
+        expect(monthIsTaught('2026-08', '2026-09-26')).toBe(true);
     });
 });

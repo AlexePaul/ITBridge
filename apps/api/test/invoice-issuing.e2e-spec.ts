@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { createClassSession, createRoom, createTestApp, groupBody, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
 import { schoolToday } from 'src/modules/enrollment/enrollment.service';
+import { setIssuingClock } from 'src/modules/invoice/issuing-clock';
 
 /**
  * Issuing a month from the registers — E15/S9, against a real database.
@@ -572,6 +573,39 @@ describe('Issuing invoices from the registers (e2e)', () => {
                 .set('Authorization', admin.auth)
                 .send({ monthIssued: '2026-10', dateIssued: '2026-11-01', families: [{ parentId, children: [{ childId, sessions: 4 }] }] })
                 .expect(400);
+        });
+
+        // E15 S9. The QA of 26 September 2026 issued October on the 26th of September: every family
+        // "0 lei", the month frozen, the real October impossible to issue afterwards.
+        it('refuses a month not taught yet, and a date not reached yet', async () => {
+            await makeChild();
+            setIssuingClock(() => new Date('2026-10-02T09:00:00Z'));
+            try {
+                const early = await issue('2026-09').expect(409);
+                expect(early.body.code).toBe('MONTH_NOT_TAUGHT_YET');
+                const worksheet = await request(app.getHttpServer())
+                    .get('/invoices/worksheet?monthIssued=2026-09')
+                    .set('Authorization', admin.auth)
+                    .expect(200);
+                expect(worksheet.body.issuable).toBe(false);
+
+                // September's last week runs to Sunday 4 October; from the 5th it is issued, dated
+                // no later than the day it is.
+                setIssuingClock(() => new Date('2026-10-05T09:00:00Z'));
+                const ahead = await request(app.getHttpServer())
+                    .post('/invoices/issue')
+                    .set('Authorization', admin.auth)
+                    .send({ monthIssued: '2026-09', dateIssued: '2026-10-06' })
+                    .expect(400);
+                expect(ahead.body.code).toBe('INVOICE_DATE_IN_FUTURE');
+                await request(app.getHttpServer())
+                    .post('/invoices/issue')
+                    .set('Authorization', admin.auth)
+                    .send({ monthIssued: '2026-09', dateIssued: '2026-10-05' })
+                    .expect(201);
+            } finally {
+                setIssuingClock(() => new Date('2031-01-15T10:00:00Z'));
+            }
         });
 
         it('refuses a parent', async () => {
