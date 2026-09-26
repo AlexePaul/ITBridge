@@ -182,6 +182,12 @@ interogarea de mai sus se verifică pe ele. Un `POST` de înscriere cu token de 
 > **Ce rămâne neatins:** cele două porți, `isAccountActive`, migrarea `AccountGates` și drumul
 > adminului care introduce o familie de la telefon. Completarea profilului nu e o a treia poartă —
 > e aceeași cerință de date pe care S2 a impus-o, cerută în două ecrane în loc de unul.
+>
+> **Corectură din testarea din 25 septembrie 2026:** pasul doi se putea sări exact în cazul pentru
+> care există — imediat după înregistrare. Steagul pe care îl citește middleware-ul îl ridica doar
+> pagina de login, iar pagina de înregistrare mergea direct la tabloul de bord, deci familia nouă
+> ajungea în portal fără telefon, adresă sau contact de urgență și rămânea acolo până la primul
+> reload. Acum îl ridică `useAuthApi.register` și `useAuthApi.login`, nu paginile.
 
 Până la acest story `register` cerea `username` și `password`, atât — `RegisterDto` avea exact cele
 două câmpuri, cu `@Length(1, 30)` și `@MinLength(6)`. Datele de contact se cereau abia după
@@ -246,6 +252,20 @@ odată cu el; sunt în [În afara scopului](#în-afara-scopului), explicit, ca s
   timp contul părintelui nu e activ.
 - `POST /profiles` fără email, telefon și adresă, cu token de admin, răspunde în continuare 201 — și
   există un test care ține fluxul ăsta viu, ca să nu fie strâns din greșeală odată cu `register`.
+
+**Revizuirea din 26 septembrie 2026: familia trecută de birou își face singură contul.** „Legarea
+ulterioară" pe care o promitea story-ul nu mai avea cum să se întâmple: `register` scrie mereu și
+profilul, deci `GET /users/without-profile` a rămas gol, iar o familie trecută de birou cu adresa ei
+primea la înregistrare „Există deja un cont cu această adresă de email" — fals, fiindcă nu exista
+niciun cont. Acum `register` cu adresa unui profil fără cont și neșters răspunde
+`{ claimSent: true }` și trimite la adresa din fișă un link (`account_claims`, șablonul
+`account-claim`); pe `/auth/cont-familie` familia își alege utilizatorul și parola și bifează cele
+două acceptări, iar contul se creează **pe profilul biroului**, confirmat (linkul a dovedit adresa)
+și în așteptarea aprobării (familia e cunoscută, contul încă nu). Biroul poate trimite linkul și
+din pagina familiei. O adresă care are deja cont e refuzată ca înainte. Alegătorul de cont din
+`/admin/profiles/new` a rămas pe loc, dar nu mai are pe cine lega: oferă doar conturile de admin,
+care n-au profil, și cel mult un cont al cărui profil a fost șters. Detaliile sunt în `CLAUDE.md`,
+la „Al patrulea link".
 
 ### S3 · Capacitate și listă de așteptare — **LIVRAT**
 
@@ -378,9 +398,13 @@ generează factură. Numărul de locuri afișat pentru acea grupă scade cu unu 
 > rămâne probă, fiindcă altfel am înscrie o familie care încă nu s-a hotărât — și data contractului
 > la fel, fiindcă e aceeași înscriere care continuă.
 >
-> **Locul eliberat nu se oferă cozii.** Nu e liber: se dă acestui copil. Coada e întrebată doar când
-> un loc chiar pleacă din grupă. Fără regula asta, un transfer ar promite același scaun la două
-> familii pentru câteva milisecunde — și la capacitate exact atât trebuie.
+> **Locul eliberat se oferă cozii grupei vechi** — corectat la revizuirea din 25 septembrie 2026.
+> Regula de aici spunea invers: „nu e liber, se dă acestui copil". Nu e adevărat despre niciun
+> scaun: copilul stă acum în _cealaltă_ grupă, iar ecranul grupei vechi arăta `free: 1` lângă o
+> listă pe care n-o anunța nimeni. Transferul ține acum ambele grupe, cea cu id-ul mai mic prima, și
+> întreabă coada grupei vechi în aceeași tranzacție. Și decontează cererea pe care copilul o avea
+> pentru grupa nouă: lăsată deschisă, o ofertă expira după două zile și îi scria unei familii care
+> stătea deja în sală că locul ei a plecat la următoarea.
 >
 > **Efectul asupra facturii curente nu se afișează, fiindcă nu există.** Prețul e lunar și pe
 > familie, nu pe grupă (vezi `pricing.ts`), deci un transfer între grupe nu schimbă suma cu nimic. În
@@ -482,6 +506,74 @@ seara.
 
 **Acceptanță:** un părinte încuiat afară intră la loc în cont fără să sune la școală, iar linkul pe
 care l-a folosit nu mai deschide nimic după aceea.
+
+### Revizuirea din 25 septembrie 2026: locurile oferite listei
+
+O revizuire a contabilității locurilor a pus o singură întrebare: pe ce drum ajunge o familie să
+creadă că are un loc pe care nu-l are, sau să nu afle de unul pe care îl are? A găsit unsprezece
+defecte, toate reproduse pe o bază reală. Cele despre listă sunt reparate aici, fiecare cu testul lui
+care pică pe codul dinainte; orarul și probele au secțiunile lor, mai jos și în E12.
+
+- **Un loc oferit nu era ținut.** Toate numărătorile scădeau înscrierile în vigoare și atât, deci cele
+  48 de ore ale ofertei locul părea liber: formularul public îl vindea ca probă, un admin înscria alt
+  copil în el, iar familia care spunea da găsea `GROUP_FULL`. Acum `occupancyOf` întoarce `held`, iar
+  `free`, capacitatea și locurile pe ședință scad ofertele fără răspuns — mai puțin oferta copilului
+  care se înscrie, care e chiar scaunul lui. Ecranul grupei spune câte locuri sunt oferite.
+- **Același loc se oferea de două ori.** Două „închide" apăsate deodată citeau amândouă înscrierea în
+  vigoare și eliberau amândouă locul; măturarea ofertelor expirate suprascria ca „expirat" un „nu"
+  dat între timp. Scrierile sunt acum condiționate de starea citită, sub lacătul grupei, și nu fac
+  nimic mai departe când n-au mișcat nimic.
+- **Locuri eliberate pe care nu le oferea nimeni**: la transfer, la ștergerea unui copil, la
+  ștergerea unei familii, la mărirea capacității. Iar o eliberare oferea un singur loc, oricâte erau
+  libere. Acum fiecare ușă întreabă lista, iar lista primește câte un loc pentru fiecare scaun liber.
+- **O grupă inactivă nu mai primește oferte** — acceptarea ar fi dat de `GROUP_INACTIVE` —, iar o
+  familie fără adresă lasă un rând `undeliverable` în coadă, nu o linie de log.
+- **`updateGroup` nu mai salvează lista de copii** a grupei: `save` pe o grupă încărcată cu ei rescria
+  `children.group_id` după listă, deci o înscriere venită între citire și scriere rămânea fără grupă.
+- **Ruta care scoate o cerere de pe listă primește doar `DECLINED`, `EXPIRED` sau `CANCELLED`.** Un
+  `OFFERED` trimis de mână făcea o ofertă fără termen, pe care măturarea n-o expira niciodată.
+
+### Revizuirea din 25 septembrie 2026: locurile unei ore și probele
+
+Tot din aceeași revizuire, defectele despre o oră anume și despre probe — fiecare reprodus pe o bază
+reală și reparat cu testul lui, care pică pe codul dinainte. Orarul are secțiunea lui în
+[E12](E12-prezenta-orar.md), iar pâlnia în [E20](E20-achizitie-lead.md).
+
+- **O oră mutată într-o sală mai mică număra locurile grupei.** O grupă de zece mutată într-o sală de
+  doi era vândută pe `/proba` ca având opt locuri. Acum o oră are cel mai mic dintre locurile grupei
+  și ale sălii în care e, iar mutarea sau recuperarea într-o sală în care nu încap copiii care vin e
+  refuzată (`ROOM_TOO_SMALL`). Sala nu mai poate scădea sub o grupă care se ține în ea
+  (`ROOM_SMALLER_THAN_GROUP`) — verificarea exista doar la crearea și mutarea grupei.
+- **O înscriere nouă nu întreba de ore.** Al zecelea copil din zece intra în grupă cât joia avea un
+  copil mutat acolo pe o săptămână: unsprezece în sală. `enrol` și `transfer` caută acum ora cea mai
+  strâmtă de la începutul înscrierii încolo, iar refuzul o numește — grupa, singură, arată un loc
+  liber. Peste refuz, adminul poate trece tot cu `allowOverCapacity`, iar jurnalul spune ce oră a
+  supraumplut. Copilul care se înscrie nu se numără printre vizitatorii orelor în care intră — mutat
+  deja acolo pe o săptămână, stă tot pe un singur scaun. Și, fiindcă o probă stă și ea în orele de
+  după ea până e decisă, `/proba` oferă o oră doar cât ea și cele de după ea mai au loc (E20).
+  **Ofertele către listă rămân numărate pe grupă**, dinadins: înscrierea familiei care a spus da o
+  face biroul, deci dacă un vizitator umple ora din săptămâna aia, refuzul numește ora, iar biroul
+  trece peste el sau mută vizitatorul. Mai puține oferte ar fi lăsat restul locurilor neoferite după
+  ce trece săptămâna, fiindcă nimic nu le mai oferă singur.
+- **Programarea și mutarea pe o săptămână numărau pe o fotografie.** Ora și grupa se citeau înaintea
+  lacătului, deci o anulare sau o mutare venită între timp nu se vedea. Acum se recitesc după el, cu
+  rândul orei blocat `FOR SHARE`: o anulare nu ia lacătul grupei, iar una încă în zbor s-ar fi comis
+  după citire, cu plasarea făcută într-o oră care nu se mai ține.
+- **O probă transferată își pierdea lead-ul, iar una închisă prin `close` îl lăsa deschis.** Detaliile
+  sunt în E20; pe partea asta, `transfer` mută lead-ul pe înscrierea nouă, iar `close` îl trece pe
+  pierdut.
+- **`close` primea o zi din viitor** și elibera locul pe loc: copilul ieșea din catalog, iar scaunul i
+  se oferea listei cât încă stătea pe el. Acum refuză (`ENROLLMENT_END_IN_FUTURE`) — închiderea se
+  face în ziua în care pleacă copilul.
+- **O probă decisă ajungea pe factură**, fiindcă facturarea o ținea afară după status. Acum fiecare
+  ieșire din `TRIAL` — `resolveTrial` în ambele sensuri, `close`, `transfer` — scrie pe rând ziua
+  deciziei, `trialUntil`, iar facturarea nu numără nimic până la ea inclusiv (detaliile în
+  [E15](E15-pricing-facturare.md)). `close` și `transfer` scriu rândul de probă și cel activ separat,
+  fiecare doar cât rândul mai e în starea aceea, deci și „a fost probă?" se hotărăște sub lacăt, nu
+  după citirea de dinainte: o probă acceptată între timp se transferă ca înscriere activă, fără ca
+  lead-ul ei să mai fie mutat.
+- **Lista „cine era în grupă la data X" număra și ziua în care copilul a plecat**, deși registrul nu
+  îl mai lista de dimineață. Acum ziua de final e plecată și pentru `membersOn`.
 
 ## Dependențe
 

@@ -89,6 +89,14 @@ care lumea nu-l mai deschide.
 utilă abia când numerele diferă mult între adrese, a doua cere serii istorice pe care nimic nu le
 scrie încă — și ar fi fost, amândouă, sofisticare pusă înaintea primei utilizări.
 
+**Revizuirea din 25 septembrie 2026** a găsit trei greșeli mici pe ecranul pe care biroul îl deschide
+primul. Ziua se lua din ceasul serverului, deci între miezul nopții și 03:00 la București „orele de
+azi" erau cele de ieri. O oră anulată intra în „0 din N marcate", cu eticheta „Nemarcată" pe fiecare
+oră a unei zile libere, deși nimeni n-avea s-o marcheze vreodată. Iar „peste 60 de zile" număra
+facturi, pe un rând care vorbește despre familii de sunat. Acum ziua e a școlii, orele anulate stau
+deoparte — cum le lasă deja `findUnmarkedSessions`, care deține „nemarcat" —, iar rândul numără
+familii.
+
 ### S2 · Rapoarte financiare
 
 Venit facturat față de venit încasat, pe lună și pe modul, pe locație. Restanțe cu vechime. Venit
@@ -121,11 +129,11 @@ ecranului `/admin/restante`, împărțită pe cele patru benzi — regula din S1
 la cine deține deja întrebarea", ținută și aici. Testele de integrare verifică acordul, la leu, cu
 lista de plăți, cu lista de restanțe și cu lista de facturi.
 
-**Ce n-a intrat, și de ce.** *Pe modul*: modulele sunt E10, scos din MVP, iar factura n-are linii. *Pe
-locație*: o factură e a familiei, iar o familie poate avea copii la ambele adrese — același motiv
+**Ce n-a intrat, și de ce.** _Pe modul_: modulele sunt E10, scos din MVP, iar factura n-are linii. _Pe
+locație_: o factură e a familiei, iar o familie poate avea copii la ambele adrese — același motiv
 pentru care restanțele nu se grupează pe locație. Niciuna dintre axe nu se poate deriva din rândurile
 care există, iar una inventată ar fi exact raportul de care avertizează Riscurile: construit pe date
-care nu sunt acolo. *Potrivirea cu contabilul*, adică acceptanța, nu se poate bifa înainte de E01 S4:
+care nu sunt acolo. _Potrivirea cu contabilul_, adică acceptanța, nu se poate bifa înainte de E01 S4:
 nu există date reale de potrivit. Raportul spune pe ce s-a calculat — câte facturi, câte plăți, câte
 neincluse — tocmai ca prima potrivire să aibă de unde porni.
 
@@ -168,7 +176,7 @@ iar o numărare scrisă aici ar fi a doua definiție, liberă să uite probele �
 o sală plină mai are loc. Câteva interogări mici pe fiecare grupă, la o încărcare de pagină, e prețul unui singur răspuns.
 
 **Orele moarte se măsoară pe orarul școlii, nu pe ceas.** Nu există o grilă fixă de ore, deci singura
-definiție onestă a unei ore în care o sală *putea* ține curs e o oră în care altă sală a ținut. O sală
+definiție onestă a unei ore în care o sală _putea_ ține curs e o oră în care altă sală a ținut. O sală
 goală marți la 16:00 cât timp cealaltă adresă predă la ora aia e o oră moartă; o duminică dimineață în
 care nu predă nimeni nu e. Regula e `deadSlotsOf` din `apps/api/src/modules/dashboard/reports.rules.ts`.
 
@@ -261,6 +269,13 @@ plecat apoi erau pe listă din timp. Locurile nu se pot citi pentru o zi trecut�
 perioadă, dar „ocupat" se întreabă live —, iar răspunsul o spune (`basis.occupancyAsOfToday`).
 Definition of done-ul epicului cere ca semnalele să fi prins măcar un caz real; ăla se închide cu
 primul trimestru de date, nu cu cod.
+
+**Revizuirea din 25 septembrie 2026: restanțele citite retroactiv.** Familiile cu două facturi
+restante veneau din `ArrearsService.list`, care citește starea facturilor de acum și adună toate
+plățile, oricând au venit. Întrebat despre 2 martie după ce familia plătise pe 20, răspunsul era că
+nu datora nimic nici pe 2 — deci exact verificarea pentru care există `asOf` nu se putea face.
+`ArrearsService.asOf` numără facturile emise până în ziua cerută, oricare le-ar fi starea azi, și
+plățile venite până atunci.
 
 Ce nu e aici, prin decizie: nicio acțiune automată. Un semnal e un motiv de telefon, nu o
 reducere, un transfer sau un mesaj către familie; pe listă apar telefonul și emailul părintelui,

@@ -125,9 +125,11 @@ Din E14 a intrat între timp și S3b, ultimul story de cod al epicului: cadrul d
 ceas propriu. Ce n-a intrat e **vitrina publică, care cerea consimțământul din
 [E07](E07-securitate-gdpr.md) S2**, și a ieșit din MVP. E vizibilă în model prin absență: nu există
 niciun câmp `isPublic` nicăieri, fiindcă un boolean pe `Project` ar fi fost al doilea loc în care se
-poate răspunde la aceeași întrebare, fără precedență între ele. Consecința pentru planificare e că E07 S2
-și-a găsit primul consumator real: nu mai e o precauție, e ce ține pe loc materialul de marketing
-din [E19](E19-seo-geo.md).
+poate răspunde la aceeași întrebare, fără precedență între ele. Consecința pentru planificare a fost
+că E07 S2 și-a găsit primul consumator real, materialul de marketing din [E19](E19-seo-geo.md) — și
+**s-a construit**: acordul se dă pe copil, din „Profil" sau consemnat de birou, iar
+`/admin/acorduri` e lista lucrărilor care se pot folosi azi. Vitrina automată, când revine, citește
+aceeași tabelă.
 
 Detalii în [CLAUDE.md](../../CLAUDE.md), secțiunea „Capcane”.
 
@@ -380,7 +382,7 @@ ce a rămas nu seamănă: la E18 e cod, la E19 nu e:
 - La **E18** sunt gata S1 (sistemul de design), S2 (`@nuxt/image` e instalat și cele patru locuri cu
   imagini trec prin `<NuxtPicture>`), S3 (cele șapte pagini publice), S4 (portalul părintelui, pe un
   API care rulează pe `stage.itbridgeschool.com`), S6 (accesibilitatea în CI — două porți, una pe
-  paginile publice din sitemap și una pe cele 51 de ecrane din spatele autentificării) și S7
+  paginile publice din sitemap și una pe toate ecranele din spatele autentificării) și S7
   (interfața profesorului, care fără rol separat e o vedere din zona de admin, nu o zonă a ei).
   **Rămâne S5**, uniformizarea zonei de admin, din care s-a livrat prima felie: nu mai sunt 25 de
   ecrane, ci 42, iar fiecare epic livrat mai adaugă unul construit cu tiparele pe care le-a găsit.

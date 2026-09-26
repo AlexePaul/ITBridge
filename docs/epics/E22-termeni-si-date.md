@@ -116,11 +116,21 @@ confidențialitate §7 — **12 luni de la retragere**, marcat `[[PROPUNERE]]` p
   `ArrearsService`, aceeași definiție ca pe ecranul de restanțe: golind rândul, școala ar rămâne cu o
   datorie pe care n-o mai poate cere nimănui. Temeiul e art. 17 alin. 3 lit. e din GDPR, iar nota îl
   spune ca propunere. Termenul se reia în noaptea în care familia iese de pe lista de restanțe.
+- **Nici una cu o factură încă în drum spre SmartBill** (`fiscal_in_progress`), plătită sau nu,
+  adăugată la revizuirea E16 din 25 septembrie 2026. Documentul fiscal se scrie din numele familiei
+  când pleacă, deci ștearsă înainte, factura ar ajunge în SPV pe numele unui rând golit. Ține cât
+  durează emiterea, de obicei minute; o factură refuzată ține familia până o emite sau o retrage
+  biroul. Ștergerea la cerere așteaptă la fel. Nota din §7 nu spune încă asta: e o precizare de adus
+  la revizia avocatului, lângă cea despre restanță.
 - **Aceeași trecere ține celelalte promisiuni din §7**: cererile de probă fără înscriere, după 12
   luni de liniște, cu tot cu profilul-coajă pe care l-a scris programarea; copiile mesajelor trimise,
   după 12 luni (niciodată unul încă în așteptare); linkurile de confirmare și de resetare, la 30 de
   zile după ce au expirat. O cerere fără legătură, dar cu adresa unei familii din evidență, e a acelei
-  familii și pleacă odată cu ea — aceeași regulă ca `leadsOfFamily`.
+  familii și pleacă odată cu ea — aceeași regulă ca `leadsOfFamily`, deci **numai o adresă pe care
+  familia o garantează**: e-mailul confirmat al unui cont, sau ce a tastat biroul la o familie fără
+  cont (`vouchedAddresses`, E07 S4). Un număr tastat de un părinte nu ține pe nimeni în evidență:
+  altfel cererea altei familii ar rămâne peste termen, iar ștergerea — care nici ea nu o socotește
+  a lui — n-ar mai lua-o niciodată.
 
 **Verificabil, cum cere acceptanța**, de două ori: `/admin/stergeri` are acum o secțiune „La termen",
 cu fiecare familie retrasă, ziua în care se șterge și ce o mai ține; iar

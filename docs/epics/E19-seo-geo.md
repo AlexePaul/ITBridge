@@ -195,9 +195,11 @@ adresă declarată, care e ce produce bannerul „unul dintre celelalte site-uri
 Deci story-ul **nu mai e blocat de domeniul live**, cum spunea nota de aici: domeniul e live și
 consola vede site-ul.
 
-Ce rămâne e jumătatea de analiză de trafic, iar aia **așteaptă consimțământul din E07 S2**, nu
-domeniul. Un script de analytics pus pe un site care servește părinți din UE, înaintea unui mecanism
-de consimțământ, e o decizie juridică luată din greșeală — deci se face în ordinea aia, nu invers.
+Ce rămâne e jumătatea de analiză de trafic, iar aia a așteptat **consimțământul vizitatorilor** —
+poarta din E07 S5, nu S2, cum scria aici: S2 e acordul pentru lucrările copiilor. Un script de
+analytics pus pe un site care servește părinți din UE, înaintea unui mecanism de consimțământ, e o
+decizie juridică luată din greșeală — deci se face în ordinea aia, nu invers. Poarta există, deci ce
+lipsește e alegerea uneltei, cum spune și capul epicului.
 Urmărirea pozițiilor și verificarea răspunsurilor generative sunt activități manuale, lunare; nu au
 cod de scris.
 

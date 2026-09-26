@@ -654,6 +654,21 @@ treilea memento către birou, deci aparține lui S7 din [E06](E06-observabilitat
 de alertare — nu ecranului. Iar un document rămas `nou` peste prag e o problemă operațională
 **vizibilă**, care era tot ce cerea story-ul.
 
+### Revizuirea din 25 septembrie 2026
+
+- **Coada care nu trimite nimic se vede.** Fără `MAIL_RESEND_API_KEY`, fiecare trecere revendică
+  mesajul, îi dă încercarea înapoi și îi mută `nextAttemptAt` cu două minute, deci „blocat" — un
+  mesaj trecut de termen cu un sfert de oră — nu se aprindea niciodată: trei zile de coadă oprită, cu
+  tile-ul pe zero. Acum se numără și mesajul **niciodată predat unui furnizor** la un sfert de oră de
+  la scriere (S5). E starea de azi a stage-ului.
+- **Anunțul ajunge și la familiile la probă**, la adresa lăsată pe `/proba` — S7 le numără în
+  audiență, dar profilul lor n-are adresă (vezi E20).
+- **Verificarea de nume vede și genitiv-dativul** („diploma Mariei", „felicitări Ioanei"), iar
+  ecranul **confirmă doar avertismentele arătate**: trimitea mereu `acknowledgeWarnings: true`, iar
+  cât aștepta previzualizarea butonul trimitea peste cea veche (S7).
+- **Un șablon cu `{{constructor}}` nu mai strică fiecare trimitere.** Interpolarea întreba `name in
+data`, care urcă în prototip; acum întreabă `Object.hasOwn` (S2).
+
 ## Dependențe
 
 [E05](E05-robustete-backend.md) pentru rate limiting și configurație,

@@ -146,11 +146,19 @@ copilului și un identificator, ca profesorul să știe unde salvează; rețeaua
 accesibilă din afară.
 
 **Lucrarea ajunge numai la tine.** Nu o publicăm nicăieri fără un acord separat, dat de tine pentru
-copilul acela și pentru acel scop, pe care îl poți retrage oricând, cu efect imediat. Nu fotografiem
-copiii: fotografiem ecranul sau lucrarea.
+copilul acela și pentru acel scop — azi unul singur: materialele prin care școala își prezintă
+cursurile (site, paginile școlii din rețelele sociale, prezentări). Îl dai sau îl retragi din
+„Profil", câte o bifă pentru fiecare copil, sau spunându-ne la birou; textul lui e în
+[acordul pentru lucrările copilului](acord-lucrari.md). Din clipa retragerii nu mai folosim lucrarea
+în niciun material nou, iar ce publicasem deja scoatem. Nu fotografiem copiii: fotografiem ecranul
+sau lucrarea.
 
-_Temei:_ contractul (art. 6 alin. 1 lit. b) — livrarea lucrării e parte din curs; publicarea, dacă
-o ceri vreodată, numai pe consimțământ (lit. a).
+Despre acord ținem ziua în care l-ai dat, versiunea textului, dacă l-ai dat din portal sau pe hârtie
+la birou și ziua retragerii, dacă e cazul — ca să putem arăta că l-ai dat, cum cere GDPR art. 7
+alin. 1. Fiecare schimbare ți-o confirmăm pe email.
+
+_Temei:_ contractul (art. 6 alin. 1 lit. b) — livrarea lucrării e parte din curs; publicarea, numai
+pe consimțământ (lit. a); evidența acordului, obligația de a-l putea dovedi (lit. c).
 
 ### 3.7 Facturi și plăți
 
@@ -180,10 +188,10 @@ destinatar, subiect, text, starea livrării (trimis, în așteptare, eșuat, fă
 unui eșec. Anunțurile școlii — către o grupă, o locație sau toată școala — sunt ținute cu textul,
 audiența și numărul de destinatari. Trimiterea o face un furnizor de email (§5).
 
-**Mesajele de serviciu** — confirmări de cont și ale documentelor acceptate, factura, mementourile
-de plată, confirmarea plății, ore anulate sau mutate, recuperarea, lista de așteptare, lucrarea
-trimisă, anunțurile de organizare — pleacă fiindcă ai cont și copil înscris; nu depind de nicio
-bifă.
+**Mesajele de serviciu** — confirmări de cont și ale documentelor acceptate, confirmarea acordului
+pentru lucrările copilului și a retragerii lui, factura, mementourile de plată, confirmarea plății,
+ore anulate sau mutate, recuperarea, lista de așteptare, lucrarea trimisă, anunțurile de
+organizare — pleacă fiindcă ai cont și copil înscris; nu depind de nicio bifă.
 
 **Mesajele de marketing** pleacă numai cu **bifa ta**, care e implicit oprită și pe care o schimbi
 din „Profil"; fiecare astfel de mesaj spune la final cum îl oprești. Un anunț promoțional către o grupă sare peste familiile fără bifă; refuzul nu lasă

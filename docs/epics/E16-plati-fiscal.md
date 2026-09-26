@@ -567,6 +567,15 @@ intervenție" nu atârnă de SmartBill — și duce acum la pagina aia, unde sun
 numerar, chitanța, oricând ar ajunge. **Linkul e al portalului, nu al unui PDF de chitanță**, fiindcă
 API-ul SmartBill nu dă PDF decât pentru facturi și proforme; al facturii e deja acolo.
 
+**Transferul anunțat are acum ecran (testarea din 25 septembrie 2026).** Regula de mai sus —
+`initiated` cât extrasul e provizoriu, chitanța la trecerea în `succeeded` — era scrisă și testată pe
+API, dar niciun ecran nu putea trece o plată altfel decât `succeeded`, și niciunul nu putea confirma
+una mai târziu. Acum formularul de încasare are, pentru transfer, bifa „doar anunțat", iar
+`/admin/payments` are pe rândul anunțat „au intrat" (cu ziua din extras) și „n-a venit" (`failed`).
+Cât stă anunțat, transferul apare lângă factură pe lista de restanțe și în formular, ca nimeni să nu-l
+mai înregistreze o dată, iar mementourile din S7 tac dacă acoperă restul. O linie de extras din S8
+potrivită pe factură confirmă transferul anunțat de aceeași sumă în loc să scrie o plată nouă.
+
 ### S7 · Restanțe
 
 Un job marchează facturile depășite ca restante și trimite memento-uri după un calendar
@@ -697,6 +706,51 @@ repo, deci primul extras exportat de ea e testul adevărat, iar forma lui se tre
   „necitite", nu în tabel. „Recitește toate facturile" nu citește nimic în cerere — le face pe toate
   scadente, iar trecerile le citesc în minutele următoare. Numai în `live`: `off` promite că nu pleacă
   nimic, iar în `draft` nu există facturi numerotate de citit.
+
+### Revizuirea din 25 septembrie 2026
+
+Înainte ca epicul să atingă un cont real, codul lui a fost recitit de la capăt, cu o singură
+întrebare: ce stare, ce ordine a evenimentelor ar da o factură fiscală în plus, bani înregistrați de
+două ori sau un rând din care nu mai iese nimeni. Au ieșit zece defecte, toate reparate. Fiecare are
+acum un test care pică pe codul de dinainte: 13 teste noi de integrare, toate roșii fără reparații,
+iar cele 81 vechi verzi.
+
+- **Împrumutul curgea de la începutul trecerii, nu de la cerere.** Într-o serie lentă, ultimele
+  rânduri plecau cu un împrumut deja expirat, iar un răspuns pierdut se judeca la câteva secunde după
+  expirare. Dacă SmartBill termina de scris după citirea seriei, rândul se retrimitea: o a doua
+  factură fiscală, pentru aceeași familie și aceeași lună. Același lucru la plăți, cu suma încasată.
+  Acum împrumutul se reînnoiește chiar înaintea cererii, iar o scriere care nu mai găsește rândul nu
+  trimite nimic.
+- **Un 200 fără corp era un succes.** Conexiunea căzută după antete, sau timpul expirat în mijlocul
+  corpului, dădea o factură `issued` fără serie și fără număr. N-o mai putea retrimite, confirma,
+  edita sau șterge nimic, iar PDF-ul ei răspundea 404 pentru totdeauna. Acum e tăcere, ca un răspuns
+  pierdut, și seria decide.
+- **O plată inversată cât răspunsul ei era pierdut se retrimitea.** Coada o punea înapoi în așteptare
+  fără să întrebe dacă mai e bani, iar numerarul primea chitanță numerotată pentru o încasare pe care
+  platforma spune că n-o are. Acum iese din coadă; tot așa „retrimite" de la revizie.
+- **O factură ștearsă în SmartBill oprea toată coada de plăți**, la fiecare trecere, pentru totdeauna.
+  Acum doar plata ei merge la un om.
+- **Confirmarea potrivirilor sigure judeca fiecare linie singură.** Două linii care citau aceeași
+  factură treceau amândouă, iar o apăsare o înregistra plătită de două ori. Numărul de pe buton
+  număra la fel. Acum se judecă împreună, cea mai veche întâi.
+- **Ștergerea unei familii cu o factură încă în drum spre SmartBill** ar fi trimis documentul fiscal
+  pe numele unui rând golit. Acum ștergerea așteaptă, cu `FAMILY_HAS_FISCAL_WORK`, iar păstrarea la
+  termen ține familia, cu `fiscal_in_progress`.
+- **Verificarea de divergență putea pune la loc o citire veche** peste una pe care o plată tocmai o
+  golise, iar raportul striga „modificat de mână în SmartBill" o zi întreagă. Acum citirea se scrie
+  doar dacă nicio plată nu s-a înregistrat după ce a început.
+- **Și trei mărunte.** O blocare pentru rată venită pe un PDF nu se consemna. Corectura unei facturi
+  primea o sumă negativă. Iar trecerea în `overdue` putea întoarce o factură tocmai plătită.
+
+### Măsurarea din 26 septembrie 2026: ecranele de bani la trei ani
+
+Cu `pnpm seed:scale` (250 de familii, 9.000 de facturi, 8.300 de plăți), **`/admin/payments` se
+încărca în 46 de secunde și ducea fila la 1,9 GB de memorie**: cerea toate plățile înregistrate
+vreodată (9,6 MB) și le desena pe toate. Acum arată o lună, după data plății, cu luna curentă
+întâi, plus — din orice lună — transferurile anunțate și încasările de verificat în SmartBill, adică
+exact rândurile pentru care deschide cineva ecranul (`GET /payments?needsAction=true`): 1,4 s și
+10 MB. Tot de acolo, `/admin/invoices` nu mai descarcă toate facturile ca să afle ce luni există
+(`GET /invoices/months`), iar pagina unei luni cere doar luna ei (`?monthIssued=`).
 
 ## Dependențe
 
