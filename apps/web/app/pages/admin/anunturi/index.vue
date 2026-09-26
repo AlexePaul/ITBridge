@@ -83,8 +83,7 @@
           <UCard variant="subtle" class="border">
             <p class="text-xs text-muted mb-2">{{ preview.audienceLabel }}</p>
             <p class="text-2xl font-semibold tabular-nums">
-              {{ preview.recipients.deliverable }}
-              {{ preview.recipients.deliverable === 1 ? "familie" : "de familii" }}
+              {{ countOf(preview.recipients.deliverable, "familie", "familii") }}
             </p>
             <ul class="text-sm text-muted mt-2 space-y-0.5">
               <li v-if="preview.recipients.noAddress > 0">
@@ -185,10 +184,7 @@
       <template #body>
         <p class="text-sm">
           Pleacă la
-          <strong
-            >{{ preview?.recipients.deliverable ?? 0 }}
-            {{ preview?.recipients.deliverable === 1 ? "familie" : "de familii" }}</strong
-          >
+          <strong>{{ countOf(preview?.recipients.deliverable ?? 0, "familie", "familii") }}</strong>
           din {{ preview?.audienceLabel }}. Un email trimis nu se poate retrage.
         </p>
         <p v-if="preview && preview.warnings.length > 0" class="text-sm mt-3">
@@ -201,6 +197,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
 import { useAnnouncementsApi } from "~/composables/api/useAnnouncementsApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";
@@ -399,10 +396,17 @@ const send = async () => {
     const shownWarnings = (preview.value?.warnings.length ?? 0) > 0;
     const result = await api.sendAnnouncement({ ...payload(), acknowledgeWarnings: shownWarnings });
     confirmOpen.value = false;
+    // `queued` counts every row written, the undeliverable ones too: the toast said "3 familii" and
+    // "1 n-a avut unde" beside a preview that had promised 2 (QA of 26 September 2026).
     const skipped = result.undeliverable.length;
+    const reached = Math.max(0, result.queued - skipped);
     success(
-      `Anunțul a plecat către ${result.queued} ${result.queued === 1 ? "familie" : "de familii"}.` +
-        (skipped > 0 ? ` ${skipped} n-au avut unde — vezi lista de mai jos.` : "")
+      (reached > 0
+        ? `Anunțul a plecat către ${countOf(reached, "familie", "familii")}.`
+        : "Anunțul n-a plecat la nicio familie.") +
+        (skipped > 0
+          ? ` ${countOf(skipped, "familie n-a avut", "familii n-au avut")} unde să-l primească — vezi lista de mai jos.`
+          : "")
     );
     draft.subject = "";
     draft.body = "";

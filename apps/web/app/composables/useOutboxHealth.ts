@@ -1,3 +1,4 @@
+import { countOf } from "~/composables/useRomanianCount";
 import type { Overview } from "~/types/overview.types";
 
 /**
@@ -37,7 +38,7 @@ export function notDeliveredTotal(health: OutboxHealth): number {
  */
 export function notDeliveredNote(health: OutboxHealth): string | undefined {
   if (health.stuck > 0) {
-    return `coada nu s-a mișcat de ${health.stuckAfterMinutes} de minute`;
+    return `coada nu s-a mișcat de ${countOf(health.stuckAfterMinutes, "minut", "minute")}`;
   }
   const families = health.failed + health.undeliverable;
   if (families === 0) return undefined;

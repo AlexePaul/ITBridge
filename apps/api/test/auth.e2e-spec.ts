@@ -124,7 +124,8 @@ describe('Authentication (e2e)', () => {
             .send({ ...registrationBody('scurt'), password: 'abc' })
             .expect(400);
 
-        expect(JSON.stringify(res.body)).toContain('password');
+        // In the family's words: the screen prints the details (QA of 26 September 2026).
+        expect(res.body.details).toContain('Parola trebuie să aibă cel puțin 6 caractere');
     });
 
     it('rejects a register body with no password at all', async () => {

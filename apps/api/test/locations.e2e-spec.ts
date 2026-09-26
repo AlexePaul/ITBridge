@@ -271,7 +271,7 @@ describe('Locations, rooms and the timetable (e2e)', () => {
                 .send({ weekday: 1, startTime: '18:00', endTime: '19:30' })
                 .expect(409);
             expect(res.body.code).toBe('ROOM_BUSY_AT_THAT_TIME');
-            expect(res.body.message).toContain('2030-01-07');
+            expect(res.body.message).toContain('luni, 7 ianuarie');
         });
 
         it('lets a group keep its slot through an unrelated update', async () => {

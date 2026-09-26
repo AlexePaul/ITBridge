@@ -62,7 +62,7 @@ describe("notDeliveredNote", () => {
   });
 
   it("gives the line to the queue when the queue is stuck", () => {
-    expect(notDeliveredNote(health({ stuck: 3 }))).toBe("coada nu s-a mișcat de 15 de minute");
+    expect(notDeliveredNote(health({ stuck: 3 }))).toBe("coada nu s-a mișcat de 15 minute");
   });
 
   it("still gives the line to the queue when families are failing behind it", () => {
@@ -70,7 +70,7 @@ describe("notDeliveredNote", () => {
     // failed messages behind it are a symptom; sending an admin to check families would send them
     // looking for a family that does not exist.
     expect(notDeliveredNote(health({ failed: 5, undeliverable: 2, stuck: 1 }))).toBe(
-      "coada nu s-a mișcat de 15 de minute"
+      "coada nu s-a mișcat de 15 minute"
     );
   });
 

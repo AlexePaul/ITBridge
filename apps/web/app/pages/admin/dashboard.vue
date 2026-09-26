@@ -94,6 +94,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useOverviewApi } from "~/composables/api/useOverviewApi";
 import { formatDateKey, formatLei } from "~/composables/useAdminFormat";
@@ -132,7 +133,7 @@ const todayLabel = computed(() => (overview.value ? formatDateKey(overview.value
 function projectsWaitingNote(oldestDays: number | null): string {
   if (oldestDays === null || oldestDays === 0) return "de verificat și trimis";
   if (oldestDays === 1) return "cel mai vechi de ieri";
-  return `cel mai vechi de ${oldestDays} zile`;
+  return `cel mai vechi de ${countOf(oldestDays, "zi", "zile")}`;
 }
 
 const tiles = computed(() => {

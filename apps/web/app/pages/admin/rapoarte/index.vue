@@ -400,7 +400,8 @@
               <li v-for="row in funnel.byChannel" :key="row.key" class="flex justify-between gap-4">
                 <span>{{ channelLabel(row.key) }}</span>
                 <span class="tabular-nums text-muted">
-                  {{ row.requests }} cereri · {{ row.enrolled }} înscrieri
+                  {{ countOf(row.requests, "cerere", "cereri") }} ·
+                  {{ countOf(row.enrolled, "înscriere", "înscrieri") }}
                 </span>
               </li>
             </ul>
@@ -436,6 +437,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import type { TabsItem } from "@nuxt/ui";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useReportsApi } from "~/composables/api/useReportsApi";

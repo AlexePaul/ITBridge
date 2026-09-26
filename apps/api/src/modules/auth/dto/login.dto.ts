@@ -11,6 +11,6 @@ export class LoginDto {
 
     @ApiProperty({ example: 'password123', minLength: 6 })
     @IsString()
-    @MinLength(6)
+    @MinLength(6, { message: 'Parola trebuie să aibă cel puțin 6 caractere' })
     password: string;
 }

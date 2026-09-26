@@ -10,6 +10,6 @@ export class ConfirmEmailDto {
     @ApiProperty({ example: 'k3Xq...', description: 'Tokenul din linkul de confirmare' })
     @IsString()
     @IsNotEmpty()
-    @Length(20, 200)
+    @Length(20, 200, { message: 'Linkul pare incomplet sau greșit. Verifică dacă l-ai copiat întreg.' })
     token: string;
 }

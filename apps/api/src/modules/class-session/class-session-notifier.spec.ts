@@ -5,6 +5,7 @@ import { ClassSession } from 'src/entities/class-session.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { Lead } from 'src/entities/lead.entity';
+import { Enrollment } from 'src/entities/enrollment.entity';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { createMockEntityManager, createMockRepository, MockEntityManager, MockRepository } from 'src/testing/repository.mock';
@@ -15,6 +16,7 @@ describe('ClassSessionNotifier', () => {
     let noticeRepo: MockRepository;
     let outboxRepo: MockRepository;
     let leadRepo: MockRepository;
+    let enrollmentRepo: MockRepository;
     let manager: MockEntityManager;
     let outbox: { queueOrRecord: jest.Mock };
     let templates: { render: jest.Mock };
@@ -51,12 +53,15 @@ describe('ClassSessionNotifier', () => {
         outboxRepo.count!.mockResolvedValue(0);
         leadRepo = createMockRepository();
         leadRepo.find!.mockResolvedValue([]);
+        enrollmentRepo = createMockRepository();
+        enrollmentRepo.find!.mockResolvedValue([]);
         manager = createMockEntityManager(
             new Map<unknown, MockRepository>([
                 [ClassSession, sessionRepo],
                 [AbsenceNotice, noticeRepo],
                 [OutboxMessage, outboxRepo],
                 [Lead, leadRepo],
+                [Enrollment, enrollmentRepo],
             ]),
         );
         outbox = { queueOrRecord: jest.fn().mockResolvedValue({ id: 1 }) };
@@ -175,13 +180,30 @@ describe('ClassSessionNotifier', () => {
             const trialFamily = { id: 20, firstName: 'Ioana', email: null };
             sessionRepo.findOne!.mockResolvedValue({ ...session, group: { ...session.group, children: [{ id: 9, parent: trialFamily }] } });
             leadRepo.find!.mockResolvedValue([{ id: 5, parentEmail: 'ioana@example.com', profile: { id: 20 } }]);
+            enrollmentRepo.find!.mockResolvedValue([{ status: 'TRIAL', child: { id: 9, parent: trialFamily } }]);
 
             await notifier.notifyCancelled(3, 'Profesor bolnav', asManager());
 
             expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'ioana@example.com' }, expect.anything(), manager);
             expect(templates.render).toHaveBeenCalledWith(
                 'class-cancelled',
-                expect.objectContaining({ makeUpNote: expect.stringContaining('Proba copilului tău') }),
+                expect.objectContaining({ makeUpNote: expect.stringContaining('Proba copilului tău era la ora asta') }),
+            );
+        });
+
+        // QA of 26 September 2026: the sentence followed the address, not the enrolment, so a
+        // family reached at its booking address but enrolled and paying was told about a trial.
+        it('gives the group’s sentence to a family reached at its booking address but already enrolled', async () => {
+            const enrolled = { id: 21, firstName: 'Ada', email: null };
+            sessionRepo.findOne!.mockResolvedValue({ ...session, group: { ...session.group, children: [{ id: 10, parent: enrolled }] } });
+            leadRepo.find!.mockResolvedValue([{ id: 6, parentEmail: 'ada@example.com', profile: { id: 21 } }]);
+            enrollmentRepo.find!.mockResolvedValue([{ status: 'ACTIVE', child: { id: 10, parent: enrolled } }]);
+
+            await notifier.notifyCancelled(3, 'Profesor bolnav', asManager());
+
+            expect(templates.render).toHaveBeenCalledWith(
+                'class-cancelled',
+                expect.objectContaining({ makeUpNote: expect.stringContaining('Ora nu se facturează') }),
             );
         });
 

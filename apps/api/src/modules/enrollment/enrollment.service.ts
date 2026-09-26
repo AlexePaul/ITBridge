@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, IsNull, LessThan, Not, Repository } from 'typeorm';
+import { romanianDayAndDate } from 'src/modules/mail/romanian-date';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Child } from 'src/entities/child.entity';
@@ -1215,7 +1216,7 @@ export class EnrollmentService {
             // which class has none, and why — the room it moved into, or the children moved into it.
             throw new ConflictException({
                 message:
-                    `Ora din ${fullClass.date} nu mai are niciun loc liber: ${fullClass.room === 1 ? 'un loc' : `${fullClass.room} locuri`}, ` +
+                    `Ora de ${romanianDayAndDate(fullClass.date)} nu mai are niciun loc liber: ${fullClass.room === 1 ? 'un loc' : `${fullClass.room} locuri`}, ` +
                     `${taken === 1 ? 'un copil' : `${taken} copii`} din grupă` +
                     `${fullClass.visitors === 0 ? '' : ` și ${fullClass.visitors === 1 ? 'unul mutat' : `${fullClass.visitors} mutați`} acolo pentru o săptămână`}.` +
                     ' Poți pune copilul pe lista de așteptare.',

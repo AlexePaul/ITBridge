@@ -113,6 +113,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { computed, onMounted, ref } from "vue";
 import { useProjectsApi } from "~/composables/api/useProjectsApi";
 import { isAgentStale, lastSeenLabel, useAgentApi } from "~/composables/api/useAgentApi";
@@ -168,7 +169,7 @@ const groupIsStale = (groupId: number) => {
 const ageLabel = (days: number) => {
   if (days === 0) return "de azi";
   if (days === 1) return "de ieri";
-  return `de ${days} zile`;
+  return `de ${countOf(days, "zi", "zile")}`;
 };
 const resolving = ref<number | null>(null);
 

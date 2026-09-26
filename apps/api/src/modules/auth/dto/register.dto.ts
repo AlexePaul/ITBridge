@@ -41,27 +41,27 @@ export class RegisterDto {
 
     @ApiProperty({ example: 'password123', minLength: 6 })
     @IsString()
-    @MinLength(6)
+    @MinLength(6, { message: 'Parola trebuie să aibă cel puțin 6 caractere' })
     password: string;
 
     @ApiProperty({ example: 'Ioana' })
     @IsString()
     @IsNotEmpty()
-    @Length(1, 100)
+    @Length(1, 100, { message: 'Prenumele trebuie să aibă între 1 și 100 de caractere' })
     firstName: string;
 
     @ApiProperty({ example: 'Popescu' })
     @IsString()
     @IsNotEmpty()
-    @Length(1, 100)
+    @Length(1, 100, { message: 'Numele trebuie să aibă între 1 și 100 de caractere' })
     lastName: string;
 
     /** Confirmed by link before the account can be used, so a typo here stops the registration, not the first invoice. */
     @ApiProperty({ example: 'ioana.popescu@example.com' })
     @IsString()
     @IsNotEmpty()
-    @IsEmail()
-    @Length(1, 255)
+    @IsEmail({}, { message: 'Adresa de email nu pare validă' })
+    @Length(1, 255, { message: 'Adresa de email are cel mult 255 de caractere' })
     email: string;
 
     /**
