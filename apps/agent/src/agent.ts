@@ -3,7 +3,8 @@ import type { AgentMirror } from '@itbridge/types';
 import { ApiClient } from './api-client';
 import type { AgentConfig } from './config';
 import { applyMirror } from './mirror';
-import { scan } from './scanner';
+import { scan, ShareUnreachableError } from './scanner';
+import type { UnreadableFolder } from './scanner';
 import { handleRejected, refusedFile, uploadFile } from './uploader';
 import type { AwaitingMove } from './uploader';
 import { log } from './log';
@@ -38,6 +39,9 @@ export class Agent {
      * What went wrong, kept per source and joined for the heartbeat. One field used to hold both, so
      * the last writer won: a clean-looking pass erased the mirror's error thirty seconds after it was
      * written, and a share nobody could reach reported healthy (review of 25 September 2026).
+     *
+     * **In Romanian**, unlike the log: the admin screen shows it word for word as the reason the
+     * agent is in trouble, and the person reading it is the office, not a developer.
      */
     private passError: string | null = null;
     private mirrorError: string | null = null;
@@ -114,29 +118,47 @@ export class Agent {
             // error that lingers after its cause is gone teaches an admin to ignore the field. But a
             // folder that could not be read is not a clean pass: it looked like an empty one.
             const problems: string[] = [];
-            if (failed > 0) problems.push(`${failed} file(s) could not be uploaded on the last pass`);
-            if (result.unreadable.length > 0) {
+            if (failed > 0) {
                 problems.push(
-                    `${result.unreadable.length} folder(s) could not be read: ${result.unreadable.slice(0, 3).join(', ')}`,
+                    failed === 1
+                        ? 'Un fișier nu s-a putut urca la ultima trecere; se încearcă din nou.'
+                        : `${failed} fișiere nu s-au putut urca la ultima trecere; se încearcă din nou.`,
                 );
-                log.warn(`Could not read ${result.unreadable.join(', ')}.`);
             }
-            this.passError = problems.length > 0 ? problems.join('; ') : null;
+            if (result.unreadable.length > 0) {
+                const count = result.unreadable.length;
+                const which = result.unreadable.slice(0, 3).map(inRomanian).join(', ');
+                problems.push(
+                    `${count === 1 ? 'Un folder nu s-a putut citi' : `${count} foldere nu s-au putut citi`}: ${which}.`,
+                );
+                log.warn(
+                    `Could not read ${result.unreadable.map((folder) => `a ${folder.kind} folder in group ${folder.groupId} (${folder.code})`).join(', ')}.`,
+                );
+            }
+            this.passError = problems.length > 0 ? problems.join(' ') : null;
         } catch (error) {
             // The share being unreachable lands here — `scan` refuses to call an unreadable root an
             // empty one. It is a temporary condition and the heartbeat carries it, so an admin sees a
             // reason rather than an agent that has simply gone quiet.
-            this.passError = error instanceof Error ? error.message : String(error);
-            log.error(`Pass failed: ${this.passError}`);
+            const message = error instanceof Error ? error.message : String(error);
+            this.passError =
+                error instanceof ShareUnreachableError
+                    ? `Folderul urmărit nu se poate citi (${error.code}), deci nu se urcă nimic. Dacă e un drive mapat, un serviciu nu-l vede: folosește calea de rețea.`
+                    : `Trecerea prin folder a eșuat: ${message}`;
+            log.error(`Pass failed: ${message}`);
         } finally {
             this.running = false;
         }
     }
 
-    /** Both halves of what went wrong, for the heartbeat. Null only when neither has a problem. */
+    /**
+     * Both halves of what went wrong, for the heartbeat. Null only when neither has a problem.
+     * Capped well below the API's limit: a heartbeat refused for its length would make a working
+     * agent look like a silent one.
+     */
     lastError(): string | null {
         const errors = [this.passError, this.mirrorError].filter((error): error is string => error !== null);
-        return errors.length > 0 ? errors.join('; ') : null;
+        return errors.length > 0 ? errors.join(' ').slice(0, 1000) : null;
     }
 
     /**
@@ -174,8 +196,9 @@ export class Agent {
         } catch (error) {
             // The previous tree stays in memory, so a passing outage does not stop uploads: the
             // groups and children have not changed in the last fifteen minutes either way.
-            this.mirrorError = error instanceof Error ? error.message : String(error);
-            log.error(`Could not refresh the mirror: ${this.mirrorError}`);
+            const message = error instanceof Error ? error.message : String(error);
+            this.mirrorError = `Structura de foldere nu s-a putut actualiza: ${message}`;
+            log.error(`Could not refresh the mirror: ${message}`);
         }
     }
 
@@ -192,4 +215,15 @@ export class Agent {
             log.warn(`Heartbeat failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
+}
+
+/** `grupa 7 (EACCES)`, for the heartbeat the office reads. */
+function inRomanian(folder: UnreadableFolder): string {
+    const where =
+        folder.kind === 'group'
+            ? `grupa ${folder.groupId}`
+            : folder.kind === 'child'
+              ? `un folder de copil din grupa ${folder.groupId}`
+              : `un folder din grupa ${folder.groupId}`;
+    return `${where} (${folder.code})`;
 }

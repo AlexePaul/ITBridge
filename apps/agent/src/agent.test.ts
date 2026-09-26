@@ -297,7 +297,8 @@ describe('the heartbeat', () => {
         agent.stop();
 
         const beat = server.calls.heartbeats.at(-1)!;
-        assert.match(beat.lastError ?? '', /watched folder cannot be read/);
+        // In Romanian: the admin screen shows it word for word.
+        assert.match(beat.lastError ?? '', /Folderul urmărit nu se poate citi \(ENOTDIR\)/);
     });
 
     it("keeps the mirror's error after a pass that found nothing wrong", async () => {
@@ -312,7 +313,10 @@ describe('the heartbeat', () => {
         await agent.pass();
 
         // Before, the clean pass wrote `null` over it thirty seconds later.
-        assert.match(agent.lastError() ?? '', /agent\/mirror answered 500/);
+        assert.match(
+            agent.lastError() ?? '',
+            /Structura de foldere nu s-a putut actualiza: .*agent\/mirror answered 500/,
+        );
     });
 });
 

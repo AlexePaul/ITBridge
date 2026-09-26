@@ -79,19 +79,27 @@ export interface ScanResult {
     files: FoundFile[];
     rejected: RejectedFile[];
     /**
-     * Folders the walk could not read, as `group <id>` or `a child's folder in group <id>` — never
-     * a name, since this travels to the log and to the heartbeat.
+     * Folders the walk could not read — by group id and kind, never by name, since this travels to
+     * the log and to the heartbeat.
      *
      * A folder that cannot be read used to be an empty one, so a share that had gone away — the
      * server off, a mapped drive a service cannot see — looked exactly like a quiet afternoon: no
      * files, no error, a healthy heartbeat, and nothing uploading (review of 25 September 2026).
      */
-    unreadable: string[];
+    unreadable: UnreadableFolder[];
+}
+
+export interface UnreadableFolder {
+    groupId: number;
+    /** The group's own folder, a child's folder in it, or a folder somebody made by hand. */
+    kind: 'group' | 'child' | 'other';
+    /** What the file system said: `EACCES`, `EPERM`, `EIO`. */
+    code: string;
 }
 
 /** Thrown when the watched folder itself cannot be read: the pass has nothing to walk. */
 export class ShareUnreachableError extends Error {
-    constructor(code: string) {
+    constructor(readonly code: string) {
         super(`The watched folder cannot be read (${code}); nothing can be uploaded until it can.`);
         this.name = 'ShareUnreachableError';
     }
@@ -121,7 +129,9 @@ export function scan(root: string, mirror: AgentMirror, now: Date, quietPeriodMs
             const groupDir = folders.get(group.id) ?? groupPath(root, location.name, group);
             const childIds = new Set(group.children.map((child) => child.id));
             // A group folder the mirror has not made yet is not a fault: the next refresh makes it.
-            const entries = readDir(groupDir, `group ${group.id}`, result.unreadable, { missingIsEmpty: true });
+            const entries = readDir(groupDir, { groupId: group.id, kind: 'group' }, result.unreadable, {
+                missingIsEmpty: true,
+            });
 
             for (const entry of entries) {
                 const entryPath = path.join(groupDir, entry.name);
@@ -152,7 +162,7 @@ export function scan(root: string, mirror: AgentMirror, now: Date, quietPeriodMs
                     // A folder somebody made by hand, or one belonging to a child who has since
                     // moved. Its contents are reported one by one rather than as "a folder", because
                     // what an admin has to decide is per file.
-                    for (const file of filesIn(entryPath, `a folder in group ${group.id}`, result.unreadable)) {
+                    for (const file of filesIn(entryPath, { groupId: group.id, kind: 'other' }, result.unreadable)) {
                         const rejection = describeOnDisk(root, file.path, file.name, now, quietPeriodMs);
                         if (rejection === 'still-being-written') continue;
                         result.rejected.push({
@@ -165,7 +175,7 @@ export function scan(root: string, mirror: AgentMirror, now: Date, quietPeriodMs
                     continue;
                 }
 
-                for (const file of filesIn(entryPath, `a child's folder in group ${group.id}`, result.unreadable)) {
+                for (const file of filesIn(entryPath, { groupId: group.id, kind: 'child' }, result.unreadable)) {
                     const stats = statSafe(file.path);
                     if (!stats) {
                         result.rejected.push({
@@ -228,27 +238,31 @@ export function scan(root: string, mirror: AgentMirror, now: Date, quietPeriodMs
  * subfolder gets nothing uploaded from it — visible on the group screen as a child with no
  * documents, which is a better failure than silently hoovering up whatever is nested there.
  */
-function filesIn(dir: string, label: string, unreadable: string[]): { path: string; name: string }[] {
-    return readDir(dir, label, unreadable)
+function filesIn(
+    dir: string,
+    which: Omit<UnreadableFolder, 'code'>,
+    unreadable: UnreadableFolder[],
+): { path: string; name: string }[] {
+    return readDir(dir, which, unreadable)
         .filter((entry) => entry.isFile() && !entry.name.startsWith('~$') && !entry.name.startsWith('.'))
         .map((entry) => ({ path: path.join(dir, entry.name), name: entry.name }));
 }
 
 /**
  * A directory listing that says when it could not be had, instead of passing for an empty folder.
- * The label goes into `unreadable` — ids only, because it ends up in the log and the heartbeat.
+ * What goes into `unreadable` is ids only, because it ends up in the log and the heartbeat.
  */
 function readDir(
     dir: string,
-    label: string,
-    unreadable: string[],
+    which: Omit<UnreadableFolder, 'code'>,
+    unreadable: UnreadableFolder[],
     options: { missingIsEmpty?: boolean } = {},
 ): fs.Dirent[] {
     try {
         return fs.readdirSync(dir, { withFileTypes: true });
     } catch (error) {
         const code = errorCode(error);
-        if (!(options.missingIsEmpty && code === 'ENOENT')) unreadable.push(`${label} (${code})`);
+        if (!(options.missingIsEmpty && code === 'ENOENT')) unreadable.push({ ...which, code });
         return [];
     }
 }
