@@ -30,7 +30,11 @@
           </UFormField>
         </div>
 
-        <UFormField name="userId" class="w-full">
+        <!-- Only when there is an account to attach. Registration always writes the family with the
+             account, so this list is nearly always empty, and an empty picker read as a step the
+             office had missed (QA of 26 September 2026). A family typed in here gets its own
+             account through the link on its page. -->
+        <UFormField v-if="usersWithoutProfile.length > 0" name="userId" class="w-full">
           <template #label>Asociază utilizator (opțional)</template>
           <USelectMenu
             v-model="state.userId"
