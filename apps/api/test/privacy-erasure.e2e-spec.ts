@@ -140,7 +140,88 @@ describe('Privacy erasure (e2e)', () => {
         });
     });
 
+    describe('a request that is not on file', () => {
+        const auditNotes = async (profileId: number): Promise<string[]> => {
+            const rows: { note: string | null }[] = await dataSource.query(
+                `SELECT note FROM audit_log WHERE entity_type = 'Profile' AND entity_id = $1 ORDER BY id`,
+                [profileId],
+            );
+            return rows.map((row) => row.note ?? '');
+        };
+
+        // The QA of 26 September 2026: the parent withdrew while the office's queue was open, and
+        // the office's next press erased the family anyway — three seconds after "withdrawn".
+        it('stops the erasure when the family withdrew after the queue was read', async () => {
+            await request(app.getHttpServer()).post('/privacy/erasure').set('Authorization', ana.auth).expect(201);
+            const queue = await request(app.getHttpServer()).get('/privacy/erasure/pending').set('Authorization', admin.auth).expect(200);
+            expect(queue.body.map((row: { id: number }) => row.id)).toEqual([anaProfileId]);
+
+            await request(app.getHttpServer()).delete('/privacy/erasure').set('Authorization', ana.auth).expect(204);
+            const refused = await erase(anaProfileId).expect(409);
+
+            expect(refused.body.code).toBe('NO_ERASURE_REQUEST');
+            expect(await countRows('SELECT COUNT(*) FROM children WHERE parent_id = $1', [anaProfileId])).toBe(1);
+            expect(await countRows('SELECT COUNT(*) FROM users WHERE id = $1', [ana.userId])).toBe(1);
+            expect(await auditNotes(anaProfileId)).not.toContain('ștergere la cererea familiei');
+        });
+
+        it('does not erase a family that never asked', async () => {
+            const refused = await erase(bogdanProfileId).expect(409);
+
+            expect(refused.body.code).toBe('NO_ERASURE_REQUEST');
+            expect(await countRows('SELECT COUNT(*) FROM children WHERE parent_id = $1', [bogdanProfileId])).toBe(1);
+        });
+
+        // Terms §17 and the privacy notice §8 send families to the school by phone or email; a
+        // family with no account has no other door.
+        it('lets the office record a request made by phone, which then goes like any other', async () => {
+            const recorded = await request(app.getHttpServer())
+                .post(`/privacy/erasure/${bogdanProfileId}/request`)
+                .set('Authorization', admin.auth)
+                .send({ via: 'phone' })
+                .expect(201);
+            expect(Date.parse(recorded.body.requestedAt as string)).not.toBeNaN();
+
+            const queue = await request(app.getHttpServer()).get('/privacy/erasure/pending').set('Authorization', admin.auth).expect(200);
+            expect(queue.body.map((row: { id: number }) => row.id)).toEqual([bogdanProfileId]);
+            expect(await auditNotes(bogdanProfileId)).toContain('cerere de ștergere, primită de birou (telefon)');
+
+            await erase(bogdanProfileId).expect(201);
+            expect(await countRows('SELECT COUNT(*) FROM children WHERE parent_id = $1', [bogdanProfileId])).toBe(0);
+        });
+
+        it('lets the office withdraw a request the family took back by phone', async () => {
+            await request(app.getHttpServer()).post('/privacy/erasure').set('Authorization', ana.auth).expect(201);
+            await request(app.getHttpServer()).delete(`/privacy/erasure/${anaProfileId}/request`).set('Authorization', admin.auth).expect(204);
+
+            const queue = await request(app.getHttpServer()).get('/privacy/erasure/pending').set('Authorization', admin.auth).expect(200);
+            expect(queue.body).toEqual([]);
+            expect(await auditNotes(anaProfileId)).toContain('cerere de ștergere retrasă, prin birou');
+            await erase(anaProfileId).expect(409);
+        });
+
+        it('takes only the channels it knows, and only from the office', async () => {
+            await request(app.getHttpServer())
+                .post(`/privacy/erasure/${anaProfileId}/request`)
+                .set('Authorization', admin.auth)
+                .send({ via: 'pigeon' })
+                .expect(400);
+            await request(app.getHttpServer())
+                .post(`/privacy/erasure/${bogdanProfileId}/request`)
+                .set('Authorization', ana.auth)
+                .send({ via: 'phone' })
+                .expect(403);
+            await request(app.getHttpServer()).delete(`/privacy/erasure/${anaProfileId}/request`).set('Authorization', ana.auth).expect(403);
+        });
+    });
+
     describe('the erasure', () => {
+        // Every family erased below asked first: an erasure "at the family's request" with no request
+        // on file is refused (the suite above).
+        beforeEach(async () => {
+            await dataSource.query(`UPDATE profiles SET "erasureRequestedAt" = now() WHERE id = ANY($1)`, [[anaProfileId, bogdanProfileId]]);
+        });
+
         it('removes the family and everything hanging off the children', async () => {
             const sessionId = await createClassSession(dataSource, groupId, { date: '2026-03-04' });
             await request(app.getHttpServer())

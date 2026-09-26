@@ -12,6 +12,7 @@ import { ExportService } from './export.service';
 import { ErasureService } from './erasure.service';
 import { RetentionService } from './retention.service';
 import { WithdrawFamilyDto } from './dto/withdrawFamily.dto';
+import { RecordErasureRequestDto } from './dto/recordErasureRequest.dto';
 import { actorFrom } from 'src/modules/audit/actor';
 
 /**
@@ -119,6 +120,38 @@ export class PrivacyController {
     }
 
     /**
+     * The office writes down a request the family made by phone, by email or at the desk. Terms §17
+     * and the privacy notice §8 send families to the school, not only to the portal — and a family
+     * with no account has no other door. From here the queue and the erasure take it like any other.
+     */
+    @Post('/erasure/:profileId/request')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Consemnează o cerere de ștergere primită de birou' })
+    @ApiResponse({ status: 201, description: 'The request is on file' })
+    @ApiResponse({ status: 409, description: 'ALREADY_ERASED' })
+    async recordErasureRequest(
+        @Param('profileId', ParseIntPipe) profileId: number,
+        @Body() dto: RecordErasureRequestDto,
+        @Request() req: AuthenticatedRequest,
+    ) {
+        return this.erasureService.request(profileId, actorFrom(req), dto.via);
+    }
+
+    /** The family told the office it changed its mind. */
+    @Delete('/erasure/:profileId/request')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @HttpCode(204)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Retrage, prin birou, cererea de ștergere a familiei' })
+    @ApiResponse({ status: 204, description: 'The request is withdrawn' })
+    async withdrawErasureForFamily(@Param('profileId', ParseIntPipe) profileId: number, @Request() req: AuthenticatedRequest) {
+        await this.erasureService.withdrawRequest(profileId, actorFrom(req), true);
+    }
+
+    /**
      * Carries the erasure out. ADMIN only, and deliberately not something the family can trigger.
      *
      * Declared after `/erasure/pending`, because Nest matches in declaration order and
@@ -135,7 +168,7 @@ export class PrivacyController {
             'Copiii, înscrierile, prezențele, proiectele, lead-urile, reducerile, mesajele și contul dispar. Rândul familiei rămâne golit, fiindcă facturile atârnă de el și evidența contabilă se păstrează.',
     })
     @ApiResponse({ status: 201, description: 'What was removed and what was kept' })
-    @ApiResponse({ status: 409, description: 'ALREADY_ERASED' })
+    @ApiResponse({ status: 409, description: 'ALREADY_ERASED, NO_ERASURE_REQUEST or FAMILY_HAS_FISCAL_WORK' })
     async erase(@Param('profileId', ParseIntPipe) profileId: number, @Request() req: AuthenticatedRequest) {
         return this.erasureService.erase(profileId, actorFrom(req));
     }

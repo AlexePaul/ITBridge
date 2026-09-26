@@ -33,6 +33,21 @@ const ERASURE_NOTES: Record<ErasureReason, string> = {
     enquiry_term: 'ștergere la termen: cerere de probă fără înscriere',
 };
 
+/**
+ * How a request the office writes down reached it. Terms §17 and the privacy notice §8 send families
+ * to the school by phone or email as well as to the portal, and a family with no account has no
+ * other door — so the office records the request on its behalf and the queue takes it from there.
+ */
+export type ErasureRequestChannel = 'phone' | 'email' | 'in_person';
+
+export const ERASURE_REQUEST_CHANNELS: readonly ErasureRequestChannel[] = ['phone', 'email', 'in_person'];
+
+const CHANNEL_NOTES: Record<ErasureRequestChannel, string> = {
+    phone: 'telefon',
+    email: 'email',
+    in_person: 'la birou',
+};
+
 export interface ErasureReport {
     profileId: number;
     childrenRemoved: number;
@@ -114,8 +129,11 @@ export class ErasureService {
         private readonly consents: PublicationConsentService,
     ) {}
 
-    /** The family asks. Nothing is deleted here — the office has to look first. */
-    async request(profileId: number, actor: Actor): Promise<{ requestedAt: Date }> {
+    /**
+     * The family asks — from the portal, or through the office, which writes down a request made by
+     * phone, email or at the desk (`via`). Nothing is deleted here: the office has to look first.
+     */
+    async request(profileId: number, actor: Actor, via?: ErasureRequestChannel): Promise<{ requestedAt: Date }> {
         const profile = await this.profiles.findOne({ where: { id: profileId } });
         if (!profile) throw new NotFoundException('Profile not found');
         if (isErased(profile)) throw new ConflictException({ message: 'Contul e deja șters.', error: 'ALREADY_ERASED' });
@@ -126,7 +144,8 @@ export class ErasureService {
         // The column and the trail together, as in `erase` below: a request on file that nothing
         // accounts for is the same gap one step earlier.
         await this.dataSource.transaction(async (manager) => {
-            await manager.update(Profile, profileId, { erasureRequestedAt: requestedAt });
+            const written = await manager.update(Profile, { id: profileId, erasedAt: IsNull() }, { erasureRequestedAt: requestedAt });
+            if (!written.affected) throw new ConflictException({ message: 'Contul e deja șters.', error: 'ALREADY_ERASED' });
             await this.audit.record(
                 {
                     actor,
@@ -134,7 +153,7 @@ export class ErasureService {
                     entityType: 'Profile',
                     entityId: profileId,
                     changes: { erasureRequestedAt: { from: null, to: requestedAt.toISOString() } },
-                    note: 'cerere de ștergere',
+                    note: via ? `cerere de ștergere, primită de birou (${CHANNEL_NOTES[via]})` : 'cerere de ștergere',
                 },
                 manager,
             );
@@ -143,8 +162,11 @@ export class ErasureService {
         return { requestedAt };
     }
 
-    /** The family changes its mind, or the office declines. The request goes; nothing else moves. */
-    async withdrawRequest(profileId: number, actor: Actor): Promise<void> {
+    /**
+     * The family changes its mind — from the portal, or by telling the office (`byOffice`). The
+     * request goes; nothing else moves.
+     */
+    async withdrawRequest(profileId: number, actor: Actor, byOffice = false): Promise<void> {
         const profile = await this.profiles.findOne({ where: { id: profileId } });
         if (!profile) throw new NotFoundException('Profile not found');
         if (isErased(profile)) throw new ConflictException({ message: 'Contul e deja șters.', error: 'ALREADY_ERASED' });
@@ -154,7 +176,11 @@ export class ErasureService {
         // out null.
         const requestedAt = profile.erasureRequestedAt;
         await this.dataSource.transaction(async (manager) => {
-            await manager.update(Profile, profileId, { erasureRequestedAt: null });
+            // Only while the family is still there: the erasure takes this row's lock, so a
+            // withdrawal that waited for it finds the family already gone and must not write a
+            // "request withdrawn" line after the "erased" one.
+            const written = await manager.update(Profile, { id: profileId, erasedAt: IsNull() }, { erasureRequestedAt: null });
+            if (!written.affected) throw new ConflictException({ message: 'Contul e deja șters.', error: 'ALREADY_ERASED' });
             await this.audit.record(
                 {
                     actor,
@@ -162,7 +188,7 @@ export class ErasureService {
                     entityType: 'Profile',
                     entityId: profileId,
                     changes: { erasureRequestedAt: { from: requestedAt.toISOString(), to: null } },
-                    note: 'cerere de ștergere retrasă',
+                    note: byOffice ? 'cerere de ștergere retrasă, prin birou' : 'cerere de ștergere retrasă',
                 },
                 manager,
             );
@@ -235,6 +261,18 @@ export class ErasureService {
             await this.consents.announceErasure(childIds, manager);
 
             const seatsHeldIn = await this.enrollments.lockSeatsHeldBy(childIds, manager);
+
+            // The reason is re-read here, under the family row's lock, because what pressed the
+            // button read the family a while ago. A request withdrawn since — the parent pressing
+            // „Renunț la cerere" while the office's queue was open — has to stop the erasure, not be
+            // overtaken by it: the QA of 26 September 2026 erased a family three seconds after its
+            // withdrawal, and the trail said both. The withdrawal writes this row, so the two
+            // cannot interleave; and the lock comes after the groups', the order `enrol` takes them
+            // in, since `enrol` is also what cancels a withdrawal.
+            const current = await manager.findOne(Profile, { where: { id: profileId }, lock: { mode: 'pessimistic_write' } });
+            if (!current || isErased(current)) throw new ConflictException({ message: 'Contul e deja șters.', error: 'ALREADY_ERASED' });
+            assertStillDue(current, reason);
+
             if (childIds.length) await manager.delete(Child, childIds);
             await this.enrollments.offerFreeSeatsIn(seatsHeldIn, manager);
 
@@ -363,5 +401,26 @@ export class ErasureService {
             }
         }
         return removed;
+    }
+}
+
+/**
+ * Whether the reason an erasure was started for still holds. A family erased "at its request" has a
+ * request on file; one erased at the end of its withdrawal term is still withdrawn — `enrol` cancels
+ * a withdrawal, so a family that came back is not one the calendar may empty. An enquiry that ran
+ * its term has nothing a family can take back.
+ */
+export function assertStillDue(profile: Pick<Profile, 'id' | 'erasureRequestedAt' | 'withdrawnAt'>, reason: ErasureReason): void {
+    if (reason === 'request' && !profile.erasureRequestedAt) {
+        throw new ConflictException({
+            message: `Family ${profile.id} has no erasure request on file — withdrawn, or never made — so nothing was erased.`,
+            error: 'NO_ERASURE_REQUEST',
+        });
+    }
+    if (reason === 'withdrawal_term' && !profile.withdrawnAt) {
+        throw new ConflictException({
+            message: `Family ${profile.id} is no longer withdrawn, so nothing was erased at term.`,
+            error: 'FAMILY_NOT_WITHDRAWN',
+        });
     }
 }

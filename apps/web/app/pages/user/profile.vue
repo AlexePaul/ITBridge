@@ -318,9 +318,9 @@
 
         <template v-if="erasureRequestedAt">
           <p class="body-text">
-            Am primit cererea ta pe {{ formatDateKey(erasureRequestedAt.slice(0, 10)) }}. Ștergem
-            datele în cel mult 30 de zile. Îți rămân doar facturile, fiindcă legea ne obligă să
-            păstrăm evidența plăților.
+            Am primit cererea ta pe {{ formatDateKey(todayKey(new Date(erasureRequestedAt))) }}.
+            Ștergem datele în cel mult 30 de zile. Îți rămân doar facturile, fiindcă legea ne obligă
+            să păstrăm evidența plăților.
           </p>
           <button
             type="button"
@@ -367,6 +367,7 @@ import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { dayKey } from "~/composables/useUtils";
 import { formatDateKey } from "~/composables/useAdminFormat";
+import { todayKey } from "~/composables/useAttendanceCalendar";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 import { LEGAL_DOCUMENT_LABELS, LEGAL_READING_ORDER } from "~/types/legal.types";

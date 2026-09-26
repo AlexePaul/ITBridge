@@ -66,6 +66,9 @@ const MESSAGES: Record<string, string> = {
     "Familia e încă pe o listă de așteptare. Scoate-o întâi de acolo, apoi consemnează retragerea.",
   WITHDRAWAL_IN_FUTURE: "Retragerea se consemnează cu o zi care a trecut deja, sau cu ziua de azi.",
   ALREADY_ERASED: "Datele familiei au fost deja șterse.",
+  NO_ERASURE_REQUEST:
+    "Familia nu mai are o cerere de ștergere: a retras-o între timp, sau n-a făcut-o niciodată. Nu s-a șters nimic.",
+  FAMILY_NOT_WITHDRAWN: "Familia nu mai e retrasă, deci nu s-a șters nimic la termen.",
   FAMILY_HAS_FISCAL_WORK:
     "Familia are o factură încă în drum spre SmartBill. Emite-o sau retrage-o, apoi șterge datele.",
 
