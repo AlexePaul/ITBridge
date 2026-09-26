@@ -313,10 +313,7 @@ describe('the heartbeat', () => {
         await agent.pass();
 
         // Before, the clean pass wrote `null` over it thirty seconds later.
-        assert.match(
-            agent.lastError() ?? '',
-            /Structura de foldere nu s-a putut actualiza: .*agent\/mirror answered 500/,
-        );
+        assert.equal(agent.lastError(), 'Structura de foldere nu s-a putut actualiza (serverul a răspuns 500).');
     });
 });
 

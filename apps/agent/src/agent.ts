@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import type { AgentMirror } from '@itbridge/types';
-import { ApiClient } from './api-client';
+import { ApiClient, HttpError } from './api-client';
 import type { AgentConfig } from './config';
 import { applyMirror } from './mirror';
 import { scan, ShareUnreachableError } from './scanner';
@@ -197,7 +197,13 @@ export class Agent {
             // The previous tree stays in memory, so a passing outage does not stop uploads: the
             // groups and children have not changed in the last fifteen minutes either way.
             const message = error instanceof Error ? error.message : String(error);
-            this.mirrorError = `Structura de foldere nu s-a putut actualiza: ${message}`;
+            // The reason in a few words — the server's status or the file system's code — not the
+            // raw message, which carries a path and a stack's worth of English into the admin screen.
+            const reason =
+                error instanceof HttpError
+                    ? `serverul a răspuns ${error.status}`
+                    : ((error as NodeJS.ErrnoException | undefined)?.code ?? 'eroare necunoscută');
+            this.mirrorError = `Structura de foldere nu s-a putut actualiza (${reason}).`;
             log.error(`Could not refresh the mirror: ${message}`);
         }
     }
