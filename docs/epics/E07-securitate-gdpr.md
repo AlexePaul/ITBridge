@@ -462,6 +462,47 @@ adresă neconfirmată — linkul de confirmare, confirmarea acceptării termenil
 familiei până nu confirmă. Ambele sunt mai puțin decât „tot ce ține școala", dar un rând lipsă din
 export se cere la birou, pe când un rând în plus e copilul altcuiva.
 
+#### Revizuirea din 25 septembrie 2026, a doua: ce scăpa jurnalului, exportului și ștergerii
+
+O revizuire a confidențialității și a rapoartelor a găsit șapte locuri în care promisiunea „tot ce
+ține școala despre voi, și numai atât" nu se ținea. Fiecare are acum un test care pică pe codul de
+dinainte.
+
+- **Jurnalul copia text liber despre o familie** (S3). Cifrele banilor au valoare în jurnal, și e
+  corect, dar nota unei plăți (reconcilierea scrie acolo textul transferului — „plata martie Maria
+  Pop"), motivul unei corecturi de ședințe și numele unei reduceri sunt propoziții despre o familie,
+  iar jurnalul îi supraviețuiește prin construcție. Acum le ține doar numele câmpului, ca pe datele
+  din `Profile` și `Child` (`FREE_TEXT_FIELDS` din `audit.rules.ts`, aplicat în ușa prin care trece
+  orice intrare).
+- **Un acord de publicare în vigoare pleca în cascadă fără ca biroul să afle** (S2). O lucrare de pe
+  site rămânea acolo fără acord și fără copil în evidență. Ștergerea anunță acum biroul, ca retragerea
+  din portal, înaintea cascadei. Prețul: mesajul către birou numește copilul, fiindcă altfel nimeni
+  n-ar ști ce să scoată de pe site; pleacă la termenul copiilor de mesaje, ca restul.
+- **Exportul dădea și lucrările pe care nu le verificase încă nimeni** ([E14](E14-proiecte-elevi.md)
+  S4). Acum le dă pe cele trimise și le numără pe celelalte (`proiecteInVerificare`); adresa la care a
+  plecat o lucrare apare doar dacă e adresa garantată a familiei.
+- **O adresă cu majuscule nu era aceeași cutie poștală.** Înregistrarea și `forgot-password` o citesc
+  după `lower(email)`, dar căutările din export, ștergere și retenție comparau exact, deci o cerere
+  tastată de birou cu alte majuscule rămânea în urmă, cu numele și data nașterii copilului.
+- **Adresa unei familii rămânea pe o lucrare mutată la alt copil** ([E14](E14-proiecte-elevi.md) S7):
+  o lucrare trimisă și apoi mutată purta `sentToEmail` al familiei vechi, pe care portalul familiei
+  noi îl arăta, iar ștergerea n-o găsea. Mutarea golește acum trimiterea, iar ștergerea golește
+  adresa oriunde a rămas.
+- **Semnalele timpurii verificate retroactiv citeau banii de azi** ([E21](E21-raportare-analytics.md)
+  S7), iar **tabloul de bord** citea ziua serverului, număra orele anulate și număra facturi în loc de
+  familii ([E21](E21-raportare-analytics.md) S1).
+
+**Ce rămâne deschis**, scris aici în loc să fie descoperit:
+
+- **Copiile mesajelor către birou supraviețuiesc unei ștergeri la cerere.** „Cont nou de părinte:
+  Ana Pop", o absență anunțată, anunțul de mai sus — sunt adresate biroului, deci ștergerea, care
+  găsește mesajele după adresa familiei, nu le vede. Pleacă la termenul lor, 12 luni (E22 S3). O
+  ștergere care le-ar căuta după conținut ar trebui să ghicească numele în text.
+- **O familie al cărei cont a fost șters arată ca una tastată de birou.** `vouchedAddresses` citește
+  `user === null` ca „fără cont", deci adresa pe care și-o tastase familia primește încrederea
+  biroului. Cere un admin care șterge contul fără familie — ruta rămâne pentru rândul tastat greșit —,
+  deci e îngust; închiderea lui e o coloană care spune că rândul a avut cont.
+
 ### S5 · Bannerul de cookie-uri și blocarea scripturilor — livrat
 
 Bannerul care chiar **blochează scripturile neesențiale până la accept** — nu unul care anunță că

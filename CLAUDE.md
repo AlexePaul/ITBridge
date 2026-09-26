@@ -479,7 +479,17 @@ să primească un singur email. Trei consecințe de ținut minte:
   de pornire să nu se anuleze unul pe altul.
 - **Un părinte vede doar ce a fost trimis.** Restrângerea e în serviciu, ca peste tot, și adaugă
   `status = 'sent'` pe lângă restrângerea pe utilizator. Portalul nu are voie să fie portița prin
-  care se vede ce n-a verificat încă nimeni.
+  care se vede ce n-a verificat încă nimeni. **Nici exportul din E07 S4**, care le dădea pe toate
+  (revizuirea din 25 septembrie 2026): acum dă lucrările trimise și numără restul
+  (`proiecteInVerificare`). Iar rândul care ajunge la părinte e al lui, nu al biroului —
+  `ProjectService.forParent` scoate adresa la care a plecat, cine l-a mutat și de unde, și sursa.
+- **O lucrare trimisă și mutată la alt copil se întoarce la „De verificat"** (aceeași revizuire).
+  Mutarea schimba copilul și lăsa restul: rândul spunea „trimis" familiei noi, care nu primise nimic,
+  și purta pe el adresa familiei vechi — pe care portalul familiei noi o arăta. `reassign` golește
+  acum trimiterea (`sentAt`, `sentToEmail`, mesajul), iar biroul o trimite din nou, familiei potrivite;
+  pe cea care a primit-o din greșeală o sună. Scrierea e **condiționată** de starea citită, ca la
+  înscrieri: o trimitere venită între timp dă `PROJECT_CHANGED`, nu o lucrare mutată cu o adresă pe
+  care n-a mai verificat-o nimeni.
 - **Un eșec care nu se poate repeta cu folos e un refuz, nu o eroare.** Agentul tratează eșecul ca
   „mai încearcă" și lasă fișierul pe partajare — corect pentru o rețea picată, fiindcă partajarea
   _e_ coada. Un `.url` fără nicio adresă în el nu mai avea însă ce să încerce: rămânea în folder,
@@ -611,6 +621,15 @@ proba — și subiectul fiecărui mesaj al biroului, iar ștergerea le lua cu ea
 revendică nimic — citit invers, un apelant care uită join-ul ar da fiecărei adrese tastate
 încrederea biroului. Dacă adaugi a patra căutare după adresă, trece prin aceeași funcție:
 unicitatea printre profiluri nu face o adresă a familiei care a tastat-o.
+
+**Iar adresa se potrivește fără majuscule, ca peste tot în platformă** (aceeași revizuire).
+Înregistrarea, `forgot-password` și `UQ_profiles_email_lower` citesc o cutie poștală după
+`lower(email)`, dar căutările de aici comparau exact: familia înregistrată ca `Ana.Pop@gmail.com` nu
+își găsea în export cererea tastată de birou ca `ana.pop@gmail.com`, iar ștergerea lăsa în urmă
+numele și data nașterii copilului din ea. `leadsOfFamily`, `messagesOfFamily`, `claimsLead` și
+`RetentionService.answersToAFamily` compară acum pe `lower()`. Tot după adresa garantată, ștergerea
+golește și `Project.sentToEmail` rămas pe lucrări care nu mai sunt ale familiei: cascada ia lucrările
+copiilor ei, dar nu și una trimisă ei și mutată apoi la copilul altei familii.
 
 **Auth** — două roluri, `ADMIN` și `PARENT` (`apps/api/src/enum/role.enum.ts`). `register` creează
 întotdeauna `PARENT`; adminul se promovează manual prin DB sau `PUT /users/:id`. JWT în pereche
@@ -1419,6 +1438,15 @@ rândul cu el însuși; iar o salvare care n-a mișcat nimic nu scrie niciun râ
 adaugi un al treilea drum prin care un om atinge datele unei familii, cheamă aceeași ușă — nu
 `record` cu valori în ea.
 
+**Și la bani, textul liber lasă tot numele câmpului** (revizuirea din 25 septembrie 2026). Cifrele
+rămân cu valoarea lor — „350 a devenit 300" e rostul jurnalului —, dar trei dintre câmpurile pe care
+le consemnează scriitorii de bani sunt propoziții despre o familie: nota unei plăți (reconcilierea
+scrie acolo textul transferului, adică „plata martie Maria Pop"), motivul unei corecturi de ședințe
+(„a fost bolnavă") și numele unei reduceri. Copiate ca valori, erau singurul loc la care ștergerea
+din S4 nu ajungea. `FREE_TEXT_FIELDS` din `audit.rules.ts` le numește pe tip de rând, iar
+`AuditService.record` — ușa prin care trece orice intrare — le scrie `{ from: null, to: null }`.
+Dacă un scriitor nou consemnează un câmp tastat de un om despre o familie, îl treci în listă.
+
 **A treia categorie e accesul, și ea cade ușor între primele două** (E07 S3). Cine intră, cine e
 refuzat, cine devine admin, al cui cont dispare: cele patru scrieri din `apps/api/src/modules/user/`
 sunt deciziile prin care platforma spune cine o poate folosi, iar multă vreme n-au consemnat nimic —
@@ -1473,6 +1501,14 @@ factură). Diferă exact când o familie plătește târziu, deci nu alege unul 
 plățile `succeeded` sunt bani, iar `waived` se numără, nu se adună. Pragul de ocupare (60%) și prețul
 unui loc gol stau în `reports.rules.ts` și sunt propuneri afișate ca atare, nu decizii.
 
+**Tabloul de bord numără ziua școlii, orele care se țin și familiile** (revizuirea din 25
+septembrie 2026). Trei greșeli mici pe ecranul pe care îl deschide biroul primul: ziua se lua din
+ceasul serverului, deci între miezul nopții și 03:00 la București „orele de azi" erau cele de ieri;
+o oră anulată intra în „0 din N marcate", cu eticheta „Nemarcată" pe fiecare oră a unei zile libere;
+iar „peste 60 de zile" număra facturi, deși rândul de deasupra, și ecranul, vorbesc despre familii de
+sunat. Acum `OverviewService.build` pleacă de la `schoolDay`, lasă deoparte orele `cancelled` — cum
+face deja `findUnmarkedSessions`, care deține „nemarcat" — și numără părinți distincți.
+
 **Semnalele timpurii sunt patru liste și un email de luni, nu o acțiune** (E21 S7).
 `EarlySignalsService` (`apps/api/src/modules/dashboard/early-signals.service.ts`) cere fiecare
 listă de la cine deține definiția: restanțele repetate de la `ArrearsService.list`, grupele sub prag
@@ -1482,7 +1518,10 @@ absențe (și seria e „vie": ultimul marcaj sub trei săptămâni, altfel copi
 cărei medii pe ultimele trei ședințe ținute a căzut cu 20 de puncte față de cele trei dinainte.
 Toate pragurile sunt constante acolo și pleacă pe sârmă, ca ecranul să numească linia pe care o
 trage. **`asOf` e verificarea retroactivă**: marcajele și facturile se citesc așa cum stăteau în
-ziua cerută, ocuparea mereu azi — și răspunsul o spune. Digest-ul `EarlySignalsJob` pleacă luni la
+ziua cerută, ocuparea mereu azi — și răspunsul o spune. Restanțele vin de la
+`ArrearsService.asOf`, nu de la `list`: aceea citește starea facturii de acum și toate plățile, deci
+întrebată despre 2 martie după ce familia plătise pe 20 răspundea ca și cum banii veniseră pe 2, iar
+digest-ul care o numise luni nu se mai putea verifica (revizuirea din 25 septembrie 2026). Digest-ul `EarlySignalsJob` pleacă luni la
 08:00 pe ceasul școlii, prin outbox, cu `dedupeKey` `early-signals:<zi>`, și **doar când există ceva
 de semnalat**, ca mementourile de prezență și de lead-uri. Un semnal nu declanșează nimic — nici
 reducere, nici transfer, nici mesaj către familie; e un motiv de telefon, cu numărul lângă el.
@@ -1714,7 +1753,11 @@ același fapt. Patru lucruri:
 - **Retragerea anunță biroul în aceeași tranzacție**, fiindcă platforma nu publică nimic: site-ul e
   static și nu citește din ea, iar rețelele sociale sunt în afara ei. Verificarea „în momentul
   afișării" e deci `/admin/acorduri`, citită înainte să plece o lucrare spre site. Când revine vitrina
-  automată, interogarea ei citește aceeași tabelă — nu un instantaneu pus lângă.
+  automată, interogarea ei citește aceeași tabelă — nu un instantaneu pus lângă. **Ștergerea
+  familiei anunță la fel** (revizuirea din 25 septembrie 2026): acordul pleacă în cascadă odată cu
+  copilul, deci fără anunț biroul nu afla că o lucrare de pe site nu mai are acord și nici copil în
+  evidență. `ErasureService` cheamă `announceErasure` **înaintea** cascadei — după ea n-ar mai avea ce
+  citi.
 
 **Un mesaj care n-are unde să plece lasă un rând, nu o linie de log** (E17 S5). `queueOrRecord` din
 `OutboxService` primește destinatarul oricare ar fi el și scrie `undeliverable` cu motiv tipizat

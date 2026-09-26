@@ -575,10 +575,25 @@ copilului — aceeași proprietate pentru care merita insistat pe chei fără nu
 Ecranul arată adresa către care a plecat, când a plecat, și spune explicit să sune, nu să trimită un
 al doilea email.
 
-Urma corecției stă în trei coloane pe `Project` — de la cine, când, cine a mutat — **nu în audit
-log-ul din [E07](E07-securitate-gdpr.md) S3, care nu există.** Se mută acolo când e construit. A
-pierde „de la cine" ar face o livrare greșită netrasabilă, iar asta e o divulgare de date personale,
-nu o jenă.
+Urma corecției stă în trei coloane pe `Project` — de la cine, când, cine a mutat. **Audit log-ul din
+[E07](E07-securitate-gdpr.md) S3 există de atunci, dar mutarea nu scrie încă în el**, deci o a doua
+mutare o acoperă pe prima. Se mută acolo cu primul lucru care mai atinge ecranul. A pierde „de la
+cine" ar face o livrare greșită netrasabilă, iar asta e o divulgare de date personale, nu o jenă.
+
+**Revizuirea din 25 septembrie 2026: o lucrare trimisă și mutată se întoarce la „De verificat".**
+Mutarea schimba copilul și lăsa restul rândului, deci familia nouă vedea în portal o lucrare
+„trimisă" pe care n-o primise, cu adresa familiei vechi pe ea, iar „Trimite" o sărea fiindcă era deja
+trimisă — familia căreia îi aparținea n-avea cum să afle de ea. Acum mutarea golește trimiterea, iar
+biroul o trimite din nou, familiei potrivite; pe cea care a primit-o din greșeală tot o sună. Scrierea
+e condiționată de starea citită: o trimitere venită între timp dă `PROJECT_CHANGED` (409), nu o
+lucrare mutată peste o trimitere pe care n-a văzut-o nimeni. Tot de aici, rândul pe care îl primește
+un părinte nu mai poartă câmpurile biroului — adresa la care a plecat, cine l-a mutat și de unde,
+sursa —, iar exportul din E07 S4 dă doar lucrările trimise.
+
+**Ce rămâne deschis:** un mesaj încă în coadă — cele cel mult treizeci de secunde până la trecerea
+următoare a dispecerului — pleacă totuși către familia greșită, fiindcă mutarea nu retrage mesajul.
+Retragerea cere o stare nouă în `outbox` (un rând șters ar lăsa fără urmă un mesaj pe care
+dispecerul poate tocmai să-l trimită), deci e o schimbare a cozii, nu a ecranului.
 
 ## Dependențe
 
