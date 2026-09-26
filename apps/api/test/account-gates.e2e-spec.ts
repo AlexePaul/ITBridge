@@ -356,6 +356,48 @@ describe('Account gates (e2e)', () => {
             // "not given" rather than into a length-check failure.
             await request(app.getHttpServer()).post(`/users/${parent.userId}/reject`).set('Authorization', admin.auth).send({ reason: '' }).expect(200);
         });
+
+        /**
+         * The refusal mail and the portal both say "scrie-ne… ne uităm încă o dată", and approving a
+         * refused account always worked — but the queue lists only waiting accounts, so after
+         * "Respinge" the family was on no screen at all (review of 26 September 2026).
+         */
+        it('keeps a refused family findable, with the day of the decision, until somebody approves it after all', async () => {
+            const admin = await promoteToAdmin(app, dataSource, await registerUser(app, 'admin'));
+            const parent = await registerUser(app, 'ana', 'parola123', { active: false });
+            await request(app.getHttpServer()).post(`/users/${parent.userId}/reject`).set('Authorization', admin.auth).send({ reason: 'duplicat' }).expect(200);
+
+            const refused = await request(app.getHttpServer()).get('/users/rejected').set('Authorization', admin.auth).expect(200);
+            expect(refused.body).toHaveLength(1);
+            expect(refused.body[0]).toMatchObject({ userId: parent.userId, username: 'ana', email: 'ana@example.com', rejectionReason: 'duplicat' });
+            expect(refused.body[0].decidedAt).toEqual(expect.any(String));
+
+            await request(app.getHttpServer()).post(`/users/${parent.userId}/approve`).set('Authorization', admin.auth).expect(200);
+
+            const after = await request(app.getHttpServer()).get('/users/rejected').set('Authorization', admin.auth).expect(200);
+            expect(after.body).toHaveLength(0);
+        });
+
+        it('keeps the refused list to the office', async () => {
+            const parent = await registerUser(app, 'ana');
+
+            await request(app.getHttpServer()).get('/users/rejected').set('Authorization', parent.auth).expect(403);
+        });
+
+        it("shows the account's gates on the family page to the office, and not the admins' note to the family", async () => {
+            const admin = await promoteToAdmin(app, dataSource, await registerUser(app, 'admin'));
+            const parent = await registerUser(app, 'ana', 'parola123', { active: false });
+            await request(app.getHttpServer()).post(`/users/${parent.userId}/reject`).set('Authorization', admin.auth).send({ reason: 'duplicat' }).expect(200);
+            const profileId = await ownProfileId(app, parent);
+
+            const office = await request(app.getHttpServer()).get(`/profiles?profileId=${profileId}`).set('Authorization', admin.auth).expect(200);
+            expect(office.body[0].account).toMatchObject({ userId: parent.userId, approvalStatus: 'REJECTED', emailConfirmed: false });
+            expect(office.body[0].account.approvalDecidedAt).toEqual(expect.any(String));
+
+            const family = await request(app.getHttpServer()).get('/profiles').set('Authorization', parent.auth).expect(200);
+            expect(family.body[0]).not.toHaveProperty('account');
+            expect(JSON.stringify(family.body)).not.toContain('duplicat');
+        });
     });
 
     describe('enrolment', () => {

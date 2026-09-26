@@ -1,1 +1,1 @@
-export type { Profile, ProfileSummary } from "@itbridge/types";
+export type { Profile, ProfileAccount, ProfileSummary } from "@itbridge/types";

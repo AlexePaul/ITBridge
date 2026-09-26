@@ -1,4 +1,6 @@
 import type { Child } from './child';
+import type { ISODateTime } from './common';
+import type { ApprovalStatus } from './user';
 
 /**
  * Contact fields are nullable in `profile.entity.ts`. An admin can create a profile with nothing but
@@ -50,4 +52,18 @@ export interface Profile extends ProfileSummary {
     children: Child[];
     /** Derived, not stored: tells whether the profile has a `User` attached. */
     hasUser?: boolean;
+    /**
+     * The account's gates, as the office reads them on the family page — present only for an admin,
+     * `null` for a family with no account. The state and the day of the decision, never the admins'
+     * note on it: a family reads its own profile through the same route.
+     */
+    account?: ProfileAccount | null;
+}
+
+/** The account behind a family, for the office — `Profile.account`. */
+export interface ProfileAccount {
+    userId: number;
+    approvalStatus: ApprovalStatus;
+    approvalDecidedAt: ISODateTime | null;
+    emailConfirmed: boolean;
 }

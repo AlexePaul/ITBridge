@@ -78,6 +78,33 @@
             Fără o adresă de email în fișă, linkul de cont nu are unde pleca.
           </p>
         </div>
+
+        <!-- Review of 26 September 2026: the account's gates, and a way to approve a refused family
+             again — the refusal mail tells it „ne uităm încă o dată", and this is where somebody
+             who looks again can act on it. -->
+        <div
+          v-else-if="profile.account"
+          class="mt-6 border-t border-default pt-4 flex flex-wrap items-center gap-3"
+        >
+          <UBadge :color="account.color" variant="subtle">{{ account.label }}</UBadge>
+          <p class="text-sm text-muted flex-1 min-w-0">
+            <template v-if="profile.account.approvalDecidedAt">
+              Decizie luată pe {{ formatDate(profile.account.approvalDecidedAt) }}.
+            </template>
+            <template v-if="!profile.account.emailConfirmed">
+              Adresa de email nu e confirmată încă.
+            </template>
+          </p>
+          <UButton
+            v-if="account.canApprove"
+            icon="i-lucide-check"
+            class="min-h-11"
+            :loading="approvalBusy"
+            @click="approveAccount"
+          >
+            Aprobă
+          </UButton>
+        </div>
       </UCard>
 
       <!-- Children Information Card -->
@@ -479,6 +506,8 @@ import {
   type ErasureRequestChannel,
 } from "~/composables/api/usePrivacyApi";
 import { useProfileApi } from "~/composables/api/useProfileApi";
+import { useUserApi } from "~/composables/api/useUserApi";
+import { accountState } from "~/composables/useAccountState";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useNotifications } from "~/composables/useNotifications";
 import { formatDateKey, formatMonth } from "~/composables/useAdminFormat";
@@ -563,6 +592,36 @@ const sendAccountClaim = async () => {
     error(apiErrorMessage(err, "Nu am putut trimite linkul de cont."));
   } finally {
     claimBusy.value = false;
+  }
+};
+
+/**
+ * The account's gates, from `Profile.account` — present for an admin only. „Aprobă" is the same
+ * `POST /users/:id/approve` the queue uses, which has always accepted a refused account.
+ */
+const userApi = useUserApi();
+const approvalBusy = ref(false);
+const account = computed(() => accountState(profile.value?.account));
+
+const approveAccount = async () => {
+  const current = profile.value?.account;
+  if (!profile.value || !current || approvalBusy.value) return;
+  approvalBusy.value = true;
+  try {
+    await userApi.approveAccount(current.userId);
+    profile.value = {
+      ...profile.value,
+      account: {
+        ...current,
+        approvalStatus: "APPROVED",
+        approvalDecidedAt: new Date().toISOString(),
+      },
+    };
+    success("Cont aprobat", "Familia a fost anunțată prin email.");
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut aproba contul."));
+  } finally {
+    approvalBusy.value = false;
   }
 };
 
