@@ -119,8 +119,10 @@
             <p class="text-sm">
               Emailul a plecat deja către
               <span class="font-mono">{{ reassigning?.sentToEmail }}</span
-              >. Mută documentul și <strong>sună familia</strong> — un al doilea email care spune
-              „ignorați ce ați primit" atrage atenția asupra lucrării mai mult decât un telefon.
+              >. Mutat, documentul se întoarce la „De verificat”, ca să-l trimiți familiei
+              potrivite. Pe familia care l-a primit din greșeală <strong>o suni</strong> — un al
+              doilea email care spune „ignorați ce ați primit" atrage atenția asupra lucrării mai
+              mult decât un telefon.
             </p>
           </UCard>
           <UFormField label="Copilul căruia îi aparține">
@@ -341,11 +343,16 @@ function openReassign(project: Project) {
 
 async function confirmReassign() {
   if (!reassigning.value || !reassignChildId.value) return;
+  const wasSent = reassigning.value.status === "sent";
   busy.value = true;
   try {
     await reassignProject(reassigning.value.id, reassignChildId.value);
     reassignOpen.value = false;
-    notifications.success("Documentul a fost mutat");
+    // A sent document is back in review: the family it now belongs to has not been sent anything.
+    notifications.success(
+      "Documentul a fost mutat",
+      wasSent ? "E din nou la „De verificat”. Trimite-l familiei potrivite." : undefined
+    );
     await load();
   } catch (err) {
     notifications.error("Nu am putut muta documentul", apiErrorMessage(err));

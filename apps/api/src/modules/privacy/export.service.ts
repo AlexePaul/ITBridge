@@ -13,7 +13,9 @@ import { AbsenceNotice } from 'src/entities/absence-notice.entity';
 import { SessionCountOverride } from 'src/entities/session-count-override.entity';
 import { Project } from 'src/entities/project.entity';
 import { Lead } from 'src/entities/lead.entity';
-import { leadsOfFamily, messagesOfFamily } from './family-rows';
+import { leadsOfFamily, messagesOfFamily, vouchedAddresses } from './family-rows';
+import { sameAddress } from 'src/common/same-address';
+import { ProjectStatus } from 'src/enum/project-status.enum';
 import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { Session } from 'src/entities/session.entity';
 import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
@@ -161,6 +163,7 @@ export class ExportService {
         // `vouchedAddresses`: this document is everything the school holds, so an unproven match
         // is somebody else's child.
         const leads = await this.leads.find({ where: leadsOfFamily(profile), order: { id: 'ASC' } });
+        const vouched = vouchedAddresses(profile);
 
         // The queue has no relation to a profile — it is shared, and it also writes to the office —
         // so it is searched by address, exactly as the inventory says E07 S4 would have to.
@@ -251,18 +254,25 @@ export class ExportService {
                 corecturiDeSedinte: overrides
                     .filter((row) => row.child?.id === child.id)
                     .map((row) => ({ luna: row.monthIssued, sedinte: row.sessions, motiv: row.reason ?? null })),
+                // Only what the office has sent — the review of 25 September 2026. A document still
+                // `new` has been seen by nobody: a file saved into the wrong folder is another child's
+                // work under this child's name, and every other read a parent has — the list, the
+                // link, the archive — already stops at `sent`. The rest is a number, not a list.
                 proiecte: projects
-                    .filter((row) => row.child?.id === child.id)
+                    .filter((row) => row.child?.id === child.id && row.status === ProjectStatus.SENT)
                     .map((row) => ({
                         titlu: row.title,
                         descriere: row.description ?? null,
                         realizatLa: toDay(row.capturedOn),
                         stare: row.status,
                         trimisLa: row.sentAt?.toISOString() ?? null,
-                        trimisLaAdresa: row.sentToEmail ?? null,
+                        // The address it went to, when that is one of this family's. A document sent to
+                        // one family and then moved to this child (E14 S7) was sent to somebody else.
+                        trimisLaAdresa: row.sentToEmail && sameAddress(row.sentToEmail, vouched.email) ? row.sentToEmail : null,
                         fisiere: (row.versions ?? []).flatMap((version) => (version.files ?? []).map((file) => file.originalName)),
                         legaturi: (row.links ?? []).map((link) => ({ eticheta: link.label, adresa: link.url })),
                     })),
+                proiecteInVerificare: projects.filter((row) => row.child?.id === child.id && row.status !== ProjectStatus.SENT).length,
                 // E07/S2: every consent, the ones taken back included — "when did we allow it, and
                 // when did we stop" is the question a family asking for its record would have.
                 acorduriPentruLucrari: consents

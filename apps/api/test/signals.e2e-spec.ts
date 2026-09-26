@@ -224,6 +224,17 @@ describe('Early signals (e2e)', () => {
 
             const after = await signalsAt('2026-03-24');
             expect(after.body.families).toEqual([expect.objectContaining({ parentId: profileB, invoices: 2, outstanding: 1200, oldestDaysOverdue: 64 })]);
+
+            // Asked about a day before that payment, family A was still two behind: the check is
+            // retrospective, and the digest that named them on the Monday has to stay checkable.
+            // It answered as if the money had come on the day asked about (review of 25 September 2026).
+            const before = await signalsAt('2026-03-10');
+            expect((before.body.families as { parentId: number; invoices: number }[]).map((family) => [family.parentId, family.invoices]).sort()).toEqual(
+                [
+                    [profileA, 2],
+                    [profileB, 2],
+                ].sort(),
+            );
         });
     });
 });

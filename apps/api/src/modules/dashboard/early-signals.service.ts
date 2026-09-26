@@ -327,7 +327,7 @@ export class EarlySignalsService {
 
     /** Families two or more invoices past due, from the arrears list as it stood on `asOf`. */
     private async familySignals(asOf: Date): Promise<FamilyArrearsSignal[]> {
-        const rows = await this.arrears.list(asOf);
+        const rows = await this.arrears.asOf(asOf);
         const names = new Map(rows.map((row) => [row.parentId, { name: row.parentName, email: row.email, phone: row.phone }]));
         return familiesInArrears(rows).map((family) => {
             const who = names.get(family.parentId);

@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, LessThan, Not, Repository } from 'typeorm';
+import { DataSource, IsNull, LessThan, Not, Repository, Raw } from 'typeorm';
 import { Profile } from 'src/entities/profile.entity';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
@@ -378,7 +378,10 @@ export class RetentionService {
      */
     private async answersToAFamily(lead: Lead): Promise<boolean> {
         const clauses = [
-            ...(lead.parentEmail ? [{ email: lead.parentEmail, erasedAt: IsNull() }] : []),
+            // Any capitals: one mailbox, as `claimsLead` now reads it too.
+            ...(lead.parentEmail
+                ? [{ email: Raw((column) => `lower(${column}) = lower(:mailbox)`, { mailbox: lead.parentEmail.trim() }), erasedAt: IsNull() }]
+                : []),
             ...(lead.parentPhone ? [{ phone: lead.parentPhone, erasedAt: IsNull() }] : []),
         ];
         if (clauses.length === 0) return false;

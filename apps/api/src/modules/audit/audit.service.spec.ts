@@ -63,6 +63,66 @@ describe('AuditService', () => {
         });
     });
 
+    /**
+     * The review of 25 September 2026. The bank reconciliation writes a transfer's own text into
+     * the payment's note — "plata martie Maria Pop" — and the note was copied into the trail as a
+     * value, where the family's erasure cannot reach and the entry outlives them by design.
+     */
+    describe('free text about a family', () => {
+        it("keeps a payment note's name and not its words, while the figures stay", async () => {
+            await service.record(
+                {
+                    actor: ACTOR,
+                    action: AuditAction.CREATED,
+                    entityType: 'Payment',
+                    entityId: 57,
+                    changes: {
+                        amount: { from: null, to: 350 },
+                        notes: { from: null, to: 'Din extrasul bancar, 2026-03-05: plata martie Maria Pop' },
+                    },
+                },
+                manager as never,
+            );
+
+            expect(managerRepo.insert).toHaveBeenCalledWith(
+                expect.objectContaining({ changes: { amount: { from: null, to: 350 }, notes: { from: null, to: null } } }),
+            );
+        });
+
+        it('does the same for an override reason and a discount name, on every path in', async () => {
+            await service.recordUpdate(
+                {
+                    actor: ACTOR,
+                    entityType: 'SessionCountOverride',
+                    entityId: 3,
+                    before: { sessions: 4, reason: null },
+                    after: { sessions: 3, reason: 'a fost bolnavă' },
+                    fields: ['sessions', 'reason'],
+                },
+                manager as never,
+            );
+            await service.record(
+                {
+                    actor: ACTOR,
+                    action: AuditAction.DELETED,
+                    entityType: 'Discount',
+                    entityId: 8,
+                    changes: { name: { from: 'Reducere pentru Ioana', to: null }, value: { from: 50, to: null } },
+                },
+                manager as never,
+            );
+
+            expect(managerRepo.insert).toHaveBeenNthCalledWith(
+                1,
+                expect.objectContaining({ changes: { sessions: { from: 4, to: 3 }, reason: { from: null, to: null } } }),
+            );
+            expect(managerRepo.insert).toHaveBeenNthCalledWith(
+                2,
+                expect.objectContaining({ changes: { name: { from: null, to: null }, value: { from: 50, to: null } } }),
+            );
+        });
+    });
+
     describe('recordUpdate', () => {
         const params = {
             actor: ACTOR,

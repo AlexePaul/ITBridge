@@ -288,6 +288,73 @@ describe('Student projects (e2e)', () => {
             expect(elenaSees.body).toHaveLength(1);
         });
 
+        /**
+         * The review of 25 September 2026, E14 S7's own case: Ioana's drawing, saved in Andrei's folder,
+         * went to Maria. Moved to Ioana it stayed `sent` — so "Trimite" skipped it and Elena was never
+         * told — and Elena's portal carried Maria's address and Andrei's id on it.
+         */
+        it('sends a document moved after it went out to the right family, without the other one’s details', async () => {
+            const misfiled = await ingest(andreiId, 'desen.png', PNG);
+            const id = misfiled.body.id as number;
+            await request(app.getHttpServer())
+                .post('/projects/send')
+                .set('Authorization', admin.auth)
+                .send({ projectIds: [id] })
+                .expect(201);
+
+            const moved = await request(app.getHttpServer())
+                .put(`/projects/${id}/reassign`)
+                .set('Authorization', admin.auth)
+                .send({ childId: ioanaId })
+                .expect(200);
+            expect(moved.body).toMatchObject({ status: 'new', sentAt: null, sentToEmail: null });
+
+            await request(app.getHttpServer())
+                .post('/projects/send')
+                .set('Authorization', admin.auth)
+                .send({ projectIds: [id] })
+                .expect(201);
+            const toElena = await dataSource.query<{ count: number }[]>(
+                `SELECT COUNT(*)::int AS count FROM "outbox" WHERE "to" = (SELECT email FROM profiles p JOIN users u ON u.id = p.user_id WHERE u.username = $1)`,
+                [elena.username],
+            );
+            expect(toElena[0].count).toBeGreaterThan(0);
+
+            const elenaSees = await request(app.getHttpServer()).get('/projects').set('Authorization', elena.auth).expect(200);
+            expect(elenaSees.body).toHaveLength(1);
+            for (const field of ['sentToEmail', 'reassignedFromChildId', 'reassignedAt', 'sentOutboxMessageId', 'source']) {
+                expect(elenaSees.body[0]).not.toHaveProperty(field);
+            }
+            const byLink = await request(app.getHttpServer())
+                .get(`/projects/link/${misfiled.body.publicId as string}`)
+                .set('Authorization', elena.auth)
+                .expect(200);
+            expect(byLink.body).not.toHaveProperty('sentToEmail');
+            expect(byLink.body).not.toHaveProperty('reassignedFromChildId');
+        });
+
+        /**
+         * The family's copy of its data listed every project, reviewed or not — and a document still
+         * `new` may be another child's work under this child's name, with the other child's name as
+         * its title. Every other read a parent has stops at `sent`.
+         */
+        it('gives a family its sent work in its data export, and only a count of the rest', async () => {
+            const sent = await ingest(ioanaId, 'robot.png', PNG);
+            await ingest(ioanaId, 'Andrei_labirint.png', Buffer.concat([PNG, Buffer.from([0])]));
+            await request(app.getHttpServer())
+                .post('/projects/send')
+                .set('Authorization', admin.auth)
+                .send({ projectIds: [sent.body.id as number] })
+                .expect(201);
+
+            const exported = await request(app.getHttpServer()).get('/privacy/export').set('Authorization', elena.auth).expect(200);
+
+            const ioana = (exported.body.copii as { proiecte: { titlu: string }[]; proiecteInVerificare: number }[])[0];
+            expect(ioana.proiecte).toHaveLength(1);
+            expect(ioana.proiecteInVerificare).toBe(1);
+            expect(JSON.stringify(exported.body)).not.toContain('Andrei_labirint');
+        });
+
         it('lets a parent report a document, and nothing more', async () => {
             const andrei = await ingest(andreiId, 'robot.png', PNG);
             await request(app.getHttpServer())

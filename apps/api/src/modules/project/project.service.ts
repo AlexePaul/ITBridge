@@ -364,7 +364,8 @@ export class ProjectService {
         if (filters.dateFrom) qb.andWhere('project.capturedOn >= :from', { from: filters.dateFrom });
         if (filters.dateTo) qb.andWhere('project.capturedOn <= :to', { to: filters.dateTo });
 
-        return qb.orderBy('project.capturedOn', 'DESC').addOrderBy('project.id', 'DESC').getMany();
+        const projects = await qb.orderBy('project.capturedOn', 'DESC').addOrderBy('project.id', 'DESC').getMany();
+        return role === Role.ADMIN ? projects : projects.map((project) => ProjectService.forParent(project));
     }
 
     /**
@@ -394,7 +395,7 @@ export class ProjectService {
             }
         }
 
-        return ProjectService.withoutAccount(project);
+        return role === Role.ADMIN ? ProjectService.withoutAccount(project) : ProjectService.forParent(project);
     }
 
     async findOne(id: number, role: Role, userId: number): Promise<Project> {
@@ -475,16 +476,34 @@ export class ProjectService {
             throw new ConflictException({ message: 'The document is already assigned to that child.', error: 'PROJECT_ALREADY_ASSIGNED' });
         }
 
-        project.reassignedFromChildId = project.child.id;
-        project.reassignedAt = new Date();
-        project.reassignedBy = { id: userId } as never;
-        project.child = target;
         // The session belonged to the previous child's group, so it is re-derived rather than
         // carried across: a document moved between groups would otherwise point at a class the new
         // child was never in.
-        project.classSession = await this.findSessionFor(target, toIsoDate(project.capturedOn));
+        const session = await this.findSessionFor(target, toIsoDate(project.capturedOn));
+        const wasSent = project.status === ProjectStatus.SENT;
 
-        await this.projectRepository.save(project);
+        // A targeted write, and only while the row is still in the state read above (review of
+        // 25 September 2026). `save` wrote back every column of the copy read before, so a send
+        // committed in between went back to `new` with its address and message cleared — the
+        // trap CLAUDE.md names for `updateInvoice` — while its email stayed queued.
+        const moved = await this.projectRepository.update(
+            { id: projectId, status: project.status },
+            {
+                child: { id: target.id },
+                classSession: session ? { id: session.id } : null,
+                reassignedFromChildId: project.child.id,
+                reassignedAt: new Date(),
+                reassignedBy: { id: userId },
+                // Sent means sent to the wrong family: the address, the day and the message were
+                // theirs. Back in review, the office can send it to the right one — "Trimite" skips a
+                // document already sent, so the family it belonged to could never be told, and the
+                // other family's address stayed on a row that is now this child's.
+                ...(wasSent ? { status: ProjectStatus.NEW, sentAt: null, sentToEmail: null, sentOutboxMessageId: null } : {}),
+            },
+        );
+        if (!moved.affected) {
+            throw new ConflictException({ message: 'The document changed while it was being moved; reload and try again.', error: 'PROJECT_CHANGED' });
+        }
         return this.requireProject(projectId);
     }
 
@@ -622,6 +641,25 @@ export class ProjectService {
      * across its cases, and stripping it in one turned the *next* case's ownership check into a 403
      * against `undefined`. Production loads a fresh row per request and would not have shown it.
      */
+    /**
+     * What a parent may read of a project — the inventory's `readableBy`, applied (review of 25
+     * September 2026). The rows went out whole, so a family whose child was given a document moved
+     * from another child (E14 S7) read the other family's email address in `sentToEmail` and the
+     * other child's id in `reassignedFromChildId`. `withRecorder` does the same for payments.
+     */
+    private static forParent(project: Project): Project {
+        const {
+            sentToEmail: _sentToEmail,
+            sentOutboxMessageId: _message,
+            reassignedAt: _reassignedAt,
+            reassignedFromChildId: _reassignedFrom,
+            reassignedBy: _reassignedBy,
+            source: _source,
+            ...visible
+        } = ProjectService.withoutAccount(project);
+        return visible as Project;
+    }
+
     private static withoutAccount(project: Project): Project {
         if (!project.child?.parent) return project;
         const { user: _user, ...parent } = project.child.parent;
