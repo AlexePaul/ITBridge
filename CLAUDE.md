@@ -502,7 +502,13 @@ să primească un singur email. Trei consecințe de ținut minte:
   doua oară când lucrul ăla se întâmplă din nou. Mementoul probei a fost al doilea caz, găsit în
   revizuirea din 25 septembrie 2026: era cheiat pe lead, iar de când ora unui lead se poate schimba —
   o probă mutată în altă grupă — cheia poartă și ora (`trial-reminder:<lead>:<oră>`, la fel
-  recontactarea).
+  recontactarea). Și **începutul orei**, nu doar rândul ei: `moveSession` păstrează rândul, deci
+  mementoul pentru marți consuma cheia, iar cel pentru ora mutată pe joi era refuzat ca duplicat —
+  familia venea marți. Cheia e acum `trial-reminder:<lead>:<oră>:<YYYY-MM-DDTHH:mm>`. Al treilea caz
+  e programarea **fără** oră de pe `/proba`: cheia ei n-avea nimic care să treacă, deci o familie
+  căreia i s-a spus în martie că nu e loc și care a întrebat din nou în septembrie primea răspunsul
+  din rândul din martie, deja pierdut, fără să se scrie nimic. Poartă acum ziua școlii — două apăsări
+  într-o seară sunt o cerere, luna viitoare e alta (`bookingKeyFor`).
 
 **Miniatura are două drumuri, iar al doilea nu e o coadă nouă** (E14 S3b). O imagine primește poza
 în cererea care o încarcă, după commit; un video și un `.sb3` n-au cum — primul fiindcă octeții lui
@@ -1724,11 +1730,17 @@ nelivrabil — una inventată n-ar putea fi deosebită de una reală care a resp
 
 - `failed` — furnizorul a refuzat definitiv, sau s-au consumat cele șapte încercări.
 - `undeliverable` — n-a avut unde să plece, de mai sus.
-- **`stuck` — și ăsta nu e o stare, e un ceas.** Un mesaj pe care dispecerul nu l-a revendicat
-  rămâne `pending`, adică arată exact ca unul care își așteaptă backoff-ul; singura diferență e
-  `nextAttemptAt`, care a trecut. Pragul e `STUCK_AFTER_MINUTES` din `outbox-health.rules.ts`:
-  cincisprezece minute, adică **treizeci de ticuri ratate** la `POLL_INTERVAL_MS` de 30 de secunde,
-  și pleacă pe sârmă ca să numească ecranul linia, nu s-o deseneze a doua oară.
+- **`stuck` — și ăsta nu e o stare, e un ceas. De fapt, două.** Un mesaj pe care dispecerul nu l-a
+  revendicat rămâne `pending`, adică arată exact ca unul care își așteaptă backoff-ul; singura
+  diferență e `nextAttemptAt`, care a trecut. Al doilea ceas e pentru coada care revendică și dă
+  totul înapoi: fără `MAIL_RESEND_API_KEY`, fiecare trecere întoarce încercarea și mută
+  `nextAttemptAt` cu două minute, deci primul ceas nu suna niciodată — trei zile de coadă care nu
+  trimitea nimic, cu tile-ul pe zero (revizuirea din 25 septembrie 2026). Se numără deci și un mesaj
+  **niciodată predat unui furnizor** (`attempts = 0`) la un sfert de oră după ce a fost scris; unul
+  care a fost încercat și își așteaptă backoff-ul e pe drum, nu blocat. Pragul e
+  `STUCK_AFTER_MINUTES` din `outbox-health.rules.ts`: cincisprezece minute, adică **treizeci de
+  ticuri ratate** la `POLL_INTERVAL_MS` de 30 de secunde, și pleacă pe sârmă ca să numească ecranul
+  linia, nu s-o deseneze a doua oară.
 
 Tile-ul scria „Mesaje nelivrate" și număra doar al doilea fel, deci un mesaj refuzat de furnizor
 arăta zero, iar o coadă **oprită de tot** arăta tot zero — exact defecțiunea pe care epicul o
@@ -1750,7 +1762,10 @@ incluse, deduplicate **per părinte**. Patru lucruri care se ratează ușor:
   școală în subiect și corp, fără diacritice și pe cuvinte întregi, iar rezultatul e **avertisment cu
   confirmare** (`ANNOUNCEMENT_NAMES_A_CHILD` plus `acknowledgeWarnings`), aceeași formă ca vârsta de
   la E11 S6. Blocajul ar fi greșit: Maria e și sală, și stradă, iar o verificare care se declanșează
-  mereu devine o bifă apăsată reflex.
+  mereu devine o bifă apăsată reflex. Caută și genitiv-dativul unui nume în -a („diploma
+  **Mariei**"), forma pe care o ia o felicitare. Iar ecranul confirmă **doar avertismentele pe care
+  le-a arătat**: trimitea `acknowledgeWarnings: true` mereu, iar cât aștepta previzualizarea (400
+  ms) butonul trimitea peste previzualizarea veche.
 - **`kind` decide dacă se consultă `marketingOptIn`.** `transactional` (implicit) ajunge la toți,
   `marketing` trece prin `queueMarketing`. Fără el, ecranul ăsta ar fi fost portița prin care orice
   mesaj ajunge la orice familie, indiferent de comutatorul din E17 S4.
@@ -1781,11 +1796,17 @@ Patru reguli pe care le încalci ușor:
 
 - **Patru din cele șase stări nu se scriu de la niciun ecran.** `trial_scheduled` vine din
   programare, `trial_held` din catalog (`LeadProgressService`, chemat din
-  `AttendanceService.settleLead` — singurul lucru pe care marcarea îl mai decontează), iar
-  `enrolled` / `lost` din `resolveTrial` în E11. `UpdateLeadDto` **nu are câmp
-  `status`**, iar cele două stări pe care le declară un om au endpoint-uri proprii. Un câmp de stare
-  pe un PATCH ar lăsa un ecran să scrie `înscris` pe o familie pe care n-a înscris-o nimeni — și aia
-  e cifra pe care se sprijină tot raportul de pâlnie.
+  `AttendanceService.settleLead` — singurul lucru pe care marcarea îl mai decontează, pe oricare din
+  cele trei drumuri ale unui marcaj), iar `enrolled` / `lost` din `resolveTrial` în E11.
+  `UpdateLeadDto` **nu are câmp `status`**, iar cele două stări pe care le declară un om au
+  endpoint-uri proprii. Un câmp de stare pe un PATCH ar lăsa un ecran să scrie `înscris` pe o familie
+  pe care n-a înscris-o nimeni — și aia e cifra pe care se sprijină tot raportul de pâlnie. Trei
+  urmări, din revizuirea din 25 septembrie 2026: proba se socotește ținută la **orice oră a grupei ei
+  de la cea programată încolo** (recontactarea o invită chiar la alta, iar proba stă în fiecare oră
+  până e decisă), iar lead-ul ia ora la care a venit copilul; **„Pierdut" pe un lead cu proba în
+  vigoare trece prin `resolveTrial`** — scria doar lead-ul, iar copilul rămânea pe scaun, grupa
+  plină și lista neanunțată; iar rata cerere→probă se socotește din familiile pe care școala le putea
+  așeza, fără cererile `noSeats`, pe zilele școlii, nu pe ale UTC.
 - **Orele se filtrează pe dată, nu pe grupă.** Ce alege părintele e o zi, iar o grupă cu un loc
   liber n-are niciunul în ziua în care biroul a mutat deja un copil acolo — și are din nou săptămâna
   următoare. Lista cere `freeSeatsAtSessions` pentru toate orele pe care e pe cale să le ofere,
@@ -1798,19 +1819,33 @@ Patru reguli pe care le încalci ușor:
   de după ea a grupei mai au un loc**: proba ține scaunul până o decide cineva, deci stă și în orele
   următoare, iar `enrol` refuză o probă pe care o oră de mai târziu n-o mai încape. Lista citește de
   aceea toate orele din față, nu doar cele trei săptămâni oferite — altfel oferea o zi la care
-  programarea răspundea „nu mai sunt locuri".
+  programarea răspundea „nu mai sunt locuri". **O oră mutată la altă oră sau la cealaltă adresă nu
+  se oferă sub grupă**: lista tipărește ora și adresa grupei o dată, deasupra datelor, deci ar fi
+  vândut-o unde și când nu e. Confirmarea, mementoul și recontactarea spun adresa **sălii orei**, nu
+  pe cea obișnuită a grupei.
 - **Formularul nu se termină niciodată într-o eroare.** Fără loc liber, cu ultimul loc luat între
   timp, sau fără nicio oră potrivită — toate trei scriu un lead marcat `noSeats` și răspund „te
   contactăm noi". Asta nu înseamnă că ascunde o greșeală de tastare: un email sau un telefon greșit
   e oprit sub câmp, iar un refuz al serverului se arată cum l-a scris el — fiecare câmp pe care îl
   poate greși un părinte are propoziția lui în română în `BookTrialDto`. Pagina spunea „încearcă din
-  nou sau sună-ne" peste orice, adică arăta o greșeală de tastare ca pe o defecțiune a școlii. Cel mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca
-  școala să știe că a trecut pe acolo. Numărul ăla e și singura măsură a cererii pe care școala nu o
+  nou sau sună-ne" peste orice, adică arăta o greșeală de tastare ca pe o defecțiune a școlii. Cel
+  mai prost rezultat nu e o pagină de eroare, e o familie care pleacă fără ca școala să știe că a
+  trecut pe acolo. Numărul ăla e și singura măsură a cererii pe care școala nu o
   poate servi: cine nu găsește oră nu intră în nicio rată de conversie.
 - **`lastActivityAt` e o coloană proprie, nu `updatedAt`.** Job-ul de memento nu scrie în ea, deci un
   lead nu poate deveni „proaspăt" fiindcă a fost amintit.
-- **Un catalog nemarcat nu e o absență.** Recontactarea după neprezentare cere ca ședința să fi fost
-  marcată de cineva; altfel i-am spune unei familii că a lipsit de la o oră la care poate a fost.
+- **Un catalog nemarcat nu e o absență — și nici un copil nemarcat.** Recontactarea după
+  neprezentare cere un marcaj de absent **pentru copilul ăla**; altfel i-am spune unei familii că a
+  lipsit de la o oră la care poate a fost. Întreba doar dacă fusese marcat cineva în oră, iar
+  catalogul de pe telefon se ia o atingere pe rând: o oră cu marcaje în ea putea să nu fi spus nimic
+  despre copilul la probă.
+- **O familie programată pe `/proba` se scrie la adresa lăsată în formular.** Profilul ei e o coajă
+  fără adresă, dinadins, iar tot ce scrie unei familii citea `profile.email` — ora anulată, ora
+  mutată, grupa mutată pe altă zi, anunțul către grupă —, deci fiecare mesaj ajungea un rând
+  `undeliverable`, iar familia venea la o sală goală. `bookingAddresses`
+  (`apps/api/src/modules/mail/booking-address.ts`) dă, pentru un profil fără adresă, emailul celui
+  mai nou lead legat de el; notificatorul orelor și audiența anunțului îl citesc amândouă. Dacă
+  adaugi un al treilea expeditor către „familiile grupei", treci pe acolo.
 
 **Pagina `/proba` e una dintre cele două pagini publice care ating backend-ul** — cealaltă e
 `/dezabonare` din E17/S4 —, ceea ce contrazice regula de mai sus doar în aparență: orele se încarcă
