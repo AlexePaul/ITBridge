@@ -1564,6 +1564,16 @@ scrie orice mașină din școală. Miniatura e altceva: octeții ei au fost prod
 deci un poliglot valid și ca imagine și ca altceva n-a supraviețuit reîncodării. Are `nosniff`
 oricum. Nu extinde excepția la altceva.
 
+**Fiecare răspuns al API-ului poartă antetele de securitate, iar implicit nu se păstrează în cache**
+(27 septembrie 2026). `SecurityHeadersMiddleware` (`apps/api/src/common/security-headers.middleware.ts`)
+pune HSTS pe un an (fără `includeSubDomains`: API-ul nu vorbește pentru celelalte host-uri ale
+școlii), `nosniff`, interdicția de încadrare și `Referrer-Policy: no-referrer`, și scoate
+`X-Powered-By: Express`. Stă în cod, nu în Caddy, fiindcă configurația proxy-ului nu e în repo, iar un
+antet pe care nu-l poate citi nimeni la review e unul despre care nu observă nimeni că lipsește.
+`Cache-Control: no-store` e implicitul — facturile unei familii citite pe calculatorul comun al
+biroului n-au ce căuta în cache-ul lui —, iar un handler care vrea cache îl cere cu `@Header`, cum
+face miniatura (`private, max-age=3600`); al lui îl înlocuiește pe cel implicit.
+
 **`outbox.attachments` ține chei, nu octeți.** Obiectul se citește din bucket în secunda în care
 mesajul e predat furnizorului. Base64 în coloană ar îngrășa fiecare interogare de revendicare pentru
 date de care e nevoie o dată; iar un obiect care lipsește nu oprește mesajul — pleacă fără poză.

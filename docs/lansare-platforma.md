@@ -70,4 +70,6 @@ producției; secretele JWT scurte, egale sau implicite. Mesajul numește variabi
   SmartBill în câteva minute, iar familiile primesc emailul când factura are număr.
 - Primul extras de bancă (CSV) importat în `/admin/reconciliere`: parserul citește capul de tabel, nu o
   bancă anume, dar primul extras real e prima verificare pe formatul băncii școlii.
-- `/admin/livrari` și tabloul de bord arată dacă a rămas vreun mesaj nelivrat sau blocat.
+- `/admin/livrari` și tabloul de bord arată dacă a rămas vreun mesaj nelivrat sau blocat — și cui:
+  un mesaj fără adresă numește familia, de obicei una trecută de la telefon fără email. Adresa se
+  completează în fișa familiei.
