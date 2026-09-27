@@ -404,6 +404,80 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
         ),
     },
     {
+        key: 'account-suspended',
+        name: 'Contul a fost suspendat',
+        description:
+            'Pleacă atunci când un admin suspendă un cont folosit contrar regulilor (termenii §14). Spre deosebire de refuz, spune motivul: termenii promit un email care spune de ce.',
+        variables: [
+            { name: 'firstName', description: 'Prenumele părintelui' },
+            { name: 'reason', description: 'Motivul suspendării, cum l-a scris adminul' },
+            { name: 'officeEmail', description: 'Adresa biroului, pentru contestații' },
+        ],
+        sampleData: {
+            firstName: 'Ana',
+            reason: 'Contul a fost folosit de pe mai multe dispozitive, de persoane din afara familiei.',
+            officeEmail: 'office@itbridgeschool.com',
+        },
+        subject: 'Contul tău IT Bridge School a fost suspendat',
+        bodyText: [
+            'Bună, {{firstName}}!',
+            '',
+            'Am suspendat contul tău din portalul IT Bridge School, fiindcă a fost folosit contrar regulilor',
+            'din termenii și condițiile de utilizare (§14):',
+            '',
+            '{{reason}}',
+            '',
+            'Cât timp contul e suspendat nu te poți autentifica în portal, iar sesiunile deschise au fost',
+            'închise. Înscrierea copilului nu se schimbă: orele, facturile și mesajele despre ele continuă',
+            'ca până acum.',
+            '',
+            'Dacă nu ești de acord, poți contesta suspendarea scriindu-ne la {{officeEmail}}. Reactivăm',
+            'contul când motivul dispare.',
+            '',
+            SIGNATURE,
+        ].join('\n'),
+        bodyHtml: htmlFrame(
+            [
+                paragraph('Bună, {{firstName}}!'),
+                paragraph(
+                    'Am suspendat contul tău din portalul IT Bridge School, fiindcă a fost folosit contrar regulilor din termenii și condițiile de utilizare (§14):',
+                ),
+                paragraph('{{reason}}'),
+                paragraph(
+                    'Cât timp contul e suspendat nu te poți autentifica în portal, iar sesiunile deschise au fost închise. Înscrierea copilului nu se schimbă: orele, facturile și mesajele despre ele continuă ca până acum.',
+                ),
+                paragraph('Dacă nu ești de acord, poți contesta suspendarea scriindu-ne la {{officeEmail}}. Reactivăm contul când motivul dispare.'),
+            ].join('\n'),
+        ),
+    },
+    {
+        key: 'account-reactivated',
+        name: 'Suspendarea contului a fost ridicată',
+        description: 'Pleacă atunci când un admin reactivează un cont suspendat.',
+        variables: [
+            { name: 'firstName', description: 'Prenumele părintelui' },
+            { name: 'portalUrl', description: 'Adresa de autentificare' },
+        ],
+        sampleData: { firstName: 'Ana', portalUrl: 'https://itbridgeschool.com/login' },
+        subject: 'Contul tău IT Bridge School nu mai e suspendat',
+        bodyText: [
+            'Bună, {{firstName}}!',
+            '',
+            'Am ridicat suspendarea contului tău din portalul IT Bridge School. Te poți autentifica din nou aici:',
+            '',
+            '{{portalUrl}}',
+            '',
+            SIGNATURE,
+        ].join('\n'),
+        bodyHtml: htmlFrame(
+            [
+                paragraph('Bună, {{firstName}}!'),
+                paragraph('Am ridicat suspendarea contului tău din portalul IT Bridge School. Te poți autentifica din nou aici:'),
+                linkBlock('portalUrl'),
+            ].join('\n'),
+        ),
+    },
+    {
         key: 'absence-replacement',
         name: 'L-am mutat la altă grupă',
         description:

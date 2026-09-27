@@ -213,6 +213,27 @@ describe('SessionService', () => {
             expect(account).toBeLessThan(session);
         });
 
+        /**
+         * Terms §14. A suspension holds the account row exclusively while it closes every session,
+         * so a rotation queued behind it wakes to a revoked token — which, read alone, looks like a
+         * replay. The account is read under the same lock, and the answer is the suspension.
+         */
+        it('refuses a suspended account under the account lock, without sweeping the chain as a theft', async () => {
+            const manager = fakeTransaction(liveRow);
+            manager.query.mockImplementation((sql: string) =>
+                Promise.resolve(sql.includes('FROM users') ? [{ suspendedAt: new Date('2026-09-20T10:00:00Z') }] : [liveRow]),
+            );
+
+            await expect(service.rotate('vechi', 'nou', new Date(Date.now() + 60_000))).rejects.toThrow('Account suspended');
+
+            const statements = (manager.query.mock.calls as [string][]).map(([sql]) => sql);
+            expect(statements.some((sql) => /SELECT "suspendedAt" FROM users WHERE id = \$1 FOR SHARE/.test(sql))).toBe(true);
+            // Decided before the session is even locked: nothing written, nothing swept.
+            expect(statements.some((sql) => sql.includes('FROM sessions') && sql.includes('FOR UPDATE'))).toBe(false);
+            expect(manager.update).not.toHaveBeenCalled();
+            expect(sessionRepo.update).not.toHaveBeenCalled();
+        });
+
         it('consumes the presented token and issues a successor in the same family', async () => {
             const manager = fakeTransaction(liveRow);
 

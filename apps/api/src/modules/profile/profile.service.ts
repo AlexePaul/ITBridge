@@ -20,8 +20,9 @@ import { claimedFamilyOf, waitingAccountsOf } from 'src/modules/auth/claimant';
 
 /**
  * The account behind a family, as the office reads it on the family page: its gates and the day of
- * the decision, never the admins' note on it. `viaClaim` for one created from a claim link and not
- * attached yet — the family page is where the office approves it.
+ * the decision, never the admins' note on a refusal. `viaClaim` for one created from a claim link
+ * and not attached yet — the family page is where the office approves it. A suspension (terms §14)
+ * comes with its reason: that one was mailed to the family, and the page is where it is lifted.
  */
 function accountOf(user: User | null, viaClaim: boolean) {
     return user
@@ -31,6 +32,8 @@ function accountOf(user: User | null, viaClaim: boolean) {
               approvalDecidedAt: user.approvalDecidedAt,
               emailConfirmed: user.emailConfirmedAt !== null,
               viaClaim,
+              suspendedAt: user.suspendedAt,
+              suspensionReason: user.suspensionReason,
           }
         : null;
 }

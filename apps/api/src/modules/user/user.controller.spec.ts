@@ -1,6 +1,7 @@
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { AccountApprovalService } from './account-approval.service';
+import { AccountSuspensionService } from './account-suspension.service';
 import { buildController, requestOf } from 'src/testing/controller.spec-helpers';
 import { Role } from 'src/enum/role.enum';
 
@@ -15,6 +16,13 @@ describe('UserController', () => {
         reject: jest.fn().mockResolvedValue({ message: 'Cont respins' }),
     };
 
+    /** Terms §14: suspending and lifting it are ADMIN decisions about a person too. */
+    const suspensions = {
+        listSuspended: jest.fn().mockResolvedValue([]),
+        suspend: jest.fn().mockResolvedValue({ message: 'Cont suspendat' }),
+        reactivate: jest.fn().mockResolvedValue({ message: 'Suspendarea a fost ridicată' }),
+    };
+
     const build = () =>
         buildController(
             UserController,
@@ -26,11 +34,14 @@ describe('UserController', () => {
                 updateUser: jest.fn().mockResolvedValue({ id: 1 }),
                 deleteUser: jest.fn().mockResolvedValue(undefined),
             },
-            [{ provide: AccountApprovalService, useValue: approvals }],
+            [
+                { provide: AccountApprovalService, useValue: approvals },
+                { provide: AccountSuspensionService, useValue: suspensions },
+            ],
         );
 
     beforeEach(() => {
-        for (const fn of Object.values(approvals)) fn.mockClear();
+        for (const fn of [...Object.values(approvals), ...Object.values(suspensions)]) fn.mockClear();
     });
 
     it('delegates listing to the service', async () => {
@@ -88,5 +99,23 @@ describe('UserController', () => {
 
         await controller.rejectAccount(8, {}, ADMIN_REQ);
         expect(approvals.reject).toHaveBeenCalledWith(8, ACTOR, undefined);
+    });
+
+    it('lists the suspended accounts from the suspension service', async () => {
+        const { controller } = await build();
+        await expect(controller.getSuspendedAccounts()).resolves.toEqual([]);
+        expect(suspensions.listSuspended).toHaveBeenCalled();
+    });
+
+    it('passes the id, the reason and whoever pressed to suspend', async () => {
+        const { controller } = await build();
+        await controller.suspendAccount(12, { reason: 'Cont folosit de altcineva.' }, ADMIN_REQ);
+        expect(suspensions.suspend).toHaveBeenCalledWith(12, 'Cont folosit de altcineva.', ACTOR);
+    });
+
+    it('passes the id and whoever pressed to reactivate', async () => {
+        const { controller } = await build();
+        await controller.reactivateAccount(12, ADMIN_REQ);
+        expect(suspensions.reactivate).toHaveBeenCalledWith(12, ACTOR);
     });
 });

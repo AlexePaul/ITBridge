@@ -10,8 +10,8 @@ plus al patrulea, pe care îl acceptă doar cine vrea:
 | [termeni-si-conditii.md](termeni-si-conditii.md)                     | părintele care își face cont                 | acceptat la înregistrare; versiunea acceptată se reține (E22 S4)                   |
 | [acord-lucrari.md](acord-lucrari.md)                                 | părintele, pentru fiecare copil în parte     | din „Profil", lângă bifa care îl dă; versiunea se reține pe fiecare acord (E07 S2) |
 
-**Starea: ciornă neverificată de avocat — termenii, confidențialitatea și acordul pentru lucrări la
-0.1, cookie-urile la 0.2, după E07 S5.** Pe `release/stage` textele **sunt pagini** —
+**Starea: ciornă neverificată de avocat — termenii la 0.2, confidențialitatea și cookie-urile la
+0.3, acordul pentru lucrări la 0.1** (itemii 12 și 13, mai jos). Pe `release/stage` textele **sunt pagini** —
 `/termeni`, `/confidentialitate`, `/cookies`, `/acord-lucrari`, randate din fișierele de aici de
 `apps/web/server/api/legal/[doc].get.ts` —, iar înregistrarea cere bifa de acceptare și scrie în
 `document_acceptances` versiunea fiecărui document (E22 S4, prima jumătate). Pe `release/prod` nu
@@ -163,9 +163,12 @@ Lista, ca să se poată bifa:
       școală;
     - politica de cookie-uri: `refreshTokenKept` („Ține-mă minte") e în listă, iar `portalChild` și
       `selectedLocation` se pun abia după alegere — până atunci codul le scria la prima citire.
-13. **§14, suspendarea unui cont.** Textul rezervă dreptul; platforma n-are încă butonul — biroul
-    poate respinge doar un cont neaprobat. De decis: se construiește (închide sesiunile, oprește
-    reautentificarea, trimite motivul) sau se reformulează.
+13. **§14, suspendarea unui cont — construită, 27 septembrie 2026** (politica 0.3). Textul își
+    rezerva dreptul, iar platforma n-avea butonul. Acum biroul suspendă din pagina familiei, cu un
+    motiv obligatoriu, care pleacă în emailul către familie; sesiunile se închid, autentificarea e
+    refuzată cu un mesaj propriu, iar înscrierea copiilor, facturile și mesajele despre ore continuă,
+    cum promite paragraful. Reactivarea anunță și ea familia. Politica §3.4 numește acum și datele
+    suspendării; textul din §14 n-a trebuit schimbat.
 
 ## Verificarea juridică
 

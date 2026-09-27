@@ -3,7 +3,7 @@ import { useApi } from "./useApi";
 import { useTokenStore } from "~/stores/tokenStore";
 import { useProfileStore } from "~/stores/profileStore";
 import { ProfileSetup } from "../useProfileInitialization";
-import type { PendingAccount, RejectedAccount, User } from "~/types/user.types";
+import type { PendingAccount, RejectedAccount, SuspendedAccount, User } from "~/types/user.types";
 
 export const useUserApi = () => {
   const api = useApi();
@@ -50,11 +50,27 @@ export const useUserApi = () => {
     });
   };
 
+  /** Terms §14: the suspended parent accounts, most recent first. Admin only. */
+  const fetchSuspendedAccounts = async () => api<SuspendedAccount[]>("/users/suspended");
+
+  /**
+   * Terms §14. Unlike a refusal's note, `reason` is sent: the family is mailed it with the
+   * suspension, so the form asks for a sentence the family can read.
+   */
+  const suspendAccount = async (userId: number, reason: string) =>
+    api<{ message: string }>(`/users/${userId}/suspend`, { method: "POST", body: { reason } });
+
+  const reactivateAccount = async (userId: number) =>
+    api<{ message: string }>(`/users/${userId}/reactivate`, { method: "POST" });
+
   return {
     fetchUsersWithoutProfile,
     fetchPendingAccounts,
     fetchRejectedAccounts,
+    fetchSuspendedAccounts,
     approveAccount,
     rejectAccount,
+    suspendAccount,
+    reactivateAccount,
   };
 };

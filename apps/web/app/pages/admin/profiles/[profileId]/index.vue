@@ -122,7 +122,15 @@
           class="mt-6 border-t border-default pt-4 flex flex-wrap items-center gap-3"
         >
           <UBadge :color="account.color" variant="subtle">{{ account.label }}</UBadge>
-          <p class="text-sm text-muted flex-1 min-w-0">
+          <!-- Terms §14: while suspended, the day and the reason the family was mailed — and the one
+               thing to do, lift it. -->
+          <p v-if="profile.account.suspendedAt" class="text-sm text-muted flex-1 min-w-0">
+            Suspendat pe {{ formatDate(profile.account.suspendedAt) }}.
+            <template v-if="profile.account.suspensionReason">
+              Motivul trimis familiei: „{{ profile.account.suspensionReason }}"
+            </template>
+          </p>
+          <p v-else class="text-sm text-muted flex-1 min-w-0">
             <template v-if="profile.account.approvalDecidedAt">
               Decizie luată pe {{ formatDate(profile.account.approvalDecidedAt) }}.
             </template>
@@ -138,6 +146,25 @@
             @click="approveAccount"
           >
             Aprobă
+          </UButton>
+          <UButton
+            v-if="account.canReactivate"
+            icon="i-lucide-lock-open"
+            class="min-h-11"
+            :loading="suspensionBusy"
+            @click="reactivateAccount"
+          >
+            Ridică suspendarea
+          </UButton>
+          <UButton
+            v-if="account.canSuspend"
+            icon="i-lucide-lock"
+            color="error"
+            variant="outline"
+            class="min-h-11"
+            @click="openSuspend"
+          >
+            Suspendă contul
           </UButton>
         </div>
       </UCard>
@@ -531,6 +558,42 @@
         Sterge Profil
       </UButton>
     </div>
+
+    <!-- Terms §14. The reason is not a note between admins, as a refusal's is: it goes in the email
+         the family receives, so the form says so, and refuses to send without one. -->
+    <UModal v-model:open="suspendOpen" title="Suspendă contul">
+      <template #body>
+        <div class="space-y-4">
+          <p>
+            Familia nu se mai poate autentifica în portal, iar sesiunile deschise se închid.
+            Înscrierea copiilor, facturile și mesajele despre ore continuă ca până acum (termenii
+            §14).
+          </p>
+          <UFormField
+            label="Motiv"
+            hint="Pleacă în emailul către familie, exact cum îl scrii."
+            required
+            :error="suspendError ?? undefined"
+          >
+            <UTextarea
+              v-model="suspendReason"
+              :rows="3"
+              :maxlength="500"
+              placeholder="Contul a fost folosit de persoane din afara familiei."
+              class="w-full"
+            />
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton color="neutral" variant="ghost" @click="suspendOpen = false">Renunță</UButton>
+          <UButton color="error" :loading="suspensionBusy" @click="suspendAccount"
+            >Suspendă</UButton
+          >
+        </div>
+      </template>
+    </UModal>
   </AdminPage>
 </template>
 <script setup lang="ts">
@@ -660,6 +723,68 @@ const approveAccount = async () => {
     error(apiErrorMessage(err, "Nu am putut aproba contul."));
   } finally {
     approvalBusy.value = false;
+  }
+};
+
+/**
+ * Terms §14: suspend an account used against the rules, and lift it. The server closes the
+ * sessions and mails the family the reason; the page only mirrors the new state.
+ */
+const suspensionBusy = ref(false);
+const suspendOpen = ref(false);
+const suspendReason = ref("");
+const suspendError = ref<string | null>(null);
+
+// A refusal about an empty reason stops being true the moment somebody types one.
+watch(suspendReason, () => {
+  suspendError.value = null;
+});
+
+const openSuspend = () => {
+  suspendReason.value = "";
+  suspendError.value = null;
+  suspendOpen.value = true;
+};
+
+const suspendAccount = async () => {
+  const current = profile.value?.account;
+  if (!profile.value || !current || suspensionBusy.value) return;
+  const reason = suspendReason.value.trim();
+  if (!reason) {
+    suspendError.value = "Scrie motivul: familia îl primește pe email.";
+    return;
+  }
+  suspensionBusy.value = true;
+  try {
+    await userApi.suspendAccount(current.userId, reason);
+    profile.value = {
+      ...profile.value,
+      account: { ...current, suspendedAt: new Date().toISOString(), suspensionReason: reason },
+    };
+    suspendOpen.value = false;
+    success("Cont suspendat", "Sesiunile s-au închis, iar familia a primit motivul pe email.");
+  } catch (err: unknown) {
+    suspendError.value = apiErrorMessage(err, "Nu am putut suspenda contul.");
+  } finally {
+    suspensionBusy.value = false;
+  }
+};
+
+const reactivateAccount = async () => {
+  const current = profile.value?.account;
+  if (!profile.value || !current || suspensionBusy.value) return;
+  suspensionBusy.value = true;
+  try {
+    await userApi.reactivateAccount(current.userId);
+    profile.value = {
+      ...profile.value,
+      account: { ...current, suspendedAt: null, suspensionReason: null },
+    };
+    success("Suspendarea a fost ridicată", "Familia a fost anunțată că se poate autentifica.");
+  } catch (err: unknown) {
+    error(apiErrorMessage(err, "Nu am putut ridica suspendarea."));
+  } finally {
+    suspensionBusy.value = false;
   }
 };
 

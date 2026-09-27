@@ -15,12 +15,20 @@ const FAMILY = readFileSync(
   "utf8"
 );
 
-const account = (approvalStatus: "PENDING" | "APPROVED" | "REJECTED", emailConfirmed = true) => ({
+const account = (
+  approvalStatus: "PENDING" | "APPROVED" | "REJECTED",
+  emailConfirmed = true,
+  suspendedAt: string | null = null
+) => ({
   userId: 1,
   approvalStatus,
   approvalDecidedAt: "2026-09-20T10:00:00.000Z",
   emailConfirmed,
+  viaClaim: false,
+  suspendedAt,
+  suspensionReason: suspendedAt ? "Contul a fost folosit de altcineva." : null,
 });
+const LOGIN = readFileSync(new URL("../app/pages/auth/login.vue", import.meta.url), "utf8");
 
 describe("the account on the family page", () => {
   it("offers approval on a refused account, and on one still waiting", () => {
@@ -55,5 +63,50 @@ describe("the approvals screen", () => {
     expect(APPROVALS).toMatch(/Conturi respinse/);
     expect(APPROVALS).toMatch(/decidedOn\(account\.decidedAt\)/);
     expect(APPROVALS).toMatch(/onApproveRejected\(account\)/);
+  });
+});
+
+/**
+ * Terms §14: „Putem suspenda un cont folosit contrar regulilor […] și îl reactivăm când motivul
+ * dispare." The page offers one thing at a time — a suspended account is lifted before anything
+ * else is decided about it.
+ */
+describe("a suspended account", () => {
+  it("offers only lifting the suspension, whatever the approval says", () => {
+    for (const status of ["PENDING", "APPROVED", "REJECTED"] as const) {
+      expect(accountState(account(status, true, "2026-09-26T10:00:00.000Z"))).toMatchObject({
+        label: "Cont suspendat",
+        canReactivate: true,
+        canApprove: false,
+        canSuspend: false,
+      });
+    }
+  });
+
+  it("can be suspended from any other state, and never offers lifting what is not there", () => {
+    for (const status of ["PENDING", "APPROVED", "REJECTED"] as const) {
+      expect(accountState(account(status))).toMatchObject({
+        canSuspend: true,
+        canReactivate: false,
+      });
+    }
+    expect(accountState(null)).toMatchObject({ canSuspend: false, canReactivate: false });
+  });
+
+  it("is suspended from the family page with a reason, which the form says goes to the family", () => {
+    expect(FAMILY).toMatch(/userApi\.suspendAccount\(current\.userId, reason\)/);
+    expect(FAMILY).toMatch(/userApi\.reactivateAccount\(current\.userId\)/);
+    expect(FAMILY).toMatch(/Pleacă în emailul către familie/);
+  });
+
+  it("is listed on the approvals screen, where the office lifts it", () => {
+    expect(APPROVALS).toMatch(/fetchSuspendedAccounts\(\)/);
+    expect(APPROVALS).toMatch(/Conturi suspendate/);
+    expect(APPROVALS).toMatch(/onReactivate\(account\)/);
+  });
+
+  it("is told at the sign-in in its own words, not as a wrong password", () => {
+    expect(LOGIN).toMatch(/code === "ACCOUNT_SUSPENDED"/);
+    expect(LOGIN).toMatch(/apiErrorMessage\(error\)/);
   });
 });

@@ -218,6 +218,8 @@ export class ExportService {
                       stareAprobare: exportLabel('approval', account.approvalStatus),
                       deciziaLa: account.approvalDecidedAt?.toISOString() ?? null,
                       motivRespingere: account.rejectionReason ?? null,
+                      suspendatLa: account.suspendedAt?.toISOString() ?? null,
+                      motivSuspendare: account.suspensionReason ?? null,
                   }
                 : null,
             copii: children.map((child) => ({

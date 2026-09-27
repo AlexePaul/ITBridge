@@ -72,4 +72,8 @@ export interface ProfileAccount {
      * the portal would show its data to.
      */
     viaClaim: boolean;
+    /** Terms §14: since when the account is suspended — `null` while it may be used. */
+    suspendedAt: ISODateTime | null;
+    /** The reason the family was mailed with the suspension; the office's to read and to lift. */
+    suspensionReason: string | null;
 }

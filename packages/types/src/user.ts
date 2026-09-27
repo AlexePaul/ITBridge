@@ -119,3 +119,12 @@ export interface RejectedAccount extends PendingAccount {
     decidedAt: ISODateTime | null;
     rejectionReason: string | null;
 }
+
+/**
+ * One row of the suspended accounts, `GET /users/suspended` — terms §14. The day and the reason the
+ * family was mailed; lifted from the approvals screen or the family's page. Admin-only.
+ */
+export interface SuspendedAccount extends PendingAccount {
+    suspendedAt: ISODateTime;
+    suspensionReason: string | null;
+}

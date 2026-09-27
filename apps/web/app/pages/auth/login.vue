@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { useSeo } from "~/composables/useSeo";
 import { useAuthApi } from "~/composables/api/useAuthApi";
 import { useNotifications } from "~/composables/useNotifications";
+import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
 import { safeReturnPath } from "~/composables/useReturnPath";
 import { useUserStore } from "~/stores/userStore";
 
@@ -55,7 +56,14 @@ async function onSubmit(payload: { username: string; password: string; remember:
     await navigateTo(userStore.user?.role === "ADMIN" ? "/admin/dashboard" : "/user/dashboard");
   } catch (error) {
     console.error("Login failed:", error);
-    errorMessage.value = "Utilizator sau parolă incorectă. Te rugăm să încerci din nou.";
+    // Two refusals are not about the pair typed in, and saying „parolă incorectă" sends the family
+    // back to retyping a right password: a suspended account (terms §14 — the server says so only
+    // once the password is right) and the rate limit, which every retry prolongs.
+    const code = apiErrorCode(error);
+    errorMessage.value =
+      code === "ACCOUNT_SUSPENDED" || code === "TOO_MANY_REQUESTS"
+        ? apiErrorMessage(error)
+        : "Utilizator sau parolă incorectă. Te rugăm să încerci din nou.";
   } finally {
     isLoading.value = false;
   }

@@ -107,7 +107,17 @@ export class SessionService implements OnModuleInit, OnModuleDestroy {
             // the user cascades the same way — so no two of them can each hold one and wait on the
             // other.
             const owners = await manager.query<{ user_id: number }[]>('SELECT user_id FROM sessions WHERE "tokenHash" = $1', [tokenHash]);
-            if (owners[0]) await manager.query('SELECT 1 FROM users WHERE id = $1 FOR SHARE', [owners[0].user_id]);
+            if (owners[0]) {
+                // Read under the same lock: a suspension (terms §14) takes the row exclusively and
+                // closes every session in its transaction, so a rotation queued behind it wakes to a
+                // suspended account and a revoked token — answered as the suspension, not as a replay.
+                const accounts = await manager.query<{ suspendedAt: Date | null }[]>('SELECT "suspendedAt" FROM users WHERE id = $1 FOR SHARE', [
+                    owners[0].user_id,
+                ]);
+                if (accounts[0]?.suspendedAt) {
+                    throw new UnauthorizedException('Account suspended');
+                }
+            }
 
             // A raw `SELECT ... FOR UPDATE` rather than `findOne({ lock })`: TypeORM turns a
             // `relations` option into a LEFT JOIN, and Postgres refuses `FOR UPDATE` on the
