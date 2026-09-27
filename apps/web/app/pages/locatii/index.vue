@@ -75,7 +75,7 @@ useSeo(seo);
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([
   ...schoolGraph(site),
-  webPageNode(site, seo),
+  { ...webPageNode(site, seo), "@type": "CollectionPage" },
   breadcrumbNode(site, [
     { name: "Acasă", path: "/" },
     { name: "Locații", path: "/locatii" },

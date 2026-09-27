@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { legacyRouteRules } from "./shared/legacy-redirects";
+import { PUBLIC_PAGES } from "./shared/seo";
 
 const LEGAL_ARCHIVE_DIR = fileURLToPath(new URL("../../docs/legal/versiuni", import.meta.url));
 
@@ -136,6 +137,12 @@ export default defineNuxtConfig({
   // text is replaced; `legal-versions.spec.ts` keeps it complete after that.
   nitro: {
     virtual: { "#legal-archive": legalArchiveModule },
+    prerender: {
+      // Only the declared pages, never what they link to. Left on, the crawler
+      // would follow the header into /auth/login and the footer into the
+      // portal — pages that are noindex and, without the API, error out.
+      crawlLinks: false,
+    },
   },
   runtimeConfig: {
     // Server-only. Anything outside `public` stays on the server and is never
@@ -201,12 +208,29 @@ export default defineNuxtConfig({
     // The link in the email about a child's work. Same layout, same portal chrome, same reason —
     // and on the server it rendered a signed-in shell for a visitor nobody had signed in.
     "/files/**": { ssr: false },
-    // The legal pages are one Markdown file each, rendered once: prerendered so they are static
-    // on Vercel and in the a11y run, and reach the reader without a function in between.
-    "/termeni": { prerender: true },
-    "/confidentialitate": { prerender: true },
-    "/cookies": { prerender: true },
-    "/acord-lucrari": { prerender: true },
+    // The public pages are rendered once, at build, and served as files from
+    // the CDN edge instead of through a serverless function on every request.
+    // Nothing on them varies per request — the header's login state is filled
+    // in client-side, the contact form posts to a route that stays dynamic —
+    // so the HTML is byte-for-byte what SSR produced; what changes is that a
+    // crawler gets it in tens of milliseconds instead of waiting on a cold
+    // start. Google rations crawling by how fast a host answers, and a new
+    // domain is rationed hard: Search Console shows five of these pages as
+    // "discovered, currently not indexed", never fetched. This is the lever
+    // on that which the repo owns. Derived from PUBLIC_PAGES, so an eighth page
+    // is prerendered by being declared, not by being remembered here.
+    //
+    // All but `/proba`, the one public page that talks to the API: it reads
+    // today's date for the birth-date field, and a date baked in at build
+    // time would be a day behind by the next morning. It stays rendered per
+    // request, as it always was. The legal pages are in PUBLIC_PAGES, so the
+    // rule covers them too.
+    ...Object.fromEntries(
+      PUBLIC_PAGES.filter((page) => page.path !== "/proba").map((page) => [
+        page.path,
+        { prerender: true },
+      ])
+    ),
     "/courses": { redirect: { to: "/cursuri", statusCode: 301 } },
     "/about": { redirect: { to: "/despre-noi", statusCode: 301 } },
     // The other set of stray links: paths from the WordPress site that used to

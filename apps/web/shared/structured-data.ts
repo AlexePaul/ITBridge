@@ -258,6 +258,13 @@ export const courseListNode = (site: string): Node => ({
 });
 
 /**
+ * U+2060 WORD JOINER keeps "C++" on one line where a heading would otherwise
+ * break between the plus signs. It is a rendering instruction, not text: the
+ * question a search engine indexes must be the one a parent types.
+ */
+const unjoined = (text: string) => text.replace(/\u2060/g, "");
+
+/**
  * Folded into the page node rather than emitted beside it: FAQPage is a
  * subclass of WebPage, so a separate node would describe the same URL twice
  * with two competing entities.
@@ -267,8 +274,8 @@ export const withFaq = (page: Node, questions: { question: string; answer: strin
   "@type": ["WebPage", "FAQPage"],
   mainEntity: questions.map((entry) => ({
     "@type": "Question",
-    name: entry.question,
-    acceptedAnswer: { "@type": "Answer", text: entry.answer },
+    name: unjoined(entry.question),
+    acceptedAnswer: { "@type": "Answer", text: unjoined(entry.answer) },
   })),
 });
 

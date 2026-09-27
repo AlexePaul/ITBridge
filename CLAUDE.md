@@ -39,6 +39,17 @@ conținut, SEO, performanță, corecturi de interfață publică. Se aduc prin c
 din `release/stage` — un merge ar trage în producție jumătate de platformă care n-are unde să
 ruleze.
 
+**Invers, ce se face direct pe `release/prod` se aduce pe `release/stage` printr-un merge**, nu
+printr-un cherry-pick (27 septembrie 2026). Paginile de sub `/cursuri/`, prerandarea tuturor
+paginilor publice și localizarea (#84, #218, #234) s-au scris direct pe `release/prod` și nu
+existau pe stage: `stage.itbridgeschool.com` arăta alt site public decât cel live, iar merge-ul de
+lansare din `docs/lansare-platforma.md` dădea șaisprezece conflicte, jumătate în fișierele
+site-ului, unde „ia partea stage-ului" ar fi șters exact paginile care aduc trafic. Un merge al lui
+`release/prod` în `release/stage` le-a adus pe toate — **cu commit de merge, nu squash**, fiindcă un
+squash păstrează conținutul și pierde istoria, deci conflictele s-ar fi întors la lansare. Starea se
+citește oricând cu `git merge-tree --write-tree origin/release/prod origin/release/stage`: fără
+conflicte, tipărește doar un hash.
+
 **Documentația din `docs/` și fișierul ăsta sunt identice pe ambele branch-uri**, fiindcă descriu
 proiectul, nu ramura. Deci pe `release/prod` vei citi despre module care nu există în arborele de
 sub tine — `enrollment`, `project`, `storage` — și e în regulă: sunt pe `release/stage`. Ce **nu** e

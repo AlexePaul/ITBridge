@@ -48,9 +48,13 @@ producției; secretele JWT scurte, egale sau implicite. Mesajul numește variabi
 3. **Resend.** Domeniul verificat; un mail de probă trimis din Resend către o adresă a școlii.
 4. **Parameter Store** — valorile din tabel, pentru producție; **Vercel** — `API_BASE`,
    `RESEND_API_KEY`, `CONTACT_FROM`.
-5. **Platforma trece pe `release/prod`**, o dată: un merge din `release/stage`. De atunci
-   `release/prod` nu mai e „doar site-ul public" — CLAUDE.md se actualizează în același pas —, iar un
-   push acolo e un deploy, ca pe stage.
+5. **Platforma trece pe `release/prod`**, o dată: un merge din `release/stage`. **Merge-ul nu are
+   conflicte**: ce s-a scris direct pe `release/prod` — paginile de sub `/cursuri/`, prerandarea,
+   localizarea — a fost adus pe `release/stage` pe 27 septembrie 2026, cu tot cu istorie. Se
+   verifică înainte, într-o clonă la zi: `git merge-tree --write-tree origin/release/prod
+origin/release/stage` tipărește doar un hash când nu e niciun conflict. De atunci `release/prod`
+   nu mai e „doar site-ul public" — CLAUDE.md se actualizează în același pas —, iar un push acolo e
+   un deploy, ca pe stage.
 6. **Deploy-ul producției.** Secretul `EC2_INSTANCE_ID_PROD`, apoi variabila `PROD_API_DEPLOY=enabled`
    (Settings → Secrets and variables → Actions). Primul push pe `release/prod` rulează CI-ul, migrările
    și `pm2 reload`, și verifică `https://api.itbridgeschool.com/ready`. Pe instanță trebuie să existe
