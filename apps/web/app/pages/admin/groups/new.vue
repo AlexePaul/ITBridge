@@ -77,6 +77,7 @@ definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
   title: "Adaugă Grup Nou",
+  locationScoped: true,
 });
 
 const { success, error } = useNotifications();

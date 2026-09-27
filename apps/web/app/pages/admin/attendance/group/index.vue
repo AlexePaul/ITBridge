@@ -92,6 +92,7 @@ definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
   title: "Prezența unei grupe",
+  locationScoped: true,
 });
 
 const { error } = useNotifications();

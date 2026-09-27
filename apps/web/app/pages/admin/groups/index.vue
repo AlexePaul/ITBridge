@@ -110,6 +110,7 @@ definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
   title: "Gestionarea Grupelor",
+  locationScoped: true,
 });
 
 // The third hand-written copy of this list, and the last one. It stopped at Saturday, so a Sunday

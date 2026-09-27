@@ -67,6 +67,7 @@ definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
   title: "Copii",
+  locationScoped: true,
 });
 
 const childrenApi = useChildrenApi();

@@ -54,9 +54,7 @@
             rel="noopener noreferrer"
             class="font-mono text-primary underline"
             >{{ shortCommit(status.build.commit) }}</a
-          ><template v-if="status.build.committedAt">
-            , din {{ formatStamp(status.build.committedAt) }}</template
-          >, pornit la {{ formatStamp(status.build.startedAt) }}.
+          >{{ versionTail }}
         </p>
         <p v-else class="text-sm">
           API-ul nu știe din ce commit rulează: git nu i-a răspuns în directorul din care a pornit
@@ -132,6 +130,14 @@ const formatStamp = (iso: string) =>
     minute: "2-digit",
     timeZone: "Europe/Bucharest",
   });
+
+/** `, din 27 sept. 2026, 20:53, pornit la …` — after the commit link, with no space before the comma. */
+const versionTail = computed(() => {
+  const build = status.value?.build;
+  if (!build) return "";
+  const made = build.committedAt ? `, din ${formatStamp(build.committedAt)}` : "";
+  return `${made}, pornit la ${formatStamp(build.startedAt)}.`;
+});
 
 /** `2 zile, 3 ore` — how long the process has been up, which is how long since the last deploy. */
 const uptimeLabel = (seconds: number): string => {
