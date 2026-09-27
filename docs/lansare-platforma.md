@@ -33,7 +33,9 @@ pentru site, în **Vercel**, la Production.
 | **Agentul din birou**    | `config.json` al agentului: adresa API de producție, utilizatorul și parola lui                                  | [apps/agent/README.md](../apps/agent/README.md)                                                                                                                               |
 
 **Ce refuză singur să pornească**, ca să nu se descopere lipsa de la un părinte: un backend cu
-`NODE_ENV=production` fără `MAIL_RESEND_API_KEY`, `MAIL_FROM` sau `AWS_S3_BUCKET`; un IBAN cu o cifră
+`NODE_ENV=production` fără `AWS_S3_BUCKET`, sau fără `MAIL_RESEND_API_KEY` și `MAIL_FROM` cât timp
+trimite email — `MAIL_OUTBOX_ENABLED=false` spune că nu trimite, cum e stage-ul dinadins, deci în
+producție variabila rămâne **nesetată**; un IBAN cu o cifră
 greșită sau fără beneficiar; `SMARTBILL_MODE=live` fără serii, fără `SMARTBILL_LIVE_DB` sau în afara
 producției; secretele JWT scurte, egale sau implicite. Mesajul numește variabila.
 
