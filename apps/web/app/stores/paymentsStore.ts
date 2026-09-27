@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { defineStore, skipHydrate } from "pinia";
 import { ref, readonly } from "vue";
 import type { Payment } from "~/types/payment.types";
 
@@ -35,8 +35,8 @@ export const usePaymentsStore = defineStore("payment", () => {
   };
 
   return {
-    payments: readonly(payments),
-    selectedPayment: readonly(selectedPayment),
+    payments: skipHydrate(readonly(payments)),
+    selectedPayment: skipHydrate(readonly(selectedPayment)),
     setPayments,
     addPayment,
     updatePaymentInStore,

@@ -96,7 +96,10 @@ export const useTokenStore = defineStore("tokens", () => {
   };
 
   return {
-    accessToken: readonly(accessToken),
+    // A computed, not `readonly(accessToken)`: a ref is Pinia state, and state is written into the
+    // HTML of every page Nuxt renders on the server — the per-request public pages render with the
+    // visitor's cookies, so the token ended up in the page (`tokens-stay-out-of-the-page.spec.ts`).
+    accessToken: computed(() => accessToken.value),
     refreshToken,
     setAccessToken,
     setRefreshToken,

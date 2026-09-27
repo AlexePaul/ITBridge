@@ -1696,6 +1696,16 @@ Cele două numere — `REFRESH_TOKEN_MAX_AGE_SECONDS` din `apps/web/app/stores/t
 fixează `maxAge` când se creează ref-ul, deci valoarea nu poate fi citită nici de pe token. Politica
 de cookie-uri (§2) le numește pe amândouă, din versiunea 0.3.
 
+**Tokenul de acces nu e stare Pinia, fiindcă starea ajunge în HTML** (27 septembrie 2026). Nuxt
+serializează starea fiecărui magazin în pagina randată pe server, iar paginile publice randate la
+fiecare cerere — `/proba`, `/dezabonare`, formularul de autentificare — se randează cu cookie-urile
+vizitatorului. `tokenStore` întorcea cookie-ul ca `readonly(ref)`, pe care Pinia îl socotește stare,
+deci `curl -H "Cookie: accessToken=…" /proba` venea cu tokenul în pagină. Acum e un `computed` — nu
+e stare, nu se serializează, iar cititorii lui nu văd nicio diferență; `tokens-stay-out-of-the-page.spec.ts`
+ține linia. Restul magazinelor își întorc starea prin `skipHydrate(readonly(...))`: autentificarea e
+doar în client, deci n-au ce primi de la server, iar hidratarea scria în refuri readonly — un
+avertisment Vue pe fiecare pagină, în consolă și în logul lui `nuxt dev`.
+
 **Un `useCookie` cu `default` scrie cookie-ul la prima citire** (Nuxt 4.5,
 `shouldSetInitialClientCookie`), nu la prima alegere. Așa ajungeau `portalChild` și
 `selectedLocation` în browserul oricui intra în portal, deși politica de cookie-uri spune că apar

@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { defineStore, skipHydrate } from "pinia";
 import type { Group } from "~/types/group.types";
 
 export const useGroupsStore = defineStore("groups", () => {
@@ -17,7 +17,7 @@ export const useGroupsStore = defineStore("groups", () => {
   };
 
   return {
-    groups: readonly(groups),
+    groups: skipHydrate(readonly(groups)),
     setGroups,
     clearGroups,
     getGroupById,

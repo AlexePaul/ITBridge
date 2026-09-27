@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { defineStore, skipHydrate } from "pinia";
 import { ref, readonly } from "vue";
 import type { Profile } from "~/types/profile.types";
 
@@ -14,7 +14,7 @@ export const useProfileStore = defineStore("profile", () => {
   };
 
   return {
-    profile: readonly(profile),
+    profile: skipHydrate(readonly(profile)),
     setProfile,
     clearProfile,
   };

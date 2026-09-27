@@ -1,5 +1,5 @@
 // stores/userStore.ts
-import { defineStore } from "pinia";
+import { defineStore, skipHydrate } from "pinia";
 import { useApi } from "~/composables/api/useApi";
 import { useTokenStore } from "./tokenStore";
 import type { CurrentUser } from "~/types/user.types";
@@ -45,9 +45,9 @@ export const useUserStore = defineStore("user", () => {
   };
 
   return {
-    user: readonly(user),
-    loading: readonly(loading),
-    error: readonly(error),
+    user: skipHydrate(readonly(user)),
+    loading: skipHydrate(readonly(loading)),
+    error: skipHydrate(readonly(error)),
     fetchUser,
     logout,
   };

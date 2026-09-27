@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { defineStore, skipHydrate } from "pinia";
 import { readonly } from "vue";
 import type { Attendance } from "~/types/attendance.types";
 import type { EntityId } from "~/types/entityId";
@@ -54,7 +54,7 @@ export const useAttendanceStore = defineStore("attendance", () => {
   };
 
   return {
-    attendance: readonly(attendance),
+    attendance: skipHydrate(readonly(attendance)),
     setAttendance,
     clearAttendance,
     attendancesByChildId,

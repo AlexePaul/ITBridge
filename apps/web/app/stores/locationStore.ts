@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { defineStore, skipHydrate } from "pinia";
 import type { Location } from "~/types/location.types";
 import type { Room } from "~/types/room.types";
 
@@ -90,9 +90,9 @@ export const useLocationStore = defineStore("locations", () => {
     locationId === selectedLocationId.value;
 
   return {
-    locations: readonly(locations),
-    rooms: readonly(rooms),
-    selectedLocationId: readonly(selectedLocationId),
+    locations: skipHydrate(readonly(locations)),
+    rooms: skipHydrate(readonly(rooms)),
+    selectedLocationId: skipHydrate(readonly(selectedLocationId)),
     selectedLocation,
     isShowingAll,
     roomsInSelection,
