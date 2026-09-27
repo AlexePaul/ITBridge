@@ -106,6 +106,8 @@ const MESSAGES: Record<string, string> = {
   CHILD_FAMILY_INVOICED:
     "Familia copilului are deja facturi, iar o factură numără copiii familiei — mutat acum, ce s-a facturat s-ar împărți în două. Copilul rămâne unde e.",
   CHILD_ALREADY_IN_FAMILY: "Copilul e deja în familia aleasă.",
+  CHILD_FAMILY_CHANGED:
+    "Copilul a fost mutat între timp în altă familie. Reîncarcă pagina și verifică unde e acum.",
   SESSION_NOT_FOUND: "Sesiunea nu mai e activă — probabil s-a închis deja. Reîncarcă lista.",
 
   // Terms §5–6: a family adds and corrects its children from Profil, and removes only a row the

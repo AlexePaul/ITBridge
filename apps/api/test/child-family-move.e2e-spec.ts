@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
-import { createTestApp, promoteToAdmin, registerUser, truncateAll, type TestUser } from './helpers';
+import { createTestApp, enrolInNewGroup, promoteToAdmin, registerUser, truncateAll, type TestUser } from './helpers';
 
 /**
  * A child joined to the family it belongs with (QA of 26 September 2026).
@@ -83,6 +83,26 @@ describe('Moving a child to another family (e2e)', () => {
         const refused = await move(child, other).expect(409);
 
         expect(refused.body.code).toBe('CHILD_FAMILY_INVOICED');
+    });
+
+    /**
+     * Review of 27 September 2026: a family that withdrew and came back through `/proba` has its
+     * trial confirmed on the booking's shell, then the child moved home. Left withdrawn, the family
+     * would be erased on a term counted from the old withdrawal — with a child in a group.
+     */
+    it('takes back the withdrawal of a family that receives a child in a group', async () => {
+        const family = await shellFamily('Stan');
+        const shell = await shellFamily('Stan (programare)');
+        const child = await childIn(shell, 'Mihai');
+        await dataSource.query(`UPDATE profiles SET "withdrawnAt" = '2026-06-01' WHERE id = $1`, [family]);
+        await enrolInNewGroup(app, admin, [child]);
+
+        await move(child, family).expect(200);
+
+        const [row]: { withdrawnAt: string | null }[] = await dataSource.query('SELECT "withdrawnAt" FROM profiles WHERE id = $1', [family]);
+        expect(row.withdrawnAt).toBeNull();
+        const trail: { note: string }[] = await dataSource.query(`SELECT note FROM audit_log WHERE entity_type = 'Profile' AND entity_id = $1`, [family]);
+        expect(trail.map((entry) => entry.note).join(' ')).toContain('retragere anulată');
     });
 
     it('says so when the child is already in that family, and is not a parent’s to do', async () => {
