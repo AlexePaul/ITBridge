@@ -75,7 +75,9 @@ Lista, ca să se poată bifa:
 - copiile mesajelor din `outbox` — propus 12 luni; implementat (până la E22 S3 nu se ștergeau
   niciodată);
 - logurile serverului — propus 30 de zile; depinde de rotația de loguri din `ecosystem.config.js`,
-  care stă pe instanță, nu în repo;
+  care stă pe instanță, nu în repo. Jurnalul erorilor din platformă (E06 S1, `/admin/erori`) are
+  același termen, numărat de la ultima apariție a erorii, într-o singură constantă,
+  `ERROR_REPORT_RETENTION_DAYS`; implementat;
 - mesajele din formularul de contact — propus 24 de luni; trăiesc în căsuța de email, nu în
   platformă;
 - preavizul la schimbarea termenilor — propus 15 zile; termenul de răspuns la reclamații — propus

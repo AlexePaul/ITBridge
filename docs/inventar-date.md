@@ -26,9 +26,9 @@ Trei lucruri de citit înainte de tabele:
 
 ## Pe scurt
 
-- **34 tabele**, cu **290 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
-- **131 coloane sunt date personale**, în **26 tabele**.
-- Restul de **159** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
+- **35 tabele**, cu **304 coloane** clasificate — toate, fiindcă garda cere o clasificare, nu o listă.
+- **132 coloane sunt date personale**, în **27 tabele**.
+- Restul de **172** sunt identificatori, marcaje de timp, orarul școlii sau mecanică internă; motivul e scris la fiecare.
 
 ## Datele personale, câmp cu câmp
 
@@ -165,6 +165,7 @@ Trei lucruri de citit înainte de tabele:
 | `audit_log.actorUserId` | Titularul contului | Urme de utilizare | Ce cont a făcut schimbarea. | Obligație legală | Evidență; supraviețuiește rândului descris | Admin |
 | `audit_log.actorUsername` | Titularul contului | Urme de utilizare | Numele contului, copiat la scriere ca urma să rămână citibilă după ștergerea lui. | Obligație legală | Evidență; supraviețuiește rândului descris | Admin |
 | `audit_log.changes` | Părinte | Financiar | Ce s-a schimbat: suma, data, starea — doar câmpurile care s-au mișcat. | Obligație legală | Evidență; supraviețuiește rândului descris | Admin |
+| `error_reports.recent` | Titularul contului | Urme de utilizare | Ultimele douăzeci de apariții: când, codul arătat pe ecran, adresa paginii și contul care a întâlnit eroarea — ca biroul să poată suna familia și să reproducă defectul. | Interes legitim | Cât e nevoie operațional | Admin |
 
 ## Unde stau rândurile unei familii
 
@@ -200,18 +201,19 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 | `document_acceptances` | Titularul contului | `user.profile` | Ce versiune a cărui document a acceptat cine, și când (E22 S4). |
 | `publication_consents` | Copil | `child.parent` | Acordul familiei ca lucrările unui copil să apară în materialele școlii, de la acordare la retragere (E07 S2). |
 | `audit_log` | Titularul contului | **nu se poate ajunge prin relații** | Cine a schimbat ce și când, pe drumurile banilor (E07 S3). |
+| `error_reports` | Titularul contului | **nu se poate ajunge prin relații** | Ce s-a stricat în platformă, unde și de câte ori, ca să poată fi reparat (E06 S1). |
 
 ## Ce nu e dată personală, și de ce
 
 | Motiv | Câte | Coloane |
 | ----- | ---- | ------- |
 | configurația școlii | 18 | `locations.name`, `locations.slug`, `locations.street`, `locations.city`, `locations.district`, `locations.postalCode`, `locations.latitude`, `locations.longitude`, `locations.phone`, `locations.email`, `locations.openingHours`, `locations.isActive`, `rooms.name`, `rooms.isActive`, `groups.isActive`, `agent_status.agentName`, `agent_status.version`, `agent_status.watchedRoot` |
-| identificator surogat | 36 | `users.id`, `profiles.id`, `children.id`, `enrollments.id`, `waitlist_entries.id`, `attendances.id`, `absence_notices.id`, `session_count_overrides.id`, `invoices.id`, `invoices.fiscalDocumentId`, `payments.id`, `discounts.id`, `projects.id`, `projects.publicId`, `project_versions.id`, `project_files.id`, `project_links.id`, `bank_statement_lines.id`, `unassigned_files.id`, `leads.id`, `outbox.id`, `announcements.id`, `mail_templates.id`, `sessions.id`, `password_resets.id`, `account_claims.id`, `email_confirmations.id`, `document_acceptances.id`, `publication_consents.id`, `audit_log.id`, `locations.id`, `rooms.id`, `groups.id`, `class_sessions.id`, `non_teaching_periods.id`, `agent_status.id` |
-| mecanică internă | 29 | `invoices.fiscalDocumentUrl`, `invoices.fiscalAttempts`, `invoices.fiscalNextAttemptAt`, `invoices.fiscalExpectedNumber`, `invoices.fiscalLastError`, `invoices.fiscalCheckedAt`, `payments.fiscalAttempts`, `payments.fiscalNextAttemptAt`, `payments.fiscalExpectedPaid`, `payments.fiscalExpectedNumber`, `payments.fiscalLastError`, `projects.sentOutboxMessageId`, `project_files.contentType`, `project_files.sizeBytes`, `bank_statement_lines.fingerprint`, `unassigned_files.sizeBytes`, `unassigned_files.reportKey`, `leads.bookingKey`, `outbox.attempts`, `outbox.nextAttemptAt`, `outbox.lastError`, `outbox.dedupeKey`, `outbox.attachments`, `announcements.dedupeKey`, `sessions.familyId`, `audit_log.entityType`, `audit_log.entityId`, `audit_log.note`, `agent_status.lastError` |
-| marcaj de timp al rândului | 26 | `users.createdAt`, `children.createdAt`, `enrollments.createdAt`, `waitlist_entries.createdAt`, `absence_notices.createdAt`, `session_count_overrides.createdAt`, `session_count_overrides.updatedAt`, `payments.createdAt`, `projects.createdAt`, `project_versions.createdAt`, `project_files.uploadedAt`, `project_files.createdAt`, `project_links.createdAt`, `bank_statement_lines.importedAt`, `unassigned_files.reportedAt`, `leads.createdAt`, `leads.updatedAt`, `outbox.createdAt`, `announcements.createdAt`, `mail_templates.updatedAt`, `sessions.createdAt`, `password_resets.createdAt`, `account_claims.createdAt`, `email_confirmations.createdAt`, `audit_log.occurredAt`, `non_teaching_periods.createdAt` |
+| identificator surogat | 37 | `users.id`, `profiles.id`, `children.id`, `enrollments.id`, `waitlist_entries.id`, `attendances.id`, `absence_notices.id`, `session_count_overrides.id`, `invoices.id`, `invoices.fiscalDocumentId`, `payments.id`, `discounts.id`, `projects.id`, `projects.publicId`, `project_versions.id`, `project_files.id`, `project_links.id`, `bank_statement_lines.id`, `unassigned_files.id`, `leads.id`, `outbox.id`, `announcements.id`, `mail_templates.id`, `sessions.id`, `password_resets.id`, `account_claims.id`, `email_confirmations.id`, `document_acceptances.id`, `publication_consents.id`, `audit_log.id`, `error_reports.id`, `locations.id`, `rooms.id`, `groups.id`, `class_sessions.id`, `non_teaching_periods.id`, `agent_status.id` |
+| mecanică internă | 35 | `invoices.fiscalDocumentUrl`, `invoices.fiscalAttempts`, `invoices.fiscalNextAttemptAt`, `invoices.fiscalExpectedNumber`, `invoices.fiscalLastError`, `invoices.fiscalCheckedAt`, `payments.fiscalAttempts`, `payments.fiscalNextAttemptAt`, `payments.fiscalExpectedPaid`, `payments.fiscalExpectedNumber`, `payments.fiscalLastError`, `projects.sentOutboxMessageId`, `project_files.contentType`, `project_files.sizeBytes`, `bank_statement_lines.fingerprint`, `unassigned_files.sizeBytes`, `unassigned_files.reportKey`, `leads.bookingKey`, `outbox.attempts`, `outbox.nextAttemptAt`, `outbox.lastError`, `outbox.dedupeKey`, `outbox.attachments`, `announcements.dedupeKey`, `sessions.familyId`, `audit_log.entityType`, `audit_log.entityId`, `audit_log.note`, `error_reports.fingerprint`, `error_reports.origin`, `error_reports.errorName`, `error_reports.message`, `error_reports.stack`, `error_reports.occurrences`, `agent_status.lastError` |
+| marcaj de timp al rândului | 28 | `users.createdAt`, `children.createdAt`, `enrollments.createdAt`, `waitlist_entries.createdAt`, `absence_notices.createdAt`, `session_count_overrides.createdAt`, `session_count_overrides.updatedAt`, `payments.createdAt`, `projects.createdAt`, `project_versions.createdAt`, `project_files.uploadedAt`, `project_files.createdAt`, `project_links.createdAt`, `bank_statement_lines.importedAt`, `unassigned_files.reportedAt`, `leads.createdAt`, `leads.updatedAt`, `outbox.createdAt`, `announcements.createdAt`, `mail_templates.updatedAt`, `sessions.createdAt`, `password_resets.createdAt`, `account_claims.createdAt`, `email_confirmations.createdAt`, `audit_log.occurredAt`, `error_reports.firstSeenAt`, `error_reports.lastSeenAt`, `non_teaching_periods.createdAt` |
 | orar, sală, capacitate | 17 | `rooms.capacity`, `rooms.computers`, `rooms.hasProjector`, `rooms.hasWhiteboard`, `groups.name`, `groups.weekday`, `groups.startTime`, `groups.endTime`, `groups.capacity`, `groups.minAge`, `groups.maxAge`, `class_sessions.date`, `class_sessions.scheduledFor`, `class_sessions.startTime`, `class_sessions.endTime`, `non_teaching_periods.startDate`, `non_teaching_periods.endDate` |
 | text scris de școală | 10 | `announcements.audience`, `announcements.kind`, `announcements.subject`, `announcements.bodyText`, `mail_templates.key`, `mail_templates.subject`, `mail_templates.bodyText`, `mail_templates.bodyHtml`, `class_sessions.notes`, `non_teaching_periods.name` |
-| starea rândului | 23 | `invoices.fiscalStatus`, `payments.fiscalStatus`, `projects.hasThumbnail`, `projects.thumbnailAttemptedAt`, `project_versions.versionNumber`, `bank_statement_lines.ignoredAt`, `unassigned_files.reason`, `unassigned_files.resolvedAt`, `leads.noSeats`, `outbox.status`, `outbox.undeliverableReason`, `announcements.recipientCount`, `announcements.declinedCount`, `mail_templates.version`, `sessions.expiresAt`, `password_resets.expiresAt`, `account_claims.expiresAt`, `email_confirmations.expiresAt`, `audit_log.action`, `class_sessions.status`, `class_sessions.isVacation`, `agent_status.lastSeenAt`, `agent_status.pendingFiles` |
+| starea rândului | 27 | `invoices.fiscalStatus`, `payments.fiscalStatus`, `projects.hasThumbnail`, `projects.thumbnailAttemptedAt`, `project_versions.versionNumber`, `bank_statement_lines.ignoredAt`, `unassigned_files.reason`, `unassigned_files.resolvedAt`, `leads.noSeats`, `outbox.status`, `outbox.undeliverableReason`, `announcements.recipientCount`, `announcements.declinedCount`, `mail_templates.version`, `sessions.expiresAt`, `password_resets.expiresAt`, `account_claims.expiresAt`, `email_confirmations.expiresAt`, `audit_log.action`, `error_reports.source`, `error_reports.statusCode`, `error_reports.code`, `error_reports.resolvedAt`, `class_sessions.status`, `class_sessions.isVacation`, `agent_status.lastSeenAt`, `agent_status.pendingFiles` |
 
 ## Ce se ratează ușor
 
@@ -270,6 +272,11 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 - **`audit_log.entityId`** — Trimite la rândul schimbat — o factură, o plată. Datele familiei stau acolo, nu aici.
 - **`audit_log.changes`** — Cifrele banilor se consemnează cu valoarea lor; textul liber despre o familie — nota unei plăți, motivul unei corecturi, numele unei reduceri — doar cu numele câmpului (`FREE_TEXT_FIELDS`), la fel ca datele din `Profile` și `Child`: jurnalul trăiește mai mult decât familia, iar o propoziție copiată aici ar fi singurul loc la care ștergerea nu ajunge.
 - **`audit_log.note`** — Identificatori („copil 5, luna 2026-10"), niciodată nume.
+- **`error_reports.fingerprint`** — Amprenta defectului: felul erorii și locul, fără numere și valori.
+- **`error_reports.origin`** — Ruta sau pagina ca tipar (`/profiles/:id`), niciodată adresa cu id-ul unei familii.
+- **`error_reports.message`** — Curățat la scriere de adrese de email, telefoane, IBAN-uri, tokenuri și valorile citate de Postgres (`scrub`). Mesajele platformei numesc familiile prin id, niciodată prin nume.
+- **`error_reports.stack`** — Locul din cod; trece prin aceeași curățare.
+- **`error_reports.recent`** — Contul e un id, nu o relație: rândul pleacă la 30 de zile după ultima apariție (`ERROR_REPORT_RETENTION_DAYS`), ca logurile tehnice din nota §7.
 - **`locations.phone`** — Telefonul filialei, nu al unei persoane.
 - **`locations.email`** — Adresa filialei, nu a unei persoane.
 - **`groups.minAge`** — Banda de vârstă a grupei, nu vârsta cuiva.
