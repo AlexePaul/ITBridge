@@ -493,14 +493,24 @@ function runtimeProblems(messages) {
 async function nameProblemsOn(page) {
   return await page.evaluate(() => {
     const ENGLISH =
-      /^(Show popup|Open|Close|Toggle|Select|Search|No data|Previous|Next|Submit|Clear|Menu|Loading)\b/i;
+      /^(Show popup|Open|Close|Toggle|Select|Search|No data|Previous|Next|Submit|Clear|Menu|Loading|day|month|year|hour|minute|second|Notifications)\b/i;
     const SELECTOR =
       'button, a[aria-label], [role="button"], [role="switch"], [role="checkbox"], [role="combobox"]';
+    // Checked for English only. A date field's segments repeat by design — every date field has a
+    // "ziua" — and the notifications region is there, empty and without a box, before any toast:
+    // reka-ui named both in English until the patch in `patches/`, and nothing else would notice
+    // the patch going missing after an upgrade.
+    const ENGLISH_ONLY = '[role="spinbutton"], [role="region"]';
 
+    const labelOf = (el) => (el.getAttribute("aria-label") ?? "").trim();
     const named = [...document.querySelectorAll(SELECTOR)]
       .filter((el) => el.offsetParent !== null || el.getClientRects().length > 0)
-      .map((el) => (el.getAttribute("aria-label") ?? "").trim())
+      .map(labelOf)
       .filter(Boolean);
+    const namedForLanguage = [
+      ...named,
+      ...[...document.querySelectorAll(ENGLISH_ONLY)].map(labelOf).filter(Boolean),
+    ];
 
     const out = [];
 
@@ -519,7 +529,7 @@ async function nameProblemsOn(page) {
       });
     }
 
-    const english = [...new Set(named.filter((name) => ENGLISH.test(name)))];
+    const english = [...new Set(namedForLanguage.filter((name) => ENGLISH.test(name)))];
     if (english.length > 0) {
       out.push({
         id: "english-control-name",

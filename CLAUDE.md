@@ -1262,6 +1262,13 @@ o componentă pentru sine — eticheta care deschide meniul, „No data" sub un 
 închidere — vine din locale-ul pachetului, iar implicitul e engleza. Regula „numai codul e în
 engleză" acoperă și etichetele pe care nu le-a scris nimeni din echipă.
 
+**Două nume veneau din reka-ui, de sub Nuxt UI, fără nicio opțiune care să le schimbe**: segmentele
+fiecărui câmp de dată („day,", „month,", „year,", iar unul gol era „Empty") și regiunea
+notificărilor („Notifications (F8)"), exact ce aude un cititor de ecran (27 septembrie 2026). Le
+traduce un patch pnpm, `patches/reka-ui@2.10.3.patch`, declarat în `pnpm-workspace.yaml`; e legat de
+versiune, deci la o actualizare a lui reka-ui `pnpm install` se oprește pe patch-ul nefolosit, iar
+poarta autentificată (`check-a11y-auth.mjs`) pică dacă numele revin în engleză.
+
 **Iconițele sunt în JavaScript-ul paginii, nu cerute la rulare.** Două trepte, și a doua a lipsit
 până la testarea din 27 septembrie 2026. Întâi pachetul: `@iconify-json/lucide` e instalat, deci
 nicio iconiță nu mai vine de la `api.iconify.design` — pe conexiunea din sală asta însemna butoane
