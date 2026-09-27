@@ -9,7 +9,23 @@
  * Matched case-insensitively, and after URL-decoding the key, so `?Email=` and `?e%6Dail=` do not
  * slip past a list written in one particular spelling.
  */
-const SENSITIVE_QUERY_KEYS = ['password', 'token', 'refreshtoken', 'accesstoken', 'secret', 'email', 'phone', 'firstname', 'lastname', 'address', 'username'];
+// `to` is the delivery log's recipient filter — part of an address, which the email rule alone does
+// not see (review of 27 September 2026).
+const SENSITIVE_QUERY_KEYS = [
+    'password',
+    'token',
+    'refreshtoken',
+    'accesstoken',
+    'secret',
+    'email',
+    'phone',
+    'firstname',
+    'lastname',
+    'address',
+    'username',
+    'to',
+    'search',
+];
 
 function isSensitive(rawKey: string): boolean {
     let key = rawKey;

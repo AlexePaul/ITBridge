@@ -39,9 +39,12 @@ export function scrub(text: string): string {
             // An IBAN before the phone numbers: its digits would otherwise be read as one.
             .replace(/\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){3,7}(?:\s?[A-Z0-9]{1,3})?\b/g, '[iban]')
             // Romanian numbers as people type them: 0712 345 678, +40 712-345-678, 021 123 4567.
-            .replace(/(?<![\w.:])(?:\+?40|0)\s?[237]\d{1,2}[\s.-]?\d{3}[\s.-]?\d{3,4}(?![\w.])/g, '[telefon]')
-            // Long opaque strings — the platform's link tokens are 64 hex characters.
+            .replace(/(?<![\w.:])(?:(?:\+|00)?40|0)\s?[237]\d{1,2}[\s.-]?\d{3}[\s.-]?\d{3,4}(?![\w.])/g, '[telefon]')
+            // Long opaque strings: hex digests, and the link tokens the platform mints, which are
+            // 43 characters of base64url (`randomBytes(32).toString('base64url')`) — the hex rule
+            // alone never saw them (review of 27 September 2026).
             .replace(/\b[a-f0-9]{32,}\b/gi, '[token]')
+            .replace(/(?<![\w-])[A-Za-z0-9_-]{40,}(?![\w-])/g, '[token]')
     );
 }
 
@@ -102,7 +105,16 @@ export const UNMATCHED_ROUTE = '(nicio rută)';
 /** An address as it is kept on an occurrence: redacted like a log line, cut to the column. */
 export function occurrencePath(path: string | null | undefined): string | null {
     if (!path) return null;
-    return clip(scrub(redactUrl(path)), PATH_MAX_LENGTH);
+    return clip(scrub(decoded(redactUrl(path))), PATH_MAX_LENGTH);
+}
+
+/** Percent-escapes undone, so `%2B40712345678` is a number `scrub` can see; the raw text if malformed. */
+function decoded(text: string): string {
+    try {
+        return decodeURIComponent(text);
+    } catch {
+        return text;
+    }
 }
 
 /** The newest occurrence first, then as many older ones as the row keeps. */
@@ -133,7 +145,11 @@ export function parseLogCall(message: unknown, params: unknown[]): { context: st
         return { context, errorName: message.name, message: message.message, stack: message.stack ?? stackParam };
     }
     const text = typeof message === 'string' ? message : safeStringify(message);
-    const detail = errorParam ? `${text}: ${errorParam.message}` : text;
+    // A string beside the message that is not a stack is the cause, as `logger.error('Session purge
+    // failed', String(error))` writes it: dropped, the row said what failed and never why (review of
+    // 27 September 2026).
+    const causes = rest.filter((param): param is string => typeof param === 'string' && !looksLikeStack(param) && param.trim() !== '');
+    const detail = [text, ...causes, ...(errorParam ? [errorParam.message] : [])].join(': ');
     return { context, errorName: errorParam?.name ?? 'Error', message: detail, stack: stackParam ?? errorParam?.stack ?? null };
 }
 
