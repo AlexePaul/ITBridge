@@ -1,4 +1,5 @@
-import { isInReplacementWeek, replacementWeekFor } from './replacement.rules';
+import { ClassSession } from 'src/entities/class-session.entity';
+import { isInReplacementWeek, replacementPlaceText, replacementWeekFor } from './replacement.rules';
 
 /**
  * The window of E12/S4, which is **the week the class was missed in** and nothing else.
@@ -83,5 +84,32 @@ describe('isInReplacementWeek', () => {
 
     it('accepts the strings the driver hands back for both sides', () => {
         expect(isInReplacementWeek({ date: '2026-09-09' as unknown as Date }, { date: '2026-09-12' as unknown as Date })).toBe(true);
+    });
+});
+
+/**
+ * Where the move email sends the family — QA of 27 September 2026. The office's dialog promises „un
+ * email cu grupa, ziua, ora și adresa", and the email said „la Drumul Taberei": a location's name,
+ * which a family new to that address cannot find.
+ */
+describe('replacementPlaceText', () => {
+    const at = (name: string, street: string) => ({ name, street, city: 'București' });
+    const classIn = (room: unknown, groupRoom: unknown = { location: at('Drumul Taberei', 'Strada Valea Oltului 73') }) =>
+        ({ date: '2026-09-10', startTime: '18:00:00', group: { name: 'Python', room: groupRoom }, room }) as unknown as ClassSession;
+
+    it('names the group, the day, the hour and the street', () => {
+        expect(replacementPlaceText(classIn({ name: 'Sala 1', location: at('Drumul Taberei', 'Strada Valea Oltului 73') }))).toBe(
+            'grupa Python, joi, 10 septembrie, ora 18:00, la Drumul Taberei (Strada Valea Oltului 73, București)',
+        );
+    });
+
+    it("reads the address of the room the class is in, not the group's usual one", () => {
+        expect(replacementPlaceText(classIn({ name: 'Sala mare', location: at('Străulești', 'Strada Străulești 12') }))).toContain(
+            'la Străulești (Strada Străulești 12, București)',
+        );
+    });
+
+    it("falls back on the group's room when the class came without its own", () => {
+        expect(replacementPlaceText(classIn(undefined))).toContain('la Drumul Taberei (Strada Valea Oltului 73, București)');
     });
 });

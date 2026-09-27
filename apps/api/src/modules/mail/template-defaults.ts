@@ -479,32 +479,32 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
     },
     {
         key: 'absence-replacement',
-        name: 'L-am mutat la altă grupă',
+        name: 'Mutare la altă grupă',
         description:
-            'Pleacă în momentul în care biroul mută copilul, nu seara și nu automat. Spune un singur lucru, cel pe care familia nu-l știe: unde și când să-l aducă în locul orei pierdute.',
+            'Pleacă în momentul în care biroul mută copilul, nu seara și nu automat. Spune un singur lucru, cel pe care familia nu-l știe: unde și când să aducă copilul în locul orei pierdute.',
         variables: [
             { name: 'firstName', description: 'Prenumele părintelui' },
             { name: 'childName', description: 'Prenumele copilului mutat' },
             { name: 'missed', description: 'Ora pierdută — zi și oră, în cuvinte' },
-            { name: 'replacement', description: 'Ora de înlocuire — grupă, zi, oră și sală' },
+            { name: 'replacement', description: 'Ora de înlocuire — grupă, zi, oră și adresă' },
             { name: 'portalUrl', description: 'Linkul către absențele din cont' },
         ],
         sampleData: {
             firstName: 'Ana',
             childName: 'Maria',
             missed: 'miercuri, 9 septembrie, ora 16:00',
-            replacement: 'grupa Python, joi, 10 septembrie, ora 18:00, sala Delta',
+            replacement: 'grupa Python, joi, 10 septembrie, ora 18:00, la Drumul Taberei (Strada Valea Oltului 73, București)',
             portalUrl: 'https://itbridgeschool.com/user/absente',
         },
         subject: 'Ora de recuperare a lui {{childName}}',
         bodyText: [
             'Bună, {{firstName}}!',
             '',
-            'Ne-ai anunțat din timp că {{childName}} nu ajunge la ora de {{missed}}, așa că am mutat-o pentru săptămâna asta la:',
+            'Ne-ai anunțat din timp că {{childName}} nu ajunge la ora de {{missed}}. În locul ei, {{childName}} vine la:',
             '',
             '{{replacement}}',
             '',
-            'Nu trebuie să confirmi nimic — o așteptăm acolo. Detaliile sunt și în contul tău:',
+            'Nu trebuie să confirmi nimic — vă așteptăm acolo. Detaliile sunt și în contul tău:',
             '',
             '{{portalUrl}}',
             '',
@@ -515,9 +515,9 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
         bodyHtml: htmlFrame(
             [
                 paragraph('Bună, {{firstName}}!'),
-                paragraph('Ne-ai anunțat din timp că {{childName}} nu ajunge la ora de {{missed}}, așa că am mutat-o pentru săptămâna asta la:'),
+                paragraph('Ne-ai anunțat din timp că {{childName}} nu ajunge la ora de {{missed}}. În locul ei, {{childName}} vine la:'),
                 paragraph('{{replacement}}'),
-                paragraph('Nu trebuie să confirmi nimic — o așteptăm acolo. Detaliile sunt și în contul tău:'),
+                paragraph('Nu trebuie să confirmi nimic — vă așteptăm acolo. Detaliile sunt și în contul tău:'),
                 linkBlock('portalUrl'),
                 paragraph('Dacă ora asta nu se potrivește, sună-ne și căutăm alta în aceeași săptămână.'),
             ].join('\n'),
@@ -933,7 +933,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
             'Bună, {{firstName}}!',
             '',
             'Revenim cu o veste bună: ora de la grupa {{groupName}} din {{date}}, ora {{time}}, se ține',
-            'totuși. Te așteptăm cu cel mic, ca de obicei.',
+            'totuși. Vă așteptăm, ca de obicei.',
             '',
             '{{portalNote}}',
             '',
@@ -945,7 +945,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
             [
                 paragraph('Bună, {{firstName}}!'),
                 paragraph(
-                    'Revenim cu o veste bună: ora de la grupa <strong>{{groupName}}</strong> din {{date}}, ora {{time}}, se ține totuși. Te așteptăm cu cel mic, ca de obicei.',
+                    'Revenim cu o veste bună: ora de la grupa <strong>{{groupName}}</strong> din {{date}}, ora {{time}}, se ține totuși. Vă așteptăm, ca de obicei.',
                 ),
                 paragraph('{{portalNote}}'),
                 linkBlock('portalUrl'),

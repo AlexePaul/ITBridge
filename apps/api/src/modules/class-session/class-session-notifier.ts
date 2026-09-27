@@ -110,7 +110,9 @@ export class ClassSessionNotifier {
         if (!session) return 0;
 
         const groupNote = 'Ora nu se facturează — plata e pe ședință ținută, deci luna aceasta va fi cu o ședință mai mică.';
-        const visitorNote = 'Ora la care îl mutasem pe copilul tău pentru săptămâna asta nu se mai ține. Căutăm alta în aceeași săptămână și te anunțăm.';
+        // „În locul celei pierdute", not „pentru săptămâna asta": the class a child was moved into can
+        // be next week's (QA of 27 September 2026).
+        const visitorNote = 'Ora la care îl mutasem pe copilul tău, în locul celei pierdute, nu se mai ține. Căutăm alta în aceeași săptămână și te anunțăm.';
         // A family here for a free trial is billed for nothing, so the group's sentence about the
         // month would be about somebody else. What they need is the next step, and it is ours.
         const trialNote = 'Proba copilului tău era la ora asta. Te sunăm să stabilim împreună alta.';

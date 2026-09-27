@@ -130,6 +130,21 @@ describe('Temporary group moves (e2e)', () => {
             expect(mail[0].bodyText).toContain('/user/absente');
         });
 
+        /**
+         * The office's dialog promises „un email cu grupa, ziua, ora și adresa", and the email said
+         * „la Mutări" — a location's name (QA of 27 September 2026). It also said „am mutat-o
+         * pentru săptămâna asta": a gender the platform does not know, and a week that may not be
+         * this one.
+         */
+        it('tells the family the street of the class, in words that fit any child and any week', async () => {
+            await place(hostSessionId).expect(200);
+
+            const [mail] = await mailTo('parinte.mutari@example.com');
+            expect(mail.bodyText).toContain('grupa Python');
+            expect(mail.bodyText).toContain('la Mutări (Strada Valea Oltului 73, București)');
+            expect(mail.bodyText).not.toMatch(/mutat-o|o așteptăm|săptămâna asta/);
+        });
+
         it('writes to the family once, however many times the same move is recorded', async () => {
             await place(hostSessionId).expect(200);
             await place(hostSessionId).expect(200);

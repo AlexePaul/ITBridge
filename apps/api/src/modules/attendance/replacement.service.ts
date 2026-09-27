@@ -12,7 +12,7 @@ import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { romanianDayAndDate } from 'src/modules/mail/romanian-date';
 import { canBackfill } from './absence-notice.rules';
-import { isInReplacementWeek, replacementWeekFor } from './replacement.rules';
+import { isInReplacementWeek, replacementPlaceText, replacementWeekFor } from './replacement.rules';
 
 export const REPLACEMENT_DEDUPE_PREFIX = 'absence-replacement:';
 
@@ -151,7 +151,7 @@ export class ReplacementService {
 
         const session = await this.classSessionRepository.findOne({
             where: { id: classSessionId },
-            relations: { group: true, room: { location: true } },
+            relations: { group: { room: { location: true } }, room: { location: true } },
         });
         if (!session) throw new NotFoundException('Class session not found');
 
@@ -197,7 +197,7 @@ export class ReplacementService {
             // cancellation does not take the group, so one still in flight would otherwise commit
             // after this read, and its release of the class's placements would miss this one.
             await manager.query('SELECT 1 FROM class_sessions WHERE id = $1 FOR SHARE', [session.id]);
-            const current = await manager.getRepository(ClassSession).findOne({ where: { id: session.id }, relations: { room: true } });
+            const current = await manager.getRepository(ClassSession).findOne({ where: { id: session.id }, relations: { room: { location: true } } });
             if (!current || current.status === ClassSessionStatus.CANCELLED) {
                 throw new ConflictException({ message: 'Ședința e anulată.', error: 'CLASS_SESSION_CANCELLED' });
             }
@@ -225,7 +225,9 @@ export class ReplacementService {
             // The one column, not the row read before the transaction: `save` would write back
             // whatever else that copy holds over anything changed since.
             await manager.getRepository(AbsenceNotice).update(notice.id, { replacementSession: { id: session.id } });
-            await this.tellTheFamily(notice, session, manager);
+            // The room as it stands behind the lock: the email names the address, and the class may
+            // have been moved to the other one since the read above.
+            await this.tellTheFamily(notice, { ...session, room: current.room }, manager);
             return notice;
         });
         this.logger.log(`Child ${notice.child.id} moved to session ${session.id} for the week of ${toIsoDate(notice.classSession.date)}.`);
@@ -328,20 +330,11 @@ export class ReplacementService {
         const parent = notice.child.parent;
         if (!parent) return;
 
-        const where = [
-            `grupa ${replacement.group.name}`,
-            romanianDayAndDate(replacement.date),
-            `ora ${replacement.startTime.slice(0, 5)}`,
-            replacement.room?.location?.name ? `la ${replacement.room.location.name}` : null,
-        ]
-            .filter(Boolean)
-            .join(', ');
-
         const mail = await this.mailTemplates.render('absence-replacement', {
             firstName: parent.firstName,
             childName: notice.child.firstName,
             missed: `${romanianDayAndDate(notice.classSession.date)}, ora ${notice.classSession.startTime.slice(0, 5)}`,
-            replacement: where,
+            replacement: replacementPlaceText(replacement),
             portalUrl: absencesUrl(),
         });
         const prefix = `${REPLACEMENT_DEDUPE_PREFIX}${notice.id}:`;
