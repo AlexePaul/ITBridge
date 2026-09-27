@@ -10,7 +10,8 @@ import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { romanianDate } from 'src/modules/mail/romanian-date';
-import { absencesUrl, contactUrl, loginUrl } from 'src/modules/auth/portal-urls';
+import { absencesUrl, loginUrl } from 'src/modules/auth/portal-urls';
+import { familyLink } from 'src/modules/mail/portal-line';
 import { bookingAddresses } from 'src/modules/mail/booking-address';
 
 /** Where a session was before it moved — the half a parent asks about. */
@@ -49,11 +50,8 @@ interface Recipient {
  * the office typed in from a phone call, which has an address and no account (QA of 27 September
  * 2026) — the path most families take into the school.
  */
-const NO_ACCOUNT_NOTE = 'Pentru orice întrebare, ne găsești aici:';
 function portalLine(recipient: Recipient, accountNote: string, accountUrl: string = loginUrl()): { portalNote: string; portalUrl: string } {
-    return recipient.hasAccount && !recipient.viaBooking
-        ? { portalNote: accountNote, portalUrl: accountUrl }
-        : { portalNote: NO_ACCOUNT_NOTE, portalUrl: contactUrl() };
+    return familyLink(recipient.hasAccount && !recipient.viaBooking, { note: accountNote, url: accountUrl });
 }
 
 interface RenderedMail {

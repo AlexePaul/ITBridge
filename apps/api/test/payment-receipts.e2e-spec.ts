@@ -133,6 +133,43 @@ describe('Payment receipts (e2e)', () => {
         expect(await receipts()).toHaveLength(1);
     });
 
+    // QA of 27 September 2026: a family the office typed in has an address and no account, and its
+    // receipt sent it to the portal for the invoice and the receipt — a login it has nothing to
+    // type into. The family with an account keeps the portal link.
+    it('does not send a family with no account to the portal for its documents', async () => {
+        const office = await request(app.getHttpServer())
+            .post('/profiles')
+            .set('Authorization', admin.auth)
+            .send({ firstName: 'Cristina', lastName: 'Dumitrescu', email: 'cristina.dumitrescu@example.com' })
+            .expect(201);
+        const officeId = office.body.id as number;
+        const child = await request(app.getHttpServer())
+            .post('/children')
+            .set('Authorization', admin.auth)
+            .send({ firstName: 'Daria', lastName: 'Dumitrescu', birthDate: '2016-01-01', parentId: officeId })
+            .expect(201);
+        await enrolInNewGroup(app, admin, [child.body.id as number]);
+        const invoices = await request(app.getHttpServer())
+            .post('/invoices')
+            .set('Authorization', admin.auth)
+            .send({ parentIds: [officeId], dateIssued: '2026-03-01', monthIssued: '2026-03' })
+            .expect(201);
+
+        await request(app.getHttpServer())
+            .post('/payments')
+            .set('Authorization', admin.auth)
+            .send({ invoiceId: invoices.body[0].id as number, date: '2026-03-05', amount: 350 })
+            .expect(201);
+        await pay({ amount: 350 }).expect(201);
+
+        const rows = await receipts();
+        const toOffice = rows.find((row) => row.to === 'cristina.dumitrescu@example.com');
+        const toAccount = rows.find((row) => row.to === PARENT_EMAIL);
+        expect(toOffice?.bodyText).toContain('/contact');
+        expect(toOffice?.bodyText).not.toContain('/user/payments');
+        expect(toAccount?.bodyText).toContain('/user/payments');
+    });
+
     it('records a family with no address rather than skipping them', async () => {
         // The school's own row: a family entered from a phone call — a profile with no account and
         // no email. It needs an enrolled child, because the amount counts active enrolments and a
