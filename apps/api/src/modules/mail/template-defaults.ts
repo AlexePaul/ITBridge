@@ -542,7 +542,11 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
                 name: 'paymentInstructions',
                 description: 'Cum se plătește: numerar la școală și, dacă e configurat, contul pentru transfer, cu ce se scrie la detalii',
             },
-            { name: 'portalUrl', description: 'Pagina de plăți din portal, unde se descarcă factura' },
+            {
+                name: 'portalNote',
+                description: 'Propoziția dinaintea linkului: portalul, pentru o familie cu cont; pentru una fără cont, cum cere factura',
+            },
+            { name: 'portalUrl', description: 'Pagina de plăți din portal, unde se descarcă factura; pentru o familie fără cont, pagina de contact' },
             { name: 'officeEmail', description: 'Adresa biroului' },
         ],
         sampleData: {
@@ -552,6 +556,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
             dueOn: '15 aprilie',
             paymentInstructions:
                 'Poți plăti în numerar, la școală, sau prin transfer bancar în contul RO49 AAAA 1B31 0075 9384 0000, Banca Exemplu, beneficiar IT Bridge School SRL; la detaliile plății scrie factura ITB 0042.',
+            portalNote: 'Factura se descarcă din portal, unde vezi și plățile înregistrate:',
             portalUrl: 'https://itbridgeschool.com/user/payments',
             officeEmail: 'office@itbridgeschool.com',
         },
@@ -563,7 +568,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
             '',
             '{{paymentInstructions}}',
             '',
-            'Factura se descarcă din portal, unde vezi și plățile înregistrate:',
+            '{{portalNote}}',
             '{{portalUrl}}',
             '',
             'Dacă ceva nu se potrivește — numărul de ședințe, o reducere —, scrie-ne la {{officeEmail}} și lămurim.',
@@ -575,7 +580,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
                 paragraph('Bună, {{firstName}}!'),
                 paragraph('Factura pe {{month}} e gata: <strong>{{amount}}</strong>, de plătit până pe {{dueOn}}.'),
                 paragraph('{{paymentInstructions}}'),
-                paragraph('Factura se descarcă din portal, unde vezi și plățile înregistrate: <a href="{{portalUrl}}">{{portalUrl}}</a>'),
+                paragraph('{{portalNote}} <a href="{{portalUrl}}">{{portalUrl}}</a>'),
                 paragraph('Dacă ceva nu se potrivește — numărul de ședințe, o reducere —, scrie-ne la {{officeEmail}} și lămurim.'),
             ].join('\n'),
         ),

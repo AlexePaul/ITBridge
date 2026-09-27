@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EntityManager } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { Invoice } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
@@ -12,6 +12,7 @@ import { dueDateFor } from './arrears.rules';
 import { formatLeiRo, romanianDay, romanianMonth } from './money-words';
 import { paymentReference } from './payment-reference';
 import { paymentInstructions, transferDetails } from './school-identity';
+import { familyHasAccount, familyLink } from 'src/modules/mail/portal-line';
 
 /** One email per invoice, ever: the key carries nothing but the id, as a receipt's does. */
 export const INVOICE_ISSUED_DEDUPE_PREFIX = 'invoice-issued:';
@@ -44,6 +45,7 @@ export class InvoiceAnnouncementService {
     constructor(
         private readonly mailTemplates: MailTemplateService,
         private readonly outbox: OutboxService,
+        private readonly dataSource: DataSource,
     ) {}
 
     async announce(invoice: AnnouncedInvoice, manager?: EntityManager): Promise<void> {
@@ -60,7 +62,13 @@ export class InvoiceAnnouncementService {
             amount: formatLeiRo(invoice.amount),
             dueOn: romanianDay(toIsoDate(dueDateFor(invoice.dateIssued))),
             paymentInstructions: paymentInstructions(transferDetails(), reference?.text ?? null),
-            portalUrl: paymentsUrl(),
+            // The portal for a family with an account; one the office typed in has none, and is told
+            // to ask for the PDF instead (QA of 27 September 2026).
+            ...familyLink(
+                await familyHasAccount(manager ?? this.dataSource.manager, invoice.parent.id),
+                { note: 'Factura se descarcă din portal, unde vezi și plățile înregistrate:', url: paymentsUrl() },
+                'Dacă vrei factura în PDF, scrie-ne și ți-o trimitem:',
+            ),
             officeEmail: officeAddress(),
         });
 
