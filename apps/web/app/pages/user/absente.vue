@@ -29,6 +29,7 @@
 
     <div v-else-if="loadError" class="portal-card portal-card-accent portal-notice" role="alert">
       <p class="body-text">{{ loadError }}</p>
+      <UButton variant="outline" class="mt-3 min-h-11" @click="load">Încearcă din nou</UButton>
     </div>
 
     <template v-else>

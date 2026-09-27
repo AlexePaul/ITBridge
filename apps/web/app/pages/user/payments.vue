@@ -19,6 +19,7 @@
 
     <div v-else-if="loadError" class="portal-card portal-card-accent portal-notice" role="alert">
       <p class="body-text">{{ loadError }}</p>
+      <UButton variant="outline" class="mt-3 min-h-11" @click="load">Încearcă din nou</UButton>
     </div>
 
     <template v-else>
@@ -309,7 +310,13 @@ const received = computed(() =>
     .sort((a, b) => b.date.localeCompare(a.date))
 );
 
-onMounted(async () => {
+/**
+ * What the page shows, read again by the retry under an error (QA of 27 September 2026: only
+ * Profil offered one, so a portal page that failed on a bad connection stayed failed until a reload).
+ */
+const load = async () => {
+  loading.value = true;
+  loadError.value = "";
   try {
     await invoiceApi.fetchInvoices();
     invoices.value = invoiceApi.getInvoices();
@@ -330,7 +337,9 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+};
+
+onMounted(load);
 
 /**
  * The PDF, through the API rather than from a link.
