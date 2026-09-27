@@ -54,7 +54,7 @@ describe('OverviewService', () => {
         classSessions = { findSessions: jest.fn().mockResolvedValue([]), findUnmarkedSessions: jest.fn().mockResolvedValue([]) };
         enrollments = { occupancyOf: jest.fn(), withoutContract: jest.fn().mockResolvedValue([]) };
         arrears = { list: jest.fn().mockResolvedValue([]) };
-        leads = { followUp: jest.fn().mockResolvedValue({ undecided: [], noSeats: [], stale: [], due: [], unassigned: 0 }) };
+        leads = { followUp: jest.fn().mockResolvedValue({ undecided: [], noSeats: [], stale: [], due: [], toCall: 0, unassigned: 0 }) };
 
         groupRepo.find!.mockResolvedValue([]);
         projects.pendingSummary.mockResolvedValue({ total: 0, oldestDays: null, staleAfterDays: 2, byGroup: [] });
@@ -260,9 +260,18 @@ describe('OverviewService', () => {
 
         // QA of 26 September 2026: the dashboard had no leads tile, and the office's daily email was
         // the only place a trial held with no decision showed up.
-        it('counts the leads to call from the lists the daily email is made of, each lead once', async () => {
+        // The count of calls is the lead module's, as the leads screen reads it too (QA of 27
+        // September 2026): the tile passes it on rather than counting the lists a second time.
+        it("passes on the lead module's count of calls, and the two lists it names", async () => {
             const row = (id: number) => ({ lead: { id }, days: 3 });
-            leads.followUp.mockResolvedValue({ undecided: [row(1), row(2)], noSeats: [row(3)], stale: [row(4)], due: [row(1), row(3)], unassigned: 5 });
+            leads.followUp.mockResolvedValue({
+                undecided: [row(1), row(2)],
+                noSeats: [row(3)],
+                stale: [row(4)],
+                due: [row(1), row(3)],
+                toCall: 4,
+                unassigned: 5,
+            });
 
             await expect(service.build(DAY)).resolves.toMatchObject({ leads: { toCall: 4, undecided: 2, noSeats: 1 } });
             expect(leads.followUp).toHaveBeenCalledWith(DAY);

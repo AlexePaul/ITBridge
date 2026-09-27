@@ -164,13 +164,17 @@ const tiles = computed(() => {
       value: data.unmarkedThisWeek,
       display: String(data.unmarkedThisWeek),
       note: "din ultima săptămână",
-      to: "/admin/attendance",
+      // Straight to the list, under the three doors of the attendance page (QA of 27 September
+      // 2026: the tile led to a page that showed neither the number nor the classes).
+      to: "/admin/attendance#nefacute",
     },
     {
       // E20/S3's follow-up lists, counted — QA of 26 September 2026: a trial held with no decision
       // showed only in the office's daily email. Leads, not list entries: one family on two lists
       // is one call.
-      label: "Cereri de probă",
+      // Named for what it counts: the requests somebody has to call about today, each once — the
+      // same number the leads screen shows beside its lists, not the count of every open request.
+      label: "Cereri de urmărit",
       value: data.leads.toCall,
       display: String(data.leads.toCall),
       note: leadsNote(data.leads),

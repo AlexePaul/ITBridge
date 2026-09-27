@@ -18,10 +18,57 @@
         <p class="text-dimmed mt-4 text-xs">{{ choice.hint }}</p>
       </NuxtLink>
     </div>
+
+    <!-- The list behind the dashboard's „Cataloage nefăcute": the tile linked here, to a page that
+         showed neither the number nor the classes (QA of 27 September 2026). Same window as the
+         tile — the seven days before today — asked of the same query. -->
+    <section id="nefacute" class="mt-8 space-y-3" aria-labelledby="unmarked-heading">
+      <h2 id="unmarked-heading" class="text-lg font-semibold">
+        Cataloage nefăcute din ultima săptămână
+      </h2>
+      <AdminLoading v-if="unmarkedLoading" />
+      <AdminError v-else-if="unmarkedError" :message="unmarkedError" @retry="loadUnmarked" />
+      <p v-else-if="unmarked.length === 0" class="text-muted text-sm">
+        Toate orele din ultimele șapte zile au catalogul făcut.
+      </p>
+      <ul v-else class="divide-y divide-default rounded-lg border border-default">
+        <li
+          v-for="session in unmarked"
+          :key="session.id"
+          class="flex flex-wrap items-center justify-between gap-3 p-3"
+        >
+          <div class="min-w-0">
+            <p class="font-medium">{{ session.group.name }}</p>
+            <p class="text-muted text-sm">
+              {{ formatDateKey(session.date) }}, ora {{ session.startTime.slice(0, 5) }} ·
+              {{ session.room.name
+              }}<template v-if="session.room.location">
+                — {{ session.room.location.name }}</template
+              >
+            </p>
+          </div>
+          <UButton
+            :to="`/admin/attendance/azi?zi=${session.date}`"
+            variant="outline"
+            class="min-h-11"
+            :aria-label="`Completează catalogul: ${session.group.name}, ${formatDateKey(session.date)}`"
+          >
+            Completează
+          </UButton>
+        </li>
+      </ul>
+    </section>
   </AdminPage>
 </template>
 
 <script setup lang="ts">
+import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
+import { apiErrorMessage } from "~/composables/useApiError";
+import { formatDateKey } from "~/composables/useAdminFormat";
+import { todayKey } from "~/composables/useAttendanceCalendar";
+import { shiftDay } from "~/composables/useRegisterDay";
+import type { ClassSession } from "~/types/class-session.types";
+
 /**
  * The three doors into attendance.
  *
@@ -41,6 +88,30 @@ definePageMeta({
   middleware: "admin-check" as any,
   title: "Prezența",
 });
+
+const { fetchUnmarkedSessions } = useClassSessionsApi();
+const unmarked = ref<ClassSession[]>([]);
+const unmarkedLoading = ref(true);
+const unmarkedError = ref("");
+
+/** The dashboard's window: the seven days before today. Today is work in progress, not a backlog. */
+const loadUnmarked = async () => {
+  unmarkedLoading.value = true;
+  unmarkedError.value = "";
+  const today = todayKey();
+  try {
+    unmarked.value = await fetchUnmarkedSessions({
+      dateFrom: shiftDay(today, -7),
+      dateTo: shiftDay(today, -1),
+    });
+  } catch (err: unknown) {
+    unmarkedError.value = apiErrorMessage(err, "Nu am putut încărca orele fără catalog.");
+  } finally {
+    unmarkedLoading.value = false;
+  }
+};
+
+onMounted(loadUnmarked);
 
 const choices = [
   {

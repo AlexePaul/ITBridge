@@ -1,8 +1,10 @@
 <template>
   <UApp :locale="ro" :toaster="{ label: 'Notificare' }">
-    <NuxtLayout>
-      <NuxtPage />
-    </NuxtLayout>
+    <UTheme :props="themeProps">
+      <NuxtLayout>
+        <NuxtPage />
+      </NuxtLayout>
+    </UTheme>
   </UApp>
 </template>
 <script setup lang="ts">
@@ -21,4 +23,14 @@ import { ro } from "@nuxt/ui/locale";
  * "Notification" until it was set here (QA of 27 September 2026). Every screen's toasts go through
  * this toaster, by way of `useNotifications`.
  */
+
+/**
+ * Every form field checks itself as it is typed into, not only once it loses focus. Waiting for the
+ * blur made the submit button move under the pointer: a message shown after a first press stayed
+ * under the last field until the press on the button blurred it, the message went, the form grew
+ * shorter, and the release landed off the button — nothing happened, and the third press saved
+ * (QA of 27 September 2026). Typed into, a field clears its message before anybody reaches for the
+ * button. A field that sets `eager-validation` itself wins.
+ */
+const themeProps = { formField: { eagerValidation: true } };
 </script>

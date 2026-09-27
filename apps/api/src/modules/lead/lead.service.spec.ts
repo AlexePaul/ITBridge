@@ -186,6 +186,22 @@ describe('LeadService', () => {
             expect(followUp.unassigned).toBe(3);
         });
 
+        // The dashboard's tile and the leads screen both read this number (QA of 27 September 2026:
+        // the tile counted on its own and the screen showed nothing that matched it).
+        it('counts the calls to make once per lead, however many lists it is on', async () => {
+            leadRepo.find?.mockResolvedValue([
+                lead({ id: 1, status: LeadStatus.TRIAL_HELD, trialHeldAt: new Date('2026-03-16T15:00:00Z'), nextActionAt: '2026-03-19' }),
+                lead({ id: 2, noSeats: true, lastActivityAt: new Date('2026-03-18T09:00:00Z'), nextActionAt: '2026-03-20' }),
+                lead({ id: 3, status: LeadStatus.CONTACTED, lastActivityAt: new Date('2026-03-19T09:00:00Z') }),
+            ]);
+
+            const followUp = await service.followUp(now);
+
+            // Lead 1 is undecided and due, lead 2 is without a seat and due; lead 3 is on no list.
+            expect(followUp.due).toHaveLength(2);
+            expect(followUp.toCall).toBe(2);
+        });
+
         it('does not call a lead stale twice by also counting a trial nobody decided', async () => {
             // A trial held eight days ago is on the undecided list, which is the sharper of the two.
             // Listing it as "no movement" as well would double every number in the daily message.

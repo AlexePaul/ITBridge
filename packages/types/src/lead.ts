@@ -108,6 +108,8 @@ export interface LeadFollowUp {
     noSeats: LeadWithAge[];
     stale: LeadWithAge[];
     due: LeadWithAge[];
+    /** Leads on any of the four lists, each counted once: the calls to make. */
+    toCall: number;
     unassigned: number;
 }
 

@@ -5,6 +5,10 @@
     width="xl"
   >
     <template #actions>
+      <!-- The dashboard's „Cereri de urmărit", from the same count (QA of 27 September 2026). -->
+      <UBadge v-if="followUp" color="neutral" variant="subtle">
+        {{ countOf(followUp.toCall, "cerere de urmărit azi", "cereri de urmărit azi") }}
+      </UBadge>
       <UBadge v-if="followUp" color="warning" variant="subtle">
         {{ countOf(followUp.undecided.length, "probă fără decizie", "probe fără decizie") }}
       </UBadge>
