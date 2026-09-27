@@ -46,7 +46,8 @@ import { PaymentMethod } from '../enum/payment-method.enum';
 import { PaymentStatus } from '../enum/payment-status.enum';
 import { DiscountType } from '../enum/discount-type.enum';
 import { DEFAULT_HORIZON_WEEKS } from '../modules/class-session/class-session.service';
-import { addDays, occurrencesOf, toIsoDate } from '../modules/class-session/class-session.dates';
+import { addDays, occurrencesOf, parseIsoDate, toIsoDate } from '../modules/class-session/class-session.dates';
+import { seededInvoiceMonths } from './seed-months';
 import { replacementWeekFor } from '../modules/attendance/replacement.rules';
 import { sessionAmountAfterDiscounts } from '../modules/invoice/pricing';
 import { nextBillingMonthAt } from '../modules/discount/discount.rules';
@@ -226,13 +227,6 @@ function daysAgo(n: number): Date {
     d.setUTCDate(d.getUTCDate() - n);
     d.setUTCHours(0, 0, 0, 0);
     return d;
-}
-
-/** `YYYY-MM` for a date `n` months back, the format `monthIssued` expects. */
-function monthsAgo(n: number): string {
-    const d = new Date(SEED_TODAY);
-    d.setUTCMonth(d.getUTCMonth() - n);
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 export async function seed(dataSource: DataSource): Promise<void> {
@@ -728,6 +722,9 @@ export async function seed(dataSource: DataSource): Promise<void> {
     // --- Discounts, before the invoices that take them off ------------------------------------
     const discountRepo = dataSource.getRepository(Discount);
     const nextMonth = nextBillingMonthAt(SEED_TODAY);
+    // The months that have invoices: finished ones only, and not the latest — that one is left for
+    // the test plan to issue (`seed-months.ts`).
+    const invoicedMonths = seededInvoiceMonths(toIsoDate(SEED_TODAY));
     const discounts = await discountRepo.save([
         // A whole referral, both halves of it — E20/S5. Seeded as a pair on purpose: giving only
         // one is the mistake the screen warns about, and a fresh database should show the shape of
@@ -751,15 +748,15 @@ export async function seed(dataSource: DataSource): Promise<void> {
             value: 50,
             monthIssued: nextMonth,
         }),
-        // And one fixed amount on the month already invoiced, so both kinds are on screen and one
-        // invoice shows a discount taken off: a goodwill adjustment is still lei.
+        // And one fixed amount on the newest month already invoiced, so both kinds are on screen and
+        // one invoice shows a discount taken off: a goodwill adjustment is still lei.
         discountRepo.create({
             parent: profiles[3],
             name: 'Ajustare',
             description: 'Reducere convenită la telefon',
             type: DiscountType.FIXED,
             value: 100,
-            monthIssued: monthsAgo(0),
+            monthIssued: invoicedMonths[0].month,
         }),
     ]);
 
@@ -768,8 +765,8 @@ export async function seed(dataSource: DataSource): Promise<void> {
     // ACTIVE enrolment is on the invoice (E11/S4), each at the session rate, and the month's
     // discounts come off last (E15/S5) — the same `pricing.ts` issuing calls, not a copy of it. The
     // count itself cannot be read from registers the way issuing reads it (E15/S9): the seed's
-    // history is eight weeks, and the oldest invoice is three months back. So every seeded month is
-    // the four-session month the school quotes. Until the end-to-end testing of 25 September 2026
+    // history is eight weeks, and the months it invoices end before it. So every seeded month is the
+    // four-session month the school quotes. Until the end-to-end testing of 25 September 2026
     // this billed every child in the family: the two families whose only child waits on the list
     // were charged 350 a month for a seat they did not have, and the discounts above were printed
     // under totals that had not taken them off.
@@ -786,19 +783,21 @@ export async function seed(dataSource: DataSource): Promise<void> {
         if (sessionsPerChild.length === 0) continue;
 
         // `@Unique(['parent', 'monthIssued'])` means one invoice per parent per month.
-        for (let back = 0; back < 3; back++) {
-            const monthIssued = monthsAgo(back);
-            const dateIssued = daysAgo(back * 30 + 5);
+        for (let back = 0; back < invoicedMonths.length; back++) {
+            const { month: monthIssued, issuedOn } = invoicedMonths[back];
+            const dateIssued = parseIsoDate(issuedOn);
             const amount = sessionAmountAfterDiscounts(
                 sessionsPerChild,
                 discounts.filter((discount) => discount.parent.id === parent.id && discount.monthIssued === monthIssued),
             );
 
-            // Oldest months paid, the middle one mixed, the current one still pending — and a month
-            // that comes to nothing is `waived`, as issuing writes it.
-            let status = InvoiceStatus.PENDING;
-            if (back === 2) status = InvoiceStatus.PAID;
-            else if (back === 1) status = i % 3 === 0 ? InvoiceStatus.OVERDUE : InvoiceStatus.PAID;
+            // The older month paid, the newest one mixed — and a month that comes to nothing is
+            // `waived`, as issuing writes it. What is unpaid is `overdue`, not `pending`: both months
+            // are past their fourteen days (`seededInvoiceMonths` issues them weeks back), and
+            // `markOverdue` would have said so the morning after. The `pending` state comes from the
+            // test plan's own issuing (B5.1), of the month the seed leaves open.
+            let status = InvoiceStatus.PAID;
+            if (back === 0 && (i % 3 === 0 || i === 1)) status = InvoiceStatus.OVERDUE;
             if (amount === 0) status = InvoiceStatus.WAIVED;
 
             const invoice = await invoiceRepo.save(invoiceRepo.create({ parent, amount, dateIssued, monthIssued, status }));
@@ -816,23 +815,23 @@ export async function seed(dataSource: DataSource): Promise<void> {
                             amount: halves[part],
                             method,
                             status: PaymentStatus.SUCCEEDED,
-                            date: daysAgo(back * 30 + 1 - part),
+                            date: addDays(dateIssued, 5 + part),
                             externalReference: method === PaymentMethod.BANK_TRANSFER ? `OP ${1000 + i * 10 + back * 2 + part}` : null,
                         }),
                     );
                 }
             }
 
-            // One family carries a partial payment on the current month: 100 of the total, invoice
-            // still pending. That is the state the whole E16/S1 rework exists to represent.
-            if (status === InvoiceStatus.PENDING && back === 0 && i === 1 && amount > 100) {
+            // One family carries a partial payment on the newest month: 100 of the total, the rest
+            // still owed. That is the state the whole E16/S1 rework exists to represent.
+            if (status === InvoiceStatus.OVERDUE && back === 0 && i === 1 && amount > 100) {
                 await paymentRepo.save(
                     paymentRepo.create({
                         invoice,
                         amount: 100,
                         method: PaymentMethod.CASH,
                         status: PaymentStatus.SUCCEEDED,
-                        date: daysAgo(2),
+                        date: addDays(dateIssued, 7),
                     }),
                 );
             }
