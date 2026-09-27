@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   CONTACT_SUBJECTS,
   contactErrorPayload,
+  contactFailureOf,
   contactMessageSchema,
   fieldErrorsOf,
   replyToAddress,
@@ -151,5 +152,41 @@ describe("contactErrorPayload", () => {
 
   it("ignores a body that has no nested payload of ours", () => {
     expect(contactErrorPayload({ data: { statusCode: 500, message: "Server Error" } })).toEqual({});
+  });
+});
+
+describe("contactFailureOf", () => {
+  /**
+   * The fallback said „scrie-ne direct la office@… sau să ne suni" with no number to ring and the
+   * address as plain text (QA of 27 September 2026). The page now draws that case itself, with both
+   * as links, so it has to tell it apart from a refusal the route worded for the reader.
+   */
+  const answered = (statusCode: number, data?: unknown) => ({
+    statusCode,
+    data: { error: true, statusCode, statusMessage: "x", message: "x", data },
+  });
+
+  it("reads a send that failed on the school's side as such", () => {
+    const error = answered(503, { message: "Nu am putut trimite mesajul.", sendFailed: true });
+    expect(contactFailureOf(error)).toBe("unavailable");
+  });
+
+  it("reads an answer with no words of ours in it — a crash — as the school's side too", () => {
+    expect(contactFailureOf(answered(500))).toBe("unavailable");
+  });
+
+  it("reads no answer at all as the reader's connection", () => {
+    expect(contactFailureOf(new Error("Failed to fetch"))).toBe("offline");
+  });
+
+  it("leaves a refusal the route worded for the reader to the route's own sentence", () => {
+    expect(
+      contactFailureOf(answered(429, { message: "Ai trimis deja câteva mesaje." }))
+    ).toBeNull();
+    expect(
+      contactFailureOf(
+        answered(400, { message: "Verifică datele din formular.", fieldErrors: { name: "x" } })
+      )
+    ).toBeNull();
   });
 });
