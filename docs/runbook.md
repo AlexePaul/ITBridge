@@ -254,6 +254,12 @@ e a lui. Pe instanță: `aws s3 ls s3://<bucket> --region <regiunea>` trebuie s�
 - **nelivrabil** — familia n-are adresă sau n-a confirmat-o. Se completează adresa în fișa familiei;
   rândul numește familia.
 
+**Linkurile din mesaje duc pe alt domeniu.** API-ul le construiește din `SITE_URL`; nesetată, cade
+pe `https://itbridgeschool.com`, care e corect în producție și greșit pe stage — acolo site-ul public
+n-are paginile de confirmare, de resetare sau de cont. Pe stage, `SITE_URL=https://stage.itbridgeschool.com`
+în Parameter Store, apoi un deploy (sau `fetch-env.sh` și `pm2 reload`). Mesajele scrise înainte
+rămân cu linkul vechi; se cere unul nou (retrimite confirmarea, „Ți-ai uitat parola?" din nou).
+
 ### 3.9 SmartBill
 
 Implicitul e `SMARTBILL_MODE=off`: nu se trimite nimic la SmartBill. Pe stage, cel mult `draft`.

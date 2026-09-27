@@ -29,7 +29,10 @@ Familiile **fără cont**, trecute de birou: Cristina Dumitrescu, Florin Marin, 
 **Emailurile nu pleacă de pe stage, dinadins** (`MAIL_OUTBOX_ENABLED=false`). Fiecare mesaj se scrie
 totuși, cu tot cu linkurile din el: **Livrări** (`/admin/livrari`) → mesajul → „Vezi mesajul". Așa se
 iau linkurile de confirmare, de resetare a parolei și de cont în testele de mai jos. Din același
-motiv, pe tabloul de bord „Mesaje nelivrate" crește — pe stage e normal.
+motiv, pe tabloul de bord „Mesaje nelivrate" crește — pe stage e normal. **Verifică întâi primul
+link:** trebuie să înceapă cu `https://stage.itbridgeschool.com`. Dacă începe cu
+`https://itbridgeschool.com`, lipsește `SITE_URL` de pe API-ul de stage — [runbook.md](runbook.md),
+3.8.
 
 **SmartBill** e oprit sau în ciorne pe stage: facturile au PDF-ul platformei, nu număr fiscal.
 
