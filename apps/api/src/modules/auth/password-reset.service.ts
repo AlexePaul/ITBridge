@@ -126,7 +126,10 @@ export class PasswordResetService {
                 }),
             );
 
-            await this.outbox.queue({ to: address, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined }, manager);
+            await this.outbox.queue(
+                { to: address, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined, profileId: profile.id },
+                manager,
+            );
         });
 
         this.logger.log(`Password reset link issued for user ${account.id}.`);

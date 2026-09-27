@@ -218,7 +218,7 @@ export class AccountApprovalService {
             const mail = await this.mailTemplates.render('account-approved', { firstName: profile?.firstName ?? '', portalUrl: loginUrl() });
             await this.outbox.queueOrRecord(
                 { email: profile?.email },
-                { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined },
+                { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined, profileId: profile?.id },
                 manager,
             );
 
@@ -285,7 +285,7 @@ export class AccountApprovalService {
             const mail = await this.mailTemplates.render('account-rejected', { firstName: addressee?.firstName ?? '', officeEmail: this.office });
             await this.outbox.queueOrRecord(
                 { email: addressee?.email },
-                { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined },
+                { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined, profileId: addressee?.profileId },
                 manager,
             );
 

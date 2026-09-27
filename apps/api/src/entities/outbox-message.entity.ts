@@ -2,6 +2,7 @@ import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, Primary
 import { OutboxStatus } from '../enum/outbox-status.enum';
 import { DeliveryFailureReason } from '../enum/delivery-failure-reason.enum';
 import { Announcement } from './announcement.entity';
+import { Profile } from './profile.entity';
 
 /**
  * One file to hang off a message, named by where it lives in the bucket.
@@ -40,6 +41,7 @@ export interface OutboxAttachment {
 // school's volume is still tens of thousands of rows beside the handful the claim wants.
 @Index('IDX_outbox_claim', ['status', 'nextAttemptAt'])
 @Index('IDX_outbox_announcement_id', ['announcement'])
+@Index('IDX_outbox_profile_id', ['profile'])
 export class OutboxMessage {
     @PrimaryGeneratedColumn('increment')
     id: number;
@@ -149,6 +151,21 @@ export class OutboxMessage {
     @ManyToOne(() => Announcement, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'announcement_id' })
     announcement: Announcement | null;
+
+    /**
+     * The family the message was written **to** — never the family it is about. Null on everything
+     * addressed to the office, including the office's own notices about a family: those are the
+     * school's copy, and the family's erasure must not take them.
+     *
+     * It is what lets `/admin/livrari` say whose message went nowhere. An undeliverable row has no
+     * address by construction (E17/S5), and until this column the screen could only say „fără
+     * destinatar" — to an office that most needs to know which family to phone, the ones it typed in
+     * without an email. A copied name would not do: it would outlive the family's erasure, which
+     * finds its rows by this column and by the vouched address (`messagesOfFamily`).
+     */
+    @ManyToOne(() => Profile, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'profile_id' })
+    profile: Profile | null;
 
     @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;

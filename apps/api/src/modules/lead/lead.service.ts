@@ -239,7 +239,7 @@ export class LeadService {
     async awaitingNoShowFollowUp(): Promise<Lead[]> {
         return this.leadRepository.find({
             where: { status: LeadStatus.TRIAL_SCHEDULED, trialSession: { id: Not(IsNull()) } },
-            relations: { trialSession: { group: { room: { location: true } }, room: { location: true } }, child: true },
+            relations: { trialSession: { group: { room: { location: true } }, room: { location: true } }, child: true, profile: true },
             order: { id: 'ASC' },
         });
     }

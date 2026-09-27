@@ -255,6 +255,7 @@ export class PaymentService {
                 bodyText: mail.bodyText,
                 bodyHtml: mail.bodyHtml ?? undefined,
                 dedupeKey: receiptDedupeKey(payment.id),
+                profileId: parent?.id,
             },
             manager,
         );

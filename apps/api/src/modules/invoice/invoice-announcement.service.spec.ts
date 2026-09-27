@@ -19,7 +19,7 @@ describe('InvoiceAnnouncementService', () => {
         dateIssued: new Date(2026, 10, 2),
         fiscalSeries: null,
         fiscalNumber: null,
-        parent: { firstName: 'Ana', email: 'ana@example.com' },
+        parent: { id: 4, firstName: 'Ana', email: 'ana@example.com' },
         ...fields,
     });
 

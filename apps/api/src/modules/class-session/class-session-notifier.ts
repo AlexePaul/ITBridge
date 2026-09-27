@@ -241,6 +241,7 @@ export class ClassSessionNotifier {
                     bodyText: mail.bodyText,
                     bodyHtml: mail.bodyHtml ?? undefined,
                     dedupeKey: `${prefix}${announcement}:${recipient.parentId}`,
+                    profileId: recipient.parentId,
                 },
                 manager,
             );
@@ -369,6 +370,7 @@ export class ClassSessionNotifier {
                     bodyText: mail.bodyText,
                     bodyHtml: mail.bodyHtml ?? undefined,
                     dedupeKey: `${prefix}${session.id}:${announcement}:${recipient.parentId}`,
+                    profileId: recipient.parentId,
                 },
                 manager,
             );

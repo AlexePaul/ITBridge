@@ -318,7 +318,7 @@ export class TrialBookingService {
 
                 // In the transaction, like every other message this codebase queues: the family is
                 // told because the booking happened, or neither.
-                await this.outbox.queueOrRecord({ email: dto.parentEmail ?? null }, composeTrialConfirmation(trial), manager);
+                await this.outbox.queueOrRecord({ email: dto.parentEmail ?? null }, { ...composeTrialConfirmation(trial), profileId: profile.id }, manager);
 
                 this.logger.log(`Trial booked from the public form: lead ${lead.id}, session ${session.id}, group ${session.group.id}.`);
                 return {

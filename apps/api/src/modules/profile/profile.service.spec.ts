@@ -249,7 +249,12 @@ describe('ProfileService', () => {
             await service.updateProfile({ email: 'ana.pop@example.com' }, 1, Role.PARENT, 42, ACTOR);
 
             expect(manager.update).toHaveBeenCalledWith(User, 42, { emailConfirmedAt: null });
-            expect(confirmations.issueAndSend).toHaveBeenCalledWith({ id: 42 }, { firstName: 'Ana', email: 'ana.pop@example.com' }, expect.any(Date), manager);
+            expect(confirmations.issueAndSend).toHaveBeenCalledWith(
+                { id: 42 },
+                { firstName: 'Ana', email: 'ana.pop@example.com', profileId: 1 },
+                expect.any(Date),
+                manager,
+            );
         });
 
         it('does both through the same transaction as the edit, or neither', async () => {

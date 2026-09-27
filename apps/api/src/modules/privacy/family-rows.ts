@@ -97,14 +97,20 @@ function sameMailbox(email: string): FindOperator<string> {
 }
 
 /**
- * Which `outbox` rows belong to a family — the messages sent to its vouched address.
+ * Which `outbox` rows belong to a family: those written to it (`OutboxMessage.profile`) and, for rows
+ * older than that column or written without it, those sent to its vouched address.
  *
- * `null` when there is none, rather than a clause the caller could run: `where: { to: undefined }`
- * drops the condition instead of matching nothing, and an erasure would take the whole queue.
+ * The link is the family the message was addressed to, never the family it was about — the office's
+ * notices carry none — so an erasure that follows it takes the family's copies and leaves the
+ * school's. The address stays for the rows the link cannot reach, exactly as `leadsOfFamily` keeps
+ * it; with no vouched address, the link alone. Never an empty list: `where: []` is no condition, and
+ * an erasure would take the whole queue.
  */
-export function messagesOfFamily(family: FamilyIdentity): FindOptionsWhere<OutboxMessage> | null {
+export function messagesOfFamily(family: FamilyIdentity): FindOptionsWhere<OutboxMessage>[] {
+    const clauses: FindOptionsWhere<OutboxMessage>[] = [{ profile: { id: family.id } }];
     const { email } = vouchedAddresses(family);
-    return email ? { to: sameMailbox(email) } : null;
+    if (email) clauses.push({ to: sameMailbox(email) });
+    return clauses;
 }
 
 /** Whether a lead with no link belongs to this family by address — the retention pass's question. */

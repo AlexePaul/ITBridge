@@ -28,7 +28,14 @@ describe('DeliveryLogService', () => {
 
         it('matches the recipient loosely — an admin remembers a name, not an address', async () => {
             await service.list({ to: 'popescu' });
-            expect(qb.andWhereCalls[0]).toEqual(['message.to ILIKE :to', { to: '%popescu%' }]);
+            expect(qb.andWhereCalls[0]).toEqual([`(message.to ILIKE :to OR concat_ws(' ', family.firstName, family.lastName) ILIKE :to)`, { to: '%popescu%' }]);
+        });
+
+        /** An undeliverable row has no address, so the family's name is how the office finds it. */
+        it('names the family each message was written to, reading three columns of it', async () => {
+            await service.list();
+            expect(qb.leftJoin).toHaveBeenCalledWith('message.profile', 'family');
+            expect(qb.addSelect).toHaveBeenCalledWith(['family.id', 'family.firstName', 'family.lastName']);
         });
 
         it('takes both ends of the day, so "until" includes the day itself', async () => {
@@ -62,12 +69,12 @@ describe('DeliveryLogService', () => {
 
         it('caps the page, however large the caller asks for', async () => {
             await service.list({ limit: 100000 });
-            expect(qb.take).toHaveBeenCalledWith(500);
+            expect(qb.limit).toHaveBeenCalledWith(500);
         });
 
         it('has a page size without being asked', async () => {
             await service.list();
-            expect(qb.take).toHaveBeenCalledWith(200);
+            expect(qb.limit).toHaveBeenCalledWith(200);
         });
     });
 

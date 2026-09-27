@@ -967,7 +967,11 @@ export class EnrollmentService {
                 const mail = composeWaitlistOfferExpired(entry.child.firstName, entry.group.name);
                 // `queueOrRecord`, so a family with no address leaves a row saying so rather than
                 // being skipped in silence — E17/S5. They are the ones who most need the phone call.
-                await this.outbox.queueOrRecord({ email: entry.child.parent?.email }, { subject: mail.subject, bodyText: mail.bodyText }, manager);
+                await this.outbox.queueOrRecord(
+                    { email: entry.child.parent?.email },
+                    { subject: mail.subject, bodyText: mail.bodyText, profileId: entry.child.parent?.id },
+                    manager,
+                );
 
                 // The seat is free again only now, and this is the same door a decline goes through.
                 await this.offerFreeSeats(entry.group.id, manager);
@@ -1065,7 +1069,11 @@ export class EnrollmentService {
             // looking exactly like a queue that is stuck. The seat stays offered and the clock runs;
             // the row is what tells the office to phone.
             const mail = composeWaitlistOffer(entry.child.firstName, entry.group.name, respondBy);
-            await this.outbox.queueOrRecord({ email: entry.child.parent?.email }, { subject: mail.subject, bodyText: mail.bodyText }, manager);
+            await this.outbox.queueOrRecord(
+                { email: entry.child.parent?.email },
+                { subject: mail.subject, bodyText: mail.bodyText, profileId: entry.child.parent?.id },
+                manager,
+            );
             this.logger.log(`Offered a free seat in group ${groupId} to waitlist entry ${entry.id}.`);
         }
     }

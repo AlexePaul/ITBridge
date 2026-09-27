@@ -3,6 +3,8 @@ import { Profile } from 'src/entities/profile.entity';
 import { claimedFamilyOf } from 'src/modules/auth/claimant';
 
 export interface AccountAddressee {
+    /** The family the message is written to — `OutboxMessage.profile`. */
+    profileId: number;
     firstName: string | null;
     email: string | null;
 }
@@ -15,7 +17,7 @@ export interface AccountAddressee {
  */
 export async function accountAddressee(manager: EntityManager, userId: number): Promise<AccountAddressee | null> {
     const profile = await manager.findOne(Profile, { where: { user: { id: userId } } });
-    if (profile) return { firstName: profile.firstName ?? null, email: profile.email ?? null };
+    if (profile) return { profileId: profile.id, firstName: profile.firstName ?? null, email: profile.email ?? null };
     const claimed = await claimedFamilyOf(manager, userId);
-    return claimed ? { firstName: claimed.profile.firstName ?? null, email: claimed.email } : null;
+    return claimed ? { profileId: claimed.profile.id, firstName: claimed.profile.firstName ?? null, email: claimed.email } : null;
 }

@@ -77,14 +77,21 @@ describe('leadsOfFamily', () => {
 });
 
 describe('messagesOfFamily', () => {
-    it('finds the messages sent to a vouched address', () => {
-        expect(messagesOfFamily({ id: 7, email: 'ana@example.com', user: { emailConfirmedAt: new Date() } })).toEqual({ to: mailbox('ana@example.com') });
+    it('finds the messages written to the family, and those sent to its vouched address', () => {
+        expect(messagesOfFamily({ id: 7, email: 'ana@example.com', user: { emailConfirmedAt: new Date() } })).toEqual([
+            { profile: { id: 7 } },
+            { to: mailbox('ana@example.com') },
+        ]);
     });
 
-    /** `{ to: undefined }` would match the whole queue, so there is no clause to run at all. */
-    it('has no clause, rather than an empty one, when nothing vouches for the address', () => {
-        expect(messagesOfFamily({ id: 7, email: 'office@itbridgeschool.com', user: { emailConfirmedAt: null } })).toBeNull();
-        expect(messagesOfFamily({ id: 7, email: null, user: null })).toBeNull();
+    /**
+     * An unproven address claims nothing — the office's own, typed into a profile, would take the
+     * office's copy of every notice — but the link still finds what was written to the family. And
+     * never an empty list: `where: []` is no condition at all, and an erasure would take the queue.
+     */
+    it('keeps only the link when nothing vouches for the address', () => {
+        expect(messagesOfFamily({ id: 7, email: 'office@itbridgeschool.com', user: { emailConfirmedAt: null } })).toEqual([{ profile: { id: 7 } }]);
+        expect(messagesOfFamily({ id: 7, email: null, user: null })).toEqual([{ profile: { id: 7 } }]);
     });
 });
 

@@ -15,7 +15,7 @@ import { paymentInstructions, transferDetails } from './school-identity';
 export const INVOICE_ISSUED_DEDUPE_PREFIX = 'invoice-issued:';
 
 export type AnnouncedInvoice = Pick<Invoice, 'id' | 'amount' | 'monthIssued' | 'dateIssued' | 'fiscalSeries' | 'fiscalNumber'> & {
-    parent: Pick<Profile, 'firstName' | 'email'>;
+    parent: Pick<Profile, 'id' | 'firstName' | 'email'>;
 };
 
 /**
@@ -69,6 +69,7 @@ export class InvoiceAnnouncementService {
                 bodyText: mail.bodyText,
                 bodyHtml: mail.bodyHtml ?? undefined,
                 dedupeKey: `${INVOICE_ISSUED_DEDUPE_PREFIX}${invoice.id}`,
+                profileId: invoice.parent.id,
             },
             manager,
         );

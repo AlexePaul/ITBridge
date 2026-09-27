@@ -139,14 +139,19 @@ export class AuthService {
 
             // A shell: who they are and where the confirmation goes. The rest is step two, and it
             // is not optional — `isProfileComplete` is what a child's placement is gated on.
-            await manager.save(Profile, {
+            const shell = await manager.save(Profile, {
                 user: created,
                 firstName: registerDto.firstName,
                 lastName: registerDto.lastName,
                 email: registerDto.email,
             });
 
-            await this.emailConfirmationService.issueAndSend(created, { firstName: registerDto.firstName, email: registerDto.email }, now, manager);
+            await this.emailConfirmationService.issueAndSend(
+                created,
+                { firstName: registerDto.firstName, email: registerDto.email, profileId: shell.id },
+                now,
+                manager,
+            );
 
             // Terms §4.7: "primești și un email de confirmare" of the agreement just concluded — what
             // was accepted, which versions, which day. To the address the link above goes to, which
@@ -156,7 +161,7 @@ export class AuthService {
             await this.queueAcceptanceConfirmation(
                 created.id,
                 accepted.map(({ id, document }) => ({ id, document })),
-                { firstName: registerDto.firstName, email: registerDto.email },
+                { firstName: registerDto.firstName, email: registerDto.email, profileId: shell.id },
                 now,
                 manager,
             );
@@ -273,7 +278,7 @@ export class AuthService {
             await this.queueAcceptanceConfirmation(
                 created.id,
                 accepted.map(({ id, document }) => ({ id, document })),
-                { firstName: profile.firstName, email: profile.email ?? null, confirmed: true },
+                { firstName: profile.firstName, email: profile.email ?? null, confirmed: true, profileId: profile.id },
                 now,
                 manager,
             );
@@ -361,7 +366,12 @@ export class AuthService {
 
         const now = new Date();
         await this.dataSource.transaction(async (manager) =>
-            this.emailConfirmationService.issueAndSend(user, { firstName: profile.firstName, email: profile.email as string }, now, manager),
+            this.emailConfirmationService.issueAndSend(
+                user,
+                { firstName: profile.firstName, email: profile.email as string, profileId: profile.id },
+                now,
+                manager,
+            ),
         );
 
         this.logger.log(`Reissued an email confirmation for user ${userId}.`);
@@ -589,7 +599,12 @@ export class AuthService {
                     await this.queueAcceptanceConfirmation(
                         userId,
                         written,
-                        { firstName: profile.firstName, email: profile.email ?? null, confirmed: Boolean(account?.emailConfirmedAt) },
+                        {
+                            firstName: profile.firstName,
+                            email: profile.email ?? null,
+                            confirmed: Boolean(account?.emailConfirmedAt),
+                            profileId: profile.id,
+                        },
                         new Date(),
                         manager,
                     );
@@ -629,7 +644,7 @@ export class AuthService {
     private async queueAcceptanceConfirmation(
         userId: number,
         rows: { id: number; document: LegalDocument }[],
-        recipient: { firstName: string; email: string | null; confirmed?: boolean },
+        recipient: { firstName: string; email: string | null; confirmed?: boolean; profileId?: number },
         now: Date,
         manager: EntityManager,
     ): Promise<void> {
@@ -654,6 +669,7 @@ export class AuthService {
                     .map((row) => row.id)
                     .sort((a, b) => a - b)
                     .join('-')}`,
+                profileId: recipient.profileId,
             },
             manager,
         );

@@ -61,13 +61,21 @@ export class EmailConfirmationService {
      * `manager` is the caller's transaction, and every caller passes it: the token, the message and
      * whatever provoked them are one write or none.
      */
-    async issueAndSend(user: User, recipient: { firstName: string; email: string }, now: Date = new Date(), manager?: EntityManager): Promise<void> {
+    async issueAndSend(
+        user: User,
+        recipient: { firstName: string; email: string; profileId?: number },
+        now: Date = new Date(),
+        manager?: EntityManager,
+    ): Promise<void> {
         const { token } = await this.issueFor(user, recipient.email, now, manager);
         const mail = await this.mailTemplates.render('email-confirmation', {
             firstName: recipient.firstName,
             confirmUrl: emailConfirmationUrl(token),
         });
-        await this.outbox.queue({ to: recipient.email, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined }, manager);
+        await this.outbox.queue(
+            { to: recipient.email, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined, profileId: recipient.profileId },
+            manager,
+        );
     }
 
     /**

@@ -272,6 +272,7 @@ export class AnnouncementService {
                     // The announcement id is in the key, so the same words sent to the same parent
                     // again tomorrow — a correction — do not collide with today's.
                     dedupeKey: `announcement:${announcementId}:${recipient.parentId}`,
+                    profileId: recipient.parentId,
                 };
 
                 const queued =

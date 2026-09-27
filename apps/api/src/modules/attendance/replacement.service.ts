@@ -353,6 +353,7 @@ export class ReplacementService {
                 bodyText: mail.bodyText,
                 bodyHtml: mail.bodyHtml ?? undefined,
                 dedupeKey: `${prefix}${replacement.id}:${earlier}`,
+                profileId: parent.id,
             },
             manager,
         );

@@ -423,19 +423,35 @@ describe('Privacy erasure (e2e)', () => {
         /**
          * The office's address, typed into a profile, would otherwise take the office's copy of
          * every registration notice and digest down with the family: the queue is searched by
-         * address, and that one is not theirs until they have opened a link sent to it.
+         * address for the rows with no link, and that one is not theirs until they have opened a
+         * link sent to it. What was written to the family goes — by the link — and that includes the
+         * confirmation its own edit sent to the office's address: that message was the family's.
          */
         it("leaves the office's mail alone when the family typed the office's address", async () => {
             const office = officeAddress();
             await request(app.getHttpServer()).put(`/profiles/${anaProfileId}`).set('Authorization', ana.auth).send({ email: office }).expect(200);
-            // Counted after the edit, which sent its own confirmation link to that address.
-            const toOffice = await countRows('SELECT COUNT(*) FROM outbox WHERE "to" = $1', [office]);
-            expect(toOffice).toBeGreaterThan(0);
+            const officeNotices = await countRows('SELECT COUNT(*) FROM outbox WHERE "to" = $1 AND profile_id IS NULL', [office]);
+            expect(officeNotices).toBeGreaterThan(0);
+            const writtenToAna = await countRows('SELECT COUNT(*) FROM outbox WHERE profile_id = $1', [anaProfileId]);
+            expect(await countRows('SELECT COUNT(*) FROM outbox WHERE profile_id = $1 AND "to" = $2', [anaProfileId, office])).toBe(1);
 
             const report = await erase(anaProfileId).expect(201);
 
-            expect(report.body.messagesRemoved).toBe(0);
-            expect(await countRows('SELECT COUNT(*) FROM outbox WHERE "to" = $1', [office])).toBe(toOffice);
+            expect(report.body.messagesRemoved).toBe(writtenToAna);
+            expect(await countRows('SELECT COUNT(*) FROM outbox WHERE profile_id = $1', [anaProfileId])).toBe(0);
+            expect(await countRows('SELECT COUNT(*) FROM outbox WHERE "to" = $1 AND profile_id IS NULL', [office])).toBe(officeNotices);
+        });
+
+        /** The row the link exists for: no address, so no address-based search could ever find it. */
+        it('takes a message that had no address to go to, by the family it was written to', async () => {
+            await dataSource.query(
+                `INSERT INTO outbox ("to", subject, "bodyText", status, "undeliverableReason", profile_id) VALUES ('', 'Ora de marți e anulată', 'Maria nu are oră marți.', 'undeliverable', 'no_address', $1)`,
+                [anaProfileId],
+            );
+
+            await erase(anaProfileId).expect(201);
+
+            expect(await countRows(`SELECT COUNT(*) FROM outbox WHERE subject = 'Ora de marți e anulată'`)).toBe(0);
         });
 
         it('clears the note an admin wrote on a payment, and keeps the figures', async () => {

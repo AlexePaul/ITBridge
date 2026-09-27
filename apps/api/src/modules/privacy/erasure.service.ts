@@ -293,12 +293,11 @@ export class ErasureService {
                     .execute();
             }
 
-            // No relation to walk: the queue is shared and also writes to the office, so its rows
-            // are found by address — exactly what the inventory says this story would have to do.
-            // Only a vouched one (`vouchedAddresses`): the office's address typed into a profile
-            // would otherwise take the office's copy of every notice down with the family.
-            const ownMessages = messagesOfFamily(profile);
-            const messages = ownMessages ? await manager.delete(OutboxMessage, ownMessages) : { affected: 0 };
+            // The messages written to the family: by the link, and by address for the rows without
+            // one — only a vouched address (`vouchedAddresses`), or the office's address typed into a
+            // profile would take the office's copy of every notice down with the family. The link
+            // never names the office's own notices about the family, so those stay.
+            const messages = await manager.delete(OutboxMessage, messagesOfFamily(profile));
 
             const invoices = await manager.find(Invoice, { where: { parent: { id: profileId } }, select: { id: true } });
             const invoiceIds = invoices.map((invoice) => invoice.id);
