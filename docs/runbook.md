@@ -91,7 +91,7 @@ nu există: un fișier editat pe instanță dispare la următorul deploy.
 
    ```sh
    git switch release/stage && git pull
-   cp .env.example .env          # o dată
+   cp .env.example .env          # o dată; apoi cele două JWT_*_SECRET, fiecare cu openssl rand -base64 48
    pnpm install
    docker compose up -d          # Postgres + MinIO
    pnpm --filter api migration:run

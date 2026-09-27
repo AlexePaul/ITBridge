@@ -342,6 +342,29 @@ describe('Trial booking, public (e2e)', () => {
             expect(lead.body.trialHeldAt).not.toBeNull();
         });
 
+        // The file opens from four places on the screen — the table and the three follow-up cards —
+        // and reads whatever row it was handed. The follow-up lists loaded fewer relations than the
+        // table, so the same request said "Fără preferință" and "Neprogramată" when opened from a
+        // card, and its location and trial when opened from the table (QA of 27 September 2026).
+        it('reads the same from the follow-up lists as from the table and the file', async () => {
+            const { leadId } = await bookAndMark(true);
+            await request(app.getHttpServer()).patch(`/leads/${leadId}`).set('Authorization', admin.auth).send({ nextActionAt: '2020-01-01' }).expect(200);
+
+            const get = async (path: string) => (await request(app.getHttpServer()).get(path).set('Authorization', admin.auth).expect(200)).body;
+            const file = await get(`/leads/${leadId}`);
+            const listed = (await get('/leads')).find((lead: { id: number }) => lead.id === leadId);
+            const followUp = await get('/leads/follow-up');
+            const undecided = await get('/leads/undecided');
+            const inList = (rows: { lead: { id: number } }[]) => rows.find((row) => row.lead.id === leadId)?.lead;
+
+            expect(file.location).not.toBeNull();
+            expect(file.trialSession).not.toBeNull();
+            expect(listed).toEqual(file);
+            expect(inList(followUp.undecided)).toEqual(file);
+            expect(inList(followUp.due)).toEqual(file);
+            expect(inList(undecided)).toEqual(file);
+        });
+
         it('moves back when the mark was a mistap corrected to absent', async () => {
             const { leadId, childId, sessionId } = await bookAndMark(true);
 

@@ -96,7 +96,7 @@ export class LeadService {
     async undecidedTrials(now: Date = new Date()): Promise<{ lead: LeadSummary; days: number }[]> {
         const leads = await this.leadRepository.find({
             where: { status: LeadStatus.TRIAL_HELD },
-            relations: { group: true, assignedTo: true, trialSession: true },
+            relations: SUMMARY_RELATIONS,
             order: { trialHeldAt: 'ASC' },
         });
         return leads.map((lead) => ({ lead: toSummary(lead), days: daysSince(lead.trialHeldAt ?? lead.lastActivityAt, now) }));
@@ -213,7 +213,7 @@ export class LeadService {
     async followUp(now: Date = new Date()): Promise<LeadFollowUp> {
         const open = await this.leadRepository.find({
             where: { status: Not(In([...SETTLED_LEAD_STATUSES])) },
-            relations: { assignedTo: true, group: true },
+            relations: SUMMARY_RELATIONS,
             order: { lastActivityAt: 'ASC' },
         });
 
@@ -300,6 +300,16 @@ export interface LeadFollowUp {
     due: LeadWithAge[];
     unassigned: number;
 }
+
+/**
+ * What `toSummary` reads beyond the row, for the lists that load leads with `find`.
+ *
+ * The screen opens one file from four places — the table and the three follow-up cards — and the
+ * file shows whatever it was handed. The follow-up lists loaded fewer relations than the table, so
+ * the same request read "Fără preferință" and "Neprogramată" from a card and its location and trial
+ * from the table (QA of 27 September 2026). A list that feeds `toSummary` loads these.
+ */
+const SUMMARY_RELATIONS = { location: true, group: true, trialSession: true, assignedTo: true } as const;
 
 export function toSummary(lead: Lead): LeadSummary {
     return {
