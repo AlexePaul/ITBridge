@@ -16,7 +16,11 @@ ceva ce oricum trebuia făcut.
 
 Pentru primele șase luni realiste, vezi secțiunea [Ordinea recomandată](#ordinea-recomandată).
 Pentru site-ul public — ce e bifat și ce nu din lista obișnuită de dinaintea lansării — vezi
-[../lansare.md](../lansare.md).
+[../lansare.md](../lansare.md). Pentru platformă: pașii lansării în
+[../lansare-platforma.md](../lansare-platforma.md), testarea rol cu rol în
+[../plan-de-testare.md](../plan-de-testare.md), iar ce faci când ceva nu merge în
+[../runbook.md](../runbook.md), cu [../harta-ecranelor.md](../harta-ecranelor.md) pentru codul din
+spatele fiecărui ecran.
 
 ## Stare curentă
 
