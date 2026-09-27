@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 import { User, isAccountActive } from 'src/entities/user.entity';
@@ -387,6 +387,14 @@ export class AuthService {
 
         if (!isPasswordValid) {
             throw new UnauthorizedException('Invalid credentials');
+        }
+
+        // Terms §14. After the password, so the answer says nothing about an account to somebody who
+        // does not hold it; with its own code, so the family reads „contul e suspendat, ți-am scris
+        // de ce" rather than a wrong password it would go on retyping. A suspension landing between
+        // this read and the session below is caught at the first refresh (`SessionService.rotate`).
+        if (user.suspendedAt) {
+            throw new ForbiddenException({ message: 'This account is suspended', error: 'ACCOUNT_SUSPENDED' });
         }
 
         const tokens = this.generateTokens(user.id, user.username, user.role);

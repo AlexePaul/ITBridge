@@ -15,7 +15,7 @@ import { LegalDocument } from 'src/enum/legal-document.enum';
  */
 export const LEGAL_DOCUMENT_VERSIONS: Record<LegalDocument, string> = {
     [LegalDocument.TERMS]: '0.2',
-    [LegalDocument.PRIVACY]: '0.2',
+    [LegalDocument.PRIVACY]: '0.3',
     // The unusual clauses are §14, §15 and §18 of the terms, so they move when the terms move.
     [LegalDocument.UNUSUAL_CLAUSES]: '0.2',
 };

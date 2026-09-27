@@ -818,6 +818,33 @@ deciziei, niciodată nota) **numai pentru un admin**, iar pagina familiei are ac
 ține școala despre ea (GDPR art. 15). Formularul de respingere o spune adminului, iar inventarul o
 clasifică `readableBy: ['admin', 'parent']`.
 
+**Un cont se poate suspenda, iar suspendarea închide portalul și nimic altceva** (termenii §14, 27
+septembrie 2026). Textul își rezerva dreptul, iar platforma n-avea butonul: biroul putea respinge
+doar un cont încă neaprobat. `User.suspendedAt` și `suspensionReason` sunt o a treia pereche de
+coloane, nu o stare a lui `approvalStatus`: aprobarea spune dacă școala cunoaște familia, suspendarea
+dacă acest login se mai poate folosi. `AccountSuspensionService` răspunde la `POST /users/:id/suspend`
+(motiv obligatoriu), `POST /users/:id/reactivate` și `GET /users/suspended`; butoanele sunt în
+pagina familiei, iar lista în `/admin/approvals`. Cinci reguli:
+
+- **Motivul pleacă în email**, spre deosebire de nota unei respingeri: §14 promite „un email care
+  spune de ce". Formularul îl cere și spune unde ajunge.
+- **Sesiunile se închid în aceeași tranzacție**, după ce rândul contului e luat exclusiv — ordinea
+  lui `revokeAllForUser`, scrisă pe loc fiindcă aceea nu se cheamă dintr-o tranzacție care ține
+  deja rândul. O rotație în zbor ține rândul partajat: ori s-a comis înainte, și atunci succesorul ei
+  e revocat, ori vine după și găsește contul suspendat. `rotate` citește `suspendedAt` sub același
+  lacăt și răspunde „suspendat", nu „replay". Rămâne access tokenul deja emis, până la
+  cincisprezece minute: compromisul lui `AuthGuard`.
+- **Login-ul refuză cu `ACCOUNT_SUSPENDED` (403) numai după parola corectă**, ca cine n-o are să nu
+  afle nimic despre cont. Formularul spune asta în cuvintele lui, nu ca „parolă incorectă"; tot acolo
+  își are acum propoziția și limita de încercări.
+- **Înscrierea nu se mișcă** („Suspendarea contului nu afectează contractul de înscriere al
+  copilului"): `isAccountActive` nu citește suspendarea, facturile se emit, iar mesajele despre ore
+  pleacă mai departe, fiindcă sunt contractul, nu portalul.
+- **Numai conturi de părinte** (`NOT_A_PARENT_ACCOUNT`), ca la aprobare: accesul unui admin e rolul
+  lui. Jurnalul ține cine și când, doar cu numele câmpurilor. Reactivarea golește motivul de pe rând,
+  iar exportul familiei îl poartă cât timp suspendarea e în vigoare (`cont.suspendatLa`,
+  `cont.motivSuspendare`).
+
 **Pagina de confirmare spune doar ce e adevărat** (aceeași revizuire). Citea numai `active`, deci
 unei familii respinse îi promitea aprobarea „de obicei în aceeași zi lucrătoare"; citește acum și
 `approvalStatus`. Iar `CONFIRMATION_TOKEN_USED` se traduce pe ecran prin „adresa ta este confirmată",

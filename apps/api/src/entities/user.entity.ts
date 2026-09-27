@@ -57,11 +57,33 @@ export class User {
     approvalDecidedAt: Date | null;
 
     /**
-     * Why an account was refused, in the admin's words. Shown to nobody but another admin — a
-     * rejected parent is told the school will be in touch, not handed the note.
+     * Why an account was refused, in the admin's words. Not in the refusal mail and not on a screen
+     * of the portal — a rejected parent is told the school will look again, not handed the note —
+     * but it is a note about the family, so it is in the copy of its data (GDPR art. 15).
      */
     @Column({ type: 'varchar', length: 500, nullable: true })
     rejectionReason: string | null;
+
+    /**
+     * When the school suspended the account for use against the rules — terms §14. `null` while the
+     * account may be used, which is every account the school has not acted on.
+     *
+     * A third column rather than a state of `approvalStatus`: approval says whether the school knows
+     * the family, suspension whether this login may be used, and a suspended family is still one the
+     * school knows — its children stay enrolled and billed, and it keeps hearing from the school
+     * (§14: „Suspendarea contului nu afectează contractul de înscriere al copilului"). So
+     * `isAccountActive`, which gates putting a child in a group, does not read it; the sign-in and the
+     * refresh do. See `AccountSuspensionService`.
+     */
+    @Column({ type: 'timestamptz', nullable: true })
+    suspendedAt: Date | null;
+
+    /**
+     * Why, in the admin's words — and unlike the rejection note, it is sent: §14 promises „un email
+     * care spune de ce". Cleared with the suspension; the trail keeps who and when.
+     */
+    @Column({ type: 'varchar', length: 500, nullable: true })
+    suspensionReason: string | null;
 
     @OneToOne(() => Profile, (profile) => profile.user)
     profile?: Profile;

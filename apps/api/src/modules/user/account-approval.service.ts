@@ -13,6 +13,7 @@ import { AuditAction } from 'src/enum/audit-action.enum';
 import { AuditService, type Actor } from 'src/modules/audit/audit.service';
 import { claimedFamiliesOf, claimedFamilyOf } from 'src/modules/auth/claimant';
 import { sameAddress } from 'src/common/same-address';
+import { accountAddressee } from './account-addressee';
 
 /**
  * The second gate of E11/S2, and the whole of D2: the school decides who gets in.
@@ -107,7 +108,7 @@ export class AccountApprovalService {
      * family it claimed instead (`claimedProfileId`): that is the family the office is being asked
      * to hand over, and a row of nulls would ask it to approve a stranger blind.
      */
-    private async rowsFor(users: User[]): Promise<PendingAccount[]> {
+    async rowsFor(users: User[]): Promise<PendingAccount[]> {
         if (users.length === 0) {
             return [];
         }
@@ -276,14 +277,8 @@ export class AccountApprovalService {
             }
 
             // An account created from a claim link has no family attached; the refusal goes to the
-            // address the link was sent to, which the account proved, greeting it as the link did.
-            const profile = await manager.findOne(Profile, { where: { user: { id: userId } } });
-            const claimed = profile ? null : await claimedFamilyOf(manager, userId);
-            const addressee = profile
-                ? { firstName: profile.firstName, email: profile.email }
-                : claimed
-                  ? { firstName: claimed.profile.firstName, email: claimed.email }
-                  : null;
+            // address the link was sent to, which the account proved — see `accountAddressee`.
+            const addressee = await accountAddressee(manager, userId);
 
             await manager.update(User, { id: userId }, { approvalStatus: ApprovalStatus.REJECTED, approvalDecidedAt: now, rejectionReason: reason ?? null });
 
@@ -334,20 +329,22 @@ export class AccountApprovalService {
     }
 
     /**
-     * A verdict applies to a parent account and to nothing else.
+     * A verdict applies to a parent account and to nothing else — approval, refusal and, from
+     * `AccountSuspensionService`, suspension.
      *
      * An admin is active by construction — `isAccountActive` exempts the role — so approving or
      * rejecting one would write columns that mean nothing, and rejecting one would read as locking
-     * out a colleague while doing no such thing. Refused outright rather than silently ignored.
+     * out a colleague while doing no such thing. An admin's access is its role, changed from the users
+     * screen. Refused outright rather than silently ignored.
      */
-    private async requireParent(userId: number): Promise<User> {
+    async requireParent(userId: number): Promise<User> {
         const user = await this.userRepository.findOne({ where: { id: userId } });
         if (!user) {
             throw new NotFoundException('User not found');
         }
         if (user.role !== Role.PARENT) {
             throw new BadRequestException({
-                message: 'Doar conturile de părinte trec prin aprobare',
+                message: 'Only a parent account is approved, refused or suspended here',
                 error: 'NOT_A_PARENT_ACCOUNT',
             });
         }

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
@@ -536,6 +536,29 @@ describe('AuthService', () => {
             const wrong = await service.login({ username: 'ana', password: 'gresita' }).catch((e: Error) => e.message);
 
             expect(absent).toBe(wrong);
+        });
+
+        describe('a suspended account (terms §14)', () => {
+            const withSuspendedUser = async (password: string) => {
+                const passwordHash = await bcrypt.hash(password, 10);
+                userRepo.findOne!.mockResolvedValue({ id: 3, username: 'ana', passwordHash, role: 'PARENT', suspendedAt: new Date('2026-09-20T10:00:00Z') });
+            };
+
+            it('is refused with its own code once the password is right, and gets no session', async () => {
+                await withSuspendedUser('corecta');
+
+                const refusal = await service.login({ username: 'ana', password: 'corecta' }).catch((e: unknown) => e);
+
+                expect(refusal).toBeInstanceOf(ForbiddenException);
+                expect((refusal as ForbiddenException).getResponse()).toMatchObject({ error: 'ACCOUNT_SUSPENDED' });
+                expect(sessions.startSession).not.toHaveBeenCalled();
+            });
+
+            it('answers a wrong password as a wrong password — the suspension is told only to whoever holds it', async () => {
+                await withSuspendedUser('corecta');
+
+                await expect(service.login({ username: 'ana', password: 'gresita' })).rejects.toThrow(UnauthorizedException);
+            });
         });
     });
 

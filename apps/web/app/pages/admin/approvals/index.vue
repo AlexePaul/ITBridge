@@ -132,6 +132,43 @@
       </UCard>
     </section>
 
+    <!-- Terms §14: a suspended account is on this list until somebody lifts the suspension, so the
+         office has one place to look when a family writes back. -->
+    <section v-if="!loading && !loadError && suspended.length > 0" class="space-y-3 pt-4">
+      <h2 class="text-lg font-semibold">Conturi suspendate</h2>
+      <p class="text-sm text-muted">
+        Familia nu se poate autentifica, dar copiii rămân înscriși. Ridici suspendarea când motivul
+        a dispărut; familia primește un email.
+      </p>
+      <UCard v-for="account in suspended" :key="account.userId" class="border" variant="subtle">
+        <div class="flex flex-col md:flex-row md:items-center gap-4">
+          <div class="flex-1 space-y-1 min-w-0">
+            <span class="font-semibold">{{ fullName(account) }}</span>
+            <p class="text-sm text-muted">
+              <span class="font-mono">{{ account.username }}</span>
+              <template v-if="account.email"> · {{ account.email }}</template>
+              <template v-if="account.phone"> · {{ account.phone }}</template>
+            </p>
+            <p class="text-sm text-muted">
+              Suspendat {{ decidedOn(account.suspendedAt) }}
+              <template v-if="account.suspensionReason"> · {{ account.suspensionReason }}</template>
+            </p>
+          </div>
+          <UButton
+            icon="i-lucide-lock-open"
+            variant="outline"
+            class="min-h-11 shrink-0"
+            :loading="busyId === account.userId"
+            :disabled="busyId !== null"
+            :aria-label="`Ridică suspendarea contului lui ${fullName(account)}`"
+            @click="onReactivate(account)"
+          >
+            Ridică suspendarea
+          </UButton>
+        </div>
+      </UCard>
+    </section>
+
     <UModal v-model:open="rejectOpen" title="Respinge contul">
       <template #body>
         <div class="space-y-4">
@@ -169,7 +206,7 @@ import { useUserApi } from "~/composables/api/useUserApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { daysSince } from "~/composables/useUtils";
-import type { PendingAccount, RejectedAccount } from "~/types/user.types";
+import type { PendingAccount, RejectedAccount, SuspendedAccount } from "~/types/user.types";
 
 /**
  * The approvals queue — E11/S2, and the answer to the risk the epic names: two gates in front of a
@@ -182,7 +219,14 @@ definePageMeta({
   title: "Conturi în așteptare",
 });
 
-const { fetchPendingAccounts, fetchRejectedAccounts, approveAccount, rejectAccount } = useUserApi();
+const {
+  fetchPendingAccounts,
+  fetchRejectedAccounts,
+  fetchSuspendedAccounts,
+  approveAccount,
+  rejectAccount,
+  reactivateAccount,
+} = useUserApi();
 const { success, error: notifyError } = useNotifications();
 
 const accounts = ref<PendingAccount[]>([]);
@@ -206,6 +250,29 @@ const loadRejected = async () => {
     rejected.value = (await fetchRejectedAccounts()) ?? [];
   } catch {
     rejected.value = [];
+  }
+};
+
+/** Terms §14: the suspended accounts, most recent first. A third read, failing as quietly. */
+const suspended = ref<SuspendedAccount[]>([]);
+const loadSuspended = async () => {
+  try {
+    suspended.value = (await fetchSuspendedAccounts()) ?? [];
+  } catch {
+    suspended.value = [];
+  }
+};
+
+const onReactivate = async (account: SuspendedAccount) => {
+  busyId.value = account.userId;
+  try {
+    await reactivateAccount(account.userId);
+    suspended.value = suspended.value.filter((row) => row.userId !== account.userId);
+    success("Suspendarea a fost ridicată", `${fullName(account)} a fost anunțat prin email.`);
+  } catch (err) {
+    notifyError("Nu am putut ridica suspendarea", apiErrorMessage(err));
+  } finally {
+    busyId.value = null;
   }
 };
 
@@ -247,7 +314,7 @@ const load = async () => {
   loadError.value = null;
   try {
     accounts.value = (await fetchPendingAccounts()) ?? [];
-    await loadRejected();
+    await Promise.all([loadRejected(), loadSuspended()]);
   } catch (err) {
     loadError.value = apiErrorMessage(err, "Nu am putut încărca lista de conturi în așteptare.");
   } finally {

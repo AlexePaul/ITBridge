@@ -31,6 +31,10 @@ export interface FamilyExport {
          * (GDPR art. 15) — the portal says so, and so does the rejection form.
          */
         motivRespingere: string | null;
+        /** Terms §14: since when the account is suspended, `null` when it is not. */
+        suspendatLa: string | null;
+        /** The reason the family was mailed with the suspension. */
+        motivSuspendare: string | null;
     } | null;
     copii: ExportedChild[];
     facturi: {

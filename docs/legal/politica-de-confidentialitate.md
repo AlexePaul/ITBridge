@@ -2,7 +2,7 @@
 
 **Cum prelucrăm datele familiei tale și ale copilului tău.**
 
-**Versiunea 0.2 · ciornă din 26 septembrie 2026 · neverificată de un avocat · nepublicată.**
+**Versiunea 0.3 · ciornă din 27 septembrie 2026 · neverificată de un avocat · nepublicată.**
 Faptele marcate `[[…]]` lipsesc sau sunt propuneri; vezi [README](README.md).
 
 ---
@@ -91,7 +91,8 @@ e interesul nostru legitim de a răspunde cui ne-a căutat (lit. f).
 
 **Ce ținem:** utilizator; parola, **numai ca hash** (nu o putem citi); prenume și nume; email;
 telefon; adresă; persoana de contact pentru urgențe — nume, relația cu copilul, telefon; data la
-care ai confirmat emailul; dacă și când școala a aprobat contul, sau motivul respingerii; sesiunile
+care ai confirmat emailul; dacă și când școala a aprobat contul, sau motivul respingerii; dacă, de
+când și de ce e suspendat contul (termenii §14); sesiunile
 deschise (un hash al tokenului, tipul browserului, când a fost deschisă, când expiră); linkurile de
 confirmare trimise (hash și valabilitate, 48 de ore); bifa de marketing.
 

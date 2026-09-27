@@ -161,7 +161,9 @@ const MESSAGES: Record<string, string> = {
   PARENT_ACCOUNT_NOT_ACTIVE:
     "Contul părintelui nu este activ. Trebuie confirmat prin email și aprobat înainte de înscriere.",
   ACCOUNT_ALREADY_APPROVED: "Contul este deja aprobat.",
-  NOT_A_PARENT_ACCOUNT: "Doar conturile de părinte trec prin aprobare.",
+  // Approval, refusal and — terms §14 — suspension: an admin's access is its role.
+  NOT_A_PARENT_ACCOUNT:
+    "Doar conturile de părinte se aprobă, se resping sau se suspendă de aici. Accesul unui admin se schimbă din rolul lui.",
 
   // E11/S1 and S3. `GROUP_FULL` arrives with its own sentence from the server, naming the numbers,
   // so it is deliberately absent here — the generic line would be a downgrade.
@@ -298,6 +300,10 @@ const MESSAGES: Record<string, string> = {
     "Familia pentru care a fost creat contul s-a schimbat între timp (altă adresă, un cont legat sau o ștergere). Respinge contul și trimite familiei un link nou.",
   PROFILE_HAS_NO_EMAIL:
     "Familia nu are o adresă de email în fișă. Completează adresa, apoi trimite linkul.",
+  // Terms §14: the sign-in says the account is suspended once the password is right — a family told
+  // „parolă greșită" would go on retyping it. The reason is in the email the suspension sent.
+  ACCOUNT_SUSPENDED:
+    "Contul tău e suspendat, deci nu te poți autentifica. Ți-am scris pe email de ce; dacă nu ești de acord, scrie-ne. Înscrierea copilului nu se schimbă.",
 };
 
 /**

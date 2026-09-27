@@ -10,12 +10,15 @@ import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 import { UpdateUserDto } from './dto/updateUser.dto';
 import { RejectAccountDto } from './dto/rejectAccount.dto';
 import { AccountApprovalService } from './account-approval.service';
+import { AccountSuspensionService } from './account-suspension.service';
+import { SuspendAccountDto } from './dto/suspendAccount.dto';
 
 @Controller('users')
 export class UserController {
     constructor(
         private readonly userService: UserService,
         private readonly accountApprovalService: AccountApprovalService,
+        private readonly accountSuspensionService: AccountSuspensionService,
     ) {}
 
     @Get('')
@@ -72,6 +75,17 @@ export class UserController {
         return this.accountApprovalService.listRejected();
     }
 
+    /** The suspended accounts (terms §14), most recent first — above `:id`, for the reason `pending` is. */
+    @Get('suspended')
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: 'Suspended parent accounts, most recent first' })
+    @ApiResponse({ status: 403, description: 'Forbidden' })
+    async getSuspendedAccounts() {
+        return this.accountSuspensionService.listSuspended();
+    }
+
     @Post(':id/approve')
     @HttpCode(200)
     @UseGuards(AuthGuard, RolesGuard)
@@ -94,6 +108,34 @@ export class UserController {
     @ApiResponse({ status: 404, description: 'User not found' })
     async rejectAccount(@Param('id', ParseIntPipe) id: number, @Body() rejectAccountDto: RejectAccountDto, @Request() req: AuthenticatedRequest) {
         return this.accountApprovalService.reject(id, actorFrom(req), rejectAccountDto.reason);
+    }
+
+    /**
+     * Terms §14: suspends a parent account used against the rules — its sessions close, the sign-in
+     * refuses it, and the family is mailed the reason. The children's enrolment is untouched.
+     */
+    @Post(':id/suspend')
+    @HttpCode(200)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: 'Account suspended, or already was' })
+    @ApiResponse({ status: 400, description: 'Not a parent account, or no reason' })
+    @ApiResponse({ status: 404, description: 'User not found' })
+    async suspendAccount(@Param('id', ParseIntPipe) id: number, @Body() dto: SuspendAccountDto, @Request() req: AuthenticatedRequest) {
+        return this.accountSuspensionService.suspend(id, dto.reason, actorFrom(req));
+    }
+
+    @Post(':id/reactivate')
+    @HttpCode(200)
+    @UseGuards(AuthGuard, RolesGuard)
+    @Roles(Role.ADMIN)
+    @ApiBearerAuth()
+    @ApiResponse({ status: 200, description: 'Suspension lifted, or there was none' })
+    @ApiResponse({ status: 400, description: 'Not a parent account' })
+    @ApiResponse({ status: 404, description: 'User not found' })
+    async reactivateAccount(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
+        return this.accountSuspensionService.reactivate(id, actorFrom(req));
     }
 
     @Get(':id')

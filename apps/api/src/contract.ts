@@ -50,6 +50,7 @@ import type { DivergenceReason } from './modules/invoice/fiscal-divergence.rules
 import type { StatementImportResult, StatementLinesPage } from './modules/reconciliation/reconciliation.service';
 import type { MatchConfidence } from './modules/reconciliation/statement-matching.rules';
 import type { PendingAccount, RejectedAccount } from './modules/user/account-approval.service';
+import type { SuspendedAccount } from './modules/user/account-suspension.service';
 import type { FamilyRetention, RetentionSchedule } from './modules/privacy/retention.service';
 import type { RetentionHold } from './modules/privacy/retention.rules';
 import type { ChildConsents, ConsentInForce, FamilyConsents, PublicationConsentRecord } from './modules/privacy/publication-consent.service';
@@ -237,6 +238,8 @@ type _LegalRecord = Check<Wire.LegalRecord, LegalRecordRowWire>;
 // Review of 26 September 2026: the approvals queue and the refused list the office looks again from.
 type _PendingAccount = Check<Wire.PendingAccount, Serialized<PendingAccount>>;
 type _RejectedAccount = Check<Wire.RejectedAccount, Serialized<RejectedAccount>>;
+// Terms §14: the suspended accounts, with the day and the reason the family was mailed.
+type _SuspendedAccount = Check<Wire.SuspendedAccount, Serialized<SuspendedAccount>>;
 // Terms §4.5: the sessions list, with the caller's own marked.
 type _ActiveSessions = Check<Wire.ActiveSession[], Serialized<Awaited<ReturnType<AuthService['listSessions']>>>>;
 type _RegisterResponse = Check<Wire.RegisterResponse, Serialized<Awaited<ReturnType<AuthService['register']>>>>;
