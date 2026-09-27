@@ -4,6 +4,7 @@ import { IsBoolean, IsDateString, IsEmail, IsEnum, IsInt, IsOptional, IsPhoneNum
 import { EmptyToUndefined } from 'src/common/empty-to-undefined';
 import { NormalizePhone } from 'src/common/romanian-phone';
 import { LeadChannel } from 'src/enum/lead-source.enum';
+import { LEAD_FORM_MESSAGES as MESSAGES } from './lead-form.messages';
 
 /**
  * What an admin may change about a lead — E20/S1 and S3.
@@ -18,36 +19,36 @@ export class UpdateLeadDto {
     @ApiPropertyOptional()
     @IsOptional()
     @EmptyToUndefined()
-    @IsEmail()
-    @Length(3, 255)
+    @IsEmail({}, { message: MESSAGES.email })
+    @Length(3, 255, { message: MESSAGES.emailLength })
     parentEmail?: string;
 
     @ApiPropertyOptional()
     @IsOptional()
     @EmptyToUndefined()
     @NormalizePhone()
-    @IsPhoneNumber('RO')
-    @Length(5, 30)
+    @IsPhoneNumber('RO', { message: MESSAGES.phone })
+    @Length(5, 30, { message: MESSAGES.phoneLength })
     parentPhone?: string;
 
     @ApiPropertyOptional({ enum: LeadChannel })
     @IsOptional()
     @EmptyToUndefined()
-    @IsEnum(LeadChannel)
+    @IsEnum(LeadChannel, { message: MESSAGES.channel })
     channel?: LeadChannel;
 
     @ApiPropertyOptional()
     @IsOptional()
     @EmptyToUndefined()
-    @IsString()
-    @Length(1, 4000)
+    @IsString({ message: MESSAGES.notes })
+    @Length(1, 4000, { message: MESSAGES.notesLength })
     notes?: string;
 
     /** The date the next step is due. Send `clearNextAction` to remove it — `''` cannot mean "none". */
     @ApiPropertyOptional({ example: '2026-03-01' })
     @IsOptional()
     @EmptyToUndefined()
-    @IsDateString()
+    @IsDateString({}, { message: MESSAGES.nextActionAt })
     nextActionAt?: string;
 
     @ApiPropertyOptional({ description: 'Removes the follow-up date' })
