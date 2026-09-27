@@ -41,30 +41,54 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (!tokenStore.accessToken && !tokenStore.refreshToken) return;
 
       const route = router.currentRoute.value;
-      const sent = reporter.report(error, kind, {
-        route: route.matched.at(-1)?.path ?? route.path,
-        path: route.fullPath,
-        component: componentTrail(instance),
-      });
-      if (!sent) return;
-
-      reference.value = sent;
       const isAdmin = userStore.user?.role === "ADMIN";
-      toast.add({
-        title: "Ceva n-a mers pe ecranul acesta",
-        description: isAdmin
-          ? `Eroarea e notată în Erori, cu codul ${sent}. Reîncarcă pagina.`
-          : `Am notat eroarea, cu codul ${sent}. Reîncarcă pagina; dacă se repetă, spune-ne codul.`,
-        color: "error",
-        icon: "i-lucide-triangle-alert",
-        ...(isAdmin
-          ? { actions: [{ label: "Vezi eroarea", to: `/admin/erori?cod=${sent}` }] }
-          : {}),
-      });
+      // The toast waits for the server: "am notat, cu codul X" is only true once the row exists.
+      const sent: string | null = reporter.report(
+        error,
+        kind,
+        {
+          route: route.matched.at(-1)?.path ?? route.path,
+          path: route.fullPath,
+          component: componentTrail(instance),
+        },
+        (delivered) => {
+          if (!sent) return;
+          if (!delivered) {
+            if (reference.value === sent) reference.value = null;
+            toast.add({
+              title: "Ceva n-a mers pe ecranul acesta",
+              description:
+                "Reîncarcă pagina. Nu am putut nota eroarea — dacă se repetă, spune-ne ce ai apăsat și la ce oră.",
+              color: "error",
+              icon: "i-lucide-triangle-alert",
+            });
+            return;
+          }
+          toast.add({
+            title: "Ceva n-a mers pe ecranul acesta",
+            description: isAdmin
+              ? `Eroarea e notată în Erori, cu codul ${sent}. Reîncarcă pagina.`
+              : `Am notat eroarea, cu codul ${sent}. Reîncarcă pagina; dacă se repetă, spune-ne codul.`,
+            color: "error",
+            icon: "i-lucide-triangle-alert",
+            ...(isAdmin
+              ? { actions: [{ label: "Vezi eroarea", to: `/admin/erori?cod=${sent}` }] }
+              : {}),
+          });
+        }
+      );
+      if (!sent) return;
+      reference.value = sent;
     } catch {
       // A report about a broken screen must not break it further.
     }
   };
+
+  // A code belongs to the screen it came from: leaving it clears it, so the error page never shows
+  // an earlier, unrelated one (review of 27 September 2026).
+  router.afterEach(() => {
+    reference.value = null;
+  });
 
   nuxtApp.hook("vue:error", (error, instance) => capture(error, "vue", instance));
   nuxtApp.hook("app:error", (error) => capture(error, "vue"));

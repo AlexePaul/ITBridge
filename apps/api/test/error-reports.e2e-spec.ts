@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { LocationService } from 'src/modules/location/location.service';
-import { ErrorReportService } from 'src/modules/error-report/error-report.service';
+import { BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR, ErrorReportService } from 'src/modules/error-report/error-report.service';
 import { RetentionService } from 'src/modules/privacy/retention.service';
 import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
 
@@ -150,6 +150,31 @@ describe('Error record (e2e)', () => {
             message: 'Cannot read properties of undefined, invoice for [email]',
             recent: [expect.objectContaining({ ref: 'b7e1c04a', userId: parent.userId, path: '/user/plati?token=[redacted]' })],
         });
+    });
+
+    /**
+     * Review of 27 September 2026: every field of a browser report is the caller's, so a fresh
+     * registration and a loop could file a row per request, each kept thirty days. Taken from an
+     * active account only, and at most so many an hour each; the answer is the same either way.
+     */
+    it('takes browser reports from an active account only, and only so many an hour', async () => {
+        // The budget is per account id, and ids start again after every truncate: the earlier tests'
+        // reports would count against this one. Two hours on, their windows are over.
+        const real = reports.takesBrowserReport.bind(reports);
+        jest.spyOn(reports, 'takesBrowserReport').mockImplementation((userId: number) => real(userId, Date.now() + 2 * 60 * 60 * 1000));
+        const stranger = await registerUser(app, 'strain', undefined, { active: false });
+        const report = (auth: string, message: string) =>
+            request(server())
+                .post('/errors/client')
+                .set('Authorization', auth)
+                .send({ name: 'Error', message, route: '/user/dashboard', kind: 'vue' })
+                .expect(202);
+
+        await report(stranger.auth, 'from a stranger');
+        expect(await listed('?state=all')).toEqual([]);
+
+        for (let i = 0; i < BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR + 5; i++) await report(parent.auth, `fault number ${'x'.repeat(i + 1)}`);
+        expect(await listed('?state=all')).toHaveLength(BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR);
     });
 
     it('refuses a report with no route, and one from nobody', async () => {

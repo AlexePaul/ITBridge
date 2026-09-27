@@ -56,7 +56,8 @@ export class ErrorReportController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'A screen broke in this browser', description: 'Recorded after the answer; the answer says nothing about the row.' })
     @ApiResponse({ status: 202, description: 'Taken' })
-    reportFromBrowser(@Request() req: AuthenticatedRequest, @Body() dto: ClientErrorDto): { accepted: true } {
+    async reportFromBrowser(@Request() req: AuthenticatedRequest, @Body() dto: ClientErrorDto): Promise<{ accepted: true }> {
+        if (!(await this.errorReports.takesBrowserReport(req.user.sub))) return { accepted: true };
         this.errorReports.record({
             source: ErrorSource.BROWSER,
             origin: clip(dto.component ? `${dto.route} · ${dto.component}` : dto.route, ORIGIN_MAX_LENGTH),
