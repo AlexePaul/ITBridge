@@ -3,6 +3,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { RegisterDto } from 'src/modules/auth/dto/register.dto';
 import { User, isAccountActive } from 'src/entities/user.entity';
 import { Profile, isProfileComplete } from 'src/entities/profile.entity';
+import { accountAddressee } from 'src/modules/user/account-addressee';
 import { DocumentAcceptance } from 'src/entities/document-acceptance.entity';
 import { ACCEPTED_AT_REGISTRATION, LEGAL_DOCUMENT_VERSIONS } from './legal-documents';
 import { acceptedInWords, outstandingDocuments } from './legal-acceptance.rules';
@@ -593,17 +594,19 @@ export class AuthService {
                 // Terms §4.7 again: a new version accepted is an agreement concluded again, and it is
                 // confirmed the same way. Only by the submit that wrote the rows — the second click
                 // of a double-click wrote nothing, and its family already has the message.
-                const account = await manager.findOne(User, { where: { id: userId }, select: { id: true, emailConfirmedAt: true } });
-                const profile = await manager.findOne(Profile, { where: { user: { id: userId } } });
-                if (profile) {
+                // The family's address, or — for an account created from a claim link and not attached
+                // yet — the address the link proved: it too accepts the new version, and was told
+                // nothing (review of 27 September 2026).
+                const addressee = await accountAddressee(manager, userId);
+                if (addressee) {
                     await this.queueAcceptanceConfirmation(
                         userId,
                         written,
                         {
-                            firstName: profile.firstName,
-                            email: profile.email ?? null,
-                            confirmed: Boolean(account?.emailConfirmedAt),
-                            profileId: profile.id,
+                            firstName: addressee.firstName ?? '',
+                            email: addressee.email,
+                            confirmed: addressee.confirmed,
+                            profileId: addressee.profileId,
                         },
                         new Date(),
                         manager,

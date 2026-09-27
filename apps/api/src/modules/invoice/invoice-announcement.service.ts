@@ -8,11 +8,12 @@ import { officeAddress } from 'src/modules/mail/office-address';
 import { paymentsUrl } from 'src/modules/auth/portal-urls';
 import { toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { smartBillMode } from 'src/modules/smartbill/smartbill.config';
-import { dueDateFor } from './arrears.rules';
+import { dueDateFor, outstandingOf } from './arrears.rules';
 import { formatLeiRo, romanianDay, romanianMonth } from './money-words';
 import { paymentReference } from './payment-reference';
 import { paymentInstructions, transferDetails } from './school-identity';
-import { familyHasAccount, familyLink } from 'src/modules/mail/portal-line';
+import { familyAccount, familyLink } from 'src/modules/mail/portal-line';
+import { PaymentStatus } from 'src/enum/payment-status.enum';
 
 /** One email per invoice, ever: the key carries nothing but the id, as a receipt's does. */
 export const INVOICE_ISSUED_DEDUPE_PREFIX = 'invoice-issued:';
@@ -50,30 +51,41 @@ export class InvoiceAnnouncementService {
 
     async announce(invoice: AnnouncedInvoice, manager?: EntityManager): Promise<void> {
         if (invoice.amount <= 0) return;
+        const reader = manager ?? this.dataSource.manager;
+
+        // What is left, not the total — the rule for everything a family reads as "de plătit". At
+        // issue in `off` and `draft` nothing has been paid yet; in `live` the email waits for
+        // SmartBill's number, and a refusal or a review can hold that for days while the family pays
+        // at the office. A month already settled by then says nothing more: its receipt said it.
+        const outstanding = outstandingOf(invoice.amount, await this.paidOn(reader, invoice.id));
+        if (outstanding <= 0) return;
 
         // The reference a transfer is matched by, from the one function the statement import and the
         // portal read too: the fiscal number when SmartBill gave one, the platform's own number while
         // its PDF is the invoice. Never absent here in practice — `live` announces once the number is in.
         const reference = paymentReference(invoice, smartBillMode());
 
+        const account = await familyAccount(reader, invoice.parent.id);
         const mail = await this.mailTemplates.render('invoice-issued', {
             firstName: invoice.parent.firstName ?? '',
             month: romanianMonth(invoice.monthIssued),
-            amount: formatLeiRo(invoice.amount),
+            amount: formatLeiRo(outstanding),
             dueOn: romanianDay(toIsoDate(dueDateFor(invoice.dateIssued))),
             paymentInstructions: paymentInstructions(transferDetails(), reference?.text ?? null),
-            // The portal for a family with an account; one the office typed in has none, and is told
-            // to ask for the PDF instead (QA of 27 September 2026).
+            // The portal for a family that can sign in; one the office typed in has no account, and
+            // a suspended one cannot use it, so both are told to ask for the PDF (QA of 27 September).
             ...familyLink(
-                await familyHasAccount(manager ?? this.dataSource.manager, invoice.parent.id),
+                account.canSignIn,
                 { note: 'Factura se descarcă din portal, unde vezi și plățile înregistrate:', url: paymentsUrl() },
                 'Dacă vrei factura în PDF, scrie-ne și ți-o trimitem:',
             ),
             officeEmail: officeAddress(),
         });
 
+        // The address gate (E11/S2): an amount, a reference and an account number do not go to an
+        // address the family has not proven since it last changed it.
         await this.outbox.queueOrRecord(
-            { email: invoice.parent.email },
+            { email: invoice.parent.email, confirmed: account.addressProven },
             {
                 subject: mail.subject,
                 bodyText: mail.bodyText,
@@ -83,5 +95,14 @@ export class InvoiceAnnouncementService {
             },
             manager,
         );
+    }
+
+    /** The money received on the invoice — succeeded payments only, as `ArrearsService` counts it. */
+    private async paidOn(manager: EntityManager, invoiceId: number): Promise<number> {
+        const [row] = await manager.query<{ paid: string | null }[]>(
+            'SELECT COALESCE(SUM(amount), 0) AS paid FROM payments WHERE invoice_id = $1 AND status = $2',
+            [invoiceId, PaymentStatus.SUCCEEDED],
+        );
+        return Number(row?.paid ?? 0);
     }
 }

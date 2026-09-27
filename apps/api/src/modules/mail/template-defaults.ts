@@ -536,7 +536,7 @@ export const TEMPLATE_DEFAULTS: readonly TemplateDefinition[] = [
         variables: [
             { name: 'firstName', description: 'Prenumele părintelui' },
             { name: 'month', description: 'Luna facturată, în cuvinte' },
-            { name: 'amount', description: 'Suma de plată' },
+            { name: 'amount', description: 'Suma de plată: restul, dacă o parte s-a plătit deja până să plece mesajul' },
             { name: 'dueOn', description: 'Ultima zi de plată, în cuvinte' },
             {
                 name: 'paymentInstructions',

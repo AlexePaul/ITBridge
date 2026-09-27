@@ -24,7 +24,7 @@ import { owesReceipt, receiptDedupeKey, receiptTemplate } from './payment-receip
 import { editTouchesSmartBillRecord, nextPaymentFiscalState, owesSmartBillRecord } from './payment-fiscal.rules';
 import { schoolDay } from 'src/common/school-clock';
 import { issuingNow } from 'src/modules/invoice/issuing-clock';
-import { familyHasAccount, familyLink } from 'src/modules/mail/portal-line';
+import { familyAccount, familyLink } from 'src/modules/mail/portal-line';
 
 /**
  * A payment is money that moved, so its day has happened — the QA of 26 September 2026: the form
@@ -236,6 +236,7 @@ export class PaymentService {
         const parent = invoice.parent;
         const firstName = parent?.firstName ?? '';
 
+        const account = await familyAccount(manager, parent?.id);
         const mail = await this.mailTemplates.render(receiptTemplate(balance.status), {
             firstName,
             month: romanianMonth(invoice.monthIssued),
@@ -246,16 +247,19 @@ export class PaymentService {
             officeEmail: this.office,
             // The confirmation goes the minute the money is entered; the fiscal documents follow in
             // SmartBill's own time. The portal is where both are, whenever they arrive — E16/S6 —
-            // for a family with an account; one without is told to ask (QA of 27 September 2026).
+            // for a family that can sign in; one without an account, or suspended, is told to ask
+            // (QA of 27 September 2026).
             ...familyLink(
-                await familyHasAccount(manager, parent?.id),
+                account.canSignIn,
                 { note: 'Factura fiscală și, pentru numerar, chitanța le găsești în portal:', url: paymentsUrl() },
                 'Dacă vrei factura sau chitanța, scrie-ne și ți le trimitem:',
             ),
         });
 
+        // Behind the address gate (E11/S2): the sum a family paid does not go to an address it has
+        // not proven since it last changed it.
         await this.outbox.queueOrRecord(
-            { email: parent?.email },
+            { email: parent?.email, confirmed: account.addressProven },
             {
                 subject: mail.subject,
                 bodyText: mail.bodyText,

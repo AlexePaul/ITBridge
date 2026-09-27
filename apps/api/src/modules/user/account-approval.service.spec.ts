@@ -327,7 +327,7 @@ describe('AccountApprovalService', () => {
 
             await service.reject(7, ACTOR);
 
-            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'ana@example.com' }, expect.anything(), manager);
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'ana@example.com', confirmed: true }, expect.anything(), manager);
             expect(manager.update).not.toHaveBeenCalledWith(Profile, expect.anything(), expect.anything());
         });
     });

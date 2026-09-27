@@ -49,6 +49,13 @@ const MESSAGES: Record<string, string> = {
   // „Internal server error", the one sentence on a Romanian screen that says nothing at all.
   INTERNAL_ERROR: "A apărut o eroare pe server. Încearcă din nou peste câteva momente.",
   DATABASE_ERROR: "A apărut o eroare pe server. Încearcă din nou peste câteva momente.",
+  // Refused by the body parser, before any route (review of 27 September 2026): they used to read
+  // as the server's fault, with a code to report, when the request itself could not be read.
+  PAYLOAD_TOO_LARGE:
+    "Ce ai trimis e prea mare pentru o singură cerere. Împarte-l în bucăți mai mici — un extras, de exemplu, o lună odată.",
+  UNSUPPORTED_MEDIA_TYPE: "Cererea n-a putut fi citită. Reîncarcă pagina și încearcă din nou.",
+  REQUEST_ABORTED:
+    "Legătura s-a întrerupt înainte să ajungă cererea întreagă. Verifică rețeaua și încearcă din nou.",
 
   // E20 — acquisition. The first three can reach a parent on the public booking page, so they are
   // written for one: no jargon, and each says what to do next.
@@ -95,6 +102,15 @@ const MESSAGES: Record<string, string> = {
     "Copilul are prezențe marcate, iar catalogul se păstrează. Dacă nu mai vine, scoate-l din grupă.",
   CHILD_HAS_PROJECTS:
     "Copilul are lucrări încărcate. Șterge întâi lucrările, sau fă ștergerea din Ștergeri.",
+  // Moving a child to another family (the office's two refusals), and closing one session.
+  CHILD_FAMILY_INVOICED:
+    "Familia copilului are deja facturi, iar o factură numără copiii familiei — mutat acum, ce s-a facturat s-ar împărți în două. Copilul rămâne unde e.",
+  CHILD_ALREADY_IN_FAMILY: "Copilul e deja în familia aleasă.",
+  CHILD_FAMILY_CHANGED:
+    "Copilul a fost mutat între timp în altă familie. Reîncarcă pagina și verifică unde e acum.",
+  SESSION_NOT_FOUND: "Sesiunea nu mai e activă — probabil s-a închis deja. Reîncarcă lista.",
+  ACCOUNT_SUSPENDED_ROLE_CHANGE:
+    "Contul e suspendat. Ridică întâi suspendarea din pagina familiei, apoi schimbă rolul.",
 
   // Terms §5–6: a family adds and corrects its children from Profil, and removes only a row the
   // school has no record of. Only a parent reaches the last two, so they are written for one: the

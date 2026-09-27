@@ -88,6 +88,8 @@ import type { ErrorReportSummary, ErrorReportView } from './modules/error-report
 import type { ErrorSource } from './enum/error-source.enum';
 import type { ClientErrorDto, ClientErrorKind } from './modules/error-report/dto/client-error.dto';
 import type { ErrorReportState } from './modules/error-report/dto/query-error-reports.dto';
+import type { SystemStatus } from './modules/health/system-status.service';
+import type { SystemNote, SystemNoteCode } from './modules/health/system-status.rules';
 
 /** Fails compilation when `Actual` does not satisfy `Expected` on the shared fields. */
 type Covers<Expected, Actual> = Actual extends Expected ? true : { missingOrMismatched: Expected };
@@ -393,4 +395,12 @@ type _ErrorReportStateBack = Check<ErrorReportState, Wire.ErrorReportState>;
 type _ClientErrorKind = Check<Wire.ClientErrorKind, ClientErrorKind>;
 type _ClientErrorKindBack = Check<ClientErrorKind, Wire.ClientErrorKind>;
 type _ClientErrorReport = Check<Wire.ClientErrorReport, ClientErrorDto>;
+
+// `/admin/sistem`: the configuration as the office reads it. Both directions, so a note code the API
+// adds without a sentence on the screen fails here rather than showing a raw code.
+type _SystemStatus = Check<Wire.SystemStatus, Serialized<SystemStatus>>;
+type _SystemStatusBack = Check<Serialized<SystemStatus>, Wire.SystemStatus>;
+type _SystemNote = Check<Wire.SystemNote, SystemNote>;
+type _SystemNoteCode = Check<Wire.SystemNoteCode, SystemNoteCode>;
+type _SystemNoteCodeBack = Check<SystemNoteCode, Wire.SystemNoteCode>;
 type _ClientErrorReportBack = Check<ClientErrorDto, Wire.ClientErrorReport>;

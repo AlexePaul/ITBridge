@@ -11,7 +11,7 @@
  */
 export const DEFAULT_SITE_URL = 'https://itbridgeschool.com';
 
-function siteBase(): string {
+export function siteBase(): string {
     return (process.env.SITE_URL?.trim() || DEFAULT_SITE_URL).replace(/\/+$/, '');
 }
 

@@ -140,14 +140,7 @@ export class MailService implements OnModuleInit {
     }
 
     private missingConfiguration(): string[] {
-        const missing: string[] = [];
-        if (!process.env.MAIL_RESEND_API_KEY) {
-            missing.push('MAIL_RESEND_API_KEY');
-        }
-        if (!process.env.MAIL_FROM) {
-            missing.push('MAIL_FROM');
-        }
-        return missing;
+        return missingMailConfiguration();
     }
 
     /**
@@ -230,4 +223,20 @@ export class MailService implements OnModuleInit {
             return '(unreadable response)';
         }
     }
+}
+
+/**
+ * The provider settings a send needs and this environment lacks — by name, never by value. Read by
+ * `MailService` before every send and by `/admin/sistem`, so the page and the sender agree on
+ * whether mail can leave.
+ */
+export function missingMailConfiguration(env: NodeJS.ProcessEnv = process.env): string[] {
+    const missing: string[] = [];
+    if (!env.MAIL_RESEND_API_KEY) {
+        missing.push('MAIL_RESEND_API_KEY');
+    }
+    if (!env.MAIL_FROM) {
+        missing.push('MAIL_FROM');
+    }
+    return missing;
 }

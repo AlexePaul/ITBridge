@@ -67,6 +67,8 @@ Pentru o comandă dintr-un singur workspace: `pnpm --filter api <script>`.
 ## Când ceva nu merge
 
 - **Un bug, cu un cod pe ecran** („cod 3f2a9c1d"): `/admin/erori` îl găsește, cu stack trace-ul.
+- **Ceva greșit pe tot un mediu** (linkuri din emailuri către alt site, emailuri care nu pleacă, o
+  migrare nerulată): `/admin/sistem` citește configurația de pe server și spune unde se repară.
 - **Un bug fără cod** (un număr greșit, un rând lipsă): [docs/harta-ecranelor.md](docs/harta-ecranelor.md)
   duce de la adresa din browser la fișierul paginii, la cererile ei și la serviciul care răspunde.
 - **Pașii de la bug la fix și incidentele de pe server** (API căzut, deploy de întors, disc plin):

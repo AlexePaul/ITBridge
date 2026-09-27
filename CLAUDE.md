@@ -208,14 +208,14 @@ două seturi de tipuri divergeau tăcut.
 
 ## Arhitectură
 
-**Backend** — douăzeci și patru de module în `apps/api/src/modules/`, șaptesprezece după același
+**Backend** — douăzeci și cinci de module în `apps/api/src/modules/`, optsprezece după același
 tipar `controller / service / module / dto/`: `auth`, `user`, `profile`, `child`, `enrollment`,
 `location`, `room`, `group`, `class-session`, `attendance`, `invoice`, `payment`, `discount`,
-`announcement`, `lead`, `reconciliation`, `audit`.
+`announcement`, `lead`, `reconciliation`, `audit`, `error-report`.
 Șapte ies din tipar: `storage` și `smartbill` n-au controller, fiindcă nimic din ele nu e expus pe HTTP — ce
 se cere SmartBill-ului decide modulul care deține rândul —, `mail` are unul singur
-și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` n-are
-decât atât, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
+și îngust — editorul de șabloane din E17 S2; trimiterea în sine rămâne neexpusă —, `health` are
+sondele publice și, pentru admin, starea configurației (`/admin/sistem`), fără servicii de domeniu, iar `project` are **două** controllere și patru servicii — audiențele sunt diferite
 (agentul de pe Windows și ecranele), iar treburile la fel: ce e un document, ce pleacă din clădire,
 ce ia părintele acasă, ce cere agentul. `dashboard` are și el două controllere și patru servicii, dar
 din motivul opus: nu deține nimic, ci adună — vezi regula lui E21 mai jos. `privacy` are tot două:
@@ -1883,7 +1883,10 @@ un defect marcat rezolvat care revine e un rând nou, fiindcă e o veste. Trei d
 - **Filtrul HTTP** înregistrează fiecare 5xx cu ruta ca tipar (`GET /profiles/:id`), contul și
   `requestId`-ul răspunsului. Ecranul arată primele opt caractere drept cod — „A apărut o eroare pe
   server… (cod 3f2a9c1d)", prin `apiErrorMessage`, care nu mai arată niciodată engleza serverului
-  pentru un 5xx —, iar codul, tastat sau venit din `?cod=`, găsește rândul, rezolvat sau nu.
+  pentru un 5xx —, iar codul, tastat sau venit din `?cod=`, găsește rândul, rezolvat sau nu. Codurile
+  stau fiecare pe rândul lor, în `error_references`: rândul erorii ține doar ultimele douăzeci de
+  apariții, iar o eroare pe care o întâlnește fiecare părinte își pierdea primele coduri în câteva
+  minute (revizuirea din 27 septembrie 2026).
 - **`RecordingLogger`**, loggerul aplicației, pus cu `app.useLogger` în `main.ts` **și în
   `createTestApp`**: tot ce se scrie la nivel `error` sau `fatal` ajunge acolo, deci și un job care
   aruncă — scheduler-ul își prinde excepțiile și le scrie cu `Logger('Scheduler')`. Un job nou e
@@ -1894,8 +1897,11 @@ un defect marcat rezolvat care revine e un rând nou, fiindcă e o veste. Trei d
   `plugins/05.error-report.client.ts`: `vue:error`, `app:error` și promisiunile neprinse. Vue
   aruncă o componentă care pică la randare și desenează restul paginii în jurul golului, deci un
   ecran stricat era un ecran cu o bucată lipsă și nimic altceva. Acum cititorul primește un toast cu
-  codul, o singură dată pe defect, iar un apel eșuat la API **nu** se raportează din browser — un 5xx
-  e deja al serverului, un 4xx e un răspuns, lipsa răspunsului e rețeaua.
+  codul, o singură dată pe defect și **numai după ce raportul a ajuns** (altfel spune că n-a putut
+  nota), iar un apel eșuat la API **nu** se raportează din browser — un 5xx e deja al serverului, un
+  4xx e un răspuns, lipsa răspunsului e rețeaua. Rapoartele din browser se primesc doar de la un cont
+  activ și nesuspendat, cel mult 30 pe oră de cont: fiecare câmp al lor e al celui care trimite, deci
+  o înregistrare oarecare plus o buclă ar fi umplut ecranul (revizuirea din 27 septembrie 2026).
 
 Înregistrarea nu atinge niciodată ce a picat: `record` se întoarce înainte de scriere și nu aruncă,
 iar oprirea așteaptă scrierile în zbor (`onModuleDestroy`, înainte ca TypeORM să-și închidă pool-ul).
@@ -1905,7 +1911,23 @@ Postgres), contul e un id, iar rândul pleacă la **30 de zile** după ultima ap
 `source-maps.ts`, importat al doilea în `main.ts`, pornește hărțile sursă ale lui Node: stack-ul
 numește liniile din `.ts`, nu din `dist/`. Prima eroare arătată a fost un bug: un id de unsprezece
 cifre trece de `ParseIntPipe` și depășește coloana `integer` (Postgres 22003) — acum 400
-`VALUE_OUT_OF_RANGE`, nu 500.
+`VALUE_OUT_OF_RANGE`, nu 500. **Și un corp pe care parserul Express îl refuză înaintea oricărei rute** —
+prea mare, cu un charset necunoscut, întrerupt — își păstrează statusul (413, 415, 400; `bodyParserFault`
+din filtru): ieșea 500 și lăsa un rând pe ecran pentru oricine, fără autentificare, câte unul pe
+adresă inventată. Limita JSON e `JSON_BODY_LIMIT`, 512 KB, pusă și în `main.ts`, și în teste: un
+extras bancar la plafonul paginii trece de cei 100 KB impliciți odată escapat.
+
+**Configurația se citește de pe server, la `/admin/sistem`** (27 septembrie 2026). Stage a rulat o zi
+cu `NODE_ENV=production` și fără `SITE_URL`, iar niciun ecran n-o spunea: primul semn ar fi fost un
+link de confirmare către site-ul public. `GET /system/status` (admin; lângă `/health` și `/ready`, în
+modulul `health`) răspunde cu mediul, ora școlii, adresa din linkuri, emailurile, modul SmartBill,
+contul pentru transfer, stocarea și schema — migrările rulate și cele nerulate —, plus note cu cod
+(`SITE_URL_MISSING`, `PRODUCTION_WITHOUT_MAIL`, `MIGRATIONS_PENDING`…), decise de regula pură din
+`system-status.rules.ts`. Propoziția e a ecranului (`SYSTEM_NOTE_TEXT`), ca la codurile de eroare.
+Două reguli: **fiecare valoare trece prin funcția pe care o citește și restul codului** —
+`siteBase`, `dispatcherEnabled`, `missingMailConfiguration`, `transferDetails` —, altfel pagina ar
+descrie o configurație pe care codul n-o are; și **o cheie apare doar ca „setată" sau nu**, niciodată
+valoarea. Dacă adaugi o setare de care depinde ce primește o familie, dă-i și ei o notă.
 
 **Rapoartele nu definesc nimic, doar adună** (E21). `apps/api/src/modules/dashboard/` cere fiecare
 număr de la serviciul care deține întrebarea — restanțele de la `ArrearsService`, locurile de la
@@ -2730,7 +2752,7 @@ Frontend-ul e pe **Vercel** pe amândouă branch-urile, configurat din dashboard
 mașină, PM2 pentru proces și **Caddy** pentru TLS și proxy invers către `127.0.0.1` (nu `localhost`:
 `main.ts` ascultă pe IPv4, iar numele se rezolvă întâi la `::1`). `api.itbridgeschool.com` n-are
 nimic în spate, deliberat: `release/prod` poartă API-ul de dinainte de E08 — zece module față de
-douăzeci și patru — deci un deploy de acolo n-ar fi o lansare timpurie a platformei ăsteia, ci a
+douăzeci și cinci — deci un deploy de acolo n-ar fi o lansare timpurie a platformei ăsteia, ci a
 alteia, mult mai vechi. `deploy.yml` ascultă și de `release/prod`, dar deploy-ul de acolo **așteaptă
 variabila de repository `PROD_API_DEPLOY=enabled`** și instanța din `EC2_INSTANCE_ID_PROD` (fără ea
 pică, nu cade pe instanța stage-ului) — iar până trece platforma pe `release/prod`, pe branch-ul ăla

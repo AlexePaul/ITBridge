@@ -39,6 +39,7 @@ describe('AccountSuspensionService', () => {
     let outbox: Record<string, jest.Mock>;
     let manager: MockEntityManager;
     let audit: { recordPersonalDataChange: jest.Mock };
+    let accountConfirmedAt: Date | null;
 
     const ACTOR = { userId: 3, username: 'ana.admin' };
     const NOW = new Date('2026-09-27T09:00:00Z');
@@ -59,7 +60,15 @@ describe('AccountSuspensionService', () => {
                 [Profile, profileRepo],
             ]),
         );
-        manager.findOne = jest.fn((entity: unknown, options: unknown) => (entity === Profile ? profileRepo.findOne!(options) : Promise.resolve(null)));
+        // The account's own confirmation, read by `accountAddressee` for the address gate (E11/S2).
+        accountConfirmedAt = NOW;
+        manager.findOne = jest.fn((entity: unknown, options: unknown) =>
+            entity === Profile
+                ? profileRepo.findOne!(options)
+                : entity === User
+                  ? Promise.resolve({ id: 7, emailConfirmedAt: accountConfirmedAt })
+                  : Promise.resolve(null),
+        );
         audit = { recordPersonalDataChange: jest.fn(() => Promise.resolve()) };
 
         profileRepo.findOne!.mockResolvedValue({ id: 4, firstName: 'Ana', email: 'ana@example.com' });
@@ -108,12 +117,26 @@ describe('AccountSuspensionService', () => {
             await service.suspend(7, REASON, ACTOR, NOW);
 
             const [recipient, message, via] = queued();
-            expect(recipient).toEqual({ email: 'ana@example.com' });
+            expect(recipient).toEqual({ email: 'ana@example.com', confirmed: true });
             expect(message.subject).toContain('suspendat');
             expect(message.bodyText).toContain(REASON);
             // What does not change: the contract, per the same paragraph.
             expect(message.bodyText).toContain('Înscrierea copilului nu se schimbă');
             expect(via).toBe(manager);
+        });
+
+        /**
+         * The gate the comment above promised and the recipient did not carry: a family that moved
+         * its address to a typo has proven nothing there, and the office's reason is not for that
+         * inbox (review of 27 September 2026).
+         */
+        it('holds the reason for an address the account has not proven since it changed', async () => {
+            userRepo.findOne!.mockResolvedValue(parent);
+            accountConfirmedAt = null;
+
+            await service.suspend(7, REASON, ACTOR, NOW);
+
+            expect(queued()[0]).toEqual({ email: 'ana@example.com', confirmed: false });
         });
 
         it('records who suspended, by field name only', async () => {
@@ -150,7 +173,7 @@ describe('AccountSuspensionService', () => {
 
             await service.suspend(7, REASON, ACTOR, NOW);
 
-            expect(queued()[0]).toEqual({ email: null });
+            expect(queued()[0]).toEqual({ email: null, confirmed: true });
         });
 
         it('writes to the address a claim link proved, for an account not attached yet', async () => {
@@ -160,7 +183,7 @@ describe('AccountSuspensionService', () => {
 
             await service.suspend(7, REASON, ACTOR, NOW);
 
-            expect(queued()[0]).toEqual({ email: 'ana.claim@example.com' });
+            expect(queued()[0]).toEqual({ email: 'ana.claim@example.com', confirmed: true });
         });
 
         it("refuses an admin account: an admin's access is its role", async () => {
@@ -190,7 +213,7 @@ describe('AccountSuspensionService', () => {
 
             expect(manager.update).toHaveBeenCalledWith(User, { id: 7 }, { suspendedAt: null, suspensionReason: null });
             const [recipient, message] = queued();
-            expect(recipient).toEqual({ email: 'ana@example.com' });
+            expect(recipient).toEqual({ email: 'ana@example.com', confirmed: true });
             expect(message.subject).toContain('nu mai e suspendat');
             expect(audit.recordPersonalDataChange).toHaveBeenCalledWith(
                 expect.objectContaining({ actor: ACTOR, entityId: 7, fields: ['suspendedAt', 'suspensionReason'] }),

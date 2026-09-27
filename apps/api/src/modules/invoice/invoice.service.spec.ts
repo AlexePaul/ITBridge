@@ -403,6 +403,9 @@ describe('InvoiceService', () => {
                     fiscalNextAttemptAt: null,
                 });
                 expect(updated.status).toBe(InvoiceStatus.PENDING);
+                // A waived month was never announced; the family hears of the sum now, in the
+                // transaction that set it (review of 27 September 2026).
+                expect(announcement.announce).toHaveBeenCalledWith(expect.objectContaining({ id: 1, amount: 350 }), transactionManager);
             });
 
             it('leaves the status out of the trail: it moved because the amount did', async () => {

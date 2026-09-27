@@ -35,11 +35,16 @@ branch-uri".
 1. **`/admin/erori`** — fiecare 500, fiecare eroare scrisă de un job și fiecare ecran stricat în
    browserul cuiva autentificat, cu codul de pe ecran, contul, adresa paginii și stack trace-ul pe
    liniile din `.ts`. Cifra roșie din meniu („Sistem → Erori") e numărul celor nerezolvate.
-2. **Tabloul de bord** (`/admin/dashboard`) — mesaje nelivrate, cataloage nefăcute, conturi în
+2. **`/admin/sistem`** („Sistem → Starea platformei") — configurația, citită de pe server: mediul,
+   adresa din linkurile emailurilor, dacă pleacă emailurile, SmartBill, contul pentru transfer,
+   stocarea și migrările nerulate, cu problemele sus și cu locul în care se repară fiecare. Deschide-o
+   după fiecare schimbare în Parameter Store: un `NODE_ENV` sau un `SITE_URL` greșit apare aici, nu
+   în primul email.
+3. **Tabloul de bord** (`/admin/dashboard`) — mesaje nelivrate, cataloage nefăcute, conturi în
    așteptare.
-3. **GitHub → Actions → „Deploy"** — ultima rulare pe `release/stage`: verde înseamnă că e pe
+4. **GitHub → Actions → „Deploy"** — ultima rulare pe `release/stage`: verde înseamnă că e pe
    server exact ce e pe branch.
-4. **`https://api-stage.itbridgeschool.com/ready`** — `{"status":"ready","checks":{"database":"ok","objectStorage":"ok"}}`
+5. **`https://api-stage.itbridgeschool.com/ready`** — `{"status":"ready","checks":{"database":"ok","objectStorage":"ok"}}`
    înseamnă că API-ul, baza și stocarea răspund. `/health` spune doar că procesul trăiește.
 
 ### Cum ajungi pe instanță
@@ -104,6 +109,17 @@ nu există: un fișier editat pe instanță dispare la următorul deploy.
 
 4. **Scrie întâi un test care pică** — unitar lângă cod (`*.spec.ts`), sau de integrare în
    `apps/api/test/` (`pnpm test:e2e`, cere Docker pornit). Convenția e în CLAUDE.md, „Testare".
+   Cât lucrezi, rulează doar fișierul tău — suita întreagă de integrare ține vreo douăzeci de minute:
+
+   ```sh
+   pnpm --filter api test src/modules/invoice/pricing.spec.ts        # unitar, API
+   pnpm --filter web test test/romanianCount.spec.ts                 # unitar, site
+   pnpm exec dotenv -e .env -- pnpm --filter api test:e2e test/payments.e2e-spec.ts   # integrare
+   ```
+
+   Al treilea citește `.env` de la rădăcină, ca `pnpm test:e2e`; fără `dotenv`, testele nu văd
+   portul MinIO din configurația ta.
+
 5. **Repară**, apoi rulează ce rulează CI-ul:
 
    ```sh

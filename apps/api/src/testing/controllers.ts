@@ -12,6 +12,7 @@ import { InvoiceController } from 'src/modules/invoice/invoice.controller';
 import { PaymentController } from 'src/modules/payment/payment.controller';
 import { DiscountController } from 'src/modules/discount/discount.controller';
 import { HealthController } from 'src/modules/health/health.controller';
+import { SystemStatusController } from 'src/modules/health/system-status.controller';
 import { ProjectController } from 'src/modules/project/project.controller';
 import { AgentController } from 'src/modules/project/agent.controller';
 import { MailTemplateController } from 'src/modules/mail/mail-template.controller';
@@ -56,6 +57,7 @@ export const CONTROLLERS = [
     PaymentController,
     DiscountController,
     HealthController,
+    SystemStatusController,
     ProjectController,
     AgentController,
     MailTemplateController,

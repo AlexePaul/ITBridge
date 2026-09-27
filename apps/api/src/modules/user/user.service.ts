@@ -99,6 +99,16 @@ export class UserService {
             if (clash) throw new ConflictException('Username already in use');
         }
 
+        // A suspension is lifted from the family's page, which reactivates parent accounts only
+        // (`NOT_A_PARENT_ACCOUNT`): promoted while suspended, the account could never be lifted by any
+        // screen, and login would go on refusing it (review of 27 September 2026).
+        if (existing.suspendedAt != null && updateUserDto.role !== undefined && updateUserDto.role !== existing.role) {
+            throw new ConflictException({
+                message: 'Lift the suspension before changing the role of this account.',
+                error: 'ACCOUNT_SUSPENDED_ROLE_CHANGE',
+            });
+        }
+
         // Which fields actually move, read before the merge: comparing after it would compare the
         // row with itself and record an edit that changed nothing.
         const moved = EDITABLE_ACCOUNT_FIELDS.filter((field) => updateUserDto[field] !== undefined && updateUserDto[field] !== existing[field]);

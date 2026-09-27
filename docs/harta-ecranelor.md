@@ -531,6 +531,14 @@ Pagina: `apps/web/app/pages/admin/restante/index.vue`
 | `GET /invoices/arrears` | `InvoiceController.arrears` în `apps/api/src/modules/invoice/invoice.controller.ts` | `ArrearsService.list` în `apps/api/src/modules/invoice/arrears.service.ts` |
 | `POST /payments` | `PaymentController.createPayment` în `apps/api/src/modules/payment/payment.controller.ts` | `PaymentService.createPayment` în `apps/api/src/modules/payment/payment.service.ts` |
 
+### `/admin/sistem` — Starea platformei
+
+Pagina: `apps/web/app/pages/admin/sistem/index.vue`
+
+| Cerere | Răspunde | Serviciul |
+| --- | --- | --- |
+| `GET /system/status` | `SystemStatusController.status` în `apps/api/src/modules/health/system-status.controller.ts` | `SystemStatusService.read` în `apps/api/src/modules/health/system-status.service.ts` |
+
 ### `/admin/stergeri` — Cereri de ștergere
 
 Pagina: `apps/web/app/pages/admin/stergeri/index.vue`

@@ -1,5 +1,6 @@
 import { EntityManager } from 'typeorm';
 import { Profile } from 'src/entities/profile.entity';
+import { User } from 'src/entities/user.entity';
 import { claimedFamilyOf } from 'src/modules/auth/claimant';
 
 export interface AccountAddressee {
@@ -7,6 +8,12 @@ export interface AccountAddressee {
     profileId: number;
     firstName: string | null;
     email: string | null;
+    /**
+     * Whether the address may be written to (E11/S2). An attached account's, once it proved it — an
+     * address edit clears the stamp; a claimant's always, since the claim link it opened was sent
+     * there. `queueOrRecord` records a message to an unproven address as `unconfirmed_address`.
+     */
+    confirmed: boolean;
 }
 
 /**
@@ -17,7 +24,15 @@ export interface AccountAddressee {
  */
 export async function accountAddressee(manager: EntityManager, userId: number): Promise<AccountAddressee | null> {
     const profile = await manager.findOne(Profile, { where: { user: { id: userId } } });
-    if (profile) return { profileId: profile.id, firstName: profile.firstName ?? null, email: profile.email ?? null };
+    if (profile) {
+        const account = await manager.findOne(User, { where: { id: userId }, select: { id: true, emailConfirmedAt: true } });
+        return {
+            profileId: profile.id,
+            firstName: profile.firstName ?? null,
+            email: profile.email ?? null,
+            confirmed: account?.emailConfirmedAt != null,
+        };
+    }
     const claimed = await claimedFamilyOf(manager, userId);
-    return claimed ? { profileId: claimed.profile.id, firstName: claimed.profile.firstName ?? null, email: claimed.email } : null;
+    return claimed ? { profileId: claimed.profile.id, firstName: claimed.profile.firstName ?? null, email: claimed.email, confirmed: true } : null;
 }

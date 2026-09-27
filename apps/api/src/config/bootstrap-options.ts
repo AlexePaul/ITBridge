@@ -32,3 +32,11 @@ export function swaggerEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
     if (env.SWAGGER_ENABLED === 'false') return false;
     return env.NODE_ENV !== 'production';
 }
+
+/**
+ * The JSON body limit. Express's default, 100 KB, is below a bank statement the reconciliation page
+ * accepts: 90,000 characters of CSV (`ImportStatementDto`) grow once JSON-escaped — every quote and
+ * line break doubles, every diacritic is two bytes —, so a statement near the cap was refused with
+ * "eroare pe server" (review of 27 September 2026). Half a megabyte covers it and stays small.
+ */
+export const JSON_BODY_LIMIT = '512kb';

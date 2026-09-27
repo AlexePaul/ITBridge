@@ -4,7 +4,13 @@ Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare
 adunate într-un loc.
 
 **Ultima actualizare:** 27 septembrie 2026, pe `release/stage`. **Pregătirea testării integrale de
-săptămâna viitoare.** Un bug se găsește și se repară de mână: fiecare eroare de server și fiecare
+săptămâna viitoare.** Seara, o revizuire a tot ce se construise în ultimele două zile a găsit și a
+reparat, printre altele, anunțul facturii cu totalul în loc de rest, mesaje care plecau la adrese pe
+care nu le dovedise nimeni, o familie retrasă care primea un copil și rămânea retrasă, și un cod de
+eroare care nu-și mai găsea rândul după ce defectul se repetase de douăzeci de ori. Tot atunci,
+**`/admin/sistem`** arată configurația pe care a citit-o backend-ul acolo unde rulează — adresa din
+linkuri, dacă pleacă mail, modul SmartBill, contul pentru transfer, bucket-ul și migrările nerulate —:
+primul ecran de deschis după un deploy. Un bug se găsește și se repară de mână: fiecare eroare de server și fiecare
 ecran care se strică în browser lasă un rând pe `/admin/erori`, cu codul pe care îl vede cine a
 întâlnit-o (E06 S1, în formă restrânsă); [`runbook.md`](../runbook.md) duce de la cod la fișier și de
 la incident la reparație (E06 S5); [`harta-ecranelor.md`](../harta-ecranelor.md) spune, pentru fiecare
@@ -197,7 +203,7 @@ nu cod. Ce a mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [ ] S2 · Loguri agregate
 - [ ] S3 · Uptime și alertare
 - [ ] S4 · Metrici
-- [~] S5 · Runbook — **scris**: [`docs/runbook.md`](../runbook.md), cu intrarea pe instanță, repararea unui bug de la codul de pe ecran, treisprezece incidente și corectarea datelor (ecranele întâi, SQL-ul la urmă). Rămâne acceptanța: urmat o dată de cineva care nu l-a scris, și restaurarea probată (E04 S4)
+- [~] S5 · Runbook — **scris**: [`docs/runbook.md`](../runbook.md), cu intrarea pe instanță, repararea unui bug de la codul de pe ecran, treisprezece incidente și corectarea datelor (ecranele întâi, SQL-ul la urmă), plus `/admin/sistem`, configurația citită de pe server, cu problemele numite și locul în care se repară. Rămâne acceptanța: urmat o dată de cineva care nu l-a scris, și restaurarea probată (E04 S4)
 - [ ] S6 · Bugete de performanță
 
 > Scos din MVP prin decizie: observabilitatea de zi cu zi e **PM2** — `pm2 logs` și `pm2 monit` pe

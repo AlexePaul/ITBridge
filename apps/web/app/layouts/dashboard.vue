@@ -273,6 +273,9 @@ const navigationItems = computed(() => {
             }
           : {}),
       },
+      // How this backend is configured, read on the server: a stage labelled production or with no
+      // SITE_URL shows up here before it shows up in an inbox.
+      { label: "Starea platformei", to: "/admin/sistem", icon: "i-lucide-activity" },
     ],
     siteGroup,
   ];

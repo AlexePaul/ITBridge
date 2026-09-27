@@ -7,11 +7,13 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { REQUEST_ID_HEADER } from './common/request-id.middleware';
 import * as fs from 'fs';
-import { corsOrigins, swaggerEnabled } from './config/bootstrap-options';
+import { JSON_BODY_LIMIT, corsOrigins, swaggerEnabled } from './config/bootstrap-options';
 import { RecordingLogger } from './modules/error-report/recording-logger';
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
+    // Before `init`, so Nest skips its own 100 KB parser: see `JSON_BODY_LIMIT`.
+    app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
 
     // Nest's console output, unchanged, plus every error line on the error screen (E06 S1): a job
     // that fails at night is otherwise a line in `pm2 logs` on an instance only SSM reaches.

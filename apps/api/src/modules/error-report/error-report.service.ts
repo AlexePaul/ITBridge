@@ -2,7 +2,7 @@ import { ConsoleLogger, Injectable, NotFoundException, OnModuleDestroy } from '@
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import { ErrorOccurrence, ErrorReport } from 'src/entities/error-report.entity';
-import { User } from 'src/entities/user.entity';
+import { User, isAccountActive } from 'src/entities/user.entity';
 import { ErrorSource } from 'src/enum/error-source.enum';
 import {
     MESSAGE_MAX_LENGTH,
@@ -79,17 +79,51 @@ const MAX_PENDING_WRITES = 50;
  * **Shutdown waits for what is in flight**, in `onModuleDestroy`, which runs before TypeORM closes its
  * pool: `pm2 reload` would otherwise drop exactly the errors the old process met on its way out.
  */
+/** Browser reports one account may file in an hour; past that, what breaks is already on the screen. */
+export const BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR = 30;
+const HOUR_MS = 60 * 60 * 1000;
+
 @Injectable()
 export class ErrorReportService implements OnModuleDestroy {
     /** Straight to the console: see above. */
     private readonly console = new ConsoleLogger('ErrorReport');
     private readonly pending = new Set<Promise<void>>();
     private closed = false;
+    /** Per account: when its hour started, and how many browser reports it filed in it. */
+    private readonly browserBudget = new Map<number, { since: number; count: number }>();
 
     constructor(
         @InjectRepository(ErrorReport) private readonly reports: Repository<ErrorReport>,
         @InjectRepository(User) private readonly users: Repository<User>,
     ) {}
+
+    /**
+     * Whether a report from this account's browser is taken — review of 27 September 2026.
+     *
+     * Every field of one is the caller's, so grouping cannot fold them together: a registration
+     * anybody can make, and a loop, could file a row per request, each kept thirty days, and bury the
+     * faults that matter under them. Taken from an active, unsuspended account only — a stranger's
+     * fresh registration has none of the school's screens to break — and at most
+     * `BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR` an hour each. The rest are dropped without a word: the
+     * answer never said anything about the row. In memory, like the throttle; one process (CLAUDE.md).
+     */
+    async takesBrowserReport(userId: number, now: number = Date.now()): Promise<boolean> {
+        const budget = this.browserBudget.get(userId);
+        if (budget && now - budget.since < HOUR_MS) {
+            if (budget.count >= BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR) return false;
+            budget.count += 1;
+        } else {
+            if (this.browserBudget.size > 1000) {
+                for (const [id, entry] of this.browserBudget) if (now - entry.since >= HOUR_MS) this.browserBudget.delete(id);
+            }
+            this.browserBudget.set(userId, { since: now, count: 1 });
+        }
+        const account = await this.users.findOne({
+            where: { id: userId },
+            select: { id: true, role: true, emailConfirmedAt: true, approvalStatus: true, suspendedAt: true },
+        });
+        return account !== null && account.suspendedAt === null && isAccountActive(account);
+    }
 
     record(input: ErrorInput): void {
         if (this.closed) return;
@@ -132,7 +166,7 @@ export class ErrorReportService implements OnModuleDestroy {
 
         // One statement, so two occurrences of one fault in the same instant are one row counted
         // twice, never two rows: the partial unique index decides, as it does for the unassigned files.
-        await this.reports.query(
+        const rows = await this.reports.query<{ id: number }[]>(
             `INSERT INTO "error_reports"
                 ("fingerprint", "source", "origin", "errorName", "message", "stack", "statusCode", "code",
                  "occurrences", "firstSeenAt", "lastSeenAt", "recent")
@@ -149,7 +183,8 @@ export class ErrorReportService implements OnModuleDestroy {
                     SELECT jsonb_agg(item.value ORDER BY item.ordinality)
                     FROM jsonb_array_elements(EXCLUDED."recent" || "error_reports"."recent") WITH ORDINALITY AS item
                     WHERE item.ordinality <= ${RECENT_OCCURRENCES}
-                )`,
+                )
+             RETURNING "id"`,
             [
                 fingerprint({ source: input.source, origin, errorName, message, stack }),
                 input.source,
@@ -163,6 +198,13 @@ export class ErrorReportService implements OnModuleDestroy {
                 JSON.stringify(occurrence),
             ],
         );
+
+        // The code on its own row, so it is found however many occurrences came after it: `recent`
+        // keeps twenty (review of 27 September 2026).
+        const reportId = rows[0]?.id;
+        if (reportId && occurrence.ref) {
+            await this.reports.query('INSERT INTO "error_references" ("report_id", "ref", "at") VALUES ($1, $2, $3)', [reportId, clip(occurrence.ref, 64), at]);
+        }
     }
 
     /**
@@ -176,9 +218,12 @@ export class ErrorReportService implements OnModuleDestroy {
             .take(query.limit ?? 100);
 
         if (query.ref) {
-            qb.andWhere(`EXISTS (SELECT 1 FROM jsonb_array_elements(report.recent) AS occurrence WHERE lower(occurrence->>'ref') LIKE :ref)`, {
-                ref: `${query.ref.toLowerCase()}%`,
-            });
+            // Every code ever shown for the fault, not only the twenty occurrences on the row.
+            qb.andWhere(
+                `(EXISTS (SELECT 1 FROM "error_references" code WHERE code.report_id = report.id AND lower(code.ref) LIKE :ref)
+                  OR EXISTS (SELECT 1 FROM jsonb_array_elements(report.recent) AS occurrence WHERE lower(occurrence->>'ref') LIKE :ref))`,
+                { ref: `${query.ref.toLowerCase()}%` },
+            );
         } else if (query.state === 'resolved') {
             qb.andWhere('report.resolvedAt IS NOT NULL');
         } else if (query.state !== 'all') {
@@ -211,6 +256,9 @@ export class ErrorReportService implements OnModuleDestroy {
 
     /** The retention pass — `RetentionService.run`. By the last time the fault was seen, fixed or not. */
     async removeSeenBefore(cutoff: Date): Promise<number> {
+        // A report's codes go with it (`ON DELETE CASCADE`); those of a fault still seen go at the
+        // same term, one by one.
+        await this.reports.query('DELETE FROM "error_references" WHERE "at" < $1', [cutoff]);
         const result = await this.reports.createQueryBuilder().delete().from(ErrorReport).where('"lastSeenAt" < :cutoff', { cutoff }).execute();
         return result.affected ?? 0;
     }

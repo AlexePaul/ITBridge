@@ -15,6 +15,9 @@ describe('error record rules', () => {
             ['/auth/reset?token=1a2b3c&x=1', '/auth/reset?token=[redacted]&x=1'],
             ['{"password":"parola123"}', '{"password":"[redacted]"}'],
             ['confirmation 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08 expired', 'confirmation [token] expired'],
+            // The link tokens as the platform mints them: 43 characters of base64url.
+            ['link Ab3dEf9h_Jk-Mn0pQr1sTu2vWx3yZa4bCd5eFg6hIj7 expired', 'link [token] expired'],
+            ['call 0040712345678', 'call [telefon]'],
         ])('takes the personal part out of %j', (input, expected) => {
             expect(scrub(input)).toBe(expected);
         });
@@ -85,15 +88,21 @@ describe('error record rules', () => {
             );
         });
 
-        it('folds the ids out of the address when no route was matched', () => {
-            expect(routeOf({ method: 'POST', path: '/invoices/12/fiscal/confirm', url: '/invoices/12/fiscal/confirm' })).toBe(
-                'POST /invoices/:id/fiscal/confirm',
-            );
+        /**
+         * No handler matched: whatever broke is in front of every route, and the path is whatever the
+         * caller typed. One origin, not one row per invented path (review of 27 September 2026).
+         */
+        it('gives every request that matched no route one origin', () => {
+            expect(routeOf({ method: 'POST', path: '/invoices/12/fiscal/confirm', url: '/invoices/12/fiscal/confirm' })).toBe('POST (nicio rută)');
+            expect(routeOf({ method: 'POST', path: '/x7f3', url: '/x7f3' })).toBe('POST (nicio rută)');
         });
     });
 
     it('keeps an address the way a log line does', () => {
         expect(occurrencePath('/profiles?email=ana@example.com&page=2')).toBe('/profiles?email=[redacted]&page=2');
+        // Escaped, a number is still a number; and the delivery log's recipient filter is an address.
+        expect(occurrencePath('/leads/%2B40712345678')).toBe('/leads/[telefon]');
+        expect(occurrencePath('/deliveries?to=ana.pop')).toBe('/deliveries?to=[redacted]');
         expect(occurrencePath(null)).toBeNull();
     });
 
@@ -140,6 +149,15 @@ describe('error record rules', () => {
                 errorName: 'RangeError',
                 message: 'Could not render: Invalid time value',
                 stack: error.stack,
+            });
+        });
+
+        /** `logger.error('Session purge failed', String(error))` — the cause beside the message was dropped. */
+        it('keeps a cause passed beside the message as a string', () => {
+            expect(parseLogCall('Session purge failed', ['Error: connection terminated', 'SessionService'])).toMatchObject({
+                context: 'SessionService',
+                message: 'Session purge failed: Error: connection terminated',
+                stack: null,
             });
         });
 

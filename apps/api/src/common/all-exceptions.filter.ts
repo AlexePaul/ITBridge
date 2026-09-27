@@ -40,6 +40,29 @@ const PG_INVALID_TEXT_REPRESENTATION = '22P02';
  */
 const PG_NUMERIC_VALUE_OUT_OF_RANGE = '22003';
 
+/**
+ * What Express's body parser throws before any route is matched, and Nest does not convert: a body
+ * over the limit, a charset it cannot read, a request cut off halfway. Each carries its own 4xx
+ * `status`, `expose: true` and a `type` (`http-errors`). They reached the last branch below and went
+ * out as a 500 — recorded on the error screen, one row per path, by anybody, without signing in —
+ * and a phone that lost signal mid-request read "eroare pe server" (review of 27 September 2026).
+ */
+const BODY_PARSER_CODES: Record<string, { code: string; message: string }> = {
+    'entity.too.large': { code: 'PAYLOAD_TOO_LARGE', message: 'Request body too large' },
+    'charset.unsupported': { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'Unsupported request body encoding' },
+    'encoding.unsupported': { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'Unsupported request body encoding' },
+    'request.aborted': { code: 'REQUEST_ABORTED', message: 'The request was cut off before it arrived whole' },
+};
+
+export function bodyParserFault(exception: unknown): Pick<ErrorResponse, 'statusCode' | 'code' | 'message'> | null {
+    if (typeof exception !== 'object' || exception === null) return null;
+    const { status, statusCode, expose, type } = exception as { status?: unknown; statusCode?: unknown; expose?: unknown; type?: unknown };
+    const code = typeof status === 'number' ? status : typeof statusCode === 'number' ? statusCode : null;
+    if (code === null || code < 400 || code >= 500 || expose !== true) return null;
+    const known = typeof type === 'string' ? BODY_PARSER_CODES[type] : undefined;
+    return { statusCode: code, code: known?.code ?? 'BAD_REQUEST', message: known?.message ?? 'The request body could not be read' };
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
     private readonly logger = new Logger('Exception');
@@ -117,6 +140,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
         if (exception instanceof QueryFailedError) {
             return { ...base, ...this.fromDatabaseError(exception as QueryFailedError<Error>) };
         }
+
+        const unreadable = bodyParserFault(exception);
+        if (unreadable) return { ...base, ...unreadable };
 
         return {
             ...base,

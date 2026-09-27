@@ -108,6 +108,25 @@ describe("the browser's error reports", () => {
       expect(send).toHaveBeenCalledTimes(MAX_REPORTS_PER_PAGE_LOAD);
     });
 
+    // Review of 27 September 2026: the toast said "notată, cu codul X" before anything was stored.
+    it("says whether the report arrived, once", async () => {
+      const results: boolean[] = [];
+      createErrorReporter(() => Promise.resolve({})).report(new Error("ok"), "vue", where, (d) =>
+        results.push(d)
+      );
+      createErrorReporter(() => Promise.reject(new Error("offline"))).report(
+        new Error("lost"),
+        "vue",
+        where,
+        (d) => results.push(d)
+      );
+      createErrorReporter(() => {
+        throw new Error("sync");
+      }).report(new Error("thrown"), "vue", where, (d) => results.push(d));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(results.sort()).toEqual([false, false, true]);
+    });
+
     it("never throws, whatever sending does", async () => {
       const reporter = createErrorReporter(() => Promise.reject(new Error("offline")));
       expect(() => reporter.report(new Error("a"), "vue", where)).not.toThrow();

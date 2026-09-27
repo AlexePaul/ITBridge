@@ -129,7 +129,13 @@ export function createErrorReporter(send: (report: ClientErrorReport) => Promise
   const report = (
     error: unknown,
     kind: ClientErrorKind,
-    where: { route: string; path?: string; component?: string }
+    where: { route: string; path?: string; component?: string },
+    /**
+     * Told once whether the report reached the server. A code said before it arrived is a code
+     * that may find nothing: offline in the classroom, a 429 from the office's shared address, a
+     * session gone (review of 27 September 2026).
+     */
+    onResult?: (delivered: boolean) => void
   ): string | null => {
     if (!isReportableError(error)) return null;
     if (typeof error === "object" && error !== null) {
@@ -142,12 +148,22 @@ export function createErrorReporter(send: (report: ClientErrorReport) => Promise
     if (seenKeys.has(key) || sent >= MAX_REPORTS_PER_PAGE_LOAD) return null;
     seenKeys.add(key);
     sent += 1;
+    // Always after `report` has returned, so a caller may read the reference it got back.
+    const settle = (delivered: boolean) => {
+      void Promise.resolve()
+        .then(() => onResult?.(delivered))
+        .catch(() => {
+          // The caller's reaction must not break the screen further either.
+        });
+    };
     try {
-      send(body).catch(() => {
-        // Nothing to do: the screen is already broken, and saying so twice helps nobody.
-      });
+      send(body).then(
+        () => settle(true),
+        () => settle(false)
+      );
     } catch {
-      // Same, for a sender that throws before it returns a promise.
+      // A sender that throws before it returns a promise delivered nothing.
+      settle(false);
     }
     return reference;
   };

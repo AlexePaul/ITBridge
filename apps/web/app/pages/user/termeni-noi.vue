@@ -60,12 +60,19 @@
 
         <!-- §18 promises a way out, so the screen has to show one. Without it this is a page a
              family cannot leave, which is a different thing from a document they can decline. -->
-        <p v-if="documents.length > 0" class="colophon">
+        <p v-if="documents.length > 0 && !awaitingFamily" class="colophon">
           Dacă nu ești de acord cu versiunea nouă, poți închide contul din
           <NuxtLink to="/user/profile" class="link">Profil</NuxtLink> — fără niciun cost și fără
           efect asupra cursului copilului. Scrie-ne la
           <a :href="`mailto:${SCHOOL_EMAIL}`" class="link">{{ SCHOOL_EMAIL }}</a> dacă vrei să
           vorbim întâi.
+        </p>
+        <!-- An account waiting for the office to attach it has no Profil to reach: the page sends
+             it home and home back here (review of 27 September 2026). Its way out is the office. -->
+        <p v-else-if="documents.length > 0" class="colophon">
+          Dacă nu ești de acord cu versiunea nouă, scrie-ne la
+          <a :href="`mailto:${SCHOOL_EMAIL}`" class="link">{{ SCHOOL_EMAIL }}</a> și închidem
+          contul, fără niciun cost.
         </p>
       </div>
     </section>
@@ -99,6 +106,9 @@ definePageMeta({
 const authApi = useAuthApi();
 const userStore = useUserStore();
 const { success } = useNotifications();
+
+/** An account created from a claim link, not attached to its family yet: `/user/profile` is closed to it. */
+const awaitingFamily = computed(() => Boolean(userStore.user?.awaitingFamily));
 
 const saving = ref(false);
 const submitError = ref<string | null>(null);

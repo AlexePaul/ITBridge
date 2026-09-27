@@ -3,7 +3,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Child } from 'src/entities/child.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { Role } from 'src/enum/role.enum';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { CreateChildDto } from './dto/createChild.dto';
 import { FilterChildDto } from './dto/filterChild.dto';
 import { UpdateChildDto } from './dto/updateChild.dto';
@@ -22,6 +22,9 @@ import { Lead } from 'src/entities/lead.entity';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { schoolDay } from 'src/common/school-clock';
+import { lockInvoiceMonths } from 'src/modules/invoice/invoice-month-lock';
+import { monthAfter } from 'src/modules/discount/discount.rules';
+import { WaitlistStatus } from 'src/enum/waitlist-status.enum';
 import { PublicationConsentService } from 'src/modules/privacy/publication-consent.service';
 
 /**
@@ -144,7 +147,13 @@ export class ChildService {
 
         applyDefined(child, updateChildDto);
         const saved = await this.dataSource.transaction(async (manager) => {
+            // The family relation is not the edit's to write: saved as read, it put a child the office
+            // had just moved to another family back where it was (review of 27 September 2026).
+            const family = child.parent;
+            (child as { parent?: Profile }).parent = undefined;
             const written = await manager.save(Child, child);
+            child.parent = family;
+            written.parent = family;
             await this.audit.recordPersonalDataChange(
                 {
                     actor,
@@ -286,17 +295,33 @@ export class ChildService {
         return this.dataSource.transaction(async (manager) => {
             const child = await manager.findOne(Child, { where: { id: childId }, relations: { parent: true } });
             if (!child) throw new NotFoundException('Child not found');
-            const target = await manager.findOne(Profile, { where: { id: profileId } });
-            if (!target) throw new NotFoundException('Profile not found');
-            if (child.parent.id === target.id) {
+            if (child.parent.id === profileId) {
                 throw new BadRequestException({ message: 'The child is already in that family.', error: 'CHILD_ALREADY_IN_FAMILY' });
             }
-            assertNotErased(child.parent);
+            const sourceId = child.parent.id;
+
+            // Review of 27 September 2026: everything below was checked on a snapshot. Issuing a
+            // month that commits meanwhile would bill the old family for the child's sessions, the
+            // split `CHILD_FAMILY_INVOICED` exists to refuse; an erasure would leave the child on an
+            // emptied row. So the months the child can be billed for come first, then both families
+            // — the order issuing takes them in (a month, then the family its invoice points at) —
+            // and the rows are read again under them. `NO KEY UPDATE`, so an invoice being written
+            // for one of the families elsewhere does not wait on this.
+            await lockInvoiceMonths(manager, await this.billableMonthsOf(manager, childId));
+            await manager.query('SELECT id FROM profiles WHERE id = ANY($1) ORDER BY id FOR NO KEY UPDATE', [[sourceId, profileId]]);
+
+            const current = await manager.findOne(Child, { where: { id: childId }, relations: { parent: true } });
+            if (!current || current.parent.id !== sourceId) {
+                throw new ConflictException({ message: 'The child was moved meanwhile; reload the page.', error: 'CHILD_FAMILY_CHANGED' });
+            }
+            const target = await manager.findOne(Profile, { where: { id: profileId } });
+            if (!target) throw new NotFoundException('Profile not found');
+            assertNotErased(current.parent);
             assertNotErased(target);
-            const invoiced = await manager.count(Invoice, { where: { parent: { id: child.parent.id } } });
+            const invoiced = await manager.count(Invoice, { where: { parent: { id: sourceId } } });
             if (invoiced > 0) {
                 throw new ConflictException({
-                    message: `Family ${child.parent.id} has ${invoiced} invoice(s); its children are not moved to another family.`,
+                    message: `Family ${sourceId} has ${invoiced} invoice(s); its children are not moved to another family.`,
                     error: 'CHILD_FAMILY_INVOICED',
                 });
             }
@@ -310,12 +335,60 @@ export class ChildService {
                     entityType: 'Child',
                     entityId: childId,
                     fields: ['parent'],
-                    note: `copil mutat din familia ${child.parent.id} în familia ${target.id}`,
+                    note: `copil mutat din familia ${sourceId} în familia ${target.id}`,
                 },
                 manager,
             );
-            return { ...child, parent: target };
+
+            // E04/S5, as `enrol` does it: a family with a child in a group, or waiting for a seat,
+            // has not left. The usual case is a family that withdrew and came back through `/proba`,
+            // whose trial was confirmed on the booking's shell and is now moved home — left
+            // withdrawn, the retention job would erase it on a term counted from the old withdrawal.
+            if (target.withdrawnAt && (await this.stillComing(manager, childId))) {
+                await manager.update(Profile, target.id, { withdrawnAt: null });
+                await this.audit.record(
+                    {
+                        actor,
+                        action: AuditAction.UPDATED,
+                        entityType: 'Profile',
+                        entityId: target.id,
+                        changes: { withdrawnAt: { from: String(target.withdrawnAt).slice(0, 10), to: null } },
+                        note: `retragere anulată: copilul ${childId} mutat în familie, cu o înscriere sau o cerere în vigoare`,
+                    },
+                    manager,
+                );
+                target.withdrawnAt = null;
+            }
+            return { ...current, parent: target };
         });
+    }
+
+    /**
+     * Every month an invoice could count this child in: from its first enrolment to this month on
+     * the school's clock. None without an enrolment — a child in no group is billed for nothing.
+     */
+    private async billableMonthsOf(manager: EntityManager, childId: number): Promise<string[]> {
+        const [row] = await manager.query<{ first: string | null }[]>(
+            'SELECT to_char(MIN("startDate"), \'YYYY-MM\') AS first FROM enrollments WHERE child_id = $1',
+            [childId],
+        );
+        if (!row?.first) return [];
+        const months: string[] = [];
+        const last = schoolDay(new Date()).slice(0, 7);
+        for (let month = row.first; month <= last; month = monthAfter(month)) months.push(month);
+        return months;
+    }
+
+    /** Whether the child is in a group, on trial, or waiting for a seat. */
+    private async stillComing(manager: EntityManager, childId: number): Promise<boolean> {
+        const inForce = await manager.count(Enrollment, {
+            where: { child: { id: childId }, status: In([EnrollmentStatus.TRIAL, EnrollmentStatus.ACTIVE]) },
+        });
+        if (inForce > 0) return true;
+        const waiting = await manager.count(WaitlistEntry, {
+            where: { child: { id: childId }, status: In([WaitlistStatus.WAITING, WaitlistStatus.OFFERED]) },
+        });
+        return waiting > 0;
     }
 
     /**

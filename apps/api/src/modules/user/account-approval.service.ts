@@ -284,7 +284,7 @@ export class AccountApprovalService {
 
             const mail = await this.mailTemplates.render('account-rejected', { firstName: addressee?.firstName ?? '', officeEmail: this.office });
             await this.outbox.queueOrRecord(
-                { email: addressee?.email },
+                { email: addressee?.email, confirmed: addressee?.confirmed },
                 { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined, profileId: addressee?.profileId },
                 manager,
             );

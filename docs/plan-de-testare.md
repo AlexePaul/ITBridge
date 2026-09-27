@@ -34,6 +34,11 @@ link:** trebuie să înceapă cu `https://stage.itbridgeschool.com`. Dacă înce
 `https://itbridgeschool.com`, lipsește `SITE_URL` de pe API-ul de stage — [runbook.md](runbook.md),
 3.8.
 
+**Starea platformei** (`/admin/sistem`), ca `admin`, înainte de orice: la „Probleme" nu trebuie să
+fie nimic. Pe stage sunt normale trei note din „De știut" — emailurile oprite dinadins, contul
+pentru transfer nesetat și SmartBill oprit sau în ciorne. Orice problemă de acolo spune și unde se
+repară; un `NODE_ENV=production` sau un `SITE_URL` lipsă strică testele de mai jos.
+
 **SmartBill** e oprit sau în ciorne pe stage: facturile au PDF-ul platformei, nu număr fiscal.
 
 **Un telefon** pentru secțiunile 2 și 4, sau browserul pe 390 px lățime.
