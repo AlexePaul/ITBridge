@@ -4,7 +4,13 @@ Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare
 adunate într-un loc.
 
 **Ultima actualizare:** 27 septembrie 2026, pe `release/stage`. **Pregătirea testării integrale de
-săptămâna viitoare.** Un bug se găsește și se repară de mână: fiecare eroare de server și fiecare
+săptămâna viitoare.** Seara, o revizuire a tot ce se construise în ultimele două zile a găsit și a
+reparat, printre altele, anunțul facturii cu totalul în loc de rest, mesaje care plecau la adrese pe
+care nu le dovedise nimeni, o familie retrasă care primea un copil și rămânea retrasă, și un cod de
+eroare care nu-și mai găsea rândul după ce defectul se repetase de douăzeci de ori. Tot atunci,
+**`/admin/sistem`** arată configurația pe care a citit-o backend-ul acolo unde rulează — adresa din
+linkuri, dacă pleacă mail, modul SmartBill, contul pentru transfer, bucket-ul și migrările nerulate —:
+primul ecran de deschis după un deploy. Un bug se găsește și se repară de mână: fiecare eroare de server și fiecare
 ecran care se strică în browser lasă un rând pe `/admin/erori`, cu codul pe care îl vede cine a
 întâlnit-o (E06 S1, în formă restrânsă); [`runbook.md`](../runbook.md) duce de la cod la fișier și de
 la incident la reparație (E06 S5); [`harta-ecranelor.md`](../harta-ecranelor.md) spune, pentru fiecare
