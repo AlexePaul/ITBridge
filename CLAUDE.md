@@ -2701,7 +2701,9 @@ alteia, mult mai vechi. `deploy.yml` ascultă și de `release/prod`, dar deploy-
 variabila de repository `PROD_API_DEPLOY=enabled`** și instanța din `EC2_INSTANCE_ID_PROD` (fără ea
 pică, nu cade pe instanța stage-ului) — iar până trece platforma pe `release/prod`, pe branch-ul ăla
 nu există niciun `deploy.yml`, deci un push acolo nu deployează nimic. Pașii lansării, cu toate
-conturile de adus, sunt în [docs/lansare-platforma.md](docs/lansare-platforma.md).
+conturile de adus, sunt în [docs/lansare-platforma.md](docs/lansare-platforma.md). **Ce faci când
+ceva nu merge** — API-ul căzut, un deploy de întors, discul plin, un bug de la codul de pe ecran
+până la fix, o corectură de date — e în [docs/runbook.md](docs/runbook.md).
 
 **Un push pe `release/stage` e un deploy.** `.github/workflows/deploy.yml` cheamă `ci.yml` prin
 `workflow_call` — verificările și deploy-ul sunt o singură rulare în Actions, deci deploy-ul nu poate

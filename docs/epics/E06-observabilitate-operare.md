@@ -1,7 +1,7 @@
 # E06 · Observabilitate și operare
 
-**Status:** scos din MVP, cu **S1 livrat în formă restrânsă** (jurnalul de erori din aplicație,
-27 septembrie 2026) · **Pistă:** Fundație · **Depinde de:** E01, E05 · **Blochează:** alertarea
+**Status:** scos din MVP, cu **S1 livrat în formă restrânsă** (jurnalul de erori din aplicație) și
+**S5 scris** ([runbook.md](../runbook.md)), 27 septembrie 2026 · **Pistă:** Fundație · **Depinde de:** E01, E05 · **Blochează:** alertarea
 din [E14](E14-proiecte-elevi.md) S2, și nimic altceva — [E17](E17-comunicare-notificari.md) nu mai
 are story-uri deschise
 
@@ -114,6 +114,16 @@ conexiuni, discul e plin, certificatul a expirat, un deploy a mers prost și tre
 S3 nu răspunde și facturile nu se generează. Fiecare cu pași concreți, nu principii.
 
 **Acceptanță:** cineva care nu a scris codul poate urma pașii și restabili serviciul.
+
+> **Scris (27 septembrie 2026): [docs/runbook.md](../runbook.md).** Un tabel „ce vezi → unde te
+> uiți", intrarea pe instanță prin Session Manager, cum se repară un bug de la codul de pe ecran
+> până la „Marchează rezolvată", treisprezece incidente — cele șase de aici plus emailurile,
+> SmartBill, site-ul, conturile, agentul din birou, revenirea după un deploy și restaurarea — și
+> corectarea datelor: întâi ecranele, cu ce face fiecare pe lângă scriere, SQL-ul doar la urmă, cu
+> ce ocolește. **Acceptanța rămâne deschisă pe jumătate:** pașii n-au fost urmați încă de cineva care
+> nu i-a scris, iar restaurarea din backup e marcată neprobată (E04 S4). Ce se află pe instanță și
+> nu e în repo — numele procesului PM2, prefixul backup-urilor — e numit ca atare, cu comanda care îl
+> arată.
 
 ### S6 · Bugete de performanță
 

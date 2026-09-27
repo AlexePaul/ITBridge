@@ -178,13 +178,13 @@ nu cod. Ce a mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S8 · Audit de autorizare
 - [x] S9 · CORS din configurație
 
-### E06 · Observabilitate și operare — `scos din MVP; S1 livrat în formă restrânsă`
+### E06 · Observabilitate și operare — `scos din MVP; S1 livrat în formă restrânsă, S5 scris`
 
 - [x] S1 · Raportare de erori — **în aplicație, fără serviciu extern** (27 septembrie 2026): `/admin/erori`, un rând pe defect, cu fiecare 5xx (ruta, contul, codul cererii), fiecare linie de eroare scrisă pe server — joburile incluse, fără să le lege cineva — și fiecare ecran stricat în browserul cuiva autentificat. Codul de pe ecran („cod 3f2a9c1d") găsește rândul; stack-ul e pe liniile din `.ts`; datele personale sunt filtrate la scriere, iar rândul pleacă la 30 de zile. Fără alertare (S3) și fără hărțile sursă ale frontend-ului
 - [ ] S2 · Loguri agregate
 - [ ] S3 · Uptime și alertare
 - [ ] S4 · Metrici
-- [ ] S5 · Runbook
+- [~] S5 · Runbook — **scris**: [`docs/runbook.md`](../runbook.md), cu intrarea pe instanță, repararea unui bug de la codul de pe ecran, treisprezece incidente și corectarea datelor (ecranele întâi, SQL-ul la urmă). Rămâne acceptanța: urmat o dată de cineva care nu l-a scris, și restaurarea probată (E04 S4)
 - [ ] S6 · Bugete de performanță
 
 > Scos din MVP prin decizie: observabilitatea de zi cu zi e **PM2** — `pm2 logs` și `pm2 monit` pe
