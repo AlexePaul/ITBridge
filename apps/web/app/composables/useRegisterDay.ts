@@ -51,7 +51,7 @@ export function shiftDay(day: string, delta: number): string {
 }
 
 /** `26.09.2026`, the way the screen has always printed its day. */
-export function dayLabel(day: string): string {
+export function registerDayLabel(day: string): string {
   const [year, month, date] = day.split("-");
   return `${Number(date)}.${month}.${year}`;
 }
