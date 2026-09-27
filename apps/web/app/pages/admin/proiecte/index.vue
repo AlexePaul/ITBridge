@@ -25,7 +25,8 @@
           Agentul <span class="font-medium">{{ agents[0]?.agentName }}</span> a raportat
           {{ lastSeenLabel(agents[0]!)
           }}<template v-if="agents[0]?.pendingFiles">
-            , cu {{ agents[0]?.pendingFiles }} fișiere în așteptare</template
+            , cu {{ countOf(agents[0]?.pendingFiles ?? 0, "fișier", "fișiere") }} în
+            așteptare</template
           >.
         </p>
       </div>
@@ -99,7 +100,7 @@
               variant="subtle"
               size="lg"
             >
-              {{ waiting(group.id)!.count }} noi
+              {{ countOf(waiting(group.id)!.count, "document nou", "documente noi") }}
             </UBadge>
             <p class="text-xs mt-1" :class="groupIsStale(group.id) ? 'text-warning' : 'text-muted'">
               {{ ageLabel(waiting(group.id)!.oldestDays) }}

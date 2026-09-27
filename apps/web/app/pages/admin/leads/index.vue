@@ -53,7 +53,7 @@
                   >
                     {{ row.lead.childFirstName }} {{ row.lead.childLastName }}
                   </button>
-                  <span class="text-muted">· {{ row.lead.parentName }}</span>
+                  <span class="text-muted"> · {{ row.lead.parentName }}</span>
                 </p>
                 <p class="text-sm text-muted">
                   {{ row.lead.group?.name ?? "Fără grupă" }} ·

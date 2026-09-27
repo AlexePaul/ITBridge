@@ -61,7 +61,9 @@
               <span v-if="record.to">{{ record.to }}</span>
               <span v-else class="italic">fără destinatar</span>
               · <span class="tabular-nums">{{ formatDateKey(record.createdAt) }}</span>
-              <span v-if="record.attempts > 0"> · {{ record.attempts }} încercări</span>
+              <span v-if="record.attempts > 0">
+                · {{ countOf(record.attempts, "încercare", "încercări") }}</span
+              >
             </p>
           </div>
           <UBadge
@@ -110,6 +112,7 @@
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useDeliveriesApi } from "~/composables/api/useDeliveriesApi";
 import { formatDateKey } from "~/composables/useAdminFormat";
+import { countOf } from "~/composables/useRomanianCount";
 
 /** „Familia Popescu" reads as a name; an erased family's row is still a family to link to. */
 const familyName = (profile: NonNullable<DeliveryRecord["profile"]>) =>
