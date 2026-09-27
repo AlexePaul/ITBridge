@@ -17,7 +17,7 @@
         <UButton
           icon="i-lucide-chevron-left"
           variant="outline"
-          class="min-h-11 shrink-0"
+          class="min-h-11 min-w-11 justify-center shrink-0"
           aria-label="Ziua anterioară"
           @click="goToDay(shiftDay(day, -1))"
         />
@@ -31,7 +31,7 @@
         <UButton
           icon="i-lucide-chevron-right"
           variant="outline"
-          class="min-h-11 shrink-0"
+          class="min-h-11 min-w-11 justify-center shrink-0"
           aria-label="Ziua următoare"
           :disabled="isToday"
           @click="goToDay(shiftDay(day, 1))"
@@ -205,7 +205,7 @@
             <!-- A child from another group (E12/S4): the teacher has not met them, so the register
                  says who they are before the tap. -->
             <p v-if="entry.visitingFrom" class="text-sm text-muted">
-              Vine de la grupa {{ entry.visitingFrom }}, mutat aici pe săptămâna asta.
+              Vine de la grupa {{ entry.visitingFrom }}, doar săptămâna asta.
             </p>
 
             <!-- The whole job: two targets a thumb cannot miss. -->

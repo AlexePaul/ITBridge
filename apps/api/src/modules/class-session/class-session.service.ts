@@ -24,6 +24,7 @@ import { Invoice } from 'src/entities/invoice.entity';
 import { SetVacationDto } from './dto/setVacation.dto';
 import { teachingMonthOf } from 'src/modules/invoice/billing-period.rules';
 import { lockInvoiceMonth } from 'src/modules/invoice/invoice-month-lock';
+import { roomTooSmallMessage } from './room-too-small';
 
 /** The rolling horizon from E12/S1: eight weeks of timetable, always. */
 export const DEFAULT_HORIZON_WEEKS = 8;
@@ -652,7 +653,7 @@ export class ClassSessionService {
         const expected = await this.enrollments.expectedAt(session, manager);
         if (expected > room.capacity) {
             throw new ConflictException({
-                message: `Sala „${room.name}" are ${room.capacity} locuri, iar la ora asta vin ${expected} copii.`,
+                message: roomTooSmallMessage(room.name, room.capacity, expected),
                 error: 'ROOM_TOO_SMALL',
             });
         }

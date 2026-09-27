@@ -9,6 +9,7 @@ import { CreateRoomDto } from './dto/createRoom.dto';
 import { FilterRoomDto } from './dto/filterRoom.dto';
 import { UpdateRoomDto } from './dto/updateRoom.dto';
 import { applyDefined } from 'src/common/apply-defined';
+import { countOf } from 'src/common/romanian-count';
 
 @Injectable()
 export class RoomService {
@@ -66,7 +67,7 @@ export class RoomService {
             const tooBig = await this.groupRepository.find({ where: { room: { id }, capacity: MoreThan(dto.capacity) }, order: { capacity: 'DESC' } });
             if (tooBig.length > 0) {
                 throw new ConflictException({
-                    message: `Grupa „${tooBig[0].name}" are ${tooBig[0].capacity} locuri în sala asta. Micșorează grupa întâi, sau mut-o în altă sală.`,
+                    message: `Grupa „${tooBig[0].name}" are ${countOf(tooBig[0].capacity, 'loc', 'locuri')} în sala asta. Micșorează grupa întâi, sau mut-o în altă sală.`,
                     error: 'ROOM_SMALLER_THAN_GROUP',
                 });
             }

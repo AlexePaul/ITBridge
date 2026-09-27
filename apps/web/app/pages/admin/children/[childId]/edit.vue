@@ -140,10 +140,9 @@
       </template>
       <p v-if="currentFamily" class="mb-3">
         Acum în familia
-        <NuxtLink :to="`/admin/profiles/${currentFamily.id}`" class="underline">
-          {{ currentFamily.firstName }} {{ currentFamily.lastName }}
-        </NuxtLink>
-        .
+        <NuxtLink :to="`/admin/profiles/${currentFamily.id}`" class="underline"
+          >{{ currentFamily.firstName }} {{ currentFamily.lastName }}</NuxtLink
+        >.
       </p>
       <div class="flex flex-col sm:flex-row sm:items-center gap-3">
         <USelectMenu

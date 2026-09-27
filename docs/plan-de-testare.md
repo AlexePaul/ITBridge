@@ -63,12 +63,15 @@ trebuie pentru reparat — vezi [runbook.md](runbook.md), „Un bug". O captură
 ### Contul nou, de la zero
 
 - [ ] **P1 · Înregistrare** — Autentificare → „Creează cont": utilizator, parolă (minim 6), prenume,
-      nume, email, cele **două** bife. → „Verifică-ți emailul". Fără a doua bifă (clauzele neuzuale),
-      formularul refuză.
+      nume, email, cele **două** bife. → „Contul a fost creat", apoi direct pasul doi (P2); după el,
+      pe Acasă, cardul „De confirmat" cu butonul de retrimitere a linkului. Fără a doua bifă (clauzele
+      neuzuale), formularul refuză și nu trimite nimic. Cu adresa unei familii trecute de birou, în
+      loc de cont apare „Verifică-ți emailul" — e P21, din partea familiei.
 - [ ] **P2 · Pasul doi** — imediat după: telefon, adresă, persoana de urgență. → Toate trei
       obligatorii; până nu le completezi, orice pagină a portalului te aduce înapoi aici.
 - [ ] **P3 · Confirmarea emailului** — Livrări → mesajul de confirmare → linkul. → „Adresa ta este
-      confirmată" și că urmează aprobarea biroului. Linkul folosit a doua oară spune același lucru.
+      confirmată" și că urmează aprobarea biroului. Linkul folosit a doua oară spune că adresa e deja
+      confirmată, fără să mai pomenească un link expirat.
 - [ ] **P4 · Aprobarea** — ca admin, **Conturi în așteptare** → „Aprobă". Ca părinte, reîncarcă. →
       Portalul complet; mesajul de așteptare a dispărut.
 - [ ] **P5 · Emailul acceptării** — Livrări. → Un mesaj care confirmă termenii și nota acceptate, cu
@@ -81,7 +84,7 @@ trebuie pentru reparat — vezi [runbook.md](runbook.md), „Un bug". O captură
 - [ ] **P7 · Comutatorul de copil** — la o familie cu doi copii, schimbă copilul. → Toate filele
       arată copilul ales, iar alegerea rămâne la trecerea între pagini.
 - [ ] **P8 · Prezența** — calendarul lunii, cu prezent / absent / nemarcat; lunile anterioare. →
-      Corespunde cu catalogul din admin (B8).
+      Corespunde cu catalogul din admin (B4.6, T1).
 - [ ] **P9 · Absențe** — ce a notat biroul și, dacă e cazul, mutarea: „va veni joi la grupa X".
 - [ ] **P10 · Plăți** — facturile, cu **restul de plată** (nu totalul, dacă s-a plătit parțial),
       datele pentru transfer și reducerile. PDF-ul facturii se descarcă.
@@ -95,12 +98,14 @@ trebuie pentru reparat — vezi [runbook.md](runbook.md), „Un bug". O captură
 - [ ] **P14 · Parola** — Profil → schimbă parola (cere parola actuală). → Celelalte sesiuni se închid.
 - [ ] **P15 · „Ține-mă minte"** — autentificare fără bifă, închide browserul, redeschide. → Trebuie
       să te autentifici din nou. Cu bifă: rămâi autentificat.
-- [ ] **P16 · Parola uitată** — deconectat, „Ai uitat parola?" → Livrări → linkul (valabil o oră) →
+- [ ] **P16 · Parola uitată** — deconectat, „Ți-ai uitat parola?" → Livrări → linkul (valabil o oră) →
       parolă nouă. → Te poți autentifica cu ea; linkul nu mai merge a doua oară.
 - [ ] **P17 · Marketing** — Profil: comutatorul de mesaje promoționale. → Se salvează; un anunț de
-      marketing (B13) nu mai ajunge la familie.
+      marketing (B6.1) nu mai ajunge la familie.
 - [ ] **P18 · Acordul pentru lucrări** — Profil: pentru fiecare copil, dă și retrage acordul. →
-      Confirmarea e în Livrări de fiecare dată; retragerea apare la **Acorduri pentru lucrări**.
+      Confirmarea e în Livrări de fiecare dată. **Acorduri pentru lucrări** listează doar acordurile în
+      vigoare, deci o retragere se vede prin copilul care dispare din listă, plus mesajul „Acord
+      retras" către birou, în Livrări.
 - [ ] **P19 · Datele mele** — Profil → „Descarcă datele mele". → Un fișier cu familia, copiii, facturile,
       acceptările; nimic despre altă familie.
 - [ ] **P20 · Cererea de ștergere** — Profil → „Cere ștergerea contului" (două apăsări), apoi retrage-o. → Apare și dispare de
@@ -115,8 +120,13 @@ trebuie pentru reparat — vezi [runbook.md](runbook.md), „Un bug". O captură
 - [ ] **P22 · Suspendarea** — ca admin, pagina familiei → suspendă, cu motiv. Ca părinte, încearcă să
       te autentifici. → Cu parola corectă: mesajul că contul e suspendat; cu una greșită: „parolă
       incorectă", ca oricui. Motivul e în Livrări. „Ridică suspendarea" redeschide contul.
-- [ ] **P23 · Cont neconfirmat** — autentificare ca `diana.moldovan`. → Intră și vede ce lipsește,
-      cu butonul de retrimitere a linkului.
+- [ ] **P23 · Cont neconfirmat** — autentificare ca `diana.moldovan`, o înregistrare abandonată:
+      n-a terminat nici pasul doi, nici confirmarea. → Întâi pasul doi (P2); după el, pe Acasă,
+      cardul „De confirmat" cu butonul de retrimitere a linkului.
+- [ ] **P24 · Termeni noi** — autentificare ca `david.georgescu`, care a acceptat o versiune mai veche
+      a termenilor. → Ecranul „Am schimbat termenii", cu linkurile către secțiuni și cele două bife;
+      după acceptare, portalul. Evidența din Profil arată ambele versiuni, fiecare cu ziua ei, iar
+      emailul acceptării e în Livrări.
 
 ## 3. Biroul
 
@@ -126,10 +136,12 @@ trebuie pentru reparat — vezi [runbook.md](runbook.md), „Un bug". O captură
 ### Familii și copii
 
 - [ ] **B2.1 · Familie de la telefon** — Profiluri → familie nouă, fără email și telefon. → Se
-      salvează; toate câmpurile sunt opționale aici.
+      salvează: aici doar numele și prenumele sunt obligatorii. Apăsat o dată cu formularul gol,
+      arată ce lipsește; completat, se salvează **de la prima apăsare**.
 - [ ] **B2.2 · Adresă deja folosită** — editează o familie cu emailul altei familii. → Refuz în
       română, „deja trecută la altă familie".
-- [ ] **B2.3 · Copil nou** — pagina familiei → adaugă copil. → Apare la Copii.
+- [ ] **B2.3 · Copil nou** — pagina familiei din B2.1, care n-are încă niciun copil → „Adaugă
+      Copil". → Apare la Copii.
 - [ ] **B2.4 · Frați pe două familii** — o programare de pe `/proba` face o familie nouă pentru
       fiecare copil. Copilul → Editează → „Mută în altă familie". → Se mută cu tot ce are; familia
       rămasă goală se poate șterge din pagina ei.
@@ -138,20 +150,24 @@ trebuie pentru reparat — vezi [runbook.md](runbook.md), „Un bug". O captură
 
 ### Înscrieri, grupe, capacitate
 
-- [ ] **B3.1 · Înscriere** — copilul → înscrie în grupă. → O vârstă în afara grupei dă un avertisment
-      care cere confirmare; o grupă plină refuză cu numere.
+- [ ] **B3.1 · Înscriere** — Grupe → grupa → „Gestionează" → „Adaugă" copilul. → O vârstă în afara
+      grupei dă un avertisment care cere confirmare („Înscrie oricum"); o grupă plină refuză cu
+      numere.
 - [ ] **B3.2 · Contul părintelui** — adaugă un copil familiei lui `lucian.ionescu` (cont neaprobat) și
       înscrie-l. → Refuz: contul părintelui nu e activ.
 - [ ] **B3.3 · Transfer** — mută un copil în altă grupă. → Grupa veche are un loc liber, oferit
       primei familii de pe lista ei de așteptare (mesaj în Livrări).
-- [ ] **B3.4 · Proba** — o probă → decizie: acceptată (devine înscriere, nefacturată până la decizie)
-      sau refuzată (locul se eliberează). Cererea din Cereri și probe se mută singură în starea ei.
+- [ ] **B3.4 · Proba** — Formarea grupelor → Probe fără decizie → Tudor Neagu (proba ținută din
+      seed): „A rămas" îl face înscris, nefacturat până la decizie. Pe o altă probă, din Cereri și
+      probe, „Pierdut…" o închide și locul se oferă listei. În ambele cazuri, cererea trece singură în
+      starea ei.
 - [ ] **B3.5 · Lista de așteptare** — o grupă plină: pune un copil pe listă, eliberează un loc. →
       Familia primește oferta de 48 de ore; locul oferit nu se mai vede ca liber.
 - [ ] **B3.6 · Contractul** — Contracte nesemnate: „Semnat la" pe un rând. → Dispare din listă. O
-      probă refuză o dată de contract.
+      probă nu apare deloc aici: e gratuită și n-are contract.
 - [ ] **B3.7 · Grupă nouă** — Locații și săli → locație, sală, apoi Grupe → grupă nouă. → Ora se
-      suprapune cu altă grupă în aceeași sală: refuz. Orarul grupei se generează.
+      suprapune cu altă grupă în aceeași sală: refuz. Orarul nu se scrie odată cu grupa: „Generează
+      orarul" din Grupe îl scrie pe opt săptămâni, sărind vacanțele (sau jobul de la 04:30).
 - [ ] **B3.8 · Grupa își schimbă ziua** — editează ziua sau ora unei grupe. → Orele viitoare se mută
       în săptămâna lor, familiile primesc **un** mesaj.
 - [ ] **B3.9 · Formarea grupelor** — cererea neacoperită pe vârste și locații, plus probele fără
@@ -175,9 +191,10 @@ trebuie pentru reparat — vezi [runbook.md](runbook.md), „Un bug". O captură
 
 ### Bani
 
-- [ ] **B5.1 · Emiterea** — Emitere facturi → luna cea mai recentă **terminată**. → Pe fiecare
-      copil, ședințele numărate din cataloage; corectura pe copil cere un motiv. Emite. → Luna curentă
-      e refuzată până i se termină ultima săptămână. Fiecare familie are emailul facturii în Livrări.
+- [ ] **B5.1 · Emiterea** — Emitere facturi → luna cea mai recentă **terminată** și încă neemisă. →
+      Pe fiecare copil, ședințele numărate din cataloage; corectura pe copil are un motiv opțional.
+      Emite. → Luna curentă e refuzată până i se termină ultima săptămână. Fiecare familie cu ceva de
+      plată are emailul facturii în Livrări; o lună de 0 lei nu primește email.
 - [ ] **B5.2 · PDF-ul** — Facturi → luna → o factură → PDF. → Se deschide, cu datele școlii, ale
       familiei și reducerile în cuvinte.
 - [ ] **B5.3 · Încasare** — Restanțe → o familie → înregistrează plata. → Suma precompletată e
@@ -215,8 +232,9 @@ Tot ca `admin`, pe telefon (sau 390 px), la o oră din ziua de azi.
 
 - [ ] **T1 · Catalogul de azi** — Prezența de azi → ora → atinge fiecare copil: prezent / absent. →
       Fiecare atingere se salvează singură; nu există buton de salvare.
-- [ ] **T2 · „Sună părintele"** — la un copil absent. → Deschide apelul către numărul familiei, și la
-      un copil venit la probă.
+- [ ] **T2 · „Sună părintele"** — la un copil absent. → Deschide apelul către numărul familiei. La un
+      copil la probă la fel, cu numărul lăsat pe `/proba`: programează o probă pe o oră de azi care
+      n-a început încă, apoi marcheaz-o absentă.
 - [ ] **T3 · Fără rețea** — mod avion, marchează doi copii, scoate modul avion. → Marcajele stau în
       coadă (iconița de nor), apoi pleacă singure; nimic pierdut.
 - [ ] **T4 · Altă zi** — săgețile sau data: o zi de săptămâna trecută. → Catalogul zilei aceleia, cu

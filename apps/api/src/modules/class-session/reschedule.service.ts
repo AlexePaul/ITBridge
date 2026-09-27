@@ -14,6 +14,7 @@ import { RescheduleClassSessionDto } from './dto/rescheduleClassSession.dto';
 import { RescheduleWindowsDto } from './dto/rescheduleWindows.dto';
 import { buildRescheduleWindows, BusySlot, hhmm, isInWeek, minutesBetween, RescheduleWindow, Week, WindowRoom } from './reschedule.rules';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
+import { roomTooSmallMessage } from './room-too-small';
 
 /** The row on the missed day, as the screen needs to describe it. `HH:mm` throughout. */
 export interface RescheduleSource {
@@ -277,7 +278,7 @@ export class RescheduleService {
                 const expected = await this.expectedAt(group, source, manager);
                 if (expected > targetRoom.capacity) {
                     throw new ConflictException({
-                        message: `Sala „${targetRoom.name}" are ${targetRoom.capacity} locuri, iar la ora asta vin ${expected} copii.`,
+                        message: roomTooSmallMessage(targetRoom.name, targetRoom.capacity, expected),
                         error: 'ROOM_TOO_SMALL',
                     });
                 }

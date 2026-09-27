@@ -13,14 +13,16 @@
           :reference="fieldEl"
           :content="{ align: 'start', sideOffset: 8 }"
         >
-          <!-- Full-size, pulled back over the field's own end padding: a 40×32 target instead of 16×28. -->
+          <!-- Full-size, pulled back over the field's own end padding: a 40×32 target instead of 16×28,
+               and 44×44 under a finger — the phone register's only way to jump to a date without
+               typing it (QA of 27 September 2026). -->
           <UButton
             color="neutral"
             variant="link"
             icon="i-lucide-calendar"
             :aria-label="calendarLabel"
             :disabled="disabled"
-            class="-me-2.5"
+            class="-me-2.5 pointer-coarse:min-h-11 pointer-coarse:min-w-11 justify-center"
           />
           <template #content>
             <UCalendar

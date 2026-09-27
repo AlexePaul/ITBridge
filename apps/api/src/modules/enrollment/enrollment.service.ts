@@ -1234,7 +1234,7 @@ export class EnrollmentService {
         }
         throw new ConflictException({
             message:
-                `Grupa este plină: ${taken} din ${group.capacity} locuri, inclusiv probele programate` +
+                `Grupa este plină: ${taken} din ${countOf(group.capacity, 'loc', 'locuri')}, inclusiv probele programate` +
                 `${held === 0 ? '' : held === 1 ? ' și un loc oferit listei de așteptare' : ` și ${held} locuri oferite listei de așteptare`}.` +
                 ' Poți pune copilul pe lista de așteptare.',
             error: 'GROUP_FULL',
