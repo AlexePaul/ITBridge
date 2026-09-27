@@ -1041,9 +1041,19 @@ submit concurent poate să fi scris o parte primul. Cheia e `legal-acceptance:<c
 rândurilor>`, deci al doilea clic, care n-a scris nimic, nu confirmă nimic. La înregistrare mesajul
 **nu** trece prin poarta adresei confirmate — adresa e nedovedită prin definiție atunci, iar legat de
 ea singurul mesaj promis ar ajunge `undeliverable`. Evidența se recitește din Profil, prin
-`GET /auth/documents`. Textul unei versiuni înlocuite nu se servește încă nicăieri: azi fiecare
-document are o singură versiune, iar la prima schimbare de după publicare trebuie păstrat înainte —
-procedura din `legal-documents.ts` îl numește.
+`GET /auth/documents`.
+
+**O versiune publicată nu se schimbă și nu dispare** (termenii §4.7, 27 septembrie 2026). Textul
+unei versiuni înlocuite stă neschimbat în `docs/legal/versiuni/<document>/<versiune>.md` și se
+citește la `/versiuni/<document>/<versiune>` (`noindex`, în afara sitemap-ului), iar Profilul trimite
+acolo din fiecare acceptare — și din fiecare acord pentru lucrări — dat pe o versiune de atunci
+încoace înlocuită. Lista versiunilor publicate e `PUBLISHED_VERSIONS` din `apps/web/shared/legal.ts`,
+fiecare cu amprenta textului, iar `legal-versions.spec.ts` face din procedură o poartă: un text care
+nu mai e ciornă (fără „nepublicată", fără `[[…]]`) trebuie trecut în listă; unul trecut nu se mai
+schimbă sub același număr — amprenta e a textului citit, deci o reformatare a Markdown-ului trece,
+un cuvânt schimbat nu —; iar unul înlocuit trebuie păstrat înainte. Arhiva e goală cât timp textele
+sunt ciorne, dinadins: o ciornă servită pe site ar avea placeholder-ele în ea. Ajunge în funcția de
+pe Vercel ca `nitro.serverAssets`, cum ajung documentele ca importuri.
 
 Protecția se compune per-handler, nu global:
 
@@ -1572,7 +1582,12 @@ pune HSTS pe un an (fără `includeSubDomains`: API-ul nu vorbește pentru celel
 antet pe care nu-l poate citi nimeni la review e unul despre care nu observă nimeni că lipsește.
 `Cache-Control: no-store` e implicitul — facturile unei familii citite pe calculatorul comun al
 biroului n-au ce căuta în cache-ul lui —, iar un handler care vrea cache îl cere cu `@Header`, cum
-face miniatura (`private, max-age=3600`); al lui îl înlocuiește pe cel implicit.
+face miniatura (`private, max-age=3600`); al lui îl înlocuiește pe cel implicit. **Site-ul își pune
+antetele singur**, din `routeRules` în `nuxt.config.ts` — `nosniff`, `frame-ancestors 'none'`,
+`Referrer-Policy` și, din aceeași zi, HSTS pe doi ani, fără `includeSubDomains` —, fiindcă „Vercel îl
+pune implicit" era o presupunere pe care n-o verificase nimeni. Aceeași regulă ajunge și în
+configurația de deploy a Vercel — `.vercel/output/config.json`, citit o dată după un build cu
+`NITRO_PRESET=vercel`.
 
 **`outbox.attachments` ține chei, nu octeți.** Obiectul se citește din bucket în secunda în care
 mesajul e predat furnizorului. Base64 în coloană ar îngrășa fiecare interogare de revendicare pentru

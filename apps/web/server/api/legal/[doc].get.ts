@@ -1,30 +1,18 @@
-import termsSource from "../../../../../docs/legal/termeni-si-conditii.md";
-import privacySource from "../../../../../docs/legal/politica-de-confidentialitate.md";
-import cookiesSource from "../../../../../docs/legal/politica-de-cookies.md";
-import worksConsentSource from "../../../../../docs/legal/acord-lucrari.md";
-import { isLegalSlug, type LegalSlug } from "#shared/legal";
+import { isLegalSlug } from "#shared/legal";
 import { renderLegalMarkdown } from "../../utils/legal-markdown";
+import { LEGAL_SOURCES } from "../../utils/legal-sources";
 
 /**
  * The legal documents, rendered from `docs/legal/` — E22 S2.
  *
- * The Markdown is imported at build time, so the function on Vercel carries the text with it and
- * the pages need no filesystem; the same files are the single source the README describes. The
- * page routes are prerendered, so in practice this answers once per build and then the static HTML
- * does.
+ * The page routes are prerendered, so in practice this answers once per build and then the static
+ * HTML does. A version by number is `[doc]/[version].get.ts`.
  */
-const SOURCES: Record<LegalSlug, string> = {
-  termeni: termsSource,
-  confidentialitate: privacySource,
-  cookies: cookiesSource,
-  "acord-lucrari": worksConsentSource,
-};
-
 export default defineEventHandler((event) => {
   const doc = getRouterParam(event, "doc") ?? "";
   if (!isLegalSlug(doc)) {
     throw createError({ statusCode: 404, statusMessage: "No such document" });
   }
   setHeader(event, "cache-control", "public, max-age=3600");
-  return renderLegalMarkdown(SOURCES[doc]);
+  return renderLegalMarkdown(LEGAL_SOURCES[doc]);
 });

@@ -23,31 +23,32 @@ ajung până nu trec pe la avocat și nu se umplu placeholder-ele: acolo ar fi u
 Documentele descriu platforma așa cum e în cod, nu cum ar trebui să fie. Fiecare afirmație despre
 ce se stochează sau ce se întâmplă are o sursă; când sursa se schimbă, se schimbă și fraza.
 
-| Afirmația din text                                                                                           | Sursa                                                                                                                                                                                |
-| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ce câmpuri se țin despre cont, copil, înscriere, prezență, absență, lucrare, factură, plată, cerere de probă | `apps/api/src/entities/*.entity.ts` — inventarul din E07 S1 încă nu există, deci documentele s-au scris direct din entități                                                          |
-| cele cinci câmpuri la înregistrare și cele obligatorii după                                                  | `RegisterDto`, `isProfileComplete` din `profile.entity.ts`                                                                                                                           |
-| linkul de confirmare valabil 48 de ore                                                                       | `CONFIRMATION_TTL_MS` în `email-confirmation.service.ts`                                                                                                                             |
-| acces 15 minute, reîmprospătare 7 zile, revocarea lanțului la refolosire                                     | `jwtConstants.ts`, `session.service.ts`                                                                                                                                              |
-| ce poate scrie un părinte din portal                                                                         | `PARENT_WRITABLE` din `authorization.spec.ts`                                                                                                                                        |
-| termenul de anunțare a absenței: luni 12:00, pe săptămână                                                    | `NOTICE_DEADLINE_HOUR` în `absence-notice.rules.ts`                                                                                                                                  |
-| recuperarea: mutare de către birou, în aceeași săptămână, fără credit                                        | `replacement.service.ts`, E12 S4                                                                                                                                                     |
-| 48 de ore de răspuns la oferta de pe lista de așteptare                                                      | `WAITLIST_RESPONSE_HOURS` în `enrollment.service.ts`                                                                                                                                 |
-| preț pe ședință ținută, tarif întreg pentru copilul cu cele mai multe ședințe                                | `pricing.ts`, `billable-sessions.rules.ts`                                                                                                                                           |
-| termen de plată 14 zile; memento cu 3 zile înainte, apoi săptămânal, tăcere după 60                          | `arrears.rules.ts`, `arrears.job.ts`                                                                                                                                                 |
-| lista mesajelor de serviciu                                                                                  | `template-defaults.ts`, `waitlist-mail.ts`, `lead-mail.ts`, `class-session-notifier.ts`                                                                                              |
-| marketing implicit oprit, neconsultat de tranzacțional                                                       | `Profile.marketingOptIn`, `OutboxService.queueMarketing`, `marketing-consent.spec.ts`                                                                                                |
-| fișierele lucrărilor: tipuri, chei fără nume de copil, link semnat 15 minute, atașament                      | `file-types.ts`, `project.keys.ts`, `DEFAULT_SIGNED_URL_TTL_SECONDS` în `s3.service.ts`                                                                                              |
-| dosarul copilului pe calculatorul din birou poartă numele și identificatorul                                 | `apps/agent/README.md`                                                                                                                                                               |
-| listele interne care nu declanșează nimic                                                                    | `early-signals.service.ts`, `signals.rules.ts`, E21 S7                                                                                                                               |
-| cookie-urile și ce e în `localStorage`                                                                       | `tokenStore.ts`, `locationStore.ts`, `useChildSelection.ts`, `useAttendanceQueue.ts`                                                                                                 |
-| harta Google, singurul terț de pe site                                                                       | `mapEmbedUrl` în `shared/school.ts`, paginile din `pages/locatii/`                                                                                                                   |
-| harta se încarcă doar după ce cititorul apasă, iar alegerea nu se scrie nicăieri                             | `MapEmbed.vue`, `consentStore.ts`, `check-third-party.mjs` — E07 S5, livrat                                                                                                          |
-| regiunea: Stockholm (`eu-north-1`), pentru server, bază, fișiere și backup                                   | `.env.stage.example`, E01 S4, E04 S4; `.env.example` și `ci.yml` spun `eu-central-1` doar pentru dezvoltare și CI. Producția nu există încă — de confirmat că rămâne aceeași regiune |
-| fără CNP, fără fotografii ale copiilor, fără date de sănătate                                                | E16 „Decizii luate", E07 „Decizii luate"; niciun câmp în entități                                                                                                                    |
-| versiunea acceptată la înregistrare e cea din capul fișierului                                               | `LEGAL_DOCUMENT_VERSIONS` în `apps/api/src/modules/auth/legal-documents.ts`, ținută egală cu prima linie boldată a fiecărui document de `legal-documents.spec.ts`                    |
-| evidența se recitește din portal; fiecare acceptare primește un email de confirmare                          | `GET /auth/documents`, secțiunea „Documentele acceptate" din `pages/user/profile.vue`, șablonul `legal-acceptance` din `template-defaults.ts`                                        |
-| acordul pentru lucrări: pe copil, un singur scop, cu versiunea și ziua; retragerea anunță biroul             | `publication-consent.service.ts`, `PUBLICATION_CONSENT_VERSIONS` ținută egală cu capul lui `acord-lucrari.md` de `publication-consent.texts.spec.ts`, E07 S2                         |
+| Afirmația din text                                                                                           | Sursa                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ce câmpuri se țin despre cont, copil, înscriere, prezență, absență, lucrare, factură, plată, cerere de probă | `apps/api/src/entities/*.entity.ts` — documentele s-au scris direct din entități, înaintea inventarului din E07 S1; de atunci, inventarul (`docs/inventar-date.md`) e lista pe care se verifică |
+| cele cinci câmpuri la înregistrare și cele obligatorii după                                                  | `RegisterDto`, `isProfileComplete` din `profile.entity.ts`                                                                                                                                      |
+| linkul de confirmare valabil 48 de ore                                                                       | `CONFIRMATION_TTL_MS` în `email-confirmation.service.ts`                                                                                                                                        |
+| acces 15 minute, reîmprospătare 7 zile, revocarea lanțului la refolosire                                     | `jwtConstants.ts`, `session.service.ts`                                                                                                                                                         |
+| ce poate scrie un părinte din portal                                                                         | `PARENT_WRITABLE` din `authorization.spec.ts`                                                                                                                                                   |
+| termenul de anunțare a absenței: luni 12:00, pe săptămână                                                    | `NOTICE_DEADLINE_HOUR` în `absence-notice.rules.ts`                                                                                                                                             |
+| recuperarea: mutare de către birou, în aceeași săptămână, fără credit                                        | `replacement.service.ts`, E12 S4                                                                                                                                                                |
+| 48 de ore de răspuns la oferta de pe lista de așteptare                                                      | `WAITLIST_RESPONSE_HOURS` în `enrollment.service.ts`                                                                                                                                            |
+| preț pe ședință ținută, tarif întreg pentru copilul cu cele mai multe ședințe                                | `pricing.ts`, `billable-sessions.rules.ts`                                                                                                                                                      |
+| termen de plată 14 zile; memento cu 3 zile înainte, apoi săptămânal, tăcere după 60                          | `arrears.rules.ts`, `arrears.job.ts`                                                                                                                                                            |
+| lista mesajelor de serviciu                                                                                  | `template-defaults.ts`, `waitlist-mail.ts`, `lead-mail.ts`, `class-session-notifier.ts`                                                                                                         |
+| marketing implicit oprit, neconsultat de tranzacțional                                                       | `Profile.marketingOptIn`, `OutboxService.queueMarketing`, `marketing-consent.spec.ts`                                                                                                           |
+| fișierele lucrărilor: tipuri, chei fără nume de copil, link semnat 15 minute, atașament                      | `file-types.ts`, `project.keys.ts`, `DEFAULT_SIGNED_URL_TTL_SECONDS` în `s3.service.ts`                                                                                                         |
+| dosarul copilului pe calculatorul din birou poartă numele și identificatorul                                 | `apps/agent/README.md`                                                                                                                                                                          |
+| listele interne care nu declanșează nimic                                                                    | `early-signals.service.ts`, `signals.rules.ts`, E21 S7                                                                                                                                          |
+| cookie-urile și ce e în `localStorage`                                                                       | `tokenStore.ts`, `locationStore.ts`, `useChildSelection.ts`, `useAttendanceQueue.ts`                                                                                                            |
+| harta Google, singurul terț de pe site                                                                       | `mapEmbedUrl` în `shared/school.ts`, paginile din `pages/locatii/`                                                                                                                              |
+| harta se încarcă doar după ce cititorul apasă, iar alegerea nu se scrie nicăieri                             | `MapEmbed.vue`, `consentStore.ts`, `check-third-party.mjs` — E07 S5, livrat                                                                                                                     |
+| regiunea: Stockholm (`eu-north-1`), pentru server, bază, fișiere și backup                                   | `.env.stage.example`, E01 S4, E04 S4; `.env.example` și `ci.yml` spun `eu-central-1` doar pentru dezvoltare și CI. Producția nu există încă — de confirmat că rămâne aceeași regiune            |
+| fără CNP, fără fotografii ale copiilor, fără date de sănătate                                                | E16 „Decizii luate", E07 „Decizii luate"; niciun câmp în entități                                                                                                                               |
+| versiunea acceptată la înregistrare e cea din capul fișierului                                               | `LEGAL_DOCUMENT_VERSIONS` în `apps/api/src/modules/auth/legal-documents.ts`, ținută egală cu prima linie boldată a fiecărui document de `legal-documents.spec.ts`                               |
+| evidența se recitește din portal; fiecare acceptare primește un email de confirmare                          | `GET /auth/documents`, secțiunea „Documentele acceptate" din `pages/user/profile.vue`, șablonul `legal-acceptance` din `template-defaults.ts`                                                   |
+| acordul pentru lucrări: pe copil, un singur scop, cu versiunea și ziua; retragerea anunță biroul             | `publication-consent.service.ts`, `PUBLICATION_CONSENT_VERSIONS` ținută egală cu capul lui `acord-lucrari.md` de `publication-consent.texts.spec.ts`, E07 S2                                    |
+| versiunea acceptată rămâne de citit și după ce e înlocuită, iar una publicată nu se schimbă                  | `PUBLISHED_VERSIONS` în `apps/web/shared/legal.ts`, [`versiuni/`](versiuni/README.md), `/versiuni/<document>/<versiune>`, ținute de `legal-versions.spec.ts`                                    |
 
 ## Ce lipsește: `[[…]]`
 
@@ -136,14 +137,16 @@ Lista, ca să se poată bifa:
    **Livrat.** Formularul cere `acceptedUnusualClauses` separat, evidența îl ține ca rând propriu
    (`unusual_clauses`, cu versiunea termenilor), iar cele trei secțiuni se leagă din formular —
    titlurile documentelor au acum id-uri, deci bifa duce la textul pe care îl acceptă.
-10. **Textul versiunilor înlocuite.** §4.7 promite că versiunea acceptată „o poți reciti oricând
-    din portal". Azi e adevărat fiindcă fiecare document are o singură versiune, deci pagina
-    publică _este_ textul acceptat, iar Profilul trimite la ea. La **prima versiune nouă de după
-    publicare**, textul vechi trebuie păstrat și arătat din portal — până atunci, rândul unei
-    versiuni înlocuite spune doar „înlocuită între timp". Nu blochează publicarea; blochează prima
-    schimbare de versiune, și de aceea procedura din `legal-documents.ts` îl numește. La fel pentru
-    acordul pentru lucrări: fiecare acord poartă versiunea textului, iar la prima versiune nouă
-    textul vechi trebuie păstrat înainte.
+10. ~~**Textul versiunilor înlocuite.** §4.7 promite că versiunea acceptată „o poți reciti
+    oricând din portal", iar la prima versiune nouă de după publicare textul vechi n-ar mai fi fost
+    nicăieri.~~ **Livrat, 27 septembrie 2026.** O versiune publicată și înlocuită se păstrează
+    neschimbată în [`versiuni/`](versiuni/README.md) și se citește la
+    `/versiuni/<document>/<versiune>`; Profilul trimite acolo din fiecare acceptare și din fiecare
+    acord pentru lucrări dat pe un text de atunci înlocuit. `legal-versions.spec.ts` face din
+    procedură o poartă: un text fără „nepublicată" și fără `[[…]]` se trece în `PUBLISHED_VERSIONS`
+    cu amprenta lui, nu se mai schimbă sub același număr, iar la versiunea nouă cel vechi se păstrează
+    întâi. Arhiva e goală cât timp textele sunt ciorne; prima intrare vine cu versiunea verificată de
+    avocat.
 11. **Drepturile de autor ale copilului** (E07 S2). Lucrarea e operă a copilului în sensul Legii
     8/1996. `acord-lucrari.md` e scris ca un consimțământ GDPR; dacă o bifă ajunge și ca permisiune
     de reproducere și de comunicare publică, sau legea cere formă scrisă pentru ea, e întrebarea pe
@@ -244,7 +247,9 @@ vorbește epicul. Se regenerează la fiecare versiune publicată și se atașeaz
 ## Regula de întreținere
 
 O coloană nouă cu date personale înseamnă o frază nouă în politica de confidențialitate, în
-aceeași schimbare. Mecanismul care ar face asta imposibil de uitat — inventarul derivat din
-entități, cu test — e E07 S1 și nu e construit; până atunci regula e de citit, nu de rulat.
+aceeași schimbare. Jumătate din regulă rulează de la E07 S1: o coloană neclasificată în inventar
+(`apps/api/src/privacy/data-inventory.ts`) pică `data-inventory.spec.ts`, cu numele ei în mesaj, deci
+nimeni nu adaugă o dată personală fără să spună ce e, de ce și cât se păstrează. Fraza din politică
+rămâne de scris de mână — inventarul spune ce trebuie să conțină, nu o scrie.
 Documentele sunt în `docs/`, deci sunt identice pe `release/prod` și `release/stage` — dacă atingi
 unul, adu-l și pe celălalt.

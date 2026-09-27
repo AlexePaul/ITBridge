@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { legacyRouteRules } from "./shared/legacy-redirects";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
@@ -106,6 +107,18 @@ export default defineNuxtConfig({
       weights: [400, 600],
     },
   },
+  // The superseded versions of the legal texts, served by `/api/legal/:doc/:version` (terms
+  // §4.7). Server assets are bundled into the function, so on Vercel the archive travels the way
+  // the documents themselves do — `server/utils/legal-sources.ts` imports those. Empty until the
+  // first published text is replaced; `legal-versions.spec.ts` keeps it complete after that.
+  nitro: {
+    serverAssets: [
+      {
+        baseName: "legal-versions",
+        dir: fileURLToPath(new URL("../../docs/legal/versiuni", import.meta.url)),
+      },
+    ],
+  },
   runtimeConfig: {
     // Server-only. Anything outside `public` stays on the server and is never
     // inlined into the client bundle — which is the whole reason the contact
@@ -134,6 +147,15 @@ export default defineNuxtConfig({
         "x-content-type-options": "nosniff",
         "referrer-policy": "strict-origin-when-cross-origin",
         "content-security-policy": "frame-ancestors 'none'",
+        // HTTPS on every later visit, decided here rather than left to the host.
+        // Vercel is said to send it by default, but nobody had looked
+        // (docs/lansare.md, item 4), and the header travels the same way as the
+        // three above. Two years, Vercel's own value, so the two cannot disagree
+        // if both arrive; no includeSubDomains, since the school's DNS is not
+        // this file's to promise about, and no preload, which is a one-way door.
+        // Browsers ignore it over plain HTTP, so the CI previews served on
+        // http://127.0.0.1 are untouched.
+        "strict-transport-security": "max-age=63072000",
         // The one locale signal at the HTTP level. The markup says the same
         // thing five times (html lang, og:locale, inLanguage…); this is the
         // sixth, for anything that reads headers before it reads HTML.

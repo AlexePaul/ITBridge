@@ -10,7 +10,10 @@ import { PublicationPurpose } from 'src/enum/publication-purpose.enum';
  *
  * A consent already in force keeps the version it was given under. Whether a new version needs
  * asking again is a judgement about what changed — a typo fixed is not a new purpose — and the
- * person changing the text makes it, rather than a constant making it for them.
+ * person changing the text makes it, rather than a constant making it for them. What is not a
+ * judgement is keeping the text it replaces: once published, a version is kept in
+ * `docs/legal/versiuni/`, and "Profil" links a consent to the text it was given under
+ * (`legal-versions.spec.ts` holds it).
  */
 export const PUBLICATION_CONSENT_VERSIONS: Record<PublicationPurpose, string> = {
     [PublicationPurpose.PROMOTION]: '0.1',

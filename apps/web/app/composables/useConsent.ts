@@ -1,6 +1,7 @@
 import { formatDateKey } from "~/composables/useAdminFormat";
 import { dayKey } from "~/composables/useUtils";
 import { CHANNEL_LABELS } from "~/types/consent.types";
+import { PUBLISHED_VERSIONS, supersededTextPath } from "#shared/legal";
 import type { ChildConsents, PublicationPurpose, PurposeConsent } from "~/types/consent.types";
 
 /**
@@ -40,6 +41,21 @@ export function consentSummary(state: PurposeConsent): string {
     return `Acord retras pe ${onDay(last.revokedAt)}${by}. Nu folosim lucrările.`;
   }
   return "Fără acord. Nu folosim lucrările.";
+}
+
+/**
+ * The text of the version a consent in force was given under, once a newer text has replaced it —
+ * terms §4.7 holds for this text too: the family should be able to read what they said yes to. Null
+ * while the consent stands on the text in force (the page is linked already), when there is no
+ * consent, or when the version was a draft nobody published.
+ */
+export function consentTextPath(
+  state: PurposeConsent,
+  published: Parameters<typeof supersededTextPath>[2] = PUBLISHED_VERSIONS
+): string | null {
+  const given = state.inForce?.textVersion;
+  if (!given || given === state.currentVersion) return null;
+  return supersededTextPath("acord-lucrari", given, published);
 }
 
 /**

@@ -9,9 +9,10 @@ import { LegalDocument } from 'src/enum/legal-document.enum';
  * so the number is copied here, and `legal-documents.spec.ts` fails the moment the two disagree.
  * Bump the document, run the tests, bump this: that is the whole procedure — with one step before
  * it once a version has been published. Terms §4.7 promises the family can re-read the version
- * they accepted from the portal, and today that holds only because each document has one version,
- * so the public page *is* the accepted text. The text being replaced has to stay readable first
- * (`docs/legal/README.md`, item 10).
+ * they accepted from the portal, so the text being replaced is kept first, verbatim, in
+ * `docs/legal/versiuni/`, and `/versiuni/<document>/<version>` serves it. The web suite holds the
+ * step (`legal-versions.spec.ts`): a published text cannot change under its number, and a replaced
+ * one cannot go without being kept — `docs/legal/versiuni/README.md` has the commands.
  */
 export const LEGAL_DOCUMENT_VERSIONS: Record<LegalDocument, string> = {
     [LegalDocument.TERMS]: '0.2',
