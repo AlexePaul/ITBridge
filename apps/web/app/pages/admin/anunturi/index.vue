@@ -47,6 +47,12 @@
           </p>
         </div>
 
+        <!-- Why the button is off: the server refuses the same announcement all day. -->
+        <p v-if="refusedAsSent" class="text-sm border-l-2 border-warning pl-3 py-1">
+          Anunțul ăsta a plecat deja astăzi către aceeași audiență. Schimbă textul dacă vrei totuși
+          să-l retrimiți.
+        </p>
+
         <div class="flex flex-wrap gap-2">
           <UButton type="submit" :disabled="!canSend" :loading="sending">Trimite anunțul</UButton>
           <UButton
@@ -205,6 +211,7 @@ import { useGroupsApi } from "~/composables/api/useGroupsApi";
 import { useLocationsApi } from "~/composables/api/useLocationsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { formatDateKey } from "~/composables/useAdminFormat";
+import { useAlreadySentGuard, type AnnouncementDraft } from "~/composables/useAnnouncementDraft";
 import type {
   AnnouncementAudience,
   AnnouncementKind,
@@ -301,11 +308,7 @@ const complete = computed(
  */
 const previewStale = ref(false);
 
-const canSend = computed(
-  () => complete.value && !previewLoading.value && !previewStale.value && preview.value !== null
-);
-
-const payload = () => ({
+const payload = (): AnnouncementDraft => ({
   audience: draft.audience,
   groupId: draft.audience === "group" ? draft.groupId : undefined,
   locationId: draft.audience === "location" ? draft.locationId : undefined,
@@ -313,6 +316,23 @@ const payload = () => ({
   subject: draft.subject,
   body: draft.body,
 });
+
+/**
+ * The draft the server refused as already sent today, while it is still the one on screen: the
+ * same request is refused all day, so the button waits for a change rather than offering another
+ * 409 (QA of 27 September 2026).
+ */
+const alreadySent = useAlreadySentGuard();
+const refusedAsSent = computed(() => alreadySent.isRefused(payload()));
+
+const canSend = computed(
+  () =>
+    complete.value &&
+    !previewLoading.value &&
+    !previewStale.value &&
+    preview.value !== null &&
+    !refusedAsSent.value
+);
 
 const load = async () => {
   loading.value = true;
@@ -390,12 +410,13 @@ const sendTest = async () => {
 
 const send = async () => {
   sending.value = true;
+  const sent = payload();
   try {
     // The acknowledgement is of the warnings this press was shown — the preview listed them and the
     // confirm dialog repeated them. None shown, none acknowledged: if the server finds one anyway,
     // it refuses, and the admin reads it before anything leaves.
     const shownWarnings = (preview.value?.warnings.length ?? 0) > 0;
-    const result = await api.sendAnnouncement({ ...payload(), acknowledgeWarnings: shownWarnings });
+    const result = await api.sendAnnouncement({ ...sent, acknowledgeWarnings: shownWarnings });
     confirmOpen.value = false;
     // `queued` counts every row written, the undeliverable ones too: the toast said "3 familii" and
     // "1 n-a avut unde" beside a preview that had promised 2 (QA of 26 September 2026).
@@ -414,14 +435,18 @@ const send = async () => {
     preview.value = null;
     await load();
   } catch (err: unknown) {
-    if (apiErrorCode(err) === "ANNOUNCEMENT_NAMES_A_CHILD") {
+    // Closed on every refusal: its button sends the same request again, and the same request gets
+    // the same answer — a second 409 behind the toast of the first (QA of 27 September 2026).
+    confirmOpen.value = false;
+    const code = apiErrorCode(err);
+    if (code === "ANNOUNCEMENT_NAMES_A_CHILD") {
       // Its `details` are the names, not a sentence, so they are shown the way the preview shows
       // them — the warning above the form — rather than joined into a toast.
-      confirmOpen.value = false;
       await refreshPreview();
       error("Anunțul numește un copil. Citește avertismentul de sub formular și confirmă din nou.");
       return;
     }
+    if (code === "ANNOUNCEMENT_ALREADY_SENT") alreadySent.remember(sent);
     error(apiErrorMessage(err, "Eroare la trimiterea anunțului"));
   } finally {
     sending.value = false;
