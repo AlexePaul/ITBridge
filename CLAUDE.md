@@ -2699,6 +2699,17 @@ iar `ecosystem.config.js` n-are voie să-l suprascrie cu un `env: { NODE_ENV: 'p
 face din stage, pentru regula asta, o producție. Jurnalul de pornire spune ce a citit:
 `Mode draft under NODE_ENV=stage`.
 
+**Și azi nu e.** Pe 27 septembrie 2026, `api-stage` a pornit cu `NODE_ENV=production` — o spune
+refuzul de mai jos, citit din logul lui PM2 —, deci valoarea din Parameter Store (sau din
+`ecosystem.config.js`) trebuie corectată la `stage`. Până atunci, guard-ul de producție din #281
+(`productionProblems`) a refuzat pornirea fiindcă stage n-are, dinadins, cheie de email: **fiecare
+deploy de după #281 a lăsat API-ul de stage oprit**, fiindcă `pm2 reload` oprește procesul vechi
+înainte ca cel nou să refuze. Guard-ul cere acum cheile de email numai cât dispecerul trimite —
+`MAIL_OUTBOX_ENABLED=false`, pe care stage îl are, e decizia explicită că nu trimite. Lecția: **o
+regulă care refuză pornirea e o pană, nu un deploy oprit** — deci prinde o cheie uitată, niciodată o
+decizie luată, iar pe o schimbare de felul ăsta se urmărește și rularea Deploy de după merge, nu doar
+CI-ul PR-ului.
+
 **`ecosystem.config.js`, `deploy.sh`, `fetch-env.sh` și `backup.sh` nu sunt în repo.** Stau în
 `/srv/itbridge/` pe instanță. Dacă le cauți aici și nu le găsești, acolo sunt. Backup-ul e un
 `pg_dump` zilnic la 03:15 către S3, cu ținte separate pentru cele două medii.
