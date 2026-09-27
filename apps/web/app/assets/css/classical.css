@@ -2007,6 +2007,52 @@ textarea.input {
   display: none;
 }
 
+/* With the scrollbar hidden, nothing said the row went on: at 390px „Plăți" and
+   „Profil" sat past the right edge unseen (QA of 27 September 2026). The row
+   fades on each side that still hides a tab — `PortalNav` sets the classes from
+   where the row is scrolled — and a tab brought into view, by focus or by the
+   page, stops short of the fade. A mask, not an overlay: it changes no colour
+   and puts nothing over a tab a finger or a click could land on. */
+.portal-tabs {
+  --portal-tabs-fade: 32px;
+  scroll-padding-inline: var(--portal-tabs-fade);
+}
+
+.portal-tabs-more-after {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - var(--portal-tabs-fade)),
+    transparent
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--portal-tabs-fade)), transparent);
+}
+
+.portal-tabs-more-before {
+  -webkit-mask-image: linear-gradient(
+    to left,
+    #000 calc(100% - var(--portal-tabs-fade)),
+    transparent
+  );
+  mask-image: linear-gradient(to left, #000 calc(100% - var(--portal-tabs-fade)), transparent);
+}
+
+.portal-tabs-more-before.portal-tabs-more-after {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--portal-tabs-fade),
+    #000 calc(100% - var(--portal-tabs-fade)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--portal-tabs-fade),
+    #000 calc(100% - var(--portal-tabs-fade)),
+    transparent
+  );
+}
+
 .portal-tab {
   display: inline-flex;
   align-items: center;
