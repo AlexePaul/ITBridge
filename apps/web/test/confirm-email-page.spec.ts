@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { confirmationOutcome } from "~/composables/useConfirmationOutcome";
+import { confirmationOutcome, confirmationRefusal } from "~/composables/useConfirmationOutcome";
 import { apiErrorMessage } from "~/composables/useApiError";
 
 /**
@@ -24,6 +24,32 @@ describe("the confirmation page", () => {
     expect(rejected).toMatch(/nu a fost activat/);
     expect(rejected).toMatch(/ne uităm încă o\s+dată/);
     expect(rejected).not.toMatch(/aceeași zi lucrătoare/);
+  });
+
+  /**
+   * A second use of the link said „Linkul a fost deja folosit — adresa ta este confirmată" and,
+   * under it, „Dacă linkul a expirat, autentifică-te…" (QA of 27 September 2026). The refusal carries
+   * no approval state, so the page cannot say what is left the way the first use does: it says the
+   * address is confirmed and sends the family to sign in, where the account shows the rest.
+   */
+  it("answers a used link with the confirmed address and the way to see what is left", () => {
+    expect(confirmationRefusal("CONFIRMATION_TOKEN_USED")).toBe("used");
+    const used = /state === 'used'"[\s\S]*?<\/template>/.exec(PAGE)?.[0] ?? "";
+    expect(used).toMatch(/adresa ta este confirmată/);
+    expect(used).toMatch(/Autentifică-te/);
+    expect(used).toMatch(/aprob/);
+    expect(used).not.toMatch(/expirat/);
+  });
+
+  it("gives the hint about asking for a new link to an expired link alone", () => {
+    expect(confirmationRefusal("CONFIRMATION_TOKEN_EXPIRED")).toBe("expired");
+    expect(confirmationRefusal("CONFIRMATION_TOKEN_INVALID")).toBe("failed");
+    expect(confirmationRefusal("CONFIRMATION_TOKEN_SUPERSEDED")).toBe("failed");
+    expect(confirmationRefusal(undefined)).toBe("failed");
+
+    const expired = /state === 'expired'"[\s\S]*?<\/template>/.exec(PAGE)?.[0] ?? "";
+    expect(expired).toMatch(/Retrimite linkul/);
+    expect(PAGE.replace(expired, "")).not.toMatch(/linkul a expirat/i);
   });
 
   it("says a used link confirmed the address only when the server says it still does", () => {

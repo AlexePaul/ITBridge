@@ -3,12 +3,14 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "#imports";
 import { useSeo } from "~/composables/useSeo";
 import { useAuthApi } from "~/composables/api/useAuthApi";
-import { apiErrorMessage } from "~/composables/useApiError";
+import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
 import { useUserStore } from "~/stores/userStore";
 import { useTokenStore } from "~/stores/tokenStore";
 import {
   confirmationOutcome,
+  confirmationRefusal,
   type ConfirmationOutcome,
+  type ConfirmationRefusal,
 } from "~/composables/useConfirmationOutcome";
 import { SCHOOL_EMAIL, SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
 
@@ -38,7 +40,7 @@ const route = useRoute();
 const { confirmEmail } = useAuthApi();
 const tokenStore = useTokenStore();
 
-type State = "working" | ConfirmationOutcome | "failed";
+type State = "working" | ConfirmationOutcome | ConfirmationRefusal;
 
 const state = ref<State>("working");
 const errorMessage = ref<string | null>(null);
@@ -66,7 +68,9 @@ onMounted(async () => {
         .catch(() => undefined);
     }
   } catch (error) {
-    state.value = "failed";
+    // A used link and an expired one each have their own screen below; everything else says the
+    // server's sentence (QA of 27 September 2026).
+    state.value = confirmationRefusal(apiErrorCode(error));
     errorMessage.value = apiErrorMessage(
       error,
       "Nu am putut confirma adresa. Încearcă din nou sau scrie-ne."
@@ -111,13 +115,33 @@ onMounted(async () => {
           <NuxtLink to="/" class="btn btn-ghost btn-block">Înapoi la pagina principală</NuxtLink>
         </template>
 
-        <template v-else>
+        <!-- A second use of the link: the address is confirmed, and what is left is on the account,
+             which the refusal does not describe (QA of 27 September 2026). -->
+        <template v-else-if="state === 'used'">
+          <div class="card card-lg" role="status">
+            <p class="body-text">
+              Linkul a fost deja folosit, iar adresa ta este confirmată. Autentifică-te ca să vezi
+              ce mai rămâne: pe pagina Acasă a contului scrie dacă mai așteptăm aprobarea școlii sau
+              dacă totul e gata.
+            </p>
+          </div>
+          <NuxtLink to="/auth/login" class="btn btn-primary btn-block">Autentifică-te</NuxtLink>
+        </template>
+
+        <template v-else-if="state === 'expired'">
           <div class="card card-lg card-accent" role="alert">
             <p class="body-text">{{ errorMessage }}</p>
           </div>
           <p class="colophon">
-            Dacă linkul a expirat, autentifică-te și cere unul nou din contul tău.
+            După autentificare, butonul „Retrimite linkul" e pe pagina Acasă a contului.
           </p>
+          <NuxtLink to="/auth/login" class="btn btn-ghost btn-block">Autentifică-te</NuxtLink>
+        </template>
+
+        <template v-else>
+          <div class="card card-lg card-accent" role="alert">
+            <p class="body-text">{{ errorMessage }}</p>
+          </div>
           <NuxtLink to="/auth/login" class="btn btn-ghost btn-block">Autentifică-te</NuxtLink>
         </template>
       </div>
