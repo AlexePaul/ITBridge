@@ -581,6 +581,25 @@ describe('InvoiceService', () => {
             expect(sheet.families[0].children[0].lines).toHaveLength(2);
         });
 
+        it('keeps the month past its last class clear of anything "not yet held"', async () => {
+            const sheet = await service.getWorksheet('2026-10');
+            expect(sheet.notYetHeld).toBe(0);
+        });
+
+        // A month still being taught: the 16:00 class on the 19th, seen at 15:00 at the school, has
+        // no register because it has not happened — not a register somebody forgot.
+        it('counts a class that has not started as not yet held, not as one without a register', async () => {
+            setIssuingClock(() => new Date('2026-10-19T12:00:00Z'));
+            try {
+                const sheet = await service.getWorksheet('2026-10');
+
+                expect(sheet.unmarked).toEqual([]);
+                expect(sheet.notYetHeld).toBe(1);
+            } finally {
+                setIssuingClock(() => new Date('2031-01-15T10:00:00Z'));
+            }
+        });
+
         it('asks the one query for the month, and never counts on its own', async () => {
             await service.getWorksheet('2026-10');
 

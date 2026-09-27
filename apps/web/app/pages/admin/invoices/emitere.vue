@@ -39,7 +39,7 @@
         variant="subtle"
         icon="i-lucide-calendar-clock"
         title="Luna nu s-a terminat încă"
-        :description="`Ultima ei săptămână de cursuri se încheie pe ${formatDateKey(worksheet.to)}. Facturile se emit după aceea, din cataloagele complete.`"
+        :description="notTaughtYet"
       />
 
       <!--
@@ -47,15 +47,16 @@
         nobody is being billed for — 87,50 lei of every child in the group. The fix is the register,
         which can still be taken, or a cancellation, which is the explicit way to say the hour did
         not happen. The per-child correction below is for the number, not for the register.
+        Only classes that have started are here: one still ahead has no register because it has not
+        happened, and the server counts it apart (`notYetHeld`, QA of 27 September 2026).
       -->
       <UCard v-if="worksheet.unmarked.length > 0" class="border border-warning" variant="subtle">
         <div class="flex items-start gap-3">
           <UIcon name="i-lucide-triangle-alert" class="text-warning text-xl shrink-0 mt-0.5" />
           <div class="space-y-2 min-w-0">
             <p class="font-semibold">
-              {{ worksheet.unmarked.length }}
               {{
-                worksheet.unmarked.length === 1 ? "ședință fără catalog" : "ședințe fără catalog"
+                countOf(worksheet.unmarked.length, "ședință fără catalog", "ședințe fără catalog")
               }}
               — nu se facturează nimănui
             </p>
@@ -302,7 +303,7 @@
         <div class="flex-1">
           <p class="text-2xl font-bold tabular-nums">{{ formatLei(grandTotal) }}</p>
           <p class="text-sm text-muted">
-            {{ billableCount }} {{ billableCount === 1 ? "factură" : "facturi" }}
+            {{ countOf(billableCount, "factură", "facturi") }}
             <template v-if="waivedCount > 0"> · {{ waivedCount }} fără plată</template>
             <template v-if="skippedCount > 0"> · {{ skippedCount }} deja facturate</template>
             <template v-if="worksheet.unmarked.length > 0">
@@ -414,6 +415,24 @@ const families = computed(() => orderByGroup(worksheet.value?.families ?? []));
 const monthLabel = computed(() => {
   const [year, month] = monthIssued.value.split("-");
   return `${MONTHS[Number(month) - 1] ?? month} ${year}`;
+});
+
+/**
+ * Why a month still being taught cannot be issued, and how much of it is still to be held: those
+ * classes have no register because they have not happened, which the server counts apart from the
+ * ones that should have one (`notYetHeld`).
+ */
+const notTaughtYet = computed(() => {
+  const sheet = worksheet.value;
+  if (!sheet) return "";
+  const ahead = sheet.notYetHeld;
+  const toHold =
+    ahead === 0
+      ? ""
+      : ahead === 1
+        ? "; până atunci mai e o ședință de ținut"
+        : `; până atunci mai sunt ${countOf(ahead, "ședință", "ședințe")} de ținut`;
+  return `Ultima ei săptămână de cursuri se încheie pe ${formatDateKey(sheet.to)}${toHold}. Facturile se emit după aceea, din cataloagele complete.`;
 });
 
 /** The heading, shown only on the first family of each group's run. */

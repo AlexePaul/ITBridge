@@ -1,7 +1,7 @@
 import { AttendanceType } from 'src/enum/attendance-type.enum';
 import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
-import { BillableEnrollment, BillableMark, BillableSession, billableSessionsFor, unmarkedSessions } from './billable-sessions.rules';
+import { BillableEnrollment, BillableMark, BillableSession, billableSessionsFor, notYetStarted, unmarkedSessions } from './billable-sessions.rules';
 
 /**
  * The acceptance of E15/S9, case by case, with the school's own examples where it gave them.
@@ -352,5 +352,24 @@ describe('unmarkedSessions', () => {
 
     it('a make-up mark alone does not make a session marked', () => {
         expect(unmarkedSessions([MONDAYS[0]], [mark(1, 7, true, AttendanceType.MAKE_UP)]).map((s) => s.id)).toEqual([1]);
+    });
+});
+
+/**
+ * A class that has not started has no register because it has not happened — the issuing screen of
+ * a month still being taught listed it as „fără catalog — nu se facturează nimănui" (QA of
+ * 27 September 2026). Judged like every other „a început?": text stamps on the school's clock.
+ */
+describe('notYetStarted', () => {
+    const monday = { date: '2026-10-19', startTime: '16:00:00' };
+
+    it('is a session whose start is still ahead on the school clock', () => {
+        expect(notYetStarted(monday, '2026-10-19T15:59')).toBe(true);
+        expect(notYetStarted(monday, '2026-10-12T18:00')).toBe(true);
+    });
+
+    it('is not one that has begun or is over', () => {
+        expect(notYetStarted(monday, '2026-10-19T16:00')).toBe(false);
+        expect(notYetStarted(monday, '2026-10-20T09:00')).toBe(false);
     });
 });

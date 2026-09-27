@@ -18,7 +18,7 @@ import type { Profile } from './entities/profile.entity';
 import type { Child } from './entities/child.entity';
 import type { Group } from './entities/group.entity';
 import type { Enrollment } from './entities/enrollment.entity';
-import type { InvoiceWorksheetRow } from './modules/invoice/invoice.service';
+import type { InvoiceWorksheet, InvoiceWorksheetRow } from './modules/invoice/invoice.service';
 import type { Overview } from './modules/dashboard/overview.service';
 import type { FinanceReport } from './modules/dashboard/finance-report.service';
 import type { OccupancyReport } from './modules/dashboard/occupancy-report.service';
@@ -120,6 +120,7 @@ type _Room = Check<Omit<Wire.Room, never>, Omit<Serialized<Room>, 'groups'>>;
 // check here is that the two descriptions of it agree — the backend's own interface against the
 // wire's. Without it the screen and the endpoint could drift a field apart in silence.
 type _InvoiceWorksheetRow = Check<Wire.InvoiceWorksheetRow, InvoiceWorksheetRow>;
+type _InvoiceWorksheet = Check<Wire.InvoiceWorksheet, InvoiceWorksheet>;
 // E12/S2. The dates are `date` columns, which the driver hands back as strings — the same shape the
 // wire has — so this check is about the fields existing, not about `Serialized` converting them.
 type _NonTeachingPeriod = Check<

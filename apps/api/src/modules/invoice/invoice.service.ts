@@ -19,7 +19,7 @@ import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
 import { GetPreviewDto } from './dto/getPreview.dto';
 import { IssueMonthDto } from './dto/issueMonth.dto';
 import { BillableSessionsService, UnmarkedSession } from './billable-sessions.service';
-import { BillableLine } from './billable-sessions.rules';
+import { BillableLine, notYetStarted } from './billable-sessions.rules';
 // E14 moved `S3Service` out of this module: it is no longer only about invoices, it stores
 // children's project files too.
 import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
@@ -37,7 +37,7 @@ import { PaymentStatus } from 'src/enum/payment-status.enum';
 import { PaymentService } from 'src/modules/payment/payment.service';
 import { parseIsoDate } from 'src/modules/class-session/class-session.dates';
 import { lockInvoiceMonth } from './invoice-month-lock';
-import { schoolDay } from 'src/common/school-clock';
+import { schoolDay, schoolLocalStamp } from 'src/common/school-clock';
 import { monthIsTaught, teachingMonthRange } from './billing-period.rules';
 import { issuingNow } from './issuing-clock';
 
@@ -92,8 +92,13 @@ export interface InvoiceWorksheet {
     to: string;
     /** Whether `issueFromSessions` would take the month today (E15 S9). */
     issuable: boolean;
-    /** The month's sessions with no register: the money not being asked for. Shown first. */
+    /**
+     * The month's sessions that could have had a register and have none: the money not being asked
+     * for. Shown first. Only sessions that have started — see `notYetHeld`.
+     */
     unmarked: UnmarkedSession[];
+    /** The month's sessions still ahead on the school's clock: no register, because not yet held. */
+    notYetHeld: number;
     families: InvoiceWorksheetRow[];
 }
 
@@ -599,13 +604,21 @@ export class InvoiceService {
         }
         families.sort((a, b) => a.parentName.localeCompare(b.parentName));
 
+        // A class that has not started has no register because it has not happened: it is not the
+        // money the "fără catalog" list is about, and was listed there for every month still being
+        // taught (QA of 27 September 2026).
+        const now = issuingNow();
+        const nowStamp = schoolLocalStamp(now);
+        const ahead = month.unmarked.filter((session) => notYetStarted(session, nowStamp));
+
         return {
             month: month.month,
             from: month.from,
             to: month.to,
             // The same rule `issueFromSessions` refuses by, so the screen can say so before the press.
-            issuable: monthIsTaught(monthIssued, schoolDay(issuingNow())),
-            unmarked: month.unmarked,
+            issuable: monthIsTaught(monthIssued, schoolDay(now)),
+            unmarked: month.unmarked.filter((session) => !notYetStarted(session, nowStamp)),
+            notYetHeld: ahead.length,
             families,
         };
     }

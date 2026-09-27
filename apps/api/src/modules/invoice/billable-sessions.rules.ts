@@ -204,3 +204,17 @@ export function unmarkedSessions(sessions: BillableSession[], marks: BillableMar
     const held = heldSessions(sessions, marks);
     return sessions.filter((session) => session.status !== ClassSessionStatus.CANCELLED && !held.has(session.id));
 }
+
+/**
+ * Whether a session is still ahead of `nowStamp` — `YYYY-MM-DDTHH:mm` on the school's clock, compared
+ * as text like every other „a început?" in the app.
+ *
+ * A session with no register is money not asked for only once it could have had one. One that has
+ * not started has no register because it has not happened: the issuing screen of a month still being
+ * taught listed next week's classes as „fără catalog — nu se facturează nimănui" (QA of 27 September
+ * 2026). They are the same rows `unmarkedSessions` returns; the clock decides which of the two things
+ * the screen says about them.
+ */
+export function notYetStarted(session: { date: string; startTime: string }, nowStamp: string): boolean {
+    return `${session.date}T${session.startTime.slice(0, 5)}` > nowStamp;
+}

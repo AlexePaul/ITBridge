@@ -186,7 +186,13 @@ export interface InvoiceWorksheet {
      * school's today. The button reads this rather than working the calendar out a second time.
      */
     issuable: boolean;
+    /** Sessions that have started and have no register. One still ahead is counted in `notYetHeld`. */
     unmarked: InvoiceWorksheetUnmarked[];
+    /**
+     * Sessions of the month still ahead on the school's clock: no register, because not yet held —
+     * only ever above zero while the month is being taught.
+     */
+    notYetHeld: number;
     families: InvoiceWorksheetRow[];
 }
 
