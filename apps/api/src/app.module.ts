@@ -26,6 +26,7 @@ import { ProjectModule } from './modules/project/project.module';
 import { dataSourceOptions } from './data-source';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { RequestIdMiddleware } from './common/request-id.middleware';
+import { SecurityHeadersMiddleware } from './common/security-headers.middleware';
 import { AppThrottlerGuard } from './common/app-throttler.guard';
 import { RequestLoggerMiddleware } from './common/request-logger.middleware';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -103,6 +104,6 @@ export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer): void {
         // Runs before everything, so the id exists by the time the filter needs one.
         // Order matters: the id has to exist before the logger reads it.
-        consumer.apply(RequestIdMiddleware, RequestLoggerMiddleware).forRoutes('*');
+        consumer.apply(SecurityHeadersMiddleware, RequestIdMiddleware, RequestLoggerMiddleware).forRoutes('*');
     }
 }
