@@ -208,8 +208,10 @@ trebuie pentru reparat — vezi [runbook.md](runbook.md), „Un bug". O captură
 - [ ] **B5.5 · Storno** — Plăți → stornează o plată. → Factura redevine datorată.
 - [ ] **B5.6 · Reduceri** — Reduceri: 50% pe luna viitoare pentru o familie; butonul de recomandare
       (+ / −) din pagina familiei. → Pe luna deja facturată, reducerea e refuzată.
-- [ ] **B5.7 · Extrasul bancar** — Reconciliere → importă un CSV de la bancă. → Liniile cu numărul
-      facturii în detalii sunt propuse sigur; confirmarea le face plăți.
+- [ ] **B5.7 · Extrasul bancar** — Reconciliere → importă un CSV de la bancă, cu o linie care scrie
+      la detalii ce cere emailul facturii (pe stage, fără SmartBill: „factura nr. N", N fiind numărul
+      facturii din portal). → Linia e propusă sigur și se confirmă din apăsarea unică; una doar cu
+      numele plătitorului și suma exactă e propunere, câte una; confirmarea le face plăți.
 
 ### Comunicare
 

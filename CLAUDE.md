@@ -2120,8 +2120,13 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   `1.234,56` sau `1,234.56` —, iar un rând care nu se citește se raportează cu numărul lui, nu se
   sare. Se păstrează doar intrările, iar amprenta liniei (conținutul plus locul printre liniile
   identice) e unică, deci un extras importat de două ori nu adaugă nimic. Propunerile sunt două:
-  **după numărul fiscal al facturii** din detalii — sigure, se confirmă toate dintr-o apăsare — și
-  **după numele plătitorului și suma rămasă exact** — doar propunere, câte una. Cele sigure se judecă
+  **după referința facturii** din detalii — sigure, se confirmă toate dintr-o apăsare — și
+  **după numele plătitorului și suma rămasă exact** — doar propunere, câte una. Referința e
+  `paymentReference` (`invoice/payment-reference.ts`), aceeași pe care o tipăresc emailul facturii și
+  portalul: numărul fiscal (`factura ITB 0041`) când l-a dat SmartBill, iar cât PDF-ul platformei e
+  factura (`off`, `draft`, adică stage-ul) numărul platformei, `factura nr. 28`. Până la testarea din
+  27 septembrie 2026 potrivirea știa doar forma fiscală, deci pe stage nicio linie care scria ce cerea
+  emailul nu ajungea la apăsarea unică. Cele sigure se judecă
   **împreună**, cea mai veche întâi, fiecare față de ce au lăsat cele dinainte
   (`withRunningRemainder`): judecate una câte una, două linii care citează aceeași factură treceau
   amândouă, iar o apăsare o înregistra plătită de două ori. „Ce mai datorează o
