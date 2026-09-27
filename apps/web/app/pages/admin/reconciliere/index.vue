@@ -56,9 +56,10 @@
 
         <p class="text-sm text-muted">
           Exportă extrasul din bancă în CSV, o lună o dată. Se păstrează doar încasările, iar un
-          extras importat de două ori nu adaugă nimic. Potrivirea sigură e după numărul facturii
-          fiscale scris de familie în detaliile transferului — portalul i-l cere; cealaltă, după
-          numele plătitorului și suma rămasă, e doar o propunere.
+          extras importat de două ori nu adaugă nimic. Potrivirea sigură e după referința facturii
+          scrisă de familie în detaliile transferului, așa cum i-o cer emailul facturii și portalul
+          — numărul fiscal, sau „factura nr. …” cât factura n-are unul; cealaltă, după numele
+          plătitorului și suma rămasă, e doar o propunere.
         </p>
 
         <div v-if="lastImport" class="text-sm" role="status">
@@ -421,10 +422,9 @@ const confirmSure = async () => {
   }
 };
 
+/** The words the family was asked to write — the server's, the same ones the email printed. */
 const referenceOf = (suggestion: StatementLineSuggestion) =>
-  suggestion.fiscalNumber
-    ? `${suggestion.fiscalSeries ?? ""} ${suggestion.fiscalNumber}`.trim()
-    : `factura #${suggestion.invoiceId}`;
+  suggestion.paymentReference ?? `factura #${suggestion.invoiceId}`;
 
 const lineColumns: AdminTableColumn<StatementLineView>[] = [
   { key: "bookedOn", label: "Data", type: "date" },

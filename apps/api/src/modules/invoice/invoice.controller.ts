@@ -28,7 +28,9 @@ import { GetPreviewDto } from './dto/getPreview.dto';
 import { IssueMonthDto } from './dto/issueMonth.dto';
 import { SessionCountOverrideDto } from './dto/sessionCountOverride.dto';
 import { ArrearsService } from './arrears.service';
+import { withPaymentReference } from './payment-reference';
 import { transferDetails, type TransferDetails } from './school-identity';
+import { smartBillMode } from 'src/modules/smartbill/smartbill.config';
 
 /** What `GET /invoices/payment-details` answers — `Wire.PaymentDetails` in `contract.ts`. */
 export interface PaymentDetails {
@@ -63,8 +65,11 @@ export class InvoiceController {
     @ApiBearerAuth()
     async findInvoices(@Query() filter: FilterInvoiceDto, @Request() req: AuthenticatedRequest) {
         // With what arrived against each and what is left: the portal's "de plătit" is that figure,
-        // not the invoice's total.
-        return this.arrearsService.withBalances(await this.invoiceService.findInvoices(filter, req.user.role, req.user.sub));
+        // not the invoice's total. And with the words to write on a transfer — the ones the email
+        // printed and the statement import looks for, from the one function all three read.
+        const mode = smartBillMode();
+        const invoices = await this.arrearsService.withBalances(await this.invoiceService.findInvoices(filter, req.user.role, req.user.sub));
+        return invoices.map((invoice) => withPaymentReference(invoice, mode));
     }
 
     /**
@@ -222,7 +227,7 @@ export class InvoiceController {
     @ApiBearerAuth()
     async findOne(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
         const [invoice] = await this.arrearsService.withBalances([await this.invoiceService.findOne(id, req.user.role, req.user.sub)]);
-        return invoice;
+        return withPaymentReference(invoice, smartBillMode());
     }
 
     @Put('/:id')

@@ -123,6 +123,30 @@ describe('Reconciling a bank statement (e2e)', () => {
         expect(await lineAbout('chirie')).toMatchObject({ suggestion: null });
     });
 
+    /**
+     * SmartBill off, as on stage today: Mihai's invoice has no fiscal number, and its email told the
+     * family what to write on the transfer. A line that writes exactly that is as sure as one quoting
+     * a fiscal number — it used to fall back to name and sum, and never to the one press.
+     */
+    it('proposes as sure a line quoting what the invoice email asked for, with no fiscal number', async () => {
+        const email = await dataSource.getRepository(OutboxMessage).findOneByOrFail({ dedupeKey: `invoice-issued:${invoiceMihai.id}` });
+        const asked = /la detaliile plății scrie (.+?)\.$/m.exec(email.bodyText)?.[1];
+        expect(asked).toBe(`factura nr. ${invoiceMihai.id}`);
+
+        await importStatement(['Data tranzactie;Descriere;Debit;Credit;Sold', `08.11.2026;"BUNICA ELENA plata ${asked}";;350,00;350,00`].join('\r\n')).expect(
+            200,
+        );
+
+        const page = await waiting();
+        expect(page.sureCount).toBe(1);
+        expect(await lineAbout('BUNICA ELENA')).toMatchObject({
+            suggestion: { invoiceId: invoiceMihai.id, confidence: 'reference', overpays: false, paymentReference: asked },
+        });
+        // The screen names the same words the family was asked for, and the fiscal one where there is one.
+        await importStatement().expect(200);
+        expect(await lineAbout('ITB 0041')).toMatchObject({ suggestion: { paymentReference: 'factura ITB 0041' } });
+    });
+
     it('records an invoice once when two lines cite it, and leaves the later one to a person', async () => {
         const twice = [
             'Data tranzactie;Descriere;Debit;Credit;Sold',

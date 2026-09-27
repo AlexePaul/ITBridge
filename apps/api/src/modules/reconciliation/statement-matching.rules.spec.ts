@@ -1,15 +1,20 @@
+import { InvoiceFiscalStatus } from 'src/entities/invoice.entity';
+import { paymentReference } from 'src/modules/invoice/payment-reference';
 import { namesInvoice, normalizeText, suggestMatch, withRunningRemainder, type MatchSuggestion, type OpenInvoice } from './statement-matching.rules';
 
 /** Which invoice a statement line pays — E16/S8. A proposal, never a decision. */
 describe('statement matching', () => {
+    /** The references the email prints, from the function that prints them — not a copy of their shape. */
+    const fiscal = (fiscalNumber: string) => paymentReference({ id: 0, fiscalSeries: 'ITB', fiscalNumber, fiscalStatus: InvoiceFiscalStatus.ISSUED }, 'live');
+    const platform = (id: number) => paymentReference({ id, fiscalSeries: null, fiscalNumber: null, fiscalStatus: null }, 'off');
+
     const invoice = (overrides: Omit<Partial<OpenInvoice>, 'family'> & { family?: Partial<OpenInvoice['family']> } = {}): OpenInvoice => {
         const { family, ...rest } = overrides;
         return {
             invoiceId: 1,
             monthIssued: '2026-10',
             outstanding: 350,
-            fiscalSeries: 'ITB',
-            fiscalNumber: '0041',
+            reference: fiscal('0041'),
             ...rest,
             family: { parentId: 10, firstName: 'Ana', lastName: 'Popescu', ...family },
         };
@@ -31,7 +36,7 @@ describe('statement matching', () => {
 
     describe('suggestMatch', () => {
         it('matches by the fiscal reference, whoever paid', () => {
-            const open = [invoice(), invoice({ invoiceId: 2, fiscalNumber: '0042', family: { parentId: 11, lastName: 'Ionescu' } })];
+            const open = [invoice(), invoice({ invoiceId: 2, reference: fiscal('0042'), family: { parentId: 11, lastName: 'Ionescu' } })];
 
             expect(suggestMatch({ amount: 350, description: 'plata ITB 0042', counterparty: 'BUNICA MARIA' }, open)).toEqual({
                 invoiceId: 2,
@@ -40,13 +45,56 @@ describe('statement matching', () => {
             });
         });
 
+        /**
+         * SmartBill off — stage today: no fiscal number, and the invoice email asks the family to write
+         * the platform's own ("la detaliile plății scrie factura nr. 28"). A line that does as it was
+         * told is as sure as one quoting a fiscal number; it used to fall back to name and sum.
+         */
+        it("matches by the platform's reference as the email printed it, whoever paid", () => {
+            const open = [
+                invoice({ invoiceId: 28, reference: platform(28) }),
+                invoice({ invoiceId: 29, reference: platform(29), family: { parentId: 11, lastName: 'Ionescu' } }),
+            ];
+
+            expect(suggestMatch({ amount: 350, description: `plata ${platform(29)!.text} octombrie`, counterparty: 'BUNICA MARIA' }, open)).toEqual({
+                invoiceId: 29,
+                confidence: 'reference',
+                overpays: false,
+            });
+        });
+
+        it("knows the platform's reference however the family typed it", () => {
+            const open = [invoice({ invoiceId: 28, reference: platform(28) })];
+
+            for (const typed of ['Factura nr.28', 'factura nr 028', 'c/v FACTURA NR. 28.', 'factura nr: 28 octombrie']) {
+                expect(suggestMatch({ amount: 350, description: typed, counterparty: null }, open)).toMatchObject({ invoiceId: 28, confidence: 'reference' });
+            }
+        });
+
+        // "nr. 28" alone is a flat, a contract, an order: the words the email printed are the reference.
+        it('does not take a bare number, or a different shape, for the platform reference', () => {
+            const open = [invoice({ invoiceId: 28, reference: platform(28) })];
+
+            for (const typed of ['plata 28', 'nr. 28', 'factura 28', 'apartament nr 28', 'factura nr. 280', 'factura nr. 128']) {
+                expect(suggestMatch({ amount: 350, description: typed, counterparty: null }, open)).toBeNull();
+            }
+        });
+
+        // Live, before SmartBill's number: nobody was told "factura nr. 28", and another family's
+        // fiscal ITB 0028 is what a line writing that most likely means.
+        it('does not match an invoice that has no reference yet', () => {
+            const open = [invoice({ invoiceId: 28, reference: null })];
+
+            expect(suggestMatch({ amount: 350, description: 'factura nr. 28', counterparty: null }, open)).toBeNull();
+        });
+
         it('says when a referenced line pays more than is left', () => {
             expect(suggestMatch({ amount: 700, description: 'ITB 41', counterparty: null }, [invoice()])).toMatchObject({ overpays: true });
         });
 
         // One transfer for two months: a person splits it.
         it('leaves a line naming two invoices to a person', () => {
-            const open = [invoice(), invoice({ invoiceId: 2, fiscalNumber: '0042' })];
+            const open = [invoice(), invoice({ invoiceId: 2, reference: fiscal('0042') })];
             expect(suggestMatch({ amount: 700, description: 'ITB 41 si ITB 42', counterparty: null }, open)).toBeNull();
         });
 

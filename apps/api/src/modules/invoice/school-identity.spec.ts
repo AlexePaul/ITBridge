@@ -78,6 +78,12 @@ describe('the school on paper', () => {
         it('sends the family to the portal or the office when it is not', () => {
             expect(paymentInstructions(null, 'factura nr. 55')).toContain('ni le ceri la birou');
         });
+
+        // `paymentReference` has none while a fiscal number is on its way: nothing to ask for yet.
+        it('asks for no reference when there is none yet', () => {
+            expect(paymentInstructions(null, null)).not.toContain('scrie');
+            expect(paymentInstructions(null, null)).toMatch(/birou\.$/);
+        });
     });
 
     describe('the PDF header', () => {

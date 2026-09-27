@@ -1,3 +1,5 @@
+import type { PaymentReference } from 'src/modules/invoice/payment-reference';
+
 /**
  * Which invoice a line of the bank statement pays — E16/S8: "potrivire automată după sumă, dată și
  * referință; ce nu se potrivește ajunge într-o coadă pentru decizie umană".
@@ -5,10 +7,12 @@
  * Pure, and a **proposal**, never a decision: a line becomes a payment only when somebody confirms
  * it, one by one or all the sure ones at once. Two rules, in order of how much they can be trusted:
  *
- *  1. **The reference.** The portal asks every family to write the fiscal invoice's series and
- *     number in the transfer's details (E16/S4's note), and a line that names exactly one open
- *     invoice that way is paying that invoice. `ITB 0041`, `ITB0041`, `ITB-41` and `itb 41` are the
- *     same reference; `ITB 410` is not.
+ *  1. **The reference.** The invoice email and the portal ask every family to write the invoice's
+ *     payment reference in the transfer's details — the fiscal series and number once SmartBill
+ *     gave them, the platform's own `factura nr. 28` while it has not (`payment-reference.ts`, the
+ *     one definition of both) — and a line that names exactly one open invoice that way is paying
+ *     that invoice. `ITB 0041`, `ITB0041`, `ITB-41` and `itb 41` are the same reference; `ITB 410`
+ *     is not, and neither is a bare `nr. 28`.
  *  2. **The name and the sum.** No reference, but the payer is a family with an open invoice of
  *     exactly that sum left to pay. Weaker — a grandparent pays under another name, two families
  *     share one — so it is proposed but never confirmed in bulk.
@@ -23,8 +27,8 @@ export interface OpenInvoice {
     monthIssued: string;
     /** What is left to pay: the arrears list's figure, never a second subtraction. */
     outstanding: number;
-    fiscalSeries: string | null;
-    fiscalNumber: string | null;
+    /** What the family was asked to write on the transfer — `null` while there is nothing to ask for yet. */
+    reference: PaymentReference | null;
     family: { parentId: number; firstName: string; lastName: string };
 }
 
@@ -53,20 +57,23 @@ export function normalizeText(text: string): string {
         .trim();
 }
 
-/** Whether the text names this fiscal invoice: its series, then its number with any leading zeros. */
-export function namesInvoice(normalizedText: string, series: string, number: string): boolean {
+/**
+ * Whether the text names this invoice: the reference's marker — the fiscal series, or the words
+ * `factura nr.` — then its number with any leading zeros, as whole words.
+ */
+export function namesInvoice(normalizedText: string, marker: string, number: string): boolean {
     const numeric = Number.parseInt(number, 10);
     if (!Number.isFinite(numeric)) return false;
-    const seriesPattern = normalizeText(series).replace(/\s+/g, '\\s*');
-    if (!seriesPattern) return false;
-    return new RegExp(`(^|\\s)${seriesPattern}\\s*0*${numeric}(\\s|$)`).test(normalizedText);
+    const markerPattern = normalizeText(marker).replace(/\s+/g, '\\s*');
+    if (!markerPattern) return false;
+    return new RegExp(`(^|\\s)${markerPattern}\\s*0*${numeric}(\\s|$)`).test(normalizedText);
 }
 
 export function suggestMatch(line: StatementLineForMatching, open: OpenInvoice[]): MatchSuggestion | null {
     const text = normalizeText(`${line.counterparty ?? ''} ${line.description}`);
 
-    // Rule 1: exactly one open invoice named by its fiscal number.
-    const referenced = open.filter((invoice) => invoice.fiscalSeries && invoice.fiscalNumber && namesInvoice(text, invoice.fiscalSeries, invoice.fiscalNumber));
+    // Rule 1: exactly one open invoice named by the reference the family was asked to write.
+    const referenced = open.filter((invoice) => invoice.reference && namesInvoice(text, invoice.reference.marker, invoice.reference.number));
     if (referenced.length === 1) {
         const invoice = referenced[0];
         return { invoiceId: invoice.invoiceId, confidence: 'reference', overpays: bani(line.amount) > bani(invoice.outstanding) };

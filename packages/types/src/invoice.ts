@@ -60,6 +60,13 @@ export interface Invoice {
      */
     paid?: number;
     outstanding?: number;
+    /**
+     * What the family writes in a transfer's details — `factura ITB 0041`, or the platform's own
+     * `factura nr. 28` while SmartBill has not numbered it. On `GET /invoices` and `GET /invoices/:id`,
+     * from the same function the invoice email prints it with and the statement import matches it
+     * by. `null` while a fiscal number is on its way and nothing has been asked for yet.
+     */
+    paymentReference?: string | null;
 }
 
 /**

@@ -7,7 +7,9 @@ import { Payment } from 'src/entities/payment.entity';
 import { PaymentMethod } from 'src/enum/payment-method.enum';
 import { PaymentStatus } from 'src/enum/payment-status.enum';
 import { ArrearsService } from 'src/modules/invoice/arrears.service';
+import { paymentReference } from 'src/modules/invoice/payment-reference';
 import { PaymentService } from 'src/modules/payment/payment.service';
+import { smartBillMode } from 'src/modules/smartbill/smartbill.config';
 import type { Actor } from 'src/modules/audit/audit.service';
 import { parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { fingerprintLines, parseStatement, StatementFormatError, type StatementParse } from './statement-parser';
@@ -36,8 +38,8 @@ export interface StatementLineSuggestion {
     overpays: boolean;
     familyName: string;
     monthIssued: string;
-    fiscalSeries: string | null;
-    fiscalNumber: string | null;
+    /** The words the family was asked to write on the transfer (`payment-reference.ts`), when there are any yet. */
+    paymentReference: string | null;
     outstanding: number;
 }
 
@@ -208,8 +210,7 @@ export class ReconciliationService {
                               ...suggestion,
                               familyName: `${target.family.lastName} ${target.family.firstName}`.trim(),
                               monthIssued: target.monthIssued,
-                              fiscalSeries: target.fiscalSeries,
-                              fiscalNumber: target.fiscalNumber,
+                              paymentReference: target.reference?.text ?? null,
                               outstanding: target.outstanding,
                           }
                         : null,
@@ -313,7 +314,7 @@ export class ReconciliationService {
     }
 
     /**
-     * Every waiting line matched by its fiscal reference and not paying more than is left, confirmed
+     * Every waiting line matched by its payment reference and not paying more than is left, confirmed
      * with one press. Each line is its own transaction, so one that fails — an invoice that became
      * waived meanwhile — does not take the others back with it.
      */
@@ -389,13 +390,15 @@ export class ReconciliationService {
 
     /**
      * The invoices a line can pay: the arrears list — the one definition of "still owes something"
-     * — with what matching also needs, the fiscal reference and the family's two names apart.
+     * — with what matching also needs: the reference the family was asked to write, from the one
+     * function the email and the portal print it with, and the family's two names apart.
      */
     private async openInvoices(): Promise<OpenInvoice[]> {
         const owing = await this.arrears.list();
         if (owing.length === 0) return [];
         const invoices = await this.invoiceRepository.find({ where: { id: In(owing.map((row) => row.invoiceId)) }, relations: { parent: true } });
         const byId = new Map(invoices.map((invoice) => [invoice.id, invoice]));
+        const mode = smartBillMode();
         return owing.flatMap((row) => {
             const invoice = byId.get(row.invoiceId);
             if (!invoice?.parent) return [];
@@ -404,8 +407,7 @@ export class ReconciliationService {
                     invoiceId: row.invoiceId,
                     monthIssued: row.monthIssued,
                     outstanding: row.outstanding,
-                    fiscalSeries: invoice.fiscalSeries,
-                    fiscalNumber: invoice.fiscalNumber,
+                    reference: paymentReference(invoice, mode),
                     family: { parentId: invoice.parent.id, firstName: invoice.parent.firstName ?? '', lastName: invoice.parent.lastName ?? '' },
                 },
             ];

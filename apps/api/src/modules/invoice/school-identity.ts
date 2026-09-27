@@ -67,14 +67,16 @@ export function transferDetails(identity: SchoolIdentity = schoolIdentity()): Tr
 /**
  * The sentence a family reads about paying — in the invoice email, where a template variable has to
  * be one piece of text. With the account known, the transfer details and the reference to write; if
- * not, the office, which is always true.
+ * not, the office, which is always true. The reference comes from `paymentReference`; with none yet,
+ * the sentence asks for nothing rather than for words the statement import would not recognise.
  */
-export function paymentInstructions(details: TransferDetails | null, reference: string): string {
+export function paymentInstructions(details: TransferDetails | null, reference: string | null): string {
+    const write = reference ? `; la detaliile plății scrie ${reference}` : '';
     if (!details) {
-        return `Poți plăti în numerar, la școală, sau prin transfer bancar — datele contului ni le ceri la birou; la detaliile plății scrie ${reference}.`;
+        return `Poți plăti în numerar, la școală, sau prin transfer bancar — datele contului ni le ceri la birou${write}.`;
     }
     const bank = details.bank ? `, ${details.bank}` : '';
-    return `Poți plăti în numerar, la școală, sau prin transfer bancar în contul ${details.iban}${bank}, beneficiar ${details.beneficiary}; la detaliile plății scrie ${reference}.`;
+    return `Poți plăti în numerar, la școală, sau prin transfer bancar în contul ${details.iban}${bank}, beneficiar ${details.beneficiary}${write}.`;
 }
 
 /**

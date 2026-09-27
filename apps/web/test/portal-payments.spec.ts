@@ -28,6 +28,16 @@ describe("how to pay", () => {
     expect(PAYMENTS).toContain("Datele contului pentru transfer ți le dăm");
   });
 
+  /**
+   * One reference, the server's: the words the invoice email printed and the statement import
+   * matches. Built here from `fiscalNumber`, the card said nothing while SmartBill was off (QA of
+   * 27 September 2026), and a second definition is the one that drifts.
+   */
+  it("asks for the reference the server gives, and builds none of its own", () => {
+    expect(PAYMENTS).toContain("invoice.paymentReference");
+    expect(PAYMENTS).not.toContain("invoice.fiscalNumber");
+  });
+
   /** Furniture around the invoices: a failed read must not take the invoices down with it. */
   it("never lets the details or the discounts fail the page", () => {
     expect(PAYMENTS).toContain("discountsApi.fetchFamilyDiscounts().catch(() => [])");
