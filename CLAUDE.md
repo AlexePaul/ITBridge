@@ -2713,7 +2713,11 @@ pică, nu cade pe instanța stage-ului) — iar până trece platforma pe `relea
 nu există niciun `deploy.yml`, deci un push acolo nu deployează nimic. Pașii lansării, cu toate
 conturile de adus, sunt în [docs/lansare-platforma.md](docs/lansare-platforma.md). **Ce faci când
 ceva nu merge** — API-ul căzut, un deploy de întors, discul plin, un bug de la codul de pe ecran
-până la fix, o corectură de date — e în [docs/runbook.md](docs/runbook.md).
+până la fix, o corectură de date — e în [docs/runbook.md](docs/runbook.md). **Ce cod stă în spatele
+unui ecran** — pagina, cererile ei, controllerul și serviciul fiecăreia — e în
+[docs/harta-ecranelor.md](docs/harta-ecranelor.md), generat din surse de `pnpm --filter web
+screens:render`; `screen-map.spec.ts` pică dacă a rămas în urmă sau dacă un ecran cheamă o rută pe
+care API-ul n-o are.
 
 **Un push pe `release/stage` e un deploy.** `.github/workflows/deploy.yml` cheamă `ci.yml` prin
 `workflow_call` — verificările și deploy-ul sunt o singură rulare în Actions, deci deploy-ul nu poate

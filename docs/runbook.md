@@ -80,6 +80,12 @@ nu există: un fișier editat pe instanță dispare la următorul deploy.
    - **mesajul** și **stack trace-ul** — primul rând din `apps/api/src/...` sau `apps/web/app/...`
      e de obicei locul;
    - **aparițiile** — cine, când, la ce adresă. Linkul duce la familia care a întâlnit eroarea.
+
+   **Fără cod** — un număr greșit, un rând lipsă, nimic roșu —, pornești de la ecran:
+   [harta-ecranelor.md](harta-ecranelor.md) spune, pentru fiecare adresă din bara browserului,
+   fișierul paginii, cererile pe care le face și serviciul care răspunde la fiecare. Același lucru îl
+   vezi în browser: DevTools → Network, cererea care aduce numărul greșit.
+
 3. **Reprodu local**, pe o bază de dezvoltare:
 
    ```sh
