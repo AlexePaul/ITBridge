@@ -249,7 +249,10 @@
           din nou cu parola nouă.
         </p>
 
-        <form class="form" @submit.prevent="onChangePassword">
+        <!-- Each problem under the field it is about (QA of 27 September 2026): they came only as
+             toasts, far from the field and gone in a few seconds. A toast is left for a failure
+             that is nobody's field — the server, the connection. -->
+        <form ref="passwordForm" class="form" novalidate @submit.prevent="onChangePassword">
           <div class="field">
             <label for="current-password">Parola actuală</label>
             <input
@@ -258,7 +261,18 @@
               class="input"
               type="password"
               autocomplete="current-password"
+              :aria-invalid="Boolean(passwordErrors.currentPassword)"
+              :aria-describedby="
+                passwordErrors.currentPassword ? 'current-password-error' : undefined
+              "
             />
+            <p
+              v-if="passwordErrors.currentPassword"
+              id="current-password-error"
+              class="field-error"
+            >
+              {{ passwordErrors.currentPassword }}
+            </p>
           </div>
           <div class="field">
             <label for="new-password">Parola nouă</label>
@@ -269,7 +283,12 @@
               type="password"
               autocomplete="new-password"
               :placeholder="`Cel puțin ${MIN_PASSWORD_LENGTH} caractere`"
+              :aria-invalid="Boolean(passwordErrors.newPassword)"
+              :aria-describedby="passwordErrors.newPassword ? 'new-password-error' : undefined"
             />
+            <p v-if="passwordErrors.newPassword" id="new-password-error" class="field-error">
+              {{ passwordErrors.newPassword }}
+            </p>
           </div>
           <div class="field">
             <label for="new-password-confirm">Repetă parola nouă</label>
@@ -279,7 +298,18 @@
               class="input"
               type="password"
               autocomplete="new-password"
+              :aria-invalid="Boolean(passwordErrors.newPasswordConfirmation)"
+              :aria-describedby="
+                passwordErrors.newPasswordConfirmation ? 'new-password-confirm-error' : undefined
+              "
             />
+            <p
+              v-if="passwordErrors.newPasswordConfirmation"
+              id="new-password-confirm-error"
+              class="field-error"
+            >
+              {{ passwordErrors.newPasswordConfirmation }}
+            </p>
           </div>
           <button
             type="submit"
@@ -484,8 +514,13 @@
 </template>
 
 <script setup lang="ts">
-import { MIN_PASSWORD_LENGTH } from "~/composables/useAuthForms";
-import { computed, onMounted, ref } from "vue";
+import {
+  MIN_PASSWORD_LENGTH,
+  passwordChangeProblems,
+  passwordChangeRefusal,
+  type PasswordChangeField,
+} from "~/composables/useAuthForms";
+import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { usePrivacyApi } from "~/composables/api/usePrivacyApi";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
@@ -548,6 +583,20 @@ const changingPassword = ref(false);
 const currentPassword = ref("");
 const newPassword = ref("");
 const newPasswordConfirmation = ref("");
+const passwordForm = ref<HTMLFormElement | null>(null);
+const passwordErrors = reactive<Partial<Record<PasswordChangeField, string>>>({});
+
+// A message goes when its field changes, as on the register form: „Scrie parola actuală" under a
+// field the reader has since filled in reads as the form not having noticed.
+watch(currentPassword, () => delete passwordErrors.currentPassword);
+watch(newPassword, () => delete passwordErrors.newPassword);
+watch(newPasswordConfirmation, () => delete passwordErrors.newPasswordConfirmation);
+
+/** The caret on the first field that failed; its `aria-describedby` reads the reason out. */
+const focusFirstPasswordError = async () => {
+  await nextTick();
+  passwordForm.value?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+};
 
 const erasing = ref(false);
 /** First press arms, second one asks. Reset on success, on failure and on leaving the screen. */
@@ -919,15 +968,17 @@ const onWithdraw = async () => {
  * what happened instead.
  */
 const onChangePassword = async () => {
-  if (newPassword.value.length < MIN_PASSWORD_LENGTH) {
-    notifyError(
-      "Parola e prea scurtă",
-      `Alege o parolă de cel puțin ${MIN_PASSWORD_LENGTH} caractere.`
-    );
-    return;
+  for (const field of Object.keys(passwordErrors) as PasswordChangeField[]) {
+    delete passwordErrors[field];
   }
-  if (newPassword.value !== newPasswordConfirmation.value) {
-    notifyError("Parolele nu sunt identice", "Repetă parola nouă exact cum ai scris-o mai sus.");
+  const problems = passwordChangeProblems({
+    currentPassword: currentPassword.value,
+    newPassword: newPassword.value,
+    newPasswordConfirmation: newPasswordConfirmation.value,
+  });
+  if (Object.keys(problems).length > 0) {
+    Object.assign(passwordErrors, problems);
+    await focusFirstPasswordError();
     return;
   }
 
@@ -949,7 +1000,13 @@ const onChangePassword = async () => {
     classSessionStore.clearSessions();
     await navigateTo("/auth/login");
   } catch (err) {
-    notifyError("Nu am putut schimba parola", apiErrorMessage(err));
+    const refusal = passwordChangeRefusal(err);
+    if (refusal) {
+      passwordErrors[refusal.field] = refusal.message;
+      await focusFirstPasswordError();
+    } else {
+      notifyError("Nu am putut schimba parola", apiErrorMessage(err));
+    }
   } finally {
     changingPassword.value = false;
   }
