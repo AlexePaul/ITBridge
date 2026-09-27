@@ -30,6 +30,14 @@ import { OutboxService } from './outbox.service';
  */
 export const POLL_INTERVAL_MS = 30_000;
 
+/**
+ * Whether this backend sends: `MAIL_OUTBOX_ENABLED` is anything but `false`. One reading, for the
+ * dispatcher and for `/admin/sistem`, so the page cannot say "sending" about a timer that is off.
+ */
+export function dispatcherEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.MAIL_OUTBOX_ENABLED !== 'false';
+}
+
 @Injectable()
 export class OutboxDispatcher implements OnModuleInit {
     private readonly logger = new Logger('Outbox');
@@ -39,7 +47,7 @@ export class OutboxDispatcher implements OnModuleInit {
      * messages accumulate and go out when it is turned back on. The integration suites set it,
      * because a background pass firing mid-test would move rows underneath the assertions.
      */
-    private readonly enabled = process.env.MAIL_OUTBOX_ENABLED !== 'false';
+    private readonly enabled = dispatcherEnabled();
 
     /** One pass at a time. A slow provider must not let ticks pile up on top of each other. */
     private running = false;

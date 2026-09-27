@@ -197,7 +197,7 @@ nu cod. Ce a mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [ ] S2 · Loguri agregate
 - [ ] S3 · Uptime și alertare
 - [ ] S4 · Metrici
-- [~] S5 · Runbook — **scris**: [`docs/runbook.md`](../runbook.md), cu intrarea pe instanță, repararea unui bug de la codul de pe ecran, treisprezece incidente și corectarea datelor (ecranele întâi, SQL-ul la urmă). Rămâne acceptanța: urmat o dată de cineva care nu l-a scris, și restaurarea probată (E04 S4)
+- [~] S5 · Runbook — **scris**: [`docs/runbook.md`](../runbook.md), cu intrarea pe instanță, repararea unui bug de la codul de pe ecran, treisprezece incidente și corectarea datelor (ecranele întâi, SQL-ul la urmă), plus `/admin/sistem`, configurația citită de pe server, cu problemele numite și locul în care se repară. Rămâne acceptanța: urmat o dată de cineva care nu l-a scris, și restaurarea probată (E04 S4)
 - [ ] S6 · Bugete de performanță
 
 > Scos din MVP prin decizie: observabilitatea de zi cu zi e **PM2** — `pm2 logs` și `pm2 monit` pe
