@@ -2674,6 +2674,12 @@ emitere. Trei lucruri de ținut minte:
   cu IBAN-ul), iar familia cu numele și adresa, fără email — `supplierLines` din `pdf.service.ts`.
 - **O editare a sumei sau a datei aruncă desenul păstrat, iar ștergerea îl ia cu ea**, după commit și
   fără ca un eșec de stocare să strice ceva: rândul e evidența, PDF-ul doar un desen al lui.
+- **Cheia numește rândul, nu id-ul** (`invoicePdfKey`: luna, id-ul și `Invoice.createdAt`; testarea
+  din 27 septembrie 2026). Un id revine — `pnpm seed` golește tabelele, nu și bucket-ul, iar o
+  restaurare din backup dă înapoi secvența —, iar factura emisă apoi cu același id găsea desenul celei
+  de dinainte: Horia Barbu își descărca factura pe august și citea numele, adresa și suma lui Florin
+  Marin. Un rând citit fără `createdAt` nu primește cheie deloc (aruncă), în loc să împartă `…-NaN`
+  cu toate celelalte.
 - **Reducerile se citesc la desenare, și e sigur fiindcă o reducere pe o lună facturată e
   înghețată** (`DISCOUNT_MONTH_INVOICED`, în `DiscountService`). Suma facturii s-a calculat o singură
   dată, la emitere; o reducere schimbată după aceea nu mai ajungea nicăieri. Pe PDF stau ca pe

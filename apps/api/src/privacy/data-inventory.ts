@@ -543,6 +543,7 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
                 retention: 'accounting',
                 readableBy: ['admin', 'parent'],
             },
+            createdAt: { personal: false, why: 'row-timestamp' },
             monthIssued: {
                 personal: true,
                 about: 'parent',

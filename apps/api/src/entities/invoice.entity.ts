@@ -1,4 +1,4 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { Profile } from './profile.entity';
 import { Payment } from './payment.entity';
 import { decimalAsNumber } from './decimal.transformer';
@@ -105,6 +105,17 @@ export class Invoice {
 
     @Column({ type: 'varchar', length: 7 })
     monthIssued: string; // e.g., '2023-09'
+
+    /**
+     * When the row was written — what makes it this invoice rather than the id it happens to carry.
+     *
+     * The PDF's key is named from it (`invoicePdfKey`): an id comes back after a reseed, a restore
+     * from backup or a reset sequence, while the bucket keeps the drawings of the rows that had it
+     * before. Keyed on the id alone, the QA of 27 September 2026 downloaded Horia Barbu's August
+     * invoice and read Florin Marin's name, address and amount.
+     */
+    @CreateDateColumn({ type: 'timestamptz' })
+    createdAt: Date;
 
     @Column({ type: 'enum', enum: InvoiceStatus, default: InvoiceStatus.PENDING })
     status: InvoiceStatus;

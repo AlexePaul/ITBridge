@@ -9,6 +9,7 @@ import { SmartBillService } from 'src/modules/smartbill/smartbill.service';
 import * as smartBillSettings from 'src/modules/smartbill/smartbill.config';
 import { ObjectNotFoundError, S3Service } from 'src/modules/storage/s3.service';
 import { PdfService } from 'src/modules/invoice/pdf.service';
+import { invoicePdfKey } from 'src/modules/invoice/invoice-pdf-key';
 import { Invoice, InvoiceFiscalStatus } from 'src/entities/invoice.entity';
 import { FISCAL_LEASE_MS } from 'src/modules/invoice/fiscal-issuing.rules';
 
@@ -144,9 +145,7 @@ describe('Issuing invoices through SmartBill (e2e)', () => {
             expect(issued).toMatchObject({ fiscalStatus: InvoiceFiscalStatus.ISSUED, fiscalSeries: 'ITB', fiscalNumber: '0041', fiscalLastError: null });
             expect(issued.fiscalViewUrl).toContain('/documente/extern/');
             expect(fake.issued).toHaveLength(1);
-            expect(s3.putObject).toHaveBeenCalledWith(
-                expect.objectContaining({ key: `invoices/2026-10/${invoice.id}.pdf`, body: Buffer.from('%PDF-1.4 fiscal ITB 0041') }),
-            );
+            expect(s3.putObject).toHaveBeenCalledWith(expect.objectContaining({ key: invoicePdfKey(issued), body: Buffer.from('%PDF-1.4 fiscal ITB 0041') }));
         });
 
         /**

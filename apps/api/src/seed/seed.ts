@@ -1208,7 +1208,7 @@ export async function seedInvoicePdfs(dataSource: DataSource): Promise<{ uploade
         // A waived month has no document by design, and `GET /invoices/:id/pdf` says so.
         if (invoice.status === InvoiceStatus.WAIVED) continue;
         const buffer = await pdfService.generateInvoicePdf(invoice);
-        await s3.putObject({ key: invoicePdfKey(invoice.monthIssued, invoice.id), body: buffer, contentType: 'application/pdf' });
+        await s3.putObject({ key: invoicePdfKey(invoice), body: buffer, contentType: 'application/pdf' });
         uploaded++;
     }
     return { uploaded, skipped: null };

@@ -424,7 +424,7 @@ export class InvoiceService {
         }
 
         try {
-            return await this.s3Service.downloadFile(invoicePdfKey(invoice.monthIssued, invoice.id));
+            return await this.s3Service.downloadFile(invoicePdfKey(invoice));
         } catch (error: unknown) {
             if (!(error instanceof ObjectNotFoundError)) throw error;
 
@@ -465,7 +465,7 @@ export class InvoiceService {
     private async drawLocalPdf(invoice: Invoice): Promise<Buffer> {
         const pdf = await this.pdfService.generateInvoicePdf(invoice);
         try {
-            await this.s3Service.putObject({ key: invoicePdfKey(invoice.monthIssued, invoice.id), body: pdf, contentType: 'application/pdf' });
+            await this.s3Service.putObject({ key: invoicePdfKey(invoice), body: pdf, contentType: 'application/pdf' });
         } catch (error: unknown) {
             this.logger.warn(
                 `Invoice ${invoice.id}: drew its PDF but could not keep it (${error instanceof Error ? error.message : String(error)}); the next download draws it again.`,
@@ -482,9 +482,9 @@ export class InvoiceService {
      * standing. Best effort for the same reason `drawLocalPdf` is: what is left behind is a stale
      * drawing, which is logged, not a wrong record.
      */
-    private async forgetLocalPdf(invoice: Pick<Invoice, 'id' | 'monthIssued'>): Promise<void> {
+    private async forgetLocalPdf(invoice: Pick<Invoice, 'id' | 'monthIssued' | 'createdAt'>): Promise<void> {
         try {
-            await this.s3Service.deleteObject(invoicePdfKey(invoice.monthIssued, invoice.id));
+            await this.s3Service.deleteObject(invoicePdfKey(invoice));
         } catch (error: unknown) {
             this.logger.warn(`Invoice ${invoice.id}: could not drop its kept PDF (${error instanceof Error ? error.message : String(error)}).`);
         }
