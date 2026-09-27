@@ -4,6 +4,8 @@ import {
   formatLei,
   formatMonth,
   formatPercent,
+  formatDecimal,
+  formatRate,
   ageOn,
   formatAge,
 } from "~/composables/useAdminFormat";
@@ -84,6 +86,32 @@ describe("formatPercent", () => {
   it("dashes anything that is not a number", () => {
     expect(formatPercent(null)).toBe("—");
     expect(formatPercent(Number.NaN)).toBe("—");
+  });
+});
+
+/**
+ * The funnel's rates come from the API already in percent, with one decimal: /admin/rapoarte printed
+ * them as they came — „42.9%", with the point the rest of the screen writes as a comma (QA of
+ * 27 September 2026).
+ */
+describe("formatRate", () => {
+  it("prints a percentage with the Romanian decimal comma, and no decimal when it is whole", () => {
+    expect(formatRate(42.9)).toBe("42,9%");
+    expect(formatRate(50)).toBe("50%");
+    expect(formatRate(0)).toBe("0%");
+    expect(formatRate(100)).toBe("100%");
+  });
+
+  it("dashes anything that is not a number", () => {
+    expect(formatRate(null)).toBe("—");
+    expect(formatRate(Number.NaN)).toBe("—");
+  });
+
+  // The funnel's median sits beside the rate: 2.5 days read „2.5 z.".
+  it("shares its comma with any decimal on the screen", () => {
+    expect(formatDecimal(2.5)).toBe("2,5");
+    expect(formatDecimal(3)).toBe("3");
+    expect(formatDecimal(undefined)).toBe("—");
   });
 });
 
