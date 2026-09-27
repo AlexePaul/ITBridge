@@ -124,6 +124,12 @@ S3 nu răspunde și facturile nu se generează. Fiecare cu pași concreți, nu p
 > nu i-a scris, iar restaurarea din backup e marcată neprobată (E04 S4). Ce se află pe instanță și
 > nu e în repo — numele procesului PM2, prefixul backup-urilor — e numit ca atare, cu comanda care îl
 > arată.
+>
+> **Și o pagină de la care pornește runbook-ul: `/admin/sistem`** (aceeași zi). Jumătate din
+> incidentele de mai sus sunt o setare greșită, iar singurul loc în care se vedea una era fișierul de
+> mediu de pe instanță. Pagina citește configurația de pe serverul care rulează — mediul, adresa din
+> linkurile emailurilor, emailurile, SmartBill, contul pentru transfer, stocarea, migrările nerulate —
+> și numește fiecare problemă cu locul în care se repară. Cheile apar doar ca „setate" sau nu.
 
 ### S6 · Bugete de performanță
 

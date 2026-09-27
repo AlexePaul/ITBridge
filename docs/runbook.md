@@ -27,6 +27,7 @@ branch-uri".
 | Site-ul public nu se încarcă                                       | [3.10](#310-site-ul-vercel)                    |
 | Cineva nu se poate autentifica                                     | [3.11](#311-conturi)                           |
 | Lucrările copiilor nu mai apar din birou                           | [3.12](#312-agentul-din-birou)                 |
+| Vrei stage cu date proaspete, de la zero, înaintea unei testări    | [3.14](#314-stage-cu-date-proaspete)           |
 | Datele sunt greșite și trebuie corectate                           | [4. Corectarea datelor](#4-corectarea-datelor) |
 
 ## 1. Unde te uiți întâi
@@ -34,11 +35,16 @@ branch-uri".
 1. **`/admin/erori`** — fiecare 500, fiecare eroare scrisă de un job și fiecare ecran stricat în
    browserul cuiva autentificat, cu codul de pe ecran, contul, adresa paginii și stack trace-ul pe
    liniile din `.ts`. Cifra roșie din meniu („Sistem → Erori") e numărul celor nerezolvate.
-2. **Tabloul de bord** (`/admin/dashboard`) — mesaje nelivrate, cataloage nefăcute, conturi în
+2. **`/admin/sistem`** („Sistem → Starea platformei") — configurația, citită de pe server: mediul,
+   adresa din linkurile emailurilor, dacă pleacă emailurile, SmartBill, contul pentru transfer,
+   stocarea și migrările nerulate, cu problemele sus și cu locul în care se repară fiecare. Deschide-o
+   după fiecare schimbare în Parameter Store: un `NODE_ENV` sau un `SITE_URL` greșit apare aici, nu
+   în primul email.
+3. **Tabloul de bord** (`/admin/dashboard`) — mesaje nelivrate, cataloage nefăcute, conturi în
    așteptare.
-3. **GitHub → Actions → „Deploy"** — ultima rulare pe `release/stage`: verde înseamnă că e pe
+4. **GitHub → Actions → „Deploy"** — ultima rulare pe `release/stage`: verde înseamnă că e pe
    server exact ce e pe branch.
-4. **`https://api-stage.itbridgeschool.com/ready`** — `{"status":"ready","checks":{"database":"ok","objectStorage":"ok"}}`
+5. **`https://api-stage.itbridgeschool.com/ready`** — `{"status":"ready","checks":{"database":"ok","objectStorage":"ok"}}`
    înseamnă că API-ul, baza și stocarea răspund. `/health` spune doar că procesul trăiește.
 
 ### Cum ajungi pe instanță
@@ -90,7 +96,7 @@ nu există: un fișier editat pe instanță dispare la următorul deploy.
 
    ```sh
    git switch release/stage && git pull
-   cp .env.example .env          # o dată
+   cp .env.example .env          # o dată; apoi cele două JWT_*_SECRET, fiecare cu openssl rand -base64 48
    pnpm install
    docker compose up -d          # Postgres + MinIO
    pnpm --filter api migration:run
@@ -103,6 +109,17 @@ nu există: un fișier editat pe instanță dispare la următorul deploy.
 
 4. **Scrie întâi un test care pică** — unitar lângă cod (`*.spec.ts`), sau de integrare în
    `apps/api/test/` (`pnpm test:e2e`, cere Docker pornit). Convenția e în CLAUDE.md, „Testare".
+   Cât lucrezi, rulează doar fișierul tău — suita întreagă de integrare ține vreo douăzeci de minute:
+
+   ```sh
+   pnpm --filter api test src/modules/invoice/pricing.spec.ts        # unitar, API
+   pnpm --filter web test test/romanianCount.spec.ts                 # unitar, site
+   pnpm exec dotenv -e .env -- pnpm --filter api test:e2e test/payments.e2e-spec.ts   # integrare
+   ```
+
+   Al treilea citește `.env` de la rădăcină, ca `pnpm test:e2e`; fără `dotenv`, testele nu văd
+   portul MinIO din configurația ta.
+
 5. **Repară**, apoi rulează ce rulează CI-ul:
 
    ```sh
@@ -253,6 +270,12 @@ e a lui. Pe instanță: `aws s3 ls s3://<bucket> --region <regiunea>` trebuie s�
 - **nelivrabil** — familia n-are adresă sau n-a confirmat-o. Se completează adresa în fișa familiei;
   rândul numește familia.
 
+**Linkurile din mesaje duc pe alt domeniu.** API-ul le construiește din `SITE_URL`; nesetată, cade
+pe `https://itbridgeschool.com`, care e corect în producție și greșit pe stage — acolo site-ul public
+n-are paginile de confirmare, de resetare sau de cont. Pe stage, `SITE_URL=https://stage.itbridgeschool.com`
+în Parameter Store, apoi un deploy (sau `fetch-env.sh` și `pm2 reload`). Mesajele scrise înainte
+rămân cu linkul vechi; se cere unul nou (retrimite confirmarea, „Ți-ai uitat parola?" din nou).
+
 ### 3.9 SmartBill
 
 Implicitul e `SMARTBILL_MODE=off`: nu se trimite nimic la SmartBill. Pe stage, cel mult `draft`.
@@ -307,6 +330,38 @@ sudo -u postgres pg_restore --no-owner -d restore_proba /tmp/restore.dump   # fo
 Se verifică în `restore_proba` că tabelele au rânduri (`SELECT count(*) FROM profiles;`), apoi, doar
 dacă baza bună e pierdută, se oprește aplicația (`pm2 stop <nume>`), se restaurează la fel în baza
 din `DB_NAME` și se repornește. Durata se notează în E04 S4 — e acceptanța story-ului.
+
+### 3.14 Stage cu date proaspete
+
+**Când:** înaintea unei testări de la cap la coadă ([plan-de-testare.md](plan-de-testare.md)), sau
+când datele de pe stage au ajuns într-o stare din care nu mai înveți nimic. **Numai pe stage**: seed-ul
+**golește toate tabelele** și scrie datele de dezvoltare — ce a tastat cineva pe stage dispare. În
+producție refuză oricum.
+
+Se rulează **pe instanță**, fiindcă Postgres stă lângă API și nu se vede din afară:
+
+```sh
+sudo -iu deploy
+cd /srv/itbridge/stage
+set -a; . /etc/itbridge/stage.env; set +a
+read -rs -p "Parola conturilor de pe stage: " SEED_PASSWORD; echo; export SEED_PASSWORD
+pm2 stop <nume>        # ca joburile să nu scrie în timp ce baza se golește
+pnpm seed              # sau SEED_TODAY=2026-10-05 pnpm seed, ca „azi" să fie ziua testării
+pm2 start <nume>
+```
+
+Două lucruri pe care seed-ul le refuză, dinadins:
+
+- **`NODE_ENV=production`**: refuză orice, oricât de local ar fi host-ul. Dacă vezi refuzul pe stage,
+  `NODE_ENV` din Parameter Store e încă `production` și trebuie pus `stage` — vezi CLAUDE.md,
+  „Infrastructură — stare reală". Tot `stage` e ce oprește stage-ul să emită facturi SmartBill reale.
+- **Fără `SEED_PASSWORD`**, sub `NODE_ENV=stage`: host-ul e `localhost`, dar stage-ul e public, iar
+  parola implicită, `parola123`, e scrisă în repo. `read -rs` o cere fără s-o arate și fără s-o lase în
+  istoricul shell-ului; seed-ul nu o tipărește înapoi.
+
+**Cum știi că a mers:** seed-ul tipărește la final ce a scris, iar pe `stage.itbridgeschool.com` te
+autentifici ca `admin` cu parola aleasă. Sesiunile vechi s-au închis toate — seed-ul golește și
+tabela lor —, deci oricine era autentificat se autentifică din nou.
 
 ## 4. Corectarea datelor
 

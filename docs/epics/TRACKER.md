@@ -3,9 +3,28 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 25 septembrie 2026, pe `release/stage`. **E07 S2, acordul pentru lucrările
-copiilor**, ultimul story neînceput din E07 care era cod: un părinte cu doi copii poate da voie
-pentru unul și nu pentru celălalt, din „Profil", iar biroul poate consemna un acord semnat pe
+**Ultima actualizare:** 27 septembrie 2026, pe `release/stage`. **Pregătirea testării integrale de
+săptămâna viitoare.** Seara, o revizuire a tot ce se construise în ultimele două zile a găsit și a
+reparat, printre altele, anunțul facturii cu totalul în loc de rest, mesaje care plecau la adrese pe
+care nu le dovedise nimeni, o familie retrasă care primea un copil și rămânea retrasă, și un cod de
+eroare care nu-și mai găsea rândul după ce defectul se repetase de douăzeci de ori. Tot atunci,
+**`/admin/sistem`** arată configurația pe care a citit-o backend-ul acolo unde rulează — adresa din
+linkuri, dacă pleacă mail, modul SmartBill, contul pentru transfer, bucket-ul și migrările nerulate —:
+primul ecran de deschis după un deploy. Un bug se găsește și se repară de mână: fiecare eroare de server și fiecare
+ecran care se strică în browser lasă un rând pe `/admin/erori`, cu codul pe care îl vede cine a
+întâlnit-o (E06 S1, în formă restrânsă); [`runbook.md`](../runbook.md) duce de la cod la fișier și de
+la incident la reparație (E06 S5); [`harta-ecranelor.md`](../harta-ecranelor.md) spune, pentru fiecare
+adresă, fișierul paginii și ce serviciu răspunde la fiecare cerere a ei; iar
+[`plan-de-testare.md`](../plan-de-testare.md) e testarea însăși, rol cu rol. Planul a fost parcurs o
+dată, în trei browsere, pe copii izolate ale platformei: 70 de puncte, niciun blocaj, iar ce s-a găsit
+s-a reparat în aceeași zi — pagina unei familii fără copii n-avea buton de adăugat unul, iconița „fără
+rețea" de pe telefonul profesorului nu apărea tocmai fără rețea, o dată tastată cifră cu cifră ducea
+pagina în anul 0202, erorile dintr-o fereastră modală apăreau sub ea, formularele cereau două apăsări
+după o eroare, familiile trecute de birou primeau linkul de autentificare într-un portal în care n-au
+cont, iar fișa unei cereri deschisă din cardurile de urmărit își pierdea locația și proba. Plus seed-ul:
+fiecare stare de cont are acum contul ei, iar o probă ținută e o probă întreagă. Pe 25 septembrie,
+**E07 S2, acordul pentru lucrările copiilor**, ultimul story neînceput din E07 care era cod: un
+părinte cu doi copii poate da voie pentru unul și nu pentru celălalt, din „Profil", iar biroul poate consemna un acord semnat pe
 hârtie; `/admin/acorduri` e lista copiilor ale căror lucrări se pot folosi azi, cu linia gata de pus
 lângă lucrare. Retragerea anunță biroul în aceeași tranzacție, fiindcă site-ul nu citește din
 platformă și ce e publicat se scoate de mână. Înainte, **termenii §4.7 au devenit adevărați
@@ -184,7 +203,7 @@ nu cod. Ce a mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [ ] S2 · Loguri agregate
 - [ ] S3 · Uptime și alertare
 - [ ] S4 · Metrici
-- [~] S5 · Runbook — **scris**: [`docs/runbook.md`](../runbook.md), cu intrarea pe instanță, repararea unui bug de la codul de pe ecran, treisprezece incidente și corectarea datelor (ecranele întâi, SQL-ul la urmă). Rămâne acceptanța: urmat o dată de cineva care nu l-a scris, și restaurarea probată (E04 S4)
+- [~] S5 · Runbook — **scris**: [`docs/runbook.md`](../runbook.md), cu intrarea pe instanță, repararea unui bug de la codul de pe ecran, treisprezece incidente și corectarea datelor (ecranele întâi, SQL-ul la urmă), plus `/admin/sistem`, configurația citită de pe server, cu problemele numite și locul în care se repară. Rămâne acceptanța: urmat o dată de cineva care nu l-a scris, și restaurarea probată (E04 S4)
 - [ ] S6 · Bugete de performanță
 
 > Scos din MVP prin decizie: observabilitatea de zi cu zi e **PM2** — `pm2 logs` și `pm2 monit` pe
