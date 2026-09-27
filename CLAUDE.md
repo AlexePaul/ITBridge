@@ -1843,6 +1843,41 @@ temperează furnizorul, iar ăsta n-a fost atins, deci coada reîncearcă pe cad
 întreagă în clipa în care apare variabila. `MAIL_OUTBOX_ENABLED=false` oprește doar scheduler-ul;
 testele de integrare îl setează, ca o trecere de fundal să nu miște rândurile sub aserțiuni.
 
+**O eroare lasă un rând pe `/admin/erori`, nu doar o linie în `pm2 logs`** (E06 S1, 27 septembrie
+2026). Epicul fusese scos din MVP cu propoziția „o excepție în producție se află de la părintele care
+sună", iar stack trace-ul unui 500 stătea pe o instanță la care se ajunge doar prin SSM — deci cine
+putea repara bug-ul era singurul care nu-l vedea. `apps/api/src/modules/error-report/` ține un rând
+**pe defect**, nu pe apariție: amprenta e felul erorii și locul, cu numerele și valorile scoase din
+mesaj, iar indexul unic e **parțial** (`WHERE "resolvedAt" IS NULL`), ca la fișierele neatribuite —
+un defect marcat rezolvat care revine e un rând nou, fiindcă e o veste. Trei drumuri intră acolo:
+
+- **Filtrul HTTP** înregistrează fiecare 5xx cu ruta ca tipar (`GET /profiles/:id`), contul și
+  `requestId`-ul răspunsului. Ecranul arată primele opt caractere drept cod — „A apărut o eroare pe
+  server… (cod 3f2a9c1d)", prin `apiErrorMessage`, care nu mai arată niciodată engleza serverului
+  pentru un 5xx —, iar codul, tastat sau venit din `?cod=`, găsește rândul, rezolvat sau nu.
+- **`RecordingLogger`**, loggerul aplicației, pus cu `app.useLogger` în `main.ts` **și în
+  `createTestApp`**: tot ce se scrie la nivel `error` sau `fatal` ajunge acolo, deci și un job care
+  aruncă — scheduler-ul își prinde excepțiile și le scrie cu `Logger('Scheduler')`. Un job nou e
+  înregistrat fără să-l lege cineva. Contextele `Exception` și `Request` sunt sărite (sunt același
+  500, fără stack), iar `ErrorReport` e al înregistratorului, care nu scrie niciodată prin
+  `Logger.error` — o eroare despre înregistrarea unei erori, înregistrată, e o buclă.
+- **Browserul**, prin `POST /errors/client` (orice cont autentificat, limitat), din
+  `plugins/05.error-report.client.ts`: `vue:error`, `app:error` și promisiunile neprinse. Vue
+  aruncă o componentă care pică la randare și desenează restul paginii în jurul golului, deci un
+  ecran stricat era un ecran cu o bucată lipsă și nimic altceva. Acum cititorul primește un toast cu
+  codul, o singură dată pe defect, iar un apel eșuat la API **nu** se raportează din browser — un 5xx
+  e deja al serverului, un 4xx e un răspuns, lipsa răspunsului e rețeaua.
+
+Înregistrarea nu atinge niciodată ce a picat: `record` se întoarce înainte de scriere și nu aruncă,
+iar oprirea așteaptă scrierile în zbor (`onModuleDestroy`, înainte ca TypeORM să-și închidă pool-ul).
+Mesajele și stack-urile trec prin `scrub` (adrese, telefoane, IBAN-uri, tokenuri, valorile citate de
+Postgres), contul e un id, iar rândul pleacă la **30 de zile** după ultima apariție
+(`ERROR_REPORT_RETENTION_DAYS`, în trecerea de retenție), ca logurile tehnice din nota §3.9 și §7.
+`source-maps.ts`, importat al doilea în `main.ts`, pornește hărțile sursă ale lui Node: stack-ul
+numește liniile din `.ts`, nu din `dist/`. Prima eroare arătată a fost un bug: un id de unsprezece
+cifre trece de `ParseIntPipe` și depășește coloana `integer` (Postgres 22003) — acum 400
+`VALUE_OUT_OF_RANGE`, nu 500.
+
 **Rapoartele nu definesc nimic, doar adună** (E21). `apps/api/src/modules/dashboard/` cere fiecare
 număr de la serviciul care deține întrebarea — restanțele de la `ArrearsService`, locurile de la
 `EnrollmentService.occupancyOf` — și nu rederivă niciunul; a doua definiție e cea care divergează.

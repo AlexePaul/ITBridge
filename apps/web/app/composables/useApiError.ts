@@ -43,7 +43,12 @@ const MESSAGES: Record<string, string> = {
   STILL_REFERENCED: "Înregistrarea e folosită în altă parte, deci nu poate fi ștearsă.",
   MISSING_REQUIRED_FIELD: "Un câmp obligatoriu lipsește.",
   INVALID_VALUE: "Un câmp are o valoare de tipul greșit.",
+  VALUE_OUT_OF_RANGE: "O valoare e în afara limitelor — un număr prea mare, de exemplu.",
   SERVICE_UNAVAILABLE: "Serviciul este momentan indisponibil. Încearcă din nou.",
+  // E06 S1. A 500 is ours, not the reader's: these two used to fall through to the body's English
+  // „Internal server error", the one sentence on a Romanian screen that says nothing at all.
+  INTERNAL_ERROR: "A apărut o eroare pe server. Încearcă din nou peste câteva momente.",
+  DATABASE_ERROR: "A apărut o eroare pe server. Încearcă din nou peste câteva momente.",
 
   // E20 — acquisition. The first three can reach a parent on the public booking page, so they are
   // written for one: no jargon, and each says what to do next.
@@ -331,6 +336,12 @@ export function apiErrorMessage(
   if (body.details?.length) {
     return body.details.join(" · ");
   }
+  if ((body.statusCode ?? 0) >= 500) {
+    return withReference(
+      (body.code && MESSAGES[body.code]) || MESSAGES.INTERNAL_ERROR!,
+      body.requestId
+    );
+  }
   if (body.code && MESSAGES[body.code]) {
     return MESSAGES[body.code] as string;
   }
@@ -338,4 +349,22 @@ export function apiErrorMessage(
     return body.message;
   }
   return fallback;
+}
+
+/**
+ * The code a family can read out over the phone — E06 S1.
+ *
+ * Every 5xx is on `/admin/erori` under the request id its response carried, and the first eight
+ * characters find it there. Only on a 5xx: a 4xx is the reader's to act on, and a code next to
+ * „adresa e deja trecută la altă familie" would send them to ring about something they can fix.
+ * The server's English message is never shown in its place — it says „Internal server error" and
+ * nothing else.
+ */
+export function errorReference(requestId: string | undefined | null): string | null {
+  return requestId ? requestId.slice(0, 8) : null;
+}
+
+function withReference(message: string, requestId: string | undefined): string {
+  const reference = errorReference(requestId);
+  return reference ? `${message} (cod ${reference})` : message;
 }

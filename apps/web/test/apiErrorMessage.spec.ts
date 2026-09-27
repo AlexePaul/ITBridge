@@ -51,4 +51,48 @@ describe("apiErrorMessage", () => {
     const err = { data: { code: "SOMETHING_NEW", message: "se suprapune cu «Vacanța de iarnă»" } };
     expect(apiErrorMessage(err, "x")).toBe("se suprapune cu «Vacanța de iarnă»");
   });
+
+  // E06 S1. A 500 used to print the body's English „Internal server error"; it says what happened
+  // in Romanian now, with the code the error went under on /admin/erori.
+  it("says a 5xx in Romanian, with the code a family can read out", () => {
+    const err = {
+      data: {
+        statusCode: 500,
+        code: "INTERNAL_ERROR",
+        message: "Internal server error",
+        requestId: "3f2a9c1d-0000-4000-8000-000000000000",
+      },
+    };
+    expect(apiErrorMessage(err, "x")).toBe(
+      "A apărut o eroare pe server. Încearcă din nou peste câteva momente. (cod 3f2a9c1d)"
+    );
+  });
+
+  it("never shows the server's English for a 5xx it has no sentence for", () => {
+    const err = {
+      data: {
+        statusCode: 502,
+        code: "BAD_GATEWAY",
+        message: "Bad Gateway",
+        requestId: "abcd1234-x",
+      },
+    };
+    expect(apiErrorMessage(err, "x")).toBe(
+      "A apărut o eroare pe server. Încearcă din nou peste câteva momente. (cod abcd1234)"
+    );
+  });
+
+  it("keeps a 5xx's own sentence when it has one", () => {
+    const err = {
+      data: { statusCode: 503, code: "FISCAL_PDF_UNAVAILABLE", requestId: "feedbeef-1" },
+    };
+    expect(apiErrorMessage(err, "x")).toMatch(
+      /^SmartBill nu a trimis încă PDF-ul facturii.* \(cod feedbeef\)$/
+    );
+  });
+
+  it("gives no code with a 4xx: the reader can act on it", () => {
+    const err = { data: { statusCode: 409, code: "PROFILE_EMAIL_TAKEN", requestId: "3f2a9c1d-x" } };
+    expect(apiErrorMessage(err, "x")).toBe("Adresa de email este deja trecută la altă familie.");
+  });
 });

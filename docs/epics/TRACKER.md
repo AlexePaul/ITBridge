@@ -178,9 +178,9 @@ nu cod. Ce a mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 - [x] S8 · Audit de autorizare
 - [x] S9 · CORS din configurație
 
-### E06 · Observabilitate și operare — `scos din MVP`
+### E06 · Observabilitate și operare — `scos din MVP; S1 livrat în formă restrânsă`
 
-- [ ] S1 · Raportare de erori
+- [x] S1 · Raportare de erori — **în aplicație, fără serviciu extern** (27 septembrie 2026): `/admin/erori`, un rând pe defect, cu fiecare 5xx (ruta, contul, codul cererii), fiecare linie de eroare scrisă pe server — joburile incluse, fără să le lege cineva — și fiecare ecran stricat în browserul cuiva autentificat. Codul de pe ecran („cod 3f2a9c1d") găsește rândul; stack-ul e pe liniile din `.ts`; datele personale sunt filtrate la scriere, iar rândul pleacă la 30 de zile. Fără alertare (S3) și fără hărțile sursă ale frontend-ului
 - [ ] S2 · Loguri agregate
 - [ ] S3 · Uptime și alertare
 - [ ] S4 · Metrici
@@ -190,8 +190,8 @@ nu cod. Ce a mai rămas de făcut pentru MVP e în [Ce urmează](#ce-urmează).
 > Scos din MVP prin decizie: observabilitatea de zi cu zi e **PM2** — `pm2 logs` și `pm2 monit` pe
 > instanța din E01 S4, citite de omul care a făcut deploy-ul. Singura bucată care se strică singură e
 > discul umplut de loguri, iar rotația se pune pe instanță, ca modul PM2, sub utilizatorul `deploy`.
-> Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal, iar o excepție în producție se
-> află de la părintele care sună.
+> Consecința de ținut minte: alertarea din E14 S2 rămâne fără canal. O excepție în producție nu mai
+> se află doar de la părintele care sună: de la S1 e pe `/admin/erori`, cu cifra ei în meniu.
 
 ### E07 · Securitate, GDPR și consimțământ — `în lucru; S1, S2, S3, S4, S5 și S8 livrate, S6 construit, S7 propus`
 

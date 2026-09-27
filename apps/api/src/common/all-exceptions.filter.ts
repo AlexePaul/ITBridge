@@ -33,6 +33,12 @@ const PG_FOREIGN_KEY_VIOLATION = '23503';
 const PG_NOT_NULL_VIOLATION = '23502';
 /** A value that could not be cast to its column type — always the caller's doing, never ours. */
 const PG_INVALID_TEXT_REPRESENTATION = '22P02';
+/**
+ * A number too large for its column. `ParseIntPipe` accepts an id of eleven digits and the
+ * `integer` column refuses it, so `/locations/99999999999` was a 500 — the first fault the error
+ * record (E06 S1) showed, and not a fault: the caller's value, like the one above.
+ */
+const PG_NUMERIC_VALUE_OUT_OF_RANGE = '22003';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -156,6 +162,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
                 // Reported as a 500 before, which told the client the server had broken over a
                 // value it had sent itself — and logged a stack into the channel meant for faults.
                 return { statusCode: HttpStatus.BAD_REQUEST, code: 'INVALID_VALUE', message: 'A field had a value of the wrong type' };
+            case PG_NUMERIC_VALUE_OUT_OF_RANGE:
+                return { statusCode: HttpStatus.BAD_REQUEST, code: 'VALUE_OUT_OF_RANGE', message: 'A value was out of range' };
             default:
                 return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, code: 'DATABASE_ERROR', message: 'Internal server error' };
         }
