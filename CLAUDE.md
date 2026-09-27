@@ -39,6 +39,17 @@ conținut, SEO, performanță, corecturi de interfață publică. Se aduc prin c
 din `release/stage` — un merge ar trage în producție jumătate de platformă care n-are unde să
 ruleze.
 
+**Invers, ce se face direct pe `release/prod` se aduce pe `release/stage` printr-un merge**, nu
+printr-un cherry-pick (27 septembrie 2026). Paginile de sub `/cursuri/`, prerandarea tuturor
+paginilor publice și localizarea (#84, #218, #234) s-au scris direct pe `release/prod` și nu
+existau pe stage: `stage.itbridgeschool.com` arăta alt site public decât cel live, iar merge-ul de
+lansare din `docs/lansare-platforma.md` dădea șaisprezece conflicte, jumătate în fișierele
+site-ului, unde „ia partea stage-ului" ar fi șters exact paginile care aduc trafic. Un merge al lui
+`release/prod` în `release/stage` le-a adus pe toate — **cu commit de merge, nu squash**, fiindcă un
+squash păstrează conținutul și pierde istoria, deci conflictele s-ar fi întors la lansare. Starea se
+citește oricând cu `git merge-tree --write-tree origin/release/prod origin/release/stage`: fără
+conflicte, tipărește doar un hash.
+
 **Documentația din `docs/` și fișierul ăsta sunt identice pe ambele branch-uri**, fiindcă descriu
 proiectul, nu ramura. Deci pe `release/prod` vei citi despre module care nu există în arborele de
 sub tine — `enrollment`, `project`, `storage` — și e în regulă: sunt pe `release/stage`. Ce **nu** e
@@ -77,6 +88,7 @@ pnpm seed                         # date de dezvoltare; admin / parola123
 SEED_TODAY=2026-03-16 pnpm seed   # aceleași date, dar ancorate la o zi fixă
 pnpm seed:scale                   # o școală de trei ani, ca să se poată măsura o interogare
 pnpm smartbill:check              # SmartBill: doar citiri (TVA, serii); --draft trimite o ciornă
+pnpm admin:create --username x    # un cont de admin fără seed (producția); --reset-password
 pnpm dev                          # api + web, hot reload
 
 pnpm build          # turbo, în ordinea dependențelor
@@ -136,6 +148,12 @@ de felul ăsta se măsoară cu `pnpm seed:scale` înainte să fie numit gata.
 nu cele prezise — prima versiune tipărea predicția și era greșită cu treizeci de rânduri la plăți,
 iar un rezumat care contrazice tabela e mai rău decât niciun rezumat.
 
+**Seed-ul nu atinge niciodată producția**: `checkSeedTarget` refuză `NODE_ENV=production` înaintea
+oricărei alte reguli, oricât de explicit ar fi acordul, fiindcă acolo rândurile sunt familii. Primul
+admin de acolo vine din `pnpm admin:create` (`modules/user/admin-account.ts`), care scrie un rând,
+cu urma lui, și nu șterge nimic; tot el e singura cale înapoi pentru un admin care și-a uitat parola —
+un admin n-are profil, deci nici linkul de resetare n-are unde pleca.
+
 **Seed-ul are două ținte, iar `seed-target.ts` e tot ce le desparte.** `pnpm seed` merge pe baza
 locală; `pnpm seed:stage` citește `.env.stage` și merge pe staging. Pe orice host care nu e
 localhost, `checkSeedTarget` cere două lucruri și le **refuză**, nu le avertizează:
@@ -168,7 +186,9 @@ fiecare `process.env.X` din surse cu `globalEnv` și pică pe nume; cele două e
 
 Swagger UI: `http://localhost:3000/api`. La fiecare boot, `apps/api/src/main.ts` scrie schema în
 `./swagger.json`, relativ la directorul din care rulează procesul. Fișierul e în `.gitignore`,
-deci nu există într-o clonă proaspătă — apare doar după prima pornire.
+deci nu există într-o clonă proaspătă — apare doar după prima pornire. **În producție amândouă sunt
+oprite** (`swaggerEnabled` din `config/bootstrap-options.ts`; `SWAGGER_ENABLED=true` le pornește
+pentru o după-amiază), iar CORS-ul implicit de acolo nu mai include `localhost`.
 
 ## Contractul API
 
@@ -660,11 +680,23 @@ inclusiv catalogul și proiectele — măsurat la fel: un copil, o înscriere ș
 din fiecare după, 200, de pe tokenul părintelui. `ChildService.deleteChild` refuză acum dacă
 copilul are prezențe (`CHILD_HAS_ATTENDANCE` — catalogul e ce s-a întâmplat, iar E15 S9 facturează
 din el) sau lucrări (`CHILD_HAS_PROJECTS` — cheile de obiect se derivă din id-uri, deci după
-ștergerea rândurilor nimic nu mai poate spune ce era de scos din bucket). **Înscrierile singure nu
-blochează**, dinadins: o înscriere fără niciun marcaj consemnează o intenție, nu un fapt, iar
-refuzul pe ea ar închide singura folosință rămasă rutei — un copil adăugat și repartizat din
+ștergerea rândurilor nimic nu mai poate spune ce era de scos din bucket). **Pentru birou, înscrierile
+singure nu blochează**, dinadins: o înscriere fără niciun marcaj consemnează o intenție, nu un fapt,
+iar refuzul pe ea ar închide singura folosință rămasă rutei — un copil adăugat și repartizat din
 greșeală. Ștergerea din E07 S4 nu trece pe aici: `ErasureService` șterge rândurile prin tranzacția
 lui, după ce citește cheile.
+
+**Familia își adaugă și își corectează copiii din „Profil"** (termenii §5–6, nota §8; revizuirea din
+26 septembrie 2026). Rutele existau, ecranul nu, deci textele promiteau ceva ce se făcea doar la
+telefon. `PortalChildForm` scrie prin aceleași `POST /children` și `PUT /children/:id`, iar DTO-urile
+țin acum regulile unei a doua uși: numele tăiate la capete și de cel mult 100 de caractere (coloana;
+mai lung era un 500 de la driver), data nașterii **o zi** `YYYY-MM-DD` (nu un instant) care nu e după
+ziua școlii (`BIRTH_DATE_IN_FUTURE`), cu propoziții în română, fiindcă portalul le arată. **O familie
+șterge doar un copil despre care școala nu știe nimic**: `CHILD_HAS_ENROLMENTS` pentru orice
+înscriere, oricât de veche, și `CHILD_ON_WAITLIST` — cascada retrăgea din grupă, adică exact ce §5
+lasă școlii. Refuzul vine înaintea celui despre catalog, fiindcă pentru părinte el e răspunsul. Iar
+un acord pentru lucrări în vigoare pleacă cu copilul, deci `deleteChild` anunță biroul ca la o
+ștergere de familie (`announceErasure`, înainte de cascadă).
 
 **Un copil se mută în familia lui, nu se șterge și se adaugă din nou** (testarea din 26 septembrie
 2026). Fiecare programare de pe `/proba` scrie o familie-coajă proprie, fără email și fără telefon,
@@ -717,9 +749,10 @@ sunt refuzate (`PROFILE_ERASED`), fiindcă ștergerea și retenția îl sar ca t
 scrie pe el n-ar mai scoate nimeni.
 
 **Un rând fără drum către familie se revendică doar printr-o adresă pe care o garantează cineva**
-(E07 S4, revizuirea din 25 septembrie 2026). `outbox` și lead-urile tastate de birou n-au relație
-către `Profile`, deci exportul, ștergerea și retenția le caută după adresă — iar adresa de pe un
-profil e ce a tastat cineva în el. `PUT /profiles/:id` verifică doar că n-o mai ține alt _profil_:
+(E07 S4, revizuirea din 25 septembrie 2026). Lead-urile tastate de birou n-au relație către
+`Profile`, iar `outbox` are una numai de la 27 septembrie 2026 (mai jos, la mesajele nelivrabile),
+deci exportul, ștergerea și retenția caută și după adresă — iar adresa de pe un profil e ce a tastat
+cineva în el. `PUT /profiles/:id` verifică doar că n-o mai ține alt _profil_:
 adresa biroului trece, numărul unei familii care a sunat și nu s-a înregistrat trece. Potrivit așa,
 `GET /privacy/export` îi dădea oricui își făcea cont copilul altei familii — nume, data nașterii,
 proba — și subiectul fiecărui mesaj al biroului, iar ștergerea le lua cu ea. Regula e
@@ -792,6 +825,37 @@ lista doar `PENDING`, iar pagina familiei nu spunea nimic despre cont, deci dup�
 nu mai era pe niciun ecran. `GET /users/rejected` dă conturile respinse, cu ziua deciziei și nota
 adminilor, sub coadă, cu „Aprobă"; `GET /profiles` poartă `account` (starea porților și ziua
 deciziei, niciodată nota) **numai pentru un admin**, iar pagina familiei are aceeași acțiune.
+**Nota nu pleacă în email și nu apare în portal, dar e în copia datelor familiei**
+(`cont.motivRespingere` în `GET /privacy/export`): e o notă despre familie, iar exportul e tot ce
+ține școala despre ea (GDPR art. 15). Formularul de respingere o spune adminului, iar inventarul o
+clasifică `readableBy: ['admin', 'parent']`.
+
+**Un cont se poate suspenda, iar suspendarea închide portalul și nimic altceva** (termenii §14, 27
+septembrie 2026). Textul își rezerva dreptul, iar platforma n-avea butonul: biroul putea respinge
+doar un cont încă neaprobat. `User.suspendedAt` și `suspensionReason` sunt o a treia pereche de
+coloane, nu o stare a lui `approvalStatus`: aprobarea spune dacă școala cunoaște familia, suspendarea
+dacă acest login se mai poate folosi. `AccountSuspensionService` răspunde la `POST /users/:id/suspend`
+(motiv obligatoriu), `POST /users/:id/reactivate` și `GET /users/suspended`; butoanele sunt în
+pagina familiei, iar lista în `/admin/approvals`. Cinci reguli:
+
+- **Motivul pleacă în email**, spre deosebire de nota unei respingeri: §14 promite „un email care
+  spune de ce". Formularul îl cere și spune unde ajunge.
+- **Sesiunile se închid în aceeași tranzacție**, după ce rândul contului e luat exclusiv — ordinea
+  lui `revokeAllForUser`, scrisă pe loc fiindcă aceea nu se cheamă dintr-o tranzacție care ține
+  deja rândul. O rotație în zbor ține rândul partajat: ori s-a comis înainte, și atunci succesorul ei
+  e revocat, ori vine după și găsește contul suspendat. `rotate` citește `suspendedAt` sub același
+  lacăt și răspunde „suspendat", nu „replay". Rămâne access tokenul deja emis, până la
+  cincisprezece minute: compromisul lui `AuthGuard`.
+- **Login-ul refuză cu `ACCOUNT_SUSPENDED` (403) numai după parola corectă**, ca cine n-o are să nu
+  afle nimic despre cont. Formularul spune asta în cuvintele lui, nu ca „parolă incorectă"; tot acolo
+  își are acum propoziția și limita de încercări.
+- **Înscrierea nu se mișcă** („Suspendarea contului nu afectează contractul de înscriere al
+  copilului"): `isAccountActive` nu citește suspendarea, facturile se emit, iar mesajele despre ore
+  pleacă mai departe, fiindcă sunt contractul, nu portalul.
+- **Numai conturi de părinte** (`NOT_A_PARENT_ACCOUNT`), ca la aprobare: accesul unui admin e rolul
+  lui. Jurnalul ține cine și când, doar cu numele câmpurilor. Reactivarea golește motivul de pe rând,
+  iar exportul familiei îl poartă cât timp suspendarea e în vigoare (`cont.suspendatLa`,
+  `cont.motivSuspendare`).
 
 **Pagina de confirmare spune doar ce e adevărat** (aceeași revizuire). Citea numai `active`, deci
 unei familii respinse îi promitea aprobarea „de obicei în aceeași zi lucrătoare"; citește acum și
@@ -847,15 +911,30 @@ cont, nici coajă: emite un rând în `account_claims` și trimite la adresa din
 `account-claim`, cu un link spre `/auth/cont-familie`, iar formularul spune doar că școala are deja
 familia și că a plecat un link. Biroul poate trimite același link din pagina familiei
 (`POST /profiles/:id/account-claim`, cu `PROFILE_HAS_ACCOUNT`, `PROFILE_HAS_NO_EMAIL` și
-`PROFILE_ERASED`). `POST /auth/claim` (public, limitat ca `register`) creează contul **pe rândul
-biroului**, într-o tranzacție cu acceptările, confirmarea lor, anunțul către birou și urma în jurnal.
-Trei lucruri de ținut minte:
+`PROFILE_ERASED`). `POST /auth/claim` (public, limitat ca `register`) creează contul într-o
+tranzacție cu acceptările, confirmarea lor, anunțul către birou și urma în jurnal — **dar nu-l leagă
+încă de familie**. Patru lucruri de ținut minte:
 
-- **Ce dovedește linkul e cutia poștală, și ajunge.** Adresa unui profil fără cont e una pe care o
-  garantează biroul (`vouchedAddresses`), deci cine deschide linkul trimis acolo e familia. De aceea
-  contul se naște cu `emailConfirmedAt` pus: al doilea link ar dovedi același lucru.
-- **Contul rămâne `PENDING`.** Biroul știe familia, nu și că acest cont e al ei și nu al altcuiva
-  care citește aceeași cutie; aprobarea rămâne a școlii, ca pentru orice cont.
+- **Ce dovedește linkul e cutia poștală.** Adresa unui profil fără cont e una pe care o garantează
+  biroul (`vouchedAddresses`), deci contul se naște cu `emailConfirmedAt` pus: al doilea link ar
+  dovedi același lucru.
+- **Contul se leagă de familie la aprobare, nu la link** (revizuirea din 26 septembrie 2026). O cutie
+  poștală dovedită e a oricui o citește, iar o adresă tastată greșit de birou e a unui străin: legat
+  pe loc, străinul vedea copiii, facturile și catalogul familiei, descărca exportul și putea muta
+  adresa înainte să se uite cineva de la școală. Până la aprobare, singura legătură e
+  `AccountClaim.user` (`apps/api/src/modules/auth/claimant.ts`), iar `AccountApprovalService.approve`
+  scrie `profiles.user_id` sub lacătul familiei, după ce recitește adresa — `CLAIMED_FAMILY_CHANGED`
+  dacă biroul a corectat-o între timp, dacă familia are deja un cont legat sau dacă a fost ștearsă.
+  Cum orice citire a datelor unei familii merge pe `profiles.user_id`, contul nu vede nimic până
+  atunci, fără nicio verificare în plus pe rute. Portalul îi arată doar pagina de acasă, cu mesajul
+  de așteptare (`awaitingFamily` din `/auth/me`), iar poarta pasului doi nu se ridică: ar scrie o a
+  doua familie, pe care `POST /profiles` o refuză oricum (`ACCOUNT_AWAITS_FAMILY`). Coada din Aprobări
+  și pagina familiei spun ce familie cere contul.
+- **Pe o familie așteaptă un singur cont.** Cât așteaptă, biroul nu poate trimite alt link
+  (`PROFILE_HAS_PENDING_ACCOUNT`), iar formularul de înregistrare răspunde ca pentru orice adresă cu
+  cont. Unul respins nu mai oprește nimic: poate fi al unui străin, iar familia adevărată poate fi
+  încă fără cont. Contul care așteaptă pleacă odată cu familia la ștergere, apare în exportul ei, iar
+  linkul lui nu se șterge la termen cât e singura legătură.
 - **`register` nu scrie coajă aici**, dinadins: o a doua familie lângă rândul biroului ar rupe
   familia în două — copiii, facturile și contractul pe unul, contul pe celălalt —, iar adresa unică
   de pe profil ar refuza-o oricum.
@@ -866,7 +945,10 @@ emitere și recitită la folosire prin `sameAddress`, iar `CLAIM_TOKEN_INVALID` 
 pentru necunoscut, expirat, folosit și înlocuit. 48 de ore, ca la confirmare, nu o oră ca la
 resetare: linkul pleacă des din inițiativa biroului, iar ce deschide e un cont care încă așteaptă
 aprobarea. Se șterge la termenul celorlalte linkuri (`removeExpiredLinks`) și apare în exportul
-familiei.
+familiei. **Formularul de înregistrare trimite cel mult un link la zece minute**
+(`REGISTER_FORM_RESEND_MS`): oricine poate tasta adresa unei familii, iar fiecare apăsare înlocuia
+linkul și trimitea încă un mail. În pauză nu pleacă nimic, iar linkul din inbox merge mai departe;
+verificarea se face sub lacătul familiei. Butonul biroului nu așteaptă — cine apasă a hotărât.
 
 **O cutie poștală e a unei singure familii, oricum ar fi scrisă.** Înregistrarea și
 `forgot-password` caută adresa după `lower(email)`, dar cele două editări de profil comparau exact,
@@ -970,9 +1052,19 @@ submit concurent poate să fi scris o parte primul. Cheia e `legal-acceptance:<c
 rândurilor>`, deci al doilea clic, care n-a scris nimic, nu confirmă nimic. La înregistrare mesajul
 **nu** trece prin poarta adresei confirmate — adresa e nedovedită prin definiție atunci, iar legat de
 ea singurul mesaj promis ar ajunge `undeliverable`. Evidența se recitește din Profil, prin
-`GET /auth/documents`. Textul unei versiuni înlocuite nu se servește încă nicăieri: azi fiecare
-document are o singură versiune, iar la prima schimbare de după publicare trebuie păstrat înainte —
-procedura din `legal-documents.ts` îl numește.
+`GET /auth/documents`.
+
+**O versiune publicată nu se schimbă și nu dispare** (termenii §4.7, 27 septembrie 2026). Textul
+unei versiuni înlocuite stă neschimbat în `docs/legal/versiuni/<document>/<versiune>.md` și se
+citește la `/versiuni/<document>/<versiune>` (`noindex`, în afara sitemap-ului), iar Profilul trimite
+acolo din fiecare acceptare — și din fiecare acord pentru lucrări — dat pe o versiune de atunci
+încoace înlocuită. Lista versiunilor publicate e `PUBLISHED_VERSIONS` din `apps/web/shared/legal.ts`,
+fiecare cu amprenta textului, iar `legal-versions.spec.ts` face din procedură o poartă: un text care
+nu mai e ciornă (fără „nepublicată", fără `[[…]]`) trebuie trecut în listă; unul trecut nu se mai
+schimbă sub același număr — amprenta e a textului citit, deci o reformatare a Markdown-ului trece,
+un cuvânt schimbat nu —; iar unul înlocuit trebuie păstrat înainte. Arhiva e goală cât timp textele
+sunt ciorne, dinadins: o ciornă servită pe site ar avea placeholder-ele în ea. Ajunge în funcția de
+pe Vercel ca modulul virtual `#legal-archive`, pe care `nuxt.config.ts` îl scrie la build din dosar.
 
 Protecția se compune per-handler, nu global:
 
@@ -1136,7 +1228,10 @@ active" numește fiecare sesiune după browser și sistem (`deviceLabel`), o mar
 browser și are „Deconectează-te de pe toate dispozitivele", cu a doua apăsare de confirmare, după
 care golește și tokenurile locale. „Sesiunea aceasta" o spune serverul: `POST /auth/sessions`
 primește refresh tokenul în corp — niciodată în adresă — și îl compară, după hash, doar cu
-sesiunile celui care întreabă.
+sesiunile celui care întreabă. **O sesiune se închide și singură** (termenii §4.5):
+`DELETE /auth/sessions/:id` revocă tot lanțul de rotație al acelei sesiuni — rândul din listă e doar
+ultima verigă — numai printre rândurile celui care întreabă, ținând rândul contului exclusiv, ca
+măturarea de la „toate dispozitivele".
 
 State-ul e în Pinia stores (`stores/`), tipurile în `types/`, câte un fișier per domeniu.
 
@@ -1321,6 +1416,9 @@ editorul de șabloane previzualizează exact ce e în casete, deci un subiect ș
 clienților de mail arată HTML-ul, deci textul nou lângă HTML-ul vechi trimitea vorbele vechi.
 `MailTemplateService.save` îl refă din text (`htmlFromText`, în rama școlii) când textul s-a schimbat
 și HTML-ul a rămas cum era; HTML-ul scris de școală și un șablon doar-text rămân cum au venit.
+Redesenul spune exact ce spune textul: linkurile rămân linkuri, iar încheierea e a textului — rama
+își pune semnătura doar când textul se termină cu cea obișnuită, altfel mesajul ieșea semnat de
+două ori.
 
 **`@IsPhoneNumber()` fără regiune cere format internațional.** Numerele se scriu `0712345678` în
 România, deci decoratorul e `@IsPhoneNumber('RO')`, care acceptă și `+40712345678`. **Forma stocată o
@@ -1422,6 +1520,16 @@ trimis tu. `ofetch` pune tot corpul ăla pe `error.data` — deci mesajul tău �
 „Contact form not configured" în loc de textul românesc, exact pe ramura care se declanșează când
 `RESEND_API_KEY` lipsește la primul deploy. Vezi `apps/web/app/pages/contact.vue`.
 
+**Un modul din `apps/web/server/utils/` nu importă Markdown** (27 septembrie 2026). Nitro scanează
+dosarul pentru auto-importuri, iar un fișier de acolo cu `import … from "….md"` a schimbat felul în
+care se împachetează serverul: cititorul de fișiere statice și-a pierdut rescrierea lui
+`import.meta.url`, a căutat `.output/public` cu un director prea adânc, și **fiecare script din
+`/_nuxt/` al build-ului a răspuns 500** — paginile se randau pe server și nu se hidratau niciodată.
+`nuxt dev` merge perfect, deci se vede doar pe build: a prins-o poarta de accesibilitate din CI, care
+așteaptă hidratarea. Documentele juridice se importă de aceea din `server/legal-sources.ts`, lângă
+dosar, nu din el. Dacă un build nou se randează și nu reacționează la clicuri, cere un `/_nuxt/*.js`
+de pe el înainte de orice altceva.
+
 **Formularul de contact trimite dintr-o rută Nitro, nu din browser.** `RESEND_API_KEY` stă în
 `runtimeConfig`, în afara lui `public`, deci Nuxt nu îl scrie niciodată în bundle-ul clientului;
 singurul lucru care îl vede e `apps/web/server/api/contact.post.ts`. Nu-l muta în `public` și nu
@@ -1486,6 +1594,21 @@ prin URL semnat cu `Content-Disposition: attachment`, fiindcă vin de pe o parta
 scrie orice mașină din școală. Miniatura e altceva: octeții ei au fost produși de `sharp` pe server,
 deci un poliglot valid și ca imagine și ca altceva n-a supraviețuit reîncodării. Are `nosniff`
 oricum. Nu extinde excepția la altceva.
+
+**Fiecare răspuns al API-ului poartă antetele de securitate, iar implicit nu se păstrează în cache**
+(27 septembrie 2026). `SecurityHeadersMiddleware` (`apps/api/src/common/security-headers.middleware.ts`)
+pune HSTS pe un an (fără `includeSubDomains`: API-ul nu vorbește pentru celelalte host-uri ale
+școlii), `nosniff`, interdicția de încadrare și `Referrer-Policy: no-referrer`, și scoate
+`X-Powered-By: Express`. Stă în cod, nu în Caddy, fiindcă configurația proxy-ului nu e în repo, iar un
+antet pe care nu-l poate citi nimeni la review e unul despre care nu observă nimeni că lipsește.
+`Cache-Control: no-store` e implicitul — facturile unei familii citite pe calculatorul comun al
+biroului n-au ce căuta în cache-ul lui —, iar un handler care vrea cache îl cere cu `@Header`, cum
+face miniatura (`private, max-age=3600`); al lui îl înlocuiește pe cel implicit. **Site-ul își pune
+antetele singur**, din `routeRules` în `nuxt.config.ts` — `nosniff`, `frame-ancestors 'none'`,
+`Referrer-Policy` și, din aceeași zi, HSTS pe doi ani, fără `includeSubDomains` —, fiindcă „Vercel îl
+pune implicit" era o presupunere pe care n-o verificase nimeni. Aceeași regulă ajunge și în
+configurația de deploy a Vercel — `.vercel/output/config.json`, citit o dată după un build cu
+`NITRO_PRESET=vercel`.
 
 **`outbox.attachments` ține chei, nu octeți.** Obiectul se citește din bucket în secunda în care
 mesajul e predat furnizorului. Base64 în coloană ar îngrășa fiecare interogare de revendicare pentru
@@ -1571,7 +1694,16 @@ altfel prima reîmprospătare, după un sfert de oră, ar anula bifa. Trei lucru
 Cele două numere — `REFRESH_TOKEN_MAX_AGE_SECONDS` din `apps/web/app/stores/tokenStore.ts` și
 `JWT_REFRESH_TOKEN_EXPIRATION` — se mută împreună: browserul nu vede mediul API-ului, iar `useCookie`
 fixează `maxAge` când se creează ref-ul, deci valoarea nu poate fi citită nici de pe token. Politica
-de cookie-uri (§2) nu numește încă `refreshTokenKept`: e textul juridic, și se schimbă pe drumul lui.
+de cookie-uri (§2) le numește pe amândouă, din versiunea 0.3.
+
+**Un `useCookie` cu `default` scrie cookie-ul la prima citire** (Nuxt 4.5,
+`shouldSetInitialClientCookie`), nu la prima alegere. Așa ajungeau `portalChild` și
+`selectedLocation` în browserul oricui intra în portal, deși politica de cookie-uri spune că apar
+abia după ce alegi un copil sau o locație (testarea din 26 septembrie 2026). O preferință se
+declară **fără** `default` și se citește cu `?? implicit`; se revine la implicit scriind
+`undefined`, care șterge cookie-ul. Tot de aici: `UDashboardGroup` ține starea barei laterale în
+`localStorage` (`storage="local"`, cheia `dashboard-sidebar-admin`) — implicitul lui Nuxt UI era un
+al șaselea cookie, nelistat.
 
 **Nimic din datele utilizatorului nu se ține în cookie.** Limita e ~4 KB per cookie, iar depășirea
 nu produce nicio eroare: browserul aruncă tăcut, `useCookie` citește mai departe o valoare goală și
@@ -1600,8 +1732,9 @@ neclasificat. Trei lucruri care se ratează:
   e un număr în abstract, e ce datorează familia aia. „N-are niciun nume în el" nu e un motiv.
 - **`linkedVia` e drumul de la rând la familie**, iar testul îl parcurge relație cu relație și cere
   să se termine la `Profile`. E coloana pe care o citește E07 S4: un export trebuie să găsească
-  fiecare rând despre o familie, deci un drum inventat e o gaură pe care nimic n-o semnalează. Trei
-  tabele n-au drum, dinadins, și scrie de ce la fiecare.
+  fiecare rând despre o familie, deci un drum inventat e o gaură pe care nimic n-o semnalează. Două
+  tabele n-au drum, dinadins, și scrie de ce la fiecare; `outbox` a fost a treia până la legătura
+  către familie.
 - **Documentul se randează, nu se editează**: `pnpm --filter api inventory:render` scrie
   `docs/inventar-date.md`, iar același spec pică dacă a rămas în urmă. Fișierul e în
   `.prettierignore` fiindcă prettier v3 își încarcă parserul de markdown prin `import()` dinamic, pe
@@ -1761,6 +1894,26 @@ acum `paid` și `outstanding`, atașate de `ArrearsService.withBalances` din ace
 reușite și aceeași scădere (`outstandingOf`) ca lista de restanțe — nu o a doua definiție. În web,
 `leftToPay` citește `outstanding`; un ecran nou care arată cât datorează o familie îl folosește pe el,
 nu `amount`.
+
+**Factura lunii e anunțată familiei pe email, o dată, când există pentru ea** (termenii §11.2 și
+§13; revizuirea din 26 septembrie 2026). Termenii promiteau „ești anunțat pe email când apare", iar
+nimic nu trimitea mesajul: seed-ul avea chiar un exemplu în jurnalul de livrări, deci primul lucru pe
+care îl auzea o familie despre factură era mementoul de dinaintea scadenței. `InvoiceAnnouncementService`
+scrie șablonul `invoice-issued`, cu cheia `invoice-issued:<id>`. **Când „există" depinde de cine face
+documentul**: în `off` și `draft` e al platformei, deci mesajul pleacă în tranzacția emiterii; în
+`live` e al SmartBill, iar până are număr n-are nici referință de transfer, nici PDF — mesajul pleacă
+când se înregistrează numărul, din coadă sau din confirmarea de mână. O lună de zero lei nu primește
+mesaj: rândul e pentru evidența școlii, iar „nimic de plată" într-un inbox pare o greșeală.
+
+**Datele firmei și contul pentru transfer sunt setări, nu cod** (`SCHOOL_*`, citite de
+`invoice/school-identity.ts`; termenii §11.3). Pagina de plăți din portal (`GET
+/invoices/payment-details`), emailul facturii și PDF-ul platformei le citesc toate de acolo; nesetate,
+familia e trimisă la birou, niciodată la un cont inventat. **IBAN-ul se verifică la pornire, cifră cu
+cifră** (ISO 13616, `ibanProblem`), iar un IBAN fără `SCHOOL_LEGAL_NAME` e refuzat tot atunci: e
+singurul număr către care familiile trimit bani, iar următorul loc în care s-ar vedea o greșeală e
+banca unei familii. În `live`, documentul SmartBill ia datele firmei din contul SmartBill. **Reducerile
+familiei se văd tot pe pagina de plăți** (§11.4), prin `GET /discounts/family`, restrâns pe cont ca
+orice citire a unui părinte, fără `description` — nota biroului.
 
 **Încasarea se începe de la factură, iar suma precompletată e restul, nu totalul** (E16 S5).
 `/admin/restante` și `/admin/payments/new` deschid amândouă `AdminPaymentModal`, care se completează
@@ -1990,6 +2143,16 @@ revendică niciodată, fiindcă niciun backoff nu face să apară o adresă. Nu 
 `if (profile.email)` înainte de coadă: exact aia punea faptul într-un log pe care nu-l citește
 nimeni, iar „părintele n-a fost anunțat" arăta ca o coadă blocată. Adresa rămâne goală pe rândul
 nelivrabil — una inventată n-ar putea fi deosebită de una reală care a respins mesajul.
+
+**Și rândul spune familia căreia i s-a scris** (27 septembrie 2026). Fără adresă, `/admin/livrari`
+putea scrie doar „fără destinatar" — biroului care tocmai avea nevoie să știe pe cine sună, adică
+familiile tastate de el fără email, pentru care fiecare oră anulată și fiecare factură lasă un astfel
+de rând. `OutboxMessage.profile` (`profileId` în `QueuedMessage`) e familia **destinatară**,
+niciodată cea despre care e mesajul: notificările către birou, inclusiv cele despre o familie, rămân
+fără legătură, fiindcă sunt copia școlii, iar ștergerea familiei n-are voie să le ia. Un nume copiat
+pe rând n-ar fi mers: ar fi supraviețuit ștergerii. Ecranul leagă familia și o caută după nume, iar
+`messagesOfFamily` găsește rândurile după legătură **și** după adresa garantată — a doua rămâne
+pentru rândurile de dinainte. Dacă adaugi un expeditor către o familie, dă-i `profileId`.
 
 **Iar „n-a ajuns" are trei feluri, nu unul — și tabloul de bord le numără pe toate.**
 `DeliveryLogService.health` (`apps/api/src/modules/mail/delivery-log.service.ts`) e proprietarul
@@ -2394,6 +2557,8 @@ emitere. Trei lucruri de ținut minte:
 - **Tot ce se tipărește vine din rând**, fiindcă desenul poate veni la săptămâni după emitere: data e
   `dateIssued`, niciodată `new Date()` — vechiul PDF tipărea ziua desenării —, iar scadența vine din
   `dueDateFor`, aceeași din care numără restanțele.
+- **Pe document stau furnizorul și familia ca pe documentul SmartBill**: firma din setări (`SCHOOL_*`,
+  cu IBAN-ul), iar familia cu numele și adresa, fără email — `supplierLines` din `pdf.service.ts`.
 - **O editare a sumei sau a datei aruncă desenul păstrat, iar ștergerea îl ia cu ea**, după commit și
   fără ca un eșec de stocare să strice ceva: rândul e evidența, PDF-ul doar un desen al lui.
 - **Reducerile se citesc la desenare, și e sigur fiindcă o reducere pe o lună facturată e
@@ -2497,7 +2662,11 @@ mașină, PM2 pentru proces și **Caddy** pentru TLS și proxy invers către `12
 `main.ts` ascultă pe IPv4, iar numele se rezolvă întâi la `::1`). `api.itbridgeschool.com` n-are
 nimic în spate, deliberat: `release/prod` poartă API-ul de dinainte de E08 — zece module față de
 nouăsprezece — deci un deploy de acolo n-ar fi o lansare timpurie a platformei ăsteia, ci a alteia,
-mult mai vechi. `deploy.yml` refuză branch-ul pe nume.
+mult mai vechi. `deploy.yml` ascultă și de `release/prod`, dar deploy-ul de acolo **așteaptă
+variabila de repository `PROD_API_DEPLOY=enabled`** și instanța din `EC2_INSTANCE_ID_PROD` (fără ea
+pică, nu cade pe instanța stage-ului) — iar până trece platforma pe `release/prod`, acolo rulează
+fișierul vechi, care nu ascultă deloc. Pașii lansării, cu toate conturile de adus, sunt în
+[docs/lansare-platforma.md](docs/lansare-platforma.md).
 
 **Un push pe `release/stage` e un deploy.** `.github/workflows/deploy.yml` cheamă `ci.yml` prin
 `workflow_call` — verificările și deploy-ul sunt o singură rulare în Actions, deci deploy-ul nu poate
