@@ -96,7 +96,7 @@ export class LeadService {
     async undecidedTrials(now: Date = new Date()): Promise<{ lead: LeadSummary; days: number }[]> {
         const leads = await this.leadRepository.find({
             where: { status: LeadStatus.TRIAL_HELD },
-            relations: { group: true, assignedTo: true, trialSession: true },
+            relations: SUMMARY_RELATIONS,
             order: { trialHeldAt: 'ASC' },
         });
         return leads.map((lead) => ({ lead: toSummary(lead), days: daysSince(lead.trialHeldAt ?? lead.lastActivityAt, now) }));
@@ -213,7 +213,7 @@ export class LeadService {
     async followUp(now: Date = new Date()): Promise<LeadFollowUp> {
         const open = await this.leadRepository.find({
             where: { status: Not(In([...SETTLED_LEAD_STATUSES])) },
-            relations: { assignedTo: true, group: true },
+            relations: SUMMARY_RELATIONS,
             order: { lastActivityAt: 'ASC' },
         });
 
@@ -222,15 +222,24 @@ export class LeadService {
         // 01:00 Bucharest time, and one due yesterday quietly stays due for an extra hour.
         const today = schoolDay(now);
 
+        const undecided = open
+            .filter((lead) => lead.status === LeadStatus.TRIAL_HELD)
+            .map((lead) => ({ lead: toSummary(lead), days: daysSince(lead.trialHeldAt ?? lead.lastActivityAt, now) }));
+        const noSeats = open.filter((lead) => lead.noSeats).map(withDays);
+        const stale = open
+            .filter((lead) => lead.status !== LeadStatus.TRIAL_HELD && !lead.noSeats && daysSince(lead.lastActivityAt, now) >= STALE_LEAD_DAYS)
+            .map(withDays);
+        const due = open.filter((lead) => lead.nextActionAt !== null && toDateKey(lead.nextActionAt) <= today).map(withDays);
+
         return {
-            undecided: open
-                .filter((lead) => lead.status === LeadStatus.TRIAL_HELD)
-                .map((lead) => ({ lead: toSummary(lead), days: daysSince(lead.trialHeldAt ?? lead.lastActivityAt, now) })),
-            noSeats: open.filter((lead) => lead.noSeats).map(withDays),
-            stale: open
-                .filter((lead) => lead.status !== LeadStatus.TRIAL_HELD && !lead.noSeats && daysSince(lead.lastActivityAt, now) >= STALE_LEAD_DAYS)
-                .map(withDays),
-            due: open.filter((lead) => lead.nextActionAt !== null && toDateKey(lead.nextActionAt) <= today).map(withDays),
+            undecided,
+            noSeats,
+            stale,
+            due,
+            // Leads, not list entries: one family on two lists is one call. Counted here, once, so the
+            // dashboard tile and the leads screen say the same number — the tile used to count it on
+            // its own and the screen not at all (QA of 27 September 2026).
+            toCall: new Set([...undecided, ...noSeats, ...stale, ...due].map((row) => row.lead.id)).size,
             unassigned: open.filter((lead) => lead.assignedTo === null).length,
         };
     }
@@ -298,8 +307,20 @@ export interface LeadFollowUp {
     undecided: LeadWithAge[];
     noSeats: LeadWithAge[];
     due: LeadWithAge[];
+    /** Leads on any of the four lists, each counted once: the calls to make. */
+    toCall: number;
     unassigned: number;
 }
+
+/**
+ * What `toSummary` reads beyond the row, for the lists that load leads with `find`.
+ *
+ * The screen opens one file from four places — the table and the three follow-up cards — and the
+ * file shows whatever it was handed. The follow-up lists loaded fewer relations than the table, so
+ * the same request read "Fără preferință" and "Neprogramată" from a card and its location and trial
+ * from the table (QA of 27 September 2026). A list that feeds `toSummary` loads these.
+ */
+const SUMMARY_RELATIONS = { location: true, group: true, trialSession: true, assignedTo: true } as const;
 
 export function toSummary(lead: Lead): LeadSummary {
     return {

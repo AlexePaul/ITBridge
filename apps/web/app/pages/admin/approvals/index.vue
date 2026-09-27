@@ -200,7 +200,7 @@
 </template>
 
 <script setup lang="ts">
-import { countOf } from "~/composables/useRomanianCount";
+import { daysAgoLabel } from "~/composables/useRomanianCount";
 import { onMounted, ref } from "vue";
 import { useUserApi } from "~/composables/api/useUserApi";
 import { useNotifications } from "~/composables/useNotifications";
@@ -268,7 +268,7 @@ const onReactivate = async (account: SuspendedAccount) => {
   try {
     await reactivateAccount(account.userId);
     suspended.value = suspended.value.filter((row) => row.userId !== account.userId);
-    success("Suspendarea a fost ridicată", `${fullName(account)} a fost anunțat prin email.`);
+    success("Suspendarea a fost ridicată", `Am anunțat prin email: ${fullName(account)}.`);
   } catch (err) {
     notifyError("Nu am putut ridica suspendarea", apiErrorMessage(err));
   } finally {
@@ -281,7 +281,7 @@ const onApproveRejected = async (account: RejectedAccount) => {
   try {
     await approveAccount(account.userId);
     rejected.value = rejected.value.filter((row) => row.userId !== account.userId);
-    success("Cont aprobat", `${fullName(account)} a fost anunțat prin email.`);
+    success("Cont aprobat", `Am anunțat prin email: ${fullName(account)}.`);
   } catch (err) {
     notifyError("Nu am putut aproba contul", apiErrorMessage(err));
   } finally {
@@ -303,10 +303,7 @@ const fullName = (account: PendingAccount) =>
 const registeredAgo = (createdAt: string) => {
   // Calendar days, not blocks of 24 hours — E17/S8's rule, and the one „ieri" means: an account
   // opened yesterday at 18:00 and read at 09:00 has been waiting a day, not none.
-  const days = daysSince(createdAt);
-  if (days <= 0) return "azi";
-  if (days === 1) return "ieri";
-  return `acum ${countOf(days, "zi", "zile")}`;
+  return daysAgoLabel(daysSince(createdAt));
 };
 
 const load = async () => {
@@ -329,7 +326,7 @@ const onApprove = async (account: PendingAccount) => {
     // Removed locally rather than by refetching: the row is gone from the queue by definition, and
     // a reload would make the list flicker for every approval in a batch.
     accounts.value = accounts.value.filter((row) => row.userId !== account.userId);
-    success("Cont aprobat", `${fullName(account)} a fost anunțat prin email.`);
+    success("Cont aprobat", `Am anunțat prin email: ${fullName(account)}.`);
   } catch (err) {
     notifyError("Nu am putut aproba contul", apiErrorMessage(err));
   } finally {

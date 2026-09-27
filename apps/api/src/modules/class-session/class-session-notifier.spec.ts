@@ -21,10 +21,12 @@ describe('ClassSessionNotifier', () => {
     let outbox: { queueOrRecord: jest.Mock };
     let templates: { render: jest.Mock };
 
-    const ana = { id: 11, firstName: 'Ana', email: 'ana@example.com' };
-    const bogdan = { id: 12, firstName: 'Bogdan', email: 'bogdan@example.com' };
+    // Families with an account to sign in with: the portal link is for them (QA of 27 September
+    // 2026 — a family the office typed in, with an address and no account, gets the contact page).
+    const ana = { id: 11, firstName: 'Ana', email: 'ana@example.com', user: { id: 111 } };
+    const bogdan = { id: 12, firstName: 'Bogdan', email: 'bogdan@example.com', user: { id: 112 } };
     /** A parent from another group, whose child booked a make-up into this class. */
-    const carmen = { id: 13, firstName: 'Carmen', email: 'carmen@example.com' };
+    const carmen = { id: 13, firstName: 'Carmen', email: 'carmen@example.com', user: { id: 113 } };
 
     const session = {
         id: 3,
@@ -201,6 +203,17 @@ describe('ClassSessionNotifier', () => {
             const mail = templates.render.mock.calls[0][1] as Record<string, string>;
             expect(mail.portalUrl).toMatch(/\/auth\/login$/);
             expect(mail.portalNote).toBe('Restul orelor rămân neschimbate, iar orarul actualizat e mereu în portal:');
+        });
+
+        it('sends a family the office typed in, with an address and no account, to the contact page', async () => {
+            const typedIn = { id: 22, firstName: 'Cristina', email: 'cristina@example.com', user: null };
+            sessionRepo.findOne!.mockResolvedValue({ ...session, group: { ...session.group, children: [{ id: 11, parent: typedIn }] } });
+
+            await notifier.notifyCancelled(3, 'Profesor bolnav', asManager());
+
+            const mail = templates.render.mock.calls[0][1] as Record<string, string>;
+            expect(mail.portalUrl).toMatch(/\/contact$/);
+            expect(mail.portalNote).not.toContain('portal');
         });
 
         // QA of 26 September 2026: the sentence followed the address, not the enrolment, so a

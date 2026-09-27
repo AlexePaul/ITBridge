@@ -9,7 +9,10 @@ import type { PaymentStatus } from './payment';
 /** Waiting for a person, recorded as a payment, or set aside as not a family paying. */
 export type StatementLineState = 'waiting' | 'matched' | 'ignored';
 
-/** By the invoice's fiscal reference in the details (sure), or by the payer's name and the exact sum (a proposal). */
+/**
+ * By the invoice's payment reference in the details — the words its email asked the family to write
+ * (sure) — or by the payer's name and the exact sum (a proposal).
+ */
 export type MatchConfidence = 'reference' | 'name';
 
 /** Why a statement row was not read. The screen says it in Romanian; the wire carries the code. */
@@ -43,8 +46,8 @@ export interface StatementLineSuggestion {
     overpays: boolean;
     familyName: string;
     monthIssued: string;
-    fiscalSeries: string | null;
-    fiscalNumber: string | null;
+    /** What the family was asked to write on the transfer — `Invoice.paymentReference`. */
+    paymentReference: string | null;
     outstanding: number;
 }
 

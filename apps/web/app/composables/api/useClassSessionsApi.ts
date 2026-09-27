@@ -2,6 +2,7 @@ import { useApi } from "./useApi";
 import { useClassSessionStore } from "~/stores/classSessionStore";
 import { useTokenStore } from "~/stores/tokenStore";
 import type {
+  ClassSession,
   ClassSessionStatus,
   ClassSessionWithAttendance,
   GenerateClassSessionsResult,
@@ -252,6 +253,17 @@ export const useClassSessionsApi = () => {
       body: payload,
     });
 
+  /**
+   * The classes in an interval that nobody took the register for — the list behind the dashboard's
+   * „Cataloage nefăcute". Both ends inclusive; cancelled classes are never in it.
+   */
+  const fetchUnmarkedSessions = async (range: { dateFrom: string; dateTo: string }) =>
+    api<ClassSession[]>("/class-sessions/unmarked", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenStore.accessToken}` },
+      query: range,
+    });
+
   /** Removes a period. The sessions it cancelled stay cancelled — the API is explicit about that. */
   const deleteNonTeachingPeriod = async (id: EntityId) =>
     api<{ message: string }>(`/class-sessions/non-teaching/${id}`, {
@@ -261,6 +273,7 @@ export const useClassSessionsApi = () => {
 
   return {
     fetchSessions,
+    fetchUnmarkedSessions,
     fetchGroupSessions,
     generateSessions,
     cancelSession,

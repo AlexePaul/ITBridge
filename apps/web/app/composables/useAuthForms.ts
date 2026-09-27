@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { apiErrorCode, apiErrorMessage } from "~/composables/useApiError";
 
 /**
  * The shortest new password the platform takes — the server's `MIN_PASSWORD_LENGTH`, enforced the
@@ -66,3 +67,48 @@ export const claimSchema = registrationSchema.pick({
   acceptedTerms: true,
   acceptedUnusualClauses: true,
 });
+
+export type PasswordChangeField = "currentPassword" | "newPassword" | "newPasswordConfirmation";
+
+/**
+ * „Schimbă parola" in the portal, checked where the reader is looking: under the field — QA of
+ * 27 September 2026. The errors came only as toasts, and an empty form answered „Parola e prea
+ * scurtă" about a password nobody had typed, while the empty current password went unmentioned.
+ *
+ * The repetition is judged only once the new password itself is acceptable: a mismatch between
+ * two passwords the form is about to refuse anyway is a second message about the same fix.
+ */
+export function passwordChangeProblems(form: {
+  currentPassword: string;
+  newPassword: string;
+  newPasswordConfirmation: string;
+}): Partial<Record<PasswordChangeField, string>> {
+  const problems: Partial<Record<PasswordChangeField, string>> = {};
+  if (!form.currentPassword) problems.currentPassword = "Scrie parola actuală.";
+  if (!form.newPassword) {
+    problems.newPassword = `Alege o parolă nouă, de cel puțin ${MIN_PASSWORD_LENGTH} caractere.`;
+  } else if (form.newPassword.length < MIN_PASSWORD_LENGTH) {
+    problems.newPassword = `Parola nouă e prea scurtă: alege cel puțin ${MIN_PASSWORD_LENGTH} caractere.`;
+  } else if (form.newPassword !== form.newPasswordConfirmation) {
+    problems.newPasswordConfirmation =
+      "Parolele nu sunt identice. Repetă parola nouă exact ca mai sus.";
+  }
+  return problems;
+}
+
+/**
+ * A refusal of the server that belongs under one field, or `null` for a failure that belongs to
+ * nobody's field — the server down, too many attempts, a lost connection — which stays a toast.
+ * The server's sentence is Romanian either way: `CURRENT_PASSWORD_WRONG` for the current password,
+ * and the new password's length rule as the validation detail.
+ */
+export function passwordChangeRefusal(
+  err: unknown
+): { field: PasswordChangeField; message: string } | null {
+  const code = apiErrorCode(err);
+  if (code === "CURRENT_PASSWORD_WRONG") {
+    return { field: "currentPassword", message: apiErrorMessage(err) };
+  }
+  if (code === "VALIDATION_FAILED") return { field: "newPassword", message: apiErrorMessage(err) };
+  return null;
+}

@@ -88,7 +88,7 @@
               <div>
                 <UInput
                   v-model="searchQuery"
-                  placeholder="Cauta copil dupa nume sau ID..."
+                  placeholder="Caută copilul după nume sau ID…"
                   icon="i-lucide-search"
                   color="primary"
                   class="w-full"

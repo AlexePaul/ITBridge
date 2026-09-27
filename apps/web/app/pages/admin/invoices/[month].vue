@@ -1,6 +1,6 @@
 <template>
   <AdminPage
-    :title="`Facturi — ${month}`"
+    :title="`Facturi — ${formatMonth(month)}`"
     :subtitle="`Toate facturile emise în luna ${formatMonth(month)}`"
     back-to="/admin/invoices"
     width="xl"

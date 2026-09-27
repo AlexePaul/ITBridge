@@ -45,3 +45,16 @@ export function calendarToDateKey(value: DateValue | null | undefined): string |
   if (!value) return undefined;
   return toDateKey(value);
 }
+
+/**
+ * Whether a value from the segments is a day somebody means, rather than a year still being typed.
+ *
+ * reka's field emits after every keystroke once all three segments hold something, so typing 2026
+ * into the year sends years 2, 20 and 202 first. A screen that acts on each value navigated to
+ * `?zi=0202-09-27` and put the API's English refusal on the phone of a teacher who was only
+ * typing (QA of 27 September 2026). No date this school has any use for is before year 1000, so
+ * a shorter year is a year in progress, and the field keeps its last whole value until it is done.
+ */
+export function isWholeDate(value: DateValue | null | undefined): boolean {
+  return !value || value.year >= 1000;
+}

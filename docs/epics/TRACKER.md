@@ -3,9 +3,22 @@
 Starea fiecărui story, la zi. Sursa e antetul și notele de livrare din fiecare epic; aici sunt doar
 adunate într-un loc.
 
-**Ultima actualizare:** 25 septembrie 2026, pe `release/stage`. **E07 S2, acordul pentru lucrările
-copiilor**, ultimul story neînceput din E07 care era cod: un părinte cu doi copii poate da voie
-pentru unul și nu pentru celălalt, din „Profil", iar biroul poate consemna un acord semnat pe
+**Ultima actualizare:** 27 septembrie 2026, pe `release/stage`. **Pregătirea testării integrale de
+săptămâna viitoare.** Un bug se găsește și se repară de mână: fiecare eroare de server și fiecare
+ecran care se strică în browser lasă un rând pe `/admin/erori`, cu codul pe care îl vede cine a
+întâlnit-o (E06 S1, în formă restrânsă); [`runbook.md`](../runbook.md) duce de la cod la fișier și de
+la incident la reparație (E06 S5); [`harta-ecranelor.md`](../harta-ecranelor.md) spune, pentru fiecare
+adresă, fișierul paginii și ce serviciu răspunde la fiecare cerere a ei; iar
+[`plan-de-testare.md`](../plan-de-testare.md) e testarea însăși, rol cu rol. Planul a fost parcurs o
+dată, în trei browsere, pe copii izolate ale platformei: 70 de puncte, niciun blocaj, iar ce s-a găsit
+s-a reparat în aceeași zi — pagina unei familii fără copii n-avea buton de adăugat unul, iconița „fără
+rețea" de pe telefonul profesorului nu apărea tocmai fără rețea, o dată tastată cifră cu cifră ducea
+pagina în anul 0202, erorile dintr-o fereastră modală apăreau sub ea, formularele cereau două apăsări
+după o eroare, familiile trecute de birou primeau linkul de autentificare într-un portal în care n-au
+cont, iar fișa unei cereri deschisă din cardurile de urmărit își pierdea locația și proba. Plus seed-ul:
+fiecare stare de cont are acum contul ei, iar o probă ținută e o probă întreagă. Pe 25 septembrie,
+**E07 S2, acordul pentru lucrările copiilor**, ultimul story neînceput din E07 care era cod: un
+părinte cu doi copii poate da voie pentru unul și nu pentru celălalt, din „Profil", iar biroul poate consemna un acord semnat pe
 hârtie; `/admin/acorduri` e lista copiilor ale căror lucrări se pot folosi azi, cu linia gata de pus
 lângă lucrare. Retragerea anunță biroul în aceeași tranzacție, fiindcă site-ul nu citește din
 platformă și ce e publicat se scoate de mână. Înainte, **termenii §4.7 au devenit adevărați

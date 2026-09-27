@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EntityManager } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { Invoice } from 'src/entities/invoice.entity';
 import { Profile } from 'src/entities/profile.entity';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
@@ -7,14 +7,17 @@ import { OutboxService } from 'src/modules/mail/outbox.service';
 import { officeAddress } from 'src/modules/mail/office-address';
 import { paymentsUrl } from 'src/modules/auth/portal-urls';
 import { toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { smartBillMode } from 'src/modules/smartbill/smartbill.config';
 import { dueDateFor } from './arrears.rules';
 import { formatLeiRo, romanianDay, romanianMonth } from './money-words';
+import { paymentReference } from './payment-reference';
 import { paymentInstructions, transferDetails } from './school-identity';
+import { familyHasAccount, familyLink } from 'src/modules/mail/portal-line';
 
 /** One email per invoice, ever: the key carries nothing but the id, as a receipt's does. */
 export const INVOICE_ISSUED_DEDUPE_PREFIX = 'invoice-issued:';
 
-export type AnnouncedInvoice = Pick<Invoice, 'id' | 'amount' | 'monthIssued' | 'dateIssued' | 'fiscalSeries' | 'fiscalNumber'> & {
+export type AnnouncedInvoice = Pick<Invoice, 'id' | 'amount' | 'monthIssued' | 'dateIssued' | 'fiscalSeries' | 'fiscalNumber' | 'fiscalStatus'> & {
     parent: Pick<Profile, 'id' | 'firstName' | 'email'>;
 };
 
@@ -42,23 +45,30 @@ export class InvoiceAnnouncementService {
     constructor(
         private readonly mailTemplates: MailTemplateService,
         private readonly outbox: OutboxService,
+        private readonly dataSource: DataSource,
     ) {}
 
     async announce(invoice: AnnouncedInvoice, manager?: EntityManager): Promise<void> {
         if (invoice.amount <= 0) return;
 
-        // The reference a transfer is matched by: the fiscal number when SmartBill gave one — what the
-        // statement import proposes on — and the platform's own number otherwise, as the PDF prints it.
-        const reference =
-            invoice.fiscalSeries && invoice.fiscalNumber ? `factura ${invoice.fiscalSeries} ${invoice.fiscalNumber}` : `factura nr. ${invoice.id}`;
+        // The reference a transfer is matched by, from the one function the statement import and the
+        // portal read too: the fiscal number when SmartBill gave one, the platform's own number while
+        // its PDF is the invoice. Never absent here in practice — `live` announces once the number is in.
+        const reference = paymentReference(invoice, smartBillMode());
 
         const mail = await this.mailTemplates.render('invoice-issued', {
             firstName: invoice.parent.firstName ?? '',
             month: romanianMonth(invoice.monthIssued),
             amount: formatLeiRo(invoice.amount),
             dueOn: romanianDay(toIsoDate(dueDateFor(invoice.dateIssued))),
-            paymentInstructions: paymentInstructions(transferDetails(), reference),
-            portalUrl: paymentsUrl(),
+            paymentInstructions: paymentInstructions(transferDetails(), reference?.text ?? null),
+            // The portal for a family with an account; one the office typed in has none, and is told
+            // to ask for the PDF instead (QA of 27 September 2026).
+            ...familyLink(
+                await familyHasAccount(manager ?? this.dataSource.manager, invoice.parent.id),
+                { note: 'Factura se descarcă din portal, unde vezi și plățile înregistrate:', url: paymentsUrl() },
+                'Dacă vrei factura în PDF, scrie-ne și ți-o trimitem:',
+            ),
             officeEmail: officeAddress(),
         });
 

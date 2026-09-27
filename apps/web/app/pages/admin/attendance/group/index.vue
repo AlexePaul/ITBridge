@@ -126,7 +126,7 @@ const selectableGroups = computed(() =>
 
 const subtitle = computed(() =>
   locationStore.isShowingAll
-    ? "Gestionează prezența copiilor dintr-un grup, din ambele locații"
+    ? "Gestionează prezența copiilor dintr-un grup, din toate locațiile"
     : `Gestionează prezența grupelor din ${locationStore.selectedLocation?.name ?? ""}`
 );
 

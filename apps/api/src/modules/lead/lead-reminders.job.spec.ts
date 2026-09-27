@@ -33,7 +33,7 @@ describe('LeadRemindersJob', () => {
         ...overrides,
     });
 
-    const emptyFollowUp = { stale: [], undecided: [], noSeats: [], due: [], unassigned: 0 };
+    const emptyFollowUp = { stale: [], undecided: [], noSeats: [], due: [], toCall: 0, unassigned: 0 };
 
     beforeEach(async () => {
         leadRepo = createMockRepository<Lead>();

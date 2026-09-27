@@ -5,12 +5,12 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <UFormField name="firstName">
             <template #label>Prenume<span class="text-error">*</span></template>
-            <UInput v-model="state.firstName" placeholder="ex. John" />
+            <UInput v-model="state.firstName" placeholder="ex. Maria" />
           </UFormField>
 
           <UFormField name="lastName">
             <template #label>Nume<span class="text-error">*</span></template>
-            <UInput v-model="state.lastName" placeholder="ex. Doe" />
+            <UInput v-model="state.lastName" placeholder="ex. Popescu" />
           </UFormField>
         </div>
 
@@ -140,10 +140,9 @@
       </template>
       <p v-if="currentFamily" class="mb-3">
         Acum în familia
-        <NuxtLink :to="`/admin/profiles/${currentFamily.id}`" class="underline">
-          {{ currentFamily.firstName }} {{ currentFamily.lastName }}
-        </NuxtLink>
-        .
+        <NuxtLink :to="`/admin/profiles/${currentFamily.id}`" class="underline"
+          >{{ currentFamily.firstName }} {{ currentFamily.lastName }}</NuxtLink
+        >.
       </p>
       <div class="flex flex-col sm:flex-row sm:items-center gap-3">
         <USelectMenu

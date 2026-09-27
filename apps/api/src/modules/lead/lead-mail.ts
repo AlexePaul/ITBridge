@@ -99,7 +99,9 @@ export function composeNoShowFollowUp(trial: TrialDetails): ComposedMessage {
     return compose(`Ne-ai lipsit la proba de ${formatRomanianDate(trial.date)}`, [
         'Bună!',
         '',
-        `${trial.childFirstName} era așteptat la lecția de probă de ${formatRomanianDate(trial.date)}, ora ${formatHour(trial.startTime)},`,
+        // Neutral about the child, whose gender the platform does not know: "era așteptat" wrote a
+        // boy for every child (QA of 27 September 2026).
+        `Lecția de probă pentru ${trial.childFirstName} a fost pe ${formatRomanianDate(trial.date)}, ora ${formatHour(trial.startTime)},`,
         'și nu ne-am văzut. Se întâmplă — o zi aglomerată, o răceală, un drum mai lung decât părea.',
         '',
         'Dacă vrei, îi găsim altă oră. Răspunde la acest email sau sună-ne și o programăm împreună.',

@@ -184,7 +184,7 @@ const visibleGroups = computed(() =>
 
 const subtitle = computed(() =>
   locationStore.isShowingAll
-    ? "Toate grupele școlii, din ambele locații, după zi și oră"
+    ? "Toate grupele școlii, din toate locațiile, după zi și oră"
     : `Grupele din ${locationStore.selectedLocation?.name ?? ""}, după zi și oră`
 );
 

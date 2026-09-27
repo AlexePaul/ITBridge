@@ -297,7 +297,7 @@
                   profesorul.
                 </p>
                 <div v-for="day in windowsByDay" :key="day.date">
-                  <p class="text-sm font-medium mb-1 capitalize">{{ day.label }}</p>
+                  <p class="text-sm font-medium mb-1 first-letter:uppercase">{{ day.label }}</p>
                   <div class="flex flex-wrap gap-2">
                     <UButton
                       v-for="window in day.windows"

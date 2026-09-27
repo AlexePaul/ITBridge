@@ -130,4 +130,29 @@ describe('Request validation (e2e)', () => {
             await request(app.getHttpServer()).get(`/groups/${groupId}`).set('Authorization', admin.auth).expect(200);
         });
     });
+
+    /**
+     * „Cerere nouă" prints the server's sentence under the form: a mistyped number answered
+     * "parentPhone must be a valid phone number" (QA of 27 September 2026).
+     */
+    describe("the office's lead forms", () => {
+        const lead = { parentName: 'Ioana Popescu', childFirstName: 'Matei', childLastName: 'Popescu', childBirthDate: '2017-05-10', source: 'phone' };
+
+        it('refuses a mistyped phone number in Romanian', async () => {
+            const res = await post('/leads', { ...lead, parentPhone: '12345' }).expect(400);
+
+            expect(res.body.details).toEqual(['Numărul de telefon nu pare valid']);
+        });
+
+        it('refuses it in the same words on the lead file', async () => {
+            const created = await post('/leads', { ...lead, parentPhone: '0712345678' }).expect(201);
+
+            const res = await request(app.getHttpServer())
+                .patch(`/leads/${created.body.id as number}`)
+                .set('Authorization', admin.auth)
+                .send({ parentPhone: '12345' })
+                .expect(400);
+            expect(res.body.details).toEqual(['Numărul de telefon nu pare valid']);
+        });
+    });
 });

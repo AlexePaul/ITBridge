@@ -66,7 +66,9 @@ Pagina: `apps/web/app/pages/admin/approvals/index.vue`
 
 Pagina: `apps/web/app/pages/admin/attendance/index.vue`
 
-Nu face nicio cerere către API.
+| Cerere | Răspunde | Serviciul |
+| --- | --- | --- |
+| `GET /class-sessions/unmarked` | `ClassSessionController.getUnmarkedSessions` în `apps/api/src/modules/class-session/class-session.controller.ts` | `ClassSessionService.findUnmarkedSessions` în `apps/api/src/modules/class-session/class-session.service.ts` |
 
 ### `/admin/attendance/azi` — Prezența de azi
 
@@ -842,7 +844,6 @@ pe un ecran.
 - `GET /audit` — `AuditController.find`
 - `GET /auth/me` — `AuthController.getProfile`
 - `GET /auth/sessions` — `AuthController.sessions`
-- `GET /class-sessions/unmarked` — `ClassSessionController.getUnmarkedSessions`
 - `GET /groups/:id` — `GroupController.getGroupById`
 - `GET /health` — `HealthController.health`
 - `GET /invoices/:id` — `InvoiceController.findOne`

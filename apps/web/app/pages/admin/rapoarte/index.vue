@@ -354,7 +354,7 @@
             <p class="text-sm text-muted">{{ stage.label }}</p>
             <p class="text-2xl font-semibold tabular-nums">{{ stage.value }}</p>
             <p v-if="stage.rate !== undefined" class="text-xs text-muted tabular-nums">
-              {{ stage.rate }}% din pasul dinainte
+              {{ formatRate(stage.rate) }} din pasul dinainte
             </p>
           </UCard>
         </div>
@@ -373,14 +373,16 @@
             <div>
               <p class="text-sm text-muted">Conversie</p>
               <p class="text-3xl font-semibold tabular-nums">
-                {{ funnel.rates.attendanceToEnrolment }}%
+                {{ formatRate(funnel.rates.attendanceToEnrolment) }}
               </p>
             </div>
             <div>
               <p class="text-sm text-muted">Mediana până la decizie</p>
               <p class="text-3xl font-semibold tabular-nums">
                 {{
-                  funnel.medianDaysToDecision === null ? "—" : `${funnel.medianDaysToDecision} z.`
+                  funnel.medianDaysToDecision === null
+                    ? "—"
+                    : `${formatDecimal(funnel.medianDaysToDecision)} z.`
                 }}
               </p>
             </div>
@@ -493,7 +495,14 @@ import { useReportsApi } from "~/composables/api/useReportsApi";
 import { useLeadsApi } from "~/composables/api/useLeadsApi";
 import { LEAD_CHANNEL_LABELS, LEAD_SOURCE_LABELS } from "~/types/lead.types";
 import type { LeadChannel, LeadFunnel, LeadSource } from "~/types/lead.types";
-import { formatDateKey, formatLei, formatMonth, formatPercent } from "~/composables/useAdminFormat";
+import {
+  formatDateKey,
+  formatDecimal,
+  formatLei,
+  formatMonth,
+  formatPercent,
+  formatRate,
+} from "~/composables/useAdminFormat";
 import { defaultReportRange, isValidRange } from "~/composables/useReportRange";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 import {

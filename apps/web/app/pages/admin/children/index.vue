@@ -104,7 +104,7 @@ const childrenInSelection = computed(() =>
 
 const subtitle = computed(() =>
   locationStore.isShowingAll
-    ? "Toți copiii, din ambele locații"
+    ? "Toți copiii, din toate locațiile"
     : `Copiii din ${locationStore.selectedLocation?.name ?? ""}, plus cei fără grupă`
 );
 

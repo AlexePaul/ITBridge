@@ -631,6 +631,23 @@ describe('Issuing invoices from the registers (e2e)', () => {
             expect(message.bodyText).toContain(`factura nr. ${invoiceId}`);
         });
 
+        /** One reference, wherever the family reads it: the statement import looks for the same words. */
+        it('shows the family in the portal the reference its email asked it to write', async () => {
+            const childId = await makeChild();
+            const [first] = await october();
+            await mark(first, childId, true);
+
+            const issued = await issue().expect(201);
+            const invoiceId = (issued.body.issued as { id: number }[])[0].id;
+
+            const [message] = await told();
+            const own = await request(app.getHttpServer()).get('/invoices').set('Authorization', parent.auth).expect(200);
+            const one = await request(app.getHttpServer()).get(`/invoices/${invoiceId}`).set('Authorization', parent.auth).expect(200);
+            expect(own.body[0].paymentReference).toBe(`factura nr. ${invoiceId}`);
+            expect(one.body.paymentReference).toBe(`factura nr. ${invoiceId}`);
+            expect(message.bodyText).toContain(`la detaliile plății scrie ${own.body[0].paymentReference as string}.`);
+        });
+
         it('says nothing about a month that came to nothing', async () => {
             await makeChild();
             await october();

@@ -27,7 +27,9 @@ export const SEEDED_TEMPLATE_EDITS: SeededTemplateEdit[] = [
             '',
             'Am primit {{amount}} pe {{paidOn}}, iar factura pe {{month}} e achitată. Mulțumim!',
             '',
-            'Facturile și plățile familiei sunt în portal: {{portalUrl}}',
+            // The sentence comes with its link, as in the class-cancelled edit below: a family the office
+            // typed in has no portal to be sent to (QA of 27 September 2026).
+            '{{portalNote}} {{portalUrl}}',
             'Pentru orice nelămurire, ne găsești la {{officeEmail}}.',
             '',
             'IT Bridge School',

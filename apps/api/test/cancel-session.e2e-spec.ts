@@ -90,6 +90,32 @@ describe('Cancelling a class session (e2e)', () => {
         expect(messages[0].bodyText).toContain('Profesorul este bolnav');
     });
 
+    // QA of 27 September 2026: a family the office typed in from a phone call has an address and no
+    // account, and the messages about its classes sent it to a login it has nothing to type into.
+    // Only a family found through its booking address was sent to the contact page.
+    it('sends a family with no account to the contact page, and one with an account to the portal', async () => {
+        const office = await request(app.getHttpServer())
+            .post('/profiles')
+            .set('Authorization', admin.auth)
+            .send({ firstName: 'Cristina', lastName: 'Dumitrescu', email: 'cristina.dumitrescu@example.com' })
+            .expect(201);
+        const child = await request(app.getHttpServer())
+            .post('/children')
+            .set('Authorization', admin.auth)
+            .send({ firstName: 'Daria', lastName: 'Dumitrescu', birthDate: '2016-02-02', parentId: office.body.id })
+            .expect(201);
+        await request(app.getHttpServer()).post(`/children/${child.body.id}/groups/${groupId}`).set('Authorization', admin.auth).expect(201);
+
+        await cancel().expect(200);
+
+        const messages = await queued();
+        const toOffice = messages.find((message) => message.to === 'cristina.dumitrescu@example.com');
+        const toAccount = messages.find((message) => message.to === `${parent.username}@example.com`);
+        expect(toOffice?.bodyText).toContain('/contact');
+        expect(toOffice?.bodyText).not.toContain('/auth/login');
+        expect(toAccount?.bodyText).toContain('/auth/login');
+    });
+
     /**
      * Cancelling promises the group nothing, because there is nothing left to promise — E12/S4.
      *

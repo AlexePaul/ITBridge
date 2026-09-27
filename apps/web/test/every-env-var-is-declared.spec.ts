@@ -45,6 +45,8 @@ const OUTSIDE_TURBO: Record<string, string> = {
   TZ: "Set by the jest scripts themselves, in `apps/api/package.json`, because the zone has to be fixed before Node starts — inheriting it is exactly what must not happen.",
   ADMIN_PASSWORD:
     "Read only by `pnpm admin:create`, which calls the workspace script directly, and meant for one command on a host with no terminal — declaring it would invite keeping a password in an environment file.",
+  SEED_PASSWORD:
+    "Read only by `pnpm seed` and `pnpm seed:stage`, which call the workspace script directly rather than through `turbo run`; on the staging instance it is typed for one command and never kept in a file (docs/runbook.md, 3.14).",
 };
 
 const sourceFiles = (dir: string): string[] => {

@@ -19,6 +19,7 @@
 
     <div v-else-if="loadError" class="portal-card portal-card-accent portal-notice" role="alert">
       <p class="body-text">{{ loadError }}</p>
+      <UButton variant="outline" class="mt-3 min-h-11" @click="load">Încearcă din nou</UButton>
     </div>
 
     <template v-else>
@@ -40,11 +41,16 @@
           Ai plătit deja {{ formatLei(invoice.paid) }} din {{ formatLei(invoice.amount) }}; mai
           rămân {{ formatLei(leftToPay(invoice)) }}.
         </p>
-        <!-- E16/S2: the fiscal number is the reference a transfer is matched by. -->
-        <p v-if="invoice.fiscalNumber" class="body-text measure-wide">
-          Factura fiscală
-          <span class="tnum">{{ invoice.fiscalSeries }} {{ invoice.fiscalNumber }}</span>
-          — la transfer, trece-o în detaliile plății.
+        <!--
+          The words a transfer is matched by, as the server writes them: the same ones the invoice
+          email printed and the statement import looks for — the fiscal number once SmartBill gave
+          one, the platform's own until then. Built here from `fiscalNumber`, it said nothing at all
+          while SmartBill was off, which is every invoice on stage.
+        -->
+        <p v-if="invoice.paymentReference" class="body-text measure-wide">
+          La transfer, scrie la detaliile plății
+          <strong class="tnum">{{ invoice.paymentReference }}</strong
+          >.
         </p>
         <p class="body-text measure-wide">
           Dacă ai plătit deja sau ți se pare o greșeală, scrie-ne sau sună la
@@ -77,10 +83,10 @@
           rămân {{ formatLei(leftToPay(invoice)) }}.
         </p>
         <p class="body-text">Emisă pe {{ formatDateKey(invoice.dateIssued) }}.</p>
-        <p v-if="invoice.fiscalNumber" class="body-text measure-wide">
-          Factura fiscală
-          <span class="tnum">{{ invoice.fiscalSeries }} {{ invoice.fiscalNumber }}</span>
-          — la transfer, trece-o în detaliile plății.
+        <p v-if="invoice.paymentReference" class="body-text measure-wide">
+          La transfer, scrie la detaliile plății
+          <strong class="tnum">{{ invoice.paymentReference }}</strong
+          >.
         </p>
         <button
           type="button"
@@ -205,9 +211,10 @@
             </div>
           </dl>
           <p class="portal-empty">
-            La detaliile plății scrie numărul facturii — cel fiscal, dacă factura îl are, așa cum
-            apare mai sus. Plata cu cardul în portal nu există; dacă ai o întrebare despre o
-            factură, sună-ne la <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
+            La detaliile plății scrie referința facturii pe care o plătești, așa cum apare mai sus —
+            după ea îți găsim plata în extrasul băncii. Plata cu cardul în portal nu există; dacă ai
+            o întrebare despre o factură, sună-ne la
+            <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
             >.
           </p>
         </template>
@@ -309,7 +316,13 @@ const received = computed(() =>
     .sort((a, b) => b.date.localeCompare(a.date))
 );
 
-onMounted(async () => {
+/**
+ * What the page shows, read again by the retry under an error (QA of 27 September 2026: only
+ * Profil offered one, so a portal page that failed on a bad connection stayed failed until a reload).
+ */
+const load = async () => {
+  loading.value = true;
+  loadError.value = "";
   try {
     await invoiceApi.fetchInvoices();
     invoices.value = invoiceApi.getInvoices();
@@ -330,7 +343,9 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+};
+
+onMounted(load);
 
 /**
  * The PDF, through the API rather than from a link.

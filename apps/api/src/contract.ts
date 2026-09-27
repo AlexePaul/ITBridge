@@ -18,7 +18,7 @@ import type { Profile } from './entities/profile.entity';
 import type { Child } from './entities/child.entity';
 import type { Group } from './entities/group.entity';
 import type { Enrollment } from './entities/enrollment.entity';
-import type { InvoiceWorksheetRow } from './modules/invoice/invoice.service';
+import type { InvoiceWorksheet, InvoiceWorksheetRow } from './modules/invoice/invoice.service';
 import type { Overview } from './modules/dashboard/overview.service';
 import type { FinanceReport } from './modules/dashboard/finance-report.service';
 import type { OccupancyReport } from './modules/dashboard/occupancy-report.service';
@@ -33,7 +33,7 @@ import type { LeadChannel, LeadSource } from './enum/lead-source.enum';
 import type { LeadStatus } from './enum/lead-status.enum';
 import type { LeadFunnel } from './modules/lead/lead-funnel.service';
 import type { LeadFollowUp, LeadSummary } from './modules/lead/lead.service';
-import type { TrialSlot } from './modules/lead/trial-booking.service';
+import type { TrialBookingResult, TrialSlot } from './modules/lead/trial-booking.service';
 import type { MessageKind } from './enum/message-kind.enum';
 import type { WaitlistEntry } from './entities/waitlist-entry.entity';
 import type { NonTeachingPeriod } from './entities/non-teaching-period.entity';
@@ -120,6 +120,7 @@ type _Room = Check<Omit<Wire.Room, never>, Omit<Serialized<Room>, 'groups'>>;
 // check here is that the two descriptions of it agree — the backend's own interface against the
 // wire's. Without it the screen and the endpoint could drift a field apart in silence.
 type _InvoiceWorksheetRow = Check<Wire.InvoiceWorksheetRow, InvoiceWorksheetRow>;
+type _InvoiceWorksheet = Check<Wire.InvoiceWorksheet, InvoiceWorksheet>;
 // E12/S2. The dates are `date` columns, which the driver hands back as strings — the same shape the
 // wire has — so this check is about the fields existing, not about `Serialized` converting them.
 type _NonTeachingPeriod = Check<
@@ -369,6 +370,10 @@ type _LeadFunnel = Check<Wire.LeadFunnel, LeadFunnel>;
 type _LeadFunnelBack = Check<LeadFunnel, Wire.LeadFunnel>;
 type _TrialSlot = Check<Wire.TrialSlot, TrialSlot>;
 type _TrialSlotBack = Check<TrialSlot, Wire.TrialSlot>;
+// The booking's answer, both ways: the page prints the address from it (QA of 27 September 2026),
+// and a field the service stopped sending would otherwise be an empty line on the success screen.
+type _TrialBookingResult = Check<Wire.TrialBookingResult, TrialBookingResult>;
+type _TrialBookingResultBack = Check<TrialBookingResult, Wire.TrialBookingResult>;
 
 // `Serialized` again: the four `Date` columns on a lead leave the controller as strings, and the
 // contract describes the wire.

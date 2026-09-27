@@ -42,6 +42,20 @@ export default defineNuxtConfig({
   modules: ["@nuxt/ui", "@nuxt/image", "@pinia/nuxt"],
   css: ["~/assets/css/main.css"],
 
+  // Every icon the sources name goes into the JavaScript the browser already has. Without this,
+  // `@iconify-json/lucide` only keeps them off Iconify's servers: each one is still fetched from our
+  // own `/api/_nuxt_icon` the first time it is drawn — and the teacher's phone draws the cloud icon,
+  // "saved here, waiting for the network", only when the network is gone, so it never appeared
+  // (QA of 27 September 2026). The scan reads literal `i-lucide-…` names; a name built at runtime
+  // is not found, so write icon names out whole. `.ts` is added to its default globs because the
+  // toasts and the error plugin name their icons there.
+  icon: {
+    clientBundle: {
+      scan: { globInclude: ["**/*.{vue,ts}"] },
+      sizeLimitKb: 256,
+    },
+  },
+
   // `@itbridge/types` is a linked workspace package, and Vite leaves those out of its dependency
   // pre-bundling — it serves them to the browser as source. The package is compiled to CommonJS,
   // for `apps/api`, so the browser got `exports.Weekday = ...` and refused it with "does not

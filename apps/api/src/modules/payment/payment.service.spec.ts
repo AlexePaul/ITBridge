@@ -20,11 +20,13 @@ import { OutboxService } from 'src/modules/mail/outbox.service';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { AuditAction } from 'src/enum/audit-action.enum';
+import { Profile } from 'src/entities/profile.entity';
 
 describe('PaymentService', () => {
     let service: PaymentService;
     let paymentRepo: MockRepository;
     let invoiceRepo: MockRepository;
+    let profileRepo: MockRepository;
     let manager: MockEntityManager;
     /** E16/S6. What the family was told, if anything — the receipt is queued, never sent here. */
     let outbox: { queueOrRecord: jest.Mock };
@@ -58,7 +60,11 @@ describe('PaymentService', () => {
     beforeEach(async () => {
         paymentRepo = createMockRepository();
         invoiceRepo = createMockRepository();
-        manager = createMockEntityManager();
+        // Ana has an account, so her receipt points at the portal; a family without one is asked
+        // about on its own in the receipt tests below.
+        profileRepo = createMockRepository();
+        profileRepo.exists!.mockResolvedValue(true);
+        manager = createMockEntityManager(new Map([[Profile, profileRepo]]));
         paidSum = null;
         paymentInDb = null;
         invoiceInDb = {
@@ -550,6 +556,17 @@ describe('PaymentService', () => {
             await create();
 
             expect(rendered().portalUrl).toMatch(/\/user\/payments$/);
+        });
+
+        // QA of 27 September 2026: a family the office typed in has no account to open the portal with.
+        it('tells a family with no account to ask for the documents instead', async () => {
+            paidSum = '350';
+            profileRepo.exists!.mockResolvedValue(false);
+
+            await create();
+
+            expect(rendered().portalUrl).toMatch(/\/contact$/);
+            expect(rendered().portalNote).not.toContain('portal');
         });
 
         it('names what is left when the payment did not cover the invoice', async () => {

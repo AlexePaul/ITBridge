@@ -3,8 +3,9 @@ import {
   contactMessageSchema,
   fieldErrorsOf,
   replyToAddress,
+  type ContactErrorPayload,
 } from "#shared/contact";
-import { SCHOOL_EMAIL, SCHOOL_NAME } from "#shared/school";
+import { SCHOOL_EMAIL, SCHOOL_NAME, SCHOOL_PHONE } from "#shared/school";
 import { rateLimit } from "../utils/rate-limit";
 
 /**
@@ -31,10 +32,15 @@ const RATE_WINDOW_MS = 15 * 60 * 1000;
 /** Resend is normally well under a second; past this the reader is waiting for nothing. */
 const SEND_TIMEOUT_MS = 10_000;
 
-/** What we tell the reader when the send fails on our side, whatever the cause. */
+/**
+ * What we tell the reader when the send fails on our side, whatever the cause — with the number to
+ * ring as well as the address (QA of 27 September 2026: it said „sau să ne suni" and gave no
+ * number). `sendFailed` lets the page draw both as links; this text is for any other client.
+ */
 const FALLBACK_MESSAGE =
-  `Nu am putut trimite mesajul. Te rugăm să ne scrii direct la ${SCHOOL_EMAIL} ` +
-  "sau să ne suni — răspundem la fel de repede.";
+  `Nu am putut trimite mesajul. Sună-ne la ${SCHOOL_PHONE} sau scrie-ne direct la ` +
+  `${SCHOOL_EMAIL} — răspundem la fel de repede.`;
+const SEND_FAILED: ContactErrorPayload = { message: FALLBACK_MESSAGE, sendFailed: true };
 
 const escapeHtml = (value: string) =>
   value
@@ -58,7 +64,7 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 415,
       statusMessage: "Unsupported media type",
-      data: { message: FALLBACK_MESSAGE },
+      data: SEND_FAILED,
     });
   }
 
@@ -88,7 +94,7 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 503,
       statusMessage: "Contact form not configured",
-      data: { message: FALLBACK_MESSAGE },
+      data: SEND_FAILED,
     });
   }
 
@@ -194,7 +200,7 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 502,
       statusMessage: "Failed to send message",
-      data: { message: FALLBACK_MESSAGE },
+      data: SEND_FAILED,
     });
   }
 });

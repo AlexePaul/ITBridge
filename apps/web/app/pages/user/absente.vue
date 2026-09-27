@@ -17,7 +17,7 @@
       </p>
       <p class="lede measure-wide">
         Ne găsești la <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a
-        >. Noi notăm absența și tot noi îți spunem aici unde l-am mutat.
+        >. Noi notăm absența și tot noi îți spunem aici unde mutăm copilul.
       </p>
     </div>
 
@@ -29,6 +29,7 @@
 
     <div v-else-if="loadError" class="portal-card portal-card-accent portal-notice" role="alert">
       <p class="body-text">{{ loadError }}</p>
+      <UButton variant="outline" class="mt-3 min-h-11" @click="load">Încearcă din nou</UButton>
     </div>
 
     <template v-else>
@@ -50,18 +51,18 @@
             :key="notice.id"
             class="portal-card portal-card-accent"
           >
-            <span class="portal-label">Mutat</span>
+            <span class="portal-label">Mutare</span>
             <p class="portal-card-title">
               {{ weekdayNameOf(notice.replacementSession!.date) }},
               {{ formatDateKey(notice.replacementSession!.date) }} ·
               {{ formatTime(notice.replacementSession!.startTime) }}
             </p>
+            <!-- The tail starts with its comma, right after the group's name: on a line of its own,
+                 Vue turned the line break before it into a space (QA of 27 September 2026). -->
             <p class="body-text">
               {{ notice.child.firstName }} merge la
-              <strong>{{ notice.replacementSession!.group?.name ?? "altă grupă" }}</strong>
-              <template v-if="placeOf(notice.replacementSession!)">
-                , {{ placeOf(notice.replacementSession!) }}</template
-              >, în locul orei de pe {{ formatDateKey(notice.classSession.date) }}.
+              <strong>{{ notice.replacementSession!.group?.name ?? "altă grupă" }}</strong
+              >{{ moveCardTail(notice, placeOf(notice.replacementSession!)) }}
             </p>
           </div>
         </div>
@@ -92,7 +93,7 @@
             -->
             <p class="outcome" :class="{ 'outcome-quiet': !notice.inTime }">
               <template v-if="notice.replacementSession">
-                Mutat pe {{ formatDateKey(notice.replacementSession.date) }}
+                Mutare pe {{ formatDateKey(notice.replacementSession.date) }}
               </template>
               <template v-else-if="notice.inTime">Anunțată în termen — căutăm o oră</template>
               <template v-else>Anunțată după termen — fără recuperare</template>
@@ -144,6 +145,7 @@ import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { formatDateKey } from "~/composables/useAdminFormat";
 import { formatTime, weekdayNameOf } from "~/composables/useUtils";
+import { moveCardTail } from "~/composables/usePortalMoves";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 import { SessionStatus } from "~/types/class-session.types";
 import type { ClassSession, ClassSessionWithAttendance } from "~/types/class-session.types";

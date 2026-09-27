@@ -166,8 +166,8 @@
       <template #body>
         <div class="space-y-3 text-sm">
           <p v-if="report?.queued.length">
-            <span class="font-medium">{{ report.queued.length }}</span> {{ pluralParents }} primesc
-            documentele copiilor lor.
+            {{ countOf(report.queued.length, "părinte primește", "părinți primesc") }} documentele
+            copiilor.
           </p>
           <!--
             Undeliverable recipients are listed, never counted and dropped. A parent who does not
@@ -208,6 +208,7 @@ import { useChildrenApi } from "~/composables/api/useChildrenApi";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
+import { countOf } from "~/composables/useRomanianCount";
 import { stillSelectable } from "~/composables/useProjectSelection";
 import {
   PROJECT_SOURCE_LABELS,
@@ -271,7 +272,6 @@ const groupName = computed(
 const allSelected = computed(
   () => pending.value.length > 0 && pending.value.every((project) => selected.value.has(project.id))
 );
-const pluralParents = computed(() => (report.value?.queued.length === 1 ? "părinte" : "părinți"));
 
 /**
  * Who a document can be moved to: every child in this group, not only the ones who already have

@@ -43,7 +43,7 @@ async function onSubmit(payload: RegisterSubmitPayload) {
       return;
     }
 
-    success("Ți-am trimis un email de confirmare", "Contul a fost creat");
+    success("Contul a fost creat", "Ți-am trimis un email de confirmare.");
 
     // Towards the portal, and the profile-setup gate turns it into step two: `register` has read
     // the gate by now, and a family that has just signed up has no phone, address or emergency

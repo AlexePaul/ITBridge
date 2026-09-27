@@ -60,6 +60,13 @@ export interface Invoice {
      */
     paid?: number;
     outstanding?: number;
+    /**
+     * What the family writes in a transfer's details — `factura ITB 0041`, or the platform's own
+     * `factura nr. 28` while SmartBill has not numbered it. On `GET /invoices` and `GET /invoices/:id`,
+     * from the same function the invoice email prints it with and the statement import matches it
+     * by. `null` while a fiscal number is on its way and nothing has been asked for yet.
+     */
+    paymentReference?: string | null;
 }
 
 /**
@@ -179,7 +186,13 @@ export interface InvoiceWorksheet {
      * school's today. The button reads this rather than working the calendar out a second time.
      */
     issuable: boolean;
+    /** Sessions that have started and have no register. One still ahead is counted in `notYetHeld`. */
     unmarked: InvoiceWorksheetUnmarked[];
+    /**
+     * Sessions of the month still ahead on the school's clock: no register, because not yet held —
+     * only ever above zero while the month is being taught.
+     */
+    notYetHeld: number;
     families: InvoiceWorksheetRow[];
 }
 

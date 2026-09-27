@@ -61,7 +61,9 @@
               <span v-if="record.to">{{ record.to }}</span>
               <span v-else class="italic">fără destinatar</span>
               · <span class="tabular-nums">{{ formatDateKey(record.createdAt) }}</span>
-              <span v-if="record.attempts > 0"> · {{ record.attempts }} încercări</span>
+              <span v-if="record.attempts > 0">
+                · {{ countOf(record.attempts, "încercare", "încercări") }}</span
+              >
             </p>
           </div>
           <UBadge
@@ -87,7 +89,14 @@
           </p>
         </div>
 
-        <p v-if="record.lastError" class="mt-3 text-sm text-error">{{ record.lastError }}</p>
+        <!-- The office reads the sentence; the provider's own words stay under it for whoever
+             debugs — they are what a support ticket to the provider quotes. -->
+        <div v-if="record.lastError" class="mt-3 text-sm space-y-0.5">
+          <p class="text-error">{{ describeSendFailure(record.lastError) }}</p>
+          <p class="text-xs text-muted font-mono break-all">
+            Detaliu tehnic: {{ record.lastError }}
+          </p>
+        </div>
 
         <UButton
           variant="ghost"
@@ -110,6 +119,7 @@
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useDeliveriesApi } from "~/composables/api/useDeliveriesApi";
 import { formatDateKey } from "~/composables/useAdminFormat";
+import { countOf } from "~/composables/useRomanianCount";
 
 /** „Familia Popescu" reads as a name; an erased family's row is still a family to link to. */
 const familyName = (profile: NonNullable<DeliveryRecord["profile"]>) =>
@@ -120,6 +130,7 @@ import {
   DELIVERY_STATUS_LABELS,
   UNDELIVERABLE_REASON_ACTIONS,
   UNDELIVERABLE_REASON_LABELS,
+  describeSendFailure,
 } from "~/types/delivery.types";
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countOf } from "~/composables/useRomanianCount";
+import { countOf, daysAgoLabel, daysWaitedLabel } from "~/composables/useRomanianCount";
 
 describe("countOf", () => {
   it("puts the singular after one, and the plural after the rest", () => {
@@ -16,5 +16,32 @@ describe("countOf", () => {
     expect(countOf(101, "familie", "familii")).toBe("101 familii");
     expect(countOf(115, "familie", "familii")).toBe("115 familii");
     expect(countOf(120, "familie", "familii")).toBe("120 de familii");
+  });
+});
+
+/**
+ * The erasure queue printed „0 zile" beside a request made today (QA of 27 September 2026) — a
+ * figure where anybody would say a word.
+ */
+describe("daysWaitedLabel", () => {
+  it("says „azi” for today and „ieri” for yesterday", () => {
+    expect(daysWaitedLabel(0)).toBe("azi");
+    expect(daysWaitedLabel(1)).toBe("ieri");
+  });
+
+  it("counts the rest through countOf", () => {
+    expect(daysWaitedLabel(2)).toBe("2 zile");
+    expect(daysWaitedLabel(19)).toBe("19 zile");
+    expect(daysWaitedLabel(30)).toBe("30 de zile");
+  });
+});
+
+/** The leads screen printed „de 0 zile" beside a trial held that afternoon (QA of 27 September 2026). */
+describe("daysAgoLabel", () => {
+  it("says „azi” and „ieri” on their own, and „acum” before a count", () => {
+    expect(daysAgoLabel(0)).toBe("azi");
+    expect(daysAgoLabel(1)).toBe("ieri");
+    expect(daysAgoLabel(2)).toBe("acum 2 zile");
+    expect(daysAgoLabel(21)).toBe("acum 21 de zile");
   });
 });

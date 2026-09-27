@@ -49,6 +49,27 @@ describe('checkSeedTarget', () => {
         it('is allowed from the plain `pnpm seed`, which is what it is for', () => {
             expect(checkSeedTarget(local, { SEED_TARGET: undefined }).ok).toBe(true);
         });
+
+        // On the staging instance Postgres sits beside the API, so its host is `localhost` too —
+        // and the environment file the deploy writes says so. Without this, `pnpm seed` run there
+        // without SEED_PASSWORD gave every account, the admin included, the password printed in
+        // this repository, on a host the whole internet can reach.
+        it.each(['stage', 'staging'])('is refused without SEED_PASSWORD under NODE_ENV=%s', (nodeEnv) => {
+            const verdict = checkSeedTarget(local, { NODE_ENV: nodeEnv });
+            expect(verdict.ok).toBe(false);
+            expect((verdict as { reason: string }).reason).toContain('SEED_PASSWORD');
+        });
+
+        it('proceeds on a deployed host once SEED_PASSWORD is set', () => {
+            expect(checkSeedTarget(local, { NODE_ENV: 'stage', SEED_PASSWORD: 'o-parola-lunga' })).toEqual({
+                ok: true,
+                password: 'o-parola-lunga',
+            });
+        });
+
+        it.each([undefined, 'development', 'test'])('keeps the repository password under NODE_ENV=%s', (nodeEnv) => {
+            expect(checkSeedTarget(local, { NODE_ENV: nodeEnv })).toEqual({ ok: true, password: LOCAL_PASSWORD });
+        });
     });
 
     describe('anything else', () => {

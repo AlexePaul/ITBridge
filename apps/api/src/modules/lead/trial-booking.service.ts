@@ -165,10 +165,7 @@ export class TrialBookingService {
      *    leaves without the school knowing they came. So the lead is written and the answer says
      *    somebody will call.
      */
-    async book(
-        dto: BookTrialDto,
-        now: Date = new Date(),
-    ): Promise<{ status: 'booked' | 'no_seats'; leadId: number; trial?: { date: string; startTime: string; groupName: string; locationName: string } }> {
+    async book(dto: BookTrialDto, now: Date = new Date()): Promise<TrialBookingResult> {
         if (!dto.parentEmail && !dto.parentPhone) {
             throw new BadRequestException({
                 message: 'Lasă un email sau un telefon, ca să te putem contacta',
@@ -305,27 +302,19 @@ export class TrialBookingService {
                     bookingKey,
                 });
 
-                // Where the class is, which is where its own room is — not the group's usual one.
-                const venue = session.room?.location ?? session.group.room.location;
-                const trial = {
-                    childFirstName: dto.childFirstName,
-                    groupName: session.group.name,
-                    locationName: venue.name,
-                    address: addressOf(venue),
-                    date: sessionDate,
-                    startTime: session.startTime,
-                };
+                // The page and the email say the same place, from the same function.
+                const trial = bookedTrialOf(session);
 
                 // In the transaction, like every other message this codebase queues: the family is
                 // told because the booking happened, or neither.
-                await this.outbox.queueOrRecord({ email: dto.parentEmail ?? null }, { ...composeTrialConfirmation(trial), profileId: profile.id }, manager);
+                await this.outbox.queueOrRecord(
+                    { email: dto.parentEmail ?? null },
+                    { ...composeTrialConfirmation({ ...trial, childFirstName: dto.childFirstName }), profileId: profile.id },
+                    manager,
+                );
 
                 this.logger.log(`Trial booked from the public form: lead ${lead.id}, session ${session.id}, group ${session.group.id}.`);
-                return {
-                    status: 'booked' as const,
-                    leadId: lead.id,
-                    trial: { date: sessionDate, startTime: session.startTime, groupName: session.group.name, locationName: venue.name },
-                };
+                return { status: 'booked' as const, leadId: lead.id, trial };
             });
         } catch (error) {
             // A double-click, where the second press read "no such booking yet" before the first
@@ -407,20 +396,52 @@ export class TrialBookingService {
         } as Partial<Lead>);
     }
 
-    private async describeTrial(sessionId?: number) {
+    private async describeTrial(sessionId?: number): Promise<BookedTrial | undefined> {
         if (!sessionId) return undefined;
         const session = await this.classSessionRepository.findOne({
             where: { id: sessionId },
             relations: { group: { room: { location: true } }, room: { location: true } },
         });
-        if (!session) return undefined;
-        return {
-            date: toIsoDate(new Date(session.date)),
-            startTime: session.startTime,
-            groupName: session.group.name,
-            locationName: (session.room?.location ?? session.group.room.location).name,
-        };
+        return session ? bookedTrialOf(session) : undefined;
     }
+}
+
+/**
+ * The booked class, as the page prints it — when, which group, and **where**, as a street.
+ *
+ * The address is here and not only in the confirmation email: the page used to print the location's
+ * name alone, „(Drumul Taberei)", and a family that left only a phone gets no email to read the
+ * street from (QA of 27 September 2026).
+ */
+export interface BookedTrial {
+    date: string;
+    startTime: string;
+    groupName: string;
+    locationName: string;
+    address: string;
+}
+
+/** What `POST /trial/bookings` answers. `no_seats` is a kept request, not an error. */
+export interface TrialBookingResult {
+    status: 'booked' | 'no_seats';
+    leadId: number;
+    trial?: BookedTrial;
+}
+
+/**
+ * The class a trial was booked into, where it actually is: the location of **its own room**, not the
+ * group's usual one — a class the office moved to the other address is held there. The confirmation
+ * email reads the same object, so the page and the email cannot name two places.
+ */
+function bookedTrialOf(session: ClassSession): BookedTrial {
+    const venue = session.room?.location ?? session.group.room.location;
+    return {
+        date: toIsoDate(new Date(session.date)),
+        startTime: session.startTime,
+        groupName: session.group.name,
+        locationName: venue.name,
+        address: addressOf(venue),
+    };
 }
 
 /** One hour a parent can pick, with the dates it actually runs on. */

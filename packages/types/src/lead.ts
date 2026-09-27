@@ -64,7 +64,19 @@ export interface BookTrialDto {
 export interface TrialBookingResult {
     status: 'booked' | 'no_seats';
     leadId: number;
-    trial?: { date: ISODate; startTime: string; groupName: string; locationName: string };
+    trial?: BookedTrial;
+}
+
+/**
+ * The class a trial was booked into. `address` is the street of the room the class is in — the one
+ * thing a family that left only a phone has no email to read it from.
+ */
+export interface BookedTrial {
+    date: ISODate;
+    startTime: string;
+    groupName: string;
+    locationName: string;
+    address: string;
 }
 
 // ---- the office ------------------------------------------------------------------------------
@@ -108,6 +120,8 @@ export interface LeadFollowUp {
     noSeats: LeadWithAge[];
     stale: LeadWithAge[];
     due: LeadWithAge[];
+    /** Leads on any of the four lists, each counted once: the calls to make. */
+    toCall: number;
     unassigned: number;
 }
 

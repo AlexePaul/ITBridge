@@ -29,8 +29,24 @@
         </div>
 
         <form v-else class="form" novalidate @submit.prevent="onSubmit">
-          <div v-if="errorMessage" class="card card-lg card-accent" role="alert">
-            <p class="body-text">{{ errorMessage }}</p>
+          <!--
+            When the message could not leave, the two ways that always work, as links a phone can
+            tap — it named the address as plain text and no number at all (QA of 27 September 2026).
+          -->
+          <div v-if="failure || errorMessage" class="card card-lg card-accent" role="alert">
+            <p v-if="failure === 'offline'" class="body-text">
+              Nu am putut trimite mesajul — verifică-ți conexiunea și încearcă din nou. Ne găsești
+              și la <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a> sau la
+              <a :href="`mailto:${SCHOOL_EMAIL}`" class="link">{{ SCHOOL_EMAIL }}</a
+              >.
+            </p>
+            <p v-else-if="failure === 'unavailable'" class="body-text">
+              Nu am putut trimite mesajul. Sună-ne la
+              <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a> sau scrie-ne
+              direct la <a :href="`mailto:${SCHOOL_EMAIL}`" class="link">{{ SCHOOL_EMAIL }}</a> —
+              răspundem la fel de repede.
+            </p>
+            <p v-else class="body-text">{{ errorMessage }}</p>
           </div>
 
           <div class="form-row">
@@ -126,8 +142,9 @@
               {{ loading ? "Se trimite…" : "Trimite mesajul" }}
             </button>
             <p class="note">
-              Îți răspundem în cel mult 24 de ore. Dacă preferi, sună-ne sau scrie-ne direct la
-              <a :href="`mailto:${SCHOOL_EMAIL}`" class="link">{{ SCHOOL_EMAIL }}</a
+              Îți răspundem în cel mult 24 de ore. Dacă preferi, sună-ne la
+              <a :href="SCHOOL_PHONE_HREF" class="link tnum">{{ SCHOOL_PHONE }}</a> sau scrie-ne
+              direct la <a :href="`mailto:${SCHOOL_EMAIL}`" class="link">{{ SCHOOL_EMAIL }}</a
               >. Mesajul ajunge doar în căsuța noastră de email — vezi
               <NuxtLink to="/confidentialitate" class="link">politica de confidențialitate</NuxtLink
               >.
@@ -200,8 +217,10 @@ import {
   CONTACT_SUBJECTS,
   HONEYPOT_FIELD,
   contactErrorPayload,
+  contactFailureOf,
   contactMessageSchema,
   fieldErrorsOf,
+  type ContactFailure,
   type ContactField,
 } from "#shared/contact";
 
@@ -230,6 +249,8 @@ const errors = reactive<Partial<Record<ContactField, string>>>({});
 const loading = ref(false);
 const sent = ref(false);
 const errorMessage = ref<string | null>(null);
+/** The send failed, and the page answers with the phone and the address rather than a sentence. */
+const failure = ref<ContactFailure | null>(null);
 
 const clearErrors = () => {
   for (const field of Object.keys(errors) as ContactField[]) delete errors[field];
@@ -239,6 +260,7 @@ const composeAnother = () => {
   Object.assign(form, emptyForm());
   clearErrors();
   errorMessage.value = null;
+  failure.value = null;
   sent.value = false;
 };
 
@@ -258,6 +280,7 @@ const onSubmit = async () => {
 
   clearErrors();
   errorMessage.value = null;
+  failure.value = null;
 
   const result = contactMessageSchema.safeParse({ ...form });
   if (!result.success) {
@@ -282,9 +305,10 @@ const onSubmit = async () => {
       Object.assign(errors, payload.fieldErrors);
       void focusFirstError();
     }
-    errorMessage.value =
-      payload.message ??
-      `Nu am putut trimite mesajul. Verifică-ți conexiunea sau scrie-ne la ${SCHOOL_EMAIL}.`;
+    // Ours to draw when the message did not leave; the route's sentence when it refused something
+    // the reader can act on — too many messages, a field to fix.
+    failure.value = contactFailureOf(error);
+    errorMessage.value = failure.value ? null : (payload.message ?? null);
   } finally {
     loading.value = false;
   }

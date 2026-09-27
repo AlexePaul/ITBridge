@@ -13,14 +13,16 @@
           :reference="fieldEl"
           :content="{ align: 'start', sideOffset: 8 }"
         >
-          <!-- Full-size, pulled back over the field's own end padding: a 40×32 target instead of 16×28. -->
+          <!-- Full-size, pulled back over the field's own end padding: a 40×32 target instead of 16×28,
+               and 44×44 under a finger — the phone register's only way to jump to a date without
+               typing it (QA of 27 September 2026). -->
           <UButton
             color="neutral"
             variant="link"
             icon="i-lucide-calendar"
             :aria-label="calendarLabel"
             :disabled="disabled"
-            class="-me-2.5"
+            class="-me-2.5 pointer-coarse:min-h-11 pointer-coarse:min-w-11 justify-center"
           />
           <template #content>
             <UCalendar
@@ -58,7 +60,7 @@
 import { inject } from "vue";
 import type { DateValue } from "@internationalized/date";
 import { formBusInjectionKey, formFieldInjectionKey } from "@nuxt/ui/composables/useFormField";
-import { calendarToDateKey, dateKeyToCalendar } from "~/composables/useDateField";
+import { calendarToDateKey, dateKeyToCalendar, isWholeDate } from "~/composables/useDateField";
 
 const props = withDefaults(
   defineProps<{
@@ -88,10 +90,15 @@ const model = defineModel<string | undefined>();
 const fieldEl = ref<HTMLElement>();
 const open = ref(false);
 
-/** What both the segments and the calendar edit; every write lands in the string model. */
+/**
+ * What both the segments and the calendar edit; every write lands in the string model — once it is
+ * a whole date. A year still being typed is not written, so a screen that acts on the model does
+ * not act on 0002, 0020 and 0202 on the way to 2026 (`isWholeDate`).
+ */
 const calendarValue = computed<DateValue | undefined, DateValue | null | undefined>({
   get: () => dateKeyToCalendar(model.value),
   set: (value) => {
+    if (!isWholeDate(value)) return;
     model.value = calendarToDateKey(value);
   },
 });

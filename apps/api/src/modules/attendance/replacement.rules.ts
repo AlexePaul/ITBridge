@@ -1,5 +1,6 @@
 import { ClassSession } from 'src/entities/class-session.entity';
 import { endOfIsoWeek, parseIsoDate, startOfIsoWeek, toIsoDate } from 'src/modules/class-session/class-session.dates';
+import { romanianDayAndDate } from 'src/modules/mail/romanian-date';
 
 /**
  * Where a missed hour can be given back — E12/S4.
@@ -43,4 +44,26 @@ export function isInReplacementWeek(missed: Pick<ClassSession, 'date'>, replacem
     const week = replacementWeekFor(missed.date);
     const date = toIsoDate(replacement.date);
     return date >= week.from && date <= week.to;
+}
+
+/**
+ * The class a child was moved into, as the family's email names it: group, day, hour, and where —
+ * the location's name **and its street**.
+ *
+ * The office's dialog promises „un email cu grupa, ziua, ora și adresa", and the email said „la
+ * Drumul Taberei" (QA of 27 September 2026): a name, which a family new to that address cannot
+ * drive to. Where is the location of the class's own room, the rule the trial confirmation follows —
+ * a class moved to the other address is held there — with the group's room behind it for a class
+ * read without its own.
+ */
+export function replacementPlaceText(replacement: ClassSession): string {
+    const venue = replacement.room?.location ?? replacement.group?.room?.location ?? null;
+    return [
+        `grupa ${replacement.group.name}`,
+        romanianDayAndDate(replacement.date),
+        `ora ${replacement.startTime.slice(0, 5)}`,
+        venue ? `la ${venue.name} (${venue.street}, ${venue.city})` : null,
+    ]
+        .filter(Boolean)
+        .join(', ');
 }

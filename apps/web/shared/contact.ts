@@ -100,7 +100,31 @@ export const fieldErrorsOf = (error: z.ZodError): Partial<Record<ContactField, s
 export interface ContactErrorPayload {
   message?: string;
   fieldErrors?: Partial<Record<ContactField, string>>;
+  /**
+   * The message could not leave, for a reason on the school's side — no key, the provider down.
+   * The page answers this with the phone and the address as links rather than with `message`,
+   * which stays for any other client of the route.
+   */
+  sendFailed?: boolean;
 }
 
 export const contactErrorPayload = (error: unknown): ContactErrorPayload =>
   (error as { data?: { data?: ContactErrorPayload } } | null | undefined)?.data?.data ?? {};
+
+/**
+ * Which of the two failures the page draws itself, or `null` when the route worded the answer.
+ *
+ * `unavailable` is an answer that says the message did not leave — marked so by the route, or a
+ * failure with no words of ours in it at all. `offline` is no answer: ofetch sets `statusCode` only
+ * when a response came back. Both end in the phone and the address, as links (QA of 27 September
+ * 2026: the fallback named the address as plain text and no number at all). A refusal the reader
+ * can act on — too many messages, a field to fix — keeps the route's own sentence.
+ */
+export type ContactFailure = "unavailable" | "offline";
+
+export const contactFailureOf = (error: unknown): ContactFailure | null => {
+  const payload = contactErrorPayload(error);
+  if (payload.message && !payload.sendFailed) return null;
+  const status = (error as { statusCode?: unknown } | null | undefined)?.statusCode;
+  return typeof status === "number" ? "unavailable" : "offline";
+};

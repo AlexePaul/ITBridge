@@ -31,7 +31,17 @@
         </div>
       </div>
 
-      <nav class="portal-tabs" aria-label="Portalul familiei">
+      <nav
+        ref="tabStrip"
+        class="portal-tabs"
+        :class="{
+          'portal-tabs-more-before': edges.before,
+          'portal-tabs-more-after': edges.after,
+        }"
+        aria-label="Portalul familiei"
+        @scroll.passive="measureTabs"
+        @focusin="onTabFocus"
+      >
         <NuxtLink
           v-for="tab in tabs"
           :key="tab.to"
@@ -48,8 +58,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "#imports";
+import { scrollEdges, scrollLeftToReveal } from "~/composables/useScrollEdges";
 import { useChildSelection } from "~/composables/useChildSelection";
 import { useLogout } from "~/composables/useLogout";
 import { useProfileStore } from "~/stores/profileStore";
@@ -69,6 +80,11 @@ import { SCHOOL_NAME } from "#shared/school";
  * portal has to feel like the same site — but **the tabs do not fold**. They are the navigation,
  * and burying five links behind a hamburger on the screen a parent uses most would put every page
  * two taps away. The row scrolls sideways instead.
+ *
+ * **And it has to say so** (QA of 27 September 2026). At 390 px „Plăți" and „Profil" sat past the
+ * right edge with nothing to show they were there, and on `/user/payments` the tab marked as the
+ * current page was itself off screen. The current tab is now scrolled into view when the portal
+ * opens and at every change of page, and the row fades on each side that still hides a tab.
  */
 const route = useRoute();
 const { handleLogout } = useLogout();
@@ -114,4 +130,53 @@ const familyName = computed(() => {
   const profile = profileStore.profile;
   return profile?.lastName ? `Familia ${profile.lastName}` : "";
 });
+
+const tabStrip = ref<HTMLElement | null>(null);
+/** Which sides of the row hide a tab — the fade in `classical.css` reads these two classes. */
+const edges = ref({ before: false, after: false });
+
+const measureTabs = () => {
+  const strip = tabStrip.value;
+  if (!strip) return;
+  edges.value = scrollEdges(strip.scrollLeft, strip.scrollWidth, strip.clientWidth);
+};
+
+/**
+ * A tab, brought into the row's view — the row alone, and only as far as needed. Not
+ * `scrollIntoView`, which also moved the page: see `scrollLeftToReveal`. The margin is the row's own
+ * `scroll-padding-inline`, the fade's width, so the number lives in the stylesheet only.
+ */
+const revealTab = (tab: HTMLElement) => {
+  const strip = tabStrip.value;
+  if (!strip) return;
+  const row = strip.getBoundingClientRect();
+  const box = tab.getBoundingClientRect();
+  const start = box.left - row.left + strip.scrollLeft;
+  const margin = parseFloat(getComputedStyle(strip).scrollPaddingLeft) || 0;
+  strip.scrollLeft = scrollLeftToReveal(strip, { start, end: start + box.width }, margin);
+  measureTabs();
+};
+
+const revealCurrentTab = async () => {
+  await nextTick();
+  const current = tabStrip.value?.querySelector<HTMLElement>('[aria-current="page"]');
+  if (current) revealTab(current);
+  else measureTabs();
+};
+
+/** The keyboard's own scrolling stops at the row's edge, under the fade; this finishes the job. */
+const onTabFocus = (event: FocusEvent) => {
+  const tab = (event.target as HTMLElement | null)?.closest<HTMLElement>(".portal-tab");
+  if (tab) revealTab(tab);
+};
+
+onMounted(() => {
+  void revealCurrentTab();
+  window.addEventListener("resize", measureTabs, { passive: true });
+});
+
+onBeforeUnmount(() => window.removeEventListener("resize", measureTabs));
+
+// A new page, or a different set of tabs once the account's state is known.
+watch([() => route.path, () => tabs.value.length], () => void revealCurrentTab());
 </script>

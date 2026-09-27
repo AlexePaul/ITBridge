@@ -242,20 +242,26 @@
               </div>
             </div>
           </div>
-          <UButton
-            class="mt-4"
-            variant="subtle"
-            color="primary"
-            :to="`/admin/profiles/${profile.id}/children/new`"
-          >
-            Adaugă Copil
-          </UButton>
         </div>
 
         <div v-else class="text-center py-8">
           <UIcon name="i-lucide-user-x" class="text-4xl text-muted mx-auto mb-3" />
-          <p class="text-muted">Nu aveți copii înregistrați în sistem.</p>
+          <p class="text-muted">Familia nu are încă niciun copil.</p>
         </div>
+
+        <!-- Outside the list on purpose: a family the office has just typed in from a phone call
+             has no children yet, and the button used to live inside the branch that renders only
+             when there are some (QA of 27 September 2026). An erased family takes no new child. -->
+        <UButton
+          v-if="!profile.erasedAt"
+          class="mt-4"
+          variant="subtle"
+          color="primary"
+          icon="i-lucide-plus"
+          :to="`/admin/profiles/${profile.id}/children/new`"
+        >
+          Adaugă Copil
+        </UButton>
       </UCard>
 
       <!--
@@ -555,7 +561,7 @@
         color="error"
         :to="`/admin/profiles/${profile?.id}/confirmation`"
       >
-        Sterge Profil
+        Șterge Profil
       </UButton>
     </div>
 

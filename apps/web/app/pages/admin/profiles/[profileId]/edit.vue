@@ -81,7 +81,7 @@ const profile: Ref<Profile | null> = ref(null);
 const isSubmitting = ref(false);
 
 const schema = z.object({
-  email: z.string().email().optional().or(z.literal("")),
+  email: z.string().email("Adresa de email nu pare validă.").optional().or(z.literal("")),
   phone: z.string().optional().or(z.literal("")),
   firstName: z.string().min(1, "Prenumele este obligatoriu"),
   lastName: z.string().min(1, "Numele este obligatoriu"),

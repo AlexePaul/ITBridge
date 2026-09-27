@@ -1,7 +1,7 @@
 import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
 import AppDataSource from '../data-source';
-import { checkSeedTarget, isLocalHost, LOCAL_PASSWORD } from './seed-target';
+import { checkSeedTarget, LOCAL_PASSWORD } from './seed-target';
 import { User } from '../entities/user.entity';
 import { DocumentAcceptance } from '../entities/document-acceptance.entity';
 import { LegalDocument } from '../enum/legal-document.enum';
@@ -401,9 +401,12 @@ export async function seed(dataSource: DataSource): Promise<void> {
     // One family is deliberately left on an older version of the terms, so a fresh seed has the
     // state a developer would otherwise only meet by editing rows by hand: the screen §18 promises
     // exists, and this is who sees it. Not the admin — the accessibility run signs in as them, and
-    // admins are exempt anyway.
+    // admins are exempt anyway. And not the half-registered family either, which it was until the
+    // end-to-end testing of 27 September 2026: three gates stacked on one account meant the test of
+    // an unconfirmed address had to get through step two and the new terms before it saw what it
+    // was testing. An active family with nothing else outstanding, so this screen is all it meets.
     const parentAccounts = await dataSource.getRepository(User).find({ where: { role: Role.PARENT } });
-    const staleFamily = parentAccounts.find((account) => account.username === 'diana.moldovan');
+    const staleFamily = parentAccounts.find((account) => account.username === 'david.georgescu');
 
     await dataSource.getRepository(DocumentAcceptance).save(
         parentAccounts.flatMap((account) =>
@@ -876,6 +879,46 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
         d.setUTCFullYear(d.getUTCFullYear() - yearsAgo);
         return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
     };
+    // A trial that happened and that nobody has decided about, whole — as the booking form and the
+    // register would have left it: a shell family with no address (the form writes none), the
+    // child, a TRIAL enrolment from the day of the class, and the child marked present in it. The
+    // lead used to carry the status alone, so the leads screen and the dashboard said "1 probă
+    // fără decizie" while `/admin/formare`, which reads enrolments, showed none, and the accepted
+    // path of a trial — „A rămas" — could not be tried on a seeded database: the only trial was
+    // in the future (end-to-end testing of 27 September 2026).
+    const enrollmentRepo = dataSource.getRepository(Enrollment);
+    const attendanceRepo = dataSource.getRepository(Attendance);
+    const heldTrialSession = past.find((session) => session.group.id === groups[2].id && session.status === ClassSessionStatus.HELD) ?? null;
+    let heldTrial: { profile: Profile; child: Child; enrollment: Enrollment } | null = null;
+    if (heldTrialSession) {
+        const shell = await dataSource.getRepository(Profile).save(dataSource.getRepository(Profile).create({ firstName: 'Radu', lastName: 'Neagu' }));
+        const child = await dataSource
+            .getRepository(Child)
+            .save(dataSource.getRepository(Child).create({ firstName: 'Tudor', lastName: 'Neagu', birthDate: birthDate(10), parent: shell, group: groups[2] }));
+        const enrollment = await enrollmentRepo.save(
+            enrollmentRepo.create({
+                child,
+                group: groups[2],
+                status: EnrollmentStatus.TRIAL,
+                startDate: toIsoDate(heldTrialSession.date),
+                endDate: null,
+                exitReason: null,
+                contractSignedAt: null,
+            }),
+        );
+        await attendanceRepo.save(
+            attendanceRepo.create({ child, classSession: heldTrialSession, group: groups[2], type: AttendanceType.REGULAR, present: true }),
+        );
+        heldTrial = { profile: shell, child, enrollment };
+    }
+    // The class it was held in, at the hour it started: what `LeadProgressService` stamps.
+    const heldAt = ((): Date => {
+        if (!heldTrialSession) return daysAgo(4);
+        const [hour, minute] = heldTrialSession.startTime.split(':').map(Number);
+        const day = heldTrialSession.date;
+        return new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour, minute);
+    })();
+
     await leadRepo.save([
         leadRepo.create({
             status: LeadStatus.NEW,
@@ -917,7 +960,8 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
             childLastName: 'Toma',
             childBirthDate: birthDate(8),
             group: groups[0],
-            trialSession: upcoming[0] ?? null,
+            // A class of the group the trial is in: `upcoming[0]` was the next class of any group.
+            trialSession: upcoming.find((session) => session.group.id === groups[0].id && session.status === ClassSessionStatus.SCHEDULED) ?? null,
             location: locations[0],
             lastActivityAt: daysAgo(2),
             bookingKey: 'seed-trial-elena-toma',
@@ -933,10 +977,13 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
             childLastName: 'Neagu',
             childBirthDate: birthDate(10),
             group: groups[2],
-            trialSession: past[0] ?? null,
-            trialHeldAt: daysAgo(4),
+            profile: heldTrial?.profile ?? null,
+            child: heldTrial?.child ?? null,
+            enrollment: heldTrial?.enrollment ?? null,
+            trialSession: heldTrialSession,
+            trialHeldAt: heldAt,
             location: locations[0],
-            lastActivityAt: daysAgo(4),
+            lastActivityAt: heldAt,
             // The one the follow-up screen is built for: the trial happened and nobody has rung.
             nextActionAt: daysAgo(1),
         }),
@@ -1021,8 +1068,10 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
     await outboxRepo.save([
         outboxRepo.create({
             to: withEmail[0]?.email ?? 'parinte@example.com',
-            subject: 'Factura pentru luna aceasta',
-            bodyText: 'Factura este atașată.',
+            subject: 'Factura pe luna trecută',
+            // Nothing is attached to an invoice email — the PDF is downloaded from the portal — and
+            // a sample that said otherwise was read as a promise (end-to-end testing, 27 September).
+            bodyText: 'Factura pe luna trecută e gata: 350 lei. O descarci din portal, la Plăți.',
             status: OutboxStatus.SENT,
             attempts: 1,
             sentAt: daysAgo(2),
@@ -1055,7 +1104,10 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
             bodyText: 'Factura pentru luna trecută este încă neachitată.',
             status: OutboxStatus.FAILED,
             attempts: 3,
-            lastError: 'Provider responded 421: try again later',
+            // A refusal in the shape `MailService` writes it, so /admin/livrari shows its Romanian
+            // sentence for it (`describeSendFailure`): the seed said "Provider responded 421", which
+            // nothing in the platform writes (QA of 27 September 2026).
+            lastError: 'Resend answered 422: {"statusCode":422,"name":"validation_error","message":"Invalid `to` field."}',
             nextAttemptAt: daysAgo(-1),
             dedupeKey: 'seed-outbox-arrears-1',
             profile: withEmail[3] ?? null,
@@ -1271,11 +1323,13 @@ async function main(): Promise<void> {
         console.log(
             projects.skipped ? `projects: ${projects.projects} created, files skipped (${projects.skipped})` : `projects: ${projects.projects} created`,
         );
-        // Printed only for a local database. On staging the value came from `SEED_PASSWORD`, and
+        // Printed only when it is the repository's own. A chosen one came from `SEED_PASSWORD`, and
         // echoing it would copy it into whatever captured this run's output — a CI log, a terminal
-        // recording, somebody's scrollback. The person who set the variable already knows it.
-        const local = isLocalHost((AppDataSource.options as { host?: string }).host ?? '');
-        console.log(local ? `\nSign in as "admin" with the password "${LOCAL_PASSWORD}".` : `\nSign in as "admin" with the password from SEED_PASSWORD.`);
+        // recording, somebody's scrollback. The person who set the variable already knows it. Asked
+        // of the variable, not of the host: on the staging instance the database is `localhost`
+        // too, and the line used to announce `parola123` there right after seeding with another.
+        const chosen = !!process.env.SEED_PASSWORD;
+        console.log(chosen ? `\nSign in as "admin" with the password from SEED_PASSWORD.` : `\nSign in as "admin" with the password "${LOCAL_PASSWORD}".`);
     } finally {
         await AppDataSource.destroy();
     }

@@ -148,7 +148,6 @@ export class OverviewService {
                 // E20/S3: the lead module owns "who needs a call"; the tile counts what it is handed.
                 this.leads.followUp(today),
             ]);
-        const leadsToCall = new Set([...followUp.undecided, ...followUp.noSeats, ...followUp.stale, ...followUp.due].map((row) => row.lead.id)).size;
 
         // A cancelled class is not one of today's, and it can never be marked: counted here it showed
         // "0 din N marcate" and a „Nemarcată" badge on every class of a day off (review of 25
@@ -184,7 +183,7 @@ export class OverviewService {
             pendingApprovals,
             messagesNotDelivered,
             enrollmentsWithoutContract: withoutContract.length,
-            leads: { toCall: leadsToCall, undecided: followUp.undecided.length, noSeats: followUp.noSeats.length },
+            leads: { toCall: followUp.toCall, undecided: followUp.undecided.length, noSeats: followUp.noSeats.length },
         };
     }
 

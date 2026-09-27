@@ -24,6 +24,7 @@ import { owesReceipt, receiptDedupeKey, receiptTemplate } from './payment-receip
 import { editTouchesSmartBillRecord, nextPaymentFiscalState, owesSmartBillRecord } from './payment-fiscal.rules';
 import { schoolDay } from 'src/common/school-clock';
 import { issuingNow } from 'src/modules/invoice/issuing-clock';
+import { familyHasAccount, familyLink } from 'src/modules/mail/portal-line';
 
 /**
  * A payment is money that moved, so its day has happened — the QA of 26 September 2026: the form
@@ -244,8 +245,13 @@ export class PaymentService {
             outstanding: formatLeiRo(balance.outstanding),
             officeEmail: this.office,
             // The confirmation goes the minute the money is entered; the fiscal documents follow in
-            // SmartBill's own time. The portal is where both are, whenever they arrive — E16/S6.
-            portalUrl: paymentsUrl(),
+            // SmartBill's own time. The portal is where both are, whenever they arrive — E16/S6 —
+            // for a family with an account; one without is told to ask (QA of 27 September 2026).
+            ...familyLink(
+                await familyHasAccount(manager, parent?.id),
+                { note: 'Factura fiscală și, pentru numerar, chitanța le găsești în portal:', url: paymentsUrl() },
+                'Dacă vrei factura sau chitanța, scrie-ne și ți le trimitem:',
+            ),
         });
 
         await this.outbox.queueOrRecord(

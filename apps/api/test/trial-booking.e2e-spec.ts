@@ -106,6 +106,58 @@ describe('Trial booking, public (e2e)', () => {
             expect(shells).toEqual([{ email: null, phone: null }]);
         });
 
+        /**
+         * The page said „la grupa Scratch Începători (Drumul Taberei)" — a location's name, not
+         * a street — and a family that left only a phone gets no email with the address in it
+         * (QA of 27 September 2026). The answer carries the address, and a second press is
+         * answered from the booking on file with the same one.
+         */
+        it('answers with the address of the class, for the family that left only a phone', async () => {
+            const { sessionId } = await schoolWithAClass();
+            const body = bookingBody({ classSessionId: sessionId, parentEmail: undefined, parentPhone: '0712345678' });
+
+            const res = await request(app.getHttpServer()).post('/trial/bookings').send(body).expect(201);
+            expect(res.body.status).toBe('booked');
+            expect(res.body.trial).toMatchObject({ locationName: 'Titan', address: 'Strada Valea Oltului 73, București' });
+
+            const again = await request(app.getHttpServer()).post('/trial/bookings').send(body).expect(201);
+            expect(again.body.leadId).toBe(res.body.leadId);
+            expect(again.body.trial).toMatchObject({ locationName: 'Titan', address: 'Strada Valea Oltului 73, București' });
+        });
+
+        it('answers with the address of the room the class has moved into, not the group’s usual one', async () => {
+            const { sessionId } = await schoolWithAClass();
+            const elsewhere = await request(app.getHttpServer())
+                .post('/locations')
+                .set('Authorization', admin.auth)
+                .send({
+                    name: 'Străulești',
+                    slug: `straulesti-${Date.now()}`,
+                    street: 'Strada Străulești 12',
+                    city: 'București',
+                    latitude: 44.5,
+                    longitude: 26.0,
+                })
+                .expect(201);
+            const room = await request(app.getHttpServer())
+                .post('/rooms')
+                .set('Authorization', admin.auth)
+                .send({ name: 'Sala mare', locationId: elsewhere.body.id as number, capacity: 10 })
+                .expect(201);
+            await request(app.getHttpServer())
+                .put(`/class-sessions/${sessionId}/move`)
+                .set('Authorization', admin.auth)
+                .send({ roomId: room.body.id as number, reason: 'Sala de la Titan e în lucrări' })
+                .expect(200);
+
+            const res = await request(app.getHttpServer())
+                .post('/trial/bookings')
+                .send(bookingBody({ classSessionId: sessionId }))
+                .expect(201);
+
+            expect(res.body.trial).toMatchObject({ locationName: 'Străulești', address: 'Strada Străulești 12, București' });
+        });
+
         it('refuses a request with no way to reach the family', async () => {
             const { sessionId } = await schoolWithAClass();
 
@@ -340,6 +392,29 @@ describe('Trial booking, public (e2e)', () => {
             const lead = await request(app.getHttpServer()).get(`/leads/${leadId}`).set('Authorization', admin.auth).expect(200);
             expect(lead.body.status).toBe('trial_held');
             expect(lead.body.trialHeldAt).not.toBeNull();
+        });
+
+        // The file opens from four places on the screen — the table and the three follow-up cards —
+        // and reads whatever row it was handed. The follow-up lists loaded fewer relations than the
+        // table, so the same request said "Fără preferință" and "Neprogramată" when opened from a
+        // card, and its location and trial when opened from the table (QA of 27 September 2026).
+        it('reads the same from the follow-up lists as from the table and the file', async () => {
+            const { leadId } = await bookAndMark(true);
+            await request(app.getHttpServer()).patch(`/leads/${leadId}`).set('Authorization', admin.auth).send({ nextActionAt: '2020-01-01' }).expect(200);
+
+            const get = async (path: string) => (await request(app.getHttpServer()).get(path).set('Authorization', admin.auth).expect(200)).body;
+            const file = await get(`/leads/${leadId}`);
+            const listed = (await get('/leads')).find((lead: { id: number }) => lead.id === leadId);
+            const followUp = await get('/leads/follow-up');
+            const undecided = await get('/leads/undecided');
+            const inList = (rows: { lead: { id: number } }[]) => rows.find((row) => row.lead.id === leadId)?.lead;
+
+            expect(file.location).not.toBeNull();
+            expect(file.trialSession).not.toBeNull();
+            expect(listed).toEqual(file);
+            expect(inList(followUp.undecided)).toEqual(file);
+            expect(inList(followUp.due)).toEqual(file);
+            expect(inList(undecided)).toEqual(file);
         });
 
         it('moves back when the mark was a mistap corrected to absent', async () => {

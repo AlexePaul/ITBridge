@@ -93,6 +93,26 @@ export function formatPercent(share: unknown): string {
 }
 
 /**
+ * `2.5` → `"2,5"`: a number with the decimals it has, and the comma a Romanian reader writes.
+ *
+ * Non-numbers come back as the em dash, like `formatLei`.
+ */
+export function formatDecimal(value: unknown): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return String(value).replace(".", ",");
+}
+
+/**
+ * `42.9` → `"42,9%"`, `50` → `"50%"`. A rate the API already put in percent, with the decimal it
+ * chose — the lead funnel's (E20/S4). `formatPercent` above takes a share and rounds it whole; this
+ * one keeps what it is given.
+ */
+export function formatRate(percent: unknown): string {
+  const text = formatDecimal(percent);
+  return text === "—" ? text : `${text}%`;
+}
+
+/**
  * `"2018-03-16"` → `8`, on a day in September 2026 — the child's age in whole years.
  *
  * Integers off the two date strings, never `new Date()`: an ISO date parses as UTC midnight and

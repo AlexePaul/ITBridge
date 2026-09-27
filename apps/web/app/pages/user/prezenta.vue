@@ -17,6 +17,7 @@
 
     <div v-else-if="loadError" class="portal-card portal-card-accent portal-notice" role="alert">
       <p class="body-text">{{ loadError }}</p>
+      <UButton variant="outline" class="mt-3 min-h-11" @click="load">Încearcă din nou</UButton>
     </div>
 
     <template v-else>
@@ -277,7 +278,13 @@ const months = computed(() =>
   })
 );
 
-onMounted(async () => {
+/**
+ * What the page shows, read again by the retry under an error (QA of 27 September 2026: only
+ * Profil offered one, so a portal page that failed on a bad connection stayed failed until a reload).
+ */
+const load = async () => {
+  loading.value = true;
+  loadError.value = "";
   try {
     const mine = await childrenApi.fetchChildren();
     reconcile(mine);
@@ -291,7 +298,9 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+};
+
+onMounted(load);
 
 /**
  * One request per distinct group, not per child.

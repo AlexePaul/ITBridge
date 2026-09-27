@@ -5,6 +5,10 @@
     width="xl"
   >
     <template #actions>
+      <!-- The dashboard's „Cereri de urmărit", from the same count (QA of 27 September 2026). -->
+      <UBadge v-if="followUp" color="neutral" variant="subtle">
+        {{ countOf(followUp.toCall, "cerere de urmărit azi", "cereri de urmărit azi") }}
+      </UBadge>
       <UBadge v-if="followUp" color="warning" variant="subtle">
         {{ countOf(followUp.undecided.length, "probă fără decizie", "probe fără decizie") }}
       </UBadge>
@@ -49,12 +53,12 @@
                   >
                     {{ row.lead.childFirstName }} {{ row.lead.childLastName }}
                   </button>
-                  <span class="text-muted">· {{ row.lead.parentName }}</span>
+                  <span class="text-muted"> · {{ row.lead.parentName }}</span>
                 </p>
                 <p class="text-sm text-muted">
                   {{ row.lead.group?.name ?? "Fără grupă" }} ·
                   <span :class="row.days >= 3 ? 'text-warning font-medium' : ''">
-                    de {{ row.days }} {{ row.days === 1 ? "zi" : "zile" }}
+                    ținută {{ daysAgoLabel(row.days) }}
                   </span>
                   · {{ row.lead.assignedTo?.username ?? "fără responsabil" }}
                 </p>
@@ -93,7 +97,9 @@
               >
                 {{ row.lead.childFirstName }}
               </button>
-              <span class="text-muted"> · {{ row.lead.parentName }} · de {{ row.days }} z.</span>
+              <span class="text-muted">
+                · {{ row.lead.parentName }} · {{ daysAgoLabel(row.days) }}</span
+              >
             </li>
           </ul>
         </UCard>
@@ -155,7 +161,7 @@
 </template>
 
 <script setup lang="ts">
-import { countOf } from "~/composables/useRomanianCount";
+import { countOf, daysAgoLabel } from "~/composables/useRomanianCount";
 import { computed, onMounted, ref, watch } from "vue";
 import { useLeadsApi } from "~/composables/api/useLeadsApi";
 import { apiErrorMessage } from "~/composables/useApiError";

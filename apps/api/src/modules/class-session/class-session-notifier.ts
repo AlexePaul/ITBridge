@@ -10,7 +10,8 @@ import { OutboxMessage } from 'src/entities/outbox-message.entity';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { romanianDate } from 'src/modules/mail/romanian-date';
-import { absencesUrl, contactUrl, loginUrl } from 'src/modules/auth/portal-urls';
+import { absencesUrl, loginUrl } from 'src/modules/auth/portal-urls';
+import { familyLink } from 'src/modules/mail/portal-line';
 import { bookingAddresses } from 'src/modules/mail/booking-address';
 
 /** Where a session was before it moved — the half a parent asks about. */
@@ -33,6 +34,8 @@ interface Recipient {
     firstName: string;
     /** True for a family whose child the office moved into this class for the week, not enrolled in it. */
     visiting: boolean;
+    /** Whether the family has an account to sign in with — the portal is a door only for those. */
+    hasAccount: boolean;
     /**
      * Reached at the address it left on `/proba`, because its profile has none: a trial family with
      * no account, for whom the portal's login page is a door that does not open.
@@ -42,12 +45,13 @@ interface Recipient {
 
 /**
  * The closing line and its link. A family with an account is sent to the portal, in the sentence the
- * template always had; a family reached through its booking address has no account, so it is sent
- * to the contact page instead (QA of 26 September 2026).
+ * template always had; a family without one is sent to the contact page instead. That was first
+ * the family reached through its booking address (QA of 26 September 2026), and then every family
+ * the office typed in from a phone call, which has an address and no account (QA of 27 September
+ * 2026) — the path most families take into the school.
  */
-const NO_ACCOUNT_NOTE = 'Pentru orice întrebare, ne găsești aici:';
 function portalLine(recipient: Recipient, accountNote: string, accountUrl: string = loginUrl()): { portalNote: string; portalUrl: string } {
-    return recipient.viaBooking ? { portalNote: NO_ACCOUNT_NOTE, portalUrl: contactUrl() } : { portalNote: accountNote, portalUrl: accountUrl };
+    return familyLink(recipient.hasAccount && !recipient.viaBooking, { note: accountNote, url: accountUrl });
 }
 
 interface RenderedMail {
@@ -106,7 +110,9 @@ export class ClassSessionNotifier {
         if (!session) return 0;
 
         const groupNote = 'Ora nu se facturează — plata e pe ședință ținută, deci luna aceasta va fi cu o ședință mai mică.';
-        const visitorNote = 'Ora la care îl mutasem pe copilul tău pentru săptămâna asta nu se mai ține. Căutăm alta în aceeași săptămână și te anunțăm.';
+        // „În locul celei pierdute", not „pentru săptămâna asta": the class a child was moved into can
+        // be next week's (QA of 27 September 2026).
+        const visitorNote = 'Ora la care îl mutasem pe copilul tău, în locul celei pierdute, nu se mai ține. Căutăm alta în aceeași săptămână și te anunțăm.';
         // A family here for a free trial is billed for nothing, so the group's sentence about the
         // month would be about somebody else. What they need is the next step, and it is ours.
         const trialNote = 'Proba copilului tău era la ora asta. Te sunăm să stabilim împreună alta.';
@@ -211,14 +217,20 @@ export class ClassSessionNotifier {
         change: { fromSlot: string; toSlot: string; firstDate: Date | string },
         manager: EntityManager,
     ): Promise<number> {
-        const group = await manager.getRepository(Group).findOne({ where: { id: groupId }, relations: { children: { parent: true } } });
+        const group = await manager.getRepository(Group).findOne({ where: { id: groupId }, relations: { children: { parent: { user: true } } } });
         if (!group) return 0;
 
         const recipients = new Map<number, Recipient>();
         for (const child of group.children ?? []) {
             const parent = child.parent;
             if (!parent || recipients.has(parent.id)) continue;
-            recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: false });
+            recipients.set(parent.id, {
+                parentId: parent.id,
+                email: parent.email ?? null,
+                firstName: parent.firstName,
+                visiting: false,
+                hasAccount: !!parent.user,
+            });
         }
         await this.reachTrialFamilies([...recipients.values()], manager);
 
@@ -259,7 +271,7 @@ export class ClassSessionNotifier {
     private loadWithFamilies(sessionId: number, manager: EntityManager): Promise<ClassSession | null> {
         return manager.getRepository(ClassSession).findOne({
             where: { id: sessionId },
-            relations: { group: { children: { parent: true } }, room: { location: true } },
+            relations: { group: { children: { parent: { user: true } } }, room: { location: true } },
         });
     }
 
@@ -273,7 +285,13 @@ export class ClassSessionNotifier {
         for (const child of session.group.children ?? []) {
             const parent = child.parent;
             if (!parent || recipients.has(parent.id)) continue;
-            recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: false });
+            recipients.set(parent.id, {
+                parentId: parent.id,
+                email: parent.email ?? null,
+                firstName: parent.firstName,
+                visiting: false,
+                hasAccount: !!parent.user,
+            });
         }
 
         if (options.includeVisitors) {
@@ -281,12 +299,18 @@ export class ClassSessionNotifier {
             // replacement class is about to disappear.
             const placed = await manager.getRepository(AbsenceNotice).find({
                 where: { replacementSession: { id: session.id } },
-                relations: { child: { parent: true } },
+                relations: { child: { parent: { user: true } } },
             });
             for (const notice of placed) {
                 const parent = notice.child?.parent;
                 if (!parent || recipients.has(parent.id)) continue;
-                recipients.set(parent.id, { parentId: parent.id, email: parent.email ?? null, firstName: parent.firstName, visiting: true });
+                recipients.set(parent.id, {
+                    parentId: parent.id,
+                    email: parent.email ?? null,
+                    firstName: parent.firstName,
+                    visiting: true,
+                    hasAccount: !!parent.user,
+                });
             }
         }
 

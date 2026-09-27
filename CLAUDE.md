@@ -163,6 +163,12 @@ mediu autorizează orice scrie `DB_NAME` data viitoare —, iar `SEED_PASSWORD` 
 se tipărește la final: ar ajunge în logul rulării. Regula e pură și are spec propriu; dacă adaugi o
 a treia țintă, treci prin ea, nu pe lângă.
 
+**Pe instanța de stage baza e tot `localhost`**, fiindcă Postgres stă lângă API — deci regula de
+host singură ar fi dat seed-ului rulat acolo parola din repo. `NODE_ENV` decide acum și el: orice
+altceva decât nesetat, `development` sau `test` e un backend deployat, iar acolo `SEED_PASSWORD` e
+obligatorie oricare ar fi host-ul (27 septembrie 2026). Pașii, cu parola cerută fără ecou, sunt în
+[docs/runbook.md](docs/runbook.md), 3.14.
+
 **`seed:stage` trimite `SEED_TARGET=stage`, iar o bază locală de acolo e refuz.** `dotenv -e
 .env.stage` **nu dă eroare când fișierul lipsește** — încarcă nimic —, iar `data-source.ts` cade
 atunci pe `localhost`, deci comanda ar fi golit tăcut baza de dezvoltare a celui care aștepta să se
@@ -1249,12 +1255,25 @@ o componentă pentru sine — eticheta care deschide meniul, „No data" sub un 
 închidere — vine din locale-ul pachetului, iar implicitul e engleza. Regula „numai codul e în
 engleză" acoperă și etichetele pe care nu le-a scris nimeni din echipă.
 
-**Iconițele sunt împachetate local, nu cerute de la Iconify.** `@iconify-json/lucide` e instalat, deci
-`@nuxt/icon` scanează sursele și pune în bundle doar iconițele folosite (43, 10,4KB la E18 S7),
-servite de pe domeniul propriu. Fără pachet, fiecare iconiță e o cerere către `api.iconify.design`
-la rulare — pe conexiunea din sală asta înseamnă butoane goale, iar butonul de meniu **e** o
-iconiță și nimic altceva. Dacă folosești un prefix dintr-o altă colecție, instaleaz-o și pe aia,
-altfel exact acele iconițe se întorc pe rețea, tăcut.
+**Iconițele sunt în JavaScript-ul paginii, nu cerute la rulare.** Două trepte, și a doua a lipsit
+până la testarea din 27 septembrie 2026. Întâi pachetul: `@iconify-json/lucide` e instalat, deci
+nicio iconiță nu mai vine de la `api.iconify.design` — pe conexiunea din sală asta însemna butoane
+goale, iar butonul de meniu **e** o iconiță și nimic altceva. Dar pachetul singur le ține doar pe
+server: fiecare iconiță era cerută de la `/api/_nuxt_icon` prima dată când se desena, iar telefonul
+profesorului desenează iconița de nor („salvat aici, aștept rețeaua") exact când rețeaua lipsește —
+n-a apărut niciodată. Acum `icon.clientBundle.scan` din `nuxt.config.ts` pune în bundle-ul
+clientului fiecare iconiță numită în surse, `.ts` inclus (127, ~36 KB necomprimat, cam 7 KB în plus
+gzip pe paginile publice). Scanerul citește **nume întregi**: un `` `i-lucide-${…}` `` construit la
+rulare nu e găsit, deci se scrie numele întreg; `icons-are-bundled.spec.ts` ține ambele reguli. Dacă
+folosești un prefix dintr-o altă colecție, instaleaz-o și pe aia, altfel exact acele iconițe se întorc
+pe rețea, tăcut.
+
+**Notificările trec prin toaster-ul lui Nuxt UI**, prin `useNotifications`. Containerul nostru de
+dinainte stătea în rădăcina aplicației, pe care Nuxt UI o face context de stivuire izolat (`isolate`),
+deci o fereastră modală teleportată în `<body>` stătea deasupra lui oricare i-ar fi fost `z-index`-ul:
+eroarea unui buton din modală apărea sub fundalul ei întunecat. Și dispărea după trei secunde, sau
+când ajungea mouse-ul pe ea — tocmai când cineva voia să copieze codul erorii. Toaster-ul e teleportat,
+se oprește cât e ținut mouse-ul pe el și are buton de închidere; o eroare stă 15 secunde.
 
 **Zona autentificată se verifică pe telefon, la 390px, nu doar pe desktop** (E18 S7). Două lucruri
 se strică acolo și nicăieri altundeva. Grupul din dreapta al navbar-ului are nevoie de `min-w-0`:
@@ -2101,8 +2120,13 @@ regulile pure) și `apps/api/src/modules/invoice/fiscal-issuing.*` (coada):
   `1.234,56` sau `1,234.56` —, iar un rând care nu se citește se raportează cu numărul lui, nu se
   sare. Se păstrează doar intrările, iar amprenta liniei (conținutul plus locul printre liniile
   identice) e unică, deci un extras importat de două ori nu adaugă nimic. Propunerile sunt două:
-  **după numărul fiscal al facturii** din detalii — sigure, se confirmă toate dintr-o apăsare — și
-  **după numele plătitorului și suma rămasă exact** — doar propunere, câte una. Cele sigure se judecă
+  **după referința facturii** din detalii — sigure, se confirmă toate dintr-o apăsare — și
+  **după numele plătitorului și suma rămasă exact** — doar propunere, câte una. Referința e
+  `paymentReference` (`invoice/payment-reference.ts`), aceeași pe care o tipăresc emailul facturii și
+  portalul: numărul fiscal (`factura ITB 0041`) când l-a dat SmartBill, iar cât PDF-ul platformei e
+  factura (`off`, `draft`, adică stage-ul) numărul platformei, `factura nr. 28`. Până la testarea din
+  27 septembrie 2026 potrivirea știa doar forma fiscală, deci pe stage nicio linie care scria ce cerea
+  emailul nu ajungea la apăsarea unică. Cele sigure se judecă
   **împreună**, cea mai veche întâi, fiecare față de ce au lăsat cele dinainte
   (`withRunningRemainder`): judecate una câte una, două linii care citează aceeași factură treceau
   amândouă, iar o apăsare o înregistra plătită de două ori. „Ce mai datorează o
