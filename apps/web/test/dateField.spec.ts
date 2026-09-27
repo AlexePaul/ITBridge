@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { CalendarDate, CalendarDateTime, parseZonedDateTime } from "@internationalized/date";
-import { DATE_KEY_PATTERN, calendarToDateKey, dateKeyToCalendar } from "~/composables/useDateField";
+import {
+  DATE_KEY_PATTERN,
+  calendarToDateKey,
+  dateKeyToCalendar,
+  isWholeDate,
+} from "~/composables/useDateField";
 
 /**
  * The crossing between a form's `YYYY-MM-DD` state and the calendar widgets — E18/S5b.
@@ -82,5 +87,22 @@ describe("DATE_KEY_PATTERN", () => {
     expect(DATE_KEY_PATTERN.test("2018-3-16")).toBe(false);
     expect(DATE_KEY_PATTERN.test("2018-03-16T00:00:00.000Z")).toBe(false);
     expect(DATE_KEY_PATTERN.test("")).toBe(false);
+  });
+});
+
+// QA of 27 September 2026: the segments emit after every keystroke, so a year typed digit by digit
+// arrived as 2, 20 and 202 first, and the phone register navigated to each of them.
+describe("isWholeDate", () => {
+  it("holds back the years a four-digit year passes through while it is typed", () => {
+    for (const year of [2, 20, 202]) {
+      expect(isWholeDate(new CalendarDate(year, 9, 27))).toBe(false);
+    }
+  });
+
+  it("lets a whole year through, and an empty field too", () => {
+    expect(isWholeDate(new CalendarDate(2026, 9, 27))).toBe(true);
+    expect(isWholeDate(new CalendarDate(1000, 1, 1))).toBe(true);
+    expect(isWholeDate(undefined)).toBe(true);
+    expect(isWholeDate(null)).toBe(true);
   });
 });

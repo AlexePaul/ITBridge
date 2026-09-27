@@ -58,7 +58,7 @@
 import { inject } from "vue";
 import type { DateValue } from "@internationalized/date";
 import { formBusInjectionKey, formFieldInjectionKey } from "@nuxt/ui/composables/useFormField";
-import { calendarToDateKey, dateKeyToCalendar } from "~/composables/useDateField";
+import { calendarToDateKey, dateKeyToCalendar, isWholeDate } from "~/composables/useDateField";
 
 const props = withDefaults(
   defineProps<{
@@ -88,10 +88,15 @@ const model = defineModel<string | undefined>();
 const fieldEl = ref<HTMLElement>();
 const open = ref(false);
 
-/** What both the segments and the calendar edit; every write lands in the string model. */
+/**
+ * What both the segments and the calendar edit; every write lands in the string model — once it is
+ * a whole date. A year still being typed is not written, so a screen that acts on the model does
+ * not act on 0002, 0020 and 0202 on the way to 2026 (`isWholeDate`).
+ */
 const calendarValue = computed<DateValue | undefined, DateValue | null | undefined>({
   get: () => dateKeyToCalendar(model.value),
   set: (value) => {
+    if (!isWholeDate(value)) return;
     model.value = calendarToDateKey(value);
   },
 });

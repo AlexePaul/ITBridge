@@ -56,6 +56,24 @@ describe("icons", () => {
     expect(offenders).toEqual([]);
   });
 
+  // QA of 27 September 2026: installed is not the same as bundled. The icons were fetched from our
+  // own `/api/_nuxt_icon` the first time each was drawn, so the teacher's phone never showed the
+  // cloud icon — the one drawn only when the network is gone. `nuxt.config.ts` puts every icon the
+  // sources name into the page's JavaScript; the scan reads literal names, `.ts` files included.
+  it("are in the page's own JavaScript, so a phone without network still draws them", () => {
+    const config = readFileSync(new URL("../nuxt.config.ts", import.meta.url), "utf8");
+    expect(config).toMatch(
+      /clientBundle:\s*\{\s*scan:\s*\{\s*globInclude:\s*\["\*\*\/\*\.\{vue,ts\}"\]/
+    );
+  });
+
+  it("are named whole, since the scan cannot see a name built at run time", () => {
+    const built = files(APP_DIR).filter((path) =>
+      /`i-[a-z0-9]+-\$\{/.test(readFileSync(path, "utf8"))
+    );
+    expect(built.map((path) => path.slice(APP_DIR.length + 1))).toEqual([]);
+  });
+
   // A sweep that matches nothing passes for the wrong reason, so it has to see the one it was
   // written for — and leave alone a URL fragment that happens to contain "i-de-".
   it("would notice one", () => {

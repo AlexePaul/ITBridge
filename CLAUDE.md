@@ -1255,12 +1255,25 @@ o componentă pentru sine — eticheta care deschide meniul, „No data" sub un 
 închidere — vine din locale-ul pachetului, iar implicitul e engleza. Regula „numai codul e în
 engleză" acoperă și etichetele pe care nu le-a scris nimeni din echipă.
 
-**Iconițele sunt împachetate local, nu cerute de la Iconify.** `@iconify-json/lucide` e instalat, deci
-`@nuxt/icon` scanează sursele și pune în bundle doar iconițele folosite (43, 10,4KB la E18 S7),
-servite de pe domeniul propriu. Fără pachet, fiecare iconiță e o cerere către `api.iconify.design`
-la rulare — pe conexiunea din sală asta înseamnă butoane goale, iar butonul de meniu **e** o
-iconiță și nimic altceva. Dacă folosești un prefix dintr-o altă colecție, instaleaz-o și pe aia,
-altfel exact acele iconițe se întorc pe rețea, tăcut.
+**Iconițele sunt în JavaScript-ul paginii, nu cerute la rulare.** Două trepte, și a doua a lipsit
+până la testarea din 27 septembrie 2026. Întâi pachetul: `@iconify-json/lucide` e instalat, deci
+nicio iconiță nu mai vine de la `api.iconify.design` — pe conexiunea din sală asta însemna butoane
+goale, iar butonul de meniu **e** o iconiță și nimic altceva. Dar pachetul singur le ține doar pe
+server: fiecare iconiță era cerută de la `/api/_nuxt_icon` prima dată când se desena, iar telefonul
+profesorului desenează iconița de nor („salvat aici, aștept rețeaua") exact când rețeaua lipsește —
+n-a apărut niciodată. Acum `icon.clientBundle.scan` din `nuxt.config.ts` pune în bundle-ul
+clientului fiecare iconiță numită în surse, `.ts` inclus (127, ~36 KB necomprimat, cam 7 KB în plus
+gzip pe paginile publice). Scanerul citește **nume întregi**: un `` `i-lucide-${…}` `` construit la
+rulare nu e găsit, deci se scrie numele întreg; `icons-are-bundled.spec.ts` ține ambele reguli. Dacă
+folosești un prefix dintr-o altă colecție, instaleaz-o și pe aia, altfel exact acele iconițe se întorc
+pe rețea, tăcut.
+
+**Notificările trec prin toaster-ul lui Nuxt UI**, prin `useNotifications`. Containerul nostru de
+dinainte stătea în rădăcina aplicației, pe care Nuxt UI o face context de stivuire izolat (`isolate`),
+deci o fereastră modală teleportată în `<body>` stătea deasupra lui oricare i-ar fi fost `z-index`-ul:
+eroarea unui buton din modală apărea sub fundalul ei întunecat. Și dispărea după trei secunde, sau
+când ajungea mouse-ul pe ea — tocmai când cineva voia să copieze codul erorii. Toaster-ul e teleportat,
+se oprește cât e ținut mouse-ul pe el și are buton de închidere; o eroare stă 15 secunde.
 
 **Zona autentificată se verifică pe telefon, la 390px, nu doar pe desktop** (E18 S7). Două lucruri
 se strică acolo și nicăieri altundeva. Grupul din dreapta al navbar-ului are nevoie de `min-w-0`:
