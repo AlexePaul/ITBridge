@@ -10,8 +10,11 @@ import type { DataSource } from 'typeorm';
 describe('InvoiceAnnouncementService', () => {
     let render: jest.Mock;
     let queueOrRecord: jest.Mock;
-    /** Whether the family has an account: the portal link, or the office's address instead. */
-    let hasAccount: jest.Mock;
+    /** The family's account: whether it can sign in, and whether its address is proven. */
+    let accountLookup: jest.Mock;
+    /** What has been paid on the invoice when the message is written. */
+    let paidQuery: jest.Mock;
+    let reader: { getRepository: () => { findOne: jest.Mock }; query: jest.Mock };
     let service: InvoiceAnnouncementService;
     let env: NodeJS.ProcessEnv;
 
@@ -35,8 +38,10 @@ describe('InvoiceAnnouncementService', () => {
             Promise.resolve({ subject: 'Factura', bodyText: JSON.stringify(data), bodyHtml: null }),
         );
         queueOrRecord = jest.fn().mockResolvedValue(null);
-        hasAccount = jest.fn().mockResolvedValue(true);
-        const dataSource = { manager: { getRepository: () => ({ exists: hasAccount }) } };
+        accountLookup = jest.fn().mockResolvedValue({ id: 4, user: { id: 9, emailConfirmedAt: new Date(2026, 0, 5), suspendedAt: null } });
+        paidQuery = jest.fn().mockResolvedValue([{ paid: '0' }]);
+        reader = { getRepository: () => ({ findOne: accountLookup }), query: paidQuery };
+        const dataSource = { manager: reader };
         service = new InvoiceAnnouncementService(
             { render } as unknown as MailTemplateService,
             { queueOrRecord } as unknown as OutboxService,
@@ -49,8 +54,9 @@ describe('InvoiceAnnouncementService', () => {
     });
 
     it('queues one message per invoice, to the family, in the caller transaction', async () => {
-        const exists = jest.fn().mockResolvedValue(true);
-        const manager = { getRepository: () => ({ exists }) } as never;
+        const findOne = jest.fn().mockResolvedValue({ id: 4, user: null });
+        const query = jest.fn().mockResolvedValue([{ paid: '0' }]);
+        const manager = { getRepository: () => ({ findOne }), query } as never;
 
         await service.announce(invoice(), manager);
 
@@ -59,13 +65,53 @@ describe('InvoiceAnnouncementService', () => {
             expect.objectContaining({ firstName: 'Ana', month: 'octombrie', amount: '350 lei', dueOn: '16 noiembrie' }),
         );
         expect(queueOrRecord).toHaveBeenCalledWith(
-            { email: 'ana@example.com' },
+            { email: 'ana@example.com', confirmed: true },
             expect.objectContaining({ dedupeKey: `${INVOICE_ISSUED_DEDUPE_PREFIX}55` }),
             manager,
         );
-        // The account is looked up in the caller's transaction too, not beside it.
-        expect(exists).toHaveBeenCalled();
-        expect(hasAccount).not.toHaveBeenCalled();
+        // The account and the payments are read in the caller's transaction too, not beside it.
+        expect(findOne).toHaveBeenCalled();
+        expect(query).toHaveBeenCalled();
+        expect(accountLookup).not.toHaveBeenCalled();
+    });
+
+    /**
+     * In `live` the email waits for SmartBill's number, which a refusal or a review can hold for days
+     * while the family pays at the office. It then asks for what is left, and a month already
+     * settled says nothing more — its receipt said it (review of 27 September 2026).
+     */
+    it('asks for what is left when money arrived before the number did', async () => {
+        paidQuery.mockResolvedValue([{ paid: '200' }]);
+
+        await service.announce(invoice());
+
+        expect(render).toHaveBeenCalledWith('invoice-issued', expect.objectContaining({ amount: '150 lei' }));
+    });
+
+    it('says nothing about a month already paid by the time the invoice is numbered', async () => {
+        paidQuery.mockResolvedValue([{ paid: '350' }]);
+
+        await service.announce(invoice());
+
+        expect(queueOrRecord).not.toHaveBeenCalled();
+    });
+
+    /** E11/S2: an amount and an account number do not go to an address the family has not proven. */
+    it('holds the message for an address the account has not proven since it changed', async () => {
+        accountLookup.mockResolvedValue({ id: 4, user: { id: 9, emailConfirmedAt: null, suspendedAt: null } });
+
+        await service.announce(invoice());
+
+        expect(queueOrRecord).toHaveBeenCalledWith({ email: 'ana@example.com', confirmed: false }, expect.anything(), undefined);
+    });
+
+    /** Terms §14: a suspended family still hears about its invoice, but not with a link to a login it cannot pass. */
+    it('sends a suspended family to the contact page', async () => {
+        accountLookup.mockResolvedValue({ id: 4, user: { id: 9, emailConfirmedAt: new Date(2026, 0, 5), suspendedAt: new Date(2026, 8, 1) } });
+
+        await service.announce(invoice());
+
+        expect((render.mock.calls[0][1] as Record<string, string>).portalUrl).toMatch(/\/contact$/);
     });
 
     it('sends a family with an account to the payments page of the portal', async () => {
@@ -81,7 +127,7 @@ describe('InvoiceAnnouncementService', () => {
      * pass. It is told to ask for the PDF, and given the contact page (QA of 27 September 2026).
      */
     it('sends a family with no account to the contact page, never to a login it cannot pass', async () => {
-        hasAccount.mockResolvedValue(false);
+        accountLookup.mockResolvedValue({ id: 4, user: null });
 
         await service.announce(invoice());
 
@@ -122,6 +168,6 @@ describe('InvoiceAnnouncementService', () => {
     it('hands an absent address to the outbox rather than skipping', async () => {
         await service.announce(invoice({ parent: { firstName: 'Ana', email: null } as never }));
 
-        expect(queueOrRecord).toHaveBeenCalledWith({ email: null }, expect.anything(), undefined);
+        expect(queueOrRecord).toHaveBeenCalledWith({ email: null, confirmed: true }, expect.anything(), undefined);
     });
 });

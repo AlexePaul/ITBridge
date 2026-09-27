@@ -3,6 +3,7 @@ import { EntityManager, In, Like } from 'typeorm';
 import { ClassSession } from 'src/entities/class-session.entity';
 import { Group } from 'src/entities/group.entity';
 import { AbsenceNotice } from 'src/entities/absence-notice.entity';
+import { Profile } from 'src/entities/profile.entity';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { Lead } from 'src/entities/lead.entity';
 import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
@@ -34,8 +35,13 @@ interface Recipient {
     firstName: string;
     /** True for a family whose child the office moved into this class for the week, not enrolled in it. */
     visiting: boolean;
-    /** Whether the family has an account to sign in with — the portal is a door only for those. */
-    hasAccount: boolean;
+    /**
+     * Whether the family can sign in: an account, not suspended. The portal is a door only for those;
+     * a suspended family still hears about its classes (terms §14), with the contact page instead.
+     */
+    canSignIn: boolean;
+    /** Whether its address may be written to — E11/S2, see `accountFacts`. */
+    confirmed: boolean;
     /**
      * Reached at the address it left on `/proba`, because its profile has none: a trial family with
      * no account, for whom the portal's login page is a door that does not open.
@@ -51,7 +57,17 @@ interface Recipient {
  * 2026) — the path most families take into the school.
  */
 function portalLine(recipient: Recipient, accountNote: string, accountUrl: string = loginUrl()): { portalNote: string; portalUrl: string } {
-    return familyLink(recipient.hasAccount && !recipient.viaBooking, { note: accountNote, url: accountUrl });
+    return familyLink(recipient.canSignIn && !recipient.viaBooking, { note: accountNote, url: accountUrl });
+}
+
+/**
+ * What the family's account says about writing to it, from the `user` relation the caller loaded:
+ * whether it can sign in, and whether its address is proven (E11/S2) — the office's word for a family
+ * it typed in, the account's own confirmation otherwise, which an address edit clears.
+ */
+function accountFacts(parent: Profile): Pick<Recipient, 'canSignIn' | 'confirmed'> {
+    const user = parent.user ?? null;
+    return { canSignIn: user !== null && user.suspendedAt === null, confirmed: user === null || user.emailConfirmedAt !== null };
 }
 
 interface RenderedMail {
@@ -229,7 +245,7 @@ export class ClassSessionNotifier {
                 email: parent.email ?? null,
                 firstName: parent.firstName,
                 visiting: false,
-                hasAccount: !!parent.user,
+                ...accountFacts(parent),
             });
         }
         await this.reachTrialFamilies([...recipients.values()], manager);
@@ -247,7 +263,7 @@ export class ClassSessionNotifier {
                 ...portalLine(recipient, 'Orarul actualizat e în portal:'),
             });
             const queued = await this.outbox.queueOrRecord(
-                { email: recipient.email },
+                { email: recipient.email, confirmed: recipient.confirmed },
                 {
                     subject: mail.subject,
                     bodyText: mail.bodyText,
@@ -290,7 +306,7 @@ export class ClassSessionNotifier {
                 email: parent.email ?? null,
                 firstName: parent.firstName,
                 visiting: false,
-                hasAccount: !!parent.user,
+                ...accountFacts(parent),
             });
         }
 
@@ -309,7 +325,7 @@ export class ClassSessionNotifier {
                     email: parent.email ?? null,
                     firstName: parent.firstName,
                     visiting: true,
-                    hasAccount: !!parent.user,
+                    ...accountFacts(parent),
                 });
             }
         }
@@ -388,7 +404,7 @@ export class ClassSessionNotifier {
         for (const recipient of recipients) {
             const mail = await compose(recipient);
             const queued = await this.outbox.queueOrRecord(
-                { email: recipient.email },
+                { email: recipient.email, confirmed: recipient.confirmed },
                 {
                     subject: mail.subject,
                     bodyText: mail.bodyText,

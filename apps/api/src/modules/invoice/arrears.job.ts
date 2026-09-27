@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { DataSource } from 'typeorm';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { MailTemplateService } from 'src/modules/mail/mail-template.service';
 import { officeAddress } from 'src/modules/mail/office-address';
+import { familyAccount } from 'src/modules/mail/portal-line';
 import { toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { ArrearsService } from './arrears.service';
 import { daysUntilDue, restIsAnnounced } from './arrears.rules';
@@ -65,6 +67,7 @@ export class ArrearsJob {
         private readonly arrears: ArrearsService,
         private readonly outbox: OutboxService,
         private readonly mailTemplates: MailTemplateService,
+        private readonly dataSource: DataSource,
     ) {}
 
     @Cron(MORNING_AT_NINE, { timeZone: SCHOOL_TIME_ZONE, disabled: process.env.NODE_ENV === 'test' })
@@ -95,8 +98,11 @@ export class ArrearsJob {
                 officeEmail: this.office,
             });
 
+            // Behind the address gate (E11/S2), like every message about a family's money: a debt
+            // is not announced to an address the family has not proven since it last changed it.
+            const { addressProven } = await familyAccount(this.dataSource.manager, row.parentId);
             const queued = await this.outbox.queueOrRecord(
-                { email: row.email },
+                { email: row.email, confirmed: addressProven },
                 {
                     subject: mail.subject,
                     bodyText: mail.bodyText,

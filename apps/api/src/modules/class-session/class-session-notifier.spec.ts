@@ -23,10 +23,10 @@ describe('ClassSessionNotifier', () => {
 
     // Families with an account to sign in with: the portal link is for them (QA of 27 September
     // 2026 — a family the office typed in, with an address and no account, gets the contact page).
-    const ana = { id: 11, firstName: 'Ana', email: 'ana@example.com', user: { id: 111 } };
-    const bogdan = { id: 12, firstName: 'Bogdan', email: 'bogdan@example.com', user: { id: 112 } };
+    const ana = { id: 11, firstName: 'Ana', email: 'ana@example.com', user: { id: 111, emailConfirmedAt: new Date(2026, 0, 5), suspendedAt: null } };
+    const bogdan = { id: 12, firstName: 'Bogdan', email: 'bogdan@example.com', user: { id: 112, emailConfirmedAt: new Date(2026, 0, 5), suspendedAt: null } };
     /** A parent from another group, whose child booked a make-up into this class. */
-    const carmen = { id: 13, firstName: 'Carmen', email: 'carmen@example.com', user: { id: 113 } };
+    const carmen = { id: 13, firstName: 'Carmen', email: 'carmen@example.com', user: { id: 113, emailConfirmedAt: new Date(2026, 0, 5), suspendedAt: null } };
 
     const session = {
         id: 3,
@@ -169,7 +169,7 @@ describe('ClassSessionNotifier', () => {
 
             await notifier.notifyCancelled(3, 'Profesor bolnav', asManager());
 
-            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null }, expect.anything(), manager);
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null, confirmed: true }, expect.anything(), manager);
         });
 
         /**
@@ -186,7 +186,7 @@ describe('ClassSessionNotifier', () => {
 
             await notifier.notifyCancelled(3, 'Profesor bolnav', asManager());
 
-            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'ioana@example.com' }, expect.anything(), manager);
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'ioana@example.com', confirmed: true }, expect.anything(), manager);
             expect(templates.render).toHaveBeenCalledWith(
                 'class-cancelled',
                 expect.objectContaining({ makeUpNote: expect.stringContaining('Proba copilului tău era la ora asta') }),
@@ -214,6 +214,26 @@ describe('ClassSessionNotifier', () => {
             const mail = templates.render.mock.calls[0][1] as Record<string, string>;
             expect(mail.portalUrl).toMatch(/\/contact$/);
             expect(mail.portalNote).not.toContain('portal');
+        });
+
+        /**
+         * Review of 27 September 2026. A suspended family still hears about its classes (terms §14),
+         * with the contact page instead of a login that refuses it; and an account that moved its
+         * address and has not proven the new one is held back by the outbox (E11/S2).
+         */
+        it('sends a suspended family to the contact page, and holds an unproven address back', async () => {
+            const suspended = {
+                id: 23,
+                firstName: 'Sorin',
+                email: 'sorin@example.com',
+                user: { id: 123, emailConfirmedAt: null, suspendedAt: new Date(2026, 8, 1) },
+            };
+            sessionRepo.findOne!.mockResolvedValue({ ...session, group: { ...session.group, children: [{ id: 11, parent: suspended }] } });
+
+            await notifier.notifyCancelled(3, 'Profesor bolnav', asManager());
+
+            expect((templates.render.mock.calls[0][1] as Record<string, string>).portalUrl).toMatch(/\/contact$/);
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'sorin@example.com', confirmed: false }, expect.anything(), manager);
         });
 
         // QA of 26 September 2026: the sentence followed the address, not the enrolment, so a

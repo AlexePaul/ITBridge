@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { DataSource } from 'typeorm';
 import { ArrearsJob, DEDUPE_PREFIX, NOTICE_DAYS_BEFORE, REMINDER_INTERVAL_DAYS, STOP_WRITING_AFTER_DAYS } from './arrears.job';
 import { ArrearsService, ArrearsRow } from './arrears.service';
 import { OutboxService } from 'src/modules/mail/outbox.service';
@@ -17,6 +18,7 @@ describe('ArrearsJob', () => {
     let job: ArrearsJob;
     let arrears: { list: jest.Mock; markOverdue: jest.Mock };
     let outbox: { queueOrRecord: jest.Mock };
+    let accountLookup: jest.Mock;
 
     const DAY = new Date(2026, 2, 20);
 
@@ -42,12 +44,15 @@ describe('ArrearsJob', () => {
     beforeEach(async () => {
         arrears = { list: jest.fn().mockResolvedValue([]), markOverdue: jest.fn().mockResolvedValue(0) };
         outbox = { queueOrRecord: jest.fn().mockResolvedValue({ id: 1 }) };
+        accountLookup = jest.fn().mockResolvedValue({ id: 4, user: null });
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 ArrearsJob,
                 { provide: ArrearsService, useValue: arrears },
                 { provide: OutboxService, useValue: outbox },
+                // Families the office typed in: their address is the office's word (E11/S2).
+                { provide: DataSource, useValue: { manager: { getRepository: () => ({ findOne: accountLookup }) } } },
                 MailTemplateService,
                 provideMockRepository(MailTemplate, createMockRepository()),
             ],
@@ -158,6 +163,16 @@ describe('ArrearsJob', () => {
         });
     });
 
+    /** E11/S2: a debt is not announced to an address the family has not proven since it changed it. */
+    it('asks the outbox to hold a reminder for an address the account has not proven', async () => {
+        accountLookup.mockResolvedValue({ id: 4, user: { id: 9, emailConfirmedAt: null, suspendedAt: null } });
+        arrears.list.mockResolvedValue([row({ daysOverdue: 0 })]);
+
+        await job.runFor(new Date(2026, 2, 15 - NOTICE_DAYS_BEFORE));
+
+        expect(outbox.queueOrRecord).toHaveBeenCalledWith(expect.objectContaining({ confirmed: false }), expect.anything());
+    });
+
     describe('safety', () => {
         it('dedupes per invoice per day, so a re-run writes nothing new', async () => {
             arrears.list.mockResolvedValue([row({ daysOverdue: 7 })]);
@@ -180,7 +195,7 @@ describe('ArrearsJob', () => {
         it('hands a family with no address to the outbox anyway, so S5 records it', async () => {
             arrears.list.mockResolvedValue([row({ daysOverdue: 7, email: null })]);
             await job.runFor(DAY);
-            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null }, expect.anything());
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null, confirmed: true }, expect.anything());
         });
     });
 });

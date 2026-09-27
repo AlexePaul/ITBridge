@@ -104,7 +104,7 @@ export class AccountSuspensionService {
                 officeEmail: this.office,
             });
             await this.outbox.queueOrRecord(
-                { email: addressee?.email },
+                { email: addressee?.email, confirmed: addressee?.confirmed },
                 { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined, profileId: addressee?.profileId },
                 manager,
             );
@@ -152,7 +152,7 @@ export class AccountSuspensionService {
             const addressee = await accountAddressee(manager, userId);
             const mail = await this.mailTemplates.render('account-reactivated', { firstName: addressee?.firstName ?? '', portalUrl: loginUrl() });
             await this.outbox.queueOrRecord(
-                { email: addressee?.email },
+                { email: addressee?.email, confirmed: addressee?.confirmed },
                 { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined, profileId: addressee?.profileId },
                 manager,
             );

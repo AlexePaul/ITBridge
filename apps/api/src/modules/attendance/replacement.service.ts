@@ -13,7 +13,7 @@ import { OutboxService } from 'src/modules/mail/outbox.service';
 import { romanianDayAndDate } from 'src/modules/mail/romanian-date';
 import { canBackfill } from './absence-notice.rules';
 import { isInReplacementWeek, replacementPlaceText, replacementWeekFor } from './replacement.rules';
-import { familyHasAccount, familyLink } from 'src/modules/mail/portal-line';
+import { familyAccount, familyLink } from 'src/modules/mail/portal-line';
 
 export const REPLACEMENT_DEDUPE_PREFIX = 'absence-replacement:';
 
@@ -331,19 +331,20 @@ export class ReplacementService {
         const parent = notice.child.parent;
         if (!parent) return;
 
+        const account = await familyAccount(manager, parent.id);
         const mail = await this.mailTemplates.render('absence-replacement', {
             firstName: parent.firstName,
             childName: notice.child.firstName,
             missed: `${romanianDayAndDate(notice.classSession.date)}, ora ${notice.classSession.startTime.slice(0, 5)}`,
             replacement: replacementPlaceText(replacement),
-            // The account's absences for a family with one; the contact page for one the office
-            // typed in, which has no account to open (QA of 27 September 2026).
-            ...familyLink(await familyHasAccount(manager, parent.id), { note: 'Detaliile sunt și în contul tău:', url: absencesUrl() }),
+            // The account's absences for a family that can sign in; the contact page for one the
+            // office typed in, or a suspended one (QA of 27 September 2026).
+            ...familyLink(account.canSignIn, { note: 'Detaliile sunt și în contul tău:', url: absencesUrl() }),
         });
         const prefix = `${REPLACEMENT_DEDUPE_PREFIX}${notice.id}:`;
         const earlier = await manager.getRepository(OutboxMessage).count({ where: { dedupeKey: Like(`${prefix}%`) } });
         await this.outbox.queueOrRecord(
-            { email: parent.email ?? null },
+            { email: parent.email ?? null, confirmed: account.addressProven },
             {
                 subject: mail.subject,
                 bodyText: mail.bodyText,

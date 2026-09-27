@@ -63,7 +63,7 @@ describe('PaymentService', () => {
         // Ana has an account, so her receipt points at the portal; a family without one is asked
         // about on its own in the receipt tests below.
         profileRepo = createMockRepository();
-        profileRepo.exists!.mockResolvedValue(true);
+        profileRepo.findOne!.mockResolvedValue({ id: 3, user: { id: 9, emailConfirmedAt: new Date(2026, 0, 5), suspendedAt: null } });
         manager = createMockEntityManager(new Map([[Profile, profileRepo]]));
         paidSum = null;
         paymentInDb = null;
@@ -541,7 +541,7 @@ describe('PaymentService', () => {
 
             expect(templates.render).toHaveBeenCalledWith('payment-received', expect.objectContaining({ firstName: 'Ana', month: 'martie' }));
             expect(outbox.queueOrRecord).toHaveBeenCalledWith(
-                { email: 'ana@example.com' },
+                { email: 'ana@example.com', confirmed: true },
                 expect.objectContaining({ dedupeKey: 'receipt:11' }),
                 // The caller's manager, so the receipt and the payment commit together.
                 manager,
@@ -558,10 +558,25 @@ describe('PaymentService', () => {
             expect(rendered().portalUrl).toMatch(/\/user\/payments$/);
         });
 
+        /**
+         * The address gate (E11/S2): an account whose address changed and is not proven again gets an
+         * `unconfirmed_address` row, not the sum it paid in a stranger's inbox — and no portal link
+         * for a suspended one, whose login answers "suspendat" (review of 27 September 2026).
+         */
+        it('writes to an address only once the account has proven it, and not to the portal of a suspended one', async () => {
+            paidSum = '350';
+            profileRepo.findOne!.mockResolvedValue({ id: 3, user: { id: 9, emailConfirmedAt: null, suspendedAt: new Date(2026, 8, 1) } });
+
+            await create();
+
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: 'ana@example.com', confirmed: false }, expect.any(Object), manager);
+            expect(rendered().portalUrl).toMatch(/\/contact$/);
+        });
+
         // QA of 27 September 2026: a family the office typed in has no account to open the portal with.
         it('tells a family with no account to ask for the documents instead', async () => {
             paidSum = '350';
-            profileRepo.exists!.mockResolvedValue(false);
+            profileRepo.findOne!.mockResolvedValue({ id: 3, user: null });
 
             await create();
 
@@ -595,7 +610,7 @@ describe('PaymentService', () => {
 
             await create();
 
-            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null }, expect.any(Object), manager);
+            expect(outbox.queueOrRecord).toHaveBeenCalledWith({ email: null, confirmed: true }, expect.any(Object), manager);
         });
 
         it('confirms an initiated payment at the moment it is marked succeeded', async () => {
