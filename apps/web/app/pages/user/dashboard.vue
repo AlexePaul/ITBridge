@@ -69,9 +69,7 @@
                 {{ formatTime(row.next.startTime) }}–{{ formatTime(row.next.endTime) }}
               </p>
               <p class="portal-where">{{ placeOf(row.next) }}</p>
-              <p v-if="row.movedTo" class="portal-where">
-                Mutat în săptămâna asta la grupa {{ row.movedTo }}.
-              </p>
+              <p v-if="row.move" class="portal-where">{{ movedClassNote(row.move) }}</p>
             </template>
             <p v-else-if="!row.child.group" class="portal-empty">
               {{ row.child.firstName }} nu e încă într-o grupă, deci nu are ore în orar.
@@ -139,6 +137,7 @@ import { formatDateKey, formatLei, formatMonth } from "~/composables/useAdminFor
 import { leftToPay } from "~/types/invoice.types";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
+import { movedClassNote, moveTodoText } from "~/composables/usePortalMoves";
 import { useAttendanceStore } from "~/stores/attendanceStore";
 import { useChildrenStore } from "~/stores/childrenStore";
 import { useProfileStore } from "~/stores/profileStore";
@@ -225,7 +224,7 @@ const childRows = computed(() =>
     return {
       child,
       next: next?.session ?? null,
-      movedTo: next?.movedTo ?? null,
+      move: next?.move ?? null,
       marks: recentMarksFor(child),
       todos: todosFor(child),
     };
@@ -273,7 +272,8 @@ const loadSessions = async (mine: Child[]) => {
 };
 
 /**
- * The next class the child is expected at — `movedTo` names the group when it is somebody else's.
+ * The next class the child is expected at — `move` is the notice behind it when the class is another
+ * group's.
  *
  * Cancelled ones are skipped rather than shown greyed out: this column has room for one class, and
  * the useful one is the next class the child is expected at. So is a class the family announced
@@ -281,18 +281,19 @@ const loadSessions = async (mine: Child[]) => {
  * review of 25 September 2026): reading only the group's own timetable, this showed Monday's usual
  * class to a family whose child was going to Saturday's, in another group, the day before.
  */
-const nextClassFor = (child: Child): { session: ClassSession; movedTo: string | null } | null => {
+const nextClassFor = (
+  child: Child
+): { session: ClassSession; move: AbsenceNotice | null } | null => {
   const mine = notices.value.filter((notice) => notice.child.id === child.id);
   const missed = new Set(mine.map((notice) => notice.classSession.id));
-  const own: { session: ClassSession; movedTo: string | null }[] = (
+  const own: { session: ClassSession; move: AbsenceNotice | null }[] = (
     child.group ? (sessionsByGroup.value[child.group.id] ?? []) : []
   )
     .filter((session: ClassSessionWithAttendance) => !missed.has(session.id))
-    .map((session: ClassSessionWithAttendance) => ({ session, movedTo: null }));
-  const moves = mine
-    .map((notice) => notice.replacementSession)
-    .filter((session): session is ClassSession => Boolean(session))
-    .map((session) => ({ session, movedTo: session.group?.name ?? "alta" }));
+    .map((session: ClassSessionWithAttendance) => ({ session, move: null }));
+  const moves = mine.flatMap((notice) =>
+    notice.replacementSession ? [{ session: notice.replacementSession, move: notice }] : []
+  );
   return (
     [...own, ...moves]
       .filter(({ session }) => session.date >= today && session.status !== SessionStatus.CANCELLED)
@@ -374,11 +375,10 @@ const todosFor = (child: Child): Todo[] => {
   // keeps them until then (the review of 25 September 2026).
   for (const notice of notices.value) {
     if (notice.child.id !== child.id || !notice.replacementSession) continue;
-    const to = notice.replacementSession;
-    if (to.date < today) continue;
+    if (notice.replacementSession.date < today) continue;
     items.push({
       key: `mutare-${notice.id}`,
-      text: `L-am mutat la grupa ${to.group?.name ?? "alta"}, ${weekdayNameOf(to.date)} ${formatDateKey(to.date)}, ora ${formatTime(to.startTime)}.`,
+      text: moveTodoText(notice),
       cta: "Vezi detaliile →",
       to: "/user/absente",
     });
