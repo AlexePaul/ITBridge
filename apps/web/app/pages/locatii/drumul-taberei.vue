@@ -63,8 +63,9 @@
         <h3 class="section-title">Nivelul se stabilește înainte de prima ședință</h3>
         <p class="body-text">
           Nu alegi tu nivelul dintr-o listă. La prima discuție facem o evaluare scurtă, ca să vedem
-          de unde pornește copilul: unul de clasa a 6-a care a mai lucrat în Scratch nu intră în
-          aceeași grupă cu unul care deschide prima oară editorul.
+          de unde pornește copilul: unul de clasa a 6-a care a mai lucrat în
+          <NuxtLink to="/cursuri/scratch" class="link">Scratch</NuxtLink> nu intră în aceeași grupă
+          cu unul care deschide prima oară editorul.
         </p>
         <p class="body-text">
           Orarul se face înainte de începerea modulului, în funcție de câți copii sunt înscriși pe
@@ -162,7 +163,14 @@ import {
 } from "#shared/school";
 import { PRICE_ONE_CHILD, PRICE_TWO_CHILDREN } from "#shared/courses";
 import { CONTENT_UPDATED, pageSeo } from "#shared/seo";
-import { breadcrumbNode, ids, schoolGraph, webPageNode, withFaq } from "#shared/structured-data";
+import {
+  breadcrumbNode,
+  ids,
+  schoolGraph,
+  webPageNode,
+  withFaq,
+  withImage,
+} from "#shared/structured-data";
 import { useRuntimeConfig } from "#imports";
 
 definePageMeta({ layout: "default" });
@@ -191,6 +199,14 @@ const faq = [
       "Nu. Primele două niveluri, clasa 0–2 și clasa 3–4, pornesc de la zero, iar la prima " +
       "discuție facem o evaluare scurtă tocmai ca să nimerim grupa potrivită.",
   },
+  {
+    question: "Faceți meditații pentru Bacalaureatul la informatică în Drumul Taberei?",
+    answer:
+      `Da, în grupe mici, la sala de pe ${location.street}: probleme tip din variantele de ` +
+      "examen, scrise în C++, corecturi la fiecare ședință, cu un profesor care a luat el " +
+      "însuși Bacalaureatul cu 10 la informatică. Nivelul e pentru clasa 9–12 și pentru " +
+      "ultimul an.",
+  },
 ];
 
 const seo = pageSeo("/locatii/drumul-taberei");
@@ -199,7 +215,12 @@ useSeo(seo);
 const site = String(useRuntimeConfig().public.siteUrl);
 useJsonLd([
   ...schoolGraph(site),
-  withFaq(webPageNode(site, seo, ids.location(site, location.slug)), faq),
+  withImage(
+    withFaq(webPageNode(site, seo, ids.location(site, location.slug)), faq),
+    site,
+    location.image,
+    location.imageAlt
+  ),
   breadcrumbNode(site, [
     { name: "Acasă", path: "/" },
     { name: "Locații", path: "/locatii" },
