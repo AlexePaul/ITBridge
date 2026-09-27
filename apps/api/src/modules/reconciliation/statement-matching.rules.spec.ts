@@ -88,6 +88,28 @@ describe('statement matching', () => {
             expect(suggestMatch({ amount: 350, description: 'factura nr. 28', counterparty: null }, open)).toBeNull();
         });
 
+        /**
+         * Review of 27 September 2026: October issued before `live` stays open as invoice 28, while
+         * November's is SmartBill's ITB 0028 for another family. "Factura nr. 0028" — the series
+         * left out — was matched as sure to the platform's 28, and one press recorded Popescu's
+         * money on Ionescu's invoice.
+         */
+        it('leaves the platform number to a person while an open fiscal invoice has the same number', () => {
+            const open = [
+                invoice({ invoiceId: 28, reference: platform(28), family: { parentId: 11, lastName: 'Ionescu' } }),
+                invoice({ invoiceId: 90, reference: fiscal('0028') }),
+            ];
+
+            for (const typed of ['Factura nr. 0028', 'factura nr. 28 ITB']) {
+                expect(suggestMatch({ amount: 350, description: typed, counterparty: null }, open)).toBeNull();
+            }
+            // Without the lookalike, the platform reference is sure again.
+            expect(suggestMatch({ amount: 350, description: 'factura nr. 28', counterparty: null }, [open[0]])).toMatchObject({
+                invoiceId: 28,
+                confidence: 'reference',
+            });
+        });
+
         it('says when a referenced line pays more than is left', () => {
             expect(suggestMatch({ amount: 700, description: 'ITB 41', counterparty: null }, [invoice()])).toMatchObject({ overpays: true });
         });

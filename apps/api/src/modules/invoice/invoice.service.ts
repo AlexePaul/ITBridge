@@ -299,6 +299,14 @@ export class InvoiceService {
             // has nothing to weigh, and the derivation says so itself.
             const balance = changes.amount !== undefined ? await this.payments.recomputeInvoiceStatus(id, manager) : null;
 
+            // A month without charge turned into one with a sum has an invoice the family was never
+            // told about: a waived month is not announced (E15). In `off` and `draft` the platform's
+            // document exists now, so the email goes now, as at issue; in `live` it goes when
+            // SmartBill's number is recorded, like any other (review of 27 September 2026).
+            if (derived.status === InvoiceStatus.PENDING && smartBillMode() !== 'live') {
+                await this.announcement.announce({ ...invoice, ...derived }, manager);
+            }
+
             // Recorded before the derived status reaches `invoice`, so the entry holds the amount and
             // the date and not the status: it moved because the amount did, and a derivation beside
             // the decision that caused it is noise (E07/S3).

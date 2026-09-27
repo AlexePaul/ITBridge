@@ -50,6 +50,11 @@ export function paymentReference(invoice: ReferencedInvoice, mode: SmartBillMode
     return { text: `${PLATFORM_MARKER} ${number}`, marker: PLATFORM_MARKER, number };
 }
 
+/** Whether the reference is the platform's own number, `factura nr. 28`, rather than a fiscal one. */
+export function isPlatformReference(reference: PaymentReference): boolean {
+    return reference.marker === PLATFORM_MARKER;
+}
+
 /** An invoice as the portal reads it: with the words to write on a transfer, or `null` while there are none yet. */
 export function withPaymentReference<T extends ReferencedInvoice>(invoice: T, mode: SmartBillMode): T & { paymentReference: string | null } {
     return { ...invoice, paymentReference: paymentReference(invoice, mode)?.text ?? null };

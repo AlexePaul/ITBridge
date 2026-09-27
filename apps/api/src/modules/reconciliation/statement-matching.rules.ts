@@ -1,4 +1,4 @@
-import type { PaymentReference } from 'src/modules/invoice/payment-reference';
+import { isPlatformReference, type PaymentReference } from 'src/modules/invoice/payment-reference';
 
 /**
  * Which invoice a line of the bank statement pays — E16/S8: "potrivire automată după sumă, dată și
@@ -76,6 +76,11 @@ export function suggestMatch(line: StatementLineForMatching, open: OpenInvoice[]
     const referenced = open.filter((invoice) => invoice.reference && namesInvoice(text, invoice.reference.marker, invoice.reference.number));
     if (referenced.length === 1) {
         const invoice = referenced[0];
+        // `factura nr. 28` is also how a family quotes the fiscal invoice ITB 0028 with the series
+        // left out — the reading `payment-reference.ts` calls the likely one. While both are open,
+        // the line pays one of two families, and a person decides which (review of 27 September
+        // 2026: the months issued before `live` stay open beside the ones SmartBill numbers).
+        if (invoice.reference && isPlatformReference(invoice.reference) && sharesAFiscalNumber(invoice.reference.number, open)) return null;
         return { invoiceId: invoice.invoiceId, confidence: 'reference', overpays: bani(line.amount) > bani(invoice.outstanding) };
     }
     if (referenced.length > 1) return null; // one transfer for two invoices: a person splits it
@@ -97,6 +102,12 @@ export function suggestMatch(line: StatementLineForMatching, open: OpenInvoice[]
     const exact = open.filter((invoice) => invoice.family.parentId === named[0].parentId && bani(invoice.outstanding) === bani(line.amount));
     if (exact.length !== 1) return null;
     return { invoiceId: exact[0].invoiceId, confidence: 'name', overpays: false };
+}
+
+/** Whether an open invoice carries a fiscal number with the same value as the platform's `number`. */
+function sharesAFiscalNumber(number: string, open: OpenInvoice[]): boolean {
+    const value = Number.parseInt(number, 10);
+    return open.some((other) => other.reference && !isPlatformReference(other.reference) && Number.parseInt(other.reference.number, 10) === value);
 }
 
 function families(open: OpenInvoice[]): OpenInvoice['family'][] {
