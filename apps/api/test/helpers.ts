@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
@@ -11,6 +12,7 @@ import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/clas
 import { Role } from 'src/enum/role.enum';
 import { setIssuingClock } from 'src/modules/invoice/issuing-clock';
 import { RecordingLogger } from 'src/modules/error-report/recording-logger';
+import { JSON_BODY_LIMIT } from 'src/config/bootstrap-options';
 
 /**
  * Boots the real application, with guards, routing and Postgres — only S3 and PDF generation are
@@ -62,7 +64,8 @@ export async function createTestApp(options: { realStorage?: boolean; throttling
     }
     const moduleRef = await builder.compile();
 
-    const app = moduleRef.createNestApplication<INestApplication<App>>();
+    const app = moduleRef.createNestApplication<NestExpressApplication>();
+    app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
     // The application's logger, as `main.ts` installs it (E06 S1): every error line is recorded, so
     // the suites run with the same side effect production has — and the one about it can see it.
     app.useLogger(app.get(RecordingLogger));

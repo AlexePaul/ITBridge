@@ -149,4 +149,48 @@ describe('Error shape (e2e)', () => {
         expect(res.body.code).toBe('VALUE_OUT_OF_RANGE');
         expect(`${res.body.message}`).not.toContain('integer');
     });
+
+    /**
+     * Express's body parser refuses these before any route is matched, and Nest does not convert
+     * them: they went out as a 500 and were recorded on the error screen — by anybody, without
+     * signing in, one row per invented path (review of 27 September 2026). The caller's, with its
+     * own status, and nothing on the screen.
+     */
+    describe('a body the parser refuses', () => {
+        const errorRows = async () => Number((await dataSource.query<{ n: string }[]>('SELECT count(*) AS n FROM error_reports'))[0].n);
+
+        it('answers a charset it cannot read with a 415, recorded nowhere', async () => {
+            const before = await errorRows();
+
+            const res = await request(app.getHttpServer()).post('/x7f3').set('Content-Type', 'application/json; charset=latin1').send('{}');
+
+            expect(res.status).toBe(415);
+            expect(res.body.code).toBe('UNSUPPORTED_MEDIA_TYPE');
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            expect(await errorRows()).toBe(before);
+        });
+
+        it('answers a body over the limit with a 413, and takes a statement near the page’s cap', async () => {
+            const huge = JSON.stringify({ csv: 'x'.repeat(600 * 1024) });
+            const tooBig = await request(app.getHttpServer())
+                .post('/reconciliation/statements')
+                .set('Authorization', admin.auth)
+                .set('Content-Type', 'application/json')
+                .send(huge);
+            expect(tooBig.status).toBe(413);
+            expect(tooBig.body.code).toBe('PAYLOAD_TOO_LARGE');
+
+            // 90,000 characters of quotes and line breaks — the worst a CSV does to JSON — is past
+            // Express's 100 KB default once escaped, and inside the limit the API now sets.
+            const nearTheCap = JSON.stringify({ csv: '"a";"b"\n'.repeat(11_250) });
+            expect(Buffer.byteLength(nearTheCap)).toBeGreaterThan(100 * 1024);
+            const accepted = await request(app.getHttpServer())
+                .post('/reconciliation/statements')
+                .set('Authorization', admin.auth)
+                .set('Content-Type', 'application/json')
+                .send(nearTheCap);
+            expect(accepted.status).not.toBe(413);
+            expect(accepted.status).toBeLessThan(500);
+        });
+    });
 });

@@ -91,9 +91,13 @@ export function fingerprint(input: { source: ErrorSource; origin: string; errorN
  */
 export function routeOf(request: { method: string; route?: { path?: unknown }; baseUrl?: string; path?: string; url: string }): string {
     const pattern = typeof request.route?.path === 'string' ? `${request.baseUrl ?? ''}${request.route.path}` : null;
-    const path = pattern ?? (request.path ?? request.url.split('?')[0]).replace(/\/\d+(?=\/|$)/g, '/:id');
-    return clip(`${request.method} ${path}`, ORIGIN_MAX_LENGTH);
+    // No handler matched: the fault is in front of every route, and the path is whatever the caller
+    // typed — one row per invented path is how the screen fills with noise (review of 27 September).
+    return clip(`${request.method} ${pattern ?? UNMATCHED_ROUTE}`, ORIGIN_MAX_LENGTH);
 }
+
+/** The origin of a fault raised before any route matched. */
+export const UNMATCHED_ROUTE = '(nicio rută)';
 
 /** An address as it is kept on an occurrence: redacted like a log line, cut to the column. */
 export function occurrencePath(path: string | null | undefined): string | null {

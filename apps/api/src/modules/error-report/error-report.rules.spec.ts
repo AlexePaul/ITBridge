@@ -85,10 +85,13 @@ describe('error record rules', () => {
             );
         });
 
-        it('folds the ids out of the address when no route was matched', () => {
-            expect(routeOf({ method: 'POST', path: '/invoices/12/fiscal/confirm', url: '/invoices/12/fiscal/confirm' })).toBe(
-                'POST /invoices/:id/fiscal/confirm',
-            );
+        /**
+         * No handler matched: whatever broke is in front of every route, and the path is whatever the
+         * caller typed. One origin, not one row per invented path (review of 27 September 2026).
+         */
+        it('gives every request that matched no route one origin', () => {
+            expect(routeOf({ method: 'POST', path: '/invoices/12/fiscal/confirm', url: '/invoices/12/fiscal/confirm' })).toBe('POST (nicio rută)');
+            expect(routeOf({ method: 'POST', path: '/x7f3', url: '/x7f3' })).toBe('POST (nicio rută)');
         });
     });
 
