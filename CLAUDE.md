@@ -1041,9 +1041,19 @@ submit concurent poate să fi scris o parte primul. Cheia e `legal-acceptance:<c
 rândurilor>`, deci al doilea clic, care n-a scris nimic, nu confirmă nimic. La înregistrare mesajul
 **nu** trece prin poarta adresei confirmate — adresa e nedovedită prin definiție atunci, iar legat de
 ea singurul mesaj promis ar ajunge `undeliverable`. Evidența se recitește din Profil, prin
-`GET /auth/documents`. Textul unei versiuni înlocuite nu se servește încă nicăieri: azi fiecare
-document are o singură versiune, iar la prima schimbare de după publicare trebuie păstrat înainte —
-procedura din `legal-documents.ts` îl numește.
+`GET /auth/documents`.
+
+**O versiune publicată nu se schimbă și nu dispare** (termenii §4.7, 27 septembrie 2026). Textul
+unei versiuni înlocuite stă neschimbat în `docs/legal/versiuni/<document>/<versiune>.md` și se
+citește la `/versiuni/<document>/<versiune>` (`noindex`, în afara sitemap-ului), iar Profilul trimite
+acolo din fiecare acceptare — și din fiecare acord pentru lucrări — dat pe o versiune de atunci
+încoace înlocuită. Lista versiunilor publicate e `PUBLISHED_VERSIONS` din `apps/web/shared/legal.ts`,
+fiecare cu amprenta textului, iar `legal-versions.spec.ts` face din procedură o poartă: un text care
+nu mai e ciornă (fără „nepublicată", fără `[[…]]`) trebuie trecut în listă; unul trecut nu se mai
+schimbă sub același număr — amprenta e a textului citit, deci o reformatare a Markdown-ului trece,
+un cuvânt schimbat nu —; iar unul înlocuit trebuie păstrat înainte. Arhiva e goală cât timp textele
+sunt ciorne, dinadins: o ciornă servită pe site ar avea placeholder-ele în ea. Ajunge în funcția de
+pe Vercel ca modulul virtual `#legal-archive`, pe care `nuxt.config.ts` îl scrie la build din dosar.
 
 Protecția se compune per-handler, nu global:
 
@@ -1499,6 +1509,16 @@ trimis tu. `ofetch` pune tot corpul ăla pe `error.data` — deci mesajul tău �
 „Contact form not configured" în loc de textul românesc, exact pe ramura care se declanșează când
 `RESEND_API_KEY` lipsește la primul deploy. Vezi `apps/web/app/pages/contact.vue`.
 
+**Un modul din `apps/web/server/utils/` nu importă Markdown** (27 septembrie 2026). Nitro scanează
+dosarul pentru auto-importuri, iar un fișier de acolo cu `import … from "….md"` a schimbat felul în
+care se împachetează serverul: cititorul de fișiere statice și-a pierdut rescrierea lui
+`import.meta.url`, a căutat `.output/public` cu un director prea adânc, și **fiecare script din
+`/_nuxt/` al build-ului a răspuns 500** — paginile se randau pe server și nu se hidratau niciodată.
+`nuxt dev` merge perfect, deci se vede doar pe build: a prins-o poarta de accesibilitate din CI, care
+așteaptă hidratarea. Documentele juridice se importă de aceea din `server/legal-sources.ts`, lângă
+dosar, nu din el. Dacă un build nou se randează și nu reacționează la clicuri, cere un `/_nuxt/*.js`
+de pe el înainte de orice altceva.
+
 **Formularul de contact trimite dintr-o rută Nitro, nu din browser.** `RESEND_API_KEY` stă în
 `runtimeConfig`, în afara lui `public`, deci Nuxt nu îl scrie niciodată în bundle-ul clientului;
 singurul lucru care îl vede e `apps/web/server/api/contact.post.ts`. Nu-l muta în `public` și nu
@@ -1572,7 +1592,12 @@ pune HSTS pe un an (fără `includeSubDomains`: API-ul nu vorbește pentru celel
 antet pe care nu-l poate citi nimeni la review e unul despre care nu observă nimeni că lipsește.
 `Cache-Control: no-store` e implicitul — facturile unei familii citite pe calculatorul comun al
 biroului n-au ce căuta în cache-ul lui —, iar un handler care vrea cache îl cere cu `@Header`, cum
-face miniatura (`private, max-age=3600`); al lui îl înlocuiește pe cel implicit.
+face miniatura (`private, max-age=3600`); al lui îl înlocuiește pe cel implicit. **Site-ul își pune
+antetele singur**, din `routeRules` în `nuxt.config.ts` — `nosniff`, `frame-ancestors 'none'`,
+`Referrer-Policy` și, din aceeași zi, HSTS pe doi ani, fără `includeSubDomains` —, fiindcă „Vercel îl
+pune implicit" era o presupunere pe care n-o verificase nimeni. Aceeași regulă ajunge și în
+configurația de deploy a Vercel — `.vercel/output/config.json`, citit o dată după un build cu
+`NITRO_PRESET=vercel`.
 
 **`outbox.attachments` ține chei, nu octeți.** Obiectul se citește din bucket în secunda în care
 mesajul e predat furnizorului. Base64 în coloană ar îngrășa fiecare interogare de revendicare pentru

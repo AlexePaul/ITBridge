@@ -15,6 +15,8 @@ export default defineConfig({
     alias: {
       "~": fileURLToPath(new URL("./app", import.meta.url)),
       "@": fileURLToPath(new URL("./app", import.meta.url)),
+      // Nuxt's own alias for `shared/`, which the pages and now a composable import through.
+      "#shared": fileURLToPath(new URL("./shared", import.meta.url)),
     },
   },
   test: {

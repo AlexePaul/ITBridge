@@ -1,4 +1,29 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { legacyRouteRules } from "./shared/legacy-redirects";
+
+const LEGAL_ARCHIVE_DIR = fileURLToPath(new URL("../../docs/legal/versiuni", import.meta.url));
+
+/**
+ * `#legal-archive`: every kept version of a legal text, `<document>/<version>` → its Markdown,
+ * read from `docs/legal/versiuni/` when the server is built. The documents in force are bundled as
+ * imports (`server/legal-sources.ts`); the archive grows file by file, so it is written from the
+ * folder instead of from a list somebody has to keep in step with it.
+ */
+const legalArchiveModule = (): string => {
+  const texts: Record<string, string> = {};
+  for (const folder of readdirSync(LEGAL_ARCHIVE_DIR, { withFileTypes: true })) {
+    if (!folder.isDirectory()) continue;
+    for (const file of readdirSync(`${LEGAL_ARCHIVE_DIR}/${folder.name}`)) {
+      if (!file.endsWith(".md")) continue;
+      texts[`${folder.name}/${file.slice(0, -".md".length)}`] = readFileSync(
+        `${LEGAL_ARCHIVE_DIR}/${folder.name}/${file}`,
+        "utf8"
+      );
+    }
+  }
+  return `export default ${JSON.stringify(texts)};`;
+};
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -106,6 +131,12 @@ export default defineNuxtConfig({
       weights: [400, 600],
     },
   },
+  // The superseded versions of the legal texts, served by `/api/legal/:doc/:version` (terms
+  // §4.7), bundled into the function like the documents in force. Empty until the first published
+  // text is replaced; `legal-versions.spec.ts` keeps it complete after that.
+  nitro: {
+    virtual: { "#legal-archive": legalArchiveModule },
+  },
   runtimeConfig: {
     // Server-only. Anything outside `public` stays on the server and is never
     // inlined into the client bundle — which is the whole reason the contact
@@ -134,6 +165,15 @@ export default defineNuxtConfig({
         "x-content-type-options": "nosniff",
         "referrer-policy": "strict-origin-when-cross-origin",
         "content-security-policy": "frame-ancestors 'none'",
+        // HTTPS on every later visit, decided here rather than left to the host.
+        // Vercel is said to send it by default, but nobody had looked
+        // (docs/lansare.md, item 4), and the header travels the same way as the
+        // three above. Two years, Vercel's own value, so the two cannot disagree
+        // if both arrive; no includeSubDomains, since the school's DNS is not
+        // this file's to promise about, and no preload, which is a one-way door.
+        // Browsers ignore it over plain HTTP, so the CI previews served on
+        // http://127.0.0.1 are untouched.
+        "strict-transport-security": "max-age=63072000",
         // The one locale signal at the HTTP level. The markup says the same
         // thing five times (html lang, og:locale, inLanguage…); this is the
         // sixth, for anything that reads headers before it reads HTML.

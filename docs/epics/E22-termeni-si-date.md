@@ -202,9 +202,14 @@ Trei lucruri pe care le face dinadins:
   dovedește. Legat de poartă, singurul mesaj promis la înregistrare ar ajunge `undeliverable`. La
   re-acceptare, adresa e cea de pe fișă și trece prin `queueOrRecord` ca oricare alta.
 
-Textul versiunilor înlocuite nu e încă de citit nicăieri — azi fiecare document are o singură
-versiune, deci pagina publică _este_ textul acceptat. Devine obligatoriu la prima versiune nouă de
-după publicare, și e trecut ca atare în lista din `docs/legal/README.md`.
+**Iar textul unei versiuni înlocuite rămâne de citit** (27 septembrie 2026, itemul 10 din
+`docs/legal/README.md`). Se păstrează neschimbat în `docs/legal/versiuni/`, se servește la
+`/versiuni/<document>/<versiune>`, iar Profilul trimite acolo din fiecare versiune acceptată care nu
+mai e în vigoare, și din acordul pentru lucrări dat pe un text de atunci înlocuit. Procedura e o
+poartă, nu un paragraf: `legal-versions.spec.ts` cere ca un text care nu mai e ciornă să fie trecut
+în `PUBLISHED_VERSIONS` cu amprenta lui, refuză un text publicat schimbat sub același număr și unul
+înlocuit fără să fi fost păstrat. Arhiva e goală azi, fiindcă textele sunt ciorne — prima intrare
+vine odată cu versiunea verificată de avocat.
 
 ## Dependențe
 

@@ -210,6 +210,14 @@
               </label>
               <p class="body-text opt-in-note">
                 {{ consentSummary(consentFor(child, "promotion")) }}
+                <template v-if="consentTextPath(consentFor(child, 'promotion'))">
+                  ·
+                  <NuxtLink
+                    :to="consentTextPath(consentFor(child, 'promotion')) ?? undefined"
+                    class="link"
+                    >textul acelei versiuni</NuxtLink
+                  >
+                </template>
               </p>
             </div>
           </div>
@@ -376,6 +384,9 @@
                 <p v-for="entry in row.entries" :key="entry.key" class="legal-entry">
                   versiunea {{ entry.version }}, acceptată pe {{ entry.day }}
                   <template v-if="!entry.inForce"> — înlocuită între timp</template>
+                  <template v-if="entry.textPath">
+                    · <NuxtLink :to="entry.textPath" class="link">textul acceptat</NuxtLink>
+                  </template>
                 </p>
               </dd>
             </div>
@@ -492,9 +503,14 @@ import { formatDateKey } from "~/composables/useAdminFormat";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 import { formatTime, getWeekdayName } from "~/composables/useUtils";
 import { SCHOOL_PHONE, SCHOOL_PHONE_HREF } from "#shared/school";
-import { LEGAL_DOCUMENT_LABELS, LEGAL_READING_ORDER } from "~/types/legal.types";
+import {
+  LEGAL_DOCUMENT_LABELS,
+  LEGAL_DOCUMENT_SLUGS,
+  LEGAL_READING_ORDER,
+} from "~/types/legal.types";
+import { supersededTextPath } from "#shared/legal";
 import type { LegalDocumentKey, LegalRecord } from "~/types/legal.types";
-import { consentFor, consentSummary } from "~/composables/useConsent";
+import { consentFor, consentSummary, consentTextPath } from "~/composables/useConsent";
 import type { ChildConsents, FamilyConsents } from "~/types/consent.types";
 import type { ActiveSession } from "~/types/auth.types";
 import { deviceLabel, orderSessions } from "~/composables/useSessions";
@@ -642,7 +658,14 @@ interface LegalRow {
   /** The version in force today, for the line that asks when it has not been accepted yet. */
   inForce: string | null;
   pending: boolean;
-  entries: { key: string; version: string; day: string; inForce: boolean }[];
+  entries: {
+    key: string;
+    version: string;
+    day: string;
+    inForce: boolean;
+    /** The text of a version since replaced (terms §4.7), or null when there is none to keep. */
+    textPath: string | null;
+  }[];
 }
 
 /**
@@ -674,6 +697,10 @@ const legalRows = computed<LegalRow[]>(() => {
           version: row.version,
           day: formatDateKey(dayKey(new Date(row.acceptedAt))),
           inForce: row.version === inForce,
+          textPath:
+            row.version === inForce
+              ? null
+              : supersededTextPath(LEGAL_DOCUMENT_SLUGS[document], row.version),
         })),
       },
     ];

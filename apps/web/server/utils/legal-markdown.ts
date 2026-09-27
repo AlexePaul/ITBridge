@@ -73,9 +73,16 @@ const withHeadingIds = (tokens: ReturnType<typeof md.parse>): void => {
   });
 };
 
+/**
+ * The version a document prints on its first bold line — `**Versiunea 0.2 · …**` gives `0.2` — or
+ * null while it has none. The one reading of it, for the page and for the archive's gate alike.
+ */
+export const legalVersionOf = (source: string): string | null =>
+  /\*\*Versiunea (\d+\.\d+)/.exec(source)?.[1] ?? null;
+
 export const renderLegalMarkdown = (source: string): RenderedLegalDocument => {
   const title = /^#\s+(.+)$/m.exec(source)?.[1]?.trim() ?? "";
-  const version = /\*\*Versiunea (\d+\.\d+)/.exec(source)?.[1] ?? null;
+  const version = legalVersionOf(source);
   const tokens = md.parse(rewriteLinks(source), {});
   withHeadingIds(tokens);
 
