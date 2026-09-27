@@ -361,9 +361,16 @@ export function schoolIdentityProblems(raw: Record<string, unknown>): string[] {
  * Mail and storage are optional elsewhere, by design: a missing key leaves messages queued with the
  * reason on the row (E17), and stage can live without a bucket for a day. In production the same
  * absence means families hear nothing and no invoice has a place to be kept — and the first sign
- * would be a parent asking. A deploy that refuses to start keeps the previous version serving and
- * says which variable is missing, which is where docs/lansare-platforma.md sends whoever is entering
- * the accounts.
+ * would be a parent asking. The refusal names the variable, which is where
+ * docs/lansare-platforma.md sends whoever is entering the accounts.
+ *
+ * **A refusal here is an outage, not a paused deploy** — measured on stage, 27 September 2026:
+ * `pm2 reload` in fork mode stops the old process before the new one refuses, so the API stops
+ * answering until the variable arrives. So the rule catches a key forgotten and never a decision
+ * taken. `MAIL_OUTBOX_ENABLED=false` is somebody saying, in so many words, that this backend sends
+ * no mail — stage's standing state, where no sending key exists on purpose — and with the dispatcher
+ * off the mail keys are not asked for. Stage ran with `NODE_ENV=production` (CLAUDE.md asks for
+ * `stage`), and this rule without that exception took its API down for every deploy after #281.
  */
 export function productionProblems(raw: Record<string, unknown>): string[] {
     const text = (key: string) => {
@@ -371,6 +378,9 @@ export function productionProblems(raw: Record<string, unknown>): string[] {
         return typeof value === 'string' ? value.trim() : '';
     };
     if (text('NODE_ENV') !== 'production') return [];
-    const required = ['MAIL_RESEND_API_KEY', 'MAIL_FROM', 'AWS_S3_BUCKET'].filter((key) => text(key) === '');
+    // Read exactly as `OutboxDispatcher` reads it, untrimmed: the rule and the dispatcher must agree
+    // on whether this backend sends, or " false" would excuse the keys of a dispatcher that runs.
+    const sendsMail = raw.MAIL_OUTBOX_ENABLED !== 'false';
+    const required = [...(sendsMail ? ['MAIL_RESEND_API_KEY', 'MAIL_FROM'] : []), 'AWS_S3_BUCKET'].filter((key) => text(key) === '');
     return required.length > 0 ? [`NODE_ENV=production needs ${required.join(', ')} (see docs/lansare-platforma.md)`] : [];
 }

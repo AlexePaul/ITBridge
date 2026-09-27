@@ -94,6 +94,14 @@ describe('validateEnv', () => {
     it('refuses a spelling it does not know', () => {
         expect(() => validateEnv({ ...minimal, NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
     });
+
+    // What api-stage actually runs with, from its PM2 log on 27 September 2026: labelled production,
+    // a bucket, no sending key on purpose, and the dispatcher switched off. Every deploy after #281
+    // refused this and left stage's API down; it has to boot.
+    it("boots stage's own settings, production label and all", () => {
+        expect(() => validateEnv({ ...minimal, NODE_ENV: 'production', AWS_S3_BUCKET: 'itbridge-stage', MAIL_OUTBOX_ENABLED: 'false' })).not.toThrow();
+        expect(() => validateEnv({ ...minimal, NODE_ENV: 'production', AWS_S3_BUCKET: 'itbridge-stage' })).toThrow(/MAIL_RESEND_API_KEY, MAIL_FROM/);
+    });
 });
 
 /** The one number families send money to is checked before anyone reads it — `school-identity.ts`. */
@@ -132,5 +140,22 @@ describe('productionProblems', () => {
         expect(productionProblems({ NODE_ENV: 'production' })).toEqual([expect.stringContaining('MAIL_RESEND_API_KEY, MAIL_FROM, AWS_S3_BUCKET')]);
         expect(productionProblems({ ...complete, MAIL_FROM: ' ' })).toEqual([expect.stringContaining('MAIL_FROM')]);
         expect(productionProblems(complete)).toEqual([]);
+    });
+
+    it('asks for the mail keys only while the dispatcher sends — stage says it does not', () => {
+        // Stage's own settings on 27 September 2026: NODE_ENV=production, the bucket, no sending
+        // key on purpose, and MAIL_OUTBOX_ENABLED=false. Without this, every deploy took its API down.
+        const stage = { NODE_ENV: 'production', AWS_S3_BUCKET: 'itbridge-stage', MAIL_OUTBOX_ENABLED: 'false' };
+        expect(productionProblems(stage)).toEqual([]);
+
+        // The switch excuses the mail keys and nothing else.
+        expect(productionProblems({ ...stage, AWS_S3_BUCKET: '' })).toEqual(['NODE_ENV=production needs AWS_S3_BUCKET (see docs/lansare-platforma.md)']);
+
+        // Anything but an explicit "false" is a dispatcher that will try to send — read the way
+        // OutboxDispatcher reads it, so " false" is a running dispatcher here too.
+        for (const value of [undefined, '', 'true', 'FALSE', ' false', '0']) {
+            const raw = { NODE_ENV: 'production', AWS_S3_BUCKET: 'itbridge-prod', MAIL_OUTBOX_ENABLED: value };
+            expect(productionProblems(raw)).toEqual([expect.stringContaining('MAIL_RESEND_API_KEY, MAIL_FROM')]);
+        }
     });
 });
