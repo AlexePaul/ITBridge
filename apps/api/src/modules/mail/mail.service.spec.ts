@@ -144,6 +144,22 @@ describe('MailService', () => {
         });
     });
 
+    /**
+     * The thrown message is the outbox row's `lastError`, and /admin/livrari translates it for the
+     * office by its opening words (`describeSendFailure` in `apps/web/app/types/delivery.types.ts`).
+     * A new wording here is a Romanian sentence the office stops getting.
+     */
+    it('writes its failures in the shapes the delivery screen reads', async () => {
+        fetchMock.mockResolvedValueOnce(respond(422, { name: 'validation_error', message: 'Invalid `to` field.' }));
+        await expect(service.send(message)).rejects.toThrow(/^Resend answered 422: /);
+
+        fetchMock.mockRejectedValueOnce(new Error('The operation was aborted due to timeout'));
+        await expect(service.send(message)).rejects.toThrow(/^Resend could not be reached: /);
+
+        delete process.env.MAIL_RESEND_API_KEY;
+        await expect(service.send(message)).rejects.toThrow(/^Mail is not configured: /);
+    });
+
     // We never got an answer, so we do not know whether it went out. A duplicate notice is the
     // cheaper mistake than a lost one, so this retries.
     it('treats an unreachable provider as temporary', async () => {

@@ -89,7 +89,14 @@
           </p>
         </div>
 
-        <p v-if="record.lastError" class="mt-3 text-sm text-error">{{ record.lastError }}</p>
+        <!-- The office reads the sentence; the provider's own words stay under it for whoever
+             debugs — they are what a support ticket to the provider quotes. -->
+        <div v-if="record.lastError" class="mt-3 text-sm space-y-0.5">
+          <p class="text-error">{{ describeSendFailure(record.lastError) }}</p>
+          <p class="text-xs text-muted font-mono break-all">
+            Detaliu tehnic: {{ record.lastError }}
+          </p>
+        </div>
 
         <UButton
           variant="ghost"
@@ -123,6 +130,7 @@ import {
   DELIVERY_STATUS_LABELS,
   UNDELIVERABLE_REASON_ACTIONS,
   UNDELIVERABLE_REASON_LABELS,
+  describeSendFailure,
 } from "~/types/delivery.types";
 
 /**

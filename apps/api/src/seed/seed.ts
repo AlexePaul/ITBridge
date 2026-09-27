@@ -1104,7 +1104,10 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
             bodyText: 'Factura pentru luna trecută este încă neachitată.',
             status: OutboxStatus.FAILED,
             attempts: 3,
-            lastError: 'Provider responded 421: try again later',
+            // A refusal in the shape `MailService` writes it, so /admin/livrari shows its Romanian
+            // sentence for it (`describeSendFailure`): the seed said "Provider responded 421", which
+            // nothing in the platform writes (QA of 27 September 2026).
+            lastError: 'Resend answered 422: {"statusCode":422,"name":"validation_error","message":"Invalid `to` field."}',
             nextAttemptAt: daysAgo(-1),
             dedupeKey: 'seed-outbox-arrears-1',
             profile: withEmail[3] ?? null,
