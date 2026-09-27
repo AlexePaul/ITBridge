@@ -25,6 +25,15 @@ export function isLocalHost(host: string): boolean {
     return LOCAL_HOSTS.includes(host);
 }
 
+/**
+ * Whether `NODE_ENV` names a deployed backend rather than a laptop or a test run. Unset,
+ * `development` and `test` are the developer's; anything else — `stage` today — is a host somebody
+ * else can reach, whatever its database host says.
+ */
+function isDeployed(env: NodeJS.ProcessEnv): boolean {
+    return !!env.NODE_ENV && !['development', 'test'].includes(env.NODE_ENV);
+}
+
 /** The password used on a local database, where a constant in the repo is the convenient answer. */
 export const LOCAL_PASSWORD = 'parola123';
 
@@ -73,6 +82,20 @@ export function checkSeedTarget(target: SeedTarget, env: NodeJS.ProcessEnv = pro
                     `\`pnpm seed:stage\` resolved to a local database (host: ${target.host}, database: ${target.database}), which would ` +
                     `wipe your development data instead of staging. Copy \`.env.stage.example\` to \`.env.stage\` and fill in DB_HOST, ` +
                     `DB_NAME, SEED_ALLOW_NON_LOCAL and SEED_PASSWORD — a missing \`.env.stage\` loads nothing and falls back to localhost.`,
+            };
+        }
+        // A local host is the developer's machine only while nothing says otherwise. On the staging
+        // instance Postgres runs beside the API, so the deploy's environment file says `localhost`
+        // as well — and `NODE_ENV=stage` beside it. There the repository password would be an admin
+        // account anybody can sign in to, so the local convenience stops at the password: the
+        // database may still be the one next door, but the password has to be chosen.
+        if (isDeployed(env) && !env.SEED_PASSWORD) {
+            return {
+                ok: false,
+                reason:
+                    `Refusing to seed "${target.database}" under NODE_ENV=${env.NODE_ENV} without SEED_PASSWORD. The host is ` +
+                    `local, but this is a deployed backend: every seeded account, the admin included, would get the ` +
+                    `password published in this repository.`,
             };
         }
         return { ok: true, password: env.SEED_PASSWORD || LOCAL_PASSWORD };

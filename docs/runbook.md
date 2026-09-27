@@ -27,6 +27,7 @@ branch-uri".
 | Site-ul public nu se încarcă                                       | [3.10](#310-site-ul-vercel)                    |
 | Cineva nu se poate autentifica                                     | [3.11](#311-conturi)                           |
 | Lucrările copiilor nu mai apar din birou                           | [3.12](#312-agentul-din-birou)                 |
+| Vrei stage cu date proaspete, de la zero, înaintea unei testări    | [3.14](#314-stage-cu-date-proaspete)           |
 | Datele sunt greșite și trebuie corectate                           | [4. Corectarea datelor](#4-corectarea-datelor) |
 
 ## 1. Unde te uiți întâi
@@ -307,6 +308,38 @@ sudo -u postgres pg_restore --no-owner -d restore_proba /tmp/restore.dump   # fo
 Se verifică în `restore_proba` că tabelele au rânduri (`SELECT count(*) FROM profiles;`), apoi, doar
 dacă baza bună e pierdută, se oprește aplicația (`pm2 stop <nume>`), se restaurează la fel în baza
 din `DB_NAME` și se repornește. Durata se notează în E04 S4 — e acceptanța story-ului.
+
+### 3.14 Stage cu date proaspete
+
+**Când:** înaintea unei testări de la cap la coadă ([plan-de-testare.md](plan-de-testare.md)), sau
+când datele de pe stage au ajuns într-o stare din care nu mai înveți nimic. **Numai pe stage**: seed-ul
+**golește toate tabelele** și scrie datele de dezvoltare — ce a tastat cineva pe stage dispare. În
+producție refuză oricum.
+
+Se rulează **pe instanță**, fiindcă Postgres stă lângă API și nu se vede din afară:
+
+```sh
+sudo -iu deploy
+cd /srv/itbridge/stage
+set -a; . /etc/itbridge/stage.env; set +a
+read -rs -p "Parola conturilor de pe stage: " SEED_PASSWORD; echo; export SEED_PASSWORD
+pm2 stop <nume>        # ca joburile să nu scrie în timp ce baza se golește
+pnpm seed              # sau SEED_TODAY=2026-10-05 pnpm seed, ca „azi" să fie ziua testării
+pm2 start <nume>
+```
+
+Două lucruri pe care seed-ul le refuză, dinadins:
+
+- **`NODE_ENV=production`**: refuză orice, oricât de local ar fi host-ul. Dacă vezi refuzul pe stage,
+  `NODE_ENV` din Parameter Store e încă `production` și trebuie pus `stage` — vezi CLAUDE.md,
+  „Infrastructură — stare reală". Tot `stage` e ce oprește stage-ul să emită facturi SmartBill reale.
+- **Fără `SEED_PASSWORD`**, sub `NODE_ENV=stage`: host-ul e `localhost`, dar stage-ul e public, iar
+  parola implicită, `parola123`, e scrisă în repo. `read -rs` o cere fără s-o arate și fără s-o lase în
+  istoricul shell-ului; seed-ul nu o tipărește înapoi.
+
+**Cum știi că a mers:** seed-ul tipărește la final ce a scris, iar pe `stage.itbridgeschool.com` te
+autentifici ca `admin` cu parola aleasă. Sesiunile vechi s-au închis toate — seed-ul golește și
+tabela lor —, deci oricine era autentificat se autentifică din nou.
 
 ## 4. Corectarea datelor
 

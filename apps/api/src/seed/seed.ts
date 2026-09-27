@@ -1,7 +1,7 @@
 import * as bcrypt from 'bcrypt';
 import { DataSource } from 'typeorm';
 import AppDataSource from '../data-source';
-import { checkSeedTarget, isLocalHost, LOCAL_PASSWORD } from './seed-target';
+import { checkSeedTarget, LOCAL_PASSWORD } from './seed-target';
 import { User } from '../entities/user.entity';
 import { DocumentAcceptance } from '../entities/document-acceptance.entity';
 import { LegalDocument } from '../enum/legal-document.enum';
@@ -1271,11 +1271,13 @@ async function main(): Promise<void> {
         console.log(
             projects.skipped ? `projects: ${projects.projects} created, files skipped (${projects.skipped})` : `projects: ${projects.projects} created`,
         );
-        // Printed only for a local database. On staging the value came from `SEED_PASSWORD`, and
+        // Printed only when it is the repository's own. A chosen one came from `SEED_PASSWORD`, and
         // echoing it would copy it into whatever captured this run's output — a CI log, a terminal
-        // recording, somebody's scrollback. The person who set the variable already knows it.
-        const local = isLocalHost((AppDataSource.options as { host?: string }).host ?? '');
-        console.log(local ? `\nSign in as "admin" with the password "${LOCAL_PASSWORD}".` : `\nSign in as "admin" with the password from SEED_PASSWORD.`);
+        // recording, somebody's scrollback. The person who set the variable already knows it. Asked
+        // of the variable, not of the host: on the staging instance the database is `localhost`
+        // too, and the line used to announce `parola123` there right after seeding with another.
+        const chosen = !!process.env.SEED_PASSWORD;
+        console.log(chosen ? `\nSign in as "admin" with the password from SEED_PASSWORD.` : `\nSign in as "admin" with the password "${LOCAL_PASSWORD}".`);
     } finally {
         await AppDataSource.destroy();
     }

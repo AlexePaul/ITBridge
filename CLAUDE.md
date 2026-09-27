@@ -163,6 +163,12 @@ mediu autorizează orice scrie `DB_NAME` data viitoare —, iar `SEED_PASSWORD` 
 se tipărește la final: ar ajunge în logul rulării. Regula e pură și are spec propriu; dacă adaugi o
 a treia țintă, treci prin ea, nu pe lângă.
 
+**Pe instanța de stage baza e tot `localhost`**, fiindcă Postgres stă lângă API — deci regula de
+host singură ar fi dat seed-ului rulat acolo parola din repo. `NODE_ENV` decide acum și el: orice
+altceva decât nesetat, `development` sau `test` e un backend deployat, iar acolo `SEED_PASSWORD` e
+obligatorie oricare ar fi host-ul (27 septembrie 2026). Pașii, cu parola cerută fără ecou, sunt în
+[docs/runbook.md](docs/runbook.md), 3.14.
+
 **`seed:stage` trimite `SEED_TARGET=stage`, iar o bază locală de acolo e refuz.** `dotenv -e
 .env.stage` **nu dă eroare când fișierul lipsește** — încarcă nimic —, iar `data-source.ts` cade
 atunci pe `localhost`, deci comanda ar fi golit tăcut baza de dezvoltare a celui care aștepta să se

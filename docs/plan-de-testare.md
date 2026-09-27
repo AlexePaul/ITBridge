@@ -10,7 +10,10 @@ secțiunile se pot lua în orice ordine, cu excepția lui 2.1–2.3, care fac un
 ## 0. Pregătire
 
 **Conturi.** Stage rulează pe datele de seed. Parola tuturor conturilor de mai jos e cea din
-`SEED_PASSWORD` de la ultima rulare a lui `pnpm seed:stage` (pe laptop e `parola123`).
+`SEED_PASSWORD` de la ultima repopulare a stage-ului (pe laptop e `parola123`). **Începe cu date
+proaspete**: repopularea de pe instanță, cu „azi" pus pe ziua testării, e în
+[runbook.md](runbook.md), 3.14 — altfel testele de mai jos pornesc de la ce au lăsat în urmă
+testările de dinainte.
 
 | Cont                                                            | Ce e                                                    |
 | --------------------------------------------------------------- | ------------------------------------------------------- |
