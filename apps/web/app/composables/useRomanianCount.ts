@@ -12,3 +12,14 @@ export const countOf = (n: number, one: string, many: string): string => {
   const withDe = n >= 20 && (lastTwo === 0 || lastTwo >= 20);
   return `${n} ${withDe ? "de " : ""}${many}`;
 };
+
+/**
+ * How long something has waited, in calendar days, the way anybody says it: „azi", „ieri", then
+ * „2 zile", „20 de zile". The erasure queue printed „0 zile" beside a request made today (QA of
+ * 27 September 2026). The approvals queue reads it too, with „acum" before a count.
+ */
+export const daysWaitedLabel = (days: number): string => {
+  if (days <= 0) return "azi";
+  if (days === 1) return "ieri";
+  return countOf(days, "zi", "zile");
+};

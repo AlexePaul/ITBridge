@@ -5,7 +5,7 @@
   >
     <template #actions>
       <UBadge color="warning" variant="subtle" size="lg" class="min-h-11 flex items-center px-4">
-        {{ rows.length }} {{ rows.length === 1 ? "cerere" : "cereri" }}
+        {{ countOf(rows.length, "cerere", "cereri") }}
       </UBadge>
     </template>
 
@@ -32,7 +32,7 @@
               variant="subtle"
               size="sm"
             >
-              {{ daysWaiting(row) }} {{ daysWaiting(row) === 1 ? "zi" : "zile" }}
+              {{ daysWaitedLabel(daysWaiting(row)) }}
             </UBadge>
           </div>
           <p class="text-sm text-muted">
@@ -110,6 +110,7 @@ import { useNotifications } from "~/composables/useNotifications";
 import { formatDateKey } from "~/composables/useAdminFormat";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 import { daysSince } from "~/composables/useUtils";
+import { countOf, daysWaitedLabel } from "~/composables/useRomanianCount";
 import type { ProfileSummary } from "~/types/profile.types";
 import { RETENTION_HOLD_LABELS } from "~/types/retention.types";
 import type { RetentionRow, RetentionSchedule } from "~/types/retention.types";
@@ -152,7 +153,10 @@ const eraseLabel = (row: ProfileSummary) =>
     ? `Sigur? Apasă din nou pentru a șterge datele familiei ${row.firstName} ${row.lastName}`
     : `Șterge datele familiei ${row.firstName} ${row.lastName}`;
 
-/** Calendar days, like E17/S8's document backlog: somebody counts mornings, not 24-hour blocks. */
+/**
+ * Calendar days, like E17/S8's document backlog: somebody counts mornings, not 24-hour blocks. The
+ * badge reads it through `daysWaitedLabel` — „azi" for a request made today, not „0 zile".
+ */
 const daysWaiting = (row: ProfileSummary) => {
   const requested = row.erasureRequestedAt;
   return daysSince(requested);
@@ -207,7 +211,7 @@ const confirm = async (row: ProfileSummary) => {
     const report = await eraseProfile(row.id);
     success(
       "Datele au fost șterse",
-      `${report.childrenRemoved} ${report.childrenRemoved === 1 ? "copil" : "copii"} · ${report.invoicesKept} ${report.invoicesKept === 1 ? "factură păstrată" : "facturi păstrate"}`
+      `${countOf(report.childrenRemoved, "copil", "copii")} · ${countOf(report.invoicesKept, "factură păstrată", "facturi păstrate")}`
     );
     await load();
   } catch (err: unknown) {
