@@ -1644,6 +1644,43 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
         },
     },
 
+    ErrorReport: {
+        table: 'error_reports',
+        purpose: 'Ce s-a stricat în platformă, unde și de câte ori, ca să poată fi reparat (E06 S1).',
+        subject: 'account-holder',
+        linkedVia: null,
+        columns: {
+            id: { personal: false, why: 'identifier' },
+            fingerprint: { personal: false, why: 'plumbing', note: 'Amprenta defectului: felul erorii și locul, fără numere și valori.' },
+            source: { personal: false, why: 'state' },
+            origin: { personal: false, why: 'plumbing', note: 'Ruta sau pagina ca tipar (`/profiles/:id`), niciodată adresa cu id-ul unei familii.' },
+            errorName: { personal: false, why: 'plumbing' },
+            message: {
+                personal: false,
+                why: 'plumbing',
+                note: 'Curățat la scriere de adrese de email, telefoane, IBAN-uri, tokenuri și valorile citate de Postgres (`scrub`). Mesajele platformei numesc familiile prin id, niciodată prin nume.',
+            },
+            stack: { personal: false, why: 'plumbing', note: 'Locul din cod; trece prin aceeași curățare.' },
+            statusCode: { personal: false, why: 'state' },
+            code: { personal: false, why: 'state' },
+            occurrences: { personal: false, why: 'plumbing' },
+            firstSeenAt: { personal: false, why: 'row-timestamp' },
+            lastSeenAt: { personal: false, why: 'row-timestamp' },
+            recent: {
+                personal: true,
+                about: 'account-holder',
+                category: 'behavioural',
+                purpose:
+                    'Ultimele douăzeci de apariții: când, codul arătat pe ecran, adresa paginii și contul care a întâlnit eroarea — ca biroul să poată suna familia și să reproducă defectul.',
+                basis: 'legitimate_interest',
+                retention: 'operational',
+                readableBy: ['admin'],
+                note: 'Contul e un id, nu o relație: rândul pleacă la 30 de zile după ultima apariție (`ERROR_REPORT_RETENTION_DAYS`), ca logurile tehnice din nota §7.',
+            },
+            resolvedAt: { personal: false, why: 'state' },
+        },
+    },
+
     // ─────────────────────────────────────────────────────────── the school itself
 
     Location: {

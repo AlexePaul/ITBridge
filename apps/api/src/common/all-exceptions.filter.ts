@@ -4,6 +4,9 @@ import { QueryFailedError } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { RequestWithId } from './request-id.middleware';
 import { redactUrl } from './redact-url';
+import { ErrorSource } from '../enum/error-source.enum';
+import { ErrorReportService } from '../modules/error-report/error-report.service';
+import { routeOf } from '../modules/error-report/error-report.rules';
 
 /**
  * One shape for every error leaving the API.
@@ -35,6 +38,8 @@ const PG_INVALID_TEXT_REPRESENTATION = '22P02';
 export class AllExceptionsFilter implements ExceptionFilter {
     private readonly logger = new Logger('Exception');
 
+    constructor(private readonly errorReports: ErrorReportService) {}
+
     catch(exception: unknown, host: ArgumentsHost): void {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse<Response>();
@@ -56,6 +61,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
                 `${body.requestId} ${request.method} ${body.path} -> ${body.statusCode} ${body.code}`,
                 exception instanceof Error ? exception.stack : String(exception),
             );
+            // And on the error screen (E06 S1), under the reference the response is about to carry:
+            // the first eight characters of `requestId` are what the family reads out from theirs.
+            // Handed over, never awaited — the response does not wait for its own post-mortem.
+            this.errorReports.record({
+                source: ErrorSource.REQUEST,
+                origin: routeOf(request),
+                errorName: exception instanceof Error ? exception.name : typeof exception,
+                message: exception instanceof Error ? exception.message : String(exception),
+                stack: exception instanceof Error ? (exception.stack ?? null) : null,
+                statusCode: body.statusCode,
+                code: body.code,
+                ref: body.requestId,
+                userId: (request as Request & { user?: { sub?: number } }).user?.sub ?? null,
+                path: body.path,
+            });
         }
 
         response.status(body.statusCode).json(body);

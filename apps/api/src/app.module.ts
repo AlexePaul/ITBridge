@@ -33,6 +33,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { AnnouncementModule } from './modules/announcement/announcement.module';
 import { LeadModule } from './modules/lead/lead.module';
 import { ReconciliationModule } from './modules/reconciliation/reconciliation.module';
+import { ErrorReportModule } from './modules/error-report/error-report.module';
 
 @Module({
     imports: [
@@ -70,6 +71,7 @@ import { ReconciliationModule } from './modules/reconciliation/reconciliation.mo
         AnnouncementModule,
         LeadModule,
         ReconciliationModule,
+        ErrorReportModule,
     ],
     providers: [
         {

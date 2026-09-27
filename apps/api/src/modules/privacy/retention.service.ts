@@ -22,7 +22,9 @@ import { SCHOOL_TIME_ZONE, schoolDay } from 'src/common/school-clock';
 import { ErasureService } from './erasure.service';
 import { isErased } from './erasure.rules';
 import { claimsLead } from './family-rows';
+import { ErrorReportService } from 'src/modules/error-report/error-report.service';
 import {
+    ERROR_REPORT_RETENTION_DAYS,
     EXPIRED_LINK_RETENTION_DAYS,
     FAMILY_RETENTION_MONTHS,
     LEAD_RETENTION_MONTHS,
@@ -51,6 +53,7 @@ export interface RetentionTerms {
     enquiryMonths: number;
     messageMonths: number;
     expiredLinkDays: number;
+    errorReportDays: number;
 }
 
 export const RETENTION_TERMS: RetentionTerms = {
@@ -58,6 +61,7 @@ export const RETENTION_TERMS: RetentionTerms = {
     enquiryMonths: LEAD_RETENTION_MONTHS,
     messageMonths: MESSAGE_RETENTION_MONTHS,
     expiredLinkDays: EXPIRED_LINK_RETENTION_DAYS,
+    errorReportDays: ERROR_REPORT_RETENTION_DAYS,
 };
 
 /** The office's list — `GET /privacy/retention`. */
@@ -80,6 +84,7 @@ export interface RetentionReport {
     enquiriesRemoved: number;
     messagesRemoved: number;
     expiredLinksRemoved: number;
+    errorReportsRemoved: number;
 }
 
 /**
@@ -118,6 +123,7 @@ export class RetentionService {
         private readonly audit: AuditService,
         private readonly erasure: ErasureService,
         private readonly arrears: ArrearsService,
+        private readonly errorReports: ErrorReportService,
     ) {}
 
     /**
@@ -264,7 +270,14 @@ export class RetentionService {
      * go on, because the alternative is one bad row keeping every other promise from being kept.
      */
     async run(today: string = schoolDay(new Date()), now: Date = new Date()): Promise<RetentionReport> {
-        const report: RetentionReport = { familiesErased: 0, familiesHeld: 0, enquiriesRemoved: 0, messagesRemoved: 0, expiredLinksRemoved: 0 };
+        const report: RetentionReport = {
+            familiesErased: 0,
+            familiesHeld: 0,
+            enquiriesRemoved: 0,
+            messagesRemoved: 0,
+            expiredLinksRemoved: 0,
+            errorReportsRemoved: 0,
+        };
 
         for (const row of await this.schedule(today)) {
             if (!row.due) continue;
@@ -283,13 +296,15 @@ export class RetentionService {
         report.enquiriesRemoved = await this.removeStaleEnquiries(today);
         report.messagesRemoved = await this.removeOldMessages(today);
         report.expiredLinksRemoved = await this.removeExpiredLinks(now);
+        report.errorReportsRemoved = await this.errorReports.removeSeenBefore(new Date(now.getTime() - ERROR_REPORT_RETENTION_DAYS * 24 * 60 * 60 * 1000));
 
         // Counts, never names: this line is in a log, and a log is not where an erased family's
         // name should outlive it.
         if (Object.values(report).some((count) => count > 0)) {
             this.logger.log(
                 `Retention ${today}: ${report.familiesErased} family(ies) erased, ${report.familiesHeld} held, ` +
-                    `${report.enquiriesRemoved} enquiry(ies), ${report.messagesRemoved} message(s), ${report.expiredLinksRemoved} expired link(s) removed.`,
+                    `${report.enquiriesRemoved} enquiry(ies), ${report.messagesRemoved} message(s), ${report.expiredLinksRemoved} expired link(s), ` +
+                    `${report.errorReportsRemoved} error report(s) removed.`,
             );
         }
         return report;

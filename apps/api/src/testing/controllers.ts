@@ -26,6 +26,7 @@ import { AuditController } from 'src/modules/audit/audit.controller';
 import { ReconciliationController } from 'src/modules/reconciliation/reconciliation.controller';
 import { PrivacyController } from 'src/modules/privacy/privacy.controller';
 import { ConsentController } from 'src/modules/privacy/consent.controller';
+import { ErrorReportController } from 'src/modules/error-report/error-report.controller';
 
 /**
  * Every HTTP surface the application exposes, in one place.
@@ -69,4 +70,5 @@ export const CONTROLLERS = [
     PrivacyController,
     ConsentController,
     ReconciliationController,
+    ErrorReportController,
 ];

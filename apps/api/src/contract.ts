@@ -84,6 +84,10 @@ import type { OutboxStatus } from './enum/outbox-status.enum';
 import type { DeliveryFailureReason } from './enum/delivery-failure-reason.enum';
 import type { LegalDocument } from './enum/legal-document.enum';
 import type { AuthService } from './modules/auth/auth.service';
+import type { ErrorReportSummary, ErrorReportView } from './modules/error-report/error-report.service';
+import type { ErrorSource } from './enum/error-source.enum';
+import type { ClientErrorDto, ClientErrorKind } from './modules/error-report/dto/client-error.dto';
+import type { ErrorReportState } from './modules/error-report/dto/query-error-reports.dto';
 
 /** Fails compilation when `Actual` does not satisfy `Expected` on the shared fields. */
 type Covers<Expected, Actual> = Actual extends Expected ? true : { missingOrMismatched: Expected };
@@ -370,3 +374,18 @@ type _TrialSlotBack = Check<TrialSlot, Wire.TrialSlot>;
 // contract describes the wire.
 type _LeadSummary = Check<Wire.LeadSummary, Serialized<LeadSummary>>;
 type _LeadFollowUp = Check<Wire.LeadFollowUp, Serialized<LeadFollowUp>>;
+
+// E06 S1: the error record, both ways. The source through `${Enum}`, like every other literal union.
+type ErrorReportWire = Omit<Wire.ErrorReport, 'source'> & { source: `${ErrorSource}` };
+type ErrorReportRow = Omit<Serialized<ErrorReportView>, 'source'> & { source: `${ErrorSource}` };
+type _ErrorReport = Check<ErrorReportWire, ErrorReportRow>;
+type _ErrorReportBack = Check<ErrorReportRow, ErrorReportWire>;
+type _ErrorReportSummary = Check<Wire.ErrorReportSummary, ErrorReportSummary>;
+type _ErrorSource = Check<Wire.ErrorSource, `${ErrorSource}`>;
+type _ErrorSourceBack = Check<`${ErrorSource}`, Wire.ErrorSource>;
+type _ErrorReportState = Check<Wire.ErrorReportState, ErrorReportState>;
+type _ErrorReportStateBack = Check<ErrorReportState, Wire.ErrorReportState>;
+type _ClientErrorKind = Check<Wire.ClientErrorKind, ClientErrorKind>;
+type _ClientErrorKindBack = Check<ClientErrorKind, Wire.ClientErrorKind>;
+type _ClientErrorReport = Check<Wire.ClientErrorReport, ClientErrorDto>;
+type _ClientErrorReportBack = Check<ClientErrorDto, Wire.ClientErrorReport>;

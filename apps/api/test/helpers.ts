@@ -10,6 +10,7 @@ import { teachingMonthRange } from 'src/modules/invoice/billing-period.rules';
 import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { Role } from 'src/enum/role.enum';
 import { setIssuingClock } from 'src/modules/invoice/issuing-clock';
+import { RecordingLogger } from 'src/modules/error-report/recording-logger';
 
 /**
  * Boots the real application, with guards, routing and Postgres — only S3 and PDF generation are
@@ -62,6 +63,9 @@ export async function createTestApp(options: { realStorage?: boolean; throttling
     const moduleRef = await builder.compile();
 
     const app = moduleRef.createNestApplication<INestApplication<App>>();
+    // The application's logger, as `main.ts` installs it (E06 S1): every error line is recorded, so
+    // the suites run with the same side effect production has — and the one about it can see it.
+    app.useLogger(app.get(RecordingLogger));
     await app.init();
     await app.listen(0);
 

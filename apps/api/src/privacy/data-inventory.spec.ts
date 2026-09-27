@@ -159,6 +159,10 @@ describe('data inventory (E07 S1)', () => {
             // The trail points at the row that changed, by type and id, on purpose: a relation to a
             // deletable row is how an audit log loses the entries that matter.
             'AuditLog',
+            // A record of the platform failing, keyed by what failed, not by whom. The account in an
+            // occurrence is an id, and the row goes thirty days after it was last seen, like the
+            // server's own logs — so an export has nothing to walk, and an erasure nothing to wait on.
+            'ErrorReport',
         ]);
 
         const unreachable = Object.entries(DATA_INVENTORY)
