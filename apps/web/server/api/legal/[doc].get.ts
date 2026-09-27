@@ -1,6 +1,6 @@
 import { isLegalSlug } from "#shared/legal";
 import { renderLegalMarkdown } from "../../utils/legal-markdown";
-import { LEGAL_SOURCES } from "../../utils/legal-sources";
+import { LEGAL_SOURCES } from "../../legal-sources";
 
 /**
  * The legal documents, rendered from `docs/legal/` — E22 S2.

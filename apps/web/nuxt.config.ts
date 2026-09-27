@@ -1,5 +1,29 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { legacyRouteRules } from "./shared/legacy-redirects";
+
+const LEGAL_ARCHIVE_DIR = fileURLToPath(new URL("../../docs/legal/versiuni", import.meta.url));
+
+/**
+ * `#legal-archive`: every kept version of a legal text, `<document>/<version>` → its Markdown,
+ * read from `docs/legal/versiuni/` when the server is built. The documents in force are bundled as
+ * imports (`server/legal-sources.ts`); the archive grows file by file, so it is written from the
+ * folder instead of from a list somebody has to keep in step with it.
+ */
+const legalArchiveModule = (): string => {
+  const texts: Record<string, string> = {};
+  for (const folder of readdirSync(LEGAL_ARCHIVE_DIR, { withFileTypes: true })) {
+    if (!folder.isDirectory()) continue;
+    for (const file of readdirSync(`${LEGAL_ARCHIVE_DIR}/${folder.name}`)) {
+      if (!file.endsWith(".md")) continue;
+      texts[`${folder.name}/${file.slice(0, -".md".length)}`] = readFileSync(
+        `${LEGAL_ARCHIVE_DIR}/${folder.name}/${file}`,
+        "utf8"
+      );
+    }
+  }
+  return `export default ${JSON.stringify(texts)};`;
+};
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -108,16 +132,10 @@ export default defineNuxtConfig({
     },
   },
   // The superseded versions of the legal texts, served by `/api/legal/:doc/:version` (terms
-  // §4.7). Server assets are bundled into the function, so on Vercel the archive travels the way
-  // the documents themselves do — `server/utils/legal-sources.ts` imports those. Empty until the
-  // first published text is replaced; `legal-versions.spec.ts` keeps it complete after that.
+  // §4.7), bundled into the function like the documents in force. Empty until the first published
+  // text is replaced; `legal-versions.spec.ts` keeps it complete after that.
   nitro: {
-    serverAssets: [
-      {
-        baseName: "legal-versions",
-        dir: fileURLToPath(new URL("../../docs/legal/versiuni", import.meta.url)),
-      },
-    ],
+    virtual: { "#legal-archive": legalArchiveModule },
   },
   runtimeConfig: {
     // Server-only. Anything outside `public` stays on the server and is never

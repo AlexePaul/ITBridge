@@ -1053,7 +1053,7 @@ nu mai e ciornă (fără „nepublicată", fără `[[…]]`) trebuie trecut în 
 schimbă sub același număr — amprenta e a textului citit, deci o reformatare a Markdown-ului trece,
 un cuvânt schimbat nu —; iar unul înlocuit trebuie păstrat înainte. Arhiva e goală cât timp textele
 sunt ciorne, dinadins: o ciornă servită pe site ar avea placeholder-ele în ea. Ajunge în funcția de
-pe Vercel ca `nitro.serverAssets`, cum ajung documentele ca importuri.
+pe Vercel ca modulul virtual `#legal-archive`, pe care `nuxt.config.ts` îl scrie la build din dosar.
 
 Protecția se compune per-handler, nu global:
 
@@ -1508,6 +1508,16 @@ trimis tu. `ofetch` pune tot corpul ăla pe `error.data` — deci mesajul tău �
 `error.data.data.message`, nu la `error.data.message`. Citind greșit, un părinte primea
 „Contact form not configured" în loc de textul românesc, exact pe ramura care se declanșează când
 `RESEND_API_KEY` lipsește la primul deploy. Vezi `apps/web/app/pages/contact.vue`.
+
+**Un modul din `apps/web/server/utils/` nu importă Markdown** (27 septembrie 2026). Nitro scanează
+dosarul pentru auto-importuri, iar un fișier de acolo cu `import … from "….md"` a schimbat felul în
+care se împachetează serverul: cititorul de fișiere statice și-a pierdut rescrierea lui
+`import.meta.url`, a căutat `.output/public` cu un director prea adânc, și **fiecare script din
+`/_nuxt/` al build-ului a răspuns 500** — paginile se randau pe server și nu se hidratau niciodată.
+`nuxt dev` merge perfect, deci se vede doar pe build: a prins-o poarta de accesibilitate din CI, care
+așteaptă hidratarea. Documentele juridice se importă de aceea din `server/legal-sources.ts`, lângă
+dosar, nu din el. Dacă un build nou se randează și nu reacționează la clicuri, cere un `/_nuxt/*.js`
+de pe el înainte de orice altceva.
 
 **Formularul de contact trimite dintr-o rută Nitro, nu din browser.** `RESEND_API_KEY` stă în
 `runtimeConfig`, în afara lui `public`, deci Nuxt nu îl scrie niciodată în bundle-ul clientului;
