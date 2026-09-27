@@ -32,10 +32,13 @@
     <UModal v-model:open="formOpen" :title="editing ? 'Editează reducerea' : 'Adaugă reducere'">
       <template #body>
         <form id="discount-form" class="space-y-4" @submit.prevent="submit">
+          <!-- A select menu, not an input menu: its button carries the name. UInputMenu's chevron
+               is reka-ui's "Show popup", with no way to rename it (QA of 27 September 2026). -->
           <UFormField label="Familie" required>
-            <UInputMenu
+            <USelectMenu
               v-model="selectedParent"
               :items="parentItems"
+              by="value"
               :disabled="Boolean(editing)"
               placeholder="Caută familia…"
               class="w-full"
@@ -127,6 +130,7 @@ import { apiErrorMessage } from "~/composables/useApiError";
 import { useDiscountsApi } from "~/composables/api/useDiscountsApi";
 import { useProfileApi } from "~/composables/api/useProfileApi";
 import { useNotifications } from "~/composables/useNotifications";
+import { nextBillingMonthAt } from "~/composables/useBillingMonth";
 import type { AdminTableColumn } from "~/types/admin-ui.types";
 import type { Discount, DiscountType } from "~/types/discount.types";
 import type { Profile } from "~/types/profile.types";
@@ -158,17 +162,15 @@ const saving = ref(false);
 const editing = ref<Discount | null>(null);
 const selectedParent = ref<{ value: number; label: string } | undefined>(undefined);
 
-/** This month, as the `type="month"` input wants it. String components — never `toISOString`. */
-const thisMonth = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-};
-
+/**
+ * The month a new discount starts on: the next one, as the server picks it for the referral button
+ * — the current one is refused wherever it is already invoiced (QA of 27 September 2026).
+ */
 const draft = reactive({
   name: "Recomandare",
   type: "percent" as DiscountType,
   value: 50 as number | undefined,
-  monthIssued: thisMonth(),
+  monthIssued: nextBillingMonthAt(),
   description: "",
 });
 
@@ -273,7 +275,7 @@ const openCreate = (discount?: Discount) => {
     draft.name = "Recomandare";
     draft.type = "percent";
     draft.value = 50;
-    draft.monthIssued = thisMonth();
+    draft.monthIssued = nextBillingMonthAt();
     draft.description = "";
     selectedParent.value = undefined;
   }
