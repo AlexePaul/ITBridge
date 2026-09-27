@@ -1,4 +1,5 @@
 export type {
+  BookedTrial,
   BookTrialDto,
   CreateLeadDto,
   LeadChannel,

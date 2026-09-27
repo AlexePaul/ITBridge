@@ -106,6 +106,58 @@ describe('Trial booking, public (e2e)', () => {
             expect(shells).toEqual([{ email: null, phone: null }]);
         });
 
+        /**
+         * The page said „la grupa Scratch Începători (Drumul Taberei)" — a location's name, not
+         * a street — and a family that left only a phone gets no email with the address in it
+         * (QA of 27 September 2026). The answer carries the address, and a second press is
+         * answered from the booking on file with the same one.
+         */
+        it('answers with the address of the class, for the family that left only a phone', async () => {
+            const { sessionId } = await schoolWithAClass();
+            const body = bookingBody({ classSessionId: sessionId, parentEmail: undefined, parentPhone: '0712345678' });
+
+            const res = await request(app.getHttpServer()).post('/trial/bookings').send(body).expect(201);
+            expect(res.body.status).toBe('booked');
+            expect(res.body.trial).toMatchObject({ locationName: 'Titan', address: 'Strada Valea Oltului 73, București' });
+
+            const again = await request(app.getHttpServer()).post('/trial/bookings').send(body).expect(201);
+            expect(again.body.leadId).toBe(res.body.leadId);
+            expect(again.body.trial).toMatchObject({ locationName: 'Titan', address: 'Strada Valea Oltului 73, București' });
+        });
+
+        it('answers with the address of the room the class has moved into, not the group’s usual one', async () => {
+            const { sessionId } = await schoolWithAClass();
+            const elsewhere = await request(app.getHttpServer())
+                .post('/locations')
+                .set('Authorization', admin.auth)
+                .send({
+                    name: 'Străulești',
+                    slug: `straulesti-${Date.now()}`,
+                    street: 'Strada Străulești 12',
+                    city: 'București',
+                    latitude: 44.5,
+                    longitude: 26.0,
+                })
+                .expect(201);
+            const room = await request(app.getHttpServer())
+                .post('/rooms')
+                .set('Authorization', admin.auth)
+                .send({ name: 'Sala mare', locationId: elsewhere.body.id as number, capacity: 10 })
+                .expect(201);
+            await request(app.getHttpServer())
+                .put(`/class-sessions/${sessionId}/move`)
+                .set('Authorization', admin.auth)
+                .send({ roomId: room.body.id as number, reason: 'Sala de la Titan e în lucrări' })
+                .expect(200);
+
+            const res = await request(app.getHttpServer())
+                .post('/trial/bookings')
+                .send(bookingBody({ classSessionId: sessionId }))
+                .expect(201);
+
+            expect(res.body.trial).toMatchObject({ locationName: 'Străulești', address: 'Strada Străulești 12, București' });
+        });
+
         it('refuses a request with no way to reach the family', async () => {
             const { sessionId } = await schoolWithAClass();
 

@@ -26,7 +26,12 @@
           <p class="body-text">
             Am notat proba lui <strong>{{ form.childFirstName }}</strong
             >, {{ booked.date ? formatDate(booked.date) : "" }}, ora {{ hour(booked.startTime) }},
-            la grupa {{ booked.groupName }} ({{ booked.locationName }}).
+            la grupa {{ booked.groupName }}.
+          </p>
+          <!-- The street, not only the location's name: a family that left only a phone gets no
+               email to read it from (QA of 27 September 2026). -->
+          <p class="body-text">
+            Adresa: <strong>{{ booked.address }}</strong> ({{ booked.locationName }}).
           </p>
           <p class="body-text">
             <!-- A family that left only a phone has no email to read (QA of 26 September 2026). -->
@@ -353,7 +358,7 @@ import { useLeadsApi } from "~/composables/api/useLeadsApi";
 import { dayKey, looksLikeEmail, looksLikePhone } from "~/composables/useUtils";
 import { apiErrorBody, apiErrorMessage } from "~/composables/useApiError";
 import { LEAD_CHANNEL_LABELS, WEEKDAY_NAMES } from "~/types/lead.types";
-import type { LeadChannel, TrialSlot } from "~/types/lead.types";
+import type { BookedTrial, LeadChannel, TrialSlot } from "~/types/lead.types";
 
 /**
  * Booking a trial, without an account — E20/S2.
@@ -413,12 +418,7 @@ const slotsFailed = ref(false);
 const loading = ref(false);
 const errorMessage = ref<string | null>(null);
 const alertCard = ref<HTMLElement | null>(null);
-const booked = ref<{
-  date: string;
-  startTime: string;
-  groupName: string;
-  locationName: string;
-} | null>(null);
+const booked = ref<BookedTrial | null>(null);
 const kept = ref(false);
 /** The parent saw the free dates and said none fits: a request for a call, not a lack of seats. */
 const noSuitableDay = ref(false);

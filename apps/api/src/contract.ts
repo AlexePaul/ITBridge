@@ -33,7 +33,7 @@ import type { LeadChannel, LeadSource } from './enum/lead-source.enum';
 import type { LeadStatus } from './enum/lead-status.enum';
 import type { LeadFunnel } from './modules/lead/lead-funnel.service';
 import type { LeadFollowUp, LeadSummary } from './modules/lead/lead.service';
-import type { TrialSlot } from './modules/lead/trial-booking.service';
+import type { TrialBookingResult, TrialSlot } from './modules/lead/trial-booking.service';
 import type { MessageKind } from './enum/message-kind.enum';
 import type { WaitlistEntry } from './entities/waitlist-entry.entity';
 import type { NonTeachingPeriod } from './entities/non-teaching-period.entity';
@@ -369,6 +369,10 @@ type _LeadFunnel = Check<Wire.LeadFunnel, LeadFunnel>;
 type _LeadFunnelBack = Check<LeadFunnel, Wire.LeadFunnel>;
 type _TrialSlot = Check<Wire.TrialSlot, TrialSlot>;
 type _TrialSlotBack = Check<TrialSlot, Wire.TrialSlot>;
+// The booking's answer, both ways: the page prints the address from it (QA of 27 September 2026),
+// and a field the service stopped sending would otherwise be an empty line on the success screen.
+type _TrialBookingResult = Check<Wire.TrialBookingResult, TrialBookingResult>;
+type _TrialBookingResultBack = Check<TrialBookingResult, Wire.TrialBookingResult>;
 
 // `Serialized` again: the four `Date` columns on a lead leave the controller as strings, and the
 // contract describes the wire.
