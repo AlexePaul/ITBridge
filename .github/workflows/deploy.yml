@@ -5,12 +5,12 @@ name: Deploy
 # job simply never starts when something is red.
 #
 # `release/prod` is listed but gated. That branch carries the pre-E08 API until the platform moves
-# there - ten modules against nineteen on `release/stage`, missing `enrollment`, `class-session`,
+# there - ten modules against twenty-four on `release/stage`, missing `enrollment`, `class-session`,
 # `storage` and `mail` among others - so deploying it early would not be a premature release of this
 # platform, it would be a different and much older application. Two things keep that from happening:
-# a push to `release/prod` runs the workflow file *on that branch*, and the old one there does not
-# list it, so nothing runs until this file arrives with the platform; and the deploy job then waits
-# for the repository variable `PROD_API_DEPLOY=enabled`, set by hand as the last step of
+# a push to `release/prod` runs the workflows *on that branch*, and it has no deploy workflow at all,
+# so nothing runs until this file arrives with the platform; and the deploy job then waits for the
+# repository variable `PROD_API_DEPLOY=enabled`, set by hand in step 6 of
 # `docs/lansare-platforma.md`, with the production instance in `EC2_INSTANCE_ID_PROD`.
 on:
   push:

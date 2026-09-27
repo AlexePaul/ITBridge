@@ -2661,12 +2661,12 @@ Frontend-ul e pe **Vercel** pe amândouă branch-urile, configurat din dashboard
 mașină, PM2 pentru proces și **Caddy** pentru TLS și proxy invers către `127.0.0.1` (nu `localhost`:
 `main.ts` ascultă pe IPv4, iar numele se rezolvă întâi la `::1`). `api.itbridgeschool.com` n-are
 nimic în spate, deliberat: `release/prod` poartă API-ul de dinainte de E08 — zece module față de
-nouăsprezece — deci un deploy de acolo n-ar fi o lansare timpurie a platformei ăsteia, ci a alteia,
-mult mai vechi. `deploy.yml` ascultă și de `release/prod`, dar deploy-ul de acolo **așteaptă
+douăzeci și patru — deci un deploy de acolo n-ar fi o lansare timpurie a platformei ăsteia, ci a
+alteia, mult mai vechi. `deploy.yml` ascultă și de `release/prod`, dar deploy-ul de acolo **așteaptă
 variabila de repository `PROD_API_DEPLOY=enabled`** și instanța din `EC2_INSTANCE_ID_PROD` (fără ea
-pică, nu cade pe instanța stage-ului) — iar până trece platforma pe `release/prod`, acolo rulează
-fișierul vechi, care nu ascultă deloc. Pașii lansării, cu toate conturile de adus, sunt în
-[docs/lansare-platforma.md](docs/lansare-platforma.md).
+pică, nu cade pe instanța stage-ului) — iar până trece platforma pe `release/prod`, pe branch-ul ăla
+nu există niciun `deploy.yml`, deci un push acolo nu deployează nimic. Pașii lansării, cu toate
+conturile de adus, sunt în [docs/lansare-platforma.md](docs/lansare-platforma.md).
 
 **Un push pe `release/stage` e un deploy.** `.github/workflows/deploy.yml` cheamă `ci.yml` prin
 `workflow_call` — verificările și deploy-ul sunt o singură rulare în Actions, deci deploy-ul nu poate
@@ -2708,7 +2708,10 @@ deploy de după #281 a lăsat API-ul de stage oprit**, fiindcă `pm2 reload` opr
 `MAIL_OUTBOX_ENABLED=false`, pe care stage îl are, e decizia explicită că nu trimite. Lecția: **o
 regulă care refuză pornirea e o pană, nu un deploy oprit** — deci prinde o cheie uitată, niciodată o
 decizie luată, iar pe o schimbare de felul ăsta se urmărește și rularea Deploy de după merge, nu doar
-CI-ul PR-ului.
+CI-ul PR-ului. **Remediul stă în `deploy.sh`, deci pe instanță, și se pune de mână**: o linie care
+citește fișierul de mediu cu build-ul nou înainte de `pm2 reload`, testată, e în
+[docs/lansare-platforma.md](docs/lansare-platforma.md), pasul 6. Cu ea, un refuz oprește deploy-ul și
+lasă versiunea veche să servească, ca verificarea lui `dist/main.js`.
 
 **`ecosystem.config.js`, `deploy.sh`, `fetch-env.sh` și `backup.sh` nu sunt în repo.** Stau în
 `/srv/itbridge/` pe instanță. Dacă le cauți aici și nu le găsești, acolo sunt. Backup-ul e un

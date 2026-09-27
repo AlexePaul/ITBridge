@@ -37,7 +37,8 @@ pentru site, în **Vercel**, la Production.
 trimite email — `MAIL_OUTBOX_ENABLED=false` spune că nu trimite, cum e stage-ul dinadins, deci în
 producție variabila rămâne **nesetată**; un IBAN cu o cifră
 greșită sau fără beneficiar; `SMARTBILL_MODE=live` fără serii, fără `SMARTBILL_LIVE_DB` sau în afara
-producției; secretele JWT scurte, egale sau implicite. Mesajul numește variabila.
+producției; secretele JWT scurte, egale sau implicite. Mesajul numește variabila. Cu linia din pasul 6
+în `deploy.sh`, un refuz oprește deploy-ul, nu API-ul.
 
 ## 2. Ordinea
 
@@ -61,6 +62,21 @@ origin/release/stage` tipărește doar un hash când nu e niciun conflict. De at
    (Settings → Secrets and variables → Actions). Primul push pe `release/prod` rulează CI-ul, migrările
    și `pm2 reload`, și verifică `https://api.itbridgeschool.com/ready`. Pe instanță trebuie să existe
    `prod` în `fetch-env.sh`, `deploy.sh` și `ecosystem.config.js` — fișierele stau acolo, nu în repo.
+
+   **Și în `deploy.sh`, o linie între build și `pm2 reload`**, pe amândouă mediile, rulată din clona
+   de pe instanță (`/srv/itbridge/<env>`):
+
+   ```sh
+   (cd apps/api && node --env-file=/etc/itbridge/<env>.env -e 'require("./dist/load-env")') || exit 1
+   ```
+
+   Trece fișierul de mediu prin aceeași verificare pe care o face aplicația la pornire, cu build-ul
+   nou, și iese cu lista a tot ce lipsește sau e greșit. Fără ea, o valoare greșită în Parameter
+   Store se află abia când procesul nou refuză să pornească — iar atunci `pm2 reload` l-a oprit deja
+   pe cel vechi, deci API-ul nu mai răspunde până se corectează valoarea; așa a stat stage-ul după
+   PR-ul #281. Cu ea, deploy-ul se oprește înainte și versiunea veche servește mai departe — motivul
+   pentru care `deploy.sh` verifică deja `dist/main.js`.
+
 7. **Primul admin**, pe instanță, într-un terminal:
    `pnpm --filter api admin:create --username <nume>`. Cere parola de două ori, fără ecou (minim 12
    caractere). Nu șterge nimic; seed-ul, în schimb, **refuză** o bază de producție. Aceeași comandă cu
