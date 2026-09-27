@@ -1681,6 +1681,22 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
         },
     },
 
+    ErrorReference: {
+        table: 'error_references',
+        purpose: 'Codul arătat pe ecran la fiecare apariție a unei erori, ca `/admin/erori?cod=` să o găsească oricât de des a revenit.',
+        subject: 'none',
+        linkedVia: null,
+        columns: {
+            id: { personal: false, why: 'identifier' },
+            ref: {
+                personal: false,
+                why: 'identifier',
+                note: 'Un identificator întâmplător al cererii sau al ecranului; contul și adresa paginii stau pe raportul erorii, nu aici.',
+            },
+            at: { personal: false, why: 'row-timestamp' },
+        },
+    },
+
     // ─────────────────────────────────────────────────────────── the school itself
 
     Location: {

@@ -5,6 +5,7 @@ import { App } from 'supertest/types';
 import { LocationService } from 'src/modules/location/location.service';
 import { BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR, ErrorReportService } from 'src/modules/error-report/error-report.service';
 import { RetentionService } from 'src/modules/privacy/retention.service';
+import { ErrorSource } from 'src/enum/error-source.enum';
 import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
 
 /**
@@ -175,6 +176,34 @@ describe('Error record (e2e)', () => {
 
         for (let i = 0; i < BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR + 5; i++) await report(parent.auth, `fault number ${'x'.repeat(i + 1)}`);
         expect(await listed('?state=all')).toHaveLength(BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR);
+    });
+
+    /**
+     * Review of 27 September 2026: the codes were searched among the twenty occurrences on the row,
+     * so a fault every parent met lost its first codes within minutes — and the family calling with
+     * one found nothing, exactly for the faults that matter most.
+     */
+    it('finds a fault by a code however many occurrences came after it', async () => {
+        for (let i = 0; i < 25; i++) {
+            reports.record({
+                source: ErrorSource.REQUEST,
+                origin: 'GET /children',
+                errorName: 'TypeError',
+                message: 'Cannot read properties of undefined',
+                stack: null,
+                statusCode: 500,
+                code: 'INTERNAL_ERROR',
+                ref: `c0de${String(i).padStart(4, '0')}-aaaa-4bbb-8ccc-${String(i).padStart(12, '0')}`,
+                userId: null,
+                path: '/children',
+            });
+            await reports.flush();
+        }
+
+        const found = await listed('?ref=c0de0000');
+        expect(found).toHaveLength(1);
+        expect(found[0]).toMatchObject({ origin: 'GET /children', occurrences: 25 });
+        expect(found[0].recent).toHaveLength(20);
     });
 
     it('refuses a report with no route, and one from nobody', async () => {

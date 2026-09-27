@@ -166,7 +166,7 @@ export class ErrorReportService implements OnModuleDestroy {
 
         // One statement, so two occurrences of one fault in the same instant are one row counted
         // twice, never two rows: the partial unique index decides, as it does for the unassigned files.
-        await this.reports.query(
+        const rows = await this.reports.query<{ id: number }[]>(
             `INSERT INTO "error_reports"
                 ("fingerprint", "source", "origin", "errorName", "message", "stack", "statusCode", "code",
                  "occurrences", "firstSeenAt", "lastSeenAt", "recent")
@@ -183,7 +183,8 @@ export class ErrorReportService implements OnModuleDestroy {
                     SELECT jsonb_agg(item.value ORDER BY item.ordinality)
                     FROM jsonb_array_elements(EXCLUDED."recent" || "error_reports"."recent") WITH ORDINALITY AS item
                     WHERE item.ordinality <= ${RECENT_OCCURRENCES}
-                )`,
+                )
+             RETURNING "id"`,
             [
                 fingerprint({ source: input.source, origin, errorName, message, stack }),
                 input.source,
@@ -197,6 +198,13 @@ export class ErrorReportService implements OnModuleDestroy {
                 JSON.stringify(occurrence),
             ],
         );
+
+        // The code on its own row, so it is found however many occurrences came after it: `recent`
+        // keeps twenty (review of 27 September 2026).
+        const reportId = rows[0]?.id;
+        if (reportId && occurrence.ref) {
+            await this.reports.query('INSERT INTO "error_references" ("report_id", "ref", "at") VALUES ($1, $2, $3)', [reportId, clip(occurrence.ref, 64), at]);
+        }
     }
 
     /**
@@ -210,9 +218,12 @@ export class ErrorReportService implements OnModuleDestroy {
             .take(query.limit ?? 100);
 
         if (query.ref) {
-            qb.andWhere(`EXISTS (SELECT 1 FROM jsonb_array_elements(report.recent) AS occurrence WHERE lower(occurrence->>'ref') LIKE :ref)`, {
-                ref: `${query.ref.toLowerCase()}%`,
-            });
+            // Every code ever shown for the fault, not only the twenty occurrences on the row.
+            qb.andWhere(
+                `(EXISTS (SELECT 1 FROM "error_references" code WHERE code.report_id = report.id AND lower(code.ref) LIKE :ref)
+                  OR EXISTS (SELECT 1 FROM jsonb_array_elements(report.recent) AS occurrence WHERE lower(occurrence->>'ref') LIKE :ref))`,
+                { ref: `${query.ref.toLowerCase()}%` },
+            );
         } else if (query.state === 'resolved') {
             qb.andWhere('report.resolvedAt IS NOT NULL');
         } else if (query.state !== 'all') {
@@ -245,6 +256,9 @@ export class ErrorReportService implements OnModuleDestroy {
 
     /** The retention pass — `RetentionService.run`. By the last time the fault was seen, fixed or not. */
     async removeSeenBefore(cutoff: Date): Promise<number> {
+        // A report's codes go with it (`ON DELETE CASCADE`); those of a fault still seen go at the
+        // same term, one by one.
+        await this.reports.query('DELETE FROM "error_references" WHERE "at" < $1', [cutoff]);
         const result = await this.reports.createQueryBuilder().delete().from(ErrorReport).where('"lastSeenAt" < :cutoff', { cutoff }).execute();
         return result.affected ?? 0;
     }

@@ -35,6 +35,7 @@ import { DocumentAcceptance } from './document-acceptance.entity';
 import { BankStatementLine } from './bank-statement-line.entity';
 import { PublicationConsent } from './publication-consent.entity';
 import { ErrorReport } from './error-report.entity';
+import { ErrorReference } from './error-reference.entity';
 
 @Module({
     imports: [
@@ -74,6 +75,7 @@ import { ErrorReport } from './error-report.entity';
             BankStatementLine,
             PublicationConsent,
             ErrorReport,
+            ErrorReference,
         ]),
     ],
     exports: [TypeOrmModule],
