@@ -6,10 +6,17 @@ packages:
 # au nevoie: bcrypt compilează un binding nativ, esbuild, sharp și unrs-resolver descarcă binarul
 # potrivit platformei, vue-demi își alege build-ul după versiunea de Vue. Fără ele, backend-ul
 # cade la primul hash de parolă și Nuxt nu pornește, iar miniaturile din E14 nu se pot genera.
-# `@scarf/scarf` e doar telemetrie și rămâne blocat intenționat.
 onlyBuiltDependencies:
   - bcrypt
   - esbuild
   - sharp
   - unrs-resolver
   - vue-demi
+
+# `@scarf/scarf` (adus de swagger-ui-dist) e doar telemetrie: scriptul lui de instalare raportează
+# instalarea către Scarf. Rămâne blocat intenționat, iar lista asta îi spune lui pnpm că e o decizie
+# luată, nu una în așteptare. Altfel caseta „Ignored build scripts" apare la fiecare instalare, în CI
+# și în fiecare deploy — iar în ziua în care apare acolo un pachet nou care chiar are nevoie de
+# script, e caseta pe care n-o mai citește nimeni.
+ignoredBuiltDependencies:
+  - "@scarf/scarf"
