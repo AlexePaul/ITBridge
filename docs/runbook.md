@@ -104,6 +104,17 @@ nu există: un fișier editat pe instanță dispare la următorul deploy.
 
 4. **Scrie întâi un test care pică** — unitar lângă cod (`*.spec.ts`), sau de integrare în
    `apps/api/test/` (`pnpm test:e2e`, cere Docker pornit). Convenția e în CLAUDE.md, „Testare".
+   Cât lucrezi, rulează doar fișierul tău — suita întreagă de integrare ține vreo douăzeci de minute:
+
+   ```sh
+   pnpm --filter api test src/modules/invoice/pricing.spec.ts        # unitar, API
+   pnpm --filter web test test/romanianCount.spec.ts                 # unitar, site
+   pnpm exec dotenv -e .env -- pnpm --filter api test:e2e test/payments.e2e-spec.ts   # integrare
+   ```
+
+   Al treilea citește `.env` de la rădăcină, ca `pnpm test:e2e`; fără `dotenv`, testele nu văd
+   portul MinIO din configurația ta.
+
 5. **Repară**, apoi rulează ce rulează CI-ul:
 
    ```sh
