@@ -459,10 +459,11 @@ describe('AuthService', () => {
             await service.resendConfirmation(7);
 
             // The method takes no address for exactly this reason: one that did would let anyone
-            // holding a session point a confirmation at a mailbox of their choosing.
+            // holding a session point a confirmation at a mailbox of their choosing. The family it
+            // is written to rides along, for the delivery record.
             expect(confirmations.issueAndSend).toHaveBeenCalledWith(
                 expect.anything(),
-                { firstName: 'Ana', email: 'ana@example.com' },
+                { firstName: 'Ana', email: 'ana@example.com', profileId: 4 },
                 expect.any(Date),
                 manager,
             );

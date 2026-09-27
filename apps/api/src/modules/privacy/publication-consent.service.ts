@@ -226,6 +226,7 @@ export class PublicationConsentService {
                         bodyText: mail.bodyText,
                         bodyHtml: mail.bodyHtml ?? undefined,
                         dedupeKey: `publication-consent-granted:${written.id}`,
+                        profileId: child.parent.id,
                     },
                     manager,
                 );
@@ -290,7 +291,13 @@ export class PublicationConsentService {
         });
         await this.outbox.queueOrRecord(
             familyRecipient(child.parent),
-            { subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined, dedupeKey: `publication-consent-revoked:${revoked.id}` },
+            {
+                subject: mail.subject,
+                bodyText: mail.bodyText,
+                bodyHtml: mail.bodyHtml ?? undefined,
+                dedupeKey: `publication-consent-revoked:${revoked.id}`,
+                profileId: child.parent.id,
+            },
             manager,
         );
     }

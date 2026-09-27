@@ -170,10 +170,9 @@ export class ExportService {
         const leads = await this.leads.find({ where: leadsOfFamily(profile), order: { id: 'ASC' } });
         const vouched = vouchedAddresses(profile);
 
-        // The queue has no relation to a profile — it is shared, and it also writes to the office —
-        // so it is searched by address, exactly as the inventory says E07 S4 would have to.
-        const ownMessages = messagesOfFamily(profile);
-        const messages = ownMessages ? await this.outbox.find({ where: ownMessages, order: { id: 'ASC' } }) : [];
+        // The messages written to the family — by the link where the queue has one, and by the
+        // vouched address for the rows it does not (`messagesOfFamily`).
+        const messages = await this.outbox.find({ where: messagesOfFamily(profile), order: { id: 'ASC' } });
 
         // The family's account, attached or — created from a claim link — still waiting for the
         // office to attach it: either way it is the family's, and this is everything held about it.

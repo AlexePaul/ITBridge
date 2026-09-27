@@ -126,6 +126,7 @@ export class ProjectDeliveryService {
                     {
                         subject: `Proiectele lui ${group[0].child.firstName}`,
                         bodyText: `Nu am putut trimite ${group.length} document(e) către ${recipient.parentName}.`,
+                        profileId: parent.id,
                     },
                 );
                 continue;
@@ -182,6 +183,7 @@ export class ProjectDeliveryService {
                     // admins on two screens. `status` already stops the ordinary second press; this
                     // stops the simultaneous one.
                     dedupeKey: deliveryDedupeKey(parent.id, projects),
+                    profileId: parent.id,
                 },
                 manager,
             );

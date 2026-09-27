@@ -226,7 +226,12 @@ export class ProfileService {
                 // value — but the gate closing and the link going out are two facts, not one, and
                 // writing them as one is how the second silently swallows the first.
                 if (saved.email) {
-                    await this.confirmations.issueAndSend(profile.user, { firstName: saved.firstName, email: saved.email }, new Date(), manager);
+                    await this.confirmations.issueAndSend(
+                        profile.user,
+                        { firstName: saved.firstName, email: saved.email, profileId: profile.id },
+                        new Date(),
+                        manager,
+                    );
                 }
             }
             // Inside the transaction the edit already opened, not after it: a trail written on its

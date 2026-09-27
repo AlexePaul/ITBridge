@@ -156,9 +156,6 @@ describe('data inventory (E07 S1)', () => {
         const UNREACHABLE_BY_DESIGN = new Set([
             // The path failed: that is what the row records. There is no `Child` to walk to.
             'UnassignedFile',
-            // The queue is shared and also writes to the office, so there is no relation to a
-            // profile. E07 S4 has to search by address here, not by join.
-            'OutboxMessage',
             // The trail points at the row that changed, by type and id, on purpose: a relation to a
             // deletable row is how an audit log loses the entries that matter.
             'AuditLog',

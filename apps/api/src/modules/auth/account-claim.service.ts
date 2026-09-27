@@ -164,7 +164,10 @@ export class AccountClaimService {
             claimUrl: accountClaimUrl(token),
             hours: String(Math.round(CLAIM_TTL_MS / 3_600_000)),
         });
-        await this.outbox.queue({ to: address, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined }, manager);
+        await this.outbox.queue(
+            { to: address, subject: mail.subject, bodyText: mail.bodyText, bodyHtml: mail.bodyHtml ?? undefined, profileId: profile.id },
+            manager,
+        );
 
         this.logger.log(`Account claim link issued for profile ${profile.id}.`);
         return claim;

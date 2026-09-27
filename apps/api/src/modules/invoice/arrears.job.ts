@@ -104,6 +104,7 @@ export class ArrearsJob {
                     // Per invoice per day: a re-run writes nothing new, and two invoices of the
                     // same family are two separate matters.
                     dedupeKey: `${DEDUPE_PREFIX}${row.invoiceId}:${toIsoDate(day)}`,
+                    profileId: row.parentId,
                 },
             );
             if (queued) notified += 1;

@@ -1244,7 +1244,7 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
         table: 'outbox',
         purpose: 'Coada de mesaje: tot ce pleacă din backend trece pe aici.',
         subject: 'parent',
-        linkedVia: null,
+        linkedVia: 'profile',
         columns: {
             id: { personal: false, why: 'identifier' },
             to: {
@@ -1255,7 +1255,7 @@ export const DATA_INVENTORY: Record<string, EntityInventory> = {
                 basis: 'contract',
                 retention: 'operational',
                 readableBy: ['admin'],
-                note: 'Rândul nu are relație către `Profile` — coada e partajată și scrie și către birou. E07 S4 trebuie să caute după adresă, nu după legătură; de asta `linkedVia` e `null`.',
+                note: 'Familia căreia i s-a scris stă în `profile` (niciodată pe mesajele către birou, nici pe cele despre o familie). Rândurile fără legătură — cele de dinainte de ea — se găsesc după adresa garantată (`messagesOfFamily`).',
             },
             subject: {
                 personal: true,

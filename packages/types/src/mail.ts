@@ -97,6 +97,12 @@ export interface DeliveryRecord {
     lastError: string | null;
     createdAt: ISODateTime;
     sentAt: ISODateTime | null;
+    /**
+     * The family the message was written to — never the one it is about, so `null` on the office's
+     * own mail, and on rows older than the link. It is what makes an undeliverable row actionable:
+     * that row has no address, and the office needs to know whom to phone.
+     */
+    profile: { id: number; firstName: string; lastName: string } | null;
 }
 
 /** How many messages sit in each state. Every state present, even at zero. */

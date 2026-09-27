@@ -48,6 +48,16 @@
           <div class="min-w-0">
             <p class="font-medium">{{ record.subject }}</p>
             <p class="text-muted text-sm mt-0.5">
+              <!-- The family the message was written to: for a row with no address, the only way to
+                   know whom to phone. -->
+              <template v-if="record.profile">
+                <NuxtLink
+                  :to="`/admin/profiles/${record.profile.id}`"
+                  class="text-primary underline"
+                  >{{ familyName(record.profile) }}</NuxtLink
+                >
+                ·
+              </template>
               <span v-if="record.to">{{ record.to }}</span>
               <span v-else class="italic">fără destinatar</span>
               · <span class="tabular-nums">{{ formatDateKey(record.createdAt) }}</span>
@@ -100,6 +110,10 @@
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useDeliveriesApi } from "~/composables/api/useDeliveriesApi";
 import { formatDateKey } from "~/composables/useAdminFormat";
+
+/** „Familia Popescu" reads as a name; an erased family's row is still a family to link to. */
+const familyName = (profile: NonNullable<DeliveryRecord["profile"]>) =>
+  [profile.firstName, profile.lastName].filter(Boolean).join(" ") || `Familia #${profile.id}`;
 import type { DeliveryRecord, DeliveryStatus, DeliverySummary } from "~/types/delivery.types";
 import {
   DELIVERY_STATUS_COLORS,

@@ -110,7 +110,8 @@ export class LeadRemindersJob {
         const tomorrow = toIsoDate(addDays(parseIsoDate(schoolDay(now)), 1));
         const leads = await this.leadRepository.find({
             where: { status: LeadStatus.TRIAL_SCHEDULED },
-            relations: { trialSession: { group: { room: { location: true } }, room: { location: true } } },
+            // `profile`: the family the reminder is written to, for the delivery record.
+            relations: { trialSession: { group: { room: { location: true } }, room: { location: true } }, profile: true },
         });
 
         let queued = 0;
@@ -127,6 +128,7 @@ export class LeadRemindersJob {
                 {
                     ...composeTrialReminder(detailsOf(lead)),
                     dedupeKey: `${TRIAL_REMINDER_PREFIX}${lead.id}:${session.id}:${sessionStartStamp(session)}`,
+                    profileId: lead.profile?.id,
                 },
             );
             queued += 1;
@@ -164,7 +166,7 @@ export class LeadRemindersJob {
 
             await this.outbox.queueOrRecord(
                 { email: lead.parentEmail },
-                { ...composeNoShowFollowUp(detailsOf(lead)), dedupeKey: `${NO_SHOW_PREFIX}${lead.id}:${session.id}` },
+                { ...composeNoShowFollowUp(detailsOf(lead)), dedupeKey: `${NO_SHOW_PREFIX}${lead.id}:${session.id}`, profileId: lead.profile?.id },
             );
             queued += 1;
         }

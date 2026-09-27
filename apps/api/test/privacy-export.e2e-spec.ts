@@ -284,7 +284,19 @@ describe('Privacy export (e2e)', () => {
         await request(app.getHttpServer()).put(`/profiles/${bogdanProfileId}`).set('Authorization', bogdan.auth).send({ email: office }).expect(200);
         const res = await exportOwn(bogdan).expect(200);
 
-        expect(res.body.mesajePrimite).toEqual([]);
+        // What was written to the family — its registration mail and the link its own edit sent to
+        // that address, found by the link — and none of the office's notices, which carry none.
+        const writtenToBogdan = await dataSource.query<{ subject: string }[]>('SELECT subject FROM outbox WHERE profile_id = $1 ORDER BY id', [
+            bogdanProfileId,
+        ]);
+        expect(res.body.mesajePrimite.map((message: { subiect: string }) => message.subiect)).toEqual(writtenToBogdan.map((row) => row.subject));
+        const officeNotices = await dataSource.query<{ subject: string }[]>('SELECT DISTINCT subject FROM outbox WHERE "to" = $1 AND profile_id IS NULL', [
+            office,
+        ]);
+        expect(officeNotices.length).toBeGreaterThan(0);
+        for (const notice of officeNotices) {
+            expect(res.body.mesajePrimite.map((message: { subiect: string }) => message.subiect)).not.toContain(notice.subject);
+        }
     });
 
     /**

@@ -73,6 +73,11 @@ export interface QueuedMessage {
      * the message is handed to the provider — see `OutboxMessage.attachments`.
      */
     attachments?: OutboxAttachment[] | null;
+    /**
+     * The family the message is written to, when it is written to one — `OutboxMessage.profile`.
+     * Never set on a message to the office, even one about a family: that copy is the school's.
+     */
+    profileId?: number | null;
 }
 
 export interface DispatchResult {
@@ -220,6 +225,7 @@ export class OutboxService {
                 bodyHtml: message.bodyHtml ?? null,
                 dedupeKey: message.dedupeKey ?? null,
                 attachments: message.attachments?.length ? message.attachments : null,
+                profile: message.profileId ? { id: message.profileId } : null,
                 status: OutboxStatus.UNDELIVERABLE,
                 undeliverableReason: reason,
             })
@@ -250,6 +256,7 @@ export class OutboxService {
                 bodyHtml: message.bodyHtml ?? null,
                 dedupeKey: message.dedupeKey ?? null,
                 attachments: message.attachments?.length ? message.attachments : null,
+                profile: message.profileId ? { id: message.profileId } : null,
             })
             .orIgnore()
             .returning('*')

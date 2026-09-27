@@ -192,7 +192,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 | `bank_statement_lines` | Părinte | `payment.invoice.parent` | O încasare din extrasul bancar al școlii, adusă pentru potrivirea cu facturile (E16 S8). |
 | `unassigned_files` | Copil | **nu se poate ajunge prin relații** | Un fișier pe care agentul nu l-a putut atribui unui copil (E14 S2). |
 | `leads` | Părinte | `profile` | Tot ce e între „cineva a întrebat" și „s-a înscris" (E20). |
-| `outbox` | Părinte | **nu se poate ajunge prin relații** | Coada de mesaje: tot ce pleacă din backend trece pe aici. |
+| `outbox` | Părinte | `profile` | Coada de mesaje: tot ce pleacă din backend trece pe aici. |
 | `sessions` | Titularul contului | `user.profile` | Un refresh token emis, ca să poată fi revocat. |
 | `password_resets` | Titularul contului | `user.profile` | Linkul prin care o familie își recapătă contul când nu mai știe parola. |
 | `account_claims` | Titularul contului | `profile` | Linkul prin care o familie trecută în platformă de birou își face singură contul, la adresa din fișă. |
@@ -258,7 +258,7 @@ așa dinadins, iar motivul e la fiecare în „Ce se ratează ușor".
 - **`leads.childBirthDate`** — Data nașterii unui minor, scrisă dintr-un formular public. Cel mai sensibil câmp pe care îl poate scrie cineva fără cont.
 - **`leads.noSeats`** — Cererea pe care școala nu a putut-o servi. Despre grupă, nu despre familie.
 - **`leads.bookingKey`** — Idempotență pentru formularul public.
-- **`outbox.to`** — Rândul nu are relație către `Profile` — coada e partajată și scrie și către birou. E07 S4 trebuie să caute după adresă, nu după legătură; de asta `linkedVia` e `null`.
+- **`outbox.to`** — Familia căreia i s-a scris stă în `profile` (niciodată pe mesajele către birou, nici pe cele despre o familie). Rândurile fără legătură — cele de dinainte de ea — se găsesc după adresa garantată (`messagesOfFamily`).
 - **`outbox.lastError`** — Mesajul furnizorului. Poate cita adresa respinsă — de asta e citit doar de admin.
 - **`outbox.dedupeKey`** — Conține identificatori (`receipt:412`), niciodată nume.
 - **`outbox.attachments`** — Chei de obiect, nu octeți: cheile sunt derivate din identificatori.

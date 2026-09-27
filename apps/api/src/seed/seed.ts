@@ -362,6 +362,18 @@ export async function seed(dataSource: DataSource): Promise<void> {
         }),
     );
 
+    // A family the office typed in from a phone call, with no email — the most common way a family
+    // arrives (E11), and the one every class change and every invoice then fails to reach. Seeded so
+    // the delivery record's address-less row has a family to name, as it would in production.
+    const phonedIn = await dataSource.getRepository(Profile).save(
+        dataSource.getRepository(Profile).create({
+            firstName: 'Irina',
+            lastName: 'Marinescu',
+            phone: '+40745100200',
+            address: 'Strada Exemplu 40, București',
+        }),
+    );
+
     // A couple of accounts with no profile at all, so the linking screen has something to show.
     // Active, deliberately: they are a fixture for `GET /users/without-profile`, not registrations
     // waiting on a decision, and leaving them pending would put two rows in the approvals queue
@@ -829,12 +841,14 @@ export async function seed(dataSource: DataSource): Promise<void> {
     // as "nothing has ever happened here" rather than "no data yet". Each row below exists to put
     // one state on screen, including the states nobody wants: a message with nowhere to go, a
     // credit that ran out, a family that said no.
-    await seedCommunication(dataSource, { admin, profiles, children, groups, locations, sessions });
+    await seedCommunication(dataSource, { admin, profiles, phonedIn, children, groups, locations, sessions });
 }
 
 interface CommunicationContext {
     admin: User;
     profiles: Profile[];
+    /** The family the office typed in without an email — the address-less row names it. */
+    phonedIn: Profile;
     children: Child[];
     groups: Group[];
     locations: Location[];
@@ -842,7 +856,7 @@ interface CommunicationContext {
 }
 
 async function seedCommunication(dataSource: DataSource, ctx: CommunicationContext): Promise<void> {
-    const { admin, profiles, children, groups, locations, sessions } = ctx;
+    const { admin, profiles, phonedIn, children, groups, locations, sessions } = ctx;
     const today = toIsoDate(new Date(SEED_TODAY.getUTCFullYear(), SEED_TODAY.getUTCMonth(), SEED_TODAY.getUTCDate()));
     const past = sessions.filter((session) => toIsoDate(session.date) < today).sort((a, b) => toIsoDate(b.date).localeCompare(toIsoDate(a.date)));
     const upcoming = sessions.filter((session) => toIsoDate(session.date) > today).sort((a, b) => toIsoDate(a.date).localeCompare(toIsoDate(b.date)));
@@ -1002,6 +1016,8 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
     // only wrote successes would show it doing its job and never doing the job it exists for.
     const outboxRepo = dataSource.getRepository(OutboxMessage);
     const withEmail = profiles.filter((profile) => profile.email);
+    // Each row names the family it was written to, as the senders do — the address-less one above
+    // all, since that name is the only thing on it the office can act on.
     await outboxRepo.save([
         outboxRepo.create({
             to: withEmail[0]?.email ?? 'parinte@example.com',
@@ -1011,6 +1027,7 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
             attempts: 1,
             sentAt: daysAgo(2),
             dedupeKey: 'seed-outbox-invoice-1',
+            profile: withEmail[0] ?? null,
         }),
         outboxRepo.create({
             to: withEmail[1]?.email ?? 'parinte2@example.com',
@@ -1021,6 +1038,7 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
             sentAt: daysAgo(1),
             announcement: announcements[0],
             dedupeKey: 'seed-outbox-announcement-1',
+            profile: withEmail[1] ?? null,
         }),
         outboxRepo.create({
             to: withEmail[2]?.email ?? 'parinte3@example.com',
@@ -1029,6 +1047,7 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
             status: OutboxStatus.PENDING,
             attempts: 0,
             dedupeKey: 'seed-outbox-project-1',
+            profile: withEmail[2] ?? null,
         }),
         outboxRepo.create({
             to: withEmail[3]?.email ?? 'parinte4@example.com',
@@ -1039,6 +1058,7 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
             lastError: 'Provider responded 421: try again later',
             nextAttemptAt: daysAgo(-1),
             dedupeKey: 'seed-outbox-arrears-1',
+            profile: withEmail[3] ?? null,
         }),
         // The row the state exists for: nobody to send to. The address stays empty — inventing one
         // would be indistinguishable from a real address that bounced (E17/S5).
@@ -1050,6 +1070,7 @@ async function seedCommunication(dataSource: DataSource, ctx: CommunicationConte
             undeliverableReason: DeliveryFailureReason.NO_ADDRESS,
             attempts: 0,
             dedupeKey: 'seed-outbox-undeliverable-1',
+            profile: phonedIn,
         }),
     ]);
 

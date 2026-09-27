@@ -738,9 +738,10 @@ sunt refuzate (`PROFILE_ERASED`), fiindcă ștergerea și retenția îl sar ca t
 scrie pe el n-ar mai scoate nimeni.
 
 **Un rând fără drum către familie se revendică doar printr-o adresă pe care o garantează cineva**
-(E07 S4, revizuirea din 25 septembrie 2026). `outbox` și lead-urile tastate de birou n-au relație
-către `Profile`, deci exportul, ștergerea și retenția le caută după adresă — iar adresa de pe un
-profil e ce a tastat cineva în el. `PUT /profiles/:id` verifică doar că n-o mai ține alt _profil_:
+(E07 S4, revizuirea din 25 septembrie 2026). Lead-urile tastate de birou n-au relație către
+`Profile`, iar `outbox` are una numai de la 27 septembrie 2026 (mai jos, la mesajele nelivrabile),
+deci exportul, ștergerea și retenția caută și după adresă — iar adresa de pe un profil e ce a tastat
+cineva în el. `PUT /profiles/:id` verifică doar că n-o mai ține alt _profil_:
 adresa biroului trece, numărul unei familii care a sunat și nu s-a înregistrat trece. Potrivit așa,
 `GET /privacy/export` îi dădea oricui își făcea cont copilul altei familii — nume, data nașterii,
 proba — și subiectul fiecărui mesaj al biroului, iar ștergerea le lua cu ea. Regula e
@@ -1685,8 +1686,9 @@ neclasificat. Trei lucruri care se ratează:
   e un număr în abstract, e ce datorează familia aia. „N-are niciun nume în el" nu e un motiv.
 - **`linkedVia` e drumul de la rând la familie**, iar testul îl parcurge relație cu relație și cere
   să se termine la `Profile`. E coloana pe care o citește E07 S4: un export trebuie să găsească
-  fiecare rând despre o familie, deci un drum inventat e o gaură pe care nimic n-o semnalează. Trei
-  tabele n-au drum, dinadins, și scrie de ce la fiecare.
+  fiecare rând despre o familie, deci un drum inventat e o gaură pe care nimic n-o semnalează. Două
+  tabele n-au drum, dinadins, și scrie de ce la fiecare; `outbox` a fost a treia până la legătura
+  către familie.
 - **Documentul se randează, nu se editează**: `pnpm --filter api inventory:render` scrie
   `docs/inventar-date.md`, iar același spec pică dacă a rămas în urmă. Fișierul e în
   `.prettierignore` fiindcă prettier v3 își încarcă parserul de markdown prin `import()` dinamic, pe
@@ -2095,6 +2097,16 @@ revendică niciodată, fiindcă niciun backoff nu face să apară o adresă. Nu 
 `if (profile.email)` înainte de coadă: exact aia punea faptul într-un log pe care nu-l citește
 nimeni, iar „părintele n-a fost anunțat" arăta ca o coadă blocată. Adresa rămâne goală pe rândul
 nelivrabil — una inventată n-ar putea fi deosebită de una reală care a respins mesajul.
+
+**Și rândul spune familia căreia i s-a scris** (27 septembrie 2026). Fără adresă, `/admin/livrari`
+putea scrie doar „fără destinatar" — biroului care tocmai avea nevoie să știe pe cine sună, adică
+familiile tastate de el fără email, pentru care fiecare oră anulată și fiecare factură lasă un astfel
+de rând. `OutboxMessage.profile` (`profileId` în `QueuedMessage`) e familia **destinatară**,
+niciodată cea despre care e mesajul: notificările către birou, inclusiv cele despre o familie, rămân
+fără legătură, fiindcă sunt copia școlii, iar ștergerea familiei n-are voie să le ia. Un nume copiat
+pe rând n-ar fi mers: ar fi supraviețuit ștergerii. Ecranul leagă familia și o caută după nume, iar
+`messagesOfFamily` găsește rândurile după legătură **și** după adresa garantată — a doua rămâne
+pentru rândurile de dinainte. Dacă adaugi un expeditor către o familie, dă-i `profileId`.
 
 **Iar „n-a ajuns" are trei feluri, nu unul — și tabloul de bord le numără pe toate.**
 `DeliveryLogService.health` (`apps/api/src/modules/mail/delivery-log.service.ts`) e proprietarul

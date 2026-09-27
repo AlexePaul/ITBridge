@@ -9,7 +9,7 @@ import { OutboxHealth, STUCK_AFTER_MINUTES, stuckBefore } from './outbox-health.
 /** What the delivery screen filters on. Everything optional; absent means "no narrowing". */
 export interface DeliveryLogFilter {
     status?: OutboxStatus;
-    /** Substring of the recipient address, for „a primit familia X?". */
+    /** Substring of the recipient address or of the family's name, for „a primit familia X?". */
     to?: string;
     /** `YYYY-MM-DD`, inclusive at both ends, against the day the message was queued. */
     from?: string;
@@ -40,12 +40,22 @@ export class DeliveryLogService {
     async list(filter: DeliveryLogFilter = {}) {
         const qb = this.outboxRepository
             .createQueryBuilder('message')
+            // The family the message was written to, when the row knows it — which is what makes an
+            // undeliverable row something the office can act on: it has no address by construction,
+            // and „fără destinatar" alone does not say whom to phone. Three columns, not the row.
+            .leftJoin('message.profile', 'family')
+            .addSelect(['family.id', 'family.firstName', 'family.lastName'])
             .orderBy('message.createdAt', 'DESC')
-            .take(Math.min(filter.limit ?? 200, 500));
+            // `limit`, not `take`: the join is many-to-one, so it cannot multiply rows, and `take`
+            // would page through a second, DISTINCT query for nothing.
+            .limit(Math.min(filter.limit ?? 200, 500));
 
         if (filter.status) qb.andWhere('message.status = :status', { status: filter.status });
-        // `ILIKE` rather than equality: the admin remembers a name, not the exact address.
-        if (filter.to) qb.andWhere('message.to ILIKE :to', { to: `%${filter.to}%` });
+        // `ILIKE` rather than equality: the admin remembers a name, not the exact address — and now
+        // the name itself finds the family's messages, the ones that had no address included.
+        if (filter.to) {
+            qb.andWhere(`(message.to ILIKE :to OR concat_ws(' ', family.firstName, family.lastName) ILIKE :to)`, { to: `%${filter.to}%` });
+        }
         // **Both ends are the school's midnight, not Greenwich's.** `createdAt` is `timestamptz`, and
         // a bound string with no offset is read in the session's zone — which is UTC on the server,
         // as it is in CI. So `from`/`until`, which the screen builds from the day an admin is
