@@ -71,13 +71,22 @@
             }}</strong>
             din {{ lastImport.credits
             }}<template v-if="lastImport.duplicates">
-              ({{ lastImport.duplicates }} erau deja importate)</template
-            >;
-            {{
-              lastImport.debits === 1
-                ? "o plată ieșită pusă deoparte"
-                : `${countOf(lastImport.debits, "plată ieșită", "plăți ieșite")} puse deoparte`
-            }}.
+              ({{
+                lastImport.duplicates === 1
+                  ? "una era deja importată"
+                  : `${lastImport.duplicates} erau deja importate`
+              }})</template
+            >.
+            <!-- An outgoing payment is dropped, not set aside: "puse deoparte" is the tab of lines
+                 somebody decided were not a family paying, and it said (0) beside this. -->
+            <template v-if="lastImport.debits">
+              {{
+                lastImport.debits === 1
+                  ? "O plată ieșită n-a fost importată"
+                  : `${countOf(lastImport.debits, "plată ieșită", "plăți ieșite")} n-au fost importate`
+              }}
+              — extrasul se citește doar pentru încasări.
+            </template>
             <template v-if="lastImport.imported">
               Cu propunere: {{ lastImport.suggested }} din {{ lastImport.imported }} ({{
                 Math.round((lastImport.suggested / lastImport.imported) * 100)
@@ -89,6 +98,10 @@
               lastImport.columns.amount
             }}”<template v-if="lastImport.columns.description"
               >, detaliile din „{{ lastImport.columns.description }}”</template
+            ><template v-if="lastImport.columns.counterparty"
+              >, plătitorul din „{{ lastImport.columns.counterparty }}”</template
+            ><template v-if="lastImport.columns.reference"
+              >, referința băncii din „{{ lastImport.columns.reference }}”</template
             >.
           </p>
           <ul v-if="lastImport.unreadable.length" class="text-warning mt-1">
@@ -411,9 +424,16 @@ const confirmSure = async () => {
   confirmingSure.value = true;
   try {
     const { confirmed, failed } = await reconciliation.confirmSuggested();
+    const recorded = countOf(confirmed, "încasare înregistrată", "încasări înregistrate");
     if (failed)
-      error(`${confirmed} încasări înregistrate; ${failed} n-au putut fi — rămân de decis.`);
-    else success(`${confirmed} încasări înregistrate`);
+      error(
+        `${recorded}; ${
+          failed === 1
+            ? "una n-a putut fi — rămâne de decis"
+            : `${failed} n-au putut fi — rămân de decis`
+        }.`
+      );
+    else success(recorded);
     await load();
   } catch (err: unknown) {
     error(apiErrorMessage(err, "Nu am putut confirma potrivirile"));
@@ -454,7 +474,7 @@ const lineActions = (line: StatementLineView): DropdownMenuItem[] => {
   }
   items.push({
     label: "Alege factura",
-    icon: "i-lucide-list-search",
+    icon: "i-lucide-file-search",
     onSelect: () => askPick(line),
   });
   items.push({

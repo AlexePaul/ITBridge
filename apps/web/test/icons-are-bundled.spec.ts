@@ -44,6 +44,25 @@ export const unbundledIcons = (source: string, installed: Set<string>): string[]
     .filter(([, collection]) => !installed.has(collection as string))
     .map(([icon]) => icon as string);
 
+/** Every icon name a collection has — its icons and its aliases — read from its own package. */
+const namesIn = (collection: string): Set<string> => {
+  const json = JSON.parse(
+    readFileSync(
+      new URL(`../node_modules/@iconify-json/${collection}/icons.json`, import.meta.url),
+      "utf8"
+    )
+  ) as { icons: Record<string, unknown>; aliases?: Record<string, unknown> };
+  return new Set([...Object.keys(json.icons), ...Object.keys(json.aliases ?? {})]);
+};
+
+/** The icons in `source` that their (installed) collection does not have. */
+export const missingIcons = (source: string, names: Map<string, Set<string>>): string[] =>
+  [...source.matchAll(/["'`]i-([a-z0-9]+)-([a-z0-9-]+)["'`]/g)]
+    .filter(
+      ([, collection, name]) => names.get(collection as string)?.has(name as string) === false
+    )
+    .map(([icon]) => icon as string);
+
 describe("icons", () => {
   it("come only from installed collections", () => {
     const offenders = files(APP_DIR).flatMap((path) =>
@@ -72,6 +91,30 @@ describe("icons", () => {
       /`i-[a-z0-9]+-\$\{/.test(readFileSync(path, "utf8"))
     );
     expect(built.map((path) => path.slice(APP_DIR.length + 1))).toEqual([]);
+  });
+
+  /**
+   * An installed collection still has to have the icon. "Alege factura" on /admin/reconciliere asked
+   * for `i-lucide-list-search`, which lucide does not have, so the menu item drew nothing and the
+   * icon module logged a miss (QA of 27 September 2026).
+   */
+  it("name only icons their collection has", () => {
+    const names = new Map([...INSTALLED].map((collection) => [collection, namesIn(collection)]));
+    const offenders = files(APP_DIR).flatMap((path) =>
+      missingIcons(readFileSync(path, "utf8"), names).map(
+        (icon) => `${path.slice(APP_DIR.length + 1)}  ${icon}`
+      )
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("would notice a missing one", () => {
+    const names = new Map([["lucide", new Set(["download", "file-search"])]]);
+    expect(missingIcons('<UButton icon="i-lucide-list-search">', names)).toEqual([
+      '"i-lucide-list-search"',
+    ]);
+    expect(missingIcons('icon: "i-lucide-file-search",', names)).toEqual([]);
   });
 
   // A sweep that matches nothing passes for the wrong reason, so it has to see the one it was
