@@ -105,6 +105,19 @@ describe('UserService', () => {
             expect(JSON.stringify(audit.recordPersonalDataChange.mock.calls[0][0])).not.toContain('ADMIN');
         });
 
+        /**
+         * Review of 27 September 2026: promoted while suspended, the account could never be lifted —
+         * reactivation takes parent accounts only — and login would go on refusing it.
+         */
+        it('refuses to change the role of a suspended account', async () => {
+            userRepo.findOne!.mockResolvedValueOnce({ ...existing, suspendedAt: new Date(2026, 8, 1) });
+
+            await expect(service.updateUser(1, { role: 'ADMIN' } as never, ACTOR)).rejects.toMatchObject({
+                response: expect.objectContaining({ error: 'ACCOUNT_SUSPENDED_ROLE_CHANGE' }),
+            });
+            expect(audit.recordPersonalDataChange).not.toHaveBeenCalled();
+        });
+
         /** A field re-sent unchanged is not a change; the trail would otherwise fill with non-events. */
         it('names only the fields that actually moved', async () => {
             userRepo.findOne!.mockResolvedValueOnce(existing).mockResolvedValueOnce(null);

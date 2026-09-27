@@ -109,6 +109,8 @@ const MESSAGES: Record<string, string> = {
   CHILD_FAMILY_CHANGED:
     "Copilul a fost mutat între timp în altă familie. Reîncarcă pagina și verifică unde e acum.",
   SESSION_NOT_FOUND: "Sesiunea nu mai e activă — probabil s-a închis deja. Reîncarcă lista.",
+  ACCOUNT_SUSPENDED_ROLE_CHANGE:
+    "Contul e suspendat. Ridică întâi suspendarea din pagina familiei, apoi schimbă rolul.",
 
   // Terms §5–6: a family adds and corrects its children from Profil, and removes only a row the
   // school has no record of. Only a parent reaches the last two, so they are written for one: the

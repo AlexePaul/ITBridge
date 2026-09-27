@@ -176,7 +176,10 @@ export class ExportService {
 
         // The family's account, attached or — created from a claim link — still waiting for the
         // office to attach it: either way it is the family's, and this is everything held about it.
-        const account = profile.user ?? (await waitingAccountOf(this.accountClaims.manager, profileId));
+        // Only one still waiting: a refused one may have been a stranger's, who claimed a mistyped
+        // address (`claimant.ts`), and its username, note and sessions are not the family's data
+        // (review of 27 September 2026).
+        const account = profile.user ?? (await waitingAccountOf(this.accountClaims.manager, profileId, true));
         const userId = account?.id;
         const [sessions, acceptances, confirmations, resets] = userId
             ? await Promise.all([

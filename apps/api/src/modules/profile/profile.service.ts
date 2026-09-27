@@ -218,7 +218,15 @@ export class ProfileService {
 
         applyDefined(profile, updateProfileDto);
         const updatedProfile = await this.dataSource.transaction(async (manager) => {
+            // The account relation is not the edit's to write. `save` writes back a relation it was
+            // handed, so a family read without an account, saved after an approval attached the
+            // claimant, wrote `user_id = NULL` over it — the account approved and detached, with no
+            // screen able to put it back (review of 27 September 2026). Handed without the relation,
+            // `save` leaves the column as the database has it.
+            const account = profile.user;
+            profile.user = undefined;
             const saved = await manager.save(Profile, profile);
+            profile.user = account;
             if (addressChanged && profile.user) {
                 await manager.update(User, profile.user.id, { emailConfirmedAt: null });
                 // The link goes only where there is somewhere to send it. Clearing the address

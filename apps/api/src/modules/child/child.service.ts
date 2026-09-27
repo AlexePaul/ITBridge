@@ -147,7 +147,13 @@ export class ChildService {
 
         applyDefined(child, updateChildDto);
         const saved = await this.dataSource.transaction(async (manager) => {
+            // The family relation is not the edit's to write: saved as read, it put a child the office
+            // had just moved to another family back where it was (review of 27 September 2026).
+            const family = child.parent;
+            (child as { parent?: Profile }).parent = undefined;
             const written = await manager.save(Child, child);
+            child.parent = family;
+            written.parent = family;
             await this.audit.recordPersonalDataChange(
                 {
                     actor,

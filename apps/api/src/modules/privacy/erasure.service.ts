@@ -229,8 +229,6 @@ export class ErasureService {
             });
         }
 
-        const userId = profile.user?.id;
-
         /** Filled inside the transaction, acted on after it commits. */
         let objectKeys: string[] = [];
 
@@ -273,6 +271,11 @@ export class ErasureService {
             const current = await manager.findOne(Profile, { where: { id: profileId }, lock: { mode: 'pessimistic_write' } });
             if (!current || isErased(current)) throw new ConflictException({ message: 'Contul e deja șters.', error: 'ALREADY_ERASED' });
             assertStillDue(current, reason);
+            // The account as it is now, under the lock: read before it, an approval that attached a
+            // claimant meanwhile left that account standing on the emptied row, with its sessions
+            // and its acceptances (review of 27 September 2026).
+            const [attached] = await manager.query<{ user_id: number | null }[]>('SELECT user_id FROM profiles WHERE id = $1', [profileId]);
+            const accountId = attached?.user_id ?? null;
 
             if (childIds.length) await manager.delete(Child, childIds);
             await this.enrollments.offerFreeSeatsIn(seatsHeldIn, manager);
@@ -340,7 +343,7 @@ export class ErasureService {
 
             // Cascades to sessions, e-mail confirmations and document acceptances, and sets
             // `Profile.user` to null on the way out.
-            if (userId) await manager.delete(User, userId);
+            if (accountId) await manager.delete(User, accountId);
 
             const now = new Date();
             await manager.update(Profile, profileId, erasedProfileFields(now));
@@ -368,7 +371,7 @@ export class ErasureService {
                 discountsRemoved: discounts.affected ?? 0,
                 messagesRemoved: messages.affected ?? 0,
                 invoicesKept: invoiceIds.length,
-                accountRemoved: Boolean(userId),
+                accountRemoved: Boolean(accountId),
                 filesRemoved: 0,
             };
         });
