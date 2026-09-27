@@ -8,13 +8,14 @@ de git, iar CI rulează aceeași comandă la fiecare PR.
 
 **Un secret stă într-un singur loc, iar locul depinde de cine îl citește:**
 
-| Cine citește             | Unde stă                                             | Cum ajunge acolo                                                                            |
-| ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| API-ul de pe stage (EC2) | **SSM Parameter Store**                              | `fetch-env.sh` regenerează `/etc/itbridge/stage.env` la fiecare deploy (640, `root:deploy`) |
-| Site-ul (Vercel)         | **Environment Variables** din proiectul Vercel       | la următorul build; pe Production **și** pe Preview                                         |
-| GitHub Actions           | nimic secret                                         | un rol AWS de o oră, prin OIDC; în GitHub stau doar ARN-ul rolului și id-ul instanței       |
-| Agentul din birou        | fișierul de configurare de pe calculatorul din birou | vezi [apps/agent/README.md](../apps/agent/README.md)                                        |
-| Un laptop                | `.env` de la rădăcină                                | copiat din `.env.example`, care are **valori goale** la fiecare secret                      |
+| Cine citește             | Unde stă                                             | Cum ajunge acolo                                                                                       |
+| ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| API-ul de pe stage (EC2) | **SSM Parameter Store**                              | `fetch-env.sh` regenerează `/etc/itbridge/stage.env` la fiecare deploy (640, `root:deploy`)            |
+| API-ul de producție      | **SSM Parameter Store**, separat de stage            | la fel, în `/etc/itbridge/prod.env`; lista valorilor e în [lansare-platforma.md](lansare-platforma.md) |
+| Site-ul (Vercel)         | **Environment Variables** din proiectul Vercel       | la următorul build; pe Production **și** pe Preview                                                    |
+| GitHub Actions           | nimic secret                                         | un rol AWS de o oră, prin OIDC; în GitHub stau doar ARN-ul rolului și id-ul instanței                  |
+| Agentul din birou        | fișierul de configurare de pe calculatorul din birou | vezi [apps/agent/README.md](../apps/agent/README.md)                                                   |
+| Un laptop                | `.env` de la rădăcină                                | copiat din `.env.example`, care are **valori goale** la fiecare secret                                 |
 
 `.env.example` păstrează doar două feluri de valori: cele care nu sunt secrete (porturi, adrese
 locale) și credențialele de unică folosință ale Postgres-ului și MinIO-ului din `docker-compose.yml`
@@ -66,6 +67,10 @@ factură nu se pierde și niciuna nu pleacă de două ori.
 parola contului — autentificat ca el, din schimbarea de parolă, care revocă și sesiunile lui — și în
 configurația agentului, apoi se repornește serviciul Windows.
 Până atunci agentul nu poate urca, iar fișierele așteaptă pe partajare — partajarea _e_ coada.
+
+**`ADMIN_PASSWORD`** — nu se păstrează nicăieri. `pnpm admin:create` cere parola unui admin nou
+într-un terminal, fără ecou; variabila e doar pentru o comandă rulată fără terminal, pusă pe linia ei
+și atât — nu în Parameter Store, nu într-un `.env`.
 
 **`SEED_PASSWORD`** — doar pentru `pnpm seed:stage`, în `.env.stage` de pe laptopul celui care îl
 rulează; nu ajunge niciodată pe instanță. E parola contului de admin pe care seed-ul îl scrie pe

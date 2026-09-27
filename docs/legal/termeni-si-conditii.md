@@ -1,6 +1,6 @@
 # Termenii și condițiile de utilizare a platformei IT Bridge School
 
-**Versiunea 0.1 · ciornă din 7 septembrie 2026 · neverificată de un avocat · nepublicată.**
+**Versiunea 0.2 · ciornă din 26 septembrie 2026 · neverificată de un avocat · nepublicată.**
 Faptele marcate `[[…]]` lipsesc sau sunt propuneri; vezi [README](README.md).
 
 ---
@@ -61,8 +61,9 @@ cu copilul, telefon) — toate trei sunt obligatorii, fiindcă fără ele nu put
 valabil 48 de ore, pe care trebuie să-l deschizi; îl poți retrimite din portal. A doua e a noastră:
 un om din școală recunoaște familia și aprobă contul, de obicei după ce ați vorbit sau v-ați
 văzut. Până la ambele, te poți autentifica, dar portalul îți arată doar ce mai lipsește. Dacă nu
-recunoaștem familia — de exemplu un cont creat pe numele altcuiva — contul poate fi respins, și îți
-scriem motivul pe email.
+recunoaștem familia — de exemplu un cont creat pe numele altcuiva — contul poate fi respins; îți
+scriem pe email că l-am respins, iar motivul notat de noi ți-l spunem când ne întrebi și îl găsești
+în copia datelor tale.
 
 **4.4 Parola e a ta.** O păstrăm doar sub formă de hash, deci nu o putem citi și nu ți-o vom cere
 niciodată prin telefon sau email. Ești răspunzător pentru ce se face din contul tău cât timp
@@ -70,9 +71,10 @@ parola e cunoscută doar de tine. Nu o da nimănui, nici copilului. Dacă bănui
 cineva, schimb-o și folosește „Deconectează-te de pe toate dispozitivele" din portal, care închide
 toate sesiunile deschise.
 
-**4.5 Sesiunile.** O autentificare rămâne valabilă cel mult 7 zile fără reautentificare. Portalul
-reține tipul de browser al fiecărei sesiuni deschise, ca să-l poți recunoaște în listă și să-l
-închizi dacă nu e al tău.
+**4.5 Sesiunile.** O autentificare rămâne valabilă cel mult 7 zile fără reautentificare dacă bifezi
+„Ține-mă minte", și până închizi browserul dacă nu o bifezi. Portalul reține tipul de browser al
+fiecărei sesiuni deschise, ca să-l poți recunoaște în listă, din „Profil", și să-l închizi dacă nu
+e al tău.
 
 **4.6 Datele din cont trebuie să fie ale tale și adevărate.** Le poți schimba oricând din
 „Profil". Un număr de telefon sau o adresă de email pot fi pe un singur cont.
@@ -106,10 +108,13 @@ despre acordul tău se referă la acordul dat în numele lor.
 - să vezi absențele anunțate și, dacă e cazul, ora în care a fost mutat copilul pentru recuperare;
 - să deschizi lucrările copilului pe care școala ți le-a trimis și să ne semnalezi una atribuită
   greșit sau care nu se deschide;
-- să vezi facturile, plățile înregistrate și restul de plată;
+- să vezi facturile, plățile înregistrate, restul de plată, reducerile și datele contului în care se
+  face transferul;
 - să-ți actualizezi datele de contact, să adaugi sau să corectezi copiii, să pornești sau să
   oprești mesajele de marketing;
-- să-ți închizi sesiunile deschise pe alte dispozitive.
+- să-ți închizi sesiunile deschise pe alte dispozitive;
+- să descarci o copie a datelor pe care le ținem despre tine și despre copii și să ceri ștergerea
+  contului.
 
 **Numai școala:**
 
@@ -295,9 +300,9 @@ familia nu mai are niciun copil înscris, contul poate rămâne deschis — de e
 absențele și lucrările; evidența facturilor și a plăților rămâne cât cere legea contabilității,
 fără datele de contact ale familiei.
 
-Ștergerea înainte de termen se cere la școală, la datele din §20, și se face în cel mult o lună;
-nu anulează facturile deja emise, a căror evidență rămâne cât cere legea, și nu înlocuiește anunțul
-de retragere din contractul de înscriere.
+Ștergerea înainte de termen se cere din portal („Cere ștergerea contului", în „Profil") sau la
+școală, la datele din §20, și se face în cel mult o lună; nu anulează facturile deja emise, a căror
+evidență rămâne cât cere legea, și nu înlocuiește anunțul de retragere din contractul de înscriere.
 
 ## 18. Modificarea termenilor
 
