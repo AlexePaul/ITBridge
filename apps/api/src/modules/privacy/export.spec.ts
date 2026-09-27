@@ -30,6 +30,10 @@ describe('the export covers what the inventory says exists', () => {
         // `UnassignedFile` is the case where the platform could not tell whose file it was. There
         // is no family to attach it to, which is the whole content of the row.
         UnassignedFile: 'the row exists because the link failed',
+        // E06 S1. A record of the platform failing, which names the account that met the error by
+        // id — the same thing the request log's line does for every request, and the export reads
+        // neither: both are the server's logs, kept thirty days (note §3.9 and §7), not the family's.
+        ErrorReport: "the platform's own log, kept thirty days like the server's",
     };
 
     it('reads every table the inventory says holds family data', () => {

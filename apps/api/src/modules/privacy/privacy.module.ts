@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ErrorReportModule } from 'src/modules/error-report/error-report.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt/dist/jwt.module';
 import { AuthGuard } from 'src/guards/auth.guard';
@@ -42,7 +43,17 @@ import { EnrollmentModule } from 'src/modules/enrollment/enrollment.module';
  * takes its consent with it, and the office hears about it the way it does at an erasure.
  */
 @Module({
-    imports: [EntitiesModule, TypeOrmModule.forFeature([]), JwtModule.register({}), AuditModule, StorageModule, InvoiceModule, MailModule, EnrollmentModule],
+    imports: [
+        EntitiesModule,
+        TypeOrmModule.forFeature([]),
+        JwtModule.register({}),
+        AuditModule,
+        StorageModule,
+        InvoiceModule,
+        MailModule,
+        EnrollmentModule,
+        ErrorReportModule,
+    ],
     controllers: [PrivacyController, ConsentController],
     providers: [ExportService, ErasureService, RetentionService, RetentionJob, PublicationConsentService, AuthGuard, RolesGuard],
     exports: [ExportService, ErasureService, PublicationConsentService],

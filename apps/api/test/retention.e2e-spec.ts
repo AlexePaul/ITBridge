@@ -100,7 +100,7 @@ describe('Retention (e2e)', () => {
             const res = await withdraw(anaProfileId, '2026-01-10').expect(200);
 
             expect(res.body).toEqual({
-                terms: { familyMonths: 12, enquiryMonths: 12, messageMonths: 12, expiredLinkDays: 30 },
+                terms: { familyMonths: 12, enquiryMonths: 12, messageMonths: 12, expiredLinkDays: 30, errorReportDays: 30 },
                 row: expect.objectContaining({ profileId: anaProfileId, withdrawnAt: '2026-01-10', dueOn: '2027-01-10', hold: null }),
             });
             expect(await profileRow(anaProfileId)).toMatchObject({ withdrawnAt: '2026-01-10' });

@@ -228,6 +228,10 @@ describe('authorization matrix', () => {
             // E17/S4, and fully public like the trial booking above. It writes one boolean, in one
             // direction, on the row a random 32-byte token names.
             'UnsubscribeController.unsubscribe',
+            // E06 S1. A screen that broke in a family's browser, reported from it. It writes a row
+            // about the platform, not about anybody's data — the account comes from the token, the
+            // body is capped field by field and throttled — and it reads nothing back.
+            'ErrorReportController.reportFromBrowser',
         ]);
 
         const writes = HANDLERS.filter((h) => WRITE_METHODS.includes(h.httpMethod));

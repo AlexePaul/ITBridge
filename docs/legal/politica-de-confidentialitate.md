@@ -201,7 +201,10 @@ pentru marketing, retractabil oricând, fără efect asupra restului.
 ### 3.9 Securitate și loguri
 
 Serverul ține loguri tehnice cu adresa IP, tipul browserului, ora și ce s-a cerut, inclusiv
-încercările de autentificare. Limitarea de rată numără cererile pe adresă IP timp de un minut, în
+încercările de autentificare. Când ceva se strică, platforma păstrează eroarea — ora, pagina și
+contul care a întâlnit-o —, ca să poată fi găsită și reparată; o eroare din browserul tău ajunge
+acolo doar cât ești autentificat, fără adresele de email, numerele de telefon sau alte valori pe
+care le-ar putea conține. Limitarea de rată numără cererile pe adresă IP timp de un minut, în
 memorie. Tokenul de acces expiră în 15 minute; cel de reîmprospătare, în 7 zile; folosirea unui
 token deja consumat închide toate sesiunile contului, fiindcă e semnul unui furt.
 
@@ -303,7 +306,7 @@ dispare.
 | Copiile mesajelor trimise                                                                             | [[PROPUNERE: 12 luni]] de la trimitere                                                                                                                                                                                      |
 | Sesiunile de autentificare                                                                            | cel mult 7 zile; cele expirate se șterg automat                                                                                                                                                                             |
 | Linkurile de confirmare a emailului și de resetare a parolei                                          | valabile 48 de ore, respectiv o oră; rândul care le ține se șterge la 30 de zile după ce au expirat                                                                                                                         |
-| Logurile tehnice ale serverului                                                                       | [[PROPUNERE: 30 de zile]]                                                                                                                                                                                                   |
+| Logurile tehnice ale serverului și jurnalul erorilor                                                  | [[PROPUNERE: 30 de zile]]; o eroare, de la ultima dată când a apărut                                                                                                                                                        |
 | Copiile de siguranță ale bazei de date                                                                | zilnice, păstrate **30 de zile** în aceeași stocare; ce ștergem dispare și din ele în cel mult 30 de zile [[DE CONFIRMAT: regula de lifecycle din E04 S4]]                                                                  |
 | Mesajele din formularul de contact                                                                    | în căsuța noastră de email, cât e nevoie ca să răspundem, cel mult [[PROPUNERE: 24 de luni]]                                                                                                                                |
 | Cookie-urile                                                                                          | vezi politica de cookie-uri                                                                                                                                                                                                 |

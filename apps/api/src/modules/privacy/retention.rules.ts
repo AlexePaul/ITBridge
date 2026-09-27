@@ -35,6 +35,14 @@ export const MESSAGE_RETENTION_MONTHS = 12;
 export const EXPIRED_LINK_RETENTION_DAYS = 30;
 
 /**
+ * Days an error on the error screen (E06 S1) is kept after it was last seen — the note's "logurile
+ * tehnice ale serverului", which is what the record is: a server log with a screen, holding which
+ * account met the error. Counted from the last occurrence, so a fault that keeps happening stays in
+ * view, and fixed or not: a fixed one's history is worth a month, not a year.
+ */
+export const ERROR_REPORT_RETENTION_DAYS = 30;
+
+/**
  * `'2026-03-31'` moved by `months`, clamped to the end of a shorter month: the 31st of March plus
  * eleven months is the 29th of February in a leap year, the 28th otherwise, and never the 2nd of
  * March — which is where `Date` would put it. Pure string and integer arithmetic, so no time zone

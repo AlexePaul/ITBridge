@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { defineStore, skipHydrate } from "pinia";
 import type { Child } from "~/types/child.types";
 import type { EntityId } from "~/types/entityId";
 
@@ -34,7 +34,7 @@ export const useChildrenStore = defineStore("children", () => {
   };
 
   return {
-    children: readonly(children),
+    children: skipHydrate(readonly(children)),
     setChildren,
     clearChildren,
     getChildById,

@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { defineStore, skipHydrate } from "pinia";
 import { readonly } from "vue";
 import type { ClassSessionWithAttendance } from "~/types/class-session.types";
 import type { EntityId } from "~/types/entityId";
@@ -42,7 +42,7 @@ export const useClassSessionStore = defineStore("classSession", () => {
   };
 
   return {
-    sessions: readonly(sessions),
+    sessions: skipHydrate(readonly(sessions)),
     setSessions,
     clearSessions,
     sessionsByGroupId,

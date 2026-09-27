@@ -58,6 +58,8 @@ import { useRoomsApi } from "~/composables/api/useRoomsApi";
 import { useProjectsApi } from "~/composables/api/useProjectsApi";
 import { usePendingProjectsStore } from "~/stores/pendingProjectsStore";
 import { useUnplacedAbsencesStore } from "~/stores/unplacedAbsencesStore";
+import { useErrorReportsStore } from "~/stores/errorReportsStore";
+import { useErrorsApi } from "~/composables/api/useErrorsApi";
 import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import { computed } from "vue";
 import { useRoute, useSeoMeta } from "#imports";
@@ -84,6 +86,7 @@ useSeoMeta({ robots: "noindex, nofollow" });
 
 const pendingProjects = usePendingProjectsStore();
 const unplacedAbsences = useUnplacedAbsencesStore();
+const errorReports = useErrorReportsStore();
 
 // Loaded once, here, rather than in each admin page: the switcher lives in this layout and every
 // page below it filters on the selection, so the list has to exist before the first page renders.
@@ -92,6 +95,7 @@ if (isAdmin) {
   const roomsApi = useRoomsApi();
   const projectsApi = useProjectsApi();
   const attendanceApi = useAttendanceApi();
+  const errorsApi = useErrorsApi();
   onMounted(async () => {
     // E12/S4. The same argument as the projects figure below: the office's Monday list is only a
     // list if somebody opens it, and the child who falls through is the one nobody was reminded of.
@@ -105,6 +109,14 @@ if (isAdmin) {
     const unplaced = attendanceApi.fetchUnplacedAbsences().catch(() => {
       // No badge. The screen itself still shows the list, with its own error state.
     });
+    // E06 S1: the faults nobody has marked fixed. The same argument again — the record exists so
+    // the office hears of a 500 before a family rings, and a list nobody opens does not do that.
+    const errors = errorsApi
+      .fetchErrorSummary()
+      .then((summary) => errorReports.setOpen(summary.open))
+      .catch(() => {
+        // No badge; the screen shows its own error state.
+      });
 
     try {
       await Promise.all([locationsApi.fetchLocations(), roomsApi.fetchRooms()]);
@@ -122,7 +134,7 @@ if (isAdmin) {
       // a layout that refuses to render over it would be a worse one, and the projects screen still
       // shows the backlog to anybody who opens it.
     }
-    await unplaced;
+    await Promise.all([unplaced, errors]);
   });
 }
 
@@ -242,6 +254,25 @@ const navigationItems = computed(() => {
       { label: "Anunțuri", to: "/admin/anunturi", icon: "i-lucide-megaphone" },
       { label: "Livrări", to: "/admin/livrari", icon: "i-lucide-send" },
       { label: "Șabloane de email", to: "/admin/emailuri", icon: "i-lucide-mail" },
+    ],
+    [
+      { type: "label" as const, label: "Sistem" },
+      {
+        label: "Erori",
+        to: "/admin/erori",
+        icon: "i-lucide-bug",
+        // E06 S1. Only when something is open, and always error-coloured: a fault nobody has
+        // marked fixed is the one thing on this menu that is never routine.
+        ...(errorReports.open > 0
+          ? {
+              badge: {
+                label: String(errorReports.open),
+                color: "error" as const,
+                variant: "subtle" as const,
+              },
+            }
+          : {}),
+      },
     ],
     siteGroup,
   ];

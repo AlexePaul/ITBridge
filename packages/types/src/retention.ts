@@ -27,6 +27,8 @@ export interface RetentionTerms {
     enquiryMonths: number;
     messageMonths: number;
     expiredLinkDays: number;
+    /** An entry on the error screen, counted from the last time it was seen. */
+    errorReportDays: number;
 }
 
 /** The office's list, with the terms it was counted by. */

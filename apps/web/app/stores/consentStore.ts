@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { defineStore, skipHydrate } from "pinia";
 
 /**
  * What a reader can be asked to agree to before the page loads it (E07 S5).
@@ -47,5 +47,5 @@ export const useConsentStore = defineStore("consent", () => {
     granted.value = granted.value.filter((entry) => entry !== purpose);
   };
 
-  return { granted: readonly(granted), has, grant, withdraw };
+  return { granted: skipHydrate(readonly(granted)), has, grant, withdraw };
 });

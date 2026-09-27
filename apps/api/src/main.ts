@@ -1,4 +1,5 @@
 import './load-env';
+import './source-maps';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -7,9 +8,14 @@ import { AppModule } from './app.module';
 import { REQUEST_ID_HEADER } from './common/request-id.middleware';
 import * as fs from 'fs';
 import { corsOrigins, swaggerEnabled } from './config/bootstrap-options';
+import { RecordingLogger } from './modules/error-report/recording-logger';
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+    // Nest's console output, unchanged, plus every error line on the error screen (E06 S1): a job
+    // that fails at night is otherwise a line in `pm2 logs` on an instance only SSM reaches.
+    app.useLogger(app.get(RecordingLogger));
 
     // The rate limiter keys on `req.ip`. Behind the Caddy reverse proxy this backend is heading for
     // (E01/S4), every request arrives from the proxy's own address, so without this the per-IP

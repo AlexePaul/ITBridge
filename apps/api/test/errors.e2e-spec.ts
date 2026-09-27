@@ -138,4 +138,15 @@ describe('Error shape (e2e)', () => {
             expect(`${res.body.message}`).not.toContain('duplicate key');
         });
     });
+
+    // Found with the error record (E06 S1) on its first day: an id of eleven digits typed into an
+    // address passes `ParseIntPipe` and overflows the `integer` column, which Postgres reports as
+    // 22003 — the caller's value, not our fault, and it was answered as a 500 in the fault channel.
+    it('answers an id too large for its column with a 400, not a 500', async () => {
+        const res = await request(app.getHttpServer()).get('/locations/99999999999').set('Authorization', admin.auth);
+
+        expect(res.status).toBe(400);
+        expect(res.body.code).toBe('VALUE_OUT_OF_RANGE');
+        expect(`${res.body.message}`).not.toContain('integer');
+    });
 });
