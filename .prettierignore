@@ -11,3 +11,7 @@ pnpm-lock.yaml
 # the hook reformatting the file on the way in, that check would fail on pipe alignment and nothing
 # else — a red suite for a reason nobody can act on.
 docs/inventar-date.md
+
+# Generated from the sources by `pnpm --filter web screens:render`, and compared raw by
+# apps/web/test/screen-map.spec.ts — the same reason as the inventory above.
+docs/harta-ecranelor.md

@@ -1696,6 +1696,16 @@ Cele două numere — `REFRESH_TOKEN_MAX_AGE_SECONDS` din `apps/web/app/stores/t
 fixează `maxAge` când se creează ref-ul, deci valoarea nu poate fi citită nici de pe token. Politica
 de cookie-uri (§2) le numește pe amândouă, din versiunea 0.3.
 
+**Tokenul de acces nu e stare Pinia, fiindcă starea ajunge în HTML** (27 septembrie 2026). Nuxt
+serializează starea fiecărui magazin în pagina randată pe server, iar paginile publice randate la
+fiecare cerere — `/proba`, `/dezabonare`, formularul de autentificare — se randează cu cookie-urile
+vizitatorului. `tokenStore` întorcea cookie-ul ca `readonly(ref)`, pe care Pinia îl socotește stare,
+deci `curl -H "Cookie: accessToken=…" /proba` venea cu tokenul în pagină. Acum e un `computed` — nu
+e stare, nu se serializează, iar cititorii lui nu văd nicio diferență; `tokens-stay-out-of-the-page.spec.ts`
+ține linia. Restul magazinelor își întorc starea prin `skipHydrate(readonly(...))`: autentificarea e
+doar în client, deci n-au ce primi de la server, iar hidratarea scria în refuri readonly — un
+avertisment Vue pe fiecare pagină, în consolă și în logul lui `nuxt dev`.
+
 **Un `useCookie` cu `default` scrie cookie-ul la prima citire** (Nuxt 4.5,
 `shouldSetInitialClientCookie`), nu la prima alegere. Așa ajungeau `portalChild` și
 `selectedLocation` în browserul oricui intra în portal, deși politica de cookie-uri spune că apar
@@ -1842,6 +1852,41 @@ nimic. Acum `recordFailure` dă încercarea înapoi, și odată cu ea și amâna
 temperează furnizorul, iar ăsta n-a fost atins, deci coada reîncearcă pe cadența de bază și pleacă
 întreagă în clipa în care apare variabila. `MAIL_OUTBOX_ENABLED=false` oprește doar scheduler-ul;
 testele de integrare îl setează, ca o trecere de fundal să nu miște rândurile sub aserțiuni.
+
+**O eroare lasă un rând pe `/admin/erori`, nu doar o linie în `pm2 logs`** (E06 S1, 27 septembrie
+2026). Epicul fusese scos din MVP cu propoziția „o excepție în producție se află de la părintele care
+sună", iar stack trace-ul unui 500 stătea pe o instanță la care se ajunge doar prin SSM — deci cine
+putea repara bug-ul era singurul care nu-l vedea. `apps/api/src/modules/error-report/` ține un rând
+**pe defect**, nu pe apariție: amprenta e felul erorii și locul, cu numerele și valorile scoase din
+mesaj, iar indexul unic e **parțial** (`WHERE "resolvedAt" IS NULL`), ca la fișierele neatribuite —
+un defect marcat rezolvat care revine e un rând nou, fiindcă e o veste. Trei drumuri intră acolo:
+
+- **Filtrul HTTP** înregistrează fiecare 5xx cu ruta ca tipar (`GET /profiles/:id`), contul și
+  `requestId`-ul răspunsului. Ecranul arată primele opt caractere drept cod — „A apărut o eroare pe
+  server… (cod 3f2a9c1d)", prin `apiErrorMessage`, care nu mai arată niciodată engleza serverului
+  pentru un 5xx —, iar codul, tastat sau venit din `?cod=`, găsește rândul, rezolvat sau nu.
+- **`RecordingLogger`**, loggerul aplicației, pus cu `app.useLogger` în `main.ts` **și în
+  `createTestApp`**: tot ce se scrie la nivel `error` sau `fatal` ajunge acolo, deci și un job care
+  aruncă — scheduler-ul își prinde excepțiile și le scrie cu `Logger('Scheduler')`. Un job nou e
+  înregistrat fără să-l lege cineva. Contextele `Exception` și `Request` sunt sărite (sunt același
+  500, fără stack), iar `ErrorReport` e al înregistratorului, care nu scrie niciodată prin
+  `Logger.error` — o eroare despre înregistrarea unei erori, înregistrată, e o buclă.
+- **Browserul**, prin `POST /errors/client` (orice cont autentificat, limitat), din
+  `plugins/05.error-report.client.ts`: `vue:error`, `app:error` și promisiunile neprinse. Vue
+  aruncă o componentă care pică la randare și desenează restul paginii în jurul golului, deci un
+  ecran stricat era un ecran cu o bucată lipsă și nimic altceva. Acum cititorul primește un toast cu
+  codul, o singură dată pe defect, iar un apel eșuat la API **nu** se raportează din browser — un 5xx
+  e deja al serverului, un 4xx e un răspuns, lipsa răspunsului e rețeaua.
+
+Înregistrarea nu atinge niciodată ce a picat: `record` se întoarce înainte de scriere și nu aruncă,
+iar oprirea așteaptă scrierile în zbor (`onModuleDestroy`, înainte ca TypeORM să-și închidă pool-ul).
+Mesajele și stack-urile trec prin `scrub` (adrese, telefoane, IBAN-uri, tokenuri, valorile citate de
+Postgres), contul e un id, iar rândul pleacă la **30 de zile** după ultima apariție
+(`ERROR_REPORT_RETENTION_DAYS`, în trecerea de retenție), ca logurile tehnice din nota §3.9 și §7.
+`source-maps.ts`, importat al doilea în `main.ts`, pornește hărțile sursă ale lui Node: stack-ul
+numește liniile din `.ts`, nu din `dist/`. Prima eroare arătată a fost un bug: un id de unsprezece
+cifre trece de `ParseIntPipe` și depășește coloana `integer` (Postgres 22003) — acum 400
+`VALUE_OUT_OF_RANGE`, nu 500.
 
 **Rapoartele nu definesc nimic, doar adună** (E21). `apps/api/src/modules/dashboard/` cere fiecare
 număr de la serviciul care deține întrebarea — restanțele de la `ArrearsService`, locurile de la
@@ -2666,7 +2711,13 @@ alteia, mult mai vechi. `deploy.yml` ascultă și de `release/prod`, dar deploy-
 variabila de repository `PROD_API_DEPLOY=enabled`** și instanța din `EC2_INSTANCE_ID_PROD` (fără ea
 pică, nu cade pe instanța stage-ului) — iar până trece platforma pe `release/prod`, pe branch-ul ăla
 nu există niciun `deploy.yml`, deci un push acolo nu deployează nimic. Pașii lansării, cu toate
-conturile de adus, sunt în [docs/lansare-platforma.md](docs/lansare-platforma.md).
+conturile de adus, sunt în [docs/lansare-platforma.md](docs/lansare-platforma.md). **Ce faci când
+ceva nu merge** — API-ul căzut, un deploy de întors, discul plin, un bug de la codul de pe ecran
+până la fix, o corectură de date — e în [docs/runbook.md](docs/runbook.md). **Ce cod stă în spatele
+unui ecran** — pagina, cererile ei, controllerul și serviciul fiecăreia — e în
+[docs/harta-ecranelor.md](docs/harta-ecranelor.md), generat din surse de `pnpm --filter web
+screens:render`; `screen-map.spec.ts` pică dacă a rămas în urmă sau dacă un ecran cheamă o rută pe
+care API-ul n-o are.
 
 **Un push pe `release/stage` e un deploy.** `.github/workflows/deploy.yml` cheamă `ci.yml` prin
 `workflow_call` — verificările și deploy-ul sunt o singură rulare în Actions, deci deploy-ul nu poate
@@ -2868,4 +2919,5 @@ Epic-urile sunt în [docs/epics/](docs/epics/). Citește
 [docs/epics/README.md](docs/epics/README.md) pentru harta dependențelor înainte să începi ceva
 mai mare decât un bugfix. Lista de lansare a site-ului public — cele douăzeci de întrebări
 obișnuite, fiecare cu starea verificată în cod și cu cine o ține — e în
-[docs/lansare.md](docs/lansare.md).
+[docs/lansare.md](docs/lansare.md). **Testarea platformei întregi**, rol cu rol și punct cu punct, cu
+rezultatul așteptat la fiecare, e în [docs/plan-de-testare.md](docs/plan-de-testare.md).
