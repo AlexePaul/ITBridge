@@ -1,0 +1,208 @@
+diff --git a/dist/Toast/ToastViewport.cjs b/dist/Toast/ToastViewport.cjs
+index c961efdd2bd6107498d05ed7fdfec2e939be9b67..a38fd0f92037b3ba137fab055e94289ae6dc0976 100644
+--- a/dist/Toast/ToastViewport.cjs
++++ b/dist/Toast/ToastViewport.cjs
+@@ -24,7 +24,7 @@ var ToastViewport_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */
+ 		label: {
+ 			type: [String, Function],
+ 			required: false,
+-			default: "Notifications ({hotkey})"
++			default: "Notificări ({hotkey})"
+ 		},
+ 		asChild: {
+ 			type: Boolean,
+diff --git a/dist/Toast/ToastViewport.js b/dist/Toast/ToastViewport.js
+index 05dbf8bf949e2ad3ac6709ee8f42001413050a73..eff3910bea9179fbafed703d59c4fe0e551d1e70 100644
+--- a/dist/Toast/ToastViewport.js
++++ b/dist/Toast/ToastViewport.js
+@@ -23,7 +23,7 @@ var ToastViewport_vue_vue_type_script_setup_true_lang_default = /* @__PURE__ */
+ 		label: {
+ 			type: [String, Function],
+ 			required: false,
+-			default: "Notifications ({hotkey})"
++			default: "Notificări ({hotkey})"
+ 		},
+ 		asChild: {
+ 			type: Boolean,
+diff --git a/dist/date/useDateField.cjs b/dist/date/useDateField.cjs
+index b5f576dcc147e27a6d2bf841b858ce4716f8afe9..e8e30aa051d981c9308913abeeb3340a840ddf2c 100644
+--- a/dist/date/useDateField.cjs
++++ b/dist/date/useDateField.cjs
+@@ -31,10 +31,10 @@ function daySegmentAttrs(props) {
+ 	const valueNow = date.day;
+ 	const valueMin = 1;
+ 	const valueMax = require_date_comparators.getDaysInMonth(date);
+-	const valueText = isEmpty ? "Empty" : `${valueNow}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "day,",
++		"aria-label": "ziua, ",
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+ 		"aria-valuenow": valueNow,
+@@ -49,10 +49,10 @@ function monthSegmentAttrs(props) {
+ 	const valueNow = date.month;
+ 	const valueMin = 1;
+ 	const valueMax = 12;
+-	const valueText = isEmpty ? "Empty" : `${valueNow} - ${formatter.fullMonth(require_date_comparators.toDate(date))}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow} - ${formatter.fullMonth(require_date_comparators.toDate(date))}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "month, ",
++		"aria-label": "luna, ",
+ 		"contenteditable": true,
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+@@ -68,10 +68,10 @@ function yearSegmentAttrs(props) {
+ 	const valueMin = 1;
+ 	const valueMax = 9999;
+ 	const valueNow = date.year;
+-	const valueText = isEmpty ? "Empty" : `${valueNow}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "year, ",
++		"aria-label": "anul, ",
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+ 		"aria-valuenow": valueNow,
+@@ -87,10 +87,10 @@ function hourSegmentAttrs(props) {
+ 	const valueMin = hourCycle === 12 ? 1 : 0;
+ 	const valueMax = hourCycle === 12 ? 12 : 23;
+ 	const valueNow = date.hour;
+-	const valueText = isEmpty ? "Empty" : `${valueNow} ${segmentValues.dayPeriod ?? ""}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow} ${segmentValues.dayPeriod ?? ""}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "hour, ",
++		"aria-label": "ora, ",
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+ 		"aria-valuenow": valueNow,
+@@ -106,10 +106,10 @@ function minuteSegmentAttrs(props) {
+ 	const valueNow = date.minute;
+ 	const valueMin = 0;
+ 	const valueMax = 59;
+-	const valueText = isEmpty ? "Empty" : `${valueNow}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "minute, ",
++		"aria-label": "minutul, ",
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+ 		"aria-valuenow": valueNow,
+@@ -125,10 +125,10 @@ function secondSegmentAttrs(props) {
+ 	const valueNow = date.second;
+ 	const valueMin = 0;
+ 	const valueMax = 59;
+-	const valueText = isEmpty ? "Empty" : `${valueNow}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "second, ",
++		"aria-label": "secunda, ",
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+ 		"aria-valuenow": valueNow,
+@@ -162,7 +162,7 @@ function literalSegmentAttrs(_props) {
+ function timeZoneSegmentAttrs(props) {
+ 	return {
+ 		"role": "textbox",
+-		"aria-label": "timezone, ",
++		"aria-label": "fusul orar, ",
+ 		"data-readonly": true,
+ 		"data-segment": "timeZoneName",
+ 		"tabindex": props.disabled ? void 0 : 0,
+diff --git a/dist/date/useDateField.js b/dist/date/useDateField.js
+index 32d94e40b33821f3a4ff460f5317083b406c193a..b55f1b053104faab6a77189bdac23852f7fa2225 100644
+--- a/dist/date/useDateField.js
++++ b/dist/date/useDateField.js
+@@ -30,10 +30,10 @@ function daySegmentAttrs(props) {
+ 	const valueNow = date.day;
+ 	const valueMin = 1;
+ 	const valueMax = getDaysInMonth(date);
+-	const valueText = isEmpty ? "Empty" : `${valueNow}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "day,",
++		"aria-label": "ziua, ",
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+ 		"aria-valuenow": valueNow,
+@@ -48,10 +48,10 @@ function monthSegmentAttrs(props) {
+ 	const valueNow = date.month;
+ 	const valueMin = 1;
+ 	const valueMax = 12;
+-	const valueText = isEmpty ? "Empty" : `${valueNow} - ${formatter.fullMonth(toDate(date))}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow} - ${formatter.fullMonth(toDate(date))}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "month, ",
++		"aria-label": "luna, ",
+ 		"contenteditable": true,
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+@@ -67,10 +67,10 @@ function yearSegmentAttrs(props) {
+ 	const valueMin = 1;
+ 	const valueMax = 9999;
+ 	const valueNow = date.year;
+-	const valueText = isEmpty ? "Empty" : `${valueNow}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "year, ",
++		"aria-label": "anul, ",
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+ 		"aria-valuenow": valueNow,
+@@ -86,10 +86,10 @@ function hourSegmentAttrs(props) {
+ 	const valueMin = hourCycle === 12 ? 1 : 0;
+ 	const valueMax = hourCycle === 12 ? 12 : 23;
+ 	const valueNow = date.hour;
+-	const valueText = isEmpty ? "Empty" : `${valueNow} ${segmentValues.dayPeriod ?? ""}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow} ${segmentValues.dayPeriod ?? ""}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "hour, ",
++		"aria-label": "ora, ",
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+ 		"aria-valuenow": valueNow,
+@@ -105,10 +105,10 @@ function minuteSegmentAttrs(props) {
+ 	const valueNow = date.minute;
+ 	const valueMin = 0;
+ 	const valueMax = 59;
+-	const valueText = isEmpty ? "Empty" : `${valueNow}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "minute, ",
++		"aria-label": "minutul, ",
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+ 		"aria-valuenow": valueNow,
+@@ -124,10 +124,10 @@ function secondSegmentAttrs(props) {
+ 	const valueNow = date.second;
+ 	const valueMin = 0;
+ 	const valueMax = 59;
+-	const valueText = isEmpty ? "Empty" : `${valueNow}`;
++	const valueText = isEmpty ? "necompletat" : `${valueNow}`;
+ 	return {
+ 		...commonSegmentAttrs(props),
+-		"aria-label": "second, ",
++		"aria-label": "secunda, ",
+ 		"aria-valuemin": valueMin,
+ 		"aria-valuemax": valueMax,
+ 		"aria-valuenow": valueNow,
+@@ -161,7 +161,7 @@ function literalSegmentAttrs(_props) {
+ function timeZoneSegmentAttrs(props) {
+ 	return {
+ 		"role": "textbox",
+-		"aria-label": "timezone, ",
++		"aria-label": "fusul orar, ",
+ 		"data-readonly": true,
+ 		"data-segment": "timeZoneName",
+ 		"tabindex": props.disabled ? void 0 : 0,

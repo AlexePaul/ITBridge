@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { runningVersion } from 'src/common/running-version';
 import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
 
 /**
@@ -47,6 +48,15 @@ describe('System status (e2e)', () => {
         expect(body.migrations).toMatchObject({ applied: Number(count), pending: [] });
         expect(body.migrations.last).toMatch(/\d{13}$/);
         expect(body.notes).not.toContainEqual(expect.objectContaining({ code: 'MIGRATIONS_PENDING' }));
+    });
+
+    it('names the commit the process runs, as git says it, and when it started', async () => {
+        const body = await status();
+
+        // `null` only where git cannot answer; the suites run from a checkout, so it answers.
+        expect(body.build).toEqual({ ...runningVersion(), startedAt: expect.any(String) });
+        expect(body.build.commit).toMatch(/^[0-9a-f]{40}$/);
+        expect(Date.parse(body.build.startedAt)).toBeLessThanOrEqual(Date.now());
     });
 
     it('names a migration that has not run, as a problem', async () => {

@@ -20,6 +20,8 @@ export interface ErrorOccurrence {
     userId: number | null;
     /** The address, redacted like a log line. */
     path: string | null;
+    /** The commit the API ran when it happened; `null` on occurrences older than 27 September 2026. */
+    commit: string | null;
     username: string | null;
     profileId: number | null;
     familyName: string | null;

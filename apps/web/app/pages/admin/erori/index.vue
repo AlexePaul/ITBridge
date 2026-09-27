@@ -48,6 +48,11 @@
               {{ countOf(report.occurrences, "dată", "ori") }} · prima
               {{ formatStamp(report.firstSeenAt) }} · ultima
               {{ formatStamp(report.lastSeenAt) }}
+              <template v-if="report.recent[0]?.commit">
+                (commit
+                <span class="font-mono">{{ shortCommit(report.recent[0].commit) }}</span
+                >)
+              </template>
               <template v-if="report.resolvedAt">
                 · rezolvată {{ formatStamp(report.resolvedAt) }}
               </template>
@@ -117,6 +122,16 @@
                 <span v-if="occurrence.path" class="text-muted font-mono break-all">
                   · {{ occurrence.path }}
                 </span>
+                <span v-if="occurrence.commit" class="text-muted">
+                  · commit
+                  <a
+                    :href="commitUrl(occurrence.commit)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="font-mono underline"
+                    >{{ shortCommit(occurrence.commit) }}</a
+                  >
+                </span>
               </li>
             </ul>
           </div>
@@ -139,6 +154,7 @@ import { useErrorsApi } from "~/composables/api/useErrorsApi";
 import { useErrorReportsStore } from "~/stores/errorReportsStore";
 import type { ErrorReport, ErrorReportState, ErrorSource } from "~/types/error-report.types";
 import { ERROR_SOURCE_HINTS, ERROR_SOURCE_LABELS } from "~/types/error-report.types";
+import { commitUrl, shortCommit } from "~/types/system.types";
 
 /**
  * The error record — E06 S1.

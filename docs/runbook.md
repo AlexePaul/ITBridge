@@ -35,11 +35,14 @@ branch-uri".
 1. **`/admin/erori`** — fiecare 500, fiecare eroare scrisă de un job și fiecare ecran stricat în
    browserul cuiva autentificat, cu codul de pe ecran, contul, adresa paginii și stack trace-ul pe
    liniile din `.ts`. Cifra roșie din meniu („Sistem → Erori") e numărul celor nerezolvate.
-2. **`/admin/sistem`** („Sistem → Starea platformei") — configurația, citită de pe server: mediul,
-   adresa din linkurile emailurilor, dacă pleacă emailurile, SmartBill, contul pentru transfer,
-   stocarea și migrările nerulate, cu problemele sus și cu locul în care se repară fiecare. Deschide-o
-   după fiecare schimbare în Parameter Store: un `NODE_ENV` sau un `SITE_URL` greșit apare aici, nu
-   în primul email.
+2. **`/admin/sistem`** („Sistem → Starea platformei") — configurația, citită de pe server: din ce
+   commit rulează API-ul, mediul, adresa din linkurile emailurilor, dacă pleacă emailurile, SmartBill,
+   contul pentru transfer, stocarea și migrările nerulate, cu problemele sus și cu locul în care se
+   repară fiecare. Deschide-o după fiecare deploy — commit-ul de acolo trebuie să fie ultimul de pe
+   `release/stage` — și după fiecare schimbare în Parameter Store: un `NODE_ENV` sau un `SITE_URL`
+   greșit apare aici, nu în primul email. Dacă scrie că API-ul nu știe din ce commit rulează, git nu
+   i-a răspuns din directorul aplicației (lipsește, sau checkout-ul e al altui utilizator decât
+   `deploy`); restul paginii e la fel de adevărat.
 3. **Tabloul de bord** (`/admin/dashboard`) — mesaje nelivrate, cataloage nefăcute, conturi în
    așteptare.
 4. **GitHub → Actions → „Deploy"** — ultima rulare pe `release/stage`: verde înseamnă că e pe
@@ -128,8 +131,10 @@ nu există: un fișier editat pe instanță dispare la următorul deploy.
 
 6. **PR în `release/stage`**, pe un branch nou. CI-ul rulează aceleași verificări plus cele de
    accesibilitate; după merge, „Deploy" pune schimbarea pe stage în vreo zece minute.
-7. **Verifică pe stage** pașii din aparițiile erorii, apoi **„Marchează rezolvată"** pe
-   `/admin/erori`. Dacă eroarea revine, apare un rând nou — e o veste, nu același rând.
+7. **Verifică pe stage** — întâi că `/admin/sistem` arată commit-ul merge-ului tău, apoi pașii din
+   aparițiile erorii —, și **„Marchează rezolvată"** pe `/admin/erori`. Dacă eroarea revine, apare un
+   rând nou — e o veste, nu același rând —, iar commit-ul de lângă fiecare apariție spune dacă a
+   revenit pe codul cu reparația sau pe cel dinainte.
 
 **Dacă folosești Claude Code**, dă-i în sesiune exact ce e pe rând: codul, originea, mesajul,
 stack trace-ul și pașii. Cu ele își găsește singur fișierul, iar testul care pică e primul lucru pe

@@ -1,6 +1,7 @@
 import { ConsoleLogger, Injectable, NotFoundException, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
+import { runningVersion } from 'src/common/running-version';
 import { ErrorOccurrence, ErrorReport } from 'src/entities/error-report.entity';
 import { User, isAccountActive } from 'src/entities/user.entity';
 import { ErrorSource } from 'src/enum/error-source.enum';
@@ -35,6 +36,7 @@ export interface ErrorInput {
 
 /** An occurrence as the screen reads it: the account, and the family behind it, looked up now. */
 export interface ErrorOccurrenceView extends ErrorOccurrence {
+    commit: string | null;
     username: string | null;
     profileId: number | null;
     familyName: string | null;
@@ -162,6 +164,7 @@ export class ErrorReportService implements OnModuleDestroy {
             ref: input.ref ?? null,
             userId: input.userId ?? null,
             path: occurrencePath(input.path),
+            commit: runningVersion().commit,
         };
 
         // One statement, so two occurrences of one fault in the same instant are one row counted
@@ -289,6 +292,7 @@ export class ErrorReportService implements OnModuleDestroy {
                 const profile = account?.profile ?? null;
                 return {
                     ...occurrence,
+                    commit: occurrence.commit ?? null,
                     username: account?.username ?? null,
                     profileId: profile?.id ?? null,
                     familyName: profile ? `${profile.firstName} ${profile.lastName}`.trim() : null,

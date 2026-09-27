@@ -20,3 +20,12 @@ onlyBuiltDependencies:
 # script, e caseta pe care n-o mai citește nimeni.
 ignoredBuiltDependencies:
   - "@scarf/scarf"
+
+# reka-ui (sub Nuxt UI) scrie în engleză, fără nicio opțiune de configurare, numele pe care le aude
+# un cititor de ecran: fiecare segment al unui câmp de dată („day,", „month,", „Empty") și regiunea
+# notificărilor („Notifications (F8)"). Patch-ul le traduce, și atât. E legat de versiunea exactă:
+# la o actualizare a lui reka-ui, `pnpm install` se oprește pe un patch nefolosit — atunci se
+# refac cele patru fișiere cu `pnpm patch reka-ui@<versiune>`, sau se renunță la el dacă biblioteca
+# a primit între timp etichetele ca opțiuni.
+patchedDependencies:
+  reka-ui@2.10.3: patches/reka-ui@2.10.3.patch
