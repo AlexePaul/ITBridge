@@ -142,12 +142,17 @@ instanță ca `/etc/itbridge/<env>.env` (640, `root:deploy`), regenerat la fieca
 motiv, `ecosystem.config.js`, `deploy.sh`, `fetch-env.sh` și `backup.sh` stau în `/srv/itbridge/` pe
 instanță, nu în arborele ăsta.
 
-**Rămâne deschis: producția.** `release/prod` nu e în trigger, iar `deploy.yml` îl refuză pe nume —
-branch-ul ăla poartă API-ul de dinainte de E08, zece module față de nouăsprezece, deci un deploy de
-acolo ar publica altă aplicație, mai veche, nu o versiune timpurie a ăsteia. Deblocarea nu e o
+**Rămâne deschis: producția.** `deploy.yml` ascultă și de `release/prod`, dar deploy-ul de acolo
+așteaptă variabila `PROD_API_DEPLOY=enabled`, iar pe `release/prod` nu există încă niciun
+`deploy.yml` — branch-ul ăla poartă API-ul de dinainte de E08, zece module față de douăzeci și patru,
+deci un deploy de acolo ar publica altă aplicație, mai veche, nu o versiune timpurie a ăsteia. Deblocarea nu e o
 sarcină de infrastructură: e decizia de a duce platforma pe `release/prod`. Mai rămân, tot în afara
-repo-ului, backup-ul restaurat măcar o dată ([E04](E04-migrari-date.md), S4) și fixarea explicită a
-scheduler-ului dacă instanța capătă vreodată un al doilea proces.
+repo-ului, backup-ul restaurat măcar o dată ([E04](E04-migrari-date.md), S4), fixarea explicită a
+scheduler-ului dacă instanța capătă vreodată un al doilea proces, și **verificarea mediului înainte
+de `pm2 reload`**: acceptanța de mai sus ține pentru un build stricat, dar nu și pentru o
+configurație greșită — refuzul la pornire vine după ce procesul vechi a fost oprit, iar stage-ul a
+stat așa după #281. Linia de pus în `deploy.sh` e în [lansare-platforma.md](../lansare-platforma.md),
+pasul 6.
 
 **Verificat:** patru deploy-uri consecutive din `deploy.yml`, fiecare terminat cu `/ready` verde pe
 `api-stage.itbridgeschool.com`. Primul, pe commit-ul care a introdus workflow-ul, a picat la
