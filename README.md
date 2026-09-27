@@ -20,18 +20,19 @@ Monorepo pnpm, orchestrat cu Turborepo.
 | Postgres 17                      | `docker-compose.yml`                           | 5432       | pe instanța de backend                                    |
 
 **Aplicația nu rulează în Docker.** Nici local, nici în producție. Docker e folosit exclusiv
-pentru infrastructura locală, adică Postgres.
+pentru infrastructura locală, adică Postgres și MinIO.
 
 ## Cerințe
 
 - Node.js 22 sau mai nou — versiunea fixată e în [.nvmrc](.nvmrc), `nvm use` o alege
 - pnpm 10 sau mai nou: `corepack enable && corepack prepare pnpm@10.33.2 --activate`
-- Docker, doar pentru Postgres
+- Docker, doar pentru Postgres și MinIO (stocarea S3 locală)
 
 ## Pornire
 
 ```bash
-cp .env.example .env                  # completează secretele JWT
+cp .env.example .env                  # apoi completează JWT_ACCESS_TOKEN_SECRET și JWT_REFRESH_TOKEN_SECRET,
+                                      # câte unul diferit: openssl rand -base64 48
 pnpm install
 docker compose up -d                  # Postgres + MinIO
 pnpm --filter api migration:run       # creează schema
@@ -57,10 +58,20 @@ schimbat nimic.
 | `pnpm build`                    | construiește tot, în ordinea dependențelor                            |
 | `pnpm typecheck`                | verifică tipurile în toate workspace-urile                            |
 | `pnpm lint`                     | verifică, nu modifică; pentru corectare, `pnpm --filter api lint:fix` |
-| `pnpm test`                     | jest pe api                                                           |
+| `pnpm test`                     | jest pe api, vitest pe web                                            |
+| `pnpm test:e2e`                 | integrare pe api, prin HTTP; cere `docker compose up -d`              |
 | `pnpm format`                   | prettier peste tot repo-ul                                            |
 
 Pentru o comandă dintr-un singur workspace: `pnpm --filter api <script>`.
+
+## Când ceva nu merge
+
+- **Un bug, cu un cod pe ecran** („cod 3f2a9c1d"): `/admin/erori` îl găsește, cu stack trace-ul.
+- **Un bug fără cod** (un număr greșit, un rând lipsă): [docs/harta-ecranelor.md](docs/harta-ecranelor.md)
+  duce de la adresa din browser la fișierul paginii, la cererile ei și la serviciul care răspunde.
+- **Pașii de la bug la fix și incidentele de pe server** (API căzut, deploy de întors, disc plin):
+  [docs/runbook.md](docs/runbook.md).
+- **Testarea platformei întregi**, rol cu rol: [docs/plan-de-testare.md](docs/plan-de-testare.md).
 
 ## Configurare
 
