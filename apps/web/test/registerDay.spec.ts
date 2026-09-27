@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayLabel, parseDayKey, registerDay, shiftDay } from "~/composables/useRegisterDay";
+import { parseDayKey, registerDay, registerDayLabel, shiftDay } from "~/composables/useRegisterDay";
 
 /**
  * The phone register opens any day up to today (review of 26 September 2026). It showed today and
@@ -47,9 +47,9 @@ describe("shiftDay", () => {
   });
 });
 
-describe("parseDayKey and dayLabel", () => {
+describe("parseDayKey and registerDayLabel", () => {
   it("accepts a real key and prints it the way the screen always has", () => {
     expect(parseDayKey("2026-09-05")).toBe("2026-09-05");
-    expect(dayLabel("2026-09-05")).toBe("5.09.2026");
+    expect(registerDayLabel("2026-09-05")).toBe("5.09.2026");
   });
 });

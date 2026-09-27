@@ -264,7 +264,7 @@ import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { todayKey } from "~/composables/useAttendanceCalendar";
 import { useMarkQueue } from "~/composables/useMarkQueue";
-import { dayLabel, registerDay, shiftDay } from "~/composables/useRegisterDay";
+import { registerDay, registerDayLabel, shiftDay } from "~/composables/useRegisterDay";
 import type { ClassSessionWithAttendance } from "~/types/class-session.types";
 import { SessionStatus } from "~/types/class-session.types";
 import type { SessionRegister, SessionRegisterEntry } from "~/types/attendance.types";
@@ -300,7 +300,7 @@ const today = todayKey();
 /** The day on screen: `?zi=` when it names today or a day before; today otherwise. */
 const day = ref(registerDay(route.query.zi, today));
 const isToday = computed(() => day.value === today);
-const dayText = computed(() => dayLabel(day.value));
+const dayText = computed(() => registerDayLabel(day.value));
 
 const loadingSessions = ref(true);
 const daySessions = ref<ClassSessionWithAttendance[]>([]);
