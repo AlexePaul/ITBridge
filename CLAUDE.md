@@ -77,6 +77,7 @@ pnpm seed                         # date de dezvoltare; admin / parola123
 SEED_TODAY=2026-03-16 pnpm seed   # aceleași date, dar ancorate la o zi fixă
 pnpm seed:scale                   # o școală de trei ani, ca să se poată măsura o interogare
 pnpm smartbill:check              # SmartBill: doar citiri (TVA, serii); --draft trimite o ciornă
+pnpm admin:create --username x    # un cont de admin fără seed (producția); --reset-password
 pnpm dev                          # api + web, hot reload
 
 pnpm build          # turbo, în ordinea dependențelor
@@ -136,6 +137,12 @@ de felul ăsta se măsoară cu `pnpm seed:scale` înainte să fie numit gata.
 nu cele prezise — prima versiune tipărea predicția și era greșită cu treizeci de rânduri la plăți,
 iar un rezumat care contrazice tabela e mai rău decât niciun rezumat.
 
+**Seed-ul nu atinge niciodată producția**: `checkSeedTarget` refuză `NODE_ENV=production` înaintea
+oricărei alte reguli, oricât de explicit ar fi acordul, fiindcă acolo rândurile sunt familii. Primul
+admin de acolo vine din `pnpm admin:create` (`modules/user/admin-account.ts`), care scrie un rând,
+cu urma lui, și nu șterge nimic; tot el e singura cale înapoi pentru un admin care și-a uitat parola —
+un admin n-are profil, deci nici linkul de resetare n-are unde pleca.
+
 **Seed-ul are două ținte, iar `seed-target.ts` e tot ce le desparte.** `pnpm seed` merge pe baza
 locală; `pnpm seed:stage` citește `.env.stage` și merge pe staging. Pe orice host care nu e
 localhost, `checkSeedTarget` cere două lucruri și le **refuză**, nu le avertizează:
@@ -168,7 +175,9 @@ fiecare `process.env.X` din surse cu `globalEnv` și pică pe nume; cele două e
 
 Swagger UI: `http://localhost:3000/api`. La fiecare boot, `apps/api/src/main.ts` scrie schema în
 `./swagger.json`, relativ la directorul din care rulează procesul. Fișierul e în `.gitignore`,
-deci nu există într-o clonă proaspătă — apare doar după prima pornire.
+deci nu există într-o clonă proaspătă — apare doar după prima pornire. **În producție amândouă sunt
+oprite** (`swaggerEnabled` din `config/bootstrap-options.ts`; `SWAGGER_ENABLED=true` le pornește
+pentru o după-amiază), iar CORS-ul implicit de acolo nu mai include `localhost`.
 
 ## Contractul API
 
@@ -2568,7 +2577,11 @@ mașină, PM2 pentru proces și **Caddy** pentru TLS și proxy invers către `12
 `main.ts` ascultă pe IPv4, iar numele se rezolvă întâi la `::1`). `api.itbridgeschool.com` n-are
 nimic în spate, deliberat: `release/prod` poartă API-ul de dinainte de E08 — zece module față de
 nouăsprezece — deci un deploy de acolo n-ar fi o lansare timpurie a platformei ăsteia, ci a alteia,
-mult mai vechi. `deploy.yml` refuză branch-ul pe nume.
+mult mai vechi. `deploy.yml` ascultă și de `release/prod`, dar deploy-ul de acolo **așteaptă
+variabila de repository `PROD_API_DEPLOY=enabled`** și instanța din `EC2_INSTANCE_ID_PROD` (fără ea
+pică, nu cade pe instanța stage-ului) — iar până trece platforma pe `release/prod`, acolo rulează
+fișierul vechi, care nu ascultă deloc. Pașii lansării, cu toate conturile de adus, sunt în
+[docs/lansare-platforma.md](docs/lansare-platforma.md).
 
 **Un push pe `release/stage` e un deploy.** `.github/workflows/deploy.yml` cheamă `ci.yml` prin
 `workflow_call` — verificările și deploy-ul sunt o singură rulare în Actions, deci deploy-ul nu poate

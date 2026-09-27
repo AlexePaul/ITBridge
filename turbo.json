@@ -34,6 +34,8 @@
     "MINIO_*",
     "TEST_DB_NAME",
     "RATE_LIMIT_ENABLED",
+    // Swagger UI on or off; off in production by default (`bootstrap-options.ts`).
+    "SWAGGER_ENABLED",
     "SEED_ALLOW_NON_LOCAL",
     "SKIP_ENV_VALIDATION",
     // The ports the two browser guards serve the built site on. Declared because `test:privacy`

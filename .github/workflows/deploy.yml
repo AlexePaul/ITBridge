@@ -4,13 +4,17 @@ name: Deploy
 # a separate one, so the checks and the deploy are a single run in the Actions tab and the deploy
 # job simply never starts when something is red.
 #
-# `release/prod` is deliberately absent. That branch carries the pre-E08 API - ten modules against
-# nineteen on `release/stage`, missing `enrollment`, `class-session`, `storage` and `mail` among
-# others - so deploying it would not be a premature release of this platform, it would be a
-# different and much older application. Add it here once the platform actually lives there.
+# `release/prod` is listed but gated. That branch carries the pre-E08 API until the platform moves
+# there - ten modules against nineteen on `release/stage`, missing `enrollment`, `class-session`,
+# `storage` and `mail` among others - so deploying it early would not be a premature release of this
+# platform, it would be a different and much older application. Two things keep that from happening:
+# a push to `release/prod` runs the workflow file *on that branch*, and the old one there does not
+# list it, so nothing runs until this file arrives with the platform; and the deploy job then waits
+# for the repository variable `PROD_API_DEPLOY=enabled`, set by hand as the last step of
+# `docs/lansare-platforma.md`, with the production instance in `EC2_INSTANCE_ID_PROD`.
 on:
   push:
-    branches: [release/stage]
+    branches: [release/stage, release/prod]
 
 # One deploy per environment at a time, and never cancel one that is already running: a deploy
 # interrupted between `migration:run` and `pm2 reload` leaves the schema ahead of the code that
@@ -31,6 +35,8 @@ jobs:
 
   deploy:
     needs: verify
+    # Production deploys only once the school switches it on — see the note at the top.
+    if: github.ref_name != 'release/prod' || vars.PROD_API_DEPLOY == 'enabled'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -40,7 +46,7 @@ jobs:
         run: |
           case "${{ github.ref_name }}" in
             release/stage) echo "env=stage" >> "$GITHUB_OUTPUT" ;;
-            release/prod)  echo "::error::release/prod carries the pre-E08 API and is not deployable yet"; exit 1 ;;
+            release/prod)  echo "env=prod" >> "$GITHUB_OUTPUT" ;;
             *) echo "::error::${{ github.ref_name }} is not a deployable branch"; exit 1 ;;
           esac
 
@@ -54,10 +60,20 @@ jobs:
 
       - name: Run the deploy on the instance
         env:
-          INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+          # Production has its own id, even if it names the same machine as stage, and an unset one
+          # stops the run rather than falling back: the deploy of one environment must never be one
+          # missing secret away from the other's instance.
+          STAGE_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+          PROD_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID_PROD }}
           TARGET: ${{ steps.target.outputs.env }}
         run: |
           set -euo pipefail
+
+          if [ "$TARGET" = "prod" ]; then INSTANCE_ID="$PROD_INSTANCE_ID"; else INSTANCE_ID="$STAGE_INSTANCE_ID"; fi
+          if [ -z "$INSTANCE_ID" ]; then
+            echo "::error::No instance id for $TARGET (EC2_INSTANCE_ID for stage, EC2_INSTANCE_ID_PROD for prod)"
+            exit 1
+          fi
 
           # Two commands, in this order and as these users. `fetch-env.sh` regenerates
           # /etc/itbridge/$TARGET.env from Parameter Store and must run as root, because

@@ -47,6 +47,18 @@ export const LOCAL_PASSWORD = 'parola123';
  *    seed refuses and says which variable is missing.
  */
 export function checkSeedTarget(target: SeedTarget, env: NodeJS.ProcessEnv = process.env): SeedVerdict {
+    // A production backend is never seeded, whatever else is set. The seed truncates every table,
+    // and production is the one database whose rows are families — no grant in an environment file
+    // can make that the right command. The first admin there comes from `pnpm admin:create`, which
+    // writes one row and deletes nothing.
+    if (env.NODE_ENV === 'production') {
+        return {
+            ok: false,
+            reason:
+                `Refusing to seed under NODE_ENV=production (host: ${target.host || 'unset'}, database: ${target.database || 'unset'}): ` +
+                `the seed deletes every row. For the first admin account use \`pnpm --filter api admin:create\`.`,
+        };
+    }
     if (isLocalHost(target.host)) {
         // `pnpm seed:stage` sets `SEED_TARGET=stage`, and reaching a local host from it means the
         // connection details never arrived — `dotenv -e .env.stage` does **not** fail when the file

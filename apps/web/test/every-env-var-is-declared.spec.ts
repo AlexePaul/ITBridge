@@ -36,13 +36,15 @@ const READ = /process\.env\.([A-Z_0-9]+)/g;
 /**
  * Variables that are deliberately not declared, and why.
  *
- * Both are read by something that does **not** run through turbo, which is the only honest reason
+ * Each is read by something that does **not** run through turbo, which is the only honest reason
  * for a name to be missing from `globalEnv`.
  */
 const OUTSIDE_TURBO: Record<string, string> = {
   SEED_TODAY:
     "`pnpm seed` calls the workspace script directly rather than through `turbo run`, so the seed's day is not turbo's to pass on. Written down in CLAUDE.md as well.",
   TZ: "Set by the jest scripts themselves, in `apps/api/package.json`, because the zone has to be fixed before Node starts — inheriting it is exactly what must not happen.",
+  ADMIN_PASSWORD:
+    "Read only by `pnpm admin:create`, which calls the workspace script directly, and meant for one command on a host with no terminal — declaring it would invite keeping a password in an environment file.",
 };
 
 const sourceFiles = (dir: string): string[] => {

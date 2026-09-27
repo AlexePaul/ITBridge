@@ -8,6 +8,20 @@ import { checkSeedTarget, isLocalHost, LOCAL_PASSWORD } from './seed-target';
  * pure, so all of it can be checked without a connection.
  */
 describe('checkSeedTarget', () => {
+    /** Production is the one database whose rows are families: no grant makes a truncation right there. */
+    it('refuses a production backend before anything else, even local and even granted', () => {
+        const local = checkSeedTarget({ host: 'localhost', database: 'itbridge_prod' }, { NODE_ENV: 'production' });
+        const granted = checkSeedTarget(
+            { host: 'db.internal', database: 'itbridge_prod' },
+            { NODE_ENV: 'production', SEED_ALLOW_NON_LOCAL: 'itbridge_prod', SEED_PASSWORD: 'o-parola-lunga' },
+        );
+
+        for (const verdict of [local, granted]) {
+            expect(verdict.ok).toBe(false);
+            expect(!verdict.ok && verdict.reason).toContain('admin:create');
+        }
+    });
+
     const local = { host: 'localhost', database: 'itbridge_db' };
     const stage = { host: 'db.stage.example.com', database: 'itbridge_stage' };
 
