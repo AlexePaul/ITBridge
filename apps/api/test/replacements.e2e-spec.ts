@@ -130,6 +130,19 @@ describe('Temporary group moves (e2e)', () => {
             expect(mail[0].bodyText).toContain('/user/absente');
         });
 
+        // QA of 27 September 2026: a family the office typed in has an address and no account, and
+        // the move email sent it to "contul tău" — a portal it cannot open.
+        it('sends a family with no account to the contact page instead of its account', async () => {
+            await dataSource.query('UPDATE "profiles" SET "user_id" = NULL WHERE "email" = $1', ['parinte.mutari@example.com']);
+
+            await place(hostSessionId).expect(200);
+
+            const mail = await mailTo('parinte.mutari@example.com');
+            expect(mail[0].bodyText).toContain('/contact');
+            expect(mail[0].bodyText).not.toContain('/user/absente');
+            expect(mail[0].bodyText).not.toContain('contul tău');
+        });
+
         /**
          * The office's dialog promises „un email cu grupa, ziua, ora și adresa", and the email said
          * „la Mutări" — a location's name (QA of 27 September 2026). It also said „am mutat-o

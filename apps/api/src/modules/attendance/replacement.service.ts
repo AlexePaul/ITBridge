@@ -13,6 +13,7 @@ import { OutboxService } from 'src/modules/mail/outbox.service';
 import { romanianDayAndDate } from 'src/modules/mail/romanian-date';
 import { canBackfill } from './absence-notice.rules';
 import { isInReplacementWeek, replacementPlaceText, replacementWeekFor } from './replacement.rules';
+import { familyHasAccount, familyLink } from 'src/modules/mail/portal-line';
 
 export const REPLACEMENT_DEDUPE_PREFIX = 'absence-replacement:';
 
@@ -335,7 +336,9 @@ export class ReplacementService {
             childName: notice.child.firstName,
             missed: `${romanianDayAndDate(notice.classSession.date)}, ora ${notice.classSession.startTime.slice(0, 5)}`,
             replacement: replacementPlaceText(replacement),
-            portalUrl: absencesUrl(),
+            // The account's absences for a family with one; the contact page for one the office
+            // typed in, which has no account to open (QA of 27 September 2026).
+            ...familyLink(await familyHasAccount(manager, parent.id), { note: 'Detaliile sunt și în contul tău:', url: absencesUrl() }),
         });
         const prefix = `${REPLACEMENT_DEDUPE_PREFIX}${notice.id}:`;
         const earlier = await manager.getRepository(OutboxMessage).count({ where: { dedupeKey: Like(`${prefix}%`) } });
