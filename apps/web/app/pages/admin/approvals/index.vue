@@ -200,7 +200,7 @@
 </template>
 
 <script setup lang="ts">
-import { daysWaitedLabel } from "~/composables/useRomanianCount";
+import { daysAgoLabel } from "~/composables/useRomanianCount";
 import { onMounted, ref } from "vue";
 import { useUserApi } from "~/composables/api/useUserApi";
 import { useNotifications } from "~/composables/useNotifications";
@@ -303,8 +303,7 @@ const fullName = (account: PendingAccount) =>
 const registeredAgo = (createdAt: string) => {
   // Calendar days, not blocks of 24 hours — E17/S8's rule, and the one „ieri" means: an account
   // opened yesterday at 18:00 and read at 09:00 has been waiting a day, not none.
-  const days = daysSince(createdAt);
-  return days > 1 ? `acum ${daysWaitedLabel(days)}` : daysWaitedLabel(days);
+  return daysAgoLabel(daysSince(createdAt));
 };
 
 const load = async () => {

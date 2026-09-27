@@ -23,3 +23,11 @@ export const daysWaitedLabel = (days: number): string => {
   if (days === 1) return "ieri";
   return countOf(days, "zi", "zile");
 };
+
+/**
+ * When something last happened, in calendar days: „azi", „ieri", „acum 5 zile". The leads screen
+ * printed „de 0 zile" for a trial held that afternoon, and „de 3 z." in its side panels (QA of 27
+ * September 2026); the approvals queue already said it this way.
+ */
+export const daysAgoLabel = (days: number): string =>
+  days > 1 ? `acum ${daysWaitedLabel(days)}` : daysWaitedLabel(days);

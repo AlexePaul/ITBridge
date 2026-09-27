@@ -23,11 +23,7 @@
         <UIcon name="i-lucide-check-circle" class="text-xl text-success" />
         <p class="text-sm">
           Agentul <span class="font-medium">{{ agents[0]?.agentName }}</span> a raportat
-          {{ lastSeenLabel(agents[0]!)
-          }}<template v-if="agents[0]?.pendingFiles">
-            , cu {{ countOf(agents[0]?.pendingFiles ?? 0, "fișier", "fișiere") }} în
-            așteptare</template
-          >.
+          {{ agentReport }}.
         </p>
       </div>
     </UCard>
@@ -183,6 +179,19 @@ const groups = computed(() => groupsStore.groups.filter((group) => group.isActiv
  * reported an error on its last pass. Never having heard from any agent is a third — on a fresh
  * install it is simply not set up yet, which is worth saying rather than leaving the screen silent.
  */
+/**
+ * „acum 2 minute, cu 3 fișiere în așteptare" as one string: written as a template, the line break
+ * before the comma printed as a space — „acum 2 minute , cu…" (QA of 27 September 2026).
+ */
+const agentReport = computed(() => {
+  const agent = agents.value[0];
+  if (!agent) return "";
+  const seen = lastSeenLabel(agent);
+  return agent.pendingFiles
+    ? `${seen}, cu ${countOf(agent.pendingFiles, "fișier", "fișiere")} în așteptare`
+    : seen;
+});
+
 const agentWarning = computed(() => {
   if (agents.value.length === 0) {
     return {

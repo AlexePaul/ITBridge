@@ -53,12 +53,17 @@
           să-l retrimiți.
         </p>
 
+        <p v-if="nobodyInAudience" class="text-sm border-l-2 border-warning pl-3 py-1">
+          Nicio familie nu e în audiența aleasă, deci anunțul n-ar avea cui să plece. Alege altă
+          grupă sau altă locație.
+        </p>
+
         <div class="flex flex-wrap gap-2">
           <UButton type="submit" :disabled="!canSend" :loading="sending">Trimite anunțul</UButton>
           <UButton
             variant="soft"
             color="neutral"
-            :disabled="!canSend"
+            :disabled="!canTest"
             :loading="testing"
             @click="sendTest"
           >
@@ -325,14 +330,18 @@ const payload = (): AnnouncementDraft => ({
 const alreadySent = useAlreadySentGuard();
 const refusedAsSent = computed(() => alreadySent.isRefused(payload()));
 
-const canSend = computed(
-  () =>
-    complete.value &&
-    !previewLoading.value &&
-    !previewStale.value &&
-    preview.value !== null &&
-    !refusedAsSent.value
+/** A test goes to the admin, so it needs a finished draft and nothing more. */
+const canTest = computed(
+  () => complete.value && !previewLoading.value && !previewStale.value && preview.value !== null
 );
+
+/**
+ * An audience nobody is in: the server refuses it (`ANNOUNCEMENT_NO_RECIPIENTS`), so the button
+ * waits for another group rather than offering the refusal (QA of 27 September 2026).
+ */
+const nobodyInAudience = computed(() => preview.value?.recipients.total === 0);
+
+const canSend = computed(() => canTest.value && !refusedAsSent.value && !nobodyInAudience.value);
 
 const load = async () => {
   loading.value = true;
