@@ -6,6 +6,7 @@ import { LocationService } from 'src/modules/location/location.service';
 import { BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR, ErrorReportService } from 'src/modules/error-report/error-report.service';
 import { RetentionService } from 'src/modules/privacy/retention.service';
 import { ErrorSource } from 'src/enum/error-source.enum';
+import { runningVersion } from 'src/common/running-version';
 import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
 
 /**
@@ -73,6 +74,8 @@ describe('Error record (e2e)', () => {
             username: 'parinte',
             familyName: 'parinte Test',
             path: '/locations',
+            // So a fault that comes back after a fix says on which commit it came back.
+            commit: runningVersion().commit,
         });
     });
 

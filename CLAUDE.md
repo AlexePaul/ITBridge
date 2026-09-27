@@ -117,6 +117,13 @@ implicitul e ziua curentă, iar `SEED_TODAY=2026-03-16` o fixează la loc dacă 
 identice. Grupele acoperă luni–sâmbătă tocmai ca „azi" să aibă o oră în șase zile din șapte.
 `pnpm seed` nu trece prin turbo, deci variabila **nu** se declară în `globalEnv`.
 
+**Și facturează doar luni terminate, lăsând-o pe ultima de emis** (`seed-months.ts`, 27 septembrie
+2026). Emitea luna curentă, datată cu cinci zile în urmă — o lună pe care ecranul de emitere o refuză
+până i se termină ultima săptămână —, plus ultima lună terminată, deci o săptămână întreagă de testare
+n-avea nicio lună de emis (B5.1 din planul de testare). Acum facturează cele două luni dinaintea
+ultimei terminate, datate în miercurea de după fiecare, iar pe ultima o lasă emiterii, cu cataloagele
+ei scrise.
+
 **`pnpm seed:scale` e a doua volumetrie, nu a treia țintă.** Seed-ul obișnuit are ~120 de ședințe
 și ~70 de marcaje, iar la dimensiunea aia Postgres alege scanarea secvențială orice index i-ai pune
 — deci o interogare care scanează toată tabela și una care folosește un index dau **același plan și
@@ -1928,6 +1935,14 @@ Două reguli: **fiecare valoare trece prin funcția pe care o citește și restu
 `siteBase`, `dispatcherEnabled`, `missingMailConfiguration`, `transferDetails` —, altfel pagina ar
 descrie o configurație pe care codul n-o are; și **o cheie apare doar ca „setată" sau nu**, niciodată
 valoarea. Dacă adaugi o setare de care depinde ce primește o familie, dă-i și ei o notă.
+
+**Și spune din ce commit rulează API-ul, iar fiecare apariție a unei erori îl poartă** (27 septembrie
+2026). „A ajuns reparația pe stage?" și „eroarea a revenit după reparație?" n-aveau răspuns pe niciun
+ecran. `runningVersion` (`apps/api/src/common/running-version.ts`) întreabă **git-ul** din directorul
+procesului, **o dată, la pornire** — nu un fișier scris la build: turbo pune la loc un `dist/` din
+cache când sursele API-ului nu s-au schimbat, deci un fișier ar fi numit commit-ul vechi după fiecare
+deploy de docs sau de site —, iar `null` înseamnă că git n-a răspuns, nu o ghicire. `/admin/erori`
+arată commit-ul fiecărei apariții, cu linkul spre GitHub.
 
 **Rapoartele nu definesc nimic, doar adună** (E21). `apps/api/src/modules/dashboard/` cere fiecare
 număr de la serviciul care deține întrebarea — restanțele de la `ArrearsService`, locurile de la

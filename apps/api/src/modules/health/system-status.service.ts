@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { runningVersion } from 'src/common/running-version';
 import { schoolLocalStamp } from 'src/common/school-clock';
 import { swaggerEnabled } from 'src/config/bootstrap-options';
 import { siteBase } from 'src/modules/auth/portal-urls';
@@ -20,6 +21,8 @@ export interface SystemStatus {
     environment: string;
     nodeVersion: string;
     uptimeSeconds: number;
+    /** The commit this process runs (`runningVersion`), and when the process started. */
+    build: { commit: string | null; committedAt: string | null; startedAt: Date };
     siteUrl: string;
     siteUrlConfigured: boolean;
     mail: { sending: boolean; providerConfigured: boolean; from: string | null; officeAddress: string };
@@ -40,11 +43,16 @@ export interface SystemStatus {
  * portal prints. Keys are reported present or absent, never shown.
  */
 @Injectable()
-export class SystemStatusService {
+export class SystemStatusService implements OnModuleInit {
     constructor(
         @InjectDataSource() private readonly dataSource: DataSource,
         private readonly s3Service: S3Service,
     ) {}
+
+    /** Asks git at boot, while the checkout is still the one this process loaded (`runningVersion`). */
+    onModuleInit(): void {
+        runningVersion();
+    }
 
     async read(now: Date = new Date()): Promise<SystemStatus> {
         const environment = process.env.NODE_ENV?.trim() || 'development';
@@ -63,6 +71,7 @@ export class SystemStatusService {
             environment,
             nodeVersion: process.version,
             uptimeSeconds: Math.floor(process.uptime()),
+            build: { ...runningVersion(), startedAt: new Date(now.getTime() - Math.round(process.uptime() * 1000)) },
             siteUrl,
             siteUrlConfigured,
             mail: { sending, providerConfigured, from: process.env.MAIL_FROM?.trim() || null, officeAddress: officeAddress() },

@@ -3,6 +3,12 @@ export type { SystemNote, SystemNoteCode, SystemNoteLevel, SystemStatus } from "
 import type { SystemNoteCode, SystemStatus } from "@itbridge/types";
 import { countOf } from "~/composables/useRomanianCount";
 
+/** Where a commit is read, from `/admin/sistem` and `/admin/erori`: the repository on GitHub. */
+export const commitUrl = (sha: string) => `https://github.com/AlexePaul/ITBridge/commit/${sha}`;
+
+/** The first seven characters, as git and GitHub print a commit. */
+export const shortCommit = (sha: string) => sha.slice(0, 7);
+
 /**
  * What each note on `/admin/sistem` says, and where it is fixed. The API names the case; the
  * sentence is the screen's, filled from the facts beside it, like every error code in
