@@ -11,7 +11,7 @@ import { IsDateString, IsInt, IsOptional } from 'class-validator';
  */
 export class TrialSlotsDto {
     @ApiProperty({ example: '2016-04-04' })
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Data nașterii nu pare validă' })
     birthDate: string;
 
     @ApiPropertyOptional({ description: 'Narrow to one address. Omitted, both are offered.' })

@@ -13,12 +13,12 @@ export class FunnelReportQueryDto {
     @ApiPropertyOptional({ example: '2026-06-01', description: 'First day, YYYY-MM-DD' })
     @EmptyToUndefined()
     @IsOptional()
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Prima zi a intervalului nu e o zi din calendar' })
     from?: string;
 
     @ApiPropertyOptional({ example: '2026-09-04', description: 'Last day, YYYY-MM-DD' })
     @EmptyToUndefined()
     @IsOptional()
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Ultima zi a intervalului nu e o zi din calendar' })
     to?: string;
 }

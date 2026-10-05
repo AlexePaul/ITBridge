@@ -25,6 +25,6 @@ export class ResolveTrialDto {
     @ApiPropertyOptional({ example: '2026-09-14' })
     @EmptyToUndefined()
     @IsOptional()
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Data semnării contractului nu e o zi din calendar' })
     contractSignedAt?: string;
 }

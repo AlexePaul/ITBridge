@@ -63,7 +63,7 @@ export class BookTrialDto {
     childLastName: string;
 
     @ApiProperty({ example: '2016-04-04', description: "The child's birth date; the age it implies decides which groups are offered" })
-    @IsDateString({}, { message: 'Data nașterii nu pare validă' })
+    @IsDateString({ strict: true }, { message: 'Data nașterii nu pare validă' })
     childBirthDate: string;
 
     @ApiPropertyOptional({ example: 'A făcut Scratch la școală, altfel nimic' })

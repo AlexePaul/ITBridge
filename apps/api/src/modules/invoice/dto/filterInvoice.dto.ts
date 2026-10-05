@@ -38,6 +38,6 @@ export class FilterInvoiceDto {
     @ApiPropertyOptional({ example: '2026-09', description: 'Only the invoices of one billing month' })
     @EmptyToUndefined()
     @IsOptional()
-    @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'monthIssued must be YYYY-MM' })
+    @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'Luna se scrie AAAA-LL, de exemplu 2026-09' })
     monthIssued?: string;
 }

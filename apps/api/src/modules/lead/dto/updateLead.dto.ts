@@ -48,7 +48,7 @@ export class UpdateLeadDto {
     @ApiPropertyOptional({ example: '2026-03-01' })
     @IsOptional()
     @EmptyToUndefined()
-    @IsDateString({}, { message: MESSAGES.nextActionAt })
+    @IsDateString({ strict: true }, { message: MESSAGES.nextActionAt })
     nextActionAt?: string;
 
     @ApiPropertyOptional({ description: 'Removes the follow-up date' })

@@ -49,7 +49,7 @@ export class CreateLeadDto {
     childLastName: string;
 
     @ApiProperty({ example: '2016-04-04' })
-    @IsDateString({}, { message: MESSAGES.birthDate })
+    @IsDateString({ strict: true }, { message: MESSAGES.birthDate })
     childBirthDate: string;
 
     @ApiPropertyOptional()
@@ -85,6 +85,6 @@ export class CreateLeadDto {
     @ApiPropertyOptional({ example: '2026-03-01', description: 'The date the next step is due' })
     @IsOptional()
     @EmptyToUndefined()
-    @IsDateString({}, { message: MESSAGES.nextActionAt })
+    @IsDateString({ strict: true }, { message: MESSAGES.nextActionAt })
     nextActionAt?: string;
 }

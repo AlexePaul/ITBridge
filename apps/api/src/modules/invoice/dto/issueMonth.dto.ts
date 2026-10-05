@@ -12,10 +12,10 @@ import { IsDateString, Matches } from 'class-validator';
  */
 export class IssueMonthDto {
     @ApiProperty({ example: '2026-10', description: 'The teaching month: the weeks whose Monday falls in it' })
-    @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'monthIssued must be YYYY-MM' })
+    @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'Luna se scrie AAAA-LL, de exemplu 2026-09' })
     monthIssued: string;
 
     @ApiProperty({ example: '2026-11-01', description: 'Printed on the invoice; the 14-day term runs from it' })
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Data facturii nu e o zi din calendar' })
     dateIssued: string;
 }

@@ -16,7 +16,7 @@ export class CreateInvoiceDto {
     parentIds: number[];
 
     @ApiProperty({ example: '2024-07-01', description: 'Date when the invoice was issued' })
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Data facturii nu e o zi din calendar' })
     @IsNotEmpty()
     dateIssued: string;
 

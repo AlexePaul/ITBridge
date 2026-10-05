@@ -19,6 +19,6 @@ export class CloseEnrollmentDto {
     @ApiPropertyOptional({ example: '2026-12-20' })
     @EmptyToUndefined()
     @IsOptional()
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Data de încheiere nu e o zi din calendar' })
     endDate?: string;
 }

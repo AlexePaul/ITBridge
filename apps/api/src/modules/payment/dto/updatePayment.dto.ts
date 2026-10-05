@@ -27,7 +27,7 @@ export class UpdatePaymentDto {
     @ApiPropertyOptional({ example: '2026-03-01' })
     @EmptyToUndefined()
     @IsOptional()
-    @IsDateString({}, { message: 'Data plății nu e o dată validă' })
+    @IsDateString({ strict: true }, { message: 'Data plății nu e o dată validă' })
     date?: string;
 
     @ApiPropertyOptional({ example: 'OP 1234' })

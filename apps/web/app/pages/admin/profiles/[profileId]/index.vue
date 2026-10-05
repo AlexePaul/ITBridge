@@ -1,5 +1,19 @@
 <template>
   <AdminPage title="Profil" back-to="/admin/profiles">
+    <!-- The page of a family had no way to its own edit form: "Editează" lived only in the row menu
+         of the families list, and the runbook sent the office here to correct an address (QA of 27
+         September 2026). An erased family is a closed row and is not edited. -->
+    <template v-if="profile && !profile.erasedAt" #actions>
+      <UButton
+        :to="`/admin/profiles/${profile.id}/edit`"
+        icon="i-lucide-pencil"
+        color="neutral"
+        variant="outline"
+      >
+        Editează
+      </UButton>
+    </template>
+
     <AdminLoading v-if="loading" />
 
     <AdminError v-else-if="loadError" :message="loadError" @retry="load" />

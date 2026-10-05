@@ -39,6 +39,14 @@ const PG_INVALID_TEXT_REPRESENTATION = '22P02';
  * record (E06 S1) showed, and not a fault: the caller's value, like the one above.
  */
 const PG_NUMERIC_VALUE_OUT_OF_RANGE = '22003';
+/**
+ * A date Postgres cannot read (22007, `abc`) or a day that does not exist (22008, 30 February).
+ * Strict DTOs refuse both first (`dates-are-real-days.spec.ts`); this is the net under a route that
+ * reads a bare query value, so a typo in an address bar is a 400, not a fault on the error screen
+ * (QA of 27 September 2026).
+ */
+const PG_INVALID_DATETIME_FORMAT = '22007';
+const PG_DATETIME_FIELD_OVERFLOW = '22008';
 
 /**
  * What Express's body parser throws before any route is matched, and Nest does not convert: a body
@@ -190,6 +198,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
                 return { statusCode: HttpStatus.BAD_REQUEST, code: 'INVALID_VALUE', message: 'A field had a value of the wrong type' };
             case PG_NUMERIC_VALUE_OUT_OF_RANGE:
                 return { statusCode: HttpStatus.BAD_REQUEST, code: 'VALUE_OUT_OF_RANGE', message: 'A value was out of range' };
+            case PG_INVALID_DATETIME_FORMAT:
+            case PG_DATETIME_FIELD_OVERFLOW:
+                return { statusCode: HttpStatus.BAD_REQUEST, code: 'INVALID_DATE', message: 'A date was not a day of the calendar' };
             default:
                 return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, code: 'DATABASE_ERROR', message: 'Internal server error' };
         }

@@ -42,13 +42,15 @@ export class FilterProfileDto {
     @EmptyToUndefined()
     @IsOptional()
     @Type(() => Number)
-    @IsNumber()
+    // In Romanian: `/admin/profiles/abc` asks for `?profileId=abc`, and the screen shows this sentence
+    // (QA of 27 September 2026 read "profileId must be a number conforming to the specified constraints").
+    @IsNumber({}, { message: 'Numărul familiei din adresă nu e valid' })
     profileId?: number;
 
     @ApiPropertyOptional({ example: 1, required: false, description: 'User ID' })
     @EmptyToUndefined()
     @IsOptional()
     @Type(() => Number)
-    @IsNumber()
+    @IsNumber({}, { message: 'Numărul contului din adresă nu e valid' })
     userId?: number;
 }

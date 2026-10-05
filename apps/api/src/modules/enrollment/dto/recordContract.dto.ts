@@ -12,6 +12,6 @@ import { IsDateString, ValidateIf } from 'class-validator';
 export class RecordContractDto {
     @ApiProperty({ example: '2026-09-14', nullable: true, description: 'The day the contract was signed, or null to clear a mistaken entry' })
     @ValidateIf((_object, value) => value !== null)
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Data semnării contractului nu e o zi din calendar' })
     contractSignedAt: string | null;
 }
