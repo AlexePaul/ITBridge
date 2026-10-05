@@ -23,6 +23,7 @@ import { paymentsUrl } from 'src/modules/auth/portal-urls';
 import { owesReceipt, receiptDedupeKey, receiptTemplate } from './payment-receipt.rules';
 import { editTouchesSmartBillRecord, nextPaymentFiscalState, owesSmartBillRecord } from './payment-fiscal.rules';
 import { schoolDay } from 'src/common/school-clock';
+import { daysOverdue } from 'src/modules/invoice/arrears.rules';
 import { issuingNow } from 'src/modules/invoice/issuing-clock';
 import { familyAccount, familyLink } from 'src/modules/mail/portal-line';
 
@@ -171,9 +172,12 @@ export class PaymentService {
      * The single writer of the invoice's derived state — E16/S1.
      *
      * Sums the SUCCEEDED payments and compares with the invoice total: covered means PAID, not
-     * covered means the invoice goes back to what it was before money entered the picture — OVERDUE
-     * stays OVERDUE, because lateness is a fact about the calendar, not about the balance. WAIVED is
-     * never touched: it means "nothing to pay", and no payment row should exist against it anyway.
+     * covered means OVERDUE past the invoice's term and PENDING inside it — lateness is a fact about
+     * the calendar, read here on the school's day with the same `daysOverdue` the morning job uses.
+     * It used to keep whatever the row said, so a reversed payment turned a paid invoice, 39 days
+     * late, back into `pending`: "În așteptare" on the office's month page and no "restantă" line in
+     * the portal until the job ran the next morning (QA of 27 September 2026). WAIVED is never
+     * touched: it means "nothing to pay", and no payment row should exist against it anyway.
      *
      * Runs inside the caller's transaction so a payment and the state it implies commit together,
      * and **takes the invoice's row lock before it counts**. Two admins recording money against the
@@ -206,7 +210,8 @@ export class PaymentService {
         const paid = Number(row?.paid ?? 0);
 
         const covered = paid >= invoice.amount && invoice.amount > 0;
-        const next = covered ? InvoiceStatus.PAID : invoice.status === InvoiceStatus.OVERDUE ? InvoiceStatus.OVERDUE : InvoiceStatus.PENDING;
+        const late = daysOverdue(invoice.dateIssued, parseIsoDate(schoolDay(new Date()))) > 0;
+        const next = covered ? InvoiceStatus.PAID : late ? InvoiceStatus.OVERDUE : InvoiceStatus.PENDING;
 
         if (next !== invoice.status) {
             await manager.update(Invoice, invoiceId, { status: next });
@@ -248,12 +253,21 @@ export class PaymentService {
             // The confirmation goes the minute the money is entered; the fiscal documents follow in
             // SmartBill's own time. The portal is where both are, whenever they arrive — E16/S6 —
             // for a family that can sign in; one without an account, or suspended, is told to ask
-            // (QA of 27 September 2026).
-            ...familyLink(
-                account.canSignIn,
-                { note: 'Factura fiscală și, pentru numerar, chitanța le găsești în portal:', url: paymentsUrl() },
-                'Dacă vrei factura sau chitanța, scrie-ne și ți le trimitem:',
-            ),
+            // (QA of 27 September 2026). Only `live` makes fiscal documents at all: in `off` and
+            // `draft` the invoice is the platform's PDF and no receipt exists, and a family told to
+            // find "chitanța" in the portal went looking for a document that was never made (QA of
+            // 27 September 2026).
+            ...(smartBillMode() === 'live'
+                ? familyLink(
+                      account.canSignIn,
+                      { note: 'Factura fiscală și, pentru numerar, chitanța le găsești în portal:', url: paymentsUrl() },
+                      'Dacă vrei factura sau chitanța, scrie-ne și ți le trimitem:',
+                  )
+                : familyLink(
+                      account.canSignIn,
+                      { note: 'Factura o găsești în portal, la Plăți:', url: paymentsUrl() },
+                      'Dacă vrei factura, scrie-ne și ți-o trimitem:',
+                  )),
         });
 
         // Behind the address gate (E11/S2): the sum a family paid does not go to an address it has

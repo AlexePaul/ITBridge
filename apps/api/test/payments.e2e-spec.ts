@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { createTestApp, enrolInNewGroup, ownProfileId, promoteToAdmin, registerUser, TestUser, truncateAll } from './helpers';
+import { schoolDay } from 'src/common/school-clock';
 
 /**
  * The payment as a figure, against a real database — E16/S1.
@@ -46,10 +47,13 @@ describe('Payments (e2e)', () => {
             .expect(201);
         await enrolInNewGroup(app, admin, [child.body.id as number]);
 
+        // Issued today, so still inside its fourteen days: what is left unpaid is `pending`. An invoice
+        // past its term is `overdue` the moment a payment stops covering it (QA of 27 September 2026),
+        // and that has its own test below.
         const invoices = await request(app.getHttpServer())
             .post('/invoices')
             .set('Authorization', admin.auth)
-            .send({ parentIds: [profileId], dateIssued: '2026-03-01', monthIssued: '2026-03' })
+            .send({ parentIds: [profileId], dateIssued: schoolDay(new Date()), monthIssued: '2026-03' })
             .expect(201);
         invoiceId = invoices.body[0].id as number;
     });
@@ -95,6 +99,21 @@ describe('Payments (e2e)', () => {
                 .set('Authorization', admin.auth)
                 .expect(200);
             expect(await invoiceStatus()).toBe('pending');
+        });
+
+        // QA of 27 September 2026: a storno on an invoice 39 days late turned it "În așteptare" until
+        // the morning job, and the portal dropped its "restantă" line for the day.
+        it('a reversal on an invoice past its term makes it overdue at once, not pending', async () => {
+            await dataSource.query(`UPDATE invoices SET "dateIssued" = '2026-03-01' WHERE id = $1`, [invoiceId]);
+            const payment = await pay({ amount: 350 }).expect(201);
+            expect(await invoiceStatus()).toBe('paid');
+
+            await request(app.getHttpServer())
+                .put(`/payments/${payment.body.id as number}`)
+                .set('Authorization', admin.auth)
+                .send({ status: 'reversed' })
+                .expect(200);
+            expect(await invoiceStatus()).toBe('overdue');
         });
 
         it('refuses free-text methods — the list is closed now', async () => {

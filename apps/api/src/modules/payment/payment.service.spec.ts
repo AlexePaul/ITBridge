@@ -46,6 +46,7 @@ describe('PaymentService', () => {
         id: number;
         amount: number;
         status: InvoiceStatus;
+        dateIssued: Date;
         monthIssued: string;
         fiscalStatus: InvoiceFiscalStatus | null;
         parent: { id: number; firstName: string; email: string | null };
@@ -71,6 +72,8 @@ describe('PaymentService', () => {
             id: 5,
             amount: 350,
             status: InvoiceStatus.PENDING,
+            // Issued today, so still inside its fourteen days: `pending` is what an unpaid rest is.
+            dateIssued: new Date(),
             monthIssued: '2026-03',
             fiscalStatus: null,
             parent: { id: 3, firstName: 'Ana', email: 'ana@example.com' },
@@ -186,12 +189,23 @@ describe('PaymentService', () => {
 
         it('an uncovered overdue invoice stays overdue — lateness is about the calendar, not the balance', async () => {
             invoiceInDb.status = InvoiceStatus.OVERDUE;
+            invoiceInDb.dateIssued = new Date(2026, 1, 1);
             invoiceRepo.findOne!.mockResolvedValue(invoiceInDb);
             paidSum = '100';
 
             await create({ amount: 100 });
 
             expect(manager.update).not.toHaveBeenCalled();
+        });
+
+        it('an uncovered invoice past its term is overdue at once, not the morning after', async () => {
+            invoiceInDb.dateIssued = new Date(2026, 1, 1);
+            invoiceRepo.findOne!.mockResolvedValue(invoiceInDb);
+            paidSum = '100';
+
+            await create({ amount: 100 });
+
+            expect(manager.update).toHaveBeenCalledWith(Invoice, 5, { status: InvoiceStatus.OVERDUE });
         });
 
         it('a covered overdue invoice becomes paid', async () => {
@@ -370,6 +384,19 @@ describe('PaymentService', () => {
             await service.updatePayment(1, { status: PaymentStatus.REVERSED }, ACTOR);
 
             expect(manager.update).toHaveBeenCalledWith(Invoice, 5, { status: InvoiceStatus.PENDING });
+        });
+
+        // QA of 27 September 2026: a storno on an invoice 39 days late turned it "În așteptare" until
+        // the morning job, and the portal dropped its "restantă" line for the day.
+        it('a reversal on an invoice past its term makes it overdue, not pending', async () => {
+            paymentInDb = { id: 1, amount: 350, status: PaymentStatus.SUCCEEDED, date: new Date(2026, 2, 1), fiscalStatus: null, invoice: invoiceInDb };
+            invoiceInDb.status = InvoiceStatus.PAID;
+            invoiceInDb.dateIssued = new Date(2026, 1, 1);
+            paidSum = null;
+
+            await service.updatePayment(1, { status: PaymentStatus.REVERSED }, ACTOR);
+
+            expect(manager.update).toHaveBeenCalledWith(Invoice, 5, { status: InvoiceStatus.OVERDUE });
         });
 
         it('writes a changed day from its components, never through UTC', async () => {
