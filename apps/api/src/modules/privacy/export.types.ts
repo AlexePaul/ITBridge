@@ -54,6 +54,12 @@ export interface FamilyExport {
         experienta: string | null;
         probaTinutaLa: string | null;
         creatLa: string | null;
+        /** What the office wrote while working the enquiry — a note about the family, so theirs to read. */
+        noteleBiroului: string | null;
+        /** Why the enquiry ended without an enrolment, as the office wrote it. */
+        motivulInchiderii: string | null;
+        /** The day the office meant to call again. */
+        urmatorulPasLa: string | null;
     }[];
     /** Subject and delivery only. The body is the school's text, and the family already has it. */
     mesajePrimite: { subiect: string; trimisLa: string | null; stare: string }[];
@@ -103,7 +109,14 @@ export interface ExportedChild {
         nota: string | null;
     }[];
     prezente: { data: string | null; grupa: string | null; prezent: boolean; tip: string }[];
-    absenteAnuntate: { data: string | null; motiv: string | null; inTermen: boolean; anuntatLa: string | null }[];
+    absenteAnuntate: {
+        data: string | null;
+        motiv: string | null;
+        inTermen: boolean;
+        anuntatLa: string | null;
+        /** The class the office moved the child to that week (E12 S4), or `null` without one. */
+        mutatLa: { data: string | null; ora: string | null; grupa: string | null } | null;
+    }[];
     corecturiDeSedinte: { luna: string; sedinte: number; motiv: string | null }[];
     proiecte: {
         titlu: string;

@@ -173,7 +173,7 @@ describe('Privacy export (e2e)', () => {
      * first thing it ever held.
      */
     it('includes the enquiry an admin typed in before the family had an account', async () => {
-        await request(app.getHttpServer())
+        const lead = await request(app.getHttpServer())
             .post('/leads')
             .set('Authorization', admin.auth)
             .send({
@@ -185,12 +185,23 @@ describe('Privacy export (e2e)', () => {
                 source: 'phone',
             })
             .expect(201);
+        // What the office wrote while working it is part of what the school holds (QA of 27 September 2026).
+        await request(app.getHttpServer())
+            .patch(`/leads/${lead.body.id as number}`)
+            .set('Authorization', admin.auth)
+            .send({ notes: 'Sună după ora 18', nextActionAt: '2026-10-12' })
+            .expect(200);
 
         const mine = await exportOwn(ana).expect(200);
         const theirs = await exportOwn(bogdan).expect(200);
 
         expect(mine.body.solicitari).toHaveLength(1);
-        expect(mine.body.solicitari[0].copil).toBe('Maria Pop');
+        expect(mine.body.solicitari[0]).toMatchObject({
+            copil: 'Maria Pop',
+            noteleBiroului: 'Sună după ora 18',
+            urmatorulPasLa: '2026-10-12',
+            motivulInchiderii: null,
+        });
         expect(theirs.body.solicitari).toHaveLength(0);
     });
 
