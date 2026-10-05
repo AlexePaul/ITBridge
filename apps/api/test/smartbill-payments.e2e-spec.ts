@@ -198,7 +198,9 @@ describe('Recording payments in SmartBill (e2e)', () => {
 
             const res = await request(app.getHttpServer()).get('/payments').set('Authorization', parent.auth).expect(200);
 
-            expect(res.body).toEqual([expect.objectContaining({ fiscalStatus: 'recorded', fiscalReceiptSeries: 'CH', fiscalReceiptNumber: '0007' })]);
+            // The receipt, not the queue that made it: the portal shows the number when there is one, and
+            // the queue's state is the office's (`paymentForParent`, security pass of 27 September 2026).
+            expect(res.body).toEqual([expect.objectContaining({ fiscalReceiptSeries: 'CH', fiscalReceiptNumber: '0007', fiscalStatus: null })]);
         });
     });
 
