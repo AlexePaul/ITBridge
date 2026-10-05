@@ -109,6 +109,9 @@ export function describeClientError(
   };
 }
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
 /**
  * Sends each fault once per page load, and at most `MAX_REPORTS_PER_PAGE_LOAD` of them.
  *
@@ -158,7 +161,9 @@ export function createErrorReporter(send: (report: ClientErrorReport) => Promise
     };
     try {
       send(body).then(
-        () => settle(true),
+        // An answer that says the report was not kept — an account not active yet, or past its
+        // hourly budget — delivered nothing a code could find.
+        (answer) => settle(!(isObject(answer) && answer.accepted === false)),
         () => settle(false)
       );
     } catch {

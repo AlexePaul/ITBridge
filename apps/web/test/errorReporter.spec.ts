@@ -127,6 +127,26 @@ describe("the browser's error reports", () => {
       expect(results.sort()).toEqual([false, false, true]);
     });
 
+    // QA of 27 September 2026: an account waiting for approval got "am notat eroarea, cu codul X"
+    // for a report the server had thrown away, and the office found nothing under the code.
+    it("counts a report the server did not keep as not delivered", async () => {
+      const results: boolean[] = [];
+      createErrorReporter(() => Promise.resolve({ accepted: false })).report(
+        new Error("dropped"),
+        "vue",
+        where,
+        (d) => results.push(d)
+      );
+      createErrorReporter(() => Promise.resolve({ accepted: true })).report(
+        new Error("kept"),
+        "vue",
+        where,
+        (d) => results.push(d)
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(results.sort()).toEqual([false, true]);
+    });
+
     it("never throws, whatever sending does", async () => {
       const reporter = createErrorReporter(() => Promise.reject(new Error("offline")));
       expect(() => reporter.report(new Error("a"), "vue", where)).not.toThrow();
