@@ -12,11 +12,13 @@
  * the wrong file with confidence. What it reads:
  *
  *   - `app/pages/**` — the screens, and what their scripts and templates call;
- *   - `app/components/**` and the top-level `app/composables/*.ts` — followed from the page, so a
- *     request made by a modal or a form the page renders is on the page's list;
+ *   - `app/components/**`, the top-level `app/composables/*.ts` and `app/stores/*.ts` — followed from
+ *     the page, so a request made by a modal, a form or a store the page uses is on the page's list;
+ *   - `app/layouts/**`, `app/plugins/**` and `app/middleware/**` — what every page of an area asks
+ *     for around the page itself: the session, the menu's counts, the error reporter;
  *   - `app/composables/api/*.ts` — which function sends which request;
- *   - `apps/api/src/modules/**\/*.controller.ts` — which handler answers, and the first service call
- *     it makes.
+ *   - `apps/api/src/modules/**\/*.controller.ts` — which handler answers, and the service calls it
+ *     makes, in the order they run.
  *
  * Usage: `pnpm --filter web screens:render` writes the file; `renderScreenMap()` returns the text.
  */
@@ -80,13 +82,25 @@ const routeKey = (method, path) =>
 
 // ─────────────────────────────────────────────────────────── the API composables
 
-/** `useErrorsApi` → { fetchErrors: [{ method, path }], … } */
+/**
+ * `useErrorsApi` → { fetchErrors: [{ method, path }], … }, and the same for each Pinia store
+ * (`useUserStore` → { fetchUser: … }) and for `useApi` itself, whose refresh is a request too.
+ *
+ * Stores were left out at first, and with them `GET /auth/me`: the map listed it among the routes
+ * no screen calls, when every page calls it (QA of 27 September 2026).
+ */
 function readApiComposables() {
-  const dir = join(WEB_APP, "composables", "api");
   const out = new Map();
-  for (const file of walk(dir, (p) => p.endsWith(".ts") && !p.endsWith("useApi.ts"))) {
+  const files = [
+    ...walk(join(WEB_APP, "composables", "api"), (p) => p.endsWith(".ts")),
+    ...walk(join(WEB_APP, "stores"), (p) => p.endsWith(".ts")),
+  ];
+  for (const file of files) {
     const source = parse(file);
-    const composable = file.split("/").pop().replace(/\.ts$/, "");
+    const text = source.getFullText();
+    const composable =
+      /export const (use\w+Store)\s*=\s*defineStore/.exec(text)?.[1] ??
+      file.split("/").pop().replace(/\.ts$/, "");
     const functions = new Map();
     visit(source, (node) => {
       if (!ts.isVariableDeclaration(node) || !ts.isIdentifier(node.name) || !node.initializer)
@@ -101,7 +115,8 @@ function readApiComposables() {
         if (
           ts.isCallExpression(inner) &&
           ts.isIdentifier(inner.expression) &&
-          inner.expression.text === "api"
+          // `api` in the composables and stores; `client` is `useApi`'s own, for the refresh.
+          (inner.expression.text === "api" || inner.expression.text === "client")
         ) {
           const path = pathOf(inner.arguments[0], locals);
           if (!path) return;
@@ -180,9 +195,15 @@ function readHandlers(classFiles) {
           .map(decoratorCall)
           .find((d) => d && VERBS[d.name]);
         if (!verb) continue;
-        let service = null;
-        visit(member.body, (inner) => {
-          if (service || !ts.isCallExpression(inner)) return;
+        // Every service call, in the order it runs: children before parents, so in
+        // `this.arrears.withBalances(await this.invoices.findInvoices())` the list is built first.
+        // Only the first was kept, and it was the outer one, so `GET /invoices` named
+        // `ArrearsService.withBalances` for a list `InvoiceService.findInvoices` builds (QA of 27
+        // September 2026).
+        const services = [];
+        const collect = (inner) => {
+          ts.forEachChild(inner, collect);
+          if (!ts.isCallExpression(inner)) return;
           const callee = inner.expression;
           if (
             ts.isPropertyAccessExpression(callee) &&
@@ -190,17 +211,19 @@ function readHandlers(classFiles) {
             callee.expression.expression.kind === ts.SyntaxKind.ThisKeyword
           ) {
             const type = injected.get(callee.expression.name.text);
-            if (type) service = { type, method: callee.name.text };
+            const method = callee.name.text;
+            if (type && !services.some((s) => s.type === type && s.method === method))
+              services.push({ type, method, file: classFiles.get(type) ?? null });
           }
-        });
+        };
+        collect(member.body);
         out.set(routeKey(VERBS[verb.name], `${controller.arg}/${verb.arg}`), {
           path: `/${[controller.arg, verb.arg].filter(Boolean).join("/")}`.replace(/\/+/g, "/"),
           method: VERBS[verb.name],
           controller: node.name.text,
           handler: member.name.getText(source),
           file,
-          service,
-          serviceFile: service ? (classFiles.get(service.type) ?? null) : null,
+          services,
         });
       }
     });
@@ -227,12 +250,16 @@ function componentNames(file) {
 /** The API functions one file calls directly, as `useXApi.fn` keys. */
 function directApiCalls(text, apiFunctions) {
   const calls = new Set();
-  for (const match of text.matchAll(/(?:const|let)\s+(\w+)\s*=\s*(use\w+Api)\(\)/g)) {
+  for (const match of text.matchAll(/(?:const|let)\s+(\w+)\s*=\s*(use\w+(?:Api|Store))\(\)/g)) {
     const [, variable, composable] = match;
-    for (const call of text.matchAll(new RegExp(`\\b${variable}\\.(\\w+)\\(`, "g")))
+    // Whitespace allowed around the dot: a call chained onto the next line (`errorsApi\n.fetch…()`)
+    // was missed, and with it the menu's error count.
+    for (const call of text.matchAll(new RegExp(`\\b${variable}\\s*\\.\\s*(\\w+)\\(`, "g")))
       if (apiFunctions.get(composable)?.has(call[1])) calls.add(`${composable}.${call[1]}`);
   }
-  for (const match of text.matchAll(/(?:const|let)\s+\{([^}]*)\}\s*=\s*(use\w+Api)\(\)/g)) {
+  for (const match of text.matchAll(
+    /(?:const|let)\s+\{([^}]*)\}\s*=\s*(use\w+(?:Api|Store))\(\)/g
+  )) {
     const [, names, composable] = match;
     for (const part of names.split(",")) {
       const [original, alias] = part.split(":").map((s) => s.trim());
@@ -245,7 +272,7 @@ function directApiCalls(text, apiFunctions) {
         calls.add(`${composable}.${original}`);
     }
   }
-  for (const match of text.matchAll(/\b(use\w+Api)\(\)\.(\w+)\(/g))
+  for (const match of text.matchAll(/\b(use\w+(?:Api|Store))\(\)\.(\w+)\(/g))
     if (apiFunctions.get(match[1])?.has(match[2])) calls.add(`${match[1]}.${match[2]}`);
   return calls;
 }
@@ -316,14 +343,29 @@ const AREAS = [
   ["", "Site-ul public și paginile fără cont"],
 ];
 
+/**
+ * What surrounds every page of an area: the layouts, the plugins and the global middleware, with a
+ * sentence saying when each runs. A layout's requests are on every screen it frames — the menu's
+ * counts on every admin page — and were on no list (QA of 27 September 2026).
+ */
+const SURROUNDINGS = [
+  ["layouts/dashboard.vue", "în jurul fiecărei pagini de admin: cifrele din meniu și locațiile"],
+  ["layouts/portal.vue", "în jurul fiecărei pagini a portalului"],
+  ["plugins/01.auth.client.ts", "la încărcarea oricărei pagini, cu o sesiune salvată"],
+  ["plugins/03.profile.client.ts", "la încărcarea oricărei pagini, pentru un părinte"],
+  ["plugins/05.error-report.client.ts", "când un ecran se strică în browser"],
+  ["middleware/01.auth.global.ts", "la fiecare navigare"],
+  ["middleware/02.profile-setup.global.ts", "la fiecare navigare"],
+  ["middleware/03.legal-acceptance.global.ts", "la fiecare navigare"],
+];
+
 export function renderScreenMap() {
   const apiFunctions = readApiComposables();
   const handlers = readHandlers(readClassFiles());
   const { reach } = readWebFiles(apiFunctions);
   const called = new Set();
 
-  const pages = walk(join(WEB_APP, "pages"), (p) => p.endsWith(".vue")).map((file) => {
-    const text = readFileSync(file, "utf8");
+  const requestsOf = (file) => {
     const requests = new Map();
     for (const call of reach(file)) {
       const [composable, fn] = call.split(".");
@@ -335,23 +377,88 @@ export function renderScreenMap() {
         requests.get(key).fns.add(call);
       }
     }
-    return { file, route: routeOfPage(file), title: titleOfPage(text), requests };
+    return requests;
+  };
+
+  const pages = walk(join(WEB_APP, "pages"), (p) => p.endsWith(".vue")).map((file) => {
+    const text = readFileSync(file, "utf8");
+    return { file, route: routeOfPage(file), title: titleOfPage(text), requests: requestsOf(file) };
   });
+
+  const surroundings = SURROUNDINGS.map(([path, when]) => {
+    const file = join(WEB_APP, path);
+    return { file, when, requests: requestsOf(file) };
+  });
+
+  // `useApi` refreshes the session itself, for any request that meets a 401: a request too.
+  const refresh = [...(apiFunctions.get("useApi")?.values() ?? [])].flat();
+  for (const endpoint of refresh) called.add(routeKey(endpoint.method, endpoint.path));
+
+  const requestTable = (requests) => {
+    const rows = ["| Cerere | Răspunde | Serviciile |", "| --- | --- | --- |"];
+    for (const request of [...requests.values()].sort((a, b) => a.key.localeCompare(b.key))) {
+      const handler = request.handler;
+      const answer = handler
+        ? `\`${handler.controller}.${handler.handler}\` în \`${rel(handler.file)}\``
+        : "— nicio rută cu forma asta în API";
+      const services = handler?.services.length
+        ? handler.services
+            .map(
+              (service) =>
+                `\`${service.type}.${service.method}\`${service.file ? ` în \`${rel(service.file)}\`` : ""}`
+            )
+            .join(", apoi ")
+        : "—";
+      rows.push(
+        `| \`${handler ? `${handler.method} ${handler.path}` : request.key}\` | ${answer} | ${services} |`
+      );
+    }
+    return rows;
+  };
 
   const lines = [
     "# Harta ecranelor",
     "",
     "Fiecare ecran, fișierul lui, cererile pe care le face către API și cine le răspunde: controllerul",
-    "și primul serviciu pe care îl cheamă. Pentru bug-ul care nu dă nicio eroare — un număr greșit, un",
-    "rând lipsă —, unde codul de pe ecran nu există: pornești de la ecranul pe care îl vezi. Vezi și",
-    '[runbook.md](runbook.md), „Un bug".',
+    "și serviciile pe care le cheamă, în ordinea în care rulează. Pentru bug-ul care nu dă nicio eroare",
+    "— un număr greșit, un rând lipsă —, unde codul de pe ecran nu există: pornești de la ecranul pe care",
+    'îl vezi. Vezi și [runbook.md](runbook.md), „Un bug".',
     "",
     "**Generat din surse, nu scris de mână**: `pnpm --filter web screens:render` îl rescrie, iar",
     "`apps/web/test/screen-map.spec.ts` pică dacă a rămas în urmă. Urmează pagina, componentele pe care",
-    "le desenează și composable-urile pe care le cheamă; o cerere făcută altfel (un magazin Pinia, un",
+    "le desenează, composable-urile și magazinele Pinia pe care le cheamă; o cerere făcută altfel (un",
     "`$fetch` direct) nu apare.",
     "",
+    "## Pe fiecare pagină",
+    "",
+    "Cererile din jurul paginii: layout-ul, pluginurile și middleware-ul. Nu sunt repetate sub fiecare",
+    "ecran; dacă un număr din meniu e greșit, aici e cererea lui.",
+    "",
   ];
+
+  for (const surrounding of surroundings) {
+    lines.push(`### \`${rel(surrounding.file)}\` — ${surrounding.when}`, "");
+    if (!surrounding.requests.size) {
+      lines.push("Nu face nicio cerere către API.", "");
+      continue;
+    }
+    lines.push(...requestTable(surrounding.requests), "");
+  }
+  if (refresh.length) {
+    lines.push(
+      "### `apps/web/app/composables/api/useApi.ts` — la orice cerere care primește 401",
+      "",
+      ...requestTable(
+        new Map(
+          refresh.map((endpoint) => {
+            const key = routeKey(endpoint.method, endpoint.path);
+            return [key, { key, fns: new Set(), handler: handlers.get(key) }];
+          })
+        )
+      ),
+      ""
+    );
+  }
 
   for (const [prefix, heading] of AREAS) {
     const inArea = pages.filter(
@@ -368,22 +475,7 @@ export function renderScreenMap() {
         lines.push("Nu face nicio cerere către API.", "");
         continue;
       }
-      lines.push("| Cerere | Răspunde | Serviciul |", "| --- | --- | --- |");
-      for (const request of [...page.requests.values()].sort((a, b) =>
-        a.key.localeCompare(b.key)
-      )) {
-        const handler = request.handler;
-        const answer = handler
-          ? `\`${handler.controller}.${handler.handler}\` în \`${rel(handler.file)}\``
-          : "— nicio rută cu forma asta în API";
-        const service = handler?.service
-          ? `\`${handler.service.type}.${handler.service.method}\`${handler.serviceFile ? ` în \`${rel(handler.serviceFile)}\`` : ""}`
-          : "—";
-        lines.push(
-          `| \`${handler ? `${handler.method} ${handler.path}` : request.key}\` | ${answer} | ${service} |`
-        );
-      }
-      lines.push("");
+      lines.push(...requestTable(page.requests), "");
     }
   }
 
