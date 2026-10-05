@@ -11,35 +11,40 @@ branch-uri".
 
 ## Pe scurt: ce vezi → unde te uiți
 
-| Ce vezi                                                            | Secțiunea                                      |
-| ------------------------------------------------------------------ | ---------------------------------------------- |
-| Un mesaj „A apărut o eroare pe server… (cod 3f2a9c1d)"             | [2. Un bug](#2-un-bug)                         |
-| Un toast „Ceva n-a mers pe ecranul acesta", cu un cod              | [2. Un bug](#2-un-bug)                         |
-| Portalul se încarcă, dar nimic nu vine („Serviciul… indisponibil") | [3.1](#31-api-ul-nu-răspunde)                  |
-| După un merge, ceva care mergea nu mai merge                       | [3.2](#32-un-deploy-a-stricat-ceva)            |
-| Rularea „Deploy" din GitHub e roșie                                | [3.3](#33-deploy-ul-pică)                      |
-| `/ready` spune că baza nu răspunde                                 | [3.4](#34-baza-de-date)                        |
-| „No space left on device" în loguri                                | [3.5](#35-discul-e-plin)                       |
-| Browserul spune că certificatul nu e valid                         | [3.6](#36-https-și-certificatul)               |
-| Facturile nu se descarcă, lucrările nu se încarcă                  | [3.7](#37-stocarea-s3)                         |
-| Familiile nu primesc emailuri                                      | [3.8](#38-emailurile)                          |
-| O factură stă „în verificare" la SmartBill                         | [3.9](#39-smartbill)                           |
-| Site-ul public nu se încarcă                                       | [3.10](#310-site-ul-vercel)                    |
-| Cineva nu se poate autentifica                                     | [3.11](#311-conturi)                           |
-| Lucrările copiilor nu mai apar din birou                           | [3.12](#312-agentul-din-birou)                 |
-| Vrei stage cu date proaspete, de la zero, înaintea unei testări    | [3.14](#314-stage-cu-date-proaspete)           |
-| Datele sunt greșite și trebuie corectate                           | [4. Corectarea datelor](#4-corectarea-datelor) |
+| Ce vezi                                                         | Secțiunea                                      |
+| --------------------------------------------------------------- | ---------------------------------------------- |
+| Un mesaj „A apărut o eroare pe server… (cod 3f2a9c1d)"          | [2. Un bug](#2-un-bug)                         |
+| Un toast „Ceva n-a mers pe ecranul acesta", cu un cod           | [2. Un bug](#2-un-bug)                         |
+| Portalul se încarcă, dar nimic nu vine („Nu am putut încărca…") | [3.1](#31-api-ul-nu-răspunde)                  |
+| După un merge, ceva care mergea nu mai merge                    | [3.2](#32-un-deploy-a-stricat-ceva)            |
+| Rularea „Deploy" din GitHub e roșie                             | [3.3](#33-deploy-ul-pică)                      |
+| `/ready` spune că baza nu răspunde                              | [3.4](#34-baza-de-date)                        |
+| „No space left on device" în loguri                             | [3.5](#35-discul-e-plin)                       |
+| Browserul spune că certificatul nu e valid                      | [3.6](#36-https-și-certificatul)               |
+| Facturile nu se descarcă, lucrările nu se încarcă               | [3.7](#37-stocarea-s3)                         |
+| Familiile nu primesc emailuri                                   | [3.8](#38-emailurile)                          |
+| O factură stă „în verificare" la SmartBill                      | [3.9](#39-smartbill)                           |
+| Site-ul public nu se încarcă                                    | [3.10](#310-site-ul-vercel)                    |
+| Cineva nu se poate autentifica                                  | [3.11](#311-conturi)                           |
+| Lucrările copiilor nu mai apar din birou                        | [3.12](#312-agentul-din-birou)                 |
+| Vrei stage cu date proaspete, de la zero, înaintea unei testări | [3.14](#314-stage-cu-date-proaspete)           |
+| Datele sunt greșite și trebuie corectate                        | [4. Corectarea datelor](#4-corectarea-datelor) |
 
 ## 1. Unde te uiți întâi
 
 1. **`/admin/erori`** — fiecare 500, fiecare eroare scrisă de un job și fiecare ecran stricat în
-   browserul cuiva autentificat, cu codul de pe ecran, contul, adresa paginii și stack trace-ul pe
-   liniile din `.ts`. Cifra roșie din meniu („Sistem → Erori") e numărul celor nerezolvate.
-2. **`/admin/sistem`** („Sistem → Starea platformei") — configurația, citită de pe server: mediul,
-   adresa din linkurile emailurilor, dacă pleacă emailurile, SmartBill, contul pentru transfer,
-   stocarea și migrările nerulate, cu problemele sus și cu locul în care se repară fiecare. Deschide-o
-   după fiecare schimbare în Parameter Store: un `NODE_ENV` sau un `SITE_URL` greșit apare aici, nu
-   în primul email.
+   browserul cuiva autentificat, cu codul de pe ecran, contul, adresa paginii și stack trace-ul. Al
+   API-ului numește liniile din `.ts`; al unui ecran din browser numește fișierele construite
+   (`/_nuxt/….js`), fiindcă site-ul nu publică hărți sursă — acolo te duc pagina și componenta din
+   origine. Cifra roșie din meniu („Sistem → Erori") e numărul celor nerezolvate.
+2. **`/admin/sistem`** („Sistem → Starea platformei") — configurația, citită de pe server: din ce
+   commit rulează API-ul, mediul, adresa din linkurile emailurilor, dacă pleacă emailurile, SmartBill,
+   contul pentru transfer, stocarea și migrările nerulate, cu problemele sus și cu locul în care se
+   repară fiecare. Deschide-o după fiecare deploy — commit-ul de acolo trebuie să fie ultimul de pe
+   `release/stage` — și după fiecare schimbare în Parameter Store: un `NODE_ENV` sau un `SITE_URL`
+   greșit apare aici, nu în primul email. Dacă scrie că API-ul nu știe din ce commit rulează, git nu
+   i-a răspuns din directorul aplicației (lipsește, sau checkout-ul e al altui utilizator decât
+   `deploy`); restul paginii e la fel de adevărat.
 3. **Tabloul de bord** (`/admin/dashboard`) — mesaje nelivrate, cataloage nefăcute, conturi în
    așteptare.
 4. **GitHub → Actions → „Deploy"** — ultima rulare pe `release/stage`: verde înseamnă că e pe
@@ -83,8 +88,13 @@ nu există: un fișier editat pe instanță dispare la următorul deploy.
 2. **Găsește eroarea.** `/admin/erori` → câmpul „Cod de pe ecran" → Caută. Rândul spune:
    - **originea** — ruta API (`GET /invoices/:id`), numele jobului sau pagina și componenta din
      browser;
-   - **mesajul** și **stack trace-ul** — primul rând din `apps/api/src/...` sau `apps/web/app/...`
-     e de obicei locul;
+   - **mesajul** și **stack trace-ul** — pentru o eroare a API-ului, primul rând din
+     `apps/api/src/...` e de obicei locul. **Uneori nu e niciunul**: o eroare aruncată de TypeORM
+     după ce serviciul a întors deja promisiunea (un `return qb.getMany()` fără `await`) are un stack
+     numai din `node_modules`. Atunci pornești de la **origine** (`GET /deliveries`): harta ecranelor
+     de mai jos îți dă controllerul și serviciul care răspund la ruta aceea. Pentru o eroare din
+     browser, stack-ul numește `/_nuxt/….js`, nu `apps/web/app/...`; originea spune pagina și
+     componenta (`/admin/profiles/:profileId · ProfileCard`), iar harta, fișierul paginii;
    - **aparițiile** — cine, când, la ce adresă. Linkul duce la familia care a întâlnit eroarea.
 
    **Fără cod** — un număr greșit, un rând lipsă, nimic roșu —, pornești de la ecran:
@@ -128,22 +138,31 @@ nu există: un fișier editat pe instanță dispare la următorul deploy.
 
 6. **PR în `release/stage`**, pe un branch nou. CI-ul rulează aceleași verificări plus cele de
    accesibilitate; după merge, „Deploy" pune schimbarea pe stage în vreo zece minute.
-7. **Verifică pe stage** pașii din aparițiile erorii, apoi **„Marchează rezolvată"** pe
-   `/admin/erori`. Dacă eroarea revine, apare un rând nou — e o veste, nu același rând.
+7. **Verifică pe stage** — întâi că `/admin/sistem` arată commit-ul merge-ului tău, apoi pașii din
+   aparițiile erorii —, și **„Marchează rezolvată"** pe `/admin/erori`. Dacă eroarea revine, apare un
+   rând nou — e o veste, nu același rând —, iar commit-ul de lângă fiecare apariție spune dacă a
+   revenit pe codul cu reparația sau pe cel dinainte.
 
 **Dacă folosești Claude Code**, dă-i în sesiune exact ce e pe rând: codul, originea, mesajul,
 stack trace-ul și pașii. Cu ele își găsește singur fișierul, iar testul care pică e primul lucru pe
 care să i-l ceri.
 
-**Un mesaj în engleză pe ecran** e tot un bug, mai mic: codul de eroare n-are încă propoziția lui în
-română. Se adaugă în `MESSAGES` din `apps/web/app/composables/useApiError.ts`.
+**Un mesaj în engleză pe ecran** e tot un bug, mai mic, și are două feluri:
+
+- **O propoziție de validare** (`profileId must be a number…`, `monthIssued must be YYYY-MM`): ecranul
+  arată propozițiile validării înaintea oricărui cod, deci reparația e în DTO, pe validator —
+  `@IsNumber({}, { message: 'Numărul familiei din adresă nu e valid' })`, în
+  `apps/api/src/modules/<modul>/dto/`. Numele câmpului din propoziție îți spune care DTO.
+- **Un cod fără propoziție** (o frază scurtă, în engleză, fără nume de câmp): codul n-are încă
+  propoziția lui în română. Se adaugă în `MESSAGES` din `apps/web/app/composables/useApiError.ts`.
 
 ## 3. Incidente
 
 ### 3.1 API-ul nu răspunde
 
-**Ce vezi:** portalul se încarcă, dar listele rămân goale sau spun „Serviciul este momentan
-indisponibil"; `/health` nu răspunde sau răspunde 502.
+**Ce vezi:** portalul se încarcă, dar Acasă spune „Nu am putut încărca portalul. Încearcă din nou."
+(ecranele de admin: „Nu am putut încărca…" lângă butonul „Încearcă din nou"), iar
+`https://api-stage.itbridgeschool.com/health` nu răspunde sau răspunde 502.
 
 1. GitHub → Actions → ultima rulare „Deploy". Dacă e roșie la pasul de pe instanță, mergi la
    [3.3](#33-deploy-ul-pică).
@@ -281,11 +300,12 @@ rămân cu linkul vechi; se cere unul nou (retrimite confirmarea, „Ți-ai uita
 Implicitul e `SMARTBILL_MODE=off`: nu se trimite nimic la SmartBill. Pe stage, cel mult `draft`.
 
 - **O factură „în verificare"** (`review`): un răspuns s-a pierdut și seria s-a mișcat. Se deschide
-  SmartBill Cloud, se caută factura; dacă e acolo, „Confirmă numărul" cu numărul ei, dacă nu,
-  „Retrimite". Platforma nu adoptă niciodată singură un număr.
+  SmartBill Cloud, se caută factura; apoi, în Facturi → luna → rândul facturii: dacă e acolo,
+  „E emisă cu numărul ăsta", cu numărul ei; dacă nu, „Nu există, retrimite". Platforma nu adoptă
+  niciodată singură un număr.
 - **Blocare pentru prea multe cereri:** coada așteaptă singură zece minute; nu e nimic de făcut.
-- **Divergențe** (suma încasată diferă între platformă și SmartBill): `/admin/reconciliere`, fila
-  divergențelor, spune motivul și unde se repară.
+- **Divergențe** (suma încasată diferă între platformă și SmartBill): `/admin/reconciliere`,
+  secțiunea „SmartBill" de sub extrasul bancar, spune motivul și unde se repară.
 
 Detaliile sunt în CLAUDE.md, „Factura fiscală e a SmartBill".
 
@@ -297,10 +317,20 @@ verde, dar site-ul e stricat, deploy-ul de dinainte se readuce cu **„Instant R
 
 ### 3.11 Conturi
 
-- **Un admin și-a uitat parola:** pe instanță, ca `deploy`, în `/srv/itbridge/stage`:
-  `pnpm --filter api admin:create --username <nume> --reset-password`. E singura cale: un admin n-are
-  profil, deci linkul de resetare n-are unde pleca.
-- **Un părinte nu se poate autentifica:** „Parolă uitată" din formular trimite un link valabil o oră.
+- **Un admin și-a uitat parola:** pe instanță, cu mediul încărcat — fără el, comanda cade pe baza
+  de dezvoltare din `data-source.ts` și nu găsește contul:
+
+  ```sh
+  sudo -iu deploy
+  cd /srv/itbridge/stage
+  set -a; . /etc/itbridge/stage.env; set +a
+  pnpm --filter api admin:create --username <nume> --reset-password
+  ```
+
+  E singura cale: un admin n-are profil, deci linkul de resetare n-are unde pleca.
+
+- **Un părinte nu se poate autentifica:** „Ți-ai uitat parola?" din formular trimite un link valabil
+  o oră.
   Dacă intră, dar nu vede nimic: „Conturi în așteptare" (`/admin/approvals`) — contul poate aștepta confirmarea emailului,
   aprobarea biroului, sau poate fi respins ori suspendat; pagina familiei spune care.
 - **O familie trecută de birou vrea cont:** din pagina familiei, „Trimite linkul de cont".
@@ -371,9 +401,9 @@ așteptare, starea facturii recalculată.
 
 | Ce e greșit                                                | Unde se corectează                                                                                                       |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Datele de contact ale unei familii                         | Profiluri → familia → Editează                                                                                           |
+| Datele de contact ale unei familii                         | Profiluri → familia → „Editează" (sau meniul rândului din listă → Editează)                                              |
 | Un copil trecut la familia greșită (frați pe două familii) | Copii → copilul → Editează → „Mută în altă familie"                                                                      |
-| Grupa unui copil                                           | pagina copilului: transfer, închiderea înscrierii, decizia probei                                                        |
+| Grupa unui copil                                           | transferul: pagina copilului; scoaterea din grupă: Grupe → grupa → Copii → „Scoate din grupă"; proba: Formarea grupelor  |
 | O oră anulată, mutată sau lipsă din orar                   | Orarul: anulează, mută, reactivează, recuperează; o grupă fără ore: Grupe, sau „Generează orarul grupei" din prezența ei |
 | Un marcaj de prezență greșit                               | Prezența de azi → `?zi=` ziua orei, pe telefon; sau catalogul grupei                                                     |
 | Numărul de ședințe facturat unui copil                     | Emitere facturi → corectura pe copil, cât timp luna nu e emisă                                                           |
@@ -390,9 +420,14 @@ câmpurile derivate — `Child.group`, de exemplu, are un singur scriitor, `Enro
 ```sh
 sudo -iu deploy
 set -a; . /etc/itbridge/stage.env; set +a
-pg_dump -Fc "postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME" > ~/inainte-de-corectura.dump
-psql "postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
+export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
+pg_dump -Fc > ~/inainte-de-corectura.dump
+psql
 ```
+
+Prin variabilele `PG*`, nu printr-o adresă `postgresql://…`: parola generată cu
+`openssl rand -base64 48` conține des un `/` sau un `+`, iar într-o adresă un `/` o rupe — `psql`
+răspunde „invalid integer value … for connection option "port"", fără să spună că e de la parolă.
 
 ```sql
 BEGIN;

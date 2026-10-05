@@ -1,14 +1,73 @@
 # Harta ecranelor
 
 Fiecare ecran, fișierul lui, cererile pe care le face către API și cine le răspunde: controllerul
-și primul serviciu pe care îl cheamă. Pentru bug-ul care nu dă nicio eroare — un număr greșit, un
-rând lipsă —, unde codul de pe ecran nu există: pornești de la ecranul pe care îl vezi. Vezi și
-[runbook.md](runbook.md), „Un bug".
+și serviciile pe care le cheamă, în ordinea în care rulează. Pentru bug-ul care nu dă nicio eroare
+— un număr greșit, un rând lipsă —, unde codul de pe ecran nu există: pornești de la ecranul pe care
+îl vezi. Vezi și [runbook.md](runbook.md), „Un bug".
 
 **Generat din surse, nu scris de mână**: `pnpm --filter web screens:render` îl rescrie, iar
 `apps/web/test/screen-map.spec.ts` pică dacă a rămas în urmă. Urmează pagina, componentele pe care
-le desenează și composable-urile pe care le cheamă; o cerere făcută altfel (un magazin Pinia, un
+le desenează, composable-urile și magazinele Pinia pe care le cheamă; o cerere făcută altfel (un
 `$fetch` direct) nu apare.
+
+## Pe fiecare pagină
+
+Cererile din jurul paginii: layout-ul, pluginurile și middleware-ul. Nu sunt repetate sub fiecare
+ecran; dacă un număr din meniu e greșit, aici e cererea lui.
+
+### `apps/web/app/layouts/dashboard.vue` — în jurul fiecărei pagini de admin: cifrele din meniu și locațiile
+
+| Cerere | Răspunde | Serviciile |
+| --- | --- | --- |
+| `GET /attendance/replacements/unplaced` | `AttendanceController.unplacedReplacements` în `apps/api/src/modules/attendance/attendance.controller.ts` | `ReplacementService.unplaced` în `apps/api/src/modules/attendance/replacement.service.ts` |
+| `GET /errors/summary` | `ErrorReportController.summary` în `apps/api/src/modules/error-report/error-report.controller.ts` | `ErrorReportService.summary` în `apps/api/src/modules/error-report/error-report.service.ts` |
+| `GET /locations` | `LocationController.getLocations` în `apps/api/src/modules/location/location.controller.ts` | `LocationService.findLocations` în `apps/api/src/modules/location/location.service.ts` |
+| `GET /projects/pending` | `ProjectController.pending` în `apps/api/src/modules/project/project.controller.ts` | `ProjectService.pendingSummary` în `apps/api/src/modules/project/project.service.ts` |
+| `GET /rooms` | `RoomController.getRooms` în `apps/api/src/modules/room/room.controller.ts` | `RoomService.findRooms` în `apps/api/src/modules/room/room.service.ts` |
+| `POST /auth/logout` | `AuthController.logout` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.logout` în `apps/api/src/modules/auth/auth.service.ts` |
+
+### `apps/web/app/layouts/portal.vue` — în jurul fiecărei pagini a portalului
+
+| Cerere | Răspunde | Serviciile |
+| --- | --- | --- |
+| `GET /profiles` | `ProfileController.findProfiles` în `apps/api/src/modules/profile/profile.controller.ts` | `ProfileService.findProfiles` în `apps/api/src/modules/profile/profile.service.ts` |
+| `POST /auth/logout` | `AuthController.logout` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.logout` în `apps/api/src/modules/auth/auth.service.ts` |
+
+### `apps/web/app/plugins/01.auth.client.ts` — la încărcarea oricărei pagini, cu o sesiune salvată
+
+| Cerere | Răspunde | Serviciile |
+| --- | --- | --- |
+| `GET /auth/me` | `AuthController.getProfile` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.getUserProfile` în `apps/api/src/modules/auth/auth.service.ts` |
+
+### `apps/web/app/plugins/03.profile.client.ts` — la încărcarea oricărei pagini, pentru un părinte
+
+| Cerere | Răspunde | Serviciile |
+| --- | --- | --- |
+| `GET /profiles` | `ProfileController.findProfiles` în `apps/api/src/modules/profile/profile.controller.ts` | `ProfileService.findProfiles` în `apps/api/src/modules/profile/profile.service.ts` |
+
+### `apps/web/app/plugins/05.error-report.client.ts` — când un ecran se strică în browser
+
+| Cerere | Răspunde | Serviciile |
+| --- | --- | --- |
+| `POST /errors/client` | `ErrorReportController.reportFromBrowser` în `apps/api/src/modules/error-report/error-report.controller.ts` | `ErrorReportService.takesBrowserReport` în `apps/api/src/modules/error-report/error-report.service.ts`, apoi `ErrorReportService.record` în `apps/api/src/modules/error-report/error-report.service.ts` |
+
+### `apps/web/app/middleware/01.auth.global.ts` — la fiecare navigare
+
+Nu face nicio cerere către API.
+
+### `apps/web/app/middleware/02.profile-setup.global.ts` — la fiecare navigare
+
+Nu face nicio cerere către API.
+
+### `apps/web/app/middleware/03.legal-acceptance.global.ts` — la fiecare navigare
+
+Nu face nicio cerere către API.
+
+### `apps/web/app/composables/api/useApi.ts` — la orice cerere care primește 401
+
+| Cerere | Răspunde | Serviciile |
+| --- | --- | --- |
+| `POST /auth/refresh` | `AuthController.refresh` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.refreshToken` în `apps/api/src/modules/auth/auth.service.ts` |
 
 ## Zona de admin
 
@@ -16,7 +75,7 @@ le desenează și composable-urile pe care le cheamă; o cerere făcută altfel 
 
 Pagina: `apps/web/app/pages/admin/absente/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /attendance/absences/:id` | `AttendanceController.withdrawAbsence` în `apps/api/src/modules/attendance/attendance.controller.ts` | `AbsenceNoticeService.withdraw` în `apps/api/src/modules/attendance/absence-notice.service.ts` |
 | `DELETE /attendance/absences/:id/replacement` | `AttendanceController.clearReplacement` în `apps/api/src/modules/attendance/attendance.controller.ts` | `ReplacementService.clear` în `apps/api/src/modules/attendance/replacement.service.ts` |
@@ -32,7 +91,7 @@ Pagina: `apps/web/app/pages/admin/absente/index.vue`
 
 Pagina: `apps/web/app/pages/admin/acorduri/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /privacy/consents/in-force` | `ConsentController.inForce` în `apps/api/src/modules/privacy/consent.controller.ts` | `PublicationConsentService.inForce` în `apps/api/src/modules/privacy/publication-consent.service.ts` |
 
@@ -40,7 +99,7 @@ Pagina: `apps/web/app/pages/admin/acorduri/index.vue`
 
 Pagina: `apps/web/app/pages/admin/anunturi/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /announcements` | `AnnouncementController.list` în `apps/api/src/modules/announcement/announcement.controller.ts` | `AnnouncementService.list` în `apps/api/src/modules/announcement/announcement.service.ts` |
 | `GET /groups` | `GroupController.getGroups` în `apps/api/src/modules/group/group.controller.ts` | `GroupService.getGroups` în `apps/api/src/modules/group/group.service.ts` |
@@ -53,7 +112,7 @@ Pagina: `apps/web/app/pages/admin/anunturi/index.vue`
 
 Pagina: `apps/web/app/pages/admin/approvals/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /users/pending` | `UserController.getPendingAccounts` în `apps/api/src/modules/user/user.controller.ts` | `AccountApprovalService.listPending` în `apps/api/src/modules/user/account-approval.service.ts` |
 | `GET /users/rejected` | `UserController.getRejectedAccounts` în `apps/api/src/modules/user/user.controller.ts` | `AccountApprovalService.listRejected` în `apps/api/src/modules/user/account-approval.service.ts` |
@@ -66,7 +125,7 @@ Pagina: `apps/web/app/pages/admin/approvals/index.vue`
 
 Pagina: `apps/web/app/pages/admin/attendance/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /class-sessions/unmarked` | `ClassSessionController.getUnmarkedSessions` în `apps/api/src/modules/class-session/class-session.controller.ts` | `ClassSessionService.findUnmarkedSessions` în `apps/api/src/modules/class-session/class-session.service.ts` |
 
@@ -74,7 +133,7 @@ Pagina: `apps/web/app/pages/admin/attendance/index.vue`
 
 Pagina: `apps/web/app/pages/admin/attendance/azi.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /attendance/session/:classSessionId/register` | `AttendanceController.sessionRegister` în `apps/api/src/modules/attendance/attendance.controller.ts` | `AttendanceService.sessionRegister` în `apps/api/src/modules/attendance/attendance.service.ts` |
 | `GET /class-sessions` | `ClassSessionController.getSessions` în `apps/api/src/modules/class-session/class-session.controller.ts` | `ClassSessionService.findSessions` în `apps/api/src/modules/class-session/class-session.service.ts` |
@@ -85,7 +144,7 @@ Pagina: `apps/web/app/pages/admin/attendance/azi.vue`
 
 Pagina: `apps/web/app/pages/admin/attendance/children/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /children` | `ChildController.findChildren` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.findChildren` în `apps/api/src/modules/child/child.service.ts` |
 
@@ -93,7 +152,7 @@ Pagina: `apps/web/app/pages/admin/attendance/children/index.vue`
 
 Pagina: `apps/web/app/pages/admin/attendance/children/[childId].vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /attendance/child/:childId` | `AttendanceController.getAttendanceByChild` în `apps/api/src/modules/attendance/attendance.controller.ts` | `AttendanceService.getAttendanceByChild` în `apps/api/src/modules/attendance/attendance.service.ts` |
 | `GET /children` | `ChildController.findChildren` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.findChildren` în `apps/api/src/modules/child/child.service.ts` |
@@ -102,7 +161,7 @@ Pagina: `apps/web/app/pages/admin/attendance/children/[childId].vue`
 
 Pagina: `apps/web/app/pages/admin/attendance/group/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /groups` | `GroupController.getGroups` în `apps/api/src/modules/group/group.controller.ts` | `GroupService.getGroups` în `apps/api/src/modules/group/group.service.ts` |
 | `GET /reports/occupancy` | `ReportsController.occupancyReport` în `apps/api/src/modules/dashboard/reports.controller.ts` | `OccupancyReportService.build` în `apps/api/src/modules/dashboard/occupancy-report.service.ts` |
@@ -111,7 +170,7 @@ Pagina: `apps/web/app/pages/admin/attendance/group/index.vue`
 
 Pagina: `apps/web/app/pages/admin/attendance/group/[groupId].vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /attendance/session/:classSessionId/register` | `AttendanceController.sessionRegister` în `apps/api/src/modules/attendance/attendance.controller.ts` | `AttendanceService.sessionRegister` în `apps/api/src/modules/attendance/attendance.service.ts` |
 | `GET /children` | `ChildController.findChildren` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.findChildren` în `apps/api/src/modules/child/child.service.ts` |
@@ -125,7 +184,7 @@ Pagina: `apps/web/app/pages/admin/attendance/group/[groupId].vue`
 
 Pagina: `apps/web/app/pages/admin/calendar/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /class-sessions/non-teaching/:id` | `ClassSessionController.removeNonTeachingPeriod` în `apps/api/src/modules/class-session/class-session.controller.ts` | `NonTeachingPeriodService.remove` în `apps/api/src/modules/class-session/non-teaching-period.service.ts` |
 | `GET /class-sessions/non-teaching` | `ClassSessionController.nonTeachingPeriods` în `apps/api/src/modules/class-session/class-session.controller.ts` | `NonTeachingPeriodService.findAll` în `apps/api/src/modules/class-session/non-teaching-period.service.ts` |
@@ -137,7 +196,7 @@ Pagina: `apps/web/app/pages/admin/calendar/index.vue`
 
 Pagina: `apps/web/app/pages/admin/children/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /children` | `ChildController.findChildren` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.findChildren` în `apps/api/src/modules/child/child.service.ts` |
 
@@ -145,7 +204,7 @@ Pagina: `apps/web/app/pages/admin/children/index.vue`
 
 Pagina: `apps/web/app/pages/admin/children/[childId]/confirmation.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /children/:childId` | `ChildController.deleteChild` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.deleteChild` în `apps/api/src/modules/child/child.service.ts` |
 
@@ -153,7 +212,7 @@ Pagina: `apps/web/app/pages/admin/children/[childId]/confirmation.vue`
 
 Pagina: `apps/web/app/pages/admin/children/[childId]/edit.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /children` | `ChildController.findChildren` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.findChildren` în `apps/api/src/modules/child/child.service.ts` |
 | `GET /enrollments/child/:childId` | `EnrollmentController.historyFor` în `apps/api/src/modules/enrollment/enrollment.controller.ts` | `EnrollmentService.historyFor` în `apps/api/src/modules/enrollment/enrollment.service.ts` |
@@ -168,7 +227,7 @@ Pagina: `apps/web/app/pages/admin/children/[childId]/edit.vue`
 
 Pagina: `apps/web/app/pages/admin/contracte/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /enrollments/without-contract` | `EnrollmentController.withoutContract` în `apps/api/src/modules/enrollment/enrollment.controller.ts` | `EnrollmentService.withoutContract` în `apps/api/src/modules/enrollment/enrollment.service.ts` |
 | `PUT /enrollments/:id/contract` | `EnrollmentController.recordContract` în `apps/api/src/modules/enrollment/enrollment.controller.ts` | `EnrollmentService.recordContract` în `apps/api/src/modules/enrollment/enrollment.service.ts` |
@@ -177,7 +236,7 @@ Pagina: `apps/web/app/pages/admin/contracte/index.vue`
 
 Pagina: `apps/web/app/pages/admin/dashboard.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /overview` | `OverviewController.overview` în `apps/api/src/modules/dashboard/overview.controller.ts` | `OverviewService.build` în `apps/api/src/modules/dashboard/overview.service.ts` |
 
@@ -185,7 +244,7 @@ Pagina: `apps/web/app/pages/admin/dashboard.vue`
 
 Pagina: `apps/web/app/pages/admin/emailuri/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /mail-templates/:key` | `MailTemplateController.revert` în `apps/api/src/modules/mail/mail-template.controller.ts` | `MailTemplateService.revert` în `apps/api/src/modules/mail/mail-template.service.ts` |
 | `GET /mail-templates` | `MailTemplateController.list` în `apps/api/src/modules/mail/mail-template.controller.ts` | `MailTemplateService.list` în `apps/api/src/modules/mail/mail-template.service.ts` |
@@ -197,7 +256,7 @@ Pagina: `apps/web/app/pages/admin/emailuri/index.vue`
 
 Pagina: `apps/web/app/pages/admin/erori/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /errors` | `ErrorReportController.list` în `apps/api/src/modules/error-report/error-report.controller.ts` | `ErrorReportService.list` în `apps/api/src/modules/error-report/error-report.service.ts` |
 | `GET /errors/summary` | `ErrorReportController.summary` în `apps/api/src/modules/error-report/error-report.controller.ts` | `ErrorReportService.summary` în `apps/api/src/modules/error-report/error-report.service.ts` |
@@ -207,7 +266,7 @@ Pagina: `apps/web/app/pages/admin/erori/index.vue`
 
 Pagina: `apps/web/app/pages/admin/formare/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /enrollments/demand` | `EnrollmentController.demand` în `apps/api/src/modules/enrollment/enrollment.controller.ts` | `EnrollmentService.unmetDemand` în `apps/api/src/modules/enrollment/enrollment.service.ts` |
 | `GET /enrollments/trials/unresolved` | `EnrollmentController.unresolvedTrials` în `apps/api/src/modules/enrollment/enrollment.controller.ts` | `EnrollmentService.unresolvedTrials` în `apps/api/src/modules/enrollment/enrollment.service.ts` |
@@ -217,7 +276,7 @@ Pagina: `apps/web/app/pages/admin/formare/index.vue`
 
 Pagina: `apps/web/app/pages/admin/groups/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /children` | `ChildController.findChildren` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.findChildren` în `apps/api/src/modules/child/child.service.ts` |
 | `GET /groups` | `GroupController.getGroups` în `apps/api/src/modules/group/group.controller.ts` | `GroupService.getGroups` în `apps/api/src/modules/group/group.service.ts` |
@@ -228,7 +287,7 @@ Pagina: `apps/web/app/pages/admin/groups/index.vue`
 
 Pagina: `apps/web/app/pages/admin/groups/[groupId]/children.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /children/:childId/groups/:groupId` | `ChildController.removeChildFromGroup` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.removeChildFromGroup` în `apps/api/src/modules/child/child.service.ts` |
 | `DELETE /enrollments/waitlist/:id` | `EnrollmentController.removeFromWaitlist` în `apps/api/src/modules/enrollment/enrollment.controller.ts` | `EnrollmentService.removeFromWaitlist` în `apps/api/src/modules/enrollment/enrollment.service.ts` |
@@ -244,7 +303,7 @@ Pagina: `apps/web/app/pages/admin/groups/[groupId]/children.vue`
 
 Pagina: `apps/web/app/pages/admin/groups/[groupId]/edit.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /groups` | `GroupController.getGroups` în `apps/api/src/modules/group/group.controller.ts` | `GroupService.getGroups` în `apps/api/src/modules/group/group.service.ts` |
 | `GET /locations` | `LocationController.getLocations` în `apps/api/src/modules/location/location.controller.ts` | `LocationService.findLocations` în `apps/api/src/modules/location/location.service.ts` |
@@ -255,7 +314,7 @@ Pagina: `apps/web/app/pages/admin/groups/[groupId]/edit.vue`
 
 Pagina: `apps/web/app/pages/admin/groups/new.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /locations` | `LocationController.getLocations` în `apps/api/src/modules/location/location.controller.ts` | `LocationService.findLocations` în `apps/api/src/modules/location/location.service.ts` |
 | `GET /rooms` | `RoomController.getRooms` în `apps/api/src/modules/room/room.controller.ts` | `RoomService.findRooms` în `apps/api/src/modules/room/room.service.ts` |
@@ -265,7 +324,7 @@ Pagina: `apps/web/app/pages/admin/groups/new.vue`
 
 Pagina: `apps/web/app/pages/admin/invoices/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /invoices/months` | `InvoiceController.issuedMonths` în `apps/api/src/modules/invoice/invoice.controller.ts` | `InvoiceService.issuedMonths` în `apps/api/src/modules/invoice/invoice.service.ts` |
 | `GET /reports/finance` | `ReportsController.financeReport` în `apps/api/src/modules/dashboard/reports.controller.ts` | `FinanceReportService.build` în `apps/api/src/modules/dashboard/finance-report.service.ts` |
@@ -274,7 +333,7 @@ Pagina: `apps/web/app/pages/admin/invoices/index.vue`
 
 Pagina: `apps/web/app/pages/admin/invoices/[invoiceId]/pdf.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /invoices/:id/pdf` | `InvoiceController.getInvoicePdf` în `apps/api/src/modules/invoice/invoice.controller.ts` | `InvoiceService.getInvoicePdf` în `apps/api/src/modules/invoice/invoice.service.ts` |
 
@@ -282,10 +341,10 @@ Pagina: `apps/web/app/pages/admin/invoices/[invoiceId]/pdf.vue`
 
 Pagina: `apps/web/app/pages/admin/invoices/[month].vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /invoices/:id` | `InvoiceController.remove` în `apps/api/src/modules/invoice/invoice.controller.ts` | `InvoiceService.deleteInvoice` în `apps/api/src/modules/invoice/invoice.service.ts` |
-| `GET /invoices` | `InvoiceController.findInvoices` în `apps/api/src/modules/invoice/invoice.controller.ts` | `ArrearsService.withBalances` în `apps/api/src/modules/invoice/arrears.service.ts` |
+| `GET /invoices` | `InvoiceController.findInvoices` în `apps/api/src/modules/invoice/invoice.controller.ts` | `InvoiceService.findInvoices` în `apps/api/src/modules/invoice/invoice.service.ts`, apoi `ArrearsService.withBalances` în `apps/api/src/modules/invoice/arrears.service.ts` |
 | `GET /invoices/fiscal-queue` | `InvoiceController.fiscalQueue` în `apps/api/src/modules/invoice/invoice.controller.ts` | `FiscalIssuingService.status` în `apps/api/src/modules/invoice/fiscal-issuing.service.ts` |
 | `POST /invoices/:id/fiscal/confirm` | `InvoiceController.confirmFiscal` în `apps/api/src/modules/invoice/invoice.controller.ts` | `FiscalIssuingService.confirmIssued` în `apps/api/src/modules/invoice/fiscal-issuing.service.ts` |
 | `POST /invoices/:id/fiscal/retry` | `InvoiceController.retryFiscal` în `apps/api/src/modules/invoice/invoice.controller.ts` | `FiscalIssuingService.retry` în `apps/api/src/modules/invoice/fiscal-issuing.service.ts` |
@@ -294,7 +353,7 @@ Pagina: `apps/web/app/pages/admin/invoices/[month].vue`
 
 Pagina: `apps/web/app/pages/admin/invoices/emitere.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /invoices/overrides/:monthIssued/:childId` | `InvoiceController.clearOverride` în `apps/api/src/modules/invoice/invoice.controller.ts` | `InvoiceService.clearSessionCountOverride` în `apps/api/src/modules/invoice/invoice.service.ts` |
 | `GET /invoices/worksheet` | `InvoiceController.worksheet` în `apps/api/src/modules/invoice/invoice.controller.ts` | `InvoiceService.getWorksheet` în `apps/api/src/modules/invoice/invoice.service.ts` |
@@ -305,7 +364,7 @@ Pagina: `apps/web/app/pages/admin/invoices/emitere.vue`
 
 Pagina: `apps/web/app/pages/admin/leads/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /leads` | `LeadController.list` în `apps/api/src/modules/lead/lead.controller.ts` | `LeadService.list` în `apps/api/src/modules/lead/lead.service.ts` |
 | `GET /leads/follow-up` | `LeadController.followUp` în `apps/api/src/modules/lead/lead.controller.ts` | `LeadService.followUp` în `apps/api/src/modules/lead/lead.service.ts` |
@@ -318,7 +377,7 @@ Pagina: `apps/web/app/pages/admin/leads/index.vue`
 
 Pagina: `apps/web/app/pages/admin/livrari/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /deliveries` | `DeliveryLogController.list` în `apps/api/src/modules/mail/delivery-log.controller.ts` | `DeliveryLogService.list` în `apps/api/src/modules/mail/delivery-log.service.ts` |
 | `GET /deliveries/summary` | `DeliveryLogController.summary` în `apps/api/src/modules/mail/delivery-log.controller.ts` | `DeliveryLogService.summary` în `apps/api/src/modules/mail/delivery-log.service.ts` |
@@ -327,7 +386,7 @@ Pagina: `apps/web/app/pages/admin/livrari/index.vue`
 
 Pagina: `apps/web/app/pages/admin/locations/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /locations/:id` | `LocationController.deleteLocation` în `apps/api/src/modules/location/location.controller.ts` | `LocationService.deleteLocation` în `apps/api/src/modules/location/location.service.ts` |
 | `DELETE /rooms/:id` | `RoomController.deleteRoom` în `apps/api/src/modules/room/room.controller.ts` | `RoomService.deleteRoom` în `apps/api/src/modules/room/room.service.ts` |
@@ -340,7 +399,7 @@ Pagina: `apps/web/app/pages/admin/locations/index.vue`
 
 Pagina: `apps/web/app/pages/admin/locations/[locationId]/edit.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /locations` | `LocationController.getLocations` în `apps/api/src/modules/location/location.controller.ts` | `LocationService.findLocations` în `apps/api/src/modules/location/location.service.ts` |
 | `PUT /locations/:id` | `LocationController.updateLocation` în `apps/api/src/modules/location/location.controller.ts` | `LocationService.updateLocation` în `apps/api/src/modules/location/location.service.ts` |
@@ -349,7 +408,7 @@ Pagina: `apps/web/app/pages/admin/locations/[locationId]/edit.vue`
 
 Pagina: `apps/web/app/pages/admin/locations/new.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `POST /locations` | `LocationController.createLocation` în `apps/api/src/modules/location/location.controller.ts` | `LocationService.createLocation` în `apps/api/src/modules/location/location.service.ts` |
 
@@ -357,7 +416,7 @@ Pagina: `apps/web/app/pages/admin/locations/new.vue`
 
 Pagina: `apps/web/app/pages/admin/orar/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /class-sessions` | `ClassSessionController.getSessions` în `apps/api/src/modules/class-session/class-session.controller.ts` | `ClassSessionService.findSessions` în `apps/api/src/modules/class-session/class-session.service.ts` |
 | `GET /class-sessions/reschedule-windows` | `ClassSessionController.rescheduleWindows` în `apps/api/src/modules/class-session/class-session.controller.ts` | `RescheduleService.windowsFor` în `apps/api/src/modules/class-session/reschedule.service.ts` |
@@ -373,7 +432,7 @@ Pagina: `apps/web/app/pages/admin/orar/index.vue`
 
 Pagina: `apps/web/app/pages/admin/payments/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /payments/:id` | `PaymentController.deletePayment` în `apps/api/src/modules/payment/payment.controller.ts` | `PaymentService.deletePayment` în `apps/api/src/modules/payment/payment.service.ts` |
 | `GET /payments` | `PaymentController.findPayments` în `apps/api/src/modules/payment/payment.controller.ts` | `PaymentService.findPayments` în `apps/api/src/modules/payment/payment.service.ts` |
@@ -386,7 +445,7 @@ Pagina: `apps/web/app/pages/admin/payments/index.vue`
 
 Pagina: `apps/web/app/pages/admin/payments/new.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /invoices/arrears` | `InvoiceController.arrears` în `apps/api/src/modules/invoice/invoice.controller.ts` | `ArrearsService.list` în `apps/api/src/modules/invoice/arrears.service.ts` |
 | `POST /payments` | `PaymentController.createPayment` în `apps/api/src/modules/payment/payment.controller.ts` | `PaymentService.createPayment` în `apps/api/src/modules/payment/payment.service.ts` |
@@ -395,7 +454,7 @@ Pagina: `apps/web/app/pages/admin/payments/new.vue`
 
 Pagina: `apps/web/app/pages/admin/profiles/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /profiles` | `ProfileController.findProfiles` în `apps/api/src/modules/profile/profile.controller.ts` | `ProfileService.findProfiles` în `apps/api/src/modules/profile/profile.service.ts` |
 
@@ -403,7 +462,7 @@ Pagina: `apps/web/app/pages/admin/profiles/index.vue`
 
 Pagina: `apps/web/app/pages/admin/profiles/[profileId]/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /discounts/referral/:parentId` | `DiscountController.revokeReferral` în `apps/api/src/modules/discount/discount.controller.ts` | `DiscountService.revokeReferralMonth` în `apps/api/src/modules/discount/discount.service.ts` |
 | `DELETE /privacy/consents/:childId/:purpose` | `ConsentController.revoke` în `apps/api/src/modules/privacy/consent.controller.ts` | `PublicationConsentService.revoke` în `apps/api/src/modules/privacy/publication-consent.service.ts` |
@@ -427,7 +486,7 @@ Pagina: `apps/web/app/pages/admin/profiles/[profileId]/index.vue`
 
 Pagina: `apps/web/app/pages/admin/profiles/[profileId]/children/new.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `POST /children` | `ChildController.createChild` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.createChild` în `apps/api/src/modules/child/child.service.ts` |
 
@@ -435,7 +494,7 @@ Pagina: `apps/web/app/pages/admin/profiles/[profileId]/children/new.vue`
 
 Pagina: `apps/web/app/pages/admin/profiles/[profileId]/confirmation.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /profiles/:profileId` | `ProfileController.deleteProfile` în `apps/api/src/modules/profile/profile.controller.ts` | `ProfileService.deleteProfile` în `apps/api/src/modules/profile/profile.service.ts` |
 
@@ -443,7 +502,7 @@ Pagina: `apps/web/app/pages/admin/profiles/[profileId]/confirmation.vue`
 
 Pagina: `apps/web/app/pages/admin/profiles/[profileId]/edit.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /profiles` | `ProfileController.findProfiles` în `apps/api/src/modules/profile/profile.controller.ts` | `ProfileService.findProfiles` în `apps/api/src/modules/profile/profile.service.ts` |
 | `PUT /profiles/:profileId` | `ProfileController.updateProfile` în `apps/api/src/modules/profile/profile.controller.ts` | `ProfileService.updateProfile` în `apps/api/src/modules/profile/profile.service.ts` |
@@ -452,7 +511,7 @@ Pagina: `apps/web/app/pages/admin/profiles/[profileId]/edit.vue`
 
 Pagina: `apps/web/app/pages/admin/profiles/new.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /users/without-profile` | `UserController.getUsersWithoutProfile` în `apps/api/src/modules/user/user.controller.ts` | `UserService.getUsersWithoutProfile` în `apps/api/src/modules/user/user.service.ts` |
 | `POST /profiles` | `ProfileController.createProfile` în `apps/api/src/modules/profile/profile.controller.ts` | `ProfileService.createProfile` în `apps/api/src/modules/profile/profile.service.ts` |
@@ -461,7 +520,7 @@ Pagina: `apps/web/app/pages/admin/profiles/new.vue`
 
 Pagina: `apps/web/app/pages/admin/proiecte/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /agent/status` | `AgentController.statuses` în `apps/api/src/modules/project/agent.controller.ts` | `AgentService.statuses` în `apps/api/src/modules/project/agent.service.ts` |
 | `GET /agent/unassigned` | `AgentController.findUnassigned` în `apps/api/src/modules/project/agent.controller.ts` | `AgentService.findUnassigned` în `apps/api/src/modules/project/agent.service.ts` |
@@ -473,7 +532,7 @@ Pagina: `apps/web/app/pages/admin/proiecte/index.vue`
 
 Pagina: `apps/web/app/pages/admin/proiecte/grupa/[groupId].vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /projects/:id` | `ProjectController.deleteProject` în `apps/api/src/modules/project/project.controller.ts` | `ProjectService.deleteProject` în `apps/api/src/modules/project/project.service.ts` |
 | `GET /children` | `ChildController.findChildren` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.findChildren` în `apps/api/src/modules/child/child.service.ts` |
@@ -487,7 +546,7 @@ Pagina: `apps/web/app/pages/admin/proiecte/grupa/[groupId].vue`
 
 Pagina: `apps/web/app/pages/admin/rapoarte/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /reports/finance` | `ReportsController.financeReport` în `apps/api/src/modules/dashboard/reports.controller.ts` | `FinanceReportService.build` în `apps/api/src/modules/dashboard/finance-report.service.ts` |
 | `GET /reports/funnel` | `ReportsController.funnelReport` în `apps/api/src/modules/dashboard/reports.controller.ts` | `LeadFunnelService.funnel` în `apps/api/src/modules/lead/lead-funnel.service.ts` |
@@ -498,7 +557,7 @@ Pagina: `apps/web/app/pages/admin/rapoarte/index.vue`
 
 Pagina: `apps/web/app/pages/admin/reconciliere/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /invoices/arrears` | `InvoiceController.arrears` în `apps/api/src/modules/invoice/invoice.controller.ts` | `ArrearsService.list` în `apps/api/src/modules/invoice/arrears.service.ts` |
 | `GET /invoices/fiscal-divergences` | `InvoiceController.fiscalDivergences` în `apps/api/src/modules/invoice/invoice.controller.ts` | `FiscalDivergenceService.report` în `apps/api/src/modules/invoice/fiscal-divergence.service.ts` |
@@ -514,7 +573,7 @@ Pagina: `apps/web/app/pages/admin/reconciliere/index.vue`
 
 Pagina: `apps/web/app/pages/admin/reduceri/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /discounts/:id` | `DiscountController.deleteDiscount` în `apps/api/src/modules/discount/discount.controller.ts` | `DiscountService.deleteDiscount` în `apps/api/src/modules/discount/discount.service.ts` |
 | `GET /discounts` | `DiscountController.findDiscounts` în `apps/api/src/modules/discount/discount.controller.ts` | `DiscountService.findDiscounts` în `apps/api/src/modules/discount/discount.service.ts` |
@@ -526,7 +585,7 @@ Pagina: `apps/web/app/pages/admin/reduceri/index.vue`
 
 Pagina: `apps/web/app/pages/admin/restante/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /invoices/arrears` | `InvoiceController.arrears` în `apps/api/src/modules/invoice/invoice.controller.ts` | `ArrearsService.list` în `apps/api/src/modules/invoice/arrears.service.ts` |
 | `POST /payments` | `PaymentController.createPayment` în `apps/api/src/modules/payment/payment.controller.ts` | `PaymentService.createPayment` în `apps/api/src/modules/payment/payment.service.ts` |
@@ -535,7 +594,7 @@ Pagina: `apps/web/app/pages/admin/restante/index.vue`
 
 Pagina: `apps/web/app/pages/admin/sistem/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /system/status` | `SystemStatusController.status` în `apps/api/src/modules/health/system-status.controller.ts` | `SystemStatusService.read` în `apps/api/src/modules/health/system-status.service.ts` |
 
@@ -543,7 +602,7 @@ Pagina: `apps/web/app/pages/admin/sistem/index.vue`
 
 Pagina: `apps/web/app/pages/admin/stergeri/index.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /privacy/erasure/pending` | `PrivacyController.pendingErasures` în `apps/api/src/modules/privacy/privacy.controller.ts` | `ErasureService.pending` în `apps/api/src/modules/privacy/erasure.service.ts` |
 | `GET /privacy/retention` | `PrivacyController.retention` în `apps/api/src/modules/privacy/privacy.controller.ts` | `RetentionService.overview` în `apps/api/src/modules/privacy/retention.service.ts` |
@@ -555,7 +614,7 @@ Pagina: `apps/web/app/pages/admin/stergeri/index.vue`
 
 Pagina: `apps/web/app/pages/user/absente.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /attendance/absences` | `AttendanceController.upcomingAbsences` în `apps/api/src/modules/attendance/attendance.controller.ts` | `AbsenceNoticeService.upcoming` în `apps/api/src/modules/attendance/absence-notice.service.ts` |
 | `GET /children` | `ChildController.findChildren` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.findChildren` în `apps/api/src/modules/child/child.service.ts` |
@@ -565,13 +624,13 @@ Pagina: `apps/web/app/pages/user/absente.vue`
 
 Pagina: `apps/web/app/pages/user/dashboard.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /attendance/absences` | `AttendanceController.upcomingAbsences` în `apps/api/src/modules/attendance/attendance.controller.ts` | `AbsenceNoticeService.upcoming` în `apps/api/src/modules/attendance/absence-notice.service.ts` |
 | `GET /attendance/child/:childId` | `AttendanceController.getAttendanceByChild` în `apps/api/src/modules/attendance/attendance.controller.ts` | `AttendanceService.getAttendanceByChild` în `apps/api/src/modules/attendance/attendance.service.ts` |
 | `GET /children` | `ChildController.findChildren` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.findChildren` în `apps/api/src/modules/child/child.service.ts` |
 | `GET /class-sessions` | `ClassSessionController.getSessions` în `apps/api/src/modules/class-session/class-session.controller.ts` | `ClassSessionService.findSessions` în `apps/api/src/modules/class-session/class-session.service.ts` |
-| `GET /invoices` | `InvoiceController.findInvoices` în `apps/api/src/modules/invoice/invoice.controller.ts` | `ArrearsService.withBalances` în `apps/api/src/modules/invoice/arrears.service.ts` |
+| `GET /invoices` | `InvoiceController.findInvoices` în `apps/api/src/modules/invoice/invoice.controller.ts` | `InvoiceService.findInvoices` în `apps/api/src/modules/invoice/invoice.service.ts`, apoi `ArrearsService.withBalances` în `apps/api/src/modules/invoice/arrears.service.ts` |
 | `GET /projects` | `ProjectController.findProjects` în `apps/api/src/modules/project/project.controller.ts` | `ProjectService.findProjects` în `apps/api/src/modules/project/project.service.ts` |
 | `POST /auth/resend-confirmation` | `AuthController.resendConfirmation` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.resendConfirmation` în `apps/api/src/modules/auth/auth.service.ts` |
 
@@ -579,10 +638,10 @@ Pagina: `apps/web/app/pages/user/dashboard.vue`
 
 Pagina: `apps/web/app/pages/user/payments.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /discounts/family` | `DiscountController.familyDiscounts` în `apps/api/src/modules/discount/discount.controller.ts` | `DiscountService.familyDiscounts` în `apps/api/src/modules/discount/discount.service.ts` |
-| `GET /invoices` | `InvoiceController.findInvoices` în `apps/api/src/modules/invoice/invoice.controller.ts` | `ArrearsService.withBalances` în `apps/api/src/modules/invoice/arrears.service.ts` |
+| `GET /invoices` | `InvoiceController.findInvoices` în `apps/api/src/modules/invoice/invoice.controller.ts` | `InvoiceService.findInvoices` în `apps/api/src/modules/invoice/invoice.service.ts`, apoi `ArrearsService.withBalances` în `apps/api/src/modules/invoice/arrears.service.ts` |
 | `GET /invoices/:id/pdf` | `InvoiceController.getInvoicePdf` în `apps/api/src/modules/invoice/invoice.controller.ts` | `InvoiceService.getInvoicePdf` în `apps/api/src/modules/invoice/invoice.service.ts` |
 | `GET /invoices/payment-details` | `InvoiceController.paymentDetails` în `apps/api/src/modules/invoice/invoice.controller.ts` | — |
 | `GET /payments` | `PaymentController.findPayments` în `apps/api/src/modules/payment/payment.controller.ts` | `PaymentService.findPayments` în `apps/api/src/modules/payment/payment.service.ts` |
@@ -591,7 +650,7 @@ Pagina: `apps/web/app/pages/user/payments.vue`
 
 Pagina: `apps/web/app/pages/user/prezenta.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /attendance/child/:childId` | `AttendanceController.getAttendanceByChild` în `apps/api/src/modules/attendance/attendance.controller.ts` | `AttendanceService.getAttendanceByChild` în `apps/api/src/modules/attendance/attendance.service.ts` |
 | `GET /children` | `ChildController.findChildren` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.findChildren` în `apps/api/src/modules/child/child.service.ts` |
@@ -601,14 +660,14 @@ Pagina: `apps/web/app/pages/user/prezenta.vue`
 
 Pagina: `apps/web/app/pages/user/profile.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `DELETE /auth/sessions/:id` | `AuthController.closeSession` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.closeSession` în `apps/api/src/modules/auth/auth.service.ts` |
 | `DELETE /children/:childId` | `ChildController.deleteChild` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.deleteChild` în `apps/api/src/modules/child/child.service.ts` |
 | `DELETE /privacy/consents/:childId/:purpose` | `ConsentController.revoke` în `apps/api/src/modules/privacy/consent.controller.ts` | `PublicationConsentService.revoke` în `apps/api/src/modules/privacy/publication-consent.service.ts` |
 | `DELETE /privacy/erasure` | `PrivacyController.withdrawErasure` în `apps/api/src/modules/privacy/privacy.controller.ts` | `ErasureService.withdrawRequest` în `apps/api/src/modules/privacy/erasure.service.ts` |
 | `GET /auth/documents` | `AuthController.legalRecord` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.legalRecord` în `apps/api/src/modules/auth/auth.service.ts` |
-| `GET /privacy/consents` | `ConsentController.ownConsents` în `apps/api/src/modules/privacy/consent.controller.ts` | `Repository<Profile>.findOne` |
+| `GET /privacy/consents` | `ConsentController.ownConsents` în `apps/api/src/modules/privacy/consent.controller.ts` | `Repository<Profile>.findOne`, apoi `PublicationConsentService.forProfile` în `apps/api/src/modules/privacy/publication-consent.service.ts` |
 | `GET /privacy/export` | `PrivacyController.exportOwn` în `apps/api/src/modules/privacy/privacy.controller.ts` | `ExportService.forProfile` în `apps/api/src/modules/privacy/export.service.ts` |
 | `GET /profiles` | `ProfileController.findProfiles` în `apps/api/src/modules/profile/profile.controller.ts` | `ProfileService.findProfiles` în `apps/api/src/modules/profile/profile.service.ts` |
 | `POST /auth/change-password` | `AuthController.changePassword` în `apps/api/src/modules/auth/auth.controller.ts` | `PasswordResetService.change` în `apps/api/src/modules/auth/password-reset.service.ts` |
@@ -625,8 +684,9 @@ Pagina: `apps/web/app/pages/user/profile.vue`
 
 Pagina: `apps/web/app/pages/user/profile-setup.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
+| `GET /auth/me` | `AuthController.getProfile` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.getUserProfile` în `apps/api/src/modules/auth/auth.service.ts` |
 | `GET /profiles` | `ProfileController.findProfiles` în `apps/api/src/modules/profile/profile.controller.ts` | `ProfileService.findProfiles` în `apps/api/src/modules/profile/profile.service.ts` |
 | `POST /profiles` | `ProfileController.createProfile` în `apps/api/src/modules/profile/profile.controller.ts` | `ProfileService.createProfile` în `apps/api/src/modules/profile/profile.service.ts` |
 | `PUT /profiles/:profileId` | `ProfileController.updateProfile` în `apps/api/src/modules/profile/profile.controller.ts` | `ProfileService.updateProfile` în `apps/api/src/modules/profile/profile.service.ts` |
@@ -635,7 +695,7 @@ Pagina: `apps/web/app/pages/user/profile-setup.vue`
 
 Pagina: `apps/web/app/pages/user/proiecte.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /children` | `ChildController.findChildren` în `apps/api/src/modules/child/child.controller.ts` | `ChildService.findChildren` în `apps/api/src/modules/child/child.service.ts` |
 | `GET /projects` | `ProjectController.findProjects` în `apps/api/src/modules/project/project.controller.ts` | `ProjectService.findProjects` în `apps/api/src/modules/project/project.service.ts` |
@@ -647,7 +707,7 @@ Pagina: `apps/web/app/pages/user/proiecte.vue`
 
 Pagina: `apps/web/app/pages/user/termeni-noi.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `POST /auth/accept-documents` | `AuthController.acceptDocuments` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.acceptDocuments` în `apps/api/src/modules/auth/auth.service.ts` |
 
@@ -657,15 +717,16 @@ Pagina: `apps/web/app/pages/user/termeni-noi.vue`
 
 Pagina: `apps/web/app/pages/auth/confirm-email.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
+| `GET /auth/me` | `AuthController.getProfile` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.getUserProfile` în `apps/api/src/modules/auth/auth.service.ts` |
 | `POST /auth/confirm-email` | `AuthController.confirmEmail` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.confirmEmail` în `apps/api/src/modules/auth/auth.service.ts` |
 
 ### `/auth/cont-familie` — Termină-ți contul
 
 Pagina: `apps/web/app/pages/auth/cont-familie.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `POST /auth/claim` | `AuthController.claim` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.claimAccount` în `apps/api/src/modules/auth/auth.service.ts` |
 
@@ -673,7 +734,7 @@ Pagina: `apps/web/app/pages/auth/cont-familie.vue`
 
 Pagina: `apps/web/app/pages/auth/forgot-password.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `POST /auth/forgot-password` | `AuthController.forgotPassword` în `apps/api/src/modules/auth/auth.controller.ts` | `PasswordResetService.request` în `apps/api/src/modules/auth/password-reset.service.ts` |
 
@@ -681,7 +742,7 @@ Pagina: `apps/web/app/pages/auth/forgot-password.vue`
 
 Pagina: `apps/web/app/pages/auth/login.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `POST /auth/login` | `AuthController.login` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.login` în `apps/api/src/modules/auth/auth.service.ts` |
 
@@ -689,7 +750,7 @@ Pagina: `apps/web/app/pages/auth/login.vue`
 
 Pagina: `apps/web/app/pages/auth/register.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `POST /auth/register` | `AuthController.register` în `apps/api/src/modules/auth/auth.controller.ts` | `AuthService.register` în `apps/api/src/modules/auth/auth.service.ts` |
 
@@ -697,7 +758,7 @@ Pagina: `apps/web/app/pages/auth/register.vue`
 
 Pagina: `apps/web/app/pages/auth/reset-password.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `POST /auth/reset-password` | `AuthController.resetPassword` în `apps/api/src/modules/auth/auth.controller.ts` | `PasswordResetService.reset` în `apps/api/src/modules/auth/password-reset.service.ts` |
 
@@ -785,7 +846,7 @@ Nu face nicio cerere către API.
 
 Pagina: `apps/web/app/pages/dezabonare.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `POST /marketing/unsubscribe` | `UnsubscribeController.unsubscribe` în `apps/api/src/modules/mail/unsubscribe.controller.ts` | `UnsubscribeService.unsubscribe` în `apps/api/src/modules/mail/unsubscribe.service.ts` |
 
@@ -793,7 +854,7 @@ Pagina: `apps/web/app/pages/dezabonare.vue`
 
 Pagina: `apps/web/app/pages/files/[publicId].vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /projects/:id/files/:fileId` | `ProjectController.fileDownload` în `apps/api/src/modules/project/project.controller.ts` | `ProjectService.fileDownloadUrl` în `apps/api/src/modules/project/project.service.ts` |
 | `GET /projects/:id/thumbnail` | `ProjectController.thumbnail` în `apps/api/src/modules/project/project.controller.ts` | `ProjectService.thumbnail` în `apps/api/src/modules/project/project.service.ts` |
@@ -822,7 +883,7 @@ Nu face nicio cerere către API.
 
 Pagina: `apps/web/app/pages/proba.vue`
 
-| Cerere | Răspunde | Serviciul |
+| Cerere | Răspunde | Serviciile |
 | --- | --- | --- |
 | `GET /trial/slots` | `TrialController.slots` în `apps/api/src/modules/lead/trial.controller.ts` | `TrialBookingService.slots` în `apps/api/src/modules/lead/trial-booking.service.ts` |
 | `POST /trial/bookings` | `TrialController.book` în `apps/api/src/modules/lead/trial.controller.ts` | `TrialBookingService.book` în `apps/api/src/modules/lead/trial-booking.service.ts` |
@@ -850,7 +911,6 @@ pe un ecran.
 - `GET /agent/mirror` — `AgentController.mirror`
 - `GET /announcements/:id` — `AnnouncementController.findOne`
 - `GET /audit` — `AuditController.find`
-- `GET /auth/me` — `AuthController.getProfile`
 - `GET /auth/sessions` — `AuthController.sessions`
 - `GET /groups/:id` — `GroupController.getGroupById`
 - `GET /health` — `HealthController.health`
@@ -866,9 +926,7 @@ pe un ecran.
 - `PATCH /attendance/:attendanceId` — `AttendanceController.updateAttendance`
 - `POST /agent/heartbeat` — `AgentController.heartbeat`
 - `POST /agent/unassigned` — `AgentController.reportUnassigned`
-- `POST /auth/refresh` — `AuthController.refresh`
 - `POST /enrollments` — `EnrollmentController.enrol`
-- `POST /errors/client` — `ErrorReportController.reportFromBrowser`
 - `POST /invoices` — `InvoiceController.createInvoice`
 - `POST /invoices/preview` — `InvoiceController.previewInvoicePdf`
 - `POST /projects` — `ProjectController.createProject`
