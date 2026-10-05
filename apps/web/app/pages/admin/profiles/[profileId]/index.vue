@@ -406,8 +406,7 @@
               @click="(event: MouseEvent) => bumpReferral(-1, event)"
             />
             <span class="min-w-14 text-center text-lg font-semibold tabular-nums">
-              {{ referralMonths.length }}
-              {{ referralMonths.length === 1 ? "lună" : "luni" }}
+              {{ countOf(referralMonths.length, "lună", "luni") }}
             </span>
             <UButton
               color="primary"
@@ -603,6 +602,7 @@
   </AdminPage>
 </template>
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { useDiscountsApi } from "~/composables/api/useDiscountsApi";
 import {
   ERASURE_REQUEST_CHANNEL_LABELS,

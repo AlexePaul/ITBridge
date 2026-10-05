@@ -51,7 +51,7 @@
           <ul v-if="impact?.byGroup.length" class="space-y-1 text-sm text-muted">
             <li v-for="group in impact.byGroup" :key="group.groupId">
               <span class="font-medium text-default">{{ group.groupName }}</span>
-              pierde {{ group.count }} {{ group.count === 1 ? "ședință" : "ședințe" }} —
+              pierde {{ countOf(group.count, "ședință", "ședințe") }} —
               <span class="tabular-nums">{{ group.dates.map(shortDate).join(", ") }}</span>
             </li>
           </ul>
@@ -139,6 +139,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useLocationsApi } from "~/composables/api/useLocationsApi";
@@ -232,9 +233,7 @@ const impactSummary = computed(() => {
   const count = impact.value?.affected.length ?? 0;
   if (count === 0) return "Nicio ședință programată în acest interval.";
   const groups = impact.value?.byGroup.length ?? 0;
-  return `Se anulează ${count} ${count === 1 ? "ședință" : "ședințe"} din ${groups} ${
-    groups === 1 ? "grupă" : "grupe"
-  }.`;
+  return `Se anulează ${countOf(count, "ședință", "ședințe")} din ${countOf(groups, "grupă", "grupe")}.`;
 });
 
 // --- The list -------------------------------------------------------------------------------
@@ -307,7 +306,7 @@ const rangeLabel = (period: NonTeachingPeriod) => {
     period.startDate === period.endDate
       ? `${shortDate(period.startDate)} ${period.startDate.slice(0, 4)}`
       : `${shortDate(period.startDate)} – ${shortDate(period.endDate)} ${period.endDate.slice(0, 4)}`;
-  return `${span} · ${days} ${days === 1 ? "zi" : "zile"}`;
+  return `${span} · ${countOf(days, "zi", "zile")}`;
 };
 
 const dayCount = (period: NonTeachingPeriod) => {
@@ -331,9 +330,7 @@ const handleSubmit = async () => {
     success(
       result.cancelled === 0
         ? `„${result.period.name}" a fost adăugat.`
-        : `„${result.period.name}" a fost adăugat. S-au anulat ${result.cancelled} ${
-            result.cancelled === 1 ? "ședință" : "ședințe"
-          }.`
+        : `„${result.period.name}" a fost adăugat. S-au anulat ${countOf(result.cancelled, "ședință", "ședințe")}.`
     );
     draft.name = "";
     draft.startDate = "";

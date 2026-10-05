@@ -90,8 +90,8 @@
               "plată reușită datată în interval",
               "plăți reușite datate în interval"
             )
-          }}; {{ countOf(finance.basis.waivedInvoices, "lună anulată", "luni anulate") }} la 0 lei
-          nu intră în facturat.
+          }}; {{ countOf(finance.basis.waivedInvoices, "lună fără plată", "luni fără plată") }} (0
+          lei) nu intră în facturat.
           <template
             v-if="
               finance.basis.initiatedPayments ||
@@ -140,13 +140,13 @@
                 </UBadge>
               </div>
               <p class="text-sm text-muted tabular-nums">
-                {{ loc.taken }} din {{ loc.capacity }} locuri · {{ loc.groups }}
-                {{ loc.groups === 1 ? "grupă" : "grupe" }} în {{ loc.rooms }}
-                {{ loc.rooms === 1 ? "sală" : "săli" }}
+                {{ loc.taken }} din {{ countOf(loc.capacity, "loc", "locuri") }} ·
+                {{ countOf(loc.groups, "grupă", "grupe") }} în
+                {{ countOf(loc.rooms, "sală", "săli") }}
                 <span v-if="loc.waiting > 0"> · {{ loc.waiting }} în așteptare</span>
               </p>
               <p v-if="loc.free > 0" class="text-sm text-muted tabular-nums">
-                {{ loc.free }} {{ loc.free === 1 ? "loc liber" : "locuri libere" }} · ~{{
+                {{ countOf(loc.free, "loc liber", "locuri libere") }} · ~{{
                   formatLei(loc.lostRevenueMonthly)
                 }}
                 pe lună la prețul de listă
@@ -665,7 +665,7 @@ const financeTiles = computed(() => {
       display: formatLei(data.totals.averagePerFamily),
       note:
         data.arrears.families > 0
-          ? `restanțe: ${formatLei(data.arrears.outstanding)}, ${data.arrears.families} ${data.arrears.families === 1 ? "familie" : "familii"}`
+          ? `restanțe: ${formatLei(data.arrears.outstanding)}, ${countOf(data.arrears.families, "familie", "familii")}`
           : "nicio restanță acum",
     },
   ];
@@ -720,7 +720,7 @@ const loadOccupancy = async () => {
 };
 
 /** "1 factură" / "4 facturi" — the arrears tile's note, which the tile takes as one string. */
-const invoiceCount = (n: number) => `${n} ${n === 1 ? "factură" : "facturi"}`;
+const invoiceCount = (n: number) => countOf(n, "factură", "facturi");
 
 const fillColor = (rate: number): AdminBadgeColor => {
   // The threshold is the report's, never a copy; 0.9 is only a colour band for the screen.

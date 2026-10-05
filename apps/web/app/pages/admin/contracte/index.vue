@@ -5,7 +5,7 @@
   >
     <template #actions>
       <UBadge color="warning" variant="subtle" size="lg" class="min-h-11 flex items-center px-4">
-        {{ rows.length }} {{ rows.length === 1 ? "înscriere" : "înscrieri" }} fără contract
+        {{ countOf(rows.length, "înscriere", "înscrieri") }} fără contract
       </UBadge>
     </template>
 
@@ -69,6 +69,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
 import { useNotifications } from "~/composables/useNotifications";
