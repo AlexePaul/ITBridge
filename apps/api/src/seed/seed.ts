@@ -240,6 +240,12 @@ export async function seed(dataSource: DataSource): Promise<void> {
     // --- Admin ------------------------------------------------------------------------------
     // Both gates open, though `isAccountActive` exempts admins anyway. Written out so the row says
     // what is true rather than leaving the column defaults to imply an admin is awaiting approval.
+    //
+    // **No profile**, as `pnpm admin:create` writes none: a profile is a family. The seed gave the
+    // admin one, so the office's own account was listed as family 14 — with "Suspendă", "Adaugă
+    // copil" and a referral control on its page —, its errors on /admin/erori read as a family's,
+    // and "Ți-ai uitat parola?" with its address sent a reset link for the admin account, which the
+    // runbook (3.11) says cannot happen (QA of 27 September 2026).
     const admin = await dataSource.getRepository(User).save(
         dataSource.getRepository(User).create({
             username: 'admin',
@@ -248,16 +254,6 @@ export async function seed(dataSource: DataSource): Promise<void> {
             emailConfirmedAt: daysAgo(90),
             approvalStatus: ApprovalStatus.APPROVED,
             approvalDecidedAt: daysAgo(90),
-        }),
-    );
-    await dataSource.getRepository(Profile).save(
-        dataSource.getRepository(Profile).create({
-            user: admin,
-            firstName: 'Admin',
-            lastName: 'ITBridge',
-            email: 'admin@itbridgeschool.com',
-            phone: '+40700000000',
-            address: 'Strada Valea Oltului 73, București',
         }),
     );
 
