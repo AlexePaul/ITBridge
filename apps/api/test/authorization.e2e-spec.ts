@@ -220,8 +220,11 @@ describe('Row-level authorization (e2e)', () => {
             expect(res.body[0].date).toBeUndefined();
         });
 
-        it("a parent cannot read another parent's child's attendance", async () => {
-            await request(app.getHttpServer()).get(`/attendance/child/${raduId}`).set('Authorization', ana.auth).expect(403);
+        it("a parent cannot read another parent's child's attendance, nor tell that the child exists", async () => {
+            const theirs = await request(app.getHttpServer()).get(`/attendance/child/${raduId}`).set('Authorization', ana.auth).expect(404);
+            const nobody = await request(app.getHttpServer()).get('/attendance/child/999999').set('Authorization', ana.auth).expect(404);
+
+            expect(theirs.body.code).toBe(nobody.body.code);
         });
 
         it("an admin reads anyone's attendance", async () => {

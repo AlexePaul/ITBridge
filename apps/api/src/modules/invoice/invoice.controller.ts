@@ -29,6 +29,7 @@ import { IssueMonthDto } from './dto/issueMonth.dto';
 import { SessionCountOverrideDto } from './dto/sessionCountOverride.dto';
 import { ArrearsService } from './arrears.service';
 import { withPaymentReference } from './payment-reference';
+import { invoiceForParent } from './invoice-for-parent';
 import { transferDetails, type TransferDetails } from './school-identity';
 import { smartBillMode } from 'src/modules/smartbill/smartbill.config';
 
@@ -69,7 +70,9 @@ export class InvoiceController {
         // printed and the statement import looks for, from the one function all three read.
         const mode = smartBillMode();
         const invoices = await this.arrearsService.withBalances(await this.invoiceService.findInvoices(filter, req.user.role, req.user.sub));
-        return invoices.map((invoice) => withPaymentReference(invoice, mode));
+        // The reference first, from the row as it is; then a parent's copy without the fiscal queue.
+        const withReference = invoices.map((invoice) => withPaymentReference(invoice, mode));
+        return req.user.role === Role.ADMIN ? withReference : withReference.map(invoiceForParent);
     }
 
     /**
@@ -228,7 +231,8 @@ export class InvoiceController {
     @ApiBearerAuth()
     async findOne(@Param('id', ParseIntPipe) id: number, @Request() req: AuthenticatedRequest) {
         const [invoice] = await this.arrearsService.withBalances([await this.invoiceService.findOne(id, req.user.role, req.user.sub)]);
-        return withPaymentReference(invoice, smartBillMode());
+        const withReference = withPaymentReference(invoice, smartBillMode());
+        return req.user.role === Role.ADMIN ? withReference : invoiceForParent(withReference);
     }
 
     @Put('/:id')

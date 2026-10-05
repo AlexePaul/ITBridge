@@ -273,6 +273,42 @@ describe('Payments (e2e)', () => {
             expect(JSON.stringify([list.body, one.body])).not.toContain('admin.payments');
         });
 
+        /**
+         * Security pass of 27 September 2026: a parent's payment carried the office's note — where
+         * reconciliation writes the transfer's own text — and the fiscal queue's error and attempts;
+         * the invoice joined to it, and the parent's own invoices, carried the same on their side.
+         */
+        it('gives a parent the money and the documents, not the office’s note nor the fiscal queue', async () => {
+            const payment = await pay({ amount: 350, notes: 'plata martie Maria Pop' }).expect(201);
+            await dataSource.query(`UPDATE "payments" SET "fiscalLastError" = 'SmartBill: token invalid', "fiscalAttempts" = 3 WHERE "id" = $1`, [
+                payment.body.id,
+            ]);
+            await dataSource.query(`UPDATE "invoices" SET "fiscalLastError" = 'SmartBill: seria lipsește', "fiscalExpectedNumber" = 41 WHERE "id" = $1`, [
+                invoiceId,
+            ]);
+
+            const payments = await request(app.getHttpServer()).get('/payments').set('Authorization', parent.auth).expect(200);
+            const one = await request(app.getHttpServer())
+                .get(`/payments/${payment.body.id as number}`)
+                .set('Authorization', parent.auth)
+                .expect(200);
+            const invoices = await request(app.getHttpServer()).get('/invoices').set('Authorization', parent.auth).expect(200);
+            const invoice = await request(app.getHttpServer()).get(`/invoices/${invoiceId}`).set('Authorization', parent.auth).expect(200);
+
+            const everything = JSON.stringify([payments.body, one.body, invoices.body, invoice.body]);
+            expect(everything).not.toContain('Maria Pop');
+            expect(everything).not.toContain('SmartBill:');
+            expect(one.body).toMatchObject({ amount: 350, notes: null, fiscalAttempts: 0, invoice: { fiscalExpectedNumber: null } });
+            expect(invoice.body).toMatchObject({ amount: 350, outstanding: 0, fiscalLastError: null });
+
+            // The office still reads all of it.
+            const office = await request(app.getHttpServer())
+                .get(`/payments/${payment.body.id as number}`)
+                .set('Authorization', admin.auth)
+                .expect(200);
+            expect(office.body).toMatchObject({ notes: 'plata martie Maria Pop', fiscalLastError: 'SmartBill: token invalid' });
+        });
+
         it('a parent sees their own payments and not the figures of another family', async () => {
             await pay({ amount: 350 }).expect(201);
             const other = await registerUser(app, 'alt.parinte');

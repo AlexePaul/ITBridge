@@ -24,6 +24,7 @@ import { owesReceipt, receiptDedupeKey, receiptTemplate } from './payment-receip
 import { editTouchesSmartBillRecord, nextPaymentFiscalState, owesSmartBillRecord } from './payment-fiscal.rules';
 import { schoolDay } from 'src/common/school-clock';
 import { daysOverdue } from 'src/modules/invoice/arrears.rules';
+import { paymentForParent } from './payment-for-parent';
 import { issuingNow } from 'src/modules/invoice/issuing-clock';
 import { familyAccount, familyLink } from 'src/modules/mail/portal-line';
 
@@ -301,7 +302,8 @@ export class PaymentService {
             });
         }
 
-        return qb.getMany();
+        const payments = await qb.getMany();
+        return role === Role.ADMIN ? payments : payments.map(paymentForParent);
     }
 
     async findOne(id: number, role: Role, userId: number) {
@@ -320,7 +322,7 @@ export class PaymentService {
         const payment = await qb.getOne();
         if (!payment) throw new NotFoundException('Payment not found');
 
-        return payment;
+        return role === Role.ADMIN ? payment : paymentForParent(payment);
     }
 
     /**
