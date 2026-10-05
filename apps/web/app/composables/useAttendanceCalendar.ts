@@ -58,6 +58,11 @@ export interface CalendarDayInput {
   attendance: Attendance[];
   /** The timetable of the child's own group. */
   sessions: ClassSessionWithAttendance[];
+  /**
+   * The first day of the child's place in that group (`Child.groupSince`). The group's classes
+   * before it are not the child's: nobody could mark a child who was not there yet.
+   */
+  memberSince?: string | null;
 }
 
 /**
@@ -121,6 +126,7 @@ export function calendarDayState({
   today,
   attendance,
   sessions,
+  memberSince,
 }: CalendarDayInput): CalendarDayState | undefined {
   const record = recordFor(attendance, date);
 
@@ -135,6 +141,12 @@ export function calendarDayState({
 
   const session = sessions.find((candidate) => candidate.date === date && countsAsClass(candidate));
   if (!session) return undefined;
+
+  // A class the group held before the child joined is no class of theirs. Painted, it read "?" —
+  // "nemarcat de profesor" — on every class of the months before a trial (QA of 27 September 2026),
+  // the same lie as the weekday guess above, from the other side. Its own marks were checked first,
+  // so a child who did sit in on one of those classes keeps the mark.
+  if (memberSince && date < memberSince) return undefined;
 
   // Today counts as "planned", not "unmarked": the class may not have finished yet, and the
   // reminder that chases a forgotten register only goes out the next morning.

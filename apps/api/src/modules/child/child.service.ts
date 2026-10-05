@@ -123,7 +123,30 @@ export class ChildService {
         if (filterChildDto.childId) {
             query.andWhere('child.id = :childId', { childId: filterChildDto.childId });
         }
-        return query.getMany();
+        return this.withGroupSince(await query.getMany());
+    }
+
+    /**
+     * Each child with the first day of its place in its group: the start of the enrolment in force.
+     *
+     * The portal's attendance calendar painted every past class of the child's group without a mark
+     * as "?" — "nemarcat de profesor" — including the months before the child joined, which is the
+     * exact lie E12 fixed once already (QA of 27 September 2026: a trial booked for 29 September
+     * showed four Septembers of question marks). `Child.group` says which group, never since when;
+     * the enrolment says both. At most one row per child is in force (`UQ_enrollments_one_in_force`),
+     * so one query answers the whole page.
+     */
+    private async withGroupSince(children: Child[]): Promise<(Child & { groupSince: string | null })[]> {
+        const placed = children.filter((child) => child.group).map((child) => child.id);
+        const rows = placed.length
+            ? await this.enrollmentRepository.find({
+                  where: { child: { id: In(placed) }, status: In([EnrollmentStatus.TRIAL, EnrollmentStatus.ACTIVE]) },
+                  relations: { child: true },
+                  select: { id: true, startDate: true, child: { id: true } },
+              })
+            : [];
+        const since = new Map(rows.map((row) => [row.child.id, row.startDate]));
+        return children.map((child) => Object.assign(child, { groupSince: since.get(child.id) ?? null }));
     }
 
     async updateChild(childId: number, updateChildDto: UpdateChildDto, role: Role, userId: number, actor: Actor, now: Date = new Date()) {

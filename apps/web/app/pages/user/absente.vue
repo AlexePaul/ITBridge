@@ -220,8 +220,10 @@ const load = async () => {
       if (!child.group) continue;
       const sessions = await classSessionsApi.fetchSessions({ groupId: child.group.id });
       for (const session of sessions) {
-        // Only what is still ahead, and not called off.
+        // Only what is still ahead, and not called off — and the child's own: a class before their
+        // first day in the group is one they are not expected at.
         if (session.date < today) continue;
+        if (child.groupSince && session.date < child.groupSince) continue;
         if (session.status === SessionStatus.CANCELLED) continue;
         rows.push({ child, session, announced: isAnnounced(child.id, session.id) });
       }

@@ -298,6 +298,11 @@ const nextClassFor = (
   const own: { session: ClassSession; move: AbsenceNotice | null }[] = (
     child.group ? (sessionsByGroup.value[child.group.id] ?? []) : []
   )
+    // Nor a class before the child's first day in the group: a trial booked two weeks out is not
+    // expected at next week's class (QA of 27 September 2026).
+    .filter(
+      (session: ClassSessionWithAttendance) => !child.groupSince || session.date >= child.groupSince
+    )
     .filter((session: ClassSessionWithAttendance) => !missed.has(session.id))
     .map((session: ClassSessionWithAttendance) => ({ session, move: null }));
   const moves = mine.flatMap((notice) =>
