@@ -52,6 +52,17 @@ describe("the confirmation page", () => {
     expect(PAGE.replace(expired, "")).not.toMatch(/linkul a expirat/i);
   });
 
+  /** QA of 27 September 2026: a parent signed in in this browser was offered "Autentifică-te". */
+  it("sends a parent who is signed in to their account, not to the sign-in form", () => {
+    expect(PAGE).toMatch(/"\/user\/dashboard", label: "Mergi la contul tău"/);
+    for (const state of ["confirmed", "used", "expired"]) {
+      const block =
+        new RegExp(`state === '${state}'"[\\s\\S]*?<\\/template>`).exec(PAGE)?.[0] ?? "";
+      expect(block).toMatch(/:to="nextStep\.to"/);
+      expect(block).not.toMatch(/to="\/auth\/login"/);
+    }
+  });
+
   it("says a used link confirmed the address only when the server says it still does", () => {
     const superseded = { data: { code: "CONFIRMATION_TOKEN_SUPERSEDED" } };
     expect(apiErrorMessage(superseded)).not.toMatch(/este confirmată/);
