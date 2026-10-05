@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Attendance } from 'src/entities/attendance.entity';
@@ -337,12 +337,10 @@ export class AttendanceService {
             relations: ['parent', 'parent.user'],
         });
 
-        if (!child) {
+        // The same answer for another family's child as for no child at all: a 403 here and a 404
+        // there told any signed-in parent which ids exist (QA of 27 September 2026, security pass).
+        if (!child || (userRole !== 'ADMIN' && child.parent.user?.id !== userId)) {
             throw new NotFoundException(`Child with ID ${childId} does not exist`);
-        }
-
-        if (userRole !== 'ADMIN' && child.parent.user?.id !== userId) {
-            throw new ForbiddenException(`You don't have permission to view attendance for this child`);
         }
 
         return this.attendanceRepository.find({

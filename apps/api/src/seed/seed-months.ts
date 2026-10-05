@@ -26,10 +26,7 @@ export interface SeededInvoiceMonth {
  * nothing to issue.
  */
 export function seededInvoiceMonths(seedDay: string, count = SEEDED_INVOICE_MONTHS): SeededInvoiceMonth[] {
-    // The current month is never taught while it runs — its last week ends on or after its last
-    // day — so this walks back one or two steps.
-    let month = seedDay.slice(0, 7);
-    while (!monthIsTaught(month, seedDay)) month = previousMonth(month);
+    let month = latestTaughtMonth(seedDay);
 
     const months: SeededInvoiceMonth[] = [];
     for (let i = 0; i < count; i++) {
@@ -38,6 +35,17 @@ export function seededInvoiceMonths(seedDay: string, count = SEEDED_INVOICE_MONT
         months.push({ month, issuedOn: toIsoDate(addDays(lastSunday, 3)) });
     }
     return months;
+}
+
+/**
+ * The newest month the school has finished teaching on `day` — the newest the issuing screen would
+ * issue. The current month is never taught while it runs (its last week ends on or after its last
+ * day), so this walks back one or two steps. `pnpm seed:scale` invoices up to it too.
+ */
+export function latestTaughtMonth(day: string): string {
+    let month = day.slice(0, 7);
+    while (!monthIsTaught(month, day)) month = previousMonth(month);
+    return month;
 }
 
 function previousMonth(month: string): string {

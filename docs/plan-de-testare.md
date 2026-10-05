@@ -93,7 +93,9 @@ trebuie pentru reparat — vezi [runbook.md](runbook.md), „Un bug". O captură
 - [ ] **P7 · Comutatorul de copil** — la o familie cu doi copii, schimbă copilul. → Toate filele
       arată copilul ales, iar alegerea rămâne la trecerea între pagini.
 - [ ] **P8 · Prezența** — calendarul lunii, cu prezent / absent / nemarcat; lunile anterioare. →
-      Corespunde cu catalogul din admin (B4.6, T1).
+      Corespunde cu catalogul din admin (B4.6, T1). Orele grupei de dinainte de ziua în care copilul a
+      intrat în ea nu au niciun semn — nici „?" —, iar pentru o probă viitoare calendarul începe cu ora
+      probei.
 - [ ] **P9 · Absențe** — ce a notat biroul și, dacă e cazul, mutarea: „va veni joi la grupa X".
 - [ ] **P10 · Plăți** — facturile, cu **restul de plată** (nu totalul, dacă s-a plătit parțial),
       datele pentru transfer și reducerile. PDF-ul facturii se descarcă.
@@ -110,13 +112,15 @@ trebuie pentru reparat — vezi [runbook.md](runbook.md), „Un bug". O captură
 - [ ] **P16 · Parola uitată** — deconectat, „Ți-ai uitat parola?" → Livrări → linkul (valabil o oră) →
       parolă nouă. → Te poți autentifica cu ea; linkul nu mai merge a doua oară.
 - [ ] **P17 · Marketing** — Profil: comutatorul de mesaje promoționale. → Se salvează; un anunț de
-      marketing (B6.1) nu mai ajunge la familie.
+      marketing (B6.1) nu mai ajunge la familie. Dacă nicio familie din audiență n-a acceptat,
+      ecranul de anunțuri o spune și nu trimite.
 - [ ] **P18 · Acordul pentru lucrări** — Profil: pentru fiecare copil, dă și retrage acordul. →
       Confirmarea e în Livrări de fiecare dată. **Acorduri pentru lucrări** listează doar acordurile în
       vigoare, deci o retragere se vede prin copilul care dispare din listă, plus mesajul „Acord
       retras" către birou, în Livrări.
 - [ ] **P19 · Datele mele** — Profil → „Descarcă datele mele". → Un fișier cu familia, copiii, facturile,
-      acceptările; nimic despre altă familie.
+      acceptările; nimic despre altă familie. Cererea de probă poartă și notițele biroului, iar o
+      absență anunțată, ora la care a fost mutat copilul.
 - [ ] **P20 · Cererea de ștergere** — Profil → „Cere ștergerea contului" (două apăsări), apoi retrage-o. → Apare și dispare de
       la **Cereri de ștergere**; nimic nu se șterge fără biroul.
 
@@ -167,9 +171,10 @@ trebuie pentru reparat — vezi [runbook.md](runbook.md), „Un bug". O captură
 - [ ] **B3.3 · Transfer** — mută un copil în altă grupă. → Grupa veche are un loc liber, oferit
       primei familii de pe lista ei de așteptare (mesaj în Livrări).
 - [ ] **B3.4 · Proba** — Formarea grupelor → Probe fără decizie → Tudor Neagu (proba ținută din
-      seed): „A rămas" îl face înscris, nefacturat până la decizie. Pe o altă probă, din Cereri și
-      probe, „Pierdut…" o închide și locul se oferă listei. În ambele cazuri, cererea trece singură în
-      starea ei.
+      seed): „A rămas" îl face înscris, nefacturat până la decizie. Pe o altă probă, „Nu continuă"
+      cere motivul (fără el refuză), iar din Cereri și probe, „Pierdut…" face același lucru; locul se
+      oferă listei. În ambele cazuri, cererea trece singură în starea ei. O probă viitoare transferată
+      în altă grupă apare în istoric cu o perioadă de zero zile, niciodată „29.09 – 27.09".
 - [ ] **B3.5 · Lista de așteptare** — o grupă plină: pune un copil pe listă, eliberează un loc. →
       Familia primește oferta de 48 de ore; locul oferit nu se mai vede ca liber.
 - [ ] **B3.6 · Contractul** — Contracte nesemnate: „Semnat la" pe un rând. → Dispare din listă. O

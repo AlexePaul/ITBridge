@@ -147,7 +147,11 @@ acum întreabă `GET /invoices/months` —, iar pagina unei luni cere `?monthIss
 pagină de admin cerea la pornire `GET /profiles`, care pentru un admin înseamnă **toate familiile**,
 ca să umple profilul unui părinte pe care nu-l citea nimeni: `initializeProfile` sare acum peste
 admini. **Regula: o listă de admin care crește lunar cere o lună**, nu tot tabelul; un ecran nou
-de felul ăsta se măsoară cu `pnpm seed:scale` înainte să fie numit gata.
+de felul ăsta se măsoară cu `pnpm seed:scale` înainte să fie numit gata. **O listă care nu se taie
+pe lună** — restanțele, contractele nesemnate — desenează o sută de rânduri, cu „Arată încă" și o
+căutare după nume (`useListWindow`), iar după o scriere se recitește fără starea de încărcare
+(testarea din 27 septembrie 2026: 690 de carduri desenate de la zero după fiecare încasare, iar
+biroul ajungea înapoi la octombrie 2023). Livrările spun când lista s-a oprit la cele mai noi 200.
 
 **Nu e o bază în care se dă clic**: n-are conturi de părinte, toate familiile se cheamă `Familia 37`
 și **golește tot** înainte, deci trece prin acelaşi `checkSeedTarget`. Când ai terminat de măsurat,
@@ -1675,7 +1679,12 @@ oprește rotația exact între revocarea rândului vechi și scrierea celui nou.
 **Numele de utilizator al unui admin nu pleacă spre un părinte.** E jumătate din credențial, iar
 login-ul e limitat pe adresă, nu pe cont. `GET /payments` îl punea pe fiecare plată a fiecărei
 familii (`recordedBy`), deși niciun ecran de părinte nu-l arată; acum îl primește doar biroul —
-`withRecorder` din `payment.service.ts`.
+`withRecorder` din `payment.service.ts`. **Nici nota biroului de pe o plată și nici coada fiscală**
+(trecerea de securitate din 27 septembrie 2026): un părinte își primește plățile și facturile prin
+`paymentForParent` și `invoiceForParent`, fără `notes` — acolo scrie reconcilierea textul
+transferului — și fără eroarea SmartBill, încercări, numărul așteptat sau cifrele verificării.
+Portalul nu le citește; biroul le vede pe toate. Tot de aici: copilul altei familii primește același
+404 ca un id care nu există, nu un 403 care spune că există.
 
 **Revocarea acționează doar pe refresh, nu și pe access.** `AuthGuard` verifică semnătura JWT și
 atât — nu atinge tabelul `sessions`. Deci după `logout` sau `logout-all`, un access token deja emis

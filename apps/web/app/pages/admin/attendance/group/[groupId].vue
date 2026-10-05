@@ -9,6 +9,15 @@
 
     <AdminError v-else-if="loadError" :message="loadError" @retry="load" />
 
+    <!-- An address with a group that is not there — typed, or kept from before a deletion — read
+         "Grupa abc · Necunoscut" and offered to generate a timetable (QA of 27 September 2026). -->
+    <AdminEmpty
+      v-else-if="!group"
+      title="Grupa aceasta nu există."
+      description="Poate a fost ștearsă, sau adresa e greșită. Alege grupa din Prezență."
+      icon="i-lucide-users-round"
+    />
+
     <template v-else>
       <!-- Full width on a phone, a readable column from `sm` up. It was `w-1/3` at every width:
            on a 390px screen that is a 110px column, so every child's name broke into two lines and
@@ -454,6 +463,8 @@ const load = async () => {
   } finally {
     loading.value = false;
   }
+  // Nothing more to ask about a group that is not there: its members would be `/members` of NaN.
+  if (!group.value) return;
 
   try {
     const members = await enrollmentsApi.fetchMembers(Number(groupId.value));

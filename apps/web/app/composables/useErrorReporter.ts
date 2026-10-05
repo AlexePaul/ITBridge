@@ -86,6 +86,15 @@ export function componentTrail(instance: unknown, depth = 3): string | undefined
   return names.length ? names.join(" < ").slice(0, 200) : undefined;
 }
 
+/**
+ * A route as people write it: `/admin/profiles/:profileId`, not Nuxt's `/admin/profiles/:profileId()`.
+ * The matcher's syntax went on the error screen as the origin, and the screen map, the runbook and
+ * the server's own origins write the plain form (QA of 27 September 2026).
+ */
+export function routePattern(path: string): string {
+  return path.replace(/\([^()]*\)[*+?]?/g, "");
+}
+
 /** The body of `POST /errors/client`, cut to what the API accepts. */
 export function describeClientError(
   error: unknown,
@@ -101,7 +110,7 @@ export function describeClientError(
     name: name.slice(0, 100),
     message: (message || "(fără mesaj)").slice(0, 1000),
     ...(stack ? { stack: stack.slice(0, 8000) } : {}),
-    route: (where.route || "/").slice(0, 200),
+    route: routePattern(where.route || "/").slice(0, 200),
     ...(where.path ? { path: where.path.slice(0, 500) } : {}),
     ...(where.component ? { component: where.component } : {}),
     kind,

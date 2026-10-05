@@ -2,6 +2,8 @@ import { DataSource } from 'typeorm';
 import AppDataSource from '../data-source';
 import { checkSeedTarget } from './seed-target';
 import { describeShape, ScaleShape, scaleShape, TEACHING_WEEKS_PER_YEAR, UNPAID_IN_EVERY } from './scale.rules';
+import { latestTaughtMonth } from './seed-months';
+import { schoolDay } from '../common/school-clock';
 
 /**
  * A school with years of history behind it, for measuring queries — E04/S3, a second volume.
@@ -56,6 +58,11 @@ async function truncateAll(dataSource: DataSource): Promise<void> {
  */
 async function load(dataSource: DataSource, shape: ScaleShape): Promise<void> {
     const q = (sql: string, params: unknown[] = []) => dataSource.query(sql, params);
+    // The first day of the newest month the school has finished teaching: invoices count back from
+    // it, not from the current month, which the issuing screen refuses until its last week is over
+    // (E15 S9). Written from today's month, the scale school had September invoiced in September
+    // (QA of 27 September 2026).
+    const newestInvoiced = `${latestTaughtMonth(schoolDay(new Date()))}-01`;
 
     await q(
         `INSERT INTO locations (name, slug, street, city, latitude, longitude, "isActive")
@@ -95,17 +102,23 @@ async function load(dataSource: DataSource, shape: ScaleShape): Promise<void> {
         [shape.children, shape.families],
     );
 
+    // From the first class or the first invoiced month, whichever is older: every invoice and every
+    // class falls inside an enrolment. They started after the oldest invoices before (QA of 27
+    // September 2026), a school billing families for months before they joined.
     await q(
         `INSERT INTO enrollments (child_id, group_id, status, "startDate")
-         SELECT c.id, c.group_id, 'ACTIVE', CURRENT_DATE - $1::int FROM children c`,
-        [shape.weeks * 7],
+         SELECT c.id, c.group_id, 'ACTIVE', LEAST(CURRENT_DATE - $1::int, ($2::date - (($3::int - 1) || ' month')::interval)::date) FROM children c`,
+        [shape.weeks * 7, newestInvoiced, shape.months],
     );
 
-    // One class a week per group, counting back from today so the newest rows are current.
+    // One class a week per group, on the group's own weekday, counting back from its most recent
+    // one so the newest rows are current. Counted from today alone, every class of the school fell
+    // on the weekday the seed ran — 3,510 classes on Sundays (QA of 27 September 2026).
     await q(
         `INSERT INTO class_sessions (group_id, room_id, date, "scheduledFor", "startTime", "endTime", status, "isVacation")
-         SELECT gr.id, gr.room_id, CURRENT_DATE - (w * 7), CURRENT_DATE - (w * 7), '16:00:00', '17:30:00', 'scheduled', false
-         FROM groups gr, generate_series(0, $1::int - 1) w`,
+         SELECT gr.id, gr.room_id, d.day, d.day, '16:00:00', '17:30:00', 'scheduled', false
+         FROM groups gr, generate_series(0, $1::int - 1) w,
+              LATERAL (SELECT CURRENT_DATE - ((EXTRACT(ISODOW FROM CURRENT_DATE)::int - gr.weekday + 7) % 7) - (w * 7) AS day) d`,
         [shape.weeks],
     );
 
@@ -119,12 +132,13 @@ async function load(dataSource: DataSource, shape: ScaleShape): Promise<void> {
     await q(
         `INSERT INTO invoices (parent_id, "monthIssued", "dateIssued", amount, status)
          SELECT p.id,
-                to_char((CURRENT_DATE - ((m || ' month')::interval))::date, 'YYYY-MM'),
-                (CURRENT_DATE - ((m || ' month')::interval))::date,
+                to_char(($3::date - (m || ' month')::interval)::date, 'YYYY-MM'),
+                -- A week into the next month, after the month's last teaching week; never later than today.
+                LEAST(($3::date - (m || ' month')::interval + interval '1 month 7 days')::date, CURRENT_DATE),
                 350.00,
                 (CASE WHEN (p.id + m) % $2 = 0 THEN 'pending' ELSE 'paid' END)::invoices_status_enum
          FROM profiles p, generate_series(0, $1::int - 1) m`,
-        [shape.months, UNPAID_IN_EVERY],
+        [shape.months, UNPAID_IN_EVERY, newestInvoiced],
     );
 
     await q(
@@ -133,8 +147,8 @@ async function load(dataSource: DataSource, shape: ScaleShape): Promise<void> {
          FROM invoices i WHERE i.status = 'paid'`,
     );
 
-    // Everything the school has ever sent. `sent` rows are never deleted, which is the property
-    // that makes this the table where an unrestricted query hurts first.
+    // Everything the school has sent. `sent` rows go only after twelve months (E22 S3), so they are
+    // most of the table, which is what makes it the place an unrestricted query hurts first.
     await q(
         `INSERT INTO outbox ("to", subject, "bodyText", status, attempts, "nextAttemptAt", "createdAt", "dedupeKey", "sentAt")
          SELECT 'familia' || (((g - 1) % $2) + 1) || '@example.invalid', 'Mesaj ' || g, 'Corp', 'sent', 1,

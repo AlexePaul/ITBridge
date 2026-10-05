@@ -36,6 +36,8 @@ export interface StatementLineSuggestion {
     invoiceId: number;
     confidence: MatchConfidence;
     overpays: boolean;
+    /** Overpays only because lines above it on the same invoice already cover the rest — `withRunningRemainder`. */
+    coveredByEarlierLines: boolean;
     familyName: string;
     monthIssued: string;
     /** The words the family was asked to write on the transfer (`payment-reference.ts`), when there are any yet. */
@@ -208,6 +210,7 @@ export class ReconciliationService {
                     suggestion && target
                         ? {
                               ...suggestion,
+                              coveredByEarlierLines: suggestion.coveredByEarlierLines ?? false,
                               familyName: `${target.family.lastName} ${target.family.firstName}`.trim(),
                               monthIssued: target.monthIssued,
                               paymentReference: target.reference?.text ?? null,

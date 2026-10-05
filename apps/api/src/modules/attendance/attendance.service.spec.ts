@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { AttendanceService } from './attendance.service';
 import { AbsenceNoticeService } from './absence-notice.service';
 import { Attendance } from 'src/entities/attendance.entity';
@@ -440,10 +440,16 @@ describe('AttendanceService', () => {
     });
 
     describe('getAttendanceByChild', () => {
-        it("forbids a parent from seeing another child's attendance", async () => {
+        /** QA of 27 September 2026: a 403 here and a 404 for a missing id told a parent which ids exist. */
+        it("answers another family's child exactly as a child that does not exist", async () => {
             childRepo.findOne!.mockResolvedValue({ id: 1, parent: { user: { id: 999 } } });
+            const theirs = await service.getAttendanceByChild(1, 'PARENT', 5).catch((e: unknown) => e);
 
-            await expect(service.getAttendanceByChild(1, 'PARENT', 5)).rejects.toThrow(ForbiddenException);
+            childRepo.findOne!.mockResolvedValue(null);
+            const nobody = await service.getAttendanceByChild(1, 'PARENT', 5).catch((e: unknown) => e);
+
+            expect(theirs).toBeInstanceOf(NotFoundException);
+            expect((theirs as NotFoundException).getResponse()).toEqual((nobody as NotFoundException).getResponse());
         });
 
         it("lets a parent see their own child's attendance", async () => {

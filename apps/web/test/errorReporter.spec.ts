@@ -4,6 +4,7 @@ import {
   componentTrail,
   createErrorReporter,
   describeClientError,
+  routePattern,
   isReportableError,
   newErrorReference,
   serverReference,
@@ -78,7 +79,8 @@ describe("the browser's error reports", () => {
     expect(body.stack).toHaveLength(8000);
     expect(body).toMatchObject({
       name: "Error",
-      route: where.route,
+      // Without Nuxt's `()`: the origin reads as the screen map and the runbook write it.
+      route: "/admin/profiles/:id",
       path: where.path,
       kind: "vue",
       reference: "b7e1c04a",
@@ -155,5 +157,14 @@ describe("the browser's error reports", () => {
       });
       expect(() => throwing.report(new Error("b"), "vue", where)).not.toThrow();
     });
+  });
+});
+
+describe("routePattern", () => {
+  it("writes a route as the map and the runbook do, without Nuxt's matcher syntax", () => {
+    expect(routePattern("/admin/profiles/:profileId()")).toBe("/admin/profiles/:profileId");
+    expect(routePattern("/files/:publicId()")).toBe("/files/:publicId");
+    expect(routePattern("/:slug(.*)*")).toBe("/:slug");
+    expect(routePattern("/admin/erori")).toBe("/admin/erori");
   });
 });

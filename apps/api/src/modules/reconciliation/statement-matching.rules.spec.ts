@@ -164,6 +164,14 @@ describe('statement matching', () => {
 
             expect(judged.get(1)?.overpays).toBe(false);
             expect(judged.get(2)?.overpays).toBe(true);
+            // And says why: the line above covers the rest, which is not "this amount is too big".
+            expect(judged.get(2)?.coveredByEarlierLines).toBe(true);
+        });
+
+        it('tells an overpayment on its own from one the lines above caused', () => {
+            const judged = withRunningRemainder([{ id: 1, bookedOn: '2026-11-03', amount: 400 }], new Map([[1, sure()]]), open);
+
+            expect(judged.get(1)).toMatchObject({ overpays: true, coveredByEarlierLines: false });
         });
 
         it('lets two partial payments through while together they fit, and stops the one that does not', () => {

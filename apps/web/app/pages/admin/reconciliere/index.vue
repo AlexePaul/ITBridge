@@ -168,7 +168,14 @@
                   >
                     {{ MATCH_CONFIDENCE_LABELS[row.original.suggestion.confidence] }}
                   </UBadge>
-                  <span v-if="row.original.suggestion.overpays" class="text-xs text-warning">
+                  <span
+                    v-if="row.original.suggestion.coveredByEarlierLines"
+                    class="text-xs text-warning"
+                  >
+                    O linie de mai sus acoperă deja restul acestei facturi — poate e aceeași plată
+                    de două ori. Decide tu: pune-o deoparte sau înregistreaz-o ca avans.
+                  </span>
+                  <span v-else-if="row.original.suggestion.overpays" class="text-xs text-warning">
                     Suma depășește restul facturii — diferența ar rămâne ca avans.
                   </span>
                 </template>

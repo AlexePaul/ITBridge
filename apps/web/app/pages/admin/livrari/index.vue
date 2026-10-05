@@ -43,6 +43,12 @@
     />
 
     <div v-else class="space-y-2">
+      <!-- Said, not hidden: the list stops at the newest DELIVERY_PAGE, and a day of 1,440 messages
+           or a family with 216 read as if that were all of them (QA of 27 September 2026). -->
+      <p v-if="records.length >= DELIVERY_PAGE" class="text-sm border-l-2 border-warning pl-3 py-1">
+        Se văd cele mai noi {{ countOf(DELIVERY_PAGE, "mesaj", "mesaje") }}; pot fi mai multe.
+        Restrânge filtrul — o stare, o adresă sau un interval de zile — ca să le vezi pe celelalte.
+      </p>
       <div v-for="record in records" :key="record.id" class="border border-muted rounded-lg p-4">
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
@@ -150,6 +156,8 @@ const deliveriesApi = useDeliveriesApi();
 const loading = ref(true);
 const loadError = ref("");
 const records = ref<DeliveryRecord[]>([]);
+/** How many messages the list asks for; the API's own default, sent so the screen knows its edge. */
+const DELIVERY_PAGE = 200;
 const summary = ref<DeliverySummary | null>(null);
 const expanded = ref<number | null>(null);
 
@@ -173,6 +181,7 @@ const load = async () => {
   try {
     const [list, counts] = await Promise.all([
       deliveriesApi.fetchDeliveries({
+        limit: DELIVERY_PAGE,
         status: filter.status,
         to: filter.to || undefined,
         from: filter.from || undefined,

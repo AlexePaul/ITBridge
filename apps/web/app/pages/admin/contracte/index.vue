@@ -23,43 +23,62 @@
       </div>
     </UCard>
 
-    <UCard v-for="row in rows" v-else :key="row.id" class="border">
-      <div class="flex flex-col md:flex-row md:items-center gap-4">
-        <div class="flex-1 space-y-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="font-semibold text-lg">
-              {{ row.child?.firstName }} {{ row.child?.lastName }}
-            </span>
-            <UBadge color="neutral" variant="subtle" size="sm">{{ row.group?.name }}</UBadge>
+    <template v-else>
+      <AdminSearchInput
+        v-model="query"
+        label="Caută copilul sau familia"
+        placeholder="Caută după numele copilului sau al familiei"
+        icon="i-lucide-search"
+      />
+      <p v-if="query && matching.length === 0" class="text-sm text-muted">
+        Nicio înscriere fără contract nu se potrivește cu „{{ query }}".
+      </p>
+      <UCard v-for="row in visible" :key="row.id" class="border">
+        <div class="flex flex-col md:flex-row md:items-center gap-4">
+          <div class="flex-1 space-y-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-semibold text-lg">
+                {{ row.child?.firstName }} {{ row.child?.lastName }}
+              </span>
+              <UBadge color="neutral" variant="subtle" size="sm">{{ row.group?.name }}</UBadge>
+            </div>
+            <p class="text-sm text-muted">
+              Înscris din {{ formatDateKey(row.startDate) }}
+              <template v-if="row.child?.parent">
+                · {{ row.child.parent.firstName }} {{ row.child.parent.lastName }}
+                <template v-if="row.child.parent.phone"> · {{ row.child.parent.phone }}</template>
+              </template>
+            </p>
           </div>
-          <p class="text-sm text-muted">
-            Înscris din {{ formatDateKey(row.startDate) }}
-            <template v-if="row.child?.parent">
-              · {{ row.child.parent.firstName }} {{ row.child.parent.lastName }}
-              <template v-if="row.child.parent.phone"> · {{ row.child.parent.phone }}</template>
-            </template>
-          </p>
+          <div class="flex items-end gap-2 shrink-0">
+            <UFormField label="Semnat la" :name="`signed-${row.id}`">
+              <AdminDateField
+                v-model="signedOn[row.id]"
+                :max="today"
+                :label="`data semnării pentru ${row.child?.firstName} ${row.child?.lastName}`"
+              />
+            </UFormField>
+            <UButton
+              color="primary"
+              class="min-h-11"
+              :loading="busyId === row.id"
+              :disabled="busyId !== null || !isDateKey(signedOn[row.id])"
+              @click="record(row)"
+            >
+              Consemnează
+            </UButton>
+          </div>
         </div>
-        <div class="flex items-end gap-2 shrink-0">
-          <UFormField label="Semnat la" :name="`signed-${row.id}`">
-            <AdminDateField
-              v-model="signedOn[row.id]"
-              :max="today"
-              :label="`data semnării pentru ${row.child?.firstName} ${row.child?.lastName}`"
-            />
-          </UFormField>
-          <UButton
-            color="primary"
-            class="min-h-11"
-            :loading="busyId === row.id"
-            :disabled="busyId !== null || !isDateKey(signedOn[row.id])"
-            @click="record(row)"
-          >
-            Consemnează
-          </UButton>
-        </div>
+      </UCard>
+      <div v-if="hidden > 0" class="flex flex-wrap items-center gap-3">
+        <p class="text-sm text-muted">
+          Încă {{ countOf(hidden, "înscriere", "înscrieri") }} mai jos.
+        </p>
+        <UButton color="neutral" variant="outline" size="sm" @click="more">
+          Arată încă {{ Math.min(hidden, step) }}
+        </UButton>
       </div>
-    </UCard>
+    </template>
 
     <p v-if="rows.length > 0" class="text-xs text-muted">
       Data e cea de pe hârtie, nu cea de azi. Platforma nu ține textul contractului și nu capturează
@@ -70,6 +89,7 @@
 
 <script setup lang="ts">
 import { countOf } from "~/composables/useRomanianCount";
+import { nameMatches, useListWindow } from "~/composables/useListWindow";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
 import { useNotifications } from "~/composables/useNotifications";
@@ -106,6 +126,25 @@ const today = todayKey();
 const isDateKey = (value: string | undefined) =>
   value !== undefined && DATE_KEY_PATTERN.test(value);
 
+/** A typed name keeps the rows whose child or family answers to it; the count above stays all of them. */
+const query = ref("");
+const matching = computed(() =>
+  rows.value.filter((row) =>
+    nameMatches(
+      [
+        row.child?.firstName,
+        row.child?.lastName,
+        row.child?.parent?.firstName,
+        row.child?.parent?.lastName,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      query.value
+    )
+  )
+);
+const { visible, hidden, more, step } = useListWindow(matching);
+
 const load = async () => {
   loading.value = true;
   loadError.value = "";
@@ -131,7 +170,10 @@ const record = async (row: Enrollment) => {
       "Contract consemnat",
       `${row.child?.firstName} ${row.child?.lastName} · ${formatDateKey(day!)}`
     );
-    await load();
+    // Out of the list on the spot: it now has a contract, which is the list's only question. A
+    // full reload drew three hundred cards again and put the office back at the top (QA of 27
+    // September 2026).
+    rows.value = rows.value.filter((other) => other.id !== row.id);
   } catch (err: unknown) {
     notifyError("Nu am putut consemna contractul", apiErrorMessage(err));
   } finally {

@@ -1,195 +1,207 @@
 <template>
   <AdminPage title="Editare copil" back-to="/admin/children">
-    <UCard variant="subtle">
-      <UForm :schema="schema" :state="state" class="space-y-5 w-full" @submit="handleSubmit">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <UFormField name="firstName">
-            <template #label>Prenume<span class="text-error">*</span></template>
-            <UInput v-model="state.firstName" placeholder="ex. Maria" />
+    <!-- A child id that is not there showed an empty form and "Copilul nu a fost înscris în nicio
+         grupă", having asked for the history of child NaN (QA of 27 September 2026). -->
+    <AdminEmpty
+      v-if="notFound"
+      title="Copilul acesta nu există."
+      description="Poate a fost șters, sau adresa e greșită. Caută-l în lista de copii."
+      icon="i-lucide-user-x"
+    />
+    <template v-else>
+      <UCard variant="subtle">
+        <UForm :schema="schema" :state="state" class="space-y-5 w-full" @submit="handleSubmit">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <UFormField name="firstName">
+              <template #label>Prenume<span class="text-error">*</span></template>
+              <UInput v-model="state.firstName" placeholder="ex. Maria" />
+            </UFormField>
+
+            <UFormField name="lastName">
+              <template #label>Nume<span class="text-error">*</span></template>
+              <UInput v-model="state.lastName" placeholder="ex. Popescu" />
+            </UFormField>
+          </div>
+
+          <UFormField name="birthDate">
+            <template #label>Data Nașterii<span class="text-error">*</span></template>
+            <AdminDateField v-model="state.birthDate" :max="today" label="data nașterii" />
           </UFormField>
 
-          <UFormField name="lastName">
-            <template #label>Nume<span class="text-error">*</span></template>
-            <UInput v-model="state.lastName" placeholder="ex. Popescu" />
-          </UFormField>
-        </div>
+          <AdminFormActions
+            submit-label="Salvează modificări"
+            cancel-to="/admin/children"
+            :loading="saving"
+          />
+        </UForm>
+      </UCard>
 
-        <UFormField name="birthDate">
-          <template #label>Data Nașterii<span class="text-error">*</span></template>
-          <AdminDateField v-model="state.birthDate" :max="today" label="data nașterii" />
-        </UFormField>
-
-        <AdminFormActions
-          submit-label="Salvează modificări"
-          cancel-to="/admin/children"
-          :loading="saving"
-        />
-      </UForm>
-    </UCard>
-
-    <!--
+      <!--
     E11/S1. The history is the answer to "which group was this child in last October" — the question
     the old single foreign key on `Child` could not answer at all, and the one that comes up when a
     family disputes an invoice.
   -->
-    <UCard variant="subtle">
-      <template #header>
-        <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-history" class="text-primary" />
-          <h2 class="text-xl font-bold">Istoricul înscrierilor</h2>
-        </div>
-      </template>
-
-      <AdminLoading v-if="historyLoading" />
-
-      <AdminEmpty
-        v-else-if="history.length === 0"
-        bare
-        title="Copilul nu a fost înscris în nicio grupă."
-        icon="i-lucide-history"
-      />
-
-      <div v-else class="space-y-3">
-        <div
-          v-for="entry in history"
-          :key="entry.id"
-          class="flex items-start justify-between gap-4 p-4 border border-muted rounded-lg"
-        >
-          <div>
-            <p class="font-semibold">
-              {{ entry.group?.name ?? "Grupă ștearsă" }}
-              <UBadge
-                :color="entry.endDate === null ? 'success' : 'neutral'"
-                variant="subtle"
-                size="sm"
-                class="ml-2"
-              >
-                {{ ENROLLMENT_STATUS_LABELS[entry.status] }}
-              </UBadge>
-            </p>
-            <p class="text-sm text-muted">{{ periodOf(entry) }}</p>
-            <p v-if="entry.exitReason" class="text-sm text-muted">{{ entry.exitReason }}</p>
+      <UCard variant="subtle">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-history" class="text-primary" />
+            <h2 class="text-xl font-bold">Istoricul înscrierilor</h2>
           </div>
-          <p v-if="entry.contractSignedAt" class="text-sm text-muted whitespace-nowrap">
-            Contract {{ formatDate(entry.contractSignedAt) }}
-          </p>
-          <!-- E07/S8: an active enrolment with nothing on file says so, and takes the day here,
-             without a detour through the list — a trial has no contract, so it shows nothing. -->
+        </template>
+
+        <AdminLoading v-if="historyLoading" />
+
+        <AdminEmpty
+          v-else-if="history.length === 0"
+          bare
+          title="Copilul nu a fost înscris în nicio grupă."
+          icon="i-lucide-history"
+        />
+
+        <div v-else class="space-y-3">
           <div
-            v-else-if="entry.status === 'ACTIVE' && entry.endDate === null"
-            class="flex items-end gap-2 shrink-0"
+            v-for="entry in history"
+            :key="entry.id"
+            class="flex items-start justify-between gap-4 p-4 border border-muted rounded-lg"
           >
-            <UFormField label="Contract semnat la" name="contractSignedAt">
-              <AdminDateField
-                v-model="contractDay"
-                :max="today"
-                label="data semnării contractului"
-              />
-            </UFormField>
-            <UButton
-              color="warning"
-              variant="soft"
-              class="min-h-11"
-              :loading="recordingContract"
-              :disabled="recordingContract || !DATE_KEY_PATTERN.test(contractDay ?? '')"
-              @click="recordContractFor(entry)"
+            <div>
+              <p class="font-semibold">
+                {{ entry.group?.name ?? "Grupă ștearsă" }}
+                <UBadge
+                  :color="entry.endDate === null ? 'success' : 'neutral'"
+                  variant="subtle"
+                  size="sm"
+                  class="ml-2"
+                >
+                  {{ ENROLLMENT_STATUS_LABELS[entry.status] }}
+                </UBadge>
+              </p>
+              <p class="text-sm text-muted">{{ periodOf(entry) }}</p>
+              <p v-if="entry.exitReason" class="text-sm text-muted">{{ entry.exitReason }}</p>
+            </div>
+            <p v-if="entry.contractSignedAt" class="text-sm text-muted whitespace-nowrap">
+              Contract {{ formatDate(entry.contractSignedAt) }}
+            </p>
+            <!-- E07/S8: an active enrolment with nothing on file says so, and takes the day here,
+             without a detour through the list — a trial has no contract, so it shows nothing. -->
+            <div
+              v-else-if="entry.status === 'ACTIVE' && entry.endDate === null"
+              class="flex items-end gap-2 shrink-0"
             >
-              Fără contract — consemnează
-            </UButton>
+              <UFormField label="Contract semnat la" name="contractSignedAt">
+                <AdminDateField
+                  v-model="contractDay"
+                  :max="today"
+                  label="data semnării contractului"
+                />
+              </UFormField>
+              <UButton
+                color="warning"
+                variant="soft"
+                class="min-h-11"
+                :loading="recordingContract"
+                :disabled="recordingContract || !DATE_KEY_PATTERN.test(contractDay ?? '')"
+                @click="recordContractFor(entry)"
+              >
+                Fără contract — consemnează
+              </UButton>
+            </div>
           </div>
         </div>
-      </div>
 
-      <template v-if="inForce" #footer>
-        <!--
+        <template v-if="inForce" #footer>
+          <!--
         E11/S5. A transfer is the only way a child changes group, because D6 forbids a second
         enrolment in force — so this is a move, not an add, and it says so.
       -->
-        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-          <USelect
-            v-model="transferTargetId"
-            :items="transferOptions"
-            placeholder="Mută în altă grupă…"
-            aria-label="Grupa în care se mută copilul"
-            class="flex-1"
-          />
-          <UButton
-            color="primary"
-            :disabled="!transferTargetId || transferring"
-            :loading="transferring"
-            @click="handleTransfer()"
-          >
-            Transferă
-          </UButton>
-        </div>
-        <p class="text-sm text-muted mt-2">
-          Închide înscrierea curentă și o deschide pe cea nouă, într-o singură operațiune. Istoricul
-          păstrează ambele perioade.
-        </p>
-      </template>
-    </UCard>
-    <!--
+          <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+            <USelect
+              v-model="transferTargetId"
+              :items="transferOptions"
+              placeholder="Mută în altă grupă…"
+              aria-label="Grupa în care se mută copilul"
+              class="flex-1"
+            />
+            <UButton
+              color="primary"
+              :disabled="!transferTargetId || transferring"
+              :loading="transferring"
+              @click="handleTransfer()"
+            >
+              Transferă
+            </UButton>
+          </div>
+          <p class="text-sm text-muted mt-2">
+            Închide înscrierea curentă și o deschide pe cea nouă, într-o singură operațiune.
+            Istoricul păstrează ambele perioade.
+          </p>
+        </template>
+      </UCard>
+      <!--
       A child joined to the family it belongs with. Every `/proba` booking writes its own shell
       family, so two siblings booked one after the other are two families — no sibling price, and a
       second family nobody could remove (QA of 26 September 2026). The server refuses a family that
       has invoices, where a move would split what was billed.
     -->
-    <UCard class="border rounded-lg" variant="subtle">
-      <template #header>
-        <h2 class="text-lg font-semibold">Familia</h2>
-      </template>
-      <p v-if="currentFamily" class="mb-3">
-        Acum în familia
-        <NuxtLink :to="`/admin/profiles/${currentFamily.id}`" class="underline"
-          >{{ currentFamily.firstName }} {{ currentFamily.lastName }}</NuxtLink
-        >.
-      </p>
-      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-        <USelectMenu
-          v-model="familyTargetId"
-          :items="familyItems"
-          value-key="value"
-          placeholder="Mută în altă familie…"
-          aria-label="Familia în care se mută copilul"
-          class="flex-1"
-        />
-        <UButton
-          color="warning"
-          variant="soft"
-          class="min-h-11"
-          :disabled="!familyTargetId"
-          @click="familyConfirmOpen = true"
-        >
-          Mută copilul
-        </UButton>
-      </div>
-      <p class="text-sm text-muted mt-2">
-        Pentru frații programați separat la probă: copilul trece cu înscrierile, prezențele și
-        lucrările lui, iar familia rămasă goală se poate șterge din pagina ei.
-      </p>
-    </UCard>
-    <AdminConfirmModal
-      v-model:open="familyConfirmOpen"
-      title="Muți copilul în altă familie?"
-      confirm-label="Mută"
-      :loading="movingFamily"
-      @confirm="moveFamily"
-    >
-      <template #body>
-        <p>{{ state.firstName }} {{ state.lastName }} trece în familia {{ familyTargetLabel }}.</p>
-      </template>
-    </AdminConfirmModal>
-    <AdminConfirmModal
-      v-model:open="transferWarningOpen"
-      title="Transferi totuși?"
-      confirm-label="Transferă oricum"
-      :loading="transferring"
-      @confirm="handleTransfer(true)"
-    >
-      <template #body>
-        <p>{{ transferWarning }}</p>
-      </template>
-    </AdminConfirmModal>
+      <UCard class="border rounded-lg" variant="subtle">
+        <template #header>
+          <h2 class="text-lg font-semibold">Familia</h2>
+        </template>
+        <p v-if="currentFamily" class="mb-3">
+          Acum în familia
+          <NuxtLink :to="`/admin/profiles/${currentFamily.id}`" class="underline"
+            >{{ currentFamily.firstName }} {{ currentFamily.lastName }}</NuxtLink
+          >.
+        </p>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+          <USelectMenu
+            v-model="familyTargetId"
+            :items="familyItems"
+            value-key="value"
+            placeholder="Mută în altă familie…"
+            aria-label="Familia în care se mută copilul"
+            class="flex-1"
+          />
+          <UButton
+            color="warning"
+            variant="soft"
+            class="min-h-11"
+            :disabled="!familyTargetId"
+            @click="familyConfirmOpen = true"
+          >
+            Mută copilul
+          </UButton>
+        </div>
+        <p class="text-sm text-muted mt-2">
+          Pentru frații programați separat la probă: copilul trece cu înscrierile, prezențele și
+          lucrările lui, iar familia rămasă goală se poate șterge din pagina ei.
+        </p>
+      </UCard>
+      <AdminConfirmModal
+        v-model:open="familyConfirmOpen"
+        title="Muți copilul în altă familie?"
+        confirm-label="Mută"
+        :loading="movingFamily"
+        @confirm="moveFamily"
+      >
+        <template #body>
+          <p>
+            {{ state.firstName }} {{ state.lastName }} trece în familia {{ familyTargetLabel }}.
+          </p>
+        </template>
+      </AdminConfirmModal>
+      <AdminConfirmModal
+        v-model:open="transferWarningOpen"
+        title="Transferi totuși?"
+        confirm-label="Transferă oricum"
+        :loading="transferring"
+        @confirm="handleTransfer(true)"
+      >
+        <template #body>
+          <p>{{ transferWarning }}</p>
+        </template>
+      </AdminConfirmModal>
+    </template>
   </AdminPage>
 </template>
 
@@ -225,6 +237,8 @@ const { error: notifyError } = useNotifications();
 
 const history = ref<Enrollment[]>([]);
 const historyLoading = ref(true);
+/** The address names a child the API does not know. */
+const notFound = ref(false);
 const saving = ref(false);
 /** Nobody enrols a child who is not born yet; the calendar stops at today. */
 const today = todayKey();
@@ -347,6 +361,11 @@ onMounted(async () => {
   await childrenApi.fetchChildren();
   const childId = route.params.childId;
   const child: Child | undefined = childrenStore.getChildById(childId as string);
+  if (!child) {
+    notFound.value = true;
+    historyLoading.value = false;
+    return;
+  }
   if (child) {
     state.id = child.id;
     state.firstName = child.firstName;
