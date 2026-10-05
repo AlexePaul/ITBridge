@@ -46,7 +46,7 @@
               variant="outline"
               size="sm"
               :disabled="busyId !== null"
-              @click="resolve(trial, false)"
+              @click="openClose(trial)"
             >
               Nu continuă
             </UButton>
@@ -54,6 +54,28 @@
         </div>
       </div>
     </UCard>
+
+    <AdminConfirmModal
+      v-model:open="closeOpen"
+      title="Închide proba"
+      confirm-label="Închide proba"
+      :loading="closeSaving"
+      @confirm="confirmClose"
+    >
+      <template #body>
+        <p class="text-sm text-muted">
+          Scrie de ce nu continuă {{ closing?.child?.firstName ?? "copilul" }}. Locul se eliberează
+          și se oferă listei de așteptare, iar motivul rămâne pe cerere și în raportul pâlniei.
+        </p>
+        <UFormField label="Motiv" required :error="closeError" class="mt-3">
+          <UInput
+            v-model="closeReason"
+            placeholder="ex. programul nu li se potrivește"
+            class="w-full"
+          />
+        </UFormField>
+      </template>
+    </AdminConfirmModal>
 
     <AdminError v-if="loadError" :message="loadError" @retry="load" />
 
@@ -112,7 +134,7 @@
 
 <script setup lang="ts">
 import { countOf } from "~/composables/useRomanianCount";
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
 import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
@@ -160,12 +182,52 @@ const resolve = async (trial: Enrollment, accepted: boolean) => {
   busyId.value = trial.id;
   try {
     await resolveTrial(trial.id, { accepted });
-    success(accepted ? "Proba a devenit înscriere" : "Proba a fost închisă, locul e liber");
+    success("Proba a devenit înscriere");
     await load();
   } catch (err) {
-    notifyError("Nu am putut închide proba", apiErrorMessage(err));
+    notifyError("Nu am putut confirma proba", apiErrorMessage(err));
   } finally {
     busyId.value = null;
+  }
+};
+
+/**
+ * "Nu continuă" asks why, like the lead's own "Pierdut" (E20/S3, "no silent exit"). It closed the
+ * trial in one tap and wrote a canned reason on the lead, so a slip of the thumb freed a family's
+ * seat and the funnel learned nothing (QA of 27 September 2026). The reason is checked here, and a
+ * refusal stays in the dialog.
+ */
+const closeOpen = ref(false);
+const closeSaving = ref(false);
+const closeReason = ref("");
+const closeError = ref<string | undefined>(undefined);
+const closing = ref<Enrollment | null>(null);
+watch(closeReason, () => (closeError.value = undefined));
+
+const openClose = (trial: Enrollment) => {
+  closing.value = trial;
+  closeReason.value = "";
+  closeError.value = undefined;
+  closeOpen.value = true;
+};
+
+const confirmClose = async () => {
+  if (!closing.value) return;
+  const reason = closeReason.value.trim();
+  if (reason.length < 3) {
+    closeError.value = "Scrie motivul în câteva cuvinte (cel puțin 3 caractere).";
+    return;
+  }
+  closeSaving.value = true;
+  try {
+    await resolveTrial(closing.value.id, { accepted: false, reason });
+    closeOpen.value = false;
+    success("Proba a fost închisă, locul e liber");
+    await load();
+  } catch (err) {
+    closeError.value = apiErrorMessage(err, "Nu am putut închide proba.");
+  } finally {
+    closeSaving.value = false;
   }
 };
 

@@ -868,6 +868,28 @@ describe('Enrolments and capacity (e2e)', () => {
             expect(await derivedGroupOf(childId)).toBeNull();
         });
 
+        /** QA of 27 September 2026: "Nu continuă" closed a trial in one tap, with a canned reason on the lead. */
+        it('does not close without a reason, said in Romanian, and keeps the seat until it has one', async () => {
+            const groupId = await makeGroup();
+            const childId = await makeChild();
+            const trial = await request(app.getHttpServer())
+                .post('/enrollments')
+                .set('Authorization', admin.auth)
+                .send({ childId, groupId, status: 'TRIAL' })
+                .expect(201);
+
+            for (const body of [{ accepted: false }, { accepted: false, reason: '' }, { accepted: false, reason: 'x'.repeat(256) }]) {
+                const refused = await request(app.getHttpServer())
+                    .put(`/enrollments/${trial.body.id}/resolve-trial`)
+                    .set('Authorization', admin.auth)
+                    .send(body)
+                    .expect(400);
+                expect(JSON.stringify(refused.body)).toMatch(/motiv/i);
+            }
+            const seats = await request(app.getHttpServer()).get(`/enrollments/group/${groupId}/occupancy`).set('Authorization', admin.auth).expect(200);
+            expect(seats.body).toMatchObject({ taken: 1 });
+        });
+
         it('becomes a real enrolment on the same row, so the history reads as one period', async () => {
             const groupId = await makeGroup();
             const childId = await makeChild();

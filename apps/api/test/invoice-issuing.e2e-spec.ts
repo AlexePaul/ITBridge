@@ -305,7 +305,12 @@ describe('Issuing invoices from the registers (e2e)', () => {
             );
         const resolveTrial = async (childId: number, accepted: boolean) => {
             const [row] = await enrolmentsOf(childId);
-            await request(app.getHttpServer()).put(`/enrollments/${row.id}/resolve-trial`).set('Authorization', admin.auth).send({ accepted }).expect(200);
+            await request(app.getHttpServer())
+                .put(`/enrollments/${row.id}/resolve-trial`)
+                .set('Authorization', admin.auth)
+                // A trial that does not continue says why, like the lead's "Pierdut".
+                .send(accepted ? { accepted } : { accepted, reason: 'Programul nu li se potrivește' })
+                .expect(200);
             return row.id;
         };
         const linesOf = (sheet: request.Response, childId: number): string[] =>
