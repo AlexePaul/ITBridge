@@ -30,9 +30,19 @@
         />
       </div>
 
+      <AdminSearchInput
+        v-model="query"
+        label="Caută familia"
+        placeholder="Caută după numele familiei"
+        icon="i-lucide-search"
+      />
+      <p v-if="query && matching.length === 0" class="text-sm text-muted">
+        Nicio familie restantă nu se potrivește cu „{{ query }}".
+      </p>
+
       <div class="space-y-2">
         <div
-          v-for="row in rows"
+          v-for="row in visible"
           :key="row.invoiceId"
           class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-muted rounded-lg p-4"
         >
@@ -83,14 +93,24 @@
           </div>
         </div>
       </div>
+      <div v-if="hidden > 0" class="flex flex-wrap items-center gap-3">
+        <p class="text-sm text-muted">
+          Încă {{ countOf(hidden, "factură", "facturi") }} mai jos, mai noi decât cele de deasupra.
+        </p>
+        <UButton color="neutral" variant="outline" size="sm" @click="more">
+          Arată încă {{ Math.min(hidden, step) }}
+        </UButton>
+      </div>
     </template>
 
-    <AdminPaymentModal v-model:open="recording" :row="recordingRow" @recorded="load" />
+    <AdminPaymentModal v-model:open="recording" :row="recordingRow" @recorded="refresh" />
   </AdminPage>
 </template>
 
 <script setup lang="ts">
 import { countOf } from "~/composables/useRomanianCount";
+import { nameMatches, useListWindow } from "~/composables/useListWindow";
+import { useNotifications } from "~/composables/useNotifications";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { formatDateKey, formatLei, formatMonth } from "~/composables/useAdminFormat";
@@ -132,6 +152,13 @@ const startRecording = (row: ArrearsRow) => {
   recording.value = true;
 };
 
+/** The rows a typed name keeps; the tiles and the total above stay the whole list's. */
+const query = ref("");
+const matching = computed(() =>
+  rows.value.filter((row) => nameMatches(row.parentName, query.value))
+);
+const { visible, hidden, more, step } = useListWindow(matching);
+
 const load = async () => {
   loading.value = true;
   loadError.value = "";
@@ -144,7 +171,20 @@ const load = async () => {
   }
 };
 
-// Reloaded rather than patched in place: the invoice may now be covered, in which case the right
-// thing to show is its absence, and that is the list's own answer to give.
+/**
+ * After a payment, read again — the invoice may now be covered, and then the right thing to show
+ * is its absence, which is the list's own answer to give — but **without** the loading state. It
+ * swapped the list for a spinner and drew it again from the top: the office, ten cards down the
+ * page, found itself back at October 2023 after every payment (QA of 27 September 2026).
+ */
+const { error: notifyError } = useNotifications();
+const refresh = async () => {
+  try {
+    rows.value = await invoiceApi.fetchArrears();
+  } catch (err: unknown) {
+    notifyError(apiErrorMessage(err, "Plata e înregistrată, dar n-am putut reîncărca lista."));
+  }
+};
+
 onMounted(load);
 </script>
