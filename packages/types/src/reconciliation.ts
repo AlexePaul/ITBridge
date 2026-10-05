@@ -44,6 +44,8 @@ export interface StatementLineSuggestion {
     confidence: MatchConfidence;
     /** Pays more than is left on the invoice. */
     overpays: boolean;
+    /** Overpays only because lines above it, citing the same invoice, already cover what was left. */
+    coveredByEarlierLines: boolean;
     familyName: string;
     monthIssued: string;
     /** What the family was asked to write on the transfer — `Invoice.paymentReference`. */

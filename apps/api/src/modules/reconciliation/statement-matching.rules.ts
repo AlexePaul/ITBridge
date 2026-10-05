@@ -45,6 +45,13 @@ export interface MatchSuggestion {
     confidence: MatchConfidence;
     /** The line pays more than is left: the rest goes on the invoice as an advance, which a person may not want. */
     overpays: boolean;
+    /**
+     * It overpays only because lines above it, on the same invoice, already cover the rest — the same
+     * transfer twice, or a family that paid twice. The page said "the amount exceeds what is left"
+     * beside "rest 371,87 lei", the rest before those lines, which read as a contradiction (QA of 27
+     * September 2026).
+     */
+    coveredByEarlierLines?: boolean;
 }
 
 /** Upper case, no diacritics, anything but letters and digits as one space. */
@@ -142,7 +149,8 @@ export function withRunningRemainder(
         if (!suggestion || suggestion.confidence !== 'reference' || suggestion.overpays) continue;
         const remaining = left.get(suggestion.invoiceId) ?? 0;
         if (bani(line.amount) > remaining) {
-            judged.set(line.id, { ...suggestion, overpays: true });
+            const before = bani(open.find((invoice) => invoice.invoiceId === suggestion.invoiceId)?.outstanding ?? 0);
+            judged.set(line.id, { ...suggestion, overpays: true, coveredByEarlierLines: remaining < before });
         } else {
             left.set(suggestion.invoiceId, remaining - bani(line.amount));
         }
