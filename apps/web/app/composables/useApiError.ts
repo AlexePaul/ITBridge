@@ -44,6 +44,8 @@ const MESSAGES: Record<string, string> = {
   MISSING_REQUIRED_FIELD: "Un câmp obligatoriu lipsește.",
   INVALID_VALUE: "Un câmp are o valoare de tipul greșit.",
   VALUE_OUT_OF_RANGE: "O valoare e în afara limitelor — un număr prea mare, de exemplu.",
+  INVALID_DATE:
+    "O dată nu e o zi din calendar — 30 februarie, de exemplu. Verifică data și încearcă din nou.",
   SERVICE_UNAVAILABLE: "Serviciul este momentan indisponibil. Încearcă din nou.",
   // E06 S1. A 500 is ours, not the reader's: these two used to fall through to the body's English
   // „Internal server error", the one sentence on a Romanian screen that says nothing at all.

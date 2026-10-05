@@ -14,7 +14,7 @@ export class UpdateInvoiceDto {
     @ApiPropertyOptional({ example: '2024-07-01', description: 'Updated issue date' })
     @EmptyToUndefined()
     @IsOptional()
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Data facturii nu e o zi din calendar' })
     dateIssued?: string;
 
     // No `status`, on purpose — the review of 25 September 2026. It is derived: `paid` from the

@@ -11,12 +11,12 @@ export class CreateNonTeachingPeriodDto {
     name: string;
 
     @ApiProperty({ example: '2026-12-21' })
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Prima zi nu e o zi din calendar' })
     startDate: string;
 
     /** Inclusive, and equal to `startDate` for a single day — which most of them are. */
     @ApiProperty({ example: '2027-01-07' })
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Ultima zi nu e o zi din calendar' })
     endDate: string;
 
     /**

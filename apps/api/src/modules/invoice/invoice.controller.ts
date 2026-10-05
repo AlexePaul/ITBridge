@@ -92,7 +92,8 @@ export class InvoiceController {
         // Checked here: an absent or malformed month reached `teachingMonthRange` and came back a
         // 500 with a stack trace in the log (review of 26 September 2026).
         if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthIssued ?? '')) {
-            throw new BadRequestException({ message: 'monthIssued must be YYYY-MM', error: 'VALIDATION_FAILED' });
+            // As a list, like the ValidationPipe's: the filter turns it into `details`, which a screen shows.
+            throw new BadRequestException({ message: ['Luna se scrie AAAA-LL, de exemplu 2026-09'], error: 'VALIDATION_FAILED' });
         }
         return this.invoiceService.getWorksheet(monthIssued);
     }

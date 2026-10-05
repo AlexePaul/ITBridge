@@ -33,7 +33,7 @@ export class CreatePaymentDto {
     status?: PaymentStatus;
 
     @ApiProperty({ example: '2026-03-01', description: 'The day the money moved' })
-    @IsDateString({}, { message: 'Data plății nu e o dată validă' })
+    @IsDateString({ strict: true }, { message: 'Data plății nu e o dată validă' })
     @IsNotEmpty()
     date: string;
 

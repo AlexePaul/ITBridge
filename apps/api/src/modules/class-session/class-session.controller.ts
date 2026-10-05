@@ -13,6 +13,7 @@ import { RescheduleWindowsDto } from './dto/rescheduleWindows.dto';
 import { SetVacationDto } from './dto/setVacation.dto';
 import { MoveClassSessionDto } from './dto/moveClassSession.dto';
 import { CreateNonTeachingPeriodDto } from './dto/nonTeachingPeriod.dto';
+import { NonTeachingImpactQueryDto } from './dto/nonTeachingImpactQuery.dto';
 import { FilterClassSessionDto } from './dto/filterClassSession.dto';
 import { GenerateClassSessionsDto } from './dto/generateClassSessions.dto';
 import { UnmarkedClassSessionsDto } from './dto/unmarkedClassSessions.dto';
@@ -78,8 +79,8 @@ export class ClassSessionController {
         description: 'Plasa de siguranță a ecranului: o dată tastată greșit se vede ca „grupa de luni pierde 8 ședințe", nu ca un gol descoperit în ianuarie.',
     })
     @ApiResponse({ status: 200, description: 'Scheduled sessions the period would cancel, grouped' })
-    async nonTeachingImpact(@Query('startDate') startDate: string, @Query('endDate') endDate: string, @Query('locationId') locationId?: string) {
-        return this.nonTeachingPeriodService.impactOf({ startDate, endDate, locationId: locationId ? Number(locationId) : null });
+    async nonTeachingImpact(@Query() query: NonTeachingImpactQueryDto) {
+        return this.nonTeachingPeriodService.impactOf({ startDate: query.startDate, endDate: query.endDate, locationId: query.locationId ?? null });
     }
 
     @Post('non-teaching')

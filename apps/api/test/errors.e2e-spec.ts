@@ -151,6 +151,44 @@ describe('Error shape (e2e)', () => {
     });
 
     /**
+     * QA of 27 September 2026: a day that does not exist, typed into a query, went through to
+     * Postgres — `IsDateString` without `strict` checks the shape only — and came back a 500 on the
+     * error screen. The DTOs refuse it now, in Romanian; the routes that read a bare value are on
+     * DTOs too; and the filter answers what still reaches Postgres as the caller's value.
+     */
+    describe('a day that does not exist', () => {
+        const errorRows = async () => Number((await dataSource.query<{ n: string }[]>('SELECT count(*) AS n FROM error_reports'))[0].n);
+
+        it.each([
+            ['/reports/funnel?from=2026-02-30', 'Prima zi a intervalului nu e o zi din calendar'],
+            ['/deliveries?from=2026-02-31', 'Prima zi nu e o zi din calendar'],
+            ['/enrollments/group/1/members?date=2026-13-01', 'Ziua nu e o zi din calendar'],
+            ['/enrollments/group/1/members?date=abc', 'Ziua se scrie AAAA-LL-ZZ, de exemplu 2026-10-05'],
+            ['/class-sessions/non-teaching/impact', 'Prima zi se scrie AAAA-LL-ZZ, de exemplu 2026-12-21'],
+        ])('answers %s with a 400 in Romanian, recorded nowhere', async (path, sentence) => {
+            const before = await errorRows();
+
+            const res = await request(app.getHttpServer()).get(path).set('Authorization', admin.auth);
+
+            expect(res.status).toBe(400);
+            expect(res.body.details).toContain(sentence);
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            expect(await errorRows()).toBe(before);
+        });
+    });
+
+    /** QA of 27 September 2026: an id or a month typed into an address came back in English on the screen. */
+    it.each([
+        ['/profiles?profileId=abc', 'Numărul familiei din adresă nu e valid'],
+        ['/invoices?monthIssued=2026-13', 'Luna se scrie AAAA-LL, de exemplu 2026-09'],
+        ['/invoices/worksheet?monthIssued=2026-13', 'Luna se scrie AAAA-LL, de exemplu 2026-09'],
+    ])('answers %s in Romanian, sentence by sentence', async (path, sentence) => {
+        const res = await request(app.getHttpServer()).get(path).set('Authorization', admin.auth).expect(400);
+
+        expect(res.body.details).toContain(sentence);
+    });
+
+    /**
      * Express's body parser refuses these before any route is matched, and Nest does not convert
      * them: they went out as a 500 and were recorded on the error screen — by anybody, without
      * signing in, one row per invented path (review of 27 September 2026). The caller's, with its

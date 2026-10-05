@@ -11,6 +11,7 @@ import { CreateWaitlistEntryDto } from './dto/createWaitlistEntry.dto';
 import { RemoveWaitlistEntryDto } from './dto/removeWaitlistEntry.dto';
 import { TransferEnrollmentDto } from './dto/transferEnrollment.dto';
 import { ResolveTrialDto } from './dto/resolveTrial.dto';
+import { MembersOnQueryDto } from './dto/membersOnQuery.dto';
 import { RecordContractDto } from './dto/recordContract.dto';
 import type { AuthenticatedRequest } from 'src/types/authenticated-request';
 import { actorFrom } from 'src/modules/audit/actor';
@@ -47,11 +48,11 @@ export class EnrollmentController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Cine era în grupă la o dată anume' })
     @ApiResponse({ status: 200, description: 'Enrollments covering that date' })
-    async membersOn(@Param('groupId', ParseIntPipe) groupId: number, @Query('date') date?: string) {
+    async membersOn(@Param('groupId', ParseIntPipe) groupId: number, @Query() query: MembersOnQueryDto) {
         // The default is the school's day, not UTC's. `startDate` is written in Europe/Bucharest,
         // so between midnight there and midnight in UTC a `toISOString()` default asked about
         // yesterday — and an enrolment opened an hour ago was missing from its own group's roster.
-        return this.enrollmentService.membersOn(groupId, date ?? schoolToday());
+        return this.enrollmentService.membersOn(groupId, query.date ?? schoolToday());
     }
 
     @Get('group/:groupId/occupancy')

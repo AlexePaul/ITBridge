@@ -29,14 +29,14 @@ export class CreateEnrollmentDto {
     @ApiPropertyOptional({ example: '2026-09-15' })
     @EmptyToUndefined()
     @IsOptional()
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Data de început nu e o zi din calendar' })
     startDate?: string;
 
     /** The date on the paper contract — E11/D3. The platform stores the fact, not the document. */
     @ApiPropertyOptional({ example: '2026-09-14' })
     @EmptyToUndefined()
     @IsOptional()
-    @IsDateString()
+    @IsDateString({ strict: true }, { message: 'Data semnării contractului nu e o zi din calendar' })
     contractSignedAt?: string;
 
     /**
