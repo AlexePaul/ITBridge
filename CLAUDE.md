@@ -117,6 +117,13 @@ implicitul e ziua curentă, iar `SEED_TODAY=2026-03-16` o fixează la loc dacă 
 identice. Grupele acoperă luni–sâmbătă tocmai ca „azi" să aibă o oră în șase zile din șapte.
 `pnpm seed` nu trece prin turbo, deci variabila **nu** se declară în `globalEnv`.
 
+**Și facturează doar luni terminate, lăsând-o pe ultima de emis** (`seed-months.ts`, 27 septembrie
+2026). Emitea luna curentă, datată cu cinci zile în urmă — o lună pe care ecranul de emitere o refuză
+până i se termină ultima săptămână —, plus ultima lună terminată, deci o săptămână întreagă de testare
+n-avea nicio lună de emis (B5.1 din planul de testare). Acum facturează cele două luni dinaintea
+ultimei terminate, datate în miercurea de după fiecare, iar pe ultima o lasă emiterii, cu cataloagele
+ei scrise.
+
 **`pnpm seed:scale` e a doua volumetrie, nu a treia țintă.** Seed-ul obișnuit are ~120 de ședințe
 și ~70 de marcaje, iar la dimensiunea aia Postgres alege scanarea secvențială orice index i-ai pune
 — deci o interogare care scanează toată tabela și una care folosește un index dau **același plan și
@@ -140,7 +147,11 @@ acum întreabă `GET /invoices/months` —, iar pagina unei luni cere `?monthIss
 pagină de admin cerea la pornire `GET /profiles`, care pentru un admin înseamnă **toate familiile**,
 ca să umple profilul unui părinte pe care nu-l citea nimeni: `initializeProfile` sare acum peste
 admini. **Regula: o listă de admin care crește lunar cere o lună**, nu tot tabelul; un ecran nou
-de felul ăsta se măsoară cu `pnpm seed:scale` înainte să fie numit gata.
+de felul ăsta se măsoară cu `pnpm seed:scale` înainte să fie numit gata. **O listă care nu se taie
+pe lună** — restanțele, contractele nesemnate — desenează o sută de rânduri, cu „Arată încă" și o
+căutare după nume (`useListWindow`), iar după o scriere se recitește fără starea de încărcare
+(testarea din 27 septembrie 2026: 690 de carduri desenate de la zero după fiecare încasare, iar
+biroul ajungea înapoi la octombrie 2023). Livrările spun când lista s-a oprit la cele mai noi 200.
 
 **Nu e o bază în care se dă clic**: n-are conturi de părinte, toate familiile se cheamă `Familia 37`
 și **golește tot** înainte, deci trece prin acelaşi `checkSeedTarget`. Când ai terminat de măsurat,
@@ -254,7 +265,11 @@ User ─1:1─ Profile ─1:N─ Child ─N:1─ Group ─N:1─ Room ─N:1─ 
 interogări o citesc — printre ele filtrarea orarului pentru părinte și cine poate fi marcat prezent
 — dar are **un singur scriitor**, `EnrollmentService`, care o scrie în aceeași tranzacție cu
 înscrierea care o justifică. Nu o scrie de mână nicăieri; dacă ai nevoie să schimbi grupa unui copil,
-deschizi sau închizi o înscriere.
+deschizi sau închizi o înscriere. **Și spune care grupă, niciodată de când**: `GET /children` trimite
+lângă ea `groupSince`, ziua în care a început înscrierea în vigoare, iar calendarul de prezență din
+portal, „următoarea oră" de pe Acasă și orele din față de pe Absențe sar peste orele grupei de
+dinainte (testarea din 27 septembrie 2026: o probă programată pe 29 septembrie avea „?" — „nemarcat
+de profesor" — pe fiecare oră din septembrie de dinaintea ei).
 
 Două reguli sunt aplicate **și în baza de date**, prin indecși parțiali, nu doar în serviciu:
 `UQ_enrollments_one_in_force` (un copil are cel mult o înscriere `TRIAL` sau `ACTIVE` — D6) și
@@ -300,7 +315,12 @@ acestui copil" —, ceea ce nu e adevărat despre niciun scaun: copilul stă acu
 iar ecranul grupei vechi arăta `free: 1` lângă o listă pe care n-o anunțase nimeni. De aceea
 transferul e singura tranzacție care ține **două** grupe, și le ia în ordinea id-ului, cea mai mică
 prima — altfel două transferuri în sensuri opuse țin fiecare câte una și o așteaptă pe cealaltă. Și
-decontează, ca `enrol`, cererea pe care copilul o avea pentru grupa nouă.
+decontează, ca `enrol`, cererea pe care copilul o avea pentru grupa nouă. **Un rând care n-a început
+încă se închide în prima lui zi, nu azi** (testarea din 27 septembrie 2026): o probă din 29 septembrie
+mutată pe 27 apărea în istoric și în export „29.09.2026 – 27.09.2026". Rândul nou începe unde ar fi
+început cel vechi — o probă încă în față la următoarea oră a grupei noi, aceeași spre care se mută
+lead-ul (`LeadProgressService.nextClassOf`), ca `/admin/formare` s-o ofere spre decizie după ora ei,
+nu din ziua mutării; o înscriere de luna viitoare își păstrează luna.
 
 **O probă mutată în altă grupă își ia lead-ul cu ea** (revizuirea din 25 septembrie 2026). Lead-ul
 atârnă de înscrierea pe care o decide E11, iar după transfer aia e rândul nou — deci decizia pe el nu
@@ -1255,6 +1275,13 @@ o componentă pentru sine — eticheta care deschide meniul, „No data" sub un 
 închidere — vine din locale-ul pachetului, iar implicitul e engleza. Regula „numai codul e în
 engleză" acoperă și etichetele pe care nu le-a scris nimeni din echipă.
 
+**Două nume veneau din reka-ui, de sub Nuxt UI, fără nicio opțiune care să le schimbe**: segmentele
+fiecărui câmp de dată („day,", „month,", „year,", iar unul gol era „Empty") și regiunea
+notificărilor („Notifications (F8)"), exact ce aude un cititor de ecran (27 septembrie 2026). Le
+traduce un patch pnpm, `patches/reka-ui@2.10.3.patch`, declarat în `pnpm-workspace.yaml`; e legat de
+versiune, deci la o actualizare a lui reka-ui `pnpm install` se oprește pe patch-ul nefolosit, iar
+poarta autentificată (`check-a11y-auth.mjs`) pică dacă numele revin în engleză.
+
 **Iconițele sunt în JavaScript-ul paginii, nu cerute la rulare.** Două trepte, și a doua a lipsit
 până la testarea din 27 septembrie 2026. Întâi pachetul: `@iconify-json/lucide` e instalat, deci
 nicio iconiță nu mai vine de la `api.iconify.design` — pe conexiunea din sală asta însemna butoane
@@ -1652,7 +1679,12 @@ oprește rotația exact între revocarea rândului vechi și scrierea celui nou.
 **Numele de utilizator al unui admin nu pleacă spre un părinte.** E jumătate din credențial, iar
 login-ul e limitat pe adresă, nu pe cont. `GET /payments` îl punea pe fiecare plată a fiecărei
 familii (`recordedBy`), deși niciun ecran de părinte nu-l arată; acum îl primește doar biroul —
-`withRecorder` din `payment.service.ts`.
+`withRecorder` din `payment.service.ts`. **Nici nota biroului de pe o plată și nici coada fiscală**
+(trecerea de securitate din 27 septembrie 2026): un părinte își primește plățile și facturile prin
+`paymentForParent` și `invoiceForParent`, fără `notes` — acolo scrie reconcilierea textul
+transferului — și fără eroarea SmartBill, încercări, numărul așteptat sau cifrele verificării.
+Portalul nu le citește; biroul le vede pe toate. Tot de aici: copilul altei familii primește același
+404 ca un id care nu există, nu un 403 care spune că există.
 
 **Revocarea acționează doar pe refresh, nu și pe access.** `AuthGuard` verifică semnătura JWT și
 atât — nu atinge tabelul `sessions`. Deci după `logout` sau `logout-all`, un access token deja emis
@@ -1928,6 +1960,14 @@ Două reguli: **fiecare valoare trece prin funcția pe care o citește și restu
 `siteBase`, `dispatcherEnabled`, `missingMailConfiguration`, `transferDetails` —, altfel pagina ar
 descrie o configurație pe care codul n-o are; și **o cheie apare doar ca „setată" sau nu**, niciodată
 valoarea. Dacă adaugi o setare de care depinde ce primește o familie, dă-i și ei o notă.
+
+**Și spune din ce commit rulează API-ul, iar fiecare apariție a unei erori îl poartă** (27 septembrie
+2026). „A ajuns reparația pe stage?" și „eroarea a revenit după reparație?" n-aveau răspuns pe niciun
+ecran. `runningVersion` (`apps/api/src/common/running-version.ts`) întreabă **git-ul** din directorul
+procesului, **o dată, la pornire** — nu un fișier scris la build: turbo pune la loc un `dist/` din
+cache când sursele API-ului nu s-au schimbat, deci un fișier ar fi numit commit-ul vechi după fiecare
+deploy de docs sau de site —, iar `null` înseamnă că git n-a răspuns, nu o ghicire. `/admin/erori`
+arată commit-ul fiecărei apariții, cu linkul spre GitHub.
 
 **Rapoartele nu definesc nimic, doar adună** (E21). `apps/api/src/modules/dashboard/` cere fiecare
 număr de la serviciul care deține întrebarea — restanțele de la `ArrearsService`, locurile de la
@@ -2293,6 +2333,10 @@ incluse, deduplicate **per părinte**. Patru lucruri care se ratează ușor:
 - **A doua apăsare identică e refuzată de un index unic**, nu de un `if`: `Announcement.dedupeKey` e
   audiență + subiect + corp + **ziua școlii** (`schoolDay` din `apps/api/src/common/school-clock.ts`),
   hash-uite. O corectură cu alt text trece — e alt mesaj.
+- **Un anunț promoțional pe care nu l-a acceptat nimeni din audiență e refuzat**
+  (`ANNOUNCEMENT_NOBODY_OPTED_IN`, ca `ANNOUNCEMENT_NO_RECIPIENTS` pentru o audiență goală): n-ar
+  scrie nimănui și ar lăsa un anunț „trimis", iar un refuz de marketing nu lasă rând care să spună de
+  ce. Ecranul spune același lucru și ține butonul (testarea din 27 septembrie 2026).
 - **`OutboxService` nu știe nimic despre anunțuri.** Serviciul își leagă singur rândurile prin
   `outbox.announcement_id`, după ce le pune în coadă și în aceeași tranzacție, deci coada partajată
   se poartă identic pentru ceilalți expeditori. `declinedCount` se stochează pe anunț fiindcă un
@@ -2327,7 +2371,10 @@ Patru reguli pe care le încalci ușor:
   până e decisă), iar lead-ul ia ora la care a venit copilul; **„Pierdut" pe un lead cu proba în
   vigoare trece prin `resolveTrial`** — scria doar lead-ul, iar copilul rămânea pe scaun, grupa
   plină și lista neanunțată; iar rata cerere→probă se socotește din familiile pe care școala le putea
-  așeza, fără cererile `noSeats`, pe zilele școlii, nu pe ale UTC.
+  așeza, fără cererile `noSeats`, pe zilele școlii, nu pe ale UTC. **Și „Nu continuă" din
+  `/admin/formare` cere motivul, ca „Pierdut"** (testarea din 27 septembrie 2026): închidea proba
+  dintr-o apăsare și scria pe lead un motiv gata făcut. `ResolveTrialDto` cere acum 3–255 de caractere
+  când `accepted` e fals — 255, fiindcă motivul se copiază în `Lead.lostReason`.
 - **Orele se filtrează pe dată, nu pe grupă.** Ce alege părintele e o zi, iar o grupă cu un loc
   liber n-are niciunul în ziua în care biroul a mutat deja un copil acolo — și are din nou săptămâna
   următoare. Lista cere `freeSeatsAtSessions` pentru toate orele pe care e pe cale să le ofere,
@@ -2652,6 +2699,12 @@ emitere. Trei lucruri de ținut minte:
   cu IBAN-ul), iar familia cu numele și adresa, fără email — `supplierLines` din `pdf.service.ts`.
 - **O editare a sumei sau a datei aruncă desenul păstrat, iar ștergerea îl ia cu ea**, după commit și
   fără ca un eșec de stocare să strice ceva: rândul e evidența, PDF-ul doar un desen al lui.
+- **Cheia numește rândul, nu id-ul** (`invoicePdfKey`: luna, id-ul și `Invoice.createdAt`; testarea
+  din 27 septembrie 2026). Un id revine — `pnpm seed` golește tabelele, nu și bucket-ul, iar o
+  restaurare din backup dă înapoi secvența —, iar factura emisă apoi cu același id găsea desenul celei
+  de dinainte: Horia Barbu își descărca factura pe august și citea numele, adresa și suma lui Florin
+  Marin. Un rând citit fără `createdAt` nu primește cheie deloc (aruncă), în loc să împartă `…-NaN`
+  cu toate celelalte.
 - **Reducerile se citesc la desenare, și e sigur fiindcă o reducere pe o lună facturată e
   înghețată** (`DISCOUNT_MONTH_INVOICED`, în `DiscountService`). Suma facturii s-a calculat o singură
   dată, la emitere; o reducere schimbată după aceea nu mai ajungea nicăieri. Pe PDF stau ca pe
