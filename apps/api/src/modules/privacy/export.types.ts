@@ -58,7 +58,7 @@ export interface FamilyExport {
     /** Subject and delivery only. The body is the school's text, and the family already has it. */
     mesajePrimite: { subiect: string; trimisLa: string | null; stare: string }[];
     /** No token, ever: what a family may want is that a session existed and from what device. */
-    autentificari: { incepiuta: string | null; expiraLa: string | null; revocataLa: string | null; dispozitiv: string | null }[];
+    autentificari: { inceputa: string | null; expiraLa: string | null; revocataLa: string | null; dispozitiv: string | null }[];
     confirmariDeEmail: { adresa: string; trimisLa: string | null; deschisLa: string | null }[];
     resetariDeParola: { adresa: string; cerutLa: string | null; folositLa: string | null }[];
     /** Links sent to create an account on this family (E11 S2) — when, to where, and whether one was. */

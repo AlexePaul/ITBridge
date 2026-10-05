@@ -353,7 +353,7 @@ export class ExportService {
                 stare: exportLabel('message', message.status),
             })),
             autentificari: sessions.map((session) => ({
-                incepiuta: session.createdAt?.toISOString() ?? null,
+                inceputa: session.createdAt?.toISOString() ?? null,
                 expiraLa: session.expiresAt?.toISOString() ?? null,
                 revocataLa: session.revokedAt?.toISOString() ?? null,
                 dispozitiv: session.userAgent ?? null,
