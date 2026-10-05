@@ -57,6 +57,10 @@
           Nicio familie nu e în audiența aleasă, deci anunțul n-ar avea cui să plece. Alege altă
           grupă sau altă locație.
         </p>
+        <p v-else-if="nobodyAccepts" class="text-sm border-l-2 border-warning pl-3 py-1">
+          Nicio familie din audiența aleasă n-a acceptat mesajele promoționale, deci anunțul n-ar
+          ajunge la nimeni. Dacă e despre ore sau despre școală, trimite-l ca anunț obișnuit.
+        </p>
 
         <div class="flex flex-wrap gap-2">
           <UButton type="submit" :disabled="!canSend" :loading="sending">Trimite anunțul</UButton>
@@ -341,7 +345,19 @@ const canTest = computed(
  */
 const nobodyInAudience = computed(() => preview.value?.recipients.total === 0);
 
-const canSend = computed(() => canTest.value && !refusedAsSent.value && !nobodyInAudience.value);
+/**
+ * A promotional message every family in the audience declined: the server refuses it too
+ * (`ANNOUNCEMENT_NOBODY_OPTED_IN`). The preview said "0 familii" and the button sent it anyway, into
+ * a record of an announcement nobody received (QA of 27 September 2026).
+ */
+const nobodyAccepts = computed(() => {
+  const recipients = preview.value?.recipients;
+  return Boolean(recipients && recipients.total > 0 && recipients.declined === recipients.total);
+});
+
+const canSend = computed(
+  () => canTest.value && !refusedAsSent.value && !nobodyInAudience.value && !nobodyAccepts.value
+);
 
 const load = async () => {
   loading.value = true;

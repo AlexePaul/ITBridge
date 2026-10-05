@@ -151,6 +151,8 @@ const MESSAGES: Record<string, string> = {
     "Același anunț a plecat deja astăzi către aceeași audiență. Schimbă textul dacă vrei totuși să îl retrimiți.",
   ANNOUNCEMENT_NO_RECIPIENTS:
     "Nu există nicio familie în audiența aleasă, deci anunțul nu are cui să plece.",
+  ANNOUNCEMENT_NOBODY_OPTED_IN:
+    "Nicio familie din audiența aleasă n-a acceptat mesajele promoționale, deci anunțul n-ar ajunge la nimeni. Dacă e despre ore sau despre școală, trimite-l ca anunț obișnuit.",
 
   // E12. Only reachable by opening an inactive group's attendance page directly - the listing
   // filters them out - but without an entry here the admin gets the English sentence from the API.

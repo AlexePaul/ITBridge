@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute } from "#imports";
 import { useSeo } from "~/composables/useSeo";
 import { useAuthApi } from "~/composables/api/useAuthApi";
@@ -45,6 +45,20 @@ type State = "working" | ConfirmationOutcome | ConfirmationRefusal;
 const state = ref<State>("working");
 const errorMessage = ref<string | null>(null);
 
+/**
+ * Where the reader goes next. A parent who opens the link in the browser they are signed in to is
+ * sent to their account, not to the sign-in form — "Autentifică-te" to somebody already signed in
+ * read like a session lost (QA of 27 September 2026). The auth plugin has run before this page
+ * mounts, so the user store already says which.
+ */
+const userStore = useUserStore();
+const signedIn = computed(() => Boolean(userStore.user));
+const nextStep = computed(() =>
+  signedIn.value
+    ? { to: "/user/dashboard", label: "Mergi la contul tău" }
+    : { to: "/auth/login", label: "Autentifică-te" }
+);
+
 onMounted(async () => {
   const token = route.query.token;
   if (typeof token !== "string" || token.length === 0) {
@@ -63,9 +77,7 @@ onMounted(async () => {
     // A parent who confirmed in the same browser they registered in is still signed in; refreshing
     // the cached user is what makes the portal stop showing "confirmă-ți adresa".
     if (tokenStore.accessToken) {
-      await useUserStore()
-        .fetchUser()
-        .catch(() => undefined);
+      await userStore.fetchUser().catch(() => undefined);
     }
   } catch (error) {
     // A used link and an expired one each have their own screen below; everything else says the
@@ -89,9 +101,13 @@ onMounted(async () => {
 
         <template v-else-if="state === 'confirmed'">
           <p class="body-text">
-            Adresa ta este confirmată și contul este activ. Te poți autentifica.
+            Adresa ta este confirmată și contul este activ.{{
+              signedIn ? "" : " Te poți autentifica."
+            }}
           </p>
-          <NuxtLink to="/auth/login" class="btn btn-primary btn-block">Autentifică-te</NuxtLink>
+          <NuxtLink :to="nextStep.to" class="btn btn-primary btn-block">{{
+            nextStep.label
+          }}</NuxtLink>
         </template>
 
         <template v-else-if="state === 'awaiting-approval'">
@@ -119,13 +135,19 @@ onMounted(async () => {
              which the refusal does not describe (QA of 27 September 2026). -->
         <template v-else-if="state === 'used'">
           <div class="card card-lg" role="status">
-            <p class="body-text">
+            <p v-if="signedIn" class="body-text">
+              Linkul a fost deja folosit, iar adresa ta este confirmată. Pe pagina Acasă a contului
+              scrie dacă mai așteptăm aprobarea școlii sau dacă totul e gata.
+            </p>
+            <p v-else class="body-text">
               Linkul a fost deja folosit, iar adresa ta este confirmată. Autentifică-te ca să vezi
               ce mai rămâne: pe pagina Acasă a contului scrie dacă mai așteptăm aprobarea școlii sau
               dacă totul e gata.
             </p>
           </div>
-          <NuxtLink to="/auth/login" class="btn btn-primary btn-block">Autentifică-te</NuxtLink>
+          <NuxtLink :to="nextStep.to" class="btn btn-primary btn-block">{{
+            nextStep.label
+          }}</NuxtLink>
         </template>
 
         <template v-else-if="state === 'expired'">
@@ -133,16 +155,21 @@ onMounted(async () => {
             <p class="body-text">{{ errorMessage }}</p>
           </div>
           <p class="colophon">
-            După autentificare, butonul „Retrimite linkul" e pe pagina Acasă a contului.
+            {{ signedIn ? "Butonul" : "După autentificare, butonul" }} „Retrimite linkul" e pe
+            pagina Acasă a contului.
           </p>
-          <NuxtLink to="/auth/login" class="btn btn-ghost btn-block">Autentifică-te</NuxtLink>
+          <NuxtLink :to="nextStep.to" class="btn btn-ghost btn-block">{{
+            nextStep.label
+          }}</NuxtLink>
         </template>
 
         <template v-else>
           <div class="card card-lg card-accent" role="alert">
             <p class="body-text">{{ errorMessage }}</p>
           </div>
-          <NuxtLink to="/auth/login" class="btn btn-ghost btn-block">Autentifică-te</NuxtLink>
+          <NuxtLink :to="nextStep.to" class="btn btn-ghost btn-block">{{
+            nextStep.label
+          }}</NuxtLink>
         </template>
       </div>
     </section>

@@ -253,7 +253,13 @@ const cellsFor = (child: Child): Cell[] => {
   const sessions = child.group ? (sessionsByGroup.value[child.group.id] ?? []) : [];
 
   return monthGrid(cursor.value.year, cursor.value.month).map((cell) => {
-    const state = calendarDayState({ date: cell.date, today, attendance, sessions });
+    const state = calendarDayState({
+      date: cell.date,
+      today,
+      attendance,
+      sessions,
+      memberSince: child.groupSince,
+    });
     return { ...cell, mark: state ? MARKS[state] : null };
   });
 };

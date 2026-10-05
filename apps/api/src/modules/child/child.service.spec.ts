@@ -9,6 +9,8 @@ import { Project } from 'src/entities/project.entity';
 import { Enrollment } from 'src/entities/enrollment.entity';
 import { WaitlistEntry } from 'src/entities/waitlist-entry.entity';
 import { Role } from 'src/enum/role.enum';
+import { EnrollmentStatus } from 'src/enum/enrollment-status.enum';
+import { In } from 'typeorm';
 import { PublicationConsentService } from 'src/modules/privacy/publication-consent.service';
 import { AuditService } from 'src/modules/audit/audit.service';
 import { EnrollmentService } from 'src/modules/enrollment/enrollment.service';
@@ -205,6 +207,37 @@ describe('ChildService', () => {
             // The requested filter is added, but the user narrowing stays — so the intersection
             // is empty rather than someone else's data.
             expect(qb.andWhereCalls).toContainEqual(['user.id = :userId', { userId: 42 }]);
+        });
+
+        /**
+         * QA of 27 September 2026: the portal calendar painted "?" on the group's classes from before
+         * the child's trial. The calendar needs the day the child's place began, and only the
+         * enrolment in force knows it.
+         */
+        it('sends the first day of each placed child’s enrolment in force, and null without a group', async () => {
+            const qb = createMockQueryBuilder({
+                many: [
+                    { id: 1, group: { id: 3 } },
+                    { id: 2, group: null },
+                ],
+            });
+            childRepo.createQueryBuilder!.mockReturnValue(qb);
+            enrollmentRepo.find!.mockResolvedValue([{ id: 7, startDate: '2026-09-29', child: { id: 1 } }]);
+
+            const children = await service.findChildren({}, Role.PARENT, 42);
+
+            expect(children).toEqual([expect.objectContaining({ id: 1, groupSince: '2026-09-29' }), expect.objectContaining({ id: 2, groupSince: null })]);
+            expect(enrollmentRepo.find).toHaveBeenCalledWith(
+                expect.objectContaining({ where: { child: { id: In([1]) }, status: In([EnrollmentStatus.TRIAL, EnrollmentStatus.ACTIVE]) } }),
+            );
+        });
+
+        it('asks nothing more when no child is in a group', async () => {
+            childRepo.createQueryBuilder!.mockReturnValue(createMockQueryBuilder({ many: [{ id: 2, group: null }] }));
+
+            await service.findChildren({}, Role.PARENT, 42);
+
+            expect(enrollmentRepo.find).not.toHaveBeenCalled();
         });
     });
 

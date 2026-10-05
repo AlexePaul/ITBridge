@@ -160,8 +160,9 @@
             </label>
             <p class="body-text opt-in-note">
               Setarea acoperă <strong>doar mesajele promoționale</strong>. Facturile, confirmările
-              de absență, orele anulate și noutățile despre proiectele copiilor ajung la tine oricum
-              — nu depind de această bifă.
+              de plată, orele anulate sau mutate, ora la care e mutat copilul după o absență
+              anunțată și noutățile despre proiectele copiilor ajung la tine oricum — nu depind de
+              această bifă.
             </p>
           </div>
         </div>

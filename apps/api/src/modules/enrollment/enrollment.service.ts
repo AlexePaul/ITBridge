@@ -570,17 +570,31 @@ export class EnrollmentService {
             this.assertCompatible(child, target, input.acknowledgeWarnings === true);
 
             const now = today();
+            // A row that has not begun — a trial booked for next Tuesday, an enrolment from next
+            // month — ends on its own first day, not today: closed today, the child's history and the
+            // family's export read "29.09.2026 – 27.09.2026", an end before its start (QA of 27
+            // September 2026). Zero days long is what happened, and `membersOn` reads the end day as
+            // departed, so the child sits in none of that group's registers.
+            const notBegun = current.startDate > now;
+            const endsOn = notBegun ? current.startDate : now;
             // Only while it is still in force: it was read before the locks, and a close in between
             // would otherwise be overwritten as a transfer. A trial and an active row are written
             // apart, as in `close`, so the trial records the day it stopped being one here — the new
             // row is a trial of its own, and the old one's class must not reach the bill.
-            const closing = { status: EnrollmentStatus.TRANSFERRED, endDate: now, exitReason: input.reason ?? `Transfer în grupa ${target.name}` };
-            const movedTrial = await manager.update(Enrollment, { id: current.id, status: EnrollmentStatus.TRIAL }, { ...closing, trialUntil: now });
+            const closing = { status: EnrollmentStatus.TRANSFERRED, endDate: endsOn, exitReason: input.reason ?? `Transfer în grupa ${target.name}` };
+            const movedTrial = await manager.update(Enrollment, { id: current.id, status: EnrollmentStatus.TRIAL }, { ...closing, trialUntil: endsOn });
             const moved = movedTrial.affected ? movedTrial : await manager.update(Enrollment, { id: current.id, status: EnrollmentStatus.ACTIVE }, closing);
             if (!moved.affected) {
                 throw new ConflictException({ message: 'Înscrierea este deja închisă', error: 'ENROLLMENT_ALREADY_CLOSED' });
             }
             const wasTrial = Boolean(movedTrial.affected);
+
+            // The new row begins where the old one would have. A trial still ahead begins at the new
+            // group's next class — the one its lead is moved to below — so `/admin/formare`, which
+            // lists trials from their first day, offers the decision once that class has been held,
+            // not on the day of the move; an enrolment from next month keeps next month.
+            const firstClass = notBegun && wasTrial ? await this.leadProgress.nextClassOf(input.toGroupId, new Date(), manager) : null;
+            const startsOn = !notBegun ? now : firstClass ? toIsoDate(firstClass.date) : wasTrial ? now : current.startDate;
 
             const opened = await manager.save(Enrollment, {
                 child: { id: input.childId } as Child,
@@ -588,7 +602,7 @@ export class EnrollmentService {
                 // A transfer carries the status across: a trial that moves group is still a trial,
                 // and promoting it to active here would enrol a family that has not decided yet.
                 status: wasTrial ? EnrollmentStatus.TRIAL : EnrollmentStatus.ACTIVE,
-                startDate: now,
+                startDate: startsOn,
                 endDate: null,
                 exitReason: null,
                 contractSignedAt: current.contractSignedAt,

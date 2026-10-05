@@ -228,6 +228,16 @@ export class AnnouncementService {
                 error: 'ANNOUNCEMENT_NO_RECIPIENTS',
             });
         }
+        if (kind === MessageKind.MARKETING && recipients.every((recipient) => !recipient.marketingOptIn)) {
+            // The same refusal for a promotional message nobody accepted: it would write to no one and
+            // leave a record saying it went out (QA of 27 September 2026, the preview read "0 familii"
+            // and the button sent anyway). A family that declined leaves no row, so nothing at all
+            // would say why.
+            throw new ConflictException({
+                message: `Nicio familie din audiența aleasă (${label}) n-a acceptat mesajele promoționale, deci anunțul n-ar ajunge la nimeni. Dacă e despre ore sau despre școală, trimite-l ca anunț obișnuit.`,
+                error: 'ANNOUNCEMENT_NOBODY_OPTED_IN',
+            });
+        }
 
         return this.dataSource.transaction(async (manager) => {
             // `ON CONFLICT DO NOTHING`, like the outbox's own insert: a unique violation would abort

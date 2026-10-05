@@ -172,7 +172,7 @@ describe('AnnouncementService', () => {
 
     describe('the marketing preference', () => {
         it('is consulted on a marketing announcement', async () => {
-            withAudience([childOf(1)]);
+            withAudience([childOf(1, { marketingOptIn: true })]);
 
             await service.send(announcement({ kind: MessageKind.MARKETING }), 99);
 
@@ -190,7 +190,7 @@ describe('AnnouncementService', () => {
         });
 
         it('counts a refusal without writing a row for it', async () => {
-            withAudience([childOf(1), childOf(2)]);
+            withAudience([childOf(1), childOf(2, { marketingOptIn: true })]);
             outbox.queueMarketing.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 5, undeliverableReason: null });
 
             const result = await service.send(announcement({ kind: MessageKind.MARKETING }), 99);
@@ -199,6 +199,25 @@ describe('AnnouncementService', () => {
             expect(result.queued).toBe(1);
             // Stored, because it cannot be counted back off the queue: a refusal leaves nothing there.
             expect(manager.update).toHaveBeenCalledWith(Announcement, 7, { declinedCount: 1 });
+        });
+
+        /** QA of 27 September 2026: the preview read "0 familii" and the button sent it anyway. */
+        it('refuses a promotional message nobody in the audience accepted, before writing anything', async () => {
+            withAudience([childOf(1), childOf(2)]);
+
+            await expect(service.send(announcement({ kind: MessageKind.MARKETING }), 99)).rejects.toMatchObject({
+                response: { error: 'ANNOUNCEMENT_NOBODY_OPTED_IN' },
+            });
+            expect(manager.createQueryBuilder).not.toHaveBeenCalled();
+            expect(outbox.queueMarketing).not.toHaveBeenCalled();
+        });
+
+        it('lets the same audience hear an operational one: nobody declines a day off', async () => {
+            withAudience([childOf(1), childOf(2)]);
+
+            const result = await service.send(announcement(), 99);
+
+            expect(result.queued).toBe(2);
         });
     });
 

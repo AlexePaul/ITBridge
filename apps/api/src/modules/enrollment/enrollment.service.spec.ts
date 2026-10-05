@@ -12,6 +12,7 @@ import { ClassSessionStatus } from 'src/enum/class-session-status.enum';
 import { ApprovalStatus } from 'src/enum/approval-status.enum';
 import { Role } from 'src/enum/role.enum';
 import { In, LessThan } from 'typeorm';
+import { addDays, parseIsoDate, toIsoDate } from 'src/modules/class-session/class-session.dates';
 import { OutboxService } from 'src/modules/mail/outbox.service';
 import { LeadProgressService } from 'src/modules/lead/lead-progress.service';
 import { AuditService } from 'src/modules/audit/audit.service';
@@ -82,6 +83,7 @@ describe('EnrollmentService', () => {
         leadProgress = {
             settleForEnrollment: jest.fn().mockResolvedValue(undefined),
             followTransfer: jest.fn().mockResolvedValue(undefined),
+            nextClassOf: jest.fn().mockResolvedValue(null),
             markTrialHeld: jest.fn(),
             revertTrialHeld: jest.fn(),
         };
@@ -1022,6 +1024,73 @@ describe('EnrollmentService', () => {
             await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
 
             expect(leadProgress.followTransfer).toHaveBeenCalledWith(9, { enrollmentId: 99, groupId: 2 }, expect.any(Date), manager);
+        });
+
+        /**
+         * QA of 27 September 2026: a trial booked for 29 September and moved on the 27th read
+         * "29.09.2026 – 27.09.2026" in the child's history and the family's export, and the new trial
+         * began the day of the move, so /admin/formare offered to decide it before its class.
+         */
+        describe('a row that has not begun', () => {
+            const ahead = (days: number) => toIsoDate(addDays(parseIsoDate(schoolToday()), days));
+
+            it('ends on its own first day, never before it', async () => {
+                enrollmentRepo.findOne!.mockResolvedValue({ ...current, status: EnrollmentStatus.TRIAL, startDate: ahead(2) });
+
+                await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
+
+                expect(manager.update).toHaveBeenCalledWith(
+                    Enrollment,
+                    { id: 9, status: EnrollmentStatus.TRIAL },
+                    expect.objectContaining({ status: EnrollmentStatus.TRANSFERRED, endDate: ahead(2), trialUntil: ahead(2) }),
+                );
+            });
+
+            it('begins a trial at the new group’s next class, the one its lead is moved to', async () => {
+                enrollmentRepo.findOne!.mockResolvedValue({ ...current, status: EnrollmentStatus.TRIAL, startDate: ahead(2) });
+                leadProgress.nextClassOf.mockResolvedValue({ id: 70, date: ahead(4), startTime: '16:00:00' });
+
+                await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
+
+                expect(leadProgress.nextClassOf).toHaveBeenCalledWith(2, expect.any(Date), manager);
+                expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ status: EnrollmentStatus.TRIAL, startDate: ahead(4) }));
+            });
+
+            it('begins a trial today when the new group has no class ahead', async () => {
+                enrollmentRepo.findOne!.mockResolvedValue({ ...current, status: EnrollmentStatus.TRIAL, startDate: ahead(2) });
+
+                await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
+
+                expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ startDate: schoolToday() }));
+            });
+
+            it('keeps the planned first day of an enrolment from next month', async () => {
+                enrollmentRepo.findOne!.mockResolvedValue({ ...current, startDate: ahead(10) });
+
+                await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
+
+                expect(manager.update).toHaveBeenCalledWith(
+                    Enrollment,
+                    { id: 9, status: EnrollmentStatus.ACTIVE },
+                    expect.objectContaining({ endDate: ahead(10) }),
+                );
+                expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ status: EnrollmentStatus.ACTIVE, startDate: ahead(10) }));
+                expect(leadProgress.nextClassOf).not.toHaveBeenCalled();
+            });
+
+            it('changes nothing for a row that has begun: it ends and the new one starts today', async () => {
+                enrollmentRepo.findOne!.mockResolvedValue({ ...current, status: EnrollmentStatus.TRIAL, startDate: ahead(-3) });
+
+                await service.transfer({ childId: 1, toGroupId: 2 }, { userId: 42, username: 'admin' });
+
+                expect(manager.update).toHaveBeenCalledWith(
+                    Enrollment,
+                    { id: 9, status: EnrollmentStatus.TRIAL },
+                    expect.objectContaining({ endDate: schoolToday() }),
+                );
+                expect(manager.save).toHaveBeenCalledWith(Enrollment, expect.objectContaining({ startDate: schoolToday() }));
+                expect(leadProgress.nextClassOf).not.toHaveBeenCalled();
+            });
         });
 
         it('leaves the leads alone when an active enrolment moves', async () => {

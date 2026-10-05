@@ -325,7 +325,10 @@ const onSubmit = async () => {
     await userStore.fetchUser();
     await initializeProfile();
     success("Am salvat datele.");
-    await navigateTo("/user/profile");
+    // Acasă, not Profil: Acasă is where a new family reads what is still missing — the "De confirmat"
+    // card with the resend button, the approval it waits for. Profil showed the form just filled in
+    // (QA of 27 September 2026).
+    await navigateTo("/user/dashboard");
   } catch (err) {
     if (apiErrorCode(err) === "ALREADY_EXISTS" || apiErrorCode(err) === "CONFLICT") {
       error("Emailul sau numărul de telefon există deja în sistem.");

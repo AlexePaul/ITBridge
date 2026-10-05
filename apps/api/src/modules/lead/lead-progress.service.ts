@@ -151,8 +151,12 @@ export class LeadProgressService {
         }
     }
 
-    /** The group's next class that has not started, on the school clock — the one `/proba` would offer. */
-    private async nextClassOf(groupId: number, now: Date, manager: EntityManager): Promise<ClassSession | null> {
+    /**
+     * The group's next class that has not started, on the school clock — the one `/proba` would offer.
+     * `EnrollmentService.transfer` asks it too, so a trial still ahead begins on the class its lead is
+     * moved to: one answer to "which class is the trial now", not two.
+     */
+    async nextClassOf(groupId: number, now: Date, manager: EntityManager): Promise<ClassSession | null> {
         const nowStamp = schoolLocalStamp(now);
         const coming = await manager.getRepository(ClassSession).find({
             where: { group: { id: groupId }, status: ClassSessionStatus.SCHEDULED, date: MoreThanOrEqual(schoolDay(now)) as unknown as Date },

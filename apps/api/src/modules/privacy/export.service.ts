@@ -136,7 +136,11 @@ export class ExportService {
                 }),
             ),
             ofChildren(() =>
-                this.absences.find({ where: { child: { id: In(childIds) } }, relations: { child: true, classSession: true }, order: { id: 'ASC' } }),
+                this.absences.find({
+                    where: { child: { id: In(childIds) } },
+                    relations: { child: true, classSession: true, replacementSession: { group: true } },
+                    order: { id: 'ASC' },
+                }),
             ),
             ofChildren(() => this.overrides.find({ where: { child: { id: In(childIds) } }, relations: { child: true }, order: { id: 'ASC' } })),
             ofChildren(() =>
@@ -265,6 +269,15 @@ export class ExportService {
                         motiv: row.reason ?? null,
                         inTermen: row.inTime,
                         anuntatLa: row.createdAt?.toISOString() ?? null,
+                        // The move is the half of the notice the office wrote, and the half a family
+                        // acts on: it was missing from the copy (QA of 27 September 2026).
+                        mutatLa: row.replacementSession
+                            ? {
+                                  data: toDay(row.replacementSession.date),
+                                  ora: row.replacementSession.startTime?.slice(0, 5) ?? null,
+                                  grupa: row.replacementSession.group?.name ?? null,
+                              }
+                            : null,
                     })),
                 corecturiDeSedinte: overrides
                     .filter((row) => row.child?.id === child.id)
@@ -346,6 +359,12 @@ export class ExportService {
                 experienta: lead.experience ?? null,
                 probaTinutaLa: lead.trialHeldAt?.toISOString() ?? null,
                 creatLa: lead.createdAt?.toISOString() ?? null,
+                // The office's own lines about the family are part of what the school holds about it
+                // (GDPR art. 15), like the note on a rejected account — and the copy left them out
+                // (QA of 27 September 2026).
+                noteleBiroului: lead.notes ?? null,
+                motivulInchiderii: lead.lostReason ?? null,
+                urmatorulPasLa: toDay(lead.nextActionAt),
             })),
             mesajePrimite: messages.map((message) => ({
                 subiect: message.subject,

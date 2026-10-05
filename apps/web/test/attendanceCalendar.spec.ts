@@ -150,6 +150,45 @@ describe("calendarDayState", () => {
   it("paints nothing for a child with no group and no marks at all", () => {
     expect(stateOn("2026-08-17", [], [])).toBeUndefined();
   });
+
+  describe("before the child joined the group", () => {
+    // QA of 27 September 2026: a trial booked for 29 September showed "?" on every September class
+    // of the group before it.
+    const joined = (
+      date: string,
+      attendance: Attendance[],
+      sessions: ClassSessionWithAttendance[]
+    ) => calendarDayState({ date, today: TODAY, attendance, sessions, memberSince: "2026-08-17" });
+
+    it("paints nothing on the group's classes before the child's first day", () => {
+      const date = "2026-08-10";
+      expect(joined(date, [], [session(date, { hasAttendance: true })])).toBeUndefined();
+    });
+
+    it("paints the child's first day, and every class after it, as before", () => {
+      expect(joined("2026-08-17", [], [session("2026-08-17")])).toBe("unmarked");
+      expect(joined("2026-08-24", [], [session("2026-08-24")])).toBe("unmarked");
+      expect(joined("2026-09-07", [], [session("2026-09-07")])).toBe("planned");
+    });
+
+    it("keeps a mark the child does have from before, since the record proves the class", () => {
+      const date = "2026-08-10";
+      expect(joined(date, [mark(date, true)], [session(date)])).toBe("present");
+    });
+
+    it("paints a group's past class as before when nobody says since when", () => {
+      const date = "2026-08-10";
+      expect(
+        calendarDayState({
+          date,
+          today: TODAY,
+          attendance: [],
+          sessions: [session(date)],
+          memberSince: null,
+        })
+      ).toBe("unmarked");
+    });
+  });
 });
 
 describe("calendarDayColor", () => {

@@ -261,7 +261,11 @@ User ─1:1─ Profile ─1:N─ Child ─N:1─ Group ─N:1─ Room ─N:1─ 
 interogări o citesc — printre ele filtrarea orarului pentru părinte și cine poate fi marcat prezent
 — dar are **un singur scriitor**, `EnrollmentService`, care o scrie în aceeași tranzacție cu
 înscrierea care o justifică. Nu o scrie de mână nicăieri; dacă ai nevoie să schimbi grupa unui copil,
-deschizi sau închizi o înscriere.
+deschizi sau închizi o înscriere. **Și spune care grupă, niciodată de când**: `GET /children` trimite
+lângă ea `groupSince`, ziua în care a început înscrierea în vigoare, iar calendarul de prezență din
+portal, „următoarea oră" de pe Acasă și orele din față de pe Absențe sar peste orele grupei de
+dinainte (testarea din 27 septembrie 2026: o probă programată pe 29 septembrie avea „?" — „nemarcat
+de profesor" — pe fiecare oră din septembrie de dinaintea ei).
 
 Două reguli sunt aplicate **și în baza de date**, prin indecși parțiali, nu doar în serviciu:
 `UQ_enrollments_one_in_force` (un copil are cel mult o înscriere `TRIAL` sau `ACTIVE` — D6) și
@@ -307,7 +311,12 @@ acestui copil" —, ceea ce nu e adevărat despre niciun scaun: copilul stă acu
 iar ecranul grupei vechi arăta `free: 1` lângă o listă pe care n-o anunțase nimeni. De aceea
 transferul e singura tranzacție care ține **două** grupe, și le ia în ordinea id-ului, cea mai mică
 prima — altfel două transferuri în sensuri opuse țin fiecare câte una și o așteaptă pe cealaltă. Și
-decontează, ca `enrol`, cererea pe care copilul o avea pentru grupa nouă.
+decontează, ca `enrol`, cererea pe care copilul o avea pentru grupa nouă. **Un rând care n-a început
+încă se închide în prima lui zi, nu azi** (testarea din 27 septembrie 2026): o probă din 29 septembrie
+mutată pe 27 apărea în istoric și în export „29.09.2026 – 27.09.2026". Rândul nou începe unde ar fi
+început cel vechi — o probă încă în față la următoarea oră a grupei noi, aceeași spre care se mută
+lead-ul (`LeadProgressService.nextClassOf`), ca `/admin/formare` s-o ofere spre decizie după ora ei,
+nu din ziua mutării; o înscriere de luna viitoare își păstrează luna.
 
 **O probă mutată în altă grupă își ia lead-ul cu ea** (revizuirea din 25 septembrie 2026). Lead-ul
 atârnă de înscrierea pe care o decide E11, iar după transfer aia e rândul nou — deci decizia pe el nu
@@ -2315,6 +2324,10 @@ incluse, deduplicate **per părinte**. Patru lucruri care se ratează ușor:
 - **A doua apăsare identică e refuzată de un index unic**, nu de un `if`: `Announcement.dedupeKey` e
   audiență + subiect + corp + **ziua școlii** (`schoolDay` din `apps/api/src/common/school-clock.ts`),
   hash-uite. O corectură cu alt text trece — e alt mesaj.
+- **Un anunț promoțional pe care nu l-a acceptat nimeni din audiență e refuzat**
+  (`ANNOUNCEMENT_NOBODY_OPTED_IN`, ca `ANNOUNCEMENT_NO_RECIPIENTS` pentru o audiență goală): n-ar
+  scrie nimănui și ar lăsa un anunț „trimis", iar un refuz de marketing nu lasă rând care să spună de
+  ce. Ecranul spune același lucru și ține butonul (testarea din 27 septembrie 2026).
 - **`OutboxService` nu știe nimic despre anunțuri.** Serviciul își leagă singur rândurile prin
   `outbox.announcement_id`, după ce le pune în coadă și în aceeași tranzacție, deci coada partajată
   se poartă identic pentru ceilalți expeditori. `declinedCount` se stochează pe anunț fiindcă un
@@ -2349,7 +2362,10 @@ Patru reguli pe care le încalci ușor:
   până e decisă), iar lead-ul ia ora la care a venit copilul; **„Pierdut" pe un lead cu proba în
   vigoare trece prin `resolveTrial`** — scria doar lead-ul, iar copilul rămânea pe scaun, grupa
   plină și lista neanunțată; iar rata cerere→probă se socotește din familiile pe care școala le putea
-  așeza, fără cererile `noSeats`, pe zilele școlii, nu pe ale UTC.
+  așeza, fără cererile `noSeats`, pe zilele școlii, nu pe ale UTC. **Și „Nu continuă" din
+  `/admin/formare` cere motivul, ca „Pierdut"** (testarea din 27 septembrie 2026): închidea proba
+  dintr-o apăsare și scria pe lead un motiv gata făcut. `ResolveTrialDto` cere acum 3–255 de caractere
+  când `accepted` e fals — 255, fiindcă motivul se copiază în `Lead.lostReason`.
 - **Orele se filtrează pe dată, nu pe grupă.** Ce alege părintele e o zi, iar o grupă cu un loc
   liber n-are niciunul în ziua în care biroul a mutat deja un copil acolo — și are din nou săptămâna
   următoare. Lista cere `freeSeatsAtSessions` pentru toate orele pe care e pe cale să le ofere,

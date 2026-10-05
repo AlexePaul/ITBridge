@@ -201,22 +201,33 @@ describe('Announcements (e2e)', () => {
     });
 
     describe('the marketing preference', () => {
+        const camp = { kind: 'marketing', subject: 'Tabăra de vară', body: 'Se deschid înscrierile la tabăra de vară.' };
+
         it('is what a marketing announcement obeys, while an operational one reaches everybody', async () => {
             const { groupId } = await aGroup();
             await familyIn('ana.marketing', groupId);
+            const opted = await familyIn('bogdan.marketing', groupId);
+            await dataSource.query('UPDATE "profiles" SET "marketingOptIn" = true WHERE "id" = $1', [opted]);
 
-            const marketing = await post('/announcements', {
-                audience: 'group',
-                groupId,
-                kind: 'marketing',
-                subject: 'Tabăra de vară',
-                body: 'Se deschid înscrierile la tabăra de vară.',
-            }).expect(201);
-            expect(marketing.body.queued).toBe(0);
+            const marketing = await post('/announcements', { audience: 'group', groupId, ...camp }).expect(201);
+            expect(marketing.body.queued).toBe(1);
             expect(marketing.body.declined).toBe(1);
 
             const operational = await post('/announcements', { audience: 'group', groupId, ...dayOff }).expect(201);
-            expect(operational.body.queued).toBe(1);
+            expect(operational.body.queued).toBe(2);
+        });
+
+        /** QA of 27 September 2026: the preview read "0 familii" and the button sent it anyway. */
+        it('refuses a promotional message nobody in the audience accepted, and records nothing', async () => {
+            const { groupId } = await aGroup();
+            await familyIn('ana.nimeni', groupId);
+
+            const refused = await post('/announcements', { audience: 'group', groupId, ...camp }).expect(409);
+            expect(refused.body.code).toBe('ANNOUNCEMENT_NOBODY_OPTED_IN');
+            const [{ count }] = await dataSource.query<{ count: string }[]>('SELECT COUNT(*) AS count FROM "announcements" WHERE "subject" = $1', [
+                camp.subject,
+            ]);
+            expect(Number(count)).toBe(0);
         });
     });
 

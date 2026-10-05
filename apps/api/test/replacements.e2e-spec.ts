@@ -182,6 +182,15 @@ describe('Temporary group moves (e2e)', () => {
             expect(mine.body[0].replacementSession.room.location.name).toBe('Mutări');
         });
 
+        it('the family’s copy of its data carries the move as well as the absence', async () => {
+            // QA of 27 September 2026: the export listed the absence and not where the office moved the child.
+            await place(hostSessionId).expect(200);
+
+            const copy = await request(app.getHttpServer()).get('/privacy/export').set('Authorization', parent.auth).expect(200);
+            const absences = (copy.body.copii as { absenteAnuntate: unknown[] }[]).flatMap((child) => child.absenteAnuntate);
+            expect(absences).toEqual([expect.objectContaining({ data: iso(0), mutatLa: { data: iso(3), ora: '18:00', grupa: 'Python' } })]);
+        });
+
         it('writes again when the child is moved somewhere else — that is a new thing to know', async () => {
             const second = await createClassSession(dataSource, hostGroupId, { date: iso(5) });
 
