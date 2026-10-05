@@ -57,6 +57,7 @@ definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
   title: "Gestionarea Prezenței Copiilor",
+  locationScoped: true,
 });
 
 const childrenApi = useChildrenApi();

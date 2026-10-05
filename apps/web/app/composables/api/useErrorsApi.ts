@@ -31,7 +31,7 @@ export const useErrorsApi = () => {
     api<ErrorReport>(`/errors/${id}/resolve`, { method: "POST", headers: auth() });
 
   const reportClientError = async (body: ClientErrorReport) =>
-    api<{ accepted: true }>("/errors/client", { method: "POST", headers: auth(), body });
+    api<{ accepted: boolean }>("/errors/client", { method: "POST", headers: auth(), body });
 
   return { fetchErrors, fetchErrorSummary, resolveError, reportClientError };
 };

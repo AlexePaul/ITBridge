@@ -66,7 +66,7 @@
         <div class="flex items-center gap-2 text-sm">
           <UIcon name="i-lucide-cloud-off" class="shrink-0" />
           <span>
-            {{ pending.length }} {{ pending.length === 1 ? "marcaj așteaptă" : "marcaje așteaptă" }}
+            {{ countOf(pending.length, "marcaj așteaptă", "marcaje așteaptă") }}
             rețeaua. Se retrimit singure.
           </span>
         </div>
@@ -258,6 +258,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useAttendanceApi } from "~/composables/api/useAttendanceApi";
 import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";

@@ -25,7 +25,7 @@
         <AdminStatTile
           v-for="band in buckets"
           :key="band"
-          :value="countOf(band)"
+          :value="bandCount(band)"
           :label="ARREARS_BUCKET_LABELS[band]"
         />
       </div>
@@ -50,7 +50,7 @@
             <p class="text-muted text-sm mt-0.5 tabular-nums">
               {{ formatMonth(row.monthIssued) }} · termen {{ formatDateKey(row.dueOn) }}
               <template v-if="row.daysOverdue > 0">
-                · {{ row.daysOverdue }} {{ row.daysOverdue === 1 ? "zi" : "zile" }} întârziere
+                · {{ countOf(row.daysOverdue, "zi", "zile") }} întârziere
               </template>
             </p>
             <p v-if="row.paid > 0" class="text-muted text-sm">
@@ -90,6 +90,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { formatDateKey, formatLei, formatMonth } from "~/composables/useAdminFormat";
@@ -117,7 +118,7 @@ const loadError = ref("");
 const rows = ref<ArrearsRow[]>([]);
 
 const buckets: ArrearsBucket[] = ["due_soon", "overdue", "over_30", "over_60"];
-const countOf = (band: ArrearsBucket) => rows.value.filter((row) => row.bucket === band).length;
+const bandCount = (band: ArrearsBucket) => rows.value.filter((row) => row.bucket === band).length;
 
 const totalOutstanding = computed(
   () => Math.round(rows.value.reduce((sum, row) => sum + row.outstanding, 0) * 100) / 100

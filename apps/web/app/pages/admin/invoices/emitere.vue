@@ -191,7 +191,7 @@
                       @keydown.enter.prevent="commit(family, child)"
                     />
                     <span class="text-sm text-muted">{{
-                      child.sessions === 1 ? "ședință" : "ședințe"
+                      nounFor(child.sessions, "ședință", "ședințe")
                     }}</span>
                   </div>
 
@@ -319,9 +319,7 @@
           @click="send"
         >
           <template v-if="billableCount === 0">Consemnează luna</template>
-          <template v-else
-            >Emite {{ billableCount }} {{ billableCount === 1 ? "factură" : "facturi" }}</template
-          >
+          <template v-else>Emite {{ countOf(billableCount, "factură", "facturi") }}</template>
         </UButton>
       </div>
     </div>
@@ -329,7 +327,7 @@
 </template>
 
 <script setup lang="ts">
-import { countOf } from "~/composables/useRomanianCount";
+import { countOf, nounFor } from "~/composables/useRomanianCount";
 import { computed, onMounted, reactive, ref } from "vue";
 import { useInvoiceApi } from "~/composables/api/useInvoiceApi";
 import { useNotifications } from "~/composables/useNotifications";

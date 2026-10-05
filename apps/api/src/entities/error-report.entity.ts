@@ -13,6 +13,11 @@ export interface ErrorOccurrence {
     ref: string | null;
     userId: number | null;
     path: string | null;
+    /**
+     * The commit the API ran when it happened (`runningVersion`), so a fault that comes back after a
+     * fix says so. Missing on the occurrences recorded before it was kept, 27 September 2026.
+     */
+    commit?: string | null;
 }
 
 /**

@@ -37,7 +37,8 @@ link:** trebuie să înceapă cu `https://stage.itbridgeschool.com`. Dacă înce
 **Starea platformei** (`/admin/sistem`), ca `admin`, înainte de orice: la „Probleme" nu trebuie să
 fie nimic. Pe stage sunt normale trei note din „De știut" — emailurile oprite dinadins, contul
 pentru transfer nesetat și SmartBill oprit sau în ciorne. Orice problemă de acolo spune și unde se
-repară; un `NODE_ENV=production` sau un `SITE_URL` lipsă strică testele de mai jos.
+repară; un `NODE_ENV=production` sau un `SITE_URL` lipsă strică testele de mai jos. La „Versiunea",
+commit-ul trebuie să fie ultimul de pe `release/stage`: altfel testezi codul de dinainte.
 
 **SmartBill** e oprit sau în ciorne pe stage: facturile au PDF-ul platformei, nu număr fiscal.
 

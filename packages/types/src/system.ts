@@ -42,6 +42,11 @@ export interface SystemStatus {
     environment: string;
     nodeVersion: string;
     uptimeSeconds: number;
+    /**
+     * The commit the API process runs, asked of git when it started — `null` where git could not
+     * answer — and when it started. After a push, this is where "has it reached stage?" is answered.
+     */
+    build: { commit: string | null; committedAt: string | null; startedAt: string };
     /** Where the links in emails point: `SITE_URL`, or the public domain it falls back to. */
     siteUrl: string;
     siteUrlConfigured: boolean;

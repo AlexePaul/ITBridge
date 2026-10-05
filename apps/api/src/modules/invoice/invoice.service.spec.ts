@@ -24,6 +24,10 @@ import { Payment } from 'src/entities/payment.entity';
 import { PaymentStatus } from 'src/enum/payment-status.enum';
 import { setIssuingClock } from './issuing-clock';
 
+/** When the fixtures' invoice row was written: its PDF key carries it (`invoicePdfKey`). */
+const CREATED_AT = new Date('2026-11-01T08:00:00Z');
+const PDF_KEY = `invoices/2026-10/1-${CREATED_AT.getTime()}.pdf`;
+
 describe('InvoiceService', () => {
     // These cases issue months like October 2026, which the machine's clock may not have reached;
     // a month is only issued once taught (E15 S9, `billing-period.rules.spec.ts`).
@@ -947,7 +951,14 @@ describe('InvoiceService', () => {
             expect(result.waived[0].fiscalStatus).toBeNull();
         });
 
-        const issuedInvoice = { id: 1, amount: 350, status: InvoiceStatus.PENDING, dateIssued: new Date('2026-11-01'), monthIssued: '2026-10' };
+        const issuedInvoice = {
+            id: 1,
+            amount: 350,
+            status: InvoiceStatus.PENDING,
+            dateIssued: new Date('2026-11-01'),
+            monthIssued: '2026-10',
+            createdAt: CREATED_AT,
+        };
 
         it('refuses to change the amount of an invoice issued in SmartBill', async () => {
             invoiceRepo.findOne!.mockResolvedValue({ ...issuedInvoice });
@@ -987,7 +998,7 @@ describe('InvoiceService', () => {
 
             expect(transactionManager.delete).toHaveBeenCalledWith(Invoice, 1);
             // E15/S6: the kept drawing goes with its row.
-            expect(s3.deleteObject).toHaveBeenCalledWith('invoices/2026-10/1.pdf');
+            expect(s3.deleteObject).toHaveBeenCalledWith(PDF_KEY);
         });
 
         it("hands over SmartBill's PDF when it was not kept yet", async () => {
@@ -995,7 +1006,7 @@ describe('InvoiceService', () => {
                 one: { ...issuedInvoice, fiscalStatus: InvoiceFiscalStatus.ISSUED, fiscalSeries: 'ITB', fiscalNumber: '0041' },
             });
             invoiceRepo.createQueryBuilder!.mockReturnValue(qb);
-            s3.downloadFile.mockRejectedValue(new ObjectNotFoundError('invoices/2026-10/1.pdf'));
+            s3.downloadFile.mockRejectedValue(new ObjectNotFoundError(PDF_KEY));
             fiscal.storeFiscalPdf.mockResolvedValue(Buffer.from('%PDF fiscal'));
 
             await expect(service.getInvoicePdf(1, Role.ADMIN, 42)).resolves.toEqual(Buffer.from('%PDF fiscal'));
@@ -1006,7 +1017,7 @@ describe('InvoiceService', () => {
             process.env.SMARTBILL_MODE = 'live';
             const qb = createMockQueryBuilder({ one: { ...issuedInvoice, fiscalStatus: InvoiceFiscalStatus.PENDING } });
             invoiceRepo.createQueryBuilder!.mockReturnValue(qb);
-            s3.downloadFile.mockRejectedValue(new ObjectNotFoundError('invoices/2026-10/1.pdf'));
+            s3.downloadFile.mockRejectedValue(new ObjectNotFoundError(PDF_KEY));
 
             await expect(service.getInvoicePdf(1, Role.ADMIN, 42)).rejects.toMatchObject({
                 response: expect.objectContaining({ error: 'FISCAL_INVOICE_NOT_ISSUED_YET' }),
@@ -1020,13 +1031,21 @@ describe('InvoiceService', () => {
      * drawing of figures the row no longer holds is dropped.
      */
     describe('the platform PDF, drawn on first download', () => {
-        const invoice = { id: 1, amount: 350, status: InvoiceStatus.PENDING, dateIssued: '2026-11-01', monthIssued: '2026-10', fiscalStatus: null };
+        const invoice = {
+            id: 1,
+            amount: 350,
+            status: InvoiceStatus.PENDING,
+            dateIssued: '2026-11-01',
+            monthIssued: '2026-10',
+            createdAt: CREATED_AT,
+            fiscalStatus: null,
+        };
         let pdf: { generateInvoicePdf: jest.Mock };
 
         beforeEach(() => {
             pdf = (service as unknown as { pdfService: { generateInvoicePdf: jest.Mock } }).pdfService;
             pdf.generateInvoicePdf.mockResolvedValue(Buffer.from('%PDF drawn'));
-            s3.downloadFile.mockRejectedValue(new ObjectNotFoundError('invoices/2026-10/1.pdf'));
+            s3.downloadFile.mockRejectedValue(new ObjectNotFoundError(PDF_KEY));
         });
 
         afterEach(() => {
@@ -1038,7 +1057,7 @@ describe('InvoiceService', () => {
 
             await expect(service.getInvoicePdf(1, Role.ADMIN, 42)).resolves.toEqual(Buffer.from('%PDF drawn'));
             expect(pdf.generateInvoicePdf).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
-            expect(s3.putObject).toHaveBeenCalledWith({ key: 'invoices/2026-10/1.pdf', body: Buffer.from('%PDF drawn'), contentType: 'application/pdf' });
+            expect(s3.putObject).toHaveBeenCalledWith({ key: PDF_KEY, body: Buffer.from('%PDF drawn'), contentType: 'application/pdf' });
         });
 
         it('hands over the drawing even when keeping it fails — the row is the record', async () => {
@@ -1072,7 +1091,7 @@ describe('InvoiceService', () => {
             await service.updateInvoice(1, { dateIssued: '2026-11-03' }, ACTOR);
 
             expect(s3.deleteObject).toHaveBeenCalledTimes(2);
-            expect(s3.deleteObject).toHaveBeenCalledWith('invoices/2026-10/1.pdf');
+            expect(s3.deleteObject).toHaveBeenCalledWith(PDF_KEY);
         });
 
         it('keeps it when nothing printed moves', async () => {

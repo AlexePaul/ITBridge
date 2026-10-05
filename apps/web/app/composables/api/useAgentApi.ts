@@ -23,9 +23,9 @@ export function lastSeenLabel(agent: AgentStatus, now: Date = new Date()): strin
   if (minutes < 2) return "chiar acum";
   if (minutes < 60) return `acum ${countOf(minutes, "minut", "minute")}`;
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `acum ${hours} ${hours === 1 ? "oră" : "ore"}`;
+  if (hours < 24) return `acum ${countOf(hours, "oră", "ore")}`;
   const days = Math.round(hours / 24);
-  return `acum ${days} ${days === 1 ? "zi" : "zile"}`;
+  return `acum ${countOf(days, "zi", "zile")}`;
 }
 
 /**

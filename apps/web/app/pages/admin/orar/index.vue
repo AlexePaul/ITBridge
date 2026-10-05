@@ -6,7 +6,7 @@
   >
     <template #actions>
       <UBadge v-if="sessions.length > 0" color="neutral" variant="subtle" size="lg">
-        {{ sessions.length }} {{ sessions.length === 1 ? "oră" : "ore" }}
+        {{ countOf(sessions.length, "oră", "ore") }}
       </UBadge>
       <!-- The entry point for a class that has no row to press a button on: the generator skipped
            the day because the calendar closed it (E12/S9). -->
@@ -330,6 +330,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { useClassSessionsApi } from "~/composables/api/useClassSessionsApi";
 import { useGroupsApi } from "~/composables/api/useGroupsApi";

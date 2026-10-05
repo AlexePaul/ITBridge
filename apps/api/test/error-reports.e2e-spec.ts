@@ -6,6 +6,7 @@ import { LocationService } from 'src/modules/location/location.service';
 import { BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR, ErrorReportService } from 'src/modules/error-report/error-report.service';
 import { RetentionService } from 'src/modules/privacy/retention.service';
 import { ErrorSource } from 'src/enum/error-source.enum';
+import { runningVersion } from 'src/common/running-version';
 import { createTestApp, promoteToAdmin, registerUser, truncateAll, TestUser } from './helpers';
 
 /**
@@ -73,6 +74,8 @@ describe('Error record (e2e)', () => {
             username: 'parinte',
             familyName: 'parinte Test',
             path: '/locations',
+            // So a fault that comes back after a fix says on which commit it came back.
+            commit: runningVersion().commit,
         });
     });
 
@@ -156,7 +159,8 @@ describe('Error record (e2e)', () => {
     /**
      * Review of 27 September 2026: every field of a browser report is the caller's, so a fresh
      * registration and a loop could file a row per request, each kept thirty days. Taken from an
-     * active account only, and at most so many an hour each; the answer is the same either way.
+     * active account only, and at most so many an hour each. The answer says which (QA of 27
+     * September 2026): the screen tells the person "am notat eroarea, cu codul X" only when it is so.
      */
     it('takes browser reports from an active account only, and only so many an hour', async () => {
         // The budget is per account id, and ids start again after every truncate: the earlier tests'
@@ -171,11 +175,16 @@ describe('Error record (e2e)', () => {
                 .send({ name: 'Error', message, route: '/user/dashboard', kind: 'vue' })
                 .expect(202);
 
-        await report(stranger.auth, 'from a stranger');
+        expect((await report(stranger.auth, 'from a stranger')).body).toEqual({ accepted: false });
         expect(await listed('?state=all')).toEqual([]);
 
-        for (let i = 0; i < BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR + 5; i++) await report(parent.auth, `fault number ${'x'.repeat(i + 1)}`);
+        const answers: unknown[] = [];
+        for (let i = 0; i < BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR + 5; i++) {
+            answers.push((await report(parent.auth, `fault number ${'x'.repeat(i + 1)}`)).body);
+        }
         expect(await listed('?state=all')).toHaveLength(BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR);
+        expect(answers.slice(0, BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR)).toEqual(Array(BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR).fill({ accepted: true }));
+        expect(answers.slice(BROWSER_REPORTS_PER_ACCOUNT_PER_HOUR)).toEqual(Array(5).fill({ accepted: false }));
     });
 
     /**

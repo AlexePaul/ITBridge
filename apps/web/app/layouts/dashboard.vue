@@ -24,7 +24,15 @@
                least useful thing in the bar and the most expensive. -->
           <template #right>
             <div class="flex min-w-0 items-center gap-2 sm:gap-3">
-              <LocationSwitcher v-if="isAdmin" class="min-w-0 shrink" />
+              <LocationSwitcher v-if="isAdmin && locationScoped" class="min-w-0 shrink" />
+              <span
+                v-else-if="isAdmin"
+                class="hidden items-center gap-1 text-sm text-muted sm:inline-flex"
+                title="Pagina asta arată ambele locații: nu se filtrează după locație."
+              >
+                <UIcon name="i-lucide-map-pin" class="size-4" aria-hidden="true" />
+                Toate locațiile
+              </span>
               <span v-if="user" class="hidden truncate sm:inline">{{ user.username }}</span>
               <UButton
                 label="Ieșire"
@@ -71,6 +79,18 @@ const userStore = useUserStore();
 const isAdmin = userStore.user?.role === "ADMIN";
 const route = useRoute();
 
+/**
+ * Whether this page filters on the location selection (E08 S4): the groups, the children, the two
+ * attendance lists and a new group's room. Every other admin page shows both locations — money is
+ * the family's, not an address's — and until 27 September 2026 the switcher sat on those pages too,
+ * set to one location over a screen that still counted both. The header now says "Toate locațiile"
+ * there instead of offering a filter that changes nothing. A page that starts filtering declares
+ * `locationScoped: true` in its `definePageMeta`.
+ */
+const locationScoped = computed(
+  () => (route.meta as { locationScoped?: boolean }).locationScoped === true
+);
+
 const pageTitle = computed(() => {
   const title = (route.meta as any)?.title;
   return title || "Acasă";
@@ -88,8 +108,8 @@ const pendingProjects = usePendingProjectsStore();
 const unplacedAbsences = useUnplacedAbsencesStore();
 const errorReports = useErrorReportsStore();
 
-// Loaded once, here, rather than in each admin page: the switcher lives in this layout and every
-// page below it filters on the selection, so the list has to exist before the first page renders.
+// Loaded once, here, rather than in each admin page: the switcher lives in this layout and the
+// pages that filter on the selection need the list before their first render.
 if (isAdmin) {
   const locationsApi = useLocationsApi();
   const roomsApi = useRoomsApi();

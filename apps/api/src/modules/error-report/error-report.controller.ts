@@ -54,10 +54,17 @@ export class ErrorReportController {
     @Throttle({ default: { ttl: 60_000, limit: 20 } })
     @HttpCode(HttpStatus.ACCEPTED)
     @ApiBearerAuth()
-    @ApiOperation({ summary: 'A screen broke in this browser', description: 'Recorded after the answer; the answer says nothing about the row.' })
-    @ApiResponse({ status: 202, description: 'Taken' })
-    async reportFromBrowser(@Request() req: AuthenticatedRequest, @Body() dto: ClientErrorDto): Promise<{ accepted: true }> {
-        if (!(await this.errorReports.takesBrowserReport(req.user.sub))) return { accepted: true };
+    @ApiOperation({
+        summary: 'A screen broke in this browser',
+        description: 'Recorded after the answer. `accepted: false` when the account may not file one (not active, or over its hourly budget).',
+    })
+    @ApiResponse({ status: 202, description: 'Taken, or not: `accepted` says which' })
+    async reportFromBrowser(@Request() req: AuthenticatedRequest, @Body() dto: ClientErrorDto): Promise<{ accepted: boolean }> {
+        // Said, not hidden: the screen that sent it tells the person "am notat eroarea, cu codul X"
+        // only when this is true. Answered `true` either way, an account still waiting for approval
+        // read a code to the office that found nothing (QA of 27 September 2026). It tells the caller
+        // nothing about anybody else — whether its own account is active, and its own count.
+        if (!(await this.errorReports.takesBrowserReport(req.user.sub))) return { accepted: false };
         this.errorReports.record({
             source: ErrorSource.BROWSER,
             origin: clip(dto.component ? `${dto.route} · ${dto.component}` : dto.route, ORIGIN_MAX_LENGTH),

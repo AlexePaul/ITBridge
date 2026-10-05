@@ -2,8 +2,7 @@
   <AdminPage title="Copii" :subtitle="subtitle" width="xl">
     <template #actions>
       <UBadge color="primary" variant="subtle" size="lg" class="min-h-11 items-center px-4">
-        {{ filteredChildren.length }}
-        {{ filteredChildren.length === 1 ? "copil" : "copii" }}
+        {{ countOf(filteredChildren.length, "copil", "copii") }}
       </UBadge>
     </template>
 
@@ -34,6 +33,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import type { DropdownMenuItem } from "@nuxt/ui";
 import type { Child } from "~/types/child.types";
 import { useChildrenApi } from "~/composables/api/useChildrenApi";
@@ -67,6 +67,7 @@ definePageMeta({
   layout: "dashboard" as any,
   middleware: "admin-check" as any,
   title: "Copii",
+  locationScoped: true,
 });
 
 const childrenApi = useChildrenApi();

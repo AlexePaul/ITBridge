@@ -150,7 +150,10 @@ ar readuce tăcut adminul pe „toate locațiile", singura stare în care o list
 adresele. Decizia „aparține selecției?" e într-un singur loc, `locationStore.matchesSelection`.
 
 Filtrează: grupele, copiii (prin grupa lor), selectorul de grupă din prezență și căutarea de copii
-din prezență. Fiecare pagină spune în subtitlu ce arată.
+din prezență. Fiecare pagină spune în subtitlu ce arată. **Selectorul apare doar pe paginile astea**
+(27 septembrie 2026, `locationScoped` în `definePageMeta`): stătea în antetul fiecărei pagini de
+admin, deci tabloul de bord, cererile sau restanțele arătau „Drumul Taberei" deasupra unor cifre
+pentru ambele adrese. Pe restul, antetul scrie „Toate locațiile" — exact ce arată pagina.
 
 **Facturile și plățile nu filtrează, intenționat.** Sunt legate de părinte, nu de locație, iar un
 părinte poate avea copii la amândouă adresele — un filtru pe locație acolo ar produce sume care nu

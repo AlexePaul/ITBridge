@@ -1,7 +1,7 @@
 <template>
   <AdminPage
     title="Starea platformei"
-    subtitle="Cum e configurat serverul, citit chiar de pe el: adresa din linkurile emailurilor, emailurile, SmartBill, contul pentru transfer, stocarea și schema bazei. Deschide pagina după fiecare schimbare în Parameter Store și înaintea unei zile de testare."
+    subtitle="Cum e configurat serverul, citit chiar de pe el: din ce commit rulează, adresa din linkurile emailurilor, emailurile, SmartBill, contul pentru transfer, stocarea și schema bazei. Deschide pagina după fiecare deploy, după fiecare schimbare în Parameter Store și înaintea unei zile de testare."
   >
     <template #actions>
       <UButton
@@ -44,6 +44,28 @@
         </div>
       </section>
 
+      <section aria-labelledby="sistem-versiune" class="space-y-2">
+        <h2 id="sistem-versiune" class="text-lg font-semibold">Versiunea</h2>
+        <p v-if="status.build.commit" class="text-sm">
+          API-ul rulează commit-ul
+          <a
+            :href="commitUrl(status.build.commit)"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-mono text-primary underline"
+            >{{ shortCommit(status.build.commit) }}</a
+          >{{ versionTail }}
+        </p>
+        <p v-else class="text-sm">
+          API-ul nu știe din ce commit rulează: git nu i-a răspuns în directorul din care a pornit
+          (runbook, 1).
+        </p>
+        <p class="text-xs text-muted">
+          După un push pe release/stage, deploy-ul durează în jur de zece minute. Dacă și după aceea
+          aici e commit-ul vechi, deploy-ul s-a oprit: GitHub → Actions → Deploy.
+        </p>
+      </section>
+
       <section aria-labelledby="sistem-configuratie" class="space-y-3">
         <h2 id="sistem-configuratie" class="text-lg font-semibold">Configurația</h2>
         <dl class="divide-y divide-default border border-default rounded-lg">
@@ -72,7 +94,7 @@ import { computed, onMounted, ref } from "vue";
 import { useSystemApi } from "~/composables/api/useSystemApi";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { countOf } from "~/composables/useRomanianCount";
-import { SYSTEM_NOTE_TEXT, environmentLabel } from "~/types/system.types";
+import { SYSTEM_NOTE_TEXT, commitUrl, environmentLabel, shortCommit } from "~/types/system.types";
 import type { SystemStatus } from "~/types/system.types";
 
 definePageMeta({
@@ -97,6 +119,25 @@ const SMARTBILL_LABELS: Record<SystemStatus["smartBillMode"], string> = {
   draft: "ciorne",
   live: "facturi fiscale reale",
 };
+
+/** `27 sept. 2026, 16:05`, on the school's clock whatever the computer's. */
+const formatStamp = (iso: string) =>
+  new Date(iso).toLocaleString("ro-RO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Bucharest",
+  });
+
+/** `, din 27 sept. 2026, 20:53, pornit la …` — after the commit link, with no space before the comma. */
+const versionTail = computed(() => {
+  const build = status.value?.build;
+  if (!build) return "";
+  const made = build.committedAt ? `, din ${formatStamp(build.committedAt)}` : "";
+  return `${made}, pornit la ${formatStamp(build.startedAt)}.`;
+});
 
 /** `2 zile, 3 ore` — how long the process has been up, which is how long since the last deploy. */
 const uptimeLabel = (seconds: number): string => {

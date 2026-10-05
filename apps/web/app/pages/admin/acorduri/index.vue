@@ -5,7 +5,7 @@
   >
     <template #actions>
       <UBadge color="primary" variant="subtle" size="lg" class="min-h-11 flex items-center px-4">
-        {{ rows.length }} {{ rows.length === 1 ? "copil" : "copii" }} cu acord
+        {{ countOf(rows.length, "copil", "copii") }} cu acord
       </UBadge>
     </template>
 
@@ -73,6 +73,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { apiErrorMessage } from "~/composables/useApiError";
 import { usePrivacyApi } from "~/composables/api/usePrivacyApi";
 import { formatDateKey } from "~/composables/useAdminFormat";

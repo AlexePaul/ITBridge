@@ -84,8 +84,7 @@
             variant="subtle"
             size="lg"
           >
-            {{ bucket.children.length }}
-            {{ bucket.children.length === 1 ? "copil" : "copii" }}
+            {{ countOf(bucket.children.length, "copil", "copii") }}
           </UBadge>
         </div>
       </template>
@@ -112,6 +111,7 @@
 </template>
 
 <script setup lang="ts">
+import { countOf } from "~/composables/useRomanianCount";
 import { onMounted, ref } from "vue";
 import { useEnrollmentsApi } from "~/composables/api/useEnrollmentsApi";
 import { useNotifications } from "~/composables/useNotifications";

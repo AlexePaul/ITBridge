@@ -6,11 +6,18 @@
  * always ("2 de familii", "coada nu s-a mișcat de 15 de minute") or never ("1 cereri"), which is
  * the grammar mistake a parent notices first (QA of 26 September 2026).
  */
-export const countOf = (n: number, one: string, many: string): string => {
-  if (n === 1) return `1 ${one}`;
+export const countOf = (n: number, one: string, many: string): string =>
+  `${n} ${nounFor(n, one, many)}`;
+
+/**
+ * The noun half of `countOf`, for a number the screen shows on its own — in an input, or styled
+ * apart: "[20] de ședințe", "3 din 20 de locuri".
+ */
+export const nounFor = (n: number, one: string, many: string): string => {
+  if (n === 1) return one;
   const lastTwo = n % 100;
   const withDe = n >= 20 && (lastTwo === 0 || lastTwo >= 20);
-  return `${n} ${withDe ? "de " : ""}${many}`;
+  return `${withDe ? "de " : ""}${many}`;
 };
 
 /**

@@ -478,10 +478,10 @@ export class FiscalIssuingService {
      * invoice is issued whether or not its PDF could be fetched this second, and `getInvoicePdf`
      * fetches it on first ask when it is missing.
      */
-    async storeFiscalPdf(invoice: Pick<Invoice, 'id' | 'monthIssued'>, series: string, number: string): Promise<Buffer | null> {
+    async storeFiscalPdf(invoice: Pick<Invoice, 'id' | 'monthIssued' | 'createdAt'>, series: string, number: string): Promise<Buffer | null> {
         try {
             const pdf = await this.smartBill.invoicePdf(series, number);
-            await this.s3.putObject({ key: invoicePdfKey(invoice.monthIssued, invoice.id), body: pdf, contentType: 'application/pdf' });
+            await this.s3.putObject({ key: invoicePdfKey(invoice), body: pdf, contentType: 'application/pdf' });
             return pdf;
         } catch (error: unknown) {
             this.logger.warn(`Invoice ${invoice.id}: could not keep SmartBill's PDF yet (${messageOf(error)}); it is fetched on first download.`);
