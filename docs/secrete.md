@@ -10,7 +10,7 @@ de git, iar CI rulează aceeași comandă la fiecare PR.
 
 | Cine citește             | Unde stă                                             | Cum ajunge acolo                                                                                       |
 | ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| API-ul de pe stage (EC2) | **SSM Parameter Store**                              | `fetch-env.sh` regenerează `/etc/itbridge/stage.env` la fiecare deploy (640, `root:deploy`)            |
+| API-ul de pe stage (EC2) | **SSM Parameter Store**                              | `fetch-env.sh` regenerează `/etc/itbridge/stage.env` la fiecare deploy (640, `root:admin`)            |
 | API-ul de producție      | **SSM Parameter Store**, separat de stage            | la fel, în `/etc/itbridge/prod.env`; lista valorilor e în [lansare-platforma.md](lansare-platforma.md) |
 | Site-ul (Vercel)         | **Environment Variables** din proiectul Vercel       | la următorul build; pe Production **și** pe Preview                                                    |
 | GitHub Actions           | nimic secret                                         | un rol AWS de o oră, prin OIDC; în GitHub stau doar ARN-ul rolului și id-ul instanței                  |

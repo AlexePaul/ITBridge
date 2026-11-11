@@ -138,7 +138,7 @@ Cinci decizii care nu se citesc din cod:
   ajuns — singurul eșec care altfel ar trecut drept succes.
 
 **Configurația nu e în repo și nu e în GitHub**, ci în SSM Parameter Store, de unde ajunge pe
-instanță ca `/etc/itbridge/<env>.env` (640, `root:deploy`), regenerat la fiecare deploy. Din același
+instanță ca `/etc/itbridge/<env>.env` (640, `root:admin`), regenerat la fiecare deploy. Din același
 motiv, `ecosystem.config.js`, `deploy.sh`, `fetch-env.sh` și `backup.sh` stau în `/srv/itbridge/` pe
 instanță, nu în arborele ăsta.
 
