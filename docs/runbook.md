@@ -227,6 +227,23 @@ GitHub → Actions → rularea „Deploy" → jobul roșu → pasul roșu.
   migrarea se repară într-un PR nou.
 - **Ultimul pas, `/ready`, e roșu:** procesul nou a pornit, dar nu vede baza sau stocarea →
   [3.4](#34-baza-de-date) sau [3.7](#37-stocarea-s3).
+- **`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`:** `pnpm install` a vrut să șteargă
+  `node_modules` și a cerut o confirmare, iar o comandă trimisă prin SSM n-are niciodată un
+  terminal care s-o dea. Ce-l face să vrea e un `node_modules` instalat cu alt store — store-ul lui
+  pnpm e per-utilizator, deci mutarea aplicației de pe un user pe altul o produce o dată.
+  Reparația stă în `deploy.sh`, un `export CI=true` înaintea lui `pnpm install`: un deploy **e** CI,
+  iar `--frozen-lockfile` e deja scris explicit acolo și în `ci.yml`, deci variabila nu schimbă
+  altceva. Până atunci se oprește înainte de build, deci versiunea veche servește mai departe.
+
+**Reluarea unui deploy**, după ce cauza e reparată pe instanță, nu are nevoie de un commit gol pe
+branch. Două căi, în ordinea asta:
+
+- GitHub → Actions → rularea → **Re-run failed jobs**: reia doar jobul `deploy`, fiindcă `verify`
+  e deja verde, și lasă urma în același loc în care o caută oricine altcineva.
+- `pnpm redeploy stage`, de pe laptop: trimite exact cele două comenzi ale workflow-ului, prin
+  SSM, și verifică `/ready` la final. Cere `ITBRIDGE_INSTANCE_ID_STAGE` și credențiale AWS. Sare
+  peste CI — de aia citește verificările commitului și se oprește pe una roșie — iar ce deployează
+  e capul lui `origin/release/stage`, ca orice deploy, nu ce ai în arborele de lucru.
 
 ### 3.4 Baza de date
 
