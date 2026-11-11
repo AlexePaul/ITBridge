@@ -77,15 +77,18 @@ jobs:
 
           # Two commands, in this order and as these users. `fetch-env.sh` regenerates
           # /etc/itbridge/$TARGET.env from Parameter Store and must run as root, because
-          # /etc/itbridge is 750 and `deploy` cannot write there. `deploy.sh` then runs *as*
-          # `deploy`: SSM runs commands as root, and a root-owned node_modules or a second PM2
-          # daemon under root would break every later deploy while this one appears to succeed.
+          # /etc/itbridge is 750. `deploy.sh` then runs *as* `admin`, the login user that owns
+          # the checkout: SSM runs commands as root, and a root-owned node_modules or a second
+          # PM2 daemon under root would break every later deploy while this one appears to
+          # succeed. What matters is that it is not root, not which name it carries - it was a
+          # dedicated `deploy` user until November 2026, and moved so that `pm2 ls` works bare
+          # in the shell whoever is debugging actually has.
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name AWS-RunShellScript \
             --comment "deploy $TARGET ${GITHUB_SHA::7}" \
             --timeout-seconds 1800 \
-            --parameters "commands=/srv/itbridge/fetch-env.sh $TARGET && sudo -iu deploy /srv/itbridge/deploy.sh $TARGET" \
+            --parameters "commands=/srv/itbridge/fetch-env.sh $TARGET && sudo -iu admin /srv/itbridge/deploy.sh $TARGET" \
             --query Command.CommandId --output text)
 
           echo "SSM command: $COMMAND_ID"

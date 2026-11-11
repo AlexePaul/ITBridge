@@ -44,7 +44,7 @@ branch-uri".
    `release/stage` — și după fiecare schimbare în Parameter Store: un `NODE_ENV` sau un `SITE_URL`
    greșit apare aici, nu în primul email. Dacă scrie că API-ul nu știe din ce commit rulează, git nu
    i-a răspuns din directorul aplicației (lipsește, sau checkout-ul e al altui utilizator decât
-   `deploy`); restul paginii e la fel de adevărat.
+   `admin`); restul paginii e la fel de adevărat.
 3. **Tabloul de bord** (`/admin/dashboard`) — mesaje nelivrate, cataloage nefăcute, conturi în
    așteptare.
 4. **GitHub → Actions → „Deploy"** — ultima rulare pe `release/stage`: verde înseamnă că e pe
@@ -61,13 +61,21 @@ Nu există SSH și nu există chei: se intră prin **AWS Systems Manager**.
 - **Din terminal**, cu AWS CLI și pluginul Session Manager instalate:
   `aws ssm start-session --target <id-ul instanței> --region eu-north-1`.
 
-Aplicația rulează ca utilizatorul `deploy`, deci primul pas e întotdeauna:
+Aplicația rulează ca `admin`, adică exact userul cu care intri, deci comenzile merg direct:
 
 ```sh
-sudo -iu deploy
 pm2 ls                                   # procesele și numele lor; coloana „status" trebuie să fie „online"
 pm2 logs <nume> --lines 200 --nostream   # ultimele 200 de linii, fără să rămână deschis
+curl -fsS http://127.0.0.1:3100/ready    # portul e `PORT` din /etc/itbridge/stage.env
 ```
+
+Portul e singurul număr de aici care nu se ghicește: cel din tabelul de la începutul lui
+CLAUDE.md, 3000, e portul de dezvoltare locală, iar pe stage aplicația ascultă pe **3100**.
+Un `curl` pe 3000 răspunde „Could not connect" și arată exact ca o aplicație căzută.
+
+Până în noiembrie 2026 aplicația rula ca un user dedicat, `deploy`, iar fiecare comandă de pe
+instanță începea cu `sudo -iu deploy`. Dacă dai peste forma aia într-un text mai vechi, vorbește
+despre asta.
 
 Ce e unde pe instanță (nimic din lista asta nu e în repo):
 
@@ -75,7 +83,7 @@ Ce e unde pe instanță (nimic din lista asta nu e în repo):
 | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | Clona repo-ului pe care rulează mediul                                 | `/srv/itbridge/stage`                                                  |
 | Scripturile de deploy, de mediu și de backup; configurația PM2         | `/srv/itbridge/{deploy.sh,fetch-env.sh,backup.sh,ecosystem.config.js}` |
-| Variabilele de mediu, regenerate din Parameter Store la fiecare deploy | `/etc/itbridge/stage.env` (640, `root:deploy`)                         |
+| Variabilele de mediu, regenerate din Parameter Store la fiecare deploy | `/etc/itbridge/stage.env` (640, `root:admin`)                          |
 | Postgres 17 și Caddy                                                   | servicii `systemd` pe aceeași mașină                                   |
 
 ## 2. Un bug
@@ -200,7 +208,6 @@ ignorată de codul vechi. Dacă migrarea a șters sau a redenumit ceva de care c
 **înainte** de merge-ul revert-ului, pe instanță, cât timp codul cu migrarea e încă acolo:
 
 ```sh
-sudo -iu deploy
 cd /srv/itbridge/stage
 set -a; . /etc/itbridge/stage.env; set +a
 pnpm --filter api migration:revert       # desface ultima migrare rulată, una singură
@@ -246,10 +253,10 @@ sudo du -xh / --max-depth=2 2>/dev/null | sort -h | tail -20
 
 Ce se poate șterge fără grijă, în ordinea în care crește de obicei:
 
-- logurile PM2: `pm2 flush` (ca `deploy`). Rotația lor e modulul `pm2-logrotate`; `pm2 conf
+- logurile PM2: `pm2 flush`. Rotația lor e modulul `pm2-logrotate`; `pm2 conf
 pm2-logrotate` arată dacă e pornit;
 - jurnalul sistemului: `sudo journalctl --vacuum-time=7d`;
-- depozitul pnpm: `pnpm store prune` (ca `deploy`).
+- depozitul pnpm: `pnpm store prune`.
 
 **Nu** se șterge nimic din directorul de date al Postgres-ului. **Rezolvat când:** `df -h` arată loc
 liber, iar `/ready` e `ready` (dacă baza s-a oprit, pornește-o, [3.4](#34-baza-de-date)).
@@ -321,7 +328,6 @@ verde, dar site-ul e stricat, deploy-ul de dinainte se readuce cu **„Instant R
   de dezvoltare din `data-source.ts` și nu găsește contul:
 
   ```sh
-  sudo -iu deploy
   cd /srv/itbridge/stage
   set -a; . /etc/itbridge/stage.env; set +a
   pnpm --filter api admin:create --username <nume> --reset-password
@@ -371,7 +377,6 @@ producție refuză oricum.
 Se rulează **pe instanță**, fiindcă Postgres stă lângă API și nu se vede din afară:
 
 ```sh
-sudo -iu deploy
 cd /srv/itbridge/stage
 set -a; . /etc/itbridge/stage.env; set +a
 read -rs -p "Parola conturilor de pe stage: " SEED_PASSWORD; echo; export SEED_PASSWORD
@@ -418,7 +423,6 @@ schimbat), mesajele către familii, recalcularea stării facturii, oferirea locu
 câmpurile derivate — `Child.group`, de exemplu, are un singur scriitor, `EnrollmentService`. Deci:
 
 ```sh
-sudo -iu deploy
 set -a; . /etc/itbridge/stage.env; set +a
 export PGHOST="$DB_HOST" PGPORT="$DB_PORT" PGUSER="$DB_USER" PGPASSWORD="$DB_PASSWORD" PGDATABASE="$DB_NAME"
 pg_dump -Fc > ~/inainte-de-corectura.dump

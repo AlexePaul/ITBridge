@@ -10,7 +10,7 @@ de git, iar CI rulează aceeași comandă la fiecare PR.
 
 | Cine citește             | Unde stă                                             | Cum ajunge acolo                                                                                       |
 | ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| API-ul de pe stage (EC2) | **SSM Parameter Store**                              | `fetch-env.sh` regenerează `/etc/itbridge/stage.env` la fiecare deploy (640, `root:deploy`)            |
+| API-ul de pe stage (EC2) | **SSM Parameter Store**                              | `fetch-env.sh` regenerează `/etc/itbridge/stage.env` la fiecare deploy (640, `root:admin`)            |
 | API-ul de producție      | **SSM Parameter Store**, separat de stage            | la fel, în `/etc/itbridge/prod.env`; lista valorilor e în [lansare-platforma.md](lansare-platforma.md) |
 | Site-ul (Vercel)         | **Environment Variables** din proiectul Vercel       | la următorul build; pe Production **și** pe Preview                                                    |
 | GitHub Actions           | nimic secret                                         | un rol AWS de o oră, prin OIDC; în GitHub stau doar ARN-ul rolului și id-ul instanței                  |
@@ -27,6 +27,33 @@ laptopului.
 `AWS_S3_ENDPOINT` —, backend-ul o spune la pornire, în logul pe care îl citește un deploy:
 `A static AWS key pair is configured against AWS itself`. Cheia se scoate din Parameter Store și se
 dezactivează în IAM.
+
+## Cum le citești și cum le schimbi
+
+**Din consolă**, pentru una singură: AWS → Systems Manager → Parameter Store, în regiunea
+**eu-north-1** (în alta lista e goală și arată ca și cum n-ar exista nimic). Ești pe tab-ul „My
+parameters", nu „Public parameters". Valoarea unui `SecureString` apare abia la „Show decrypted
+value", care cere `kms:Decrypt`; dacă butonul dă AccessDenied, lipsește dreptul, nu parametrul. Tab-ul
+**History** al fiecărui parametru ține versiunile anterioare, cu valori — deci ai istoric pe
+schimbările de secrete fără să fi configurat nimic, iar el e primul loc de căutat când ceva s-a
+stricat după o editare.
+
+**Pentru mai multe deodată**, `pnpm secrets:edit stage` (`scripts/secrets.sh`): scoate tot prefixul
+într-un fișier, îl deschide în `$EDITOR`, și scrie înapoi doar ce s-a schimbat, păstrând tipul
+fiecărui parametru. O cheie nouă intră ca `SecureString`; una ștearsă din fișier e confirmată una
+câte una. Valorile stau doar în editor și într-un director 0700 șters la orice ieșire — ce se
+tipărește sunt numele cheilor, ca un diff să nu rămână în scrollback. Rulează **pe laptop**: rolul
+instanței poate doar citi.
+
+**Nimic din asta nu ajunge la aplicație singur.** `fetch-env.sh` citește Parameter Store în deploy,
+nu la rulare, deci un secret schimbat are efect la următorul deploy — GitHub → Actions → „Deploy" →
+Re-run jobs, sau, pe instanță, `sudo /srv/itbridge/fetch-env.sh stage` urmat de
+`pm2 reload itbridge-api-stage --update-env`. Scriptul o spune la final, fiindcă e pasul pe care îl
+uită toată lumea o dată.
+
+**Prefixul se confirmă, nu se presupune.** Implicitul scriptului e `/itbridge/<mediu>/`, schimbabil
+prin `ITBRIDGE_SSM_PREFIX`. Ce e de fapt în cont se vede cu
+`aws ssm describe-parameters --query 'Parameters[].Name'`, care nu întoarce nicio valoare.
 
 ## Fiecare secret
 

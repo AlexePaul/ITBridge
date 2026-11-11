@@ -2827,9 +2827,12 @@ porni pe un commit roșu — și apoi:
 2. trimite comanda prin **SSM**, deci nu se deschide niciun port pentru deploy și nu există cheie SSH
    care să se scurgă.
 3. pe instanță rulează întâi `fetch-env.sh` **ca root** — regenerează `/etc/itbridge/stage.env` din
-   Parameter Store, iar `/etc/itbridge` e 750 —, apoi `deploy.sh` **ca `deploy`**: SSM rulează ca
-   root, iar un `node_modules` al lui root sau un al doilea daemon PM2 ar strica fiecare deploy de
-   după ăsta, în timp ce ăsta ar raporta succes.
+   Parameter Store, iar `/etc/itbridge` e 750 —, apoi `deploy.sh` **ca `admin`**, userul cu care se
+   intră pe instanță și care deține checkout-ul: SSM rulează ca root, iar un `node_modules` al lui
+   root sau un al doilea daemon PM2 ar strica fiecare deploy de după ăsta, în timp ce ăsta ar
+   raporta succes. Ce contează e că **nu e root**, nu numele: până în noiembrie 2026 era un user
+   dedicat, `deploy`, mutat ca `pm2 ls` să meargă gol în shell-ul pe care îl are cineva care
+   depanează. Un text mai vechi care spune `sudo -iu deploy` vorbește despre asta.
 4. `deploy.sh` face `install`, `build`, **se oprește dacă n-a ieșit `apps/api/dist/main.js`** —
    `deleteOutDir` golește `dist/` la început, deci un build întrerupt lasă procesul viu servind din
    memorie și rupe abia la următoarea repornire —, rulează `migration:run`, apoi `pm2 reload`, și
@@ -2838,7 +2841,7 @@ porni pe un commit roșu — și apoi:
    un proces pornit lângă o bază la care migrarea n-a ajuns.
 
 **Configurația nu e în repo și nu e în GitHub.** Stă în **SSM Parameter Store** și ajunge pe instanță
-ca `/etc/itbridge/<env>.env` (640, `root:deploy`), regenerat la fiecare deploy. O variabilă nouă se
+ca `/etc/itbridge/<env>.env` (640, `root:admin`), regenerat la fiecare deploy. O variabilă nouă se
 scrie acolo — dacă aplicația n-o vede după un deploy, ori n-a fost pusă în Parameter Store, ori
 lipsește din lista lui `fetch-env.sh`.
 
