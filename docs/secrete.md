@@ -28,6 +28,33 @@ laptopului.
 `A static AWS key pair is configured against AWS itself`. Cheia se scoate din Parameter Store și se
 dezactivează în IAM.
 
+## Cum le citești și cum le schimbi
+
+**Din consolă**, pentru una singură: AWS → Systems Manager → Parameter Store, în regiunea
+**eu-north-1** (în alta lista e goală și arată ca și cum n-ar exista nimic). Ești pe tab-ul „My
+parameters", nu „Public parameters". Valoarea unui `SecureString` apare abia la „Show decrypted
+value", care cere `kms:Decrypt`; dacă butonul dă AccessDenied, lipsește dreptul, nu parametrul. Tab-ul
+**History** al fiecărui parametru ține versiunile anterioare, cu valori — deci ai istoric pe
+schimbările de secrete fără să fi configurat nimic, iar el e primul loc de căutat când ceva s-a
+stricat după o editare.
+
+**Pentru mai multe deodată**, `pnpm secrets:edit stage` (`scripts/secrets.sh`): scoate tot prefixul
+într-un fișier, îl deschide în `$EDITOR`, și scrie înapoi doar ce s-a schimbat, păstrând tipul
+fiecărui parametru. O cheie nouă intră ca `SecureString`; una ștearsă din fișier e confirmată una
+câte una. Valorile stau doar în editor și într-un director 0700 șters la orice ieșire — ce se
+tipărește sunt numele cheilor, ca un diff să nu rămână în scrollback. Rulează **pe laptop**: rolul
+instanței poate doar citi.
+
+**Nimic din asta nu ajunge la aplicație singur.** `fetch-env.sh` citește Parameter Store în deploy,
+nu la rulare, deci un secret schimbat are efect la următorul deploy — GitHub → Actions → „Deploy" →
+Re-run jobs, sau, pe instanță, `sudo /srv/itbridge/fetch-env.sh stage` urmat de
+`pm2 reload itbridge-api-stage --update-env`. Scriptul o spune la final, fiindcă e pasul pe care îl
+uită toată lumea o dată.
+
+**Prefixul se confirmă, nu se presupune.** Implicitul scriptului e `/itbridge/<mediu>/`, schimbabil
+prin `ITBRIDGE_SSM_PREFIX`. Ce e de fapt în cont se vede cu
+`aws ssm describe-parameters --query 'Parameters[].Name'`, care nu întoarce nicio valoare.
+
 ## Fiecare secret
 
 **`JWT_ACCESS_TOKEN_SECRET` și `JWT_REFRESH_TOKEN_SECRET`** — semnează tokenurile de acces (15
