@@ -31,9 +31,14 @@ REGION=${AWS_REGION:-eu-north-1}
 # `aws ssm describe-parameters --query 'Parameters[].Name'`, which returns no values.
 PREFIX=${ITBRIDGE_SSM_PREFIX:-/itbridge/$ENV/}
 
+# "not installed" was the wrong sentence and it cost an hour: on Windows this script runs under Git
+# Bash, which has its own PATH, so a CLI that answers `aws --version` in PowerShell can be absent
+# here. Say which shell is asking, and leave the reader a command whose output distinguishes the two.
 for tool in aws jq; do
     command -v "$tool" > /dev/null || {
-        echo "$tool is not installed" >&2
+        echo "$tool is not on the PATH of this shell ($(uname -s))" >&2
+        echo "it may still be installed: compare \`command -v $tool\` here with \`where.exe $tool\`" >&2
+        echo "in the shell you installed it from, and add the directory it names to PATH" >&2
         exit 69
     }
 done
