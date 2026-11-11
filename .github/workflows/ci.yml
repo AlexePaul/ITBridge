@@ -88,18 +88,24 @@ jobs:
       # no check having run. That is the "Start MinIO" lesson again (CLAUDE.md, Capcane): an
       # infrastructure step that falls over is not a failing test, but it is the same colour.
       #
-      # So: three attempts, and then the browser alone rather than nothing. The fallback is the
-      # risky half - without the system libraries Chromium can hang instead of failing, which is
-      # the worst shape a check can take - so it prints `::warning::`. If these checks ever behave
-      # strangely, that line in the log is the first thing to read.
+      # So: one bounded attempt, and then the browser alone rather than nothing. The first version
+      # of this retried three times, which on 11 November cost **31 minutes 52 seconds** in one
+      # step - ten minutes of DNS timeouts per attempt - before the fallback ran. And the run that
+      # paid for it answered the question the fallback was hedged about: with Chromium installed
+      # without the system libraries, Accessibility passed in 26 seconds and the privacy and link
+      # checks after it. The comment above says those libraries are the difference between "a
+      # browser that starts and one that hangs"; on this runner image, today, they were not. So
+      # `--with-deps` stays the first choice, because it is still the supported way and the claim
+      # was written by somebody who hit something, but it no longer gets to spend half an hour
+      # failing: `timeout` bounds it, and the fallback is one line later. `::warning::` says which
+      # happened, and it is the first line to read if these checks ever behave strangely.
+      #
+      # The bound is generous on purpose: a working run needs apt plus the browser download, both
+      # well inside it, so 240s fires only when something is actually wrong.
       - name: Install Chromium
         run: |
-          for attempt in 1 2 3; do
-            pnpm --filter web exec playwright install --with-deps chromium && exit 0
-            echo "attempt $attempt failed"
-            sleep $((attempt * 15))
-          done
-          echo "::warning::apt stayed unreachable; installing Chromium without system libraries"
+          if timeout 240 pnpm --filter web exec playwright install --with-deps chromium; then exit 0; fi
+          echo "::warning::apt was unreachable or slow; installing Chromium without system libraries"
           pnpm --filter web exec playwright install chromium
 
       # Contrast, focus order, labels and roles on the public pages, in both colour schemes — the
@@ -209,16 +215,12 @@ jobs:
           done
           curl -sf http://localhost:3000/health
 
-      # Three attempts and a fallback without the system libraries, for the reason written at the
-      # first copy of this step.
+      # One bounded attempt and a fallback without the system libraries, for the reason written at
+      # the first copy of this step.
       - name: Install Chromium
         run: |
-          for attempt in 1 2 3; do
-            pnpm --filter web exec playwright install --with-deps chromium && exit 0
-            echo "attempt $attempt failed"
-            sleep $((attempt * 15))
-          done
-          echo "::warning::apt stayed unreachable; installing Chromium without system libraries"
+          if timeout 240 pnpm --filter web exec playwright install --with-deps chromium; then exit 0; fi
+          echo "::warning::apt was unreachable or slow; installing Chromium without system libraries"
           pnpm --filter web exec playwright install chromium
 
       - name: Accessibility behind the login
