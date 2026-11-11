@@ -63,8 +63,16 @@ origin/release/stage` tipărește doar un hash când nu e niciun conflict. De at
    și `pm2 reload`, și verifică `https://api.itbridgeschool.com/ready`. Pe instanță trebuie să existe
    `prod` în `fetch-env.sh`, `deploy.sh` și `ecosystem.config.js` — fișierele stau acolo, nu în repo.
 
-   **Și în `deploy.sh`, o linie între build și `pm2 reload`**, pe amândouă mediile, rulată din clona
-   de pe instanță (`/srv/itbridge/<env>`):
+   **Și două linii în `deploy.sh`**, pe amândouă mediile. Prima, sus, înaintea lui `pnpm install`:
+
+   ```sh
+   export CI=true
+   ```
+
+   Un deploy e CI, iar fără ea `pnpm install` poate cere o confirmare — ștergerea lui
+   `node_modules`, când store-ul s-a mutat — pe care o comandă prin SSM n-are cum s-o dea, deci
+   se oprește cu `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`. A doua, între build și
+   `pm2 reload`, rulată din clona de pe instanță (`/srv/itbridge/<env>`):
 
    ```sh
    (cd apps/api && node --env-file=/etc/itbridge/<env>.env -e 'require("./dist/load-env")') || exit 1

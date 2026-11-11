@@ -1,0 +1,32 @@
+# Git for Windows turns LF into CRLF on checkout by default, and three kinds of file in this
+# repository stop working when it does. Nothing in CI can see any of it: the runners are Linux,
+# so the conversion never happens there.
+#
+# A shell script read by bash gets a \r on the end of every line, so `set -euo pipefail` is read
+# as an option called `pipefail\r`. That one hides its own cause, because the carriage return
+# makes the message overwrite itself - what reaches the terminal is
+# `: invalid option nameine 18: set: pipefail`, which names neither the file nor the reason.
+# `scripts/secrets.sh` could not run on Windows from the day it was added.
+#
+# `.husky/pre-commit` is one line, `pnpm exec lint-staged`, and sh looks for a command called
+# `lint-staged\r`. So the hook that formats a commit fails on every Windows commit.
+#
+# And prettier's `endOfLine` default is `lf`, so `pnpm lint` rejects every file in a Windows
+# checkout while passing in CI - the kind of red that teaches people to stop reading the check.
+#
+# So: LF in the working tree on every platform. Git already stores LF in the index, so this
+# changes no file's content, only what a checkout writes. Binary files are detected by
+# `text=auto` and left alone.
+* text=auto eol=lf
+
+# The one file whose target platform is Windows: the agent's installer runs on the school's office
+# computer, under PowerShell 5.1. It reads LF fine, but this is the only script here that nobody
+# on this team executes, so a doubt about it is cheaper to remove than to carry. Prettier does not
+# format .ps1, so nothing else disagrees.
+*.ps1 text eol=crlf
+
+# Bytes, never converted. `text=auto` already detects these; saying so is for the patch, which
+# pnpm applies byte for byte, and the fonts, where a corruption is found at the first invoice PDF
+# rather than at the commit that caused it.
+*.patch -text
+*.ttf -text

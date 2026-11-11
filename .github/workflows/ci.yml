@@ -81,8 +81,26 @@ jobs:
       # Chromium alone: the check drives one browser, and the other two would be three times the
       # download for the same answer. `--with-deps` adds the shared libraries the runner image does
       # not ship, which is the difference between a browser that starts and one that hangs.
+      # `--with-deps` apt-gets those libraries, so this step depends on Ubuntu's mirrors answering
+      # the runner - and on 11 November 2026 they did not, for twenty minutes across two attempts:
+      # ten minutes of `Temporary failure resolving 'azure.archive.ubuntu.com'` each time, after
+      # which every accessibility, privacy and link check was *skipped* and the job went red with
+      # no check having run. That is the "Start MinIO" lesson again (CLAUDE.md, Capcane): an
+      # infrastructure step that falls over is not a failing test, but it is the same colour.
+      #
+      # So: three attempts, and then the browser alone rather than nothing. The fallback is the
+      # risky half - without the system libraries Chromium can hang instead of failing, which is
+      # the worst shape a check can take - so it prints `::warning::`. If these checks ever behave
+      # strangely, that line in the log is the first thing to read.
       - name: Install Chromium
-        run: pnpm --filter web exec playwright install --with-deps chromium
+        run: |
+          for attempt in 1 2 3; do
+            pnpm --filter web exec playwright install --with-deps chromium && exit 0
+            echo "attempt $attempt failed"
+            sleep $((attempt * 15))
+          done
+          echo "::warning::apt stayed unreachable; installing Chromium without system libraries"
+          pnpm --filter web exec playwright install chromium
 
       # Contrast, focus order, labels and roles on the public pages, in both colour schemes — the
       # half of E18/S6 that keeps the other half true. `API_BASE` matches the build above so turbo
@@ -191,8 +209,17 @@ jobs:
           done
           curl -sf http://localhost:3000/health
 
+      # Three attempts and a fallback without the system libraries, for the reason written at the
+      # first copy of this step.
       - name: Install Chromium
-        run: pnpm --filter web exec playwright install --with-deps chromium
+        run: |
+          for attempt in 1 2 3; do
+            pnpm --filter web exec playwright install --with-deps chromium && exit 0
+            echo "attempt $attempt failed"
+            sleep $((attempt * 15))
+          done
+          echo "::warning::apt stayed unreachable; installing Chromium without system libraries"
+          pnpm --filter web exec playwright install chromium
 
       - name: Accessibility behind the login
         run: pnpm test:a11y:auth

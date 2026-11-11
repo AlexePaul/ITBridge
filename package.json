@@ -28,7 +28,8 @@
     "smartbill:check": "dotenv -e .env -- pnpm --filter api smartbill:check",
     "admin:create": "dotenv -e .env -- pnpm --filter api admin:create",
     "secrets": "secretlint \"**/*\"",
-    "secrets:edit": "bash scripts/secrets.sh"
+    "secrets:edit": "node scripts/secrets.mjs",
+    "redeploy": "bash scripts/redeploy.sh"
   },
   "devDependencies": {
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.5",

@@ -2840,6 +2840,26 @@ porni pe un commit roșu — și apoi:
 5. workflow-ul verifică la final `/ready`, nu `/health`: `/ready` atinge Postgres și S3, deci prinde
    un proces pornit lângă o bază la care migrarea n-a ajuns.
 
+**O unealtă de operator din `scripts/` se scrie în Node, nu în bash** (noiembrie 2026).
+`scripts/secrets.mjs` a fost `secrets.sh` și cerea bash, AWS CLI și jq pe **același** PATH — iar pe
+Windows ăla e PATH-ul lui Git Bash, nu al shell-ului din care au fost instalate uneltele. Deci
+`aws --version` răspundea în PowerShell în timp ce scriptul se oprea cu „aws is not installed", adică
+trimitea cititorul să instaleze ce avea deja; și, chiar reparat, mai rămâneau trei unelte de pus pe
+un PATH în loc de una. `node` e deja toolchain-ul, moștenește PATH-ul shell-ului care a rulat `pnpm`,
+citește JSON fără jq și se poartă la fel pe toate trei platformele — o singură implementare, nu un
+`.ps1` lângă un `.sh`. CLI-ul se cheamă cu vector de argumente și **fără shell**, fiindcă argumentele
+sunt secrete: o valoare cu ghilimele, spații sau `;` ajunge ca ea însăși, verificat octet cu octet.
+`scripts/redeploy.sh` e încă bash și n-a fost încă rulat de nimeni pe Windows.
+
+**Aceiași pași se pot rula de pe laptop, cu `pnpm redeploy stage`** (`scripts/redeploy.sh`), pentru
+un deploy de reluat după ce cauza a fost reparată pe instanță — alternativa pe care o caută toată
+lumea e un commit gol, într-un branch al cărui istoric e evidența a ce s-a deployat. Trimite exact
+cele două comenzi ale workflow-ului, ca aceiași doi utilizatori. Două lucruri **nu** le face, și
+amândouă sunt scrise în capul scriptului: nu deployează arborele tău de lucru, fiindcă `deploy.sh`
+face `git reset --hard origin/<branch>` ca la orice deploy, și nu rulează verificările — citește
+starea lor pe commit și se oprește pe una roșie, dar aia e o amintire că poarta e scoasă, nu poarta
+pe care o are workflow-ul.
+
 **Configurația nu e în repo și nu e în GitHub.** Stă în **SSM Parameter Store** și ajunge pe instanță
 ca `/etc/itbridge/<env>.env` (640, `root:admin`), regenerat la fiecare deploy. O variabilă nouă se
 scrie acolo — dacă aplicația n-o vede după un deploy, ori n-a fost pusă în Parameter Store, ori
