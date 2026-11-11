@@ -10,7 +10,7 @@ de git, iar CI rulează aceeași comandă la fiecare PR.
 
 | Cine citește             | Unde stă                                             | Cum ajunge acolo                                                                                       |
 | ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| API-ul de pe stage (EC2) | **SSM Parameter Store**                              | `fetch-env.sh` regenerează `/etc/itbridge/stage.env` la fiecare deploy (640, `root:admin`)            |
+| API-ul de pe stage (EC2) | **SSM Parameter Store**                              | `fetch-env.sh` regenerează `/etc/itbridge/stage.env` la fiecare deploy (640, `root:admin`)             |
 | API-ul de producție      | **SSM Parameter Store**, separat de stage            | la fel, în `/etc/itbridge/prod.env`; lista valorilor e în [lansare-platforma.md](lansare-platforma.md) |
 | Site-ul (Vercel)         | **Environment Variables** din proiectul Vercel       | la următorul build; pe Production **și** pe Preview                                                    |
 | GitHub Actions           | nimic secret                                         | un rol AWS de o oră, prin OIDC; în GitHub stau doar ARN-ul rolului și id-ul instanței                  |
@@ -38,12 +38,21 @@ value", care cere `kms:Decrypt`; dacă butonul dă AccessDenied, lipsește drept
 schimbările de secrete fără să fi configurat nimic, iar el e primul loc de căutat când ceva s-a
 stricat după o editare.
 
-**Pentru mai multe deodată**, `pnpm secrets:edit stage` (`scripts/secrets.sh`): scoate tot prefixul
+**Pentru mai multe deodată**, `pnpm secrets:edit stage` (`scripts/secrets.mjs`): scoate tot prefixul
 într-un fișier, îl deschide în `$EDITOR`, și scrie înapoi doar ce s-a schimbat, păstrând tipul
-fiecărui parametru. O cheie nouă intră ca `SecureString`; una ștearsă din fișier e confirmată una
-câte una. Valorile stau doar în editor și într-un director 0700 șters la orice ieșire — ce se
-tipărește sunt numele cheilor, ca un diff să nu rămână în scrollback. Rulează **pe laptop**: rolul
-instanței poate doar citi.
+fiecărui parametru. O cheie nouă intră ca `SecureString` — dacă vrei un `String`, cum e un URL
+public, creeaz-o o dată din consolă și editorul îi păstrează tipul. O cheie ștearsă din fișier e
+confirmată una câte una. Valorile stau doar în editor și într-un director temporar al tău, șters la
+orice ieșire — ce se tipărește sunt numele cheilor, ca un diff să nu rămână în scrollback. Rulează
+**pe laptop**: rolul instanței poate doar citi.
+
+Singura unealtă de care are nevoie e **AWS CLI**, iar `node` vine cu proiectul. Pe Windows,
+editorul implicit e `notepad`; pentru altul, `$env:EDITOR = "code --wait"` — fără `--wait`,
+editorul se întoarce înainte să închizi fereastra și scriptul citește fișierul needitat. A fost un
+script bash până în noiembrie 2026 și cerea bash, AWS CLI **și** jq pe același PATH: pe Windows
+înseamnă PATH-ul lui Git Bash, nu al shell-ului din care ai instalat uneltele, deci `aws --version`
+răspundea în PowerShell cât timp scriptul spunea „aws is not installed". Dacă adaugi o unealtă de
+operator în `scripts/`, scrie-o în Node din același motiv.
 
 **Nimic din asta nu ajunge la aplicație singur.** `fetch-env.sh` citește Parameter Store în deploy,
 nu la rulare, deci un secret schimbat are efect la următorul deploy — GitHub → Actions → „Deploy" →
